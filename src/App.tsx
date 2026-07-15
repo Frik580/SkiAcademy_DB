@@ -1435,7 +1435,15 @@ const AppContent: React.FC = () => {
                             <div className="space-y-3 pt-2">
                               <div className="flex justify-between items-center text-[10px] font-mono text-[var(--ink-dim)] border-t border-[var(--border)]/40 pt-3">
                                 <span>{language === 'en' ? 'Dates' : 'Даты'}:</span>
-                                <span className="text-[var(--ink)] font-bold">{course.dates}</span>
+                                <span className="text-[var(--ink)] font-bold">{course.dates.split(',')[0]}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-[10px] font-mono text-[var(--ink-dim)]">
+                                <span>{language === 'en' ? 'Time' : 'Время'}:</span>
+                                <span className="text-[var(--ink)] font-bold">
+                                  {(() => {
+                                    return course.dates.split(',')[1]?.trim() || 'N/A';
+                                  })()}
+                                </span>
                               </div>
                               <div className="flex justify-between items-center text-[10px] font-mono text-[var(--ink-dim)]">
                                 <span>{language === 'en' ? 'Available Seats' : 'Свободные места'}:</span>

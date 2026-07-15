@@ -342,7 +342,19 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   }, [userBookings, hideCancelled]);
 
   const getBookingsOnDate = (dateStr: string) => {
-    return filteredBookings.filter(b => b.date === dateStr);
+    return filteredBookings.filter(b => {
+      if (b.instructorId.startsWith('course_')) {
+        const { start, end } = parseCourseDates(b.date);
+        const checkDate = new Date(dateStr);
+        // Adjust for timezone differences by comparing dates only
+        const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        const endDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+        const currentDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate());
+        
+        return currentDate >= startDate && currentDate <= endDate;
+      }
+      return b.date === dateStr;
+    });
   };
 
   const getGoogleCalendarUrl = (b: Booking) => {
@@ -443,9 +455,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     daysArray.push(d);
   }
 
-  const displayedBookings = selectedDateFilter
-    ? filteredBookings.filter(b => b.date === selectedDateFilter)
-    : filteredBookings;
+  
   // ----------------------------------------------------
 
   const getDifficultyLabel = (diff: LessonDifficulty) => {
@@ -466,6 +476,10 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       case 'freestyle': return '🛹 Freestyle';
     }
   };
+
+  const displayedBookings = selectedDateFilter
+    ? getBookingsOnDate(selectedDateFilter)
+    : filteredBookings;
 
   const handleRescheduleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -944,30 +958,34 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                 const dateStr = formatDateStr(day);
                 const dayBookings = getBookingsOnDate(dateStr);
                 const isSelected = selectedDateFilter === dateStr;
-                const hasBooking = dayBookings.length > 0;
+                const hasCourse = dayBookings.some(b => b.instructorId.startsWith('course_'));
+                const hasLesson = dayBookings.some(b => !b.instructorId.startsWith('course_'));
 
                 return (
                   <button
                     key={`day-${day}`}
                     type="button"
                     onClick={() => {
-                      if (isSelected) {
-                        setSelectedDateFilter(null);
-                      } else {
-                        setSelectedDateFilter(dateStr);
+                      if (hasCourse || hasLesson) {
+                        setSelectedDateFilter(isSelected ? null : dateStr);
                       }
                     }}
                     className={`h-9 flex flex-col items-center justify-center rounded-none transition text-[10px] font-mono relative cursor-pointer ${
                       isSelected
-                        ? 'bg-[var(--ink)] text-[var(--bg)] font-bold'
-                        : hasBooking
-                        ? 'border border-[var(--ink)] text-[var(--ink)] bg-black/20 font-bold hover:bg-black/30'
-                        : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--border)] border border-transparent'
+                        ? 'bg-[var(--ink)] text-[var(--bg)] font-bold' // Selected day
+                        : hasCourse
+                        ? 'border border-violet-500 text-violet-200 bg-violet-950/40 font-bold hover:bg-violet-950/60 cursor-pointer' // Course day
+                        : hasLesson
+                        ? 'border border-[var(--ink)] text-[var(--ink)] bg-black/20 font-bold hover:bg-black/30 cursor-pointer' // Lesson day
+                        : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--border)] border border-transparent cursor-default' // Empty day
                     }`}
                   >
                     <span>{day}</span>
-                    {hasBooking && !isSelected && (
-                      <span className="w-1 h-1 bg-[var(--ink)] rounded-none absolute bottom-1" />
+                    {hasLesson && !isSelected && (
+                      <span className="w-1 h-1 bg-[var(--ink)] rounded-none absolute bottom-1.5" />
+                    )}
+                    {hasCourse && !isSelected && (
+                      <span className="w-1 h-1 bg-violet-400 rounded-none absolute bottom-1.5" />
                     )}
                   </button>
                 );
@@ -1029,11 +1047,11 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
         ) : (
           <div className="space-y-3">
             {displayedBookings.map((b) => (
-              <div
-                key={b.id}
-                id={`booking-card-${b.id}`}
-                className="p-4 rounded-none border border-[var(--border)] hover:border-[var(--ink)] bg-black/15 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-300"
-              >
+              <div key={b.id} id={`booking-card-${b.id}`} className={`p-4 rounded-none border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-300 ${
+                b.instructorId.startsWith('course_')
+                  ? 'border-violet-500/40 hover:border-violet-400 bg-violet-950/20'
+                  : 'border-[var(--border)] hover:border-[var(--ink)] bg-black/15'
+              }`}>
                 {/* Instructor name and details */}
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-none overflow-hidden shrink-0 border border-[var(--border)]">

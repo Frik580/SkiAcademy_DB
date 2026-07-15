@@ -1,0 +1,124 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with balance and user details",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "balanceUSD": { "type": "number" }
+      },
+      "required": ["uid", "email", "displayName", "role", "avatarUrl", "balanceUSD"]
+    },
+    "Instructor": {
+      "title": "Instructor",
+      "description": "Ski/snowboard instructor details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "specialty": { "type": "string" },
+        "languages": { "type": "array" },
+        "rating": { "type": "number" },
+        "pricePerHour": { "type": "number" },
+        "experienceYears": { "type": "number" },
+        "bio": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "isAvailable": { "type": "boolean" },
+        "reviewsCount": { "type": "number" }
+      },
+      "required": ["id", "name", "specialty", "languages", "rating", "pricePerHour", "experienceYears", "bio", "imageUrl", "isAvailable", "reviewsCount"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Review for an instructor left by a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "instructorId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "instructorId", "userId", "userName", "userAvatar", "rating", "comment", "createdAt"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Ski/snowboard lesson booking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "instructorId": { "type": "string" },
+        "instructorName": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "hours": { "type": "number" },
+        "totalPrice": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "instructorId", "instructorName", "date", "time", "hours", "totalPrice", "status", "createdAt"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "Global application setting",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" }
+      },
+      "required": ["enabled"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Ski/snowboard group course",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "duration": { "type": "string" },
+        "description": { "type": "string" },
+        "dates": { "type": "string" },
+        "totalSeats": { "type": "number" },
+        "availableSeats": { "type": "number" },
+        "price": { "type": "number" },
+        "bgImageUrl": { "type": "string" },
+        "isHidden": { "type": "boolean" }
+      },
+      "required": ["id", "title", "duration", "description", "dates", "totalSeats", "availableSeats", "price", "bgImageUrl"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User Profile"
+    },
+    "instructors/{instructorId}": {
+      "schema": "Instructor",
+      "description": "Instructor details"
+    },
+    "reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Review details"
+    },
+    "bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Booking details"
+    },
+    "settings/{settingId}": {
+      "schema": "Setting",
+      "description": "Global settings toggles"
+    },
+    "courses/{courseId}": {
+      "schema": "Course",
+      "description": "Course details"
+    }
+  }
+}

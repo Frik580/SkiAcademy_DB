@@ -1,0 +1,103 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        ('email' in request.auth.token) &&
+        (request.auth.token.email.lower() == 'admin@alpineglide.com' || 
+         request.auth.token.email.lower() == 'gerasimchuk.arseniy@gmail.com' ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+    }
+
+    // User Profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (
+        isOwner(userId) || 
+        isAdmin() || 
+        userId.matches('^client_.*')
+      );
+      allow update: if isAuthenticated() && (
+        isOwner(userId) || 
+        isAdmin() || 
+        userId.matches('^client_.*')
+      );
+      allow delete: if isAuthenticated() && (
+        isOwner(userId) || 
+        isAdmin() || 
+        userId.matches('^client_.*') ||
+        ('email' in request.auth.token && request.auth.token.email.lower() == 'gerasimchuk.arseniy@gmail.com')
+      );
+    }
+
+    // Instructors
+    match /instructors/{instructorId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (
+        isAuthenticated() && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'reviewsCount'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Reviews
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        request.resource.data.userId == request.auth.uid ||
+        resource.data.userId.matches('^client_.*') ||
+        isAdmin()
+      );
+      allow delete: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.userId.matches('^client_.*') ||
+        isAdmin()
+      );
+    }
+
+    // Bookings
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || 
+        request.resource.data.userId == request.auth.uid ||
+        resource.data.userId.matches('^client_.*') ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Settings
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Courses
+    match /courses/{courseId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}

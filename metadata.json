@@ -1,0 +1,12 @@
+{
+  "name": "Ski & Snowboard Instructor Bookings",
+  "description": "A complete booking platform for ski and snowboard instructors featuring instructor directories, ratings, reviews, simulated payments, client/admin cabinets, resort weather conditions, and notifications.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

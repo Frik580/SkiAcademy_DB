@@ -1311,7 +1311,7 @@ const AppContent: React.FC = () => {
                               src={course.bgImageUrl || 'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800'} 
                               referrerPolicy="no-referrer"
                               alt={course.title} 
-                              className="w-full h-full object-cover filter grayscale hover:grayscale-0 transition-all duration-500 scale-100 group-hover:scale-105" 
+                              className="w-full h-full object-cover transition-all duration-500 scale-100 group-hover:scale-105" 
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4">
                               <span className="font-mono text-[9px] uppercase tracking-widest text-sky-400 bg-sky-950/40 border border-sky-900/50 px-2 py-0.5 self-start">

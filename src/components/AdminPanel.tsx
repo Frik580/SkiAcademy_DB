@@ -2627,8 +2627,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <img 
                             src={course.bgImageUrl} 
                             referrerPolicy="no-referrer"
-                            alt={translatedCourse.title} 
-                            className="w-10 h-10 object-cover border border-[var(--border)] filter grayscale hover:grayscale-0 transition" 
+                            alt={translatedCourse.title}
+                            className="w-10 h-10 object-cover border border-[var(--border)] transition-all duration-300 group-hover:scale-105"
                           />
                         </td>
                         <td className="px-4 py-2">

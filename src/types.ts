@@ -66,6 +66,7 @@ export interface Course {
   price: number;
   bgImageUrl: string;
   isHidden?: boolean;
+  instructorIds?: string[];
 }
 
 export enum OperationType {

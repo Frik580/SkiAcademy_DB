@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Instructor, UserProfile, Booking, LessonDifficulty } from '../types';
+import { Instructor, UserProfile, Booking, LessonDifficulty, Course } from '../types';
 import { X, Calendar, Clock, HelpCircle, Wallet, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
-import { useLanguage } from '../lib/LanguageContext';
+import { useLanguage, parseCourseDates } from '../lib/LanguageContext';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
 
 interface BookingModalProps {
@@ -12,6 +12,7 @@ interface BookingModalProps {
   userProfile: UserProfile | null;
   onBookingSuccess: (booking: Booking, totalCost: number) => Promise<void>;
   onOpenTopUp: () => void;
+  courses?: Course[];
 }
 
 export const BookingModal: React.FC<BookingModalProps> = ({
@@ -20,7 +21,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   instructor,
   userProfile,
   onBookingSuccess,
-  onOpenTopUp
+  onOpenTopUp,
+  courses = []
 }) => {
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
@@ -87,6 +89,13 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     return h * 60 + m;
   };
 
+  const toYMD = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
   const availableSlots = React.useMemo(() => {
     const slots = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
     return slots.filter((slot) => {
@@ -96,7 +105,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
       if (!date) return true;
 
-      const hasOverlap = instructorBookings.some((b) => {
+      // Check standard bookings overlap
+      const hasBookingOverlap = instructorBookings.some((b) => {
         if (b.isDeleted || b.status === 'cancelled') return false;
         if (b.date !== date) return false;
         const bStart = timeToMinutes(b.time);
@@ -104,9 +114,30 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         return start < bEnd && end > bStart;
       });
 
-      return !hasOverlap;
+      if (hasBookingOverlap) return false;
+
+      // Check group courses overlap
+      if (instructor) {
+        const hasCourseOverlap = (courses || []).some((course) => {
+          if (!course.instructorIds || !course.instructorIds.includes(instructor.id)) return false;
+          
+          const { start: cStart, end: cEnd, startTime: cStartTime, endTime: cEndTime } = parseCourseDates(course.dates);
+          const startStr = toYMD(cStart);
+          const endStr = toYMD(cEnd);
+          
+          if (date < startStr || date > endStr) return false;
+          
+          const cStartMin = timeToMinutes(cStartTime);
+          const cEndMin = timeToMinutes(cEndTime);
+          return start < cEndMin && end > cStartMin;
+        });
+        
+        if (hasCourseOverlap) return false;
+      }
+
+      return true;
     });
-  }, [date, duration, instructorBookings]);
+  }, [date, duration, instructorBookings, courses, instructor]);
 
   // Auto-select first available slot if current selected slot is not available
   useEffect(() => {
@@ -133,8 +164,33 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     return null;
   };
 
+  const getOverlappingCourse = (): Course | null => {
+    if (!date || !time || !courses || !instructor) return null;
+    const newStart = timeToMinutes(time);
+    const newEnd = newStart + duration * 60;
+
+    for (const course of courses) {
+      if (!course.instructorIds || !course.instructorIds.includes(instructor.id)) continue;
+      
+      const { start: cStart, end: cEnd, startTime: cStartTime, endTime: cEndTime } = parseCourseDates(course.dates);
+      const startStr = toYMD(cStart);
+      const endStr = toYMD(cEnd);
+      
+      if (date >= startStr && date <= endStr) {
+        const cStartMin = timeToMinutes(cStartTime);
+        const cEndMin = timeToMinutes(cEndTime);
+        
+        if (newStart < cEndMin && newEnd > cStartMin) {
+          return course;
+        }
+      }
+    }
+    return null;
+  };
+
   const overlappingBooking = getOverlappingBooking();
-  const isTimeSlotOccupied = !!overlappingBooking || availableSlots.length === 0;
+  const overlappingCourse = getOverlappingCourse();
+  const isTimeSlotOccupied = !!overlappingBooking || !!overlappingCourse || availableSlots.length === 0;
 
   if (!isOpen || !instructor) return null;
 
@@ -159,8 +215,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             </div>
             <p className="text-[11px] font-mono text-[var(--ink-dim)] uppercase tracking-wider leading-relaxed">
               {language === 'en' 
-                ? 'Please sign in or create an account to book individual lessons with our expert guides.' 
-                : 'Пожалуйста, войдите в систему или создайте аккаунт, чтобы забронировать урок с нашими инструкторами.'}
+                ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.' 
+                : 'Войдите, чтобы бронировать инструкторов, пополнять кошелек и видеть расписание.'}
             </p>
             <button
               onClick={() => {
@@ -187,7 +243,13 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userProfile) {
-      addNotification('error', 'Authentication Required', language === 'en' ? 'Please sign in to schedule lessons.' : 'Пожалуйста, войдите в аккаунт.');
+      addNotification(
+        'error',
+        language === 'en' ? 'Sign In Required' : 'Требуется войти',
+        language === 'en'
+          ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.'
+          : 'Войдите, чтобы бронировать инструкторов, пополнять кошелек и видеть расписание.'
+      );
       return;
     }
     if (!date) {
@@ -402,6 +464,22 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   {language === 'en'
                     ? `${instructor.name} is already booked on this date from ${overlappingBooking.time} for ${overlappingBooking.durationHours} ${overlappingBooking.durationHours === 1 ? 'hour' : 'hours'}. Please choose another time slot or date.`
                     : `${instructor.name} уже забронирован(а) на эту дату с ${overlappingBooking.time} на ${overlappingBooking.durationHours} ${overlappingBooking.durationHours === 1 ? 'час' : 'часа/часов'}. Пожалуйста, выберите другое время или дату.`}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {isTimeSlotOccupied && overlappingCourse && (
+            <div className="bg-rose-950/20 border border-rose-900/50 rounded-none p-3.5 flex items-start gap-2.5 text-xs text-rose-300 animate-fade-in">
+              <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-extrabold uppercase tracking-wide font-mono text-[10px]">
+                  {language === 'en' ? 'Reserved for Group Course' : 'Зарезервирован под групповой курс'}
+                </p>
+                <p className="text-[11px] leading-relaxed opacity-90">
+                  {language === 'en'
+                    ? `${instructor.name} is leading the group course "${overlappingCourse.title}" on this date and time (${overlappingCourse.dates}). Please choose another time slot or date.`
+                    : `${instructor.name} ведет групповой курс «${overlappingCourse.title}» в этот день и время (${overlappingCourse.dates}). Пожалуйста, выберите другое время или дату.`}
                 </p>
               </div>
             </div>

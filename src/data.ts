@@ -109,7 +109,8 @@ export const INITIAL_COURSES = [
     availableSeats: 8,
     price: 299,
     bgImageUrl: 'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800',
-    isHidden: false
+    isHidden: false,
+    instructorIds: ['ins_dimitri', 'ins_marcus']
   },
   {
     id: 'course_freeride_foundations',
@@ -121,7 +122,8 @@ export const INITIAL_COURSES = [
     availableSeats: 4,
     price: 199,
     bgImageUrl: 'https://images.unsplash.com/photo-1482867996988-2faec3cbb4f9?auto=format&fit=crop&q=80&w=800',
-    isHidden: false
+    isHidden: false,
+    instructorIds: ['ins_marcus', 'ins_sophia']
   },
   {
     id: 'course_snowboard_park',
@@ -133,6 +135,7 @@ export const INITIAL_COURSES = [
     availableSeats: 7,
     price: 349,
     bgImageUrl: 'https://images.unsplash.com/photo-1522056690101-aaeb3241b716?auto=format&fit=crop&q=80&w=800',
-    isHidden: false
+    isHidden: false,
+    instructorIds: ['ins_sophia']
   }
 ];

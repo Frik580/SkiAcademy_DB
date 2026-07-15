@@ -30,7 +30,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
-import { useLanguage, translateInstructorName, translateCourse } from '../lib/LanguageContext';
+import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, formatCourseDates } from '../lib/LanguageContext';
 
 interface AdminPanelProps {
   instructors: Instructor[];
@@ -120,6 +120,58 @@ function optimizeInstructorImage(file: File): Promise<string> {
     reader.onerror = () => reject(new Error('Failed to read file'));
     reader.readAsDataURL(file);
   });
+}
+
+function formatDateLocalYMD(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+
+
+function getDaysInMonth(date: Date) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const firstDayIndex = new Date(year, month, 1).getDay(); // 0 is Sunday, 1 is Monday...
+  // Adjust Sunday to be 6 (so Monday is 0, Sunday is 6)
+  const adjustedFirstDay = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  
+  // Previous month's trailing days
+  const prevMonthTotalDays = new Date(year, month, 0).getDate();
+  const prevDays = [];
+  for (let i = adjustedFirstDay - 1; i >= 0; i--) {
+    prevDays.push({
+      day: prevMonthTotalDays - i,
+      isCurrentMonth: false,
+      date: new Date(year, month - 1, prevMonthTotalDays - i)
+    });
+  }
+  
+  // Current month's days
+  const currentDays = [];
+  for (let i = 1; i <= totalDays; i++) {
+    currentDays.push({
+      day: i,
+      isCurrentMonth: true,
+      date: new Date(year, month, i)
+    });
+  }
+  
+  // Next month's leading days to complete the grid (usually 42 cells total for 6 rows)
+  const nextDaysCount = 42 - (prevDays.length + currentDays.length);
+  const nextDays = [];
+  for (let i = 1; i <= nextDaysCount; i++) {
+    nextDays.push({
+      day: i,
+      isCurrentMonth: false,
+      date: new Date(year, month + 1, i)
+    });
+  }
+  
+  return [...prevDays, ...currentDays, ...nextDays];
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -215,6 +267,82 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isUploadingCourseImage, setIsUploadingCourseImage] = useState(false);
   const [isCourseDragOver, setIsCourseDragOver] = useState(false);
   const [courseIsHidden, setCourseIsHidden] = useState(false);
+  const [selectedCourseInstructors, setSelectedCourseInstructors] = useState<string[]>([]);
+
+  // Calendar Course Date/Time States
+  const [courseStartDate, setCourseStartDate] = useState<string>(() => formatDateLocalYMD(new Date()));
+  const [courseEndDate, setCourseEndDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    return formatDateLocalYMD(d);
+  });
+  const [courseStartTime, setCourseStartTime] = useState<string>('09:00');
+  const [courseEndTime, setCourseEndTime] = useState<string>('13:00');
+  const [calendarViewMonth, setCalendarViewMonth] = useState<Date>(() => new Date());
+  const [showCalendarPopover, setShowCalendarPopover] = useState<boolean>(false);
+
+  // Automatically recalculate course dates and duration
+  useEffect(() => {
+    if (courseStartDate && courseEndDate) {
+      const start = new Date(courseStartDate);
+      const end = new Date(courseEndDate);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        const formatted = formatCourseDates(start, end, courseStartTime, courseEndTime, language);
+        setCourseDates(formatted);
+
+        // Auto-calculate Duration
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        
+        let hoursPerDay = 4; // default
+        if (courseStartTime && courseEndTime) {
+          const [startH, startM] = courseStartTime.split(':').map(Number);
+          const [endH, endM] = courseEndTime.split(':').map(Number);
+          hoursPerDay = (endH + endM / 60) - (startH + startM / 60);
+          if (hoursPerDay <= 0) hoursPerDay = 4;
+        }
+        
+        const totalHours = Math.round(diffDays * hoursPerDay);
+        
+        let durationText = "";
+        if (language === 'en') {
+          const daysStr = diffDays === 1 ? "1 Day" : `${diffDays} Days`;
+          durationText = `${daysStr} (${totalHours} Hours)`;
+        } else {
+          const daysStr = diffDays === 1 ? "1 день" : (diffDays >= 2 && diffDays <= 4 ? `${diffDays} дня` : `${diffDays} дней`);
+          durationText = `${daysStr} (${totalHours} ч.)`;
+        }
+        setCourseDuration(durationText);
+      }
+    }
+  }, [courseStartDate, courseEndDate, courseStartTime, courseEndTime, language]);
+
+  const calendarDays = useMemo(() => {
+    return getDaysInMonth(calendarViewMonth);
+  }, [calendarViewMonth]);
+
+  const handlePrevMonth = () => {
+    setCalendarViewMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCalendarViewMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+
+  const handleCalendarDayClick = (dayDate: Date) => {
+    const dateStr = formatDateLocalYMD(dayDate);
+    
+    const startObj = courseStartDate ? new Date(courseStartDate) : null;
+
+    // If no start date, or both are set and they are different (starting a new selection),
+    // or if the clicked date is before start date, treat it as a new start date.
+    if (!courseStartDate || (courseStartDate && courseEndDate && courseStartDate !== courseEndDate) || (startObj && dayDate < startObj)) {
+      setCourseStartDate(dateStr);
+      setCourseEndDate(dateStr);
+    } else {
+      setCourseEndDate(dateStr);
+    }
+  };
 
   const processAndOptimizeCourseImage = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -384,6 +512,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       return;
     }
 
+    if (selectedCourseInstructors.length < 1 || selectedCourseInstructors.length > 2) {
+      addNotification(
+        'warning', 
+        language === 'en' ? 'Instructors Required' : 'Инструкторы обязательны', 
+        language === 'en' 
+          ? 'Please select 1 or 2 instructors for this course.' 
+          : 'Пожалуйста, выберите 1 или 2 инструкторов для этого курса.'
+      );
+      return;
+    }
+
     setIsSubmittingCourse(true);
 
     const courseId = editingCourse ? editingCourse.id : `course_${Date.now()}`;
@@ -399,7 +538,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         : Number(courseTotalSeats),
       price: Number(coursePrice),
       bgImageUrl: courseBgImageUrl || 'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800',
-      isHidden: courseIsHidden
+      isHidden: courseIsHidden,
+      instructorIds: selectedCourseInstructors
     };
 
     try {
@@ -434,7 +574,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setCoursePrice(course.price);
     setCourseBgImageUrl(course.bgImageUrl);
     setCourseIsHidden(!!course.isHidden);
+    setSelectedCourseInstructors(course.instructorIds || []);
     setShowCourseForm(true);
+
+    // Parse course dates into calendar states
+    const parsed = parseCourseDates(course.dates);
+    setCourseStartDate(formatDateLocalYMD(parsed.start));
+    setCourseEndDate(formatDateLocalYMD(parsed.end));
+    setCourseStartTime(parsed.startTime);
+    setCourseEndTime(parsed.endTime);
+    setCalendarViewMonth(new Date(parsed.start));
   };
 
   const resetCourseForm = () => {
@@ -446,8 +595,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setCoursePrice(199);
     setCourseBgImageUrl('');
     setCourseIsHidden(false);
+    setSelectedCourseInstructors([]);
     setEditingCourse(null);
     setShowCourseForm(false);
+
+    // Reset calendar states
+    const today = new Date();
+    setCourseStartDate(formatDateLocalYMD(today));
+    const afterTwoDays = new Date();
+    afterTwoDays.setDate(today.getDate() + 2);
+    setCourseEndDate(formatDateLocalYMD(afterTwoDays));
+    setCourseStartTime('09:00');
+    setCourseEndTime('13:00');
+    setCalendarViewMonth(new Date());
   };
 
   const handleDeleteCourseClick = (course: Course) => {
@@ -639,7 +799,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const startMin = hourToMinutes(time);
     const endMin = startMin + durationHours * 60;
 
-    return bookings.some((b) => {
+    const hasBookingOverlap = bookings.some((b) => {
       if (b.instructorId !== instructorId) return false;
       if (b.date !== date) return false;
       if (b.status === 'cancelled') return false;
@@ -650,6 +810,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       return startMin < bEnd && endMin > bStart;
     });
+
+    if (hasBookingOverlap) return true;
+
+    // Check group courses overlap
+    const hasCourseOverlap = (courses || []).some((course) => {
+      if (!course.instructorIds || !course.instructorIds.includes(instructorId)) return false;
+
+      const { start: cStart, end: cEnd, startTime: cStartTime, endTime: cEndTime } = parseCourseDates(course.dates);
+      const startStr = formatDateLocalYMD(cStart);
+      const endStr = formatDateLocalYMD(cEnd);
+
+      if (date < startStr || date > endStr) return false;
+
+      const cStartMin = hourToMinutes(cStartTime);
+      const cEndMin = hourToMinutes(cEndTime);
+
+      return startMin < cEndMin && endMin > cStartMin;
+    });
+
+    return hasCourseOverlap;
   };
 
   const availableMoveTimeSlots = useMemo(() => {
@@ -1088,28 +1268,135 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       }
 
       const slotTime = timeSlots[i];
-      // Find if a booking starts exactly at this slotTime
-      const b = bookings.find(
-        (book) =>
-          book.instructorId === ins.id &&
-          book.date === selectedDate &&
-          book.status !== 'cancelled' &&
-          !book.isDeleted &&
-          book.time === slotTime
-      );
 
-      if (b) {
-        // Determine how many slots it covers
-        const span = Math.min(b.durationHours, timeSlots.length - i);
+      // Find if this instructor has a course on this date covering the current slot
+      const courseOverlap = (courses || []).find((c) => {
+        if (!c.instructorIds || !c.instructorIds.includes(ins.id)) return false;
+        const { start: cStart, end: cEnd, startTime: cStartTime, endTime: cEndTime } = parseCourseDates(c.dates);
+        const startStr = formatDateLocalYMD(cStart);
+        const endStr = formatDateLocalYMD(cEnd);
+        
+        if (selectedDate < startStr || selectedDate > endStr) return false;
+        
+        const cStartMin = hourToMinutes(cStartTime);
+        const cEndMin = hourToMinutes(cEndTime);
+        const slotStart = hourToMinutes(slotTime);
+        const slotEnd = slotStart + 60;
+        
+        return slotStart < cEndMin && slotEnd > cStartMin;
+      });
+
+      if (courseOverlap) {
+        // Calculate consecutive slots that overlap with this course
+        let span = 1;
+        for (let j = i + 1; j < timeSlots.length; j++) {
+          const checkSlotTime = timeSlots[j];
+          const { start: cStart, end: cEnd, endTime: cEndTime } = parseCourseDates(courseOverlap.dates);
+          const startStr = formatDateLocalYMD(cStart);
+          const endStr = formatDateLocalYMD(cEnd);
+          
+          if (selectedDate >= startStr && selectedDate <= endStr) {
+            const cEndMin = hourToMinutes(cEndTime);
+            const slotStart = hourToMinutes(checkSlotTime);
+            
+            if (slotStart < cEndMin) {
+              span++;
+            } else {
+              break;
+            }
+          } else {
+            break;
+          }
+        }
+        
+        span = Math.min(span, timeSlots.length - i);
         skipCount = span - 1;
+
+        const courseBookings = bookings.filter(
+          (b) => b.instructorId === `course_${courseOverlap.id}` && b.status !== 'cancelled' && !b.isDeleted
+        );
+        const bookedCount = courseBookings.length;
+        const enrolledNames = courseBookings.map((b) => {
+          const u = usersList.find((usr) => usr.uid === b.userId);
+          return u?.displayName || u?.email || b.userId;
+        }).filter(Boolean);
 
         cells.push(
           <td key={slotTime} colSpan={span} className="p-1 align-middle border-r border-slate-100 dark:border-slate-850">
-            {renderBookingCell(b, ins)}
+            <div
+              onClick={() => {
+                const otherGuides = courseOverlap.instructorIds?.filter(id => id !== ins.id) || [];
+                const guideNamesStr = otherGuides.map(id => instructors.find(i => i.id === id)?.name || id).join(', ');
+                const guidesDetail = guideNamesStr ? (language === 'en' ? ` (with ${guideNamesStr})` : ` (совместно с ${guideNamesStr})`) : '';
+                const enrolledDetailsStr = enrolledNames.length > 0 
+                  ? (language === 'en' ? `\nClients enrolled: ${enrolledNames.join(', ')}` : `\nЗаписанные клиенты: ${enrolledNames.join(', ')}`)
+                  : (language === 'en' ? '\nNo clients enrolled yet.' : '\nНет записанных клиентов.');
+                addNotification(
+                  'info',
+                  courseOverlap.title,
+                  (language === 'en'
+                    ? `Group Course "${courseOverlap.title}"${guidesDetail}. Scheduled: ${courseOverlap.dates}\nSeats: ${courseOverlap.availableSeats} / ${courseOverlap.totalSeats}`
+                    : `Групповой курс «${courseOverlap.title}»${guidesDetail}. Запланирован: ${courseOverlap.dates}\nМеста: ${courseOverlap.availableSeats} / ${courseOverlap.totalSeats}`) + enrolledDetailsStr
+                );
+              }}
+              className="relative group/cell min-h-[44px] h-auto border rounded-xl px-2.5 py-1.5 flex flex-col justify-center transition text-[11px] leading-tight cursor-pointer bg-violet-50/90 dark:bg-violet-950/20 border-violet-200 dark:border-violet-900/50 hover:border-violet-400 dark:hover:border-violet-700 text-violet-950 dark:text-violet-200"
+            >
+              <div className="flex items-center justify-between gap-1.5 min-w-0">
+                <div className="font-bold truncate text-violet-900 dark:text-violet-200 flex items-center gap-1">
+                  <BookOpen className="w-3 h-3 text-violet-500 shrink-0" />
+                  <span className="truncate">{translateCourse(courseOverlap, language).title}</span>
+                  <span className="text-[8px] bg-violet-100 dark:bg-violet-900/40 border border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 px-1 py-0.2 font-mono uppercase tracking-wider font-extrabold shrink-0">
+                    {language === 'en' ? 'Course' : 'Курс'}
+                  </span>
+                </div>
+              </div>
+              <div className="text-[10px] font-mono flex items-center gap-1 mt-0.5 text-violet-600 dark:text-violet-400">
+                <Clock className="w-3.5 h-3.5 shrink-0 text-violet-400 dark:text-violet-500" />
+                <span>
+                  {(() => {
+                    const { startTime, endTime } = parseCourseDates(courseOverlap.dates);
+                    return `${startTime} - ${endTime}`;
+                  })()}
+                </span>
+              </div>
+              {/* Seats Info */}
+              <div className="text-[9px] font-mono mt-1 text-violet-700 dark:text-violet-300 border-t border-violet-200/50 dark:border-violet-800/40 pt-1 flex flex-col gap-0.5">
+                <div className="flex items-center justify-between">
+                  <span>{language === 'en' ? 'Seats:' : 'Места:'}</span>
+                  <span className="font-bold">{courseOverlap.availableSeats} / {courseOverlap.totalSeats} ({bookedCount} {language === 'en' ? 'booked' : 'записано'})</span>
+                </div>
+                {enrolledNames.length > 0 && (
+                  <div className="text-[8px] leading-tight text-violet-600 dark:text-violet-400 mt-0.5 max-w-full truncate" title={enrolledNames.join(', ')}>
+                    <span className="font-bold">{language === 'en' ? 'Clients:' : 'Клиенты:'}</span> {enrolledNames.join(', ')}
+                  </div>
+                )}
+              </div>
+            </div>
           </td>
         );
       } else {
-        // Check if covered by an ongoing booking
+        // Find if a booking starts exactly at this slotTime
+        const b = bookings.find(
+          (book) =>
+            book.instructorId === ins.id &&
+            book.date === selectedDate &&
+            book.status !== 'cancelled' &&
+            !book.isDeleted &&
+            book.time === slotTime
+        );
+
+        if (b) {
+          // Determine how many slots it covers
+          const span = Math.min(b.durationHours, timeSlots.length - i);
+          skipCount = span - 1;
+
+          cells.push(
+            <td key={slotTime} colSpan={span} className="p-1 align-middle border-r border-slate-100 dark:border-slate-850">
+              {renderBookingCell(b, ins)}
+            </td>
+          );
+        } else {
+          // Check if covered by an ongoing booking
         const coveringB = bookings.find((book) => {
           if (book.instructorId !== ins.id || book.date !== selectedDate || book.status === 'cancelled' || book.isDeleted) return false;
           const bStart = hourToMinutes(book.time);
@@ -1149,6 +1436,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           );
         }
       }
+    }
     }
     return cells;
   };
@@ -2627,8 +2915,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <img 
                             src={course.bgImageUrl} 
                             referrerPolicy="no-referrer"
-                            alt={translatedCourse.title}
-                            className="w-10 h-10 object-cover border border-[var(--border)] transition-all duration-300 group-hover:scale-105"
+                            alt={translatedCourse.title} 
+                            className="w-10 h-10 object-cover border border-[var(--border)] transition-all duration-300 group-hover:scale-105" 
                           />
                         </td>
                         <td className="px-4 py-2">
@@ -2641,6 +2929,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             )}
                           </div>
                           <span className="text-[10px] text-[var(--ink-dim)] line-clamp-1 mt-0.5">{translatedCourse.description}</span>
+                          
+                          {course.instructorIds && course.instructorIds.length > 0 && (
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              <span className="text-[9px] text-[var(--ink-dim)] uppercase tracking-wider">{language === 'en' ? 'Instructors:' : 'Инструкторы:'}</span>
+                              {course.instructorIds.map((insId) => {
+                                const ins = instructors.find(i => i.id === insId);
+                                if (!ins) return null;
+                                return (
+                                  <span key={insId} className="bg-black/10 dark:bg-white/10 border border-[var(--border)] text-[9px] px-1.5 py-0.5 text-[var(--ink)] font-bold">
+                                    {translateInstructorName(ins.name, language)}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-2 text-[var(--ink)]">{translatedCourse.duration}</td>
                         <td className="px-4 py-2 text-[var(--ink)] font-bold">{translatedCourse.dates}</td>
@@ -2648,6 +2951,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <span className={`font-bold ${course.availableSeats === 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
                             {course.availableSeats} / {course.totalSeats}
                           </span>
+                          {(() => {
+                            const courseBookings = bookings.filter(
+                              (b) => b.instructorId === `course_${course.id}` && b.status !== 'cancelled' && !b.isDeleted
+                            );
+                            const enrolledNames = courseBookings.map((b) => {
+                              const u = usersList.find((usr) => usr.uid === b.userId);
+                              return u?.displayName || u?.email || b.userId;
+                            }).filter(Boolean);
+                            if (enrolledNames.length > 0) {
+                              return (
+                                <div className="text-[9px] text-[var(--ink-dim)] mt-1 font-mono leading-tight max-w-[120px] truncate" title={enrolledNames.join(', ')}>
+                                  <span className="font-bold text-[8px] uppercase tracking-wider block">{language === 'en' ? 'Enrolled:' : 'Записаны:'}</span>
+                                  {enrolledNames.join(', ')}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                         </td>
                         <td className="px-4 py-2 text-[var(--ink)] font-bold">${course.price}</td>
                         <td className="px-4 py-2 text-right">
@@ -2755,19 +3076,148 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   />
                 </div>
 
-                {/* Dates */}
-                <div className="space-y-1.5">
+                {/* Dates & Calendar Selection */}
+                <div className="space-y-2">
                   <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
-                    {language === 'en' ? 'Dates' : 'Даты проведения'}
+                    {language === 'en' ? 'Dates & Time of Course' : 'Даты и время проведения курса'}
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={courseDates}
-                    onChange={(e) => setCourseDates(e.target.value)}
-                    placeholder={language === 'en' ? 'e.g. July 15 - July 17, 2026' : 'Например, 15 - 17 июля 2026'}
-                    className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
-                  />
+                  
+                  {/* Visual trigger / current selection display */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        required
+                        readOnly
+                        value={courseDates}
+                        className="w-full px-3.5 py-2 pr-10 border border-[var(--border)] bg-black/5 dark:bg-white/5 text-[var(--ink)] text-xs font-mono focus:outline-none cursor-pointer rounded-none"
+                        onClick={() => setShowCalendarPopover(!showCalendarPopover)}
+                        placeholder={language === 'en' ? 'Click to open calendar' : 'Нажмите для выбора дат'}
+                      />
+                      <Calendar className="absolute right-3 top-2.5 w-4.5 h-4.5 text-[var(--ink-dim)] pointer-events-none" />
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setShowCalendarPopover(!showCalendarPopover)}
+                      className="px-3 py-2 border border-[var(--border)] text-xs text-[var(--ink)] hover:border-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 transition rounded-none font-mono font-bold"
+                    >
+                      {showCalendarPopover ? (language === 'en' ? 'Close' : 'Закрыть') : (language === 'en' ? 'Calendar' : 'Календарь')}
+                    </button>
+                  </div>
+
+                  {/* Calendar Popover / Expanded Section */}
+                  {showCalendarPopover && (
+                    <div className="border border-[var(--border)] p-4 bg-black/5 dark:bg-white/5 space-y-4 animate-fade-in rounded-none">
+                      {/* Month Navigation */}
+                      <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                        <span className="font-serif text-xs font-bold text-[var(--ink)] capitalize">
+                          {calendarViewMonth.toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US', { month: 'long', year: 'numeric' })}
+                        </span>
+                        
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={handlePrevMonth}
+                            className="p-1 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] transition bg-transparent rounded-none"
+                          >
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleNextMonth}
+                            className="p-1 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] transition bg-transparent rounded-none"
+                          >
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Calendar Grid */}
+                      <div className="grid grid-cols-7 gap-1 text-center font-mono">
+                        {/* Weekday Headers */}
+                        {(language === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']).map((wd) => (
+                          <span key={wd} className="text-[9px] font-bold text-[var(--ink-dim)] py-1">
+                            {wd}
+                          </span>
+                        ))}
+
+                        {/* Month Days */}
+                        {calendarDays.map((cell, idx) => {
+                          const cellDateStr = formatDateLocalYMD(cell.date);
+                          const isStart = cellDateStr === courseStartDate;
+                          const isEnd = cellDateStr === courseEndDate;
+                          
+                          const startObj = courseStartDate ? new Date(courseStartDate) : null;
+                          const endObj = courseEndDate ? new Date(courseEndDate) : null;
+                          const isRange = startObj && endObj && cell.date >= startObj && cell.date <= endObj;
+                          
+                          let cellBgClass = "bg-transparent text-[var(--ink)] hover:bg-black/10 dark:hover:bg-white/10";
+                          if (isStart || isEnd) {
+                            cellBgClass = "bg-[var(--ink)] text-[var(--bg)] font-bold";
+                          } else if (isRange) {
+                            cellBgClass = "bg-sky-550/20 text-[var(--ink)] font-bold border-y border-dashed border-sky-500/20";
+                          } else if (!cell.isCurrentMonth) {
+                            cellBgClass = "text-[var(--ink-dim)] opacity-40 hover:bg-black/5 dark:hover:bg-white/5";
+                          }
+
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleCalendarDayClick(cell.date)}
+                              className={`h-7 w-7 text-[10px] flex items-center justify-center transition cursor-pointer rounded-none border border-transparent ${cellBgClass}`}
+                            >
+                              {cell.day}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Guide Text */}
+                      <div className="text-[9px] text-[var(--ink-dim)] font-mono text-center">
+                        {language === 'en' 
+                          ? 'Click start date, then click end date to set range.' 
+                          : 'Выберите сначала дату начала, а затем дату окончания.'}
+                      </div>
+
+                      {/* Time Slot Customizer within calendar panel */}
+                      <div className="border-t border-[var(--border)] pt-3 space-y-3">
+                        <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider font-bold block flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" />
+                          {language === 'en' ? 'Daily Hours' : 'Ежедневные часы занятий'}
+                        </span>
+                        
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[9px] text-[var(--ink-dim)] block">
+                              {language === 'en' ? 'Start' : 'Начало'}
+                            </label>
+                            <input
+                              type="time"
+                              required
+                              value={courseStartTime}
+                              onChange={(e) => setCourseStartTime(e.target.value)}
+                              className="w-full px-2 py-1 bg-transparent border border-[var(--border)] text-[var(--ink)] text-xs font-mono focus:outline-none focus:border-[var(--ink)] rounded-none"
+                            />
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <label className="text-[9px] text-[var(--ink-dim)] block">
+                              {language === 'en' ? 'End' : 'Окончание'}
+                            </label>
+                            <input
+                              type="time"
+                              required
+                              value={courseEndTime}
+                              onChange={(e) => setCourseEndTime(e.target.value)}
+                              className="w-full px-2 py-1 bg-transparent border border-[var(--border)] text-[var(--ink)] text-xs font-mono focus:outline-none focus:border-[var(--ink)] rounded-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Description */}
@@ -2868,6 +3318,60 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       </span>
                     </div>
                   </div>
+                </div>
+
+                {/* Instructor Assignment */}
+                <div className="space-y-2">
+                  <label className="text-[10px] text-[var(--ink-dim)] uppercase block font-bold">
+                    {language === 'en' ? 'Assigned Instructors (Choose 1 or 2)' : 'Закрепленные инструкторы (Выберите 1 или 2)'}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {instructors.map((ins) => {
+                      const isSelected = selectedCourseInstructors.includes(ins.id);
+                      return (
+                        <button
+                          key={ins.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedCourseInstructors(prev => prev.filter(id => id !== ins.id));
+                            } else {
+                              if (selectedCourseInstructors.length >= 2) {
+                                setSelectedCourseInstructors(prev => [prev[1], ins.id]);
+                              } else {
+                                setSelectedCourseInstructors(prev => [...prev, ins.id]);
+                              }
+                            }
+                          }}
+                          className={`flex items-center gap-2 p-2 border transition text-left cursor-pointer rounded-none ${
+                            isSelected 
+                              ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)] font-bold' 
+                              : 'border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)]'
+                          }`}
+                        >
+                          <img 
+                            src={ins.avatarUrl} 
+                            referrerPolicy="no-referrer"
+                            alt={ins.name} 
+                            className={`w-6 h-6 object-cover border shrink-0 ${isSelected ? 'border-[var(--bg)]' : 'border-[var(--border)] grayscale'}`} 
+                          />
+                          <div className="min-w-0 leading-tight">
+                            <p className="text-[9px] font-bold truncate">
+                              {translateInstructorName(ins.name, language)}
+                            </p>
+                            <p className={`text-[8px] truncate ${isSelected ? 'text-[var(--bg)]/80' : 'text-[var(--ink-dim)]'}`}>
+                              {ins.specialty === 'both' ? (language === 'en' ? 'Ski/Snb' : 'Лыжи/Снб') : (ins.specialty === 'ski' ? (language === 'en' ? 'Ski' : 'Лыжи') : (language === 'en' ? 'Snb' : 'Сноуборд'))}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[9px] text-[var(--ink-dim)] italic">
+                    {language === 'en' 
+                      ? '* Click to select/deselect guides (maximum 2, minimum 1).' 
+                      : '* Нажмите, чтобы выбрать/убрать гида (минимум 1, максимум 2).'}
+                  </p>
                 </div>
 
                 {/* Visibility Toggle */}

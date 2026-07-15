@@ -3,6 +3,130 @@ import { Instructor, Course } from '../types';
 
 export type Language = 'en' | 'ru';
 
+export function parseCourseDates(datesStr: string) {
+  const today = new Date();
+  let start = new Date(today);
+  let end = new Date(today);
+  let startTime = "09:00";
+  let endTime = "13:00";
+
+  if (!datesStr) {
+    return { start, end, startTime, endTime };
+  }
+
+  try {
+    // Check if there is a time in the string, e.g., "09:00 - 13:00" or similar
+    const timeMatch = datesStr.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
+    if (timeMatch) {
+      startTime = timeMatch[1];
+      endTime = timeMatch[2];
+    }
+
+    // Remove any time part to parse the dates
+    let cleanDatesStr = datesStr.replace(/,?\s*\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/, '').trim();
+
+    // Convert Russian months to English first so JS Date constructor can parse it
+    const ruMonthMap: { [key: string]: string } = {
+      'января': 'January', 'февраля': 'February', 'марта': 'March', 'апреля': 'April',
+      'мая': 'May', 'июня': 'June', 'июля': 'July', 'августа': 'August',
+      'сентября': 'September', 'октября': 'October', 'ноября': 'November', 'декабря': 'December',
+      'январь': 'January', 'февраль': 'February', 'март': 'March', 'апрель': 'April',
+      'май': 'May', 'июнь': 'June', 'июль': 'July', 'август': 'August',
+      'сентябрь': 'September', 'октябрь': 'October', 'ноябрь': 'November', 'декабрь': 'December'
+    };
+
+    Object.keys(ruMonthMap).forEach(ruMonth => {
+      const regex = new RegExp(ruMonth, 'gi');
+      cleanDatesStr = cleanDatesStr.replace(regex, ruMonthMap[ruMonth]);
+    });
+
+    // Split by "-" or "to"
+    const parts = cleanDatesStr.split(/[-–]|to/);
+    if (parts.length === 1) {
+      const parsedDate = new Date(parts[0].trim());
+      if (!isNaN(parsedDate.getTime())) {
+        start = parsedDate;
+        end = parsedDate;
+      }
+    } else if (parts.length === 2) {
+      let startPart = parts[0].trim();
+      let endPart = parts[1].trim();
+
+      // Copy month from endPart if startPart does not contain any English alphabetical characters
+      const hasMonth = /[a-zA-Z]/.test(startPart);
+      if (!hasMonth) {
+        const monthMatch = endPart.match(/([a-zA-Z]+)/);
+        if (monthMatch) {
+          startPart = `${monthMatch[1]} ${startPart}`;
+        }
+      }
+
+      // Copy year from endPart if endPart contains a 4-digit number and startPart does not
+      const yearMatch = endPart.match(/(\d{4})/);
+      if (yearMatch && !startPart.includes(yearMatch[1])) {
+        startPart = `${startPart}, ${yearMatch[1]}`;
+      }
+
+      const parsedStart = new Date(startPart);
+      const parsedEnd = new Date(endPart);
+
+      if (!isNaN(parsedStart.getTime())) start = parsedStart;
+      if (!isNaN(parsedEnd.getTime())) end = parsedEnd;
+    }
+  } catch (e) {
+    console.warn("Failed to parse course dates:", e);
+  }
+
+  return { start, end, startTime, endTime };
+}
+
+export function formatCourseDates(start: Date, end: Date, startTime: string, endTime: string, lang: 'en' | 'ru') {
+  const monthsEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const monthsRu = ['Января', 'Февраля', 'Марта', 'Апреля', 'Мая', 'Июня', 'Июля', 'Августа', 'Сентября', 'Октября', 'Ноября', 'Декабря'];
+  
+  const startDay = start.getDate();
+  const startMonth = start.getMonth();
+  const startYear = start.getFullYear();
+  
+  const endDay = end.getDate();
+  const endMonth = end.getMonth();
+  const endYear = end.getFullYear();
+  
+  let formattedDates = "";
+  
+  if (start.toDateString() === end.toDateString()) {
+    if (lang === 'en') {
+      formattedDates = `${monthsEn[startMonth]} ${startDay}, ${startYear}`;
+    } else {
+      formattedDates = `${startDay} ${monthsRu[startMonth]} ${startYear}`;
+    }
+  } else if (startMonth === endMonth && startYear === endYear) {
+    if (lang === 'en') {
+      formattedDates = `${monthsEn[startMonth]} ${startDay} - ${endDay}, ${startYear}`;
+    } else {
+      formattedDates = `${startDay} - ${endDay} ${monthsRu[startMonth]} ${startYear}`;
+    }
+  } else if (startYear === endYear) {
+    if (lang === 'en') {
+      formattedDates = `${monthsEn[startMonth]} ${startDay} - ${monthsEn[endMonth]} ${endDay}, ${startYear}`;
+    } else {
+      formattedDates = `${startDay} ${monthsRu[startMonth]} - ${endDay} ${monthsRu[endMonth]} ${startYear}`;
+    }
+  } else {
+    if (lang === 'en') {
+      formattedDates = `${monthsEn[startMonth]} ${startDay}, ${startYear} - ${monthsEn[endMonth]} ${endDay}, ${endYear}`;
+    } else {
+      formattedDates = `${startDay} ${monthsRu[startMonth]} ${startYear} - ${endDay} ${monthsRu[endMonth]} ${endYear}`;
+    }
+  }
+
+  if (startTime && endTime) {
+    formattedDates += `, ${startTime} - ${endTime}`;
+  }
+
+  return formattedDates;
+}
+
 export function translateInstructorName(name: string, language: Language): string {
   const namesMap: Record<string, { en: string; ru: string }> = {
     'Dimitri Romanov': { en: 'Dimitri Romanov', ru: 'Дмитрий Романов' },
@@ -190,29 +314,11 @@ export function translateCourse(course: Course, language: Language): Course {
   if (descMap) description = descMap[language];
 
   const dMap = datesMap[course.dates] || datesMap[course.dates.trim()];
-  if (dMap) dates = dMap[language];
-
-  if (course.id === 'course_carving_pro') {
-    if (!tMap) title = language === 'ru' ? 'Мастерство Карвинга Pro' : 'Carving Mastery Pro';
-    if (!durMap) duration = language === 'ru' ? '3 дня (12 часов)' : '3 Days (12 Hours)';
-    if (!descMap) description = language === 'ru' 
-      ? 'Освойте максимальную скорость и идеальный контроль канта на высоких скоростях. Разработано для продвинутых лыжников.' 
-      : 'Unlock maximum speed and perfect edge control on high-velocity slopes. Designed for advanced skiers.';
-    if (!dMap) dates = language === 'ru' ? '15 июля - 17 июля 2026' : 'July 15 - July 17, 2026';
-  } else if (course.id === 'course_freeride_foundations') {
-    if (!tMap) title = language === 'ru' ? 'Основы Фрирайда и Катания по Пухляку' : 'Freeride & Powder Foundations';
-    if (!durMap) duration = language === 'ru' ? '2 дня (8 часов)' : '2 Days (8 Hours)';
-    if (!descMap) description = language === 'ru' 
-      ? 'Научитесь кататься по глубокому пухляку, выбирать безопасные маршруты и освойте основы лавинной безопасности. Лыжи или сноуборд.' 
-      : 'Learn to navigate deep powder, select safe mountain lines, and master avalanche safety basics. Ski or Snowboard.';
-    if (!dMap) dates = language === 'ru' ? '20 июля - 21 июля 2026' : 'July 20 - July 21, 2026';
-  } else if (course.id === 'course_snowboard_park') {
-    if (!tMap) title = language === 'ru' ? 'Сноуборд-Парк и Основы Фристайла' : 'Snowboard Park & Freestyle Basics';
-    if (!durMap) duration = language === 'ru' ? '4 дня (16 часов)' : '4 Days (16 Hours)';
-    if (!descMap) description = language === 'ru' 
-      ? 'Освойте прыжки, перила, грэбы и вращения в нашем специализированном сноупарке под руководством бывших профессиональных спортсменов.' 
-      : 'Master jumps, rails, grabs, and spins in our specialized terrain park under the guidance of former athletes.';
-    if (!dMap) dates = language === 'ru' ? '24 июля - 27 июля 2026' : 'July 24 - July 27, 2026';
+  if (dMap) {
+    dates = dMap[language];
+  } else if (course.dates) {
+    const parsed = parseCourseDates(course.dates);
+    dates = formatCourseDates(parsed.start, parsed.end, parsed.startTime, parsed.endTime, language);
   }
 
   if (language === 'ru') {

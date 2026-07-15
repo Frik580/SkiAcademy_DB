@@ -18,7 +18,7 @@ import {
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { UserProfile, Instructor, Booking, Review, Course } from './types';
 import { INITIAL_INSTRUCTORS, INITIAL_REVIEWS, INITIAL_COURSES } from './data';
-import { LanguageProvider, useLanguage, translateInstructor, translateCourse } from './lib/LanguageContext';
+import { LanguageProvider, useLanguage, translateInstructor, translateCourse, translateInstructorName } from './lib/LanguageContext';
 
 // Components
 import { NotificationProvider, useNotifications, NotificationHubModal } from './components/PushNotificationHub';
@@ -387,6 +387,43 @@ const AppContent: React.FC = () => {
     loadData();
   }, [firebaseUser, userProfile]);
 
+  // Auto-sync / healing of available seats for group courses (run for Admins to keep database accurate)
+  useEffect(() => {
+    if (userProfile?.role !== 'admin' || bookings.length === 0 || courses.length === 0) return;
+
+    const syncCourseSeats = async () => {
+      let changed = false;
+      const updatedCourses = [...courses];
+
+      for (let i = 0; i < updatedCourses.length; i++) {
+        const course = updatedCourses[i];
+        const courseBookingId = `course_${course.id}`;
+        // Count active bookings for this course
+        const activeBookings = bookings.filter(
+          (b) => b.instructorId === courseBookingId && b.status !== 'cancelled' && !b.isDeleted
+        );
+        const realAvailableSeats = Math.max(0, course.totalSeats - activeBookings.length);
+
+        if (course.availableSeats !== realAvailableSeats) {
+          console.log(`[Auto-Sync] Correcting seats for ${course.title}: stored=${course.availableSeats}, real=${realAvailableSeats}`);
+          try {
+            await updateDoc(doc(db, 'courses', course.id), { availableSeats: realAvailableSeats });
+            updatedCourses[i] = { ...course, availableSeats: realAvailableSeats };
+            changed = true;
+          } catch (err) {
+            console.error(`Failed to auto-sync seats for course ${course.id}:`, err);
+          }
+        }
+      }
+
+      if (changed) {
+        setCourses(updatedCourses);
+      }
+    };
+
+    syncCourseSeats();
+  }, [userProfile?.role, bookings.length, courses.length]);
+
   // 3. Auto-complete past lessons
   useEffect(() => {
     if (!firebaseUser || bookings.length === 0) return;
@@ -530,8 +567,10 @@ const AppContent: React.FC = () => {
     if (!userProfile) {
       addNotification(
         'warning',
-        language === 'en' ? 'Authorization Required' : 'Требуется авторизация',
-        language === 'en' ? 'Please log in or sign up to enroll in a course.' : 'Пожалуйста, войдите в аккаунт, чтобы записаться на курс.'
+        language === 'en' ? 'Sign In Required' : 'Требуется войти',
+        language === 'en'
+          ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.'
+          : 'Войдите, чтобы бронировать инструкторов, пополнять кошелек и видеть расписание.'
       );
       return;
     }
@@ -667,6 +706,21 @@ const AppContent: React.FC = () => {
         await updateDoc(doc(db, 'bookings', id), { status: 'cancelled' });
       } catch (e) {
         handleFirestoreError(e, OperationType.UPDATE, `bookings/${id}`);
+      }
+    }
+
+    // Release course seat if active course booking is cancelled
+    if (booking.instructorId.startsWith('course_') && booking.status !== 'cancelled') {
+      const courseId = booking.instructorId.substring('course_'.length);
+      const courseObj = courses.find((c) => c.id === courseId);
+      if (courseObj) {
+        const newAvailableSeats = Math.min(courseObj.totalSeats, courseObj.availableSeats + 1);
+        try {
+          await updateDoc(doc(db, 'courses', courseId), { availableSeats: newAvailableSeats });
+        } catch (e) {
+          handleFirestoreError(e, OperationType.UPDATE, `courses/${courseId}`);
+        }
+        setCourses((prev) => prev.map((c) => c.id === courseId ? { ...c, availableSeats: newAvailableSeats } : c));
       }
     }
 
@@ -846,6 +900,21 @@ const AppContent: React.FC = () => {
         }
 
         setDeletedCompletedStats(newStats);
+      }
+
+      // Release course seat if active course booking is deleted
+      if (booking.instructorId.startsWith('course_') && booking.status !== 'cancelled' && booking.status !== 'completed') {
+        const courseId = booking.instructorId.substring('course_'.length);
+        const courseObj = courses.find((c) => c.id === courseId);
+        if (courseObj) {
+          const newAvailableSeats = Math.min(courseObj.totalSeats, courseObj.availableSeats + 1);
+          try {
+            await updateDoc(doc(db, 'courses', courseId), { availableSeats: newAvailableSeats });
+          } catch (e) {
+            handleFirestoreError(e, OperationType.UPDATE, `courses/${courseId}`);
+          }
+          setCourses((prev) => prev.map((c) => c.id === courseId ? { ...c, availableSeats: newAvailableSeats } : c));
+        }
       }
     }
 
@@ -1280,6 +1349,7 @@ const AppContent: React.FC = () => {
                       onAddReview={handleAddReview}
                       onSignOut={handleSignOut}
                       onUpdateProfile={handleUpdateProfile}
+                      courses={courses}
                     />
                   </div>
                 )}
@@ -1328,6 +1398,38 @@ const AppContent: React.FC = () => {
                               <p className="text-xs text-[var(--ink-dim)] leading-relaxed font-mono">
                                 {course.description}
                               </p>
+
+                              {rawCourse.instructorIds && rawCourse.instructorIds.length > 0 && (
+                                <div className="space-y-1.5 pt-2">
+                                  <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--ink-dim)] block">
+                                    {language === 'en' ? 'Course Leads' : 'Ведущие курса'}
+                                  </span>
+                                  <div className="flex gap-2">
+                                    {rawCourse.instructorIds.map((insId) => {
+                                      const ins = instructors.find(i => i.id === insId);
+                                      if (!ins) return null;
+                                      return (
+                                        <div key={insId} className="flex items-center gap-1.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] p-1.5 flex-1 min-w-0">
+                                          <img 
+                                            src={ins.avatarUrl} 
+                                            referrerPolicy="no-referrer"
+                                            alt={ins.name} 
+                                            className="w-6 h-6 object-cover border border-[var(--border)] grayscale shrink-0" 
+                                          />
+                                          <div className="min-w-0 leading-none">
+                                            <p className="text-[9px] font-bold text-[var(--ink)] truncate">
+                                              {translateInstructorName(ins.name, language)}
+                                            </p>
+                                            <p className="text-[8px] text-[var(--ink-dim)] mt-1 truncate">
+                                              {ins.specialty === 'both' ? (language === 'en' ? 'Ski/Snb' : 'Лыжи/Снб') : (ins.specialty === 'ski' ? (language === 'en' ? 'Ski' : 'Лыжи') : (language === 'en' ? 'Snb' : 'Сноуборд'))}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
                             <div className="space-y-3 pt-2">
@@ -1419,7 +1521,19 @@ const AppContent: React.FC = () => {
                         <InstructorCard
                           key={ins.id}
                           instructor={ins}
-                          onBook={(i) => setSelectedInstructor(i)}
+                          onBook={(i) => {
+                            if (!userProfile) {
+                              addNotification(
+                                'warning',
+                                language === 'en' ? 'Sign In Required' : 'Требуется войти',
+                                language === 'en'
+                                  ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.'
+                                  : 'Войдите, чтобы бронировать инструкторов, пополнять кошелек и видеть расписание.'
+                              );
+                              return;
+                            }
+                            setSelectedInstructor(i);
+                          }}
                           onViewReviews={(i) => setReviewsInstructor(i)}
                         />
                       ))}
@@ -1548,6 +1662,7 @@ const AppContent: React.FC = () => {
         userProfile={userProfile}
         onBookingSuccess={handleBookingSuccess}
         onOpenTopUp={() => setIsTopUpOpen(true)}
+        courses={courses}
       />
 
       <InstructorReviewsModal

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Booking, UserProfile, LessonDifficulty, Review } from '../types';
+import { Booking, UserProfile, LessonDifficulty, Review, Course } from '../types';
 import { 
   Calendar, 
   Clock, 
@@ -18,7 +18,7 @@ import {
   Bell
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
-import { useLanguage, translateInstructorName, translateCourse } from '../lib/LanguageContext';
+import { useLanguage, translateInstructorName, translateCourse, parseCourseDates } from '../lib/LanguageContext';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
 
 interface PersonalCabinetProps {
@@ -32,6 +32,7 @@ interface PersonalCabinetProps {
   onAddReview: (newReview: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>) => Promise<void>;
   onSignOut: () => void;
   onUpdateProfile?: (updatedProfile: Partial<UserProfile>) => Promise<void>;
+  courses?: Course[];
 }
 
 function optimizeProfileImage(file: File): Promise<string> {
@@ -107,7 +108,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   onCancel,
   onAddReview,
   onSignOut,
-  onUpdateProfile
+  onUpdateProfile,
+  courses = []
 }) => {
   const { addNotification } = useNotifications();
   const { language } = useLanguage();
@@ -187,11 +189,19 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       return h * 60 + m;
     };
 
+    const toYMD = (d: Date): string => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
     return timeSlots.filter((slot) => {
       const start = timeToMinutes(slot);
       const end = start + duration * 60;
       if (end > 1140) return false; // Exceeds closing time 19:00
 
+      // Check standard bookings overlap
       for (const b of rescheduleInstructorBookings) {
         if (b.date !== newDate) continue;
         const bStart = timeToMinutes(b.time);
@@ -201,9 +211,29 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           return false;
         }
       }
+
+      // Check group courses overlap
+      if (currentBooking.instructorId) {
+        const hasCourseOverlap = (courses || []).some((course) => {
+          if (!course.instructorIds || !course.instructorIds.includes(currentBooking.instructorId)) return false;
+          
+          const { start: cStart, end: cEnd, startTime: cStartTime, endTime: cEndTime } = parseCourseDates(course.dates);
+          const startStr = toYMD(cStart);
+          const endStr = toYMD(cEnd);
+          
+          if (newDate < startStr || newDate > endStr) return false;
+          
+          const cStartMin = timeToMinutes(cStartTime);
+          const cEndMin = timeToMinutes(cEndTime);
+          return start < cEndMin && end > cStartMin;
+        });
+        
+        if (hasCourseOverlap) return false;
+      }
+
       return true;
     });
-  }, [rescheduleId, bookings, newDate, rescheduleInstructorBookings]);
+  }, [rescheduleId, bookings, newDate, rescheduleInstructorBookings, courses]);
 
   // Auto-select first available slot if current selected slot is not available
   useEffect(() => {
@@ -499,6 +529,50 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           language === 'en'
             ? `${currentBooking.instructorName} is already booked on ${newDate} around ${newTime}. Please choose another date or time.`
             : `${currentBooking.instructorName} уже забронирован(а) на ${newDate} около ${newTime}. Пожалуйста, выберите другую дату или время.`
+        );
+        setIsRescheduling(false);
+        return;
+      }
+
+      // Check group courses overlap
+      let conflictCourse: Course | null = null;
+      if (currentBooking.instructorId) {
+        const toYMD = (d: Date): string => {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        };
+
+        const start = timeToMinutes(newTime);
+        const end = start + currentBooking.durationHours * 60;
+
+        for (const course of courses || []) {
+          if (!course.instructorIds || !course.instructorIds.includes(currentBooking.instructorId)) continue;
+          
+          const { start: cStart, end: cEnd, startTime: cStartTime, endTime: cEndTime } = parseCourseDates(course.dates);
+          const startStr = toYMD(cStart);
+          const endStr = toYMD(cEnd);
+          
+          if (newDate >= startStr && newDate <= endStr) {
+            const cStartMin = timeToMinutes(cStartTime);
+            const cEndMin = timeToMinutes(cEndTime);
+            
+            if (start < cEndMin && end > cStartMin) {
+              conflictCourse = course;
+              break;
+            }
+          }
+        }
+      }
+
+      if (conflictCourse) {
+        addNotification(
+          'error',
+          language === 'en' ? 'Instructor Reserved' : 'Инструктор зарезервирован',
+          language === 'en'
+            ? `${currentBooking.instructorName} is leading the group course "${conflictCourse.title}" on ${newDate} at this time (${conflictCourse.dates}). Please choose another date or time.`
+            : `${currentBooking.instructorName} ведет групповой курс «${conflictCourse.title}» ${newDate} в это время (${conflictCourse.dates}). Пожалуйста, выберите другую дату или время.`
         );
         setIsRescheduling(false);
         return;

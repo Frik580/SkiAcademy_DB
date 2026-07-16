@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Instructor, Booking, UserProfile, Course } from '../types';
 import { 
   Users, 
@@ -1157,9 +1158,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     if (b.userId === 'system_block_day_off') {
       return (
-        <div className="relative group/cell h-11 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1 flex items-center justify-between transition text-xs font-semibold text-slate-600 dark:text-slate-300">
+        <div className="relative group/cell h-11 bg-slate-100/50 dark:bg-slate-800/15 border border-slate-300/40 dark:border-slate-800/40 rounded-xl px-2.5 py-1 flex items-center justify-between transition text-xs font-semibold text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-1.5 min-w-0">
-            <Calendar className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+            <Calendar className="w-3.5 h-3.5 shrink-0 text-slate-400 dark:text-slate-650" />
             <span className="truncate">{language === 'en' ? 'Day Off' : 'Выходной'}</span>
           </div>
           <button
@@ -1178,9 +1179,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     if (b.userId === 'system_block_break') {
       return (
-        <div className="relative group/cell h-11 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl px-2.5 py-1 flex items-center justify-between transition text-xs font-semibold text-amber-800 dark:text-amber-300">
+        <div className="relative group/cell h-11 bg-amber-50/60 dark:bg-amber-950/15 border border-amber-200/40 dark:border-amber-900/40 rounded-xl px-2.5 py-1 flex items-center justify-between transition text-xs font-semibold text-amber-700 dark:text-amber-400">
           <div className="flex items-center gap-1.5 min-w-0">
-            <Coffee className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+            <Coffee className="w-3.5 h-3.5 shrink-0 text-amber-500 dark:text-amber-600" />
             <span className="truncate">{b.notes || (language === 'en' ? 'Break' : 'Перерыв')}</span>
           </div>
           <button
@@ -1200,27 +1201,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const isPendingCancellation = b.status === 'pending_cancellation';
     const isCompleted = b.status === 'completed';
 
-    let cardBgClasses = 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-100 dark:border-indigo-900/50 hover:border-indigo-400 dark:hover:border-indigo-700 text-indigo-950 dark:text-indigo-200';
+    let cardBgClasses = 'bg-indigo-50/60 dark:bg-indigo-950/15 border border-indigo-250/45 dark:border-indigo-900/40 hover:border-indigo-400 dark:hover:border-indigo-700 text-indigo-950 dark:text-indigo-200';
     let titleColorClasses = 'text-indigo-900 dark:text-indigo-200';
     let buttonColorClasses = 'text-indigo-400 hover:text-red-500';
-    let textTimeClasses = 'text-indigo-500 dark:text-indigo-400';
+    let textTimeClasses = 'text-indigo-600 dark:text-indigo-400';
 
     if (isPendingCancellation) {
-      cardBgClasses = 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800/60 hover:border-amber-500 dark:hover:border-amber-600 text-amber-950 dark:text-amber-200 animate-pulse';
-      titleColorClasses = 'text-amber-900 dark:text-amber-300';
-      buttonColorClasses = 'text-amber-400 hover:text-red-500';
-      textTimeClasses = 'text-amber-600 dark:text-amber-400';
+      cardBgClasses = 'bg-rose-50/60 dark:bg-rose-950/15 border border-rose-250/45 dark:border-rose-900/40 hover:border-rose-400 dark:hover:border-rose-700 text-rose-950 dark:text-rose-200 animate-pulse';
+      titleColorClasses = 'text-rose-900 dark:text-rose-300 font-semibold';
+      buttonColorClasses = 'text-rose-400 hover:text-red-500';
+      textTimeClasses = 'text-rose-600 dark:text-rose-400';
     } else if (isCompleted) {
-      cardBgClasses = 'bg-emerald-50/75 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40 hover:border-emerald-400 dark:hover:border-emerald-600 text-emerald-950 dark:text-emerald-200';
-      titleColorClasses = 'text-emerald-900 dark:text-emerald-300 line-through decoration-emerald-200 dark:decoration-emerald-800/60';
+      cardBgClasses = 'bg-emerald-50/60 dark:bg-emerald-950/10 border border-emerald-250/45 dark:border-emerald-900/40 hover:border-emerald-400 dark:hover:border-emerald-700 text-emerald-950 dark:text-emerald-200';
+      titleColorClasses = 'text-emerald-900 dark:text-emerald-300 line-through decoration-emerald-200/50 dark:decoration-emerald-800/40';
       buttonColorClasses = 'text-emerald-400 hover:text-red-500';
-      textTimeClasses = 'text-emerald-600 dark:text-emerald-400';
+      textTimeClasses = 'text-emerald-650 dark:text-emerald-400';
     }
 
     return (
       <div
         onClick={() => handleOpenSlotAction(ins, b.time, b)}
-        className={`relative group/cell h-11 border rounded-xl px-2.5 py-1 flex flex-col justify-center transition text-[11px] leading-tight cursor-pointer ${cardBgClasses}`}
+        className={`relative group/cell h-11 rounded-xl px-2.5 py-1 flex flex-col justify-center transition text-[11px] leading-tight cursor-pointer ${cardBgClasses}`}
       >
         <div className="flex items-center justify-between gap-1.5 min-w-0">
           <div className={`font-bold truncate ${titleColorClasses}`}>
@@ -1322,7 +1323,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         }).filter(Boolean);
 
         cells.push(
-          <td key={slotTime} colSpan={span} className="p-1 align-middle border-r border-slate-100 dark:border-slate-850">
+          <td key={slotTime} colSpan={span} className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40">
             <div
               onClick={() => {
                 const otherGuides = courseOverlap.instructorIds?.filter(id => id !== ins.id) || [];
@@ -1339,13 +1340,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     : `Групповой курс «${courseOverlap.title}»${guidesDetail}. Запланирован: ${courseOverlap.dates}\nМеста: ${courseOverlap.availableSeats} / ${courseOverlap.totalSeats}`) + enrolledDetailsStr
                 );
               }}
-              className="relative group/cell min-h-[44px] h-auto border rounded-xl px-2.5 py-1.5 flex flex-col justify-center transition text-[11px] leading-tight cursor-pointer bg-violet-50/90 dark:bg-violet-950/20 border-violet-200 dark:border-violet-900/50 hover:border-violet-400 dark:hover:border-violet-700 text-violet-950 dark:text-violet-200"
+              className="relative group/cell min-h-[44px] h-auto border border-violet-200/40 dark:border-violet-900/30 bg-violet-50/60 dark:bg-violet-950/15 hover:border-violet-400 dark:hover:border-violet-700 text-violet-950 dark:text-violet-200 rounded-xl px-2.5 py-1.5 flex flex-col justify-center transition text-[11px] leading-tight cursor-pointer"
             >
               <div className="flex items-center justify-between gap-1.5 min-w-0">
                 <div className="font-bold truncate text-violet-900 dark:text-violet-200 flex items-center gap-1">
                   <BookOpen className="w-3 h-3 text-violet-500 shrink-0" />
                   <span className="truncate">{translateCourse(courseOverlap, language).title}</span>
-                  <span className="text-[8px] bg-violet-100 dark:bg-violet-900/40 border border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 px-1 py-0.2 font-mono uppercase tracking-wider font-extrabold shrink-0">
+                  <span className="text-[8px] bg-violet-100 dark:bg-violet-900/40 border border-violet-250/45 dark:border-violet-800 text-violet-700 dark:text-violet-300 px-1 py-0.2 font-mono uppercase tracking-wider font-extrabold shrink-0">
                     {language === 'en' ? 'Course' : 'Курс'}
                   </span>
                 </div>
@@ -1391,7 +1392,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           skipCount = span - 1;
 
           cells.push(
-            <td key={slotTime} colSpan={span} className="p-1 align-middle border-r border-slate-100 dark:border-slate-850">
+            <td key={slotTime} colSpan={span} className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40">
               {renderBookingCell(b, ins)}
             </td>
           );
@@ -1407,13 +1408,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
         if (coveringB) {
           cells.push(
-            <td key={slotTime} className="p-1 align-middle border-r border-slate-100 dark:border-slate-850">
+            <td key={slotTime} className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40">
               {renderBookingCell(coveringB, ins)}
             </td>
           );
         } else if (!ins.isAvailable) {
           cells.push(
-            <td key={slotTime} className="p-1 align-middle border-r border-slate-100 dark:border-slate-850 text-center bg-slate-50/20 dark:bg-slate-950/5 select-none">
+            <td key={slotTime} className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40 text-center bg-slate-50/20 dark:bg-slate-950/5 select-none">
               <div 
                 className="w-full h-11 border border-slate-100/40 dark:border-slate-800/20 bg-slate-100/30 dark:bg-slate-900/10 rounded-xl flex items-center justify-center text-slate-350 dark:text-slate-650"
                 title={language === 'en' ? 'Instructor Unavailable' : 'Инструктор недоступен'}
@@ -1424,10 +1425,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           );
         } else {
           cells.push(
-            <td key={slotTime} className="p-1 align-middle border-r border-slate-100 dark:border-slate-850 text-center">
+            <td key={slotTime} className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40 text-center">
               <button
                 onClick={() => handleOpenSlotAction(ins, slotTime)}
-                className="w-full h-11 border border-dashed border-slate-100 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-800 hover:bg-indigo-50/10 dark:hover:bg-indigo-950/10 rounded-xl transition flex items-center justify-center cursor-pointer group animate-fade-in"
+                className="w-full h-11 border border-dashed border-slate-200/60 dark:border-slate-800/40 hover:border-indigo-400 dark:hover:border-indigo-800 hover:bg-indigo-50/10 dark:hover:bg-indigo-950/10 rounded-xl transition flex items-center justify-center cursor-pointer group animate-fade-in"
                 title={language === 'en' ? 'Manage Slot' : 'Управление слотом'}
               >
                 <Plus className="w-3.5 h-3.5 text-slate-300 dark:text-slate-700 group-hover:text-indigo-500 transition duration-200" />
@@ -1650,18 +1651,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <div className="overflow-x-auto rounded-none border border-[var(--border)]">
           <table className="w-full min-w-[1100px] border-collapse table-fixed">
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              <tr className="bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-200/50 dark:border-slate-800/40 text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                 <th className="w-[180px] p-3 text-left font-bold">
                   {language === 'en' ? 'Instructor' : 'Инструктор'}
                 </th>
                 {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'].map((time) => (
-                  <th key={time} className="p-3 text-center font-bold w-[95px] border-l border-slate-100 dark:border-slate-850">
+                  <th key={time} className="p-3 text-center font-bold w-[95px] border-l border-slate-200/50 dark:border-slate-800/40">
                     {time}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
               {instructors.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="p-8 text-center text-sm text-slate-400">
@@ -1713,7 +1714,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </table>
         </div>
       </div>
-      {activeSlotModal && (
+      {activeSlotModal && createPortal(
         <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-[var(--bg)] border border-[var(--border)] rounded-none w-full max-w-md p-6 shadow-2xl relative space-y-4 transition-colors duration-300 animate-scale-up">
             <button
@@ -2036,7 +2037,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <div className="grid lg:grid-cols-12 gap-6">
@@ -3633,7 +3635,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </div>
 
-      {confirmModal && (
+      {confirmModal && createPortal(
         <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-55 p-4 animate-fade-in">
           <div className="bg-[var(--bg)] border border-[var(--border)] rounded-none w-full max-w-sm p-6 shadow-2xl relative space-y-4 animate-scale-up">
             <h4 className="font-serif text-sm font-light text-[var(--ink)] flex items-center gap-2">
@@ -3664,7 +3666,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

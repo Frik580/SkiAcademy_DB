@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Booking, UserProfile, LessonDifficulty, Review, Course } from '../types';
 import { 
   Calendar, 
@@ -1172,7 +1173,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           </div>
         )}
       </div>      {/* Reschedule Modal */}
-      {rescheduleId && (
+      {rescheduleId && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in">
           <div className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-sm overflow-hidden animate-scale-up rounded-none">
             <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/10">
@@ -1229,11 +1230,12 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               </button>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Review Modal */}
-      {reviewBooking && (
+      {reviewBooking && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in">
           <div className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-sm overflow-hidden animate-scale-up rounded-none">
             <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/10">
@@ -1293,10 +1295,11 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               </button>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {confirmModal && (
+      {confirmModal && createPortal(
         <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-55 p-4 animate-fade-in">
           <div className="bg-[var(--bg)] border border-[var(--border)] rounded-none w-full max-w-sm p-6 shadow-2xl relative space-y-4 animate-scale-up transition-colors duration-300">
             <h4 className="font-serif text-sm font-light text-[var(--ink)] flex items-center gap-2">
@@ -1349,7 +1352,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

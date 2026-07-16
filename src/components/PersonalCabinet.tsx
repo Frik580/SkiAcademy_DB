@@ -1046,18 +1046,30 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           </div>
         ) : (
           <div className="space-y-3">
-            {displayedBookings.map((b) => (
-              <div key={b.id} id={`booking-card-${b.id}`} className={`p-4 rounded-none border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-300 ${
+            {displayedBookings.map((b) => {
+
+              const isCourse = b.instructorId.startsWith('course_');
+              let displayDate = b.date;
+              let displayTime = b.time;
+
+              if (isCourse && b.time === 'Group Schedule' && b.date.includes(',')) {
+                const parts = b.date.split(',').map(s => s.trim());
+                displayDate = parts[0];
+                displayTime = parts[1] || displayTime;
+              }
+
+              return (
+              <div key={b.id} id={`booking-card-${b.id}`} className={`p-4 rounded-none border flex flex-col md:flex-row lg:flex-col 2xl:flex-row md:items-center justify-between gap-4 transition-all duration-300 ${
                 b.instructorId.startsWith('course_')
                   ? 'border-violet-500/40 hover:border-violet-400 bg-violet-950/20'
                   : 'border-[var(--border)] hover:border-[var(--ink)] bg-black/15'
               }`}>
                 {/* Instructor name and details */}
-                <div className="flex flex-1 items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-none overflow-hidden shrink-0 border border-[var(--border)]">
-                    <img src={b.instructorAvatar} alt={b.instructorName} className="w-full h-full object-cover filter grayscale" />
+                <div className="flex flex-1 items-center gap-4 min-w-0 w-full lg:flex-row lg:items-center 2xl:flex-row 2xl:items-center">
+                  <div className="w-16 h-16 rounded-none overflow-hidden shrink-0 border border-[var(--border)]">
+                    <img src={b.instructorAvatar} alt={b.instructorName} className="w-full h-full object-cover" />
                   </div>
-                  <div className="space-y-1 min-w-0">
+                  <div className="space-y-1 min-w-0 w-full">
                     <h4 className="text-xs font-serif text-[var(--ink)] flex items-center gap-2 flex-wrap">
                       {b.instructorName}
                       <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-normal">• {b.durationHours} {language === 'en' ? 'hr session' : 'ч. тренировки'}</span>
@@ -1065,10 +1077,10 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                     <p className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5">{getDifficultyLabel(b.difficulty)}</p>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink)] border border-[var(--border)] px-2 py-0.5 rounded-none flex items-center gap-1">
-                        <Calendar className="w-3 h-3" /> {b.date}
+                        <Calendar className="w-3 h-3" /> {displayDate}
                       </span>
                       <span className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)] border border-[var(--border)] px-2 py-0.5 rounded-none flex items-center gap-1 bg-black/15">
-                        <Clock className="w-3 h-3" /> {b.time}
+                        <Clock className="w-3 h-3" /> {displayTime}
                       </span>
                     </div>
                     {b.status === 'pending_cancellation' && b.cancellationReason && (
@@ -1155,7 +1167,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>      {/* Reschedule Modal */}

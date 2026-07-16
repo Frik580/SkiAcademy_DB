@@ -1113,10 +1113,10 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                     </span>
 
                     {/* Export / Sync Options */}
-                    {/* {b.status === 'confirmed' && (
-                      <div className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded-none border border-[var(--border)]"> */}
+                    {b.status === 'confirmed' && (
+                      <div className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded-none border border-[var(--border)]">
                         {/* Google Calendar Link */}
-                        {/* <a
+                        <a
                           href={getGoogleCalendarUrl(b)}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -1124,18 +1124,18 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                           className="p-1 hover:bg-black/20 rounded text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
-                        </a> */}
+                        </a>
                         {/* Apple/Outlook Download */}
-                        {/* <button
+                        <button
                           type="button"
                           onClick={() => handleDownloadIcs(b)}
                           title={language === 'en' ? 'Download .ics Calendar File' : 'Скачать файл .ics для календаря'}
                           className="p-1 hover:bg-black/20 rounded text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer"
                         >
                           <Download className="w-3.5 h-3.5" />
-                        </button> */}
-                      {/* </div>
-                    )} */}
+                        </button>
+                      </div>
+                    )}
 
                     {/* Actions based on Status */}
                     {b.status === 'confirmed' && (
@@ -1354,3 +1354,4 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     </div>
   );
 };
+

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { 
   auth, 
   db, 
@@ -12,6 +13,7 @@ import {
   collection, 
   getDocs,
   query,
+  where,
   OperationType
 } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -1578,26 +1580,28 @@ const AppContent: React.FC = () => {
                     </div>
                   ) : (
                     <div className="flex flex-col">
-                      {filteredInstructors.map((ins: Instructor) => (
-                        <InstructorCard
-                          key={ins.id}
-                          instructor={ins}
-                          onBook={(i) => {
-                            if (!userProfile) {
-                              addNotification(
-                                'warning',
-                                language === 'en' ? 'Sign In Required' : 'Требуется войти',
-                                language === 'en'
-                                  ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.'
-                                  : 'Войдите, чтобы бронировать инструкторов, пополнять кошелек и видеть расписание.'
-                              );
-                              return;
-                            }
-                            setSelectedInstructor(i);
-                          }}
-                          onViewReviews={(i) => setReviewsInstructor(i)}
-                        />
-                      ))}
+                      <AnimatePresence mode="popLayout">
+                        {filteredInstructors.map((ins: Instructor) => (
+                          <InstructorCard
+                            key={ins.id}
+                            instructor={ins}
+                            onBook={(i) => {
+                              if (!userProfile) {
+                                addNotification(
+                                  'warning',
+                                  language === 'en' ? 'Sign In Required' : 'Требуется войти',
+                                  language === 'en'
+                                    ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.'
+                                    : 'Войдите, чтобы бронировать инструкторов, пополнять кошелек и видеть расписание.'
+                                );
+                                return;
+                              }
+                              setSelectedInstructor(i);
+                            }}
+                            onViewReviews={(i) => setReviewsInstructor(i)}
+                          />
+                        ))}
+                      </AnimatePresence>
                     </div>
                   )}
                 </div>
@@ -1781,3 +1785,4 @@ export const App: React.FC = () => {
     </LanguageProvider>
   );
 };
+

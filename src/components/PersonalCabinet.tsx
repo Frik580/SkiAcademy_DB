@@ -735,9 +735,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   };
 
   return (
-    <div className="grid md:grid-cols-12 gap-6 animate-fade-in">
+    <div className="grid lg:grid-cols-12 gap-6 animate-fade-in">
       {/* Profile Info Left Panel */}
-      <div className="md:col-span-4 border border-[var(--border)] p-6 flex flex-col justify-between space-y-6 self-start bg-transparent">
+      <div className="lg:col-span-4 border border-[var(--border)] p-6 flex flex-col justify-between space-y-6 self-start bg-transparent">
         <div className="space-y-5">
           <div className="flex items-center gap-3">
             {/* Interactive Drag & Drop Avatar */}
@@ -817,7 +817,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       </div>
 
       {/* Bookings Right Panel */}
-      <div className="md:col-span-8 border border-[var(--border)] p-6 space-y-5 transition-colors duration-300 bg-transparent">
+      <div className="lg:col-span-8 border border-[var(--border)] p-6 space-y-5 transition-colors duration-300 bg-transparent">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
           <div>
             <h3 className="text-xl font-serif font-light text-[var(--ink)] tracking-tight">
@@ -1053,17 +1053,17 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                   : 'border-[var(--border)] hover:border-[var(--ink)] bg-black/15'
               }`}>
                 {/* Instructor name and details */}
-                <div className="flex items-center gap-3">
+                <div className="flex flex-1 items-center gap-3 min-w-0">
                   <div className="w-9 h-9 rounded-none overflow-hidden shrink-0 border border-[var(--border)]">
                     <img src={b.instructorAvatar} alt={b.instructorName} className="w-full h-full object-cover filter grayscale" />
                   </div>
-                  <div className="space-y-1">
-                    <h4 className="text-xs font-serif text-[var(--ink)] flex items-center gap-2">
+                  <div className="space-y-1 min-w-0">
+                    <h4 className="text-xs font-serif text-[var(--ink)] flex items-center gap-2 flex-wrap">
                       {b.instructorName}
                       <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-normal">• {b.durationHours} {language === 'en' ? 'hr session' : 'ч. тренировки'}</span>
                     </h4>
                     <p className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5">{getDifficultyLabel(b.difficulty)}</p>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink)] border border-[var(--border)] px-2 py-0.5 rounded-none flex items-center gap-1">
                         <Calendar className="w-3 h-3" /> {b.date}
                       </span>
@@ -1080,7 +1080,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                 </div>
 
                 {/* Pricing, status and operations */}
-                <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-3 md:pt-0 border-[var(--border)]">
+                <div className="flex flex-shrink-0 items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-3 md:pt-0 border-[var(--border)] flex-wrap">
                   <div className="text-left md:text-right">
                     <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">{language === 'en' ? 'TOTAL FEE' : 'ИТОГО К ОПЛАТЕ'}</span>
                     <span className="text-base font-serif font-light text-[var(--ink)]">${b.totalPrice}</span>
@@ -1101,10 +1101,10 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                     </span>
 
                     {/* Export / Sync Options */}
-                    {b.status === 'confirmed' && (
-                      <div className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded-none border border-[var(--border)]">
+                    {/* {b.status === 'confirmed' && (
+                      <div className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded-none border border-[var(--border)]"> */}
                         {/* Google Calendar Link */}
-                        <a
+                        {/* <a
                           href={getGoogleCalendarUrl(b)}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -1112,18 +1112,18 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                           className="p-1 hover:bg-black/20 rounded text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
+                        </a> */}
                         {/* Apple/Outlook Download */}
-                        <button
+                        {/* <button
                           type="button"
                           onClick={() => handleDownloadIcs(b)}
                           title={language === 'en' ? 'Download .ics Calendar File' : 'Скачать файл .ics для календаря'}
                           className="p-1 hover:bg-black/20 rounded text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer"
                         >
                           <Download className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
+                        </button> */}
+                      {/* </div>
+                    )} */}
 
                     {/* Actions based on Status */}
                     {b.status === 'confirmed' && (

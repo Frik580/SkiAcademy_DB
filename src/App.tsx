@@ -12,7 +12,6 @@ import {
   collection, 
   getDocs,
   query,
-  where,
   OperationType
 } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -530,6 +529,15 @@ const AppContent: React.FC = () => {
     }
 
     setBookings((prev) => prev.map((b) => b.id === id ? { ...b, date: newDate, time: newTime } : b));
+
+    // Notify the user
+    const booking = bookings.find(b => b.id === id);
+    if (booking && userProfile?.role === 'admin') {
+      const client = usersList.find(u => u.uid === booking.userId);
+      if (client) {
+        await createNotificationForUser(client.uid, language === 'ru' ? 'Занятие перенесено' : 'Lesson Rescheduled', language === 'ru' ? `Ваше занятие с инструктором ${booking.instructorName} было перенесено администратором на ${newDate} в ${newTime}.` : `Your lesson with ${booking.instructorName} was rescheduled by an administrator to ${newDate} at ${newTime}.`);
+      }
+    }
   };
 
   // Course administration and user booking handlers
@@ -550,6 +558,20 @@ const AppContent: React.FC = () => {
       handleFirestoreError(e, OperationType.UPDATE, `courses/${course.id}`);
       throw e;
     }
+
+// Notify all enrolled users about the course update
+    if (userProfile?.role === 'admin') {
+      const courseBookings = bookings.filter(b => b.instructorId === `course_${course.id}` && b.status !== 'cancelled');
+      const title = language === 'ru' ? 'Обновление по курсу' : 'Course Update';
+      const message = language === 'ru' 
+        ? `Информация по курсу «${course.title}» была обновлена администратором. Новые даты: ${course.dates}.`
+        : `Details for the course "${course.title}" have been updated by an administrator. New dates: ${course.dates}.`;
+
+      for (const booking of courseBookings) {
+        await createNotificationForUser(booking.userId, title, message, 'warning');
+      }
+    }
+
     setCourses((prev) => prev.map((c) => c.id === course.id ? course : c));
   };
 
@@ -561,6 +583,25 @@ const AppContent: React.FC = () => {
       throw e;
     }
     setCourses((prev) => prev.filter((c) => c.id !== courseId));
+  };
+
+  const createNotificationForUser = async (userId: string, title: string, message: string, type: 'info' | 'warning' | 'success' = 'info') => {
+    if (userId.startsWith('system_block_')) return; // Don't notify system blocks
+    const notification = {
+      userId,
+      title,
+      message,
+      type,
+      timestamp: new Date().toISOString(),
+      isRead: false,
+    };
+    const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    try {
+      await setDoc(doc(db, 'notifications', notifId), notification);
+    } catch (e) {
+      console.error("Failed to create notification:", e);
+      // Don't bubble up Firestore errors for notifications
+    }
   };
 
   const handleBookCourse = async (courseId: string) => {
@@ -721,6 +762,16 @@ const AppContent: React.FC = () => {
           handleFirestoreError(e, OperationType.UPDATE, `courses/${courseId}`);
         }
         setCourses((prev) => prev.map((c) => c.id === courseId ? { ...c, availableSeats: newAvailableSeats } : c));
+      }
+    }
+
+// Notify the user about cancellation
+    if (userProfile?.role === 'admin' && !isSystemBlock) {
+      const client = usersList.find(u => u.uid === bookingOwnerId);
+      if (client) {
+        const title = language === 'ru' ? 'Занятие отменено' : 'Lesson Cancelled';
+        const message = language === 'ru' ? `Ваше занятие с инструктором ${booking.instructorName} (${booking.date} в ${booking.time}) было отменено администратором. Средства возвращены на ваш баланс.` : `Your lesson with ${booking.instructorName} (${booking.date} at ${booking.time}) was cancelled by an administrator. Funds have been returned to your wallet.`;
+        await createNotificationForUser(client.uid, title, message, 'warning');
       }
     }
 
@@ -1183,7 +1234,7 @@ const AppContent: React.FC = () => {
       <main className={`flex-1 w-full mx-auto ${
         isAdminView && userProfile && userProfile.role === 'admin'
           ? 'p-6 overflow-y-auto'
-          : 'flex flex-col lg:grid lg:grid-cols-[240px_1fr_340px] lg:h-[calc(100vh-62px)] lg:overflow-hidden'
+          : 'flex flex-col lg:grid lg:grid-cols-[minmax(140px,250px)_minmax(700px,1.5fr)_minmax(180px,350px)] lg:h-[calc(100vh-62px)] lg:overflow-hidden'
       }`}>
         
         {/* Firestore Permission warning notice block */}
@@ -1233,8 +1284,8 @@ const AppContent: React.FC = () => {
         ) : (
           /* USER/CLIENT VIEW (Authenticated or Guest/Logged-out) */
           <>
-            {/* 1. Left Sidebar: Resort Conditions */}
-            <aside className="border-b lg:border-b-0 lg:border-r border-[var(--border)] p-6 space-y-6 flex flex-col justify-start shrink-0 lg:h-full lg:overflow-y-auto bg-transparent">
+            {/* 1. Left Sidebar: Resort Conditions (placed in the first flexible column) */}
+            <aside className="lg:col-start-1 border-b lg:border-b-0 lg:border-r border-[var(--border)] p-6 space-y-6 flex flex-col justify-start shrink-0 lg:h-full lg:overflow-y-auto bg-transparent">
               <div className="border-b border-[var(--border)] pb-4">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
                   {language === 'en' ? 'Mountain Temp' : 'Температура'}
@@ -1302,8 +1353,8 @@ const AppContent: React.FC = () => {
               </div>
             </aside>
 
-            {/* 2. Center Scroll Pane: Hero, Active Cabinet Lists & Browsing */}
-            <div className="flex-1 lg:h-full lg:overflow-y-auto flex flex-col justify-start">
+            {/* 2. Center Scroll Pane: Hero, Active Cabinet Lists & Browsing (placed in the fixed-width center column) */}
+            <div className="lg:col-start-2 flex-1 lg:h-full lg:overflow-y-auto flex flex-col justify-start">
               
               {/* Elegant welcoming Hero block */}
               <section 
@@ -1552,8 +1603,8 @@ const AppContent: React.FC = () => {
 
             </div>
 
-            {/* 3. Right Sidebar: Profile & Upcoming Active Sessions */}
-            <aside className="border-t lg:border-t-0 lg:border-l border-[var(--border)] p-6 bg-[var(--profile-bg)] space-y-6 flex flex-col justify-start lg:h-full lg:overflow-y-auto shrink-0">
+            {/* 3. Right Sidebar: Profile & Upcoming Active Sessions (placed in the third flexible column) */}
+            <aside className="lg:col-start-3 border-t lg:border-t-0 lg:border-l border-[var(--border)] p-6 bg-[var(--profile-bg)] space-y-6 flex flex-col justify-start lg:h-full lg:overflow-y-auto shrink-0">
               {userProfile ? (
                 <>
                   {/* Calendar Strip */}

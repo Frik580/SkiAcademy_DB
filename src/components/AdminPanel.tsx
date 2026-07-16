@@ -28,7 +28,9 @@ import {
   Camera,
   Settings,
   Eye,
-  EyeOff
+  EyeOff,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, formatCourseDates } from '../lib/LanguageContext';
@@ -540,7 +542,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       price: Number(coursePrice),
       bgImageUrl: courseBgImageUrl || 'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800',
       isHidden: courseIsHidden,
-      instructorIds: selectedCourseInstructors
+      instructorIds: selectedCourseInstructors,
+      order: editingCourse && editingCourse.order !== undefined ? editingCourse.order : courses.length
     };
 
     try {
@@ -609,6 +612,50 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setCourseStartTime('09:00');
     setCourseEndTime('13:00');
     setCalendarViewMonth(new Date());
+  };
+
+  const handleMoveCourse = async (course: Course, direction: 'up' | 'down') => {
+    const sorted = [...courses].sort((a, b) => {
+      const orderA = a.order !== undefined ? a.order : 999;
+      const orderB = b.order !== undefined ? b.order : 999;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.title.localeCompare(b.title);
+    });
+
+    const idx = sorted.findIndex(c => c.id === course.id);
+    if (idx === -1) return;
+
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= sorted.length) return;
+
+    // Swap items in our local array
+    const newSorted = [...sorted];
+    const temp = newSorted[idx];
+    newSorted[idx] = newSorted[targetIdx];
+    newSorted[targetIdx] = temp;
+
+    try {
+      if (onUpdateCourse) {
+        // Sequentially assign correct order indices to all courses
+        for (let i = 0; i < newSorted.length; i++) {
+          const c = newSorted[i];
+          if (c.order !== i) {
+            await onUpdateCourse({ ...c, order: i });
+          }
+        }
+        addNotification(
+          'success',
+          language === 'en' ? 'Order Changed' : 'Порядок изменен',
+          language === 'en' ? 'Course order updated successfully.' : 'Порядок курсов успешно изменен.'
+        );
+      }
+    } catch (err) {
+      addNotification(
+        'error',
+        'Error',
+        language === 'en' ? 'Failed to update course order.' : 'Не удалось изменить порядок курсов.'
+      );
+    }
   };
 
   const handleDeleteCourseClick = (course: Course) => {
@@ -2905,124 +2952,161 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <th className="px-4 py-3 font-bold w-[140px]">{language === 'en' ? 'Dates' : 'Даты проведения'}</th>
                     <th className="px-4 py-3 font-bold w-[100px]">{language === 'en' ? 'Seats' : 'Места'}</th>
                     <th className="px-4 py-3 font-bold w-[80px]">{language === 'en' ? 'Price' : 'Цена'}</th>
+                    <th className="px-4 py-3 font-bold w-[80px] text-center">{language === 'en' ? 'Order' : 'Порядок'}</th>
                     <th className="px-4 py-3 font-bold w-[90px] text-right">{language === 'en' ? 'Actions' : 'Действия'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]/40">
-                  {courses.map((course) => {
-                    const translatedCourse = translateCourse(course, language);
-                    return (
-                      <tr key={course.id} className="hover:bg-black/5 dark:hover:bg-white/5 transition">
-                        <td className="px-4 py-2">
-                          <img 
-                            src={course.bgImageUrl} 
-                            referrerPolicy="no-referrer"
-                            alt={translatedCourse.title} 
-                            className="w-10 h-10 object-cover border border-[var(--border)] transition-all duration-300 group-hover:scale-105" 
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-[var(--ink)] block text-xs">{translatedCourse.title}</span>
-                            {course.isHidden && (
-                              <span className="bg-rose-950/20 text-rose-400 border border-rose-900/50 text-[8px] font-bold px-1.5 py-0.5 uppercase tracking-wide rounded-none shrink-0">
-                                {language === 'en' ? 'Hidden' : 'Скрыт'}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[10px] text-[var(--ink-dim)] line-clamp-1 mt-0.5">{translatedCourse.description}</span>
-                          
-                          {course.instructorIds && course.instructorIds.length > 0 && (
-                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                              <span className="text-[9px] text-[var(--ink-dim)] uppercase tracking-wider">{language === 'en' ? 'Instructors:' : 'Инструкторы:'}</span>
-                              {course.instructorIds.map((insId) => {
-                                const ins = instructors.find(i => i.id === insId);
-                                if (!ins) return null;
-                                return (
-                                  <span key={insId} className="bg-black/10 dark:bg-white/10 border border-[var(--border)] text-[9px] px-1.5 py-0.5 text-[var(--ink)] font-bold">
-                                    {translateInstructorName(ins.name, language)}
-                                  </span>
-                                );
-                              })}
+                  {(() => {
+                    const sortedCourses = [...courses].sort((a, b) => {
+                      const orderA = a.order !== undefined ? a.order : 999;
+                      const orderB = b.order !== undefined ? b.order : 999;
+                      if (orderA !== orderB) return orderA - orderB;
+                      return a.title.localeCompare(b.title);
+                    });
+                    return sortedCourses.map((course, idx) => {
+                      const translatedCourse = translateCourse(course, language);
+                      return (
+                        <tr key={course.id} className="hover:bg-black/5 dark:hover:bg-white/5 transition">
+                          <td className="px-4 py-2">
+                            <img 
+                              src={course.bgImageUrl} 
+                              referrerPolicy="no-referrer"
+                              alt={translatedCourse.title} 
+                              className="w-10 h-10 object-cover border border-[var(--border)] transition-all duration-300 group-hover:scale-105" 
+                            />
+                          </td>
+                          <td className="px-4 py-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-[var(--ink)] block text-xs">{translatedCourse.title}</span>
+                              {course.isHidden && (
+                                <span className="bg-rose-950/20 text-rose-400 border border-rose-900/50 text-[8px] font-bold px-1.5 py-0.5 uppercase tracking-wide rounded-none shrink-0">
+                                  {language === 'en' ? 'Hidden' : 'Скрыт'}
+                                </span>
+                              )}
                             </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 text-[var(--ink)]">{translatedCourse.duration}</td>
-                        <td className="px-4 py-2 text-[var(--ink)] font-bold">{translatedCourse.dates}</td>
-                        <td className="px-4 py-2">
-                          <span className={`font-bold ${course.availableSeats === 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                            {course.availableSeats} / {course.totalSeats}
-                          </span>
-                          {(() => {
-                            const courseBookings = bookings.filter(
-                              (b) => b.instructorId === `course_${course.id}` && b.status !== 'cancelled' && !b.isDeleted
-                            );
-                            const enrolledNames = courseBookings.map((b) => {
-                              const u = usersList.find((usr) => usr.uid === b.userId);
-                              return u?.displayName || u?.email || b.userId;
-                            }).filter(Boolean);
-                            if (enrolledNames.length > 0) {
-                              return (
-                                <div className="text-[9px] text-[var(--ink-dim)] mt-1 font-mono leading-tight max-w-[120px] truncate" title={enrolledNames.join(', ')}>
-                                  <span className="font-bold text-[8px] uppercase tracking-wider block">{language === 'en' ? 'Enrolled:' : 'Записаны:'}</span>
-                                  {enrolledNames.join(', ')}
-                                </div>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </td>
-                        <td className="px-4 py-2 text-[var(--ink)] font-bold">${course.price}</td>
-                        <td className="px-4 py-2 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={async () => {
-                                if (onUpdateCourse) {
-                                  await onUpdateCourse({ ...course, isHidden: !course.isHidden });
-                                  addNotification(
-                                    'success',
-                                    language === 'en' ? 'Course Updated' : 'Курс обновлен',
-                                    language === 'en' 
-                                      ? `Course "${translatedCourse.title}" is now ${!course.isHidden ? 'hidden' : 'visible'}.` 
-                                      : `Курс «${translatedCourse.title}» теперь ${!course.isHidden ? 'скрыт' : 'виден всем'}.`
+                            <span className="text-[10px] text-[var(--ink-dim)] line-clamp-1 mt-0.5">{translatedCourse.description}</span>
+                            
+                            {course.instructorIds && course.instructorIds.length > 0 && (
+                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                <span className="text-[9px] text-[var(--ink-dim)] uppercase tracking-wider">{language === 'en' ? 'Instructors:' : 'Инструкторы:'}</span>
+                                {course.instructorIds.map((insId) => {
+                                  const ins = instructors.find(i => i.id === insId);
+                                  if (!ins) return null;
+                                  return (
+                                    <span key={insId} className="bg-black/10 dark:bg-white/10 border border-[var(--border)] text-[9px] px-1.5 py-0.5 text-[var(--ink)] font-bold">
+                                      {translateInstructorName(ins.name, language)}
+                                    </span>
                                   );
-                                }
-                              }}
-                              className={`p-1.5 border border-transparent rounded-none transition cursor-pointer ${
-                                course.isHidden 
-                                  ? 'text-rose-400 hover:text-rose-300' 
-                                  : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
-                              }`}
-                              title={
-                                course.isHidden 
-                                  ? (language === 'en' ? 'Show course' : 'Показать курс') 
-                                  : (language === 'en' ? 'Hide course' : 'Скрыть курс')
+                                })}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-[var(--ink)]">{translatedCourse.duration}</td>
+                          <td className="px-4 py-2 text-[var(--ink)] font-bold">{translatedCourse.dates}</td>
+                          <td className="px-4 py-2">
+                            <span className={`font-bold ${course.availableSeats === 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                              {course.availableSeats} / {course.totalSeats}
+                            </span>
+                            {(() => {
+                              const courseBookings = bookings.filter(
+                                (b) => b.instructorId === `course_${course.id}` && b.status !== 'cancelled' && !b.isDeleted
+                              );
+                              const enrolledNames = courseBookings.map((b) => {
+                                const u = usersList.find((usr) => usr.uid === b.userId);
+                                return u?.displayName || u?.email || b.userId;
+                              }).filter(Boolean);
+                              if (enrolledNames.length > 0) {
+                                return (
+                                  <div className="text-[9px] text-[var(--ink-dim)] mt-1 font-mono leading-tight max-w-[120px] truncate" title={enrolledNames.join(', ')}>
+                                    <span className="font-bold text-[8px] uppercase tracking-wider block">{language === 'en' ? 'Enrolled:' : 'Записаны:'}</span>
+                                    {enrolledNames.join(', ')}
+                                  </div>
+                                );
                               }
-                            >
-                              {course.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                            </button>
-                            <button
-                              onClick={() => startEditCourse(course)}
-                              className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] border border-transparent rounded-none transition cursor-pointer"
-                              title={language === 'en' ? 'Edit course' : 'Редактировать курс'}
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteCourseClick(course)}
-                              className="p-1.5 text-rose-500 hover:text-rose-600 hover:border-rose-500/30 border border-transparent rounded-none transition cursor-pointer"
-                              title={language === 'en' ? 'Delete course' : 'Удалить курс'}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                              return null;
+                            })()}
+                          </td>
+                          <td className="px-4 py-2 text-[var(--ink)] font-bold">${course.price}</td>
+                          <td className="px-4 py-2 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => handleMoveCourse(course, 'up')}
+                                disabled={idx === 0}
+                                className={`p-1 border border-transparent rounded-none transition cursor-pointer ${
+                                  idx === 0 
+                                    ? 'text-[var(--border)] cursor-not-allowed opacity-30' 
+                                    : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--border)] bg-black/5 dark:bg-white/5'
+                                }`}
+                                title={language === 'en' ? 'Move Up' : 'Переместить вверх'}
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleMoveCourse(course, 'down')}
+                                disabled={idx === sortedCourses.length - 1}
+                                className={`p-1 border border-transparent rounded-none transition cursor-pointer ${
+                                  idx === sortedCourses.length - 1 
+                                    ? 'text-[var(--border)] cursor-not-allowed opacity-30' 
+                                    : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--border)] bg-black/5 dark:bg-white/5'
+                                }`}
+                                title={language === 'en' ? 'Move Down' : 'Переместить вниз'}
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={async () => {
+                                  if (onUpdateCourse) {
+                                    await onUpdateCourse({ ...course, isHidden: !course.isHidden });
+                                    addNotification(
+                                      'success',
+                                      language === 'en' ? 'Course Updated' : 'Курс обновлен',
+                                      language === 'en' 
+                                        ? `Course "${translatedCourse.title}" is now ${!course.isHidden ? 'hidden' : 'visible'}.` 
+                                        : `Курс «${translatedCourse.title}» теперь ${!course.isHidden ? 'скрыт' : 'виден всем'}.`
+                                    );
+                                  }
+                                }}
+                                className={`p-1.5 border border-transparent rounded-none transition cursor-pointer ${
+                                  course.isHidden 
+                                    ? 'text-rose-400 hover:text-rose-300' 
+                                    : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
+                                }`}
+                                title={
+                                  course.isHidden 
+                                    ? (language === 'en' ? 'Show course' : 'Показать курс') 
+                                    : (language === 'en' ? 'Hide course' : 'Скрыть курс')
+                                }
+                              >
+                                {course.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                              <button
+                                onClick={() => startEditCourse(course)}
+                                className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] border border-transparent rounded-none transition cursor-pointer"
+                                title={language === 'en' ? 'Edit course' : 'Редактировать курс'}
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCourseClick(course)}
+                                className="p-1.5 text-rose-500 hover:text-rose-600 hover:border-rose-500/30 border border-transparent rounded-none transition cursor-pointer"
+                                title={language === 'en' ? 'Delete course' : 'Удалить курс'}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
                   {courses.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center py-8 text-xs text-[var(--ink-dim)]">
+                      <td colSpan={8} className="text-center py-8 text-xs text-[var(--ink-dim)]">
                         {language === 'en' ? 'No intensive courses found.' : 'Интенсивные курсы не найдены.'}
                       </td>
                     </tr>

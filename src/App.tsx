@@ -388,9 +388,12 @@ const AppContent: React.FC = () => {
     loadData();
   }, [firebaseUser, userProfile]);
 
-  // Auto-sync / healing of available seats for group courses (run for Admins to keep database accurate)
+  // Auto-sync / healing of available seats for group courses
+  const bookingsDeps = bookings.map((b) => `${b.id}:${b.status}:${b.isDeleted}`).join(',');
+  const coursesDeps = courses.map((c) => `${c.id}:${c.totalSeats}:${c.availableSeats}`).join(',');
+
   useEffect(() => {
-    if (userProfile?.role !== 'admin' || bookings.length === 0 || courses.length === 0) return;
+    if (userProfile?.role !== 'admin' || courses.length === 0) return;
 
     const syncCourseSeats = async () => {
       let changed = false;
@@ -406,11 +409,14 @@ const AppContent: React.FC = () => {
         const realAvailableSeats = Math.max(0, course.totalSeats - activeBookings.length);
 
         if (course.availableSeats !== realAvailableSeats) {
-          console.log(`[Auto-Sync] Correcting seats for ${course.title}: stored=${course.availableSeats}, real=${realAvailableSeats}`);
+          console.log(`[Auto-Sync] Correcting seats for ${course.title}: local=${course.availableSeats}, real=${realAvailableSeats}`);
+          
+          updatedCourses[i] = { ...course, availableSeats: realAvailableSeats };
+          changed = true;
+
+          // If current user is Admin, also heal the database document so others get correct data
           try {
             await updateDoc(doc(db, 'courses', course.id), { availableSeats: realAvailableSeats });
-            updatedCourses[i] = { ...course, availableSeats: realAvailableSeats };
-            changed = true;
           } catch (err) {
             console.error(`Failed to auto-sync seats for course ${course.id}:`, err);
           }
@@ -423,7 +429,7 @@ const AppContent: React.FC = () => {
     };
 
     syncCourseSeats();
-  }, [userProfile?.role, bookings.length, courses.length]);
+  }, [userProfile?.role, bookingsDeps, coursesDeps]);
 
   // 3. Auto-complete past lessons
   useEffect(() => {
@@ -1423,7 +1429,12 @@ const AppContent: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {courses.filter(c => !c.isHidden).map((rawCourse) => {
+                    {[...courses].sort((a, b) => {
+                      const orderA = a.order !== undefined ? a.order : 999;
+                      const orderB = b.order !== undefined ? b.order : 999;
+                      if (orderA !== orderB) return orderA - orderB;
+                      return a.title.localeCompare(b.title);
+                    }).filter(c => !c.isHidden).map((rawCourse) => {
                       const course = translateCourse(rawCourse, language);
                       const isEnrolled = bookings.some(b => b.userId === userProfile?.uid && b.instructorId === `course_${course.id}` && b.status !== 'cancelled');
                       return (

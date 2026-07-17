@@ -674,14 +674,16 @@ const AppContent: React.FC = () => {
 
     // Create a new booking object
     const newBookingId = `booking_course_${Date.now()}`;
+    const [datePart, timePart] = course.dates.split(',').map(s => s.trim());
+
     const newBooking: Booking = {
       id: newBookingId,
       userId: userProfile.uid,
       instructorId: `course_${courseId}`,
       instructorName: `${course.title} (Group Course)`,
       instructorAvatar: course.bgImageUrl,
-      date: course.dates,
-      time: 'Group Schedule',
+      date: datePart || course.dates,
+      time: timePart || 'Group Schedule',
       durationHours: Number(course.duration.match(/\d+/)?.[0] || 10),
       totalPrice: course.price,
       status: 'confirmed',

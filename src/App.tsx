@@ -20,7 +20,7 @@ import {
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { UserProfile, Instructor, Booking, Review, Course } from './types';
 import { INITIAL_INSTRUCTORS, INITIAL_REVIEWS, INITIAL_COURSES } from './data';
-import { LanguageProvider, useLanguage, translateInstructor, translateCourse, translateInstructorName, parseCourseDates, parseDurationHours } from './lib/LanguageContext';
+import { LanguageProvider, useLanguage, translateInstructor, translateCourse, translateInstructorName, parseCourseDates, parseDurationHours, splitCourseDates } from './lib/LanguageContext';
 
 // Components
 import { NotificationProvider, useNotifications, NotificationHubModal } from './components/PushNotificationHub';
@@ -724,7 +724,7 @@ const AppContent: React.FC = () => {
 
     // Create a new booking object
     const newBookingId = `booking_course_${Date.now()}`;
-    const [datePart, timePart] = course.dates.split(',').map(s => s.trim());
+    const { datePart, timePart } = splitCourseDates(course.dates);
 
     const newBooking: Booking = {
       id: newBookingId,
@@ -1578,18 +1578,21 @@ const AppContent: React.FC = () => {
                             </div>
 
                             <div className="space-y-3 pt-2">
-                              <div className="flex justify-between items-center text-[10px] font-mono text-[var(--ink-dim)] border-t border-[var(--border)]/40 pt-3">
-                                <span>{language === 'en' ? 'Dates' : 'Даты'}:</span>
-                                <span className="text-[var(--ink)] font-bold">{course.dates.split(',')[0]}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-[10px] font-mono text-[var(--ink-dim)]">
-                                <span>{language === 'en' ? 'Time' : 'Время'}:</span>
-                                <span className="text-[var(--ink)] font-bold">
-                                  {(() => {
-                                    return course.dates.split(',')[1]?.trim() || 'N/A';
-                                  })()}
-                                </span>
-                              </div>
+                              {(() => {
+                                const { datePart, timePart } = splitCourseDates(course.dates);
+                                return (
+                                  <>
+                                    <div className="flex justify-between items-center text-[10px] font-mono text-[var(--ink-dim)] border-t border-[var(--border)]/40 pt-3">
+                                      <span>{language === 'en' ? 'Dates' : 'Даты'}:</span>
+                                      <span className="text-[var(--ink)] font-bold">{datePart}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-[10px] font-mono text-[var(--ink-dim)]">
+                                      <span>{language === 'en' ? 'Time' : 'Время'}:</span>
+                                      <span className="text-[var(--ink)] font-bold">{timePart}</span>
+                                    </div>
+                                  </>
+                                );
+                              })()}
                               <div className="flex justify-between items-center text-[10px] font-mono text-[var(--ink-dim)]">
                                 <span>{language === 'en' ? 'Available Seats' : 'Свободные места'}:</span>
                                 <span className={`font-bold ${course.availableSeats === 0 ? 'text-rose-500' : 'text-[var(--ink)]'}`}>

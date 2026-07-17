@@ -61,6 +61,15 @@ export function parseCourseDates(datesStr: string) {
         }
       }
 
+      // Copy month from startPart if endPart does not contain any English alphabetical characters (e.g. "December 1 - 5, 2026")
+      const endHasMonth = /[a-zA-Z]/.test(endPart);
+      if (!endHasMonth) {
+        const monthMatch = startPart.match(/([a-zA-Z]+)/);
+        if (monthMatch) {
+          endPart = `${monthMatch[1]} ${endPart}`;
+        }
+      }
+
       // Copy year from endPart if endPart contains a 4-digit number and startPart does not
       const yearMatch = endPart.match(/(\d{4})/);
       if (yearMatch && !startPart.includes(yearMatch[1])) {
@@ -95,6 +104,25 @@ export function parseDurationHours(durationStr: string, fallback: number = 1): n
     return Number(numbers.length > 1 ? numbers[1] : numbers[0]);
   }
   return fallback;
+}
+
+export function splitCourseDates(datesStr: string) {
+  if (!datesStr) return { datePart: '', timePart: 'Group Schedule' };
+  
+  // Find a time pattern like "09:00 - 13:00" or similar
+  const timeMatch = datesStr.match(/(\d{2}:\d{2}\s*-\s*\d{2}:\d{2})/);
+  if (timeMatch) {
+    const timePart = timeMatch[1];
+    // Remove the time part and any trailing/leading commas or spaces
+    let datePart = datesStr.replace(timePart, '').replace(/,\s*,/g, ',').trim();
+    // Clean up trailing comma
+    if (datePart.endsWith(',')) {
+      datePart = datePart.slice(0, -1).trim();
+    }
+    return { datePart, timePart };
+  }
+  
+  return { datePart: datesStr, timePart: 'Group Schedule' };
 }
 
 export function formatCourseDates(start: Date, end: Date, startTime: string, endTime: string, lang: 'en' | 'ru') {
@@ -268,7 +296,11 @@ export function translateCourse(course: Course, language: Language): Course {
     'Freeride & Powder Foundations': { en: 'Freeride & Powder Foundations', ru: 'Основы Фрирайда и Катания по Пухляку' },
     'Основы Фрирайда и Катания по Пухляку': { en: 'Freeride & Powder Foundations', ru: 'Основы Фрирайда и Катания по Пухляку' },
     'Snowboard Park & Freestyle Basics': { en: 'Snowboard Park & Freestyle Basics', ru: 'Сноуборд-Парк и Основы Фристайла' },
-    'Сноуборд-Парк и Основы Фристайла': { en: 'Snowboard Park & Freestyle Basics', ru: 'Сноуборд-Парк и Основы Фристайла' }
+    'Сноуборд-Парк и Основы Фристайла': { en: 'Snowboard Park & Freestyle Basics', ru: 'Сноуборд-Парк и Основы Фристайла' },
+    'Начинающие': { en: 'Beginners', ru: 'Начинающие' },
+    'Beginners': { en: 'Beginners', ru: 'Начинающие' },
+    'Совершенствование техники катания': { en: 'Technique Improvement', ru: 'Совершенствование техники катания' },
+    'Technique Improvement': { en: 'Technique Improvement', ru: 'Совершенствование техники катания' }
   };
 
   const durationsMap: Record<string, { en: string; ru: string }> = {
@@ -277,7 +309,14 @@ export function translateCourse(course: Course, language: Language): Course {
     '2 Days (8 Hours)': { en: '2 Days (8 Hours)', ru: '2 дня (8 часов)' },
     '2 дня (8 часов)': { en: '2 Days (8 Hours)', ru: '2 дня (8 часов)' },
     '4 Days (16 Hours)': { en: '4 Days (16 Hours)', ru: '4 дня (16 часов)' },
-    '4 дня (16 часов)': { en: '4 Days (16 Hours)', ru: '4 дня (16 часов)' }
+    '4 дня (16 часов)': { en: '4 Days (16 Hours)', ru: '4 дня (16 часов)' },
+    '5 Days (20 Hours)': { en: '5 Days (20 Hours)', ru: '5 дней (20 часов)' },
+    '5 дней (20 часов)': { en: '5 Days (20 Hours)', ru: '5 дней (20 часов)' },
+    '5 дней (20 ч.)': { en: '5 Days (20 Hours)', ru: '5 дней (20 часов)' },
+    '2 Days (14 Hours)': { en: '2 Days (14 Hours)', ru: '2 дня (14 часов)' },
+    '2 дня (14 часов)': { en: '2 Days (14 Hours)', ru: '2 дня (14 часов)' },
+    '2 дня (14 ч.)': { en: '2 Days (14 Hours)', ru: '2 дня (14 часов)' },
+    '4 дня (16 ч.)': { en: '4 Days (16 Hours)', ru: '4 дня (16 часов)' }
   };
 
   const descriptionsMap: Record<string, { en: string; ru: string }> = {
@@ -304,6 +343,26 @@ export function translateCourse(course: Course, language: Language): Course {
     'Освойте прыжки, перила, грэбы и вращения в нашем специализированном сноупарке под руководством бывших профессиональных спортсменов.': {
       en: 'Master jumps, rails, grabs, and spins in our specialized terrain park under the guidance of former athletes.',
       ru: 'Освойте прыжки, перила, грэбы и вращения в нашем специализированном сноупарке под руководством бывших профессиональных спортсменов.'
+    },
+    'Освойте с нуля уверенное, безопасное и техничное катание. Вы научитесь правильной стойке, балансу, торможению, поворотам и постепенно перейдёте к катанию на параллельных лыжах на более крутых склонах.': {
+      en: 'Master confident, safe, and technical skiing from scratch. Learn proper stance, balance, braking, turns, and gradually transition to parallel skiing on steeper slopes.',
+      ru: 'Освойте с нуля уверенное, безопасное и техничное катание. Вы научитесь правильной стойке, балансу, торможению, поворотам и постепенно перейдёте к катанию на параллельных лыжах на более крутых склонах.'
+    },
+    'Освоите с нуля уверенное, безопасное и техничное катание. Вы научитесь правильной стойке, балансу, торможению, поворотам и постепенно перейдёте к катанию на параллельных лыжах на более крутых склонах.': {
+      en: 'Master confident, safe, and technical skiing from scratch. Learn proper stance, balance, braking, turns, and gradually transition to parallel skiing on steeper slopes.',
+      ru: 'Освойте с нуля уверенное, безопасное и техничное катание. Вы научитесь правильной стойке, балансу, торможению, поворотам и постепенно перейдёте к катанию на параллельных лыжах на более крутых склонах.'
+    },
+    'Master confident, safe, and technical skiing from scratch. Learn proper stance, balance, braking, turns, and gradually transition to parallel skiing on steeper slopes.': {
+      en: 'Master confident, safe, and technical skiing from scratch. Learn proper stance, balance, braking, turns, and gradually transition to parallel skiing on steeper slopes.',
+      ru: 'Освойте с нуля уверенное, безопасное и техничное катание. Вы научитесь правильной стойке, балансу, торможению, поворотам и постепенно перейдёте к катанию на параллельных лыжах на более крутых склонах.'
+    },
+    'Курс поможет уверенным лыжникам сделать катание более техничным, стабильным и эффективным. Вы освоите современные техники карвинга, улучшите контроль лыж, баланс, работу стоп и уверенность на склонах любой сложности.': {
+      en: 'This course will help confident skiers make their skiing more technical, stable, and efficient. Master modern carving techniques, improve ski control, balance, footwork, and confidence on any slope.',
+      ru: 'Курс поможет уверенным лыжникам сделать катание более техничным, стабильным и эффективным. Вы освоите современные техники карвинга, улучшите контроль лыж, баланс, работу стоп и уверенность на склонах любой сложности.'
+    },
+    'This course will help confident skiers make their skiing more technical, stable, and efficient. Master modern carving techniques, improve ski control, balance, footwork, and confidence on any slope.': {
+      en: 'This course will help confident skiers make their skiing more technical, stable, and efficient. Master modern carving techniques, improve ski control, balance, footwork, and confidence on any slope.',
+      ru: 'Курс поможет уверенным лыжникам сделать катание более техничным, стабильным и эффективным. Вы освоите современные техники карвинга, улучшите контроль лыж, баланс, работу стоп и уверенность на склонах любой сложности.'
     }
   };
 
@@ -313,7 +372,21 @@ export function translateCourse(course: Course, language: Language): Course {
     'July 20 - July 21, 2026': { en: 'July 20 - July 21, 2026', ru: '20 июля - 21 июля 2026' },
     '20 июля - 21 июля 2026': { en: 'July 20 - July 21, 2026', ru: '20 июля - 21 июля 2026' },
     'July 24 - July 27, 2026': { en: 'July 24 - July 27, 2026', ru: '24 июля - 27 июля 2026' },
-    '24 июля - 27 июля 2026': { en: 'July 24 - July 27, 2026', ru: '24 июля - 27 июля 2026' }
+    '24 июля - 27 июля 2026': { en: 'July 24 - July 27, 2026', ru: '24 июля - 27 июля 2026' },
+    '1 - 5 Декабря 2026, 09:00 - 13:00': { en: 'December 1 - 5, 2026, 09:00 - 13:00', ru: '1 - 5 Декабря 2026, 09:00 - 13:00' },
+    'December 1 - 5, 2026, 09:00 - 13:00': { en: 'December 1 - 5, 2026, 09:00 - 13:00', ru: '1 - 5 Декабря 2026, 09:00 - 13:00' },
+    '1 - 5 Декабря 2026': { en: 'December 1 - 5, 2026', ru: '1 - 5 Декабря 2026' },
+    'December 1 - 5, 2026': { en: 'December 1 - 5, 2026', ru: '1 - 5 Декабря 2026' },
+    '23 - 27 Декабря 2026, 09:00 - 13:00': { en: 'December 23 - 27, 2026, 09:00 - 13:00', ru: '23 - 27 Декабря 2026, 09:00 - 13:00' },
+    'December 23 - 27, 2026, 09:00 - 13:00': { en: 'December 23 - 27, 2026, 09:00 - 13:00', ru: '23 - 27 Декабря 2026, 09:00 - 13:00' },
+    '23 - 27 Декабря 2026': { en: 'December 23 - 27, 2026', ru: '23 - 27 Декабря 2026' },
+    'December 23 - 27, 2026': { en: 'December 23 - 27, 2026', ru: '23 - 27 Декабря 2026' },
+    '19 - 20 Июля 2026, 09:00 - 16:00': { en: 'July 19 - 20, 2026, 09:00 - 16:00', ru: '19 - 20 Июля 2026, 09:00 - 16:00' },
+    'July 19 - 20, 2026, 09:00 - 16:00': { en: 'July 19 - 20, 2026, 09:00 - 16:00', ru: '19 - 20 Июля 2026, 09:00 - 16:00' },
+    '20 - 23 Июля 2026, 09:00 - 13:00': { en: 'July 20 - 23, 2026, 09:00 - 13:00', ru: '20 - 23 Июля 2026, 09:00 - 13:00' },
+    'July 20 - 23, 2026, 09:00 - 13:00': { en: 'July 20 - 23, 2026, 09:00 - 13:00', ru: '20 - 23 Июля 2026, 09:00 - 13:00' },
+    '3 - 7 Августа 2026, 09:00 - 13:00': { en: 'August 3 - 7, 2026, 09:00 - 13:00', ru: '3 - 7 Августа 2026, 09:00 - 13:00' },
+    'August 3 - 7, 2026, 09:00 - 13:00': { en: 'August 3 - 7, 2026, 09:00 - 13:00', ru: '3 - 7 Августа 2026, 09:00 - 13:00' }
   };
 
   let title = course.title;
@@ -322,13 +395,53 @@ export function translateCourse(course: Course, language: Language): Course {
   let dates = course.dates;
 
   const tMap = titlesMap[course.title] || titlesMap[course.title.trim()];
-  if (tMap) title = tMap[language];
+  if (tMap) {
+    title = tMap[language];
+  } else {
+    const lowerTitle = course.title.toLowerCase();
+    if (lowerTitle.includes('carving') || lowerTitle.includes('карвинг')) {
+      title = language === 'ru' ? 'Мастерство Карвинга Pro' : 'Carving Mastery Pro';
+    } else if (lowerTitle.includes('freeride') || lowerTitle.includes('фрирайд')) {
+      title = language === 'ru' ? 'Основы Фрирайда и Катания по Пухляку' : 'Freeride & Powder Foundations';
+    } else if (lowerTitle.includes('park') || lowerTitle.includes('сноуборд-парк')) {
+      title = language === 'ru' ? 'Сноуборд-Парк и Основы Фристайла' : 'Snowboard Park & Freestyle Basics';
+    } else if (lowerTitle.includes('начинающие') || lowerTitle.includes('beginners')) {
+      title = language === 'ru' ? 'Начинающие' : 'Beginners';
+    } else if (lowerTitle.includes('техники катания') || lowerTitle.includes('technique improvement')) {
+      title = language === 'ru' ? 'Совершенствование техники катания' : 'Technique Improvement';
+    }
+  }
 
   const durMap = durationsMap[course.duration] || durationsMap[course.duration.trim()];
   if (durMap) duration = durMap[language];
 
   const descMap = descriptionsMap[course.description] || descriptionsMap[course.description.trim()];
-  if (descMap) description = descMap[language];
+  if (descMap) {
+    description = descMap[language];
+  } else {
+    const lowerDesc = course.description.toLowerCase();
+    if (lowerDesc.includes('освойте с нуля') || lowerDesc.includes('освоите с нуля') || lowerDesc.includes('confident, safe, and technical skiing from scratch')) {
+      description = language === 'ru'
+        ? 'Освойте с нуля уверенное, безопасное и техничное катание. Вы научитесь правильной стойке, балансу, торможению, поворотам и постепенно перейдёте к катанию на параллельных лыжах на более крутых склонах.'
+        : 'Master confident, safe, and technical skiing from scratch. Learn proper stance, balance, braking, turns, and gradually transition to parallel skiing on steeper slopes.';
+    } else if (lowerDesc.includes('курс поможет уверенным') || lowerDesc.includes('this course will help confident')) {
+      description = language === 'ru'
+        ? 'Курс поможет уверенным лыжникам сделать катание более техничным, стабильным и эффективным. Вы освоите современные техники карвинга, улучшите контроль лыж, баланс, работу стоп и уверенность на склонах любой сложности.'
+        : 'This course will help confident skiers make their skiing more technical, stable, and efficient. Master modern carving techniques, improve ski control, balance, footwork, and confidence on any slope.';
+    } else if (lowerDesc.includes('unlock maximum speed') || lowerDesc.includes('освойте максимальную скорость')) {
+      description = language === 'ru'
+        ? 'Освойте максимальную скорость и идеальный контроль канта на высоких скоростях. Разработано для продвинутых лыжников.'
+        : 'Unlock maximum speed and perfect edge control on high-velocity slopes. Designed for advanced skiers.';
+    } else if (lowerDesc.includes('learn to navigate deep') || lowerDesc.includes('научитесь кататься по глубокому')) {
+      description = language === 'ru'
+        ? 'Научитесь кататься по глубокому пухляку, выбирать безопасные маршруты и освойте основы лавинной безопасности. Лыжи или сноуборд.'
+        : 'Learn to navigate deep powder, select safe mountain lines, and master avalanche safety basics. Ski or Snowboard.';
+    } else if (lowerDesc.includes('master jumps, rails') || lowerDesc.includes('освойте прыжки, перила')) {
+      description = language === 'ru'
+        ? 'Освойте прыжки, перила, грэбы и вращения в нашем специализированном сноупарке под руководством бывших профессиональных спортсменов.'
+        : 'Master jumps, rails, grabs, and spins in our specialized terrain park under the guidance of former athletes.';
+    }
+  }
 
   const dMap = datesMap[course.dates] || datesMap[course.dates.trim()];
   if (dMap) {
@@ -361,7 +474,7 @@ export function translateCourse(course: Course, language: Language): Course {
       duration = `${daysNum} ${dayWord} (${hoursNum} ${hourWord})`;
     }
   } else {
-    const matchesRu = duration.match(/^(\d+)\s*(день|дня|дней)\s*\((\d+)\s*(час|часа|часов)\)$/i);
+    const matchesRu = duration.match(/^(\d+)\s*(день|дня|дней)\s*\((\d+)\s*(час|часа|часов|ч\.?)\)$/i);
     if (matchesRu) {
       const daysNum = matchesRu[1];
       const hoursNum = matchesRu[3];

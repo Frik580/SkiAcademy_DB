@@ -33,7 +33,7 @@ import {
   ArrowDown
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
-import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, formatCourseDates, parseDurationHours } from '../lib/LanguageContext';
+import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, formatCourseDates, parseDurationHours, splitCourseDates } from '../lib/LanguageContext';
 
 interface AdminPanelProps {
   instructors: Instructor[];
@@ -230,13 +230,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           totalPrice = liveCourse.price;
           
           if (translated.dates) {
-            if (translated.dates.includes(',')) {
-              const parts = translated.dates.split(',').map(s => s.trim());
-              date = parts[0];
-              time = parts[1] || 'Group Schedule';
-            } else {
-              date = translated.dates;
-            }
+            const { datePart, timePart } = splitCourseDates(translated.dates);
+            date = datePart;
+            time = timePart;
           }
         }
       } else {

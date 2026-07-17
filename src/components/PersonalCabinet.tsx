@@ -19,7 +19,7 @@ import {
   Bell
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
-import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, parseDurationHours } from '../lib/LanguageContext';
+import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, parseDurationHours, splitCourseDates } from '../lib/LanguageContext';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
 
 interface PersonalCabinetProps {
@@ -137,14 +137,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           notes = `${language === 'en' ? 'Group Course enrollment' : 'Запись на групповой курс'}: ${translated.description}`;
           
           if (translated.dates) {
-            if (translated.dates.includes(',')) {
-              const parts = translated.dates.split(',').map(s => s.trim());
-              date = parts[0];
-              time = parts[1] || 'Group Schedule';
-            } else {
-              date = translated.dates;
-              time = 'Group Schedule';
-            }
+            const { datePart, timePart } = splitCourseDates(translated.dates);
+            date = datePart;
+            time = timePart;
           }
         } else {
           if (name.includes('(Group Course)') || name.includes('(Групповой курс)')) {
@@ -153,10 +148,10 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             const translated = translateCourse(dummyCourse, language);
             name = language === 'ru' ? `${translated.title} (Групповой курс)` : `${translated.title} (Group Course)`;
           }
-          if (time === 'Group Schedule' && date.includes(',')) {
-            const parts = date.split(',').map(s => s.trim());
-            date = parts[0];
-            time = parts[1] || time;
+          if (time === 'Group Schedule') {
+            const { datePart, timePart } = splitCourseDates(date);
+            date = datePart;
+            time = timePart;
           }
         }
       } else {
@@ -1093,10 +1088,10 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               let displayDate = b.date;
               let displayTime = b.time;
 
-              if (isCourse && b.time === 'Group Schedule' && b.date.includes(',')) {
-                const parts = b.date.split(',').map(s => s.trim());
-                displayDate = parts[0];
-                displayTime = parts[1] || displayTime;
+              if (isCourse && b.time === 'Group Schedule') {
+                const { datePart, timePart } = splitCourseDates(b.date);
+                displayDate = datePart;
+                displayTime = timePart;
               }
 
               return (

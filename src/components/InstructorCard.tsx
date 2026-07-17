@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import { Instructor } from '../types';
 import { Star, Globe } from 'lucide-react';
 import { useLanguage } from '../lib/LanguageContext';
@@ -9,47 +10,54 @@ interface InstructorCardProps {
   onViewReviews?: (instructor: Instructor) => void;
 }
 
-export const InstructorCard: React.FC<InstructorCardProps> = ({ instructor, onBook, onViewReviews }) => {
-  const { t, language } = useLanguage();
+export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardProps>(
+  ({ instructor, onBook, onViewReviews }, ref) => {
+    const { t, language } = useLanguage();
 
-  const getSpecialtyLabel = (spec: Instructor['specialty']) => {
-    if (language === 'ru') {
-      switch (spec) {
-        case 'ski': return 'Лыжи';
-        case 'snowboard': return 'Сноуборд';
-        case 'both': return 'Лыжи и Сноуборд';
+    const getSpecialtyLabel = (spec: Instructor['specialty']) => {
+      if (language === 'ru') {
+        switch (spec) {
+          case 'ski': return 'Лыжи';
+          case 'snowboard': return 'Сноуборд';
+          case 'both': return 'Лыжи и Сноуборд';
+        }
       }
-    }
-    switch (spec) {
-      case 'ski': return 'Ski';
-      case 'snowboard': return 'Snowboard';
-      case 'both': return 'Ski & Board';
-    }
-  };
+      switch (spec) {
+        case 'ski': return 'Ski';
+        case 'snowboard': return 'Snowboard';
+        case 'both': return 'Ski & Board';
+      }
+    };
 
-  const getLanguageLabel = (lang: string) => {
-    if (language === 'ru') {
-      const mapping: { [key: string]: string } = {
-        'English': 'Англ',
-        'German': 'Нем',
-        'French': 'Франц',
-        'Russian': 'Рус',
-        'Italian': 'Итал',
-        'Spanish': 'Исп'
-      };
-      return mapping[lang] || lang;
-    }
-    return lang.substring(0, 3);
-  };
+    const getLanguageLabel = (lang: string) => {
+      if (language === 'ru') {
+        const mapping: { [key: string]: string } = {
+          'English': 'Англ',
+          'German': 'Нем',
+          'French': 'Франц',
+          'Russian': 'Рус',
+          'Italian': 'Итал',
+          'Spanish': 'Исп'
+        };
+        return mapping[lang] || lang;
+      }
+      return lang.substring(0, 3);
+    };
 
-  const specialtyText = getSpecialtyLabel(instructor.specialty);
+    const specialtyText = getSpecialtyLabel(instructor.specialty);
 
-  return (
-    <div 
-      className={`border-b border-[var(--border)] py-6 flex flex-col md:grid md:grid-cols-[100px_1fr_180px_200px] items-center gap-6 transition duration-300 group ${
-        !instructor.isAvailable ? 'opacity-60' : ''
-      }`}
-    >
+    return (
+      <motion.div 
+        ref={ref}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -12 }}
+        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        layout="position"
+        className={`border-b border-[var(--border)] py-6 flex flex-col md:grid md:grid-cols-[100px_1fr_180px_200px] items-center gap-6 transition duration-300 group ${
+          !instructor.isAvailable ? 'opacity-60' : ''
+        }`}
+      >
       {/* 1. Grayscale Image */}
       <div className="relative w-24 h-24 md:w-20 md:h-20 bg-slate-900 rounded-none overflow-hidden shrink-0 border border-[var(--border)]">
         <img
@@ -128,6 +136,7 @@ export const InstructorCard: React.FC<InstructorCardProps> = ({ instructor, onBo
           </button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
-};
+});
+InstructorCard.displayName = 'InstructorCard';

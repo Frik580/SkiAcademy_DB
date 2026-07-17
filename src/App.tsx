@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { 
   auth, 
   db, 
@@ -12,12 +13,13 @@ import {
   collection, 
   getDocs,
   query,
+  where,
   OperationType
 } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { UserProfile, Instructor, Booking, Review, Course } from './types';
 import { INITIAL_INSTRUCTORS, INITIAL_REVIEWS, INITIAL_COURSES } from './data';
-import { LanguageProvider, useLanguage, translateInstructor, translateCourse, translateInstructorName } from './lib/LanguageContext';
+import { LanguageProvider, useLanguage, translateInstructor, translateCourse, translateInstructorName, parseCourseDates } from './lib/LanguageContext';
 
 // Components
 import { NotificationProvider, useNotifications, NotificationHubModal } from './components/PushNotificationHub';
@@ -386,9 +388,12 @@ const AppContent: React.FC = () => {
     loadData();
   }, [firebaseUser, userProfile]);
 
-  // Auto-sync / healing of available seats for group courses (run for Admins to keep database accurate)
+  // Auto-sync / healing of available seats for group courses
+  const bookingsDeps = bookings.map((b) => `${b.id}:${b.status}:${b.isDeleted}`).join(',');
+  const coursesDeps = courses.map((c) => `${c.id}:${c.totalSeats}:${c.availableSeats}`).join(',');
+
   useEffect(() => {
-    if (userProfile?.role !== 'admin' || bookings.length === 0 || courses.length === 0) return;
+    if (userProfile?.role !== 'admin' || courses.length === 0) return;
 
     const syncCourseSeats = async () => {
       let changed = false;
@@ -404,11 +409,14 @@ const AppContent: React.FC = () => {
         const realAvailableSeats = Math.max(0, course.totalSeats - activeBookings.length);
 
         if (course.availableSeats !== realAvailableSeats) {
-          console.log(`[Auto-Sync] Correcting seats for ${course.title}: stored=${course.availableSeats}, real=${realAvailableSeats}`);
+          console.log(`[Auto-Sync] Correcting seats for ${course.title}: local=${course.availableSeats}, real=${realAvailableSeats}`);
+          
+          updatedCourses[i] = { ...course, availableSeats: realAvailableSeats };
+          changed = true;
+
+          // If current user is Admin, also heal the database document so others get correct data
           try {
             await updateDoc(doc(db, 'courses', course.id), { availableSeats: realAvailableSeats });
-            updatedCourses[i] = { ...course, availableSeats: realAvailableSeats };
-            changed = true;
           } catch (err) {
             console.error(`Failed to auto-sync seats for course ${course.id}:`, err);
           }
@@ -421,7 +429,7 @@ const AppContent: React.FC = () => {
     };
 
     syncCourseSeats();
-  }, [userProfile?.role, bookings.length, courses.length]);
+  }, [userProfile?.role, bookingsDeps, coursesDeps]);
 
   // 3. Auto-complete past lessons
   useEffect(() => {
@@ -1421,7 +1429,12 @@ const AppContent: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {courses.filter(c => !c.isHidden).map((rawCourse) => {
+                    {[...courses].sort((a, b) => {
+                      const orderA = a.order !== undefined ? a.order : 999;
+                      const orderB = b.order !== undefined ? b.order : 999;
+                      if (orderA !== orderB) return orderA - orderB;
+                      return a.title.localeCompare(b.title);
+                    }).filter(c => !c.isHidden).map((rawCourse) => {
                       const course = translateCourse(rawCourse, language);
                       const isEnrolled = bookings.some(b => b.userId === userProfile?.uid && b.instructorId === `course_${course.id}` && b.status !== 'cancelled');
                       return (
@@ -1578,26 +1591,28 @@ const AppContent: React.FC = () => {
                     </div>
                   ) : (
                     <div className="flex flex-col">
-                      {filteredInstructors.map((ins: Instructor) => (
-                        <InstructorCard
-                          key={ins.id}
-                          instructor={ins}
-                          onBook={(i) => {
-                            if (!userProfile) {
-                              addNotification(
-                                'warning',
-                                language === 'en' ? 'Sign In Required' : 'Требуется войти',
-                                language === 'en'
-                                  ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.'
-                                  : 'Войдите, чтобы бронировать инструкторов, пополнять кошелек и видеть расписание.'
-                              );
-                              return;
-                            }
-                            setSelectedInstructor(i);
-                          }}
-                          onViewReviews={(i) => setReviewsInstructor(i)}
-                        />
-                      ))}
+                      <AnimatePresence mode="popLayout">
+                        {filteredInstructors.map((ins: Instructor) => (
+                          <InstructorCard
+                            key={ins.id}
+                            instructor={ins}
+                            onBook={(i) => {
+                              if (!userProfile) {
+                                addNotification(
+                                  'warning',
+                                  language === 'en' ? 'Sign In Required' : 'Требуется войти',
+                                  language === 'en'
+                                    ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.'
+                                    : 'Войдите, чтобы бронировать инструкторов, пополнять кошелек и видеть расписание.'
+                                );
+                                return;
+                              }
+                              setSelectedInstructor(i);
+                            }}
+                            onViewReviews={(i) => setReviewsInstructor(i)}
+                          />
+                        ))}
+                      </AnimatePresence>
                     </div>
                   )}
                 </div>
@@ -1609,89 +1624,261 @@ const AppContent: React.FC = () => {
             <aside className="lg:col-start-3 border-t lg:border-t-0 lg:border-l border-[var(--border)] p-6 bg-[var(--profile-bg)] space-y-6 flex flex-col justify-start lg:h-full lg:overflow-y-auto shrink-0">
               {userProfile ? (
                 <>
-                  {/* Calendar Strip */}
-                  <div className="space-y-3 pb-6 border-b border-[var(--border)]">
-                    <div className="flex justify-between items-center text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
-                      <span>Schedule • July 2026</span>
-                    </div>
-                    <div className="grid grid-cols-7 gap-1">
-                      {/* Generate 7 days around July 12, 2026 */}
-                      {[12, 13, 14, 15, 16, 17, 18].map((day) => {
-                        const dateStr = `2026-07-${day}`;
-                        // Check if user has a booking on this date
-                        const hasBooking = bookings.some(b => b.userId === userProfile?.uid && b.date === dateStr && b.status !== 'cancelled' && b.status !== 'completed' && !b.userId?.startsWith('system_block_'));
-                        return (
-                          <div 
-                            key={day} 
-                            className={`text-center py-2 text-[10px] border font-mono transition duration-300 ${
-                              hasBooking 
-                                ? 'bg-[var(--ink)] text-[var(--bg)] font-bold border-[var(--ink)]' 
-                                : 'border-[var(--border)] text-[var(--ink-dim)] hover:border-[var(--ink)]'
-                            }`}
-                            title={hasBooking ? 'Booked lesson' : 'No lessons'}
-                          >
-                            {day}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Active Session details block */}
-                  <div className="p-4 border border-[var(--border)] bg-black/30 space-y-4">
-                    <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--ink-dim)] block">
-                      Active Session
-                    </span>
-                    {(() => {
-                      const activeBooking = bookings.find(b => b.userId === userProfile?.uid && (b.status === 'confirmed' || b.status === 'pending') && !b.userId?.startsWith('system_block_'));
-                      if (activeBooking) {
-                        return (
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-none overflow-hidden bg-slate-900 border border-[var(--border)] shrink-0">
-                                <img src={activeBooking.instructorAvatar} alt={activeBooking.instructorName} className="w-full h-full object-cover filter grayscale" />
-                              </div>
-                              <div>
-                                <h3 className="font-serif text-base text-[var(--ink)] leading-none">{activeBooking.instructorName}</h3>
-                                <p className="text-[10px] font-mono text-[var(--ink-dim)] mt-1.5 uppercase tracking-wider">
-                                  {activeBooking.difficulty} • {activeBooking.durationHours}h
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex justify-between items-center pt-2 border-t border-[var(--border)]">
-                              <span className="font-mono text-[10px] text-[var(--ink)]">Paid ${activeBooking.totalPrice}</span>
-                              <span className={`font-mono text-[8px] px-2 py-0.5 uppercase font-bold tracking-widest border ${
-                                activeBooking.status === 'confirmed' 
-                                  ? 'border-emerald-500/40 text-emerald-400 bg-emerald-950/30' 
-                                  : 'border-amber-500/40 text-amber-400 bg-amber-950/30'
-                              }`}>
-                                {activeBooking.status}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      } else {
-                        return (
-                          <div className="py-2 text-center">
-                            <p className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider">
-                              {language === 'en' 
-                                ? 'No sessions scheduled' 
-                                : 'Занятий не запланировано'}
-                            </p>
-                            <p 
-                              onClick={() => {
-                                const gridEl = document.getElementById('coaches-grid');
-                                if (gridEl) gridEl.scrollIntoView({ behavior: 'smooth' });
-                              }}
-                              className="text-[10px] font-mono text-indigo-400 mt-2 hover:underline cursor-pointer uppercase tracking-wider"
-                            >
-                              {language === 'en' ? 'Book a guide →' : 'Выбрать гида →'}
-                            </p>
-                          </div>
-                        );
+                  {/* Calendar Strip & Upcoming Sessions */}
+                  {(() => {
+                    const isBookingOnDate = (b: any, dateStr: string) => {
+                      if (b.status === 'cancelled' || b.status === 'completed' || b.userId?.startsWith('system_block_')) {
+                        return false;
                       }
-                    })()}
-                  </div>
+                      if (b.instructorId.startsWith('course_')) {
+                        const courseId = b.instructorId.substring('course_'.length);
+                        const course = courses.find(c => c.id === courseId);
+                        const datesToParse = course ? course.dates : b.date;
+                        const parsed = parseCourseDates(datesToParse);
+                        const startY = parsed.start.getFullYear();
+                        const startM = String(parsed.start.getMonth() + 1).padStart(2, '0');
+                        const startD = String(parsed.start.getDate()).padStart(2, '0');
+                        const startDateStr = `${startY}-${startM}-${startD}`;
+
+                        const endY = parsed.end.getFullYear();
+                        const endM = String(parsed.end.getMonth() + 1).padStart(2, '0');
+                        const endD = String(parsed.end.getDate()).padStart(2, '0');
+                        const endDateStr = `${endY}-${endM}-${endD}`;
+
+                        return dateStr >= startDateStr && dateStr <= endDateStr;
+                      } else {
+                        return b.date === dateStr;
+                      }
+                    };
+
+                    const todayDate = new Date();
+                    const upcomingSevenDays: string[] = [];
+                    const upcomingDaysNumbers: { day: number; dateStr: string }[] = [];
+
+                    for (let i = 0; i < 7; i++) {
+                      const d = new Date();
+                      d.setDate(todayDate.getDate() + i);
+                      const y = d.getFullYear();
+                      const m = String(d.getMonth() + 1).padStart(2, '0');
+                      const dayVal = d.getDate();
+                      const dateStr = `${y}-${m}-${String(dayVal).padStart(2, '0')}`;
+                      upcomingSevenDays.push(dateStr);
+                      upcomingDaysNumbers.push({ day: dayVal, dateStr });
+                    }
+
+                    const getMonthYearHeader = () => {
+                      const monthName = todayDate.toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US', { month: 'long' });
+                      const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+                      const year = todayDate.getFullYear();
+                      return language === 'en' ? `Schedule • ${capitalizedMonth} ${year}` : `Расписание • ${capitalizedMonth} ${year}`;
+                    };
+
+                    return (
+                      <>
+                        <div className="space-y-3 pb-6 border-b border-[var(--border)]">
+                          <div className="flex justify-between items-center text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
+                            <span>{getMonthYearHeader()}</span>
+                          </div>
+                          <div className="grid grid-cols-7 gap-1">
+                            {/* Generate 7 days starting dynamically from today */}
+                            {upcomingDaysNumbers.map(({ day, dateStr }) => {
+                              // Check if user has a booking on this date
+                              const hasBooking = bookings.some(b => b.userId === userProfile?.uid && isBookingOnDate(b, dateStr));
+                              return (
+                                <div 
+                                  key={dateStr} 
+                                  className={`text-center py-2 text-[10px] border font-mono transition duration-300 ${
+                                    hasBooking 
+                                      ? 'bg-[var(--ink)] text-[var(--bg)] font-bold border-[var(--ink)]' 
+                                      : 'border-[var(--border)] text-[var(--ink-dim)] hover:border-[var(--ink)]'
+                                  }`}
+                                  title={hasBooking ? (language === 'en' ? 'Booked lesson' : 'Забронировано занятие') : (language === 'en' ? 'No lessons' : 'Нет занятий')}
+                                >
+                                  {day}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Nearest lessons or courses within the next 7 days */}
+                        <div className="p-4 border border-[var(--border)] bg-black/30 space-y-4">
+                          <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--ink-dim)] block">
+                            {language === 'en' ? 'Upcoming Sessions (7 Days)' : 'Ближайшие занятия (7 дней)'}
+                          </span>
+                          {(() => {
+                            const activeBookings = bookings.filter(b => 
+                              b.userId === userProfile?.uid && 
+                              (b.status === 'confirmed' || b.status === 'pending') && 
+                              !b.userId?.startsWith('system_block_') &&
+                              upcomingSevenDays.some(dayStr => isBookingOnDate(b, dayStr))
+                            );
+                            
+                            const sortedActiveBookings = [...activeBookings].sort((a, b) => {
+                              let aDate = a.date;
+                              let bDate = b.date;
+                              if (a.instructorId.startsWith('course_')) {
+                                const courseId = a.instructorId.substring('course_'.length);
+                                const course = courses.find(c => c.id === courseId);
+                                const parsed = parseCourseDates(course ? course.dates : a.date);
+                                const startY = parsed.start.getFullYear();
+                                const startM = String(parsed.start.getMonth() + 1).padStart(2, '0');
+                                const startD = String(parsed.start.getDate()).padStart(2, '0');
+                                aDate = `${startY}-${startM}-${startD}`;
+                              }
+                              if (b.instructorId.startsWith('course_')) {
+                                const courseId = b.instructorId.substring('course_'.length);
+                                const course = courses.find(c => c.id === courseId);
+                                const parsed = parseCourseDates(course ? course.dates : b.date);
+                                const startY = parsed.start.getFullYear();
+                                const startM = String(parsed.start.getMonth() + 1).padStart(2, '0');
+                                const startD = String(parsed.start.getDate()).padStart(2, '0');
+                                bDate = `${startY}-${startM}-${startD}`;
+                              }
+                              
+                              if (aDate !== bDate) {
+                                return aDate.localeCompare(bDate);
+                              }
+                              return a.time.localeCompare(b.time);
+                            });
+
+                            const getDifficultyLabelShort = (diff: string) => {
+                              if (language === 'ru') {
+                                switch (diff.toLowerCase()) {
+                                  case 'beginner': return 'Новичок';
+                                  case 'intermediate': return 'Средний';
+                                  case 'advanced': return 'Продвинутый';
+                                  case 'freeride': return 'Фрирайд';
+                                  case 'freestyle': return 'Фристайл';
+                                  default: return diff;
+                                }
+                              }
+                              return diff.charAt(0).toUpperCase() + diff.slice(1);
+                            };
+
+                            const formatBookingDate = (bObj: any) => {
+                              if (bObj.instructorId.startsWith('course_')) {
+                                const courseId = bObj.instructorId.substring('course_'.length);
+                                const course = courses.find(c => c.id === courseId);
+                                const rawDates = course ? course.dates : bObj.date;
+                                const parsed = parseCourseDates(rawDates);
+                                
+                                const startDay = parsed.start.getDate();
+                                const startMonth = parsed.start.getMonth() + 1;
+                                const endDay = parsed.end.getDate();
+                                const endMonth = parsed.end.getMonth() + 1;
+                                
+                                if (language === 'ru') {
+                                  const monthsRu = [
+                                    'янв', 'фев', 'мар', 'апр', 'май', 'июн', 
+                                    'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'
+                                  ];
+                                  const startMonthName = monthsRu[startMonth - 1] || 'июл';
+                                  const endMonthName = monthsRu[endMonth - 1] || 'июл';
+                                  if (startMonth === endMonth) {
+                                    return `${startDay}-${endDay} ${startMonthName}`;
+                                  } else {
+                                    return `${startDay} ${startMonthName} - ${endDay} ${endMonthName}`;
+                                  }
+                                } else {
+                                  const monthsEn = [
+                                    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+                                  ];
+                                  const startMonthName = monthsEn[startMonth - 1] || 'Jul';
+                                  const endMonthName = monthsEn[endMonth - 1] || 'Jul';
+                                  if (startMonth === endMonth) {
+                                    return `${startMonthName} ${startDay}-${endDay}`;
+                                  } else {
+                                    return `${startMonthName} ${startDay} - ${endMonthName} ${endDay}`;
+                                  }
+                                }
+                              } else {
+                                const [, monthStr, dayStr] = bObj.date.split('-');
+                                const day = parseInt(dayStr, 10);
+                                const month = parseInt(monthStr, 10);
+                                if (language === 'ru') {
+                                  const monthsRu = [
+                                    'янв', 'фев', 'мар', 'апр', 'май', 'июн', 
+                                    'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'
+                                  ];
+                                  const monthName = monthsRu[month - 1] || 'июл';
+                                  return `${day} ${monthName} в ${bObj.time}`;
+                                } else {
+                                  const monthsEn = [
+                                    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+                                  ];
+                                  const monthName = monthsEn[month - 1] || 'Jul';
+                                  return `${monthName} ${day} at ${bObj.time}`;
+                                }
+                              }
+                            };
+
+                            if (sortedActiveBookings.length > 0) {
+                              return (
+                                <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
+                                  {sortedActiveBookings.map((b) => {
+                                    let displayInstructorName = b.instructorName;
+                                    if (displayInstructorName.includes('(Group Course)') || displayInstructorName.includes('(Групповой курс)')) {
+                                      const cleanTitle = displayInstructorName.replace(/\s*\(Group Course\)/i, '').replace(/\s*\(Групповой курс\)/i, '').trim();
+                                      const dummyCourse = { id: '', title: cleanTitle, duration: '', description: '', dates: '', totalSeats: 0, availableSeats: 0, price: 0, bgImageUrl: '' };
+                                      const translated = translateCourse(dummyCourse, language);
+                                      displayInstructorName = language === 'ru' ? `${translated.title} (Групповой курс)` : `${translated.title} (Group Course)`;
+                                    } else {
+                                      displayInstructorName = translateInstructorName(displayInstructorName, language);
+                                    }
+
+                                    return (
+                                      <div key={b.id} className="space-y-3 pb-3 border-b border-[var(--border)] last:pb-0 last:border-b-0">
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-8 h-8 rounded-none overflow-hidden bg-slate-900 border border-[var(--border)] shrink-0">
+                                            <img src={b.instructorAvatar} alt={displayInstructorName} className="w-full h-full object-cover filter grayscale" />
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <h3 className="font-serif text-sm text-[var(--ink)] leading-none truncate">{displayInstructorName}</h3>
+                                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1">
+                                              <p className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
+                                                {getDifficultyLabelShort(b.difficulty)} • {b.durationHours}{language === 'en' ? 'h' : 'ч'}
+                                              </p>
+                                              <span className="text-[9px] font-mono text-[var(--ink-dim)]">•</span>
+                                              <p className="text-[9px] font-mono text-indigo-400 font-medium">
+                                                {formatBookingDate(b)}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="flex justify-between items-center pt-1 border-t border-[var(--border)]/30">
+                                          <span className="font-mono text-[9px] text-[var(--ink)]">
+                                            {language === 'en' ? `Paid $${b.totalPrice}` : `Оплачено $${b.totalPrice}`}
+                                          </span>
+                                          <span className={`font-mono text-[7px] px-1.5 py-0.5 uppercase font-bold tracking-widest border ${
+                                            b.status === 'confirmed' 
+                                              ? 'border-emerald-500/40 text-emerald-400 bg-emerald-950/30' 
+                                              : 'border-amber-500/40 text-amber-400 bg-amber-950/30'
+                                          }`}>
+                                            {b.status === 'confirmed' 
+                                              ? (language === 'en' ? 'Confirmed' : 'Подтверждено')
+                                              : (language === 'en' ? 'Pending' : 'Ожидает')}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <p className="text-[10px] text-[var(--ink-dim)] text-center py-4">
+                                  {language === 'en' ? 'No sessions scheduled for this week.' : 'Нет занятий, запланированных на эту неделю.'}
+                                </p>
+                              );
+                            }
+                          })()}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </>
               ) : (
                 /* Logged-out state: show Auth component inside Right Sidebar! */
@@ -1781,3 +1968,4 @@ export const App: React.FC = () => {
     </LanguageProvider>
   );
 };
+

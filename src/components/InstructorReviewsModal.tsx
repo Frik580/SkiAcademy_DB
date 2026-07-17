@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Instructor, Review } from '../types';
 import { X, Star, MessageSquare, Calendar, User } from 'lucide-react';
 import { useLanguage } from '../lib/LanguageContext';
@@ -17,17 +18,25 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
   reviews,
 }) => {
   const { language } = useLanguage();
+  const [activeInstructor, setActiveInstructor] = React.useState<Instructor | null>(instructor);
 
-  if (!isOpen || !instructor) return null;
+  React.useEffect(() => {
+    if (instructor) {
+      setActiveInstructor(instructor);
+    }
+  }, [instructor]);
+
+  const targetInstructor = activeInstructor || instructor;
+  if (!targetInstructor) return null;
 
   // Filter reviews for this instructor
-  const instructorReviews = reviews.filter((r) => r.instructorId === instructor.id);
+  const instructorReviews = reviews.filter((r) => r.instructorId === targetInstructor.id);
 
   // Calculate stats
   const totalReviews = instructorReviews.length;
   const avgRating = totalReviews > 0
     ? (instructorReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
-    : instructor.rating.toFixed(1);
+    : targetInstructor.rating.toFixed(1);
 
   // Distribution of stars
   const ratingDistribution = [0, 0, 0, 0, 0]; // 1 to 5 stars
@@ -37,23 +46,37 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in">
-      <div className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-xl overflow-hidden animate-scale-up transition-colors duration-300 flex flex-col max-h-[85vh] rounded-none">
+    <AnimatePresence>
+      {isOpen && targetInstructor && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4"
+        >
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-xl overflow-hidden transition-colors duration-300 flex flex-col max-h-[85vh] rounded-none"
+          >
         
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 overflow-hidden bg-black/15 border border-[var(--border)] rounded-none shrink-0 filter grayscale">
-              <img src={instructor.avatarUrl} alt={instructor.name} className="w-full h-full object-cover" />
+              <img src={targetInstructor.avatarUrl} alt={targetInstructor.name} className="w-full h-full object-cover" />
             </div>
             <div>
               <h3 className="font-serif text-lg font-light text-[var(--ink)]">
-                {language === 'en' ? `Reviews for ${instructor.name}` : `Отзывы об инструкторе ${instructor.name}`}
+                {language === 'en' ? `Reviews for ${targetInstructor.name}` : `Отзывы об инструкторе ${targetInstructor.name}`}
               </h3>
               <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5">
                 {language === 'en' 
-                  ? `${instructor.experienceYears} years of coaching experience` 
-                  : `${instructor.experienceYears} лет тренерского стажа`}
+                  ? `${targetInstructor.experienceYears} years of coaching experience` 
+                  : `${targetInstructor.experienceYears} лет тренерского стажа`}
               </p>
             </div>
           </div>
@@ -192,7 +215,9 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
             {language === 'en' ? 'Close' : 'Закрыть'}
           </button>
         </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

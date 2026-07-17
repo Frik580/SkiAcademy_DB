@@ -661,6 +661,15 @@ export const translations = {
     addInstructorSubmit: "Add Instructor",
     saving: "Saving...",
 
+    // New keys for mobile Navbar/Theme
+    switchToDark: "Switch to Dark",
+    switchToLight: "Switch to Light",
+    switchLanguage: "Switch language",
+    notifications: "Notifications",
+    lightTheme: "Light Theme",
+    darkTheme: "Dark Theme",
+    languageLabel: "Language",
+
     // System status / fallback
     dbRestricted: "Database sync restricted. Using active sandboxed state.",
     checkingCredentials: "Checking Lift Credentials...",
@@ -834,6 +843,15 @@ export const translations = {
     pricePerHourLabel: "Цена за час ($)",
     addInstructorSubmit: "Добавить инструктора",
     saving: "Сохранение...",
+
+    // New keys for mobile Navbar/Theme
+    switchToDark: "Переключить на темную тему",
+    switchToLight: "Переключить на светлую тему",
+    switchLanguage: "Сменить язык",
+    notifications: "Уведомления",
+    lightTheme: "Светлая тема",
+    darkTheme: "Темная тема",
+    languageLabel: "Язык",
 
     // System status / fallback
     dbRestricted: "Синхронизация БД ограничена. Используется локальное состояние песочницы.",

@@ -33,7 +33,7 @@ import {
   ArrowDown
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
-import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, formatCourseDates } from '../lib/LanguageContext';
+import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, formatCourseDates, parseDurationHours } from '../lib/LanguageContext';
 
 interface AdminPanelProps {
   instructors: Instructor[];
@@ -206,13 +206,55 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
 
-  // Translate instructorName in bookings list
+  // Translate instructorName in bookings list and merge live course details
   const bookings = useMemo(() => {
-    return rawBookings.map((b) => ({
-      ...b,
-      instructorName: translateInstructorName(b.instructorName, language)
-    }));
-  }, [rawBookings, language]);
+    return rawBookings.map((b) => {
+      const isCourse = b.instructorId.startsWith('course_');
+      let name = b.instructorName;
+      let avatar = b.instructorAvatar;
+      let durationHours = b.durationHours;
+      let notes = b.notes;
+      let date = b.date;
+      let time = b.time;
+      let totalPrice = b.totalPrice;
+
+      if (isCourse) {
+        const courseId = b.instructorId.substring('course_'.length);
+        const liveCourse = (courses || []).find((c) => c.id === courseId);
+        if (liveCourse) {
+          const translated = translateCourse(liveCourse, language);
+          name = language === 'ru' ? `${translated.title} (Групповой курс)` : `${translated.title} (Group Course)`;
+          avatar = translated.bgImageUrl || b.instructorAvatar;
+          durationHours = parseDurationHours(translated.duration, b.durationHours);
+          notes = `${language === 'en' ? 'Group Course enrollment' : 'Запись на групповой курс'}: ${translated.description}`;
+          totalPrice = liveCourse.price;
+          
+          if (translated.dates) {
+            if (translated.dates.includes(',')) {
+              const parts = translated.dates.split(',').map(s => s.trim());
+              date = parts[0];
+              time = parts[1] || 'Group Schedule';
+            } else {
+              date = translated.dates;
+            }
+          }
+        }
+      } else {
+        name = translateInstructorName(b.instructorName, language);
+      }
+
+      return {
+        ...b,
+        instructorName: name,
+        instructorAvatar: avatar,
+        durationHours,
+        notes,
+        date,
+        time,
+        totalPrice
+      };
+    });
+  }, [rawBookings, courses, language]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingIns, setEditingIns] = useState<Instructor | null>(null);
 
@@ -2500,15 +2542,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               ) : (
                 filteredBookings.map((b) => {
                   const client = usersList.find((u) => u.uid === b.userId);
-                  let instructorName = b.instructorName;
-                  if (instructorName.includes('(Group Course)') || instructorName.includes('(Групповой курс)')) {
-                    const cleanTitle = instructorName.replace(/\s*\(Group Course\)/i, '').replace(/\s*\(Групповой курс\)/i, '').trim();
-                    const dummyCourse = { id: '', title: cleanTitle, duration: '', description: '', dates: '', totalSeats: 0, availableSeats: 0, price: 0, bgImageUrl: '' };
-                    const translated = translateCourse(dummyCourse, language);
-                    instructorName = language === 'ru' ? `${translated.title} (Групповой курс)` : `${translated.title} (Group Course)`;
-                  } else {
-                    instructorName = translateInstructorName(instructorName, language);
-                  }
+                  const instructorName = b.instructorName;
                   return (
                     <tr key={b.id} className="border-b border-[var(--border)]/40 text-xs hover:bg-black/5 dark:hover:bg-white/5 transition">
                       <td className="py-3 px-2 font-mono text-[10px] text-[var(--ink-dim)]">{b.id}</td>

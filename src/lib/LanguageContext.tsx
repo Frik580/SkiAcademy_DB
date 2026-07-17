@@ -80,6 +80,23 @@ export function parseCourseDates(datesStr: string) {
   return { start, end, startTime, endTime };
 }
 
+export function parseDurationHours(durationStr: string, fallback: number = 1): number {
+  if (!durationStr) return fallback;
+  // Match specifically hours inside parentheses or before hour keywords
+  const hoursMatch = durationStr.match(/\((\d+)\s*(?:Hours?|часов|часа|час|ч|hours?|hrs?)\)/i) || 
+                     durationStr.match(/(\d+)\s*(?:Hours?|часов|часа|час|ч|hours?|hrs?)/i);
+  if (hoursMatch) {
+    return Number(hoursMatch[1]);
+  }
+  // Fallback to checking all numbers in the string
+  const numbers = durationStr.match(/\d+/g);
+  if (numbers && numbers.length > 0) {
+    // If we have "X Days (Y Hours)", the second number is hours
+    return Number(numbers.length > 1 ? numbers[1] : numbers[0]);
+  }
+  return fallback;
+}
+
 export function formatCourseDates(start: Date, end: Date, startTime: string, endTime: string, lang: 'en' | 'ru') {
   const monthsEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const monthsRu = ['Января', 'Февраля', 'Марта', 'Апреля', 'Мая', 'Июня', 'Июля', 'Августа', 'Сентября', 'Октября', 'Ноября', 'Декабря'];

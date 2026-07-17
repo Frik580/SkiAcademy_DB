@@ -14,12 +14,13 @@ import {
   getDocs,
   query,
   where,
+  onSnapshot,
   OperationType
 } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { UserProfile, Instructor, Booking, Review, Course } from './types';
 import { INITIAL_INSTRUCTORS, INITIAL_REVIEWS, INITIAL_COURSES } from './data';
-import { LanguageProvider, useLanguage, translateInstructor, translateCourse, translateInstructorName, parseCourseDates } from './lib/LanguageContext';
+import { LanguageProvider, useLanguage, translateInstructor, translateCourse, translateInstructorName, parseCourseDates, parseDurationHours } from './lib/LanguageContext';
 
 // Components
 import { NotificationProvider, useNotifications, NotificationHubModal } from './components/PushNotificationHub';
@@ -79,6 +80,7 @@ const AppContent: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [dbNotifications, setDbNotifications] = useState<any[]>([]);
   const [deletedCompletedStats, setDeletedCompletedStats] = useState<{ revenue: number; count: number }>({ revenue: 0, count: 0 });
   
   // Dismissed review notification IDs
@@ -275,118 +277,135 @@ const AppContent: React.FC = () => {
         setReviews(INITIAL_REVIEWS);
       }
 
-      // Fetch Courses
-      try {
-        const q = query(collection(db, 'courses'));
-        let snap;
+      // Fetch deleted completed stats for Admin in production
+      const isAdminUser = userProfile?.role === 'admin';
+      if (isAdminUser && firebaseUser) {
         try {
-          snap = await getDocs(q);
-        } catch (err) {
-          handleFirestoreError(err, OperationType.LIST, 'courses');
-        }
-
-        if (snap && !snap.empty) {
-          const list: Course[] = [];
-          snap.forEach((d) => list.push({ id: d.id, ...d.data() } as Course));
-          setCourses(list);
-        } else {
-          setCourses(INITIAL_COURSES);
-          INITIAL_COURSES.forEach(async (course) => {
-            try {
-              await setDoc(doc(db, 'courses', course.id), course);
-            } catch (e) {
-              // Ignore seed failures
-            }
-          });
-        }
-      } catch (e) {
-        setCourses(INITIAL_COURSES);
-      }
-
-      // Fetch Bookings & Users
-      try {
-        if (!firebaseUser) {
-          setBookings([]);
-          setUsersList([]);
-          return;
-        }
-
-        const isAdminUser = userProfile?.role === 'admin';
-
-        // 1. Fetch bookings
-        const q = isAdminUser 
-          ? query(collection(db, 'bookings'))
-          : query(collection(db, 'bookings'), where('userId', '==', firebaseUser?.uid));
-        let snap;
-        try {
-          snap = await getDocs(q);
-        } catch (err) {
-          handleFirestoreError(err, OperationType.LIST, 'bookings');
-        }
-
-        if (snap && !snap.empty) {
-          const list: Booking[] = [];
-          snap.forEach((d) => list.push({ id: d.id, ...d.data() } as Booking));
-          setBookings(list.sort((a, b) => b.date.localeCompare(a.date)));
-        } else {
-          setBookings([]);
-        }
-
-        // Fetch deleted completed stats for Admin in production
-        if (isAdminUser) {
-          try {
-            const statsDoc = await getDoc(doc(db, 'users', 'school_global_stats'));
-            if (statsDoc.exists()) {
-              const data = statsDoc.data();
-              setDeletedCompletedStats({
-                revenue: data.deletedCompletedRevenue || 0,
-                count: data.deletedCompletedCount || 0
-              });
-            } else {
-              setDeletedCompletedStats({ revenue: 0, count: 0 });
-            }
-          } catch (err) {
-            console.error("Error fetching stats:", err);
+          const statsDoc = await getDoc(doc(db, 'users', 'school_global_stats'));
+          if (statsDoc.exists()) {
+            const data = statsDoc.data();
+            setDeletedCompletedStats({
+              revenue: data.deletedCompletedRevenue || 0,
+              count: data.deletedCompletedCount || 0
+            });
+          } else {
             setDeletedCompletedStats({ revenue: 0, count: 0 });
           }
+        } catch (err) {
+          console.error("Error fetching stats:", err);
+          setDeletedCompletedStats({ revenue: 0, count: 0 });
         }
-
-        // 2. Fetch Users List if Admin
-        if (isAdminUser) {
-          try {
-            const uq = query(collection(db, 'users'));
-            let usnap;
-            try {
-              usnap = await getDocs(uq);
-            } catch (err) {
-              handleFirestoreError(err, OperationType.LIST, 'users');
-            }
-            if (usnap && !usnap.empty) {
-              const ulist: UserProfile[] = [];
-              usnap.forEach((d) => {
-                if (d.id !== 'school_global_stats') {
-                  ulist.push(d.data() as UserProfile);
-                }
-              });
-              setUsersList(ulist);
-            } else {
-              setUsersList([]);
-            }
-          } catch (userErr) {
-            console.error("Failed to fetch users:", userErr);
-            setUsersList([]);
-          }
-        } else {
-          setUsersList([]);
-        }
-      } catch (e) {
-        setBookings([]);
-        setUsersList([]);
       }
     };
 
     loadData();
   }, [firebaseUser, userProfile]);
+
+  // Real-time Firestore sync (Courses, Bookings, Users List, Notifications)
+  useEffect(() => {
+    // 1. Real-time Courses
+    const coursesQuery = query(collection(db, 'courses'));
+    const unsubscribeCourses = onSnapshot(coursesQuery, (snap) => {
+      if (snap && !snap.empty) {
+        const list: Course[] = [];
+        snap.forEach((d) => list.push({ id: d.id, ...d.data() } as Course));
+        setCourses(list);
+      } else {
+        setCourses(INITIAL_COURSES);
+        // Seed database asynchronously
+        INITIAL_COURSES.forEach(async (course) => {
+          try {
+            await setDoc(doc(db, 'courses', course.id), course);
+          } catch (e) {
+            // Ignore seed failures
+          }
+        });
+      }
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'courses');
+    });
+
+    if (!firebaseUser) {
+      setBookings([]);
+      setUsersList([]);
+      setDbNotifications([]);
+      return () => {
+        unsubscribeCourses();
+      };
+    }
+
+    const isAdminUser = userProfile?.role === 'admin';
+
+    // 2. Real-time Bookings
+    const bookingsQuery = isAdminUser 
+      ? query(collection(db, 'bookings'))
+      : query(collection(db, 'bookings'), where('userId', '==', firebaseUser.uid));
+
+    const unsubscribeBookings = onSnapshot(bookingsQuery, (snap) => {
+      const list: Booking[] = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() } as Booking));
+      setBookings(list.sort((a, b) => b.date.localeCompare(a.date)));
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'bookings');
+    });
+
+    // 3. Real-time Users List (Admin only)
+    let unsubscribeUsers = () => {};
+    if (isAdminUser) {
+      const usersQuery = query(collection(db, 'users'));
+      unsubscribeUsers = onSnapshot(usersQuery, (snap) => {
+        const ulist: UserProfile[] = [];
+        snap.forEach((d) => {
+          if (d.id !== 'school_global_stats') {
+            ulist.push(d.data() as UserProfile);
+          }
+        });
+        setUsersList(ulist);
+      }, (err) => {
+        handleFirestoreError(err, OperationType.LIST, 'users');
+      });
+    } else {
+      setUsersList([]);
+    }
+
+    // 4. Real-time Notifications & Toasts
+    const notificationsQuery = query(
+      collection(db, 'notifications'),
+      where('userId', '==', firebaseUser.uid)
+    );
+
+    const unsubscribeNotifications = onSnapshot(notificationsQuery, (snap) => {
+      const list: any[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() });
+      });
+      // Sort descending by timestamp
+      list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setDbNotifications(list);
+
+      // Trigger standard toast alert for any newly added notification in real-time
+      snap.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const data = change.doc.data();
+          const notifTime = new Date(data.timestamp).getTime();
+          const now = Date.now();
+          // If the notification was created within the last 15 seconds, show a toast
+          if (now - notifTime < 15000) {
+            addNotification(data.type || 'info', data.title, data.message);
+          }
+        }
+      });
+    }, (err) => {
+      console.error('Notifications sync error:', err);
+    });
+
+    return () => {
+      unsubscribeCourses();
+      unsubscribeBookings();
+      unsubscribeUsers();
+      unsubscribeNotifications();
+    };
+  }, [firebaseUser, userProfile, addNotification]);
 
   // Auto-sync / healing of available seats for group courses
   const bookingsDeps = bookings.map((b) => `${b.id}:${b.status}:${b.isDeleted}`).join(',');
@@ -541,10 +560,13 @@ const AppContent: React.FC = () => {
     // Notify the user
     const booking = bookings.find(b => b.id === id);
     if (booking && userProfile?.role === 'admin') {
-      const client = usersList.find(u => u.uid === booking.userId);
-      if (client) {
-        await createNotificationForUser(client.uid, language === 'ru' ? 'Занятие перенесено' : 'Lesson Rescheduled', language === 'ru' ? `Ваше занятие с инструктором ${booking.instructorName} было перенесено администратором на ${newDate} в ${newTime}.` : `Your lesson with ${booking.instructorName} was rescheduled by an administrator to ${newDate} at ${newTime}.`);
-      }
+      await createNotificationForUser(
+        booking.userId,
+        language === 'ru' ? 'Занятие перенесено' : 'Lesson Rescheduled',
+        language === 'ru'
+          ? `Ваше занятие с инструктором ${booking.instructorName} было перенесено администратором на ${newDate} в ${newTime}.`
+          : `Your lesson with ${booking.instructorName} was rescheduled by an administrator to ${newDate} at ${newTime}.`
+      );
     }
   };
 
@@ -567,13 +589,41 @@ const AppContent: React.FC = () => {
       throw e;
     }
 
-// Notify all enrolled users about the course update
+    // Notify all enrolled users about the course update with detailed differences
     if (userProfile?.role === 'admin') {
+      const oldCourse = courses.find((c) => c.id === course.id);
       const courseBookings = bookings.filter(b => b.instructorId === `course_${course.id}` && b.status !== 'cancelled');
-      const title = language === 'ru' ? 'Обновление по курсу' : 'Course Update';
+      const title = language === 'ru' ? 'Изменение курса' : 'Course Modified';
+      
+      let changeDetailsRu = '';
+      let changeDetailsEn = '';
+
+      if (oldCourse) {
+        if (oldCourse.title !== course.title) {
+          changeDetailsRu += `• Название курса изменено с «${oldCourse.title}» на «${course.title}».\n`;
+          changeDetailsEn += `• Course title changed from "${oldCourse.title}" to "${course.title}".\n`;
+        }
+        if (oldCourse.dates !== course.dates) {
+          changeDetailsRu += `• Даты и время проведения: ${course.dates} (было: ${oldCourse.dates}).\n`;
+          changeDetailsEn += `• New dates and times: ${course.dates} (was: ${oldCourse.dates}).\n`;
+        }
+        if (oldCourse.duration !== course.duration) {
+          changeDetailsRu += `• Продолжительность: ${course.duration} (было: ${oldCourse.duration}).\n`;
+          changeDetailsEn += `• Duration: ${course.duration} (was: ${oldCourse.duration}).\n`;
+        }
+        if (oldCourse.price !== course.price) {
+          changeDetailsRu += `• Стоимость: $${course.price} (было: $${oldCourse.price}).\n`;
+          changeDetailsEn += `• Price: $${course.price} (was: $${oldCourse.price}).\n`;
+        }
+        if (oldCourse.description !== course.description) {
+          changeDetailsRu += `• Описание курса обновлено.\n`;
+          changeDetailsEn += `• Course description has been updated.\n`;
+        }
+      }
+
       const message = language === 'ru' 
-        ? `Информация по курсу «${course.title}» была обновлена администратором. Новые даты: ${course.dates}.`
-        : `Details for the course "${course.title}" have been updated by an administrator. New dates: ${course.dates}.`;
+        ? `Администратор внес изменения в курс «${course.title}»:\n${changeDetailsRu || 'Информация по курсу была обновлена.'}`
+        : `An administrator has updated details for the course "${course.title}":\n${changeDetailsEn || 'Course details have been updated.'}`;
 
       for (const booking of courseBookings) {
         await createNotificationForUser(booking.userId, title, message, 'warning');
@@ -684,7 +734,7 @@ const AppContent: React.FC = () => {
       instructorAvatar: course.bgImageUrl,
       date: datePart || course.dates,
       time: timePart || 'Group Schedule',
-      durationHours: Number(course.duration.match(/\d+/)?.[0] || 10),
+      durationHours: parseDurationHours(course.duration, 10),
       totalPrice: course.price,
       status: 'confirmed',
       difficulty: 'intermediate',
@@ -777,12 +827,9 @@ const AppContent: React.FC = () => {
 
 // Notify the user about cancellation
     if (userProfile?.role === 'admin' && !isSystemBlock) {
-      const client = usersList.find(u => u.uid === bookingOwnerId);
-      if (client) {
-        const title = language === 'ru' ? 'Занятие отменено' : 'Lesson Cancelled';
-        const message = language === 'ru' ? `Ваше занятие с инструктором ${booking.instructorName} (${booking.date} в ${booking.time}) было отменено администратором. Средства возвращены на ваш баланс.` : `Your lesson with ${booking.instructorName} (${booking.date} at ${booking.time}) was cancelled by an administrator. Funds have been returned to your wallet.`;
-        await createNotificationForUser(client.uid, title, message, 'warning');
-      }
+      const title = language === 'ru' ? 'Занятие отменено' : 'Lesson Cancelled';
+      const message = language === 'ru' ? `Ваше занятие с инструктором ${booking.instructorName} (${booking.date} в ${booking.time}) было отменено администратором. Средства возвращены на ваш баланс.` : `Your lesson with ${booking.instructorName} (${booking.date} at ${booking.time}) was cancelled by an administrator. Funds have been returned to your wallet.`;
+      await createNotificationForUser(bookingOwnerId, title, message, 'warning');
     }
 
     setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: 'cancelled' } : b));
@@ -1148,6 +1195,16 @@ const AppContent: React.FC = () => {
     }
     setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: 'confirmed' } : b));
     addNotification('info', 'Booking Confirmed', 'Instructor lesson has been set to Confirmed.');
+
+    // Notify the client
+    const booking = bookings.find((b) => b.id === id);
+    if (booking && userProfile?.role === 'admin') {
+      const title = language === 'ru' ? 'Занятие подтверждено' : 'Lesson Confirmed';
+      const message = language === 'ru' 
+        ? `Ваше занятие с инструктором ${booking.instructorName} (${booking.date} в ${booking.time}) было подтверждено администратором.`
+        : `Your lesson with ${booking.instructorName} (${booking.date} at ${booking.time}) has been confirmed by an administrator.`;
+      await createNotificationForUser(booking.userId, title, message, 'success');
+    }
   };
 
   const handleCompleteBooking = async (id: string) => {
@@ -1158,6 +1215,16 @@ const AppContent: React.FC = () => {
     }
     setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: 'completed' } : b));
     addNotification('success', language === 'en' ? 'Lesson Completed' : 'Занятие завершено', language === 'en' ? 'Instructor lesson has been marked as completed.' : 'Урок с инструктором отмечен как завершенный.');
+
+    // Notify the client
+    const booking = bookings.find((b) => b.id === id);
+    if (booking && userProfile?.role === 'admin') {
+      const title = language === 'ru' ? 'Занятие завершено' : 'Lesson Completed';
+      const message = language === 'ru' 
+        ? `Ваше занятие с инструктором ${booking.instructorName} (${booking.date} в ${booking.time}) было успешно завершено. Спасибо за тренировку!`
+        : `Your lesson with ${booking.instructorName} (${booking.date} at ${booking.time}) has been marked as completed. Thank you for training with us!`;
+      await createNotificationForUser(booking.userId, title, message, 'success');
+    }
   };
 
   const handleSignOut = async () => {
@@ -1170,6 +1237,18 @@ const AppContent: React.FC = () => {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleClearNotifications = async () => {
+    if (!firebaseUser || dbNotifications.length === 0) return;
+    for (const notif of dbNotifications) {
+      try {
+        await deleteDoc(doc(db, 'notifications', notif.id));
+      } catch (err) {
+        console.error('Failed to delete notification:', err);
+      }
+    }
+    setDbNotifications([]);
   };
 
   const handleUpdateProfile = async (updatedData: Partial<UserProfile>) => {
@@ -1707,12 +1786,34 @@ const AppContent: React.FC = () => {
                             {language === 'en' ? 'Upcoming Sessions (7 Days)' : 'Ближайшие занятия (7 дней)'}
                           </span>
                           {(() => {
-                            const activeBookings = bookings.filter(b => 
+                            const rawActiveBookings = bookings.filter(b => 
                               b.userId === userProfile?.uid && 
                               (b.status === 'confirmed' || b.status === 'pending') && 
                               !b.userId?.startsWith('system_block_') &&
                               upcomingSevenDays.some(dayStr => isBookingOnDate(b, dayStr))
                             );
+
+                            const activeBookings = rawActiveBookings.map((b) => {
+                              const isCourse = b.instructorId.startsWith('course_');
+                              if (isCourse) {
+                                const courseId = b.instructorId.substring('course_'.length);
+                                const liveCourse = courses.find(c => c.id === courseId);
+                                if (liveCourse) {
+                                  const translated = translateCourse(liveCourse, language);
+                                  return {
+                                    ...b,
+                                    instructorName: language === 'ru' ? `${translated.title} (Групповой курс)` : `${translated.title} (Group Course)`,
+                                    instructorAvatar: translated.bgImageUrl || b.instructorAvatar,
+                                    durationHours: parseDurationHours(translated.duration, b.durationHours),
+                                    totalPrice: liveCourse.price
+                                  };
+                                }
+                              }
+                              return {
+                                ...b,
+                                instructorName: translateInstructorName(b.instructorName, language)
+                              };
+                            });
                             
                             const sortedActiveBookings = [...activeBookings].sort((a, b) => {
                               let aDate = a.date;
@@ -1819,15 +1920,7 @@ const AppContent: React.FC = () => {
                               return (
                                 <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
                                   {sortedActiveBookings.map((b) => {
-                                    let displayInstructorName = b.instructorName;
-                                    if (displayInstructorName.includes('(Group Course)') || displayInstructorName.includes('(Групповой курс)')) {
-                                      const cleanTitle = displayInstructorName.replace(/\s*\(Group Course\)/i, '').replace(/\s*\(Групповой курс\)/i, '').trim();
-                                      const dummyCourse = { id: '', title: cleanTitle, duration: '', description: '', dates: '', totalSeats: 0, availableSeats: 0, price: 0, bgImageUrl: '' };
-                                      const translated = translateCourse(dummyCourse, language);
-                                      displayInstructorName = language === 'ru' ? `${translated.title} (Групповой курс)` : `${translated.title} (Group Course)`;
-                                    } else {
-                                      displayInstructorName = translateInstructorName(displayInstructorName, language);
-                                    }
+                                    const displayInstructorName = b.instructorName;
 
                                     return (
                                       <div key={b.id} className="space-y-3 pb-3 border-b border-[var(--border)] last:pb-0 last:border-b-0">
@@ -1935,6 +2028,8 @@ const AppContent: React.FC = () => {
         userProfile={userProfile}
         dismissedReviewIds={dismissedReviewIds}
         onDismissReview={handleDismissReview}
+        dbNotifications={dbNotifications}
+        onClearNotifications={handleClearNotifications}
       />
 
       {/* Status Footer */}

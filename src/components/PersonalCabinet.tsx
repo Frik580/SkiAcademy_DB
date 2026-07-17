@@ -19,7 +19,7 @@ import {
   Bell
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
-import { useLanguage, translateInstructorName, translateCourse, parseCourseDates } from '../lib/LanguageContext';
+import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, parseDurationHours } from '../lib/LanguageContext';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
 
 interface PersonalCabinetProps {
@@ -115,24 +115,64 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   const { addNotification } = useNotifications();
   const { language } = useLanguage();
 
-  // Translate instructorName in bookings list
+  // Translate instructorName and merge live course details in bookings list
   const bookings = useMemo(() => {
     return rawBookings.map((b) => {
+      const isCourse = b.instructorId.startsWith('course_');
       let name = b.instructorName;
-      if (name.includes('(Group Course)') || name.includes('(Групповой курс)')) {
-        const cleanTitle = name.replace(/\s*\(Group Course\)/i, '').replace(/\s*\(Групповой курс\)/i, '').trim();
-        const dummyCourse = { id: '', title: cleanTitle, duration: '', description: '', dates: '', totalSeats: 0, availableSeats: 0, price: 0, bgImageUrl: '' };
-        const translated = translateCourse(dummyCourse, language);
-        name = language === 'ru' ? `${translated.title} (Групповой курс)` : `${translated.title} (Group Course)`;
+      let avatar = b.instructorAvatar;
+      let durationHours = b.durationHours;
+      let notes = b.notes;
+      let date = b.date;
+      let time = b.time;
+
+      if (isCourse) {
+        const courseId = b.instructorId.replace('course_', '');
+        const liveCourse = (courses || []).find((c) => c.id === courseId);
+        if (liveCourse) {
+          const translated = translateCourse(liveCourse, language);
+          name = language === 'ru' ? `${translated.title} (Групповой курс)` : `${translated.title} (Group Course)`;
+          avatar = translated.bgImageUrl || b.instructorAvatar;
+          durationHours = parseDurationHours(translated.duration, b.durationHours);
+          notes = `${language === 'en' ? 'Group Course enrollment' : 'Запись на групповой курс'}: ${translated.description}`;
+          
+          if (translated.dates) {
+            if (translated.dates.includes(',')) {
+              const parts = translated.dates.split(',').map(s => s.trim());
+              date = parts[0];
+              time = parts[1] || 'Group Schedule';
+            } else {
+              date = translated.dates;
+              time = 'Group Schedule';
+            }
+          }
+        } else {
+          if (name.includes('(Group Course)') || name.includes('(Групповой курс)')) {
+            const cleanTitle = name.replace(/\s*\(Group Course\)/i, '').replace(/\s*\(Групповой курс\)/i, '').trim();
+            const dummyCourse = { id: '', title: cleanTitle, duration: '', description: '', dates: '', totalSeats: 0, availableSeats: 0, price: 0, bgImageUrl: '' };
+            const translated = translateCourse(dummyCourse, language);
+            name = language === 'ru' ? `${translated.title} (Групповой курс)` : `${translated.title} (Group Course)`;
+          }
+          if (time === 'Group Schedule' && date.includes(',')) {
+            const parts = date.split(',').map(s => s.trim());
+            date = parts[0];
+            time = parts[1] || time;
+          }
+        }
       } else {
         name = translateInstructorName(name, language);
       }
       return {
         ...b,
-        instructorName: name
+        instructorName: name,
+        instructorAvatar: avatar,
+        durationHours,
+        notes,
+        date,
+        time
       };
     });
-  }, [rawBookings, language]);
+  }, [rawBookings, courses, language]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [rescheduleId, setRescheduleId] = useState<string | null>(null);
   const [newDate, setNewDate] = useState<string>('');

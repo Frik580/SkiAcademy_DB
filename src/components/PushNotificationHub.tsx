@@ -112,6 +112,8 @@ export interface NotificationHubModalProps {
   userProfile?: UserProfile | null;
   dismissedReviewIds?: string[];
   onDismissReview?: (bookingId: string) => void;
+  dbNotifications?: any[];
+  onClearNotifications?: () => Promise<void>;
 }
 
 export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({ 
@@ -121,12 +123,32 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
   reviews = [],
   userProfile = null,
   dismissedReviewIds = [],
-  onDismissReview
+  onDismissReview,
+  dbNotifications = [],
+  onClearNotifications
 }) => {
-  const { notifications, clearAll } = useNotifications();
+  const { notifications: localNotifications, clearAll: localClearAll } = useNotifications();
   const { language } = useLanguage();
 
   if (!isOpen) return null;
+
+  const notificationsToShow = dbNotifications && dbNotifications.length > 0 
+    ? dbNotifications.map(n => ({
+        id: n.id,
+        type: n.type || 'info',
+        title: n.title,
+        message: n.message,
+        timestamp: new Date(n.timestamp)
+      }))
+    : localNotifications;
+
+  const handleClearAll = async () => {
+    if (onClearNotifications) {
+      await onClearNotifications();
+    } else {
+      localClearAll();
+    }
+  };
 
   // Filter out unreviewed completed bookings
   const uid = userProfile?.uid;
@@ -224,13 +246,13 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
 
           {/* Standard Notifications Section */}
           <div className="space-y-3">
-            {unreviewedCompletedBookings.length > 0 && notifications.length > 0 && (
+            {unreviewedCompletedBookings.length > 0 && notificationsToShow.length > 0 && (
               <h4 className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mb-2">
                 {language === 'en' ? 'System History' : 'История системы'}
               </h4>
             )}
 
-            {notifications.length === 0 && unreviewedCompletedBookings.length === 0 ? (
+            {notificationsToShow.length === 0 && unreviewedCompletedBookings.length === 0 ? (
               <div className="text-center py-8">
                 <Bell className="w-12 h-12 text-[var(--border)] mx-auto mb-2" />
                 <p className="text-sm text-[var(--ink-dim)] font-mono">
@@ -238,7 +260,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
                 </p>
               </div>
             ) : (
-              notifications.map((n) => (
+              notificationsToShow.map((n) => (
                 <div
                   key={n.id}
                   className="p-3 border border-[var(--border)] bg-black/10 flex gap-3 animate-fade-in rounded-none"
@@ -262,10 +284,10 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
           </div>
         </div>
 
-        {notifications.length > 0 && (
+        {notificationsToShow.length > 0 && (
           <div className="p-4 border-t border-[var(--border)] flex justify-end bg-black/15">
             <button
-              onClick={clearAll}
+              onClick={handleClearAll}
               className="text-[10px] font-mono uppercase tracking-wider text-rose-500 hover:text-rose-600 transition cursor-pointer bg-transparent border border-rose-950/40 hover:border-rose-500 px-3 py-1.5 rounded-none"
             >
               {language === 'en' ? 'Clear History' : 'Очистить историю'}

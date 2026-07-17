@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { UserProfile } from '../types';
-import { LogOut, Plus, Bell, Sun, Moon, Mountain } from 'lucide-react';
+import { LogOut, Plus, Bell, Sun, Moon, Mountain, Menu, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../lib/LanguageContext';
 
 interface NavbarProps {
@@ -25,6 +26,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleTheme
 }) => {
   const { t, language, setLanguage } = useLanguage();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 bg-[var(--bg)] border-b border-[var(--border)] px-6 py-4 transition-colors duration-300">
@@ -42,13 +44,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Global actions + User state details */}
-        <div className="flex items-center gap-3 md:gap-6 font-mono text-xs tracking-wider">
+        {/* Desktop Menu */}
+        <div className="hidden md:flex items-center gap-3 md:gap-6 font-mono text-xs tracking-wider">
           {/* Theme Switch Button */}
           <button
             onClick={onToggleTheme}
             className="p-1 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition cursor-pointer"
-            title={theme === 'light' ? 'Switch to Dark' : 'Switch to Light'}
+            title={t(theme === 'light' ? 'switchToDark' : 'switchToLight')}
           >
             {theme === 'light' ? (
               <Moon className="w-3.5 h-3.5 text-[var(--ink)]" />
@@ -61,9 +63,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={() => setLanguage(language === 'en' ? 'ru' : 'en')}
             className="px-2 py-1 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition cursor-pointer font-mono text-[10px]"
-            title={language === 'en' ? 'Переключить на русский' : 'Switch to English'}
+            title={t('switchLanguage')}
           >
-            [{language.toUpperCase()}]
+            [{language === 'en' ? 'RU' : 'EN'}]
           </button>
 
           {userProfile && (
@@ -130,6 +132,96 @@ export const Navbar: React.FC<NavbarProps> = ({
             </>
           )}
         </div>
+
+        {/* Mobile Menu Button */}
+        <div className="md:hidden flex items-center">
+          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1 text-[var(--ink)]">
+            {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
+
+        {/* Mobile Menu Dropdown */}
+        <AnimatePresence>
+          {isMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden absolute top-full left-0 w-full bg-[var(--bg)] border-b border-[var(--border)] p-6 flex flex-col gap-6"
+            >
+              {userProfile && (
+                <>
+                  {/* Admin Toggle button */}
+                  {userProfile.role === 'admin' && (
+                    <button
+                      onClick={() => { onToggleAdminView(); setIsMenuOpen(false); }}
+                      className={`w-full px-3 py-2.5 border transition cursor-pointer text-xs font-mono uppercase tracking-widest ${
+                        isAdminView
+                          ? 'bg-amber-500 border-amber-500 text-white hover:bg-amber-600'
+                          : 'bg-transparent border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)]'
+                      }`}
+                    >
+                      {isAdminView ? t('browseSlopes') : t('manageResort')}
+                    </button>
+                  )}
+
+                  {/* Wallet details */}
+                  <div className="flex items-center justify-between gap-2 select-none text-sm text-[var(--ink)] font-mono">
+                    <span className="text-[var(--ink-dim)] uppercase">{t('balance')}:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold">${userProfile.balanceUSD.toFixed(2)}</span>
+                      <button
+                        onClick={() => { onOpenTopUp(); setIsMenuOpen(false); }}
+                        title={t('topUpSimulated')}
+                        className="p-1 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4 stroke-[2]" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Notification button */}
+                  <button
+                    onClick={() => { onOpenNotifications(); setIsMenuOpen(false); }}
+                    className="w-full flex justify-between items-center text-sm font-mono uppercase text-[var(--ink)]"
+                  >
+                    <span>{t('notifications')}</span>
+                    <div className="relative p-1">
+                      <Bell className="w-4 h-4" />
+                      <span className="absolute -top-0 -right-0 w-2 h-2 bg-indigo-500 rounded-full ring-1 ring-[var(--bg)]" />
+                    </div>
+                  </button>
+                </>
+              )}
+
+              {/* Theme & Language Switchers */}
+              <div className="flex items-center justify-between text-sm font-mono uppercase text-[var(--ink)]">
+                <span>{t(theme === 'light' ? 'lightTheme' : 'darkTheme')}</span>
+                <button
+                  onClick={onToggleTheme}
+                  className="p-1.5 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition cursor-pointer"
+                >
+                  {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-amber-400" />}
+                </button>
+              </div>
+              <div className="flex items-center justify-between text-sm font-mono uppercase text-[var(--ink)]">
+                <span>{t('languageLabel')}</span>
+                <button
+                  onClick={() => setLanguage(language === 'en' ? 'ru' : 'en')}
+                  className="px-3 py-1.5 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition cursor-pointer font-mono text-xs"
+                >
+                  [{language === 'en' ? 'RU' : 'EN'}]
+                </button>
+              </div>
+              {userProfile && (
+                <button onClick={() => { onSignOut(); setIsMenuOpen(false); }} className="w-full mt-2 px-3 py-2.5 border border-rose-500/50 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer text-sm font-mono uppercase tracking-widest">
+                  {t('signOut')}
+                </button>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </header>
   );

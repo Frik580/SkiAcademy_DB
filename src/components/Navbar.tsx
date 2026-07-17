@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
-import { LogOut, Plus, Bell, Sun, Moon, Mountain, Menu, X } from 'lucide-react';
+import { LogOut, Plus, Bell, Sun, Moon, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../lib/LanguageContext';
+import logoLight from '../assets/images/logo2.png';
+import logoDark from '../assets/images/logo1.png';
 
 interface NavbarProps {
   userProfile: UserProfile | null;
@@ -32,16 +34,13 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="sticky top-0 z-40 bg-[var(--bg)] border-b border-[var(--border)] px-6 py-4 transition-colors duration-300">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         {/* Brand logo */}
-        <div className="flex items-center gap-2 select-none">
-          <Mountain className="w-5 h-5 text-sky-600 dark:text-sky-400 stroke-[2.5]" />
-          <div className="flex items-baseline">
-            <h1 className="font-sans font-extrabold tracking-tight text-[var(--ink)] text-lg leading-none uppercase">
-              CARVE
-            </h1>
-            <span className="font-serif italic font-light text-[var(--ink)] text-xl ml-1 leading-none lowercase">
-              Academy
-            </span>
-          </div>
+        <div className="flex items-center select-none">
+          <img
+            src={theme === 'light' ? logoLight : logoDark}
+            alt="Carve Academy Logo"
+            className="h-9 w-auto object-contain transition-opacity duration-300"
+            referrerPolicy="no-referrer"
+          />
         </div>
 
         {/* Desktop Menu */}

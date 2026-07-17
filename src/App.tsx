@@ -33,6 +33,8 @@ import { InstructorReviewsModal } from './components/InstructorReviewsModal';
 import { PaymentGateway } from './components/PaymentGateway';
 import { PersonalCabinet } from './components/PersonalCabinet';
 import { AdminPanel } from './components/AdminPanel';
+import logoLight from './assets/images/logo2.png';
+import logoDark from './assets/images/logo1.png';
 
 import { Compass, AlertCircle, RefreshCw, Mountain } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -1979,9 +1981,13 @@ const AppContent: React.FC = () => {
               ) : (
                 /* Logged-out state: show Auth component inside Right Sidebar! */
                 <div className="space-y-6">
-                  <div className="text-center space-y-2 py-4">
-                    <Mountain className="w-8 h-8 mx-auto text-sky-600 dark:text-sky-400 stroke-[2.5]" />
-                    <h4 className="font-serif text-xl font-light text-[var(--ink)]">{language === 'en' ? 'Carve Cabin' : 'Личный кабинет'}</h4>
+                  <div className="text-center space-y-4 py-4">
+                    <img
+                      src={theme === 'light' ? logoLight : logoDark}
+                      alt="Carve Academy Logo"
+                      className="h-12 w-auto mx-auto object-contain transition-opacity duration-300"
+                      referrerPolicy="no-referrer"
+                    />
                     <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider leading-relaxed">
                       {language === 'en' 
                         ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.' 

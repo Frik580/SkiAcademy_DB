@@ -33,8 +33,8 @@ import { InstructorReviewsModal } from './components/InstructorReviewsModal';
 import { PaymentGateway } from './components/PaymentGateway';
 import { PersonalCabinet } from './components/PersonalCabinet';
 import { AdminPanel } from './components/AdminPanel';
-import logoLight from './assets/images/logo2.png';
-import logoDark from './assets/images/logo1.png';
+import logoLight from './assets/images/logo_light_1784299930638.jpg';
+import logoDark from './assets/images/logo_dark_1784299952162.jpg';
 
 import { Compass, AlertCircle, RefreshCw, Mountain } from 'lucide-react';
 import confetti from 'canvas-confetti';

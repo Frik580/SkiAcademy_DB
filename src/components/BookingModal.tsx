@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Instructor, UserProfile, Booking, LessonDifficulty, Course } from '../types';
 import { X, Calendar, Clock, HelpCircle, Wallet, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';

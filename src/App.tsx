@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { AnimatePresence } from 'motion/react';
+import { AnimatePresence } from 'framer-motion';
 import { 
   auth, 
   db, 
@@ -1966,4 +1966,3 @@ export const App: React.FC = () => {
     </LanguageProvider>
   );
 };
-

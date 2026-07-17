@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { Instructor } from '../types';
 import { Star, Globe } from 'lucide-react';
 import { useLanguage } from '../lib/LanguageContext';

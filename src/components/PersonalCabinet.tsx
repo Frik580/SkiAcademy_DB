@@ -773,7 +773,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   return (
     <div className="grid lg:grid-cols-12 gap-6 animate-fade-in">
       {/* Profile Info Left Panel */}
-      <div className="lg:col-span-4 border border-[var(--border)] p-6 flex flex-col justify-between space-y-6 self-start bg-transparent">
+      <div className="lg:col-span-4 border border-[var(--border)] p-6 flex flex-col justify-between space-y-6 self-start bg-transparent overflow-hidden">
         <div className="space-y-5">
           <div className="flex items-center gap-3">
             {/* Interactive Drag & Drop Avatar */}
@@ -814,13 +814,13 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               onChange={handleFileChange}
             />
 
-            <div>
-              <h3 className="font-serif text-lg font-light tracking-tight text-[var(--ink)] leading-tight">
+            <div className="flex flex-col w-full min-w-0">
+              <h3 className="font-serif text-lg font-light tracking-tight text-[var(--ink)] leading-tight truncate">
                 {userProfile.displayName}
               </h3>
-              <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1">{userProfile.email}</p>
-              <span className="inline-block mt-2 text-[8px] font-mono uppercase tracking-widest text-[var(--ink)] border border-[var(--border)] px-2 py-0.5 bg-black/10">
-                {userProfile.role === 'admin' ? `🛡️ ${language === 'en' ? 'Resort Admin' : 'Администратор'}` : `👤 ${language === 'en' ? 'Ski Member' : 'Лыжник'}`}
+              <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1 truncate">{userProfile.email}</p>
+              <span className="inline-block mt-2 text-[8px] font-mono uppercase tracking-widest text-[var(--ink)] px-2 py-0.5">
+                {userProfile.role === 'admin' ? `🛡️ ${language === 'en' ? 'Admin' : 'Админ'}` : `👤 ${language === 'en' ? 'Ski Member' : 'Лыжник'}`}
               </span>
             </div>
           </div>
@@ -1393,4 +1393,3 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     </div>
   );
 };
-

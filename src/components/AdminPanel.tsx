@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { Instructor, Booking, UserProfile, Course } from '../types';
 import { 
   Users, 
@@ -28,9 +27,7 @@ import {
   Camera,
   Settings,
   Eye,
-  EyeOff,
-  ArrowUp,
-  ArrowDown
+  EyeOff
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, formatCourseDates } from '../lib/LanguageContext';
@@ -542,8 +539,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       price: Number(coursePrice),
       bgImageUrl: courseBgImageUrl || 'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800',
       isHidden: courseIsHidden,
-      instructorIds: selectedCourseInstructors,
-      order: editingCourse && editingCourse.order !== undefined ? editingCourse.order : courses.length
+      instructorIds: selectedCourseInstructors
     };
 
     try {
@@ -612,50 +608,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setCourseStartTime('09:00');
     setCourseEndTime('13:00');
     setCalendarViewMonth(new Date());
-  };
-
-  const handleMoveCourse = async (course: Course, direction: 'up' | 'down') => {
-    const sorted = [...courses].sort((a, b) => {
-      const orderA = a.order !== undefined ? a.order : 999;
-      const orderB = b.order !== undefined ? b.order : 999;
-      if (orderA !== orderB) return orderA - orderB;
-      return a.title.localeCompare(b.title);
-    });
-
-    const idx = sorted.findIndex(c => c.id === course.id);
-    if (idx === -1) return;
-
-    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (targetIdx < 0 || targetIdx >= sorted.length) return;
-
-    // Swap items in our local array
-    const newSorted = [...sorted];
-    const temp = newSorted[idx];
-    newSorted[idx] = newSorted[targetIdx];
-    newSorted[targetIdx] = temp;
-
-    try {
-      if (onUpdateCourse) {
-        // Sequentially assign correct order indices to all courses
-        for (let i = 0; i < newSorted.length; i++) {
-          const c = newSorted[i];
-          if (c.order !== i) {
-            await onUpdateCourse({ ...c, order: i });
-          }
-        }
-        addNotification(
-          'success',
-          language === 'en' ? 'Order Changed' : 'Порядок изменен',
-          language === 'en' ? 'Course order updated successfully.' : 'Порядок курсов успешно изменен.'
-        );
-      }
-    } catch (err) {
-      addNotification(
-        'error',
-        'Error',
-        language === 'en' ? 'Failed to update course order.' : 'Не удалось изменить порядок курсов.'
-      );
-    }
   };
 
   const handleDeleteCourseClick = (course: Course) => {
@@ -1205,9 +1157,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     if (b.userId === 'system_block_day_off') {
       return (
-        <div className="relative group/cell h-11 bg-slate-100/50 dark:bg-slate-800/15 border border-slate-300/40 dark:border-slate-800/40 rounded-xl px-2.5 py-1 flex items-center justify-between transition text-xs font-semibold text-slate-500 dark:text-slate-400">
+        <div className="relative group/cell h-11 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1 flex items-center justify-between transition text-xs font-semibold text-slate-600 dark:text-slate-300">
           <div className="flex items-center gap-1.5 min-w-0">
-            <Calendar className="w-3.5 h-3.5 shrink-0 text-slate-400 dark:text-slate-650" />
+            <Calendar className="w-3.5 h-3.5 shrink-0 text-slate-400" />
             <span className="truncate">{language === 'en' ? 'Day Off' : 'Выходной'}</span>
           </div>
           <button
@@ -1226,9 +1178,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     if (b.userId === 'system_block_break') {
       return (
-        <div className="relative group/cell h-11 bg-amber-50/60 dark:bg-amber-950/15 border border-amber-200/40 dark:border-amber-900/40 rounded-xl px-2.5 py-1 flex items-center justify-between transition text-xs font-semibold text-amber-700 dark:text-amber-400">
+        <div className="relative group/cell h-11 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl px-2.5 py-1 flex items-center justify-between transition text-xs font-semibold text-amber-800 dark:text-amber-300">
           <div className="flex items-center gap-1.5 min-w-0">
-            <Coffee className="w-3.5 h-3.5 shrink-0 text-amber-500 dark:text-amber-600" />
+            <Coffee className="w-3.5 h-3.5 shrink-0 text-amber-500" />
             <span className="truncate">{b.notes || (language === 'en' ? 'Break' : 'Перерыв')}</span>
           </div>
           <button
@@ -1248,27 +1200,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const isPendingCancellation = b.status === 'pending_cancellation';
     const isCompleted = b.status === 'completed';
 
-    let cardBgClasses = 'bg-indigo-50/60 dark:bg-indigo-950/15 border border-indigo-250/45 dark:border-indigo-900/40 hover:border-indigo-400 dark:hover:border-indigo-700 text-indigo-950 dark:text-indigo-200';
+    let cardBgClasses = 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-100 dark:border-indigo-900/50 hover:border-indigo-400 dark:hover:border-indigo-700 text-indigo-950 dark:text-indigo-200';
     let titleColorClasses = 'text-indigo-900 dark:text-indigo-200';
     let buttonColorClasses = 'text-indigo-400 hover:text-red-500';
-    let textTimeClasses = 'text-indigo-600 dark:text-indigo-400';
+    let textTimeClasses = 'text-indigo-500 dark:text-indigo-400';
 
     if (isPendingCancellation) {
-      cardBgClasses = 'bg-rose-50/60 dark:bg-rose-950/15 border border-rose-250/45 dark:border-rose-900/40 hover:border-rose-400 dark:hover:border-rose-700 text-rose-950 dark:text-rose-200 animate-pulse';
-      titleColorClasses = 'text-rose-900 dark:text-rose-300 font-semibold';
-      buttonColorClasses = 'text-rose-400 hover:text-red-500';
-      textTimeClasses = 'text-rose-600 dark:text-rose-400';
+      cardBgClasses = 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800/60 hover:border-amber-500 dark:hover:border-amber-600 text-amber-950 dark:text-amber-200 animate-pulse';
+      titleColorClasses = 'text-amber-900 dark:text-amber-300';
+      buttonColorClasses = 'text-amber-400 hover:text-red-500';
+      textTimeClasses = 'text-amber-600 dark:text-amber-400';
     } else if (isCompleted) {
-      cardBgClasses = 'bg-emerald-50/60 dark:bg-emerald-950/10 border border-emerald-250/45 dark:border-emerald-900/40 hover:border-emerald-400 dark:hover:border-emerald-700 text-emerald-950 dark:text-emerald-200';
-      titleColorClasses = 'text-emerald-900 dark:text-emerald-300 line-through decoration-emerald-200/50 dark:decoration-emerald-800/40';
+      cardBgClasses = 'bg-emerald-50/75 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40 hover:border-emerald-400 dark:hover:border-emerald-600 text-emerald-950 dark:text-emerald-200';
+      titleColorClasses = 'text-emerald-900 dark:text-emerald-300 line-through decoration-emerald-200 dark:decoration-emerald-800/60';
       buttonColorClasses = 'text-emerald-400 hover:text-red-500';
-      textTimeClasses = 'text-emerald-650 dark:text-emerald-400';
+      textTimeClasses = 'text-emerald-600 dark:text-emerald-400';
     }
 
     return (
       <div
         onClick={() => handleOpenSlotAction(ins, b.time, b)}
-        className={`relative group/cell h-11 rounded-xl px-2.5 py-1 flex flex-col justify-center transition text-[11px] leading-tight cursor-pointer ${cardBgClasses}`}
+        className={`relative group/cell h-11 border rounded-xl px-2.5 py-1 flex flex-col justify-center transition text-[11px] leading-tight cursor-pointer ${cardBgClasses}`}
       >
         <div className="flex items-center justify-between gap-1.5 min-w-0">
           <div className={`font-bold truncate ${titleColorClasses}`}>
@@ -1370,7 +1322,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         }).filter(Boolean);
 
         cells.push(
-          <td key={slotTime} colSpan={span} className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40">
+          <td key={slotTime} colSpan={span} className="p-1 align-middle border-r border-slate-100 dark:border-slate-850">
             <div
               onClick={() => {
                 const otherGuides = courseOverlap.instructorIds?.filter(id => id !== ins.id) || [];
@@ -1387,13 +1339,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     : `Групповой курс «${courseOverlap.title}»${guidesDetail}. Запланирован: ${courseOverlap.dates}\nМеста: ${courseOverlap.availableSeats} / ${courseOverlap.totalSeats}`) + enrolledDetailsStr
                 );
               }}
-              className="relative group/cell min-h-[44px] h-auto border border-violet-200/40 dark:border-violet-900/30 bg-violet-50/60 dark:bg-violet-950/15 hover:border-violet-400 dark:hover:border-violet-700 text-violet-950 dark:text-violet-200 rounded-xl px-2.5 py-1.5 flex flex-col justify-center transition text-[11px] leading-tight cursor-pointer"
+              className="relative group/cell min-h-[44px] h-auto border rounded-xl px-2.5 py-1.5 flex flex-col justify-center transition text-[11px] leading-tight cursor-pointer bg-violet-50/90 dark:bg-violet-950/20 border-violet-200 dark:border-violet-900/50 hover:border-violet-400 dark:hover:border-violet-700 text-violet-950 dark:text-violet-200"
             >
               <div className="flex items-center justify-between gap-1.5 min-w-0">
                 <div className="font-bold truncate text-violet-900 dark:text-violet-200 flex items-center gap-1">
                   <BookOpen className="w-3 h-3 text-violet-500 shrink-0" />
                   <span className="truncate">{translateCourse(courseOverlap, language).title}</span>
-                  <span className="text-[8px] bg-violet-100 dark:bg-violet-900/40 border border-violet-250/45 dark:border-violet-800 text-violet-700 dark:text-violet-300 px-1 py-0.2 font-mono uppercase tracking-wider font-extrabold shrink-0">
+                  <span className="text-[8px] bg-violet-100 dark:bg-violet-900/40 border border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 px-1 py-0.2 font-mono uppercase tracking-wider font-extrabold shrink-0">
                     {language === 'en' ? 'Course' : 'Курс'}
                   </span>
                 </div>
@@ -1439,7 +1391,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           skipCount = span - 1;
 
           cells.push(
-            <td key={slotTime} colSpan={span} className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40">
+            <td key={slotTime} colSpan={span} className="p-1 align-middle border-r border-slate-100 dark:border-slate-850">
               {renderBookingCell(b, ins)}
             </td>
           );
@@ -1455,13 +1407,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
         if (coveringB) {
           cells.push(
-            <td key={slotTime} className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40">
+            <td key={slotTime} className="p-1 align-middle border-r border-slate-100 dark:border-slate-850">
               {renderBookingCell(coveringB, ins)}
             </td>
           );
         } else if (!ins.isAvailable) {
           cells.push(
-            <td key={slotTime} className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40 text-center bg-slate-50/20 dark:bg-slate-950/5 select-none">
+            <td key={slotTime} className="p-1 align-middle border-r border-slate-100 dark:border-slate-850 text-center bg-slate-50/20 dark:bg-slate-950/5 select-none">
               <div 
                 className="w-full h-11 border border-slate-100/40 dark:border-slate-800/20 bg-slate-100/30 dark:bg-slate-900/10 rounded-xl flex items-center justify-center text-slate-350 dark:text-slate-650"
                 title={language === 'en' ? 'Instructor Unavailable' : 'Инструктор недоступен'}
@@ -1472,10 +1424,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           );
         } else {
           cells.push(
-            <td key={slotTime} className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40 text-center">
+            <td key={slotTime} className="p-1 align-middle border-r border-slate-100 dark:border-slate-850 text-center">
               <button
                 onClick={() => handleOpenSlotAction(ins, slotTime)}
-                className="w-full h-11 border border-dashed border-slate-200/60 dark:border-slate-800/40 hover:border-indigo-400 dark:hover:border-indigo-800 hover:bg-indigo-50/10 dark:hover:bg-indigo-950/10 rounded-xl transition flex items-center justify-center cursor-pointer group animate-fade-in"
+                className="w-full h-11 border border-dashed border-slate-100 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-800 hover:bg-indigo-50/10 dark:hover:bg-indigo-950/10 rounded-xl transition flex items-center justify-center cursor-pointer group animate-fade-in"
                 title={language === 'en' ? 'Manage Slot' : 'Управление слотом'}
               >
                 <Plus className="w-3.5 h-3.5 text-slate-300 dark:text-slate-700 group-hover:text-indigo-500 transition duration-200" />
@@ -1698,18 +1650,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <div className="overflow-x-auto rounded-none border border-[var(--border)]">
           <table className="w-full min-w-[1100px] border-collapse table-fixed">
             <thead>
-              <tr className="bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-200/50 dark:border-slate-800/40 text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              <tr className="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                 <th className="w-[180px] p-3 text-left font-bold">
                   {language === 'en' ? 'Instructor' : 'Инструктор'}
                 </th>
                 {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'].map((time) => (
-                  <th key={time} className="p-3 text-center font-bold w-[95px] border-l border-slate-200/50 dark:border-slate-800/40">
+                  <th key={time} className="p-3 text-center font-bold w-[95px] border-l border-slate-100 dark:border-slate-850">
                     {time}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {instructors.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="p-8 text-center text-sm text-slate-400">
@@ -1761,7 +1713,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </table>
         </div>
       </div>
-      {activeSlotModal && createPortal(
+      {activeSlotModal && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-[var(--bg)] border border-[var(--border)] rounded-none w-full max-w-md p-6 shadow-2xl relative space-y-4 transition-colors duration-300 animate-scale-up">
             <button
@@ -2084,8 +2036,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </form>
             )}
           </div>
-        </div>,
-        document.body
+        </div>
       )}
 
       <div className="grid lg:grid-cols-12 gap-6">
@@ -2952,161 +2903,124 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <th className="px-4 py-3 font-bold w-[140px]">{language === 'en' ? 'Dates' : 'Даты проведения'}</th>
                     <th className="px-4 py-3 font-bold w-[100px]">{language === 'en' ? 'Seats' : 'Места'}</th>
                     <th className="px-4 py-3 font-bold w-[80px]">{language === 'en' ? 'Price' : 'Цена'}</th>
-                    <th className="px-4 py-3 font-bold w-[80px] text-center">{language === 'en' ? 'Order' : 'Порядок'}</th>
                     <th className="px-4 py-3 font-bold w-[90px] text-right">{language === 'en' ? 'Actions' : 'Действия'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]/40">
-                  {(() => {
-                    const sortedCourses = [...courses].sort((a, b) => {
-                      const orderA = a.order !== undefined ? a.order : 999;
-                      const orderB = b.order !== undefined ? b.order : 999;
-                      if (orderA !== orderB) return orderA - orderB;
-                      return a.title.localeCompare(b.title);
-                    });
-                    return sortedCourses.map((course, idx) => {
-                      const translatedCourse = translateCourse(course, language);
-                      return (
-                        <tr key={course.id} className="hover:bg-black/5 dark:hover:bg-white/5 transition">
-                          <td className="px-4 py-2">
-                            <img 
-                              src={course.bgImageUrl} 
-                              referrerPolicy="no-referrer"
-                              alt={translatedCourse.title} 
-                              className="w-10 h-10 object-cover border border-[var(--border)] transition-all duration-300 group-hover:scale-105" 
-                            />
-                          </td>
-                          <td className="px-4 py-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-[var(--ink)] block text-xs">{translatedCourse.title}</span>
-                              {course.isHidden && (
-                                <span className="bg-rose-950/20 text-rose-400 border border-rose-900/50 text-[8px] font-bold px-1.5 py-0.5 uppercase tracking-wide rounded-none shrink-0">
-                                  {language === 'en' ? 'Hidden' : 'Скрыт'}
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[10px] text-[var(--ink-dim)] line-clamp-1 mt-0.5">{translatedCourse.description}</span>
-                            
-                            {course.instructorIds && course.instructorIds.length > 0 && (
-                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                                <span className="text-[9px] text-[var(--ink-dim)] uppercase tracking-wider">{language === 'en' ? 'Instructors:' : 'Инструкторы:'}</span>
-                                {course.instructorIds.map((insId) => {
-                                  const ins = instructors.find(i => i.id === insId);
-                                  if (!ins) return null;
-                                  return (
-                                    <span key={insId} className="bg-black/10 dark:bg-white/10 border border-[var(--border)] text-[9px] px-1.5 py-0.5 text-[var(--ink)] font-bold">
-                                      {translateInstructorName(ins.name, language)}
-                                    </span>
-                                  );
-                                })}
-                              </div>
+                  {courses.map((course) => {
+                    const translatedCourse = translateCourse(course, language);
+                    return (
+                      <tr key={course.id} className="hover:bg-black/5 dark:hover:bg-white/5 transition">
+                        <td className="px-4 py-2">
+                          <img 
+                            src={course.bgImageUrl} 
+                            referrerPolicy="no-referrer"
+                            alt={translatedCourse.title} 
+                            className="w-10 h-10 object-cover border border-[var(--border)] transition-all duration-300 group-hover:scale-105" 
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-[var(--ink)] block text-xs">{translatedCourse.title}</span>
+                            {course.isHidden && (
+                              <span className="bg-rose-950/20 text-rose-400 border border-rose-900/50 text-[8px] font-bold px-1.5 py-0.5 uppercase tracking-wide rounded-none shrink-0">
+                                {language === 'en' ? 'Hidden' : 'Скрыт'}
+                              </span>
                             )}
-                          </td>
-                          <td className="px-4 py-2 text-[var(--ink)]">{translatedCourse.duration}</td>
-                          <td className="px-4 py-2 text-[var(--ink)] font-bold">{translatedCourse.dates}</td>
-                          <td className="px-4 py-2">
-                            <span className={`font-bold ${course.availableSeats === 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                              {course.availableSeats} / {course.totalSeats}
-                            </span>
-                            {(() => {
-                              const courseBookings = bookings.filter(
-                                (b) => b.instructorId === `course_${course.id}` && b.status !== 'cancelled' && !b.isDeleted
-                              );
-                              const enrolledNames = courseBookings.map((b) => {
-                                const u = usersList.find((usr) => usr.uid === b.userId);
-                                return u?.displayName || u?.email || b.userId;
-                              }).filter(Boolean);
-                              if (enrolledNames.length > 0) {
+                          </div>
+                          <span className="text-[10px] text-[var(--ink-dim)] line-clamp-1 mt-0.5">{translatedCourse.description}</span>
+                          
+                          {course.instructorIds && course.instructorIds.length > 0 && (
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              <span className="text-[9px] text-[var(--ink-dim)] uppercase tracking-wider">{language === 'en' ? 'Instructors:' : 'Инструкторы:'}</span>
+                              {course.instructorIds.map((insId) => {
+                                const ins = instructors.find(i => i.id === insId);
+                                if (!ins) return null;
                                 return (
-                                  <div className="text-[9px] text-[var(--ink-dim)] mt-1 font-mono leading-tight max-w-[120px] truncate" title={enrolledNames.join(', ')}>
-                                    <span className="font-bold text-[8px] uppercase tracking-wider block">{language === 'en' ? 'Enrolled:' : 'Записаны:'}</span>
-                                    {enrolledNames.join(', ')}
-                                  </div>
+                                  <span key={insId} className="bg-black/10 dark:bg-white/10 border border-[var(--border)] text-[9px] px-1.5 py-0.5 text-[var(--ink)] font-bold">
+                                    {translateInstructorName(ins.name, language)}
+                                  </span>
                                 );
-                              }
-                              return null;
-                            })()}
-                          </td>
-                          <td className="px-4 py-2 text-[var(--ink)] font-bold">${course.price}</td>
-                          <td className="px-4 py-2 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <button
-                                onClick={() => handleMoveCourse(course, 'up')}
-                                disabled={idx === 0}
-                                className={`p-1 border border-transparent rounded-none transition cursor-pointer ${
-                                  idx === 0 
-                                    ? 'text-[var(--border)] cursor-not-allowed opacity-30' 
-                                    : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--border)] bg-black/5 dark:bg-white/5'
-                                }`}
-                                title={language === 'en' ? 'Move Up' : 'Переместить вверх'}
-                              >
-                                <ArrowUp className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleMoveCourse(course, 'down')}
-                                disabled={idx === sortedCourses.length - 1}
-                                className={`p-1 border border-transparent rounded-none transition cursor-pointer ${
-                                  idx === sortedCourses.length - 1 
-                                    ? 'text-[var(--border)] cursor-not-allowed opacity-30' 
-                                    : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--border)] bg-black/5 dark:bg-white/5'
-                                }`}
-                                title={language === 'en' ? 'Move Down' : 'Переместить вниз'}
-                              >
-                                <ArrowDown className="w-3.5 h-3.5" />
-                              </button>
+                              })}
                             </div>
-                          </td>
-                          <td className="px-4 py-2 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={async () => {
-                                  if (onUpdateCourse) {
-                                    await onUpdateCourse({ ...course, isHidden: !course.isHidden });
-                                    addNotification(
-                                      'success',
-                                      language === 'en' ? 'Course Updated' : 'Курс обновлен',
-                                      language === 'en' 
-                                        ? `Course "${translatedCourse.title}" is now ${!course.isHidden ? 'hidden' : 'visible'}.` 
-                                        : `Курс «${translatedCourse.title}» теперь ${!course.isHidden ? 'скрыт' : 'виден всем'}.`
-                                    );
-                                  }
-                                }}
-                                className={`p-1.5 border border-transparent rounded-none transition cursor-pointer ${
-                                  course.isHidden 
-                                    ? 'text-rose-400 hover:text-rose-300' 
-                                    : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
-                                }`}
-                                title={
-                                  course.isHidden 
-                                    ? (language === 'en' ? 'Show course' : 'Показать курс') 
-                                    : (language === 'en' ? 'Hide course' : 'Скрыть курс')
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-[var(--ink)]">{translatedCourse.duration}</td>
+                        <td className="px-4 py-2 text-[var(--ink)] font-bold">{translatedCourse.dates}</td>
+                        <td className="px-4 py-2">
+                          <span className={`font-bold ${course.availableSeats === 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                            {course.availableSeats} / {course.totalSeats}
+                          </span>
+                          {(() => {
+                            const courseBookings = bookings.filter(
+                              (b) => b.instructorId === `course_${course.id}` && b.status !== 'cancelled' && !b.isDeleted
+                            );
+                            const enrolledNames = courseBookings.map((b) => {
+                              const u = usersList.find((usr) => usr.uid === b.userId);
+                              return u?.displayName || u?.email || b.userId;
+                            }).filter(Boolean);
+                            if (enrolledNames.length > 0) {
+                              return (
+                                <div className="text-[9px] text-[var(--ink-dim)] mt-1 font-mono leading-tight max-w-[120px] truncate" title={enrolledNames.join(', ')}>
+                                  <span className="font-bold text-[8px] uppercase tracking-wider block">{language === 'en' ? 'Enrolled:' : 'Записаны:'}</span>
+                                  {enrolledNames.join(', ')}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </td>
+                        <td className="px-4 py-2 text-[var(--ink)] font-bold">${course.price}</td>
+                        <td className="px-4 py-2 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={async () => {
+                                if (onUpdateCourse) {
+                                  await onUpdateCourse({ ...course, isHidden: !course.isHidden });
+                                  addNotification(
+                                    'success',
+                                    language === 'en' ? 'Course Updated' : 'Курс обновлен',
+                                    language === 'en' 
+                                      ? `Course "${translatedCourse.title}" is now ${!course.isHidden ? 'hidden' : 'visible'}.` 
+                                      : `Курс «${translatedCourse.title}» теперь ${!course.isHidden ? 'скрыт' : 'виден всем'}.`
+                                  );
                                 }
-                              >
-                                {course.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                              </button>
-                              <button
-                                onClick={() => startEditCourse(course)}
-                                className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] border border-transparent rounded-none transition cursor-pointer"
-                                title={language === 'en' ? 'Edit course' : 'Редактировать курс'}
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteCourseClick(course)}
-                                className="p-1.5 text-rose-500 hover:text-rose-600 hover:border-rose-500/30 border border-transparent rounded-none transition cursor-pointer"
-                                title={language === 'en' ? 'Delete course' : 'Удалить курс'}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    });
-                  })()}
+                              }}
+                              className={`p-1.5 border border-transparent rounded-none transition cursor-pointer ${
+                                course.isHidden 
+                                  ? 'text-rose-400 hover:text-rose-300' 
+                                  : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
+                              }`}
+                              title={
+                                course.isHidden 
+                                  ? (language === 'en' ? 'Show course' : 'Показать курс') 
+                                  : (language === 'en' ? 'Hide course' : 'Скрыть курс')
+                              }
+                            >
+                              {course.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              onClick={() => startEditCourse(course)}
+                              className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] border border-transparent rounded-none transition cursor-pointer"
+                              title={language === 'en' ? 'Edit course' : 'Редактировать курс'}
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCourseClick(course)}
+                              className="p-1.5 text-rose-500 hover:text-rose-600 hover:border-rose-500/30 border border-transparent rounded-none transition cursor-pointer"
+                              title={language === 'en' ? 'Delete course' : 'Удалить курс'}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {courses.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="text-center py-8 text-xs text-[var(--ink-dim)]">
+                      <td colSpan={7} className="text-center py-8 text-xs text-[var(--ink-dim)]">
                         {language === 'en' ? 'No intensive courses found.' : 'Интенсивные курсы не найдены.'}
                       </td>
                     </tr>
@@ -3719,7 +3633,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </div>
 
-      {confirmModal && createPortal(
+      {confirmModal && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-55 p-4 animate-fade-in">
           <div className="bg-[var(--bg)] border border-[var(--border)] rounded-none w-full max-w-sm p-6 shadow-2xl relative space-y-4 animate-scale-up">
             <h4 className="font-serif text-sm font-light text-[var(--ink)] flex items-center gap-2">
@@ -3750,8 +3664,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </button>
             </div>
           </div>
-        </div>,
-        document.body
+        </div>
       )}
     </div>
   );

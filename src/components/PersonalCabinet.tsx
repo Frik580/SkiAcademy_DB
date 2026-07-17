@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { Booking, UserProfile, LessonDifficulty, Review, Course } from '../types';
 import { 
   Calendar, 
@@ -1114,10 +1113,10 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                     </span>
 
                     {/* Export / Sync Options */}
-                    {b.status === 'confirmed' && (
-                      <div className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded-none border border-[var(--border)]">
+                    {/* {b.status === 'confirmed' && (
+                      <div className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded-none border border-[var(--border)]"> */}
                         {/* Google Calendar Link */}
-                        <a
+                        {/* <a
                           href={getGoogleCalendarUrl(b)}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -1125,18 +1124,18 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                           className="p-1 hover:bg-black/20 rounded text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
+                        </a> */}
                         {/* Apple/Outlook Download */}
-                        <button
+                        {/* <button
                           type="button"
                           onClick={() => handleDownloadIcs(b)}
                           title={language === 'en' ? 'Download .ics Calendar File' : 'Скачать файл .ics для календаря'}
                           className="p-1 hover:bg-black/20 rounded text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer"
                         >
                           <Download className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
+                        </button> */}
+                      {/* </div>
+                    )} */}
 
                     {/* Actions based on Status */}
                     {b.status === 'confirmed' && (
@@ -1173,7 +1172,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           </div>
         )}
       </div>      {/* Reschedule Modal */}
-      {rescheduleId && createPortal(
+      {rescheduleId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in">
           <div className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-sm overflow-hidden animate-scale-up rounded-none">
             <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/10">
@@ -1230,12 +1229,11 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               </button>
             </form>
           </div>
-        </div>,
-        document.body
+        </div>
       )}
 
       {/* Review Modal */}
-      {reviewBooking && createPortal(
+      {reviewBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in">
           <div className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-sm overflow-hidden animate-scale-up rounded-none">
             <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/10">
@@ -1295,11 +1293,10 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               </button>
             </form>
           </div>
-        </div>,
-        document.body
+        </div>
       )}
 
-      {confirmModal && createPortal(
+      {confirmModal && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-55 p-4 animate-fade-in">
           <div className="bg-[var(--bg)] border border-[var(--border)] rounded-none w-full max-w-sm p-6 shadow-2xl relative space-y-4 animate-scale-up transition-colors duration-300">
             <h4 className="font-serif text-sm font-light text-[var(--ink)] flex items-center gap-2">
@@ -1352,10 +1349,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               </button>
             </div>
           </div>
-        </div>,
-        document.body
+        </div>
       )}
     </div>
   );
 };
-

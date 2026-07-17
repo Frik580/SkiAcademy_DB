@@ -93,20 +93,6 @@
         "isHidden": { "type": "boolean" }
       },
       "required": ["id", "title", "duration", "description", "dates", "totalSeats", "availableSeats", "price", "bgImageUrl"]
-    },
-    "Notification": {
-      "title": "Notification",
-      "description": "User notification",
-      "type": "object",
-      "properties": {
-        "userId": { "type": "string" },
-        "title": { "type": "string" },
-        "message": { "type": "string" },
-        "type": { "type": "string" },
-        "timestamp": { "type": "string" },
-        "isRead": { "type": "boolean" }
-      },
-      "required": ["userId", "title", "message", "type", "timestamp", "isRead"]
     }
   },
   "firestore": {
@@ -133,10 +119,6 @@
     "courses/{courseId}": {
       "schema": "Course",
       "description": "Course details"
-    },
-    "notifications/{notificationId}": {
-      "schema": "Notification",
-      "description": "Notification details"
     }
   }
 }

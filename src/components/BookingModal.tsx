@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { Instructor, UserProfile, Booking, LessonDifficulty, Course } from '../types';
 import { X, Calendar, Clock, HelpCircle, Wallet, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
@@ -25,14 +24,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   onOpenTopUp,
   courses = []
 }) => {
-  const [activeInstructor, setActiveInstructor] = useState<Instructor | null>(instructor);
-
-  useEffect(() => {
-    if (instructor) {
-      setActiveInstructor(instructor);
-    }
-  }, [instructor]);
-
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
   const [date, setDate] = useState<string>('');
@@ -201,10 +192,51 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const overlappingCourse = getOverlappingCourse();
   const isTimeSlotOccupied = !!overlappingBooking || !!overlappingCourse || availableSlots.length === 0;
 
-  const targetInstructor = activeInstructor || instructor;
-  if (!targetInstructor) return null;
+  if (!isOpen || !instructor) return null;
 
-  const totalCost = targetInstructor.pricePerHour * duration;
+  if (!userProfile) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in">
+        <div className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-md overflow-hidden animate-scale-up transition-colors duration-300 rounded-none">
+          <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10">
+            <h3 className="font-serif text-lg font-light text-[var(--ink)]">
+              {language === 'en' ? 'Sign In Required' : 'Требуется войти'}
+            </h3>
+            <button
+              onClick={onClose}
+              className="p-1.5 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="p-6 text-center space-y-5">
+            <div className="p-3 border border-[var(--border)] bg-black/10 text-[var(--ink)] rounded-none w-12 h-12 flex items-center justify-center mx-auto">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <p className="text-[11px] font-mono text-[var(--ink-dim)] uppercase tracking-wider leading-relaxed">
+              {language === 'en' 
+                ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.' 
+                : 'Войдите, чтобы бронировать инструкторов, пополнять кошелек и видеть расписание.'}
+            </p>
+            <button
+              onClick={() => {
+                onClose();
+                const authEl = document.getElementById('auth-section');
+                if (authEl) {
+                  authEl.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+              className="w-full py-2.5 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer"
+            >
+              {language === 'en' ? 'Go to Sign In / Register' : 'Перейти к авторизации'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const totalCost = instructor.pricePerHour * duration;
   const userBalance = userProfile?.balanceUSD || 0;
   const hasSufficientFunds = userBalance >= totalCost;
 
@@ -229,13 +261,13 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       return;
     }
 
-    if (!targetInstructor.isAvailable) {
+    if (!instructor.isAvailable) {
       addNotification(
         'error',
         language === 'en' ? 'Instructor Unavailable' : 'Инструктор недоступен',
         language === 'en'
-          ? `${targetInstructor.name} is currently not accepting new bookings.`
-          : `${targetInstructor.name} временно не принимает записи на новые занятия.`
+          ? `${instructor.name} is currently not accepting new bookings.`
+          : `${instructor.name} временно не принимает записи на новые занятия.`
       );
       return;
     }
@@ -245,8 +277,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         'error',
         language === 'en' ? 'Slot Unavailable' : 'Время недоступно',
         language === 'en'
-          ? `${targetInstructor.name} is already booked during this time period.`
-          : `${targetInstructor.name} уже занят(а) в данный промежуток времени.`
+          ? `${instructor.name} is already booked during this time period.`
+          : `${instructor.name} уже занят(а) в данный промежуток времени.`
       );
       return;
     }
@@ -258,9 +290,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       const newBooking: Booking = {
         id: `book_${Math.random().toString(36).substring(2, 9)}`,
         userId: userProfile.uid,
-        instructorId: targetInstructor.id,
-        instructorName: targetInstructor.name,
-        instructorAvatar: targetInstructor.avatarUrl,
+        instructorId: instructor.id,
+        instructorName: instructor.name,
+        instructorAvatar: instructor.avatarUrl,
         date,
         time,
         durationHours: duration,
@@ -276,8 +308,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           'success',
           language === 'en' ? 'Lesson Booked!' : 'Урок забронирован!',
           language === 'en' 
-            ? `Coaching with ${targetInstructor.name} scheduled for ${date} at ${time}. $${totalCost} debited.`
-            : `Занятие с ${targetInstructor.name} запланировано на ${date} в ${time}. Списано $${totalCost}.`
+            ? `Coaching with ${instructor.name} scheduled for ${date} at ${time}. $${totalCost} debited.`
+            : `Занятие с ${instructor.name} запланировано на ${date} в ${time}. Списано $${totalCost}.`
         );
         onClose();
       } catch (err) {
@@ -316,94 +348,32 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && targetInstructor && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4"
-        >
-          {!userProfile ? (
-            <motion.div 
-              key="signin-modal"
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-md overflow-hidden transition-colors duration-300 rounded-none"
-            >
-              <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10">
-                <h3 className="font-serif text-lg font-light text-[var(--ink)]">
-                  {language === 'en' ? 'Sign In Required' : 'Требуется войти'}
-                </h3>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="p-1.5 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="p-6 text-center space-y-5">
-                <div className="p-3 border border-[var(--border)] bg-black/10 text-[var(--ink)] rounded-none w-12 h-12 flex items-center justify-center mx-auto">
-                  <ShieldAlert className="w-5 h-5" />
-                </div>
-                <p className="text-[11px] font-mono text-[var(--ink-dim)] uppercase tracking-wider leading-relaxed">
-                  {language === 'en' 
-                    ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.' 
-                    : 'Войдите, чтобы бронировать инструкторов, пополнять кошелек и видеть расписание.'}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    const authEl = document.getElementById('auth-section');
-                    if (authEl) {
-                      authEl.scrollIntoView({ behavior: 'smooth' });
-                    }
-                  }}
-                  className="w-full py-2.5 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer"
-                >
-                  {language === 'en' ? 'Go to Sign In / Register' : 'Перейти к авторизации'}
-                </button>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div 
-              key="booking-form-modal"
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 rounded-none"
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 border border-[var(--border)] rounded-none overflow-hidden bg-black/15 shrink-0 filter grayscale">
-                    <img src={targetInstructor.avatarUrl} alt={targetInstructor.name} className="w-full h-full object-cover" />
-                  </div>
-                  <div>
-                    <h3 className="font-serif text-lg font-light text-[var(--ink)]">
-                      {language === 'en' ? `Book with ${targetInstructor.name}` : `Запись к ${targetInstructor.name}`}
-                    </h3>
-                    <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5">
-                      ${targetInstructor.pricePerHour}/{t('hr')} • {language === 'en' ? 'private instruction' : 'индивидуальное занятие'}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="p-1.5 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in">
+      <div className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-lg overflow-hidden animate-scale-up transition-colors duration-300 rounded-none">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 border border-[var(--border)] rounded-none overflow-hidden bg-black/15 shrink-0 filter grayscale">
+              <img src={instructor.avatarUrl} alt={instructor.name} className="w-full h-full object-cover" />
+            </div>
+            <div>
+              <h3 className="font-serif text-lg font-light text-[var(--ink)]">
+                {language === 'en' ? `Book with ${instructor.name}` : `Запись к ${instructor.name}`}
+              </h3>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5">
+                ${instructor.pricePerHour}/{t('hr')} • {language === 'en' ? 'private instruction' : 'индивидуальное занятие'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {/* Booking options */}
           <div className="grid grid-cols-2 gap-4">
             {/* Date Picker */}
@@ -492,8 +462,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 </p>
                 <p className="text-[11px] leading-relaxed opacity-90">
                   {language === 'en'
-                    ? `${targetInstructor.name} is already booked on this date from ${overlappingBooking.time} for ${overlappingBooking.durationHours} ${overlappingBooking.durationHours === 1 ? 'hour' : 'hours'}. Please choose another time slot or date.`
-                    : `${targetInstructor.name} уже забронирован(а) на эту дату с ${overlappingBooking.time} на ${overlappingBooking.durationHours} ${overlappingBooking.durationHours === 1 ? 'час' : 'часа/часов'}. Пожалуйста, выберите другое время или дату.`}
+                    ? `${instructor.name} is already booked on this date from ${overlappingBooking.time} for ${overlappingBooking.durationHours} ${overlappingBooking.durationHours === 1 ? 'hour' : 'hours'}. Please choose another time slot or date.`
+                    : `${instructor.name} уже забронирован(а) на эту дату с ${overlappingBooking.time} на ${overlappingBooking.durationHours} ${overlappingBooking.durationHours === 1 ? 'час' : 'часа/часов'}. Пожалуйста, выберите другое время или дату.`}
                 </p>
               </div>
             </div>
@@ -508,14 +478,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 </p>
                 <p className="text-[11px] leading-relaxed opacity-90">
                   {language === 'en'
-                    ? `${targetInstructor.name} is leading the group course "${overlappingCourse.title}" on this date and time (${overlappingCourse.dates}). Please choose another time slot or date.`
-                    : `${targetInstructor.name} ведет групповой курс «${overlappingCourse.title}» в этот день и время (${overlappingCourse.dates}). Пожалуйста, выберите другое время или дату.`}
+                    ? `${instructor.name} is leading the group course "${overlappingCourse.title}" on this date and time (${overlappingCourse.dates}). Please choose another time slot or date.`
+                    : `${instructor.name} ведет групповой курс «${overlappingCourse.title}» в этот день и время (${overlappingCourse.dates}). Пожалуйста, выберите другое время или дату.`}
                 </p>
               </div>
             </div>
           )}
 
-          {!targetInstructor.isAvailable && (
+          {!instructor.isAvailable && (
             <div className="bg-amber-950/20 border border-amber-900/50 rounded-none p-3.5 flex items-start gap-2.5 text-xs text-amber-300 animate-fade-in">
               <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
@@ -524,8 +494,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 </p>
                 <p className="text-[11px] leading-relaxed opacity-90">
                   {language === 'en'
-                    ? `${targetInstructor.name} is currently not accepting new bookings. Please select another guide.`
-                    : `${targetInstructor.name} временно не принимает записи на занятия. Пожалуйста, выберите другого инструктора.`}
+                    ? `${instructor.name} is currently not accepting new bookings. Please select another guide.`
+                    : `${instructor.name} временно не принимает записи на занятия. Пожалуйста, выберите другого инструктора.`}
                 </p>
               </div>
             </div>
@@ -548,7 +518,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           <div className="bg-black/10 rounded-none p-4 border border-[var(--border)] space-y-2.5">
             <div className="flex justify-between text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider">
               <span>{language === 'en' ? 'Hourly Rate:' : 'Почасовая ставка:'}</span>
-              <span className="font-bold text-[var(--ink)]">${targetInstructor.pricePerHour} / {t('hr')}</span>
+              <span className="font-bold text-[var(--ink)]">${instructor.pricePerHour} / {t('hr')}</span>
             </div>
             <div className="flex justify-between text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider">
               <span>{language === 'en' ? 'Hours booked:' : 'Часов забронировано:'}</span>
@@ -597,7 +567,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           {/* Submit Action */}
           <button
             type="submit"
-            disabled={isSubmitting || !hasSufficientFunds || isTimeSlotOccupied || !targetInstructor.isAvailable}
+            disabled={isSubmitting || !hasSufficientFunds || isTimeSlotOccupied || !instructor.isAvailable}
             className="w-full py-3 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
           >
             {isSubmitting ? (
@@ -613,10 +583,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             )}
           </button>
         </form>
-            </motion.div>
-          )}
-        </motion.div>
-      )}
-    </AnimatePresence>
+      </div>
+    </div>
   );
 };

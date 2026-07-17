@@ -1451,38 +1451,6 @@ const AppContent: React.FC = () => {
                               <p className="text-xs text-[var(--ink-dim)] leading-relaxed font-mono">
                                 {course.description}
                               </p>
-
-                              {rawCourse.instructorIds && rawCourse.instructorIds.length > 0 && (
-                                <div className="space-y-1.5 pt-2">
-                                  <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--ink-dim)] block">
-                                    {language === 'en' ? 'Course Leads' : 'Ведущие курса'}
-                                  </span>
-                                  <div className="flex gap-2">
-                                    {rawCourse.instructorIds.map((insId) => {
-                                      const ins = instructors.find(i => i.id === insId);
-                                      if (!ins) return null;
-                                      return (
-                                        <div key={insId} className="flex items-center gap-1.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] p-1.5 flex-1 min-w-0">
-                                          <img 
-                                            src={ins.avatarUrl} 
-                                            referrerPolicy="no-referrer"
-                                            alt={ins.name} 
-                                            className="w-6 h-6 object-cover border border-[var(--border)] grayscale shrink-0" 
-                                          />
-                                          <div className="min-w-0 leading-none">
-                                            <p className="text-[9px] font-bold text-[var(--ink)] truncate">
-                                              {translateInstructorName(ins.name, language)}
-                                            </p>
-                                            <p className="text-[8px] text-[var(--ink-dim)] mt-1 truncate">
-                                              {ins.specialty === 'both' ? (language === 'en' ? 'Ski/Snb' : 'Лыжи/Снб') : (ins.specialty === 'ski' ? (language === 'en' ? 'Ski' : 'Лыжи') : (language === 'en' ? 'Snb' : 'Сноуборд'))}
-                                            </p>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
                             </div>
 
                             <div className="space-y-3 pt-2">
@@ -1508,6 +1476,38 @@ const AppContent: React.FC = () => {
                                 <span>{language === 'en' ? 'Price' : 'Стоимость'}:</span>
                                 <span className="text-[var(--ink)] font-bold text-sm">${course.price}</span>
                               </div>
+
+                              {rawCourse.instructorIds && rawCourse.instructorIds.length > 0 && (
+                                <div className="space-y-1.5 pt-2">
+                                  <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--ink-dim)] block">
+                                    {language === 'en' ? 'Course Leads' : 'Ведущие курса'}
+                                  </span>
+                                  <div className="flex gap-2">
+                                    {rawCourse.instructorIds.map((insId) => {
+                                      const ins = instructors.find(i => i.id === insId);
+                                      if (!ins) return null;
+                                      return (
+                                        <div key={insId} className="flex items-center gap-1.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] p-1.5 flex-1 min-w-0">
+                                          <img 
+                                            src={ins.avatarUrl} 
+                                            referrerPolicy="no-referrer"
+                                            alt={ins.name} 
+                                            className="w-6 h-6 object-cover border border-[var(--border)] shrink-0" 
+                                          />
+                                          <div className="min-w-0 leading-none">
+                                            <p className="text-[9px] font-bold text-[var(--ink)] truncate">
+                                              {translateInstructorName(ins.name, language)}
+                                            </p>
+                                            <p className="text-[8px] text-[var(--ink-dim)] mt-1 truncate">
+                                              {ins.specialty === 'both' ? (language === 'en' ? 'Ski/Snb' : 'Лыжи/Снб') : (ins.specialty === 'ski' ? (language === 'en' ? 'Ski' : 'Лыжи') : (language === 'en' ? 'Snb' : 'Сноуборд'))}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
 
                               <button
                                 onClick={() => handleBookCourse(course.id)}

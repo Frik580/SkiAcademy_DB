@@ -508,6 +508,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [clientBalance, setClientBalance] = useState(250);
   const [clientRole, setClientRole] = useState<'user' | 'admin'>('user');
   const [clientIsInstructor, setClientIsInstructor] = useState(false);
+  const [clientIsActive, setClientIsActive] = useState(true);
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
 
   // Active Bookings Monitor filter states
@@ -542,13 +543,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const clientData: UserProfile = {
       uid: uId,
       displayName: (clientName || '').trim(),
-      email: (clientEmail || '').trim().toLowerCase(),
+      email: (clientEmail || '').trim().toLowerCase(), // This was missing other properties
       phoneNumber: (clientPhone || '').trim() || '',
+      isClientActive: clientIsActive,
       balanceUSD: Number(clientBalance),
       role: clientRole,
       isInstructor: clientIsInstructor,
       instructorId: finalInstructorId,
-      avatarUrl: editingClient ? editingClient.avatarUrl : defaultAvatar
+      avatarUrl: editingClient ? editingClient.avatarUrl : defaultAvatar,
     };
 
     try {
@@ -603,6 +605,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setClientBalance(250);
       setClientRole('user');
       setClientIsInstructor(false);
+      setClientIsActive(true);
       setShowClientAddForm(false);
     } catch (err) {
       addNotification('error', 'Error', language === 'en' ? 'Failed to save client profile.' : 'Не удалось сохранить профиль клиента.');
@@ -790,6 +793,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setClientBalance(u.balanceUSD);
     setClientRole(u.role);
     setClientIsInstructor(!!u.isInstructor);
+    setClientIsActive(u.isClientActive === undefined ? true : u.isClientActive);
     setShowClientAddForm(true);
   };
 
@@ -2867,6 +2871,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               setClientPhone('');
               setClientBalance(250);
               setClientRole('user');
+              setClientIsActive(true);
               setClientIsInstructor(false);
               setShowClientAddForm(!showClientAddForm);
             }}
@@ -3122,6 +3127,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   />
                   <label htmlFor="clientIsInstructorCheckbox" className="text-xs font-mono text-[var(--ink)] cursor-pointer select-none">
                     {language === 'en' ? 'Instructor Status (Grants panel access)' : 'Статус инструктора (Доступ к панели)'}
+                  </label>
+                </div>
+
+                {/* Client Access Toggle */}
+                <div className="space-y-1.5 flex items-center gap-2 pt-1 pb-1">
+                  <input
+                    type="checkbox"
+                    id="clientIsActiveCheckbox"
+                    checked={clientIsActive}
+                    onChange={(e) => setClientIsActive(e.target.checked)}
+                    className="w-4 h-4 border border-[var(--border)] bg-transparent focus:outline-none cursor-pointer accent-emerald-600 rounded-none shrink-0"
+                  />
+                  <label htmlFor="clientIsActiveCheckbox" className="text-xs font-mono text-[var(--ink)] cursor-pointer select-none">
+                    {language === 'en' ? 'Cabinet Access Enabled' : 'Доступ к кабинету включен'}
                   </label>
                 </div>
 
@@ -4010,5 +4029,4 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     </div>
   );
 };
-
 

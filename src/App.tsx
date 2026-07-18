@@ -96,7 +96,8 @@ const AppContent: React.FC = () => {
   // Filter & Sort computation
   const filteredInstructors = translatedInstructors
     .filter((ins: Instructor) => {
-      if (!filtersEnabled) return true;
+      if (!ins.isAvailable) return false; // Не показывать недоступных инструкторов
+      if (!filtersEnabled) return true; // Если фильтры отключены, показывать всех доступных
       const matchSearch = ins.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           ins.bio.toLowerCase().includes(searchQuery.toLowerCase());
       const matchSpec = selectedSpecialty === 'all' || ins.specialty === selectedSpecialty;

@@ -12,6 +12,7 @@ export interface UserProfile {
   balanceUSD: number;
   instructorId?: string;
   isInstructor?: boolean;
+  isClientActive?: boolean;
 }
 
 export interface Instructor {

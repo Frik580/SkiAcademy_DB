@@ -7,7 +7,6 @@ import {
   updateDoc,
   deleteDoc,
   collection,
-  getDocs,
   query,
   where,
   onSnapshot,
@@ -35,7 +34,7 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
   const [deletedCompletedStats, setDeletedCompletedStats] = useState<{ revenue: number; count: number }>({ revenue: 0, count: 0 });
   const [filtersEnabled, setFiltersEnabled] = useState<boolean>(true);
 
-  // Load Instructors, Reviews, and initial settings
+  // Load initial settings and stats
   useEffect(() => {
     const loadInitialData = async () => {
       // Load Settings
@@ -44,38 +43,6 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
         setFiltersEnabled(settingsSnap.exists() ? (settingsSnap.data().enabled ?? true) : true);
       } catch (e) {
         setFiltersEnabled(true);
-      }
-
-      // Fetch Instructors
-      try {
-        const q = query(collection(db, 'instructors'));
-        const snap = await getDocs(q);
-        if (snap && !snap.empty) {
-          setInstructors(snap.docs.map(d => ({ id: d.id, ...d.data() } as Instructor)));
-        } else {
-          setInstructors(INITIAL_INSTRUCTORS);
-          INITIAL_INSTRUCTORS.forEach(async (ins) => {
-            try { await setDoc(doc(db, 'instructors', ins.id), ins); } catch (e) { /* Ignore seed failures */ }
-          });
-        }
-      } catch (e) {
-        setInstructors(INITIAL_INSTRUCTORS);
-      }
-
-      // Fetch Reviews
-      try {
-        const q = query(collection(db, 'reviews'));
-        const snap = await getDocs(q);
-        if (snap && !snap.empty) {
-          setReviews(snap.docs.map(d => ({ id: d.id, ...d.data() } as Review)));
-        } else {
-          setReviews(INITIAL_REVIEWS);
-          INITIAL_REVIEWS.forEach(async (rev) => {
-            try { await setDoc(doc(db, 'reviews', rev.id), rev); } catch (e) { /* Ignore */ }
-          });
-        }
-      } catch (e) {
-        setReviews(INITIAL_REVIEWS);
       }
 
       // Fetch admin stats
@@ -111,6 +78,32 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
         });
       }
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'courses')));
+
+    // Instructors
+    const instructorsQuery = query(collection(db, 'instructors'));
+    unsubscribers.push(onSnapshot(instructorsQuery, (snap) => {
+      if (snap && !snap.empty) {
+        setInstructors(snap.docs.map(d => ({ id: d.id, ...d.data() } as Instructor)));
+      } else {
+        setInstructors(INITIAL_INSTRUCTORS);
+        INITIAL_INSTRUCTORS.forEach(async (ins) => {
+          try { await setDoc(doc(db, 'instructors', ins.id), ins); } catch (e) { /* Ignore */ }
+        });
+      }
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'instructors')));
+
+    // Reviews
+    const reviewsQuery = query(collection(db, 'reviews'));
+    unsubscribers.push(onSnapshot(reviewsQuery, (snap) => {
+      if (snap && !snap.empty) {
+        setReviews(snap.docs.map(d => ({ id: d.id, ...d.data() } as Review)));
+      } else {
+        setReviews(INITIAL_REVIEWS);
+        INITIAL_REVIEWS.forEach(async (rev) => {
+          try { await setDoc(doc(db, 'reviews', rev.id), rev); } catch (e) { /* Ignore */ }
+        });
+      }
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'reviews')));
 
     if (firebaseUser) {
       const isAdminUser = userProfile?.role === 'admin';

@@ -508,7 +508,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [clientBalance, setClientBalance] = useState(250);
   const [clientRole, setClientRole] = useState<'user' | 'admin'>('user');
   const [clientIsInstructor, setClientIsInstructor] = useState(false);
-  const [clientInstructorId, setClientInstructorId] = useState('');
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
 
   // Active Bookings Monitor filter states
@@ -533,17 +532,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const wasInstructor = editingClient ? !!editingClient.isInstructor : false;
     const isNowInstructor = clientIsInstructor;
     const oldInstructorId = editingClient?.instructorId || '';
-
-    let finalInstructorId = '';
-    if (isNowInstructor) {
-      finalInstructorId = clientInstructorId || oldInstructorId || `instructor_${uId}`;
-    }
-
+ 
+    // Если статус инструктора активирован, убедимся, что у него есть ID.
+    // Если ID нет, сгенерируем новый.
+    const finalInstructorId = isNowInstructor
+      ? (oldInstructorId || `ins_${uId}`)
+      : '';
+ 
     const clientData: UserProfile = {
       uid: uId,
-      displayName: clientName.trim(),
-      email: clientEmail.trim().toLowerCase(),
-      phoneNumber: clientPhone.trim() || '',
+      displayName: (clientName || '').trim(),
+      email: (clientEmail || '').trim().toLowerCase(),
+      phoneNumber: (clientPhone || '').trim() || '',
       balanceUSD: Number(clientBalance),
       role: clientRole,
       isInstructor: clientIsInstructor,
@@ -552,39 +552,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     };
 
     try {
-      if (isNowInstructor) {
+      // Логика для создания/обновления инструктора при изменении статуса
+      if (isNowInstructor && !wasInstructor) {
+        // Статус инструктора был только что присвоен
         const exists = instructors.some(ins => ins.id === finalInstructorId);
         if (!exists) {
           const newIns: Instructor = {
             id: finalInstructorId,
-            name: clientName.trim(),
+            name: (clientName || '').trim(),
             specialty: 'both',
-            rating: 5.0,
+            rating: editingClient?.instructorId ? (instructors.find(i => i.id === editingClient.instructorId)?.rating || 0) : 0,
             reviewsCount: 0,
             languages: [language === 'en' ? 'English' : 'Русский'],
             experienceYears: 1,
             bio: language === 'en' 
               ? `Professional ski and snowboard instructor, certified coach.` 
               : `Профессиональный инструктор по лыжам и сноуборду, сертифицированный тренер.`,
-            avatarUrl: editingClient ? editingClient.avatarUrl : defaultAvatar,
             pricePerHour: 50,
-            isAvailable: true
+            isAvailable: true,
+            avatarUrl: clientData.avatarUrl
           };
           await onAddInstructor(newIns);
         } else {
-          // Keep instructor details synchronized with user profile changes
           const existingIns = instructors.find(ins => ins.id === finalInstructorId);
-          if (existingIns && (existingIns.name !== clientName.trim() || existingIns.avatarUrl !== (editingClient ? editingClient.avatarUrl : defaultAvatar))) {
-            await onUpdateInstructor({
-              ...existingIns,
-              name: clientName.trim(),
-              avatarUrl: editingClient ? editingClient.avatarUrl : defaultAvatar
-            });
-          }
+          if (existingIns && !existingIns.isAvailable) { await onUpdateInstructor({ ...existingIns, isAvailable: true, name: (clientName || '').trim(), avatarUrl: clientData.avatarUrl }); }
         }
-      } else if (wasInstructor && oldInstructorId) {
-        // If status was removed, delete them from the instructors database
-        await onDeleteInstructor(oldInstructorId);
+      } else if (wasInstructor && !isNowInstructor) {
+        // Статус инструктора был снят, делаем его неактивным
+        const existingIns = instructors.find(ins => ins.id === oldInstructorId);
+        if (existingIns) {
+          await onUpdateInstructor({ ...existingIns, isAvailable: false });
+        }
       }
 
       if (editingClient) {
@@ -605,7 +603,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setClientBalance(250);
       setClientRole('user');
       setClientIsInstructor(false);
-      setClientInstructorId('');
       setShowClientAddForm(false);
     } catch (err) {
       addNotification('error', 'Error', language === 'en' ? 'Failed to save client profile.' : 'Не удалось сохранить профиль клиента.');
@@ -793,7 +790,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setClientBalance(u.balanceUSD);
     setClientRole(u.role);
     setClientIsInstructor(!!u.isInstructor);
-    setClientInstructorId(u.instructorId || '');
     setShowClientAddForm(true);
   };
 
@@ -2872,7 +2868,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               setClientBalance(250);
               setClientRole('user');
               setClientIsInstructor(false);
-              setClientInstructorId('');
               setShowClientAddForm(!showClientAddForm);
             }}
             className="self-start md:self-auto py-1.5 px-3 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 rounded-none text-xs flex items-center gap-1 transition cursor-pointer font-mono"
@@ -3122,7 +3117,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     checked={clientIsInstructor}
                     onChange={(e) => {
                       setClientIsInstructor(e.target.checked);
-                      if (!e.target.checked) setClientInstructorId('');
                     }}
                     className="w-4 h-4 border border-[var(--border)] bg-transparent focus:outline-none cursor-pointer accent-indigo-600 rounded-none shrink-0"
                   />
@@ -3130,30 +3124,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     {language === 'en' ? 'Instructor Status (Grants panel access)' : 'Статус инструктора (Доступ к панели)'}
                   </label>
                 </div>
-
-                {/* Dropdown for linking Instructor Profile */}
-                {clientIsInstructor && (
-                  <div className="space-y-1.5 animate-fade-in pl-6 pb-2">
-                    <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
-                      {language === 'en' ? 'Link Instructor Profile' : 'Связать профиль инструктора'}
-                    </label>
-                    <select
-                      required
-                      value={clientInstructorId}
-                      onChange={(e) => setClientInstructorId(e.target.value)}
-                      className="w-full px-3 py-2 border border-[var(--border)] bg-slate-50 dark:bg-slate-900 text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none font-mono cursor-pointer"
-                    >
-                      <option value="" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink-dim)]">
-                        {language === 'en' ? '-- Select Instructor --' : '-- Выберите инструктора --'}
-                      </option>
-                      {instructors.map((ins) => (
-                        <option key={ins.id} value={ins.id} className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-                          {translateInstructorName(ins.name, language)} ({ins.specialty === 'both' ? (language === 'en' ? 'Ski/Snb' : 'Лыжи/Снб') : (ins.specialty === 'ski' ? (language === 'en' ? 'Ski' : 'Лыжи') : (language === 'en' ? 'Snb' : 'Сноуборд'))})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
 
                 {/* Submit button */}
                 <button
@@ -4040,4 +4010,5 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     </div>
   );
 };
+
 

@@ -1641,7 +1641,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </div>
 
       {/* ⚙️ Global App Settings Section */}
-      <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 animate-fade-in transition-colors duration-300">
+      <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 animate-fade-in transition-colors duration-300 w-full min-w-0 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
           <div>
             <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
@@ -1686,7 +1686,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </div>
 
       {/* 🗓️ Instructor Hourly Schedule Board */}
-      <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300">
+      <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300 w-full min-w-0 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
           <div>
             <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
@@ -2126,9 +2126,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         document.body
       )}
 
-      <div className="grid lg:grid-cols-12 gap-6">
+      <div className="grid lg:grid-cols-12 gap-6 w-full min-w-0 overflow-hidden">
         {/* Instructors Management Table */}
-        <div className={`${(showAddForm || editingIns) ? 'lg:col-span-8' : 'lg:col-span-12'} border border-[var(--border)] p-6 bg-transparent space-y-4 transition-colors duration-300`}>
+        <div className={`${(showAddForm || editingIns) ? 'lg:col-span-8' : 'lg:col-span-12'} border border-[var(--border)] p-6 bg-transparent space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden`}>
           <div className="flex items-center justify-between border-b border-[var(--border)] pb-4">
             <div>
               <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
@@ -2403,7 +2403,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </div>
 
       {/* Bookings Overview Log */}
-      <div className="border border-[var(--border)] p-6 bg-transparent space-y-4 transition-colors duration-300">
+      <div className="border border-[var(--border)] p-6 bg-transparent space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
           <div>
             <h3 className="font-serif text-xl font-light text-[var(--ink)]">{language === 'en' ? 'Active Bookings Monitor' : 'Монитор активных бронирований'}</h3>
@@ -2657,7 +2657,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </div>
 
       {/* Client Records Management Section */}
-      <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300">
+      <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300 w-full min-w-0 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
           <div>
             <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
@@ -2693,9 +2693,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </button>
         </div>
 
-        <div className="grid lg:grid-cols-12 gap-6">
+        <div className="grid lg:grid-cols-12 gap-6 w-full min-w-0 overflow-hidden">
           {/* Left Column: Client Directory */}
-          <div className={`${showClientAddForm ? 'lg:col-span-8' : 'lg:col-span-12'} space-y-4 transition-all duration-300`}>
+          <div className={`${showClientAddForm ? 'lg:col-span-8' : 'lg:col-span-12'} space-y-4 transition-all duration-300 w-full min-w-0 overflow-hidden`}>
             {/* Search Box */}
             <div className="relative">
               <Search className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -2709,7 +2709,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
 
             {/* Clients Table */}
-            <div className="border border-[var(--border)] overflow-hidden bg-transparent">
+            <div className="border border-[var(--border)] overflow-hidden bg-transparent w-full min-w-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -2931,7 +2931,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </div>
 
       {/* 🎓 Courses Database Management */}
-      <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300">
+      <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300 w-full min-w-0 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
           <div>
             <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
@@ -3526,7 +3526,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </div>
 
       {/* Administrator Management Section */}
-      <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300">
+      <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300 w-full min-w-0 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
           <div>
             <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
@@ -3555,9 +3555,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         )}
 
-        <div className="grid lg:grid-cols-12 gap-6">
+        <div className="grid lg:grid-cols-12 gap-6 w-full min-w-0 overflow-hidden">
           {/* Left Column: Active Administrators */}
-          <div className="lg:col-span-6 space-y-3 font-mono">
+          <div className="lg:col-span-6 space-y-3 font-mono w-full min-w-0 overflow-hidden">
             <h4 className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
               {language === 'en' ? 'Current Administrators' : 'Действующие администраторы'}
             </h4>
@@ -3568,17 +3568,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               ) : (
                 usersList.filter(u => u.role === 'admin').map((u) => (
-                  <div key={u.uid} className="flex items-center justify-between p-3.5 border border-[var(--border)] bg-transparent transition rounded-none">
-                    <div className="flex items-center gap-3">
+                  <div key={u.uid} className="flex items-center justify-between p-3.5 border border-[var(--border)] bg-transparent transition rounded-none w-full min-w-0 overflow-hidden gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <img 
                         src={u.avatarUrl || `https://api.dicebear.com/7.x/adventurer/svg?seed=${u.uid}`} 
                         referrerPolicy="no-referrer"
                         alt={u.displayName} 
-                        className="w-9 h-9 rounded-none bg-black/5 dark:bg-white/5 border border-[var(--border)]" 
+                        className="w-9 h-9 rounded-none bg-black/5 dark:bg-white/5 border border-[var(--border)] shrink-0" 
                       />
-                      <div>
-                        <span className="text-xs font-bold text-[var(--ink)] block">{u.displayName || 'Unnamed User'}</span>
-                        <span className="text-[10px] text-[var(--ink-dim)] block leading-none mt-1">{u.email}</span>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-[var(--ink)] block truncate">{u.displayName || 'Unnamed User'}</span>
+                        <span className="text-[10px] text-[var(--ink-dim)] block leading-none mt-1 truncate">{u.email}</span>
                       </div>
                     </div>
                     {onUpdateUserRole && (
@@ -3613,7 +3613,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           {/* Right Column: Search & Promote Users */}
-          <div className="lg:col-span-6 space-y-4 border border-[var(--border)] p-5 rounded-none bg-transparent">
+          <div className="lg:col-span-6 space-y-4 border border-[var(--border)] p-5 rounded-none bg-transparent w-full min-w-0 overflow-hidden">
             <div className="space-y-1 font-mono">
               <h4 className="text-xs font-bold text-[var(--ink)]">
                 {language === 'en' ? 'Appoint New Administrator' : 'Назначить нового администратора'}
@@ -3648,7 +3648,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 }
                 setIsPromoting(false);
               }}
-              className="flex gap-2 font-mono"
+              className="flex flex-col sm:flex-row gap-2 font-mono w-full"
             >
               <input
                 type="email"
@@ -3707,17 +3707,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   })
                   .slice(0, 10)
                   .map(u => (
-                    <div key={u.uid} className="flex items-center justify-between p-2 hover:bg-black/5 dark:hover:bg-white/5 transition border border-transparent hover:border-[var(--border)] rounded-none">
-                      <div className="flex items-center gap-2">
+                    <div key={u.uid} className="flex items-center justify-between p-2 hover:bg-black/5 dark:hover:bg-white/5 transition border border-transparent hover:border-[var(--border)] rounded-none w-full min-w-0 overflow-hidden gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                         <img 
                           src={u.avatarUrl || `https://api.dicebear.com/7.x/adventurer/svg?seed=${u.uid}`} 
                           referrerPolicy="no-referrer"
                           alt={u.displayName} 
-                          className="w-7 h-7 rounded-none bg-black/5 dark:bg-white/5 border border-[var(--border)]" 
+                          className="w-7 h-7 rounded-none bg-black/5 dark:bg-white/5 border border-[var(--border)] shrink-0" 
                         />
-                        <div className="leading-tight">
-                          <span className="text-[11px] font-bold text-[var(--ink)] block">{u.displayName || 'User'}</span>
-                          <span className="text-[9px] text-[var(--ink-dim)]">{u.email}</span>
+                        <div className="leading-tight min-w-0">
+                          <span className="text-[11px] font-bold text-[var(--ink)] block truncate">{u.displayName || 'User'}</span>
+                          <span className="text-[9px] text-[var(--ink-dim)] block truncate">{u.email}</span>
                         </div>
                       </div>
                       {onUpdateUserRole && (

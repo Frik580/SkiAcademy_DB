@@ -86,6 +86,25 @@ service cloud.firestore {
         isAdmin()
       );
       allow delete: if isAdmin();
+
+      // Booking specific chat messages
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid ||
+          get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId.matches('^client_.*') ||
+          isAdmin() ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId == get(/databases/$(database)/documents/bookings/$(bookingId)).data.instructorId)
+        );
+        allow create: if isAuthenticated() && (
+          get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid ||
+          get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId.matches('^client_.*') ||
+          isAdmin() ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId == get(/databases/$(database)/documents/bookings/$(bookingId)).data.instructorId)
+        ) && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if isAdmin();
+      }
     }
 
     // Settings

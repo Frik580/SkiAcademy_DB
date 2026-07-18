@@ -107,6 +107,21 @@
         "isRead": { "type": "boolean" }
       },
       "required": ["userId", "title", "message", "type", "timestamp", "isRead"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Booking specific chat message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bookingId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "bookingId", "senderId", "senderName", "senderAvatar", "text", "timestamp"]
     }
   },
   "firestore": {
@@ -125,6 +140,10 @@
     "bookings/{bookingId}": {
       "schema": "Booking",
       "description": "Booking details"
+    },
+    "bookings/{bookingId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Chat messages of a booking"
     },
     "settings/{settingId}": {
       "schema": "Setting",

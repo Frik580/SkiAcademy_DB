@@ -10,6 +10,8 @@ export interface UserProfile {
   role: 'user' | 'admin';
   avatarUrl: string;
   balanceUSD: number;
+  instructorId?: string;
+  isInstructor?: boolean;
 }
 
 export interface Instructor {
@@ -68,6 +70,16 @@ export interface Course {
   isHidden?: boolean;
   instructorIds?: string[];
   order?: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  bookingId: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar: string;
+  text: string;
+  timestamp: string;
 }
 
 export enum OperationType {

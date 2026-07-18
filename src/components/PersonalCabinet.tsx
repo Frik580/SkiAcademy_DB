@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Booking, UserProfile, LessonDifficulty, Review, Course } from '../types';
+import { Booking, UserProfile, LessonDifficulty, Review, Course, Instructor } from '../types';
 import { 
   Calendar, 
   Clock, 
@@ -14,11 +14,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
-  Bell
+  Bell,
+  MessageSquare,
+  Sliders,
+  UserCheck
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, parseDurationHours, splitCourseDates } from '../lib/LanguageContext';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
+import { BookingChatModal } from './BookingChatModal';
+import { InstructorWorkspace } from './InstructorWorkspace';
 
 interface PersonalCabinetProps {
   userProfile: UserProfile;
@@ -32,6 +37,7 @@ interface PersonalCabinetProps {
   onSignOut: () => void;
   onUpdateProfile?: (updatedProfile: Partial<UserProfile>) => Promise<void>;
   courses?: Course[];
+  instructors?: Instructor[];
 }
 
 function optimizeProfileImage(file: File): Promise<string> {
@@ -108,7 +114,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   onAddReview,
   onSignOut,
   onUpdateProfile,
-  courses = []
+  courses = [],
+  instructors = []
 }) => {
   const { addNotification } = useNotifications();
   const { language } = useLanguage();
@@ -171,6 +178,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   const [newDate, setNewDate] = useState<string>('');
   const [newTime, setNewTime] = useState<string>('09:00');
   const [isRescheduling, setIsRescheduling] = useState<boolean>(false);
+  const [selectedChatBooking, setSelectedChatBooking] = useState<Booking | null>(null);
   const [rescheduleInstructorBookings, setRescheduleInstructorBookings] = useState<Booking[]>([]);
   const [isLoadingInstructorBookings, setIsLoadingInstructorBookings] = useState<boolean>(false);
 
@@ -297,6 +305,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     const saved = localStorage.getItem('alpine_glide_hide_cancelled_bookings');
     return saved === 'true';
   });
+
+  const [cabinetMode, setCabinetMode] = useState<'client' | 'instructor'>('client');
 
   const handleToggleHideCancelled = (val: boolean) => {
     setHideCancelled(val);
@@ -685,10 +695,50 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     }
   };
 
+  const showInstructorTab = userProfile.role === 'admin' || !!userProfile.isInstructor;
+  const activeMode = showInstructorTab ? cabinetMode : 'client';
+
   return (
-    <div className="grid lg:grid-cols-12 gap-6 animate-fade-in w-full max-w-full min-w-0">
-      {/* Profile Info Left Panel */}
-      <div className="lg:col-span-4 border border-[var(--border)] p-6 flex flex-col justify-between space-y-6 self-start bg-transparent overflow-hidden w-full min-w-0 max-w-full">
+    <div className="space-y-6 w-full max-w-full min-w-0">
+      {/* Workspace Tab Switcher */}
+      {showInstructorTab && (
+        <div className="flex border border-[var(--border)] bg-black/5 p-1 w-full max-w-md mx-auto">
+          <button
+            onClick={() => setCabinetMode('client')}
+            className={`flex-1 py-2 text-[10px] font-mono uppercase tracking-widest font-bold transition-all duration-200 cursor-pointer text-center rounded-none flex items-center justify-center gap-2 ${
+              activeMode === 'client'
+                ? 'bg-[var(--ink)] text-[var(--bg)]'
+                : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
+            }`}
+          >
+            <UserCheck className="w-4 h-4" />
+            {language === 'en' ? 'Client Cabinet' : 'Кабинет ученика'}
+          </button>
+          <button
+            onClick={() => setCabinetMode('instructor')}
+            className={`flex-1 py-2 text-[10px] font-mono uppercase tracking-widest font-bold transition-all duration-200 cursor-pointer text-center rounded-none flex items-center justify-center gap-2 ${
+              activeMode === 'instructor'
+                ? 'bg-[var(--ink)] text-[var(--bg)]'
+                : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
+            }`}
+          >
+            <Sliders className="w-4 h-4" />
+            {language === 'en' ? 'Instructor Workspace' : 'Панель инструктора'}
+          </button>
+        </div>
+      )}
+
+      {activeMode === 'instructor' ? (
+        <InstructorWorkspace
+          userProfile={userProfile}
+          instructors={instructors}
+          allBookings={rawBookings}
+          reviews={reviews}
+        />
+      ) : (
+        <div className="grid lg:grid-cols-12 gap-6 animate-fade-in w-full max-w-full min-w-0">
+          {/* Profile Info Left Panel */}
+          <div className="lg:col-span-4 border border-[var(--border)] p-6 flex flex-col justify-between space-y-6 self-start bg-transparent overflow-hidden w-full min-w-0 max-w-full">
         <div className="space-y-5">
           <div className="flex items-center gap-3">
             {/* Interactive Drag & Drop Avatar */}
@@ -1063,6 +1113,17 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                       {getStatusLabelTranslated(b.status)}
                     </span>
 
+                    {b.status !== 'cancelled' && (
+                      <button
+                        onClick={() => setSelectedChatBooking(b)}
+                        title={language === 'en' ? 'Chat about Lesson' : 'Чат по занятию'}
+                        className="px-2 py-1 text-[8px] font-mono uppercase tracking-widest border border-indigo-500/30 text-indigo-400 bg-indigo-950/20 hover:bg-indigo-950/40 hover:text-indigo-300 transition cursor-pointer flex items-center gap-1.5 rounded-none font-bold shrink-0"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>{language === 'en' ? 'Chat' : 'Чат'}</span>
+                      </button>
+                    )}
+
 
 
                     {/* Actions based on Status */}
@@ -1281,6 +1342,16 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           </div>
         </div>,
         document.body
+      )}
+
+      {selectedChatBooking && (
+        <BookingChatModal
+          booking={selectedChatBooking}
+          currentUserProfile={userProfile}
+          onClose={() => setSelectedChatBooking(null)}
+        />
+      )}
+        </div>
       )}
     </div>
   );

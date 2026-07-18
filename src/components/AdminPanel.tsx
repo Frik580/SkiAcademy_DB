@@ -30,10 +30,12 @@ import {
   Eye,
   EyeOff,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  MessageSquare
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, formatCourseDates, parseDurationHours, splitCourseDates } from '../lib/LanguageContext';
+import { BookingChatModal } from './BookingChatModal';
 
 interface AdminPanelProps {
   instructors: Instructor[];
@@ -255,15 +257,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editingIns, setEditingIns] = useState<Instructor | null>(null);
 
   // Schedule Board states
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const d = new Date();
-    return d.toISOString().split('T')[0];
-  });
+  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [activeSlotModal, setActiveSlotModal] = useState<{
     instructor: Instructor;
     time: string;
     booking?: Booking;
   } | null>(null);
+  const [selectedChatBooking, setSelectedChatBooking] = useState<Booking | null>(null);
+
+  const selectedDate = useMemo(() => formatDateLocalYMD(currentDate), [currentDate]);
 
   const [confirmModal, setConfirmModal] = useState<{
     message: string;
@@ -281,6 +284,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isSlotActionSubmitting, setIsSlotActionSubmitting] = useState(false);
   const [newMoveDate, setNewMoveDate] = useState('');
   const [newMoveTime, setNewMoveTime] = useState('');
+
+  const currentAdminUser = useMemo(() => {
+    if (!currentUserEmail) return null;
+    return (usersList || []).find((u) => u.email.toLowerCase() === currentUserEmail.toLowerCase());
+  }, [usersList, currentUserEmail]);
+
+  const adminProfile = useMemo(() => {
+    return currentAdminUser || {
+      uid: 'admin',
+      email: currentUserEmail || 'admin@example.com',
+      displayName: language === 'en' ? 'Administrator' : 'Администратор',
+      role: 'admin',
+      avatarUrl: '',
+      balanceUSD: 0
+    } as UserProfile;
+  }, [currentAdminUser, currentUserEmail, language]);
 
   // Form Fields
   const [name, setName] = useState('');
@@ -488,6 +507,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [clientPhone, setClientPhone] = useState('');
   const [clientBalance, setClientBalance] = useState(250);
   const [clientRole, setClientRole] = useState<'user' | 'admin'>('user');
+  const [clientIsInstructor, setClientIsInstructor] = useState(false);
+  const [clientInstructorId, setClientInstructorId] = useState('');
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
 
   // Active Bookings Monitor filter states
@@ -509,6 +530,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const uId = editingClient ? editingClient.uid : `client_${Math.random().toString(36).substring(2, 9)}`;
     const defaultAvatar = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(clientName.trim().replace(/\s+/g, '_').toLowerCase())}`;
 
+    const wasInstructor = editingClient ? !!editingClient.isInstructor : false;
+    const isNowInstructor = clientIsInstructor;
+    const oldInstructorId = editingClient?.instructorId || '';
+
+    let finalInstructorId = '';
+    if (isNowInstructor) {
+      finalInstructorId = clientInstructorId || oldInstructorId || `instructor_${uId}`;
+    }
+
     const clientData: UserProfile = {
       uid: uId,
       displayName: clientName.trim(),
@@ -516,10 +546,47 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       phoneNumber: clientPhone.trim() || '',
       balanceUSD: Number(clientBalance),
       role: clientRole,
+      isInstructor: clientIsInstructor,
+      instructorId: finalInstructorId,
       avatarUrl: editingClient ? editingClient.avatarUrl : defaultAvatar
     };
 
     try {
+      if (isNowInstructor) {
+        const exists = instructors.some(ins => ins.id === finalInstructorId);
+        if (!exists) {
+          const newIns: Instructor = {
+            id: finalInstructorId,
+            name: clientName.trim(),
+            specialty: 'both',
+            rating: 5.0,
+            reviewsCount: 0,
+            languages: [language === 'en' ? 'English' : 'Русский'],
+            experienceYears: 1,
+            bio: language === 'en' 
+              ? `Professional ski and snowboard instructor, certified coach.` 
+              : `Профессиональный инструктор по лыжам и сноуборду, сертифицированный тренер.`,
+            avatarUrl: editingClient ? editingClient.avatarUrl : defaultAvatar,
+            pricePerHour: 50,
+            isAvailable: true
+          };
+          await onAddInstructor(newIns);
+        } else {
+          // Keep instructor details synchronized with user profile changes
+          const existingIns = instructors.find(ins => ins.id === finalInstructorId);
+          if (existingIns && (existingIns.name !== clientName.trim() || existingIns.avatarUrl !== (editingClient ? editingClient.avatarUrl : defaultAvatar))) {
+            await onUpdateInstructor({
+              ...existingIns,
+              name: clientName.trim(),
+              avatarUrl: editingClient ? editingClient.avatarUrl : defaultAvatar
+            });
+          }
+        }
+      } else if (wasInstructor && oldInstructorId) {
+        // If status was removed, delete them from the instructors database
+        await onDeleteInstructor(oldInstructorId);
+      }
+
       if (editingClient) {
         if (onUpdateUser) {
           await onUpdateUser(clientData);
@@ -537,6 +604,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setClientPhone('');
       setClientBalance(250);
       setClientRole('user');
+      setClientIsInstructor(false);
+      setClientInstructorId('');
       setShowClientAddForm(false);
     } catch (err) {
       addNotification('error', 'Error', language === 'en' ? 'Failed to save client profile.' : 'Не удалось сохранить профиль клиента.');
@@ -723,6 +792,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setClientPhone(u.phoneNumber || '');
     setClientBalance(u.balanceUSD);
     setClientRole(u.role);
+    setClientIsInstructor(!!u.isInstructor);
+    setClientInstructorId(u.instructorId || '');
     setShowClientAddForm(true);
   };
 
@@ -735,6 +806,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       message: confirmMsg,
       onConfirm: async () => {
         try {
+          if (u.isInstructor && u.instructorId) {
+            await onDeleteInstructor(u.instructorId);
+          }
           if (onDeleteUser) {
             await onDeleteUser(u.uid);
           }
@@ -993,9 +1067,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   }, [availableBreakDurations, availableBookingDurations, modalTab, activeSlotModal]);
 
   const adjustDate = (days: number) => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() + days);
-    setSelectedDate(d.toISOString().split('T')[0]);
+    setCurrentDate(prev => {
+      const newDate = new Date(prev);
+      if (viewMode === 'week') {
+        newDate.setDate(newDate.getDate() + (days * 7));
+      } else {
+        newDate.setDate(newDate.getDate() + days);
+      }
+      return newDate;
+    });
   };
 
   const handleOpenSlotAction = (ins: Instructor, slotTime: string, existingB?: Booking) => {
@@ -1309,8 +1389,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         className={`relative group/cell h-11 rounded-xl px-2.5 py-1 flex flex-col justify-center transition text-[11px] leading-tight cursor-pointer ${cardBgClasses}`}
       >
         <div className="flex items-center justify-between gap-1.5 min-w-0">
-          <div className={`font-bold truncate ${titleColorClasses}`}>
-            {client?.displayName || b.notes || (language === 'en' ? 'Client Lesson' : 'Занятие')}
+          <div className={`font-bold truncate flex items-center gap-1.5 ${titleColorClasses}`}>
+            {client?.avatarUrl && (
+              <img 
+                src={client.avatarUrl} 
+                alt={client.displayName} 
+                className="w-4 h-4 rounded-none border border-black/10 shrink-0"
+              />
+            )}
+            <span className="truncate">{client?.displayName || b.notes || (language === 'en' ? 'Client Lesson' : 'Занятие')}</span>
             {isPendingCancellation && (
               <span className="ml-1 text-[9px] font-bold text-amber-600 dark:text-amber-400">
                 ({language === 'en' ? 'Cancel Req' : 'Запрос отмены'})
@@ -1527,6 +1614,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return cells;
   };
 
+  const getWeekRange = (date: Date) => {
+    const start = new Date(date);
+    const day = start.getDay();
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+    start.setDate(diff);
+    
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    
+    return { start, end };
+  };
+
+  const { start: weekStart, end: weekEnd } = getWeekRange(currentDate);
+  const weekDays: Date[] = Array.from({ length: 7 }).map((_, i) => new Date(new Date(weekStart).setDate(weekStart.getDate() + i)));
+
   const getSpecialtyLabel = (spec: string) => {
     if (language === 'ru') {
       switch (spec) {
@@ -1689,7 +1791,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300 w-full min-w-0 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
           <div>
-            <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
+            <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2.5">
               <Calendar className="w-4.5 h-4.5 text-[var(--ink-dim)]" />
               {language === 'en' ? 'Instructor Timetable & Schedule Board' : 'Интерактивный планер и расписание инструкторов'}
             </h3>
@@ -1701,7 +1803,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           {/* Date Selector Controls */}
-          <div className="flex items-center gap-2 text-xs font-mono">
+          <div className="flex items-center gap-3 text-xs font-mono">
+            <div className="flex items-center gap-1 border border-[var(--border)] p-1 rounded-none">
+              <button
+                onClick={() => setViewMode('day')}
+                className={`px-2.5 py-1 text-xs font-mono rounded-none transition ${viewMode === 'day' ? 'bg-[var(--ink)] text-[var(--bg)]' : 'bg-transparent text-[var(--ink)]'}`}
+              >
+                {language === 'en' ? 'Day' : 'День'}
+              </button>
+              <button
+                onClick={() => setViewMode('week')}
+                className={`px-2.5 py-1 text-xs font-mono rounded-none transition ${viewMode === 'week' ? 'bg-[var(--ink)] text-[var(--bg)]' : 'bg-transparent text-[var(--ink)]'}`}
+              >
+                {language === 'en' ? 'Week' : 'Неделя'}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1">
             <button
               onClick={() => adjustDate(-1)}
               className="p-1.5 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] transition cursor-pointer bg-transparent rounded-none"
@@ -1709,13 +1827,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <ChevronLeft className="w-4 h-4" />
             </button>
             
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-2.5 py-1.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] rounded-none text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)]"
-            />
-
+            {viewMode === 'day' ? (
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setCurrentDate(new Date(e.target.value))}
+                className="px-2.5 py-1.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] rounded-none text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)]"
+              />
+            ) : (
+              <div className="px-2.5 py-1.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] rounded-none text-xs text-center text-[var(--ink)] w-48">
+                {weekStart.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', day: 'numeric' })} - {weekEnd.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </div>
+            )}
+            
             <button
               onClick={() => adjustDate(1)}
               className="p-1.5 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] transition cursor-pointer bg-transparent rounded-none"
@@ -1724,40 +1848,97 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </button>
 
             <button
-              onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+              onClick={() => setCurrentDate(new Date())}
               className="px-2.5 py-1.5 text-xs border border-[var(--border)] text-[var(--ink)] hover:border-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer bg-transparent rounded-none"
             >
               {language === 'en' ? 'Today' : 'Сегодня'}
             </button>
+            </div>
           </div>
         </div>
 
         {/* Timetable Grid with horizontal scroll */}
-        <div className="overflow-x-auto rounded-none border border-[var(--border)]">
-          <table className="w-full min-w-[1100px] border-collapse table-fixed">
-            <thead>
-              <tr className="bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-200/50 dark:border-slate-800/40 text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                <th className="w-[180px] p-3 text-left font-bold">
-                  {language === 'en' ? 'Instructor' : 'Инструктор'}
-                </th>
-                {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'].map((time) => (
-                  <th key={time} className="p-3 text-center font-bold w-[95px] border-l border-slate-200/50 dark:border-slate-800/40">
-                    {time}
+        {viewMode === 'day' ? (
+          <div className="overflow-x-auto rounded-none border border-[var(--border)]">
+            <table className="w-full min-w-[1100px] border-collapse table-fixed">
+              <thead>
+                <tr className="bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-200/50 dark:border-slate-800/40 text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  <th className="w-[180px] p-3 text-left font-bold">
+                    {language === 'en' ? 'Instructor' : 'Инструктор'}
                   </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
-              {instructors.length === 0 ? (
-                <tr>
-                  <td colSpan={12} className="p-8 text-center text-sm text-slate-400">
-                    {language === 'en' ? 'No instructors available.' : 'Инструкторы не найдены.'}
-                  </td>
+                  {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'].map((time) => (
+                    <th key={time} className="p-3 text-center font-bold w-[95px] border-l border-slate-200/50 dark:border-slate-800/40">
+                      {time}
+                    </th>
+                  ))}
                 </tr>
-              ) : (
-                instructors.map((ins) => (
+              </thead>
+              <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                {instructors.length === 0 ? (
+                  <tr>
+                    <td colSpan={12} className="p-8 text-center text-sm text-slate-400">
+                      {language === 'en' ? 'No instructors available.' : 'Инструкторы не найдены.'}
+                    </td>
+                  </tr>
+                ) : (
+                  instructors.map((ins) => (
+                    <tr key={ins.id} className={`hover:bg-black/5 dark:hover:bg-white/5 transition duration-150 ${!ins.isAvailable ? 'bg-black/5' : ''}`}>
+                      {/* Instructor Profile Header */}
+                      <td className={`p-3 align-middle border-r border-[var(--border)] bg-black/5 dark:bg-white/5 ${!ins.isAvailable ? 'opacity-75' : ''}`}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="relative">
+                            <img
+                              src={ins.avatarUrl}
+                              alt={ins.name}
+                              className={`w-7 h-7 rounded-none border border-[var(--border)] object-cover shrink-0 ${!ins.isAvailable ? 'grayscale opacity-60' : ''}`}
+                              referrerPolicy="no-referrer"
+                            />
+                            {!ins.isAvailable && (
+                              <div className="absolute inset-0 bg-rose-955/20 border border-rose-500/30 flex items-center justify-center">
+                                <Lock className="w-2.5 h-2.5 text-rose-500" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className={`text-xs font-bold truncate flex items-center gap-1 ${!ins.isAvailable ? 'text-[var(--ink-dim)] line-through' : 'text-[var(--ink)]'}`}>
+                              {ins.name}
+                            </div>
+                            <div className="text-[9px] text-[var(--ink-dim)] font-mono capitalize truncate flex items-center gap-1">
+                              {!ins.isAvailable ? (
+                                <span className="text-rose-500 font-bold uppercase tracking-wider text-[8px]">
+                                  {language === 'en' ? 'Unavailable' : 'Недоступен'}
+                                </span>
+                              ) : (
+                                `${getSpecialtyLabel(ins.specialty)} • $${ins.pricePerHour}/h`
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      {/* Hourly cells */}
+                      {renderTimetableSlots(ins)}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-none border border-[var(--border)]">
+            <table className="w-full min-w-[1100px] border-collapse table-fixed">
+              <thead>
+                <tr className="bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-200/50 dark:border-slate-800/40 text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  <th className="w-[180px] p-3 text-left font-bold">{language === 'en' ? 'Instructor' : 'Инструктор'}</th>
+                  {weekDays.map(day => (
+                    <th key={day.toISOString()} className="p-3 text-center font-bold border-l border-slate-200/50 dark:border-slate-800/40">
+                      {day.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', { weekday: 'short', day: 'numeric' })}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                {instructors.map(ins => (
                   <tr key={ins.id} className={`hover:bg-black/5 dark:hover:bg-white/5 transition duration-150 ${!ins.isAvailable ? 'bg-black/5' : ''}`}>
-                    {/* Instructor Profile Header */}
                     <td className={`p-3 align-middle border-r border-[var(--border)] bg-black/5 dark:bg-white/5 ${!ins.isAvailable ? 'opacity-75' : ''}`}>
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="relative">
@@ -1778,26 +1959,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             {ins.name}
                           </div>
                           <div className="text-[9px] text-[var(--ink-dim)] font-mono capitalize truncate flex items-center gap-1">
-                            {!ins.isAvailable ? (
-                              <span className="text-rose-500 font-bold uppercase tracking-wider text-[8px]">
-                                {language === 'en' ? 'Unavailable' : 'Недоступен'}
-                              </span>
-                            ) : (
-                              `${getSpecialtyLabel(ins.specialty)} • $${ins.pricePerHour}/h`
-                            )}
+                            {!ins.isAvailable ? (<span className="text-rose-500 font-bold uppercase tracking-wider text-[8px]">{language === 'en' ? 'Unavailable' : 'Недоступен'}</span>) : (`${getSpecialtyLabel(ins.specialty)} • $${ins.pricePerHour}/h`)}
                           </div>
                         </div>
                       </div>
                     </td>
-
-                    {/* Hourly cells */}
-                    {renderTimetableSlots(ins)}
+                    {weekDays.map(day => {
+                      const dayStr = formatDateLocalYMD(day);
+                      const dayBookings = bookings.filter(b => b.instructorId === ins.id && b.date === dayStr && b.status !== 'cancelled' && !b.isDeleted);
+                      return (
+                        <td key={dayStr} className="p-1 align-top border-l border-slate-200/50 dark:border-slate-800/40 h-24">
+                          <div className="space-y-1">
+                            {dayBookings.sort((a,b) => a.time.localeCompare(b.time)).map(b => (
+                              <div key={b.id}>{renderBookingCell(b, ins)}</div>
+                            ))}
+                          </div>
+                        </td>
+                      );
+                    })}
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
       {activeSlotModal && createPortal(
         <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -1847,6 +2032,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       <strong>{language === 'en' ? 'Cancellation Reason' : 'Причина отмены'}:</strong>{' '}
                       {activeSlotModal.booking.cancellationReason}
                     </div>
+                  )}
+
+                  {activeSlotModal.booking.userId !== 'system_block_break' && activeSlotModal.booking.userId !== 'system_block_day_off' && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedChatBooking(activeSlotModal.booking!)}
+                      className="w-full mt-2.5 py-2.5 px-3 border border-indigo-500/30 bg-indigo-950/20 hover:bg-indigo-950/40 hover:border-indigo-400 text-indigo-400 rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      {language === 'en' ? 'Open Chat / Discussion' : 'Открыть чат / Обсуждение'}
+                    </button>
                   )}
                 </div>
 
@@ -2675,6 +2871,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               setClientPhone('');
               setClientBalance(250);
               setClientRole('user');
+              setClientIsInstructor(false);
+              setClientInstructorId('');
               setShowClientAddForm(!showClientAddForm);
             }}
             className="self-start md:self-auto py-1.5 px-3 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 rounded-none text-xs flex items-center gap-1 transition cursor-pointer font-mono"
@@ -2772,9 +2970,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                               </span>
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-mono uppercase border ${u.role === 'admin' ? 'border-[var(--ink)] text-[var(--ink)] bg-black/5 dark:bg-white/5' : 'border-[var(--border)] text-[var(--ink-dim)] bg-transparent'}`}>
-                                {u.role === 'admin' ? (language === 'en' ? 'Admin' : 'Администратор') : (language === 'en' ? 'User' : 'Пользователь')}
-                              </span>
+                              <div className="flex flex-col gap-1 items-start">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-mono uppercase border ${u.role === 'admin' ? 'border-[var(--ink)] text-[var(--ink)] bg-black/5 dark:bg-white/5' : 'border-[var(--border)] text-[var(--ink-dim)] bg-transparent'}`}>
+                                  {u.role === 'admin' ? (language === 'en' ? 'Admin' : 'Администратор') : (language === 'en' ? 'User' : 'Пользователь')}
+                                </span>
+                                {u.isInstructor && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[8px] font-mono uppercase border border-indigo-500/40 text-indigo-400 bg-indigo-950/20">
+                                    {language === 'en' ? 'Instructor' : 'Инструктор'}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-4 py-3 text-right">
                               <div className="flex items-center justify-end gap-1 font-mono">
@@ -2905,6 +3110,47 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     >
                       <option value="user" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">{language === 'en' ? 'User (Regular Client)' : 'Пользователь (Обычный клиент)'}</option>
                       <option value="admin" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">{language === 'en' ? 'Admin (Resort Manager)' : 'Администратор (Менеджер курорта)'}</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Instructor Status Toggle */}
+                <div className="space-y-1.5 flex items-center gap-2 pt-1 pb-1">
+                  <input
+                    type="checkbox"
+                    id="clientIsInstructorCheckbox"
+                    checked={clientIsInstructor}
+                    onChange={(e) => {
+                      setClientIsInstructor(e.target.checked);
+                      if (!e.target.checked) setClientInstructorId('');
+                    }}
+                    className="w-4 h-4 border border-[var(--border)] bg-transparent focus:outline-none cursor-pointer accent-indigo-600 rounded-none shrink-0"
+                  />
+                  <label htmlFor="clientIsInstructorCheckbox" className="text-xs font-mono text-[var(--ink)] cursor-pointer select-none">
+                    {language === 'en' ? 'Instructor Status (Grants panel access)' : 'Статус инструктора (Доступ к панели)'}
+                  </label>
+                </div>
+
+                {/* Dropdown for linking Instructor Profile */}
+                {clientIsInstructor && (
+                  <div className="space-y-1.5 animate-fade-in pl-6 pb-2">
+                    <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
+                      {language === 'en' ? 'Link Instructor Profile' : 'Связать профиль инструктора'}
+                    </label>
+                    <select
+                      required
+                      value={clientInstructorId}
+                      onChange={(e) => setClientInstructorId(e.target.value)}
+                      className="w-full px-3 py-2 border border-[var(--border)] bg-slate-50 dark:bg-slate-900 text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none font-mono cursor-pointer"
+                    >
+                      <option value="" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink-dim)]">
+                        {language === 'en' ? '-- Select Instructor --' : '-- Выберите инструктора --'}
+                      </option>
+                      {instructors.map((ins) => (
+                        <option key={ins.id} value={ins.id} className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
+                          {translateInstructorName(ins.name, language)} ({ins.specialty === 'both' ? (language === 'en' ? 'Ski/Snb' : 'Лыжи/Снб') : (ins.specialty === 'ski' ? (language === 'en' ? 'Ski' : 'Лыжи') : (language === 'en' ? 'Snb' : 'Сноуборд'))})
+                        </option>
+                      ))}
                     </select>
                   </div>
                 )}
@@ -3783,6 +4029,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>,
         document.body
       )}
+
+      {selectedChatBooking && (
+        <BookingChatModal
+          booking={selectedChatBooking}
+          currentUserProfile={adminProfile}
+          onClose={() => setSelectedChatBooking(null)}
+        />
+      )}
     </div>
   );
 };
+

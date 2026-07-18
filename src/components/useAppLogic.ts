@@ -429,7 +429,15 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
   const isSuperAdmin = (email?: string | null) => email?.toLowerCase() === 'gerasimchuk.arseniy@gmail.com';
 
   const handleAddUser = async (newUser: UserProfile) => await setDoc(doc(db, 'users', newUser.uid), newUser);
-  const handleUpdateUser = async (updatedUser: UserProfile) => await updateDoc(doc(db, 'users', updatedUser.uid), { displayName: updatedUser.displayName, email: updatedUser.email, phoneNumber: updatedUser.phoneNumber || '', balanceUSD: updatedUser.balanceUSD, role: updatedUser.role });
+  const handleUpdateUser = async (updatedUser: UserProfile) => await updateDoc(doc(db, 'users', updatedUser.uid), {
+    displayName: updatedUser.displayName,
+    email: updatedUser.email,
+    phoneNumber: updatedUser.phoneNumber || '',
+    balanceUSD: updatedUser.balanceUSD,
+    role: updatedUser.role,
+    isInstructor: !!updatedUser.isInstructor,
+    instructorId: updatedUser.instructorId || ''
+  });
   const handleDeleteUser = async (targetUid: string) => await deleteDoc(doc(db, 'users', targetUid));
 
   const handleConfirmBooking = async (id: string) => {

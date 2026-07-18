@@ -317,6 +317,7 @@ const AppContent: React.FC = () => {
                       onSignOut={handleSignOut}
                       onUpdateProfile={handleUpdateProfile}
                       courses={courses}
+                      instructors={instructors}
                     />
                   </div>
                 )}

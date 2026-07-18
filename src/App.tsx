@@ -1307,6 +1307,17 @@ const AppContent: React.FC = () => {
     );
   }
 
+  const handleScrollToAuth = () => {
+    const el = document.getElementById('auth-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const input = el.querySelector('input');
+      if (input) {
+        input.focus();
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)] transition-colors duration-300">
       {/* Global Navbar */}
@@ -1319,6 +1330,7 @@ const AppContent: React.FC = () => {
         onSignOut={handleSignOut}
         theme={theme}
         onToggleTheme={toggleTheme}
+        onSignInClick={handleScrollToAuth}
       />
 
       {/* Main Body */}
@@ -1980,7 +1992,7 @@ const AppContent: React.FC = () => {
                 </>
               ) : (
                 /* Logged-out state: show Auth component inside Right Sidebar! */
-                <div className="space-y-6">
+                <div id="auth-section" className="space-y-6">
                   <div className="text-center space-y-4 py-4">
                     <img
                       src={theme === 'light' ? logoLight : logoDark}

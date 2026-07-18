@@ -15,6 +15,7 @@ interface NavbarProps {
   onSignOut: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
+  onSignInClick?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -25,7 +26,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   isAdminView,
   onSignOut,
   theme,
-  onToggleTheme
+  onToggleTheme,
+  onSignInClick
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -38,7 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <img
             src={theme === 'light' ? logoLight : logoDark}
             alt="Carve Academy Logo"
-            className="h-16 w-auto object-contain transition-opacity duration-300"
+            className="h-14 w-auto object-contain transition-opacity duration-300"
             referrerPolicy="no-referrer"
           />
         </div>
@@ -66,6 +68,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             [{language === 'en' ? 'RU' : 'EN'}]
           </button>
+
+          {!userProfile && onSignInClick && (
+            <button
+              onClick={onSignInClick}
+              className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-600 hover:border-indigo-700 font-mono text-[10px] uppercase tracking-widest transition cursor-pointer font-bold"
+            >
+              {t('signInBtn')}
+            </button>
+          )}
 
           {userProfile && (
             <>
@@ -213,6 +224,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   [{language === 'en' ? 'RU' : 'EN'}]
                 </button>
               </div>
+              {!userProfile && onSignInClick && (
+                <button
+                  onClick={() => { onSignInClick(); setIsMenuOpen(false); }}
+                  className="w-full mt-2 px-3 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-600 hover:border-indigo-700 transition cursor-pointer text-sm font-mono uppercase tracking-widest font-bold text-center"
+                >
+                  {t('signInBtn')}
+                </button>
+              )}
               {userProfile && (
                 <button onClick={() => { onSignOut(); setIsMenuOpen(false); }} className="w-full mt-2 px-3 py-2.5 border border-rose-500/50 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer text-sm font-mono uppercase tracking-widest">
                   {t('signOut')}

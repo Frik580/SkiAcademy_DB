@@ -13,8 +13,6 @@ import {
   Camera,
   ChevronLeft,
   ChevronRight,
-  Download,
-  ExternalLink,
   Shield,
   Bell
 } from 'lucide-react';
@@ -393,90 +391,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     });
   };
 
-  const getGoogleCalendarUrl = (b: Booking) => {
-    const startClean = b.date.replace(/-/g, '') + 'T' + b.time.replace(/:/g, '') + '00';
-    const startDate = new Date(`${b.date}T${b.time}:00`);
-    const endDate = new Date(startDate.getTime() + b.durationHours * 60 * 60 * 1000);
-    
-    const endYear = endDate.getFullYear();
-    const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
-    const endDay = String(endDate.getDate()).padStart(2, '0');
-    const endHours = String(endDate.getHours()).padStart(2, '0');
-    const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
-    const endClean = `${endYear}${endMonth}${endDay}T${endHours}${endMinutes}00`;
 
-    const title = language === 'ru' 
-      ? `Занятие с инструктором ${b.instructorName}`
-      : `Lesson with ${b.instructorName} (${b.difficulty})`;
-
-    const details = language === 'ru'
-      ? `Индивидуальная тренировка на склоне с инструктором ${b.instructorName}.\nПродолжительность: ${b.durationHours} ч.\nЗаметки: ${b.notes || 'Нет'}\n\nЗабронировано через Carve Academy.`
-      : `Ski/Snowboard coaching session with instructor ${b.instructorName}.\nDuration: ${b.durationHours} hours\nNotes: ${b.notes || 'None'}\n\nBooked via Carve Academy.`;
-
-    const location = language === 'ru'
-      ? `Академия карвинга Carve Academy, Склоны`
-      : `Carve Academy, Slopes`;
-
-    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${startClean}/${endClean}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(location)}`;
-  };
-
-  const handleDownloadIcs = (b: Booking) => {
-    const startClean = b.date.replace(/-/g, '') + 'T' + b.time.replace(/:/g, '') + '00';
-    const startDate = new Date(`${b.date}T${b.time}:00`);
-    const endDate = new Date(startDate.getTime() + b.durationHours * 60 * 60 * 1000);
-    
-    const endYear = endDate.getFullYear();
-    const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
-    const endDay = String(endDate.getDate()).padStart(2, '0');
-    const endHours = String(endDate.getHours()).padStart(2, '0');
-    const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
-    const endClean = `${endYear}${endMonth}${endDay}T${endHours}${endMinutes}00`;
-
-    const title = language === 'ru' 
-      ? `Занятие с инструктором ${b.instructorName}`
-      : `Lesson with ${b.instructorName} (${b.difficulty})`;
-
-    const details = language === 'ru'
-      ? `Индивидуальная тренировка на склоне с инструктором ${b.instructorName}. Продолжительность: ${b.durationHours} ч.`
-      : `Coaching session with ${b.instructorName}. Duration: ${b.durationHours} hours.`;
-
-    const location = language === 'ru'
-      ? `Академия карвинга Carve Academy, Склоны`
-      : `Carve Academy, Slopes`;
-
-    const icsLines = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//Carve Academy//Bookings//EN',
-      'CALSCALE:GREGORIAN',
-      'BEGIN:VEVENT',
-      `DTSTART:${startClean}`,
-      `DTEND:${endClean}`,
-      `SUMMARY:${title}`,
-      `DESCRIPTION:${details}`,
-      `LOCATION:${location}`,
-      'STATUS:CONFIRMED',
-      'SEQUENCE:0',
-      'END:VEVENT',
-      'END:VCALENDAR'
-    ];
-
-    const blob = new Blob([icsLines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `booking_${b.id}.ics`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    addNotification(
-      'success',
-      language === 'en' ? 'Calendar File Saved' : 'Файл календаря сохранен',
-      language === 'en' ? 'You can import this .ics file into your device calendar.' : 'Вы можете импортировать этот .ics файл в календарь своего устройства.'
-    );
-  };
 
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
@@ -771,9 +686,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   };
 
   return (
-    <div className="grid lg:grid-cols-12 gap-6 animate-fade-in">
+    <div className="grid lg:grid-cols-12 gap-6 animate-fade-in w-full max-w-full min-w-0">
       {/* Profile Info Left Panel */}
-      <div className="lg:col-span-4 border border-[var(--border)] p-6 flex flex-col justify-between space-y-6 self-start bg-transparent overflow-hidden">
+      <div className="lg:col-span-4 border border-[var(--border)] p-6 flex flex-col justify-between space-y-6 self-start bg-transparent overflow-hidden w-full min-w-0 max-w-full">
         <div className="space-y-5">
           <div className="flex items-center gap-3">
             {/* Interactive Drag & Drop Avatar */}
@@ -853,7 +768,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       </div>
 
       {/* Bookings Right Panel */}
-      <div className="lg:col-span-8 border border-[var(--border)] p-6 space-y-5 transition-colors duration-300 bg-transparent">
+      <div className="lg:col-span-8 border border-[var(--border)] p-6 space-y-5 transition-colors duration-300 bg-transparent w-full min-w-0 max-w-full overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
           <div>
             <h3 className="text-xl font-serif font-light text-[var(--ink)] tracking-tight">
@@ -884,8 +799,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
         {/* Review Invitations / Notifications Box */}
         {unreviewedCompletedBookings.length > 0 && (
-          <div className="border border-[var(--border)] p-4 space-y-3 bg-indigo-950/20 animate-fade-in">
-            <div className="flex items-center gap-2">
+          <div className="border border-[var(--border)] p-4 space-y-3 bg-indigo-950/20 animate-fade-in w-full min-w-0 max-w-full overflow-hidden">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="relative">
                 <Bell className="w-4 h-4 text-indigo-400" />
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-none animate-ping" />
@@ -900,16 +815,16 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                 <div 
                    key={inv.id} 
                    id={`review-invitation-card-${inv.id}`}
-                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-black/25 p-3 rounded-none border border-[var(--border)] hover:border-[var(--ink)] transition duration-200"
+                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-black/25 p-3 rounded-none border border-[var(--border)] hover:border-[var(--ink)] transition duration-200 w-full min-w-0"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0 w-full">
                     <img 
                       src={inv.instructorAvatar} 
                       alt={inv.instructorName} 
                       className="w-8.5 h-8.5 rounded-none object-cover shrink-0 border border-[var(--border)] filter grayscale" 
                     />
-                    <div>
-                      <p className="text-[11px] font-sans text-[var(--ink)] leading-relaxed">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-sans text-[var(--ink)] leading-relaxed break-words">
                         {language === 'ru' ? (
                           <>Ваше занятие с инструктором <span className="font-bold">{inv.instructorName}</span> успешно завершилось! Напишите отзыв, чтобы поделиться впечатлениями.</>
                         ) : (
@@ -951,12 +866,12 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
         {/* Interactive Calendar Grid (only shown if there are bookings) */}
         {userBookings.length > 0 && (
-          <div className="border border-[var(--border)] p-4 rounded-none bg-black/10 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink)] font-bold flex items-center gap-1.5">
+          <div className="border border-[var(--border)] p-4 rounded-none bg-black/10 space-y-3 w-full min-w-0 max-w-full overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap w-full min-w-0">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink)] font-bold flex items-center gap-1.5 break-words">
                 📅 {language === 'ru' ? 'Интерактивный календарь' : 'Interactive Calendar'}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={handlePrevMonth}
@@ -1128,13 +1043,13 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                 </div>
 
                 {/* Pricing, status and operations */}
-                <div className="flex flex-shrink-0 items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-3 md:pt-0 border-[var(--border)] flex-wrap">
-                  <div className="text-left md:text-right">
+                <div className="flex flex-shrink items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-3 md:pt-0 border-[var(--border)] flex-wrap min-w-0 max-w-full">
+                  <div className="text-left md:text-right shrink-0">
                     <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">{language === 'en' ? 'TOTAL FEE' : 'ИТОГО К ОПЛАТЕ'}</span>
                     <span className="text-base font-serif font-light text-[var(--ink)]">${b.totalPrice}</span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap min-w-0 max-w-full">
                     {/* Status Badge */}
                     <span
                       className={`px-2 py-0.5 text-[8px] font-mono uppercase tracking-widest border rounded-none font-bold ${
@@ -1148,30 +1063,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                       {getStatusLabelTranslated(b.status)}
                     </span>
 
-                    {/* Export / Sync Options */}
-                    {b.status === 'confirmed' && (
-                      <div className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded-none border border-[var(--border)]">
-                        {/* Google Calendar Link */}
-                        <a
-                          href={getGoogleCalendarUrl(b)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title={language === 'en' ? 'Add to Google Calendar' : 'Добавить в Google Календарь'}
-                          className="p-1 hover:bg-black/20 rounded text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                        {/* Apple/Outlook Download */}
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadIcs(b)}
-                          title={language === 'en' ? 'Download .ics Calendar File' : 'Скачать файл .ics для календаря'}
-                          className="p-1 hover:bg-black/20 rounded text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
+
 
                     {/* Actions based on Status */}
                     {b.status === 'confirmed' && (

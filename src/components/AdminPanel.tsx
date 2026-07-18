@@ -1556,7 +1556,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  const filteredBookings = bookings.filter((b) => {
+  const filteredBookings = useMemo(() => bookings.filter((b) => {
     if (b.userId?.startsWith('system_block_')) return false;
     const client = usersList.find((u) => u.uid === b.userId);
     const clientNameStr = (client?.displayName || '').toLowerCase();
@@ -1593,7 +1593,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       return clientB.localeCompare(clientA, language === 'ru' ? 'ru' : 'en');
     }
     return 0;
-  });
+  }), [bookings, usersList, monitorSearch, monitorStatusFilter, monitorInstructorFilter, monitorClientFilter, monitorSortBy, language]);
 
   return (
     <div className="space-y-6 animate-fade-in">

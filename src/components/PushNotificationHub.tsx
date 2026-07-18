@@ -61,7 +61,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     <NotificationContext.Provider value={{ notifications, addNotification, removeNotification, clearAll }}>
       {children}
       {/* Toast Notification Area */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full">
+      <div className="fixed bottom-4 sm:bottom-6 left-4 sm:left-auto right-4 sm:right-6 z-50 flex flex-col gap-3 max-w-[calc(100vw-2rem)] sm:max-w-sm w-auto sm:w-full">
         {notifications.slice(0, 4).map((n) => (
           <div
             key={n.id}

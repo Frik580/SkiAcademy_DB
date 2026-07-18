@@ -28,7 +28,8 @@ service cloud.firestore {
 
     // User Profiles
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      allow get: if true;
+      allow list: if isAdmin();
       allow create: if isAuthenticated() && (
         isOwner(userId) || 
         isAdmin() || 

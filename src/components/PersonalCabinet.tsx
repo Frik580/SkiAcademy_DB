@@ -17,7 +17,8 @@ import {
   Bell,
   MessageSquare,
   Sliders,
-  UserCheck
+  UserCheck,
+  Lock
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, parseDurationHours, splitCourseDates } from '../lib/LanguageContext';
@@ -735,6 +736,27 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           allBookings={rawBookings}
           reviews={reviews}
         />
+      ) : userProfile.isClientActive === false ? (
+        <div className="border border-[var(--border)] p-8 space-y-6 animate-fade-in bg-black/10 dark:bg-black/30 text-center max-w-xl mx-auto my-12">
+          <div className="w-16 h-16 border border-[var(--border)] rounded-none flex items-center justify-center mx-auto text-rose-400 bg-black/10">
+            <Lock className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-serif font-light text-[var(--ink)] tracking-tight">
+              {language === 'en' ? 'Access Suspended' : 'Доступ приостановлен'}
+            </h3>
+            <p className="text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider leading-relaxed pt-2">
+              {language === 'en' 
+                ? 'Your access to the student cabinet has been suspended by the administrator. Please contact resort administration for more details.' 
+                : 'Ваш доступ к кабинету ученика был приостановлен администратором. Пожалуйста, свяжитесь с администрацией курорта для получения дополнительной информации.'}
+            </p>
+            {showInstructorTab && (
+              <p className="text-xs text-indigo-400 font-mono uppercase tracking-wider leading-relaxed pt-2">
+                {language === 'en' ? 'Instructor Workspace remains available.' : 'Панель инструктора остается доступной.'}
+              </p>
+            )}
+          </div>
+        </div>
       ) : (
         <div className="grid lg:grid-cols-12 gap-6 animate-fade-in w-full max-w-full min-w-0">
           {/* Profile Info Left Panel */}
@@ -1356,3 +1378,4 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     </div>
   );
 };
+

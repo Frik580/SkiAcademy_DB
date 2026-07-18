@@ -538,19 +538,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     // Если ID нет, сгенерируем новый.
     const finalInstructorId = isNowInstructor
       ? (oldInstructorId || `ins_${uId}`)
-      : '';
- 
-    const clientData: UserProfile = {
-      uid: uId,
+      : ''; 
+    
+    const baseData = {
       displayName: (clientName || '').trim(),
-      email: (clientEmail || '').trim().toLowerCase(), // This was missing other properties
+      email: (clientEmail || '').trim().toLowerCase(),
       phoneNumber: (clientPhone || '').trim() || '',
       isClientActive: clientIsActive,
       balanceUSD: Number(clientBalance),
       role: clientRole,
       isInstructor: clientIsInstructor,
       instructorId: finalInstructorId,
-      avatarUrl: editingClient ? editingClient.avatarUrl : defaultAvatar,
+    };
+
+    const clientData: UserProfile = editingClient ? {
+      ...editingClient,
+      ...baseData
+    } : {
+      ...baseData,
+      uid: uId,
+      avatarUrl: defaultAvatar,
     };
 
     try {
@@ -792,7 +799,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setClientPhone(u.phoneNumber || '');
     setClientBalance(u.balanceUSD);
     setClientRole(u.role);
-    setClientIsInstructor(!!u.isInstructor);
+    setClientIsInstructor(u.isInstructor || false);
     setClientIsActive(u.isClientActive === undefined ? true : u.isClientActive);
     setShowClientAddForm(true);
   };
@@ -4029,4 +4036,5 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     </div>
   );
 };
+
 

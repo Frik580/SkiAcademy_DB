@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { auth, db, doc, getDoc, updateDoc } from '../lib/firebase';
+import { auth, db, doc, onSnapshot, updateDoc } from '../lib/firebase';
 import { UserProfile } from '../types';
 
 export const useAuth = () => {
@@ -10,19 +10,20 @@ export const useAuth = () => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      let profileUnsubscribe: (() => void) | null = null;
+
       if (user) {
         setFirebaseUser(user);
-        try {
-          const userRef = doc(db, 'users', user.uid);
-          const userSnap = await getDoc(userRef);
-
+        const userRef = doc(db, 'users', user.uid);
+        
+        profileUnsubscribe = onSnapshot(userRef, async (userSnap) => {
           if (userSnap.exists()) {
             const data = userSnap.data() as UserProfile;
             const isAdminEmail = user.email?.toLowerCase() === 'admin@alpineglide.com' || user.email?.toLowerCase() === 'gerasimchuk.arseniy@gmail.com';
             if (isAdminEmail && data.role !== 'admin') {
               try {
                 await updateDoc(userRef, { role: 'admin' });
-                data.role = 'admin';
+                data.role = 'admin'; // Optimistic update
               } catch (updateErr) {
                 console.error("Failed to promote user to admin in Firestore", updateErr);
               }
@@ -31,14 +32,17 @@ export const useAuth = () => {
           } else {
             setUserProfile(null);
           }
-        } catch (e) {
-          console.error("Auth initialization failed", e);
-        }
+          if (authLoading) setAuthLoading(false);
+        }, (error) => {
+          console.error("Auth profile snapshot error:", error);
+          setAuthLoading(false);
+        });
       } else {
         setUserProfile(null);
         setFirebaseUser(null);
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
+      return () => { if (profileUnsubscribe) profileUnsubscribe(); };
     });
 
     return () => unsubscribe();

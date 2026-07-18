@@ -422,15 +422,11 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
   const isSuperAdmin = (email?: string | null) => email?.toLowerCase() === 'gerasimchuk.arseniy@gmail.com';
 
   const handleAddUser = async (newUser: UserProfile) => await setDoc(doc(db, 'users', newUser.uid), newUser);
-  const handleUpdateUser = async (updatedUser: UserProfile) => await updateDoc(doc(db, 'users', updatedUser.uid), {
-    displayName: updatedUser.displayName,
-    email: updatedUser.email,
-    phoneNumber: updatedUser.phoneNumber || '',
-    balanceUSD: updatedUser.balanceUSD,
-    role: updatedUser.role,
-    isInstructor: !!updatedUser.isInstructor,
-    instructorId: updatedUser.instructorId || ''
-  });
+  const handleUpdateUser = async (updatedUser: UserProfile) => {
+    const userRef = doc(db, 'users', updatedUser.uid);
+    // Create a copy to avoid passing undefined values which Firestore rejects.
+    await updateDoc(userRef, { ...updatedUser });
+  };
   const handleDeleteUser = async (targetUid: string) => await deleteDoc(doc(db, 'users', targetUid));
 
   const handleConfirmBooking = async (id: string) => {

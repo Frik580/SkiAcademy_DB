@@ -94,3 +94,17 @@ export enum OperationType {
   UPDATE = 'update',
   DELETE = 'delete'
 }
+
+export interface ErrorLog {
+  id: string;
+  message: string;
+  stack?: string;
+  timestamp: string; // ISO String
+  userId?: string;
+  userEmail?: string;
+  url: string;
+  userAgent: string;
+  source: string; // 'firestore' | 'global_error' | 'unhandled_rejection' | 'custom'
+  operation?: string;
+  path?: string;
+}

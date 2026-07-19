@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Instructor, Booking, UserProfile, Course } from '../types';
+import { Instructor, Booking, UserProfile, Course, ErrorLog, OperationType } from '../types';
+import { db, doc, deleteDoc, collection, query, orderBy, onSnapshot, handleFirestoreError } from '../lib/firebase';
 import { 
   Users, 
   BookOpen, 
@@ -31,7 +32,8 @@ import {
   EyeOff,
   ArrowUp,
   ArrowDown,
-  MessageSquare
+  MessageSquare,
+  AlertTriangle
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, formatCourseDates, parseDurationHours, splitCourseDates } from '../lib/LanguageContext';
@@ -517,6 +519,80 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [monitorInstructorFilter, setMonitorInstructorFilter] = useState('all');
   const [monitorClientFilter, setMonitorClientFilter] = useState('all');
   const [monitorSortBy, setMonitorSortBy] = useState<'date_desc' | 'date_asc' | 'client_asc' | 'client_desc'>('date_desc');
+  const [monitorPage, setMonitorPage] = useState(1);
+
+  useEffect(() => {
+    setMonitorPage(1);
+  }, [monitorSearch, monitorStatusFilter, monitorInstructorFilter, monitorClientFilter, monitorSortBy]);
+
+  // Error Logs States
+  const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
+  const [errorLogsLoading, setErrorLogsLoading] = useState(true);
+  const [logSearch, setLogSearch] = useState('');
+  const [logSourceFilter, setLogSourceFilter] = useState<string>('all');
+  const [selectedLog, setSelectedLog] = useState<ErrorLog | null>(null);
+
+  useEffect(() => {
+    setErrorLogsLoading(true);
+    const q = query(collection(db, 'error_logs'), orderBy('timestamp', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const logs: ErrorLog[] = [];
+      snapshot.forEach((doc) => {
+        logs.push(doc.data() as ErrorLog);
+      });
+      setErrorLogs(logs);
+      setErrorLogsLoading(false);
+    }, (error) => {
+      console.error('Error fetching logs:', error);
+      setErrorLogsLoading(false);
+    });
+
+    return () => unsub();
+  }, []);
+
+  const handleDeleteLog = async (logId: string) => {
+    try {
+      await deleteDoc(doc(db, 'error_logs', logId));
+      addNotification('success', language === 'en' ? 'Log Deleted' : 'Лог удален', language === 'en' ? 'The error log has been removed.' : 'Запись об ошибке удалена.');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `error_logs/${logId}`);
+    }
+  };
+
+  const handleClearAllLogs = async () => {
+    const confirmMsg = language === 'en'
+      ? 'Are you sure you want to clear all error logs?'
+      : 'Вы уверены, что хотите удалить все логи ошибок?';
+
+    setConfirmModal({
+      message: confirmMsg,
+      onConfirm: async () => {
+        try {
+          const deletePromises = errorLogs.map(log => deleteDoc(doc(db, 'error_logs', log.id)));
+          await Promise.all(deletePromises);
+          addNotification('success', language === 'en' ? 'Logs Cleared' : 'Логи очищены', language === 'en' ? 'All error logs have been deleted.' : 'Все логи ошибок успешно удалены.');
+        } catch (error) {
+          handleFirestoreError(error, OperationType.DELETE, 'error_logs');
+        }
+      }
+    });
+  };
+
+  const filteredLogs = useMemo(() => {
+    return errorLogs.filter(log => {
+      if (logSourceFilter !== 'all' && log.source !== logSourceFilter) {
+        return false;
+      }
+      if (!logSearch) return true;
+      const search = logSearch.toLowerCase();
+      return (
+        (log.message || '').toLowerCase().includes(search) ||
+        (log.stack || '').toLowerCase().includes(search) ||
+        (log.userEmail || '').toLowerCase().includes(search) ||
+        (log.url || '').toLowerCase().includes(search)
+      );
+    });
+  }, [errorLogs, logSearch, logSourceFilter]);
 
   const handleClientSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1704,6 +1780,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return 0;
   }), [bookings, usersList, monitorSearch, monitorStatusFilter, monitorInstructorFilter, monitorClientFilter, monitorSortBy, language]);
 
+  const paginatedBookings = useMemo(() => {
+    const startIndex = (monitorPage - 1) * 10;
+    return filteredBookings.slice(startIndex, startIndex + 10);
+  }, [filteredBookings, monitorPage]);
+
+  const monitorTotalPages = useMemo(() => {
+    return Math.max(1, Math.ceil(filteredBookings.length / 10));
+  }, [filteredBookings]);
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Admin stats dashboard banner */}
@@ -1974,12 +2059,88 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     {weekDays.map(day => {
                       const dayStr = formatDateLocalYMD(day);
                       const dayBookings = bookings.filter(b => b.instructorId === ins.id && b.date === dayStr && b.status !== 'cancelled' && !b.isDeleted);
+                      const dayCourses = (courses || []).filter((c) => {
+                        if (!c.instructorIds || !c.instructorIds.includes(ins.id)) return false;
+                        const { start: cStart, end: cEnd } = parseCourseDates(c.dates);
+                        const startStr = formatDateLocalYMD(cStart);
+                        const endStr = formatDateLocalYMD(cEnd);
+                        return dayStr >= startStr && dayStr <= endStr;
+                      });
+
+                      const combinedEvents = [
+                        ...dayBookings.map(b => ({
+                          type: 'booking' as const,
+                          time: b.time,
+                          data: b,
+                          id: b.id
+                        })),
+                        ...dayCourses.map(c => {
+                          const { startTime } = parseCourseDates(c.dates);
+                          return {
+                            type: 'course' as const,
+                            time: startTime,
+                            data: c,
+                            id: `course_event_${c.id}`
+                          };
+                        })
+                      ].sort((a, b) => a.time.localeCompare(b.time));
+
                       return (
-                        <td key={dayStr} className="p-1 align-top border-l border-slate-200/50 dark:border-slate-800/40 h-24">
+                        <td key={dayStr} className="p-1 align-top border-l border-slate-200/50 dark:border-slate-800/40 min-h-24">
                           <div className="space-y-1">
-                            {dayBookings.sort((a,b) => a.time.localeCompare(b.time)).map(b => (
-                              <div key={b.id}>{renderBookingCell(b, ins)}</div>
-                            ))}
+                            {combinedEvents.map(item => {
+                              if (item.type === 'booking') {
+                                return (
+                                  <div key={item.id}>{renderBookingCell(item.data, ins)}</div>
+                                );
+                              } else {
+                                const courseOverlap = item.data;
+                                const courseBookings = bookings.filter(
+                                  (b) => b.instructorId === `course_${courseOverlap.id}` && b.status !== 'cancelled' && !b.isDeleted
+                                );
+                                const bookedCount = courseBookings.length;
+                                const enrolledNames = courseBookings.map((b) => {
+                                  const u = usersList.find((usr) => usr.uid === b.userId);
+                                  return u?.displayName || u?.email || b.userId;
+                                }).filter(Boolean);
+
+                                return (
+                                  <div
+                                    key={item.id}
+                                    onClick={() => {
+                                      const otherGuides = courseOverlap.instructorIds?.filter(id => id !== ins.id) || [];
+                                      const guideNamesStr = otherGuides.map(id => instructors.find(i => i.id === id)?.name || id).join(', ');
+                                      const guidesDetail = guideNamesStr ? (language === 'en' ? ` (with ${guideNamesStr})` : ` (совместно с ${guideNamesStr})`) : '';
+                                      const enrolledDetailsStr = enrolledNames.length > 0 
+                                        ? (language === 'en' ? `\nClients enrolled: ${enrolledNames.join(', ')}` : `\nЗаписанные клиенты: ${enrolledNames.join(', ')}`)
+                                        : (language === 'en' ? '\nNo clients enrolled yet.' : '\nНет записанных клиентов.');
+                                      addNotification(
+                                        'info',
+                                        courseOverlap.title,
+                                        (language === 'en'
+                                          ? `Group Course "${courseOverlap.title}"${guidesDetail}. Scheduled: ${courseOverlap.dates}\nSeats: ${courseOverlap.availableSeats} / ${courseOverlap.totalSeats}`
+                                          : `Групповой курс «${courseOverlap.title}»${guidesDetail}. Запланирован: ${courseOverlap.dates}\nМеста: ${courseOverlap.availableSeats} / ${courseOverlap.totalSeats}`) + enrolledDetailsStr
+                                      );
+                                    }}
+                                    className="relative group/cell h-11 border border-violet-200/40 dark:border-violet-900/30 bg-violet-50/60 dark:bg-violet-950/15 hover:border-violet-400 dark:hover:border-violet-700 text-violet-950 dark:text-violet-200 rounded-xl px-2.5 py-1 flex flex-col justify-center transition text-[11px] leading-tight cursor-pointer"
+                                  >
+                                    <div className="flex items-center justify-between gap-1.5 min-w-0">
+                                      <div className="font-bold truncate text-violet-900 dark:text-violet-200 flex items-center gap-1.5 w-full">
+                                        <BookOpen className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+                                        <span className="truncate">{translateCourse(courseOverlap, language).title}</span>
+                                        <span className="text-[8px] bg-violet-100 dark:bg-violet-900/40 border border-violet-250/45 dark:border-violet-800 text-violet-700 dark:text-violet-300 px-1 py-0.2 font-mono uppercase tracking-wider font-extrabold shrink-0 ml-auto">
+                                          {language === 'en' ? 'Course' : 'Курс'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="text-[9px] font-mono flex items-center gap-1 mt-0.5 text-violet-600 dark:text-violet-400">
+                                      <Clock className="w-3 h-3 shrink-0 text-violet-400 dark:text-violet-500" />
+                                      <span>{item.time} ({courseOverlap.availableSeats}/{courseOverlap.totalSeats}) • {bookedCount} {language === 'en' ? 'enrolled' : 'записано'}</span>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                            })}
                           </div>
                         </td>
                       );
@@ -2739,7 +2900,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredBookings.map((b) => {
+                paginatedBookings.map((b) => {
                   const client = usersList.find((u) => u.uid === b.userId);
                   const instructorName = b.instructorName;
                   return (
@@ -2857,6 +3018,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {monitorTotalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-[var(--border)] pt-4 font-mono text-xs">
+            <div className="text-[var(--ink-dim)]">
+              {language === 'en' 
+                ? `Page ${monitorPage} of ${monitorTotalPages} (${filteredBookings.length} total)` 
+                : `Страница ${monitorPage} из ${monitorTotalPages} (всего ${filteredBookings.length})`}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setMonitorPage(prev => Math.max(1, prev - 1))}
+                disabled={monitorPage === 1}
+                className="p-1 border border-[var(--border)] hover:border-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 rounded-none disabled:opacity-30 disabled:hover:bg-transparent disabled:border-[var(--border)] disabled:cursor-not-allowed cursor-pointer transition text-[var(--ink)]"
+                title={language === 'en' ? 'Previous Page' : 'Предыдущая страница'}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setMonitorPage(prev => Math.min(monitorTotalPages, prev + 1))}
+                disabled={monitorPage === monitorTotalPages}
+                className="p-1 border border-[var(--border)] hover:border-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 rounded-none disabled:opacity-30 disabled:hover:bg-transparent disabled:border-[var(--border)] disabled:cursor-not-allowed cursor-pointer transition text-[var(--ink)]"
+                title={language === 'en' ? 'Next Page' : 'Следующая страница'}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Client Records Management Section */}
@@ -3989,6 +4179,161 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ⚠️ Error Logs Section */}
+      <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300 w-full min-w-0 overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
+          <div>
+            <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
+              <AlertTriangle className="w-4.5 h-4.5 text-rose-500 shrink-0" />
+              {language === 'en' ? 'System Error Logs' : 'Логи системных ошибок'}
+            </h3>
+            <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1.5 leading-relaxed">
+              {language === 'en' 
+                ? 'Review unhandled rejections, window exceptions, and Firestore permission errors' 
+                : 'Просмотр необработанных отклонений промисов, исключений и ошибок доступа Firestore'}
+            </p>
+          </div>
+          {errorLogs.length > 0 && (
+            <button
+              onClick={handleClearAllLogs}
+              className="py-1.5 px-3 border border-rose-900/40 hover:border-rose-500 text-rose-500 hover:bg-rose-950/10 rounded-none text-xs flex items-center gap-1.5 transition cursor-pointer font-mono"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {language === 'en' ? 'Clear All Logs' : 'Очистить все логи'}
+            </button>
+          )}
+        </div>
+
+        {/* Filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-[var(--ink-dim)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={logSearch}
+              onChange={(e) => setLogSearch(e.target.value)}
+              placeholder={language === 'en' ? 'Search logs by message, email, url...' : 'Поиск по сообщению, email, url...'}
+              className="w-full pl-9 pr-3 py-2 border border-[var(--border)] bg-transparent text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none placeholder-[var(--ink-dim)] font-mono"
+            />
+          </div>
+
+          <div>
+            <select
+              value={logSourceFilter}
+              onChange={(e) => setLogSourceFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-[var(--border)] bg-[var(--bg)] text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none font-mono"
+            >
+              <option value="all">{language === 'en' ? 'All Sources' : 'Все источники'}</option>
+              <option value="firestore">Firestore</option>
+              <option value="global_error">{language === 'en' ? 'Global Window Error' : 'Глобальная ошибка'}</option>
+              <option value="unhandled_rejection">{language === 'en' ? 'Unhandled Promise Rejection' : 'Необработанный промис'}</option>
+              <option value="custom">Custom Logs</option>
+            </select>
+          </div>
+          
+          <div className="flex items-center text-xs text-[var(--ink-dim)] font-mono justify-end">
+            {language === 'en' 
+              ? `Showing ${filteredLogs.length} of ${errorLogs.length} logs` 
+              : `Показано ${filteredLogs.length} из ${errorLogs.length} логов`}
+          </div>
+        </div>
+
+        {/* Logs Table / List */}
+        {errorLogsLoading ? (
+          <div className="py-12 flex flex-col items-center justify-center text-[var(--ink-dim)] gap-2">
+            <Loader2 className="w-6 h-6 animate-spin text-[var(--ink)]" />
+            <span className="text-[10px] font-mono uppercase tracking-wider">{language === 'en' ? 'Loading error logs...' : 'Загрузка логов ошибок...'}</span>
+          </div>
+        ) : filteredLogs.length === 0 ? (
+          <div className="border border-[var(--border)] border-dashed p-12 text-center text-xs text-[var(--ink-dim)] font-mono">
+            {language === 'en' ? 'No error logs found matching filters.' : 'Логи ошибок по заданным фильтрам не найдены.'}
+          </div>
+        ) : (
+          <div className="border border-[var(--border)] divide-y divide-[var(--border)] max-h-[500px] overflow-y-auto w-full">
+            {filteredLogs.map((log) => (
+              <div 
+                key={log.id} 
+                className={`p-4 transition hover:bg-black/5 dark:hover:bg-white/5 flex flex-col gap-2 cursor-pointer w-full text-left font-mono text-[11px] ${selectedLog?.id === log.id ? 'bg-black/10 dark:bg-white/10 border-l-2 border-rose-500' : ''}`}
+                onClick={() => setSelectedLog(selectedLog?.id === log.id ? null : log)}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wider rounded-none shrink-0 ${
+                      log.source === 'firestore' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-250/45 dark:border-amber-900/60' :
+                      log.source === 'global_error' ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-250/45 dark:border-rose-900/60' :
+                      'bg-purple-100 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border border-purple-250/45 dark:border-purple-900/60'
+                    }`}>
+                      {log.source}
+                    </span>
+                    <span className="text-[var(--ink-dim)] text-[9px] shrink-0">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteLog(log.id);
+                    }}
+                    className="text-[var(--ink-dim)] hover:text-rose-500 p-1 transition cursor-pointer"
+                    title={language === 'en' ? 'Delete log' : 'Удалить лог'}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="font-semibold text-rose-600 dark:text-rose-400 break-words line-clamp-2 leading-relaxed">
+                  {log.message}
+                </div>
+
+                <div className="text-[10px] text-[var(--ink-dim)] flex flex-wrap gap-x-4 gap-y-1 pt-1 border-t border-[var(--border)] border-dashed">
+                  <div>
+                    <span className="font-bold">{language === 'en' ? 'User:' : 'Пользователь:'}</span> {log.userEmail || 'anonymous'}
+                  </div>
+                  <div className="truncate max-w-xs md:max-w-md lg:max-w-xl">
+                    <span className="font-bold">URL:</span> {log.url}
+                  </div>
+                  {log.operation && (
+                    <div>
+                      <span className="font-bold">{language === 'en' ? 'Op:' : 'Оп:'}</span> {log.operation}
+                    </div>
+                  )}
+                  {log.path && (
+                    <div className="truncate max-w-xs">
+                      <span className="font-bold">{language === 'en' ? 'Path:' : 'Путь:'}</span> {log.path}
+                    </div>
+                  )}
+                </div>
+
+                {/* Details stack trace */}
+                {selectedLog?.id === log.id && (
+                  <div className="mt-3 p-3 bg-black/10 dark:bg-white/5 border border-[var(--border)] rounded-none space-y-3 animate-fade-in text-[10px] overflow-x-auto select-text">
+                    {log.stack && (
+                      <div className="space-y-1">
+                        <span className="font-bold text-[var(--ink)] uppercase tracking-wider text-[9px] block">
+                          {language === 'en' ? 'Stack Trace:' : 'Трассировка стека:'}
+                        </span>
+                        <pre className="whitespace-pre font-mono leading-relaxed text-rose-500/90 dark:text-rose-450 text-[9px] overflow-x-auto max-h-[200px] overflow-y-auto">
+                          {log.stack}
+                        </pre>
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <span className="font-bold text-[var(--ink)] uppercase tracking-wider text-[9px] block">
+                        {language === 'en' ? 'Client Environment details:' : 'Детали окружения клиента:'}
+                      </span>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 font-mono text-[9px] leading-relaxed text-[var(--ink-dim)]">
+                        <div><span className="font-bold text-[var(--ink)]">User Agent:</span> {log.userAgent}</div>
+                        <div><span className="font-bold text-[var(--ink)]">Full URL:</span> {log.url}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {confirmModal && createPortal(

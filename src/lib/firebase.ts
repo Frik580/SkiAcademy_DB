@@ -13,7 +13,8 @@ import {
   where,
   addDoc,
   onSnapshot,
-  limit
+  limit,
+  orderBy
 } from 'firebase/firestore';
 import { OperationType } from '../types';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -33,8 +34,77 @@ export function registerFirestoreErrorListener(listener: ErrorListener) {
   errorListener = listener;
 }
 
+export async function logErrorToFirestore(
+  message: string, 
+  stack?: string, 
+  source: string = 'custom', 
+  operation?: string, 
+  path?: string
+) {
+  try {
+    const id = `err_${Math.random().toString(36).substring(2, 9)}_${Date.now()}`;
+    const logData = {
+      id,
+      message: message || 'Unknown error',
+      stack: stack || '',
+      timestamp: new Date().toISOString(),
+      userId: auth.currentUser?.uid || 'anonymous',
+      userEmail: auth.currentUser?.email || 'anonymous',
+      url: typeof window !== 'undefined' ? window.location.href : '',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      source,
+      operation: operation || '',
+      path: path || ''
+    };
+    await setDoc(doc(db, 'error_logs', id), logData);
+  } catch (e) {
+    console.warn('Failed to log error to Firestore:', e);
+  }
+}
+
+// Auto-register global window error listeners
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (event) => {
+    // Filter out benign ResizeObserver/HMR/websocket warnings
+    const msg = event.message || (event.error && event.error.message) || '';
+    if (
+      msg.includes('ResizeObserver') || 
+      msg.includes('websocket') || 
+      msg.includes('HMR') || 
+      msg.includes('failed to connect to websocket')
+    ) {
+      return;
+    }
+    const stack = event.error && event.error.stack;
+    logErrorToFirestore(msg || 'Window error event', stack, 'global_error');
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason;
+    const msg = reason instanceof Error ? reason.message : String(reason);
+    if (
+      msg.includes('ResizeObserver') || 
+      msg.includes('websocket') || 
+      msg.includes('HMR') || 
+      msg.includes('failed to connect to websocket')
+    ) {
+      return;
+    }
+    const stack = reason instanceof Error ? reason.stack : '';
+    logErrorToFirestore(msg || 'Unhandled promise rejection', stack, 'unhandled_rejection');
+  });
+}
+
 export function handleFirestoreError(err: any, operation: OperationType, path: string) {
   console.error(`[Firestore Error] Operation: ${operation}, Path: ${path}`, err);
+  
+  // Log to database (skip if it is about writing to error_logs itself to avoid infinite loop)
+  if (!path.includes('error_logs')) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : '';
+    logErrorToFirestore(msg, stack, 'firestore', operation, path);
+  }
+
   if (errorListener) {
     errorListener(err, operation, path);
   } else {
@@ -158,6 +228,7 @@ export {
   addDoc,
   onSnapshot,
   limit,
+  orderBy,
   GoogleAuthProvider,
   signInWithPopup,
   OperationType

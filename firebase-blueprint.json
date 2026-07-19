@@ -122,6 +122,25 @@
         "timestamp": { "type": "string" }
       },
       "required": ["id", "bookingId", "senderId", "senderName", "senderAvatar", "text", "timestamp"]
+    },
+    "ErrorLog": {
+      "title": "ErrorLog",
+      "description": "Log of application errors",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "message": { "type": "string" },
+        "stack": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "url": { "type": "string" },
+        "userAgent": { "type": "string" },
+        "source": { "type": "string" },
+        "operation": { "type": "string" },
+        "path": { "type": "string" }
+      },
+      "required": ["id", "message", "timestamp", "url", "userAgent", "source"]
     }
   },
   "firestore": {
@@ -156,6 +175,10 @@
     "notifications/{notificationId}": {
       "schema": "Notification",
       "description": "Notification details"
+    },
+    "error_logs/{logId}": {
+      "schema": "ErrorLog",
+      "description": "Application error logs"
     }
   }
 }

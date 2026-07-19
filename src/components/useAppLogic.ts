@@ -14,7 +14,6 @@ import {
   handleFirestoreError
 } from '../lib/firebase';
 import { UserProfile, Instructor, Booking, Review, Course } from '../types';
-import { INITIAL_INSTRUCTORS, INITIAL_REVIEWS, INITIAL_COURSES } from '../data';
 import { useNotifications } from '../components/PushNotificationHub';
 import { useLanguage, parseDurationHours, splitCourseDates } from '../lib/LanguageContext';
 import confetti from 'canvas-confetti';
@@ -69,40 +68,22 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     // Courses
     const coursesQuery = query(collection(db, 'courses'));
     unsubscribers.push(onSnapshot(coursesQuery, (snap) => {
-      if (snap && !snap.empty) {
-        setCourses(snap.docs.map(d => ({ id: d.id, ...d.data() } as Course)));
-      } else {
-        setCourses(INITIAL_COURSES);
-        INITIAL_COURSES.forEach(async (course) => {
-          try { await setDoc(doc(db, 'courses', course.id), course); } catch (e) { /* Ignore */ }
-        });
-      }
+      const courseList = snap.docs.map(d => ({ id: d.id, ...d.data() } as Course));
+      setCourses(courseList);
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'courses')));
 
     // Instructors
     const instructorsQuery = query(collection(db, 'instructors'));
     unsubscribers.push(onSnapshot(instructorsQuery, (snap) => {
-      if (snap && !snap.empty) {
-        setInstructors(snap.docs.map(d => ({ id: d.id, ...d.data() } as Instructor)));
-      } else {
-        setInstructors(INITIAL_INSTRUCTORS);
-        INITIAL_INSTRUCTORS.forEach(async (ins) => {
-          try { await setDoc(doc(db, 'instructors', ins.id), ins); } catch (e) { /* Ignore */ }
-        });
-      }
+      const instructorList = snap.docs.map(d => ({ id: d.id, ...d.data() } as Instructor));
+      setInstructors(instructorList);
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'instructors')));
 
     // Reviews
     const reviewsQuery = query(collection(db, 'reviews'));
     unsubscribers.push(onSnapshot(reviewsQuery, (snap) => {
-      if (snap && !snap.empty) {
-        setReviews(snap.docs.map(d => ({ id: d.id, ...d.data() } as Review)));
-      } else {
-        setReviews(INITIAL_REVIEWS);
-        INITIAL_REVIEWS.forEach(async (rev) => {
-          try { await setDoc(doc(db, 'reviews', rev.id), rev); } catch (e) { /* Ignore */ }
-        });
-      }
+      const reviewList = snap.docs.map(d => ({ id: d.id, ...d.data() } as Review));
+      setReviews(reviewList);
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'reviews')));
 
     if (firebaseUser) {

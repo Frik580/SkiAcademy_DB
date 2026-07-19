@@ -129,6 +129,52 @@ function optimizeInstructorImage(file: File): Promise<string> {
   });
 }
 
+function optimizeCourseImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('File is not an image'));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 600;
+
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx!.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85); // Slightly higher quality for backgrounds
+        resolve(dataUrl);
+      };
+      img.onerror = () => reject(new Error('Failed to load image source'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function formatDateLocalYMD(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -418,7 +464,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     setIsUploadingCourseImage(true);
     try {
-      const optimizedBase64 = await optimizeInstructorImage(file);
+      const optimizedBase64 = await optimizeCourseImage(file);
       setCourseBgImageUrl(optimizedBase64);
       addNotification(
         'success',

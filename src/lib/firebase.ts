@@ -22,7 +22,7 @@ import firebaseConfig from '../../firebase-applet-config.json';
 const app = initializeApp(firebaseConfig);
 
 // Initialize with specific databaseId if required by config
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || "ai-studio-b875cbe2-58f8-430e-b2c5-e0a453c4f8a4");
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 

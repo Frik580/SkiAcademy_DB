@@ -155,7 +155,7 @@ const AppContent: React.FC = () => {
       <main className={`flex-1 w-full mx-auto ${
         isAdminView && userProfile && userProfile.role === 'admin'
           ? 'p-6 overflow-y-auto'
-          : 'flex flex-col lg:grid lg:grid-cols-[minmax(140px,250px)_minmax(700px,1.5fr)_minmax(180px,350px)] lg:h-[calc(100vh-62px)] lg:overflow-hidden'
+          : 'flex flex-col lg:grid lg:grid-cols-[minmax(140px,200px)_minmax(700px,1.5fr)_minmax(180px,350px)] lg:h-[calc(100vh-62px)] lg:overflow-hidden'
       }`}>
         
         {/* Firestore Permission warning notice block */}
@@ -279,7 +279,7 @@ const AppContent: React.FC = () => {
               
               {/* Elegant welcoming Hero block */}
               <section 
-                className="relative space-y-3 p-8 md:p-10 border-b border-[var(--border)] overflow-hidden bg-cover bg-center flex flex-col justify-end min-h-[220px]"
+                className="relative space-y-3 p-8 md:p-10 border-b border-[var(--border)] overflow-hidden bg-cover bg-center flex flex-col justify-end min-h-[400px]"
                 style={{ 
                   backgroundImage: theme === 'light'
                     ? `linear-gradient(to right, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.4) 100%), url('https://storage.yandexcloud.net/carve/${randomWall}.webp')`

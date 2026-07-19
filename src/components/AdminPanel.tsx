@@ -4031,6 +4031,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           booking={selectedChatBooking}
           currentUserProfile={adminProfile}
           onClose={() => setSelectedChatBooking(null)}
+          instructors={instructors}
+          usersList={usersList}
         />
       )}
     </div>

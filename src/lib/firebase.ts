@@ -12,7 +12,8 @@ import {
   getDocs,
   where,
   addDoc,
-  onSnapshot
+  onSnapshot,
+  limit
 } from 'firebase/firestore';
 import { OperationType } from '../types';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -156,7 +157,9 @@ export {
   where,
   addDoc,
   onSnapshot,
+  limit,
   GoogleAuthProvider,
   signInWithPopup,
   OperationType
 };
+

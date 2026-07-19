@@ -107,9 +107,10 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
 
     if (firebaseUser) {
       const isAdminUser = userProfile?.role === 'admin';
+      const isInstructorUser = !!userProfile?.instructorId;
 
       // Bookings
-      const bookingsQuery = isAdminUser
+      const bookingsQuery = (isAdminUser || isInstructorUser)
         ? query(collection(db, 'bookings'))
         : query(collection(db, 'bookings'), where('userId', '==', firebaseUser.uid));
       unsubscribers.push(onSnapshot(bookingsQuery, (snap) => {
@@ -117,8 +118,8 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
         setBookings(list.sort((a, b) => b.date.localeCompare(a.date)));
       }, (err) => handleFirestoreError(err, OperationType.LIST, 'bookings')));
 
-      // Users List (Admin only)
-      if (isAdminUser) {
+      // Users List (Admin and Instructor)
+      if (isAdminUser || isInstructorUser) {
         const usersQuery = query(collection(db, 'users'));
         unsubscribers.push(onSnapshot(usersQuery, (snap) => {
           const ulist: UserProfile[] = snap.docs

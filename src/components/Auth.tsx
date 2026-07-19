@@ -186,20 +186,43 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
       }
     } catch (err: any) {
       console.error(err);
+      const errCode = err.code || '';
+      const errMessage = err.message || '';
+
+      const isEmailAlreadyInUse = errCode === 'auth/email-already-in-use' || errMessage.includes('auth/email-already-in-use');
+      const isWeakPassword = errCode === 'auth/weak-password' || errMessage.includes('auth/weak-password');
+      const isInvalidCredential = errCode === 'auth/invalid-credential' || 
+                                  errCode === 'auth/wrong-password' || 
+                                  errCode === 'auth/user-not-found' ||
+                                  errMessage.includes('auth/invalid-credential') ||
+                                  errMessage.includes('auth/wrong-password') ||
+                                  errMessage.includes('auth/user-not-found');
+      const isOperationNotAllowed = errCode === 'auth/operation-not-allowed' || errMessage.includes('auth/operation-not-allowed');
+      const isNetworkError = errCode === 'auth/network-request-failed' || errMessage.includes('auth/network-request-failed');
+
       let errMsg = language === 'en' ? 'Authentication failed. Please verify your credentials.' : 'Ошибка авторизации. Проверьте введенные данные.';
-      if (err.code === 'auth/email-already-in-use') {
+      
+      if (isEmailAlreadyInUse) {
         errMsg = language === 'en' 
           ? 'This email is already registered. If an administrator created your account, please log in using the "Sign In" tab. Any pre-existing records will be automatically linked.' 
           : 'Этот email уже зарегистрирован. Если администратор создал ваш профиль, пожалуйста, войдите во вкладке «Вход». Все ваши данные будут автоматически привязаны.';
-      } else if (err.code === 'auth/weak-password') {
+      } else if (isWeakPassword) {
         errMsg = language === 'en' ? 'Password must be at least 6 characters.' : 'Пароль должен состоять минимум из 6 символов.';
-      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+      } else if (isInvalidCredential) {
         errMsg = language === 'en' ? 'Incorrect email or password.' : 'Неверный адрес почты или пароль.';
-      } else if (err.code === 'auth/operation-not-allowed') {
+      } else if (isOperationNotAllowed) {
         errMsg = language === 'en' ? 'Email/Password sign-in is disabled. Please contact your administrator.' : 'Вход по почте/паролю отключен в настройках Firebase. Воспользуйтесь демо-аккаунтами или входом через Google.';
+      } else if (isNetworkError) {
+        errMsg = language === 'en' ? 'Network error occurred. Please check your internet connection and try again.' : 'Ошибка сети. Пожалуйста, проверьте подключение к интернету и попробуйте еще раз.';
+      } else {
+        // Fallback to include details from the original error if any
+        errMsg = language === 'en' 
+          ? `Authentication error: ${errMessage || 'Please verify your credentials and try again.'}`
+          : `Ошибка авторизации: ${errMessage || 'Проверьте введенные данные и попробуйте еще раз.'}`;
       }
+
       setError(errMsg);
-      addNotification('error', 'Auth Issue', errMsg);
+      addNotification('error', language === 'en' ? 'Auth Issue' : 'Ошибка авторизации', errMsg);
     } finally {
       setIsLoading(false);
     }

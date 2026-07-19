@@ -39,6 +39,7 @@ interface PersonalCabinetProps {
   onUpdateProfile?: (updatedProfile: Partial<UserProfile>) => Promise<void>;
   courses?: Course[];
   instructors?: Instructor[];
+  usersList?: UserProfile[];
 }
 
 function optimizeProfileImage(file: File): Promise<string> {
@@ -116,7 +117,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   onSignOut,
   onUpdateProfile,
   courses = [],
-  instructors = []
+  instructors = [],
+  usersList = []
 }) => {
   const { addNotification } = useNotifications();
   const { language } = useLanguage();
@@ -132,6 +134,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       let date = b.date;
       let time = b.time;
 
+      const chatId = isCourse ? b.instructorId.replace('course_', '') : b.id;
       if (isCourse) {
         const courseId = b.instructorId.replace('course_', '');
         const liveCourse = (courses || []).find((c) => c.id === courseId);
@@ -170,7 +173,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
         durationHours,
         notes,
         date,
-        time
+        time,
+        chatId
       };
     });
   }, [rawBookings, courses, language]);
@@ -735,6 +739,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           instructors={instructors}
           allBookings={rawBookings}
           reviews={reviews}
+          courses={courses}
+          usersList={usersList}
         />
       ) : userProfile.isClientActive === false ? (
         <div className="border border-[var(--border)] p-8 space-y-6 animate-fade-in bg-black/10 dark:bg-black/30 text-center max-w-xl mx-auto my-12">
@@ -1371,6 +1377,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           booking={selectedChatBooking}
           currentUserProfile={userProfile}
           onClose={() => setSelectedChatBooking(null)}
+          instructors={instructors}
+          usersList={usersList}
         />
       )}
         </div>

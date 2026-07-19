@@ -1,38 +1,43 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  db, 
+  db,
   doc, 
   updateDoc
 } from '../lib/firebase';
-import { UserProfile, Instructor, Booking, Review, LessonDifficulty } from '../types';
+import { UserProfile, Instructor, Booking, Review, LessonDifficulty, Course } from '../types';
 import { 
   User, 
   Calendar, 
   Clock, 
   MessageSquare, 
-  CheckCircle, 
+  CheckCircle,
+  Users, 
   Star, 
   Lock
 } from 'lucide-react';
-import { BookingChatModal } from './BookingChatModal';
-import { useLanguage, translateInstructorName } from '../lib/LanguageContext';
+import { BookingChatModal } from './BookingChatModal'; 
+import { useLanguage, translateInstructorName, translateCourse, splitCourseDates, parseDurationHours } from '../lib/LanguageContext';
 
 interface InstructorWorkspaceProps {
   userProfile: UserProfile;
   instructors: Instructor[];
   allBookings: Booking[];
   reviews: Review[];
+  courses: Course[];
+  usersList: UserProfile[];
 }
 
 export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
   userProfile,
   instructors,
   allBookings,
-  reviews
+  reviews,
+  courses,
+  usersList
 }) => {
   const { language } = useLanguage();
   const [selectedChatBooking, setSelectedChatBooking] = useState<Booking | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'completed'>('all');
 
   // Translate helper labels
   const t = {
@@ -49,6 +54,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
     noLessons: language === 'en' ? 'No scheduled lessons found' : 'Занятий не найдено',
     chatBtn: language === 'en' ? 'Chat with Student' : 'Чат с учеником',
     clientDetails: language === 'en' ? 'Student Details' : 'Информация об ученике',
+    groupChatBtn: language === 'en' ? 'Chat with Group' : 'Чат с группой',
     statsTitle: language === 'en' ? 'Season Overview' : 'Обзор сезона',
     rating: language === 'en' ? 'Rating' : 'Рейтинг',
     lessonsCount: language === 'en' ? 'Total Lessons' : 'Всего занятий',
@@ -75,8 +81,68 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
   // Filtered bookings for the linked instructor
   const instructorBookings = useMemo(() => {
     if (!userProfile.instructorId) return [];
-    return allBookings.filter(b => b.instructorId === userProfile.instructorId);
-  }, [allBookings, userProfile.instructorId]);
+
+    // 1. Get individual lessons
+    const individualLessons = allBookings
+      .filter(b => 
+          b.instructorId === userProfile.instructorId &&
+          !b.userId?.startsWith('system_block_') &&
+          b.status !== 'cancelled'
+      )
+      .map(b => {
+        const client = usersList.find(u => u.uid === b.userId);
+        return client 
+          ? { ...b, clientName: client.displayName, clientAvatar: client.avatarUrl } 
+          : { ...b, clientName: 'Enrolled Student', clientAvatar: '' };
+      });
+
+    // 2. Get course bookings for courses this instructor teaches
+    const instructorCourseIds = courses
+      .filter(c => c.instructorIds?.includes(userProfile.instructorId!))
+      .map(c => c.id);
+      
+    const groupedCourses = new Map<string, any>();
+
+    // Group bookings by course ID
+    allBookings.forEach(b => {
+      if (!b.instructorId.startsWith('course_') || b.status === 'cancelled') return;
+      const courseId = b.instructorId.replace('course_', '');
+      if (!instructorCourseIds.includes(courseId)) return;
+
+      if (!groupedCourses.has(courseId)) {
+        const course = courses.find(c => c.id === courseId);
+        if (!course) return;
+
+        const translated = translateCourse(course, language);
+        const { datePart, timePart } = splitCourseDates(translated.dates);
+
+        groupedCourses.set(courseId, {
+          id: courseId, // For chat and key
+          isCourse: true,
+          instructorName: language === 'ru' ? `${translated.title} (Группа)` : `${translated.title} (Group)`,
+          instructorAvatar: translated.bgImageUrl || b.instructorAvatar,
+          date: datePart,
+          time: timePart,
+          durationHours: parseDurationHours(translated.duration, b.durationHours),
+          status: 'confirmed', // Courses are generally considered confirmed
+          difficulty: b.difficulty, // Assume difficulty is same for all in a course
+          notes: translated.description,
+          clients: [],
+        });
+      }
+
+      const client = usersList.find(u => u.uid === b.userId);
+      if (client) {
+        groupedCourses.get(courseId).clients.push({
+          uid: client.uid,
+          name: client.displayName,
+          avatar: client.avatarUrl,
+        });
+      }
+    });
+
+    return [...individualLessons, ...Array.from(groupedCourses.values())];
+  }, [allBookings, userProfile.instructorId, courses, language, usersList]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -169,7 +235,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
               <img 
                 src={linkedInstructor.avatarUrl} 
                 alt={linkedInstructor.name} 
-                className="w-full h-full object-cover filter grayscale" 
+                className="w-full h-full object-cover" 
                 referrerPolicy="no-referrer"
               />
             ) : (
@@ -244,7 +310,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
           
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             {/* Status Filter buttons */}
-            {(['all', 'pending', 'confirmed', 'completed', 'cancelled'] as const).map((filter) => {
+            {(['all', 'pending', 'confirmed', 'completed'] as const).map((filter) => {
               const isActive = statusFilter === filter;
               const label = filter === 'all' 
                 ? (language === 'en' ? 'All' : 'Все')
@@ -253,8 +319,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                 : filter === 'confirmed'
                 ? t.statusConfirmed
                 : filter === 'completed'
-                ? t.statusCompleted
-                : t.statusCancelled;
+                ? t.statusCompleted : '';
 
               return (
                 <button
@@ -285,7 +350,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
               return (
                 <div 
                   key={b.id}
-                  className="border border-[var(--border)] p-5 space-y-4 bg-black/5 hover:border-[var(--ink)] transition-colors duration-300"
+                  className={`border p-5 space-y-4 bg-black/5 hover:border-[var(--ink)] transition-colors duration-300 ${(b as any).isCourse ? 'border-violet-500/40 hover:border-violet-400' : 'border-[var(--border)]'}`}
                 >
                   <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                     {/* Date/Time & Client details */}
@@ -320,21 +385,38 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                         </span>
                       </div>
 
-                      {/* Client profile mock representation */}
-                      <div className="p-3 border border-[var(--border)] bg-black/10 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-none border border-[var(--border)] bg-black/20 flex items-center justify-center font-mono font-bold text-xs">
-                            👤
-                          </div>
-                          <div>
-                            <span className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">{t.clientDetails}</span>
-                            <span className="text-xs font-serif font-light text-[var(--ink)] block">{language === 'en' ? 'Enrolled Student' : 'Зарегистрированный ученик'}</span>
+                      {/* Client profile(s) representation */}
+                      {(b as any).isCourse ? (
+                        <div className="p-3 border border-[var(--border)] bg-black/10 w-full space-y-2">
+                          <h5 className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5"><Users className="w-3.5 h-3.5"/> {language === 'ru' ? 'Участники курса' : 'Course Participants'} ({(b as any).clients.length})</h5>
+                          <div className="flex flex-wrap gap-2">
+                            {(b as any).clients.map((client: any) => (
+                              <div key={client.uid} className="flex items-center gap-1.5 bg-black/20 p-1.5 border border-[var(--border)]/50" title={client.name}>
+                                <img src={client.avatar} alt={client.name} className="w-5 h-5 rounded-none object-cover" />
+                                <span className="text-xs font-mono text-[var(--ink)] max-w-[100px] truncate">{client.name}</span>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                        <div className="text-[10px] font-mono text-[var(--ink-dim)]">
-                          ID: {b.userId.substring(0, 10)}...
+                      ) : (
+                        <div className="p-3 border border-[var(--border)] bg-black/10 flex items-center justify-between gap-4 w-full">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-none border border-[var(--border)] bg-black/20 flex items-center justify-center shrink-0 overflow-hidden">
+                              {(b as any).clientAvatar ? <img src={(b as any).clientAvatar} alt={(b as any).clientName} className="w-full h-full object-cover" /> : '👤'}
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">{t.clientDetails}</span>
+                              <span className="text-xs font-serif font-light text-[var(--ink)] block">{(b as any).clientName}</span>
+                            </div>
+                          </div>
+                          <div className="text-[10px] font-mono text-[var(--ink-dim)]">
+                            ID: {b.userId.substring(0, 10)}...
+                          </div>
                         </div>
-                      </div>
+                      )}
+                      
+
+                      
 
                       {/* Lesson Notes & Difficulty */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono text-[var(--ink-dim)] border-t border-[var(--border)]/30 pt-3">
@@ -355,10 +437,10 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                     <div className="flex flex-col gap-2 w-full md:w-56 justify-end shrink-0 self-stretch">
                       <button
                         onClick={() => setSelectedChatBooking(b)}
-                        className="w-full py-2.5 px-4 border border-indigo-500 text-indigo-400 hover:bg-indigo-950/20 text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer"
+                        className="w-full py-2.5 px-4 border border-indigo-500/80 text-indigo-400 hover:bg-indigo-950/20 text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer"
                       >
-                        <MessageSquare className="w-4 h-4" />
-                        {t.chatBtn}
+                        {(b as any).isCourse ? <Users className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
+                        {(b as any).isCourse ? t.groupChatBtn : t.chatBtn}
                       </button>
 
                       {b.status === 'pending' && (
@@ -437,8 +519,11 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
           booking={selectedChatBooking}
           currentUserProfile={userProfile}
           onClose={() => setSelectedChatBooking(null)}
+          instructors={instructors}
+          usersList={usersList}
         />
       )}
     </div>
   );
 };
+

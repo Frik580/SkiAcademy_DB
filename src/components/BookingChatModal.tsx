@@ -8,7 +8,7 @@ import {
   User, 
   Loader2 
 } from 'lucide-react';
-import { Booking, UserProfile, ChatMessage, OperationType } from '../types';
+import { Booking, UserProfile, ChatMessage, OperationType, Instructor } from '../types';
 import { db, collection, doc, setDoc, onSnapshot, handleFirestoreError } from '../lib/firebase';
 import { useLanguage } from '../lib/LanguageContext';
 
@@ -16,12 +16,16 @@ interface BookingChatModalProps {
   booking: Booking;
   currentUserProfile: UserProfile;
   onClose: () => void;
+  usersList?: UserProfile[];
+  instructors?: Instructor[];
 }
 
 export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   booking,
   currentUserProfile,
-  onClose
+  onClose,
+  usersList = [],
+  instructors = []
 }) => {
   const { language } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -46,17 +50,14 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
 
   // Listen to messages in real-time
   useEffect(() => {
-    const messagesPath = `bookings/${booking.id}/messages`;
+    const chatId = (booking as any).chatId || booking.id;
+    const messagesPath = `bookings/${chatId}/messages`;
     setIsLoading(true);
 
     const unsubscribe = onSnapshot(
-      collection(db, 'bookings', booking.id, 'messages'),
+      collection(db, 'bookings', chatId, 'messages'),
       (snapshot) => {
-        const list: ChatMessage[] = [];
-        snapshot.forEach((doc) => {
-          list.push({ id: doc.id, ...doc.data() } as ChatMessage);
-        });
-        // Sort chronologically by timestamp
+        const list: ChatMessage[] = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ChatMessage));
         list.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
         setMessages(list);
         setIsLoading(false);
@@ -68,7 +69,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     );
 
     return () => unsubscribe();
-  }, [booking.id]);
+  }, [booking.id, (booking as any).chatId]);
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -80,9 +81,11 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     if (!inputText.trim() || isSending) return;
 
     setIsSending(true);
-    const messagesPath = `bookings/${booking.id}/messages`;
+    const chatId = (booking as any).chatId || booking.id;
+    const messagesPath = `bookings/${chatId}/messages`;
+
     try {
-      const msgRef = doc(collection(db, 'bookings', booking.id, 'messages'));
+      const msgRef = doc(collection(db, 'bookings', chatId, 'messages'));
       const newMessage: ChatMessage = {
         id: msgRef.id,
         bookingId: booking.id,
@@ -144,8 +147,19 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
           ) : (
             messages.map((msg) => {
               const isMe = msg.senderId === currentUserProfile.uid;
-              const isSenderClient = msg.senderId === booking.userId;
-              const isSenderAdmin = msg.senderId === 'admin' || msg.senderId.includes('admin') || msg.senderName.toLowerCase().includes('admin');
+              
+              // Determine precise sender role
+              const isSenderAdmin = msg.senderId === 'admin' || 
+                                    msg.senderId.includes('admin') || 
+                                    msg.senderName.toLowerCase().includes('admin') ||
+                                    (isMe && currentUserProfile.role === 'admin') ||
+                                    (usersList || []).some(u => u.uid === msg.senderId && (u.role === 'admin' || u.email === 'gerasimchuk.arseniy@gmail.com'));
+
+              const isSenderInstructor = (isMe && (currentUserProfile.isInstructor || !!currentUserProfile.instructorId)) ||
+                                         (usersList || []).some(u => u.uid === msg.senderId && (u.isInstructor || !!u.instructorId)) ||
+                                         (instructors || []).some(ins => ins.name === msg.senderName);
+
+              const isSenderClient = !isSenderAdmin && !isSenderInstructor;
               
               // Formatting time
               const dateObj = new Date(msg.timestamp);
@@ -238,3 +252,4 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     document.body
   );
 };
+

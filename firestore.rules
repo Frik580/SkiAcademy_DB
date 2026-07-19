@@ -29,7 +29,7 @@ service cloud.firestore {
     // User Profiles
     match /users/{userId} {
       allow get: if true;
-      allow list: if isAdmin();
+      allow list: if isAuthenticated();
       allow create: if isAuthenticated() && (
         isOwner(userId) || 
         isAdmin() || 
@@ -91,6 +91,7 @@ service cloud.firestore {
       // Booking specific chat messages
       match /messages/{messageId} {
         allow read: if isAuthenticated() && (
+          bookingId.matches('^course_.*') ||
           get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid ||
           get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId.matches('^client_.*') ||
           isAdmin() ||
@@ -98,6 +99,7 @@ service cloud.firestore {
            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId == get(/databases/$(database)/documents/bookings/$(bookingId)).data.instructorId)
         );
         allow create: if isAuthenticated() && (
+          bookingId.matches('^course_.*') ||
           get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid ||
           get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId.matches('^client_.*') ||
           isAdmin() ||

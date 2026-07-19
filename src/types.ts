@@ -81,6 +81,10 @@ export interface ChatMessage {
   senderAvatar: string;
   text: string;
   timestamp: string;
+  attachmentType?: 'image' | 'video' | 'link';
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentSize?: number;
 }
 
 export enum OperationType {

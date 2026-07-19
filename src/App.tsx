@@ -319,6 +319,7 @@ const AppContent: React.FC = () => {
                       onUpdateProfile={handleUpdateProfile}
                       courses={courses}
                       instructors={instructors}
+                      usersList={usersList}
                     />
                   </div>
                 )}
@@ -435,20 +436,24 @@ const AppContent: React.FC = () => {
 
                               <button
                                 onClick={() => handleBookCourse(course.id)}
-                                disabled={course.availableSeats === 0 && !isEnrolled}
+                                disabled={(course.availableSeats === 0 && !isEnrolled) || userProfile?.isClientActive === false}
                                 className={`w-full py-2 border font-mono text-[10px] uppercase tracking-wider transition rounded-none ${
                                   isEnrolled 
                                     ? 'bg-emerald-950/20 border-emerald-500 text-emerald-400 cursor-default font-bold' 
-                                    : course.availableSeats === 0 
-                                      ? 'border-[var(--border)] text-[var(--ink-dim)] cursor-not-allowed bg-black/5' 
-                                      : 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)] hover:bg-transparent hover:text-[var(--ink)] cursor-pointer'
+                                    : userProfile?.isClientActive === false
+                                      ? 'border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10 font-bold'
+                                      : course.availableSeats === 0 
+                                        ? 'border-[var(--border)] text-[var(--ink-dim)] cursor-not-allowed bg-black/5' 
+                                        : 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)] hover:bg-transparent hover:text-[var(--ink)] cursor-pointer'
                                 }`}
                               >
                                 {isEnrolled 
                                   ? (language === 'en' ? '✓ Registered' : '✓ Записан(а)') 
-                                  : course.availableSeats === 0 
-                                    ? (language === 'en' ? 'Sold Out' : 'Мест нет') 
-                                    : (language === 'en' ? `Enroll Now` : `Записаться`)}
+                                  : userProfile?.isClientActive === false
+                                    ? (language === 'en' ? 'Access Suspended' : 'Доступ приостановлен')
+                                    : course.availableSeats === 0 
+                                      ? (language === 'en' ? 'Sold Out' : 'Мест нет') 
+                                      : (language === 'en' ? `Enroll Now` : `Записаться`)}
                               </button>
                             </div>
                           </div>

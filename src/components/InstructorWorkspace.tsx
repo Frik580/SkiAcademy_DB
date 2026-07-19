@@ -386,34 +386,45 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                       </div>
 
                       {/* Client profile(s) representation */}
-                      {(b as any).isCourse ? (
-                        <div className="p-3 border border-[var(--border)] bg-black/10 w-full space-y-2">
-                          <h5 className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5"><Users className="w-3.5 h-3.5"/> {language === 'ru' ? 'Участники курса' : 'Course Participants'} ({(b as any).clients.length})</h5>
-                          <div className="flex flex-wrap gap-2">
-                            {(b as any).clients.map((client: any) => (
-                              <div key={client.uid} className="flex items-center gap-1.5 bg-black/20 p-1.5 border border-[var(--border)]/50" title={client.name}>
-                                <img src={client.avatar} alt={client.name} className="w-5 h-5 rounded-none object-cover" />
-                                <span className="text-xs font-mono text-[var(--ink)] max-w-[100px] truncate">{client.name}</span>
+                      <div className="p-3.5 border border-[var(--border)] bg-black/15 w-full space-y-2.5">
+                        <h5 className="text-[9px] font-mono uppercase tracking-widest text-[var(--ink-dim)] flex items-center gap-1.5 font-bold">
+                          <Users className="w-3.5 h-3.5 text-indigo-400" />
+                          {(b as any).isCourse 
+                            ? (language === 'ru' ? 'Участники курса' : 'Course Participants') 
+                            : (language === 'ru' ? 'Клиент на занятие' : 'Lesson Client')} 
+                          {((b as any).isCourse ? ` (${(b as any).clients.length})` : '')}
+                        </h5>
+                        <div className="flex flex-wrap gap-2">
+                          {(b as any).isCourse ? (
+                            (b as any).clients.map((client: any) => (
+                              <div key={client.uid} className="flex items-center gap-2 bg-black/25 p-2 border border-[var(--border)]/40 hover:border-[var(--ink-dim)] transition-colors duration-200" title={client.name}>
+                                <div className="w-6 h-6 rounded-none border border-[var(--border)]/50 overflow-hidden shrink-0 bg-black/20">
+                                  {client.avatar ? (
+                                    <img src={client.avatar} alt={client.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-[10px] font-serif">👤</div>
+                                  )}
+                                </div>
+                                <span className="text-xs font-mono text-[var(--ink)] font-medium max-w-[120px] truncate">{client.name}</span>
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="p-3 border border-[var(--border)] bg-black/10 flex items-center justify-between gap-4 w-full">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-none border border-[var(--border)] bg-black/20 flex items-center justify-center shrink-0 overflow-hidden">
-                              {(b as any).clientAvatar ? <img src={(b as any).clientAvatar} alt={(b as any).clientName} className="w-full h-full object-cover" /> : '👤'}
+                            ))
+                          ) : (
+                            <div className="flex items-center gap-2 bg-black/25 p-2 border border-[var(--border)]/40 hover:border-[var(--ink-dim)] transition-colors duration-200 w-full justify-between" title={(b as any).clientName}>
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-none border border-[var(--border)]/50 overflow-hidden shrink-0 bg-black/20">
+                                  {(b as any).clientAvatar ? (
+                                    <img src={(b as any).clientAvatar} alt={(b as any).clientName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-[10px] font-serif">👤</div>
+                                  )}
+                                </div>
+                                <span className="text-xs font-mono text-[var(--ink)] font-medium">{(b as any).clientName}</span>
+                              </div>
+                              <span className="text-[9px] font-mono text-[var(--ink-dim)]">ID: {b.userId.substring(0, 10)}...</span>
                             </div>
-                            <div>
-                              <span className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">{t.clientDetails}</span>
-                              <span className="text-xs font-serif font-light text-[var(--ink)] block">{(b as any).clientName}</span>
-                            </div>
-                          </div>
-                          <div className="text-[10px] font-mono text-[var(--ink-dim)]">
-                            ID: {b.userId.substring(0, 10)}...
-                          </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                       
 
                       

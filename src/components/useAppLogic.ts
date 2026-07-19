@@ -292,6 +292,16 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
       addNotification('warning', 'Sign In Required', 'Sign in to enroll in courses.');
       return;
     }
+    if (userProfile.isClientActive === false) {
+      addNotification(
+        'error',
+        'Booking Restricted',
+        language === 'en'
+          ? 'Your student account is suspended. You cannot register for courses.'
+          : 'Ваш аккаунт ученика приостановлен. Вы не можете записываться на курсы.'
+      );
+      return;
+    }
     const course = courses.find(c => c.id === courseId);
     if (!course || course.availableSeats <= 0 || userProfile.balanceUSD < course.price) {
       addNotification('error', 'Booking Failed', 'Course is full or you have insufficient balance.');

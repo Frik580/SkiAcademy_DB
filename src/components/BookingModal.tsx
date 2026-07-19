@@ -220,6 +220,16 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       );
       return;
     }
+    if (userProfile.isClientActive === false) {
+      addNotification(
+        'error',
+        language === 'en' ? 'Access Suspended' : 'Доступ приостановлен',
+        language === 'en'
+          ? 'Your student account is suspended. You cannot book training sessions.'
+          : 'Ваш аккаунт ученика приостановлен. Вы не можете бронировать занятия.'
+      );
+      return;
+    }
     if (!date) {
       addNotification('warning', 'Missing Details', language === 'en' ? 'Please select a valid coaching date.' : 'Пожалуйста, выберите дату.');
       return;
@@ -563,7 +573,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
           {/* Wallet check alert */}
           <div className="flex items-center justify-between px-4 py-3 rounded-none border border-[var(--border)] text-xs bg-black/5">
-            {hasSufficientFunds ? (
+            {userProfile?.isClientActive === false ? (
+              <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-mono text-[10px] uppercase tracking-wider font-semibold">
+                <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  {language === 'en' ? 'Access Suspended. Booking restricted.' : 'Доступ приостановлен. Бронирование невозможно.'}
+                </span>
+              </div>
+            ) : hasSufficientFunds ? (
               <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] uppercase tracking-wider">
                 <Wallet className="w-3.5 h-3.5" />
                 <span>
@@ -597,13 +614,18 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           {/* Submit Action */}
           <button
             type="submit"
-            disabled={isSubmitting || !hasSufficientFunds || isTimeSlotOccupied || !targetInstructor.isAvailable}
+            disabled={isSubmitting || !hasSufficientFunds || isTimeSlotOccupied || !targetInstructor.isAvailable || userProfile?.isClientActive === false}
             className="w-full py-3 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 {t('submitting')}
+              </>
+            ) : userProfile?.isClientActive === false ? (
+              <>
+                <ShieldAlert className="w-3.5 h-3.5" />
+                {language === 'en' ? 'Access Suspended' : 'Доступ приостановлен'}
               </>
             ) : (
               <>

@@ -430,17 +430,19 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                       
 
                       {/* Lesson Notes & Difficulty */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono text-[var(--ink-dim)] border-t border-[var(--border)]/30 pt-3">
+                      <div className={`grid grid-cols-1 ${(b as any).isCourse ? '' : 'md:grid-cols-2'} gap-4 text-xs font-mono text-[var(--ink-dim)] border-t border-[var(--border)]/30 pt-3`}>
                         <div>
                           <span className="uppercase text-[9px] tracking-wider text-[var(--ink-dim)] block mb-1">{t.difficulty}</span>
                           <span className="text-[var(--ink)] font-bold">{getDifficultyLabel(b.difficulty)}</span>
                         </div>
-                        <div>
-                          <span className="uppercase text-[9px] tracking-wider text-[var(--ink-dim)] block mb-1">{t.notes}</span>
-                          <span className="text-[var(--ink)] italic leading-relaxed block">
-                            {b.notes || (language === 'en' ? 'No specific notes provided.' : 'Особых пожеланий не указано.')}
-                          </span>
-                        </div>
+                        {!(b as any).isCourse && (
+                          <div>
+                            <span className="uppercase text-[9px] tracking-wider text-[var(--ink-dim)] block mb-1">{t.notes}</span>
+                            <span className="text-[var(--ink)] italic leading-relaxed block">
+                              {b.notes || (language === 'en' ? 'No specific notes provided.' : 'Особых пожеланий не указано.')}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
 

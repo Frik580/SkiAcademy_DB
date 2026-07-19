@@ -258,7 +258,13 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     await updateDoc(doc(db, 'bookings', id), { date: newDate, time: newTime });
     const booking = bookings.find(b => b.id === id);
     if (booking && userProfile?.role === 'admin') {
-      await createNotificationForUser(booking.userId, 'Lesson Rescheduled', `Your lesson with ${booking.instructorName} was rescheduled to ${newDate} at ${newTime}.`);
+      await createNotificationForUser(
+        booking.userId,
+        language === 'en' ? 'Lesson Rescheduled' : 'Урок перенесен',
+        language === 'en'
+          ? `Your lesson with ${booking.instructorName} was rescheduled to ${newDate} at ${newTime}.`
+          : `Ваш урок с ${booking.instructorName} перенесен на ${newDate} в ${newTime}.`
+      );
     }
   };
 
@@ -273,12 +279,27 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
       const courseBookings = bookings.filter(b => b.instructorId === `course_${course.id}` && b.status !== 'cancelled');
       let changeDetails = '';
       if (oldCourse) {
-        if (oldCourse.title !== course.title) changeDetails += `• Title changed to "${course.title}".\n`;
-        if (oldCourse.dates !== course.dates) changeDetails += `• New dates: ${course.dates}.\n`;
+        if (oldCourse.title !== course.title) {
+          changeDetails += language === 'en'
+            ? `• Title changed to "${course.title}".\n`
+            : `• Название изменено на «${course.title}».\n`;
+        }
+        if (oldCourse.dates !== course.dates) {
+          changeDetails += language === 'en'
+            ? `• New dates: ${course.dates}.\n`
+            : `• Новые даты: ${course.dates}.\n`;
+        }
       }
-      const message = `An administrator has updated details for the course "${course.title}":\n${changeDetails || 'Course details have been updated.'}`;
+      const message = language === 'en'
+        ? `An administrator has updated details for the course "${course.title}":\n${changeDetails || 'Course details have been updated.'}`
+        : `Администратор обновил информацию курса «${course.title}»:\n${changeDetails || 'Детали курса были обновлены.'}`;
       for (const booking of courseBookings) {
-        await createNotificationForUser(booking.userId, 'Course Modified', message, 'warning');
+        await createNotificationForUser(
+          booking.userId,
+          language === 'en' ? 'Course Modified' : 'Курс изменен',
+          message,
+          'warning'
+        );
       }
     }
   };
@@ -289,13 +310,17 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
 
   const handleBookCourse = async (courseId: string) => {
     if (!userProfile) {
-      addNotification('warning', 'Sign In Required', 'Sign in to enroll in courses.');
+      addNotification(
+        'warning',
+        language === 'en' ? 'Sign In Required' : 'Требуется войти',
+        language === 'en' ? 'Sign in to enroll in courses.' : 'Войдите, чтобы записаться на курсы.'
+      );
       return;
     }
     if (userProfile.isClientActive === false) {
       addNotification(
         'error',
-        'Booking Restricted',
+        language === 'en' ? 'Booking Restricted' : 'Запись ограничена',
         language === 'en'
           ? 'Your student account is suspended. You cannot register for courses.'
           : 'Ваш аккаунт ученика приостановлен. Вы не можете записываться на курсы.'
@@ -304,11 +329,19 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     }
     const course = courses.find(c => c.id === courseId);
     if (!course || course.availableSeats <= 0 || userProfile.balanceUSD < course.price) {
-      addNotification('error', 'Booking Failed', 'Course is full or you have insufficient balance.');
+      addNotification(
+        'error',
+        language === 'en' ? 'Booking Failed' : 'Ошибка бронирования',
+        language === 'en' ? 'Course is full or you have insufficient balance.' : 'На курсе нет свободных мест или у вас недостаточно средств.'
+      );
       return;
     }
     if (bookings.some(b => b.userId === userProfile.uid && b.instructorId === `course_${courseId}` && b.status !== 'cancelled')) {
-      addNotification('warning', 'Already Enrolled', 'You are already registered for this course.');
+      addNotification(
+        'warning',
+        language === 'en' ? 'Already Enrolled' : 'Вы уже записаны',
+        language === 'en' ? 'You are already registered for this course.' : 'Вы уже зарегистрированы на этот курс.'
+      );
       return;
     }
 
@@ -331,7 +364,11 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
       notes: `Group Course enrollment: ${course.description}`
     };
     await setDoc(doc(db, 'bookings', newBooking.id), newBooking);
-    addNotification('success', 'Enrollment Confirmed!', `You have successfully enrolled in ${course.title}.`);
+    addNotification(
+      'success',
+      language === 'en' ? 'Enrollment Confirmed!' : 'Запись подтверждена!',
+      language === 'en' ? `You have successfully enrolled in ${course.title}.` : `Вы успешно записались на курс «${course.title}».`
+    );
     confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
   };
 
@@ -363,7 +400,14 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     }
 
     if (userProfile?.role === 'admin' && !isSystemBlock) {
-      await createNotificationForUser(bookingOwnerId, 'Lesson Cancelled', `Your lesson with ${booking.instructorName} was cancelled.`, 'warning');
+      await createNotificationForUser(
+        bookingOwnerId,
+        language === 'en' ? 'Lesson Cancelled' : 'Урок отменен',
+        language === 'en'
+          ? `Your lesson with ${booking.instructorName} was cancelled.`
+          : `Ваш урок с ${booking.instructorName} был отменен.`,
+        'warning'
+      );
     }
   };
 
@@ -424,11 +468,19 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
 
   const handleUpdateUserRole = async (targetUid: string, newRole: 'admin' | 'user') => {
     if (userProfile?.role !== 'admin' || !isSuperAdmin(firebaseUser?.email)) {
-      addNotification('error', 'Access Denied', 'Only the main administrator can manage roles.');
+      addNotification(
+        'error',
+        language === 'en' ? 'Access Denied' : 'Доступ ограничен',
+        language === 'en' ? 'Only the main administrator can manage roles.' : 'Только главный администратор может управлять ролями.'
+      );
       return;
     }
     await updateDoc(doc(db, 'users', targetUid), { role: newRole });
-    addNotification('success', 'Role Updated', `Role changed to ${newRole}.`);
+    addNotification(
+      'success',
+      language === 'en' ? 'Role Updated' : 'Роль обновлена',
+      language === 'en' ? `Role changed to ${newRole}.` : `Роль успешно изменена на «${newRole}».`
+    );
   };
   const isSuperAdmin = (email?: string | null) => email?.toLowerCase() === 'gerasimchuk.arseniy@gmail.com';
 
@@ -443,13 +495,31 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
   const handleConfirmBooking = async (id: string) => {
     await updateDoc(doc(db, 'bookings', id), { status: 'confirmed' });
     const booking = bookings.find((b) => b.id === id);
-    if (booking) await createNotificationForUser(booking.userId, 'Lesson Confirmed', `Your lesson with ${booking.instructorName} has been confirmed.`, 'success');
+    if (booking) {
+      await createNotificationForUser(
+        booking.userId,
+        language === 'en' ? 'Lesson Confirmed' : 'Урок подтвержден',
+        language === 'en'
+          ? `Your lesson with ${booking.instructorName} has been confirmed.`
+          : `Ваш урок с ${booking.instructorName} был успешно подтвержден.`,
+        'success'
+      );
+    }
   };
 
   const handleCompleteBooking = async (id: string) => {
     await updateDoc(doc(db, 'bookings', id), { status: 'completed' });
     const booking = bookings.find((b) => b.id === id);
-    if (booking) await createNotificationForUser(booking.userId, 'Lesson Completed', `Your lesson with ${booking.instructorName} has been completed.`, 'success');
+    if (booking) {
+      await createNotificationForUser(
+        booking.userId,
+        language === 'en' ? 'Lesson Completed' : 'Урок завершен',
+        language === 'en'
+          ? `Your lesson with ${booking.instructorName} has been completed.`
+          : `Ваш урок с ${booking.instructorName} был успешно завершен.`,
+        'success'
+      );
+    }
   };
 
   const handleClearNotifications = async () => {

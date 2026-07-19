@@ -701,7 +701,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleCourseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!courseTitle.trim() || !courseDuration.trim() || !courseDates.trim() || !courseDescription.trim()) {
-      addNotification('warning', 'Missing Details', language === 'en' ? 'Please fill in all course details.' : 'Пожалуйста, заполните все данные о курсе.');
+      addNotification('warning', language === 'en' ? 'Missing Details' : 'Не все поля заполнены', language === 'en' ? 'Please fill in all course details.' : 'Пожалуйста, заполните все данные о курсе.');
       return;
     }
 
@@ -742,17 +742,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           await onUpdateCourse(courseData);
         }
         setEditingCourse(null);
-        addNotification('success', 'Success', language === 'en' ? 'Course updated successfully.' : 'Курс успешно обновлен.');
+        addNotification('success', language === 'en' ? 'Success' : 'Успешно', language === 'en' ? 'Course updated successfully.' : 'Курс успешно обновлен.');
       } else {
         if (onAddCourse) {
           await onAddCourse(courseData);
         }
-        addNotification('success', 'Success', language === 'en' ? 'Course added successfully.' : 'Курс успешно добавлен.');
+        addNotification('success', language === 'en' ? 'Success' : 'Успешно', language === 'en' ? 'Course added successfully.' : 'Курс успешно добавлен.');
       }
 
       resetCourseForm();
     } catch (err) {
-      addNotification('error', 'Error', language === 'en' ? 'Failed to save course.' : 'Не удалось сохранить курс.');
+      addNotification('error', language === 'en' ? 'Error' : 'Ошибка', language === 'en' ? 'Failed to save course.' : 'Не удалось сохранить курс.');
     } finally {
       setIsSubmittingCourse(false);
     }
@@ -842,7 +842,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     } catch (err) {
       addNotification(
         'error',
-        'Error',
+        language === 'en' ? 'Error' : 'Ошибка',
         language === 'en' ? 'Failed to update course order.' : 'Не удалось изменить порядок курсов.'
       );
     }
@@ -859,10 +859,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         try {
           if (onDeleteCourse) {
             await onDeleteCourse(course.id);
-            addNotification('success', 'Deleted', language === 'en' ? 'Course deleted successfully.' : 'Курс успешно удален.');
+            addNotification('success', language === 'en' ? 'Deleted' : 'Удалено', language === 'en' ? 'Course deleted successfully.' : 'Курс успешно удален.');
           }
         } catch (err) {
-          addNotification('error', 'Error', language === 'en' ? 'Failed to delete course.' : 'Не удалось удалить курс.');
+          addNotification('error', language === 'en' ? 'Error' : 'Ошибка', language === 'en' ? 'Failed to delete course.' : 'Не удалось удалить курс.');
         }
       }
     });
@@ -896,7 +896,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             await onDeleteUser(u.uid);
           }
         } catch (err) {
-          addNotification('error', 'Deletion Failed', language === 'en' ? 'Failed to remove client.' : 'Не удалось удалить клиента.');
+          addNotification('error', language === 'en' ? 'Deletion Failed' : 'Ошибка удаления', language === 'en' ? 'Failed to remove client.' : 'Не удалось удалить клиента.');
         }
       }
     });
@@ -915,7 +915,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !bio || !pricePerHour) {
-      addNotification('warning', 'Missing Details', language === 'en' ? 'Please complete the instructor profile form.' : 'Пожалуйста, заполните всю форму профиля инструктора.');
+      addNotification('warning', language === 'en' ? 'Missing Details' : 'Не все поля заполнены', language === 'en' ? 'Please complete the instructor profile form.' : 'Пожалуйста, заполните всю форму профиля инструктора.');
       return;
     }
 
@@ -1004,7 +1004,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       const isAvailStr = updated.isAvailable ? (language === 'en' ? 'available' : 'доступен') : (language === 'en' ? 'unavailable' : 'недоступен');
       addNotification('info', language === 'en' ? 'Status Updated' : 'Статус обновлен', `${ins.name} ${language === 'en' ? 'is now' : 'теперь'} ${isAvailStr}.`);
     } catch (e) {
-      addNotification('error', 'Status Toggle Failed', language === 'en' ? 'Could not sync availability status.' : 'Не удалось синхронизировать статус.');
+      addNotification('error', language === 'en' ? 'Status Toggle Failed' : 'Ошибка изменения статуса', language === 'en' ? 'Could not sync availability status.' : 'Не удалось синхронизировать статус.');
     }
   };
 

@@ -82,7 +82,11 @@ const AppContent: React.FC = () => {
     try {
       await signOutHandler();
       setIsAdminView(false);
-      addNotification('info', 'Logged Out', 'You have been securely signed out.');
+      addNotification(
+        'info',
+        language === 'en' ? 'Logged Out' : 'Выход выполнен',
+        language === 'en' ? 'You have been securely signed out.' : 'Вы успешно вышли из системы.'
+      );
     } catch (err) {
       console.error(err);
     }

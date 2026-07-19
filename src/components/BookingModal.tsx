@@ -231,11 +231,19 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       return;
     }
     if (!date) {
-      addNotification('warning', 'Missing Details', language === 'en' ? 'Please select a valid coaching date.' : 'Пожалуйста, выберите дату.');
+      addNotification(
+        'warning',
+        language === 'en' ? 'Missing Details' : 'Не все поля заполнены',
+        language === 'en' ? 'Please select a valid coaching date.' : 'Пожалуйста, выберите дату.'
+      );
       return;
     }
     if (!hasSufficientFunds) {
-      addNotification('error', 'Insufficient Funds', language === 'en' ? 'Your account balance is too low for this session.' : 'Недостаточно средств для оплаты урока.');
+      addNotification(
+        'error',
+        language === 'en' ? 'Insufficient Funds' : 'Недостаточно средств',
+        language === 'en' ? 'Your account balance is too low for this session.' : 'Недостаточно средств для оплаты урока.'
+      );
       return;
     }
 
@@ -291,7 +299,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         );
         onClose();
       } catch (err) {
-        addNotification('error', 'Booking Error', language === 'en' ? 'Failed to record session in database.' : 'Не удалось записать сессию в БД.');
+        addNotification(
+          'error',
+          language === 'en' ? 'Booking Error' : 'Ошибка бронирования',
+          language === 'en' ? 'Failed to record session in database.' : 'Не удалось записать сессию в БД.'
+        );
       } finally {
         setIsSubmitting(false);
       }

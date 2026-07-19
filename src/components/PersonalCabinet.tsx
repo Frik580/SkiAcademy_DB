@@ -562,7 +562,11 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       addNotification('success', language === 'en' ? 'Lesson Rescheduled' : 'Урок перенесен', language === 'en' ? 'Your coaching session date was successfully updated.' : 'Дата вашей тренировки была успешно обновлена.');
       setRescheduleId(null);
     } catch (err) {
-      addNotification('error', 'Update Failed', language === 'en' ? 'Failed to update lesson schedule.' : 'Не удалось обновить расписание урока.');
+      addNotification(
+        'error',
+        language === 'en' ? 'Update Failed' : 'Ошибка обновления',
+        language === 'en' ? 'Failed to update lesson schedule.' : 'Не удалось обновить расписание урока.'
+      );
     } finally {
       setIsRescheduling(false);
     }
@@ -588,7 +592,11 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               : `Ваш запрос на отмену занятия был отправлен администратору на согласование.`
           );
         } catch (err) {
-          addNotification('error', 'Request Failed', language === 'en' ? 'Failed to request cancellation.' : 'Не удалось отправить запрос на отмену.');
+          addNotification(
+            'error',
+            language === 'en' ? 'Request Failed' : 'Ошибка запроса',
+            language === 'en' ? 'Failed to request cancellation.' : 'Не удалось отправить запрос на отмену.'
+          );
         }
       }
     });
@@ -599,7 +607,11 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     if (!reviewBooking) return;
 
     if (!reviewComment.trim()) {
-      addNotification('warning', 'Review Empty', language === 'en' ? 'Please provide feedback comments.' : 'Пожалуйста, напишите отзыв.');
+      addNotification(
+        'warning',
+        language === 'en' ? 'Review Empty' : 'Отзыв пуст',
+        language === 'en' ? 'Please provide feedback comments.' : 'Пожалуйста, напишите отзыв.'
+      );
       return;
     }
 
@@ -616,7 +628,11 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       setReviewComment('');
       setReviewRating(5);
     } catch (err) {
-      addNotification('error', 'Review Failed', language === 'en' ? 'Failed to post review to Firestore.' : 'Не удалось сохранить отзыв.');
+      addNotification(
+        'error',
+        language === 'en' ? 'Review Failed' : 'Ошибка отзыва',
+        language === 'en' ? 'Failed to post review to Firestore.' : 'Не удалось сохранить отзыв.'
+      );
     } finally {
       setIsSubmittingReview(false);
     }

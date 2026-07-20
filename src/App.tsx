@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { AnimatePresence } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { 
   registerFirestoreErrorListener
 } from './lib/firebase';
-import { Instructor } from './types';
+import { Instructor, CustomHeroSlide } from './types';
 import { LanguageProvider, useLanguage, translateInstructor, translateCourse, splitCourseDates, parseCourseDates, parseDurationHours, translateInstructorName } from './lib/LanguageContext';
 
 // Custom Hooks
@@ -28,6 +28,39 @@ import logoDark from './assets/images/logo1.png';
 
 import { Compass, AlertCircle, RefreshCw, Mountain } from 'lucide-react';
 
+const FALLBACK_SLIDES: CustomHeroSlide[] = [
+  {
+    id: '1',
+    line1En: 'Curated Experiences',
+    line1Ru: 'Эксклюзивный сервис',
+    line2En: 'Perfect your technique with our elite guides.',
+    line2Ru: 'Совершенствуйте технику с лучшими гидами.',
+    line3En: 'PROFESSIONAL TRAINING: ski and snowboard, from foundations to competitive mastery.',
+    line3Ru: 'ПРОФЕССИОНАЛЬНОЕ ОБУЧЕНИЕ: лыжи и сноуборд, от азов до соревновательного мастерства.',
+    backgroundImage: 'wall'
+  },
+  {
+    id: '2',
+    line1En: 'Premium Coaching',
+    line1Ru: 'Индивидуальный подход',
+    line2En: 'Confidence on alpine skis — without fear and chaos, starting from the very first lesson.',
+    line2Ru: 'Уверенное катание на горных лыжах — без страха и хаоса уже с первого занятия.',
+    line3En: 'TAILORED SESSIONS: Step-by-step guidance designed specifically for rapid confidence.',
+    line3Ru: 'ПЕРСОНАЛЬНЫЙ ФОРМАТ: Пошаговая методика, разработанная для быстрого преодоления барьеров.',
+    backgroundImage: 'wall2'
+  },
+  {
+    id: '3',
+    line1En: 'Alpine Mastery',
+    line1Ru: 'Свобода движения',
+    line2En: 'Learn to enjoy skiing regardless of your current experience level.',
+    line2Ru: 'Научим получать удовольствие от катания независимо от вашего уровня.',
+    line3En: 'EXPERT GUIDES: Discover the joy of fluid movement across all types of slopes.',
+    line3Ru: 'ЭКСПЕРТНЫЙ КОНТРОЛЬ: Раскройте легкость скольжения на любых склонах курорта.',
+    backgroundImage: 'wall3'
+  }
+];
+
 const AppContent: React.FC = () => {
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
@@ -36,6 +69,7 @@ const AppContent: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { firebaseUser, userProfile, authLoading, setUserProfile, handleSignOut: signOutHandler } = useAuth();
   const {
+    resortConfig,
     tempC, snowDepthCm, newSnow24h, windKmh, openLifts,
     isFahrenheit, setIsFahrenheit,
     isResortLoading, lastUpdated,
@@ -52,11 +86,23 @@ const AppContent: React.FC = () => {
   } = useAppLogic(firebaseUser, userProfile, setUserProfile);
 
   // --- UI State (remains in component) ---
-  const [randomWall] = useState<string>(() => {
-    const walls = ['wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6', 'wall7'];
-    const randomIndex = Math.floor(Math.random() * walls.length);
-    return walls[randomIndex];
-  });
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  const activeSlides = useMemo(() => {
+    return resortConfig.slides && resortConfig.slides.length > 0 ? resortConfig.slides : FALLBACK_SLIDES;
+  }, [resortConfig.slides]);
+
+  const slideInterval = resortConfig.slideIntervalSeconds || 6;
+
+  useEffect(() => {
+    if (currentSlide >= activeSlides.length) {
+      setCurrentSlide(0);
+    }
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % activeSlides.length);
+    }, slideInterval * 1000);
+    return () => clearInterval(interval);
+  }, [activeSlides.length, slideInterval, currentSlide]);
   const [dbStatusWarning, setDbStatusWarning] = useState<string | null>(null);
   const [isAdminView, setIsAdminView] = useState<boolean>(false);
   const [isTopUpOpen, setIsTopUpOpen] = useState<boolean>(false);
@@ -208,6 +254,15 @@ const AppContent: React.FC = () => {
             {/* 1. Left Sidebar: Resort Conditions (placed in the first flexible column) */}
             <aside className="lg:col-start-1 border-b lg:border-b-0 lg:border-r border-[var(--border)] p-6 space-y-6 flex flex-col justify-start shrink-0 lg:h-full lg:overflow-y-auto bg-transparent">
               <div className="border-b border-[var(--border)] pb-4">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
+                  {language === 'ru' ? resortConfig.nameRu : resortConfig.nameEn}
+                </span>
+                <span className="text-[9px] text-[var(--ink-dim)] font-mono block mt-0.5">
+                  {language === 'ru' ? resortConfig.subNameRu : resortConfig.subNameEn}
+                </span>
+              </div>
+
+              <div className="border-b border-[var(--border)] pb-4">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
                   {language === 'en' ? 'Mountain Temp' : 'Температура'}
                 </span>
@@ -247,58 +302,135 @@ const AppContent: React.FC = () => {
                 </span>
               </div>
 
-              <div className="border-b border-[var(--border)] pb-4">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
-                  {language === 'en' ? 'Operating Lifts' : 'Подъемники'}
-                </span>
-                <span className="font-serif text-4xl font-light text-[var(--ink)] block mt-1">
-                  {openLifts}/14
-                </span>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-500 font-bold block mt-2.5 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  {language === 'en' ? 'STATUS: OPEN' : 'СТАТУС: ОТКРЫТО'}
-                </span>
-              </div>
+              {resortConfig.showLifts !== false && (
+                <div className="border-b border-[var(--border)] pb-4">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+                    {language === 'en' ? 'Operating Lifts' : 'Подъемники'}
+                  </span>
+                  <span className="font-serif text-4xl font-light text-[var(--ink)] block mt-1">
+                    {resortConfig.openLifts !== undefined ? resortConfig.openLifts : openLifts}/{resortConfig.totalLifts !== undefined ? resortConfig.totalLifts : 14}
+                  </span>
+                  {(() => {
+                    const statusText = language === 'ru'
+                      ? (resortConfig.liftsStatusRu || 'ОТКРЫТО')
+                      : (resortConfig.liftsStatusEn || 'OPEN');
+                    const isClosed = statusText.toUpperCase().includes('CLOSE') || 
+                                     statusText.toUpperCase().includes('ЗАКР') || 
+                                     statusText.toUpperCase().includes('OFF');
+                    const colorClass = isClosed ? 'text-rose-500' : 'text-emerald-500';
+                    const bgClass = isClosed ? 'bg-rose-500' : 'bg-emerald-500';
+                    return (
+                      <span className={`text-[10px] font-mono uppercase tracking-wider ${colorClass} font-bold block mt-2.5 flex items-center gap-1.5`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${bgClass} animate-pulse`}></span>
+                        {language === 'en' ? `STATUS: ${statusText}` : `СТАТУС: ${statusText}`}
+                      </span>
+                    );
+                  })()}
+                </div>
+              )}
 
-              <div className="pt-2 flex justify-between items-center text-[10px] font-mono">
-                <span className="text-[9px] text-[var(--ink-dim)]">
-                  {language === 'en' ? 'Update' : 'Обновлено'}: {lastUpdated}
-                </span>
-                <button
-                  onClick={handleRefreshResortStats}
-                  disabled={isResortLoading}
-                  className="text-[9px] font-mono uppercase border border-[var(--border)] px-2 py-0.5 hover:border-[var(--ink)] text-[var(--ink)] transition disabled:opacity-50 bg-transparent cursor-pointer"
-                >
-                  {isResortLoading ? '...' : (language === 'en' ? 'Refresh' : 'Обновить')}
-                </button>
+              <div className="pt-2 flex flex-col gap-2 font-mono">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-[9px] text-[var(--ink-dim)]">
+                    {language === 'en' ? 'Update' : 'Обновлено'}: {lastUpdated}
+                  </span>
+                  <button
+                    onClick={handleRefreshResortStats}
+                    disabled={isResortLoading}
+                    className="text-[9px] font-mono uppercase border border-[var(--border)] px-2 py-0.5 hover:border-[var(--ink)] text-[var(--ink)] transition disabled:opacity-50 bg-transparent cursor-pointer"
+                  >
+                    {isResortLoading ? '...' : (language === 'en' ? 'Refresh' : 'Обновить')}
+                  </button>
+                </div>
+                <div className="text-[9px] text-[var(--ink-dim)] font-mono text-center pt-2 border-t border-[var(--border)]/40 mt-1">
+                  {language === 'en' ? 'Weather: Open-Meteo' : 'Погода: Open-Meteo'}
+                </div>
               </div>
             </aside>
 
             {/* 2. Center Scroll Pane: Hero, Active Cabinet Lists & Browsing (placed in the fixed-width center column) */}
             <div className="lg:col-start-2 flex-1 lg:h-full lg:overflow-y-auto flex flex-col justify-start">
               
-              {/* Elegant welcoming Hero block */}
+              {/* Elegant welcoming Hero block with auto-rotating multi-slide panels */}
               <section 
-                className="relative space-y-3 p-8 md:p-10 border-b border-[var(--border)] overflow-hidden bg-cover bg-center flex flex-col justify-end min-h-[400px]"
-                style={{ 
-                  backgroundImage: theme === 'light'
-                    ? `linear-gradient(to right, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.4) 100%), url('https://storage.yandexcloud.net/carve/${randomWall}.webp')`
-                    : `linear-gradient(to right, rgba(15, 15, 18, 0.85) 0%, rgba(15, 15, 18, 0.3) 100%), url('https://storage.yandexcloud.net/carve/${randomWall}.webp')`
-                    // : `linear-gradient(to right, rgba(15, 15, 18, 0.85) 50%, rgba(15, 15, 18, 0.3) 100%), url('/src/assets/images/alpine_mountains_bg_1783860006336.jpg')`
-                }}
+                className="relative p-8 md:p-10 border-b border-[var(--border)] overflow-hidden flex flex-col justify-end min-h-[400px] bg-transparent"
               >
-                <div className="relative z-10 space-y-3">
-                  <span className={`text-[9px] font-mono uppercase tracking-widest block ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
-                    {language === 'en' ? 'Curated Experiences' : 'Эксклюзивный сервис'}
-                  </span>
-                  <h2 className={`text-3xl md:text-4xl lg:text-5xl font-serif font-light leading-[1.1] tracking-tight max-w-2xl ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
-                    {language === 'en' ? 'Perfect your technique with our elite guides.' : 'Совершенствуйте технику с лучшими гидами.'}
-                  </h2>
-                  <p className={`text-xs font-mono max-w-lg tracking-wider leading-relaxed pt-1 ${theme === 'light' ? 'text-slate-700' : 'text-slate-400'}`}>
-                    {language === 'en' 
-                      ? 'PROFESSIONAL TRAINING: ski and snowboard, from foundations to competitive mastery.' 
-                      : 'ПРОФЕССИОНАЛЬНОЕ ОБУЧЕНИЕ: лыжи и сноуборд, от азов до соревновательного мастерства.'}
-                  </p>
+                {/* Background crossfader */}
+                <AnimatePresence mode="popLayout">
+                  {(() => {
+                    const activeSlide = activeSlides[currentSlide] || activeSlides[0];
+                    let bg = activeSlide?.backgroundImage || 'wall';
+                    if (bg === 'random') {
+                      const walls = ['wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6', 'wall7'];
+                      const slideId = activeSlide?.id || String(currentSlide);
+                      const hash = Array.from(slideId).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                      bg = walls[hash % walls.length];
+                    }
+                    const bgUrl = bg.startsWith('http://') || bg.startsWith('https://')
+                      ? bg
+                      : `https://storage.yandexcloud.net/carve/${bg}.webp`;
+                    return (
+                      <motion.div
+                        key={currentSlide}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 1.0 }}
+                        className="absolute inset-0 bg-cover bg-center z-0"
+                        style={{ 
+                          backgroundImage: theme === 'light'
+                            ? `linear-gradient(to right, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.5) 100%), url('${bgUrl}')`
+                            : `linear-gradient(to right, rgba(15, 15, 18, 0.9) 0%, rgba(15, 15, 18, 0.4) 100%), url('${bgUrl}')`
+                        }}
+                      />
+                    );
+                  })()}
+                </AnimatePresence>
+ 
+                {/* Active Slide Content */}
+                <div className="relative z-10 space-y-3 flex flex-col justify-end h-full">
+                  <AnimatePresence mode="wait">
+                    {(() => {
+                      const activeSlide = activeSlides[currentSlide] || activeSlides[0];
+                      if (!activeSlide) return null;
+                      return (
+                        <motion.div
+                          key={currentSlide}
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -12 }}
+                          transition={{ duration: 0.6, ease: "easeOut" }}
+                          className="space-y-3"
+                        >
+                          <span className={`text-[9px] font-mono uppercase tracking-widest block ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+                            {language === 'en' ? activeSlide.line1En : activeSlide.line1Ru}
+                          </span>
+                          <h2 className={`text-3xl md:text-4xl lg:text-5xl font-serif font-light leading-[1.1] tracking-tight max-w-2xl ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
+                            {language === 'en' ? activeSlide.line2En : activeSlide.line2Ru}
+                          </h2>
+                          <p className={`text-xs font-mono max-w-lg tracking-wider leading-relaxed pt-1 ${theme === 'light' ? 'text-slate-700' : 'text-slate-400'}`}>
+                            {language === 'en' ? activeSlide.line3En : activeSlide.line3Ru}
+                          </p>
+                        </motion.div>
+                      );
+                    })()}
+                  </AnimatePresence>
+ 
+                  {/* Elegant dots indicators */}
+                  <div className="flex gap-2 pt-4">
+                    {activeSlides.map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setCurrentSlide(idx)}
+                        className={`h-1 transition-all duration-300 rounded-none cursor-pointer ${
+                          currentSlide === idx 
+                            ? 'w-8 bg-[var(--ink)]' 
+                            : 'w-2 bg-[var(--ink)]/30 hover:bg-[var(--ink)]/60'
+                        }`}
+                        aria-label={`Go to slide ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
                 </div>
               </section>
 

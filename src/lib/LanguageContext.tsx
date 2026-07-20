@@ -538,7 +538,7 @@ export const translations = {
     // Weather / Slopes Widget
     resortConditions: "Resort Conditions",
     slopeOperations: "Slope Operations",
-    weatherLocation: "Carve Academy Peak",
+    weatherLocation: "Chamonix-Mont-Blanc (Alps)",
     powderSnow: "Excellent Powder",
     powderAlert: "Powder Alert",
     powderAlertDesc: "Outstanding freeride opportunities today!",
@@ -724,7 +724,7 @@ export const translations = {
     // Weather / Slopes Widget
     resortConditions: "Состояние курорта",
     slopeOperations: "Работа склонов",
-    weatherLocation: "Пик Академии Карвинга",
+    weatherLocation: "Шамони-Монблан (Альпы)",
     powderSnow: "Отличный пухляк",
     powderAlert: "Внимание: Пухляк!",
     powderAlertDesc: "Потрясающие условия для фрирайда сегодня!",

@@ -108,3 +108,31 @@ export interface ErrorLog {
   operation?: string;
   path?: string;
 }
+
+export interface CustomHeroSlide {
+  id: string;
+  line1En: string;
+  line1Ru: string;
+  line2En: string;
+  line2Ru: string;
+  line3En: string;
+  line3Ru: string;
+  backgroundImage: string; // e.g. 'wall', 'wall2', etc., or custom url
+}
+
+export interface ResortConfig {
+  nameEn: string;
+  nameRu: string;
+  subNameEn: string;
+  subNameRu: string;
+  latitude: number;
+  longitude: number;
+  showLifts?: boolean;
+  openLifts?: number;
+  totalLifts?: number;
+  liftsStatusEn?: string;
+  liftsStatusRu?: string;
+  slides?: CustomHeroSlide[];
+  slideIntervalSeconds?: number;
+}
+

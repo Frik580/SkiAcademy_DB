@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Instructor, Booking, UserProfile, Course, ErrorLog, OperationType } from '../types';
-import { db, doc, deleteDoc, collection, query, orderBy, onSnapshot, handleFirestoreError } from '../lib/firebase';
+import { Instructor, Booking, UserProfile, Course, ErrorLog, OperationType, ResortConfig, CustomHeroSlide } from '../types';
+import { db, doc, deleteDoc, collection, query, orderBy, onSnapshot, handleFirestoreError, setDoc } from '../lib/firebase';
 import { 
   Users, 
   BookOpen, 
@@ -33,11 +33,45 @@ import {
   ArrowUp,
   ArrowDown,
   MessageSquare,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, formatCourseDates, parseDurationHours, splitCourseDates } from '../lib/LanguageContext';
 import { BookingChatModal } from './BookingChatModal';
+
+const FALLBACK_SLIDES: CustomHeroSlide[] = [
+  {
+    id: '1',
+    line1En: 'Curated Experiences',
+    line1Ru: 'Эксклюзивный сервис',
+    line2En: 'Perfect your technique with our elite guides.',
+    line2Ru: 'Совершенствуйте технику с лучшими гидами.',
+    line3En: 'PROFESSIONAL TRAINING: ski and snowboard, from foundations to competitive mastery.',
+    line3Ru: 'ПРОФЕССИОНАЛЬНОЕ ОБУЧЕНИЕ: лыжи и сноуборд, от азов до соревновательного мастерства.',
+    backgroundImage: 'wall'
+  },
+  {
+    id: '2',
+    line1En: 'Premium Coaching',
+    line1Ru: 'Индивидуальный подход',
+    line2En: 'Confidence on alpine skis — without fear and chaos, starting from the very first lesson.',
+    line2Ru: 'Уверенное катание на горных лыжах — без страха и хаоса уже с первого занятия.',
+    line3En: 'TAILORED SESSIONS: Step-by-step guidance designed specifically for rapid confidence.',
+    line3Ru: 'ПЕРСОНАЛЬНЫЙ ФОРМАТ: Пошаговая методика, разработанная для быстрого преодоления барьеров.',
+    backgroundImage: 'wall2'
+  },
+  {
+    id: '3',
+    line1En: 'Alpine Mastery',
+    line1Ru: 'Свобода движения',
+    line2En: 'Learn to enjoy skiing regardless of your current experience level.',
+    line2Ru: 'Научим получать удовольствие от катания независимо от вашего уровня.',
+    line3En: 'EXPERT GUIDES: Discover the joy of fluid movement across all types of slopes.',
+    line3Ru: 'ЭКСПЕРТНЫЙ КОНТРОЛЬ: Раскройте легкость скольжения на любых склонах курорта.',
+    backgroundImage: 'wall3'
+  }
+];
 
 interface AdminPanelProps {
   instructors: Instructor[];
@@ -337,6 +371,115 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     if (!currentUserEmail) return null;
     return (usersList || []).find((u) => u.email.toLowerCase() === currentUserEmail.toLowerCase());
   }, [usersList, currentUserEmail]);
+
+  // Resort Weather Location config state
+  const [resortNameEn, setResortNameEn] = useState('Chamonix-Mont-Blanc');
+  const [resortNameRu, setResortNameRu] = useState('Шамони-Монблан');
+  const [resortSubEn, setResortSubEn] = useState('French Alps resort');
+  const [resortSubRu, setResortSubRu] = useState('Курорт в Альпах');
+  const [resortLat, setResortLat] = useState(45.9237);
+  const [resortLon, setResortLon] = useState(6.8694);
+  const [resortShowLifts, setResortShowLifts] = useState(true);
+  const [resortOpenLifts, setResortOpenLifts] = useState(13);
+  const [resortTotalLifts, setResortTotalLifts] = useState(14);
+  const [resortLiftsStatusEn, setResortLiftsStatusEn] = useState('OPEN');
+  const [resortLiftsStatusRu, setResortLiftsStatusRu] = useState('ОТКРЫТО');
+  const [resortSlides, setResortSlides] = useState<CustomHeroSlide[]>([]);
+  const [resortSlideInterval, setResortSlideInterval] = useState(6);
+  const [isResortConfigSaving, setIsResortConfigSaving] = useState(false);
+  const [isResortConfigLoading, setIsResortConfigLoading] = useState(true);
+
+  const handleAddSlide = () => {
+    const newSlide: CustomHeroSlide = {
+      id: String(Date.now()),
+      line1En: 'New Offer',
+      line1Ru: 'Новое предложение',
+      line2En: 'Write slide title here in English.',
+      line2Ru: 'Напишите заголовок слайда на русском.',
+      line3En: 'Sub-heading details in English.',
+      line3Ru: 'Детали на русском языке.',
+      backgroundImage: 'wall'
+    };
+    setResortSlides([...resortSlides, newSlide]);
+  };
+
+  const handleDeleteSlide = (id: string) => {
+    setResortSlides(resortSlides.filter(s => s.id !== id));
+  };
+
+  const handleUpdateSlideField = (id: string, field: keyof CustomHeroSlide, value: string) => {
+    setResortSlides(resortSlides.map(s => {
+      if (s.id === id) {
+        return { ...s, [field]: value };
+      }
+      return s;
+    }));
+  };
+
+  // Load configuration from Firestore
+  useEffect(() => {
+    const configRef = doc(db, 'resort_data', 'config');
+    const unsub = onSnapshot(configRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as ResortConfig;
+        setResortNameEn(data.nameEn || 'Chamonix-Mont-Blanc');
+        setResortNameRu(data.nameRu || 'Шамони-Монблан');
+        setResortSubEn(data.subNameEn || 'French Alps resort');
+        setResortSubRu(data.subNameRu || 'Курорт в Альпах');
+        setResortLat(data.latitude || 45.9237);
+        setResortLon(data.longitude || 6.8694);
+        setResortShowLifts(data.showLifts !== false);
+        setResortOpenLifts(data.openLifts !== undefined ? data.openLifts : 13);
+        setResortTotalLifts(data.totalLifts !== undefined ? data.totalLifts : 14);
+        setResortLiftsStatusEn(data.liftsStatusEn || 'OPEN');
+        setResortLiftsStatusRu(data.liftsStatusRu || 'ОТКРЫТО');
+        setResortSlides(data.slides && data.slides.length > 0 ? data.slides : FALLBACK_SLIDES);
+        setResortSlideInterval(data.slideIntervalSeconds || 6);
+      }
+      setIsResortConfigLoading(false);
+    }, (err) => {
+      console.error("Error reading resort config:", err);
+      setIsResortConfigLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleSaveResortConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsResortConfigSaving(true);
+    try {
+      const configRef = doc(db, 'resort_data', 'config');
+      await setDoc(configRef, {
+        nameEn: resortNameEn,
+        nameRu: resortNameRu,
+        subNameEn: resortSubEn,
+        subNameRu: resortSubRu,
+        latitude: Number(resortLat),
+        longitude: Number(resortLon),
+        showLifts: resortShowLifts,
+        openLifts: Number(resortOpenLifts),
+        totalLifts: Number(resortTotalLifts),
+        liftsStatusEn: resortLiftsStatusEn,
+        liftsStatusRu: resortLiftsStatusRu,
+        slides: resortSlides,
+        slideIntervalSeconds: Number(resortSlideInterval)
+      });
+      addNotification(
+        'success',
+        language === 'en' ? 'Configuration Updated' : 'Конфигурация обновлена',
+        language === 'en' ? 'Resort configuration updated successfully!' : 'Конфигурация курорта успешно обновлена!'
+      );
+    } catch (err) {
+      console.error("Error saving resort config:", err);
+      addNotification(
+        'error',
+        language === 'en' ? 'Error' : 'Ошибка',
+        language === 'en' ? 'Failed to save resort configuration' : 'Не удалось сохранить конфигурацию курорта'
+      );
+    } finally {
+      setIsResortConfigSaving(false);
+    }
+  };
 
   const adminProfile = useMemo(() => {
     return currentAdminUser || {
@@ -1896,7 +2039,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-6">
           <div className="border border-[var(--border)] p-5 flex items-center justify-between bg-black/5 dark:bg-white/5 rounded-none">
             <div className="space-y-1.5">
               <span className="font-mono text-xs uppercase tracking-wider font-bold text-[var(--ink)] block">
@@ -1921,6 +2064,451 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 }`}
               />
             </button>
+          </div>
+
+          {/* Resort Details & Weather Location */}
+          <div className="border border-[var(--border)] p-5 bg-black/5 dark:bg-white/5 rounded-none space-y-4">
+            <div className="border-b border-[var(--border)] pb-2.5">
+              <h4 className="font-serif text-lg font-light text-[var(--ink)]">
+                {language === 'en' ? 'Resort Details & Weather Location' : 'Данные курорта и геолокация погоды'}
+              </h4>
+              <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1 leading-relaxed">
+                {language === 'en' 
+                  ? 'Configure the default resort name and coordinate system. Weather statistics automatically load from Open-Meteo API.' 
+                  : 'Настройка названия курорта и географических координат. Статистика погоды загружается автоматически через API Open-Meteo.'}
+              </p>
+            </div>
+
+            {isResortConfigLoading ? (
+              <div className="flex items-center gap-2 text-xs font-mono py-4">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{language === 'en' ? 'Loading resort config...' : 'Загрузка настроек курорта...'}</span>
+              </div>
+            ) : (
+              <form onSubmit={handleSaveResortConfig} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Name EN */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+                      {language === 'en' ? 'Resort Name (English)' : 'Название курорта (English)'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={resortNameEn}
+                      onChange={(e) => setResortNameEn(e.target.value)}
+                      className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                      placeholder="e.g. Chamonix-Mont-Blanc"
+                    />
+                  </div>
+
+                  {/* Name RU */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+                      {language === 'en' ? 'Resort Name (Russian)' : 'Название курорта (Русский)'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={resortNameRu}
+                      onChange={(e) => setResortNameRu(e.target.value)}
+                      className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                      placeholder="например, Шамони-Монблан"
+                    />
+                  </div>
+
+                  {/* Region EN */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+                      {language === 'en' ? 'Subtitle / Region (English)' : 'Подзаголовок / Регион (English)'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={resortSubEn}
+                      onChange={(e) => setResortSubEn(e.target.value)}
+                      className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                      placeholder="e.g. French Alps resort"
+                    />
+                  </div>
+
+                  {/* Region RU */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+                      {language === 'en' ? 'Subtitle / Region (Russian)' : 'Подзаголовок / Регион (Русский)'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={resortSubRu}
+                      onChange={(e) => setResortSubRu(e.target.value)}
+                      className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                      placeholder="например, Курорт в Альпах"
+                    />
+                  </div>
+
+                  {/* Latitude */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+                      {language === 'en' ? 'Latitude' : 'Широта (Latitude)'}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      required
+                      value={resortLat}
+                      onChange={(e) => setResortLat(Number(e.target.value))}
+                      className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                      placeholder="e.g. 45.9237"
+                    />
+                  </div>
+
+                  {/* Longitude */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+                      {language === 'en' ? 'Longitude' : 'Долгота (Longitude)'}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      required
+                      value={resortLon}
+                      onChange={(e) => setResortLon(Number(e.target.value))}
+                      className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                      placeholder="e.g. 6.8694"
+                    />
+                  </div>
+
+                  {/* Lifts Section Divider */}
+                  <div className="col-span-1 md:col-span-2 border-t border-[var(--border)] pt-4 mt-2">
+                    <h5 className="font-mono text-[10px] uppercase tracking-wider font-bold text-[var(--ink)]">
+                      {language === 'en' ? 'Lifts Operating Settings' : 'Настройки работы подъемников'}
+                    </h5>
+                  </div>
+
+                  {/* Show/Hide Lifts Toggle */}
+                  <div className="col-span-1 md:col-span-2 flex items-center justify-between border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
+                    <div className="space-y-0.5">
+                      <span className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
+                        {language === 'en' ? 'Show Lifts Section' : 'Показывать раздел подъемников'}
+                      </span>
+                      <span className="block text-[9px] text-[var(--ink-dim)]">
+                        {language === 'en' 
+                          ? 'Choose whether to display the lift status panel on the sidebar.' 
+                          : 'Отображать ли панель со статусом подъемников в боковой панели.'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setResortShowLifts(!resortShowLifts)}
+                      className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-none border border-[var(--border)] transition-colors duration-200 ease-in-out focus:outline-none ${
+                        resortShowLifts ? 'bg-[var(--ink)]' : 'bg-transparent'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-none shadow-none ring-0 transition duration-200 ease-in-out ${
+                          resortShowLifts ? 'translate-x-[20px] bg-[var(--bg)]' : 'translate-x-[1px] bg-[var(--ink)] mt-[1px]'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Open Lifts */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+                      {language === 'en' ? 'Open Lifts Count' : 'Открыто подъемников'}
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={resortOpenLifts}
+                      onChange={(e) => setResortOpenLifts(Number(e.target.value))}
+                      className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                    />
+                  </div>
+
+                  {/* Total Lifts */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
+                      {language === 'en' ? 'Total Lifts Count' : 'Всего подъемников'}
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={resortTotalLifts}
+                      onChange={(e) => setResortTotalLifts(Number(e.target.value))}
+                      className="w-full bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                    />
+                  </div>
+
+                  {/* Lifts Status Switch */}
+                  <div className="col-span-1 md:col-span-2 flex items-center justify-between border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
+                    <div className="space-y-0.5">
+                      <span className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
+                        {language === 'en' ? 'Lifts Operating Status' : 'Статус работы подъемников'}
+                      </span>
+                      <span className="block text-[9px] text-[var(--ink-dim)]">
+                        {language === 'en' 
+                          ? `Currently: ${resortLiftsStatusEn}` 
+                          : `Текущий статус: ${resortLiftsStatusRu}`}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isCurrentlyOpen = resortLiftsStatusEn.toUpperCase() === 'OPEN';
+                        if (isCurrentlyOpen) {
+                          setResortLiftsStatusEn('CLOSED');
+                          setResortLiftsStatusRu('ЗАКРЫТО');
+                        } else {
+                          setResortLiftsStatusEn('OPEN');
+                          setResortLiftsStatusRu('ОТКРЫТО');
+                        }
+                      }}
+                      className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-none border border-[var(--border)] transition-colors duration-200 ease-in-out focus:outline-none ${
+                        resortLiftsStatusEn.toUpperCase() === 'OPEN' ? 'bg-emerald-500/20 border-emerald-500' : 'bg-rose-500/20 border-rose-500'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-none shadow-none ring-0 transition duration-200 ease-in-out ${
+                          resortLiftsStatusEn.toUpperCase() === 'OPEN' 
+                            ? 'translate-x-[20px] bg-emerald-500' 
+                            : 'translate-x-[1px] bg-rose-500 mt-[1px]'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* HERO SLIDER SETTINGS */}
+                  <div className="col-span-1 md:col-span-2 border-t border-[var(--border)] pt-6 mt-4">
+                    <h5 className="font-mono text-[10px] uppercase tracking-wider font-bold text-[var(--ink)]">
+                      {language === 'en' ? 'Hero Slider Slides & Speed' : 'Настройка рекламного баннера (Слайдер)'}
+                    </h5>
+                    <p className="text-[9px] text-[var(--ink-dim)] mt-0.5 mb-4">
+                      {language === 'en' 
+                        ? 'Add, delete, or re-order slides on your home screen and define their transition speed.' 
+                        : 'Добавляйте, удаляйте или меняйте слайды на главном экране и управляйте скоростью их смены.'}
+                    </p>
+                  </div>
+
+                  {/* Slide Interval */}
+                  <div className="col-span-1 md:col-span-2 space-y-1.5 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
+                    <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
+                      {language === 'en' ? 'Slide Transition Interval (Seconds)' : 'Интервал смены слайдов (в секундах)'}
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="2"
+                      max="60"
+                      value={resortSlideInterval}
+                      onChange={(e) => setResortSlideInterval(Number(e.target.value))}
+                      className="w-32 bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                    />
+                  </div>
+
+                  {/* Slides Manager List */}
+                  <div className="col-span-1 md:col-span-2 space-y-4">
+                    <div className="flex justify-between items-center border-b border-[var(--border)] pb-2">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                        {language === 'en' ? 'Active Slides' : 'Активные слайды'}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(language === 'en' ? 'Are you sure you want to reset slides to defaults?' : 'Вы уверены, что хотите сбросить слайды к стандартным?')) {
+                              setResortSlides(JSON.parse(JSON.stringify(FALLBACK_SLIDES)));
+                            }
+                          }}
+                          className="border border-[var(--border)] px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] transition cursor-pointer flex items-center gap-1"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          {language === 'en' ? 'Reset to Defaults' : 'Сбросить'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAddSlide}
+                          className="border border-[var(--border)] px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] hover:bg-[var(--ink)] hover:text-[var(--bg)] transition cursor-pointer flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          {language === 'en' ? 'Add Slide' : 'Добавить слайд'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {resortSlides.length === 0 ? (
+                      <div className="text-center py-6 border border-dashed border-[var(--border)] text-[10px] font-mono text-[var(--ink-dim)]">
+                        {language === 'en' ? 'No custom slides defined. Fallback default slides will be shown.' : 'Слайды не заданы. Будут показаны стандартные слайды.'}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {resortSlides.map((slide, index) => {
+                          const presetWalls = ['wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6', 'wall7', 'random'];
+                          const isPreset = presetWalls.includes(slide.backgroundImage);
+                          
+                          return (
+                            <div key={slide.id} className="border border-[var(--border)] p-4 bg-black/5 dark:bg-white/5 space-y-3 relative">
+                              <div className="absolute top-4 right-4 flex items-center gap-2">
+                                <span className="font-mono text-[9px] px-1.5 py-0.5 border border-[var(--border)] bg-[var(--bg)] text-[var(--ink-dim)]">
+                                  #{index + 1}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteSlide(slide.id)}
+                                  className="text-rose-500 hover:text-rose-600 transition cursor-pointer p-1 border border-[var(--border)] hover:border-rose-500/30 bg-[var(--bg)]"
+                                  title={language === 'en' ? 'Delete Slide' : 'Удалить слайд'}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4">
+                                {/* EN Content */}
+                                <div className="space-y-3 border-r border-[var(--border)]/40 pr-0 md:pr-4">
+                                  <h6 className="font-mono text-[9px] text-[var(--ink-dim)] uppercase tracking-widest font-bold">English (EN)</h6>
+                                  
+                                  <div className="space-y-1">
+                                    <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">Line 1 (Accent text)</label>
+                                    <input
+                                      type="text"
+                                      required
+                                      value={slide.line1En}
+                                      onChange={(e) => handleUpdateSlideField(slide.id, 'line1En', e.target.value)}
+                                      className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">Line 2 (Main heading)</label>
+                                    <input
+                                      type="text"
+                                      required
+                                      value={slide.line2En}
+                                      onChange={(e) => handleUpdateSlideField(slide.id, 'line2En', e.target.value)}
+                                      className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">Line 3 (Details)</label>
+                                    <textarea
+                                      required
+                                      rows={2}
+                                      value={slide.line3En}
+                                      onChange={(e) => handleUpdateSlideField(slide.id, 'line3En', e.target.value)}
+                                      className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* RU Content */}
+                                <div className="space-y-3">
+                                  <h6 className="font-mono text-[9px] text-[var(--ink-dim)] uppercase tracking-widest font-bold">Русский (RU)</h6>
+                                  
+                                  <div className="space-y-1">
+                                    <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">Строка 1 (Акцентный текст)</label>
+                                    <input
+                                      type="text"
+                                      required
+                                      value={slide.line1Ru}
+                                      onChange={(e) => handleUpdateSlideField(slide.id, 'line1Ru', e.target.value)}
+                                      className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">Строка 2 (Основной заголовок)</label>
+                                    <input
+                                      type="text"
+                                      required
+                                      value={slide.line2Ru}
+                                      onChange={(e) => handleUpdateSlideField(slide.id, 'line2Ru', e.target.value)}
+                                      className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">Строка 3 (Описание)</label>
+                                    <textarea
+                                      required
+                                      rows={2}
+                                      value={slide.line3Ru}
+                                      onChange={(e) => handleUpdateSlideField(slide.id, 'line3Ru', e.target.value)}
+                                      className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Background Wallpaper Choice */}
+                              <div className="pt-2 border-t border-[var(--border)]/40 grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+                                <div className="space-y-1.5">
+                                  <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                                    {language === 'en' ? 'Background Wall' : 'Фоновые обои'}
+                                  </label>
+                                  <select
+                                    value={isPreset ? slide.backgroundImage : 'custom'}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === 'custom') {
+                                        handleUpdateSlideField(slide.id, 'backgroundImage', 'https://');
+                                      } else {
+                                        handleUpdateSlideField(slide.id, 'backgroundImage', val);
+                                      }
+                                    }}
+                                    className="w-full bg-transparent border border-[var(--border)] px-2 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none cursor-pointer"
+                                  >
+                                    <option value="random" className="bg-[var(--bg)] text-[var(--ink)]">{language === 'en' ? 'Random Preset (from all uploaded walls)' : 'Случайно из всех загруженных обоев'}</option>
+                                    <option value="wall" className="bg-[var(--bg)] text-[var(--ink)]">Preset Wall 1 (Mountain sunset)</option>
+                                    <option value="wall2" className="bg-[var(--bg)] text-[var(--ink)]">Preset Wall 2 (Mountain slope)</option>
+                                    <option value="wall3" className="bg-[var(--bg)] text-[var(--ink)]">Preset Wall 3 (Snowy peak)</option>
+                                    <option value="wall4" className="bg-[var(--bg)] text-[var(--ink)]">Preset Wall 4 (Winter forest)</option>
+                                    <option value="wall5" className="bg-[var(--bg)] text-[var(--ink)]">Preset Wall 5 (Sunny slopes)</option>
+                                    <option value="wall6" className="bg-[var(--bg)] text-[var(--ink)]">Preset Wall 6 (Evening frost)</option>
+                                    <option value="wall7" className="bg-[var(--bg)] text-[var(--ink)]">Preset Wall 7 (Deep ski trace)</option>
+                                    <option value="custom" className="bg-[var(--bg)] text-[var(--ink)]">{language === 'en' ? 'Custom Image URL...' : 'Своя ссылка на картинку...'}</option>
+                                  </select>
+                                </div>
+
+                                {!isPreset && (
+                                  <div className="space-y-1">
+                                    <label className="block text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                                      {language === 'en' ? 'Custom Background URL' : 'Ссылка на картинку'}
+                                    </label>
+                                    <input
+                                      type="text"
+                                      required
+                                      value={slide.backgroundImage}
+                                      onChange={(e) => handleUpdateSlideField(slide.id, 'backgroundImage', e.target.value)}
+                                      className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                                      placeholder="https://images.unsplash.com/..."
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={isResortConfigSaving}
+                    className="bg-[var(--ink)] text-[var(--bg)] hover:bg-[var(--ink)]/90 px-4 py-2 text-xs font-mono uppercase tracking-wider font-bold transition duration-300 rounded-none disabled:opacity-50 cursor-pointer flex items-center gap-2"
+                  >
+                    {isResortConfigSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    {language === 'en' ? 'Save Resort Settings' : 'Сохранить настройки курорта'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       </div>

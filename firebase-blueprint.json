@@ -141,6 +141,20 @@
         "path": { "type": "string" }
       },
       "required": ["id", "message", "timestamp", "url", "userAgent", "source"]
+    },
+    "ResortData": {
+      "title": "ResortData",
+      "description": "Weather and operational data for a ski resort",
+      "type": "object",
+      "properties": {
+        "tempC": { "type": "number" },
+        "windKmh": { "type": "number" },
+        "snowDepthCm": { "type": "number" },
+        "newSnow24h": { "type": "number" },
+        "openLifts": { "type": "number" },
+        "lastUpdatedTimestamp": { "type": "number" }
+      },
+      "required": ["tempC", "windKmh", "snowDepthCm", "newSnow24h", "openLifts", "lastUpdatedTimestamp"]
     }
   },
   "firestore": {
@@ -179,6 +193,10 @@
     "error_logs/{logId}": {
       "schema": "ErrorLog",
       "description": "Application error logs"
+    },
+    "resort_data/{resortId}": {
+      "schema": "ResortData",
+      "description": "Cached resort conditions and statistics"
     }
   }
 }

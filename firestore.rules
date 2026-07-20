@@ -147,5 +147,11 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if isAdmin();
     }
+
+    // Resort Data
+    match /resort_data/{resortId} {
+      allow read: if true;
+      allow write: if true;
+    }
   }
 }

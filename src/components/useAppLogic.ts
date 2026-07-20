@@ -11,7 +11,8 @@ import {
   where,
   onSnapshot,
   OperationType,
-  handleFirestoreError
+  handleFirestoreError,
+  runTransaction
 } from '../lib/firebase';
 import { UserProfile, Instructor, Booking, Review, Course } from '../types';
 import { useNotifications } from '../components/PushNotificationHub';
@@ -228,11 +229,29 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
 
   const handleBookingSuccess = async (booking: Booking, totalCost: number) => {
     if (!userProfile || !firebaseUser) return;
-    const newBal = userProfile.balanceUSD - totalCost;
-    await setDoc(doc(db, 'bookings', booking.id), booking);
-    await updateDoc(doc(db, 'users', firebaseUser.uid), { balanceUSD: newBal });
-    setUserProfile({ ...userProfile, balanceUSD: newBal });
-    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists()) {
+          throw new Error('User profile does not exist.');
+        }
+        const currentBalance = userSnap.data().balanceUSD ?? 0;
+        if (currentBalance < totalCost) {
+          throw new Error(language === 'en' ? 'Insufficient funds.' : 'Недостаточно средств на балансе.');
+        }
+        const newBal = currentBalance - totalCost;
+        const bookingRef = doc(db, 'bookings', booking.id);
+        transaction.set(bookingRef, booking);
+        transaction.update(userRef, { balanceUSD: newBal });
+      });
+      const newBal = userProfile.balanceUSD - totalCost;
+      setUserProfile({ ...userProfile, balanceUSD: newBal });
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `bookings/${booking.id} (transaction)`);
+      throw err;
+    }
   };
 
   const handleReschedule = async (id: string, newDate: string, newTime: string) => {
@@ -290,7 +309,7 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
   };
 
   const handleBookCourse = async (courseId: string) => {
-    if (!userProfile) {
+    if (!userProfile || !firebaseUser) {
       addNotification(
         'warning',
         language === 'en' ? 'Sign In Required' : 'Требуется войти',
@@ -308,49 +327,102 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
       );
       return;
     }
-    const course = courses.find(c => c.id === courseId);
-    if (!course || course.availableSeats <= 0 || userProfile.balanceUSD < course.price) {
-      addNotification(
-        'error',
-        language === 'en' ? 'Booking Failed' : 'Ошибка бронирования',
-        language === 'en' ? 'Course is full or you have insufficient balance.' : 'На курсе нет свободных мест или у вас недостаточно средств.'
-      );
-      return;
-    }
-    if (bookings.some(b => b.userId === userProfile.uid && b.instructorId === `course_${courseId}` && b.status !== 'cancelled')) {
-      addNotification(
-        'warning',
-        language === 'en' ? 'Already Enrolled' : 'Вы уже записаны',
-        language === 'en' ? 'You are already registered for this course.' : 'Вы уже зарегистрированы на этот курс.'
-      );
-      return;
-    }
 
-    await handleUpdateProfile({ balanceUSD: userProfile.balanceUSD - course.price });
-    await updateDoc(doc(db, 'courses', courseId), { availableSeats: course.availableSeats - 1 });
+    const courseDocRef = doc(db, 'courses', courseId);
+    const userDocRef = doc(db, 'users', firebaseUser.uid);
+    const bookingId = `booking_course_${firebaseUser.uid}_${courseId}`;
+    const bookingDocRef = doc(db, 'bookings', bookingId);
 
-    const { datePart, timePart } = splitCourseDates(course.dates);
-    const newBooking: Booking = {
-      id: `booking_course_${Date.now()}`,
-      userId: userProfile.uid,
-      instructorId: `course_${courseId}`,
-      instructorName: `${course.title} (Group Course)`,
-      instructorAvatar: course.bgImageUrl,
-      date: datePart || course.dates,
-      time: timePart || 'Group Schedule',
-      durationHours: parseDurationHours(course.duration, 10),
-      totalPrice: course.price,
-      status: 'confirmed',
-      difficulty: 'intermediate',
-      notes: `Group Course enrollment: ${course.description}`
-    };
-    await setDoc(doc(db, 'bookings', newBooking.id), newBooking);
-    addNotification(
-      'success',
-      language === 'en' ? 'Enrollment Confirmed!' : 'Запись подтверждена!',
-      language === 'en' ? `You have successfully enrolled in ${course.title}.` : `Вы успешно записались на курс «${course.title}».`
-    );
-    confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+    try {
+      let courseTitle = '';
+      await runTransaction(db, async (transaction) => {
+        const courseSnap = await transaction.get(courseDocRef);
+        const userSnap = await transaction.get(userDocRef);
+        const bookingSnap = await transaction.get(bookingDocRef);
+
+        if (!courseSnap.exists()) {
+          throw new Error('Course does not exist.');
+        }
+        if (!userSnap.exists()) {
+          throw new Error('User profile does not exist.');
+        }
+
+        const courseData = courseSnap.data() as Course;
+        const userData = userSnap.data() as UserProfile;
+        courseTitle = courseData.title;
+
+        // Check if user is already enrolled
+        if (bookingSnap.exists()) {
+          const bookingData = bookingSnap.data();
+          if (bookingData.status !== 'cancelled' && !bookingData.isDeleted) {
+            throw new Error('ALREADY_ENROLLED');
+          }
+        }
+
+        // Check active seats
+        if (courseData.availableSeats <= 0) {
+          throw new Error('COURSE_FULL');
+        }
+
+        // Check balance
+        if (userData.balanceUSD < courseData.price) {
+          throw new Error('INSUFFICIENT_FUNDS');
+        }
+
+        const newBal = userData.balanceUSD - courseData.price;
+        const newSeats = courseData.availableSeats - 1;
+
+        const { datePart, timePart } = splitCourseDates(courseData.dates);
+        const newBooking: Booking = {
+          id: bookingId,
+          userId: userData.uid,
+          instructorId: `course_${courseId}`,
+          instructorName: `${courseData.title} (Group Course)`,
+          instructorAvatar: courseData.bgImageUrl,
+          date: datePart || courseData.dates,
+          time: timePart || 'Group Schedule',
+          durationHours: parseDurationHours(courseData.duration, 10),
+          totalPrice: courseData.price,
+          status: 'confirmed',
+          difficulty: 'intermediate',
+          notes: `Group Course enrollment: ${courseData.description}`
+        };
+
+        // Write updates
+        transaction.update(userDocRef, { balanceUSD: newBal });
+        transaction.update(courseDocRef, { availableSeats: newSeats });
+        transaction.set(bookingDocRef, newBooking);
+      });
+
+      // Update local state after transaction succeeds
+      const courseObj = courses.find(c => c.id === courseId);
+      if (courseObj) {
+        setUserProfile({ ...userProfile, balanceUSD: userProfile.balanceUSD - courseObj.price });
+      }
+
+      addNotification(
+        'success',
+        language === 'en' ? 'Enrollment Confirmed!' : 'Запись подтверждена!',
+        language === 'en' ? `You have successfully enrolled in ${courseTitle}.` : `Вы успешно записались на курс «${courseTitle}».`
+      );
+      confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+    } catch (err: any) {
+      if (err.message === 'ALREADY_ENROLLED') {
+        addNotification(
+          'warning',
+          language === 'en' ? 'Already Enrolled' : 'Вы уже записаны',
+          language === 'en' ? 'You are already registered for this course.' : 'Вы уже зарегистрированы на этот курс.'
+        );
+      } else if (err.message === 'COURSE_FULL' || err.message === 'INSUFFICIENT_FUNDS') {
+        addNotification(
+          'error',
+          language === 'en' ? 'Booking Failed' : 'Ошибка бронирования',
+          language === 'en' ? 'Course is full or you have insufficient balance.' : 'На курсе нет свободных мест или у вас недостаточно средств.'
+        );
+      } else {
+        handleFirestoreError(err, OperationType.WRITE, `courses/${courseId}/enroll`);
+      }
+    }
   };
 
   const handleCancel = async (id: string, refundAmount?: number) => {
@@ -358,37 +430,65 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     const booking = bookings.find((b) => b.id === id);
     if (!booking) return;
 
-    const refund = booking.status === 'completed' ? 0 : (refundAmount ?? booking.totalPrice ?? 0);
+    const bookingRef = doc(db, 'bookings', id);
     const bookingOwnerId = booking.userId;
     const isSystemBlock = bookingOwnerId.startsWith('system_block_');
+    const userRef = doc(db, 'users', bookingOwnerId);
 
-    if (!isSystemBlock) {
-      const clientProfile = usersList.find((u) => u.uid === bookingOwnerId) || (bookingOwnerId === firebaseUser.uid ? userProfile : null);
-      if (clientProfile) {
-        const newBal = clientProfile.balanceUSD + refund;
-        await updateDoc(doc(db, 'users', bookingOwnerId), { balanceUSD: newBal });
+    try {
+      await runTransaction(db, async (transaction) => {
+        const bookingSnap = await transaction.get(bookingRef);
+        if (!bookingSnap.exists()) {
+          throw new Error('Booking does not exist.');
+        }
+
+        const bookingData = bookingSnap.data() as Booking;
+        if (bookingData.status === 'cancelled') {
+          return;
+        }
+
+        const refund = bookingData.status === 'completed' ? 0 : (refundAmount ?? bookingData.totalPrice ?? 0);
+
+        if (!isSystemBlock) {
+          const userSnap = await transaction.get(userRef);
+          if (userSnap.exists()) {
+            const userData = userSnap.data() as UserProfile;
+            const newBal = (userData.balanceUSD ?? 0) + refund;
+            transaction.update(userRef, { balanceUSD: newBal });
+          }
+        }
+
+        transaction.update(bookingRef, { status: 'cancelled' });
+
+        if (bookingData.instructorId.startsWith('course_')) {
+          const courseId = bookingData.instructorId.substring('course_'.length);
+          const courseRef = doc(db, 'courses', courseId);
+          const courseSnap = await transaction.get(courseRef);
+          if (courseSnap.exists()) {
+            const courseData = courseSnap.data() as Course;
+            const newAvailableSeats = Math.min(courseData.totalSeats, courseData.availableSeats + 1);
+            transaction.update(courseRef, { availableSeats: newAvailableSeats });
+          }
+        }
+      });
+
+      if (bookingOwnerId === firebaseUser.uid && userProfile) {
+        const refund = booking.status === 'completed' ? 0 : (refundAmount ?? booking.totalPrice ?? 0);
+        setUserProfile({ ...userProfile, balanceUSD: userProfile.balanceUSD + refund });
       }
-    }
-    await updateDoc(doc(db, 'bookings', id), { status: 'cancelled' });
 
-    if (booking.instructorId.startsWith('course_') && booking.status !== 'cancelled') {
-      const courseId = booking.instructorId.substring('course_'.length);
-      const courseObj = courses.find((c) => c.id === courseId);
-      if (courseObj) {
-        const newAvailableSeats = Math.min(courseObj.totalSeats, courseObj.availableSeats + 1);
-        await updateDoc(doc(db, 'courses', courseId), { availableSeats: newAvailableSeats });
+      if (userProfile?.role === 'admin' && !isSystemBlock) {
+        await createNotificationForUser(
+          bookingOwnerId,
+          language === 'en' ? 'Lesson Cancelled' : 'Урок отменен',
+          language === 'en'
+            ? `Your lesson with ${booking.instructorName} was cancelled.`
+            : `Ваш урок с ${booking.instructorName} был отменен.`,
+          'warning'
+        );
       }
-    }
-
-    if (userProfile?.role === 'admin' && !isSystemBlock) {
-      await createNotificationForUser(
-        bookingOwnerId,
-        language === 'en' ? 'Lesson Cancelled' : 'Урок отменен',
-        language === 'en'
-          ? `Your lesson with ${booking.instructorName} was cancelled.`
-          : `Ваш урок с ${booking.instructorName} был отменен.`,
-        'warning'
-      );
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `bookings/${id}/cancel`);
     }
   };
 
@@ -424,14 +524,25 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
   const handleDeleteInstructor = async (id: string) => await deleteDoc(doc(db, 'instructors', id));
 
   const handleAddBooking = async (booking: Booking) => {
-    if (!booking.userId.startsWith('system_block_')) {
-      const client = usersList.find((u) => u.uid === booking.userId);
-      if (client) {
-        const newBal = client.balanceUSD - booking.totalPrice;
-        await updateDoc(doc(db, 'users', booking.userId), { balanceUSD: newBal });
-      }
+    const isSystemBlock = booking.userId.startsWith('system_block_');
+    const userRef = doc(db, 'users', booking.userId);
+    const bookingRef = doc(db, 'bookings', booking.id);
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        if (!isSystemBlock) {
+          const userSnap = await transaction.get(userRef);
+          if (userSnap.exists()) {
+            const userData = userSnap.data() as UserProfile;
+            const newBal = (userData.balanceUSD ?? 0) - booking.totalPrice;
+            transaction.update(userRef, { balanceUSD: newBal });
+          }
+        }
+        transaction.set(bookingRef, booking);
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `bookings/${booking.id}/add`);
     }
-    await setDoc(doc(db, 'bookings', booking.id), booking);
   };
 
   const handleDeleteBooking = async (id: string) => {

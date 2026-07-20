@@ -14,7 +14,8 @@ import {
   addDoc,
   onSnapshot,
   limit,
-  orderBy
+  orderBy,
+  runTransaction
 } from 'firebase/firestore';
 import { OperationType } from '../types';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -229,6 +230,7 @@ export {
   onSnapshot,
   limit,
   orderBy,
+  runTransaction,
   GoogleAuthProvider,
   signInWithPopup,
   OperationType

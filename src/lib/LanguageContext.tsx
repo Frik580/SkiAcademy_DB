@@ -538,8 +538,11 @@ export const translations = {
     // Weather / Slopes Widget
     resortConditions: "Resort Conditions",
     slopeOperations: "Slope Operations",
+    weatherLocation: "Carve Academy Peak",
+    powderSnow: "Excellent Powder",
+    powderAlert: "Powder Alert",
+    powderAlertDesc: "Outstanding freeride opportunities today!",
     activeCoaches: "Active Coaches",
-    powderSnow: "Powder Snow",
     windSpeed: "Wind Speed",
     visibility: "Visibility",
     temp: "Temp",
@@ -721,8 +724,11 @@ export const translations = {
     // Weather / Slopes Widget
     resortConditions: "Состояние курорта",
     slopeOperations: "Работа склонов",
+    weatherLocation: "Пик Академии Карвинга",
+    powderSnow: "Отличный пухляк",
+    powderAlert: "Внимание: Пухляк!",
+    powderAlertDesc: "Потрясающие условия для фрирайда сегодня!",
     activeCoaches: "Активные тренеры",
-    powderSnow: "Свежий снег (пухляк)",
     windSpeed: "Скорость ветра",
     visibility: "Видимость",
     temp: "Температура",
@@ -903,3 +909,4 @@ export const useLanguage = () => {
   }
   return context;
 };
+

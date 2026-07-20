@@ -4,7 +4,7 @@ import {
   registerFirestoreErrorListener
 } from './lib/firebase';
 import { Instructor, CustomHeroSlide } from './types';
-import { LanguageProvider, useLanguage, translateInstructor, translateCourse, splitCourseDates, parseCourseDates, parseDurationHours, translateInstructorName } from './lib/LanguageContext';
+import { LanguageProvider, useLanguage, translateInstructor, translateCourse, splitCourseDates, translateInstructorName } from './lib/LanguageContext';
 
 // Custom Hooks
 import { useTheme } from './components/useTheme';
@@ -201,7 +201,9 @@ const AppContent: React.FC = () => {
       <main className={`flex-1 w-full mx-auto ${
         isAdminView && userProfile && userProfile.role === 'admin'
           ? 'p-6 overflow-y-auto'
-          : 'flex flex-col lg:grid lg:grid-cols-[minmax(140px,200px)_minmax(700px,1.5fr)_minmax(180px,350px)] lg:h-[calc(100vh-62px)] lg:overflow-hidden'
+          : userProfile
+            ? 'flex flex-col lg:grid lg:grid-cols-[minmax(140px,200px)_1fr] lg:h-[calc(100vh-62px)] lg:overflow-hidden'
+            : 'flex flex-col lg:grid lg:grid-cols-[minmax(140px,200px)_minmax(700px,1.5fr)_minmax(180px,350px)] lg:h-[calc(100vh-62px)] lg:overflow-hidden'
       }`}>
         
         {/* Firestore Permission warning notice block */}
@@ -405,7 +407,7 @@ const AppContent: React.FC = () => {
                           <span className={`text-[9px] font-mono uppercase tracking-widest block ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
                             {language === 'en' ? activeSlide.line1En : activeSlide.line1Ru}
                           </span>
-                          <h2 className={`text-3xl md:text-4xl lg:text-5xl font-serif font-light leading-[1.1] tracking-tight max-w-2xl ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
+                          <h2 className={`text-3xl md:text-4xl lg:text-5xl font-serif font-light leading-[1.1] tracking-tight max-w-4xl ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
                             {language === 'en' ? activeSlide.line2En : activeSlide.line2Ru}
                           </h2>
                           <p className={`text-xs font-mono max-w-lg tracking-wider leading-relaxed pt-1 ${theme === 'light' ? 'text-slate-700' : 'text-slate-400'}`}>
@@ -437,7 +439,7 @@ const AppContent: React.FC = () => {
               <div className="p-6 md:p-8 space-y-8 flex flex-col justify-start">
                 {/* Middle Section: Personal Cabinet Tracker / History of bookings */}
                 {userProfile && (
-                  <div className="border border-[var(--border)] p-6 space-y-4">
+                  <div id="personal-cabinet-section" className="border border-[var(--border)] p-6 space-y-4">
                     <div className="border-b border-[var(--border)] pb-3 mb-2 flex items-center gap-2">
                       <span className="w-2 h-2 bg-indigo-500 rounded-none"></span>
                       <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--ink)] font-bold">{t('activeCabinet')}</h3>
@@ -672,282 +674,10 @@ const AppContent: React.FC = () => {
 
             </div>
 
-            {/* 3. Right Sidebar: Profile & Upcoming Active Sessions (placed in the third flexible column) */}
-            <aside className="lg:col-start-3 border-t lg:border-t-0 lg:border-l border-[var(--border)] p-6 bg-[var(--profile-bg)] space-y-6 flex flex-col justify-start lg:h-full lg:overflow-y-auto shrink-0">
-              {userProfile ? (
-                <>
-                  {/* Calendar Strip & Upcoming Sessions */}
-                  {(() => {
-                    const isBookingOnDate = (b: any, dateStr: string) => {
-                      if (b.status === 'cancelled' || b.status === 'completed' || b.userId?.startsWith('system_block_')) {
-                        return false;
-                      }
-                      if (b.instructorId.startsWith('course_')) {
-                        const courseId = b.instructorId.substring('course_'.length);
-                        const course = courses.find(c => c.id === courseId);
-                        const datesToParse = course ? course.dates : b.date;
-                        const parsed = parseCourseDates(datesToParse);
-                        const startY = parsed.start.getFullYear();
-                        const startM = String(parsed.start.getMonth() + 1).padStart(2, '0');
-                        const startD = String(parsed.start.getDate()).padStart(2, '0');
-                        const startDateStr = `${startY}-${startM}-${startD}`;
-
-                        const endY = parsed.end.getFullYear();
-                        const endM = String(parsed.end.getMonth() + 1).padStart(2, '0');
-                        const endD = String(parsed.end.getDate()).padStart(2, '0');
-                        const endDateStr = `${endY}-${endM}-${endD}`;
-
-                        return dateStr >= startDateStr && dateStr <= endDateStr;
-                      } else {
-                        return b.date === dateStr;
-                      }
-                    };
-
-                    const todayDate = new Date();
-                    const upcomingSevenDays: string[] = [];
-                    const upcomingDaysNumbers: { day: number; dateStr: string }[] = [];
-
-                    for (let i = 0; i < 7; i++) {
-                      const d = new Date();
-                      d.setDate(todayDate.getDate() + i);
-                      const y = d.getFullYear();
-                      const m = String(d.getMonth() + 1).padStart(2, '0');
-                      const dayVal = d.getDate();
-                      const dateStr = `${y}-${m}-${String(dayVal).padStart(2, '0')}`;
-                      upcomingSevenDays.push(dateStr);
-                      upcomingDaysNumbers.push({ day: dayVal, dateStr });
-                    }
-
-                    const getMonthYearHeader = () => {
-                      const monthName = todayDate.toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US', { month: 'long' });
-                      const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-                      const year = todayDate.getFullYear();
-                      return language === 'en' ? `Schedule • ${capitalizedMonth} ${year}` : `Расписание • ${capitalizedMonth} ${year}`;
-                    };
-
-                    return (
-                      <>
-                        <div className="space-y-3 pb-6 border-b border-[var(--border)]">
-                          <div className="flex justify-between items-center text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
-                            <span>{getMonthYearHeader()}</span>
-                          </div>
-                          <div className="grid grid-cols-7 gap-1">
-                            {/* Generate 7 days starting dynamically from today */}
-                            {upcomingDaysNumbers.map(({ day, dateStr }) => {
-                              // Check if user has a booking on this date
-                              const hasBooking = bookings.some(b => b.userId === userProfile?.uid && isBookingOnDate(b, dateStr));
-                              return (
-                                <div 
-                                  key={dateStr} 
-                                  className={`text-center py-2 text-[10px] border font-mono transition duration-300 ${
-                                    hasBooking 
-                                      ? 'bg-[var(--ink)] text-[var(--bg)] font-bold border-[var(--ink)]' 
-                                      : 'border-[var(--border)] text-[var(--ink-dim)] hover:border-[var(--ink)]'
-                                  }`}
-                                  title={hasBooking ? (language === 'en' ? 'Booked lesson' : 'Забронировано занятие') : (language === 'en' ? 'No lessons' : 'Нет занятий')}
-                                >
-                                  {day}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Nearest lessons or courses within the next 7 days */}
-                        <div className="p-4 border border-[var(--border)] bg-black/30 space-y-4">
-                          <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--ink-dim)] block">
-                            {language === 'en' ? 'Upcoming Sessions (7 Days)' : 'Ближайшие занятия (7 дней)'}
-                          </span>
-                          {(() => {
-                            const rawActiveBookings = bookings.filter(b => 
-                              b.userId === userProfile?.uid && 
-                              (b.status === 'confirmed' || b.status === 'pending') && 
-                              !b.userId?.startsWith('system_block_') &&
-                              upcomingSevenDays.some(dayStr => isBookingOnDate(b, dayStr))
-                            );
-
-                            const activeBookings = rawActiveBookings.map((b) => {
-                              const isCourse = b.instructorId.startsWith('course_');
-                              if (isCourse) {
-                                const courseId = b.instructorId.substring('course_'.length);
-                                const liveCourse = courses.find(c => c.id === courseId);
-                                if (liveCourse) {
-                                  const translated = translateCourse(liveCourse, language);
-                                  return {
-                                    ...b,
-                                    instructorName: language === 'ru' ? `${translated.title} (Групповой курс)` : `${translated.title} (Group Course)`,
-                                    instructorAvatar: translated.bgImageUrl || b.instructorAvatar,
-                                    durationHours: parseDurationHours(translated.duration, b.durationHours),
-                                    totalPrice: liveCourse.price
-                                  };
-                                }
-                              }
-                              return {
-                                ...b,
-                                instructorName: translateInstructorName(b.instructorName, language)
-                              };
-                            });
-                            
-                            const sortedActiveBookings = [...activeBookings].sort((a, b) => {
-                              let aDate = a.date;
-                              let bDate = b.date;
-                              if (a.instructorId.startsWith('course_')) {
-                                const courseId = a.instructorId.substring('course_'.length);
-                                const course = courses.find(c => c.id === courseId);
-                                const parsed = parseCourseDates(course ? course.dates : a.date);
-                                const startY = parsed.start.getFullYear();
-                                const startM = String(parsed.start.getMonth() + 1).padStart(2, '0');
-                                const startD = String(parsed.start.getDate()).padStart(2, '0');
-                                aDate = `${startY}-${startM}-${startD}`;
-                              }
-                              if (b.instructorId.startsWith('course_')) {
-                                const courseId = b.instructorId.substring('course_'.length);
-                                const course = courses.find(c => c.id === courseId);
-                                const parsed = parseCourseDates(course ? course.dates : b.date);
-                                const startY = parsed.start.getFullYear();
-                                const startM = String(parsed.start.getMonth() + 1).padStart(2, '0');
-                                const startD = String(parsed.start.getDate()).padStart(2, '0');
-                                bDate = `${startY}-${startM}-${startD}`;
-                              }
-                              
-                              if (aDate !== bDate) {
-                                return aDate.localeCompare(bDate);
-                              }
-                              return a.time.localeCompare(b.time);
-                            });
-
-                            const getDifficultyLabelShort = (diff: string) => {
-                              if (language === 'ru') {
-                                switch (diff.toLowerCase()) {
-                                  case 'beginner': return 'Новичок';
-                                  case 'intermediate': return 'Средний';
-                                  case 'advanced': return 'Продвинутый';
-                                  case 'freeride': return 'Фрирайд';
-                                  case 'freestyle': return 'Фристайл';
-                                  default: return diff;
-                                }
-                              }
-                              return diff.charAt(0).toUpperCase() + diff.slice(1);
-                            };
-
-                            const formatBookingDate = (bObj: any) => {
-                              if (bObj.instructorId.startsWith('course_')) {
-                                const courseId = bObj.instructorId.substring('course_'.length);
-                                const course = courses.find(c => c.id === courseId);
-                                const rawDates = course ? course.dates : bObj.date;
-                                const parsed = parseCourseDates(rawDates);
-                                
-                                const startDay = parsed.start.getDate();
-                                const startMonth = parsed.start.getMonth() + 1;
-                                const endDay = parsed.end.getDate();
-                                const endMonth = parsed.end.getMonth() + 1;
-                                
-                                if (language === 'ru') {
-                                  const monthsRu = [
-                                    'янв', 'фев', 'мар', 'апр', 'май', 'июн', 
-                                    'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'
-                                  ];
-                                  const startMonthName = monthsRu[startMonth - 1] || 'июл';
-                                  const endMonthName = monthsRu[endMonth - 1] || 'июл';
-                                  if (startMonth === endMonth) {
-                                    return `${startDay}-${endDay} ${startMonthName}`;
-                                  } else {
-                                    return `${startDay} ${startMonthName} - ${endDay} ${endMonthName}`;
-                                  }
-                                } else {
-                                  const monthsEn = [
-                                    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-                                  ];
-                                  const startMonthName = monthsEn[startMonth - 1] || 'Jul';
-                                  const endMonthName = monthsEn[endMonth - 1] || 'Jul';
-                                  if (startMonth === endMonth) {
-                                    return `${startMonthName} ${startDay}-${endDay}`;
-                                  } else {
-                                    return `${startMonthName} ${startDay} - ${endMonthName} ${endDay}`;
-                                  }
-                                }
-                              } else {
-                                const [, monthStr, dayStr] = bObj.date.split('-');
-                                const day = parseInt(dayStr, 10);
-                                const month = parseInt(monthStr, 10);
-                                if (language === 'ru') {
-                                  const monthsRu = [
-                                    'янв', 'фев', 'мар', 'апр', 'май', 'июн', 
-                                    'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'
-                                  ];
-                                  const monthName = monthsRu[month - 1] || 'июл';
-                                  return `${day} ${monthName} в ${bObj.time}`;
-                                } else {
-                                  const monthsEn = [
-                                    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-                                  ];
-                                  const monthName = monthsEn[month - 1] || 'Jul';
-                                  return `${monthName} ${day} at ${bObj.time}`;
-                                }
-                              }
-                            };
-
-                            if (sortedActiveBookings.length > 0) {
-                              return (
-                                <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
-                                  {sortedActiveBookings.map((b) => {
-                                    const displayInstructorName = b.instructorName;
-
-                                    return (
-                                      <div key={b.id} className="space-y-3 pb-3 border-b border-[var(--border)] last:pb-0 last:border-b-0">
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-8 h-8 rounded-none overflow-hidden bg-slate-900 border border-[var(--border)] shrink-0">
-                                            <img src={b.instructorAvatar} alt={displayInstructorName} className="w-full h-full object-cover filter grayscale" />
-                                          </div>
-                                          <div className="min-w-0 flex-1">
-                                            <h3 className="font-serif text-sm text-[var(--ink)] leading-none truncate">{displayInstructorName}</h3>
-                                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1">
-                                              <p className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
-                                                {getDifficultyLabelShort(b.difficulty)} • {b.durationHours}{language === 'en' ? 'h' : 'ч'}
-                                              </p>
-                                              <span className="text-[9px] font-mono text-[var(--ink-dim)]">•</span>
-                                              <p className="text-[9px] font-mono text-indigo-400 font-medium">
-                                                {formatBookingDate(b)}
-                                              </p>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div className="flex justify-between items-center pt-1 border-t border-[var(--border)]/30">
-                                          <span className="font-mono text-[9px] text-[var(--ink)]">
-                                            {language === 'en' ? `Paid $${b.totalPrice}` : `Оплачено $${b.totalPrice}`}
-                                          </span>
-                                          <span className={`font-mono text-[7px] px-1.5 py-0.5 uppercase font-bold tracking-widest border ${
-                                            b.status === 'confirmed' 
-                                              ? 'border-emerald-500/40 text-emerald-400 bg-emerald-950/30' 
-                                              : 'border-amber-500/40 text-amber-400 bg-amber-950/30'
-                                          }`}>
-                                            {b.status === 'confirmed' 
-                                              ? (language === 'en' ? 'Confirmed' : 'Подтверждено')
-                                              : (language === 'en' ? 'Pending' : 'Ожидает')}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              );
-                            } else {
-                              return (
-                                <p className="text-[10px] text-[var(--ink-dim)] text-center py-4">
-                                  {language === 'en' ? 'No sessions scheduled for this week.' : 'Нет занятий, запланированных на эту неделю.'}
-                                </p>
-                              );
-                            }
-                          })()}
-                        </div>
-                      </>
-                    );
-                  })()}
-                </>
-              ) : (
-                /* Logged-out state: show Auth component inside Right Sidebar! */
+            {/* 3. Right Sidebar */}
+            {!userProfile && (
+              <aside className="lg:col-start-3 border-t lg:border-t-0 lg:border-l border-[var(--border)] p-6 bg-[var(--profile-bg)] space-y-6 flex flex-col justify-start lg:h-full lg:overflow-y-auto shrink-0">
+                {/* Logged-out state: show Auth component inside Right Sidebar! */}
                 <div id="auth-section" className="space-y-6">
                   <div className="text-center space-y-4 py-4">
                     <img
@@ -966,8 +696,8 @@ const AppContent: React.FC = () => {
                     <Auth onSuccess={(profile) => setUserProfile(profile)} />
                   </div>
                 </div>
-              )}
-            </aside>
+              </aside>
+            )}
           </>
         )}
       </main>

@@ -863,6 +863,252 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
       {/* Bookings Right Panel */}
       <div className="lg:col-span-8 border border-[var(--border)] p-6 space-y-5 transition-colors duration-300 bg-transparent w-full min-w-0 max-w-full overflow-hidden">
+
+      {/* Calendar Strip & Upcoming Sessions (7 Days) */}
+        {userBookings.length > 0 && (
+          <div className="border border-[var(--border)] p-4 bg-black/10 space-y-4">
+            {(() => {
+              const isBookingOnDate = (b: any, dateStr: string) => {
+                if (b.status === 'cancelled' || b.status === 'completed' || b.userId?.startsWith('system_block_')) {
+                  return false;
+                }
+                if (b.instructorId.startsWith('course_')) {
+                  const courseId = b.instructorId.substring('course_'.length);
+                  const course = (courses || []).find(c => c.id === courseId);
+                  const datesToParse = course ? course.dates : b.date;
+                  const parsed = parseCourseDates(datesToParse);
+                  const startY = parsed.start.getFullYear();
+                  const startM = String(parsed.start.getMonth() + 1).padStart(2, '0');
+                  const startD = String(parsed.start.getDate()).padStart(2, '0');
+                  const startDateStr = `${startY}-${startM}-${startD}`;
+
+                  const endY = parsed.end.getFullYear();
+                  const endM = String(parsed.end.getMonth() + 1).padStart(2, '0');
+                  const endD = String(parsed.end.getDate()).padStart(2, '0');
+                  const endDateStr = `${endY}-${endM}-${endD}`;
+
+                  return dateStr >= startDateStr && dateStr <= endDateStr;
+                } else {
+                  return b.date === dateStr;
+                }
+              };
+
+              const todayDate = new Date();
+              const upcomingSevenDays: string[] = [];
+              const upcomingDaysNumbers: { day: number; dateStr: string }[] = [];
+
+              for (let i = 0; i < 7; i++) {
+                const d = new Date();
+                d.setDate(todayDate.getDate() + i);
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const dayVal = d.getDate();
+                const dateStr = `${y}-${m}-${String(dayVal).padStart(2, '0')}`;
+                upcomingSevenDays.push(dateStr);
+                upcomingDaysNumbers.push({ day: dayVal, dateStr });
+              }
+
+              const getMonthYearHeader = () => {
+                const monthName = todayDate.toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US', { month: 'long' });
+                const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+                const yearVal = todayDate.getFullYear();
+                return language === 'en' ? `Weekly Schedule • ${capitalizedMonth} ${yearVal}` : `Недельное расписание • ${capitalizedMonth} ${yearVal}`;
+              };
+
+              const rawActiveBookings = userBookings.filter(b => 
+                (b.status === 'confirmed' || b.status === 'pending') && 
+                !b.userId?.startsWith('system_block_') &&
+                upcomingSevenDays.some(dayStr => isBookingOnDate(b, dayStr))
+              );
+
+              // Sort upcoming active bookings
+              const sortedActiveBookings = [...rawActiveBookings].sort((a, b) => {
+                let aDate = a.date;
+                let bDate = b.date;
+                if (a.instructorId.startsWith('course_')) {
+                  const courseId = a.instructorId.substring('course_'.length);
+                  const course = (courses || []).find(c => c.id === courseId);
+                  const parsed = parseCourseDates(course ? course.dates : a.date);
+                  const startY = parsed.start.getFullYear();
+                  const startM = String(parsed.start.getMonth() + 1).padStart(2, '0');
+                  const startD = String(parsed.start.getDate()).padStart(2, '0');
+                  aDate = `${startY}-${startM}-${startD}`;
+                }
+                if (b.instructorId.startsWith('course_')) {
+                  const courseId = b.instructorId.substring('course_'.length);
+                  const course = (courses || []).find(c => c.id === courseId);
+                  const parsed = parseCourseDates(course ? course.dates : b.date);
+                  const startY = parsed.start.getFullYear();
+                  const startM = String(parsed.start.getMonth() + 1).padStart(2, '0');
+                  const startD = String(parsed.start.getDate()).padStart(2, '0');
+                  bDate = `${startY}-${startM}-${startD}`;
+                }
+                
+                if (aDate !== bDate) {
+                  return aDate.localeCompare(bDate);
+                }
+                return a.time.localeCompare(b.time);
+              });
+
+              const getDifficultyLabelShort = (diff: string) => {
+                if (language === 'ru') {
+                  switch (diff.toLowerCase()) {
+                    case 'beginner': return 'Новичок';
+                    case 'intermediate': return 'Средний';
+                    case 'advanced': return 'Продвинутый';
+                    case 'freeride': return 'Фрирайд';
+                    case 'freestyle': return 'Фристайл';
+                    default: return diff;
+                  }
+                }
+                return diff.charAt(0).toUpperCase() + diff.slice(1);
+              };
+
+              const formatBookingDate = (bObj: any) => {
+                if (bObj.instructorId.startsWith('course_')) {
+                  const courseId = bObj.instructorId.substring('course_'.length);
+                  const course = (courses || []).find(c => c.id === courseId);
+                  const rawDates = course ? course.dates : bObj.date;
+                  const parsed = parseCourseDates(rawDates);
+                  
+                  const startDay = parsed.start.getDate();
+                  const startMonth = parsed.start.getMonth() + 1;
+                  const endDay = parsed.end.getDate();
+                  const endMonth = parsed.end.getMonth() + 1;
+                  
+                  if (language === 'ru') {
+                    const monthsRu = [
+                      'янв', 'фев', 'мар', 'апр', 'май', 'июн', 
+                      'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'
+                    ];
+                    const startMonthName = monthsRu[startMonth - 1] || 'июл';
+                    const endMonthName = monthsRu[endMonth - 1] || 'июл';
+                    if (startMonth === endMonth) {
+                      return `${startDay}-${endDay} ${startMonthName}`;
+                    } else {
+                      return `${startDay} ${startMonthName} - ${endDay} ${endMonthName}`;
+                    }
+                  } else {
+                    const monthsEn = [
+                      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+                    ];
+                    const startMonthName = monthsEn[startMonth - 1] || 'Jul';
+                    const endMonthName = monthsEn[endMonth - 1] || 'Jul';
+                    if (startMonth === endMonth) {
+                      return `${startMonthName} ${startDay}-${endDay}`;
+                    } else {
+                      return `${startMonthName} ${startDay} - ${endMonthName} ${endDay}`;
+                    }
+                  }
+                } else {
+                  const [, monthStr, dayStr] = bObj.date.split('-');
+                  const day = parseInt(dayStr, 10);
+                  const month = parseInt(monthStr, 10);
+                  if (language === 'ru') {
+                    const monthsRu = [
+                      'янв', 'фев', 'мар', 'апр', 'май', 'июн', 
+                      'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'
+                    ];
+                    const monthName = monthsRu[month - 1] || 'июл';
+                    return `${day} ${monthName} в ${bObj.time}`;
+                  } else {
+                    const monthsEn = [
+                      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+                    ];
+                    const monthName = monthsEn[month - 1] || 'Jul';
+                    return `${monthName} ${day} at ${bObj.time}`;
+                  }
+                }
+              };
+
+              return (
+                <div className="space-y-4">
+                  {/* Calendar Strip */}
+                  <div className="space-y-2 pb-2 border-b border-[var(--border)]/40">
+                    <div className="flex justify-between items-center text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
+                      <span>{getMonthYearHeader()}</span>
+                    </div>
+                    <div className="grid grid-cols-7 gap-1">
+                      {upcomingDaysNumbers.map(({ day, dateStr }) => {
+                        const hasBooking = userBookings.some(b => isBookingOnDate(b, dateStr));
+                        return (
+                          <div 
+                            key={dateStr} 
+                            className={`text-center py-2 text-[10px] border font-mono transition duration-300 ${
+                              hasBooking 
+                                ? 'bg-[var(--ink)] text-[var(--bg)] font-bold border-[var(--ink)]' 
+                                : 'border-[var(--border)] text-[var(--ink-dim)] hover:border-[var(--ink)]'
+                            }`}
+                            title={hasBooking ? (language === 'en' ? 'Booked lesson' : 'Забронировано занятие') : (language === 'en' ? 'No lessons' : 'Нет занятий')}
+                          >
+                            {day}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Upcoming Sessions List */}
+                  <div className="space-y-3">
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--ink-dim)] block">
+                      {language === 'en' ? 'Upcoming Sessions (7 Days)' : 'Ближайшие занятия (7 дней)'}
+                    </span>
+                    {sortedActiveBookings.length > 0 ? (
+                      <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
+                        {sortedActiveBookings.map((b) => {
+                          const displayInstructorName = b.instructorName;
+
+                          return (
+                            <div key={b.id} className="space-y-2 pb-2 border-b border-[var(--border)]/40 last:pb-0 last:border-b-0">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-none overflow-hidden bg-slate-900 border border-[var(--border)] shrink-0">
+                                  <img src={b.instructorAvatar} alt={displayInstructorName} className="w-full h-full object-cover filter grayscale" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <h3 className="font-serif text-sm text-[var(--ink)] leading-none truncate">{displayInstructorName}</h3>
+                                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1">
+                                    <p className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
+                                      {getDifficultyLabelShort(b.difficulty)} • {b.durationHours}{language === 'en' ? 'h' : 'ч'}
+                                    </p>
+                                    <span className="text-[9px] font-mono text-[var(--ink-dim)]">•</span>
+                                    <p className="text-[9px] font-mono text-indigo-400 font-medium">
+                                      {formatBookingDate(b)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex justify-between items-center pt-1 border-t border-[var(--border)]/20">
+                                <span className="font-mono text-[9px] text-[var(--ink)]">
+                                  {language === 'en' ? `Paid $${b.totalPrice}` : `Оплачено $${b.totalPrice}`}
+                                </span>
+                                <span className={`font-mono text-[7px] px-1.5 py-0.5 uppercase font-bold tracking-widest border ${
+                                  b.status === 'confirmed' 
+                                    ? 'border-emerald-500/40 text-emerald-400 bg-emerald-950/30' 
+                                    : 'border-amber-500/40 text-amber-400 bg-amber-950/30'
+                                }`}>
+                                  {b.status === 'confirmed' 
+                                    ? (language === 'en' ? 'Confirmed' : 'Подтверждено')
+                                    : (language === 'en' ? 'Pending' : 'Ожидает')}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-[var(--ink-dim)] text-center py-2">
+                        {language === 'en' ? 'No sessions scheduled for this week.' : 'Нет занятий, запланированных на эту неделю.'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[var(--border)]">
           <div>
             <h3 className="text-xl font-serif font-light text-[var(--ink)] tracking-tight">

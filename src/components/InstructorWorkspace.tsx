@@ -13,10 +13,13 @@ import {
   CheckCircle,
   Users, 
   Star, 
-  Lock
+  Lock,
+  Award
 } from 'lucide-react';
 import { BookingChatModal } from './BookingChatModal'; 
 import { useLanguage, translateInstructorName, translateCourse, splitCourseDates, parseDurationHours } from '../lib/LanguageContext';
+import { useNotifications } from './PushNotificationHub';
+import { useTheme } from './useTheme';
 
 interface InstructorWorkspaceProps {
   userProfile: UserProfile;
@@ -36,6 +39,8 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
   usersList
 }) => {
   const { language } = useLanguage();
+  const { theme } = useTheme();
+  const { addNotification } = useNotifications();
   const [selectedChatBooking, setSelectedChatBooking] = useState<Booking | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'completed'>('all');
 
@@ -178,6 +183,47 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
   }, [reviews, userProfile.instructorId]);
 
   // Quick Action Handlers for Instructor
+  const myStudents = useMemo(() => {
+    const map = new Map<string, { uid: string; name: string; avatar?: string; lessonsCount: number }>();
+
+    instructorBookings.forEach(b => {
+      if ((b as any).isCourse) {
+        ((b as any).clients || []).forEach((c: any) => {
+          if (!c.uid) return;
+          const existing = map.get(c.uid) || { uid: c.uid, name: c.name, avatar: c.avatar, lessonsCount: 0 };
+          existing.lessonsCount += 1;
+          map.set(c.uid, existing);
+        });
+      } else if (b.userId && !b.userId.startsWith('system_block_')) {
+        const existing = map.get(b.userId) || { 
+          uid: b.userId, 
+          name: (b as any).clientName || 'Student', 
+          avatar: (b as any).clientAvatar, 
+          lessonsCount: 0 
+        };
+        existing.lessonsCount += 1;
+        map.set(b.userId, existing);
+      }
+    });
+
+    return Array.from(map.values());
+  }, [instructorBookings]);
+
+  const handleUpdateStudentLevel = async (studentUid: string, studentName: string, newLevel: number) => {
+    try {
+      await updateDoc(doc(db, 'users', studentUid), { level: newLevel });
+      addNotification(
+        'info',
+        language === 'en' ? 'Student Level Updated' : 'Уровень ученика обновлен',
+        language === 'en'
+          ? `Updated level for ${studentName} to Level ${newLevel}`
+          : `Уровень ученика ${studentName} обновлен до Уровня ${newLevel}`
+      );
+    } catch (err) {
+      console.error("Error updating student level:", err);
+    }
+  };
+
   const handleUpdateStatus = async (bookingId: string, nextStatus: 'confirmed' | 'completed') => {
     try {
       await updateDoc(doc(db, 'bookings', bookingId), { status: nextStatus });
@@ -396,32 +442,105 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                         </h5>
                         <div className="flex flex-wrap gap-2">
                           {(b as any).isCourse ? (
-                            (b as any).clients.map((client: any) => (
-                              <div key={client.uid} className="flex items-center gap-2 bg-black/25 p-2 border border-[var(--border)]/40 hover:border-[var(--ink-dim)] transition-colors duration-200" title={client.name}>
-                                <div className="w-6 h-6 rounded-none border border-[var(--border)]/50 overflow-hidden shrink-0 bg-black/20">
-                                  {client.avatar ? (
-                                    <img src={client.avatar} alt={client.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-[10px] font-serif">👤</div>
-                                  )}
+                            (b as any).clients.map((client: any) => {
+                              const studentUser = usersList.find(u => u.uid === client.uid);
+                              const studentLevel = studentUser?.level || 1;
+                              return (
+                                <div key={client.uid} className="flex flex-wrap items-center justify-between gap-2 bg-black/25 p-2 border border-[var(--border)]/40 hover:border-[var(--ink-dim)] transition-colors duration-200 w-full" title={client.name}>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-none border border-[var(--border)]/50 overflow-hidden shrink-0 bg-black/20">
+                                      {client.avatar ? (
+                                        <img src={client.avatar} alt={client.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-[10px] font-serif">👤</div>
+                                      )}
+                                    </div>
+                                    <span className="text-xs font-mono text-[var(--ink)] font-medium max-w-[140px] truncate">{client.name}</span>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1 bg-black/30 border border-[var(--border)] px-1.5 py-0.5" title={language === 'ru' ? `Уровень: ${studentLevel}` : `Level: ${studentLevel}`}>
+                                      <img 
+                                        key={`${theme}-${studentLevel}`}
+                                        src={`https://storage.yandexcloud.net/carve/level/${theme === 'light' ? 'b' : 'w'}/${studentLevel}.png`} 
+                                        alt={`Level ${studentLevel}`} 
+                                        className="w-4 h-4 object-contain shrink-0" 
+                                        referrerPolicy="no-referrer"
+                                        onLoad={(e) => { e.currentTarget.style.display = 'block'; }}
+                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                      />
+                                      <span className="text-[9px] font-mono font-bold text-[var(--ink)]">
+                                        {language === 'ru' ? `Ур. ${studentLevel}` : `Lvl ${studentLevel}`}
+                                      </span>
+                                    </div>
+
+                                    <select
+                                      value={studentLevel}
+                                      onChange={(e) => handleUpdateStudentLevel(client.uid, client.name, Number(e.target.value))}
+                                      className="text-[9px] font-mono bg-[var(--bg)] text-[var(--ink)] border border-indigo-500/50 px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                                    >
+                                      <option value={1}>{language === 'ru' ? 'Ур. 1' : 'Lvl 1'}</option>
+                                      <option value={2}>{language === 'ru' ? 'Ур. 2' : 'Lvl 2'}</option>
+                                      <option value={3}>{language === 'ru' ? 'Ур. 3' : 'Lvl 3'}</option>
+                                      <option value={4}>{language === 'ru' ? 'Ур. 4' : 'Lvl 4'}</option>
+                                    </select>
+                                  </div>
                                 </div>
-                                <span className="text-xs font-mono text-[var(--ink)] font-medium max-w-[120px] truncate">{client.name}</span>
-                              </div>
-                            ))
+                              );
+                            })
                           ) : (
-                            <div className="flex items-center gap-2 bg-black/25 p-2 border border-[var(--border)]/40 hover:border-[var(--ink-dim)] transition-colors duration-200 w-full justify-between" title={(b as any).clientName}>
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-none border border-[var(--border)]/50 overflow-hidden shrink-0 bg-black/20">
-                                  {(b as any).clientAvatar ? (
-                                    <img src={(b as any).clientAvatar} alt={(b as any).clientName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-[10px] font-serif">👤</div>
-                                  )}
+                            (() => {
+                              const studentUser = usersList.find(u => u.uid === b.userId);
+                              const studentLevel = studentUser?.level || 1;
+                              const studentName = (b as any).clientName || 'Student';
+                              return (
+                                <div className="flex flex-wrap items-center justify-between gap-2 bg-black/25 p-2 border border-[var(--border)]/40 hover:border-[var(--ink-dim)] transition-colors duration-200 w-full">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-none border border-[var(--border)]/50 overflow-hidden shrink-0 bg-black/20">
+                                      {(b as any).clientAvatar ? (
+                                        <img src={(b as any).clientAvatar} alt={studentName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-[10px] font-serif">👤</div>
+                                      )}
+                                    </div>
+                                    <span className="text-xs font-mono text-[var(--ink)] font-medium">{studentName}</span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1 bg-black/30 border border-[var(--border)] px-2 py-0.5" title={language === 'ru' ? `Текущий уровень: ${studentLevel}` : `Current Level: ${studentLevel}`}>
+                                      <img 
+                                        key={`${theme}-${studentLevel}`}
+                                        src={`https://storage.yandexcloud.net/carve/level/${theme === 'light' ? 'b' : 'w'}/${studentLevel}.png`} 
+                                        alt={`Level ${studentLevel}`} 
+                                        className="w-4 h-4 object-contain shrink-0" 
+                                        referrerPolicy="no-referrer"
+                                        onLoad={(e) => { e.currentTarget.style.display = 'block'; }}
+                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                      />
+                                      <span className="text-[9px] font-mono font-bold text-[var(--ink)]">
+                                        {language === 'ru' ? `Ур. ${studentLevel}` : `Lvl ${studentLevel}`}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[8px] font-mono text-[var(--ink-dim)] uppercase tracking-wider hidden sm:inline">
+                                        {language === 'ru' ? 'Изменить:' : 'Set Level:'}
+                                      </span>
+                                      <select
+                                        value={studentLevel}
+                                        onChange={(e) => handleUpdateStudentLevel(b.userId, studentName, Number(e.target.value))}
+                                        className="text-[9px] font-mono bg-[var(--bg)] text-[var(--ink)] border border-indigo-500/50 px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                                      >
+                                        <option value={1}>{language === 'ru' ? 'Уровень 1' : 'Level 1'}</option>
+                                        <option value={2}>{language === 'ru' ? 'Уровень 2' : 'Level 2'}</option>
+                                        <option value={3}>{language === 'ru' ? 'Уровень 3' : 'Level 3'}</option>
+                                        <option value={4}>{language === 'ru' ? 'Уровень 4' : 'Level 4'}</option>
+                                      </select>
+                                    </div>
+                                  </div>
                                 </div>
-                                <span className="text-xs font-mono text-[var(--ink)] font-medium">{(b as any).clientName}</span>
-                              </div>
-                              <span className="text-[9px] font-mono text-[var(--ink-dim)]">ID: {b.userId.substring(0, 10)}...</span>
-                            </div>
+                              );
+                            })()
                           )}
                         </div>
                       </div>
@@ -476,6 +595,73 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                         </button>
                       )}
                     </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* My Students Roster & Level Management */}
+      <div className="space-y-4">
+        <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight border-b border-[var(--border)] pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Award className="w-5 h-5 text-indigo-400" />
+            <span>{language === 'en' ? 'My Students & Skill Levels' : 'Ученики и их уровни'} ({myStudents.length})</span>
+          </div>
+          <span className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider font-normal">
+            {language === 'en' ? 'Only instructors with booked students can set levels' : 'Инструктор может обновлять уровень своих учеников'}
+          </span>
+        </h4>
+
+        {myStudents.length === 0 ? (
+          <div className="py-8 border border-dashed border-[var(--border)] text-center bg-black/5 font-mono text-xs text-[var(--ink-dim)]">
+            {language === 'en' ? 'No students enrolled in your lessons yet.' : 'У вас пока нет записавшихся учеников.'}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {myStudents.map((student) => {
+              const studentUser = usersList.find(u => u.uid === student.uid);
+              const studentLevel = studentUser?.level || 1;
+              return (
+                <div key={student.uid} className="border border-[var(--border)] p-3 space-y-2 bg-black/10 flex items-center justify-between gap-3 hover:border-[var(--ink-dim)] transition-colors duration-200">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-10 h-10 border border-[var(--border)] overflow-hidden shrink-0 bg-slate-900">
+                      {student.avatar ? (
+                        <img src={student.avatar} alt={student.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs">👤</div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <h5 className="font-serif text-xs text-[var(--ink)] font-bold truncate">{student.name}</h5>
+                      <span className="text-[9px] font-mono text-[var(--ink-dim)] block">
+                        {student.lessonsCount} {language === 'ru' ? 'занятий' : 'lessons'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <img 
+                      key={`${theme}-${studentLevel}`}
+                      src={`https://storage.yandexcloud.net/carve/level/${theme === 'light' ? 'b' : 'w'}/${studentLevel}.png`} 
+                      alt={`Level ${studentLevel}`} 
+                      className="w-7 h-7 object-contain shrink-0" 
+                      referrerPolicy="no-referrer"
+                      onLoad={(e) => { e.currentTarget.style.display = 'block'; }}
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                    <select
+                      value={studentLevel}
+                      onChange={(e) => handleUpdateStudentLevel(student.uid, student.name, Number(e.target.value))}
+                      className="text-[9px] font-mono uppercase bg-[var(--bg)] text-[var(--ink)] border border-indigo-500/50 px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    >
+                      <option value={1}>{language === 'ru' ? 'Ур. 1' : 'Lvl 1'}</option>
+                      <option value={2}>{language === 'ru' ? 'Ур. 2' : 'Lvl 2'}</option>
+                      <option value={3}>{language === 'ru' ? 'Ур. 3' : 'Lvl 3'}</option>
+                      <option value={4}>{language === 'ru' ? 'Ур. 4' : 'Lvl 4'}</option>
+                    </select>
                   </div>
                 </div>
               );

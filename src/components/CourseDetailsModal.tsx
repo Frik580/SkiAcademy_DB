@@ -249,7 +249,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
               src={course.bgImageUrl || 'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=1200'}
               referrerPolicy="no-referrer"
               alt={course.title}
-              className="w-full h-full object-cover object-[center_-200px] grayscale opacity-75 brightness-[0.7] scale-102 transition duration-700 hover:scale-100"
+              className="w-full h-full object-cover object-center sm:object-[center_-200px] grayscale opacity-75 brightness-[0.7] scale-102 transition duration-700 hover:scale-100"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/20" />
             

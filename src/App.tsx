@@ -471,10 +471,10 @@ const AppContent: React.FC = () => {
                 </div>
               </section>
 
-              <div className="p-6 md:p-8 space-y-8 flex flex-col justify-start">
+              <div id="main-content-pane" className="p-6 md:p-8 space-y-8 flex flex-col justify-start">
                 {/* Middle Section: Personal Cabinet Tracker / History of bookings */}
                 {userProfile && (
-                  <div id="personal-cabinet-section" className="border border-[var(--border)] p-6 space-y-4">
+                  <div id="personal-cabinet-section" className="space-y-4">
                     <div className="border-b border-[var(--border)] pb-3 mb-2 flex items-center gap-2">
                       <span className="w-2 h-2 bg-indigo-500 rounded-none"></span>
                       <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--ink)] font-bold">{t('activeCabinet')}</h3>

@@ -13,6 +13,7 @@ export interface UserProfile {
   instructorId?: string;
   isInstructor?: boolean;
   isClientActive?: boolean;
+  level?: number;
 }
 
 export interface Instructor {

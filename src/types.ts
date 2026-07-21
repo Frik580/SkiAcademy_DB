@@ -71,6 +71,14 @@ export interface Course {
   isHidden?: boolean;
   instructorIds?: string[];
   order?: number;
+  shortDescription?: string;
+  shortDescriptionRu?: string;
+  detailedDescription?: string;
+  detailedDescriptionRu?: string;
+  badge?: string;
+  badgeRu?: string;
+  level?: 'beginner' | 'intermediate' | 'advanced' | 'expert' | '';
+  levelLabel?: string;
 }
 
 export interface ChatMessage {

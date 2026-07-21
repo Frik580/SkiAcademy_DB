@@ -12,7 +12,8 @@ import {
   onSnapshot,
   OperationType,
   handleFirestoreError,
-  runTransaction
+  runTransaction,
+  auth
 } from '../lib/firebase';
 import { UserProfile, Instructor, Booking, Review, Course } from '../types';
 import { useNotifications } from '../components/PushNotificationHub';
@@ -308,8 +309,11 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     await deleteDoc(doc(db, 'courses', courseId));
   };
 
-  const handleBookCourse = async (courseId: string) => {
-    if (!userProfile || !firebaseUser) {
+  const handleBookCourse = async (courseId: string, customProfile?: UserProfile) => {
+    const activeProfile = customProfile || userProfile;
+    const activeUser = firebaseUser || auth.currentUser;
+
+    if (!activeProfile || !activeUser) {
       addNotification(
         'warning',
         language === 'en' ? 'Sign In Required' : 'Требуется войти',
@@ -317,7 +321,7 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
       );
       return;
     }
-    if (userProfile.isClientActive === false) {
+    if (activeProfile.isClientActive === false) {
       addNotification(
         'error',
         language === 'en' ? 'Booking Restricted' : 'Запись ограничена',
@@ -329,8 +333,8 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     }
 
     const courseDocRef = doc(db, 'courses', courseId);
-    const userDocRef = doc(db, 'users', firebaseUser.uid);
-    const bookingId = `booking_course_${firebaseUser.uid}_${courseId}`;
+    const userDocRef = doc(db, 'users', activeUser.uid);
+    const bookingId = `booking_course_${activeUser.uid}_${courseId}`;
     const bookingDocRef = doc(db, 'bookings', bookingId);
 
     try {
@@ -396,8 +400,8 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
 
       // Update local state after transaction succeeds
       const courseObj = courses.find(c => c.id === courseId);
-      if (courseObj) {
-        setUserProfile({ ...userProfile, balanceUSD: userProfile.balanceUSD - courseObj.price });
+      if (courseObj && activeProfile) {
+        setUserProfile({ ...activeProfile, balanceUSD: activeProfile.balanceUSD - courseObj.price });
       }
 
       addNotification(
@@ -447,28 +451,35 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
           return;
         }
 
+        // --- READS ---
+        let userSnap = null;
+        if (!isSystemBlock) {
+          userSnap = await transaction.get(userRef);
+        }
+
+        let courseSnap = null;
+        let courseRef = null;
+        if (bookingData.instructorId.startsWith('course_')) {
+          const courseId = bookingData.instructorId.substring('course_'.length);
+          courseRef = doc(db, 'courses', courseId);
+          courseSnap = await transaction.get(courseRef);
+        }
+
+        // --- WRITES ---
         const refund = bookingData.status === 'completed' ? 0 : (refundAmount ?? bookingData.totalPrice ?? 0);
 
-        if (!isSystemBlock) {
-          const userSnap = await transaction.get(userRef);
-          if (userSnap.exists()) {
-            const userData = userSnap.data() as UserProfile;
-            const newBal = (userData.balanceUSD ?? 0) + refund;
-            transaction.update(userRef, { balanceUSD: newBal });
-          }
+        if (!isSystemBlock && userSnap && userSnap.exists()) {
+          const userData = userSnap.data() as UserProfile;
+          const newBal = (userData.balanceUSD ?? 0) + refund;
+          transaction.update(userRef, { balanceUSD: newBal });
         }
 
         transaction.update(bookingRef, { status: 'cancelled' });
 
-        if (bookingData.instructorId.startsWith('course_')) {
-          const courseId = bookingData.instructorId.substring('course_'.length);
-          const courseRef = doc(db, 'courses', courseId);
-          const courseSnap = await transaction.get(courseRef);
-          if (courseSnap.exists()) {
-            const courseData = courseSnap.data() as Course;
-            const newAvailableSeats = Math.min(courseData.totalSeats, courseData.availableSeats + 1);
-            transaction.update(courseRef, { availableSeats: newAvailableSeats });
-          }
+        if (courseSnap && courseSnap.exists() && courseRef) {
+          const courseData = courseSnap.data() as Course;
+          const newAvailableSeats = Math.min(courseData.totalSeats, courseData.availableSeats + 1);
+          transaction.update(courseRef, { availableSeats: newAvailableSeats });
         }
       });
 

@@ -4,7 +4,7 @@ import {
   registerFirestoreErrorListener
 } from './lib/firebase';
 import { Instructor, CustomHeroSlide } from './types';
-import { LanguageProvider, useLanguage, translateInstructor, translateCourse, splitCourseDates, translateInstructorName } from './lib/LanguageContext';
+import { LanguageProvider, useLanguage, translateInstructor, translateCourse, splitCourseDates } from './lib/LanguageContext';
 
 // Custom Hooks
 import { useTheme } from './components/useTheme';
@@ -19,6 +19,8 @@ import { Auth } from './components/Auth';
 import { LessonFilters } from './components/LessonFilters';
 import { InstructorCard } from './components/InstructorCard';
 import { BookingModal } from './components/BookingModal';
+import { CourseEnrollmentModal } from './components/CourseEnrollmentModal';
+import { CourseDetailsModal } from './components/CourseDetailsModal';
 import { InstructorReviewsModal } from './components/InstructorReviewsModal';
 import { PaymentGateway } from './components/PaymentGateway';
 import { PersonalCabinet } from './components/PersonalCabinet';
@@ -26,7 +28,7 @@ import { AdminPanel } from './components/AdminPanel';
 import logoLight from './assets/images/logo2.png';
 import logoDark from './assets/images/logo1.png';
 
-import { Compass, AlertCircle, RefreshCw, Mountain } from 'lucide-react';
+import { Compass, AlertCircle, RefreshCw, Mountain, ArrowRight } from 'lucide-react';
 
 const FALLBACK_SLIDES: CustomHeroSlide[] = [
   {
@@ -108,6 +110,8 @@ const AppContent: React.FC = () => {
   const [isTopUpOpen, setIsTopUpOpen] = useState<boolean>(false);
   const [isNotifHistoryOpen, setIsNotifHistoryOpen] = useState<boolean>(false);
   const [selectedInstructor, setSelectedInstructor] = useState<Instructor | null>(null);
+  const [selectedCourseForAuth, setSelectedCourseForAuth] = useState<any | null>(null);
+  const [selectedCourseForDetails, setSelectedCourseForDetails] = useState<any | null>(null);
   const [reviewsInstructor, setReviewsInstructor] = useState<Instructor | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<'all' | 'ski' | 'snowboard' | 'both'>('all');
@@ -182,6 +186,13 @@ const AppContent: React.FC = () => {
     }
   };
 
+  const handleScrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)] transition-colors duration-300">
       {/* Global Navbar */}
@@ -203,7 +214,7 @@ const AppContent: React.FC = () => {
           ? 'p-6 overflow-y-auto'
           : userProfile
             ? 'flex flex-col lg:grid lg:grid-cols-[minmax(140px,200px)_1fr] lg:h-[calc(100vh-62px)] lg:overflow-hidden'
-            : 'flex flex-col lg:grid lg:grid-cols-[minmax(140px,200px)_minmax(700px,1.5fr)_minmax(180px,350px)] lg:h-[calc(100vh-62px)] lg:overflow-hidden'
+            : 'flex flex-col lg:grid lg:grid-cols-[minmax(140px,200px)_minmax(450px,1fr)_minmax(250px,320px)] lg:h-[calc(100vh-62px)] lg:overflow-hidden'
       }`}>
         
         {/* Firestore Permission warning notice block */}
@@ -355,7 +366,7 @@ const AppContent: React.FC = () => {
               
               {/* Elegant welcoming Hero block with auto-rotating multi-slide panels */}
               <section 
-                className="relative p-8 md:p-10 border-b border-[var(--border)] overflow-hidden flex flex-col justify-end min-h-[400px] bg-transparent"
+                className="relative p-8 md:p-10 border-b border-[var(--border)] overflow-hidden flex flex-col justify-end min-h-[340px] bg-transparent"
               >
                 {/* Background crossfader */}
                 <AnimatePresence mode="popLayout">
@@ -402,17 +413,41 @@ const AppContent: React.FC = () => {
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -12 }}
                           transition={{ duration: 0.6, ease: "easeOut" }}
-                          className="space-y-3"
+                          className="flex flex-col md:flex-row md:items-end justify-between gap-6"
                         >
-                          <span className={`text-[9px] font-mono uppercase tracking-widest block ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
-                            {language === 'en' ? activeSlide.line1En : activeSlide.line1Ru}
-                          </span>
-                          <h2 className={`text-3xl md:text-4xl lg:text-5xl font-serif font-light leading-[1.1] tracking-tight max-w-4xl ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
-                            {language === 'en' ? activeSlide.line2En : activeSlide.line2Ru}
-                          </h2>
-                          <p className={`text-xs font-mono max-w-lg tracking-wider leading-relaxed pt-1 ${theme === 'light' ? 'text-slate-700' : 'text-slate-400'}`}>
-                            {language === 'en' ? activeSlide.line3En : activeSlide.line3Ru}
-                          </p>
+                          {/* Text content on the left */}
+                          <div className="space-y-3 flex-1 min-w-0">
+                            <span className={`text-[9px] font-mono uppercase tracking-widest block ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+                              {language === 'en' ? activeSlide.line1En : activeSlide.line1Ru}
+                            </span>
+                            <h2 className={`text-2xl md:text-3xl lg:text-4xl font-serif font-light leading-[1.1] tracking-tight max-w-xl ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
+                              {language === 'en' ? activeSlide.line2En : activeSlide.line2Ru}
+                            </h2>
+                            <p className={`text-xs font-mono max-w-lg tracking-wider leading-relaxed pt-1 ${theme === 'light' ? 'text-slate-700' : 'text-slate-400'}`}>
+                              {language === 'en' ? activeSlide.line3En : activeSlide.line3Ru}
+                            </p>
+                          </div>
+
+                          {/* Action Buttons on the right border */}
+                          <div className="flex flex-col gap-2.5 shrink-0 w-full md:w-auto md:min-w-[240px] self-start md:self-end z-20">
+                            <button
+                              onClick={() => handleScrollToSection('coaches-grid')}
+                              className="w-full px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-mono text-[10px] uppercase tracking-widest transition-all duration-300 shadow-lg shadow-blue-500/20 active:translate-y-[1px] cursor-pointer inline-flex items-center justify-center gap-2 font-bold border border-blue-600 hover:border-blue-700 rounded-none"
+                            >
+                              <span>{language === 'en' ? 'Book First Lesson' : 'Записаться на первое занятие'}</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleScrollToSection('courses-grid')}
+                              className={`w-full px-5 py-3 font-mono text-[10px] uppercase tracking-widest transition-all duration-300 active:translate-y-[1px] cursor-pointer inline-flex items-center justify-center gap-2 border rounded-none ${
+                                theme === 'light'
+                                  ? 'bg-slate-100 hover:bg-slate-200 border-slate-200 hover:border-slate-300 text-slate-800'
+                                  : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white'
+                              }`}
+                            >
+                              <span>{language === 'en' ? 'Choose Course' : 'Подобрать курс'}</span>
+                            </button>
+                          </div>
                         </motion.div>
                       );
                     })()}
@@ -475,7 +510,10 @@ const AppContent: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div 
+                    className="grid gap-6"
+                    style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}
+                  >
                     {[...courses].sort((a, b) => {
                       const orderA = a.order !== undefined ? a.order : 999;
                       const orderB = b.order !== undefined ? b.order : 999;
@@ -487,9 +525,25 @@ const AppContent: React.FC = () => {
                       return (
                         <div 
                           key={course.id} 
-                          className="border border-[var(--border)] bg-black/10 dark:bg-black/40 flex flex-col h-full relative overflow-hidden group"
+                          className="border border-[var(--border)] bg-black/5 dark:bg-black/40 flex flex-col h-full relative overflow-hidden group min-w-[260px]"
                         >
-                          <div className="h-40 relative overflow-hidden shrink-0 border-b border-[var(--border)]">
+                          <div className="h-55 relative overflow-hidden shrink-0 border-b border-[var(--border)]">
+                            {course.badge && (
+                              <div className="absolute top-3 left-3 z-10">
+                                {/^(https?:\/\/|\/|data:image\/)/.test(course.badge) || /\.(png|jpg|jpeg|svg|gif|webp)/i.test(course.badge) ? (
+                                  <img 
+                                    src={course.badge} 
+                                    referrerPolicy="no-referrer" 
+                                    alt="badge" 
+                                    className="h-7 w-auto object-contain max-w-[80px]" 
+                                  />
+                                ) : (
+                                  <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-white border border-white/50 bg-transparent backdrop-blur-[2px] px-2 py-0.5 shadow-md">
+                                    {course.badge}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             <img 
                               src={course.bgImageUrl || 'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800'} 
                               referrerPolicy="no-referrer"
@@ -508,91 +562,111 @@ const AppContent: React.FC = () => {
                               <h4 className="font-serif text-lg font-light text-[var(--ink)] leading-tight">
                                 {course.title}
                               </h4>
-                              <p className="text-xs text-[var(--ink-dim)] leading-relaxed font-mono">
-                                {course.description}
-                              </p>
-
-                              {rawCourse.instructorIds && rawCourse.instructorIds.length > 0 && (
-                                <div className="space-y-1.5 pt-2">
-                                  <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--ink-dim)] block">
-                                    {language === 'en' ? 'Course Leads' : 'Ведущие курса'}
-                                  </span>
-                                  <div className="flex gap-2">
-                                    {rawCourse.instructorIds.map((insId) => {
-                                      const ins = instructors.find(i => i.id === insId);
-                                      if (!ins) return null;
-                                      return (
-                                        <div key={insId} className="flex items-center gap-1.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] p-1.5 flex-1 min-w-0">
-                                          <img 
-                                            src={ins.avatarUrl} 
-                                            referrerPolicy="no-referrer"
-                                            alt={ins.name} 
-                                            className="w-6 h-6 object-cover border border-[var(--border)] grayscale shrink-0" 
-                                          />
-                                          <div className="min-w-0 leading-none">
-                                            <p className="text-[9px] font-bold text-[var(--ink)] truncate">
-                                              {translateInstructorName(ins.name, language)}
-                                            </p>
-                                            <p className="text-[8px] text-[var(--ink-dim)] mt-1 truncate">
-                                              {ins.specialty === 'both' ? (language === 'en' ? 'Ski/Snb' : 'Лыжи/Снб') : (ins.specialty === 'ski' ? (language === 'en' ? 'Ski' : 'Лыжи') : (language === 'en' ? 'Snb' : 'Сноуборд'))}
-                                            </p>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
+                              {course.levelLabel && (
+                                <div className={`text-[10px] font-mono uppercase tracking-wider font-bold flex items-center gap-1 mt-1 ${
+                                  course.level === 'beginner' ? 'text-emerald-600 dark:text-emerald-400' :
+                                  course.level === 'intermediate' ? 'text-amber-600 dark:text-amber-400' :
+                                  course.level === 'advanced' ? 'text-rose-600 dark:text-rose-400' :
+                                  course.level === 'expert' ? 'text-stone-500 dark:text-stone-400' : 'text-[var(--ink-dim)]'
+                                }`}>
+                                  {course.levelLabel}
                                 </div>
                               )}
+                              <p className="text-xs text-[var(--ink)] leading-relaxed font-mono">
+                                {course.shortDescription || course.description}
+                              </p>
+
+
                             </div>
 
-                            <div className="space-y-3 pt-2">
+                            <div className="space-y-4 pt-2">
                               {(() => {
                                 const { datePart, timePart } = splitCourseDates(course.dates);
                                 return (
-                                  <>
-                                    <div className="flex justify-between items-center text-[10px] font-mono text-[var(--ink-dim)] border-t border-[var(--border)]/40 pt-3">
-                                      <span>{language === 'en' ? 'Dates' : 'Даты'}:</span>
-                                      <span className="text-[var(--ink)] font-bold">{datePart}</span>
+                                  <div className="space-y-2 text-xs border-t border-[var(--border)]/40 pt-4">
+                                    <div className="flex items-center gap-2 text-[var(--ink-dim)] font-sans font-light">
+                                      <span className="text-sm">📅</span>
+                                      <span className="font-mono text-[11px] tracking-wide">{datePart}</span>
                                     </div>
-                                    <div className="flex justify-between items-center text-[10px] font-mono text-[var(--ink-dim)]">
-                                      <span>{language === 'en' ? 'Time' : 'Время'}:</span>
-                                      <span className="text-[var(--ink)] font-bold">{timePart}</span>
+                                    <div className="flex items-center gap-2 text-[var(--ink-dim)] font-sans font-light">
+                                      <span className="text-sm">🕘</span>
+                                      <span className="font-mono text-[11px] tracking-wide">{timePart}</span>
                                     </div>
-                                  </>
+                                    <div className="flex items-center gap-2 text-[var(--ink)] font-sans font-light">
+                                      {course.availableSeats === 0 ? (
+                                        <>
+                                          <span className="text-sm">🔴</span>
+                                          <span className="font-mono text-[11px] tracking-wide text-rose-500 font-bold">
+                                            {language === 'en' ? 'No seats left' : 'Мест нет'}
+                                          </span>
+                                        </>
+                                      ) : course.availableSeats <= 3 ? (
+                                        <>
+                                          <span className="text-sm">🟠</span>
+                                          <span className="font-mono text-[11px] tracking-wide text-amber-500 font-semibold">
+                                            {language === 'en' ? `Only ${course.availableSeats} seats left!` : `Осталось всего ${course.availableSeats} мест!`}
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span className="text-sm">🟢</span>
+                                          <span className="font-mono text-[11px] tracking-wide text-emerald-500">
+                                            {language === 'en' ? `${course.availableSeats} of ${course.totalSeats} seats available` : `${course.availableSeats} из ${course.totalSeats} мест свободно`}
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="border-t border-[var(--border)]/30 my-3 pt-3 flex justify-between items-baseline">
+                                      <span className="text-2xl font-serif text-[var(--ink)] font-light">${course.price}</span>
+                                      <span className="text-[9px] font-mono tracking-wider text-[var(--ink-dim)]">
+                                        {language === 'en' ? 'per course' : 'за полный курс'}
+                                      </span>
+                                    </div>
+                                  </div>
                                 );
                               })()}
-                              <div className="flex justify-between items-center text-[10px] font-mono text-[var(--ink-dim)]">
-                                <span>{language === 'en' ? 'Available Seats' : 'Свободные места'}:</span>
-                                <span className={`font-bold ${course.availableSeats === 0 ? 'text-rose-500' : 'text-[var(--ink)]'}`}>
-                                  {course.availableSeats} / {course.totalSeats}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center text-[10px] font-mono text-[var(--ink-dim)]">
-                                <span>{language === 'en' ? 'Price' : 'Стоимость'}:</span>
-                                <span className="text-[var(--ink)] font-bold text-sm">${course.price}</span>
-                              </div>
 
-                              <button
-                                onClick={() => handleBookCourse(course.id)}
-                                disabled={(course.availableSeats === 0 && !isEnrolled) || userProfile?.isClientActive === false}
-                                className={`w-full py-2 border font-mono text-[10px] uppercase tracking-wider transition rounded-none ${
-                                  isEnrolled 
-                                    ? 'bg-emerald-950/20 border-emerald-500 text-emerald-400 cursor-default font-bold' 
+                              <div className="grid grid-cols-[2fr_3fr] gap-2">
+                                <button
+                                  onClick={() => setSelectedCourseForDetails(rawCourse)}
+                                  className="w-full py-2 border border-[var(--border)] bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 font-mono text-[10px] uppercase tracking-wider transition rounded-none cursor-pointer text-center text-[var(--ink)]"
+                                >
+                                  {language === 'en' ? 'Details' : 'Подробнее'}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (!userProfile) {
+                                      setSelectedCourseForAuth(rawCourse);
+                                    } else {
+                                      handleBookCourse(course.id);
+                                    }
+                                  }}
+                                  disabled={(course.availableSeats === 0 && !isEnrolled) || userProfile?.isClientActive === false}
+                                  className={`w-full py-2 border font-mono text-[10px] uppercase tracking-wider transition rounded-none ${
+                                    isEnrolled 
+                                      ? 'bg-black/0 dark:bg-black/0 border-[var(--border)]/60 text-[var(--ink-dim)] cursor-default' 
+                                      : userProfile?.isClientActive === false
+                                        ? 'border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10 font-bold'
+                                        : course.availableSeats === 0 
+                                          ? 'border-[var(--border)] text-[var(--ink-dim)] cursor-not-allowed bg-black/5' 
+                                          : 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)] hover:bg-transparent hover:text-[var(--ink)] cursor-pointer'
+                                  }`}
+                                >
+                                  {isEnrolled 
+                                    ? (
+                                      <span className="flex items-center justify-center gap-1 normal-case font-sans">
+                                        <span className="text-emerald-500 font-bold text-xs">✔</span>{' '}
+                                        {language === 'en' ? 'Enrolled' : 'Вы записаны'}
+                                      </span>
+                                    ) 
                                     : userProfile?.isClientActive === false
-                                      ? 'border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10 font-bold'
+                                      ? (language === 'en' ? 'Access Suspended' : 'Доступ приостановлен')
                                       : course.availableSeats === 0 
-                                        ? 'border-[var(--border)] text-[var(--ink-dim)] cursor-not-allowed bg-black/5' 
-                                        : 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)] hover:bg-transparent hover:text-[var(--ink)] cursor-pointer'
-                                }`}
-                              >
-                                {isEnrolled 
-                                  ? (language === 'en' ? '✓ Registered' : '✓ Записан(а)') 
-                                  : userProfile?.isClientActive === false
-                                    ? (language === 'en' ? 'Access Suspended' : 'Доступ приостановлен')
-                                    : course.availableSeats === 0 
-                                      ? (language === 'en' ? 'Sold Out' : 'Мест нет') 
-                                      : (language === 'en' ? `Enroll Now` : `Записаться`)}
-                              </button>
+                                        ? (language === 'en' ? 'Sold Out' : 'Мест нет') 
+                                        : (language === 'en' ? `Enroll →` : `Записаться →`)}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -651,16 +725,6 @@ const AppContent: React.FC = () => {
                             key={ins.id}
                             instructor={ins}
                             onBook={(i) => {
-                              if (!userProfile) {
-                                addNotification(
-                                  'warning',
-                                  language === 'en' ? 'Sign In Required' : 'Требуется войти',
-                                  language === 'en'
-                                    ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.'
-                                    : 'Войдите, чтобы бронировать инструкторов, пополнять кошелек и видеть расписание.'
-                                );
-                                return;
-                              }
                               setSelectedInstructor(i);
                             }}
                             onViewReviews={(i) => setReviewsInstructor(i)}
@@ -711,6 +775,32 @@ const AppContent: React.FC = () => {
         onBookingSuccess={handleBookingSuccess}
         onOpenTopUp={() => setIsTopUpOpen(true)}
         courses={courses}
+        onAuthSuccess={(profile) => setUserProfile(profile)}
+      />
+
+      <CourseEnrollmentModal
+        isOpen={selectedCourseForAuth !== null}
+        onClose={() => setSelectedCourseForAuth(null)}
+        course={selectedCourseForAuth ? translateCourse(selectedCourseForAuth, language) : null}
+        onAuthSuccess={(profile) => setUserProfile(profile)}
+        onEnroll={handleBookCourse}
+      />
+
+      <CourseDetailsModal
+        isOpen={selectedCourseForDetails !== null}
+        onClose={() => setSelectedCourseForDetails(null)}
+        rawCourse={selectedCourseForDetails}
+        course={selectedCourseForDetails ? translateCourse(selectedCourseForDetails, language) : null}
+        instructors={instructors}
+        userProfile={userProfile}
+        isEnrolled={selectedCourseForDetails ? bookings.some(b => b.userId === userProfile?.uid && b.instructorId === `course_${selectedCourseForDetails.id}` && b.status !== 'cancelled') : false}
+        onEnroll={(courseId) => {
+          if (!userProfile) {
+            setSelectedCourseForAuth(selectedCourseForDetails);
+          } else {
+            handleBookCourse(courseId);
+          }
+        }}
       />
 
       <InstructorReviewsModal

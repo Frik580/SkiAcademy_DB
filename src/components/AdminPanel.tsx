@@ -510,6 +510,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [courseTitle, setCourseTitle] = useState('');
   const [courseDuration, setCourseDuration] = useState('');
   const [courseDescription, setCourseDescription] = useState('');
+  const [courseShortDescription, setCourseShortDescription] = useState('');
+  const [courseShortDescriptionRu, setCourseShortDescriptionRu] = useState('');
+  const [courseDetailedDescription, setCourseDetailedDescription] = useState('');
+  const [courseDetailedDescriptionRu, setCourseDetailedDescriptionRu] = useState('');
+  const [courseBadge, setCourseBadge] = useState('');
+  const [courseBadgeRu, setCourseBadgeRu] = useState('');
+  const [courseLevel, setCourseLevel] = useState<'beginner' | 'intermediate' | 'advanced' | 'expert' | ''>('');
   const [courseDates, setCourseDates] = useState('');
   const [courseTotalSeats, setCourseTotalSeats] = useState(10);
   const [coursePrice, setCoursePrice] = useState(199);
@@ -922,7 +929,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       bgImageUrl: courseBgImageUrl || 'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800',
       isHidden: courseIsHidden,
       instructorIds: selectedCourseInstructors,
-      order: editingCourse && editingCourse.order !== undefined ? editingCourse.order : courses.length
+      order: editingCourse && editingCourse.order !== undefined ? editingCourse.order : courses.length,
+      shortDescription: courseShortDescription.trim(),
+      shortDescriptionRu: courseShortDescriptionRu.trim(),
+      detailedDescription: courseDetailedDescription.trim(),
+      detailedDescriptionRu: courseDetailedDescriptionRu.trim(),
+      badge: courseBadge.trim(),
+      badgeRu: courseBadgeRu.trim(),
+      level: courseLevel
     };
 
     try {
@@ -952,6 +966,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setCourseTitle(course.title);
     setCourseDuration(course.duration);
     setCourseDescription(course.description);
+    setCourseShortDescription(course.shortDescription || '');
+    setCourseShortDescriptionRu(course.shortDescriptionRu || '');
+    setCourseDetailedDescription(course.detailedDescription || '');
+    setCourseDetailedDescriptionRu(course.detailedDescriptionRu || '');
+    setCourseBadge(course.badge || '');
+    setCourseBadgeRu(course.badgeRu || '');
+    setCourseLevel(course.level || '');
     setCourseDates(course.dates);
     setCourseTotalSeats(course.totalSeats);
     setCoursePrice(course.price);
@@ -973,6 +994,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setCourseTitle('');
     setCourseDuration('');
     setCourseDescription('');
+    setCourseShortDescription('');
+    setCourseShortDescriptionRu('');
+    setCourseDetailedDescription('');
+    setCourseDetailedDescriptionRu('');
+    setCourseBadge('');
+    setCourseBadgeRu('');
+    setCourseLevel('');
     setCourseDates('');
     setCourseTotalSeats(10);
     setCoursePrice(199);
@@ -4075,6 +4103,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <td className="px-4 py-2">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-bold text-[var(--ink)] block text-xs">{translatedCourse.title}</span>
+                              {translatedCourse.levelLabel && (
+                                <span className={`border text-[8px] font-bold px-1.5 py-0.5 uppercase tracking-wide rounded-none shrink-0 ${
+                                  course.level === 'beginner' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50' :
+                                  course.level === 'intermediate' ? 'bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/50' :
+                                  course.level === 'advanced' ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/50' :
+                                  course.level === 'expert' ? 'bg-stone-50 dark:bg-stone-950/20 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-900/50' :
+                                  'bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-900/50'
+                                }`}>
+                                  {translatedCourse.levelLabel}
+                                </span>
+                              )}
                               {course.isHidden && (
                                 <span className="bg-rose-950/20 text-rose-400 border border-rose-900/50 text-[8px] font-bold px-1.5 py-0.5 uppercase tracking-wide rounded-none shrink-0">
                                   {language === 'en' ? 'Hidden' : 'Скрыт'}
@@ -4405,16 +4444,125 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 {/* Description */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
-                    {language === 'en' ? 'Description' : 'Описание курса'}
+                    {language === 'en' ? 'Fallback Description (EN)' : 'Описание по умолчанию (EN)'}
                   </label>
                   <textarea
                     required
-                    rows={3}
+                    rows={2}
                     value={courseDescription}
                     onChange={(e) => setCourseDescription(e.target.value)}
                     placeholder={language === 'en' ? 'What will students learn?' : 'Чему научатся студенты?'}
-                    className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none leading-relaxed"
+                    className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none leading-relaxed text-xs"
                   />
+                </div>
+
+                {/* Course Level (Difficulty) */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
+                    {language === 'en' ? 'Course Difficulty Level' : 'Сложность курса (Уровень)'}
+                  </label>
+                  <select
+                    value={courseLevel}
+                    onChange={(e) => setCourseLevel(e.target.value as any)}
+                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer font-mono"
+                  >
+                    <option value="" className="bg-[var(--bg)] text-[var(--ink)]">{language === 'en' ? '-- Select level (None) --' : '-- Выберите уровень (Нет) --'}</option>
+                    <option value="beginner" className="bg-[var(--bg)] text-[var(--ink)]">🟢 LEVEL 1 • BEGINNER</option>
+                    <option value="intermediate" className="bg-[var(--bg)] text-[var(--ink)]">🟡 LEVEL 2 • CARVE</option>
+                    <option value="advanced" className="bg-[var(--bg)] text-[var(--ink)]">🔴 LEVEL 3 • PRO</option>
+                    <option value="expert" className="bg-[var(--bg)] text-[var(--ink)]">⚫ LEVEL 4 • EXPERT</option>
+                  </select>
+                </div>
+
+                {/* Additional Details & Translations */}
+                <div className="border-t border-[var(--border)]/40 pt-4 space-y-4">
+                  <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider font-bold block">
+                    {language === 'en' ? 'Badge, Descriptions & Translations' : 'Бейдж, описания и переводы'}
+                  </span>
+
+                  {/* Badges Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-[var(--ink-dim)] block">
+                        {language === 'en' ? 'Card Badge (EN) (text like "PRO" or image URL)' : 'Бейдж на карточке (EN) (текст вроде "PRO" или URL картинки)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={courseBadge}
+                        onChange={(e) => setCourseBadge(e.target.value)}
+                        placeholder="e.g. PRO or https://example.com/badge.png"
+                        className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-[var(--ink-dim)] block">
+                        {language === 'en' ? 'Card Badge (RU) (text like "ПРО" or image URL)' : 'Бейдж на карточке (RU) (текст вроде "ПРО" или URL картинки)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={courseBadgeRu}
+                        onChange={(e) => setCourseBadgeRu(e.target.value)}
+                        placeholder="напр. ПРО или https://example.com/badge.png"
+                        className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Short Descriptions Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-[var(--ink-dim)] block">
+                        {language === 'en' ? 'Short Description (EN) - for Card' : 'Краткое описание (EN) - для карточки'}
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={courseShortDescription}
+                        onChange={(e) => setCourseShortDescription(e.target.value)}
+                        placeholder="Short catchy summary..."
+                        className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-[var(--ink-dim)] block">
+                        {language === 'en' ? 'Short Description (RU) - for Card' : 'Краткое описание (RU) - для карточки'}
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={courseShortDescriptionRu}
+                        onChange={(e) => setCourseShortDescriptionRu(e.target.value)}
+                        placeholder="Краткое описание на русском..."
+                        className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Detailed Descriptions Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-[var(--ink-dim)] block">
+                        {language === 'en' ? 'Detailed Description (EN) - for Modal' : 'Подробное описание (EN) - для окна деталей'}
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={courseDetailedDescription}
+                        onChange={(e) => setCourseDetailedDescription(e.target.value)}
+                        placeholder="Full curriculum details..."
+                        className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-[var(--ink-dim)] block">
+                        {language === 'en' ? 'Detailed Description (RU) - for Modal' : 'Подробное описание (RU) - для окна деталей'}
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={courseDetailedDescriptionRu}
+                        onChange={(e) => setCourseDetailedDescriptionRu(e.target.value)}
+                        placeholder="Подробное описание на русском..."
+                        className="w-full px-3 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Grid for Seats & Price */}

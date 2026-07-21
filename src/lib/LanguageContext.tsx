@@ -482,12 +482,42 @@ export function translateCourse(course: Course, language: Language): Course {
     }
   }
 
+  const shortDescription = language === 'ru'
+    ? (course.shortDescriptionRu || course.shortDescription)
+    : (course.shortDescription || course.shortDescriptionRu);
+
+  const detailedDescription = language === 'ru'
+    ? (course.detailedDescriptionRu || course.detailedDescription)
+    : (course.detailedDescription || course.detailedDescriptionRu);
+
+  const badge = language === 'ru'
+    ? (course.badgeRu || course.badge)
+    : (course.badge || course.badgeRu);
+
+  // Helper to get localized levels
+  let levelLabel = '';
+  if (course.level) {
+    if (course.level === 'beginner') {
+      levelLabel = 'LEVEL 1 • BEGINNER';
+    } else if (course.level === 'intermediate') {
+      levelLabel = 'LEVEL 2 • CARVE';
+    } else if (course.level === 'advanced') {
+      levelLabel = 'LEVEL 3 • PRO';
+    } else if (course.level === 'expert') {
+      levelLabel = 'LEVEL 4 • EXPERT';
+    }
+  }
+
   return {
     ...course,
     title,
     duration,
     description,
-    dates
+    dates,
+    shortDescription,
+    detailedDescription,
+    badge,
+    levelLabel
   };
 }
 

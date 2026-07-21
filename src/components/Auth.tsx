@@ -213,7 +213,9 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
       } else if (isOperationNotAllowed) {
         errMsg = language === 'en' ? 'Email/Password sign-in is disabled. Please contact your administrator.' : 'Вход по почте/паролю отключен в настройках Firebase. Воспользуйтесь демо-аккаунтами или входом через Google.';
       } else if (isNetworkError) {
-        errMsg = language === 'en' ? 'Network error occurred. Please check your internet connection and try again.' : 'Ошибка сети. Пожалуйста, проверьте подключение к интернету и попробуйте еще раз.';
+        errMsg = language === 'en' 
+          ? 'A network error occurred (auth/network-request-failed). This is usually caused by ad-blocking extensions (like uBlock Origin, AdBlock Plus), Brave Shields, or a corporate VPN/firewall blocking requests to Google Firebase Auth servers (identitytoolkit.googleapis.com). Please try disabling your adblocker/shields for this site, check your connection, and try again.' 
+          : 'Произошла ошибка сети (auth/network-request-failed). Обычно это вызвано расширениями для блокировки рекламы (например, uBlock Origin, AdBlock), настройками Brave Shields или корпоративным VPN/файрволом, блокирующими запросы к серверам авторизации Google Firebase (identitytoolkit.googleapis.com). Пожалуйста, попробуйте отключить блокировщик рекламы/Brave Shields для этого сайта, проверьте подключение и повторите попытку.';
       } else {
         // Fallback to include details from the original error if any
         errMsg = language === 'en' 
@@ -287,6 +289,12 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
           : 'Всплывающее окно входа Google заблокировано вашим браузером. Пожалуйста, разрешите всплывающие окна для этого сайта или откройте приложение в новой вкладке (кнопка в правом верхнем углу превью), чтобы войти.';
         setError(popupMsg);
         addNotification('error', language === 'en' ? 'Popup Blocked' : 'Окно заблокировано', popupMsg);
+      } else if (err.code === 'auth/network-request-failed') {
+        const netMsg = language === 'en'
+          ? 'A network error occurred (auth/network-request-failed). This is usually caused by ad-blocking extensions (like uBlock Origin, AdBlock Plus), Brave Shields, or a corporate VPN/firewall blocking requests to Google Firebase Auth servers (identitytoolkit.googleapis.com). Please try disabling your adblocker/shields for this site, check your connection, and try again.'
+          : 'Произошла ошибка сети (auth/network-request-failed). Обычно это вызвано расширениями для блокировки рекламы (например, uBlock Origin, AdBlock), настройками Brave Shields или корпоративным VPN/файрволом, блокирующими запросы к серверам авторизации Google Firebase (identitytoolkit.googleapis.com). Пожалуйста, попробуйте отключить блокировщик рекламы/Brave Shields для этого сайта, проверьте подключение и повторите попытку.';
+        setError(netMsg);
+        addNotification('error', language === 'en' ? 'Network Error' : 'Ошибка сети', netMsg);
       } else if (err.code !== 'auth/popup-closed-by-user') {
         setError(language === 'en' ? 'Google sign-in was interrupted.' : 'Вход через Google был прерван.');
         addNotification('error', 'Google Login Interrupted', err.message);

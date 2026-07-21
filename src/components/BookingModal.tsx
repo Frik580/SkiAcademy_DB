@@ -5,6 +5,7 @@ import { X, Calendar, Clock, HelpCircle, Wallet, ShieldAlert, Sparkles, Loader2 
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, parseCourseDates } from '../lib/LanguageContext';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
+import { Auth } from './Auth';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface BookingModalProps {
   onBookingSuccess: (booking: Booking, totalCost: number) => Promise<void>;
   onOpenTopUp: () => void;
   courses?: Course[];
+  onAuthSuccess?: (profile: UserProfile) => void;
 }
 
 export const BookingModal: React.FC<BookingModalProps> = ({
@@ -23,7 +25,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   userProfile,
   onBookingSuccess,
   onOpenTopUp,
-  courses = []
+  courses = [],
+  onAuthSuccess
 }) => {
   const [activeInstructor, setActiveInstructor] = useState<Instructor | null>(instructor);
 
@@ -354,9 +357,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-md overflow-hidden transition-colors duration-300 rounded-none"
+              className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-md overflow-hidden transition-colors duration-300 rounded-none flex flex-col max-h-[90vh]"
             >
-              <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10">
+              <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10 shrink-0">
                 <h3 className="font-serif text-lg font-light text-[var(--ink)]">
                   {language === 'en' ? 'Sign In Required' : 'Требуется войти'}
                 </h3>
@@ -368,28 +371,19 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="p-6 text-center space-y-5">
-                <div className="p-3 border border-[var(--border)] bg-black/10 text-[var(--ink)] rounded-none w-12 h-12 flex items-center justify-center mx-auto">
-                  <ShieldAlert className="w-5 h-5" />
-                </div>
-                <p className="text-[11px] font-mono text-[var(--ink-dim)] uppercase tracking-wider leading-relaxed">
+              <div className="p-6 overflow-y-auto space-y-4">
+                <p className="text-[11px] font-mono text-[var(--ink-dim)] uppercase tracking-wider text-center leading-relaxed">
                   {language === 'en' 
-                    ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.' 
-                    : 'Войдите, чтобы бронировать инструкторов, пополнять кошелек и видеть расписание.'}
+                    ? 'Sign in or register to schedule training with your instructor.' 
+                    : 'Войдите или зарегистрируйтесь, чтобы записаться на занятие.'}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    const authEl = document.getElementById('auth-section');
-                    if (authEl) {
-                      authEl.scrollIntoView({ behavior: 'smooth' });
+                <div className="border border-[var(--border)] p-4 bg-black/10">
+                  <Auth onSuccess={(profile) => {
+                    if (onAuthSuccess) {
+                      onAuthSuccess(profile);
                     }
-                  }}
-                  className="w-full py-2.5 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer"
-                >
-                  {language === 'en' ? 'Go to Sign In / Register' : 'Перейти к авторизации'}
-                </button>
+                  }} />
+                </div>
               </div>
             </motion.div>
           ) : (

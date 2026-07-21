@@ -79,6 +79,14 @@ export interface Course {
   badgeRu?: string;
   level?: 'beginner' | 'intermediate' | 'advanced' | 'expert' | '';
   levelLabel?: string;
+  videoUrl?: string;
+  benefits?: string[];
+  benefitsRu?: string[];
+  program?: { day: string; title: string; desc: string }[];
+  programRu?: { day: string; title: string; desc: string }[];
+  faq?: { q: string; a: string }[];
+  faqRu?: { q: string; a: string }[];
+  galleryPhotos?: string[];
 }
 
 export interface ChatMessage {

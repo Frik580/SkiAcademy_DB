@@ -527,6 +527,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [courseIsHidden, setCourseIsHidden] = useState(false);
   const [selectedCourseInstructors, setSelectedCourseInstructors] = useState<string[]>([]);
 
+  // Rich Course Page Details States
+  const [showRichCourseDetails, setShowRichCourseDetails] = useState(false);
+  const [courseVideoUrl, setCourseVideoUrl] = useState('');
+  const [courseBenefitsEn, setCourseBenefitsEn] = useState('');
+  const [courseBenefitsRu, setCourseBenefitsRu] = useState('');
+  
+  // Program Days States
+  const [courseProgramDays, setCourseProgramDays] = useState<{
+    titleEn: string;
+    descEn: string;
+    titleRu: string;
+    descRu: string;
+  }[]>([
+    { titleEn: '', descEn: '', titleRu: '', descRu: '' }
+  ]);
+  
+  // FAQ 1-3 States
+  const [courseFaq1QEn, setCourseFaq1QEn] = useState('');
+  const [courseFaq1AEn, setCourseFaq1AEn] = useState('');
+  const [courseFaq1QRu, setCourseFaq1QRu] = useState('');
+  const [courseFaq1ARu, setCourseFaq1ARu] = useState('');
+  
+  const [courseFaq2QEn, setCourseFaq2QEn] = useState('');
+  const [courseFaq2AEn, setCourseFaq2AEn] = useState('');
+  const [courseFaq2QRu, setCourseFaq2QRu] = useState('');
+  const [courseFaq2ARu, setCourseFaq2ARu] = useState('');
+  
+  const [courseFaq3QEn, setCourseFaq3QEn] = useState('');
+  const [courseFaq3AEn, setCourseFaq3AEn] = useState('');
+  const [courseFaq3QRu, setCourseFaq3QRu] = useState('');
+  const [courseFaq3ARu, setCourseFaq3ARu] = useState('');
+  
+  const [courseGalleryPhotos, setCourseGalleryPhotos] = useState('');
+
   // Calendar Course Date/Time States
   const [courseStartDate, setCourseStartDate] = useState<string>(() => formatDateLocalYMD(new Date()));
   const [courseEndDate, setCourseEndDate] = useState<string>(() => {
@@ -914,30 +948,113 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     setIsSubmittingCourse(true);
 
+    const benefitsArr = courseBenefitsEn.split('\n').map(b => b.trim()).filter(Boolean);
+    const benefitsRuArr = courseBenefitsRu.split('\n').map(b => b.trim()).filter(Boolean);
+    
+    const programArr = courseProgramDays
+      .map((day, idx) => ({
+        day: `Day ${idx + 1}`,
+        title: day.titleEn.trim(),
+        desc: day.descEn.trim()
+      }))
+      .filter(p => p.title);
+    
+    const programRuArr = courseProgramDays
+      .map((day, idx) => ({
+        day: `День ${idx + 1}`,
+        title: day.titleRu.trim(),
+        desc: day.descRu.trim()
+      }))
+      .filter(p => p.title);
+    
+    const faqArr = [
+      { q: courseFaq1QEn.trim(), a: courseFaq1AEn.trim() },
+      { q: courseFaq2QEn.trim(), a: courseFaq2AEn.trim() },
+      { q: courseFaq3QEn.trim(), a: courseFaq3AEn.trim() }
+    ].filter(f => f.q && f.a);
+    
+    const faqRuArr = [
+      { q: courseFaq1QRu.trim(), a: courseFaq1ARu.trim() },
+      { q: courseFaq2QRu.trim(), a: courseFaq2ARu.trim() },
+      { q: courseFaq3QRu.trim(), a: courseFaq3ARu.trim() }
+    ].filter(f => f.q && f.a);
+    
+    const galleryArr = courseGalleryPhotos.split('\n').map(p => p.trim()).filter(Boolean);
+
     const courseId = editingCourse ? editingCourse.id : `course_${Date.now()}`;
-    const courseData: Course = {
-      id: courseId,
-      title: courseTitle.trim(),
-      duration: courseDuration.trim(),
-      description: courseDescription.trim(),
-      dates: courseDates.trim(),
-      totalSeats: Number(courseTotalSeats),
-      availableSeats: editingCourse 
-        ? Math.min(Number(courseTotalSeats), Number(courseTotalSeats) - (editingCourse.totalSeats - editingCourse.availableSeats)) 
-        : Number(courseTotalSeats),
-      price: Number(coursePrice),
-      bgImageUrl: courseBgImageUrl || 'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800',
-      isHidden: courseIsHidden,
-      instructorIds: selectedCourseInstructors,
-      order: editingCourse && editingCourse.order !== undefined ? editingCourse.order : courses.length,
-      shortDescription: courseShortDescription.trim(),
-      shortDescriptionRu: courseShortDescriptionRu.trim(),
-      detailedDescription: courseDetailedDescription.trim(),
-      detailedDescriptionRu: courseDetailedDescriptionRu.trim(),
-      badge: courseBadge.trim(),
-      badgeRu: courseBadgeRu.trim(),
-      level: courseLevel
+    const courseData: any = {
+      id: courseId
     };
+
+    if (editingCourse) {
+      if (courseTitle.trim()) courseData.title = courseTitle.trim();
+      if (courseDuration.trim()) courseData.duration = courseDuration.trim();
+      if (courseDescription.trim()) courseData.description = courseDescription.trim();
+      if (courseDates.trim()) courseData.dates = courseDates.trim();
+      if (courseTotalSeats) {
+        courseData.totalSeats = Number(courseTotalSeats);
+        courseData.availableSeats = Math.min(
+          Number(courseTotalSeats),
+          Number(courseTotalSeats) - (editingCourse.totalSeats - editingCourse.availableSeats)
+        );
+      }
+      if (coursePrice) courseData.price = Number(coursePrice);
+      if (courseBgImageUrl.trim()) courseData.bgImageUrl = courseBgImageUrl.trim();
+      
+      courseData.isHidden = courseIsHidden;
+      
+      if (selectedCourseInstructors.length > 0) courseData.instructorIds = selectedCourseInstructors;
+      if (courseShortDescription.trim()) courseData.shortDescription = courseShortDescription.trim();
+      if (courseShortDescriptionRu.trim()) courseData.shortDescriptionRu = courseShortDescriptionRu.trim();
+      if (courseDetailedDescription.trim()) courseData.detailedDescription = courseDetailedDescription.trim();
+      if (courseDetailedDescriptionRu.trim()) courseData.detailedDescriptionRu = courseDetailedDescriptionRu.trim();
+      if (courseBadge.trim()) courseData.badge = courseBadge.trim();
+      if (courseBadgeRu.trim()) courseData.badgeRu = courseBadgeRu.trim();
+      if (courseLevel) courseData.level = courseLevel;
+      if (courseVideoUrl.trim()) courseData.videoUrl = courseVideoUrl.trim();
+      if (benefitsArr.length > 0) courseData.benefits = benefitsArr;
+      if (benefitsRuArr.length > 0) courseData.benefitsRu = benefitsRuArr;
+      if (programArr.length > 0) courseData.program = programArr;
+      if (programRuArr.length > 0) courseData.programRu = programRuArr;
+      if (faqArr.length > 0) courseData.faq = faqArr;
+      if (faqRuArr.length > 0) courseData.faqRu = faqRuArr;
+      if (galleryArr.length > 0) courseData.galleryPhotos = galleryArr;
+    } else {
+      courseData.title = courseTitle.trim();
+      courseData.duration = courseDuration.trim();
+      courseData.description = courseDescription.trim();
+      courseData.dates = courseDates.trim();
+      courseData.totalSeats = Number(courseTotalSeats) || 5;
+      courseData.availableSeats = Number(courseTotalSeats) || 5;
+      courseData.price = Number(coursePrice) || 150;
+      courseData.bgImageUrl = courseBgImageUrl.trim() || 'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800';
+      courseData.isHidden = courseIsHidden;
+      courseData.instructorIds = selectedCourseInstructors;
+      courseData.order = courses.length;
+      
+      if (courseShortDescription.trim()) courseData.shortDescription = courseShortDescription.trim();
+      if (courseShortDescriptionRu.trim()) courseData.shortDescriptionRu = courseShortDescriptionRu.trim();
+      if (courseDetailedDescription.trim()) courseData.detailedDescription = courseDetailedDescription.trim();
+      if (courseDetailedDescriptionRu.trim()) courseData.detailedDescriptionRu = courseDetailedDescriptionRu.trim();
+      if (courseBadge.trim()) courseData.badge = courseBadge.trim();
+      if (courseBadgeRu.trim()) courseData.badgeRu = courseBadgeRu.trim();
+      if (courseLevel) courseData.level = courseLevel;
+      if (courseVideoUrl.trim()) courseData.videoUrl = courseVideoUrl.trim();
+      if (benefitsArr.length > 0) courseData.benefits = benefitsArr;
+      if (benefitsRuArr.length > 0) courseData.benefitsRu = benefitsRuArr;
+      if (programArr.length > 0) courseData.program = programArr;
+      if (programRuArr.length > 0) courseData.programRu = programRuArr;
+      if (faqArr.length > 0) courseData.faq = faqArr;
+      if (faqRuArr.length > 0) courseData.faqRu = faqRuArr;
+      if (galleryArr.length > 0) courseData.galleryPhotos = galleryArr;
+    }
+
+    // Clean any undefined properties from courseData before sending to Firestore
+    Object.keys(courseData).forEach(key => {
+      if ((courseData as any)[key] === undefined) {
+        delete (courseData as any)[key];
+      }
+    });
 
     try {
       if (editingCourse) {
@@ -979,6 +1096,45 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setCourseBgImageUrl(course.bgImageUrl);
     setCourseIsHidden(!!course.isHidden);
     setSelectedCourseInstructors(course.instructorIds || []);
+    
+    // Rich course fields
+    setCourseVideoUrl(course.videoUrl || '');
+    setCourseBenefitsEn((course.benefits || []).join('\n'));
+    setCourseBenefitsRu((course.benefitsRu || []).join('\n'));
+    
+    const loadedProgramDays = [];
+    const maxDays = Math.max(course.program?.length || 0, course.programRu?.length || 0);
+    for (let i = 0; i < maxDays; i++) {
+      loadedProgramDays.push({
+        titleEn: course.program?.[i]?.title || '',
+        descEn: course.program?.[i]?.desc || '',
+        titleRu: course.programRu?.[i]?.title || '',
+        descRu: course.programRu?.[i]?.desc || ''
+      });
+    }
+    if (loadedProgramDays.length === 0) {
+      loadedProgramDays.push({ titleEn: '', descEn: '', titleRu: '', descRu: '' });
+    }
+    setCourseProgramDays(loadedProgramDays);
+    
+    setCourseFaq1QEn(course.faq?.[0]?.q || '');
+    setCourseFaq1AEn(course.faq?.[0]?.a || '');
+    setCourseFaq1QRu(course.faqRu?.[0]?.q || '');
+    setCourseFaq1ARu(course.faqRu?.[0]?.a || '');
+    
+    setCourseFaq2QEn(course.faq?.[1]?.q || '');
+    setCourseFaq2AEn(course.faq?.[1]?.a || '');
+    setCourseFaq2QRu(course.faqRu?.[1]?.q || '');
+    setCourseFaq2ARu(course.faqRu?.[1]?.a || '');
+    
+    setCourseFaq3QEn(course.faq?.[2]?.q || '');
+    setCourseFaq3AEn(course.faq?.[2]?.a || '');
+    setCourseFaq3QRu(course.faqRu?.[2]?.q || '');
+    setCourseFaq3ARu(course.faqRu?.[2]?.a || '');
+    
+    setCourseGalleryPhotos((course.galleryPhotos || []).join('\n'));
+    setShowRichCourseDetails(false);
+    
     setShowCourseForm(true);
 
     // Parse course dates into calendar states
@@ -1007,6 +1163,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setCourseBgImageUrl('');
     setCourseIsHidden(false);
     setSelectedCourseInstructors([]);
+    
+    // Rich course fields
+    setCourseVideoUrl('');
+    setCourseBenefitsEn('');
+    setCourseBenefitsRu('');
+    setCourseProgramDays([{ titleEn: '', descEn: '', titleRu: '', descRu: '' }]);
+    setCourseFaq1QEn('');
+    setCourseFaq1AEn('');
+    setCourseFaq1QRu('');
+    setCourseFaq1ARu('');
+    setCourseFaq2QEn('');
+    setCourseFaq2AEn('');
+    setCourseFaq2QRu('');
+    setCourseFaq2ARu('');
+    setCourseFaq3QEn('');
+    setCourseFaq3AEn('');
+    setCourseFaq3QRu('');
+    setCourseFaq3ARu('');
+    setCourseGalleryPhotos('');
+    setShowRichCourseDetails(false);
+
     setEditingCourse(null);
     setShowCourseForm(false);
 
@@ -4703,6 +4880,291 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       : '* Нажмите, чтобы выбрать/убрать гида (минимум 1, максимум 2).'}
                   </p>
                 </div>
+
+                {/* Rich Details Trigger Button */}
+                <div className="pt-2 border-t border-[var(--border)]/40">
+                  <button
+                    type="button"
+                    onClick={() => setShowRichCourseDetails(!showRichCourseDetails)}
+                    className="w-full py-2 px-3 border border-[var(--border)] hover:border-[var(--ink)] bg-black/5 dark:bg-white/5 text-[var(--ink)] font-mono text-[10px] uppercase tracking-wider flex items-center justify-between transition rounded-none cursor-pointer"
+                  >
+                    <span>
+                      {language === 'en' ? 'Edit Course Page Details' : 'Редактировать детали страницы курса'}
+                    </span>
+                    <span className="font-bold text-xs">{showRichCourseDetails ? '−' : '+'}</span>
+                  </button>
+                </div>
+
+                {/* Collapsible Rich Details Section */}
+                {showRichCourseDetails && (
+                  <div className="space-y-4 p-3 border border-[var(--border)] bg-black/5 dark:bg-white/5 animate-fade-in font-mono text-xs">
+                    <p className="text-[9px] text-[var(--ink-dim)] uppercase tracking-widest font-bold border-b border-[var(--border)] pb-1.5 mb-2">
+                      {language === 'en' ? 'Course Details Page Overrides' : 'Настройки страницы деталей курса'}
+                    </p>
+
+                    {/* Video URL */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] text-[var(--ink-dim)] uppercase block">
+                        {language === 'en' ? 'Promo Video URL (Direct Video File / .mp4 / Unsplash URL)' : 'Ссылка на промо-видео (Прямая ссылка / .mp4 / Unsplash URL)'}
+                      </label>
+                      <input
+                        type="url"
+                        value={courseVideoUrl}
+                        onChange={(e) => setCourseVideoUrl(e.target.value)}
+                        placeholder="https://player.vimeo.com/external/...mp4 or other direct stream URL"
+                        className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs font-mono"
+                      />
+                    </div>
+
+                    {/* Benefits Section */}
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-[var(--ink-dim)] uppercase block">
+                          {language === 'en' ? 'Benefits (EN) - One per line' : 'Преимущества (EN) - По одному на строке'}
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={courseBenefitsEn}
+                          onChange={(e) => setCourseBenefitsEn(e.target.value)}
+                          placeholder="e.g.&#10;Professional video analysis&#10;Custom ski tuning advice&#10;Skipass inclusion"
+                          className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-[var(--ink-dim)] uppercase block">
+                          {language === 'en' ? 'Benefits (RU) - One per line' : 'Преимущества (RU) - По одному на строке'}
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={courseBenefitsRu}
+                          onChange={(e) => setCourseBenefitsRu(e.target.value)}
+                          placeholder="напр.&#10;Профессиональный видеоанализ&#10;Советы по подготовке лыж&#10;Скипасс включен в стоимость"
+                          className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Program Section */}
+                    <div className="border-t border-[var(--border)] pt-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider font-bold">
+                          {language === 'en' ? 'Day-by-Day Program' : 'Подневная программа курса'}
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (courseProgramDays.length > 1) {
+                                setCourseProgramDays(courseProgramDays.slice(0, -1));
+                              }
+                            }}
+                            disabled={courseProgramDays.length <= 1}
+                            className="px-2 py-1 border border-[var(--border)] text-[9px] uppercase tracking-wider hover:border-[var(--ink)] disabled:opacity-50 disabled:cursor-not-allowed font-mono text-[var(--ink)] bg-transparent rounded-none transition cursor-pointer"
+                          >
+                            {language === 'en' ? '− Remove Day' : '− Уменьшить дни'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCourseProgramDays([...courseProgramDays, { titleEn: '', descEn: '', titleRu: '', descRu: '' }]);
+                            }}
+                            className="px-2 py-1 border border-[var(--border)] text-[9px] uppercase tracking-wider hover:border-[var(--ink)] font-mono text-[var(--ink)] bg-transparent rounded-none transition cursor-pointer"
+                          >
+                            {language === 'en' ? '+ Add Day' : '+ Увеличить дни'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {courseProgramDays.map((day, idx) => (
+                        <div key={idx} className="space-y-2 border-l border-[var(--border)] pl-2.5">
+                          <p className="text-[9px] font-bold uppercase text-[var(--ink-dim)]">
+                            {language === 'en' ? `Day ${idx + 1}` : `День ${idx + 1}`}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              value={day.titleEn}
+                              onChange={(e) => {
+                                const updated = [...courseProgramDays];
+                                updated[idx] = { ...updated[idx], titleEn: e.target.value };
+                                setCourseProgramDays(updated);
+                              }}
+                              placeholder="Title (EN)"
+                              className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs font-mono"
+                            />
+                            <input
+                              type="text"
+                              value={day.titleRu}
+                              onChange={(e) => {
+                                const updated = [...courseProgramDays];
+                                updated[idx] = { ...updated[idx], titleRu: e.target.value };
+                                setCourseProgramDays(updated);
+                              }}
+                              placeholder="Название (RU)"
+                              className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs font-mono"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <textarea
+                              rows={2}
+                              value={day.descEn}
+                              onChange={(e) => {
+                                const updated = [...courseProgramDays];
+                                updated[idx] = { ...updated[idx], descEn: e.target.value };
+                                setCourseProgramDays(updated);
+                              }}
+                              placeholder="Description (EN)"
+                              className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                            />
+                            <textarea
+                              rows={2}
+                              value={day.descRu}
+                              onChange={(e) => {
+                                const updated = [...courseProgramDays];
+                                updated[idx] = { ...updated[idx], descRu: e.target.value };
+                                setCourseProgramDays(updated);
+                              }}
+                              placeholder="Описание (RU)"
+                              className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* FAQ 1-3 Section */}
+                    <div className="border-t border-[var(--border)] pt-3 space-y-3">
+                      <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider font-bold block">
+                        {language === 'en' ? 'FAQ Section (Up to 3 Questions)' : 'Раздел часто задаваемых вопросов (До 3 вопросов)'}
+                      </span>
+
+                      {/* FAQ 1 */}
+                      <div className="space-y-2 border-l border-[var(--border)] pl-2.5">
+                        <p className="text-[9px] font-bold uppercase text-[var(--ink-dim)]">{language === 'en' ? 'FAQ 1' : 'Вопрос 1'}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={courseFaq1QEn}
+                            onChange={(e) => setCourseFaq1QEn(e.target.value)}
+                            placeholder="Question (EN)"
+                            className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs font-mono"
+                          />
+                          <input
+                            type="text"
+                            value={courseFaq1QRu}
+                            onChange={(e) => setCourseFaq1QRu(e.target.value)}
+                            placeholder="Вопрос (RU)"
+                            className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs font-mono"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <textarea
+                            rows={2}
+                            value={courseFaq1AEn}
+                            onChange={(e) => setCourseFaq1AEn(e.target.value)}
+                            placeholder="Answer (EN)"
+                            className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                          />
+                          <textarea
+                            rows={2}
+                            value={courseFaq1ARu}
+                            onChange={(e) => setCourseFaq1ARu(e.target.value)}
+                            placeholder="Ответ (RU)"
+                            className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {/* FAQ 2 */}
+                      <div className="space-y-2 border-l border-[var(--border)] pl-2.5">
+                        <p className="text-[9px] font-bold uppercase text-[var(--ink-dim)]">{language === 'en' ? 'FAQ 2' : 'Вопрос 2'}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={courseFaq2QEn}
+                            onChange={(e) => setCourseFaq2QEn(e.target.value)}
+                            placeholder="Question (EN)"
+                            className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs font-mono"
+                          />
+                          <input
+                            type="text"
+                            value={courseFaq2QRu}
+                            onChange={(e) => setCourseFaq2QRu(e.target.value)}
+                            placeholder="Вопрос (RU)"
+                            className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs font-mono"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <textarea
+                            rows={2}
+                            value={courseFaq2AEn}
+                            onChange={(e) => setCourseFaq2AEn(e.target.value)}
+                            placeholder="Answer (EN)"
+                            className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                          />
+                          <textarea
+                            rows={2}
+                            value={courseFaq2ARu}
+                            onChange={(e) => setCourseFaq2ARu(e.target.value)}
+                            placeholder="Ответ (RU)"
+                            className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {/* FAQ 3 */}
+                      <div className="space-y-2 border-l border-[var(--border)] pl-2.5">
+                        <p className="text-[9px] font-bold uppercase text-[var(--ink-dim)]">{language === 'en' ? 'FAQ 3' : 'Вопрос 3'}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={courseFaq3QEn}
+                            onChange={(e) => setCourseFaq3QEn(e.target.value)}
+                            placeholder="Question (EN)"
+                            className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs font-mono"
+                          />
+                          <input
+                            type="text"
+                            value={courseFaq3QRu}
+                            onChange={(e) => setCourseFaq3QRu(e.target.value)}
+                            placeholder="Вопрос (RU)"
+                            className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none text-xs font-mono"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <textarea
+                            rows={2}
+                            value={courseFaq3AEn}
+                            onChange={(e) => setCourseFaq3AEn(e.target.value)}
+                            placeholder="Answer (EN)"
+                            className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                          />
+                          <textarea
+                            rows={2}
+                            value={courseFaq3ARu}
+                            onChange={(e) => setCourseFaq3ARu(e.target.value)}
+                            placeholder="Ответ (RU)"
+                            className="w-full px-2 py-1 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Gallery Photos Section */}
+                    <div className="border-t border-[var(--border)] pt-3 space-y-1">
+                      <label className="text-[9px] text-[var(--ink-dim)] uppercase block">
+                        {language === 'en' ? 'Gallery Photos (Unsplash/Image URLs) - One per line' : 'Фотогалерея (Ссылки на Unsplash/Картинки) - По одной на строке'}
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={courseGalleryPhotos}
+                        onChange={(e) => setCourseGalleryPhotos(e.target.value)}
+                        placeholder="https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800"
+                        className="w-full px-2.5 py-1.5 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Visibility Toggle */}
                 <div className="flex items-center gap-2 border border-[var(--border)] p-2.5 bg-black/5 dark:bg-white/5 transition">

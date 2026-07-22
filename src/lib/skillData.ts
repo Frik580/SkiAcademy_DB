@@ -127,6 +127,7 @@ export function calculateSkillProgress(
 ) {
   const targetLevelTarget = currentLevel >= 4 ? 3 : Math.min(3, Math.max(1, currentLevel));
   const targetItems = items.filter(i => i.levelTarget === targetLevelTarget);
+  const displayItems = items.filter(i => i.levelTarget <= targetLevelTarget);
 
   const targetMaxPoints = targetItems.reduce((acc, i) => acc + i.maxPoints, 0);
   const targetEarnedPoints = targetItems.reduce((acc, i) => acc + (skillScores[i.id] || 0), 0);
@@ -161,6 +162,7 @@ export function calculateSkillProgress(
   return {
     targetLevelTarget,
     targetItems,
+    displayItems,
     targetMaxPoints,
     targetEarnedPoints,
     targetRequiredPoints,

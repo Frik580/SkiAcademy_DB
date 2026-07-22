@@ -26,7 +26,7 @@ import { useTheme } from './useTheme';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
 import { BookingChatModal } from './BookingChatModal';
 import { InstructorWorkspace } from './InstructorWorkspace';
-import { SkillConfig } from '../lib/skillData';
+import { SkillConfig, DEFAULT_SKILL_CONFIG, calculateSkillProgress } from '../lib/skillData';
 import { ClientSkillProgressView } from './ClientSkillProgressView';
 
 interface PersonalCabinetProps {
@@ -194,6 +194,15 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   const [isLoadingInstructorBookings, setIsLoadingInstructorBookings] = useState<boolean>(false);
   const [levelUpModal, setLevelUpModal] = useState<{ show: boolean; level: number } | null>(null);
   const prevLevelRef = useRef<number | undefined>(undefined);
+
+  const skillProgress = useMemo(() => {
+    return calculateSkillProgress(
+      userProfile?.skillScores || {},
+      skillConfig?.items || DEFAULT_SKILL_CONFIG.items,
+      userProfile?.level || 1,
+      skillConfig?.passPercentage ?? 80
+    );
+  }, [userProfile?.skillScores, userProfile?.level, skillConfig]);
 
   useEffect(() => {
     const currentLevel = userProfile?.level || 1;
@@ -871,8 +880,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           </div>
 
           {/* Level Status Card */}
-          <div className="flex flex-col items-center justify-between gap-4 py-[10px]">
-            <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-col items-center justify-between gap-4 py-[10px] w-full">
+            <div className="flex flex-col items-center gap-3 w-full">
               <div 
                 onClick={() => setLevelUpModal({ show: true, level: userProfile.level || 1 })}
                 className={`${(userProfile.level || 1) === 4 ? 'w-52 h-52' : 'w-40 h-40'} flex items-center justify-center shrink-0 relative transition-all duration-300 cursor-pointer group`}
@@ -891,6 +900,43 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                     e.currentTarget.style.display = 'none';
                   }}
                 />
+              </div>
+
+              {/* 📊 Indicators under Level Icon showing ONLY % */}
+              <div className="w-full space-y-1 mt-1">
+                <div className="grid grid-cols-3 gap-1.5 text-center">
+                  
+                  {/* Контроль */}
+                  <div className="p-2 flex flex-col items-center justify-center">
+                    <span className="text-[9px] font-mono uppercase tracking-wider text-cyan-300 font-bold block truncate w-full">
+                      {language === 'ru' ? 'Контроль' : 'Control'}
+                    </span>
+                    <span className="text-xl font-serif font-bold text-cyan-300 mt-0.5 block">
+                      {skillProgress.control.percentage}%
+                    </span>
+                  </div>
+
+                  {/* Скорость */}
+                  <div className="p-2 flex flex-col items-center justify-center">
+                    <span className="text-[9px] font-mono uppercase tracking-wider text-amber-300 font-bold block truncate w-full">
+                      {language === 'ru' ? 'Скорость' : 'Speed'}
+                    </span>
+                    <span className="text-xl font-serif font-bold text-amber-300 mt-0.5 block">
+                      {skillProgress.speed.percentage}%
+                    </span>
+                  </div>
+
+                  {/* Техника */}
+                  <div className="p-2 flex flex-col items-center justify-center">
+                    <span className="text-[9px] font-mono uppercase tracking-wider text-purple-300 font-bold block truncate w-full">
+                      {language === 'ru' ? 'Техника' : 'Technique'}
+                    </span>
+                    <span className="text-xl font-serif font-bold text-purple-300 mt-0.5 block">
+                      {skillProgress.technique.percentage}%
+                    </span>
+                  </div>
+
+                </div>
               </div>
             </div>
           </div>

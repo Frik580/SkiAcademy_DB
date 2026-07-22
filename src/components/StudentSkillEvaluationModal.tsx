@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { SkillConfig, DEFAULT_SKILL_CONFIG, calculateStudentLevel, calculateSkillProgress } from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
 import { X, Save, Award, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -90,9 +91,9 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="bg-[var(--bg)] border border-[var(--border)] w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl rounded-none overflow-hidden text-[var(--ink)]">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
+      <div className="bg-[var(--bg)] border border-[var(--border)] w-full max-w-4xl max-h-[90vh] my-auto flex flex-col shadow-2xl rounded-none overflow-hidden text-[var(--ink)] relative">
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-black/20">
@@ -293,6 +294,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

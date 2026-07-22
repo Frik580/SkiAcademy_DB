@@ -15,6 +15,7 @@ export interface UserProfile {
   isClientActive?: boolean;
   level?: number;
   skillScores?: Record<string, number>;
+  hideProgressTracking?: boolean;
 }
 
 export interface Instructor {

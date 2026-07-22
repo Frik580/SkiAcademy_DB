@@ -18,7 +18,8 @@ import {
   MessageSquare,
   Sliders,
   UserCheck,
-  Lock
+  Lock,
+  Activity
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, parseDurationHours, splitCourseDates } from '../lib/LanguageContext';
@@ -903,42 +904,68 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               </div>
 
               {/* 📊 Indicators under Level Icon showing ONLY % */}
-              <div className="w-full space-y-1 mt-1">
-                <div className="grid grid-cols-3 gap-1.5 text-center">
-                  
-                  {/* Контроль */}
-                  <div className="p-2 flex flex-col items-center justify-center">
-                    <span className="text-[9px] font-mono uppercase tracking-wider text-cyan-300 font-bold block truncate w-full">
-                      {language === 'ru' ? 'Контроль' : 'Control'}
-                    </span>
-                    <span className="text-xl font-serif font-bold text-cyan-300 mt-0.5 block">
-                      {skillProgress.control.percentage}%
-                    </span>
-                  </div>
+              {!userProfile.hideProgressTracking ? (
+                <div className="w-full space-y-1 mt-1">
+                  <div className="grid grid-cols-3 gap-1.5 text-center">
+                    
+                    {/* Контроль */}
+                    <div className="p-2 flex flex-col items-center justify-center">
+                      <span className="text-[9px] font-mono uppercase tracking-wider text-cyan-300 font-bold block truncate w-full">
+                        {language === 'ru' ? 'Контроль' : 'Control'}
+                      </span>
+                      <span className="text-xl font-serif font-bold text-cyan-300 mt-0.5 block">
+                        {skillProgress.control.percentage}%
+                      </span>
+                    </div>
 
-                  {/* Скорость */}
-                  <div className="p-2 flex flex-col items-center justify-center">
-                    <span className="text-[9px] font-mono uppercase tracking-wider text-amber-300 font-bold block truncate w-full">
-                      {language === 'ru' ? 'Скорость' : 'Speed'}
-                    </span>
-                    <span className="text-xl font-serif font-bold text-amber-300 mt-0.5 block">
-                      {skillProgress.speed.percentage}%
-                    </span>
-                  </div>
+                    {/* Скорость */}
+                    <div className="p-2 flex flex-col items-center justify-center">
+                      <span className="text-[9px] font-mono uppercase tracking-wider text-amber-300 font-bold block truncate w-full">
+                        {language === 'ru' ? 'Скорость' : 'Speed'}
+                      </span>
+                      <span className="text-xl font-serif font-bold text-amber-300 mt-0.5 block">
+                        {skillProgress.speed.percentage}%
+                      </span>
+                    </div>
 
-                  {/* Техника */}
-                  <div className="p-2 flex flex-col items-center justify-center">
-                    <span className="text-[9px] font-mono uppercase tracking-wider text-purple-300 font-bold block truncate w-full">
-                      {language === 'ru' ? 'Техника' : 'Technique'}
-                    </span>
-                    <span className="text-xl font-serif font-bold text-purple-300 mt-0.5 block">
-                      {skillProgress.technique.percentage}%
-                    </span>
-                  </div>
+                    {/* Техника */}
+                    <div className="p-2 flex flex-col items-center justify-center">
+                      <span className="text-[9px] font-mono uppercase tracking-wider text-purple-300 font-bold block truncate w-full">
+                        {language === 'ru' ? 'Техника' : 'Technique'}
+                      </span>
+                      <span className="text-xl font-serif font-bold text-purple-300 mt-0.5 block">
+                        {skillProgress.technique.percentage}%
+                      </span>
+                    </div>
 
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider text-center py-2">
+                  {language === 'ru' ? 'Отслеживание отключено' : 'Tracking Disabled'}
+                </div>
+              )}
             </div>
+          </div>
+
+          {/* ⚙️ Progress Tracking Toggle Setting */}
+          <div className="border border-[var(--border)] p-3 flex items-center justify-between bg-black/10 text-[10px] font-mono uppercase tracking-wider">
+            <div className="flex items-center gap-2 text-[var(--ink)] min-w-0">
+              <Activity className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span className="truncate">{language === 'ru' ? 'Отслеживание прогресса' : 'Progress Tracking'}</span>
+            </div>
+            <button
+              onClick={() => onUpdateProfile?.({ hideProgressTracking: !userProfile.hideProgressTracking })}
+              className={`px-2.5 py-1 text-[9px] font-bold uppercase transition-all cursor-pointer border shrink-0 ${
+                !userProfile.hideProgressTracking
+                  ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200 hover:bg-indigo-600/50'
+                  : 'bg-black/30 border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
+              }`}
+            >
+              {!userProfile.hideProgressTracking 
+                ? (language === 'ru' ? 'Вкл' : 'On') 
+                : (language === 'ru' ? 'Выкл' : 'Off')}
+            </button>
           </div>
 
           <div className="border border-[var(--border)] p-4 flex items-center justify-between bg-black/10">
@@ -972,7 +999,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       <div id="personal-cabinet-bookings-panel" className="lg:col-span-8 space-y-5 transition-colors duration-300 bg-transparent w-full min-w-0 max-w-full overflow-hidden">
 
         {/* 📊 Client Skill Progress & Rating Table Section */}
-        <ClientSkillProgressView userProfile={userProfile} skillConfig={skillConfig} />
+        <ClientSkillProgressView userProfile={userProfile} skillConfig={skillConfig} onUpdateProfile={onUpdateProfile} />
 
       {/* Calendar Strip & Upcoming Sessions (7 Days) */}
         {userBookings.length > 0 && (

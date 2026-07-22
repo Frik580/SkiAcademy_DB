@@ -2,16 +2,18 @@ import React, { useMemo } from 'react';
 import { UserProfile } from '../types';
 import { SkillConfig, DEFAULT_SKILL_CONFIG, calculateSkillProgress } from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
-import { Award, Target } from 'lucide-react';
+import { Target, EyeOff, Eye } from 'lucide-react';
 
 interface ClientSkillProgressViewProps {
   userProfile: UserProfile;
   skillConfig?: SkillConfig;
+  onUpdateProfile?: (updatedProfile: Partial<UserProfile>) => Promise<void>;
 }
 
 export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = ({
   userProfile,
-  skillConfig = DEFAULT_SKILL_CONFIG
+  skillConfig = DEFAULT_SKILL_CONFIG,
+  onUpdateProfile
 }) => {
   const { language } = useLanguage();
   const currentLevel = userProfile.level || 1;
@@ -26,13 +28,34 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
     return calculateSkillProgress(userProfile.skillScores || {}, items, targetStage, passPercentage);
   }, [userProfile.skillScores, items, targetStage, passPercentage]);
 
-  const levelTitles: Record<number, { titleRu: string; titleEn: string }> = {
-    1: { titleRu: 'Beginner → Carve (Уровень 2)', titleEn: 'Beginner → Carve (Level 2)' },
-    2: { titleRu: 'Carve → Performance (Уровень 3)', titleEn: 'Carve → Performance (Level 3)' },
-    3: { titleRu: 'Performance → Expert (Уровень 4)', titleEn: 'Performance → Expert (Level 4)' }
-  };
-
-  const currentStageTitle = levelTitles[targetStage] || levelTitles[1];
+  if (userProfile.hideProgressTracking) {
+    return (
+      <div className="border border-[var(--border)] p-6 bg-black/10 text-center space-y-4">
+        <div className="w-12 h-12 rounded-full bg-black/30 border border-[var(--border)] flex items-center justify-center mx-auto text-[var(--ink-dim)]">
+          <EyeOff className="w-6 h-6 text-indigo-400" />
+        </div>
+        <div>
+          <h4 className="font-mono text-xs uppercase tracking-wider text-[var(--ink)] font-bold">
+            {language === 'ru' ? 'Отслеживание прогресса отключено' : 'Progress Tracking Disabled'}
+          </h4>
+          <p className="text-xs text-[var(--ink-dim)] max-w-md mx-auto mt-1">
+            {language === 'ru' 
+              ? 'Вы можете включить отображение рейтинга и упражнений обратно в любое время.'
+              : 'You can enable rating and skill tracking back at any time.'}
+          </p>
+        </div>
+        {onUpdateProfile && (
+          <button
+            onClick={() => onUpdateProfile({ hideProgressTracking: false })}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600/30 border border-indigo-500 hover:bg-indigo-600/50 text-indigo-200 text-xs font-mono font-bold uppercase tracking-wider transition cursor-pointer"
+          >
+            <Eye className="w-4 h-4" />
+            {language === 'ru' ? 'Включить отслеживание' : 'Enable Tracking'}
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="border border-[var(--border)] p-5 bg-black/10 rounded-none space-y-6">
@@ -46,11 +69,23 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
         return (
           <div className="p-4 bg-indigo-950/20 border border-indigo-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="space-y-1.5 flex-1">
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-indigo-400 shrink-0" />
-                <span className="text-xs font-mono font-bold text-[var(--ink)] uppercase tracking-wider">
-                  {language === 'ru' ? 'Прогресс текущего уровня' : 'Current Level Progress'}
-                </span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-indigo-400 shrink-0" />
+                  <span className="text-xs font-mono font-bold text-[var(--ink)] uppercase tracking-wider">
+                    {language === 'ru' ? 'Прогресс текущего уровня' : 'Current Level Progress'}
+                  </span>
+                </div>
+                {onUpdateProfile && (
+                  <button
+                    onClick={() => onUpdateProfile({ hideProgressTracking: true })}
+                    className="text-[10px] font-mono text-[var(--ink-dim)] hover:text-indigo-300 flex items-center gap-1 transition cursor-pointer"
+                    title={language === 'ru' ? 'Отключить отслеживание прогресса' : 'Disable progress tracking'}
+                  >
+                    <EyeOff className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">{language === 'ru' ? 'Скрыть' : 'Hide'}</span>
+                  </button>
+                )}
               </div>
             </div>
 

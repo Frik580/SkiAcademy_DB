@@ -909,31 +909,31 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                   <div className="grid grid-cols-3 gap-1.5 text-center">
                     
                     {/* Контроль */}
-                    <div className="p-2 flex flex-col items-center justify-center">
-                      <span className="text-[9px] font-mono uppercase tracking-wider text-cyan-300 font-bold block truncate w-full">
+                    <div className="p-2 flex flex-col items-center justify-center bg-cyan-500/10 dark:bg-cyan-950/20 border border-cyan-500/20 dark:border-cyan-500/30">
+                      <span className="text-[9px] font-mono uppercase tracking-wider text-cyan-800 dark:text-cyan-300 font-bold block truncate w-full">
                         {language === 'ru' ? 'Контроль' : 'Control'}
                       </span>
-                      <span className="text-xl font-serif font-bold text-cyan-300 mt-0.5 block">
+                      <span className="text-xl font-serif font-bold text-cyan-700 dark:text-cyan-300 mt-0.5 block">
                         {skillProgress.control.percentage}%
                       </span>
                     </div>
 
                     {/* Скорость */}
-                    <div className="p-2 flex flex-col items-center justify-center">
-                      <span className="text-[9px] font-mono uppercase tracking-wider text-amber-300 font-bold block truncate w-full">
+                    <div className="p-2 flex flex-col items-center justify-center bg-amber-500/10 dark:bg-amber-950/20 border border-amber-500/20 dark:border-amber-500/30">
+                      <span className="text-[9px] font-mono uppercase tracking-wider text-amber-800 dark:text-amber-300 font-bold block truncate w-full">
                         {language === 'ru' ? 'Скорость' : 'Speed'}
                       </span>
-                      <span className="text-xl font-serif font-bold text-amber-300 mt-0.5 block">
+                      <span className="text-xl font-serif font-bold text-amber-700 dark:text-amber-300 mt-0.5 block">
                         {skillProgress.speed.percentage}%
                       </span>
                     </div>
 
                     {/* Техника */}
-                    <div className="p-2 flex flex-col items-center justify-center">
-                      <span className="text-[9px] font-mono uppercase tracking-wider text-purple-300 font-bold block truncate w-full">
+                    <div className="p-2 flex flex-col items-center justify-center bg-purple-500/10 dark:bg-purple-950/20 border border-purple-500/20 dark:border-purple-500/30">
+                      <span className="text-[9px] font-mono uppercase tracking-wider text-purple-800 dark:text-purple-300 font-bold block truncate w-full">
                         {language === 'ru' ? 'Техника' : 'Technique'}
                       </span>
-                      <span className="text-xl font-serif font-bold text-purple-300 mt-0.5 block">
+                      <span className="text-xl font-serif font-bold text-purple-700 dark:text-purple-300 mt-0.5 block">
                         {skillProgress.technique.percentage}%
                       </span>
                     </div>
@@ -949,17 +949,17 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           </div>
 
           {/* ⚙️ Progress Tracking Toggle Setting */}
-          <div className="border border-[var(--border)] p-3 flex items-center justify-between bg-black/10 text-[10px] font-mono uppercase tracking-wider">
+          <div className="border border-[var(--border)] p-3 flex items-center justify-between bg-[var(--card-bg)] text-[10px] font-mono uppercase tracking-wider">
             <div className="flex items-center gap-2 text-[var(--ink)] min-w-0">
-              <Activity className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <Activity className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
               <span className="truncate">{language === 'ru' ? 'Отслеживание прогресса' : 'Progress Tracking'}</span>
             </div>
             <button
               onClick={() => onUpdateProfile?.({ hideProgressTracking: !userProfile.hideProgressTracking })}
               className={`px-2.5 py-1 text-[9px] font-bold uppercase transition-all cursor-pointer border shrink-0 ${
                 !userProfile.hideProgressTracking
-                  ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200 hover:bg-indigo-600/50'
-                  : 'bg-black/30 border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
+                  ? 'bg-indigo-50 dark:bg-indigo-600/30 border-indigo-300 dark:border-indigo-500 text-indigo-800 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-600/50'
+                  : 'bg-slate-100 dark:bg-black/30 border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
               }`}
             >
               {!userProfile.hideProgressTracking 
@@ -968,7 +968,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             </button>
           </div>
 
-          <div className="border border-[var(--border)] p-4 flex items-center justify-between bg-black/10">
+          <div className="border border-[var(--border)] p-4 flex items-center justify-between bg-[var(--card-bg)]">
             <div className="flex items-center gap-2">
               <Wallet className="w-4 h-4 text-[var(--ink)]" />
               <div>
@@ -1210,7 +1210,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                                       {getDifficultyLabelShort(b.difficulty)} • {b.durationHours}{language === 'en' ? 'h' : 'ч'}
                                     </p>
                                     <span className="text-[9px] font-mono text-[var(--ink-dim)]">•</span>
-                                    <p className="text-[9px] font-mono text-indigo-400 font-medium">
+                                    <p className="text-[9px] font-mono text-indigo-700 dark:text-indigo-400 font-medium">
                                       {formatBookingDate(b)}
                                     </p>
                                   </div>
@@ -1222,8 +1222,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                                 </span>
                                 <span className={`font-mono text-[7px] px-1.5 py-0.5 uppercase font-bold tracking-widest border ${
                                   b.status === 'confirmed' 
-                                    ? 'border-emerald-500/40 text-emerald-400 bg-emerald-950/30' 
-                                    : 'border-amber-500/40 text-amber-400 bg-amber-950/30'
+                                    ? 'border-emerald-600/30 text-emerald-800 bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-400 dark:bg-emerald-950/30' 
+                                    : 'border-amber-600/30 text-amber-800 bg-amber-50 dark:border-amber-500/40 dark:text-amber-400 dark:bg-amber-950/30'
                                 }`}>
                                   {b.status === 'confirmed' 
                                     ? (language === 'en' ? 'Confirmed' : 'Подтверждено')
@@ -1258,7 +1258,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
             {userBookings.length > 0 && (
-              <div className="flex items-center gap-2 border border-[var(--border)] px-3 py-1.5 bg-black/10">
+              <div className="flex items-center gap-2 border border-[var(--border)] px-3 py-1.5 bg-[var(--card-bg)]">
                 <label className="relative inline-flex items-center cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -1275,7 +1275,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             )}
 
             {userBookings.some(b => b.status === 'cancelled') && (
-              <div className="flex items-center gap-2 border border-[var(--border)] px-3 py-1.5 bg-black/10">
+              <div className="flex items-center gap-2 border border-[var(--border)] px-3 py-1.5 bg-[var(--card-bg)]">
                 <label className="relative inline-flex items-center cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -1295,10 +1295,10 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
         {/* Review Invitations / Notifications Box */}
         {unreviewedCompletedBookings.length > 0 && (
-          <div className="border border-[var(--border)] p-4 space-y-3 bg-indigo-950/20 animate-fade-in w-full min-w-0 max-w-full overflow-hidden">
+          <div className="border border-indigo-200 dark:border-indigo-500/30 p-4 space-y-3 bg-indigo-50/70 dark:bg-indigo-950/20 animate-fade-in w-full min-w-0 max-w-full overflow-hidden">
             <div className="flex items-center gap-2 flex-wrap">
               <div className="relative">
-                <Bell className="w-4 h-4 text-indigo-400" />
+                <Bell className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-none animate-ping" />
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-none" />
               </div>
@@ -1311,7 +1311,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                 <div 
                    key={inv.id} 
                    id={`review-invitation-card-${inv.id}`}
-                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-black/25 p-3 rounded-none border border-[var(--border)] hover:border-[var(--ink)] transition duration-200 w-full min-w-0"
+                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--card-bg)] p-3 rounded-none border border-[var(--border)] hover:border-[var(--ink)] transition duration-200 w-full min-w-0"
                 >
                   <div className="flex items-center gap-3 min-w-0 w-full">
                     <img 
@@ -1510,8 +1510,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                   return (
                   <div key={b.id} id={`booking-card-${b.id}`} className={`p-4 rounded-none border flex flex-col md:flex-row lg:flex-col 2xl:flex-row md:items-center justify-between gap-4 transition-all duration-300 ${
                     b.instructorId.startsWith('course_')
-                      ? 'border-violet-500/40 hover:border-violet-400 bg-violet-950/20'
-                      : 'border-[var(--border)] hover:border-[var(--ink)] bg-black/15'
+                      ? 'border-violet-300 dark:border-violet-500/40 hover:border-violet-400 bg-violet-50/70 dark:bg-violet-950/20'
+                      : 'border-[var(--border)] hover:border-[var(--ink)] bg-[var(--card-bg)]'
                   }`}>
                     {/* Instructor name and details */}
                     <div className="flex flex-1 items-center gap-4 min-w-0 w-full lg:flex-row lg:items-center 2xl:flex-row 2xl:items-center">
@@ -1565,7 +1565,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                           <button
                             onClick={() => setSelectedChatBooking(b)}
                             title={language === 'en' ? 'Chat about Lesson' : 'Чат по занятию'}
-                            className="px-2 py-1 text-[8px] font-mono uppercase tracking-widest border border-indigo-500/30 text-indigo-400 bg-indigo-950/20 hover:bg-indigo-950/40 hover:text-indigo-300 transition cursor-pointer flex items-center gap-1.5 rounded-none font-bold shrink-0"
+                            className="px-2 py-1 text-[8px] font-mono uppercase tracking-widest border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/20 hover:bg-indigo-100 dark:hover:bg-indigo-950/40 hover:text-indigo-900 dark:hover:text-indigo-300 transition cursor-pointer flex items-center gap-1.5 rounded-none font-bold shrink-0"
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                             <span>{language === 'en' ? 'Chat' : 'Чат'}</span>

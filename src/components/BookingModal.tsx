@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Instructor, UserProfile, Booking, LessonDifficulty, Course } from '../types';
 import { X, Calendar, Clock, HelpCircle, Wallet, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
-import { useLanguage, parseCourseDates } from '../lib/LanguageContext';
+import { useLanguage, parseCourseDates, getDifficultyLabel } from '../lib/LanguageContext';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
 import { Auth } from './Auth';
 
@@ -319,27 +319,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     return d.toISOString().split('T')[0];
   })();
 
-  const getDifficultyLabel = (diff: string) => {
-    if (language === 'ru') {
-      switch (diff) {
-        case 'beginner': return '🟢 Начинающий (Зеленые)';
-        case 'intermediate': return '🔵 Средний уровень (Синие)';
-        case 'advanced': return '🔴 Продвинутый (Красные/Черные)';
-        case 'freeride': return '🏔️ Вне трассы / Фрирайд';
-        case 'freestyle': return '🛹 Фристайл в парке';
-        default: return diff;
-      }
-    }
-    switch (diff) {
-      case 'beginner': return '🟢 Beginner (Green Slopes)';
-      case 'intermediate': return '🔵 Intermediate (Blue Slopes)';
-      case 'advanced': return '🔴 Advanced (Red/Black)';
-      case 'freeride': return '🏔️ Off-Piste / Freeride';
-      case 'freestyle': return '🛹 Terrain Park Freestyle';
-      default: return diff;
-    }
-  };
-
   return (
     <AnimatePresence>
       {isOpen && targetInstructor && (
@@ -490,11 +469,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 onChange={(e) => setDifficulty(e.target.value as LessonDifficulty)}
                 className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition cursor-pointer rounded-none"
               >
-                <option value="beginner" className="bg-[var(--bg)] text-[var(--ink)]">{getDifficultyLabel('beginner')}</option>
-                <option value="intermediate" className="bg-[var(--bg)] text-[var(--ink)]">{getDifficultyLabel('intermediate')}</option>
-                <option value="advanced" className="bg-[var(--bg)] text-[var(--ink)]">{getDifficultyLabel('advanced')}</option>
-                <option value="freeride" className="bg-[var(--bg)] text-[var(--ink)]">{getDifficultyLabel('freeride')}</option>
-                <option value="freestyle" className="bg-[var(--bg)] text-[var(--ink)]">{getDifficultyLabel('freestyle')}</option>
+                <option value="beginner" className="bg-[var(--bg)] text-[var(--ink)]">{getDifficultyLabel('beginner', language, 'booking')}</option>
+                <option value="intermediate" className="bg-[var(--bg)] text-[var(--ink)]">{getDifficultyLabel('intermediate', language, 'booking')}</option>
+                <option value="advanced" className="bg-[var(--bg)] text-[var(--ink)]">{getDifficultyLabel('advanced', language, 'booking')}</option>
+                <option value="freeride" className="bg-[var(--bg)] text-[var(--ink)]">{getDifficultyLabel('freeride', language, 'booking')}</option>
+                <option value="freestyle" className="bg-[var(--bg)] text-[var(--ink)]">{getDifficultyLabel('freestyle', language, 'booking')}</option>
               </select>
             </div>
           </div>

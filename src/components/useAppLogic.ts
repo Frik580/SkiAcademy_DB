@@ -18,13 +18,13 @@ import {
 import { UserProfile, Instructor, Booking, Review, Course } from '../types';
 import { SkillConfig, DEFAULT_SKILL_CONFIG } from '../lib/skillData';
 import { useNotifications } from '../components/PushNotificationHub';
-import { useLanguage, parseDurationHours, splitCourseDates } from '../lib/LanguageContext';
+import { useLanguage, parseDurationHours, splitCourseDates, getGroupCourseLabel, getGroupCourseEnrollmentNote, getGroupScheduleLabel, translateCourse } from '../lib/LanguageContext';
 import confetti from 'canvas-confetti';
 import { User } from 'firebase/auth';
 
 export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile | null, setUserProfile: (profile: UserProfile | null) => void) => {
   const { addNotification } = useNotifications();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
 
   // App Domain State
   const [instructors, setInstructors] = useState<Instructor[]>([]);
@@ -204,8 +204,8 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
               await updateDoc(doc(db, 'bookings', b.id), { status: 'completed' });
               addNotification(
                 'success',
-                language === 'en' ? 'Lesson Auto-Completed' : 'Урок автоматически завершен',
-                language === 'en' ? `Lesson with ${b.instructorName} has ended.` : `Занятие с ${b.instructorName} завершилось.`
+                t('lessonAutoCompleted'),
+                `${t('lessonAutoCompletedDesc')} ${b.instructorName} ${t('lessonAutoCompletedSuffix')}`
               );
             } catch (e) {
               console.error(`Failed to auto-complete booking ${b.id}:`, e);
@@ -266,7 +266,7 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
         }
         const currentBalance = userSnap.data().balanceUSD ?? 0;
         if (currentBalance < totalCost) {
-          throw new Error(language === 'en' ? 'Insufficient funds.' : 'Недостаточно средств на балансе.');
+          throw new Error(t('insufficientFunds'));
         }
         const newBal = currentBalance - totalCost;
         const bookingRef = doc(db, 'bookings', booking.id);
@@ -288,10 +288,8 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     if (booking && userProfile?.role === 'admin') {
       await createNotificationForUser(
         booking.userId,
-        language === 'en' ? 'Lesson Rescheduled' : 'Урок перенесен',
-        language === 'en'
-          ? `Your lesson with ${booking.instructorName} was rescheduled to ${newDate} at ${newTime}.`
-          : `Ваш урок с ${booking.instructorName} перенесен на ${newDate} в ${newTime}.`
+        t('lessonRescheduled'),
+        `${t('lessonRescheduledAdminPrefix')} ${booking.instructorName} ${t('lessonRescheduledAdminMiddle')} ${newDate} ${t('lessonRescheduledAdminAt')} ${newTime}.`
       );
     }
   };
@@ -308,23 +306,17 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
       let changeDetails = '';
       if (oldCourse) {
         if (oldCourse.title !== course.title) {
-          changeDetails += language === 'en'
-            ? `• Title changed to "${course.title}".\n`
-            : `• Название изменено на «${course.title}».\n`;
+          changeDetails += `${t('courseModifiedTitleLine')} "${course.title}".\n`;
         }
         if (oldCourse.dates !== course.dates) {
-          changeDetails += language === 'en'
-            ? `• New dates: ${course.dates}.\n`
-            : `• Новые даты: ${course.dates}.\n`;
+          changeDetails += `${t('courseModifiedDatesLine')} ${course.dates}.\n`;
         }
       }
-      const message = language === 'en'
-        ? `An administrator has updated details for the course "${course.title}":\n${changeDetails || 'Course details have been updated.'}`
-        : `Администратор обновил информацию курса «${course.title}»:\n${changeDetails || 'Детали курса были обновлены.'}`;
+      const message = `${t('courseModifiedHeader')} "${course.title}":\n${changeDetails || t('courseModifiedDefault')}`;
       for (const booking of courseBookings) {
         await createNotificationForUser(
           booking.userId,
-          language === 'en' ? 'Course Modified' : 'Курс изменен',
+          t('courseModified'),
           message,
           'warning'
         );
@@ -343,18 +335,16 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     if (!activeProfile || !activeUser) {
       addNotification(
         'warning',
-        language === 'en' ? 'Sign In Required' : 'Требуется войти',
-        language === 'en' ? 'Sign in to enroll in courses.' : 'Войдите, чтобы записаться на курсы.'
+        t('signInRequired'),
+        t('signInRequiredDesc')
       );
       return;
     }
     if (activeProfile.isClientActive === false) {
       addNotification(
         'error',
-        language === 'en' ? 'Booking Restricted' : 'Запись ограничена',
-        language === 'en'
-          ? 'Your student account is suspended. You cannot register for courses.'
-          : 'Ваш аккаунт ученика приостановлен. Вы не можете записываться на курсы.'
+        t('bookingRestricted'),
+        t('bookingRestrictedDesc')
       );
       return;
     }
@@ -380,7 +370,8 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
 
         const courseData = courseSnap.data() as Course;
         const userData = userSnap.data() as UserProfile;
-        courseTitle = courseData.title;
+        const localizedCourse = translateCourse(courseData, language);
+        courseTitle = localizedCourse.title;
 
         // Check if user is already enrolled
         if (bookingSnap.exists()) {
@@ -403,20 +394,20 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
         const newBal = userData.balanceUSD - courseData.price;
         const newSeats = courseData.availableSeats - 1;
 
-        const { datePart, timePart } = splitCourseDates(courseData.dates);
+        const { datePart, timePart } = splitCourseDates(courseData.dates, language);
         const newBooking: Booking = {
           id: bookingId,
           userId: userData.uid,
           instructorId: `course_${courseId}`,
-          instructorName: `${courseData.title} (Group Course)`,
+          instructorName: getGroupCourseLabel(localizedCourse.title, language),
           instructorAvatar: courseData.bgImageUrl,
           date: datePart || courseData.dates,
-          time: timePart || 'Group Schedule',
+          time: timePart || getGroupScheduleLabel(language),
           durationHours: parseDurationHours(courseData.duration, 10),
           totalPrice: courseData.price,
           status: 'confirmed',
           difficulty: 'intermediate',
-          notes: `Group Course enrollment: ${courseData.description}`
+          notes: getGroupCourseEnrollmentNote(localizedCourse.description, language)
         };
 
         // Write updates
@@ -433,22 +424,22 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
 
       addNotification(
         'success',
-        language === 'en' ? 'Enrollment Confirmed!' : 'Запись подтверждена!',
-        language === 'en' ? `You have successfully enrolled in ${courseTitle}.` : `Вы успешно записались на курс «${courseTitle}».`
+        t('enrollmentConfirmed'),
+        `${t('enrollmentConfirmedDesc')} ${courseTitle}.`
       );
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
     } catch (err: any) {
       if (err.message === 'ALREADY_ENROLLED') {
         addNotification(
           'warning',
-          language === 'en' ? 'Already Enrolled' : 'Вы уже записаны',
-          language === 'en' ? 'You are already registered for this course.' : 'Вы уже зарегистрированы на этот курс.'
+          t('alreadyEnrolled'),
+          t('alreadyEnrolledDesc')
         );
       } else if (err.message === 'COURSE_FULL' || err.message === 'INSUFFICIENT_FUNDS') {
         addNotification(
           'error',
-          language === 'en' ? 'Booking Failed' : 'Ошибка бронирования',
-          language === 'en' ? 'Course is full or you have insufficient balance.' : 'На курсе нет свободных мест или у вас недостаточно средств.'
+          t('bookingFailed'),
+          t('bookingFailedDesc')
         );
       } else {
         handleFirestoreError(err, OperationType.WRITE, `courses/${courseId}/enroll`);
@@ -518,10 +509,8 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
       if (userProfile?.role === 'admin' && !isSystemBlock) {
         await createNotificationForUser(
           bookingOwnerId,
-          language === 'en' ? 'Lesson Cancelled' : 'Урок отменен',
-          language === 'en'
-            ? `Your lesson with ${booking.instructorName} was cancelled.`
-            : `Ваш урок с ${booking.instructorName} был отменен.`,
+          t('lessonCancelled'),
+          `${t('lessonCancelledDescPrefix')} ${booking.instructorName} ${t('lessonCancelledDescSuffix')}`,
           'warning'
         );
       }
@@ -600,16 +589,16 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     if (userProfile?.role !== 'admin' || !isSuperAdmin(firebaseUser?.email)) {
       addNotification(
         'error',
-        language === 'en' ? 'Access Denied' : 'Доступ ограничен',
-        language === 'en' ? 'Only the main administrator can manage roles.' : 'Только главный администратор может управлять ролями.'
+        t('accessDenied'),
+        t('accessDeniedDesc')
       );
       return;
     }
     await updateDoc(doc(db, 'users', targetUid), { role: newRole });
     addNotification(
       'success',
-      language === 'en' ? 'Role Updated' : 'Роль обновлена',
-      language === 'en' ? `Role changed to ${newRole}.` : `Роль успешно изменена на «${newRole}».`
+      t('roleUpdated'),
+      `${t('roleUpdatedDescPrefix')} ${newRole}.`
     );
   };
   const isSuperAdmin = (email?: string | null) => email?.toLowerCase() === 'gerasimchuk.arseniy@gmail.com';
@@ -628,10 +617,8 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     if (booking) {
       await createNotificationForUser(
         booking.userId,
-        language === 'en' ? 'Lesson Confirmed' : 'Урок подтвержден',
-        language === 'en'
-          ? `Your lesson with ${booking.instructorName} has been confirmed.`
-          : `Ваш урок с ${booking.instructorName} был успешно подтвержден.`,
+        t('lessonConfirmedAdmin'),
+        `${t('lessonConfirmedDescPrefix')} ${booking.instructorName} ${t('lessonConfirmedDescSuffix')}`,
         'success'
       );
     }
@@ -643,10 +630,8 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     if (booking) {
       await createNotificationForUser(
         booking.userId,
-        language === 'en' ? 'Lesson Completed' : 'Урок завершен',
-        language === 'en'
-          ? `Your lesson with ${booking.instructorName} has been completed.`
-          : `Ваш урок с ${booking.instructorName} был успешно завершен.`,
+        t('lessonCompletedAdmin'),
+        `${t('lessonCompletedDescPrefix')} ${booking.instructorName} ${t('lessonCompletedDescSuffix')}`,
         'success'
       );
     }
@@ -673,7 +658,7 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
   const handleUpdateSkillConfig = async (newConfig: SkillConfig) => {
     setSkillConfig(newConfig);
     await setDoc(doc(db, 'settings', 'skill_config'), newConfig);
-    addNotification('info', language === 'en' ? 'Skill Table Updated' : 'Таблица рейтинга обновлена', language === 'en' ? 'Skill items and passing criteria saved.' : 'Параметры рейтинга и критерии сохранены.');
+    addNotification('info', t('skillTableUpdated'), t('skillTableUpdatedDesc'));
   };
 
   return {

@@ -4,7 +4,7 @@ import {
   doc, 
   updateDoc
 } from '../lib/firebase';
-import { UserProfile, Instructor, Booking, Review, LessonDifficulty, Course } from '../types';
+import { UserProfile, Instructor, Booking, Review, Course } from '../types';
 import { 
   User, 
   Calendar, 
@@ -17,7 +17,7 @@ import {
   Award
 } from 'lucide-react';
 import { BookingChatModal } from './BookingChatModal'; 
-import { useLanguage, translateInstructorName, translateCourse, splitCourseDates, parseDurationHours } from '../lib/LanguageContext';
+import { useLanguage, translateInstructorName, translateCourse, splitCourseDates, parseDurationHours, getDifficultyLabel } from '../lib/LanguageContext';
 import { useNotifications } from './PushNotificationHub';
 import { useTheme } from './useTheme';
 import { SkillConfig } from '../lib/skillData';
@@ -266,19 +266,6 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
     } catch (err) {
       console.error("Error updating lesson status:", err);
     }
-  };
-
-  const getDifficultyLabel = (diff: LessonDifficulty) => {
-    if (language === 'ru') {
-      switch (diff) {
-        case 'beginner': return '🟢 Начинающий';
-        case 'intermediate': return '🔵 Средний уровень';
-        case 'advanced': return '🔴 Продвинутый';
-        case 'freeride': return '🏔️ Фрирайд';
-        case 'freestyle': return '🛹 Фристайл';
-      }
-    }
-    return diff.charAt(0).toUpperCase() + diff.slice(1);
   };
 
   // Rendering screen to select profile
@@ -618,7 +605,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                       <div className={`grid grid-cols-1 ${(b as any).isCourse ? '' : 'md:grid-cols-2'} gap-4 text-xs font-mono text-[var(--ink-dim)] border-t border-[var(--border)]/30 pt-3`}>
                         <div>
                           <span className="uppercase text-[9px] tracking-wider text-[var(--ink-dim)] block mb-1">{t.difficulty}</span>
-                          <span className="text-[var(--ink)] font-bold">{getDifficultyLabel(b.difficulty)}</span>
+                          <span className="text-[var(--ink)] font-bold">{getDifficultyLabel(b.difficulty, language, 'compact')}</span>
                         </div>
                         {!(b as any).isCourse && (
                           <div>

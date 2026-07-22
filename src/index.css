@@ -9,21 +9,23 @@
 @variant dark (&:where(.dark, .dark *));
 
 :root {
-  --bg: #f8fafc;
-  --ink: #0f172a;
-  --ink-dim: #475569;
-  --border: #cbd5e1;
-  --profile-bg: #ffffff;
-  --surface-subtle: #f1f5f9;
+  --bg: #fafaf7;
+  --card-bg: #ffffff;
+  --ink: #0d0f12;
+  --ink-dim: #4a4e58;
+  --border: #dcdcd5;
+  --border-subtle: #e8e8e1;
+  --profile-bg: #f2f2eb;
 }
 
 .dark, :root[class~="dark"] {
   --bg: #111113;
+  --card-bg: #161618;
   --ink: #EFEEEA;
-  --ink-dim: rgba(239, 238, 234, 0.5);
+  --ink-dim: rgba(239, 238, 234, 0.55);
   --border: rgba(239, 238, 234, 0.12);
+  --border-subtle: rgba(239, 238, 234, 0.07);
   --profile-bg: #161618;
-  --surface-subtle: rgba(0, 0, 0, 0.2);
 }
 
 @layer base {

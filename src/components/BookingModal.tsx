@@ -500,8 +500,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           </div>
 
           {isTimeSlotOccupied && overlappingBooking && (
-            <div className="bg-rose-950/20 border border-rose-900/50 rounded-none p-3.5 flex items-start gap-2.5 text-xs text-rose-300 animate-fade-in">
-              <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+            <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 rounded-none p-3.5 flex items-start gap-2.5 text-xs text-rose-900 dark:text-rose-300 animate-fade-in">
+              <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-500 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
                 <p className="font-extrabold uppercase tracking-wide font-mono text-[10px]">
                   {language === 'en' ? 'Time Slot Occupied' : 'Время занято'}
@@ -516,8 +516,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           )}
 
           {isTimeSlotOccupied && overlappingCourse && (
-            <div className="bg-rose-950/20 border border-rose-900/50 rounded-none p-3.5 flex items-start gap-2.5 text-xs text-rose-300 animate-fade-in">
-              <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+            <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 rounded-none p-3.5 flex items-start gap-2.5 text-xs text-rose-900 dark:text-rose-300 animate-fade-in">
+              <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-500 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
                 <p className="font-extrabold uppercase tracking-wide font-mono text-[10px]">
                   {language === 'en' ? 'Reserved for Group Course' : 'Зарезервирован под групповой курс'}
@@ -532,8 +532,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           )}
 
           {!targetInstructor.isAvailable && (
-            <div className="bg-amber-950/20 border border-amber-900/50 rounded-none p-3.5 flex items-start gap-2.5 text-xs text-amber-300 animate-fade-in">
-              <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-none p-3.5 flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-300 animate-fade-in">
+              <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
                 <p className="font-extrabold uppercase tracking-wide font-mono text-[10px]">
                   {language === 'en' ? 'Instructor Unavailable' : 'Инструктор недоступен'}

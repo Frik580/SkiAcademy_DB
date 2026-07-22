@@ -111,7 +111,8 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
             role: isAdminEmail(user.email || email) ? 'admin' : 'user',
             avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(avatarSeed)}`,
             balanceUSD: 250, // Starter credits
-            isClientActive: true
+            isClientActive: true,
+            level: 1
           };
           if (phoneNumber) {
             finalProfile.phoneNumber = phoneNumber;
@@ -172,7 +173,8 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
               role: isAdminEmail(user.email || email) ? 'admin' : 'user',
               avatarUrl: user.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
               balanceUSD: 250,
-              isClientActive: true
+              isClientActive: true,
+              level: 1
             };
             try {
               await setDoc(doc(db, 'users', user.uid), fallbackProfile);
@@ -266,7 +268,8 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
             role: isAdminEmail(user.email) ? 'admin' : 'user',
             avatarUrl: user.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
             balanceUSD: 250,
-            isClientActive: true
+            isClientActive: true,
+            level: 1
           };
 
           try {

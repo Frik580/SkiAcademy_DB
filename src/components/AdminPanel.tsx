@@ -864,6 +864,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       ...baseData,
       uid: uId,
       avatarUrl: defaultAvatar,
+      level: 1
     };
 
     try {

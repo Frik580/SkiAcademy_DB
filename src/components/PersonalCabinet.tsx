@@ -188,6 +188,25 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   const [selectedChatBooking, setSelectedChatBooking] = useState<Booking | null>(null);
   const [rescheduleInstructorBookings, setRescheduleInstructorBookings] = useState<Booking[]>([]);
   const [isLoadingInstructorBookings, setIsLoadingInstructorBookings] = useState<boolean>(false);
+  const [levelUpModal, setLevelUpModal] = useState<{ show: boolean; level: number } | null>(null);
+  const prevLevelRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    const currentLevel = userProfile?.level || 1;
+    if (prevLevelRef.current !== undefined && prevLevelRef.current !== currentLevel) {
+      setLevelUpModal({ show: true, level: currentLevel });
+    }
+    prevLevelRef.current = currentLevel;
+  }, [userProfile?.level]);
+
+  useEffect(() => {
+    if (levelUpModal?.show) {
+      const timer = setTimeout(() => {
+        setLevelUpModal(null);
+      }, 15000);
+      return () => clearTimeout(timer);
+    }
+  }, [levelUpModal]);
 
   // Fetch coach's bookings when reschedule is active
   useEffect(() => {
@@ -849,12 +868,16 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           {/* Level Status Card */}
           <div className="flex flex-col items-center justify-between gap-4 py-[10px]">
             <div className="flex flex-col items-center gap-3">
-              <div className="w-40 h-40 flex items-center justify-center shrink-0 relative">
+              <div 
+                onClick={() => setLevelUpModal({ show: true, level: userProfile.level || 1 })}
+                className={`${(userProfile.level || 1) === 4 ? 'w-52 h-52' : 'w-40 h-40'} flex items-center justify-center shrink-0 relative transition-all duration-300 cursor-pointer group`}
+                title={language === 'ru' ? 'Нажмите для просмотра анимации уровня' : 'Click to preview level animation'}
+              >
                 <img 
                   key={`${theme}-${userProfile.level || 1}`}
                   src={`https://storage.yandexcloud.net/carve/level/${theme === 'light' ? 'b' : 'w'}/${userProfile.level || 1}.png`} 
                   alt={`Level ${userProfile.level || 1}`} 
-                  className="w-40 h-40 object-contain"
+                  className={`${(userProfile.level || 1) === 4 ? 'w-52 h-52' : 'w-40 h-40'} object-contain transition-all duration-300 group-hover:scale-105`}
                   referrerPolicy="no-referrer"
                   onLoad={(e) => {
                     e.currentTarget.style.display = 'block';
@@ -1698,6 +1721,98 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           instructors={instructors}
           usersList={usersList}
         />
+      )}
+
+      {levelUpModal?.show && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/75 backdrop-blur-md animate-fade-in p-4 cursor-pointer"
+          onClick={() => setLevelUpModal(null)}
+        >
+          <style>{`
+            @keyframes popBadgeAnimation {
+              0% { transform: scale(0.2); opacity: 0; }
+              50% { transform: scale(1.08); opacity: 1; }
+              75% { transform: scale(0.97); opacity: 1; }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            @keyframes floatPulse {
+              0%, 100% { transform: scale(0.9); opacity: 0.3; }
+              50% { transform: scale(1.15); opacity: 0.7; }
+            }
+          `}</style>
+
+          <div 
+            className="relative bg-black/85 dark:bg-black/95 border border-[var(--border)] p-8 rounded-2xl flex flex-col items-center text-center shadow-2xl max-w-sm w-full backdrop-blur-xl overflow-hidden cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Soft glowing ambient background */}
+            <div 
+              className="absolute w-72 h-72 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"
+              style={{ animation: 'floatPulse 3s ease-in-out infinite' }}
+            />
+
+            {/* Close button */}
+            <button 
+              onClick={() => setLevelUpModal(null)}
+              className="absolute top-3 right-3 text-[var(--ink-dim)] hover:text-[var(--ink)] p-1.5 transition-colors z-10 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header text */}
+            <span className="text-xs font-mono font-bold tracking-widest text-amber-400 uppercase mb-2 animate-bounce relative z-10">
+              ✨ {language === 'ru' ? 'НОВЫЙ УРОВЕНЬ!' : 'NEW LEVEL UNLOCKED!'} ✨
+            </span>
+            <h2 className="text-2xl font-serif font-light text-[var(--ink)] mb-4 relative z-10">
+              {(() => {
+                const lvl = levelUpModal.level;
+                if (language === 'ru') {
+                  switch (lvl) {
+                    case 1: return 'Уровень 1 • Начинающий';
+                    case 2: return 'Уровень 2 • Карв';
+                    case 3: return 'Уровень 3 • Про';
+                    case 4: return 'Уровень 4 • Эксперт';
+                    default: return `Уровень ${lvl}`;
+                  }
+                } else {
+                  switch (lvl) {
+                    case 1: return 'Level 1 • Beginner';
+                    case 2: return 'Level 2 • Carve';
+                    case 3: return 'Level 3 • Pro';
+                    case 4: return 'Level 4 • Expert';
+                    default: return `Level ${lvl}`;
+                  }
+                }
+              })()}
+            </h2>
+
+            {/* Spinning Badge Icon */}
+            <div className="relative my-2 flex items-center justify-center relative z-10">
+              <img 
+                key={`modal-${theme}-${levelUpModal.level}`}
+                src={`https://storage.yandexcloud.net/carve/level/${theme === 'light' ? 'b' : 'w'}/${levelUpModal.level}.png`}
+                alt={`Level ${levelUpModal.level}`}
+                className={`${levelUpModal.level === 4 ? 'w-48 h-48' : 'w-40 h-40'} object-contain drop-shadow-[0_0_30px_rgba(251,191,36,0.45)]`}
+                style={{ animation: 'popBadgeAnimation 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
+                referrerPolicy="no-referrer"
+              />
+            </div>
+
+            <p className="text-xs font-sans text-[var(--ink-dim)] mt-4 mb-6 max-w-xs relative z-10">
+              {language === 'ru' 
+                ? 'Поздравляем! Ваш уровень мастерства успешно обновлен.' 
+                : 'Congratulations! Your skill level has been successfully updated.'}
+            </p>
+
+            <button
+              onClick={() => setLevelUpModal(null)}
+              className="w-full py-2.5 px-6 bg-[var(--ink)] text-[var(--bg)] text-xs font-mono uppercase tracking-wider font-semibold hover:opacity-90 transition-all rounded-lg relative z-10 cursor-pointer"
+            >
+              {language === 'ru' ? 'Отлично!' : 'Awesome!'}
+            </button>
+          </div>
+        </div>,
+        document.body
       )}
         </div>
       )}

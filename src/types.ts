@@ -14,6 +14,7 @@ export interface UserProfile {
   isInstructor?: boolean;
   isClientActive?: boolean;
   level?: number;
+  skillScores?: Record<string, number>;
 }
 
 export interface Instructor {

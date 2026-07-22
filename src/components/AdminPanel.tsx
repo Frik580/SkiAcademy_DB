@@ -39,6 +39,8 @@ import {
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, translateInstructorName, translateCourse, parseCourseDates, formatCourseDates, parseDurationHours, splitCourseDates } from '../lib/LanguageContext';
 import { BookingChatModal } from './BookingChatModal';
+import { SkillConfig } from '../lib/skillData';
+import { SkillConfigManager } from './SkillConfigManager';
 
 const FALLBACK_SLIDES: CustomHeroSlide[] = [
   {
@@ -98,6 +100,8 @@ interface AdminPanelProps {
   onAddCourse?: (course: Course) => Promise<void>;
   onUpdateCourse?: (course: Course) => Promise<void>;
   onDeleteCourse?: (courseId: string) => Promise<void>;
+  skillConfig?: SkillConfig;
+  onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
 }
 
 function optimizeInstructorImage(file: File): Promise<string> {
@@ -285,7 +289,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateCourse,
   onDeleteCourse,
   filtersEnabled = true,
-  onToggleFilters
+  onToggleFilters,
+  skillConfig,
+  onUpdateSkillConfig
 }) => {
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
@@ -2271,6 +2277,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               />
             </button>
           </div>
+
+          {/* 📊 Skill Rating Table Editor */}
+          <SkillConfigManager 
+            config={skillConfig} 
+            onSaveConfig={async (cfg) => { 
+              if (onUpdateSkillConfig) await onUpdateSkillConfig(cfg); 
+            }} 
+          />
 
           {/* Resort Details & Weather Location */}
           <div className="border border-[var(--border)] p-5 bg-black/5 dark:bg-white/5 rounded-none space-y-4">

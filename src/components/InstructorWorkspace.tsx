@@ -20,6 +20,8 @@ import { BookingChatModal } from './BookingChatModal';
 import { useLanguage, translateInstructorName, translateCourse, splitCourseDates, parseDurationHours } from '../lib/LanguageContext';
 import { useNotifications } from './PushNotificationHub';
 import { useTheme } from './useTheme';
+import { SkillConfig } from '../lib/skillData';
+import { StudentSkillEvaluationModal } from './StudentSkillEvaluationModal';
 
 interface InstructorWorkspaceProps {
   userProfile: UserProfile;
@@ -28,6 +30,7 @@ interface InstructorWorkspaceProps {
   reviews: Review[];
   courses: Course[];
   usersList: UserProfile[];
+  skillConfig?: SkillConfig;
 }
 
 export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
@@ -36,13 +39,46 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
   allBookings,
   reviews,
   courses,
-  usersList
+  usersList,
+  skillConfig
 }) => {
   const { language } = useLanguage();
   const { theme } = useTheme();
   const { addNotification } = useNotifications();
   const [selectedChatBooking, setSelectedChatBooking] = useState<Booking | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'completed'>('all');
+
+  const [evalModalState, setEvalModalState] = useState<{
+    isOpen: boolean;
+    studentUid: string;
+    studentName: string;
+    studentLevel: number;
+    existingScores?: Record<string, number>;
+  }>({
+    isOpen: false,
+    studentUid: '',
+    studentName: '',
+    studentLevel: 1,
+    existingScores: {}
+  });
+
+  const handleSaveStudentScores = async (studentUid: string, updatedScores: Record<string, number>, calculatedLevel: number) => {
+    try {
+      await updateDoc(doc(db, 'users', studentUid), {
+        skillScores: updatedScores,
+        level: calculatedLevel
+      });
+      addNotification(
+        'success',
+        language === 'en' ? 'Ratings Saved' : 'Оценки сохранены',
+        language === 'en'
+          ? `Skill ratings saved. Student level updated to Level ${calculatedLevel}`
+          : `Оценки навыков сохранены. Уровень ученика обновлен до Уровня ${calculatedLevel}`
+      );
+    } catch (err) {
+      console.error("Error saving student skill scores:", err);
+    }
+  };
 
   // Translate helper labels
   const t = {
@@ -459,6 +495,21 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                   </div>
 
                                   <div className="flex items-center gap-1.5">
+                                    <button
+                                      onClick={() => setEvalModalState({
+                                        isOpen: true,
+                                        studentUid: client.uid,
+                                        studentName: client.name,
+                                        studentLevel: studentLevel,
+                                        existingScores: studentUser?.skillScores || {}
+                                      })}
+                                      className="px-2 py-0.5 border border-indigo-500/60 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[9px] font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1"
+                                      title="Оценить навыки ученика"
+                                    >
+                                      <Award className="w-3 h-3" />
+                                      {language === 'ru' ? 'Оценить' : 'Assess'}
+                                    </button>
+
                                     <div className="flex items-center gap-1 bg-black/30 border border-[var(--border)] px-1.5 py-0.5" title={language === 'ru' ? `Уровень: ${studentLevel}` : `Level: ${studentLevel}`}>
                                       <img 
                                         key={`${theme}-${studentLevel}`}
@@ -507,6 +558,21 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                   </div>
 
                                   <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => setEvalModalState({
+                                        isOpen: true,
+                                        studentUid: b.userId,
+                                        studentName: studentName,
+                                        studentLevel: studentLevel,
+                                        existingScores: studentUser?.skillScores || {}
+                                      })}
+                                      className="px-2 py-0.5 border border-indigo-500/60 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[9px] font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1"
+                                      title="Оценить навыки ученика"
+                                    >
+                                      <Award className="w-3 h-3" />
+                                      {language === 'ru' ? 'Оценить' : 'Assess'}
+                                    </button>
+
                                     <div className="flex items-center gap-1 bg-black/30 border border-[var(--border)] px-2 py-0.5" title={language === 'ru' ? `Текущий уровень: ${studentLevel}` : `Current Level: ${studentLevel}`}>
                                       <img 
                                         key={`${theme}-${studentLevel}`}
@@ -722,6 +788,18 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
           usersList={usersList}
         />
       )}
+
+      {/* Student Skill Evaluation Modal */}
+      <StudentSkillEvaluationModal
+        isOpen={evalModalState.isOpen}
+        onClose={() => setEvalModalState(prev => ({ ...prev, isOpen: false }))}
+        studentUid={evalModalState.studentUid}
+        studentName={evalModalState.studentName}
+        studentLevel={evalModalState.studentLevel}
+        existingScores={evalModalState.existingScores}
+        skillConfig={skillConfig}
+        onSaveScores={handleSaveStudentScores}
+      />
     </div>
   );
 };

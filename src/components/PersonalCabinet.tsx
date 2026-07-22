@@ -26,6 +26,8 @@ import { useTheme } from './useTheme';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
 import { BookingChatModal } from './BookingChatModal';
 import { InstructorWorkspace } from './InstructorWorkspace';
+import { SkillConfig } from '../lib/skillData';
+import { ClientSkillProgressView } from './ClientSkillProgressView';
 
 interface PersonalCabinetProps {
   userProfile: UserProfile;
@@ -41,6 +43,7 @@ interface PersonalCabinetProps {
   courses?: Course[];
   instructors?: Instructor[];
   usersList?: UserProfile[];
+  skillConfig?: SkillConfig;
 }
 
 function optimizeProfileImage(file: File): Promise<string> {
@@ -119,7 +122,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   onUpdateProfile,
   courses = [],
   instructors = [],
-  usersList = []
+  usersList = [],
+  skillConfig
 }) => {
   const { addNotification } = useNotifications();
   const { language } = useLanguage();
@@ -788,6 +792,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           reviews={reviews}
           courses={courses}
           usersList={usersList}
+          skillConfig={skillConfig}
         />
       ) : userProfile.isClientActive === false ? (
         <div className="border border-[var(--border)] p-8 space-y-6 animate-fade-in bg-black/10 dark:bg-black/30 text-center max-w-xl mx-auto my-12">
@@ -919,6 +924,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
       {/* Bookings Right Panel */}
       <div id="personal-cabinet-bookings-panel" className="lg:col-span-8 space-y-5 transition-colors duration-300 bg-transparent w-full min-w-0 max-w-full overflow-hidden">
+
+        {/* 📊 Client Skill Progress & Rating Table Section */}
+        <ClientSkillProgressView userProfile={userProfile} skillConfig={skillConfig} />
 
       {/* Calendar Strip & Upcoming Sessions (7 Days) */}
         {userBookings.length > 0 && (
@@ -1763,28 +1771,6 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             <span className="text-xs font-mono font-bold tracking-widest text-amber-400 uppercase mb-2 animate-bounce relative z-10">
               ✨ {language === 'ru' ? 'НОВЫЙ УРОВЕНЬ!' : 'NEW LEVEL UNLOCKED!'} ✨
             </span>
-            <h2 className="text-2xl font-serif font-light text-[var(--ink)] mb-4 relative z-10">
-              {(() => {
-                const lvl = levelUpModal.level;
-                if (language === 'ru') {
-                  switch (lvl) {
-                    case 1: return 'Уровень 1 • Начинающий';
-                    case 2: return 'Уровень 2 • Карв';
-                    case 3: return 'Уровень 3 • Про';
-                    case 4: return 'Уровень 4 • Эксперт';
-                    default: return `Уровень ${lvl}`;
-                  }
-                } else {
-                  switch (lvl) {
-                    case 1: return 'Level 1 • Beginner';
-                    case 2: return 'Level 2 • Carve';
-                    case 3: return 'Level 3 • Pro';
-                    case 4: return 'Level 4 • Expert';
-                    default: return `Level ${lvl}`;
-                  }
-                }
-              })()}
-            </h2>
 
             {/* Spinning Badge Icon */}
             <div className="relative my-2 flex items-center justify-center relative z-10">
@@ -1793,23 +1779,16 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                 src={`https://storage.yandexcloud.net/carve/level/${theme === 'light' ? 'b' : 'w'}/${levelUpModal.level}.png`}
                 alt={`Level ${levelUpModal.level}`}
                 className={`${levelUpModal.level === 4 ? 'w-48 h-48' : 'w-40 h-40'} object-contain drop-shadow-[0_0_30px_rgba(251,191,36,0.45)]`}
-                style={{ animation: 'popBadgeAnimation 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
+                style={{ animation: 'popBadgeAnimation 1.0s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
                 referrerPolicy="no-referrer"
               />
             </div>
 
-            <p className="text-xs font-sans text-[var(--ink-dim)] mt-4 mb-6 max-w-xs relative z-10">
+            <p className="text-xs font-sans text-[var(--ink-dim)] mt-4 mb-0 max-w-xs relative z-10">
               {language === 'ru' 
                 ? 'Поздравляем! Ваш уровень мастерства успешно обновлен.' 
                 : 'Congratulations! Your skill level has been successfully updated.'}
             </p>
-
-            <button
-              onClick={() => setLevelUpModal(null)}
-              className="w-full py-2.5 px-6 bg-[var(--ink)] text-[var(--bg)] text-xs font-mono uppercase tracking-wider font-semibold hover:opacity-90 transition-all rounded-lg relative z-10 cursor-pointer"
-            >
-              {language === 'ru' ? 'Отлично!' : 'Awesome!'}
-            </button>
           </div>
         </div>,
         document.body

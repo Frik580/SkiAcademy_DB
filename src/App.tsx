@@ -79,6 +79,7 @@ const AppContent: React.FC = () => {
   } = useResortStats();
   const {
     instructors, reviews, bookings, usersList, courses, dbNotifications, deletedCompletedStats, filtersEnabled,
+    skillConfig, handleUpdateSkillConfig,
     dismissedReviewIds, handleDismissReview,
     handlePaymentSuccess, handleBookingSuccess, handleReschedule, handleAddCourse, handleUpdateCourse, handleDeleteCourse,
     handleBookCourse, handleCancel, handleRequestCancel, handleAddReview, handleAddInstructor, handleUpdateInstructor,
@@ -260,6 +261,8 @@ const AppContent: React.FC = () => {
             onDeleteCourse={handleDeleteCourse}
             filtersEnabled={filtersEnabled}
             onToggleFilters={handleToggleFilters}
+            skillConfig={skillConfig}
+            onUpdateSkillConfig={handleUpdateSkillConfig}
           />
         ) : (
           /* USER/CLIENT VIEW (Authenticated or Guest/Logged-out) */
@@ -493,6 +496,7 @@ const AppContent: React.FC = () => {
                       courses={courses}
                       instructors={instructors}
                       usersList={usersList}
+                      skillConfig={skillConfig}
                     />
                   </div>
                 )}

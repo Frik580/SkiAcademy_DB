@@ -2,11 +2,22 @@ import { useState, useEffect } from 'react';
 
 export type Theme = 'light' | 'dark';
 
+const applyThemeToDOM = (theme: Theme) => {
+  if (typeof window !== 'undefined') {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }
+};
+
 const getInitialTheme = (): Theme => {
   if (typeof window !== 'undefined') {
-    if (document.documentElement.classList.contains('dark')) return 'dark';
     const saved = localStorage.getItem('theme');
-    if (saved === 'dark' || saved === 'light') return saved;
+    if (saved === 'light') return 'light';
+    if (saved === 'dark') return 'dark';
   }
   return 'dark';
 };
@@ -15,12 +26,12 @@ export const useTheme = () => {
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
   useEffect(() => {
+    applyThemeToDOM(theme);
+
     const syncTheme = () => {
       const isDark = document.documentElement.classList.contains('dark');
       setTheme(isDark ? 'dark' : 'light');
     };
-
-    syncTheme();
 
     const observer = new MutationObserver(() => {
       syncTheme();
@@ -43,12 +54,7 @@ export const useTheme = () => {
 
   const toggleTheme = () => {
     const nextTheme: Theme = theme === 'light' ? 'dark' : 'light';
-    const root = window.document.documentElement;
-    if (nextTheme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    applyThemeToDOM(nextTheme);
     localStorage.setItem('theme', nextTheme);
     setTheme(nextTheme);
     window.dispatchEvent(new Event('theme-change'));

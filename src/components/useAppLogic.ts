@@ -16,6 +16,7 @@ import {
   auth
 } from '../lib/firebase';
 import { UserProfile, Instructor, Booking, Review, Course } from '../types';
+import { SkillConfig, DEFAULT_SKILL_CONFIG } from '../lib/skillData';
 import { useNotifications } from '../components/PushNotificationHub';
 import { useLanguage, parseDurationHours, splitCourseDates } from '../lib/LanguageContext';
 import confetti from 'canvas-confetti';
@@ -34,6 +35,7 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
   const [dbNotifications, setDbNotifications] = useState<any[]>([]);
   const [deletedCompletedStats, setDeletedCompletedStats] = useState<{ revenue: number; count: number }>({ revenue: 0, count: 0 });
   const [filtersEnabled, setFiltersEnabled] = useState<boolean>(true);
+  const [skillConfig, setSkillConfig] = useState<SkillConfig>(DEFAULT_SKILL_CONFIG);
 
   // Load initial settings and stats
   useEffect(() => {
@@ -44,6 +46,20 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
         setFiltersEnabled(settingsSnap.exists() ? (settingsSnap.data().enabled ?? true) : true);
       } catch (e) {
         setFiltersEnabled(true);
+      }
+
+      // Load Skill Config
+      try {
+        const skillSnap = await getDoc(doc(db, 'settings', 'skill_config'));
+        if (skillSnap.exists()) {
+          const data = skillSnap.data();
+          setSkillConfig({
+            passPercentage: data.passPercentage ?? 80,
+            items: data.items && Array.isArray(data.items) && data.items.length > 0 ? data.items : DEFAULT_SKILL_CONFIG.items
+          });
+        }
+      } catch (e) {
+        console.error("Error loading skill_config:", e);
       }
 
       // Fetch admin stats
@@ -87,6 +103,17 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
       const reviewList = snap.docs.map(d => ({ id: d.id, ...d.data() } as Review));
       setReviews(reviewList);
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'reviews')));
+
+    // Skill Config Settings
+    unsubscribers.push(onSnapshot(doc(db, 'settings', 'skill_config'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setSkillConfig({
+          passPercentage: data.passPercentage ?? 80,
+          items: data.items && Array.isArray(data.items) && data.items.length > 0 ? data.items : DEFAULT_SKILL_CONFIG.items
+        });
+      }
+    }, (err) => console.error("Skill config listener error:", err)));
 
     if (firebaseUser) {
       const isAdminUser = userProfile?.role === 'admin';
@@ -643,13 +670,19 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     await setDoc(doc(db, 'settings', 'instructor_filters'), { enabled });
   };
 
+  const handleUpdateSkillConfig = async (newConfig: SkillConfig) => {
+    setSkillConfig(newConfig);
+    await setDoc(doc(db, 'settings', 'skill_config'), newConfig);
+    addNotification('info', language === 'en' ? 'Skill Table Updated' : 'Таблица рейтинга обновлена', language === 'en' ? 'Skill items and passing criteria saved.' : 'Параметры рейтинга и критерии сохранены.');
+  };
+
   return {
-    instructors, reviews, bookings, usersList, courses, dbNotifications, deletedCompletedStats, filtersEnabled,
+    instructors, reviews, bookings, usersList, courses, dbNotifications, deletedCompletedStats, filtersEnabled, skillConfig,
     dismissedReviewIds, handleDismissReview,
     handlePaymentSuccess, handleBookingSuccess, handleReschedule, handleAddCourse, handleUpdateCourse, handleDeleteCourse,
     handleBookCourse, handleCancel, handleRequestCancel, handleAddReview, handleAddInstructor, handleUpdateInstructor,
     handleDeleteInstructor, handleAddBooking, handleDeleteBooking, handleUpdateUserRole, handleAddUser, handleUpdateUser,
     handleDeleteUser, handleConfirmBooking, handleCompleteBooking, handleClearNotifications, handleUpdateProfile,
-    handleToggleFilters
+    handleToggleFilters, handleUpdateSkillConfig
   };
 };

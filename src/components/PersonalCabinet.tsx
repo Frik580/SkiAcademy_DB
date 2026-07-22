@@ -909,31 +909,31 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                   <div className="grid grid-cols-3 gap-1.5 text-center">
                     
                     {/* Контроль */}
-                    <div className="p-2 flex flex-col items-center justify-center">
-                      <span className="text-[9px] font-mono uppercase tracking-wider text-cyan-300 font-bold block truncate w-full">
+                    <div className="p-2 flex flex-col items-center justify-center bg-cyan-500/10 dark:bg-transparent rounded-none">
+                      <span className="text-[9px] font-mono uppercase tracking-wider text-cyan-700 dark:text-cyan-300 font-bold block truncate w-full">
                         {language === 'ru' ? 'Контроль' : 'Control'}
                       </span>
-                      <span className="text-xl font-serif font-bold text-cyan-300 mt-0.5 block">
+                      <span className="text-xl font-serif font-bold text-cyan-700 dark:text-cyan-300 mt-0.5 block">
                         {skillProgress.control.percentage}%
                       </span>
                     </div>
 
                     {/* Скорость */}
-                    <div className="p-2 flex flex-col items-center justify-center">
-                      <span className="text-[9px] font-mono uppercase tracking-wider text-amber-300 font-bold block truncate w-full">
+                    <div className="p-2 flex flex-col items-center justify-center bg-amber-500/10 dark:bg-transparent rounded-none">
+                      <span className="text-[9px] font-mono uppercase tracking-wider text-amber-700 dark:text-amber-300 font-bold block truncate w-full">
                         {language === 'ru' ? 'Скорость' : 'Speed'}
                       </span>
-                      <span className="text-xl font-serif font-bold text-amber-300 mt-0.5 block">
+                      <span className="text-xl font-serif font-bold text-amber-700 dark:text-amber-300 mt-0.5 block">
                         {skillProgress.speed.percentage}%
                       </span>
                     </div>
 
                     {/* Техника */}
-                    <div className="p-2 flex flex-col items-center justify-center">
-                      <span className="text-[9px] font-mono uppercase tracking-wider text-purple-300 font-bold block truncate w-full">
+                    <div className="p-2 flex flex-col items-center justify-center bg-purple-500/10 dark:bg-transparent rounded-none">
+                      <span className="text-[9px] font-mono uppercase tracking-wider text-purple-700 dark:text-purple-300 font-bold block truncate w-full">
                         {language === 'ru' ? 'Техника' : 'Technique'}
                       </span>
-                      <span className="text-xl font-serif font-bold text-purple-300 mt-0.5 block">
+                      <span className="text-xl font-serif font-bold text-purple-700 dark:text-purple-300 mt-0.5 block">
                         {skillProgress.technique.percentage}%
                       </span>
                     </div>
@@ -949,17 +949,17 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           </div>
 
           {/* ⚙️ Progress Tracking Toggle Setting */}
-          <div className="border border-[var(--border)] p-3 flex items-center justify-between bg-black/10 text-[10px] font-mono uppercase tracking-wider">
+          <div className="border border-[var(--border)] p-3 flex items-center justify-between bg-slate-100/80 dark:bg-black/10 text-[10px] font-mono uppercase tracking-wider">
             <div className="flex items-center gap-2 text-[var(--ink)] min-w-0">
-              <Activity className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <Activity className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
               <span className="truncate">{language === 'ru' ? 'Отслеживание прогресса' : 'Progress Tracking'}</span>
             </div>
             <button
               onClick={() => onUpdateProfile?.({ hideProgressTracking: !userProfile.hideProgressTracking })}
               className={`px-2.5 py-1 text-[9px] font-bold uppercase transition-all cursor-pointer border shrink-0 ${
                 !userProfile.hideProgressTracking
-                  ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200 hover:bg-indigo-600/50'
-                  : 'bg-black/30 border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
+                  ? 'bg-indigo-50 dark:bg-indigo-600/30 border-indigo-300 dark:border-indigo-500 text-indigo-700 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-600/50'
+                  : 'bg-slate-200/60 dark:bg-black/30 border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
               }`}
             >
               {!userProfile.hideProgressTracking 
@@ -968,7 +968,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             </button>
           </div>
 
-          <div className="border border-[var(--border)] p-4 flex items-center justify-between bg-black/10">
+          <div className="border border-[var(--border)] p-4 flex items-center justify-between bg-slate-100/80 dark:bg-black/10">
             <div className="flex items-center gap-2">
               <Wallet className="w-4 h-4 text-[var(--ink)]" />
               <div>

@@ -1,20 +1,118 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+  <img src="https://storage.yandexcloud.net/carve/wall.webp" alt="Баннер Carve Academy" style="width: 100%; max-width: 900px; height: auto; border-radius: 8px;" />
+  <h1 style="margin-top: 1.5rem;">Carve Academy</h1>
+  <p>
+    <strong>Система бронирования уроков и курсов для горнолыжной школы</strong>
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
+    <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+    <img src="https://img.shields.io/badge/Vite-B73BFE?style=for-the-badge&logo=vite&logoColor=FFD62E" alt="Vite" />
+    <img src="https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase" />
+    <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS" />
+  </p>
 </div>
 
-# Run and deploy your AI Studio app
+## 🏔️ О проекте
 
-This contains everything you need to run your app locally.
+**Carve Academy** — это полнофункциональная веб-платформа, разработанная для горнолыжных и сноубордических школ. Она предоставляет удобный интерфейс для клиентов для просмотра и бронирования индивидуальных уроков и групповых курсов, а также мощную панель администратора для управления всеми аспектами работы школы.
 
-View your app in AI Studio: https://ai.studio/apps/b875cbe2-58f8-430e-b2c5-e0a453c4f8a4
+Проект построен на современном технологическом стеке и демонстрирует реализацию сложной бизнес-логики, включая аутентификацию, управление ролями, обработку платежей и мультиязычность.
 
-## Run Locally
+---
 
-**Prerequisites:**  Node.js
+## ✨ Ключевые особенности
 
+### Для клиентов:
+- **Аутентификация**: Регистрация и вход через Email/пароль или Google.
+- **Каталог инструкторов и курсов**: Удобный просмотр с фильтрацией по дисциплине, языку, рейтингу и цене.
+- **Система бронирования**: Простое бронирование индивидуальных уроков и запись на групповые курсы.
+- **Личный кабинет**: Управление своими бронированиями (перенос, отмена), просмотр истории и оставление отзывов.
+- **Симулированный кошелек**: Пополнение баланса через имитацию платежного шлюза для оплаты услуг.
+- **Мультиязычность**: Полная поддержка русского и английского языков.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### Для администраторов:
+- **Панель управления**: Централизованный дашборд с финансовой статистикой и обзором деятельности.
+- **Управление контентом**: CRUD-операции для инструкторов, курсов, пользователей и системных настроек.
+- **Управление бронированиями**: Просмотр, подтверждение, завершение и отмена бронирований.
+- **Календарь-расписание**: Визуальное представление загрузки инструкторов и курсов.
+- **Управление ролями**: Назначение административных прав пользователям.
+
+---
+
+## 🚀 Технологический стек
+
+- **Фронтенд**: React (с использованием хуков), TypeScript, Vite
+- **Стилизация**: Tailwind CSS
+- **Бэкенд и база данных**: Firebase (Authentication, Firestore, Storage)
+- **Анимации**: Framer Motion
+- **Иконки**: Lucide React
+
+---
+
+## 🛠️ Установка и запуск
+
+### 1. Предварительные требования
+
+- Node.js (версия 18.x или выше)
+- npm или yarn
+- Аккаунт Firebase
+
+### 2. Клонирование репозитория
+
+```bash
+git clone https://github.com/your-username/SkiAcademy_DB.git
+cd SkiAcademy_DB
+```
+
+### 3. Установка зависимостей
+
+```bash
+npm install
+```
+
+### 4. Настройка Firebase
+
+1.  Создайте новый проект в консоли Firebase.
+2.  В настройках проекта добавьте новое веб-приложение.
+3.  Скопируйте объект конфигурации Firebase (`firebaseConfig`).
+4.  Вставьте вашу конфигурацию в файл `src/lib/firebase.ts`, заменив существующие заглушки:
+
+    ```typescript
+    // src/lib/firebase.ts
+    const firebaseConfig = {
+      apiKey: "ВАШ_API_KEY",
+      authDomain: "ВАШ_AUTH_DOMAIN",
+      projectId: "ВАШ_PROJECT_ID",
+      storageBucket: "ВАШ_STORAGE_BUCKET",
+      messagingSenderId: "ВАШ_MESSAGING_SENDER_ID",
+      appId: "ВАШ_APP_ID"
+    };
+    ```
+5.  Включите следующие сервисы Firebase в вашем проекте:
+    - **Authentication**: Включите провайдеров "Email/Пароль" и "Google".
+    - **Firestore Database**: Создайте базу данных.
+    - **Storage**: Создайте хранилище.
+
+### 5. Запуск в режиме разработки
+
+После выполнения всех шагов, запустите локальный сервер разработки:
+
+```bash
+npm run dev
+```
+
+Приложение будет доступно по адресу `http://localhost:5173` (или другому порту, указанному Vite).
+
+---
+
+## 🧑‍💻 Демо-аккаунты
+
+Для быстрого тестирования функциональности в приложении предусмотрены предустановленные аккаунты:
+
+- **Администратор**:
+  - **Email**: `admin@alpineglide.com`
+  - **Пароль**: `password` (или любой другой, который вы установите при первой регистрации)
+
+- **Клиент (Лыжник)**:
+  - Вы можете зарегистрировать любого нового пользователя, ему автоматически будет начислен стартовый баланс $250.

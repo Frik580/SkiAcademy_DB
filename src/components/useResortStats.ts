@@ -153,8 +153,14 @@ export const useResortStats = () => {
         latitude: config.latitude,
         longitude: config.longitude
       };
-      await setDoc(cacheRef, dataToCache);
-      console.log("Weather data cached to Firestore.");
+      // Cache writes are admin-only. A denied cache write must not discard
+      // successfully fetched weather data for regular visitors.
+      try {
+        await setDoc(cacheRef, dataToCache);
+        console.log("Weather data cached to Firestore.");
+      } catch (cacheError) {
+        console.warn("Weather cache update skipped:", cacheError);
+      }
     } catch (error) {
       console.error("Error fetching resort stats:", error);
       // В случае ошибки устанавливаем запасные данные

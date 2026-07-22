@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth, db, doc, onSnapshot, updateDoc } from '../lib/firebase';
 import { UserProfile } from '../types';
@@ -7,16 +7,18 @@ export const useAuth = () => {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const profileUnsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      let profileUnsubscribe: (() => void) | null = null;
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      profileUnsubscribeRef.current?.();
+      profileUnsubscribeRef.current = null;
 
       if (user) {
         setFirebaseUser(user);
         const userRef = doc(db, 'users', user.uid);
         
-        profileUnsubscribe = onSnapshot(userRef, async (userSnap) => {
+        profileUnsubscribeRef.current = onSnapshot(userRef, async (userSnap) => {
           if (userSnap.exists()) {
             const data = userSnap.data() as UserProfile;
             const isAdminEmail = user.email?.toLowerCase() === 'admin@alpineglide.com' || user.email?.toLowerCase() === 'gerasimchuk.arseniy@gmail.com';
@@ -32,7 +34,7 @@ export const useAuth = () => {
           } else {
             setUserProfile(null);
           }
-          if (authLoading) setAuthLoading(false);
+          setAuthLoading(false);
         }, (error) => {
           console.error("Auth profile snapshot error:", error);
           setAuthLoading(false);
@@ -42,14 +44,19 @@ export const useAuth = () => {
         setFirebaseUser(null);
         setAuthLoading(false);
       }
-      return () => { if (profileUnsubscribe) profileUnsubscribe(); };
     });
 
-    return () => unsubscribe();
+    return () => {
+      profileUnsubscribeRef.current?.();
+      profileUnsubscribeRef.current = null;
+      unsubscribeAuth();
+    };
   }, []);
 
   const handleSignOut = async () => {
     try {
+      profileUnsubscribeRef.current?.();
+      profileUnsubscribeRef.current = null;
       await signOut(auth);
       setUserProfile(null);
       setFirebaseUser(null);

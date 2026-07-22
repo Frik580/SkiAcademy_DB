@@ -17,34 +17,86 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    function isAdmin() {
-      return isAuthenticated() && 
+    function isSuperAdmin() {
+      return isAuthenticated() &&
         ('email' in request.auth.token) &&
-        (request.auth.token.email.lower() == 'admin@alpineglide.com' || 
-         request.auth.token.email.lower() == 'gerasimchuk.arseniy@gmail.com' ||
-         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+        (request.auth.token.email.lower() == 'admin@alpineglide.com' ||
+         request.auth.token.email.lower() == 'gerasimchuk.arseniy@gmail.com');
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() ||
+        (isAuthenticated() &&
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    function isInstructor() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId is string;
+    }
+
+    function isAssignedInstructor(booking) {
+      return isInstructor() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId == booking.instructorId;
+    }
+
+    function isOwnEmail(email) {
+      return isAuthenticated() &&
+        ('email' in request.auth.token) &&
+        email is string &&
+        email.lower() == request.auth.token.email.lower();
     }
 
     // User Profiles
     match /users/{userId} {
-      allow get: if true;
-      allow list: if isAuthenticated();
-      allow create: if isAuthenticated() && (
-        isOwner(userId) || 
-        isAdmin() || 
-        userId.matches('^client_.*')
+      allow get: if isOwner(userId) || isAdmin() || isInstructor();
+      allow list: if isAdmin() || isInstructor() || isOwnEmail(resource.data.email);
+
+      allow create: if (
+        isOwner(userId) &&
+        request.resource.data.uid == userId &&
+        isOwnEmail(request.resource.data.email) &&
+        (request.resource.data.role == 'user' ||
+         (request.resource.data.role == 'admin' && isSuperAdmin()))
+      ) || (
+        isAdmin() &&
+        userId.matches('^client_.*') &&
+        request.resource.data.uid == userId &&
+        (request.resource.data.role != 'admin' || isSuperAdmin())
       );
-      allow update: if isAuthenticated() && (
-        isOwner(userId) || 
-        isAdmin() || 
-        userId.matches('^client_.*')
+
+      allow update: if (
+        isOwner(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName',
+          'phoneNumber',
+          'avatarUrl',
+          'balanceUSD',
+          'hideProgressTracking'
+        ]) &&
+        request.resource.data.balanceUSD >= 0
+      ) || (
+        isInstructor() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'level',
+          'skillScores'
+        ])
+      ) || (
+        isAdmin() &&
+        (!('role' in resource.data) || resource.data.role != 'admin') &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])
+      ) || (
+        isSuperAdmin()
       );
-      allow delete: if isAuthenticated() && (
-        isOwner(userId) || 
-        isAdmin() || 
-        userId.matches('^client_.*') ||
-        ('email' in request.auth.token && request.auth.token.email.lower() == 'gerasimchuk.arseniy@gmail.com')
+
+      allow delete: if isSuperAdmin() || (
+        isAdmin() &&
+        (!('role' in resource.data) || resource.data.role != 'admin')
+      ) || (
+        userId.matches('^client_.*') &&
+        isOwnEmail(resource.data.email)
       );
     }
 
@@ -54,7 +106,10 @@ service cloud.firestore {
       allow create: if isAdmin();
       allow update: if isAdmin() || (
         isAuthenticated() && 
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'reviewsCount'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'reviewsCount']) &&
+        request.resource.data.rating >= 1 &&
+        request.resource.data.rating <= 5 &&
+        request.resource.data.reviewsCount >= 0
       );
       allow delete: if isAdmin();
     }
@@ -62,50 +117,87 @@ service cloud.firestore {
     // Reviews
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        request.resource.data.userId == request.auth.uid ||
-        resource.data.userId.matches('^client_.*') ||
-        isAdmin()
-      );
-      allow delete: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        resource.data.userId.matches('^client_.*') ||
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.rating >= 1 &&
+        request.resource.data.rating <= 5;
+      allow update: if (
+        isOwner(resource.data.userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'comment']) &&
+        request.resource.data.rating >= 1 &&
+        request.resource.data.rating <= 5
+      ) || (
+        resource.data.userId.matches('^client_.*') &&
+        request.resource.data.userId == request.auth.uid &&
+        isOwnEmail(
+          get(/databases/$(database)/documents/users/$(resource.data.userId)).data.email
+        )
+      ) || isAdmin();
+      allow delete: if (
+        isOwner(resource.data.userId) ||
         isAdmin()
       );
     }
 
     // Bookings
     match /bookings/{bookingId} {
-      allow read: if true;
-      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
-      allow update: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || 
-        request.resource.data.userId == request.auth.uid ||
-        resource.data.userId.matches('^client_.*') ||
-        isAdmin()
-      );
+      // Authenticated clients currently need instructor schedules to avoid
+      // double-booking. Move public availability to a separate collection
+      // before restricting reads to owners and assigned instructors only.
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated() &&
+        (request.resource.data.userId == request.auth.uid || isAdmin()) &&
+        request.resource.data.totalPrice >= 0 &&
+        request.resource.data.durationHours > 0;
+
+      allow update: if (
+        isOwner(resource.data.userId) &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'date',
+          'time',
+          'cancellationReason'
+        ])
+      ) || (
+        isAssignedInstructor(resource.data) &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'date',
+          'time',
+          'cancellationReason'
+        ])
+      ) || (
+        resource.data.userId.matches('^client_.*') &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userId']) &&
+        isOwnEmail(
+          get(/databases/$(database)/documents/users/$(resource.data.userId)).data.email
+        )
+      ) || isAdmin();
+
       allow delete: if isAdmin();
 
       // Booking specific chat messages
       match /messages/{messageId} {
         allow read: if isAuthenticated() && (
-          bookingId.matches('^course_.*') ||
           get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid ||
-          get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId.matches('^client_.*') ||
           isAdmin() ||
-          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId == get(/databases/$(database)/documents/bookings/$(bookingId)).data.instructorId)
+          isAssignedInstructor(
+            get(/databases/$(database)/documents/bookings/$(bookingId)).data
+          )
         );
-        allow create: if isAuthenticated() && (
-          bookingId.matches('^course_.*') ||
-          get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid ||
-          get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId.matches('^client_.*') ||
-          isAdmin() ||
-          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId == get(/databases/$(database)/documents/bookings/$(bookingId)).data.instructorId)
-        ) && request.resource.data.senderId == request.auth.uid;
+        allow create: if isAuthenticated() &&
+          request.resource.data.senderId == request.auth.uid &&
+          (
+            get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid ||
+            isAdmin() ||
+            isAssignedInstructor(
+              get(/databases/$(database)/documents/bookings/$(bookingId)).data
+            )
+          );
         allow update, delete: if isAdmin();
       }
     }
@@ -121,13 +213,28 @@ service cloud.firestore {
       allow read: if true;
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || (
-        isAuthenticated() && 
+        isAuthenticated() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['availableSeats']) &&
         request.resource.data.availableSeats >= 0 &&
         request.resource.data.availableSeats <= resource.data.totalSeats &&
         (
-          request.resource.data.availableSeats == resource.data.availableSeats - 1 ||
-          request.resource.data.availableSeats == resource.data.availableSeats + 1
+          (
+            request.resource.data.availableSeats == resource.data.availableSeats - 1 &&
+            existsAfter(
+              /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
+            ) &&
+            getAfter(
+              /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
+            ).data.userId == request.auth.uid
+          ) || (
+            request.resource.data.availableSeats == resource.data.availableSeats + 1 &&
+            exists(
+              /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
+            ) &&
+            getAfter(
+              /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
+            ).data.status == 'cancelled'
+          )
         )
       );
     }
@@ -137,13 +244,19 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
       allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow delete: if isAdmin();
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     // Error Logs
     match /error_logs/{logId} {
       allow read: if isAdmin();
-      allow create: if true;
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        isOwnEmail(request.resource.data.userEmail) &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() <= 5000 &&
+        request.resource.data.stack is string &&
+        request.resource.data.stack.size() <= 20000;
       allow update: if false;
       allow delete: if isAdmin();
     }
@@ -151,7 +264,7 @@ service cloud.firestore {
     // Resort Data
     match /resort_data/{resortId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isAdmin();
     }
   }
 }

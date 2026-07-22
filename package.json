@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "emulators:firestore": "firebase emulators:start --only firestore",
+    "test:rules": "firebase emulators:exec --only firestore \"vitest run tests/firestore.rules.test.ts\""
   },
   "dependencies": {
     "canvas-confetti": "^1.9.3",
@@ -19,12 +21,18 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0-alpha.18",
+    "@firebase/rules-unit-testing": "^3.0.3",
     "@types/canvas-confetti": "^1.9.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
+    "firebase-tools": "^13.35.1",
     "tailwindcss": "^4.0.0-alpha.18",
     "typescript": "^5.2.2",
-    "vite": "^5.2.12"
+    "vite": "^5.2.12",
+    "vitest": "^2.1.9"
+  },
+  "overrides": {
+    "universal-analytics": "0.5.3"
   }
 }

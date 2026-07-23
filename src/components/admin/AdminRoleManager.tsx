@@ -28,17 +28,7 @@ export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
   const canManageRoles = canManageAdminRoles(currentUserProfile);
 
   return (
-    <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300 w-full min-w-0 overflow-hidden">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
-        <div>
-          <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
-            {t('adminRoleManagementTitle')}
-          </h3>
-          <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1.5 leading-relaxed">
-            {t('adminRoleManagementSub')}
-          </p>
-        </div>
-      </div>
+    <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
 
       {!canManageRoles && (
         <div className="border border-[var(--border)] bg-black/5 dark:bg-white/5 text-[var(--ink)] p-4 text-xs font-mono flex items-start gap-2.5 rounded-none">

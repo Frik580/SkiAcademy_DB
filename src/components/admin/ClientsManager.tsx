@@ -180,43 +180,35 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
       });
   };
   return (
-    <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300 w-full min-w-0 overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
-          <div>
-            <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
-              {t('clientDatabaseTitle')}
-            </h3>
-            <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1.5 leading-relaxed">
-              {t('clientDatabaseSub')}
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setEditingClient(null);
-              setClientName('');
-              setClientEmail('');
-              setClientPhone('');
-              setClientBalance(250);
-              setClientRole('user');
-              setClientIsActive(true);
-              setClientIsInstructor(false);
-              setShowClientAddForm(!showClientAddForm);
-            }}
-            className="self-start md:self-auto py-1.5 px-3 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 rounded-none text-xs flex items-center gap-1 transition cursor-pointer font-mono"
-          >
-            {showClientAddForm && !editingClient ? (
-              <>
-                <X className="w-4 h-4" />
-                {t('closeForm')}
-              </>
-            ) : (
-              <>
-                <Plus className="w-4 h-4" />
-                {t('registerNewClient')}
-              </>
-            )}
-          </button>
-        </div>
+    <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
+      <div className="flex items-center justify-end border-b border-[var(--border)] pb-3">
+        <button
+          onClick={() => {
+            setEditingClient(null);
+            setClientName('');
+            setClientEmail('');
+            setClientPhone('');
+            setClientBalance(250);
+            setClientRole('user');
+            setClientIsActive(true);
+            setClientIsInstructor(false);
+            setShowClientAddForm(!showClientAddForm);
+          }}
+          className="py-1.5 px-3 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 rounded-none text-xs flex items-center gap-1 transition cursor-pointer font-mono"
+        >
+          {showClientAddForm && !editingClient ? (
+            <>
+              <X className="w-4 h-4" />
+              {t('closeForm')}
+            </>
+          ) : (
+            <>
+              <Plus className="w-4 h-4" />
+              {t('registerNewClient')}
+            </>
+          )}
+        </button>
+      </div>
 
         <div className="grid lg:grid-cols-12 gap-6 w-full min-w-0 overflow-hidden">
           {/* Left Column: Client Directory */}

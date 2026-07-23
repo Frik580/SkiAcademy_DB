@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Trash2, Loader2, Search, AlertTriangle } from 'lucide-react';
+import { Trash2, Loader2, Search } from 'lucide-react';
 import { ErrorLog, OperationType } from '../../types';
 import { db, doc, deleteDoc, collection, query, orderBy, onSnapshot, handleFirestoreError } from '../../lib/firebase';
 import { useLanguage } from '../../lib/LanguageContext';
@@ -80,18 +80,9 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
   }, [errorLogs, logSearch, logSourceFilter]);
 
   return (
-    <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300 w-full min-w-0 overflow-hidden">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
-        <div>
-          <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
-            <AlertTriangle className="w-4.5 h-4.5 text-rose-500 shrink-0" />
-            {t('systemErrorLogsTitle')}
-          </h3>
-          <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1.5 leading-relaxed">
-            {t('systemErrorLogsSub')}
-          </p>
-        </div>
-        {errorLogs.length > 0 && (
+    <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
+      {errorLogs.length > 0 && (
+        <div className="flex items-center justify-end border-b border-[var(--border)] pb-3">
           <button
             onClick={handleClearAllLogs}
             className="py-1.5 px-3 border border-rose-900/40 hover:border-rose-500 text-rose-500 hover:bg-rose-950/10 rounded-none text-xs flex items-center gap-1.5 transition cursor-pointer font-mono"
@@ -99,8 +90,8 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
             <Trash2 className="w-3.5 h-3.5" />
             {t('clearAllLogs')}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
         <div className="relative">

@@ -1,9 +1,10 @@
 import React from 'react';
-import { Settings } from 'lucide-react';
+import { Settings, Award, Mountain, Sliders } from 'lucide-react';
 import { useLanguage } from '../../lib/LanguageContext';
 import { SkillConfig } from '../../lib/skillData';
 import { SkillConfigManager } from '../SkillConfigManager';
-import { ResortConfigForm } from './ResortConfigForm';
+import { ResortDataSection, ResortSliderSection } from './ResortConfigForm';
+import { AdminCollapsibleSection } from './AdminCollapsibleSection';
 
 interface SystemSettingsProps {
   filtersEnabled?: boolean;
@@ -21,8 +22,9 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   const { t } = useLanguage();
 
   return (
-    <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 animate-fade-in transition-colors duration-300 w-full min-w-0 overflow-hidden">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
+    <div className="space-y-6 animate-fade-in transition-colors duration-300 w-full min-w-0 overflow-hidden">
+      {/* Top Header Card for System Settings */}
+      <div className="border border-[var(--border)] p-5 bg-black/5 dark:bg-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
             <Settings className="w-4.5 h-4.5 text-[var(--ink-dim)]" />
@@ -32,20 +34,19 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             {t('systemSettingsSub')}
           </p>
         </div>
-      </div>
 
-      <div className="space-y-6">
-        <div className="border border-[var(--border)] p-5 flex items-center justify-between bg-black/5 dark:bg-white/5 rounded-none">
-          <div className="space-y-1.5">
+        <div className="flex items-center gap-4 border-t md:border-t-0 md:border-l border-[var(--border)] pt-3 md:pt-0 md:pl-4">
+          <div className="space-y-0.5">
             <span className="font-mono text-xs uppercase tracking-wider font-bold text-[var(--ink)] block">
               {t('instructorFilters')}
             </span>
-            <span className="text-[10px] text-[var(--ink-dim)] block max-w-sm leading-relaxed">
+            <span className="text-[9px] text-[var(--ink-dim)] block">
               {t('instructorFiltersDesc')}
             </span>
           </div>
 
           <button
+            type="button"
             onClick={() => onToggleFilters?.(!filtersEnabled)}
             className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-none border border-[var(--border)] transition-colors duration-200 ease-in-out focus:outline-none ${
               filtersEnabled ? 'bg-[var(--ink)]' : 'bg-transparent'
@@ -58,16 +59,42 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             />
           </button>
         </div>
+      </div>
 
+      {/* 1. Таблица начисления рейтинга клиентов (система уровней) */}
+      <AdminCollapsibleSection
+        id="skill_matrix"
+        title={t('clientRatingSkillMatrix') || 'Таблица начисления рейтинга клиентов (система уровней)'}
+        subtitle={t('skillMatrixDescription') || 'Настройка критериев перехода между уровнями и матрицы навыков'}
+        icon={Award}
+      >
         <SkillConfigManager
           config={skillConfig}
           onSaveConfig={async (cfg) => {
             if (onUpdateSkillConfig) await onUpdateSkillConfig(cfg);
           }}
         />
+      </AdminCollapsibleSection>
 
-        <ResortConfigForm />
-      </div>
+      {/* 2. Данные курорта и геолокация погоды */}
+      <AdminCollapsibleSection
+        id="resort_data"
+        title={t('resortDetailsTitle') || 'Данные курорта и геолокация погоды'}
+        subtitle={t('resortDetailsSub') || 'Название курорта, GPS координаты и статус подъемников'}
+        icon={Mountain}
+      >
+        <ResortDataSection />
+      </AdminCollapsibleSection>
+
+      {/* 3. Настройка рекламного баннера (Слайдер) */}
+      <AdminCollapsibleSection
+        id="resort_slider"
+        title={t('heroSliderTitle') || 'Настройка рекламного баннера (Слайдер)'}
+        subtitle={t('heroSliderDesc') || 'Интервал смены и конфигурация промо-слайдов на главной странице'}
+        icon={Sliders}
+      >
+        <ResortSliderSection />
+      </AdminCollapsibleSection>
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SkillConfig, SkillItem, DEFAULT_SKILL_CONFIG } from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
-import { Plus, Trash2, Edit2, Save, RotateCcw, Award, Check } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, RotateCcw, Check } from 'lucide-react';
 
 interface SkillConfigManagerProps {
   config?: SkillConfig;
@@ -82,35 +82,23 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
   };
 
   return (
-    <div className="border border-[var(--border)] p-5 bg-black/5 dark:bg-white/5 rounded-none space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
-        <div>
-          <h4 className="font-serif text-lg font-light text-[var(--ink)] flex items-center gap-2">
-            <Award className="w-5 h-5 text-indigo-400" />
-            {t('clientRatingSkillMatrix')}
-          </h4>
-          <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1">
-            {t('skillMatrixDescription')}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={handleResetToDefault}
-            className="px-3 py-1.5 border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 text-[10px] font-mono uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            {t('reset')}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-mono uppercase tracking-wider font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
-          >
-            <Save className="w-3.5 h-3.5" />
-            {isSaving ? t('saving') : t('saveChanges')}
-          </button>
-        </div>
+    <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
+      <div className="flex items-center justify-end gap-2 border-b border-[var(--border)] pb-3">
+        <button
+          onClick={handleResetToDefault}
+          className="px-3 py-1.5 border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 text-[10px] font-mono uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          {t('reset')}
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-mono uppercase tracking-wider font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+        >
+          <Save className="w-3.5 h-3.5" />
+          {isSaving ? t('saving') : t('saveChanges')}
+        </button>
       </div>
 
       {/* Passing score setting */}

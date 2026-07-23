@@ -278,28 +278,20 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
     };
 
   return (
-          <div className="grid lg:grid-cols-12 gap-6 w-full min-w-0 overflow-hidden">
-            {/* Instructors Management Table */}
-            <div className={`${(showAddForm || editingIns) ? 'lg:col-span-8' : 'lg:col-span-12'} border border-[var(--border)] p-6 bg-transparent space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden`}>
-              <div className="flex items-center justify-between border-b border-[var(--border)] pb-4">
-                <div>
-                  <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
-                    {t('coachesDirectoryTitle')}
-                  </h3>
-                  <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1.5 leading-relaxed">
-                    {t('coachesDirectorySub')}
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setEditingIns(null);
-                    setShowAddForm(!showAddForm);
-                  }}
-                  className="py-1.5 px-3 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 rounded-none text-xs flex items-center gap-1 transition cursor-pointer font-mono"
-                >
-                  <Plus className="w-4 h-4" /> {t('addCoachShort')}
-                </button>
-              </div>
+    <div className="grid lg:grid-cols-12 gap-6 w-full min-w-0 overflow-hidden">
+      {/* Instructors Management Table */}
+      <div className={`${(showAddForm || editingIns) ? 'lg:col-span-8' : 'lg:col-span-12'} space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden`}>
+        <div className="flex items-center justify-end border-b border-[var(--border)] pb-3">
+          <button
+            onClick={() => {
+              setEditingIns(null);
+              setShowAddForm(!showAddForm);
+            }}
+            className="py-1.5 px-3 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 rounded-none text-xs flex items-center gap-1 transition cursor-pointer font-mono"
+          >
+            <Plus className="w-4 h-4" /> {t('addCoachShort')}
+          </button>
+        </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">

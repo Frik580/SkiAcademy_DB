@@ -1037,6 +1037,14 @@ export const translations = {
     saveRatings: "Save Ratings",
 
     // System status / fallback
+    bookingsLogTitle: "Active Bookings Monitor",
+    bookingsLogSub: "Monitor active booking requests, session confirmations, completions, and cancellations",
+    clientsManagerTitle: "Client Database Management",
+    clientsManagerSub: "User records, balances, instructor assignments, and removal",
+    coursesManagerTitle: "Courses Database Management",
+    coursesManagerSub: "Group programs, dates, pricing, and descriptions",
+    errorLogsTitle: "System Error Logs",
+    errorLogsSub: "Monitor exceptions, network errors, and security logs",
     dbRestricted: "Database sync restricted. Using active sandboxed state.",
     checkingCredentials: "Checking Lift Credentials...",
     loading: "Loading..."
@@ -2077,6 +2085,14 @@ export const translations = {
     saveRatings: "Сохранить оценки",
 
     // System status / fallback
+    bookingsLogTitle: "Монитор активных бронирований",
+    bookingsLogSub: "Журнал запросов, подтверждение, завершение и отмена занятий",
+    clientsManagerTitle: "Управление базой клиентов",
+    clientsManagerSub: "Учет пользователей, балансы, назначение инструкторов и удаление",
+    coursesManagerTitle: "Управление базой курсов",
+    coursesManagerSub: "Групповые программы, даты проведения, цены и описания",
+    errorLogsTitle: "Логи системных ошибок",
+    errorLogsSub: "Мониторинг исключений, сетевых ошибок и журналов безопасности",
     dbRestricted: "Синхронизация БД ограничена. Используется локальное состояние песочницы.",
     checkingCredentials: "Проверка пропусков на подъемники...",
     loading: "Загрузка..."

@@ -83,16 +83,9 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
     return Math.max(1, Math.ceil(filteredBookings.length / 10));
   }, [filteredBookings]);
   return (
-    <div className="border border-[var(--border)] p-6 bg-transparent space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
-          <div>
-            <h3 className="font-serif text-xl font-light text-[var(--ink)]">{t('activeBookingsMonitor')}</h3>
-            <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1.5 leading-relaxed">{t('bookingsLogsSub')}</p>
-          </div>
-        </div>
-
-        {/* Filters and Search Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2 pb-1 font-mono">
+    <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
+      {/* Filters and Search Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pb-1 font-mono">
           {/* Search Input */}
           <div className="relative">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-[var(--ink-dim)]">

@@ -377,18 +377,8 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
   return (
     <>
-      <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300 w-full min-w-0 overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
-          <div>
-            <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2.5">
-              <Calendar className="w-4.5 h-4.5 text-[var(--ink-dim)]" />
-              {t('scheduleBoardTitle')}
-            </h3>
-            <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1.5 leading-relaxed">
-              {t('scheduleBoardSub')}
-            </p>
-          </div>
-
+      <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
           <ScheduleToolbar
             viewMode={viewMode}
             selectedDate={selectedDate}

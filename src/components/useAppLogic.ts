@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   db,
   doc,
@@ -24,12 +24,14 @@ import confetti from 'canvas-confetti';
 import { User } from 'firebase/auth';
 import { canManageAdminRoles } from '../lib/accessControl';
 import {
-  AVAILABILITY_MIGRATION_SETTING,
   AVAILABILITY_SLOTS_COLLECTION,
   blocksInstructorAvailability,
   isCourseBooking,
   toAvailabilitySlot,
 } from '../lib/availabilitySlots';
+import { createNotificationForUser } from '../lib/notifications';
+import { useAvailabilityMigration } from './useAvailabilityMigration';
+import { useDismissedReviews } from './useDismissedReviews';
 
 export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile | null, setUserProfile: (profile: UserProfile | null) => void) => {
   const { addNotification } = useNotifications();
@@ -46,7 +48,6 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
   const [filtersEnabled, setFiltersEnabled] = useState<boolean>(true);
   const [skillConfig, setSkillConfig] = useState<SkillConfig>(DEFAULT_SKILL_CONFIG);
   const [bookingsLoaded, setBookingsLoaded] = useState(false);
-  const availabilityMigrationRunningRef = useRef(false);
 
   // Load initial settings and stats
   useEffect(() => {
@@ -182,54 +183,7 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     return () => unsubscribers.forEach(unsub => unsub());
   }, [firebaseUser, userProfile, addNotification]);
 
-  // One-time privacy migration: copy active booking times into public,
-  // non-sensitive availability documents before booking reads are restricted.
-  useEffect(() => {
-    if (
-      userProfile?.role !== 'admin' ||
-      !bookingsLoaded ||
-      availabilityMigrationRunningRef.current
-    ) {
-      return;
-    }
-
-    availabilityMigrationRunningRef.current = true;
-
-    const migrateAvailabilitySlots = async () => {
-      try {
-        const migrationRef = doc(db, 'settings', AVAILABILITY_MIGRATION_SETTING);
-        const migrationSnapshot = await getDoc(migrationRef);
-        if (migrationSnapshot.data()?.complete === true) return;
-
-        const activeBookings = bookings.filter(blocksInstructorAvailability);
-        const chunkSize = 400;
-
-        for (let index = 0; index < activeBookings.length; index += chunkSize) {
-          const batch = writeBatch(db);
-          for (const booking of activeBookings.slice(index, index + chunkSize)) {
-            batch.set(
-              doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id),
-              toAvailabilitySlot(booking)
-            );
-          }
-          await batch.commit();
-        }
-
-        await setDoc(migrationRef, {
-          complete: true,
-          migratedCount: activeBookings.length,
-          completedAt: new Date().toISOString(),
-        });
-        console.info(`[Availability Migration] Migrated ${activeBookings.length} active slots.`);
-      } catch (error) {
-        console.error('Availability slot migration failed:', error);
-      } finally {
-        availabilityMigrationRunningRef.current = false;
-      }
-    };
-
-    migrateAvailabilitySlots();
-  }, [userProfile?.role, bookingsLoaded, bookings]);
+  useAvailabilityMigration(userProfile?.role, bookingsLoaded, bookings);
 
   // Auto-sync course seats
   const bookingsDeps = bookings.map((b) => `${b.id}:${b.status}:${b.isDeleted}`).join(',');
@@ -288,35 +242,7 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     return () => clearInterval(interval);
   }, [bookings, firebaseUser, language, addNotification]);
 
-  // Dismissed review notification IDs
-  const [dismissedReviewIds, setDismissedReviewIds] = useState<string[]>([]);
-  useEffect(() => {
-    if (userProfile?.uid) {
-      const saved = localStorage.getItem(`alpine_glide_dismissed_reviews_${userProfile.uid}`);
-      setDismissedReviewIds(saved ? JSON.parse(saved) : []);
-    } else {
-      setDismissedReviewIds([]);
-    }
-  }, [userProfile?.uid]);
-
-  const handleDismissReview = (bookingId: string) => {
-    if (userProfile?.uid) {
-      const updated = [...dismissedReviewIds, bookingId];
-      setDismissedReviewIds(updated);
-      localStorage.setItem(`alpine_glide_dismissed_reviews_${userProfile.uid}`, JSON.stringify(updated));
-    }
-  };
-
-  const createNotificationForUser = async (userId: string, title: string, message: string, type: 'info' | 'warning' | 'success' = 'info') => {
-    if (userId.startsWith('system_block_')) return;
-    const notification = { userId, title, message, type, timestamp: new Date().toISOString(), isRead: false };
-    const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    try {
-      await setDoc(doc(db, 'notifications', notifId), notification);
-    } catch (e) {
-      console.error("Failed to create notification:", e);
-    }
-  };
+  const { dismissedReviewIds, handleDismissReview } = useDismissedReviews(userProfile?.uid);
 
   const handlePaymentSuccess = async (amount: number) => {
     if (!userProfile || !firebaseUser) return;

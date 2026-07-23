@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Plus,
   Trash2,
@@ -11,22 +11,18 @@ import {
   ArrowDown,
   Eye,
   EyeOff,
-  Calendar,
-  Clock,
-  ChevronLeft,
-  ChevronRight,
-  Camera,
 } from 'lucide-react';
 import { Booking, Course, Instructor, UserProfile } from '../../types';
 import {
   useLanguage,
   translateInstructorName,
   translateCourse,
-  parseCourseDates,
-  formatCourseDates,
 } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
-import { formatDateLocalYMD, getSpecialtyLabel } from './scheduleUtils';
+import { getSpecialtyLabel } from './scheduleUtils';
+import { CourseBackgroundImageField } from './CourseBackgroundImageField';
+import { CourseDateRangePicker } from './CourseDateRangePicker';
+import { useCourseDateRange } from './useCourseDateRange';
 
 interface CoursesManagerProps {
   courses: Course[];
@@ -52,102 +48,19 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
 }) => {
   const { t, language } = useLanguage();
   const { addNotification } = useNotifications();
-  function optimizeCourseImage(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      if (!file.type.startsWith('image/')) {
-        reject(new Error('File is not an image'));
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800;
-          const MAX_HEIGHT = 600;
-
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx!.drawImage(img, 0, 0, width, height);
-
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85); // Slightly higher quality for backgrounds
-          resolve(dataUrl);
-        };
-        img.onerror = () => reject(new Error('Failed to load image source'));
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(file);
-    });
-  }
-
-
-
-  function getDaysInMonth(date: Date) {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDayIndex = new Date(year, month, 1).getDay(); // 0 is Sunday, 1 is Monday...
-    // Adjust Sunday to be 6 (so Monday is 0, Sunday is 6)
-    const adjustedFirstDay = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
-    const totalDays = new Date(year, month + 1, 0).getDate();
-    
-    // Previous month's trailing days
-    const prevMonthTotalDays = new Date(year, month, 0).getDate();
-    const prevDays = [];
-    for (let i = adjustedFirstDay - 1; i >= 0; i--) {
-      prevDays.push({
-        day: prevMonthTotalDays - i,
-        isCurrentMonth: false,
-        date: new Date(year, month - 1, prevMonthTotalDays - i)
-      });
-    }
-    
-    // Current month's days
-    const currentDays = [];
-    for (let i = 1; i <= totalDays; i++) {
-      currentDays.push({
-        day: i,
-        isCurrentMonth: true,
-        date: new Date(year, month, i)
-      });
-    }
-    
-    // Next month's leading days to complete the grid (usually 42 cells total for 6 rows)
-    const nextDaysCount = 42 - (prevDays.length + currentDays.length);
-    const nextDays = [];
-    for (let i = 1; i <= nextDaysCount; i++) {
-      nextDays.push({
-        day: i,
-        isCurrentMonth: false,
-        date: new Date(year, month + 1, i)
-      });
-    }
-    
-    return [...prevDays, ...currentDays, ...nextDays];
-  }
+  const courseDateRange = useCourseDateRange();
+  const {
+    courseDuration,
+    setCourseDuration,
+    courseDates,
+    loadCourseDateRange,
+    resetCourseDateRange,
+  } = courseDateRange;
 
     // Course State and Form Fields
     const [showCourseForm, setShowCourseForm] = useState(false);
     const [editingCourse, setEditingCourse] = useState<Course | null>(null);
     const [courseTitle, setCourseTitle] = useState('');
-    const [courseDuration, setCourseDuration] = useState('');
     const [courseDescription, setCourseDescription] = useState('');
     const [courseShortDescription, setCourseShortDescription] = useState('');
     const [courseShortDescriptionRu, setCourseShortDescriptionRu] = useState('');
@@ -156,13 +69,10 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
     const [courseBadge, setCourseBadge] = useState('');
     const [courseBadgeRu, setCourseBadgeRu] = useState('');
     const [courseLevel, setCourseLevel] = useState<'beginner' | 'intermediate' | 'advanced' | 'expert' | ''>('');
-    const [courseDates, setCourseDates] = useState('');
     const [courseTotalSeats, setCourseTotalSeats] = useState(10);
     const [coursePrice, setCoursePrice] = useState(199);
     const [courseBgImageUrl, setCourseBgImageUrl] = useState('');
     const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
-    const [isUploadingCourseImage, setIsUploadingCourseImage] = useState(false);
-    const [isCourseDragOver, setIsCourseDragOver] = useState(false);
     const [courseIsHidden, setCourseIsHidden] = useState(false);
     const [selectedCourseInstructors, setSelectedCourseInstructors] = useState<string[]>([]);
 
@@ -199,112 +109,6 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
     const [courseFaq3ARu, setCourseFaq3ARu] = useState('');
     
     const [courseGalleryPhotos, setCourseGalleryPhotos] = useState('');
-
-    // Calendar Course Date/Time States
-    const [courseStartDate, setCourseStartDate] = useState<string>(() => formatDateLocalYMD(new Date()));
-    const [courseEndDate, setCourseEndDate] = useState<string>(() => {
-      const d = new Date();
-      d.setDate(d.getDate() + 2);
-      return formatDateLocalYMD(d);
-    });
-    const [courseStartTime, setCourseStartTime] = useState<string>('09:00');
-    const [courseEndTime, setCourseEndTime] = useState<string>('13:00');
-    const [calendarViewMonth, setCalendarViewMonth] = useState<Date>(() => new Date());
-    const [showCalendarPopover, setShowCalendarPopover] = useState<boolean>(false);
-
-    // Automatically recalculate course dates and duration
-    useEffect(() => {
-      if (courseStartDate && courseEndDate) {
-        const start = new Date(courseStartDate);
-        const end = new Date(courseEndDate);
-        if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-          const formatted = formatCourseDates(start, end, courseStartTime, courseEndTime, language);
-          setCourseDates(formatted);
-
-          // Auto-calculate Duration
-          const diffTime = Math.abs(end.getTime() - start.getTime());
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-          
-          let hoursPerDay = 4; // default
-          if (courseStartTime && courseEndTime) {
-            const [startH, startM] = courseStartTime.split(':').map(Number);
-            const [endH, endM] = courseEndTime.split(':').map(Number);
-            hoursPerDay = (endH + endM / 60) - (startH + startM / 60);
-            if (hoursPerDay <= 0) hoursPerDay = 4;
-          }
-          
-          const totalHours = Math.round(diffDays * hoursPerDay);
-          
-          let durationText = "";
-          if (language === 'en') {
-            const daysStr = diffDays === 1 ? "1 Day" : `${diffDays} Days`;
-            durationText = `${daysStr} (${totalHours} Hours)`;
-          } else {
-            const daysStr = diffDays === 1 ? "1 день" : (diffDays >= 2 && diffDays <= 4 ? `${diffDays} дня` : `${diffDays} дней`);
-            durationText = `${daysStr} (${totalHours} ч.)`;
-          }
-          setCourseDuration(durationText);
-        }
-      }
-    }, [courseStartDate, courseEndDate, courseStartTime, courseEndTime, language]);
-
-    const calendarDays = useMemo(() => {
-      return getDaysInMonth(calendarViewMonth);
-    }, [calendarViewMonth]);
-
-    const handlePrevMonth = () => {
-      setCalendarViewMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
-    };
-
-    const handleNextMonth = () => {
-      setCalendarViewMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-    };
-
-    const handleCalendarDayClick = (dayDate: Date) => {
-      const dateStr = formatDateLocalYMD(dayDate);
-      
-      const startObj = courseStartDate ? new Date(courseStartDate) : null;
-
-      // If no start date, or both are set and they are different (starting a new selection),
-      // or if the clicked date is before start date, treat it as a new start date.
-      if (!courseStartDate || (courseStartDate && courseEndDate && courseStartDate !== courseEndDate) || (startObj && dayDate < startObj)) {
-        setCourseStartDate(dateStr);
-        setCourseEndDate(dateStr);
-      } else {
-        setCourseEndDate(dateStr);
-      }
-    };
-
-    const processAndOptimizeCourseImage = async (file: File) => {
-      if (!file.type.startsWith('image/')) {
-        addNotification(
-          'error',
-          t('invalidFile'),
-          t('invalidFileDesc')
-        );
-        return;
-      }
-
-      setIsUploadingCourseImage(true);
-      try {
-        const optimizedBase64 = await optimizeCourseImage(file);
-        setCourseBgImageUrl(optimizedBase64);
-        addNotification(
-          'success',
-          t('courseBgAttached'),
-          t('courseBgAttachedDesc')
-        );
-      } catch (err) {
-        console.error(err);
-        addNotification(
-          'error',
-          t('uploadFailed'),
-          t('courseBgFailedDesc')
-        );
-      } finally {
-        setIsUploadingCourseImage(false);
-      }
-    };
 
     const handleCourseSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -457,7 +261,6 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
     const startEditCourse = (course: Course) => {
       setEditingCourse(course);
       setCourseTitle(course.title);
-      setCourseDuration(course.duration);
       setCourseDescription(course.description);
       setCourseShortDescription(course.shortDescription || '');
       setCourseShortDescriptionRu(course.shortDescriptionRu || '');
@@ -466,7 +269,6 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
       setCourseBadge(course.badge || '');
       setCourseBadgeRu(course.badgeRu || '');
       setCourseLevel(course.level || '');
-      setCourseDates(course.dates);
       setCourseTotalSeats(course.totalSeats);
       setCoursePrice(course.price);
       setCourseBgImageUrl(course.bgImageUrl);
@@ -514,17 +316,11 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
       setShowCourseForm(true);
 
       // Parse course dates into calendar states
-      const parsed = parseCourseDates(course.dates);
-      setCourseStartDate(formatDateLocalYMD(parsed.start));
-      setCourseEndDate(formatDateLocalYMD(parsed.end));
-      setCourseStartTime(parsed.startTime);
-      setCourseEndTime(parsed.endTime);
-      setCalendarViewMonth(new Date(parsed.start));
+      loadCourseDateRange(course.dates, course.duration);
     };
 
     const resetCourseForm = () => {
       setCourseTitle('');
-      setCourseDuration('');
       setCourseDescription('');
       setCourseShortDescription('');
       setCourseShortDescriptionRu('');
@@ -533,7 +329,6 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
       setCourseBadge('');
       setCourseBadgeRu('');
       setCourseLevel('');
-      setCourseDates('');
       setCourseTotalSeats(10);
       setCoursePrice(199);
       setCourseBgImageUrl('');
@@ -564,14 +359,7 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
       setShowCourseForm(false);
 
       // Reset calendar states
-      const today = new Date();
-      setCourseStartDate(formatDateLocalYMD(today));
-      const afterTwoDays = new Date();
-      afterTwoDays.setDate(today.getDate() + 2);
-      setCourseEndDate(formatDateLocalYMD(afterTwoDays));
-      setCourseStartTime('09:00');
-      setCourseEndTime('13:00');
-      setCalendarViewMonth(new Date());
+      resetCourseDateRange();
     };
 
 
@@ -904,146 +692,7 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
                     </div>
 
                     {/* Dates & Calendar Selection */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
-                        {t('datesTimeOfCourse')}
-                      </label>
-                      
-                      {/* Visual trigger / current selection display */}
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <input
-                            type="text"
-                            required
-                            readOnly
-                            value={courseDates}
-                            className="w-full px-3.5 py-2 pr-10 border border-[var(--border)] bg-black/5 dark:bg-white/5 text-[var(--ink)] text-xs font-mono focus:outline-none cursor-pointer rounded-none"
-                            onClick={() => setShowCalendarPopover(!showCalendarPopover)}
-                            placeholder={t('openCalendarPlaceholder')}
-                          />
-                          <Calendar className="absolute right-3 top-2.5 w-4.5 h-4.5 text-[var(--ink-dim)] pointer-events-none" />
-                        </div>
-                        
-                        <button
-                          type="button"
-                          onClick={() => setShowCalendarPopover(!showCalendarPopover)}
-                          className="px-3 py-2 border border-[var(--border)] text-xs text-[var(--ink)] hover:border-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 transition rounded-none font-mono font-bold"
-                        >
-                          {showCalendarPopover ? t('closeCalendar') : t('openCalendar')}
-                        </button>
-                      </div>
-
-                      {/* Calendar Popover / Expanded Section */}
-                      {showCalendarPopover && (
-                        <div className="border border-[var(--border)] p-4 bg-black/5 dark:bg-white/5 space-y-4 animate-fade-in rounded-none">
-                          {/* Month Navigation */}
-                          <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
-                            <span className="font-serif text-xs font-bold text-[var(--ink)] capitalize">
-                              {calendarViewMonth.toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US', { month: 'long', year: 'numeric' })}
-                            </span>
-                            
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={handlePrevMonth}
-                                className="p-1 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] transition bg-transparent rounded-none"
-                              >
-                                <ChevronLeft className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleNextMonth}
-                                className="p-1 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] transition bg-transparent rounded-none"
-                              >
-                                <ChevronRight className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Calendar Grid */}
-                          <div className="grid grid-cols-7 gap-1 text-center font-mono">
-                            {/* Weekday Headers */}
-                            {(language === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']).map((wd) => (
-                              <span key={wd} className="text-[9px] font-bold text-[var(--ink-dim)] py-1">
-                                {wd}
-                              </span>
-                            ))}
-
-                            {/* Month Days */}
-                            {calendarDays.map((cell, idx) => {
-                              const cellDateStr = formatDateLocalYMD(cell.date);
-                              const isStart = cellDateStr === courseStartDate;
-                              const isEnd = cellDateStr === courseEndDate;
-                              
-                              const startObj = courseStartDate ? new Date(courseStartDate) : null;
-                              const endObj = courseEndDate ? new Date(courseEndDate) : null;
-                              const isRange = startObj && endObj && cell.date >= startObj && cell.date <= endObj;
-                              
-                              let cellBgClass = "bg-transparent text-[var(--ink)] hover:bg-black/10 dark:hover:bg-white/10";
-                              if (isStart || isEnd) {
-                                cellBgClass = "bg-[var(--ink)] text-[var(--bg)] font-bold";
-                              } else if (isRange) {
-                                cellBgClass = "bg-sky-550/20 text-[var(--ink)] font-bold border-y border-dashed border-sky-500/20";
-                              } else if (!cell.isCurrentMonth) {
-                                cellBgClass = "text-[var(--ink-dim)] opacity-40 hover:bg-black/5 dark:hover:bg-white/5";
-                              }
-
-                              return (
-                                <button
-                                  key={idx}
-                                  type="button"
-                                  onClick={() => handleCalendarDayClick(cell.date)}
-                                  className={`h-7 w-7 text-[10px] flex items-center justify-center transition cursor-pointer rounded-none border border-transparent ${cellBgClass}`}
-                                >
-                                  {cell.day}
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {/* Guide Text */}
-                          <div className="text-[9px] text-[var(--ink-dim)] font-mono text-center">
-                            {t('calendarRangeHint')}
-                          </div>
-
-                          {/* Time Slot Customizer within calendar panel */}
-                          <div className="border-t border-[var(--border)] pt-3 space-y-3">
-                            <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider font-bold block flex items-center gap-1">
-                              <Clock className="w-3.5 h-3.5" />
-                              {t('dailyHours')}
-                            </span>
-                            
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="space-y-1">
-                                <label className="text-[9px] text-[var(--ink-dim)] block">
-                                  {t('startTime')}
-                                </label>
-                                <input
-                                  type="time"
-                                  required
-                                  value={courseStartTime}
-                                  onChange={(e) => setCourseStartTime(e.target.value)}
-                                  className="w-full px-2 py-1 bg-transparent border border-[var(--border)] text-[var(--ink)] text-xs font-mono focus:outline-none focus:border-[var(--ink)] rounded-none"
-                                />
-                              </div>
-                              
-                              <div className="space-y-1">
-                                <label className="text-[9px] text-[var(--ink-dim)] block">
-                                  {t('endTime')}
-                                </label>
-                                <input
-                                  type="time"
-                                  required
-                                  value={courseEndTime}
-                                  onChange={(e) => setCourseEndTime(e.target.value)}
-                                  className="w-full px-2 py-1 bg-transparent border border-[var(--border)] text-[var(--ink)] text-xs font-mono focus:outline-none focus:border-[var(--ink)] rounded-none"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    <CourseDateRangePicker dateRange={courseDateRange} />
 
                     {/* Description */}
                     <div className="space-y-1.5">
@@ -1204,55 +853,10 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
                     </div>
 
                     {/* Background Image URL & File Upload */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
-                        {t('backgroundImageUrl')}
-                      </label>
-                      <input
-                        type="url"
-                        value={courseBgImageUrl}
-                        onChange={(e) => setCourseBgImageUrl(e.target.value)}
-                        placeholder="https://images.unsplash.com/..."
-                        className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none mb-1"
-                      />
-                      
-                      {/* File Upload zone */}
-                      <div 
-                        onDragOver={(e) => { e.preventDefault(); setIsCourseDragOver(true); }}
-                        onDragLeave={() => setIsCourseDragOver(false)}
-                        onDrop={async (e) => {
-                          e.preventDefault();
-                          setIsCourseDragOver(false);
-                          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                            await processAndOptimizeCourseImage(e.dataTransfer.files[0]);
-                          }
-                        }}
-                        className={`border border-dashed p-4 text-center cursor-pointer transition ${isCourseDragOver ? 'border-[var(--ink)] bg-black/10' : 'border-[var(--border)] hover:border-[var(--ink)]'}`}
-                        onClick={() => document.getElementById('course-image-input')?.click()}
-                      >
-                        <input 
-                          id="course-image-input" 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
-                          onChange={async (e) => {
-                            if (e.target.files && e.target.files.length > 0) {
-                              await processAndOptimizeCourseImage(e.target.files[0]);
-                            }
-                          }} 
-                        />
-                        <div className="flex flex-col items-center gap-1">
-                          {isUploadingCourseImage ? (
-                            <Loader2 className="w-5 h-5 text-[var(--ink-dim)] animate-spin" />
-                          ) : (
-                            <Camera className="w-5 h-5 text-[var(--ink-dim)]" />
-                          )}
-                          <span className="text-[10px] text-[var(--ink-dim)]">
-                            {t('dragUploadBgPhoto')}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                    <CourseBackgroundImageField
+                      value={courseBgImageUrl}
+                      onChange={setCourseBgImageUrl}
+                    />
 
                     {/* Instructor Assignment */}
                     <div className="space-y-2">

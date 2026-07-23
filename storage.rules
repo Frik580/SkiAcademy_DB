@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Firebase Storage is not used by the application yet.
+    // Keep the bucket private until uploads are moved out of Firestore.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

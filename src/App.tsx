@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence } from 'motion/react';
 import { 
   registerFirestoreErrorListener
 } from './lib/firebase';
 import { Instructor, CustomHeroSlide } from './types';
-import { LanguageProvider, useLanguage, translateInstructor, translateCourse, splitCourseDates } from './lib/LanguageContext';
+import { LanguageProvider, useLanguage, translateInstructor, translateCourse } from './lib/LanguageContext';
 
 // Custom Hooks
 import { useTheme } from './components/useTheme';
@@ -18,10 +18,13 @@ import { Navbar } from './components/Navbar';
 import { Auth } from './components/Auth';
 import { LessonFilters } from './components/LessonFilters';
 import { InstructorCard } from './components/InstructorCard';
+import { ResortConditionsSidebar } from './components/ResortConditionsSidebar';
+import { HeroCarousel } from './components/HeroCarousel';
+import { GroupCoursesSection } from './components/GroupCoursesSection';
 import logoLight from './assets/images/logo2.png';
 import logoDark from './assets/images/logo1.png';
 
-import { Compass, AlertCircle, RefreshCw, Mountain, ArrowRight } from 'lucide-react';
+import { Compass, AlertCircle, RefreshCw, Mountain } from 'lucide-react';
 
 const AdminPanel = React.lazy(() =>
   import('./components/AdminPanel').then(({ AdminPanel }) => ({ default: AdminPanel }))
@@ -301,211 +304,41 @@ const AppContent: React.FC = () => {
           /* USER/CLIENT VIEW (Authenticated or Guest/Logged-out) */
           <>
             {/* 1. Left Sidebar: Resort Conditions (placed in the first flexible column) */}
-            <aside className="lg:col-start-1 border-b lg:border-b-0 lg:border-r border-[var(--border)] p-6 space-y-6 flex flex-col justify-start shrink-0 lg:h-full lg:overflow-y-auto bg-transparent">
-              <div className="border-b border-[var(--border)] pb-4">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-                  {language === 'ru' ? resortConfig.nameRu : resortConfig.nameEn}
-                </span>
-                <span className="text-[9px] text-[var(--ink-dim)] font-mono block mt-0.5">
-                  {language === 'ru' ? resortConfig.subNameRu : resortConfig.subNameEn}
-                </span>
-              </div>
-
-              <div className="border-b border-[var(--border)] pb-4">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
-                  {language === 'en' ? 'Mountain Temp' : 'Температура'}
-                </span>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="font-serif text-4xl font-light text-[var(--ink)] leading-none">
-                    {isFahrenheit ? Math.round((tempC * 9) / 5 + 32) : tempC}°
-                  </span>
-                  <span className="text-xs font-mono text-[var(--ink-dim)]">
-                    {isFahrenheit ? 'F' : 'C'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center mt-2.5">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                    {language === 'en' ? `Fresh: +${newSnow24h}cm` : `Свежий: +${newSnow24h}см`}
-                  </span>
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                    {language === 'en' ? `${windKmh} km/h` : `${windKmh} км/ч`}
-                  </span>
-                  <button
-                    onClick={() => setIsFahrenheit(!isFahrenheit)}
-                    className="text-[9px] font-mono border border-[var(--border)] px-1 hover:border-[var(--ink)] text-[var(--ink)] transition bg-transparent cursor-pointer"
-                  >
-                    °{isFahrenheit ? 'C' : 'F'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="border-b border-[var(--border)] pb-4">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
-                  {language === 'en' ? 'Snow Cover' : 'Снежный покров'}
-                </span>
-                <span className="font-serif text-4xl font-light text-[var(--ink)] block mt-1">
-                  {snowDepthCm}<small className="text-sm font-sans font-normal ml-0.5">cm</small>
-                </span>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block mt-2">
-                  {language === 'en' ? 'Safety Level: FIS-1' : 'Безопасность: FIS-1'}
-                </span>
-              </div>
-
-              {resortConfig.showLifts !== false && (
-                <div className="border-b border-[var(--border)] pb-4">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
-                    {language === 'en' ? 'Operating Lifts' : 'Подъемники'}
-                  </span>
-                  <span className="font-serif text-4xl font-light text-[var(--ink)] block mt-1">
-                    {resortConfig.openLifts !== undefined ? resortConfig.openLifts : openLifts}/{resortConfig.totalLifts !== undefined ? resortConfig.totalLifts : 14}
-                  </span>
-                  {(() => {
-                    const statusText = language === 'ru'
-                      ? (resortConfig.liftsStatusRu || 'ОТКРЫТО')
-                      : (resortConfig.liftsStatusEn || 'OPEN');
-                    const isClosed = statusText.toUpperCase().includes('CLOSE') || 
-                                     statusText.toUpperCase().includes('ЗАКР') || 
-                                     statusText.toUpperCase().includes('OFF');
-                    const colorClass = isClosed ? 'text-rose-500' : 'text-emerald-500';
-                    const bgClass = isClosed ? 'bg-rose-500' : 'bg-emerald-500';
-                    return (
-                      <span className={`text-[10px] font-mono uppercase tracking-wider ${colorClass} font-bold block mt-2.5 flex items-center gap-1.5`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${bgClass} animate-pulse`}></span>
-                        {language === 'en' ? `STATUS: ${statusText}` : `СТАТУС: ${statusText}`}
-                      </span>
-                    );
-                  })()}
-                </div>
-              )}
-
-              <div className="pt-2 flex flex-col gap-2 font-mono">
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-[9px] text-[var(--ink-dim)]">
-                    {language === 'en' ? 'Update' : 'Обновлено'}: {lastUpdated}
-                  </span>
-                  <button
-                    onClick={handleRefreshResortStats}
-                    disabled={isResortLoading}
-                    className="text-[9px] font-mono uppercase border border-[var(--border)] px-2 py-0.5 hover:border-[var(--ink)] text-[var(--ink)] transition disabled:opacity-50 bg-transparent cursor-pointer"
-                  >
-                    {isResortLoading ? '...' : (language === 'en' ? 'Refresh' : 'Обновить')}
-                  </button>
-                </div>
-                <div className="text-[9px] text-[var(--ink-dim)] font-mono text-center pt-2 border-t border-[var(--border)]/40 mt-1">
-                  {language === 'en' ? 'Weather: Open-Meteo' : 'Погода: Open-Meteo'}
-                </div>
-              </div>
-            </aside>
+            <ResortConditionsSidebar
+              data={{
+                language,
+                resortConfig,
+                tempC,
+                snowDepthCm,
+                newSnow24h,
+                windKmh,
+                openLifts,
+                isFahrenheit,
+                isResortLoading,
+                lastUpdated
+              }}
+              actions={{
+                onToggleTemperatureUnit: () => setIsFahrenheit(!isFahrenheit),
+                onRefresh: handleRefreshResortStats
+              }}
+            />
 
             {/* 2. Center Scroll Pane: Hero, Active Cabinet Lists & Browsing (placed in the fixed-width center column) */}
             <div className="lg:col-start-2 flex-1 lg:h-full lg:overflow-y-auto flex flex-col justify-start">
               
               {/* Elegant welcoming Hero block with auto-rotating multi-slide panels */}
-              <section 
-                className="relative p-8 md:p-10 border-b border-[var(--border)] overflow-hidden flex flex-col justify-end min-h-[340px] bg-transparent"
-              >
-                {/* Background crossfader */}
-                <AnimatePresence mode="popLayout">
-                  {(() => {
-                    const activeSlide = activeSlides[currentSlide] || activeSlides[0];
-                    let bg = activeSlide?.backgroundImage || 'wall';
-                    if (bg === 'random') {
-                      const walls = ['wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6', 'wall7'];
-                      const slideId = activeSlide?.id || String(currentSlide);
-                      const hash = Array.from(slideId).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                      bg = walls[hash % walls.length];
-                    }
-                    const bgUrl = bg.startsWith('http://') || bg.startsWith('https://')
-                      ? bg
-                      : `https://storage.yandexcloud.net/carve/${bg}.webp`;
-                    return (
-                      <motion.div
-                        key={currentSlide}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 1.0 }}
-                        className="absolute inset-0 bg-cover bg-center z-0"
-                        style={{ 
-                          backgroundImage: theme === 'light'
-                            ? `linear-gradient(to right, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.5) 100%), url('${bgUrl}')`
-                            : `linear-gradient(to right, rgba(15, 15, 18, 0.9) 0%, rgba(15, 15, 18, 0.4) 100%), url('${bgUrl}')`
-                        }}
-                      />
-                    );
-                  })()}
-                </AnimatePresence>
- 
-                {/* Active Slide Content */}
-                <div className="relative z-10 space-y-3 flex flex-col justify-end h-full">
-                  <AnimatePresence mode="wait">
-                    {(() => {
-                      const activeSlide = activeSlides[currentSlide] || activeSlides[0];
-                      if (!activeSlide) return null;
-                      return (
-                        <motion.div
-                          key={currentSlide}
-                          initial={{ opacity: 0, y: 12 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -12 }}
-                          transition={{ duration: 0.6, ease: "easeOut" }}
-                          className="flex flex-col md:flex-row md:items-end justify-between gap-6"
-                        >
-                          {/* Text content on the left */}
-                          <div className="space-y-3 flex-1 min-w-0">
-                            <span className={`text-[9px] font-mono uppercase tracking-widest block ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
-                              {language === 'en' ? activeSlide.line1En : activeSlide.line1Ru}
-                            </span>
-                            <h2 className={`text-2xl md:text-3xl lg:text-4xl font-serif font-light leading-[1.1] tracking-tight max-w-xl ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
-                              {language === 'en' ? activeSlide.line2En : activeSlide.line2Ru}
-                            </h2>
-                            <p className={`text-xs font-mono max-w-lg tracking-wider leading-relaxed pt-1 ${theme === 'light' ? 'text-slate-700' : 'text-slate-400'}`}>
-                              {language === 'en' ? activeSlide.line3En : activeSlide.line3Ru}
-                            </p>
-                          </div>
-
-                          {/* Action Buttons on the right border */}
-                          <div className="flex flex-col gap-2.5 shrink-0 w-full md:w-auto md:min-w-[240px] self-start md:self-end z-20">
-                            <button
-                              onClick={() => handleScrollToSection('coaches-grid')}
-                              className="w-full px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-mono text-[10px] uppercase tracking-widest transition-all duration-300 shadow-lg shadow-blue-500/20 active:translate-y-[1px] cursor-pointer inline-flex items-center justify-center gap-2 font-bold border border-blue-600 hover:border-blue-700 rounded-none"
-                            >
-                              <span>{language === 'en' ? 'Book First Lesson' : 'Записаться на первое занятие'}</span>
-                              <ArrowRight className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleScrollToSection('courses-grid')}
-                              className={`w-full px-5 py-3 font-mono text-[10px] uppercase tracking-widest transition-all duration-300 active:translate-y-[1px] cursor-pointer inline-flex items-center justify-center gap-2 border rounded-none ${
-                                theme === 'light'
-                                  ? 'bg-slate-100 hover:bg-slate-200 border-slate-200 hover:border-slate-300 text-slate-800'
-                                  : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white'
-                              }`}
-                            >
-                              <span>{language === 'en' ? 'Choose Course' : 'Подобрать курс'}</span>
-                            </button>
-                          </div>
-                        </motion.div>
-                      );
-                    })()}
-                  </AnimatePresence>
- 
-                  {/* Elegant dots indicators */}
-                  <div className="flex gap-2 pt-4">
-                    {activeSlides.map((_, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setCurrentSlide(idx)}
-                        className={`h-1 transition-all duration-300 rounded-none cursor-pointer ${
-                          currentSlide === idx 
-                            ? 'w-8 bg-[var(--ink)]' 
-                            : 'w-2 bg-[var(--ink)]/30 hover:bg-[var(--ink)]/60'
-                        }`}
-                        aria-label={`Go to slide ${idx + 1}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </section>
+              <HeroCarousel
+                data={{
+                  slides: activeSlides,
+                  currentSlide,
+                  language,
+                  theme
+                }}
+                actions={{
+                  onSelectSlide: setCurrentSlide,
+                  onScrollToSection: handleScrollToSection
+                }}
+              />
 
               <div id="main-content-pane" className="p-6 md:p-8 space-y-8 flex flex-col justify-start">
                 {/* Middle Section: Personal Cabinet Tracker / History of bookings */}
@@ -537,187 +370,19 @@ const AppContent: React.FC = () => {
                 )}
 
                 {/* Group Courses section */}
-                <div id="courses-grid" className="space-y-6">
-                  <div>
-                    <h3 className="text-2xl font-serif text-[var(--ink)] tracking-tight font-light">
-                      {language === 'en' ? 'Intensive Group Courses' : 'Интенсивные групповые курсы'}
-                    </h3>
-                    <p className="text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider mt-1 text-slate-400 dark:text-slate-500">
-                      {language === 'en' 
-                        ? 'Accelerate your progress in focused, small-group training cohorts led by team leads' 
-                        : 'Ускорьте прогресс в мини-группах под руководством ведущих тренеров'}
-                    </p>
-                  </div>
-
-                  <div 
-                    className="grid gap-6"
-                    style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}
-                  >
-                    {[...courses].sort((a, b) => {
-                      const orderA = a.order !== undefined ? a.order : 999;
-                      const orderB = b.order !== undefined ? b.order : 999;
-                      if (orderA !== orderB) return orderA - orderB;
-                      return a.title.localeCompare(b.title);
-                    }).filter(c => !c.isHidden).map((rawCourse) => {
-                      const course = translateCourse(rawCourse, language);
-                      const isEnrolled = bookings.some(b => b.userId === userProfile?.uid && b.instructorId === `course_${course.id}` && b.status !== 'cancelled');
-                      return (
-                        <div 
-                          key={course.id} 
-                          className="border border-[var(--border)] bg-black/5 dark:bg-black/40 flex flex-col h-full relative overflow-hidden group min-w-[260px]"
-                        >
-                          <div className="h-55 relative overflow-hidden shrink-0 border-b border-[var(--border)]">
-                            {course.badge && (
-                              <div className="absolute top-3 left-3 z-10">
-                                {/^(https?:\/\/|\/|data:image\/)/.test(course.badge) || /\.(png|jpg|jpeg|svg|gif|webp)/i.test(course.badge) ? (
-                                  <img 
-                                    src={course.badge} 
-                                    referrerPolicy="no-referrer" 
-                                    alt="badge" 
-                                    className="h-7 w-auto object-contain max-w-[80px]" 
-                                  />
-                                ) : (
-                                  <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-white border border-white/50 bg-transparent backdrop-blur-[2px] px-2 py-0.5 shadow-md">
-                                    {course.badge}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                            <img 
-                              src={course.bgImageUrl || 'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800'} 
-                              referrerPolicy="no-referrer"
-                              alt={course.title} 
-                              className="w-full h-full object-cover transition-all duration-500 scale-100 group-hover:scale-105" 
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4">
-                              <span className="font-mono text-[9px] uppercase tracking-widest text-sky-400 bg-sky-950/40 border border-sky-900/50 px-2 py-0.5 self-start">
-                                {course.duration}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                            <div className="space-y-2">
-                              <h4 className="font-serif text-lg font-light text-[var(--ink)] leading-tight">
-                                {course.title}
-                              </h4>
-                              {course.levelLabel && (
-                                <div className={`text-[10px] font-mono uppercase tracking-wider font-bold flex items-center gap-1 mt-1 ${
-                                  course.level === 'beginner' ? 'text-emerald-600 dark:text-emerald-400' :
-                                  course.level === 'intermediate' ? 'text-amber-600 dark:text-amber-400' :
-                                  course.level === 'advanced' ? 'text-rose-600 dark:text-rose-400' :
-                                  course.level === 'expert' ? 'text-stone-500 dark:text-stone-400' : 'text-[var(--ink-dim)]'
-                                }`}>
-                                  {course.levelLabel}
-                                </div>
-                              )}
-                              <p className="text-xs text-[var(--ink)] leading-relaxed font-mono">
-                                {course.shortDescription || course.description}
-                              </p>
-
-
-                            </div>
-
-                            <div className="space-y-4 pt-2">
-                              {(() => {
-                                const { datePart, timePart } = splitCourseDates(course.dates);
-                                return (
-                                  <div className="space-y-2 text-xs border-t border-[var(--border)]/40 pt-4">
-                                    <div className="flex items-center gap-2 text-[var(--ink-dim)] font-sans font-light">
-                                      <span className="text-sm">📅</span>
-                                      <span className="font-mono text-[11px] tracking-wide">{datePart}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-[var(--ink-dim)] font-sans font-light">
-                                      <span className="text-sm">🕘</span>
-                                      <span className="font-mono text-[11px] tracking-wide">{timePart}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-[var(--ink)] font-sans font-light">
-                                      {course.availableSeats === 0 ? (
-                                        <>
-                                          <span className="text-sm">🔴</span>
-                                          <span className="font-mono text-[11px] tracking-wide text-rose-500 font-bold">
-                                            {language === 'en' ? 'No seats left' : 'Мест нет'}
-                                          </span>
-                                        </>
-                                      ) : course.availableSeats <= 3 ? (
-                                        <>
-                                          <span className="text-sm">🟠</span>
-                                          <span className="font-mono text-[11px] tracking-wide text-amber-500 font-semibold">
-                                            {language === 'en' ? `Only ${course.availableSeats} seats left!` : `Осталось всего ${course.availableSeats} мест!`}
-                                          </span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <span className="text-sm">🟢</span>
-                                          <span className="font-mono text-[11px] tracking-wide text-emerald-500">
-                                            {language === 'en' ? `${course.availableSeats} of ${course.totalSeats} seats available` : `${course.availableSeats} из ${course.totalSeats} мест свободно`}
-                                          </span>
-                                        </>
-                                      )}
-                                    </div>
-                                    
-                                    <div className="border-t border-[var(--border)]/30 my-3 pt-3 flex justify-between items-baseline">
-                                      <span className="text-2xl font-serif text-[var(--ink)] font-light">${course.price}</span>
-                                      <span className="text-[9px] font-mono tracking-wider text-[var(--ink-dim)]">
-                                        {language === 'en' ? 'per course' : 'за полный курс'}
-                                      </span>
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-
-                              <div className="grid grid-cols-[2fr_3fr] gap-2">
-                                <button
-                                  onClick={() => setSelectedCourseForDetails(rawCourse)}
-                                  className="w-full py-2 border border-[var(--border)] bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 font-mono text-[10px] uppercase tracking-wider transition rounded-none cursor-pointer text-center text-[var(--ink)]"
-                                >
-                                  {language === 'en' ? 'Details' : 'Подробнее'}
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    if (!userProfile) {
-                                      setSelectedCourseForAuth(rawCourse);
-                                    } else {
-                                      handleBookCourse(course.id);
-                                    }
-                                  }}
-                                  disabled={(course.availableSeats === 0 && !isEnrolled) || userProfile?.isClientActive === false}
-                                  className={`w-full py-2 border font-mono text-[10px] uppercase tracking-wider transition rounded-none ${
-                                    isEnrolled 
-                                      ? 'bg-black/0 dark:bg-black/0 border-[var(--border)]/60 text-[var(--ink-dim)] cursor-default' 
-                                      : userProfile?.isClientActive === false
-                                        ? 'border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10 font-bold'
-                                        : course.availableSeats === 0 
-                                          ? 'border-[var(--border)] text-[var(--ink-dim)] cursor-not-allowed bg-black/5' 
-                                          : 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)] hover:bg-transparent hover:text-[var(--ink)] cursor-pointer'
-                                  }`}
-                                >
-                                  {isEnrolled 
-                                    ? (
-                                      <span className="flex items-center justify-center gap-1 normal-case font-sans">
-                                        <span className="text-emerald-500 font-bold text-xs">✔</span>{' '}
-                                        {language === 'en' ? 'Enrolled' : 'Вы записаны'}
-                                      </span>
-                                    ) 
-                                    : userProfile?.isClientActive === false
-                                      ? (language === 'en' ? 'Access Suspended' : 'Доступ приостановлен')
-                                      : course.availableSeats === 0 
-                                        ? (language === 'en' ? 'Sold Out' : 'Мест нет') 
-                                        : (language === 'en' ? `Enroll →` : `Записаться →`)}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {courses.filter(c => !c.isHidden).length === 0 && (
-                    <div className="text-center py-12 border border-dashed border-[var(--border)] bg-black/5 dark:bg-white/5 font-mono text-[11px] text-[var(--ink-dim)]">
-                      {language === 'en' ? 'No intensive group courses are currently available.' : 'В данный момент нет доступных интенсивных групповых курсов.'}
-                    </div>
-                  )}
-                </div>
+                <GroupCoursesSection
+                  data={{
+                    courses,
+                    bookings,
+                    userProfile,
+                    language
+                  }}
+                  actions={{
+                    onViewDetails: setSelectedCourseForDetails,
+                    onRequireAuth: setSelectedCourseForAuth,
+                    onBookCourse: handleBookCourse
+                  }}
+                />
 
                 {/* Bottom Section: Instructors Browse Grid */}
                 <div id="coaches-grid" className="space-y-6">

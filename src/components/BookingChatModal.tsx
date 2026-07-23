@@ -461,7 +461,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
                                     msg.senderId.includes('admin') || 
                                     msg.senderName.toLowerCase().includes('admin') ||
                                     (isMe && currentUserProfile.role === 'admin') ||
-                                    (usersList || []).some(u => u.uid === msg.senderId && (u.role === 'admin' || u.email === 'gerasimchuk.arseniy@gmail.com'));
+                                    (usersList || []).some(u => u.uid === msg.senderId && u.role === 'admin');
 
               const isSenderInstructor = (isMe && (currentUserProfile.isInstructor || !!currentUserProfile.instructorId)) ||
                                          (usersList || []).some(u => u.uid === msg.senderId && (u.isInstructor || !!u.instructorId)) ||

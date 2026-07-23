@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Booking, UserProfile, Review, Course, Instructor } from '../types';
+import { AvailabilitySlot, Booking, UserProfile, Review, Course, Instructor } from '../types';
 import {
   Sliders,
   UserCheck,
@@ -13,8 +13,7 @@ import {
 } from '../lib/LanguageContext';
 import { useTheme } from './useTheme';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
-import { BookingChatModal } from './BookingChatModal';
-import { InstructorWorkspace } from './InstructorWorkspace';
+import { AVAILABILITY_SLOTS_COLLECTION } from '../lib/availabilitySlots';
 import { SkillConfig, DEFAULT_SKILL_CONFIG, calculateSkillProgress } from '../lib/skillData';
 import { ClientSkillProgressView } from './ClientSkillProgressView';
 import { ProfileSettings } from './personal_cabinet/ProfileSettings';
@@ -24,6 +23,13 @@ import { ReviewModal } from './personal_cabinet/ReviewModal';
 import { ConfirmActionModal } from './personal_cabinet/ConfirmActionModal';
 import { ClientBookingsList } from './personal_cabinet/ClientBookingsList';
 import { LevelUpModal } from './personal_cabinet/LevelUpModal';
+
+const InstructorWorkspace = React.lazy(() =>
+  import('./InstructorWorkspace').then(({ InstructorWorkspace }) => ({ default: InstructorWorkspace }))
+);
+const BookingChatModal = React.lazy(() =>
+  import('./BookingChatModal').then(({ BookingChatModal }) => ({ default: BookingChatModal }))
+);
 
 interface PersonalCabinetProps {
   userProfile: UserProfile;
@@ -68,7 +74,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   const [newTime, setNewTime] = useState<string>('09:00');
   const [isRescheduling, setIsRescheduling] = useState<boolean>(false);
   const [selectedChatBooking, setSelectedChatBooking] = useState<Booking | null>(null);
-  const [rescheduleInstructorBookings, setRescheduleInstructorBookings] = useState<Booking[]>([]);
+  const [rescheduleInstructorBookings, setRescheduleInstructorBookings] = useState<AvailabilitySlot[]>([]);
   const [isLoadingInstructorBookings, setIsLoadingInstructorBookings] = useState<boolean>(false);
   const [levelUpModal, setLevelUpModal] = useState<{ show: boolean; level: number } | null>(null);
   const prevLevelRef = useRef<number | undefined>(undefined);
@@ -112,15 +118,15 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       setIsLoadingInstructorBookings(true);
       try {
         const q = query(
-          collection(db, 'bookings'),
+          collection(db, AVAILABILITY_SLOTS_COLLECTION),
           where('instructorId', '==', currentBooking.instructorId)
         );
         const snap = await getDocs(q);
-        const list: Booking[] = [];
+        const list: AvailabilitySlot[] = [];
         if (snap && !snap.empty) {
           snap.forEach((doc) => {
-            const b = { id: doc.id, ...doc.data() } as Booking;
-            if (b.status !== 'cancelled' && b.id !== rescheduleId) {
+            const b = doc.data() as AvailabilitySlot;
+            if (b.bookingId !== rescheduleId) {
               list.push(b);
             }
           });
@@ -237,7 +243,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
     setIsRescheduling(true);
     try {
-      let conflictBooking: Booking | null = null;
+      let conflictBooking: AvailabilitySlot | null = null;
 
       const timeToMinutes = (tStr: string): number => {
         const [h, m] = tStr.split(':').map(Number);
@@ -248,8 +254,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
         targetDate: string,
         targetTime: string,
         duration: number,
-        existing: Booking[]
-      ): Booking | null => {
+        existing: AvailabilitySlot[]
+      ): AvailabilitySlot | null => {
         const start = timeToMinutes(targetTime);
         const end = start + duration * 60;
 
@@ -267,16 +273,16 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
       // Fetch confirmed/active bookings for this instructor
       const q = query(
-        collection(db, 'bookings'),
+        collection(db, AVAILABILITY_SLOTS_COLLECTION),
         where('instructorId', '==', currentBooking.instructorId),
         where('date', '==', newDate)
       );
       const snap = await getDocs(q);
-      const activeBookings: Booking[] = [];
+      const activeBookings: AvailabilitySlot[] = [];
       if (snap && !snap.empty) {
         snap.forEach((doc) => {
-          const b = { id: doc.id, ...doc.data() } as Booking;
-          if (b.status !== 'cancelled' && b.id !== rescheduleId) {
+          const b = doc.data() as AvailabilitySlot;
+          if (b.bookingId !== rescheduleId) {
             activeBookings.push(b);
           }
         });
@@ -435,15 +441,23 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       )}
 
       {activeMode === 'instructor' ? (
-        <InstructorWorkspace
-          userProfile={userProfile}
-          instructors={instructors}
-          allBookings={rawBookings}
-          reviews={reviews}
-          courses={courses}
-          usersList={usersList}
-          skillConfig={skillConfig}
-        />
+        <React.Suspense
+          fallback={
+            <div className="flex min-h-40 items-center justify-center border border-[var(--border)] font-mono text-[10px] uppercase tracking-wider text-[var(--ink-dim)]">
+              {t('loading')}
+            </div>
+          }
+        >
+          <InstructorWorkspace
+            userProfile={userProfile}
+            instructors={instructors}
+            allBookings={rawBookings}
+            reviews={reviews}
+            courses={courses}
+            usersList={usersList}
+            skillConfig={skillConfig}
+          />
+        </React.Suspense>
       ) : userProfile.isClientActive === false ? (
         <div className="border border-[var(--border)] p-8 space-y-6 animate-fade-in bg-black/10 dark:bg-black/30 text-center max-w-xl mx-auto my-12">
           <div className="w-16 h-16 border border-[var(--border)] rounded-none flex items-center justify-center mx-auto text-rose-400 bg-black/10">
@@ -551,13 +565,21 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       )}
 
       {selectedChatBooking && (
-        <BookingChatModal
-          booking={selectedChatBooking}
-          currentUserProfile={userProfile}
-          onClose={() => setSelectedChatBooking(null)}
-          instructors={instructors}
-          usersList={usersList}
-        />
+        <React.Suspense
+          fallback={
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 font-mono text-[10px] uppercase tracking-wider text-white">
+              {t('loading')}
+            </div>
+          }
+        >
+          <BookingChatModal
+            booking={selectedChatBooking}
+            currentUserProfile={userProfile}
+            onClose={() => setSelectedChatBooking(null)}
+            instructors={instructors}
+            usersList={usersList}
+          />
+        </React.Suspense>
       )}
 
       {levelUpModal?.show && (

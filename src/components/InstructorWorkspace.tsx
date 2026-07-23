@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { 
   db,
   doc, 
-  updateDoc
+  updateDoc,
+  writeBatch
 } from '../lib/firebase';
 import { UserProfile, Instructor, Booking, Review, Course } from '../types';
 import { 
@@ -22,6 +23,11 @@ import { useNotifications } from './PushNotificationHub';
 import { useTheme } from './useTheme';
 import { SkillConfig } from '../lib/skillData';
 import { StudentSkillEvaluationModal } from './StudentSkillEvaluationModal';
+import {
+  AVAILABILITY_SLOTS_COLLECTION,
+  blocksInstructorAvailability,
+  toAvailabilitySlot,
+} from '../lib/availabilitySlots';
 
 interface InstructorWorkspaceProps {
   userProfile: UserProfile;
@@ -42,7 +48,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
   usersList,
   skillConfig
 }) => {
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const { theme } = useTheme();
   const { addNotification } = useNotifications();
   const [selectedChatBooking, setSelectedChatBooking] = useState<Booking | null>(null);
@@ -70,48 +76,12 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
       });
       addNotification(
         'success',
-        language === 'en' ? 'Ratings Saved' : 'Оценки сохранены',
-        language === 'en'
-          ? `Skill ratings saved. Student level updated to Level ${calculatedLevel}`
-          : `Оценки навыков сохранены. Уровень ученика обновлен до Уровня ${calculatedLevel}`
+        t('instructorRatingsSaved'),
+        `${t('instructorRatingsSavedDesc')} ${calculatedLevel}`
       );
     } catch (err) {
       console.error("Error saving student skill scores:", err);
     }
-  };
-
-  // Translate helper labels
-  const t = {
-    title: language === 'en' ? 'Instructor Workspace' : 'Кабинет Инструктора',
-    subtitle: language === 'en' 
-      ? 'Manage scheduled lessons, track client progress, and answer messages in real-time.' 
-      : 'Управляйте расписанием уроков, отслеживайте прогресс учеников и отвечайте на сообщения.',
-    selectProfile: language === 'en' ? 'Link your instructor profile' : 'Привяжите ваш профиль инструктора',
-    selectDesc: language === 'en' 
-      ? 'Choose one of our professional instructors to connect with your active account. This will grant you secure messaging permissions.' 
-      : 'Выберите одного из профессиональных инструкторов, чтобы связать с вашим аккаунтом. Это даст вам доступ к чату с учениками.',
-    linkBtn: language === 'en' ? 'Link & Enter Cabinet' : 'Связать и войти в кабинет',
-    unlink: language === 'en' ? 'Disconnect Instructor Profile' : 'Отключить профиль инструктора',
-    noLessons: language === 'en' ? 'No scheduled lessons found' : 'Занятий не найдено',
-    chatBtn: language === 'en' ? 'Chat with Student' : 'Чат с учеником',
-    clientDetails: language === 'en' ? 'Student Details' : 'Информация об ученике',
-    groupChatBtn: language === 'en' ? 'Chat with Group' : 'Чат с группой',
-    statsTitle: language === 'en' ? 'Season Overview' : 'Обзор сезона',
-    rating: language === 'en' ? 'Rating' : 'Рейтинг',
-    lessonsCount: language === 'en' ? 'Total Lessons' : 'Всего занятий',
-    reviewsCount: language === 'en' ? 'Reviews' : 'Отзывов',
-    activeLessons: language === 'en' ? 'Active Roster' : 'Список учеников',
-    recentReviews: language === 'en' ? 'Student Feedback' : 'Отзывы учеников',
-    difficulty: language === 'en' ? 'Difficulty' : 'Сложность',
-    notes: language === 'en' ? 'Student Notes' : 'Заметки ученика',
-    confirmLesson: language === 'en' ? 'Confirm Lesson' : 'Подтвердить занятие',
-    completeLesson: language === 'en' ? 'Mark Completed' : 'Завершить занятие',
-    statusPending: language === 'en' ? 'Pending' : 'Ожидает',
-    statusConfirmed: language === 'en' ? 'Confirmed' : 'Подтвержден',
-    statusCompleted: language === 'en' ? 'Completed' : 'Завершен',
-    statusCancelled: language === 'en' ? 'Cancelled' : 'Отменен',
-    statusPendingCancel: language === 'en' ? 'Cancellation Pending' : 'Ожидает отмены',
-    experience: language === 'en' ? 'Experience' : 'Опыт работы'
   };
 
   // Find linked instructor
@@ -134,7 +104,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
         const client = usersList.find(u => u.uid === b.userId);
         return client 
           ? { ...b, clientName: client.displayName, clientAvatar: client.avatarUrl } 
-          : { ...b, clientName: 'Enrolled Student', clientAvatar: '' };
+          : { ...b, clientName: t('instructorEnrolledStudent'), clientAvatar: '' };
       });
 
     // 2. Get course bookings for courses this instructor teaches
@@ -160,7 +130,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
         groupedCourses.set(courseId, {
           id: courseId, // For chat and key
           isCourse: true,
-          instructorName: language === 'ru' ? `${translated.title} (Группа)` : `${translated.title} (Group)`,
+          instructorName: `${translated.title} (${t('instructorGroupSuffix')})`,
           instructorAvatar: translated.bgImageUrl || b.instructorAvatar,
           date: datePart,
           time: timePart,
@@ -183,7 +153,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
     });
 
     return [...individualLessons, ...Array.from(groupedCourses.values())];
-  }, [allBookings, userProfile.instructorId, courses, language, usersList]);
+  }, [allBookings, userProfile.instructorId, courses, language, usersList, t]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -250,10 +220,8 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
       await updateDoc(doc(db, 'users', studentUid), { level: newLevel });
       addNotification(
         'info',
-        language === 'en' ? 'Student Level Updated' : 'Уровень ученика обновлен',
-        language === 'en'
-          ? `Updated level for ${studentName} to Level ${newLevel}`
-          : `Уровень ученика ${studentName} обновлен до Уровня ${newLevel}`
+        t('instructorLevelUpdated'),
+        `${t('instructorLevelUpdatedPrefix')} ${studentName} ${t('instructorLevelUpdatedTo')} ${newLevel}`
       );
     } catch (err) {
       console.error("Error updating student level:", err);
@@ -262,7 +230,21 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
 
   const handleUpdateStatus = async (bookingId: string, nextStatus: 'confirmed' | 'completed') => {
     try {
-      await updateDoc(doc(db, 'bookings', bookingId), { status: nextStatus });
+      const booking = allBookings.find((item) => item.id === bookingId);
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'bookings', bookingId), { status: nextStatus });
+      if (booking) {
+        const updatedBooking = { ...booking, status: nextStatus };
+        if (blocksInstructorAvailability(updatedBooking)) {
+          batch.set(
+            doc(db, AVAILABILITY_SLOTS_COLLECTION, bookingId),
+            toAvailabilitySlot(updatedBooking)
+          );
+        } else {
+          batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, bookingId));
+        }
+      }
+      await batch.commit();
     } catch (err) {
       console.error("Error updating lesson status:", err);
     }
@@ -277,17 +259,13 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
         </div>
         <div className="space-y-2">
           <h3 className="text-xl font-serif font-light text-[var(--ink)] tracking-tight">
-            {language === 'en' ? 'Instructor Profile Not Linked' : 'Профиль инструктора не привязан'}
+            {t('instructorProfileNotLinked')}
           </h3>
           <p className="text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider leading-relaxed pt-2">
-            {language === 'en' 
-              ? 'Your account is authorized as an instructor, but no specific professional instructor profile has been linked to your account yet by the administrator.' 
-              : 'Ваша учетная запись авторизована как инструктор, но администратор еще не связал ее с конкретным профилем профессионального инструктора.'}
+            {t('instructorProfileNotLinkedDesc')}
           </p>
           <p className="text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider leading-relaxed pt-2">
-            {language === 'en'
-              ? 'Please contact the resort administration to assign your instructor profile.'
-              : 'Пожалуйста, свяжитесь с администрацией курорта для привязки вашего профиля.'}
+            {t('instructorContactAdmin')}
           </p>
         </div>
       </div>
@@ -315,14 +293,18 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-mono uppercase bg-indigo-950/40 border border-indigo-950/80 px-2 py-0.5 text-indigo-400 tracking-wider">
-                {language === 'en' ? 'Active Coach Account' : 'Учетная запись гида'}
+                {t('instructorActiveAccount')}
               </span>
             </div>
             <h3 className="text-2xl font-serif font-light text-[var(--ink)] tracking-tight mt-1.5 leading-none">
               {linkedInstructor ? translateInstructorName(linkedInstructor.name, language) : userProfile.displayName}
             </h3>
             <p className="text-[9px] font-mono uppercase tracking-widest text-[var(--ink-dim)] mt-2">
-              {linkedInstructor?.specialty === 'both' ? (language === 'en' ? 'Ski & Snowboard Specialist' : 'Универсал: Лыжи и Сноуборд') : (linkedInstructor?.specialty === 'ski' ? (language === 'en' ? 'Elite Ski Coach' : 'Элитный лыжный гид') : (language === 'en' ? 'Elite Snowboard Coach' : 'Элитный сноуборд-гид'))}
+              {linkedInstructor?.specialty === 'both'
+                ? t('instructorSkiSnowboardSpecialist')
+                : linkedInstructor?.specialty === 'ski'
+                  ? t('instructorSkiCoach')
+                  : t('instructorSnowboardCoach')}
             </p>
           </div>
         </div>
@@ -331,41 +313,41 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
       {/* Metrics Dashboard */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="border border-[var(--border)] p-4 bg-black/5 space-y-1">
-          <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">{t.rating}</span>
+          <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">{t('rating')}</span>
           <div className="flex items-baseline gap-1.5">
             <span className="text-3xl font-serif font-light text-[var(--ink)]">{linkedInstructor?.rating || '0.0'}</span>
             <Star className="w-4 h-4 text-amber-400 fill-amber-400 self-center" />
           </div>
           <span className="text-[8px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
-            {linkedInstructor?.reviewsCount || 0} {t.reviewsCount}
+            {linkedInstructor?.reviewsCount || 0} {t('instructorReviewsCount')}
           </span>
         </div>
 
         <div className="border border-[var(--border)] p-4 bg-black/5 space-y-1">
-          <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">{t.lessonsCount}</span>
+          <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">{t('instructorTotalLessons')}</span>
           <span className="text-3xl font-serif font-light text-[var(--ink)] block">{stats.total}</span>
           <span className="text-[8px] font-mono text-emerald-400 uppercase tracking-wider block">
-            {stats.completed} {t.statusCompleted}
+            {stats.completed} {t('completed')}
           </span>
         </div>
 
         <div className="border border-[var(--border)] p-4 bg-black/5 space-y-1">
           <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
-            {language === 'en' ? 'Pending Actions' : 'Ожидает действий'}
+            {t('instructorPendingActions')}
           </span>
           <span className="text-3xl font-serif font-light text-[var(--ink)] block">{stats.pending}</span>
           <span className="text-[8px] font-mono text-indigo-400 uppercase tracking-wider block">
-            {stats.confirmed} {t.statusConfirmed}
+            {stats.confirmed} {t('confirmed')}
           </span>
         </div>
 
         <div className="border border-[var(--border)] p-4 bg-black/5 space-y-1">
           <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
-            {language === 'en' ? 'Estimated Earnings' : 'Выручка за сезон'}
+            {t('instructorEstimatedEarnings')}
           </span>
           <span className="text-3xl font-serif font-light text-[var(--ink)] block">${stats.revenue}</span>
           <span className="text-[8px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
-            {language === 'en' ? 'From completed lessons' : 'За завершенные уроки'}
+            {t('instructorCompletedEarnings')}
           </span>
         </div>
       </div>
@@ -374,7 +356,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
       <div className="space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[var(--border)] pb-3">
           <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight">
-            {t.activeLessons} ({displayedBookings.length})
+            {t('instructorActiveRoster')} ({displayedBookings.length})
           </h4>
           
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
@@ -382,13 +364,13 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
             {(['all', 'pending', 'confirmed', 'completed'] as const).map((filter) => {
               const isActive = statusFilter === filter;
               const label = filter === 'all' 
-                ? (language === 'en' ? 'All' : 'Все')
+                ? t('allFilter')
                 : filter === 'pending'
-                ? t.statusPending
+                ? t('pending')
                 : filter === 'confirmed'
-                ? t.statusConfirmed
+                ? t('confirmed')
                 : filter === 'completed'
-                ? t.statusCompleted : '';
+                ? t('completed') : '';
 
               return (
                 <button
@@ -411,7 +393,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
         {displayedBookings.length === 0 ? (
           <div className="py-12 border border-dashed border-[var(--border)] text-center bg-black/5">
             <Calendar className="w-8 h-8 mx-auto opacity-20 mb-2 text-[var(--ink-dim)]" />
-            <p className="text-xs font-mono uppercase tracking-wider text-[var(--ink-dim)]">{t.noLessons}</p>
+            <p className="text-xs font-mono uppercase tracking-wider text-[var(--ink-dim)]">{t('noLessons')}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -443,14 +425,14 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                             : 'border-amber-500/30 text-amber-400 bg-amber-950/20'
                         }`}>
                           {b.status === 'pending'
-                            ? t.statusPending
+                            ? t('pending')
                             : b.status === 'confirmed'
-                            ? t.statusConfirmed
+                            ? t('confirmed')
                             : b.status === 'completed'
-                            ? t.statusCompleted
+                            ? t('completed')
                             : b.status === 'cancelled'
-                            ? t.statusCancelled
-                            : t.statusPendingCancel}
+                            ? t('cancelled')
+                            : t('pendingCancellationStatus')}
                         </span>
                       </div>
 
@@ -459,8 +441,8 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                         <h5 className="text-[9px] font-mono uppercase tracking-widest text-[var(--ink-dim)] flex items-center gap-1.5 font-bold">
                           <Users className="w-3.5 h-3.5 text-indigo-400" />
                           {(b as any).isCourse 
-                            ? (language === 'ru' ? 'Участники курса' : 'Course Participants') 
-                            : (language === 'ru' ? 'Клиент на занятие' : 'Lesson Client')} 
+                            ? t('instructorCourseParticipants')
+                            : t('instructorLessonClient')} 
                           {((b as any).isCourse ? ` (${(b as any).clients.length})` : '')}
                         </h5>
                         <div className="flex flex-wrap gap-2">
@@ -494,10 +476,10 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                       title="Оценить навыки ученика"
                                     >
                                       <Award className="w-3 h-3" />
-                                      {language === 'ru' ? 'Оценить' : 'Assess'}
+                                      {t('instructorAssess')}
                                     </button>
 
-                                    <div className="flex items-center gap-1 bg-black/30 border border-[var(--border)] px-1.5 py-0.5" title={language === 'ru' ? `Уровень: ${studentLevel}` : `Level: ${studentLevel}`}>
+                                    <div className="flex items-center gap-1 bg-black/30 border border-[var(--border)] px-1.5 py-0.5" title={`${t('instructorLevel')}: ${studentLevel}`}>
                                       <img 
                                         key={`${theme}-${studentLevel}`}
                                         src={`https://storage.yandexcloud.net/carve/level/${theme === 'light' ? 'b' : 'w'}/${studentLevel}.png`} 
@@ -508,7 +490,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                         onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                       />
                                       <span className="text-[9px] font-mono font-bold text-[var(--ink)]">
-                                        {language === 'ru' ? `Ур. ${studentLevel}` : `Lvl ${studentLevel}`}
+                                        {t('instructorLevelShort')} {studentLevel}
                                       </span>
                                     </div>
 
@@ -517,10 +499,10 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                       onChange={(e) => handleUpdateStudentLevel(client.uid, client.name, Number(e.target.value))}
                                       className="text-[9px] font-mono bg-[var(--bg)] text-[var(--ink)] border border-indigo-500/50 px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                                     >
-                                      <option value={1}>{language === 'ru' ? 'Ур. 1' : 'Lvl 1'}</option>
-                                      <option value={2}>{language === 'ru' ? 'Ур. 2' : 'Lvl 2'}</option>
-                                      <option value={3}>{language === 'ru' ? 'Ур. 3' : 'Lvl 3'}</option>
-                                      <option value={4}>{language === 'ru' ? 'Ур. 4' : 'Lvl 4'}</option>
+                                      <option value={1}>{t('instructorLevelShort')} 1</option>
+                                      <option value={2}>{t('instructorLevelShort')} 2</option>
+                                      <option value={3}>{t('instructorLevelShort')} 3</option>
+                                      <option value={4}>{t('instructorLevelShort')} 4</option>
                                     </select>
                                   </div>
                                 </div>
@@ -557,10 +539,10 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                       title="Оценить навыки ученика"
                                     >
                                       <Award className="w-3 h-3" />
-                                      {language === 'ru' ? 'Оценить' : 'Assess'}
+                                      {t('instructorAssess')}
                                     </button>
 
-                                    <div className="flex items-center gap-1 bg-black/30 border border-[var(--border)] px-2 py-0.5" title={language === 'ru' ? `Текущий уровень: ${studentLevel}` : `Current Level: ${studentLevel}`}>
+                                    <div className="flex items-center gap-1 bg-black/30 border border-[var(--border)] px-2 py-0.5" title={`${t('instructorCurrentLevel')}: ${studentLevel}`}>
                                       <img 
                                         key={`${theme}-${studentLevel}`}
                                         src={`https://storage.yandexcloud.net/carve/level/${theme === 'light' ? 'b' : 'w'}/${studentLevel}.png`} 
@@ -571,23 +553,23 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                         onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                       />
                                       <span className="text-[9px] font-mono font-bold text-[var(--ink)]">
-                                        {language === 'ru' ? `Ур. ${studentLevel}` : `Lvl ${studentLevel}`}
+                                        {t('instructorLevelShort')} {studentLevel}
                                       </span>
                                     </div>
 
                                     <div className="flex items-center gap-1">
                                       <span className="text-[8px] font-mono text-[var(--ink-dim)] uppercase tracking-wider hidden sm:inline">
-                                        {language === 'ru' ? 'Изменить:' : 'Set Level:'}
+                                        {t('instructorSetLevel')}
                                       </span>
                                       <select
                                         value={studentLevel}
                                         onChange={(e) => handleUpdateStudentLevel(b.userId, studentName, Number(e.target.value))}
                                         className="text-[9px] font-mono bg-[var(--bg)] text-[var(--ink)] border border-indigo-500/50 px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                                       >
-                                        <option value={1}>{language === 'ru' ? 'Уровень 1' : 'Level 1'}</option>
-                                        <option value={2}>{language === 'ru' ? 'Уровень 2' : 'Level 2'}</option>
-                                        <option value={3}>{language === 'ru' ? 'Уровень 3' : 'Level 3'}</option>
-                                        <option value={4}>{language === 'ru' ? 'Уровень 4' : 'Level 4'}</option>
+                                        <option value={1}>{t('instructorLevel')} 1</option>
+                                        <option value={2}>{t('instructorLevel')} 2</option>
+                                        <option value={3}>{t('instructorLevel')} 3</option>
+                                        <option value={4}>{t('instructorLevel')} 4</option>
                                       </select>
                                     </div>
                                   </div>
@@ -604,14 +586,14 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                       {/* Lesson Notes & Difficulty */}
                       <div className={`grid grid-cols-1 ${(b as any).isCourse ? '' : 'md:grid-cols-2'} gap-4 text-xs font-mono text-[var(--ink-dim)] border-t border-[var(--border)]/30 pt-3`}>
                         <div>
-                          <span className="uppercase text-[9px] tracking-wider text-[var(--ink-dim)] block mb-1">{t.difficulty}</span>
+                          <span className="uppercase text-[9px] tracking-wider text-[var(--ink-dim)] block mb-1">{t('instructorDifficulty')}</span>
                           <span className="text-[var(--ink)] font-bold">{getDifficultyLabel(b.difficulty, language, 'compact')}</span>
                         </div>
                         {!(b as any).isCourse && (
                           <div>
-                            <span className="uppercase text-[9px] tracking-wider text-[var(--ink-dim)] block mb-1">{t.notes}</span>
+                            <span className="uppercase text-[9px] tracking-wider text-[var(--ink-dim)] block mb-1">{t('instructorStudentNotes')}</span>
                             <span className="text-[var(--ink)] italic leading-relaxed block">
-                              {b.notes || (language === 'en' ? 'No specific notes provided.' : 'Особых пожеланий не указано.')}
+                              {b.notes || t('instructorNoNotes')}
                             </span>
                           </div>
                         )}
@@ -625,7 +607,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                         className="w-full py-2.5 px-4 border border-indigo-500/80 text-indigo-400 hover:bg-indigo-950/20 text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer"
                       >
                         {(b as any).isCourse ? <Users className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
-                        {(b as any).isCourse ? t.groupChatBtn : t.chatBtn}
+                        {(b as any).isCourse ? t('instructorChatGroup') : t('instructorChatStudent')}
                       </button>
 
                       {b.status === 'pending' && (
@@ -634,7 +616,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                           className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-600 hover:border-emerald-500 text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer"
                         >
                           <CheckCircle className="w-4 h-4" />
-                          {t.confirmLesson}
+                          {t('instructorConfirmLesson')}
                         </button>
                       )}
 
@@ -644,7 +626,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                           className="w-full py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-white border border-slate-700 hover:border-slate-600 text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer"
                         >
                           <CheckCircle className="w-4 h-4" />
-                          {t.completeLesson}
+                          {t('instructorCompleteLesson')}
                         </button>
                       )}
                     </div>
@@ -661,16 +643,16 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
         <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight border-b border-[var(--border)] pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Award className="w-5 h-5 text-indigo-400" />
-            <span>{language === 'en' ? 'My Students & Skill Levels' : 'Ученики и их уровни'} ({myStudents.length})</span>
+            <span>{t('instructorStudentsTitle')} ({myStudents.length})</span>
           </div>
           <span className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider font-normal">
-            {language === 'en' ? 'Only instructors with booked students can set levels' : 'Инструктор может обновлять уровень своих учеников'}
+            {t('instructorStudentsHint')}
           </span>
         </h4>
 
         {myStudents.length === 0 ? (
           <div className="py-8 border border-dashed border-[var(--border)] text-center bg-black/5 font-mono text-xs text-[var(--ink-dim)]">
-            {language === 'en' ? 'No students enrolled in your lessons yet.' : 'У вас пока нет записавшихся учеников.'}
+            {t('instructorNoStudents')}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -690,7 +672,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                     <div className="min-w-0">
                       <h5 className="font-serif text-xs text-[var(--ink)] font-bold truncate">{student.name}</h5>
                       <span className="text-[9px] font-mono text-[var(--ink-dim)] block">
-                        {student.lessonsCount} {language === 'ru' ? 'занятий' : 'lessons'}
+                        {student.lessonsCount} {t('instructorLessonsWord')}
                       </span>
                     </div>
                   </div>
@@ -710,10 +692,10 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                       onChange={(e) => handleUpdateStudentLevel(student.uid, student.name, Number(e.target.value))}
                       className="text-[9px] font-mono uppercase bg-[var(--bg)] text-[var(--ink)] border border-indigo-500/50 px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                     >
-                      <option value={1}>{language === 'ru' ? 'Ур. 1' : 'Lvl 1'}</option>
-                      <option value={2}>{language === 'ru' ? 'Ур. 2' : 'Lvl 2'}</option>
-                      <option value={3}>{language === 'ru' ? 'Ур. 3' : 'Lvl 3'}</option>
-                      <option value={4}>{language === 'ru' ? 'Ур. 4' : 'Lvl 4'}</option>
+                      <option value={1}>{t('instructorLevelShort')} 1</option>
+                      <option value={2}>{t('instructorLevelShort')} 2</option>
+                      <option value={3}>{t('instructorLevelShort')} 3</option>
+                      <option value={4}>{t('instructorLevelShort')} 4</option>
                     </select>
                   </div>
                 </div>
@@ -726,12 +708,12 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
       {/* Reviews Feedback block */}
       <div className="space-y-4">
         <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight border-b border-[var(--border)] pb-3">
-          {t.recentReviews} ({instructorReviews.length})
+          {t('instructorFeedback')} ({instructorReviews.length})
         </h4>
 
         {instructorReviews.length === 0 ? (
           <div className="py-10 border border-dashed border-[var(--border)] text-center bg-black/5 font-mono text-xs text-[var(--ink-dim)]">
-            {language === 'en' ? 'No reviews received yet.' : 'Отзывов пока нет.'}
+            {t('instructorNoReviews')}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -3,11 +3,12 @@ import { Search, Plus, X, Edit2, Trash2, DollarSign, Check, Loader2 } from 'luci
 import { UserProfile, Instructor } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
+import { isSystemOwner } from '../../lib/accessControl';
 
 interface ClientsManagerProps {
   usersList: UserProfile[];
   instructors: Instructor[];
-  currentUserEmail: string;
+  currentUserProfile: UserProfile;
   onAddUser?: (user: UserProfile) => Promise<void>;
   onUpdateUser?: (user: UserProfile) => Promise<void>;
   onDeleteUser?: (uid: string) => Promise<void>;
@@ -20,7 +21,7 @@ interface ClientsManagerProps {
 export const ClientsManager: React.FC<ClientsManagerProps> = ({
   usersList,
   instructors,
-  currentUserEmail,
+  currentUserProfile,
   onAddUser,
   onUpdateUser,
   onDeleteUser,
@@ -45,7 +46,7 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
   const [clientIsInstructor, setClientIsInstructor] = useState(false);
   const [clientIsActive, setClientIsActive] = useState(true);
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
-  const isSuperAdmin = currentUserEmail.toLowerCase() === 'gerasimchuk.arseniy@gmail.com';
+  const canAssignAdminRole = isSystemOwner(currentUserProfile);
 
   const handleClientSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -257,7 +258,7 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
                         );
                       })
                       .map((u) => {
-                        const isSelf = currentUserEmail.toLowerCase() === u.email?.toLowerCase();
+                        const isSelf = currentUserProfile.uid === u.uid;
                         return (
                           <tr key={u.uid} className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                             <td className="px-4 py-3">
@@ -424,7 +425,7 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
                 </div>
 
                 {/* Role selection - only super admin can modify role */}
-                {isSuperAdmin && (
+                {canAssignAdminRole && (
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
                       {t('accessRole')}

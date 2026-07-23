@@ -8,6 +8,7 @@ export interface UserProfile {
   displayName: string;
   phoneNumber?: string;
   role: 'user' | 'admin';
+  systemRole?: 'owner';
   avatarUrl: string;
   balanceUSD: number;
   instructorId?: string;
@@ -59,6 +60,15 @@ export interface Booking {
   notes?: string;
   cancellationReason?: string;
   isDeleted?: boolean;
+}
+
+export interface AvailabilitySlot {
+  bookingId: string;
+  instructorId: string;
+  date: string;
+  time: string;
+  durationHours: number;
+  slotType: 'lesson' | 'block';
 }
 
 export interface Course {

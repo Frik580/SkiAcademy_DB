@@ -17,15 +17,15 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    function isSuperAdmin() {
+    function isSystemOwner() {
       return isAuthenticated() &&
-        ('email' in request.auth.token) &&
-        (request.auth.token.email.lower() == 'admin@alpineglide.com' ||
-         request.auth.token.email.lower() == 'gerasimchuk.arseniy@gmail.com');
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        ('systemRole' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.systemRole == 'owner';
     }
 
     function isAdmin() {
-      return isSuperAdmin() ||
+      return isSystemOwner() ||
         (isAuthenticated() &&
          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
@@ -49,6 +49,77 @@ service cloud.firestore {
         email.lower() == request.auth.token.email.lower();
     }
 
+    function availabilityMigrationComplete() {
+      return exists(
+        /databases/$(database)/documents/settings/availability_slots_migration
+      ) &&
+      get(
+        /databases/$(database)/documents/settings/availability_slots_migration
+      ).data.complete == true;
+    }
+
+    function bookingBlocksAvailability(booking) {
+      return !booking.instructorId.matches('^course_.*') &&
+        (!('isDeleted' in booking) || booking.isDeleted != true) &&
+        booking.status in ['pending', 'confirmed', 'pending_cancellation'];
+    }
+
+    function validAvailabilitySlot(slot, bookingId, booking) {
+      return slot.keys().hasAll([
+          'bookingId',
+          'instructorId',
+          'date',
+          'time',
+          'durationHours',
+          'slotType'
+        ]) &&
+        slot.keys().hasOnly([
+          'bookingId',
+          'instructorId',
+          'date',
+          'time',
+          'durationHours',
+          'slotType'
+        ]) &&
+        slot.bookingId == bookingId &&
+        slot.instructorId == booking.instructorId &&
+        slot.date == booking.date &&
+        slot.time == booking.time &&
+        slot.durationHours == booking.durationHours &&
+        slot.durationHours > 0 &&
+        slot.slotType in ['lesson', 'block'];
+    }
+
+    function availabilityIsSynchronized(bookingId, booking) {
+      return bookingBlocksAvailability(booking)
+        ? (
+          existsAfter(
+            /databases/$(database)/documents/availability_slots/$(bookingId)
+          ) &&
+          validAvailabilitySlot(
+            getAfter(
+              /databases/$(database)/documents/availability_slots/$(bookingId)
+            ).data,
+            bookingId,
+            booking
+          )
+        )
+        : !existsAfter(
+          /databases/$(database)/documents/availability_slots/$(bookingId)
+        );
+    }
+
+    function isMigratableClientBooking(booking) {
+      return isAuthenticated() &&
+        booking.userId.matches('^client_.*') &&
+        exists(/databases/$(database)/documents/users/$(booking.userId)) &&
+        isOwnEmail(
+          get(
+            /databases/$(database)/documents/users/$(booking.userId)
+          ).data.email
+        );
+    }
+
     // User Profiles
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin() || isInstructor();
@@ -58,13 +129,14 @@ service cloud.firestore {
         isOwner(userId) &&
         request.resource.data.uid == userId &&
         isOwnEmail(request.resource.data.email) &&
-        (request.resource.data.role == 'user' ||
-         (request.resource.data.role == 'admin' && isSuperAdmin()))
+        request.resource.data.role == 'user' &&
+        !('systemRole' in request.resource.data)
       ) || (
         isAdmin() &&
         userId.matches('^client_.*') &&
         request.resource.data.uid == userId &&
-        (request.resource.data.role != 'admin' || isSuperAdmin())
+        !('systemRole' in request.resource.data) &&
+        (request.resource.data.role != 'admin' || isSystemOwner())
       );
 
       allow update: if (
@@ -86,16 +158,22 @@ service cloud.firestore {
       ) || (
         isAdmin() &&
         (!('role' in resource.data) || resource.data.role != 'admin') &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'systemRole'])
       ) || (
-        isSuperAdmin()
+        isSystemOwner() &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['systemRole'])
       );
 
-      allow delete: if isSuperAdmin() || (
+      allow delete: if (
+        isSystemOwner() &&
+        (!('systemRole' in resource.data) || resource.data.systemRole != 'owner')
+      ) || (
         isAdmin() &&
-        (!('role' in resource.data) || resource.data.role != 'admin')
+        (!('role' in resource.data) || resource.data.role != 'admin') &&
+        (!('systemRole' in resource.data) || resource.data.systemRole != 'owner')
       ) || (
         userId.matches('^client_.*') &&
+        (!('systemRole' in resource.data) || resource.data.systemRole != 'owner') &&
         isOwnEmail(resource.data.email)
       );
     }
@@ -141,15 +219,17 @@ service cloud.firestore {
 
     // Bookings
     match /bookings/{bookingId} {
-      // Authenticated clients currently need instructor schedules to avoid
-      // double-booking. Move public availability to a separate collection
-      // before restricting reads to owners and assigned instructors only.
-      allow read: if isAuthenticated();
+      allow read: if isAdmin() ||
+        isOwner(resource.data.userId) ||
+        isAssignedInstructor(resource.data) ||
+        isMigratableClientBooking(resource.data) ||
+        (isAuthenticated() && !availabilityMigrationComplete());
 
       allow create: if isAuthenticated() &&
         (request.resource.data.userId == request.auth.uid || isAdmin()) &&
         request.resource.data.totalPrice >= 0 &&
-        request.resource.data.durationHours > 0;
+        request.resource.data.durationHours > 0 &&
+        (isAdmin() || availabilityIsSynchronized(bookingId, request.resource.data));
 
       allow update: if (
         isOwner(resource.data.userId) &&
@@ -159,7 +239,11 @@ service cloud.firestore {
           'date',
           'time',
           'cancellationReason'
-        ])
+        ]) &&
+        (
+          !availabilityMigrationComplete() ||
+          availabilityIsSynchronized(bookingId, request.resource.data)
+        )
       ) || (
         isAssignedInstructor(resource.data) &&
         request.resource.data.userId == resource.data.userId &&
@@ -168,7 +252,11 @@ service cloud.firestore {
           'date',
           'time',
           'cancellationReason'
-        ])
+        ]) &&
+        (
+          !availabilityMigrationComplete() ||
+          availabilityIsSynchronized(bookingId, request.resource.data)
+        )
       ) || (
         resource.data.userId.matches('^client_.*') &&
         request.resource.data.userId == request.auth.uid &&
@@ -200,6 +288,60 @@ service cloud.firestore {
           );
         allow update, delete: if isAdmin();
       }
+    }
+
+    // Public schedule data without client names, IDs, prices, or notes.
+    match /availability_slots/{bookingId} {
+      allow read: if true;
+
+      allow create, update: if isAdmin() || (
+        isAuthenticated() &&
+        existsAfter(/databases/$(database)/documents/bookings/$(bookingId)) &&
+        (
+          isOwner(
+            getAfter(
+              /databases/$(database)/documents/bookings/$(bookingId)
+            ).data.userId
+          ) ||
+          isAssignedInstructor(
+            getAfter(
+              /databases/$(database)/documents/bookings/$(bookingId)
+            ).data
+          )
+        ) &&
+        validAvailabilitySlot(
+          request.resource.data,
+          bookingId,
+          getAfter(
+            /databases/$(database)/documents/bookings/$(bookingId)
+          ).data
+        )
+      );
+
+      allow delete: if isAdmin() || (
+        isAuthenticated() &&
+        exists(/databases/$(database)/documents/bookings/$(bookingId)) &&
+        (
+          isOwner(
+            get(
+              /databases/$(database)/documents/bookings/$(bookingId)
+            ).data.userId
+          ) ||
+          isAssignedInstructor(
+            get(
+              /databases/$(database)/documents/bookings/$(bookingId)
+            ).data
+          )
+        ) &&
+        (
+          !existsAfter(/databases/$(database)/documents/bookings/$(bookingId)) ||
+          !bookingBlocksAvailability(
+            getAfter(
+              /databases/$(database)/documents/bookings/$(bookingId)
+            ).data
+          )
+        )
+      );
     }
 
     // Settings

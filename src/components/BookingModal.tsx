@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Instructor, UserProfile, Booking, LessonDifficulty, Course } from '../types';
+import { Instructor, UserProfile, Booking, AvailabilitySlot, LessonDifficulty, Course } from '../types';
 import { X, Calendar, Clock, HelpCircle, Wallet, ShieldAlert, Sparkles, Loader2 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, parseCourseDates, getDifficultyLabel } from '../lib/LanguageContext';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
 import { Auth } from './Auth';
+import {
+  AVAILABILITY_SLOTS_COLLECTION,
+  blocksInstructorAvailability,
+  toAvailabilitySlot,
+} from '../lib/availabilitySlots';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -45,7 +50,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const [instructorBookings, setInstructorBookings] = useState<Booking[]>([]);
+  const [instructorBookings, setInstructorBookings] = useState<AvailabilitySlot[]>([]);
 
   // Set default date to tomorrow
   useEffect(() => {
@@ -66,17 +71,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         const isSandbox = userProfile?.uid?.startsWith('local_') || false;
         if (!isSandbox) {
           const q = query(
-            collection(db, 'bookings'),
+            collection(db, AVAILABILITY_SLOTS_COLLECTION),
             where('instructorId', '==', instructor.id)
           );
           const snap = await getDocs(q);
-          const list: Booking[] = [];
+          const list: AvailabilitySlot[] = [];
           if (snap && !snap.empty) {
             snap.forEach((doc) => {
-              const b = { id: doc.id, ...doc.data() } as Booking;
-              if (b.status !== 'cancelled') {
-                list.push(b);
-              }
+              list.push(doc.data() as AvailabilitySlot);
             });
           }
           setInstructorBookings(list);
@@ -85,7 +87,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           const savedBookings = localStorage.getItem(`alpine_glide_bookings_${userProfile?.uid}`);
           const localList: Booking[] = savedBookings ? JSON.parse(savedBookings) : [];
           setInstructorBookings(
-            localList.filter((b) => b.instructorId === instructor.id && b.status !== 'cancelled')
+            localList
+              .filter((b) => b.instructorId === instructor.id && blocksInstructorAvailability(b))
+              .map(toAvailabilitySlot)
           );
         }
       } catch (err) {
@@ -119,7 +123,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
       // Check standard bookings overlap
       const hasBookingOverlap = instructorBookings.some((b) => {
-        if (b.isDeleted || b.status === 'cancelled') return false;
         if (b.date !== date) return false;
         const bStart = timeToMinutes(b.time);
         const bEnd = bStart + b.durationHours * 60;
@@ -158,13 +161,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     }
   }, [availableSlots, time]);
 
-  const getOverlappingBooking = (): Booking | null => {
+  const getOverlappingBooking = (): AvailabilitySlot | null => {
     if (!date || !time) return null;
     const newStart = timeToMinutes(time);
     const newEnd = newStart + duration * 60;
 
     for (const b of instructorBookings) {
-      if (b.isDeleted || b.status === 'cancelled') continue;
       if (b.date !== date) continue;
       const existStart = timeToMinutes(b.time);
       const existEnd = existStart + b.durationHours * 60;
@@ -216,36 +218,32 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     if (!userProfile) {
       addNotification(
         'error',
-        language === 'en' ? 'Sign In Required' : 'Требуется войти',
-        language === 'en'
-          ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.'
-          : 'Войдите, чтобы бронировать инструкторов, пополнять кошелек и видеть расписание.'
+        t('signInRequired'),
+        t('bookingSignInDesc')
       );
       return;
     }
     if (userProfile.isClientActive === false) {
       addNotification(
         'error',
-        language === 'en' ? 'Access Suspended' : 'Доступ приостановлен',
-        language === 'en'
-          ? 'Your student account is suspended. You cannot book training sessions.'
-          : 'Ваш аккаунт ученика приостановлен. Вы не можете бронировать занятия.'
+        t('accessSuspended'),
+        t('bookingSuspendedDesc')
       );
       return;
     }
     if (!date) {
       addNotification(
         'warning',
-        language === 'en' ? 'Missing Details' : 'Не все поля заполнены',
-        language === 'en' ? 'Please select a valid coaching date.' : 'Пожалуйста, выберите дату.'
+        t('missingDetails'),
+        t('bookingSelectValidDate')
       );
       return;
     }
     if (!hasSufficientFunds) {
       addNotification(
         'error',
-        language === 'en' ? 'Insufficient Funds' : 'Недостаточно средств',
-        language === 'en' ? 'Your account balance is too low for this session.' : 'Недостаточно средств для оплаты урока.'
+        t('insufficientFunds'),
+        t('bookingBalanceTooLow')
       );
       return;
     }
@@ -253,10 +251,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     if (!targetInstructor.isAvailable) {
       addNotification(
         'error',
-        language === 'en' ? 'Instructor Unavailable' : 'Инструктор недоступен',
-        language === 'en'
-          ? `${targetInstructor.name} is currently not accepting new bookings.`
-          : `${targetInstructor.name} временно не принимает записи на новые занятия.`
+        t('instructorUnavailable'),
+        `${targetInstructor.name} ${t('instructorNotAccepting')}`
       );
       return;
     }
@@ -264,10 +260,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     if (isTimeSlotOccupied) {
       addNotification(
         'error',
-        language === 'en' ? 'Slot Unavailable' : 'Время недоступно',
-        language === 'en'
-          ? `${targetInstructor.name} is already booked during this time period.`
-          : `${targetInstructor.name} уже занят(а) в данный промежуток времени.`
+        t('slotUnavailable'),
+        `${targetInstructor.name} ${t('instructorAlreadyBooked')}`
       );
       return;
     }
@@ -295,17 +289,15 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         await onBookingSuccess(newBooking, totalCost);
         addNotification(
           'success',
-          language === 'en' ? 'Lesson Booked!' : 'Урок забронирован!',
-          language === 'en' 
-            ? `Coaching with ${targetInstructor.name} scheduled for ${date} at ${time}. $${totalCost} debited.`
-            : `Занятие с ${targetInstructor.name} запланировано на ${date} в ${time}. Списано $${totalCost}.`
+          t('lessonBooked'),
+          `${t('lessonBookedPrefix')} ${targetInstructor.name} ${t('lessonScheduledFor')} ${date} ${t('lessonRescheduledAdminAt')} ${time}. $${totalCost} ${t('debitedSuffix')}`
         );
         onClose();
       } catch (err) {
         addNotification(
           'error',
-          language === 'en' ? 'Booking Error' : 'Ошибка бронирования',
-          language === 'en' ? 'Failed to record session in database.' : 'Не удалось записать сессию в БД.'
+          t('bookingError'),
+          t('bookingRecordFailed')
         );
       } finally {
         setIsSubmitting(false);
@@ -340,7 +332,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             >
               <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10 shrink-0">
                 <h3 className="font-serif text-lg font-light text-[var(--ink)]">
-                  {language === 'en' ? 'Sign In Required' : 'Требуется войти'}
+                  {t('signInRequired')}
                 </h3>
                 <button
                   type="button"
@@ -352,9 +344,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               </div>
               <div className="p-6 overflow-y-auto space-y-4">
                 <p className="text-[11px] font-mono text-[var(--ink-dim)] uppercase tracking-wider text-center leading-relaxed">
-                  {language === 'en' 
-                    ? 'Sign in or register to schedule training with your instructor.' 
-                    : 'Войдите или зарегистрируйтесь, чтобы записаться на занятие.'}
+                  {t('bookingSignInPrompt')}
                 </p>
                 <div className="border border-[var(--border)] p-4 bg-black/10">
                   <Auth onSuccess={(profile) => {
@@ -382,10 +372,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   </div>
                   <div>
                     <h3 className="font-serif text-lg font-light text-[var(--ink)]">
-                      {language === 'en' ? `Book with ${targetInstructor.name}` : `Запись к ${targetInstructor.name}`}
+                      {t('bookLessonWith')} {targetInstructor.name}
                     </h3>
                     <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5">
-                      ${targetInstructor.pricePerHour}/{t('hr')} • {language === 'en' ? 'private instruction' : 'индивидуальное занятие'}
+                      ${targetInstructor.pricePerHour}/{t('hr')} • {t('privateInstruction')}
                     </p>
                   </div>
                 </div>
@@ -404,7 +394,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             {/* Date Picker */}
             <div className="space-y-1">
               <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5">
-                <Calendar className="w-3 h-3" /> {language === 'en' ? 'Date' : 'Дата'}
+                <Calendar className="w-3 h-3" /> {t('dateLabel')}
               </label>
               <input
                 type="date"
@@ -419,7 +409,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             {/* Time Slot Selector */}
             <div className="space-y-1">
               <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5">
-                <Clock className="w-3 h-3" /> {language === 'en' ? 'Time Slot' : 'Время'}
+                <Clock className="w-3 h-3" /> {t('timeSlot')}
               </label>
               <select
                 value={time}
@@ -429,7 +419,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               >
                 {availableSlots.length === 0 ? (
                   <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
-                    {language === 'en' ? 'No slots available' : 'Нет свободного времени'}
+                    {t('noSlotsAvailable')}
                   </option>
                 ) : (
                   availableSlots.map((slot) => (
@@ -444,7 +434,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             {/* Duration Selector */}
             <div className="space-y-1">
               <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5">
-                <Clock className="w-3 h-3" /> {language === 'en' ? 'Duration (Hours)' : 'Длительность (часов)'}
+                <Clock className="w-3 h-3" /> {t('durationHours')}
               </label>
               <select
                 value={duration}
@@ -453,7 +443,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               >
                 {[1, 2, 3, 4, 6].map((hrs) => (
                   <option key={hrs} value={hrs} className="bg-[var(--bg)] text-[var(--ink)]">
-                    {hrs} {hrs === 1 ? (language === 'en' ? 'Hour' : 'Час') : (language === 'en' ? 'Hours' : 'Часа')}
+                    {hrs} {hrs === 1 ? t('hourSingular') : t('hoursPlural')}
                   </option>
                 ))}
               </select>
@@ -462,7 +452,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             {/* Lesson Difficulty */}
             <div className="space-y-1">
               <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5">
-                <HelpCircle className="w-3 h-3" /> {language === 'en' ? 'Lesson Stage' : 'Уровень обучения'}
+                <HelpCircle className="w-3 h-3" /> {t('lessonStage')}
               </label>
               <select
                 value={difficulty}
@@ -483,12 +473,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-500 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
                 <p className="font-extrabold uppercase tracking-wide font-mono text-[10px]">
-                  {language === 'en' ? 'Time Slot Occupied' : 'Время занято'}
+                  {t('timeSlotOccupied')}
                 </p>
                 <p className="text-[11px] leading-relaxed opacity-90">
-                  {language === 'en'
-                    ? `${targetInstructor.name} is already booked on this date from ${overlappingBooking.time} for ${overlappingBooking.durationHours} ${overlappingBooking.durationHours === 1 ? 'hour' : 'hours'}. Please choose another time slot or date.`
-                    : `${targetInstructor.name} уже забронирован(а) на эту дату с ${overlappingBooking.time} на ${overlappingBooking.durationHours} ${overlappingBooking.durationHours === 1 ? 'час' : 'часа/часов'}. Пожалуйста, выберите другое время или дату.`}
+                  {`${targetInstructor.name} ${t('bookingConflictFrom')} ${overlappingBooking.time} ${t('bookingConflictFor')} ${overlappingBooking.durationHours} ${overlappingBooking.durationHours === 1 ? t('hourSingular') : t('hoursPlural')}. ${t('chooseAnotherSlot')}`}
                 </p>
               </div>
             </div>
@@ -499,12 +487,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-500 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
                 <p className="font-extrabold uppercase tracking-wide font-mono text-[10px]">
-                  {language === 'en' ? 'Reserved for Group Course' : 'Зарезервирован под групповой курс'}
+                  {t('reservedGroupCourse')}
                 </p>
                 <p className="text-[11px] leading-relaxed opacity-90">
-                  {language === 'en'
-                    ? `${targetInstructor.name} is leading the group course "${overlappingCourse.title}" on this date and time (${overlappingCourse.dates}). Please choose another time slot or date.`
-                    : `${targetInstructor.name} ведет групповой курс «${overlappingCourse.title}» в этот день и время (${overlappingCourse.dates}). Пожалуйста, выберите другое время или дату.`}
+                  {`${targetInstructor.name} ${t('leadsGroupCourse')} "${overlappingCourse.title}" ${t('groupCourseOnDate')} (${overlappingCourse.dates}). ${t('chooseAnotherSlot')}`}
                 </p>
               </div>
             </div>
@@ -515,12 +501,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
                 <p className="font-extrabold uppercase tracking-wide font-mono text-[10px]">
-                  {language === 'en' ? 'Instructor Unavailable' : 'Инструктор недоступен'}
+                  {t('instructorUnavailable')}
                 </p>
                 <p className="text-[11px] leading-relaxed opacity-90">
-                  {language === 'en'
-                    ? `${targetInstructor.name} is currently not accepting new bookings. Please select another guide.`
-                    : `${targetInstructor.name} временно не принимает записи на занятия. Пожалуйста, выберите другого инструктора.`}
+                  {`${targetInstructor.name} ${t('instructorUnavailableChoice')}`}
                 </p>
               </div>
             </div>
@@ -529,12 +513,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           {/* Notes field */}
           <div className="space-y-1">
             <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-              {language === 'en' ? 'Personal Goals & Equipment Notes' : 'Цели тренировки и примечания к экипировке'}
+              {t('personalGoalsNotes')}
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder={language === 'en' ? 'e.g. Bringing own snowboard. First time in deep snow. Want to focus on parallel turns.' : 'Например: своя доска, хочу научиться уверенно резать дуги, первый раз поеду в пухляк...'}
+              placeholder={t('personalGoalsPlaceholder')}
               className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition h-16 resize-none rounded-none"
             />
           </div>
@@ -542,16 +526,16 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           {/* Financial Breakdown Panel */}
           <div className="bg-black/10 rounded-none p-4 border border-[var(--border)] space-y-2.5">
             <div className="flex justify-between text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider">
-              <span>{language === 'en' ? 'Hourly Rate:' : 'Почасовая ставка:'}</span>
+              <span>{t('hourlyRate')}:</span>
               <span className="font-bold text-[var(--ink)]">${targetInstructor.pricePerHour} / {t('hr')}</span>
             </div>
             <div className="flex justify-between text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider">
-              <span>{language === 'en' ? 'Hours booked:' : 'Часов забронировано:'}</span>
+              <span>{t('hoursBooked')}</span>
               <span className="font-bold text-[var(--ink)]">x {duration}</span>
             </div>
             <div className="h-[1px] bg-[var(--border)]" />
             <div className="flex justify-between items-baseline pt-1">
-              <span className="text-xs font-mono uppercase tracking-widest text-[var(--ink)]">{language === 'en' ? 'Total Lesson Fee:' : 'Итоговая стоимость занятия:'}</span>
+              <span className="text-xs font-mono uppercase tracking-widest text-[var(--ink)]">{t('totalLessonFee')}</span>
               <span className="text-xl font-extrabold text-sky-600 dark:text-sky-400 font-mono">${totalCost}</span>
             </div>
           </div>
@@ -562,15 +546,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-mono text-[10px] uppercase tracking-wider font-semibold">
                 <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
                 <span>
-                  {language === 'en' ? 'Access Suspended. Booking restricted.' : 'Доступ приостановлен. Бронирование невозможно.'}
+                  {t('bookingAccessRestricted')}
                 </span>
               </div>
             ) : hasSufficientFunds ? (
               <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] uppercase tracking-wider">
                 <Wallet className="w-3.5 h-3.5" />
                 <span>
-                  {language === 'en' ? 'Wallet balance: ' : 'Баланс кошелька: '}
-                  <strong>${userBalance}</strong> {language === 'en' ? 'is sufficient.' : 'достаточен.'}
+                  {t('walletBalancePrefix')} <strong>${userBalance}</strong> {t('walletSufficient')}
                 </span>
               </div>
             ) : (
@@ -578,7 +561,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-mono text-[10px] uppercase tracking-wider font-medium">
                   <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
                   <span>
-                    {language === 'en' ? 'Insufficient credits (Wallet Balance: ' : 'Недостаточно средств (Баланс кошелька: '}
+                    {t('insufficientCreditsPrefix')}{' '}
                     <strong>${userBalance}</strong>)
                   </span>
                 </div>
@@ -590,7 +573,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   }}
                   className="w-full mt-1.5 py-2 border border-rose-900/40 bg-rose-950/10 hover:bg-rose-950/20 text-rose-500 rounded-none text-center transition cursor-pointer font-mono text-[10px] uppercase tracking-widest"
                 >
-                  💡 {language === 'en' ? `Instantly Top Up $${totalCost - userBalance}+` : `Пополнить баланс на $${totalCost - userBalance}+`}
+                  💡 {t('instantTopUp')} ${totalCost - userBalance}+
                 </button>
               </div>
             )}
@@ -610,12 +593,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             ) : userProfile?.isClientActive === false ? (
               <>
                 <ShieldAlert className="w-3.5 h-3.5" />
-                {language === 'en' ? 'Access Suspended' : 'Доступ приостановлен'}
+                {t('accessSuspended')}
               </>
             ) : (
               <>
                 <Sparkles className="w-3.5 h-3.5" />
-                {language === 'en' ? 'Pay & Confirm Lesson Booking' : 'Оплатить и подтвердить бронирование'}
+                {t('payConfirmLesson')}
               </>
             )}
           </button>

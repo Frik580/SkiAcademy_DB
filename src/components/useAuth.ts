@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { auth, db, doc, onSnapshot, updateDoc } from '../lib/firebase';
+import { auth, db, doc, onSnapshot } from '../lib/firebase';
 import { UserProfile } from '../types';
 
 export const useAuth = () => {
@@ -18,18 +18,9 @@ export const useAuth = () => {
         setFirebaseUser(user);
         const userRef = doc(db, 'users', user.uid);
         
-        profileUnsubscribeRef.current = onSnapshot(userRef, async (userSnap) => {
+        profileUnsubscribeRef.current = onSnapshot(userRef, (userSnap) => {
           if (userSnap.exists()) {
             const data = userSnap.data() as UserProfile;
-            const isAdminEmail = user.email?.toLowerCase() === 'admin@alpineglide.com' || user.email?.toLowerCase() === 'gerasimchuk.arseniy@gmail.com';
-            if (isAdminEmail && data.role !== 'admin') {
-              try {
-                await updateDoc(userRef, { role: 'admin' });
-                data.role = 'admin'; // Optimistic update
-              } catch (updateErr) {
-                console.error("Failed to promote user to admin in Firestore", updateErr);
-              }
-            }
             setUserProfile(data);
           } else {
             setUserProfile(null);

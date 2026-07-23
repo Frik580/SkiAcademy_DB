@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Instructor, Booking, UserProfile, Course } from '../types';
 import { Shield } from 'lucide-react';
@@ -19,7 +19,7 @@ interface AdminPanelProps {
   bookings: Booking[];
   usersList?: UserProfile[];
   deletedCompletedStats?: { revenue: number; count: number };
-  currentUserEmail?: string;
+  currentUserProfile: UserProfile;
   onUpdateUserRole?: (targetUid: string, newRole: 'admin' | 'user') => Promise<void>;
   onAddInstructor: (ins: Instructor) => Promise<void>;
   onUpdateInstructor: (ins: Instructor) => Promise<void>;
@@ -49,7 +49,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   usersList = [],
   courses = [],
   deletedCompletedStats = { revenue: 0, count: 0 },
-  currentUserEmail = '',
+  currentUserProfile,
   onUpdateUserRole,
   onAddInstructor,
   onUpdateInstructor,
@@ -80,24 +80,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     onConfirm: () => void | Promise<void>;
   } | null>(null);
 
-  const currentAdminUser = useMemo(() => {
-    if (!currentUserEmail) return null;
-    return (usersList || []).find((u) => u.email.toLowerCase() === currentUserEmail.toLowerCase());
-  }, [usersList, currentUserEmail]);
-
-  const adminProfile = useMemo(() => {
-    return (
-      currentAdminUser ||
-      ({
-        uid: 'admin',
-        email: currentUserEmail || 'admin@example.com',
-        displayName: t('administratorLabel'),
-        role: 'admin',
-        avatarUrl: '',
-        balanceUSD: 0,
-      } as UserProfile)
-    );
-  }, [currentAdminUser, currentUserEmail, t]);
+  const adminProfile =
+    usersList.find((user) => user.uid === currentUserProfile.uid) || currentUserProfile;
 
   const totalRevenue =
     bookings
@@ -172,7 +156,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       <ClientsManager
         usersList={usersList}
         instructors={instructors}
-        currentUserEmail={currentUserEmail}
+        currentUserProfile={currentUserProfile}
         onAddUser={onAddUser}
         onUpdateUser={onUpdateUser}
         onDeleteUser={onDeleteUser}
@@ -195,7 +179,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       <AdminRoleManager
         usersList={usersList}
-        currentUserEmail={currentUserEmail}
+        currentUserProfile={currentUserProfile}
         onUpdateUserRole={onUpdateUserRole}
         onRequestConfirm={onRequestConfirm}
       />

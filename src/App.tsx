@@ -18,17 +18,32 @@ import { Navbar } from './components/Navbar';
 import { Auth } from './components/Auth';
 import { LessonFilters } from './components/LessonFilters';
 import { InstructorCard } from './components/InstructorCard';
-import { BookingModal } from './components/BookingModal';
-import { CourseEnrollmentModal } from './components/CourseEnrollmentModal';
-import { CourseDetailsModal } from './components/CourseDetailsModal';
-import { InstructorReviewsModal } from './components/InstructorReviewsModal';
-import { PaymentGateway } from './components/PaymentGateway';
-import { PersonalCabinet } from './components/PersonalCabinet';
-import { AdminPanel } from './components/AdminPanel';
 import logoLight from './assets/images/logo2.png';
 import logoDark from './assets/images/logo1.png';
 
 import { Compass, AlertCircle, RefreshCw, Mountain, ArrowRight } from 'lucide-react';
+
+const AdminPanel = React.lazy(() =>
+  import('./components/AdminPanel').then(({ AdminPanel }) => ({ default: AdminPanel }))
+);
+const PersonalCabinet = React.lazy(() =>
+  import('./components/PersonalCabinet').then(({ PersonalCabinet }) => ({ default: PersonalCabinet }))
+);
+const BookingModal = React.lazy(() =>
+  import('./components/BookingModal').then(({ BookingModal }) => ({ default: BookingModal }))
+);
+const CourseEnrollmentModal = React.lazy(() =>
+  import('./components/CourseEnrollmentModal').then(({ CourseEnrollmentModal }) => ({ default: CourseEnrollmentModal }))
+);
+const CourseDetailsModal = React.lazy(() =>
+  import('./components/CourseDetailsModal').then(({ CourseDetailsModal }) => ({ default: CourseDetailsModal }))
+);
+const InstructorReviewsModal = React.lazy(() =>
+  import('./components/InstructorReviewsModal').then(({ InstructorReviewsModal }) => ({ default: InstructorReviewsModal }))
+);
+const PaymentGateway = React.lazy(() =>
+  import('./components/PaymentGateway').then(({ PaymentGateway }) => ({ default: PaymentGateway }))
+);
 
 const FALLBACK_SLIDES: CustomHeroSlide[] = [
   {
@@ -62,6 +77,22 @@ const FALLBACK_SLIDES: CustomHeroSlide[] = [
     backgroundImage: 'wall3'
   }
 ];
+
+const SectionLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
+  <div className="flex min-h-40 items-center justify-center gap-2 border border-[var(--border)] text-[var(--ink-dim)]">
+    <RefreshCw className="h-4 w-4 animate-spin" />
+    <span className="font-mono text-[10px] uppercase tracking-wider">{label}</span>
+  </div>
+);
+
+const ModalLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md">
+    <div className="flex items-center gap-2 border border-[var(--border)] bg-[var(--bg)] px-6 py-4 text-[var(--ink-dim)]">
+      <RefreshCw className="h-4 w-4 animate-spin" />
+      <span className="font-mono text-[10px] uppercase tracking-wider">{label}</span>
+    </div>
+  </div>
+);
 
 const AppContent: React.FC = () => {
   const { addNotification } = useNotifications();
@@ -236,34 +267,36 @@ const AppContent: React.FC = () => {
 
         {isAdminView && userProfile && userProfile.role === 'admin' ? (
           /* ADMIN VIEW */
-          <AdminPanel
-            instructors={translatedInstructors}
-            bookings={bookings}
-            usersList={usersList}
-            courses={courses}
-            deletedCompletedStats={deletedCompletedStats}
-            currentUserEmail={firebaseUser?.email || ''}
-            onUpdateUserRole={handleUpdateUserRole}
-            onAddInstructor={handleAddInstructor}
-            onUpdateInstructor={handleUpdateInstructor}
-            onDeleteInstructor={handleDeleteInstructor}
-            onConfirmBooking={handleConfirmBooking}
-            onCompleteBooking={handleCompleteBooking}
-            onCancelBooking={handleCancel}
-            onAddUser={handleAddUser}
-            onUpdateUser={handleUpdateUser}
-            onDeleteUser={handleDeleteUser}
-            onRescheduleBooking={handleReschedule}
-            onDeleteBooking={handleDeleteBooking}
-            onAddBooking={handleAddBooking}
-            onAddCourse={handleAddCourse}
-            onUpdateCourse={handleUpdateCourse}
-            onDeleteCourse={handleDeleteCourse}
-            filtersEnabled={filtersEnabled}
-            onToggleFilters={handleToggleFilters}
-            skillConfig={skillConfig}
-            onUpdateSkillConfig={handleUpdateSkillConfig}
-          />
+          <React.Suspense fallback={<SectionLoadingFallback label={t('loading')} />}>
+            <AdminPanel
+              instructors={translatedInstructors}
+              bookings={bookings}
+              usersList={usersList}
+              courses={courses}
+              deletedCompletedStats={deletedCompletedStats}
+              currentUserProfile={userProfile}
+              onUpdateUserRole={handleUpdateUserRole}
+              onAddInstructor={handleAddInstructor}
+              onUpdateInstructor={handleUpdateInstructor}
+              onDeleteInstructor={handleDeleteInstructor}
+              onConfirmBooking={handleConfirmBooking}
+              onCompleteBooking={handleCompleteBooking}
+              onCancelBooking={handleCancel}
+              onAddUser={handleAddUser}
+              onUpdateUser={handleUpdateUser}
+              onDeleteUser={handleDeleteUser}
+              onRescheduleBooking={handleReschedule}
+              onDeleteBooking={handleDeleteBooking}
+              onAddBooking={handleAddBooking}
+              onAddCourse={handleAddCourse}
+              onUpdateCourse={handleUpdateCourse}
+              onDeleteCourse={handleDeleteCourse}
+              filtersEnabled={filtersEnabled}
+              onToggleFilters={handleToggleFilters}
+              skillConfig={skillConfig}
+              onUpdateSkillConfig={handleUpdateSkillConfig}
+            />
+          </React.Suspense>
         ) : (
           /* USER/CLIENT VIEW (Authenticated or Guest/Logged-out) */
           <>
@@ -482,22 +515,24 @@ const AppContent: React.FC = () => {
                       <span className="w-2 h-2 bg-indigo-500 rounded-none"></span>
                       <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--ink)] font-bold">{t('activeCabinet')}</h3>
                     </div>
-                    <PersonalCabinet
-                      userProfile={userProfile}
-                      bookings={bookings}
-                      reviews={reviews}
-                      dismissedReviewIds={dismissedReviewIds}
-                      onDismissReview={handleDismissReview}
-                      onReschedule={handleReschedule}
-                      onCancel={handleRequestCancel}
-                      onAddReview={handleAddReview} // Pass handler
-                      onSignOut={handleSignOut}
-                      onUpdateProfile={handleUpdateProfile}
-                      courses={courses}
-                      instructors={instructors}
-                      usersList={usersList}
-                      skillConfig={skillConfig}
-                    />
+                    <React.Suspense fallback={<SectionLoadingFallback label={t('loading')} />}>
+                      <PersonalCabinet
+                        userProfile={userProfile}
+                        bookings={bookings}
+                        reviews={reviews}
+                        dismissedReviewIds={dismissedReviewIds}
+                        onDismissReview={handleDismissReview}
+                        onReschedule={handleReschedule}
+                        onCancel={handleRequestCancel}
+                        onAddReview={handleAddReview}
+                        onSignOut={handleSignOut}
+                        onUpdateProfile={handleUpdateProfile}
+                        courses={courses}
+                        instructors={instructors}
+                        usersList={usersList}
+                        skillConfig={skillConfig}
+                      />
+                    </React.Suspense>
                   </div>
                 )}
 
@@ -771,55 +806,75 @@ const AppContent: React.FC = () => {
       </main>
 
       {/* Global Modals */}
-      <BookingModal
-        isOpen={selectedInstructor !== null}
-        onClose={() => setSelectedInstructor(null)}
-        instructor={selectedInstructor ? translateInstructor(selectedInstructor, language) : null}
-        userProfile={userProfile}
-        onBookingSuccess={handleBookingSuccess}
-        onOpenTopUp={() => setIsTopUpOpen(true)}
-        courses={courses}
-        onAuthSuccess={(profile) => setUserProfile(profile)}
-      />
+      {selectedInstructor && (
+        <React.Suspense fallback={<ModalLoadingFallback label={t('loading')} />}>
+          <BookingModal
+            isOpen
+            onClose={() => setSelectedInstructor(null)}
+            instructor={translateInstructor(selectedInstructor, language)}
+            userProfile={userProfile}
+            onBookingSuccess={handleBookingSuccess}
+            onOpenTopUp={() => setIsTopUpOpen(true)}
+            courses={courses}
+            onAuthSuccess={(profile) => setUserProfile(profile)}
+          />
+        </React.Suspense>
+      )}
 
-      <CourseEnrollmentModal
-        isOpen={selectedCourseForAuth !== null}
-        onClose={() => setSelectedCourseForAuth(null)}
-        course={selectedCourseForAuth ? translateCourse(selectedCourseForAuth, language) : null}
-        onAuthSuccess={(profile) => setUserProfile(profile)}
-        onEnroll={handleBookCourse}
-      />
+      {selectedCourseForAuth && (
+        <React.Suspense fallback={<ModalLoadingFallback label={t('loading')} />}>
+          <CourseEnrollmentModal
+            isOpen
+            onClose={() => setSelectedCourseForAuth(null)}
+            course={translateCourse(selectedCourseForAuth, language)}
+            onAuthSuccess={(profile) => setUserProfile(profile)}
+            onEnroll={handleBookCourse}
+          />
+        </React.Suspense>
+      )}
 
-      <CourseDetailsModal
-        isOpen={selectedCourseForDetails !== null}
-        onClose={() => setSelectedCourseForDetails(null)}
-        rawCourse={selectedCourseForDetails}
-        course={selectedCourseForDetails ? translateCourse(selectedCourseForDetails, language) : null}
-        instructors={instructors}
-        userProfile={userProfile}
-        isEnrolled={selectedCourseForDetails ? bookings.some(b => b.userId === userProfile?.uid && b.instructorId === `course_${selectedCourseForDetails.id}` && b.status !== 'cancelled') : false}
-        onEnroll={(courseId) => {
-          if (!userProfile) {
-            setSelectedCourseForAuth(selectedCourseForDetails);
-          } else {
-            handleBookCourse(courseId);
-          }
-        }}
-      />
+      {selectedCourseForDetails && (
+        <React.Suspense fallback={<ModalLoadingFallback label={t('loading')} />}>
+          <CourseDetailsModal
+            isOpen
+            onClose={() => setSelectedCourseForDetails(null)}
+            rawCourse={selectedCourseForDetails}
+            course={translateCourse(selectedCourseForDetails, language)}
+            instructors={instructors}
+            userProfile={userProfile}
+            isEnrolled={bookings.some(b => b.userId === userProfile?.uid && b.instructorId === `course_${selectedCourseForDetails.id}` && b.status !== 'cancelled')}
+            onEnroll={(courseId) => {
+              if (!userProfile) {
+                setSelectedCourseForAuth(selectedCourseForDetails);
+              } else {
+                handleBookCourse(courseId);
+              }
+            }}
+          />
+        </React.Suspense>
+      )}
 
-      <InstructorReviewsModal
-        isOpen={reviewsInstructor !== null}
-        onClose={() => setReviewsInstructor(null)}
-        instructor={reviewsInstructor ? translateInstructor(reviewsInstructor, language) : null}
-        reviews={reviews}
-      />
+      {reviewsInstructor && (
+        <React.Suspense fallback={<ModalLoadingFallback label={t('loading')} />}>
+          <InstructorReviewsModal
+            isOpen
+            onClose={() => setReviewsInstructor(null)}
+            instructor={translateInstructor(reviewsInstructor, language)}
+            reviews={reviews}
+          />
+        </React.Suspense>
+      )}
 
-      <PaymentGateway
-        isOpen={isTopUpOpen}
-        onClose={() => setIsTopUpOpen(false)}
-        currentBalance={userProfile?.balanceUSD || 0}
-        onPaymentSuccess={handlePaymentSuccess}
-      />
+      {isTopUpOpen && (
+        <React.Suspense fallback={<ModalLoadingFallback label={t('loading')} />}>
+          <PaymentGateway
+            isOpen
+            onClose={() => setIsTopUpOpen(false)}
+            currentBalance={userProfile?.balanceUSD || 0}
+            onPaymentSuccess={handlePaymentSuccess}
+          />
+        </React.Suspense>
+      )}
 
       <NotificationHubModal
         isOpen={isNotifHistoryOpen}

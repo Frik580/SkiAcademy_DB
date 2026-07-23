@@ -3,17 +3,18 @@ import { Shield, Search, UserPlus, UserMinus, Loader2 } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
+import { canManageAdminRoles } from '../../lib/accessControl';
 
 interface AdminRoleManagerProps {
   usersList: UserProfile[];
-  currentUserEmail: string;
+  currentUserProfile: UserProfile;
   onUpdateUserRole?: (targetUid: string, newRole: 'admin' | 'user') => Promise<void>;
   onRequestConfirm: (message: string, onConfirm: () => void | Promise<void>) => void;
 }
 
 export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
   usersList,
-  currentUserEmail,
+  currentUserProfile,
   onUpdateUserRole,
   onRequestConfirm,
 }) => {
@@ -24,7 +25,7 @@ export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [isPromoting, setIsPromoting] = useState(false);
 
-  const isSuperAdmin = currentUserEmail.toLowerCase() === 'gerasimchuk.arseniy@gmail.com';
+  const canManageRoles = canManageAdminRoles(currentUserProfile);
 
   return (
     <div className="border border-[var(--border)] p-6 bg-transparent space-y-6 transition-colors duration-300 w-full min-w-0 overflow-hidden">
@@ -39,7 +40,7 @@ export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
         </div>
       </div>
 
-      {!isSuperAdmin && (
+      {!canManageRoles && (
         <div className="border border-[var(--border)] bg-black/5 dark:bg-white/5 text-[var(--ink)] p-4 text-xs font-mono flex items-start gap-2.5 rounded-none">
           <Shield className="w-4 h-4 shrink-0 mt-0.5 text-[var(--ink-dim)]" />
           <div>
@@ -85,9 +86,9 @@ export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
                     </div>
                     {onUpdateUserRole && (
                       <button
-                        disabled={!isSuperAdmin}
+                        disabled={!canManageRoles}
                         onClick={() => {
-                          if (!isSuperAdmin) return;
+                          if (!canManageRoles) return;
                           const confirmMsg = `${t('revokeAdminConfirmPrefix')} ${u.email}?`;
                           onRequestConfirm(confirmMsg, async () => {
                             try {
@@ -97,7 +98,7 @@ export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
                             }
                           });
                         }}
-                        className={`p-1.5 border border-transparent rounded-none transition ${!isSuperAdmin ? 'opacity-30 cursor-not-allowed' : 'text-rose-500 hover:border-rose-500/30 cursor-pointer'}`}
+                        className={`p-1.5 border border-transparent rounded-none transition ${!canManageRoles ? 'opacity-30 cursor-not-allowed' : 'text-rose-500 hover:border-rose-500/30 cursor-pointer'}`}
                         title={t('revokeAdmin')}
                       >
                         <UserMinus className="w-4 h-4" />
@@ -118,7 +119,7 @@ export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
           <form
             onSubmit={async (e) => {
               e.preventDefault();
-              if (!newAdminEmail.trim() || !onUpdateUserRole || !isSuperAdmin) return;
+              if (!newAdminEmail.trim() || !onUpdateUserRole || !canManageRoles) return;
               setIsPromoting(true);
               const matchedUser = usersList.find(
                 (u) => u.email.toLowerCase() === newAdminEmail.trim().toLowerCase()
@@ -140,15 +141,15 @@ export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
             <input
               type="email"
               required
-              disabled={!isSuperAdmin}
+              disabled={!canManageRoles}
               value={newAdminEmail}
               onChange={(e) => setNewAdminEmail(e.target.value)}
               placeholder={t('enterUserEmail')}
-              className={`flex-1 px-3 py-2 border border-[var(--border)] bg-transparent text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none ${!isSuperAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`flex-1 px-3 py-2 border border-[var(--border)] bg-transparent text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none ${!canManageRoles ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
             <button
               type="submit"
-              disabled={isPromoting || !isSuperAdmin}
+              disabled={isPromoting || !canManageRoles}
               className="py-2 px-3 border border-[var(--border)] hover:bg-[var(--ink)] hover:text-[var(--bg)] bg-transparent text-[var(--ink)] rounded-none text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 disabled:opacity-50"
             >
               {isPromoting ? (
@@ -171,11 +172,11 @@ export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
               <Search className="w-3.5 h-3.5 text-[var(--ink-dim)] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                disabled={!isSuperAdmin}
+                disabled={!canManageRoles}
                 value={userSearchText}
                 onChange={(e) => setUserSearchText(e.target.value)}
                 placeholder={t('filterNameEmail')}
-                className={`w-full pl-9 pr-3 py-1.5 border border-[var(--border)] bg-transparent text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none placeholder-[var(--ink-dim)] ${!isSuperAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full pl-9 pr-3 py-1.5 border border-[var(--border)] bg-transparent text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none placeholder-[var(--ink-dim)] ${!canManageRoles ? 'opacity-50 cursor-not-allowed' : ''}`}
               />
             </div>
 
@@ -212,9 +213,9 @@ export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
                     </div>
                     {onUpdateUserRole && (
                       <button
-                        disabled={!isSuperAdmin}
+                        disabled={!canManageRoles}
                         onClick={async () => {
-                          if (!isSuperAdmin || !onUpdateUserRole) return;
+                          if (!canManageRoles || !onUpdateUserRole) return;
                           try {
                             await onUpdateUserRole(u.uid, 'admin');
                           } catch {

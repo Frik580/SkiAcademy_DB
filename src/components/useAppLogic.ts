@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   db,
   doc,
@@ -13,6 +13,7 @@ import {
   OperationType,
   handleFirestoreError,
   runTransaction,
+  writeBatch,
   auth
 } from '../lib/firebase';
 import { UserProfile, Instructor, Booking, Review, Course } from '../types';
@@ -21,6 +22,14 @@ import { useNotifications } from '../components/PushNotificationHub';
 import { useLanguage, parseDurationHours, splitCourseDates, getGroupCourseLabel, getGroupCourseEnrollmentNote, getGroupScheduleLabel, translateCourse } from '../lib/LanguageContext';
 import confetti from 'canvas-confetti';
 import { User } from 'firebase/auth';
+import { canManageAdminRoles } from '../lib/accessControl';
+import {
+  AVAILABILITY_MIGRATION_SETTING,
+  AVAILABILITY_SLOTS_COLLECTION,
+  blocksInstructorAvailability,
+  isCourseBooking,
+  toAvailabilitySlot,
+} from '../lib/availabilitySlots';
 
 export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile | null, setUserProfile: (profile: UserProfile | null) => void) => {
   const { addNotification } = useNotifications();
@@ -36,6 +45,8 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
   const [deletedCompletedStats, setDeletedCompletedStats] = useState<{ revenue: number; count: number }>({ revenue: 0, count: 0 });
   const [filtersEnabled, setFiltersEnabled] = useState<boolean>(true);
   const [skillConfig, setSkillConfig] = useState<SkillConfig>(DEFAULT_SKILL_CONFIG);
+  const [bookingsLoaded, setBookingsLoaded] = useState(false);
+  const availabilityMigrationRunningRef = useRef(false);
 
   // Load initial settings and stats
   useEffect(() => {
@@ -129,6 +140,7 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
       unsubscribers.push(onSnapshot(bookingsQuery, (snap) => {
         const list: Booking[] = snap.docs.map(d => ({ id: d.id, ...d.data() } as Booking));
         setBookings(list.sort((a, b) => b.date.localeCompare(a.date)));
+        setBookingsLoaded(true);
       }, (err) => handleFirestoreError(err, OperationType.LIST, 'bookings')));
 
       // Users List (Admin and Instructor)
@@ -162,12 +174,62 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
       }, (err) => console.error('Notifications sync error:', err)));
     } else {
       setBookings([]);
+      setBookingsLoaded(false);
       setUsersList([]);
       setDbNotifications([]);
     }
 
     return () => unsubscribers.forEach(unsub => unsub());
   }, [firebaseUser, userProfile, addNotification]);
+
+  // One-time privacy migration: copy active booking times into public,
+  // non-sensitive availability documents before booking reads are restricted.
+  useEffect(() => {
+    if (
+      userProfile?.role !== 'admin' ||
+      !bookingsLoaded ||
+      availabilityMigrationRunningRef.current
+    ) {
+      return;
+    }
+
+    availabilityMigrationRunningRef.current = true;
+
+    const migrateAvailabilitySlots = async () => {
+      try {
+        const migrationRef = doc(db, 'settings', AVAILABILITY_MIGRATION_SETTING);
+        const migrationSnapshot = await getDoc(migrationRef);
+        if (migrationSnapshot.data()?.complete === true) return;
+
+        const activeBookings = bookings.filter(blocksInstructorAvailability);
+        const chunkSize = 400;
+
+        for (let index = 0; index < activeBookings.length; index += chunkSize) {
+          const batch = writeBatch(db);
+          for (const booking of activeBookings.slice(index, index + chunkSize)) {
+            batch.set(
+              doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id),
+              toAvailabilitySlot(booking)
+            );
+          }
+          await batch.commit();
+        }
+
+        await setDoc(migrationRef, {
+          complete: true,
+          migratedCount: activeBookings.length,
+          completedAt: new Date().toISOString(),
+        });
+        console.info(`[Availability Migration] Migrated ${activeBookings.length} active slots.`);
+      } catch (error) {
+        console.error('Availability slot migration failed:', error);
+      } finally {
+        availabilityMigrationRunningRef.current = false;
+      }
+    };
+
+    migrateAvailabilitySlots();
+  }, [userProfile?.role, bookingsLoaded, bookings]);
 
   // Auto-sync course seats
   const bookingsDeps = bookings.map((b) => `${b.id}:${b.status}:${b.isDeleted}`).join(',');
@@ -204,7 +266,12 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
           const endDate = new Date(new Date(year, month - 1, day, hour, minute, 0).getTime() + b.durationHours * 60 * 60 * 1000);
           if (now >= endDate) {
             try {
-              await updateDoc(doc(db, 'bookings', b.id), { status: 'completed' });
+              const batch = writeBatch(db);
+              batch.update(doc(db, 'bookings', b.id), { status: 'completed' });
+              if (!isCourseBooking(b)) {
+                batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, b.id));
+              }
+              await batch.commit();
               addNotification(
                 'success',
                 t('lessonAutoCompleted'),
@@ -274,6 +341,12 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
         const newBal = currentBalance - totalCost;
         const bookingRef = doc(db, 'bookings', booking.id);
         transaction.set(bookingRef, booking);
+        if (blocksInstructorAvailability(booking)) {
+          transaction.set(
+            doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id),
+            toAvailabilitySlot(booking)
+          );
+        }
         transaction.update(userRef, { balanceUSD: newBal });
       });
       const newBal = userProfile.balanceUSD - totalCost;
@@ -286,8 +359,19 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
   };
 
   const handleReschedule = async (id: string, newDate: string, newTime: string) => {
-    await updateDoc(doc(db, 'bookings', id), { date: newDate, time: newTime });
     const booking = bookings.find(b => b.id === id);
+    if (!booking) return;
+
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'bookings', id), { date: newDate, time: newTime });
+    if (blocksInstructorAvailability(booking)) {
+      batch.set(
+        doc(db, AVAILABILITY_SLOTS_COLLECTION, id),
+        toAvailabilitySlot({ ...booking, date: newDate, time: newTime })
+      );
+    }
+    await batch.commit();
+
     if (booking && userProfile?.role === 'admin') {
       await createNotificationForUser(
         booking.userId,
@@ -496,6 +580,9 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
         }
 
         transaction.update(bookingRef, { status: 'cancelled' });
+        if (!isCourseBooking(bookingData)) {
+          transaction.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, id));
+        }
 
         if (courseSnap && courseSnap.exists() && courseRef) {
           const courseData = courseSnap.data() as Course;
@@ -569,6 +656,12 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
           }
         }
         transaction.set(bookingRef, booking);
+        if (blocksInstructorAvailability(booking)) {
+          transaction.set(
+            doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id),
+            toAvailabilitySlot(booking)
+          );
+        }
       });
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `bookings/${booking.id}/add`);
@@ -584,12 +677,17 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
       await setDoc(doc(db, 'users', 'school_global_stats'), { deletedCompletedRevenue: newStats.revenue, deletedCompletedCount: newStats.count }, { merge: true });
       await updateDoc(doc(db, 'bookings', id), { isDeleted: true });
     } else {
-      await deleteDoc(doc(db, 'bookings', id));
+      const batch = writeBatch(db);
+      batch.delete(doc(db, 'bookings', id));
+      if (!isCourseBooking(booking)) {
+        batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, id));
+      }
+      await batch.commit();
     }
   };
 
   const handleUpdateUserRole = async (targetUid: string, newRole: 'admin' | 'user') => {
-    if (userProfile?.role !== 'admin' || !isSuperAdmin(firebaseUser?.email)) {
+    if (!canManageAdminRoles(userProfile)) {
       addNotification(
         'error',
         t('accessDenied'),
@@ -604,7 +702,6 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
       `${t('roleUpdatedDescPrefix')} ${newRole}.`
     );
   };
-  const isSuperAdmin = (email?: string | null) => email?.toLowerCase() === 'gerasimchuk.arseniy@gmail.com';
 
   const handleAddUser = async (newUser: UserProfile) => await setDoc(doc(db, 'users', newUser.uid), newUser);
   const handleUpdateUser = async (updatedUser: UserProfile) => {
@@ -628,8 +725,13 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
   };
 
   const handleCompleteBooking = async (id: string) => {
-    await updateDoc(doc(db, 'bookings', id), { status: 'completed' });
     const booking = bookings.find((b) => b.id === id);
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'bookings', id), { status: 'completed' });
+    if (booking && !isCourseBooking(booking)) {
+      batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, id));
+    }
+    await batch.commit();
     if (booking) {
       await createNotificationForUser(
         booking.userId,

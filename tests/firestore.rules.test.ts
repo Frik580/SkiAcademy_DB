@@ -256,6 +256,83 @@ describe('notifications', () => {
   });
 });
 
+describe('booking chat messages', () => {
+  beforeEach(async () => {
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'users', USER_ID), userProfile(USER_ID, 'user@example.com'));
+      await setDoc(doc(db, 'users', INSTRUCTOR_USER_ID), {
+        ...userProfile(INSTRUCTOR_USER_ID, 'instructor@example.com'),
+        instructorId: 'instructor-1',
+      });
+      await setDoc(doc(db, 'bookings', 'booking-chat-1'), {
+        id: 'booking-chat-1',
+        userId: USER_ID,
+        instructorId: 'instructor-1',
+        date: '2026-12-01',
+        time: '09:00',
+        durationHours: 1,
+        totalPrice: 50,
+        status: 'confirmed',
+      });
+      await setDoc(doc(db, 'settings', 'availability_slots_migration'), { complete: true });
+    });
+  });
+
+  it('allows booking participants to read and create chat messages', async () => {
+    const ownerDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const instructorDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
+      .firestore();
+    const otherDb = testEnv.authenticatedContext(OTHER_USER_ID, { email: 'other@example.com' }).firestore();
+    const messageRef = doc(ownerDb, 'bookings', 'booking-chat-1', 'messages', 'message-1');
+    const message = {
+      id: 'message-1',
+      bookingId: 'booking-chat-1',
+      senderId: USER_ID,
+      senderName: USER_ID,
+      senderAvatar: '',
+      text: 'See you on the slope',
+      timestamp: '2026-12-01T09:00:00.000Z',
+    };
+
+    await assertSucceeds(setDoc(messageRef, message));
+    await assertSucceeds(getDoc(doc(instructorDb, 'bookings', 'booking-chat-1', 'messages', 'message-1')));
+    await assertFails(getDoc(doc(otherDb, 'bookings', 'booking-chat-1', 'messages', 'message-1')));
+    await assertFails(
+      setDoc(doc(otherDb, 'bookings', 'booking-chat-1', 'messages', 'message-2'), {
+        ...message,
+        id: 'message-2',
+        senderId: OTHER_USER_ID,
+      })
+    );
+  });
+
+  it('allows admins to manage chat messages and blocks participant edits', async () => {
+    const ownerDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const adminDb = testEnv.authenticatedContext(OWNER_ID, { email: 'owner@example.com' }).firestore();
+    const messageRef = doc(ownerDb, 'bookings', 'booking-chat-1', 'messages', 'message-admin');
+
+    await assertSucceeds(
+      setDoc(messageRef, {
+        id: 'message-admin',
+        bookingId: 'booking-chat-1',
+        senderId: USER_ID,
+        senderName: USER_ID,
+        senderAvatar: '',
+        text: 'Original text',
+        timestamp: '2026-12-01T09:00:00.000Z',
+      })
+    );
+
+    await assertFails(updateDoc(messageRef, { text: 'Edited by participant' }));
+    await assertSucceeds(updateDoc(doc(adminDb, 'bookings', 'booking-chat-1', 'messages', 'message-admin'), {
+      text: 'Edited by admin',
+    }));
+    await assertSucceeds(deleteDoc(doc(adminDb, 'bookings', 'booking-chat-1', 'messages', 'message-admin')));
+  });
+});
+
 describe('course enrollment transactions', () => {
   beforeEach(async () => {
     await seedData(async (context) => {

@@ -1,14 +1,18 @@
-import { Booking } from '../types';
-import { db, doc, getDoc, setDoc, writeBatch } from './firebase';
 import {
   AVAILABILITY_MIGRATION_SETTING,
   AVAILABILITY_SLOTS_COLLECTION,
   blocksInstructorAvailability,
   toAvailabilitySlot,
 } from './availabilitySlots';
+import { doc, getDoc, setDoc, writeBatch, type Firestore } from 'firebase/firestore';
+import { Booking } from '../types';
+import { db } from './firebase';
 
-export const migrateAvailabilitySlots = async (bookings: Booking[]): Promise<void> => {
-  const migrationRef = doc(db, 'settings', AVAILABILITY_MIGRATION_SETTING);
+export const migrateAvailabilitySlots = async (
+  bookings: Booking[],
+  firestore: Firestore = db
+): Promise<void> => {
+  const migrationRef = doc(firestore, 'settings', AVAILABILITY_MIGRATION_SETTING);
   const migrationSnapshot = await getDoc(migrationRef);
   if (migrationSnapshot.data()?.complete === true) return;
 
@@ -16,10 +20,10 @@ export const migrateAvailabilitySlots = async (bookings: Booking[]): Promise<voi
   const chunkSize = 400;
 
   for (let index = 0; index < activeBookings.length; index += chunkSize) {
-    const batch = writeBatch(db);
+    const batch = writeBatch(firestore);
     for (const booking of activeBookings.slice(index, index + chunkSize)) {
       batch.set(
-        doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id),
+        doc(firestore, AVAILABILITY_SLOTS_COLLECTION, booking.id),
         toAvailabilitySlot(booking)
       );
     }

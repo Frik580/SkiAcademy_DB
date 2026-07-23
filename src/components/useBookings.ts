@@ -22,9 +22,14 @@ import {
   isCourseBooking,
   toAvailabilitySlot,
 } from '../lib/availabilitySlots';
+import {
+  cancelBookingWithRefund,
+  createBookingWithPayment,
+  InsufficientFundsError,
+} from '../lib/bookingTransactions';
 import { createNotificationForUser } from '../lib/notifications';
 import { useLanguage } from '../lib/LanguageContext';
-import { Booking, Course, UserProfile } from '../types';
+import { Booking, UserProfile } from '../types';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
 
 type SetUserProfile = (profile: UserProfile | null) => void;
@@ -128,27 +133,18 @@ export const useBookings = (
     if (!userProfile || !firebaseUser) return;
 
     try {
-      await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await transaction.get(userRef);
-        if (!userSnap.exists()) throw new Error('User profile does not exist.');
-
-        const currentBalance = userSnap.data().balanceUSD ?? 0;
-        if (currentBalance < totalCost) throw new Error(t('insufficientFunds'));
-
-        transaction.set(doc(db, 'bookings', booking.id), booking);
-        if (blocksInstructorAvailability(booking)) {
-          transaction.set(
-            doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id),
-            toAvailabilitySlot(booking)
-          );
-        }
-        transaction.update(userRef, { balanceUSD: currentBalance - totalCost });
-      });
-
-      setUserProfile({ ...userProfile, balanceUSD: userProfile.balanceUSD - totalCost });
+      const newBalance = await createBookingWithPayment(
+        db,
+        firebaseUser.uid,
+        booking,
+        totalCost
+      );
+      setUserProfile({ ...userProfile, balanceUSD: newBalance });
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
     } catch (error) {
+      if (error instanceof InsufficientFundsError) {
+        throw new Error(t('insufficientFunds'));
+      }
       handleFirestoreError(error, OperationType.WRITE, `bookings/${booking.id} (transaction)`);
       throw error;
     }
@@ -182,52 +178,14 @@ export const useBookings = (
     const booking = bookings.find((item) => item.id === id);
     if (!booking) return;
 
-    const bookingRef = doc(db, 'bookings', id);
     const bookingOwnerId = booking.userId;
     const isSystemBlock = bookingOwnerId.startsWith('system_block_');
-    const userRef = doc(db, 'users', bookingOwnerId);
 
     try {
-      await runTransaction(db, async (transaction) => {
-        const bookingSnap = await transaction.get(bookingRef);
-        if (!bookingSnap.exists()) throw new Error('Booking does not exist.');
-
-        const bookingData = bookingSnap.data() as Booking;
-        if (bookingData.status === 'cancelled') return;
-
-        const userSnap = isSystemBlock ? null : await transaction.get(userRef);
-        const courseId = isCourseBooking(bookingData)
-          ? bookingData.instructorId.substring('course_'.length)
-          : null;
-        const courseRef = courseId ? doc(db, 'courses', courseId) : null;
-        const courseSnap = courseRef ? await transaction.get(courseRef) : null;
-        const refund = bookingData.status === 'completed'
-          ? 0
-          : (refundAmount ?? bookingData.totalPrice ?? 0);
-
-        if (userSnap?.exists()) {
-          const userData = userSnap.data() as UserProfile;
-          transaction.update(userRef, { balanceUSD: (userData.balanceUSD ?? 0) + refund });
-        }
-
-        transaction.update(bookingRef, { status: 'cancelled' });
-        if (!isCourseBooking(bookingData)) {
-          transaction.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, id));
-        }
-
-        if (courseRef && courseSnap?.exists()) {
-          const courseData = courseSnap.data() as Course;
-          transaction.update(courseRef, {
-            availableSeats: Math.min(courseData.totalSeats, courseData.availableSeats + 1),
-          });
-        }
-      });
+      const { refunded } = await cancelBookingWithRefund(db, id, refundAmount);
 
       if (bookingOwnerId === firebaseUser.uid && userProfile) {
-        const refund = booking.status === 'completed'
-          ? 0
-          : (refundAmount ?? booking.totalPrice ?? 0);
-        setUserProfile({ ...userProfile, balanceUSD: userProfile.balanceUSD + refund });
+        setUserProfile({ ...userProfile, balanceUSD: userProfile.balanceUSD + refunded });
       }
 
       if (userProfile?.role === 'admin' && !isSystemBlock) {

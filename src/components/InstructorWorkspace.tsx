@@ -253,8 +253,8 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
   // Rendering screen to select profile
   if (!userProfile.instructorId) {
     return (
-      <div className="border border-[var(--border)] p-8 space-y-6 animate-fade-in bg-black/10 dark:bg-black/30 text-center max-w-xl mx-auto my-12">
-        <div className="w-16 h-16 border border-[var(--border)] rounded-none flex items-center justify-center mx-auto text-indigo-400 bg-black/10">
+      <div className="border border-slate-200/70 dark:border-slate-800/70 p-8 space-y-6 animate-fade-in bg-[var(--card-bg)] text-center max-w-xl mx-auto my-12 rounded-xs shadow-xs">
+        <div className="w-16 h-16 border border-slate-200/60 dark:border-slate-800/60 rounded-full flex items-center justify-center mx-auto text-indigo-500 bg-indigo-50 dark:bg-indigo-950/30">
           <Lock className="w-8 h-8" />
         </div>
         <div className="space-y-2">
@@ -275,9 +275,9 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Active Profile Header */}
-      <div className="border border-[var(--border)] p-6 bg-black/10 dark:bg-black/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+      <div className="border border-slate-200/70 dark:border-slate-800/70 p-6 bg-[var(--card-bg)] rounded-xs shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 border border-[var(--border)] bg-slate-900 shrink-0 overflow-hidden relative">
+          <div className="w-16 h-16 border border-slate-200/60 dark:border-slate-800/60 rounded-full overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800 relative">
             {linkedInstructor?.avatarUrl ? (
               <img 
                 src={linkedInstructor.avatarUrl} 
@@ -288,11 +288,11 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
             ) : (
               <User className="w-8 h-8 text-[var(--ink-dim)] absolute inset-0 m-auto" />
             )}
-            <div className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-black animate-pulse" />
+            <div className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white dark:border-black animate-pulse" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono uppercase bg-indigo-950/40 border border-indigo-950/80 px-2 py-0.5 text-indigo-400 tracking-wider">
+              <span className="text-[10px] font-mono uppercase bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-900/40 px-2 py-0.5 text-indigo-600 dark:text-indigo-400 tracking-wider rounded-xs font-bold">
                 {t('instructorActiveAccount')}
               </span>
             </div>
@@ -312,7 +312,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
 
       {/* Metrics Dashboard */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="border border-[var(--border)] p-4 bg-black/5 space-y-1">
+        <div className="border border-slate-200/70 dark:border-slate-800/70 p-4 bg-[var(--card-bg)] rounded-xs shadow-xs space-y-1">
           <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">{t('rating')}</span>
           <div className="flex items-baseline gap-1.5">
             <span className="text-3xl font-serif font-light text-[var(--ink)]">{linkedInstructor?.rating || '0.0'}</span>
@@ -323,25 +323,25 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
           </span>
         </div>
 
-        <div className="border border-[var(--border)] p-4 bg-black/5 space-y-1">
+        <div className="border border-slate-200/70 dark:border-slate-800/70 p-4 bg-[var(--card-bg)] rounded-xs shadow-xs space-y-1">
           <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">{t('instructorTotalLessons')}</span>
           <span className="text-3xl font-serif font-light text-[var(--ink)] block">{stats.total}</span>
-          <span className="text-[8px] font-mono text-emerald-400 uppercase tracking-wider block">
+          <span className="text-[8px] font-mono text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
             {stats.completed} {t('completed')}
           </span>
         </div>
 
-        <div className="border border-[var(--border)] p-4 bg-black/5 space-y-1">
+        <div className="border border-slate-200/70 dark:border-slate-800/70 p-4 bg-[var(--card-bg)] rounded-xs shadow-xs space-y-1">
           <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
             {t('instructorPendingActions')}
           </span>
           <span className="text-3xl font-serif font-light text-[var(--ink)] block">{stats.pending}</span>
-          <span className="text-[8px] font-mono text-indigo-400 uppercase tracking-wider block">
+          <span className="text-[8px] font-mono text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
             {stats.confirmed} {t('confirmed')}
           </span>
         </div>
 
-        <div className="border border-[var(--border)] p-4 bg-black/5 space-y-1">
+        <div className="border border-slate-200/70 dark:border-slate-800/70 p-4 bg-[var(--card-bg)] rounded-xs shadow-xs space-y-1">
           <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
             {t('instructorEstimatedEarnings')}
           </span>
@@ -354,7 +354,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
 
       {/* Main Roster Block */}
       <div className="space-y-4">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[var(--border)] pb-3">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
           <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight">
             {t('instructorActiveRoster')} ({displayedBookings.length})
           </h4>
@@ -376,10 +376,10 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                 <button
                   key={filter}
                   onClick={() => setStatusFilter(filter)}
-                  className={`px-2.5 py-1 text-[9px] font-mono uppercase tracking-wider border rounded-none transition cursor-pointer ${
+                  className={`px-2.5 py-1 text-[9px] font-mono uppercase tracking-wider rounded-xs transition cursor-pointer ${
                     isActive 
-                      ? 'bg-[var(--ink)] border-[var(--ink)] text-[var(--bg)] font-bold' 
-                      : 'border-[var(--border)] text-[var(--ink-dim)] hover:border-[var(--ink)] hover:text-[var(--ink)]'
+                      ? 'bg-[var(--ink)] text-[var(--bg)] font-bold shadow-xs' 
+                      : 'border border-slate-200/80 dark:border-slate-800/80 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
                   {label}
@@ -391,7 +391,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
 
         {/* Lessons List */}
         {displayedBookings.length === 0 ? (
-          <div className="py-12 border border-dashed border-[var(--border)] text-center bg-black/5">
+          <div className="py-12 border border-dashed border-slate-200 dark:border-slate-800 text-center bg-[var(--card-bg)] rounded-xs">
             <Calendar className="w-8 h-8 mx-auto opacity-20 mb-2 text-[var(--ink-dim)]" />
             <p className="text-xs font-mono uppercase tracking-wider text-[var(--ink-dim)]">{t('noLessons')}</p>
           </div>
@@ -401,28 +401,28 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
               return (
                 <div 
                   key={b.id}
-                  className={`border p-5 space-y-4 bg-black/5 hover:border-[var(--ink)] transition-colors duration-300 ${(b as any).isCourse ? 'border-violet-500/40 hover:border-violet-400' : 'border-[var(--border)]'}`}
+                  className={`border p-5 space-y-4 bg-[var(--card-bg)] rounded-xs shadow-xs transition-colors duration-300 ${(b as any).isCourse ? 'border-violet-200 dark:border-violet-800/50 hover:border-violet-300 bg-violet-50/40 dark:bg-violet-950/20' : 'border-slate-200/70 dark:border-slate-800/70 hover:border-slate-300 dark:hover:border-slate-700'}`}
                 >
                   <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                     {/* Date/Time & Client details */}
                     <div className="space-y-3 flex-1">
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1 text-[10px] font-mono text-[var(--ink)] font-bold">
-                          <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                          <Calendar className="w-3.5 h-3.5 text-indigo-500" />
                           {b.date}
                         </div>
                         <div className="flex items-center gap-1 text-[10px] font-mono text-[var(--ink)] font-bold">
-                          <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                          <Clock className="w-3.5 h-3.5 text-indigo-500" />
                           {b.time} ({b.durationHours}h)
                         </div>
-                        <span className={`px-2 py-0.5 text-[8px] font-mono uppercase font-black border rounded-none ${
+                        <span className={`px-2 py-0.5 text-[8px] font-mono uppercase font-bold rounded-xs ${
                           b.status === 'confirmed'
-                            ? 'border-emerald-500/30 text-emerald-400 bg-emerald-950/20'
+                            ? 'text-emerald-700 bg-emerald-100/80 dark:text-emerald-300 dark:bg-emerald-950/50'
                             : b.status === 'completed'
-                            ? 'border-slate-500/30 text-slate-400 bg-slate-950/20'
+                            ? 'text-indigo-700 bg-indigo-100/80 dark:text-indigo-300 dark:bg-indigo-950/50'
                             : b.status === 'cancelled'
-                            ? 'border-rose-500/30 text-rose-400 bg-rose-950/20'
-                            : 'border-amber-500/30 text-amber-400 bg-amber-950/20'
+                            ? 'text-rose-700 bg-rose-100/80 dark:text-rose-300 dark:bg-rose-950/50'
+                            : 'text-amber-700 bg-amber-100/80 dark:text-amber-300 dark:bg-amber-950/50'
                         }`}>
                           {b.status === 'pending'
                             ? t('pending')
@@ -437,9 +437,9 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                       </div>
 
                       {/* Client profile(s) representation */}
-                      <div className="p-3.5 border border-[var(--border)] bg-black/15 w-full space-y-2.5">
+                      <div className="p-3.5 border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30 rounded-xs w-full space-y-2.5">
                         <h5 className="text-[9px] font-mono uppercase tracking-widest text-[var(--ink-dim)] flex items-center gap-1.5 font-bold">
-                          <Users className="w-3.5 h-3.5 text-indigo-400" />
+                          <Users className="w-3.5 h-3.5 text-indigo-500" />
                           {(b as any).isCourse 
                             ? t('instructorCourseParticipants')
                             : t('instructorLessonClient')} 
@@ -451,9 +451,9 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                               const studentUser = usersList.find(u => u.uid === client.uid);
                               const studentLevel = studentUser?.level || 1;
                               return (
-                                <div key={client.uid} className="flex flex-wrap items-center justify-between gap-2 bg-black/25 p-2 border border-[var(--border)]/40 hover:border-[var(--ink-dim)] transition-colors duration-200 w-full" title={client.name}>
+                                <div key={client.uid} className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-slate-900/60 p-2.5 border border-slate-200/70 dark:border-slate-800/70 rounded-xs hover:border-slate-300 transition-colors duration-200 w-full" title={client.name}>
                                   <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-none border border-[var(--border)]/50 overflow-hidden shrink-0 bg-black/20">
+                                    <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800">
                                       {client.avatar ? (
                                         <img src={client.avatar} alt={client.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                       ) : (
@@ -472,14 +472,14 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                         studentLevel: studentLevel,
                                         existingScores: studentUser?.skillScores || {}
                                       })}
-                                      className="px-2 py-0.5 border border-indigo-500/60 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[9px] font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1"
+                                      className="px-2.5 py-1 border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 text-[9px] font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1 rounded-xs font-bold"
                                       title="Оценить навыки ученика"
                                     >
-                                      <Award className="w-3 h-3" />
+                                      <Award className="w-3 h-3 text-indigo-500" />
                                       {t('instructorAssess')}
                                     </button>
 
-                                    <div className="flex items-center gap-1 bg-black/30 border border-[var(--border)] px-1.5 py-0.5" title={`${t('instructorLevel')}: ${studentLevel}`}>
+                                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-xs" title={`${t('instructorLevel')}: ${studentLevel}`}>
                                       <img 
                                         key={`${theme}-${studentLevel}`}
                                         src={`https://storage.yandexcloud.net/carve/level/${theme === 'light' ? 'b' : 'w'}/${studentLevel}.png`} 
@@ -497,7 +497,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                     <select
                                       value={studentLevel}
                                       onChange={(e) => handleUpdateStudentLevel(client.uid, client.name, Number(e.target.value))}
-                                      className="text-[9px] font-mono bg-[var(--bg)] text-[var(--ink)] border border-indigo-500/50 px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                                      className="text-[9px] font-mono bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                                     >
                                       <option value={1}>{t('instructorLevelShort')} 1</option>
                                       <option value={2}>{t('instructorLevelShort')} 2</option>
@@ -514,9 +514,9 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                               const studentLevel = studentUser?.level || 1;
                               const studentName = (b as any).clientName || 'Student';
                               return (
-                                <div className="flex flex-wrap items-center justify-between gap-2 bg-black/25 p-2 border border-[var(--border)]/40 hover:border-[var(--ink-dim)] transition-colors duration-200 w-full">
+                                <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-slate-900/60 p-2.5 border border-slate-200/70 dark:border-slate-800/70 rounded-xs hover:border-slate-300 transition-colors duration-200 w-full">
                                   <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-none border border-[var(--border)]/50 overflow-hidden shrink-0 bg-black/20">
+                                    <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800">
                                       {(b as any).clientAvatar ? (
                                         <img src={(b as any).clientAvatar} alt={studentName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                       ) : (
@@ -535,14 +535,14 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                         studentLevel: studentLevel,
                                         existingScores: studentUser?.skillScores || {}
                                       })}
-                                      className="px-2 py-0.5 border border-indigo-500/60 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[9px] font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1"
+                                      className="px-2.5 py-1 border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 text-[9px] font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1 rounded-xs font-bold"
                                       title="Оценить навыки ученика"
                                     >
-                                      <Award className="w-3 h-3" />
+                                      <Award className="w-3 h-3 text-indigo-500" />
                                       {t('instructorAssess')}
                                     </button>
 
-                                    <div className="flex items-center gap-1 bg-black/30 border border-[var(--border)] px-2 py-0.5" title={`${t('instructorCurrentLevel')}: ${studentLevel}`}>
+                                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-xs" title={`${t('instructorCurrentLevel')}: ${studentLevel}`}>
                                       <img 
                                         key={`${theme}-${studentLevel}`}
                                         src={`https://storage.yandexcloud.net/carve/level/${theme === 'light' ? 'b' : 'w'}/${studentLevel}.png`} 
@@ -564,7 +564,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                       <select
                                         value={studentLevel}
                                         onChange={(e) => handleUpdateStudentLevel(b.userId, studentName, Number(e.target.value))}
-                                        className="text-[9px] font-mono bg-[var(--bg)] text-[var(--ink)] border border-indigo-500/50 px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                                        className="text-[9px] font-mono bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                                       >
                                         <option value={1}>{t('instructorLevel')} 1</option>
                                         <option value={2}>{t('instructorLevel')} 2</option>
@@ -584,7 +584,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                       
 
                       {/* Lesson Notes & Difficulty */}
-                      <div className={`grid grid-cols-1 ${(b as any).isCourse ? '' : 'md:grid-cols-2'} gap-4 text-xs font-mono text-[var(--ink-dim)] border-t border-[var(--border)]/30 pt-3`}>
+                      <div className={`grid grid-cols-1 ${(b as any).isCourse ? '' : 'md:grid-cols-2'} gap-4 text-xs font-mono text-[var(--ink-dim)] border-t border-slate-200/60 dark:border-slate-800/60 pt-3`}>
                         <div>
                           <span className="uppercase text-[9px] tracking-wider text-[var(--ink-dim)] block mb-1">{t('instructorDifficulty')}</span>
                           <span className="text-[var(--ink)] font-bold">{getDifficultyLabel(b.difficulty, language, 'compact')}</span>
@@ -604,16 +604,16 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                     <div className="flex flex-col gap-2 w-full md:w-56 justify-end shrink-0 self-stretch">
                       <button
                         onClick={() => setSelectedChatBooking(b)}
-                        className="w-full py-2.5 px-4 border border-indigo-500/80 text-indigo-400 hover:bg-indigo-950/20 text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer"
+                        className="w-full py-2.5 px-4 border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-950/50 text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer rounded-xs"
                       >
-                        {(b as any).isCourse ? <Users className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
+                        {(b as any).isCourse ? <Users className="w-4 h-4 text-indigo-500" /> : <MessageSquare className="w-4 h-4 text-indigo-500" />}
                         {(b as any).isCourse ? t('instructorChatGroup') : t('instructorChatStudent')}
                       </button>
 
                       {b.status === 'pending' && (
                         <button
                           onClick={() => handleUpdateStatus(b.id, 'confirmed')}
-                          className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-600 hover:border-emerald-500 text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer"
+                          className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer rounded-xs shadow-xs"
                         >
                           <CheckCircle className="w-4 h-4" />
                           {t('instructorConfirmLesson')}
@@ -623,7 +623,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                       {b.status === 'confirmed' && (
                         <button
                           onClick={() => handleUpdateStatus(b.id, 'completed')}
-                          className="w-full py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-white border border-slate-700 hover:border-slate-600 text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer"
+                          className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer rounded-xs shadow-xs"
                         >
                           <CheckCircle className="w-4 h-4" />
                           {t('instructorCompleteLesson')}
@@ -640,9 +640,9 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
 
       {/* My Students Roster & Level Management */}
       <div className="space-y-4">
-        <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight border-b border-[var(--border)] pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight border-b border-slate-200/80 dark:border-slate-800/80 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Award className="w-5 h-5 text-indigo-400" />
+            <Award className="w-5 h-5 text-indigo-500" />
             <span>{t('instructorStudentsTitle')} ({myStudents.length})</span>
           </div>
           <span className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider font-normal">
@@ -651,7 +651,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
         </h4>
 
         {myStudents.length === 0 ? (
-          <div className="py-8 border border-dashed border-[var(--border)] text-center bg-black/5 font-mono text-xs text-[var(--ink-dim)]">
+          <div className="py-8 border border-dashed border-slate-200 dark:border-slate-800 text-center bg-[var(--card-bg)] rounded-xs font-mono text-xs text-[var(--ink-dim)]">
             {t('instructorNoStudents')}
           </div>
         ) : (
@@ -660,9 +660,9 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
               const studentUser = usersList.find(u => u.uid === student.uid);
               const studentLevel = studentUser?.level || 1;
               return (
-                <div key={student.uid} className="border border-[var(--border)] p-3 space-y-2 bg-black/10 flex items-center justify-between gap-3 hover:border-[var(--ink-dim)] transition-colors duration-200">
+                <div key={student.uid} className="border border-slate-200/70 dark:border-slate-800/70 p-3 space-y-2 bg-[var(--card-bg)] rounded-xs shadow-xs flex items-center justify-between gap-3 hover:border-slate-300 dark:hover:border-slate-700 transition-colors duration-200">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-10 h-10 border border-[var(--border)] overflow-hidden shrink-0 bg-slate-900">
+                    <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800">
                       {student.avatar ? (
                         <img src={student.avatar} alt={student.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
@@ -690,7 +690,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                     <select
                       value={studentLevel}
                       onChange={(e) => handleUpdateStudentLevel(student.uid, student.name, Number(e.target.value))}
-                      className="text-[9px] font-mono uppercase bg-[var(--bg)] text-[var(--ink)] border border-indigo-500/50 px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                      className="text-[9px] font-mono uppercase bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                     >
                       <option value={1}>{t('instructorLevelShort')} 1</option>
                       <option value={2}>{t('instructorLevelShort')} 2</option>
@@ -707,24 +707,24 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
 
       {/* Reviews Feedback block */}
       <div className="space-y-4">
-        <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight border-b border-[var(--border)] pb-3">
+        <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
           {t('instructorFeedback')} ({instructorReviews.length})
         </h4>
 
         {instructorReviews.length === 0 ? (
-          <div className="py-10 border border-dashed border-[var(--border)] text-center bg-black/5 font-mono text-xs text-[var(--ink-dim)]">
+          <div className="py-10 border border-dashed border-slate-200 dark:border-slate-800 text-center bg-[var(--card-bg)] rounded-xs font-mono text-xs text-[var(--ink-dim)]">
             {t('instructorNoReviews')}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {instructorReviews.map((rev) => (
-              <div key={rev.id} className="border border-[var(--border)] p-4 space-y-3 bg-black/5">
+              <div key={rev.id} className="border border-slate-200/70 dark:border-slate-800/70 p-4 space-y-3 bg-[var(--card-bg)] rounded-xs shadow-xs">
                 <div className="flex justify-between items-start gap-4">
                   <div className="flex items-center gap-2.5">
                     <img 
                       src={rev.userAvatar} 
                       alt={rev.userName} 
-                      className="w-8 h-8 rounded-none border border-[var(--border)] object-cover bg-slate-900" 
+                      className="w-8 h-8 rounded-full border border-slate-200/60 dark:border-slate-800/60 object-cover bg-slate-100 dark:bg-slate-800" 
                       referrerPolicy="no-referrer"
                     />
                     <div>

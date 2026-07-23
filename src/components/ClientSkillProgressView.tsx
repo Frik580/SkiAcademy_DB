@@ -2,18 +2,16 @@ import React, { useMemo } from 'react';
 import { UserProfile } from '../types';
 import { SkillConfig, DEFAULT_SKILL_CONFIG, calculateSkillProgress } from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
-import { Target, EyeOff, Eye } from 'lucide-react';
+import { Target } from 'lucide-react';
 
 interface ClientSkillProgressViewProps {
   userProfile: UserProfile;
   skillConfig?: SkillConfig;
-  onUpdateProfile?: (updatedProfile: Partial<UserProfile>) => Promise<void>;
 }
 
 export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = ({
   userProfile,
   skillConfig = DEFAULT_SKILL_CONFIG,
-  onUpdateProfile
 }) => {
   const { t } = useLanguage();
   const currentLevel = userProfile.level || 1;
@@ -28,35 +26,8 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
     return calculateSkillProgress(userProfile.skillScores || {}, items, targetStage, passPercentage);
   }, [userProfile.skillScores, items, targetStage, passPercentage]);
 
-  if (userProfile.hideProgressTracking) {
-    return (
-      <div className="border border-[var(--border)] p-6 bg-[var(--card-bg)] text-center space-y-4">
-        <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-black/30 border border-[var(--border)] flex items-center justify-center mx-auto text-[var(--ink-dim)]">
-          <EyeOff className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-        </div>
-        <div>
-          <h4 className="font-mono text-xs uppercase tracking-wider text-[var(--ink)] font-bold">
-            {t('progressTrackingDisabled')}
-          </h4>
-          <p className="text-xs text-[var(--ink-dim)] max-w-md mx-auto mt-1">
-            {t('progressTrackingDisabledDescription')}
-          </p>
-        </div>
-        {onUpdateProfile && (
-          <button
-            onClick={() => onUpdateProfile({ hideProgressTracking: false })}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600/10 dark:bg-indigo-600/30 border border-indigo-500 hover:bg-indigo-600/20 text-indigo-800 dark:text-indigo-200 text-xs font-mono font-bold uppercase tracking-wider transition cursor-pointer"
-          >
-            <Eye className="w-4 h-4" />
-            {t('enableProgressTracking')}
-          </button>
-        )}
-      </div>
-    );
-  }
-
   return (
-    <div className="border border-[var(--border)] p-5 bg-[var(--card-bg)] rounded-none space-y-6">
+    <div className="border border-slate-200/70 dark:border-slate-800/70 p-5 bg-[var(--card-bg)] rounded-xs shadow-xs space-y-6">
 
       {/* Target Progress Requirement Banner */}
       {(() => {
@@ -65,25 +36,13 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
           : 0;
 
         return (
-          <div className="p-4 bg-indigo-50/70 dark:bg-indigo-950/20 border border-indigo-200/80 dark:border-indigo-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-4 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-500/20 rounded-xs flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="space-y-1.5 flex-1">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <span className="text-xs font-mono font-bold text-[var(--ink)] uppercase tracking-wider">
-                    {t('currentLevelProgress')}
-                  </span>
-                </div>
-                {onUpdateProfile && (
-                  <button
-                    onClick={() => onUpdateProfile({ hideProgressTracking: true })}
-                    className="text-[10px] font-mono text-[var(--ink-dim)] hover:text-indigo-600 dark:hover:text-indigo-300 flex items-center gap-1 transition cursor-pointer"
-                    title={t('disableProgressTracking')}
-                  >
-                    <EyeOff className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{t('hide')}</span>
-                  </button>
-                )}
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                <span className="text-xs font-mono font-bold text-[var(--ink)] uppercase tracking-wider">
+                  {t('currentLevelProgress')}
+                </span>
               </div>
             </div>
 
@@ -95,7 +54,7 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
                   cx="36"
                   cy="36"
                   r="28"
-                  className="stroke-slate-200 dark:stroke-black/50 fill-none"
+                  className="stroke-slate-200 dark:stroke-slate-800 fill-none"
                   strokeWidth="7"
                 />
                 {/* Colored Progress Ring */}
@@ -145,35 +104,35 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
               </div>
 
               {/* Table for this level */}
-              <div className="overflow-x-auto border border-[var(--border)] bg-[var(--card-bg)]">
+              <div className="overflow-x-auto border border-slate-200/60 dark:border-slate-800/60 rounded-xs bg-[var(--card-bg)]">
                 <table className="w-full text-left border-collapse min-w-[600px]">
                   <thead>
-                    <tr className="bg-slate-100/90 dark:bg-black/30 text-[9px] font-mono uppercase text-[var(--ink-dim)] tracking-wider border-b border-[var(--border)]">
-                      <th className="p-2.5 border-r border-[var(--border)]/60">Наименование упражнения</th>
-                      <th className="p-2.5 border-r border-[var(--border)]/60 w-28 text-center">Ваша оценка</th>
+                    <tr className="bg-slate-100/70 dark:bg-slate-900/40 text-[9px] font-mono uppercase text-[var(--ink-dim)] tracking-wider border-b border-slate-200/60 dark:border-slate-800/60">
+                      <th className="p-2.5">Наименование упражнения</th>
+                      <th className="p-2.5 w-28 text-center">Ваша оценка</th>
                       <th className="p-2.5 w-32 text-center">Прогресс</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[var(--border)]/60 text-xs font-mono text-[var(--ink)]">
+                  <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/50 text-xs font-mono text-[var(--ink)]">
                     {levelItems.map((item) => {
                       const earned = userProfile.skillScores?.[item.id] ?? 0;
                       const percent = Math.min(100, Math.round((earned / item.maxPoints) * 100));
 
                       return (
-                        <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-black/10 transition-colors">
-                          <td className="p-2.5 border-r border-[var(--border)]/60 text-[11px]">
+                        <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
+                          <td className="p-2.5 text-[11px]">
                             {item.title}
                           </td>
-                          <td className="p-2.5 border-r border-[var(--border)]/60 text-center font-bold">
+                          <td className="p-2.5 text-center font-bold">
                             <span className={earned > 0 ? 'text-amber-700 dark:text-amber-400 font-bold' : 'text-[var(--ink-dim)]'}>
                               {earned} / {item.maxPoints}
                             </span>
                           </td>
                           <td className="p-2.5 text-center">
                             <div className="flex items-center gap-2">
-                              <div className="flex-1 bg-slate-200 dark:bg-black/40 border border-[var(--border)]/60 h-2 overflow-hidden">
+                              <div className="flex-1 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                                 <div 
-                                  className={`h-full transition-all duration-300 ${
+                                  className={`h-full transition-all duration-300 rounded-full ${
                                     percent >= 100 ? 'bg-emerald-600 dark:bg-emerald-400' : percent > 0 ? 'bg-indigo-600 dark:bg-indigo-500' : 'bg-transparent'
                                   }`}
                                   style={{ width: `${percent}%` }}

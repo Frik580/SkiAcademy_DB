@@ -22,6 +22,7 @@ import { getSpecialtyLabel } from './scheduleUtils';
 import { CourseBackgroundImageField } from './CourseBackgroundImageField';
 import { CourseDateRangePicker } from './CourseDateRangePicker';
 import { useCourseDateRange } from './useCourseDateRange';
+import { ToggleSwitch } from '../ToggleSwitch';
 
 interface CoursesManagerProps {
   courses: Course[];
@@ -1185,17 +1186,13 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
                     )}
 
                     {/* Visibility Toggle */}
-                    <div className="flex items-center gap-2 border border-[var(--border)] p-2.5 bg-black/5 dark:bg-white/5 transition">
-                      <input
-                        id="course-is-hidden"
-                        type="checkbox"
+                    <div className="border border-[var(--border)] p-2.5 bg-black/5 dark:bg-white/5 transition">
+                      <ToggleSwitch
                         checked={courseIsHidden}
-                        onChange={(e) => setCourseIsHidden(e.target.checked)}
-                        className="w-4 h-4 rounded-none border-[var(--border)] text-[var(--ink)] focus:ring-0 bg-transparent cursor-pointer"
+                        onChange={(checked) => setCourseIsHidden(checked)}
+                        label={t('hideCourseFromUsers')}
+                        activeColor="bg-rose-600"
                       />
-                      <label htmlFor="course-is-hidden" className="text-[10px] text-[var(--ink)] uppercase tracking-wider font-bold cursor-pointer select-none">
-                        {t('hideCourseFromUsers')}
-                      </label>
                     </div>
 
                     {/* Submit */}

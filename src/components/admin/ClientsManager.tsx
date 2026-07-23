@@ -4,6 +4,7 @@ import { UserProfile, Instructor } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
 import { isSystemOwner } from '../../lib/accessControl';
+import { ToggleSwitch } from '../ToggleSwitch';
 
 interface ClientsManagerProps {
   usersList: UserProfile[];
@@ -434,33 +435,22 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
                 )}
 
                 {/* Instructor Status Toggle */}
-                <div className="space-y-1.5 flex items-center gap-2 pt-1 pb-1">
-                  <input
-                    type="checkbox"
-                    id="clientIsInstructorCheckbox"
+                <div className="pt-1 pb-1 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xs bg-slate-50/50 dark:bg-slate-900/40">
+                  <ToggleSwitch
                     checked={clientIsInstructor}
-                    onChange={(e) => {
-                      setClientIsInstructor(e.target.checked);
-                    }}
-                    className="w-4 h-4 border border-[var(--border)] bg-transparent focus:outline-none cursor-pointer accent-indigo-600 rounded-none shrink-0"
+                    onChange={(checked) => setClientIsInstructor(checked)}
+                    label={t('instructorStatusGrant')}
                   />
-                  <label htmlFor="clientIsInstructorCheckbox" className="text-xs font-mono text-[var(--ink)] cursor-pointer select-none">
-                    {t('instructorStatusGrant')}
-                  </label>
                 </div>
 
                 {/* Client Access Toggle */}
-                <div className="space-y-1.5 flex items-center gap-2 pt-1 pb-1">
-                  <input
-                    type="checkbox"
-                    id="clientIsActiveCheckbox"
+                <div className="pt-1 pb-1 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xs bg-slate-50/50 dark:bg-slate-900/40">
+                  <ToggleSwitch
                     checked={clientIsActive}
-                    onChange={(e) => setClientIsActive(e.target.checked)}
-                    className="w-4 h-4 border border-[var(--border)] bg-transparent focus:outline-none cursor-pointer accent-emerald-600 rounded-none shrink-0"
+                    activeColor="bg-emerald-600"
+                    onChange={(checked) => setClientIsActive(checked)}
+                    label={t('cabinetAccessEnabled')}
                   />
-                  <label htmlFor="clientIsActiveCheckbox" className="text-xs font-mono text-[var(--ink)] cursor-pointer select-none">
-                    {t('cabinetAccessEnabled')}
-                  </label>
                 </div>
 
                 {/* Submit button */}

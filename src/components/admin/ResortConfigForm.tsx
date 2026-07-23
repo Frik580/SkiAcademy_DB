@@ -5,6 +5,7 @@ import { db, doc, onSnapshot, setDoc } from '../../lib/firebase';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
 import { FALLBACK_SLIDES } from './resortConfigDefaults';
+import { ToggleSwitch } from '../ToggleSwitch';
 
 /**
  * 2. Данные курорта и геолокация погоды (Resort Data & Weather Geolocation Section)
@@ -194,26 +195,13 @@ export const ResortDataSection: React.FC = () => {
           </h5>
         </div>
 
-        <div className="col-span-1 md:col-span-2 flex items-center justify-between border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
-          <div className="space-y-0.5">
-            <span className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
-              {t('showLiftsSection')}
-            </span>
-            <span className="block text-[9px] text-[var(--ink-dim)]">{t('showLiftsSectionDesc')}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setResortShowLifts(!resortShowLifts)}
-            className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-none border border-[var(--border)] transition-colors duration-200 ease-in-out focus:outline-none ${
-              resortShowLifts ? 'bg-[var(--ink)]' : 'bg-transparent'
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-none shadow-none ring-0 transition duration-200 ease-in-out ${
-                resortShowLifts ? 'translate-x-[20px] bg-[var(--bg)]' : 'translate-x-[1px] bg-[var(--ink)] mt-[1px]'
-              }`}
-            />
-          </button>
+        <div className="col-span-1 md:col-span-2 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
+          <ToggleSwitch
+            checked={resortShowLifts}
+            onChange={(checked) => setResortShowLifts(checked)}
+            label={t('showLiftsSection')}
+            description={t('showLiftsSectionDesc')}
+          />
         </div>
 
         <div className="space-y-1.5">
@@ -244,41 +232,22 @@ export const ResortDataSection: React.FC = () => {
           />
         </div>
 
-        <div className="col-span-1 md:col-span-2 flex items-center justify-between border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
-          <div className="space-y-0.5">
-            <span className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
-              {t('liftsOperatingStatus')}
-            </span>
-            <span className="block text-[9px] text-[var(--ink-dim)]">
-              {t('liftsStatusCurrently')} {liftsStatusLabel}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              const isCurrentlyOpen = resortLiftsStatusEn.toUpperCase() === 'OPEN';
-              if (isCurrentlyOpen) {
-                setResortLiftsStatusEn('CLOSED');
-                setResortLiftsStatusRu('ЗАКРЫТО');
-              } else {
+        <div className="col-span-1 md:col-span-2 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
+          <ToggleSwitch
+            checked={resortLiftsStatusEn.toUpperCase() === 'OPEN'}
+            activeColor="bg-emerald-600"
+            onChange={(isOpen) => {
+              if (isOpen) {
                 setResortLiftsStatusEn('OPEN');
                 setResortLiftsStatusRu('ОТКРЫТО');
+              } else {
+                setResortLiftsStatusEn('CLOSED');
+                setResortLiftsStatusRu('ЗАКРЫТО');
               }
             }}
-            className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-none border border-[var(--border)] transition-colors duration-200 ease-in-out focus:outline-none ${
-              resortLiftsStatusEn.toUpperCase() === 'OPEN'
-                ? 'bg-emerald-500/20 border-emerald-500'
-                : 'bg-rose-500/20 border-rose-500'
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-none shadow-none ring-0 transition duration-200 ease-in-out ${
-                resortLiftsStatusEn.toUpperCase() === 'OPEN'
-                  ? 'translate-x-[20px] bg-emerald-500'
-                  : 'translate-x-[1px] bg-rose-500 mt-[1px]'
-              }`}
-            />
-          </button>
+            label={t('liftsOperatingStatus')}
+            description={`${t('liftsStatusCurrently')} ${liftsStatusLabel}`}
+          />
         </div>
       </div>
 

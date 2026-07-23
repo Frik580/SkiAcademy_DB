@@ -5,6 +5,7 @@ import { SkillConfig } from '../../lib/skillData';
 import { SkillConfigManager } from '../SkillConfigManager';
 import { ResortDataSection, ResortSliderSection } from './ResortConfigForm';
 import { AdminCollapsibleSection } from './AdminCollapsibleSection';
+import { ToggleSwitch } from '../ToggleSwitch';
 
 interface SystemSettingsProps {
   filtersEnabled?: boolean;
@@ -36,28 +37,12 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         </div>
 
         <div className="flex items-center gap-4 border-t md:border-t-0 md:border-l border-[var(--border)] pt-3 md:pt-0 md:pl-4">
-          <div className="space-y-0.5">
-            <span className="font-mono text-xs uppercase tracking-wider font-bold text-[var(--ink)] block">
-              {t('instructorFilters')}
-            </span>
-            <span className="text-[9px] text-[var(--ink-dim)] block">
-              {t('instructorFiltersDesc')}
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => onToggleFilters?.(!filtersEnabled)}
-            className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-none border border-[var(--border)] transition-colors duration-200 ease-in-out focus:outline-none ${
-              filtersEnabled ? 'bg-[var(--ink)]' : 'bg-transparent'
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-none shadow-none ring-0 transition duration-200 ease-in-out ${
-                filtersEnabled ? 'translate-x-[20px] bg-[var(--bg)]' : 'translate-x-[1px] bg-[var(--ink)] mt-[1px]'
-              }`}
-            />
-          </button>
+          <ToggleSwitch
+            checked={filtersEnabled}
+            onChange={(checked) => onToggleFilters?.(checked)}
+            label={t('instructorFilters')}
+            description={t('instructorFiltersDesc')}
+          />
         </div>
       </div>
 

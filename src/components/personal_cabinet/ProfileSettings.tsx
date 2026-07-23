@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Activity, Camera, Loader2, Wallet } from 'lucide-react';
+import { Camera, Loader2, Wallet } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useTheme } from '../useTheme';
@@ -81,7 +81,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
   };
 
   return (
-    <div className="lg:col-span-4 border border-[var(--border)] p-6 flex flex-col justify-between space-y-6 self-start bg-transparent overflow-hidden w-full min-w-0 max-w-full">
+    <div className="lg:col-span-4 border border-slate-200/70 dark:border-slate-800/70 p-5 flex flex-col justify-between space-y-6 self-start bg-[var(--card-bg)] rounded-xs shadow-xs overflow-hidden w-full min-w-0 max-w-full">
       <div className="space-y-5">
         <div className="flex items-center gap-3">
           <div
@@ -89,10 +89,10 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`relative w-16 h-16 rounded-none border bg-transparent overflow-hidden shrink-0 group cursor-pointer transition-all duration-300 ${
+            className={`relative w-16 h-16 rounded-full overflow-hidden shrink-0 group cursor-pointer transition-all duration-300 ${
               isDraggingAvatar
-                ? 'border-indigo-500 ring-2 ring-indigo-500/20 scale-105'
-                : 'border-[var(--border)] hover:border-[var(--ink)]'
+                ? 'ring-2 ring-indigo-500 scale-105'
+                : 'ring-1 ring-slate-200 dark:ring-slate-800 hover:ring-indigo-500'
             }`}
             title={t('changeProfilePhoto')}
           >
@@ -106,7 +106,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
               </div>
             )}
             <img src={userProfile.avatarUrl} alt={userProfile.displayName} className="w-full h-full object-cover" />
-            <div className="absolute bottom-0 right-0 bg-[var(--ink)] p-1 rounded-none text-[var(--bg)] shadow-md border border-[var(--border)] group-hover:scale-110 transition-transform z-20">
+            <div className="absolute bottom-0 right-0 bg-[var(--ink)] p-1 rounded-full text-[var(--bg)] shadow-md group-hover:scale-110 transition-transform z-20">
               <Camera className="w-2.5 h-2.5" />
             </div>
           </div>
@@ -124,7 +124,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
               {userProfile.displayName}
             </h3>
             <p className="text-[10px] font-mono text-[var(--ink-dim)] tracking-wider mt-1 truncate">{userProfile.email}</p>
-            <span className="inline-block mt-2 text-[8px] font-mono uppercase tracking-widest text-[var(--ink)] px-2 py-0.5">
+            <span className="inline-block mt-2 text-[8px] font-mono uppercase tracking-widest text-[var(--ink)] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-xs w-fit">
               {userProfile.role === 'admin'
                 ? `🛡️ ${t('adminRole')}`
                 : `👤 ${t('skiMember')}`}
@@ -150,10 +150,10 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
               />
             </div>
 
-            {!userProfile.hideProgressTracking ? (
+            {!userProfile.hideProgressTracking && (
               <div className="w-full space-y-1 mt-1">
                 <div className="grid grid-cols-3 gap-1.5 text-center">
-                  <div className="p-2 flex flex-col items-center justify-center bg-cyan-500/10 dark:bg-cyan-950/20 border border-cyan-500/20 dark:border-cyan-500/30">
+                  <div className="p-2 flex flex-col items-center justify-center bg-cyan-500/10 dark:bg-cyan-950/20 rounded-xs">
                     <span className="text-[9px] font-mono uppercase tracking-wider text-cyan-800 dark:text-cyan-300 font-bold block truncate w-full">
                       {t('control')}
                     </span>
@@ -161,7 +161,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
                       {skillProgress.control.percentage}%
                     </span>
                   </div>
-                  <div className="p-2 flex flex-col items-center justify-center bg-amber-500/10 dark:bg-amber-950/20 border border-amber-500/20 dark:border-amber-500/30">
+                  <div className="p-2 flex flex-col items-center justify-center bg-amber-500/10 dark:bg-amber-950/20 rounded-xs">
                     <span className="text-[9px] font-mono uppercase tracking-wider text-amber-800 dark:text-amber-300 font-bold block truncate w-full">
                       {t('speed')}
                     </span>
@@ -169,7 +169,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
                       {skillProgress.speed.percentage}%
                     </span>
                   </div>
-                  <div className="p-2 flex flex-col items-center justify-center bg-purple-500/10 dark:bg-purple-950/20 border border-purple-500/20 dark:border-purple-500/30">
+                  <div className="p-2 flex flex-col items-center justify-center bg-purple-500/10 dark:bg-purple-950/20 rounded-xs">
                     <span className="text-[9px] font-mono uppercase tracking-wider text-purple-800 dark:text-purple-300 font-bold block truncate w-full">
                       {t('technique')}
                     </span>
@@ -179,32 +179,11 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider text-center py-2">
-                {t('trackingDisabled')}
-              </div>
             )}
           </div>
         </div>
 
-        <div className="border border-[var(--border)] p-3 flex items-center justify-between bg-[var(--card-bg)] text-[10px] font-mono uppercase tracking-wider">
-          <div className="flex items-center gap-2 text-[var(--ink)] min-w-0">
-            <Activity className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-            <span className="truncate">{t('progressTracking')}</span>
-          </div>
-          <button
-            onClick={() => onUpdateProfile?.({ hideProgressTracking: !userProfile.hideProgressTracking })}
-            className={`px-2.5 py-1 text-[9px] font-bold uppercase transition-all cursor-pointer border shrink-0 ${
-              !userProfile.hideProgressTracking
-                ? 'bg-indigo-50 dark:bg-indigo-600/30 border-indigo-300 dark:border-indigo-500 text-indigo-800 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-600/50'
-                : 'bg-slate-100 dark:bg-black/30 border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
-            }`}
-          >
-            {!userProfile.hideProgressTracking ? t('on') : t('off')}
-          </button>
-        </div>
-
-        <div className="border border-[var(--border)] p-4 flex items-center justify-between bg-[var(--card-bg)]">
+        <div className="border border-slate-200/60 dark:border-slate-800/60 p-3.5 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30 rounded-xs">
           <div className="flex items-center gap-2">
             <Wallet className="w-4 h-4 text-[var(--ink)]" />
             <div>
@@ -216,7 +195,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
         </div>
 
         {userProfile.phoneNumber && (
-          <div className="text-[10px] font-mono text-[var(--ink)] border border-[var(--border)] p-3 flex justify-between uppercase tracking-wider bg-transparent">
+          <div className="text-[10px] font-mono text-[var(--ink)] border border-slate-200/60 dark:border-slate-800/60 p-3 flex justify-between uppercase tracking-wider bg-slate-50/50 dark:bg-slate-900/30 rounded-xs">
             <span className="text-[var(--ink-dim)]">{t('phone')}:</span>
             <span className="font-bold">{userProfile.phoneNumber}</span>
           </div>
@@ -225,7 +204,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
 
       <button
         onClick={onSignOut}
-        className="w-full py-2 border border-[var(--border)] hover:border-[var(--ink)] hover:bg-black/10 rounded-none text-[10px] font-mono uppercase tracking-widest text-[var(--ink)] transition mt-4 cursor-pointer bg-transparent"
+        className="w-full py-2 border border-slate-200 dark:border-slate-800 hover:border-[var(--ink)] hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xs text-[10px] font-mono uppercase tracking-widest text-[var(--ink)] transition mt-4 cursor-pointer bg-transparent"
       >
         {t('signOutAccount')}
       </button>

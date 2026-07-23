@@ -22,7 +22,9 @@ import { RescheduleModal } from './personal_cabinet/RescheduleModal';
 import { ReviewModal } from './personal_cabinet/ReviewModal';
 import { ConfirmActionModal } from './personal_cabinet/ConfirmActionModal';
 import { ClientBookingsList } from './personal_cabinet/ClientBookingsList';
+import { UnreviewedCompletedBookingsNotice } from './personal_cabinet/UnreviewedCompletedBookingsNotice';
 import { LevelUpModal } from './personal_cabinet/LevelUpModal';
+import { ToggleSwitch } from './ToggleSwitch';
 
 const InstructorWorkspace = React.lazy(() =>
   import('./InstructorWorkspace').then(({ InstructorWorkspace }) => ({ default: InstructorWorkspace }))
@@ -78,6 +80,39 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   const [isLoadingInstructorBookings, setIsLoadingInstructorBookings] = useState<boolean>(false);
   const [levelUpModal, setLevelUpModal] = useState<{ show: boolean; level: number } | null>(null);
   const prevLevelRef = useRef<number | undefined>(undefined);
+
+  const [showProgressTracking, setShowProgressTracking] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(`cabinet_show_progress_${userProfile?.uid}`);
+      if (saved !== null) return JSON.parse(saved);
+    } catch {}
+    return !userProfile?.hideProgressTracking;
+  });
+
+  const [showWorkoutCalendar, setShowWorkoutCalendar] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(`cabinet_show_calendar_${userProfile?.uid}`);
+      if (saved !== null) return JSON.parse(saved);
+    } catch {}
+    return true;
+  });
+
+  const handleToggleProgress = (val: boolean) => {
+    setShowProgressTracking(val);
+    try {
+      localStorage.setItem(`cabinet_show_progress_${userProfile?.uid}`, JSON.stringify(val));
+    } catch {}
+    if (onUpdateProfile) {
+      onUpdateProfile({ hideProgressTracking: !val });
+    }
+  };
+
+  const handleToggleCalendar = (val: boolean) => {
+    setShowWorkoutCalendar(val);
+    try {
+      localStorage.setItem(`cabinet_show_calendar_${userProfile?.uid}`, JSON.stringify(val));
+    } catch {}
+  };
 
   const skillProgress = useMemo(() => {
     return calculateSkillProgress(
@@ -481,47 +516,89 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           </div>
         </div>
       ) : (
-        <div className="grid lg:grid-cols-12 gap-6 animate-fade-in w-full max-w-full min-w-0">
-          <ProfileSettings
-            userProfile={userProfile}
-            skillProgress={skillProgress}
-            onSignOut={onSignOut}
-            onUpdateProfile={onUpdateProfile}
-            onLevelBadgeClick={() => setLevelUpModal({ show: true, level: userProfile.level || 1 })}
-            onInvalidFile={() => addNotification('error', t('invalidFile'), t('invalidFileDesc'))}
-            onUploadSuccess={() => addNotification('success', t('profilePhotoChanged'), t('profilePhotoChangedDesc'))}
-            onUploadError={() => addNotification('error', t('uploadFailed'), t('uploadFailedDesc'))}
-          />
+        <div className="space-y-6 animate-fade-in w-full max-w-full min-w-0">
+          {/* Cabinet Display Sliders Block */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+            {/* Slider 1: Progress Tracking */}
+            <div className="border border-slate-200/70 dark:border-slate-800/70 p-3.5 bg-[var(--card-bg)] transition hover:border-slate-300 dark:hover:border-slate-700 rounded-xs shadow-xs">
+              <ToggleSwitch
+                checked={showProgressTracking}
+                onChange={handleToggleProgress}
+                label={t('toggleProgressTracking')}
+                description={t('toggleProgressTrackingSub')}
+              />
+            </div>
 
-      {/* Bookings Right Panel */}
-      <div id="personal-cabinet-bookings-panel" className="lg:col-span-8 space-y-5 transition-colors duration-300 bg-transparent w-full min-w-0 max-w-full overflow-hidden">
-
-        <ClientSkillProgressView userProfile={userProfile} skillConfig={skillConfig} onUpdateProfile={onUpdateProfile} />
-
-        {userBookings.length > 0 && (
-          <div className="border border-[var(--border)] p-4 bg-black/10 space-y-4">
-            <UpcomingSessionsStrip userBookings={userBookings} courses={courses} />
+            {/* Slider 2: Workout Calendar */}
+            <div className="border border-slate-200/70 dark:border-slate-800/70 p-3.5 bg-[var(--card-bg)] transition hover:border-slate-300 dark:hover:border-slate-700 rounded-xs shadow-xs">
+              <ToggleSwitch
+                checked={showWorkoutCalendar}
+                onChange={handleToggleCalendar}
+                label={t('toggleWorkoutCalendar')}
+                description={t('toggleWorkoutCalendarSub')}
+              />
+            </div>
           </div>
-        )}
 
-        <ClientBookingsList
-          userBookings={userBookings}
-          unreviewedCompletedBookings={unreviewedCompletedBookings}
-          onDismissReview={onDismissReview}
-          onWriteReview={(booking) => {
-            setReviewBooking(booking);
-            setReviewComment('');
-            setReviewRating(5);
-          }}
-          onReschedule={(booking) => {
-            setRescheduleId(booking.id);
-            setNewDate(booking.date);
-            setNewTime(booking.time);
-          }}
-          onCancel={handleCancelClick}
-          onChat={setSelectedChatBooking}
-        />
-      </div>
+          <div className="grid lg:grid-cols-12 gap-6 w-full max-w-full min-w-0">
+            <ProfileSettings
+              userProfile={userProfile}
+              skillProgress={skillProgress}
+              onSignOut={onSignOut}
+              onUpdateProfile={onUpdateProfile}
+              onLevelBadgeClick={() => setLevelUpModal({ show: true, level: userProfile.level || 1 })}
+              onInvalidFile={() => addNotification('error', t('invalidFile'), t('invalidFileDesc'))}
+              onUploadSuccess={() => addNotification('success', t('profilePhotoChanged'), t('profilePhotoChangedDesc'))}
+              onUploadError={() => addNotification('error', t('uploadFailed'), t('uploadFailedDesc'))}
+            />
+
+            {/* Bookings Right Panel */}
+            <div id="personal-cabinet-bookings-panel" className="lg:col-span-8 space-y-5 transition-colors duration-300 bg-transparent w-full min-w-0 max-w-full overflow-hidden">
+
+              {/* 1. Недельное расписание */}
+              {userBookings.length > 0 && (
+                <div className="border border-slate-200/70 dark:border-slate-800/70 p-4.5 bg-[var(--card-bg)] space-y-4 shadow-xs rounded-xs">
+                  <UpcomingSessionsStrip userBookings={userBookings} courses={courses} />
+                </div>
+              )}
+
+              {/* 2. Новые уведомления */}
+              <UnreviewedCompletedBookingsNotice
+                unreviewedCompletedBookings={unreviewedCompletedBookings}
+                onWriteReview={(booking) => {
+                  setReviewBooking(booking);
+                  setReviewComment('');
+                  setReviewRating(5);
+                }}
+                onDismissReview={onDismissReview}
+              />
+
+              {/* 3. Прогресс и цели уровня */}
+              {showProgressTracking && (
+                <ClientSkillProgressView userProfile={userProfile} skillConfig={skillConfig} />
+              )}
+
+              {/* 4. Календарь тренировок и список бронирований */}
+              <ClientBookingsList
+                userBookings={userBookings}
+                unreviewedCompletedBookings={unreviewedCompletedBookings}
+                showWorkoutCalendar={showWorkoutCalendar}
+                onDismissReview={onDismissReview}
+                onWriteReview={(booking) => {
+                  setReviewBooking(booking);
+                  setReviewComment('');
+                  setReviewRating(5);
+                }}
+                onReschedule={(booking) => {
+                  setRescheduleId(booking.id);
+                  setNewDate(booking.date);
+                  setNewTime(booking.time);
+                }}
+                onCancel={handleCancelClick}
+                onChat={setSelectedChatBooking}
+              />
+            </div>
+          </div>
 
       <RescheduleModal
         isOpen={!!rescheduleId}

@@ -12,7 +12,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
   config = DEFAULT_SKILL_CONFIG,
   onSaveConfig
 }) => {
-  const { language } = useLanguage();
+  const { t } = useLanguage();
   const [items, setItems] = useState<SkillItem[]>(config.items || DEFAULT_SKILL_CONFIG.items);
   const [passPercentage, setPassPercentage] = useState<number>(config.passPercentage ?? 80);
   const [selectedLevelTransition, setSelectedLevelTransition] = useState<number>(1); // 1 = Lvl1->2, 2 = Lvl2->3, 3 = Lvl3->4
@@ -63,7 +63,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
   };
 
   const handleResetToDefault = () => {
-    if (window.confirm(language === 'ru' ? 'Сбросить все пункты таблицы навыков к заводским значениям?' : 'Reset skill table to default initial values?')) {
+    if (window.confirm(t('resetSkillTableConfirm'))) {
       setItems(DEFAULT_SKILL_CONFIG.items);
       setPassPercentage(80);
     }
@@ -87,12 +87,10 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
         <div>
           <h4 className="font-serif text-lg font-light text-[var(--ink)] flex items-center gap-2">
             <Award className="w-5 h-5 text-indigo-400" />
-            {language === 'ru' ? 'Таблица начисления рейтинга клиентов (Level System)' : 'Client Rating & Skill Level Matrix'}
+            {t('clientRatingSkillMatrix')}
           </h4>
           <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1">
-            {language === 'ru' 
-              ? 'Настройка баллов по упражнениям и критериев перехода между уровнями' 
-              : 'Configure skill exercises, maximum points, and level advancement thresholds'}
+            {t('skillMatrixDescription')}
           </p>
         </div>
 
@@ -102,7 +100,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
             className="px-3 py-1.5 border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 text-[10px] font-mono uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            {language === 'ru' ? 'Сбросить' : 'Reset'}
+            {t('reset')}
           </button>
           <button
             onClick={handleSave}
@@ -110,7 +108,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
             className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-mono uppercase tracking-wider font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
           >
             <Save className="w-3.5 h-3.5" />
-            {isSaving ? (language === 'ru' ? 'Сохранение...' : 'Saving...') : (language === 'ru' ? 'Сохранить изменения' : 'Save Changes')}
+            {isSaving ? t('saving') : t('saveChanges')}
           </button>
         </div>
       </div>
@@ -119,7 +117,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-black/20 p-4 border border-[var(--border)]/60">
         <div>
           <label className="block text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mb-1">
-            {language === 'ru' ? 'Порог прохождения (% от макс. баллов)' : 'Advancement Threshold (% of max points)'}
+            {t('advancementThreshold')}
           </label>
           <div className="flex items-center gap-2">
             <input 
@@ -133,23 +131,23 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
             <span className="text-xs font-mono font-bold text-indigo-400">%</span>
           </div>
           <span className="text-[9px] text-[var(--ink-dim)] mt-1 block">
-            {language === 'ru' ? `Для перехода нужно набрать минимум ${passPercentage}% от суммы баллов уровня` : `Min ${passPercentage}% required to level up`}
+            {t('minimumAdvancementThresholdPrefix')} {passPercentage}% {t('minimumAdvancementThresholdSuffix')}
           </span>
         </div>
 
         <div>
           <span className="block text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mb-1">
-            {language === 'ru' ? 'Всего упражнений в системе' : 'Total Skill Items'}
+            {t('totalSkillItems')}
           </span>
           <span className="text-lg font-serif font-bold text-[var(--ink)]">{items.length}</span>
         </div>
 
         <div>
           <span className="block text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mb-1">
-            {language === 'ru' ? 'Баллов на текущем переходе' : 'Current Transition Max Points'}
+            {t('currentTransitionMaxPoints')}
           </span>
           <span className="text-lg font-serif font-bold text-emerald-400">
-            {transitionMaxPoints} {language === 'ru' ? 'баллов' : 'pts'}
+            {transitionMaxPoints} {t('points')}
             <span className="text-xs font-mono text-[var(--ink-dim)] ml-2">
               (нужно: {Math.ceil(transitionMaxPoints * (passPercentage / 100))})
             </span>
@@ -194,14 +192,14 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
       {/* Action header */}
       <div className="flex justify-between items-center">
         <span className="text-xs font-mono text-[var(--ink)] font-bold">
-          {language === 'ru' ? `Упражнения этапа (${filteredItems.length} элементов)` : `Exercises for stage (${filteredItems.length} items)`}
+          {t('exercisesForStage')} ({filteredItems.length} {t('items')})
         </span>
         <button
           onClick={handleAddItem}
           className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-mono uppercase tracking-wider transition flex items-center gap-1 cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" />
-          {language === 'ru' ? 'Добавить пункт' : 'Add Item'}
+          {t('addItem')}
         </button>
       </div>
 

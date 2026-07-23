@@ -3,8 +3,9 @@ import { AnimatePresence } from 'motion/react';
 import { 
   registerFirestoreErrorListener
 } from './lib/firebase';
-import { Instructor, CustomHeroSlide } from './types';
+import { Instructor } from './types';
 import { LanguageProvider, useLanguage, translateInstructor, translateCourse } from './lib/LanguageContext';
+import { FALLBACK_SLIDES } from './components/admin/resortConfigDefaults';
 
 // Custom Hooks
 import { useTheme } from './components/useTheme';
@@ -47,39 +48,6 @@ const InstructorReviewsModal = React.lazy(() =>
 const PaymentGateway = React.lazy(() =>
   import('./components/PaymentGateway').then(({ PaymentGateway }) => ({ default: PaymentGateway }))
 );
-
-const FALLBACK_SLIDES: CustomHeroSlide[] = [
-  {
-    id: '1',
-    line1En: 'Curated Experiences',
-    line1Ru: 'Эксклюзивный сервис',
-    line2En: 'Perfect your technique with our elite guides.',
-    line2Ru: 'Совершенствуйте технику с лучшими гидами.',
-    line3En: 'PROFESSIONAL TRAINING: ski and snowboard, from foundations to competitive mastery.',
-    line3Ru: 'ПРОФЕССИОНАЛЬНОЕ ОБУЧЕНИЕ: лыжи и сноуборд, от азов до соревновательного мастерства.',
-    backgroundImage: 'wall'
-  },
-  {
-    id: '2',
-    line1En: 'Premium Coaching',
-    line1Ru: 'Индивидуальный подход',
-    line2En: 'Confidence on alpine skis — without fear and chaos, starting from the very first lesson.',
-    line2Ru: 'Уверенное катание на горных лыжах — без страха и хаоса уже с первого занятия.',
-    line3En: 'TAILORED SESSIONS: Step-by-step guidance designed specifically for rapid confidence.',
-    line3Ru: 'ПЕРСОНАЛЬНЫЙ ФОРМАТ: Пошаговая методика, разработанная для быстрого преодоления барьеров.',
-    backgroundImage: 'wall2'
-  },
-  {
-    id: '3',
-    line1En: 'Alpine Mastery',
-    line1Ru: 'Свобода движения',
-    line2En: 'Learn to enjoy skiing regardless of your current experience level.',
-    line2Ru: 'Научим получать удовольствие от катания независимо от вашего уровня.',
-    line3En: 'EXPERT GUIDES: Discover the joy of fluid movement across all types of slopes.',
-    line3Ru: 'ЭКСПЕРТНЫЙ КОНТРОЛЬ: Раскройте легкость скольжения на любых склонах курорта.',
-    backgroundImage: 'wall3'
-  }
-];
 
 const SectionLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
   <div className="flex min-h-40 items-center justify-center gap-2 border border-[var(--border)] text-[var(--ink-dim)]">
@@ -157,11 +125,9 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     registerFirestoreErrorListener((_err, op, path) => {
       console.warn(`[Firestore Safe Fallback Triggered] Error during ${op} on ${path}`);
-      setDbStatusWarning(
-        `Database sync restricted (Operation: ${op}, Path: ${path}). Using active sandboxed state.`
-      );
+      setDbStatusWarning(`${t('dbRestricted')} (${t('operationLabel')}: ${op}, ${t('pathLabel')}: ${path})`);
     });
-  }, []);
+  }, [t]);
 
   const handleSignOut = async () => {
     try {
@@ -169,8 +135,8 @@ const AppContent: React.FC = () => {
       setIsAdminView(false);
       addNotification(
         'info',
-        language === 'en' ? 'Logged Out' : 'Выход выполнен',
-        language === 'en' ? 'You have been securely signed out.' : 'Вы успешно вышли из системы.'
+        t('loggedOut'),
+        t('loggedOutDesc')
       );
     } catch (err) {
       console.error(err);
@@ -450,14 +416,12 @@ const AppContent: React.FC = () => {
                   <div className="text-center space-y-4 py-4">
                     <img
                       src={theme === 'light' ? logoLight : logoDark}
-                      alt="Carve Academy Logo"
+                      alt={t('academyLogoAlt')}
                       className="h-12 w-auto mx-auto object-contain transition-opacity duration-300"
                       referrerPolicy="no-referrer"
                     />
                     <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider leading-relaxed">
-                      {language === 'en' 
-                        ? 'Sign in to schedule elite instructors, manage wallets, and track training sessions.' 
-                        : 'Войдите, чтобы бронировать инструкторов, пополнять кошелек и видеть расписание.'}
+                      {t('bookingSignInDesc')}
                     </p>
                   </div>
                   <div className="border border-[var(--border)] p-4 bg-black/10">
@@ -561,13 +525,11 @@ const AppContent: React.FC = () => {
             <span>CARVE ACADEMY DIGITAL INTERFACE v4.4</span>
           </div>
           <div className="text-center md:text-left">
-            {language === 'en' 
-              ? 'SIMULATION ENVIRONMENT • TOTAL SECURE LOCAL STATE' 
-              : 'СРЕДА СИМУЛЯЦИИ • БЕЗОПАСНЫЙ САНДБОКС'}
+            {t('simulationEnvironment')}
           </div>
           <div className="flex gap-4">
-            <span>FIS-2026 STANDARD</span>
-            <span>SLOPE SAFETY PRESETS</span>
+            <span>{t('fisStandard')}</span>
+            <span>{t('slopeSafetyPresets')}</span>
           </div>
         </div>
       </footer>

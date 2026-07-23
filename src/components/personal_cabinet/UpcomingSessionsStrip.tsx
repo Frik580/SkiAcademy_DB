@@ -50,9 +50,9 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
 
     const monthName = todayDate.toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US', { month: 'long' });
     const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-    const header = language === 'en'
-      ? `Weekly Schedule • ${capitalizedMonth} ${todayDate.getFullYear()}`
-      : `Недельное расписание • ${capitalizedMonth} ${todayDate.getFullYear()}`;
+    const header = t('weeklyScheduleHeader')
+      .replace('{month}', capitalizedMonth)
+      .replace('{year}', String(todayDate.getFullYear()));
 
     const rawActiveBookings = userBookings.filter(
       (b) =>
@@ -79,7 +79,7 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
     });
 
     return { upcomingDaysNumbers, header, sortedActiveBookings, isBookingOnDate };
-  }, [userBookings, courses, language]);
+  }, [userBookings, courses, language, t]);
 
   return (
     <div className="space-y-4">

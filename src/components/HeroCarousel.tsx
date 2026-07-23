@@ -1,7 +1,7 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
-import type { Language } from '../lib/LanguageContext';
+import { useLanguage, type Language } from '../lib/LanguageContext';
 import type { Theme } from './useTheme';
 import { CustomHeroSlide } from '../types';
 
@@ -21,10 +21,13 @@ interface HeroCarouselProps {
 export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   data: { slides, currentSlide, language, theme },
   actions: { onSelectSlide, onScrollToSection }
-}) => (
-  <section
-    className="relative p-8 md:p-10 border-b border-[var(--border)] overflow-hidden flex flex-col justify-end min-h-[340px] bg-transparent"
-  >
+}) => {
+  const { t } = useLanguage();
+
+  return (
+    <section
+      className="relative p-8 md:p-10 border-b border-[var(--border)] overflow-hidden flex flex-col justify-end min-h-[340px] bg-transparent"
+    >
     {/* Background crossfader */}
     <AnimatePresence mode="popLayout">
       {(() => {
@@ -91,7 +94,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   onClick={() => onScrollToSection('coaches-grid')}
                   className="w-full px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-mono text-[10px] uppercase tracking-widest transition-all duration-300 shadow-lg shadow-blue-500/20 active:translate-y-[1px] cursor-pointer inline-flex items-center justify-center gap-2 font-bold border border-blue-600 hover:border-blue-700 rounded-none"
                 >
-                  <span>{language === 'en' ? 'Book First Lesson' : 'Записаться на первое занятие'}</span>
+                  <span>{t('bookFirstLesson')}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
                 <button
@@ -102,7 +105,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                       : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white'
                   }`}
                 >
-                  <span>{language === 'en' ? 'Choose Course' : 'Подобрать курс'}</span>
+                  <span>{t('chooseCourse')}</span>
                 </button>
               </div>
             </motion.div>
@@ -121,10 +124,11 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                 ? 'w-8 bg-[var(--ink)]'
                 : 'w-2 bg-[var(--ink)]/30 hover:bg-[var(--ink)]/60'
             }`}
-            aria-label={`Go to slide ${idx + 1}`}
+            aria-label={`${t('goToSlide')} ${idx + 1}`}
           />
         ))}
       </div>
     </div>
-  </section>
-);
+    </section>
+  );
+};

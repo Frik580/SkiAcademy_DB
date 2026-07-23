@@ -1,6 +1,6 @@
 import React from 'react';
 import { Search, SlidersHorizontal } from 'lucide-react';
-import { useLanguage } from '../lib/LanguageContext';
+import { useLanguage, type TranslationKey } from '../lib/LanguageContext';
 
 interface LessonFiltersProps {
   searchQuery: string;
@@ -23,41 +23,29 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
   sortBy,
   setSortBy
 }) => {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
 
   const getLanguageLabel = (lang: string) => {
     if (lang === 'All Languages' || lang === 'all') return t('allLanguages');
-    if (language === 'ru') {
-      const mapping: { [key: string]: string } = {
-        'English': 'Английский',
-        'German': 'Немецкий',
-        'French': 'Французский',
-        'Russian': 'Русский',
-        'Italian': 'Итальянский',
-        'Spanish': 'Испанский'
-      };
-      return mapping[lang] || lang;
-    }
-    return lang;
+    const mapping: Record<string, TranslationKey> = {
+      English: 'languageEnglish',
+      German: 'languageGerman',
+      French: 'languageFrench',
+      Russian: 'languageRussian',
+      Italian: 'languageItalian',
+      Spanish: 'languageSpanish'
+    };
+    return mapping[lang] ? t(mapping[lang]) : lang;
   };
 
   const getSpecialtyLabel = (spec: 'all' | 'ski' | 'snowboard' | 'both') => {
-    if (language === 'ru') {
-      const mapping = {
-        all: 'Все',
-        ski: 'Лыжи',
-        snowboard: 'Сноуборд',
-        both: 'Оба'
-      };
-      return mapping[spec];
-    }
-    const mapping = {
-      all: 'All',
-      ski: 'Ski',
-      snowboard: 'Board',
-      both: 'Both'
+    const mapping: Record<'all' | 'ski' | 'snowboard' | 'both', TranslationKey> = {
+      all: 'allFilter',
+      ski: 'specialtySki',
+      snowboard: 'filterSnowboardShort',
+      both: 'specialtyBoth'
     };
-    return mapping[spec];
+    return t(mapping[spec]);
   };
 
   const languagesList = ['All Languages', 'English', 'German', 'French', 'Russian', 'Italian', 'Spanish'];
@@ -67,7 +55,7 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
       <div className="flex items-center gap-2 border-b border-[var(--border)] pb-3 mb-2">
         <SlidersHorizontal className="w-3.5 h-3.5 text-[var(--ink)]" />
         <h3 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink)]">
-          {language === 'en' ? 'Filter Instructors' : 'Фильтры инструкторов'}
+          {t('filterInstructors')}
         </h3>
       </div>
 
@@ -75,7 +63,7 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
         {/* Search Input */}
         <div className="space-y-1.5">
           <label className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
-            {language === 'en' ? 'Search Coach' : 'Поиск инструктора'}
+            {t('searchCoach')}
           </label>
           <div className="relative">
             <input

@@ -25,7 +25,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
   skillConfig = DEFAULT_SKILL_CONFIG,
   onSaveScores
 }) => {
-  const { language } = useLanguage();
+  const { t } = useLanguage();
   const [scores, setScores] = useState<Record<string, number>>({});
   const [activeTargetLevel, setActiveTargetLevel] = useState<number>(Math.min(studentLevel || 1, 3));
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -103,12 +103,10 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
             </div>
             <div>
               <h3 className="font-serif text-lg font-light text-[var(--ink)]">
-                {language === 'ru' ? `Оценка навыков ученика: ${studentName}` : `Student Skill Evaluation: ${studentName}`}
+                {t('studentSkillEvaluation')}: {studentName}
               </h3>
               <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
-                {language === 'ru' 
-                  ? `Текущий уровень: ${studentLevel} • Прогнозируемый уровень: ${projectedLevel}` 
-                  : `Current Level: ${studentLevel} • Projected Level: ${projectedLevel}`}
+                {t('instructorCurrentLevel')}: {studentLevel} • {t('projectedLevel')}: {projectedLevel}
               </p>
             </div>
           </div>
@@ -159,7 +157,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
         <div className="p-4 bg-black/30 border-b border-[var(--border)] grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
-              {language === 'ru' ? 'Набрано баллов' : 'Earned Points'}
+              {t('earnedPoints')}
             </span>
             <span className="text-xl font-serif font-bold text-[var(--ink)]">
               {progress.targetEarnedPoints} / <span className="text-sm text-[var(--ink-dim)]">{progress.targetMaxPoints}</span>
@@ -168,7 +166,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
 
           <div>
             <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
-              {language === 'ru' ? 'Необходимо для перехода' : 'Required to Level Up'}
+              {t('requiredToLevelUp')}
             </span>
             <span className="text-xl font-serif font-bold text-amber-400">
               {progress.targetRequiredPoints} <span className="text-xs text-[var(--ink-dim)]">({passPercentage}%)</span>
@@ -177,17 +175,17 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
 
           <div>
             <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
-              {language === 'ru' ? 'Статус перехода' : 'Advancement Status'}
+              {t('advancementStatus')}
             </span>
             {progress.targetEarnedPoints >= progress.targetRequiredPoints ? (
               <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider">
                 <CheckCircle2 className="w-4 h-4" />
-                {language === 'ru' ? 'Готов к переходу!' : 'Ready to Advance!'}
+                {t('readyToAdvance')}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">
                 <AlertCircle className="w-4 h-4" />
-                {language === 'ru' ? `Осталось ${progress.targetRequiredPoints - progress.targetEarnedPoints} б.` : `${progress.targetRequiredPoints - progress.targetEarnedPoints} pts left`}
+                {progress.targetRequiredPoints - progress.targetEarnedPoints} {t('pointsLeft')}
               </span>
             )}
           </div>
@@ -197,13 +195,13 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
               onClick={handleFillAllMax}
               className="px-2.5 py-1 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/10 text-[9px] font-mono uppercase tracking-wider transition cursor-pointer"
             >
-              {language === 'ru' ? 'Заполнить макс.' : 'Fill Max'}
+              {t('fillMax')}
             </button>
             <button
               onClick={handleClearStage}
               className="px-2.5 py-1 border border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)] text-[9px] font-mono uppercase tracking-wider transition cursor-pointer"
             >
-              {language === 'ru' ? 'Очистить' : 'Clear'}
+              {t('clear')}
             </button>
           </div>
         </div>
@@ -212,7 +210,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {stageItems.length === 0 ? (
             <div className="py-12 text-center text-[var(--ink-dim)] font-mono text-xs">
-              {language === 'ru' ? 'Упражнения для данного уровня не найдены' : 'No skill items found for this level stage'}
+              {t('noSkillItemsForLevel')}
             </div>
           ) : (
             stageItems.map((item) => {
@@ -270,9 +268,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
         {/* Footer */}
         <div className="p-4 border-t border-[var(--border)] bg-black/20 flex justify-between items-center">
           <div className="text-xs font-mono text-[var(--ink-dim)]">
-            {language === 'ru' 
-              ? `После сохранения уровень ученика станет ${projectedLevel}` 
-              : `After saving, student level will become ${projectedLevel}`}
+            {t('studentLevelAfterSaving')} {projectedLevel}
           </div>
 
           <div className="flex items-center gap-3">
@@ -280,7 +276,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
               onClick={onClose}
               className="px-4 py-2 border border-[var(--border)] text-xs font-mono uppercase tracking-wider text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer"
             >
-              {language === 'ru' ? 'Отмена' : 'Cancel'}
+              {t('cancel')}
             </button>
             <button
               onClick={handleSave}
@@ -288,7 +284,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
               className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono uppercase tracking-wider font-bold transition flex items-center gap-2 cursor-pointer shadow-lg disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              {isSaving ? (language === 'ru' ? 'Сохранение...' : 'Saving...') : (language === 'ru' ? 'Сохранить оценки' : 'Save Ratings')}
+              {isSaving ? t('saving') : t('saveRatings')}
             </button>
           </div>
         </div>

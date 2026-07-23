@@ -372,7 +372,7 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
                     required
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
-                    placeholder={language === 'en' ? 'e.g. John Doe' : 'Например, Иван Иванов'}
+                    placeholder={t('authNamePlaceholder')}
                     className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none font-mono"
                   />
                 </div>

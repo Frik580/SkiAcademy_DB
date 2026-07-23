@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Instructor } from '../types';
 import { Star, Globe } from 'lucide-react';
-import { useLanguage } from '../lib/LanguageContext';
+import { useLanguage, type TranslationKey } from '../lib/LanguageContext';
 
 interface InstructorCardProps {
   instructor: Instructor;
@@ -12,36 +12,26 @@ interface InstructorCardProps {
 
 export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardProps>(
   ({ instructor, onBook, onViewReviews }, ref) => {
-    const { t, language } = useLanguage();
+    const { t } = useLanguage();
 
     const getSpecialtyLabel = (spec: Instructor['specialty']) => {
-      if (language === 'ru') {
-        switch (spec) {
-          case 'ski': return 'Лыжи';
-          case 'snowboard': return 'Сноуборд';
-          case 'both': return 'Лыжи и Сноуборд';
-        }
-      }
       switch (spec) {
-        case 'ski': return 'Ski';
-        case 'snowboard': return 'Snowboard';
-        case 'both': return 'Ski & Board';
+        case 'ski': return t('specialtySki');
+        case 'snowboard': return t('specialtySnowboard');
+        case 'both': return t('instructorSpecialtyBoth');
       }
     };
 
     const getLanguageLabel = (lang: string) => {
-      if (language === 'ru') {
-        const mapping: { [key: string]: string } = {
-          'English': 'Англ',
-          'German': 'Нем',
-          'French': 'Франц',
-          'Russian': 'Рус',
-          'Italian': 'Итал',
-          'Spanish': 'Исп'
-        };
-        return mapping[lang] || lang;
-      }
-      return lang.substring(0, 3);
+      const mapping: Record<string, TranslationKey> = {
+        English: 'languageEnglishShort',
+        German: 'languageGermanShort',
+        French: 'languageFrenchShort',
+        Russian: 'languageRussianShort',
+        Italian: 'languageItalianShort',
+        Spanish: 'languageSpanishShort'
+      };
+      return mapping[lang] ? t(mapping[lang]) : lang;
     };
 
     const specialtyText = getSpecialtyLabel(instructor.specialty);
@@ -68,7 +58,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
           {!instructor.isAvailable && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
               <span className="text-[9px] font-mono tracking-wider text-rose-400 font-bold uppercase rotate-12">
-                {language === 'en' ? 'OFFLINE' : 'ЗАНЯТ'}
+                {t('instructorOffline')}
               </span>
             </div>
           )}
@@ -85,7 +75,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
               <button
                 onClick={() => onViewReviews && onViewReviews(instructor)}
                 className="inline-flex items-center gap-1 self-center sm:self-baseline text-[10px] font-mono text-amber-500 hover:underline transition select-none"
-                title={language === 'en' ? 'Read reviews' : 'Читать отзывы'}
+                title={t('readReviews')}
               >
                 <Star className="w-3 h-3 fill-amber-400 stroke-amber-500" />
                 <span>{instructor.rating.toFixed(1)} ({instructor.reviewsCount})</span>
@@ -101,7 +91,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
             {/* Specialty / Experience / Languages */}
             <div className="text-center md:text-left space-y-1 w-full md:w-auto font-mono text-xs text-[var(--ink-dim)] uppercase tracking-wider">
               <div className="text-[var(--ink)] font-bold">
-                {specialtyText} • {instructor.experienceYears}{language === 'en' ? 'Y' : 'Л'}
+                {specialtyText} • {instructor.experienceYears}{t('yearShort')}
               </div>
               <div className="flex flex-wrap gap-1 items-center justify-center md:justify-start text-[10px] lowercase text-[var(--ink-dim)]">
                 <Globe className="w-3 h-3 shrink-0" />
@@ -122,7 +112,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
                   onClick={() => onViewReviews && onViewReviews(instructor)}
                   className="px-3 py-1.5 bg-transparent border border-[var(--border)] hover:border-[var(--ink)] text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] transition cursor-pointer"
                 >
-                  {language === 'en' ? 'Reviews' : 'Отзывы'}
+                  {t('instructorReviewsCount')}
                 </button>
 
                 <button
@@ -136,7 +126,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
                 >
                   {instructor.isAvailable 
                     ? t('bookNow') 
-                    : (language === 'en' ? 'Full' : 'Занят')}
+                    : t('instructorFull')}
                 </button>
               </div>
             </div>

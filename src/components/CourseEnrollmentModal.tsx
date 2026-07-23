@@ -20,7 +20,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   onAuthSuccess,
   onEnroll,
 }) => {
-  const { language } = useLanguage();
+  const { t } = useLanguage();
 
   if (!isOpen || !course) return null;
 
@@ -48,7 +48,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
           <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10 shrink-0">
             <div>
               <h3 className="font-serif text-lg font-light text-[var(--ink)]">
-                {language === 'en' ? 'Course Enrollment' : 'Запись на курс'}
+                {t('courseEnrollment')}
               </h3>
               <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5">
                 {course.title}
@@ -66,9 +66,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
           {/* Modal body */}
           <div className="p-6 overflow-y-auto space-y-4">
             <p className="text-[11px] font-mono text-[var(--ink-dim)] uppercase tracking-wider text-center leading-relaxed">
-              {language === 'en'
-                ? 'Sign in or register to complete your enrollment for this group course.'
-                : 'Войдите или зарегистрируйтесь, чтобы завершить запись на данный групповой курс.'}
+              {t('courseEnrollmentAuthPrompt')}
             </p>
 
             <div className="border border-[var(--border)] p-4 bg-black/10">

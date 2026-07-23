@@ -293,9 +293,10 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
         addNotification(
           'error',
           t('instructorBusy'),
-          language === 'en'
-            ? `${currentBooking.instructorName} is already booked on ${newDate} around ${newTime}. Please choose another date or time.`
-            : `${currentBooking.instructorName} уже забронирован(а) на ${newDate} около ${newTime}. Пожалуйста, выберите другую дату или время.`
+          t('instructorBookingConflictDesc')
+            .replace('{instructorName}', currentBooking.instructorName)
+            .replace('{date}', newDate)
+            .replace('{time}', newTime)
         );
         setIsRescheduling(false);
         return;
@@ -337,9 +338,11 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
         addNotification(
           'error',
           t('instructorReserved'),
-          language === 'en'
-            ? `${currentBooking.instructorName} is leading the group course "${conflictCourse.title}" on ${newDate} at this time (${conflictCourse.dates}). Please choose another date or time.`
-            : `${currentBooking.instructorName} ведет групповой курс «${conflictCourse.title}» ${newDate} в это время (${conflictCourse.dates}). Пожалуйста, выберите другую дату или время.`
+          t('instructorCourseConflictDesc')
+            .replace('{instructorName}', currentBooking.instructorName)
+            .replace('{courseTitle}', conflictCourse.title)
+            .replace('{date}', newDate)
+            .replace('{courseDates}', conflictCourse.dates)
         );
         setIsRescheduling(false);
         return;

@@ -155,7 +155,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
   isEnrolled,
   onEnroll,
 }) => {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -174,7 +174,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
 
   if (!isOpen || !course || !rawCourse) return null;
 
-  const { datePart, timePart } = splitCourseDates(course.dates);
+  const { datePart, timePart } = splitCourseDates(course.dates, language);
   const seatsPercentage = Math.round((course.availableSeats / course.totalSeats) * 100);
 
   const defaultEnriched = getCourseEnrichedData(
@@ -273,7 +273,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                     <img 
                       src={course.badge} 
                       referrerPolicy="no-referrer" 
-                      alt="badge" 
+                      alt={t('courseBadgeAlt')}
                       className="h-7 w-auto object-contain max-w-[95px] drop-shadow-md" 
                     />
                   ) : (
@@ -315,7 +315,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
                     <BookOpen className="w-4 h-4 text-sky-500" />
                     <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-                      {language === 'ru' ? 'Описание курса' : 'Course Overview'}
+                      {t('courseOverview')}
                     </h3>
                   </div>
                   <p className="text-sm sm:text-base text-[var(--ink)] leading-relaxed font-sans font-light">
@@ -328,7 +328,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
                     <Award className="w-4 h-4 text-emerald-500" />
                     <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-                      {language === 'ru' ? 'Что вы получите' : 'What You Will Master'}
+                      {t('courseMastery')}
                     </h3>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -353,7 +353,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
                     <Layers className="w-4 h-4 text-amber-500" />
                     <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-                      {language === 'ru' ? 'Программа по дням' : 'Day-By-Day Program'}
+                      {t('courseDayByDay')}
                     </h3>
                   </div>
                   <div className="relative border-l border-[var(--border)]/70 pl-6 ml-3 space-y-6 py-1">
@@ -384,7 +384,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
                     <ImageIcon className="w-4 h-4 text-indigo-500" />
                     <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-                      {language === 'ru' ? 'Галерея курса' : 'Course Gallery'}
+                      {t('courseGallery')}
                     </h3>
                   </div>
                   <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -396,7 +396,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                         <img
                           src={p}
                           referrerPolicy="no-referrer"
-                          alt={`Course snapshot ${idx + 1}`}
+                          alt={`${t('courseSnapshot')} ${idx + 1}`}
                           className="w-full h-full object-cover grayscale transition duration-500 group-hover:scale-105 group-hover:grayscale-0"
                         />
                         <div className="absolute inset-0 bg-black/20 opacity-100 group-hover:opacity-0 transition duration-300" />
@@ -410,7 +410,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
                     <Film className="w-4 h-4 text-rose-500" />
                     <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-                      {language === 'ru' ? 'Видеообзор' : 'Video Teaser'}
+                      {t('courseVideoTeaser')}
                     </h3>
                   </div>
                   
@@ -430,7 +430,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                     {!isPlaying && (
                       <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-4 transition-opacity duration-300 pointer-events-none">
                         <span className="text-[10px] font-mono tracking-widest uppercase text-white/70 mb-2">
-                          {language === 'ru' ? 'Почувствуйте драйв' : 'Feel the adrenaline'}
+                          {t('courseFeelAdrenaline')}
                         </span>
                         <span className="text-xs font-serif italic text-white/50 text-center max-w-xs mb-4">
                           "{course.title}"
@@ -445,7 +445,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                       <button
                         onClick={handlePlayPause}
                         className="p-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white transition cursor-pointer"
-                        title={isPlaying ? 'Pause' : 'Play'}
+                        title={isPlaying ? t('pauseVideo') : t('playVideo')}
                       >
                         {isPlaying ? <Pause className="w-3.5 h-3.5 fill-white" /> : <Play className="w-3.5 h-3.5 fill-white" />}
                       </button>
@@ -462,7 +462,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                       <button
                         onClick={handleToggleMute}
                         className="p-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white transition cursor-pointer"
-                        title={isMuted ? 'Unmute' : 'Mute'}
+                        title={isMuted ? t('unmuteVideo') : t('muteVideo')}
                       >
                         {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
                       </button>
@@ -486,7 +486,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                     <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
                       <Users className="w-4 h-4 text-violet-500" />
                       <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-                        {language === 'ru' ? 'Ваши инструкторы' : 'Your Instructors'}
+                        {t('courseYourInstructors')}
                       </h3>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -510,14 +510,14 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                               </p>
                               <p className="text-[10px] text-[var(--ink-dim)] mt-0.5 uppercase tracking-wide font-mono">
                                 {ins.specialty === 'both'
-                                  ? language === 'en' ? 'Ski & Snowboard' : 'Лыжи и Сноуборд'
+                                  ? t('bothSpecialties')
                                   : ins.specialty === 'ski'
-                                  ? language === 'en' ? 'Ski Specialist' : 'Инструктор по Лыжам'
-                                  : language === 'en' ? 'Snowboard Specialist' : 'Инструктор по Сноуборду'}
+                                  ? t('courseSkiSpecialist')
+                                  : t('courseSnowboardSpecialist')}
                               </p>
                               <div className="flex items-center gap-2 mt-1.5">
                                 <span className="text-[9px] font-mono text-sky-500 bg-sky-500/10 dark:bg-sky-500/20 px-1.5 py-0.5 font-bold">
-                                  {language === 'en' ? `${ins.experienceYears}Y Exp` : `${ins.experienceYears} лет опыта`}
+                                  {ins.experienceYears} {t('courseYearsExperienceShort')}
                                 </span>
                                 <span className="flex items-center gap-0.5 text-[9px] font-mono text-amber-500 font-bold">
                                   <Star className="w-2.5 h-2.5 fill-amber-500 text-transparent" />
@@ -537,7 +537,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
                     <Heart className="w-4 h-4 text-pink-500" />
                     <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-                      {language === 'ru' ? 'Отзывы учеников' : 'Student Reviews'}
+                      {t('courseStudentReviews')}
                     </h3>
                   </div>
                   <div className="space-y-4">
@@ -584,7 +584,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
                     <HelpCircle className="w-4 h-4 text-teal-500" />
                     <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-                      FAQ
+                      {t('courseFaqTitle')}
                     </h3>
                   </div>
                   <div className="space-y-2 font-sans">
@@ -636,7 +636,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   {/* Title & Level description */}
                   <div>
                     <span className="text-[9px] font-mono uppercase text-sky-500 tracking-widest font-bold">
-                      {language === 'ru' ? 'БЛИЖАЙШИЙ НАБОР' : 'ACTIVE ENROLLMENT'}
+                      {t('courseActiveEnrollment')}
                     </span>
                     <h3 className="text-lg font-serif font-light text-[var(--ink)] leading-snug mt-1">
                       {course.title}
@@ -649,7 +649,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                       <Calendar className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
                       <div>
                         <span className="text-[9px] font-mono uppercase text-[var(--ink-dim)] block leading-none mb-1">
-                          {language === 'en' ? 'Dates' : 'Даты проведения'}
+                          {t('courseDates')}
                         </span>
                         <span className="text-xs text-[var(--ink)] font-bold font-mono">
                           {datePart}
@@ -661,7 +661,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                       <Clock className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
                       <div>
                         <span className="text-[9px] font-mono uppercase text-[var(--ink-dim)] block leading-none mb-1">
-                          {language === 'en' ? 'Schedule' : 'Время занятий'}
+                          {t('courseSchedule')}
                         </span>
                         <span className="text-xs text-[var(--ink)] font-bold font-mono">
                           {timePart}
@@ -674,15 +674,13 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-[9px] font-mono uppercase">
                       <span className="text-[var(--ink-dim)]">
-                        {language === 'en' ? 'Group Space' : 'Места в группе'}
+                        {t('courseGroupSpace')}
                       </span>
                       <span className={`font-bold ${course.availableSeats === 0 ? 'text-rose-500' : course.availableSeats <= 3 ? 'text-amber-500' : 'text-emerald-500'}`}>
                         {course.availableSeats === 0 ? (
-                          language === 'en' ? 'SOLD OUT' : 'МЕСТ НЕТ'
+                          t('courseSoldOutUpper')
                         ) : (
-                          language === 'en' 
-                            ? `${course.availableSeats} / ${course.totalSeats} LEFT` 
-                            : `${course.availableSeats} из ${course.totalSeats} СВОБОДНО`
+                          `${course.availableSeats} ${t('courseSeatsOf')} ${course.totalSeats} ${t('courseSeatsLeft')}`
                         )}
                       </span>
                     </div>
@@ -705,10 +703,10 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   <div className="border-t border-b border-[var(--border)]/50 py-4 flex items-baseline justify-between">
                     <div>
                       <span className="text-[9px] font-mono uppercase text-[var(--ink-dim)] block">
-                        {language === 'en' ? 'Total Tuition' : 'Стоимость за курс'}
+                        {t('courseTotalTuition')}
                       </span>
                       <span className="text-[9px] text-[var(--ink-dim)] italic font-light">
-                        {language === 'en' ? 'All days included' : 'Все дни включены'}
+                        {t('courseAllDaysIncluded')}
                       </span>
                     </div>
                     <span className="text-3xl font-serif text-[var(--ink)] font-light">
@@ -737,20 +735,20 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                       {isEnrolled ? (
                         <span className="flex items-center justify-center gap-1.5 normal-case font-sans text-xs">
                           <span className="text-emerald-500 font-bold text-sm">✔</span>{' '}
-                          {language === 'en' ? 'Enrolled' : 'Вы записаны'}
+                          {t('courseEnrolled')}
                         </span>
                       ) : userProfile?.isClientActive === false ? (
-                        language === 'en' ? 'Access Suspended' : 'Доступ приостановлен'
+                        t('accessSuspended')
                       ) : course.availableSeats === 0 ? (
-                        language === 'en' ? 'Sold Out' : 'Мест нет'
+                        t('courseSoldOut')
                       ) : (
-                        language === 'en' ? 'Confirm Booking' : 'Подтвердить запись'
+                        t('courseConfirmBooking')
                       )}
                     </button>
 
                     <div className="flex items-center justify-center gap-2 text-[9px] text-[var(--ink-dim)] font-mono uppercase">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>{language === 'en' ? 'Free cancelation' : 'Свободная отмена за 48ч'}</span>
+                      <span>{t('courseFreeCancellation')}</span>
                     </div>
                   </div>
 

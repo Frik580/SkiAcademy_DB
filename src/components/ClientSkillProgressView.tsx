@@ -15,7 +15,7 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
   skillConfig = DEFAULT_SKILL_CONFIG,
   onUpdateProfile
 }) => {
-  const { language } = useLanguage();
+  const { t } = useLanguage();
   const currentLevel = userProfile.level || 1;
 
   const items = skillConfig?.items || DEFAULT_SKILL_CONFIG.items;
@@ -36,12 +36,10 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
         </div>
         <div>
           <h4 className="font-mono text-xs uppercase tracking-wider text-[var(--ink)] font-bold">
-            {language === 'ru' ? 'Отслеживание прогресса отключено' : 'Progress Tracking Disabled'}
+            {t('progressTrackingDisabled')}
           </h4>
           <p className="text-xs text-[var(--ink-dim)] max-w-md mx-auto mt-1">
-            {language === 'ru' 
-              ? 'Вы можете включить отображение рейтинга и упражнений обратно в любое время.'
-              : 'You can enable rating and skill tracking back at any time.'}
+            {t('progressTrackingDisabledDescription')}
           </p>
         </div>
         {onUpdateProfile && (
@@ -50,7 +48,7 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
             className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600/10 dark:bg-indigo-600/30 border border-indigo-500 hover:bg-indigo-600/20 text-indigo-800 dark:text-indigo-200 text-xs font-mono font-bold uppercase tracking-wider transition cursor-pointer"
           >
             <Eye className="w-4 h-4" />
-            {language === 'ru' ? 'Включить отслеживание' : 'Enable Tracking'}
+            {t('enableProgressTracking')}
           </button>
         )}
       </div>
@@ -73,17 +71,17 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
                 <div className="flex items-center gap-2">
                   <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
                   <span className="text-xs font-mono font-bold text-[var(--ink)] uppercase tracking-wider">
-                    {language === 'ru' ? 'Прогресс текущего уровня' : 'Current Level Progress'}
+                    {t('currentLevelProgress')}
                   </span>
                 </div>
                 {onUpdateProfile && (
                   <button
                     onClick={() => onUpdateProfile({ hideProgressTracking: true })}
                     className="text-[10px] font-mono text-[var(--ink-dim)] hover:text-indigo-600 dark:hover:text-indigo-300 flex items-center gap-1 transition cursor-pointer"
-                    title={language === 'ru' ? 'Отключить отслеживание прогресса' : 'Disable progress tracking'}
+                    title={t('disableProgressTracking')}
                   >
                     <EyeOff className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{language === 'ru' ? 'Скрыть' : 'Hide'}</span>
+                    <span className="hidden sm:inline">{t('hide')}</span>
                   </button>
                 )}
               </div>
@@ -126,7 +124,7 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
       {/* 📋 Relevant Exercises Tables grouped by Level */}
       <div className="space-y-6">
         <h5 className="text-xs font-mono text-[var(--ink)] font-bold uppercase tracking-wider">
-          {language === 'ru' ? `Упражнения по уровням (${progress.displayItems.length} элементов)` : `Skill Exercises by Level (${progress.displayItems.length} items)`}
+          {t('skillExercisesByLevel')} ({progress.displayItems.length} {t('items')})
         </h5>
 
         {Array.from(new Set(progress.displayItems.map(i => i.levelTarget))).sort().map((levelNum) => {
@@ -139,10 +137,10 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
               <div className="flex items-center gap-2 pt-1">
                 <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400"></span>
                 <h6 className="text-xs font-mono font-bold text-indigo-900 dark:text-indigo-300 uppercase tracking-wider">
-                  {language === 'ru' ? `Уровень ${levelNum}` : `Level ${levelNum}`}
+                  {t('instructorLevel')} {levelNum}
                 </h6>
                 <span className="text-[10px] font-mono text-[var(--ink-dim)]">
-                  ({levelItems.length} {language === 'ru' ? 'упражнений' : 'exercises'})
+                  ({levelItems.length} {t('exercises')})
                 </span>
               </div>
 

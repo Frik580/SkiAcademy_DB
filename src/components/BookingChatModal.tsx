@@ -15,7 +15,27 @@ import {
 } from 'lucide-react';
 import { Booking, UserProfile, ChatMessage, OperationType, Instructor } from '../types';
 import { db, collection, doc, setDoc, onSnapshot, handleFirestoreError } from '../lib/firebase';
-import { useLanguage } from '../lib/LanguageContext';
+import { useLanguage, type TranslationKey } from '../lib/LanguageContext';
+
+class LocalizedCompressionError extends Error {
+  i18nKey: TranslationKey;
+  constructor(key: TranslationKey) {
+    super(key);
+    this.i18nKey = key;
+    this.name = 'LocalizedCompressionError';
+  }
+}
+
+function formatCompressionError(
+  err: unknown,
+  t: (key: TranslationKey) => string,
+  fallbackKey: TranslationKey
+): string {
+  if (err instanceof LocalizedCompressionError) {
+    return t(err.i18nKey);
+  }
+  return `${t(fallbackKey)}: ${err instanceof Error ? err.message : String(err)}`;
+}
 
 interface BookingChatModalProps {
   booking: Booking;
@@ -50,7 +70,7 @@ const compressImage = (file: File): Promise<{ url: string; name: string; size: n
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
-          reject(new Error('Canvas context not available'));
+          reject(new LocalizedCompressionError('chatCompressionCanvasError'));
           return;
         }
 
@@ -68,7 +88,7 @@ const compressImage = (file: File): Promise<{ url: string; name: string; size: n
           size: actualSize
         });
       };
-      img.onerror = () => reject(new Error('Failed to load image'));
+      img.onerror = () => reject(new LocalizedCompressionError('chatCompressionImageLoadFailed'));
       img.src = e.target?.result as string;
     };
     reader.onerror = reject;
@@ -99,7 +119,7 @@ const compressVideo = (file: File): Promise<{ url: string; name: string; size: n
         reader.readAsDataURL(file);
       });
     } else {
-      return Promise.reject(new Error('Browser-based compression not supported for this file. Please upload a smaller video clip under 800KB.'));
+      return Promise.reject(new LocalizedCompressionError('chatCompressionUnsupported'));
     }
   }
 
@@ -112,7 +132,7 @@ const compressVideo = (file: File): Promise<{ url: string; name: string; size: n
 
     // Maximum 12 seconds wait time for compression
     const timeoutId = setTimeout(() => {
-      reject(new Error('Video processing timeout. Please try a shorter video.'));
+      reject(new LocalizedCompressionError('chatCompressionTimeout'));
     }, 12000);
 
     video.onloadedmetadata = () => {
@@ -135,13 +155,13 @@ const compressVideo = (file: File): Promise<{ url: string; name: string; size: n
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        reject(new Error('Canvas context not available'));
+        reject(new LocalizedCompressionError('chatCompressionCanvasError'));
         return;
       }
 
       const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(12) : (canvas as any).mozCaptureStream ? (canvas as any).mozCaptureStream(12) : null;
       if (!canvasStream) {
-        reject(new Error('Canvas stream capture failed'));
+        reject(new LocalizedCompressionError('chatCompressionStreamFailed'));
         return;
       }
 
@@ -216,7 +236,7 @@ const compressVideo = (file: File): Promise<{ url: string; name: string; size: n
 
     video.onerror = () => {
       clearTimeout(timeoutId);
-      reject(new Error('Failed to parse video format'));
+      reject(new LocalizedCompressionError('chatCompressionVideoParseFailed'));
     };
   });
 };
@@ -228,7 +248,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   usersList = [],
   instructors = []
 }) => {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -247,20 +267,6 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
-
-  // Translate labels helper
-  const t = {
-    chatTitle: language === 'en' ? 'Lesson Discussion' : 'Обсуждение занятия',
-    instructor: language === 'en' ? 'Instructor' : 'Инструктор',
-    client: language === 'en' ? 'Client' : 'Клиент',
-    admin: language === 'en' ? 'Admin' : 'Администратор',
-    placeholder: language === 'en' ? 'Type your message...' : 'Введите сообщение...',
-    noMessages: language === 'en' ? 'No messages yet. Start the conversation!' : 'Сообщений пока нет. Начните диалог!',
-    send: language === 'en' ? 'Send' : 'Отправить',
-    lessonWith: language === 'en' ? 'Lesson with' : 'Занятие с',
-    onDate: language === 'en' ? 'on' : 'дата',
-    atTime: language === 'en' ? 'at' : 'время'
-  };
 
   // Listen to messages in real-time
   useEffect(() => {
@@ -295,7 +301,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     if (!file) return;
 
     setIsCompressing(true);
-    setCompressionProgress(language === 'en' ? 'Optimizing image...' : 'Оптимизация фото...');
+    setCompressionProgress(t('chatOptimizingImage'));
     try {
       const result = await compressImage(file);
       setAttachmentType('image');
@@ -304,7 +310,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
       setAttachmentSize(result.size);
     } catch (err: any) {
       console.error(err);
-      alert(language === 'en' ? `Failed to process image: ${err.message}` : `Ошибка обработки фото: ${err.message}`);
+      alert(formatCompressionError(err, t, 'chatImageProcessingFailed'));
     } finally {
       setIsCompressing(false);
       setCompressionProgress('');
@@ -318,22 +324,18 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
 
     // Reject raw files over 40MB
     if (file.size > 40 * 1024 * 1024) {
-      alert(language === 'en' 
-        ? 'Video file is too large (max 40MB). Please select a shorter clip.' 
-        : 'Файл слишком велик (макс 40МБ). Пожалуйста, выберите более короткий ролик.');
+      alert(t('chatVideoTooLarge'));
       return;
     }
 
     setIsCompressing(true);
-    setCompressionProgress(language === 'en' ? 'Optimizing video...' : 'Оптимизация видео...');
+    setCompressionProgress(t('chatOptimizingVideo'));
     try {
       const result = await compressVideo(file);
       
       // Strict limit for Firestore documents (which has 1MB total size limit)
       if (result.size > 800 * 1024) {
-        alert(language === 'en'
-          ? 'Optimized video size exceeds limits. Please select a video of 5-10 seconds.'
-          : 'Оптимизированное видео превышает лимит. Пожалуйста, выберите отрезок длиной 5-10 секунд.');
+        alert(t('chatOptimizedVideoTooLarge'));
         return;
       }
 
@@ -343,7 +345,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
       setAttachmentSize(result.size);
     } catch (err: any) {
       console.error(err);
-      alert(language === 'en' ? `Failed to optimize video: ${err.message}` : `Ошибка обработки видео: ${err.message}`);
+      alert(formatCompressionError(err, t, 'chatVideoProcessingFailed'));
     } finally {
       setIsCompressing(false);
       setCompressionProgress('');
@@ -367,7 +369,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
       setLinkInputVal('');
       setLinkInputVisible(false);
     } catch (e) {
-      alert(language === 'en' ? 'Please enter a valid website link.' : 'Пожалуйста, введите рабочую ссылку.');
+      alert(t('chatInvalidLink'));
     }
   };
 
@@ -424,17 +426,17 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
             </div>
             <div className="min-w-0">
               <h4 className="font-serif text-sm font-medium text-[var(--ink)] truncate">
-                {t.chatTitle}
+                {t('chatDiscussionTitle')}
               </h4>
               <p className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)] truncate mt-0.5">
-                {t.lessonWith} {booking.instructorName} • {booking.date} @ {booking.time}
+                {t('lessonWith')} {booking.instructorName} • {booking.date} @ {booking.time}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             className="p-1 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
-            title={language === 'en' ? 'Close' : 'Закрыть'}
+            title={t('closeBtn')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -445,12 +447,12 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
           {isLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center text-[var(--ink-dim)] gap-2">
               <Loader2 className="w-6 h-6 animate-spin text-[var(--ink)]" />
-              <span className="text-[10px] font-mono uppercase tracking-wider">Loading discussion...</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider">{t('chatLoadingDiscussion')}</span>
             </div>
           ) : messages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center text-[var(--ink-dim)] p-8">
               <MessageSquare className="w-8 h-8 opacity-20 mb-2" />
-              <p className="text-xs font-mono uppercase tracking-wider max-w-xs">{t.noMessages}</p>
+              <p className="text-xs font-mono uppercase tracking-wider max-w-xs">{t('chatNoMessages')}</p>
             </div>
           ) : (
             messages.map((msg) => {
@@ -502,7 +504,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
                           ? 'border-amber-500/20 text-amber-400 bg-amber-950/20'
                           : 'border-emerald-500/20 text-emerald-400 bg-emerald-950/20'
                       }`}>
-                        {isSenderClient ? t.client : isSenderAdmin ? t.admin : t.instructor}
+                        {isSenderClient ? t('clientFallback') : isSenderAdmin ? t('administratorLabel') : t('instructorColumn')}
                       </span>
                     </div>
 
@@ -519,7 +521,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
                         <div className={`overflow-hidden border border-black/10 bg-black/5 max-w-full ${msg.text ? 'mt-2.5' : ''}`}>
                           <img 
                             src={msg.attachmentUrl} 
-                            alt={msg.attachmentName || 'Attached Photo'} 
+                            alt={msg.attachmentName || t('chatAttachedPhotoAlt')}
                             className="max-h-[220px] w-auto max-w-full object-contain mx-auto hover:scale-[1.02] transition-transform duration-300"
                             referrerPolicy="no-referrer"
                           />
@@ -600,10 +602,10 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
               onClick={() => fileInputRef.current?.click()}
               disabled={isSending || isCompressing}
               className="py-1 text-[var(--ink-dim)] hover:text-[var(--ink)] bg-transparent transition rounded-none cursor-pointer flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest"
-              title={language === 'en' ? 'Attach Photo' : 'Прикрепить фото'}
+              title={t('chatAttachPhoto')}
             >
               <Image className="w-3.5 h-3.5" />
-              <span>{language === 'en' ? 'Photo' : 'Фото'}</span>
+              <span>{t('chatPhoto')}</span>
             </button>
 
             <button
@@ -611,10 +613,10 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
               onClick={() => videoInputRef.current?.click()}
               disabled={isSending || isCompressing}
               className="py-1 text-[var(--ink-dim)] hover:text-[var(--ink)] bg-transparent transition rounded-none cursor-pointer flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest"
-              title={language === 'en' ? 'Attach Video' : 'Прикрепить видео'}
+              title={t('chatAttachVideo')}
             >
               <Video className="w-3.5 h-3.5" />
-              <span>{language === 'en' ? 'Video' : 'Видео'}</span>
+              <span>{t('chatVideo')}</span>
             </button>
 
             <button
@@ -624,10 +626,10 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
               className={`py-1 text-[var(--ink-dim)] hover:text-[var(--ink)] transition rounded-none cursor-pointer flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest ${
                 linkInputVisible ? 'text-[var(--ink)] font-bold' : ''
               }`}
-              title={language === 'en' ? 'Attach Link' : 'Прикрепить ссылку'}
+              title={t('chatAttachLink')}
             >
               <LinkIcon className="w-3.5 h-3.5" />
-              <span>{language === 'en' ? 'Link' : 'Ссылка'}</span>
+              <span>{t('chatLink')}</span>
             </button>
           </div>
 
@@ -646,7 +648,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
               type="text"
               value={linkInputVal}
               onChange={(e) => setLinkInputVal(e.target.value)}
-              placeholder={language === 'en' ? 'Enter website URL (e.g. google.com)...' : 'Введите адрес сайта...'}
+              placeholder={t('chatLinkPlaceholder')}
               className="flex-1 px-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none font-mono"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -660,7 +662,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
               onClick={handleLinkAttach}
               className="px-3 py-1.5 border border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)] hover:bg-transparent hover:text-[var(--ink)] transition text-[10px] font-mono uppercase tracking-wider rounded-none cursor-pointer"
             >
-              {language === 'en' ? 'Add' : 'Добавить'}
+              {t('chatAdd')}
             </button>
           </div>
         )}
@@ -671,7 +673,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-12 h-12 border border-[var(--border)] bg-black/20 overflow-hidden flex items-center justify-center shrink-0">
                 {attachmentType === 'image' ? (
-                  <img src={attachmentUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <img src={attachmentUrl} alt={t('chatPreviewAlt')} className="w-full h-full object-cover" />
                 ) : attachmentType === 'video' ? (
                   <div className="relative w-full h-full flex items-center justify-center bg-black">
                     <Video className="w-5 h-5 text-indigo-400" />
@@ -684,17 +686,17 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
               <div className="min-w-0">
                 <span className="text-[8px] font-mono uppercase tracking-wider text-indigo-400 font-bold block">
                   {attachmentType === 'image' 
-                    ? (language === 'en' ? 'Image Ready' : 'Изображение готово') 
+                    ? t('chatImageReady')
                     : attachmentType === 'video' 
-                    ? (language === 'en' ? 'Optimized Video' : 'Оптимизированное видео') 
-                    : (language === 'en' ? 'Link Attachment' : 'Ссылка прикреплена')}
+                    ? t('chatOptimizedVideo')
+                    : t('chatLinkAttachment')}
                 </span>
                 <span className="text-[10px] font-mono text-[var(--ink)] truncate block">
-                  {attachmentName || 'Attachment'}
+                  {attachmentName || t('chatAttachment')}
                 </span>
                 {attachmentSize && (
                   <span className="text-[8px] font-mono text-[var(--ink-dim)] block">
-                    {language === 'en' ? 'Size' : 'Размер'}: {(attachmentSize / 1024).toFixed(1)} KB
+                    {t('chatSize')}: {(attachmentSize / 1024).toFixed(1)} KB
                   </span>
                 )}
               </div>
@@ -708,7 +710,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
                 setAttachmentSize(undefined);
               }}
               className="p-1 border border-rose-500/30 text-rose-400 hover:text-rose-300 bg-rose-950/10 hover:border-rose-500 transition rounded-none cursor-pointer"
-              title={language === 'en' ? 'Remove Attachment' : 'Удалить вложение'}
+              title={t('chatRemoveAttachment')}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -724,7 +726,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder={t.placeholder}
+            placeholder={t('chatMessagePlaceholder')}
             className="flex-1 px-3.5 py-2.5 bg-black/10 dark:bg-white/5 border border-[var(--border)] text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
             maxLength={1000}
             disabled={isSending || isCompressing}
@@ -733,7 +735,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
             type="submit"
             disabled={(!inputText.trim() && !attachmentUrl) || isSending || isCompressing}
             className="p-2.5 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed text-[var(--ink)] transition rounded-none cursor-pointer flex items-center justify-center"
-            title={t.send}
+            title={t('chatSend')}
           >
             {isSending ? (
               <Loader2 className="w-4.5 h-4.5 animate-spin" />

@@ -1,6 +1,10 @@
 import React from 'react';
-import { translateCourse, splitCourseDates } from '../lib/LanguageContext';
-import type { Language } from '../lib/LanguageContext';
+import {
+  translateCourse,
+  splitCourseDates,
+  useLanguage,
+  type Language
+} from '../lib/LanguageContext';
 import { Booking, Course, UserProfile } from '../types';
 
 interface GroupCoursesSectionProps {
@@ -20,16 +24,17 @@ interface GroupCoursesSectionProps {
 export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
   data: { courses, bookings, userProfile, language },
   actions: { onViewDetails, onRequireAuth, onBookCourse }
-}) => (
-  <div id="courses-grid" className="space-y-6">
+}) => {
+  const { t } = useLanguage();
+
+  return (
+    <div id="courses-grid" className="space-y-6">
     <div>
       <h3 className="text-2xl font-serif text-[var(--ink)] tracking-tight font-light">
-        {language === 'en' ? 'Intensive Group Courses' : 'Интенсивные групповые курсы'}
+        {t('intensiveGroupCourses')}
       </h3>
       <p className="text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider mt-1 text-slate-400 dark:text-slate-500">
-        {language === 'en'
-          ? 'Accelerate your progress in focused, small-group training cohorts led by team leads'
-          : 'Ускорьте прогресс в мини-группах под руководством ведущих тренеров'}
+        {t('intensiveGroupCoursesSub')}
       </p>
     </div>
 
@@ -120,21 +125,21 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
                           <>
                             <span className="text-sm">🔴</span>
                             <span className="font-mono text-[11px] tracking-wide text-rose-500 font-bold">
-                              {language === 'en' ? 'No seats left' : 'Мест нет'}
+                              {t('noSeatsLeft')}
                             </span>
                           </>
                         ) : course.availableSeats <= 3 ? (
                           <>
                             <span className="text-sm">🟠</span>
                             <span className="font-mono text-[11px] tracking-wide text-amber-500 font-semibold">
-                              {language === 'en' ? `Only ${course.availableSeats} seats left!` : `Осталось всего ${course.availableSeats} мест!`}
+                              {t('onlySeatsLeftPrefix')}{course.availableSeats}{t('onlySeatsLeftSuffix')}
                             </span>
                           </>
                         ) : (
                           <>
                             <span className="text-sm">🟢</span>
                             <span className="font-mono text-[11px] tracking-wide text-emerald-500">
-                              {language === 'en' ? `${course.availableSeats} of ${course.totalSeats} seats available` : `${course.availableSeats} из ${course.totalSeats} мест свободно`}
+                              {course.availableSeats} {t('courseSeatsOf')} {course.totalSeats} {t('seatsAvailableSuffix')}
                             </span>
                           </>
                         )}
@@ -143,7 +148,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
                       <div className="border-t border-[var(--border)]/30 my-3 pt-3 flex justify-between items-baseline">
                         <span className="text-2xl font-serif text-[var(--ink)] font-light">${course.price}</span>
                         <span className="text-[9px] font-mono tracking-wider text-[var(--ink-dim)]">
-                          {language === 'en' ? 'per course' : 'за полный курс'}
+                          {t('perCourse')}
                         </span>
                       </div>
                     </div>
@@ -155,7 +160,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
                     onClick={() => onViewDetails(rawCourse)}
                     className="w-full py-2 border border-[var(--border)] bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 font-mono text-[10px] uppercase tracking-wider transition rounded-none cursor-pointer text-center text-[var(--ink)]"
                   >
-                    {language === 'en' ? 'Details' : 'Подробнее'}
+                    {t('courseDetails')}
                   </button>
                   <button
                     onClick={() => {
@@ -180,14 +185,14 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
                       ? (
                         <span className="flex items-center justify-center gap-1 normal-case font-sans">
                           <span className="text-emerald-500 font-bold text-xs">✔</span>{' '}
-                          {language === 'en' ? 'Enrolled' : 'Вы записаны'}
+                          {t('courseEnrolled')}
                         </span>
                       )
                       : userProfile?.isClientActive === false
-                        ? (language === 'en' ? 'Access Suspended' : 'Доступ приостановлен')
+                        ? t('accessSuspended')
                         : course.availableSeats === 0
-                          ? (language === 'en' ? 'Sold Out' : 'Мест нет')
-                          : (language === 'en' ? `Enroll →` : `Записаться →`)}
+                          ? t('courseSoldOut')
+                          : `${t('enroll')} →`}
                   </button>
                 </div>
               </div>
@@ -198,8 +203,9 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
     </div>
     {courses.filter(c => !c.isHidden).length === 0 && (
       <div className="text-center py-12 border border-dashed border-[var(--border)] bg-black/5 dark:bg-white/5 font-mono text-[11px] text-[var(--ink-dim)]">
-        {language === 'en' ? 'No intensive group courses are currently available.' : 'В данный момент нет доступных интенсивных групповых курсов.'}
+        {t('noIntensiveCoursesAvailable')}
       </div>
     )}
-  </div>
-);
+    </div>
+  );
+};

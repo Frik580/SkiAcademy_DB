@@ -1,5 +1,5 @@
 import { Instructor, Course } from '../../types';
-import type { Language } from './translations';
+import { translations, type Language, type TranslationKey } from './translations';
 import { parseCourseDates, formatCourseDates } from './courseDates';
 
 export function translateInstructorName(name: string, language: Language): string {
@@ -324,19 +324,15 @@ export function translateCourse(course: Course, language: Language): Course {
     ? (course.badgeRu || course.badge)
     : (course.badge || course.badgeRu);
 
-  // Helper to get localized levels
-  let levelLabel = '';
-  if (course.level) {
-    if (course.level === 'beginner') {
-      levelLabel = 'LEVEL 1 • BEGINNER';
-    } else if (course.level === 'intermediate') {
-      levelLabel = 'LEVEL 2 • CARVE';
-    } else if (course.level === 'advanced') {
-      levelLabel = 'LEVEL 3 • PRO';
-    } else if (course.level === 'expert') {
-      levelLabel = 'LEVEL 4 • EXPERT';
-    }
-  }
+  const levelLabelKeys: Partial<Record<NonNullable<Course['level']>, TranslationKey>> = {
+    beginner: 'courseLevelBeginner',
+    intermediate: 'courseLevelIntermediate',
+    advanced: 'courseLevelAdvanced',
+    expert: 'courseLevelExpert',
+  };
+  const levelLabel = course.level && levelLabelKeys[course.level]
+    ? translations[language][levelLabelKeys[course.level]!]
+    : '';
 
   return {
     ...course,

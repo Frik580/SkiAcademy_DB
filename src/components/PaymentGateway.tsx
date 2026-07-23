@@ -17,7 +17,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
   onPaymentSuccess
 }) => {
   const { addNotification } = useNotifications();
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const [selectedAmount, setSelectedAmount] = useState<number>(100);
   const [cardNumber, setCardNumber] = useState<string>('');
   const [expiry, setExpiry] = useState<string>('');
@@ -59,7 +59,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cardNumber || !expiry || !cvv || !cardholderName) {
-      addNotification('warning', 'Incomplete Details', language === 'en' ? 'Please fill out all simulated credit card fields.' : 'Пожалуйста, заполните все реквизиты тестовой карты.');
+      addNotification('warning', t('incompletePaymentDetails'), t('completeSimulatedCardFields'));
       return;
     }
 
@@ -73,10 +73,8 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
         setIsSuccess(true);
         addNotification(
           'success',
-          language === 'en' ? 'Simulated Payment Completed' : 'Тестовый платеж проведен',
-          language === 'en' 
-            ? `Successfully added $${selectedAmount} to your account balance.`
-            : `Успешно добавлено $${selectedAmount} на баланс вашего аккаунта.`
+          t('simulatedPaymentCompleted'),
+          `${t('refreshedWallet')} $${selectedAmount}.`
         );
 
         // Reset and close after a short display
@@ -90,7 +88,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
         }, 1500);
       } catch (err) {
         setIsPaying(false);
-        addNotification('error', 'Payment Failed', language === 'en' ? 'An error occurred while synchronizing your balance with Firestore.' : 'Произошла ошибка при сохранении баланса.');
+        addNotification('error', t('paymentFailed'), t('balanceSyncFailed'));
       }
     }, 1800);
   };
@@ -120,11 +118,11 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
             <div>
               <h4 className="font-serif text-lg font-light text-[var(--ink)]">{t('thankYou')}</h4>
               <p className="text-xs text-[var(--ink-dim)] mt-1 font-mono uppercase tracking-wide">
-                {language === 'en' ? 'Amount of ' : 'Сумма '}
-                <strong className="text-[var(--ink)] font-bold">${selectedAmount}</strong> {language === 'en' ? 'added to balance.' : 'зачислена на ваш баланс.'}
+                {t('refreshedWallet')}{' '}
+                <strong className="text-[var(--ink)] font-bold">${selectedAmount}</strong>.
               </p>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/10 border border-[var(--border)] rounded-none text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] mt-4">
-                <CreditCard className="w-3.5 h-3.5 text-[var(--ink-dim)]" /> {language === 'en' ? 'New Balance' : 'Новый баланс'}: ${currentBalance + selectedAmount}
+                <CreditCard className="w-3.5 h-3.5 text-[var(--ink-dim)]" /> {t('newBalance')}: ${currentBalance + selectedAmount}
               </div>
             </div>
           </div>
@@ -132,14 +130,14 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
           <form onSubmit={handlePay} className="p-6 space-y-5">
             {/* Quick Balance Information */}
             <div className="flex items-center justify-between bg-black/10 rounded-none p-4 border border-[var(--border)]">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">{language === 'en' ? 'Current Balance:' : 'Текущий баланс:'}</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">{t('currentBalance')}:</span>
               <span className="text-xl font-extrabold text-[var(--ink)] font-mono">${currentBalance}</span>
             </div>
 
             {/* Select Top-up Amount */}
             <div className="space-y-2">
               <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
-                {language === 'en' ? 'Select Amount' : 'Выберите сумму'}
+                {t('selectTopUpAmount')}
               </label>
               <div className="grid grid-cols-4 gap-2">
                 {[50, 100, 200, 500].map((amt) => (
@@ -162,7 +160,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
             {/* Card Information */}
             <div className="space-y-3 pt-4 border-t border-[var(--border)]">
               <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
-                {t('cardNumber')} ({language === 'en' ? 'Sandbox' : 'Песочница'})
+                {t('cardNumber')} ({t('sandbox')})
               </span>
 
               {/* Cardholder Name */}
@@ -180,7 +178,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
 
               {/* Card Number */}
               <div className="space-y-1">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">{language === 'en' ? 'Card Number' : 'Номер карты'}</label>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">{t('paymentCardNumber')}</label>
                 <div className="relative">
                   <input
                     type="text"
@@ -233,11 +231,11 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
               {isPaying ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  {language === 'en' ? 'Processing Simulated Payment...' : 'Обработка симуляции платежа...'}
+                  {t('processing')}
                 </>
               ) : (
                 <>
-                  {language === 'en' ? `Authorize Top Up of $${selectedAmount}` : `Подтвердить пополнение на $${selectedAmount}`}
+                  {t('authorizeTopUp')} ${selectedAmount}
                   <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}

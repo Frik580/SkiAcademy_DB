@@ -128,7 +128,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
   onClearNotifications
 }) => {
   const { notifications: localNotifications, clearAll: localClearAll } = useNotifications();
-  const { language } = useLanguage();
+  const { t } = useLanguage();
 
   if (!isOpen) return null;
 
@@ -182,7 +182,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4 text-[var(--ink-dim)]" />
             <h3 className="font-serif text-sm font-light text-[var(--ink)]">
-              {language === 'en' ? 'Notification History' : 'История уведомлений'}
+              {t('notificationHistory')}
             </h3>
           </div>
           <button
@@ -198,7 +198,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
           {unreviewedCompletedBookings.length > 0 && (
             <div className="space-y-2 pb-3 border-b border-[var(--border)]">
               <h4 className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] block mb-2">
-                🌟 {language === 'en' ? 'Rate Completed Lessons' : 'Оцените прошедшие уроки'}
+                🌟 {t('rateCompletedLessons')}
               </h4>
               <div className="space-y-2">
                 {unreviewedCompletedBookings.map((b) => (
@@ -226,13 +226,13 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
                         onClick={() => handleTriggerReview(b.id)}
                         className="shrink-0 text-[10px] font-mono uppercase tracking-wider border border-[var(--border)] bg-black/10 hover:border-[var(--ink)] hover:bg-black/20 text-[var(--ink)] px-2.5 py-1.5 transition cursor-pointer rounded-none"
                       >
-                        {language === 'en' ? 'Review' : 'Отзыв'}
+                        {t('reviewAction')}
                       </button>
                       {onDismissReview && (
                         <button
                           onClick={() => onDismissReview(b.id)}
                           className="p-1 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
-                          title={language === 'en' ? 'Hide' : 'Скрыть'}
+                          title={t('hide')}
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -248,7 +248,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
           <div className="space-y-3">
             {unreviewedCompletedBookings.length > 0 && notificationsToShow.length > 0 && (
               <h4 className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mb-2">
-                {language === 'en' ? 'System History' : 'История системы'}
+                {t('systemHistory')}
               </h4>
             )}
 
@@ -256,7 +256,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
               <div className="text-center py-8">
                 <Bell className="w-12 h-12 text-[var(--border)] mx-auto mb-2" />
                 <p className="text-sm text-[var(--ink-dim)] font-mono">
-                  {language === 'en' ? 'No active notifications' : 'Нет активных уведомлений'}
+                  {t('noActiveNotifications')}
                 </p>
               </div>
             ) : (
@@ -290,7 +290,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
               onClick={handleClearAll}
               className="text-[10px] font-mono uppercase tracking-wider text-rose-500 hover:text-rose-600 transition cursor-pointer bg-transparent border border-rose-950/40 hover:border-rose-500 px-3 py-1.5 rounded-none"
             >
-              {language === 'en' ? 'Clear History' : 'Очистить историю'}
+              {t('clearHistory')}
             </button>
           </div>
         )}

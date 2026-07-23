@@ -17,7 +17,7 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
   instructor,
   reviews,
 }) => {
-  const { language } = useLanguage();
+  const { t } = useLanguage();
   const [activeInstructor, setActiveInstructor] = React.useState<Instructor | null>(instructor);
 
   React.useEffect(() => {
@@ -71,12 +71,10 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
             </div>
             <div>
               <h3 className="font-serif text-lg font-light text-[var(--ink)]">
-                {language === 'en' ? `Reviews for ${targetInstructor.name}` : `Отзывы об инструкторе ${targetInstructor.name}`}
+                {t('reviewsForInstructor')} {targetInstructor.name}
               </h3>
               <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5">
-                {language === 'en' 
-                  ? `${targetInstructor.experienceYears} years of coaching experience` 
-                  : `${targetInstructor.experienceYears} лет тренерского стажа`}
+                {targetInstructor.experienceYears} {t('yearsOfCoachingExperience')}
               </p>
             </div>
           </div>
@@ -112,7 +110,7 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
               </div>
               <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider mt-2.5 font-medium flex items-center gap-1">
                 <MessageSquare className="w-3 h-3" />
-                {totalReviews} {language === 'en' ? 'reviews total' : 'всего отзывов'}
+                {totalReviews} {t('reviewsTotal')}
               </span>
             </div>
 
@@ -141,21 +139,17 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
           {/* List of individual reviews */}
           <div className="space-y-4">
             <h4 className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
-              {language === 'en' ? 'Review Feed' : 'Лента отзывов'}
+              {t('reviewFeed')}
             </h4>
 
             {instructorReviews.length === 0 ? (
               <div className="py-12 text-center border border-dashed border-[var(--border)] rounded-none bg-black/5">
                 <MessageSquare className="w-8 h-8 text-[var(--ink-dim)] mx-auto mb-2 opacity-55" />
                 <p className="text-xs text-[var(--ink)] font-mono">
-                  {language === 'en' 
-                    ? 'No written reviews found for this instructor yet.' 
-                    : 'Письменных отзывов об этом инструкторе пока нет.'}
+                  {t('noInstructorWrittenReviews')}
                 </p>
                 <p className="text-[10px] text-[var(--ink-dim)] font-mono mt-1 uppercase tracking-wider">
-                  {language === 'en'
-                    ? 'Be the first to review after scheduling a coaching lesson!'
-                    : 'Оставьте первый отзыв после прохождения совместной тренировки!'}
+                  {t('firstInstructorReviewPrompt')}
                 </p>
               </div>
             ) : (
@@ -212,7 +206,7 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer"
           >
-            {language === 'en' ? 'Close' : 'Закрыть'}
+            {t('closeBtn')}
           </button>
         </div>
           </motion.div>

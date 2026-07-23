@@ -1,626 +1,182 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { User } from 'firebase/auth';
 import {
+  collection,
   db,
+  deleteDoc,
   doc,
   getDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  collection,
-  query,
-  where,
+  handleFirestoreError,
   onSnapshot,
   OperationType,
-  handleFirestoreError,
-  runTransaction,
-  writeBatch,
-  auth
+  query,
+  setDoc,
+  updateDoc,
 } from '../lib/firebase';
-import { UserProfile, Instructor, Booking, Review, Course } from '../types';
-import { SkillConfig, DEFAULT_SKILL_CONFIG } from '../lib/skillData';
-import { useNotifications } from '../components/PushNotificationHub';
-import { useLanguage, parseDurationHours, splitCourseDates, getGroupCourseLabel, getGroupCourseEnrollmentNote, getGroupScheduleLabel, translateCourse } from '../lib/LanguageContext';
-import confetti from 'canvas-confetti';
-import { User } from 'firebase/auth';
 import { canManageAdminRoles } from '../lib/accessControl';
-import {
-  AVAILABILITY_SLOTS_COLLECTION,
-  blocksInstructorAvailability,
-  isCourseBooking,
-  toAvailabilitySlot,
-} from '../lib/availabilitySlots';
-import { createNotificationForUser } from '../lib/notifications';
+import { useLanguage } from '../lib/LanguageContext';
+import { DEFAULT_SKILL_CONFIG, SkillConfig } from '../lib/skillData';
+import { Instructor, Review, UserProfile } from '../types';
 import { useAvailabilityMigration } from './useAvailabilityMigration';
+import { useBookings } from './useBookings';
+import { useCourses } from './useCourses';
 import { useDismissedReviews } from './useDismissedReviews';
+import { useNotifications as useDbNotifications } from './useNotifications';
+import { useNotifications as useNotificationHub } from './PushNotificationHub';
 
-export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile | null, setUserProfile: (profile: UserProfile | null) => void) => {
-  const { addNotification } = useNotifications();
-  const { language, t } = useLanguage();
+type SetUserProfile = (profile: UserProfile | null) => void;
 
-  // App Domain State
+export const useAppLogic = (
+  firebaseUser: User | null,
+  userProfile: UserProfile | null,
+  setUserProfile: SetUserProfile
+) => {
+  const { addNotification } = useNotificationHub();
+  const { t } = useLanguage();
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [dbNotifications, setDbNotifications] = useState<any[]>([]);
-  const [deletedCompletedStats, setDeletedCompletedStats] = useState<{ revenue: number; count: number }>({ revenue: 0, count: 0 });
-  const [filtersEnabled, setFiltersEnabled] = useState<boolean>(true);
+  const [filtersEnabled, setFiltersEnabled] = useState(true);
   const [skillConfig, setSkillConfig] = useState<SkillConfig>(DEFAULT_SKILL_CONFIG);
-  const [bookingsLoaded, setBookingsLoaded] = useState(false);
 
-  // Load initial settings and stats
+  const bookingLogic = useBookings(firebaseUser, userProfile, setUserProfile);
+  const courseLogic = useCourses(
+    firebaseUser,
+    userProfile,
+    setUserProfile,
+    bookingLogic.bookings
+  );
+  const notificationLogic = useDbNotifications(firebaseUser);
+
+  useAvailabilityMigration(
+    userProfile?.role,
+    bookingLogic.bookingsLoaded,
+    bookingLogic.bookings
+  );
+
   useEffect(() => {
-    const loadInitialData = async () => {
-      // Load Settings
+    const loadFilters = async () => {
       try {
-        const settingsSnap = await getDoc(doc(db, 'settings', 'instructor_filters'));
-        setFiltersEnabled(settingsSnap.exists() ? (settingsSnap.data().enabled ?? true) : true);
-      } catch (e) {
+        const settingsSnapshot = await getDoc(doc(db, 'settings', 'instructor_filters'));
+        setFiltersEnabled(
+          settingsSnapshot.exists() ? (settingsSnapshot.data().enabled ?? true) : true
+        );
+      } catch {
         setFiltersEnabled(true);
       }
-
-      // Load Skill Config
-      try {
-        const skillSnap = await getDoc(doc(db, 'settings', 'skill_config'));
-        if (skillSnap.exists()) {
-          const data = skillSnap.data();
-          setSkillConfig({
-            passPercentage: data.passPercentage ?? 80,
-            items: data.items && Array.isArray(data.items) && data.items.length > 0 ? data.items : DEFAULT_SKILL_CONFIG.items
-          });
-        }
-      } catch (e) {
-        console.error("Error loading skill_config:", e);
-      }
-
-      // Fetch admin stats
-      if (userProfile?.role === 'admin' && firebaseUser) {
-        try {
-          const statsDoc = await getDoc(doc(db, 'users', 'school_global_stats'));
-          if (statsDoc.exists()) {
-            const data = statsDoc.data();
-            setDeletedCompletedStats({ revenue: data.deletedCompletedRevenue || 0, count: data.deletedCompletedCount || 0 });
-          }
-        } catch (err) {
-          console.error("Error fetching stats:", err);
-        }
-      }
     };
 
-    loadInitialData();
-  }, [firebaseUser, userProfile]);
+    loadFilters();
+  }, []);
 
-  // Real-time Firestore sync
   useEffect(() => {
-    const unsubscribers: (() => void)[] = [];
+    const unsubscribers = [
+      onSnapshot(query(collection(db, 'instructors')), (snapshot) => {
+        setInstructors(snapshot.docs.map((instructorDoc) => ({
+          id: instructorDoc.id,
+          ...instructorDoc.data(),
+        } as Instructor)));
+      }, (error) => handleFirestoreError(error, OperationType.LIST, 'instructors')),
 
-    // Courses
-    const coursesQuery = query(collection(db, 'courses'));
-    unsubscribers.push(onSnapshot(coursesQuery, (snap) => {
-      const courseList = snap.docs.map(d => ({ id: d.id, ...d.data() } as Course));
-      setCourses(courseList);
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'courses')));
+      onSnapshot(query(collection(db, 'reviews')), (snapshot) => {
+        setReviews(snapshot.docs.map((reviewDoc) => ({
+          id: reviewDoc.id,
+          ...reviewDoc.data(),
+        } as Review)));
+      }, (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')),
 
-    // Instructors
-    const instructorsQuery = query(collection(db, 'instructors'));
-    unsubscribers.push(onSnapshot(instructorsQuery, (snap) => {
-      const instructorList = snap.docs.map(d => ({ id: d.id, ...d.data() } as Instructor));
-      setInstructors(instructorList);
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'instructors')));
-
-    // Reviews
-    const reviewsQuery = query(collection(db, 'reviews'));
-    unsubscribers.push(onSnapshot(reviewsQuery, (snap) => {
-      const reviewList = snap.docs.map(d => ({ id: d.id, ...d.data() } as Review));
-      setReviews(reviewList);
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'reviews')));
-
-    // Skill Config Settings
-    unsubscribers.push(onSnapshot(doc(db, 'settings', 'skill_config'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
+      onSnapshot(doc(db, 'settings', 'skill_config'), (snapshot) => {
+        if (!snapshot.exists()) return;
+        const data = snapshot.data();
         setSkillConfig({
           passPercentage: data.passPercentage ?? 80,
-          items: data.items && Array.isArray(data.items) && data.items.length > 0 ? data.items : DEFAULT_SKILL_CONFIG.items
+          items: Array.isArray(data.items) && data.items.length > 0
+            ? data.items
+            : DEFAULT_SKILL_CONFIG.items,
         });
-      }
-    }, (err) => console.error("Skill config listener error:", err)));
+      }, (error) => console.error('Skill config listener error:', error)),
+    ];
 
-    if (firebaseUser) {
-      const isAdminUser = userProfile?.role === 'admin';
-      const instructorId = userProfile?.instructorId;
-      const isInstructorUser = !!instructorId;
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, []);
 
-      // Bookings
-      const bookingsQuery = isAdminUser
-        ? query(collection(db, 'bookings'))
-        : instructorId
-          ? query(collection(db, 'bookings'), where('instructorId', '==', instructorId))
-          : query(collection(db, 'bookings'), where('userId', '==', firebaseUser.uid));
-      unsubscribers.push(onSnapshot(bookingsQuery, (snap) => {
-        const list: Booking[] = snap.docs.map(d => ({ id: d.id, ...d.data() } as Booking));
-        setBookings(list.sort((a, b) => b.date.localeCompare(a.date)));
-        setBookingsLoaded(true);
-      }, (err) => handleFirestoreError(err, OperationType.LIST, 'bookings')));
-
-      // Users List (Admin and Instructor)
-      if (isAdminUser || isInstructorUser) {
-        const usersQuery = query(collection(db, 'users'));
-        unsubscribers.push(onSnapshot(usersQuery, (snap) => {
-          const ulist: UserProfile[] = snap.docs
-            .filter(d => d.id !== 'school_global_stats')
-            .map(d => d.data() as UserProfile);
-          setUsersList(ulist);
-        }, (err) => handleFirestoreError(err, OperationType.LIST, 'users')));
-      } else {
-        setUsersList([]);
-      }
-
-      // Notifications
-      const notificationsQuery = query(collection(db, 'notifications'), where('userId', '==', firebaseUser.uid));
-      unsubscribers.push(onSnapshot(notificationsQuery, (snap) => {
-        const list: any[] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        setDbNotifications(list);
-
-        snap.docChanges().forEach((change) => {
-          if (change.type === 'added') {
-            const data = change.doc.data();
-            if (Date.now() - new Date(data.timestamp).getTime() < 15000) {
-              addNotification(data.type || 'info', data.title, data.message);
-            }
-          }
-        });
-      }, (err) => console.error('Notifications sync error:', err)));
-    } else {
-      setBookings([]);
-      setBookingsLoaded(false);
+  useEffect(() => {
+    const canReadUsers = userProfile?.role === 'admin' || Boolean(userProfile?.instructorId);
+    if (!firebaseUser || !canReadUsers) {
       setUsersList([]);
-      setDbNotifications([]);
+      return;
     }
 
-    return () => unsubscribers.forEach(unsub => unsub());
-  }, [firebaseUser, userProfile, addNotification]);
-
-  useAvailabilityMigration(userProfile?.role, bookingsLoaded, bookings);
-
-  // Auto-sync course seats
-  const bookingsDeps = bookings.map((b) => `${b.id}:${b.status}:${b.isDeleted}`).join(',');
-  const coursesDeps = courses.map((c) => `${c.id}:${c.totalSeats}:${c.availableSeats}`).join(',');
-  useEffect(() => {
-    if (userProfile?.role !== 'admin' || courses.length === 0) return;
-    const syncCourseSeats = async () => {
-      for (const course of courses) {
-        const activeBookingsCount = bookings.filter(b => b.instructorId === `course_${course.id}` && b.status !== 'cancelled' && !b.isDeleted).length;
-        const realAvailableSeats = Math.max(0, course.totalSeats - activeBookingsCount);
-        if (course.availableSeats !== realAvailableSeats) {
-          console.log(`[Auto-Sync] Correcting seats for ${course.title}: local=${course.availableSeats}, real=${realAvailableSeats}`);
-          try {
-            await updateDoc(doc(db, 'courses', course.id), { availableSeats: realAvailableSeats });
-          } catch (err) {
-            console.error(`Failed to auto-sync seats for course ${course.id}:`, err);
-          }
-        }
-      }
-    };
-    syncCourseSeats();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userProfile?.role, bookingsDeps, coursesDeps]);
-
-  // Auto-complete past lessons
-  useEffect(() => {
-    if (!firebaseUser || bookings.length === 0) return;
-    const checkAndCompleteLessons = async () => {
-      const now = new Date();
-      for (const b of bookings) {
-        if (b.status === 'confirmed' || b.status === 'pending_cancellation') {
-          const [year, month, day] = b.date.split('-').map(Number);
-          const [hour, minute] = b.time.split(':').map(Number);
-          const endDate = new Date(new Date(year, month - 1, day, hour, minute, 0).getTime() + b.durationHours * 60 * 60 * 1000);
-          if (now >= endDate) {
-            try {
-              const batch = writeBatch(db);
-              batch.update(doc(db, 'bookings', b.id), { status: 'completed' });
-              if (!isCourseBooking(b)) {
-                batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, b.id));
-              }
-              await batch.commit();
-              addNotification(
-                'success',
-                t('lessonAutoCompleted'),
-                `${t('lessonAutoCompletedDesc')} ${b.instructorName} ${t('lessonAutoCompletedSuffix')}`
-              );
-            } catch (e) {
-              console.error(`Failed to auto-complete booking ${b.id}:`, e);
-            }
-          }
-        }
-      }
-    };
-    const interval = setInterval(checkAndCompleteLessons, 10000);
-    return () => clearInterval(interval);
-  }, [bookings, firebaseUser, language, addNotification]);
+    return onSnapshot(query(collection(db, 'users')), (snapshot) => {
+      setUsersList(snapshot.docs
+        .filter((userDoc) => userDoc.id !== 'school_global_stats')
+        .map((userDoc) => userDoc.data() as UserProfile));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
+  }, [firebaseUser, userProfile?.instructorId, userProfile?.role]);
 
   const { dismissedReviewIds, handleDismissReview } = useDismissedReviews(userProfile?.uid);
 
   const handlePaymentSuccess = async (amount: number) => {
     if (!userProfile || !firebaseUser) return;
-    const newBal = userProfile.balanceUSD + amount;
-    await updateDoc(doc(db, 'users', firebaseUser.uid), { balanceUSD: newBal });
-    setUserProfile({ ...userProfile, balanceUSD: newBal });
+    const balanceUSD = userProfile.balanceUSD + amount;
+    await updateDoc(doc(db, 'users', firebaseUser.uid), { balanceUSD });
+    setUserProfile({ ...userProfile, balanceUSD });
   };
 
-  const handleBookingSuccess = async (booking: Booking, totalCost: number) => {
-    if (!userProfile || !firebaseUser) return;
-    try {
-      await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await transaction.get(userRef);
-        if (!userSnap.exists()) {
-          throw new Error('User profile does not exist.');
-        }
-        const currentBalance = userSnap.data().balanceUSD ?? 0;
-        if (currentBalance < totalCost) {
-          throw new Error(t('insufficientFunds'));
-        }
-        const newBal = currentBalance - totalCost;
-        const bookingRef = doc(db, 'bookings', booking.id);
-        transaction.set(bookingRef, booking);
-        if (blocksInstructorAvailability(booking)) {
-          transaction.set(
-            doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id),
-            toAvailabilitySlot(booking)
-          );
-        }
-        transaction.update(userRef, { balanceUSD: newBal });
-      });
-      const newBal = userProfile.balanceUSD - totalCost;
-      setUserProfile({ ...userProfile, balanceUSD: newBal });
-      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `bookings/${booking.id} (transaction)`);
-      throw err;
-    }
-  };
-
-  const handleReschedule = async (id: string, newDate: string, newTime: string) => {
-    const booking = bookings.find(b => b.id === id);
-    if (!booking) return;
-
-    const batch = writeBatch(db);
-    batch.update(doc(db, 'bookings', id), { date: newDate, time: newTime });
-    if (blocksInstructorAvailability(booking)) {
-      batch.set(
-        doc(db, AVAILABILITY_SLOTS_COLLECTION, id),
-        toAvailabilitySlot({ ...booking, date: newDate, time: newTime })
-      );
-    }
-    await batch.commit();
-
-    if (booking && userProfile?.role === 'admin') {
-      await createNotificationForUser(
-        booking.userId,
-        t('lessonRescheduled'),
-        `${t('lessonRescheduledAdminPrefix')} ${booking.instructorName} ${t('lessonRescheduledAdminMiddle')} ${newDate} ${t('lessonRescheduledAdminAt')} ${newTime}.`
-      );
-    }
-  };
-
-  const handleAddCourse = async (course: Course) => {
-    await setDoc(doc(db, 'courses', course.id), course);
-  };
-
-  const handleUpdateCourse = async (course: Course) => {
-    await updateDoc(doc(db, 'courses', course.id), course as any);
-    if (userProfile?.role === 'admin') {
-      const oldCourse = courses.find((c) => c.id === course.id);
-      const courseBookings = bookings.filter(b => b.instructorId === `course_${course.id}` && b.status !== 'cancelled');
-      let changeDetails = '';
-      if (oldCourse) {
-        if (oldCourse.title !== course.title) {
-          changeDetails += `${t('courseModifiedTitleLine')} "${course.title}".\n`;
-        }
-        if (oldCourse.dates !== course.dates) {
-          changeDetails += `${t('courseModifiedDatesLine')} ${course.dates}.\n`;
-        }
-      }
-      const message = `${t('courseModifiedHeader')} "${course.title}":\n${changeDetails || t('courseModifiedDefault')}`;
-      for (const booking of courseBookings) {
-        await createNotificationForUser(
-          booking.userId,
-          t('courseModified'),
-          message,
-          'warning'
-        );
-      }
-    }
-  };
-
-  const handleDeleteCourse = async (courseId: string) => {
-    await deleteDoc(doc(db, 'courses', courseId));
-  };
-
-  const handleBookCourse = async (courseId: string, customProfile?: UserProfile) => {
-    const activeProfile = customProfile || userProfile;
-    const activeUser = firebaseUser || auth.currentUser;
-
-    if (!activeProfile || !activeUser) {
-      addNotification(
-        'warning',
-        t('signInRequired'),
-        t('signInRequiredDesc')
-      );
-      return;
-    }
-    if (activeProfile.isClientActive === false) {
-      addNotification(
-        'error',
-        t('bookingRestricted'),
-        t('bookingRestrictedDesc')
-      );
-      return;
-    }
-
-    const courseDocRef = doc(db, 'courses', courseId);
-    const userDocRef = doc(db, 'users', activeUser.uid);
-    const bookingId = `booking_course_${activeUser.uid}_${courseId}`;
-    const bookingDocRef = doc(db, 'bookings', bookingId);
-
-    try {
-      let courseTitle = '';
-      await runTransaction(db, async (transaction) => {
-        const courseSnap = await transaction.get(courseDocRef);
-        const userSnap = await transaction.get(userDocRef);
-        const bookingSnap = await transaction.get(bookingDocRef);
-
-        if (!courseSnap.exists()) {
-          throw new Error('Course does not exist.');
-        }
-        if (!userSnap.exists()) {
-          throw new Error('User profile does not exist.');
-        }
-
-        const courseData = courseSnap.data() as Course;
-        const userData = userSnap.data() as UserProfile;
-        const localizedCourse = translateCourse(courseData, language);
-        courseTitle = localizedCourse.title;
-
-        // Check if user is already enrolled
-        if (bookingSnap.exists()) {
-          const bookingData = bookingSnap.data();
-          if (bookingData.status !== 'cancelled' && !bookingData.isDeleted) {
-            throw new Error('ALREADY_ENROLLED');
-          }
-        }
-
-        // Check active seats
-        if (courseData.availableSeats <= 0) {
-          throw new Error('COURSE_FULL');
-        }
-
-        // Check balance
-        if (userData.balanceUSD < courseData.price) {
-          throw new Error('INSUFFICIENT_FUNDS');
-        }
-
-        const newBal = userData.balanceUSD - courseData.price;
-        const newSeats = courseData.availableSeats - 1;
-
-        const { datePart, timePart } = splitCourseDates(courseData.dates, language);
-        const newBooking: Booking = {
-          id: bookingId,
-          userId: userData.uid,
-          instructorId: `course_${courseId}`,
-          instructorName: getGroupCourseLabel(localizedCourse.title, language),
-          instructorAvatar: courseData.bgImageUrl,
-          date: datePart || courseData.dates,
-          time: timePart || getGroupScheduleLabel(language),
-          durationHours: parseDurationHours(courseData.duration, 10),
-          totalPrice: courseData.price,
-          status: 'confirmed',
-          difficulty: 'intermediate',
-          notes: getGroupCourseEnrollmentNote(localizedCourse.description, language)
-        };
-
-        // Write updates
-        transaction.update(userDocRef, { balanceUSD: newBal });
-        transaction.update(courseDocRef, { availableSeats: newSeats });
-        transaction.set(bookingDocRef, newBooking);
-      });
-
-      // Update local state after transaction succeeds
-      const courseObj = courses.find(c => c.id === courseId);
-      if (courseObj && activeProfile) {
-        setUserProfile({ ...activeProfile, balanceUSD: activeProfile.balanceUSD - courseObj.price });
-      }
-
-      addNotification(
-        'success',
-        t('enrollmentConfirmed'),
-        `${t('enrollmentConfirmedDesc')} ${courseTitle}.`
-      );
-      confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-    } catch (err: any) {
-      if (err.message === 'ALREADY_ENROLLED') {
-        addNotification(
-          'warning',
-          t('alreadyEnrolled'),
-          t('alreadyEnrolledDesc')
-        );
-      } else if (err.message === 'COURSE_FULL' || err.message === 'INSUFFICIENT_FUNDS') {
-        addNotification(
-          'error',
-          t('bookingFailed'),
-          t('bookingFailedDesc')
-        );
-      } else {
-        handleFirestoreError(err, OperationType.WRITE, `courses/${courseId}/enroll`);
-      }
-    }
-  };
-
-  const handleCancel = async (id: string, refundAmount?: number) => {
-    if (!firebaseUser) return;
-    const booking = bookings.find((b) => b.id === id);
-    if (!booking) return;
-
-    const bookingRef = doc(db, 'bookings', id);
-    const bookingOwnerId = booking.userId;
-    const isSystemBlock = bookingOwnerId.startsWith('system_block_');
-    const userRef = doc(db, 'users', bookingOwnerId);
-
-    try {
-      await runTransaction(db, async (transaction) => {
-        const bookingSnap = await transaction.get(bookingRef);
-        if (!bookingSnap.exists()) {
-          throw new Error('Booking does not exist.');
-        }
-
-        const bookingData = bookingSnap.data() as Booking;
-        if (bookingData.status === 'cancelled') {
-          return;
-        }
-
-        // --- READS ---
-        let userSnap = null;
-        if (!isSystemBlock) {
-          userSnap = await transaction.get(userRef);
-        }
-
-        let courseSnap = null;
-        let courseRef = null;
-        if (bookingData.instructorId.startsWith('course_')) {
-          const courseId = bookingData.instructorId.substring('course_'.length);
-          courseRef = doc(db, 'courses', courseId);
-          courseSnap = await transaction.get(courseRef);
-        }
-
-        // --- WRITES ---
-        const refund = bookingData.status === 'completed' ? 0 : (refundAmount ?? bookingData.totalPrice ?? 0);
-
-        if (!isSystemBlock && userSnap && userSnap.exists()) {
-          const userData = userSnap.data() as UserProfile;
-          const newBal = (userData.balanceUSD ?? 0) + refund;
-          transaction.update(userRef, { balanceUSD: newBal });
-        }
-
-        transaction.update(bookingRef, { status: 'cancelled' });
-        if (!isCourseBooking(bookingData)) {
-          transaction.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, id));
-        }
-
-        if (courseSnap && courseSnap.exists() && courseRef) {
-          const courseData = courseSnap.data() as Course;
-          const newAvailableSeats = Math.min(courseData.totalSeats, courseData.availableSeats + 1);
-          transaction.update(courseRef, { availableSeats: newAvailableSeats });
-        }
-      });
-
-      if (bookingOwnerId === firebaseUser.uid && userProfile) {
-        const refund = booking.status === 'completed' ? 0 : (refundAmount ?? booking.totalPrice ?? 0);
-        setUserProfile({ ...userProfile, balanceUSD: userProfile.balanceUSD + refund });
-      }
-
-      if (userProfile?.role === 'admin' && !isSystemBlock) {
-        await createNotificationForUser(
-          bookingOwnerId,
-          t('lessonCancelled'),
-          `${t('lessonCancelledDescPrefix')} ${booking.instructorName} ${t('lessonCancelledDescSuffix')}`,
-          'warning'
-        );
-      }
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `bookings/${id}/cancel`);
-    }
-  };
-
-  const handleRequestCancel = async (id: string, reason?: string) => {
-    await updateDoc(doc(db, 'bookings', id), { status: 'pending_cancellation', cancellationReason: reason || '' });
-  };
-
-  const handleAddReview = async (newReviewInput: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>) => {
+  const handleAddReview = async (
+    newReviewInput: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>
+  ) => {
     if (!userProfile) return;
-    const newRev: Review = {
+
+    const newReview: Review = {
       id: `rev_${Date.now()}`,
       userId: userProfile.uid,
       userName: userProfile.displayName,
       userAvatar: userProfile.avatarUrl,
       date: new Date().toISOString().split('T')[0],
-      ...newReviewInput
+      ...newReviewInput,
     };
-    await setDoc(doc(db, 'reviews', newRev.id), newRev);
-    const updatedReviews = [newRev, ...reviews];
-    const insReviews = updatedReviews.filter((r) => r.instructorId === newRev.instructorId);
-    const avgRating = insReviews.reduce((sum, r) => sum + r.rating, 0) / insReviews.length;
-    await updateDoc(doc(db, 'instructors', newRev.instructorId), { rating: Number(avgRating.toFixed(1)), reviewsCount: insReviews.length });
+    await setDoc(doc(db, 'reviews', newReview.id), newReview);
+
+    const instructorReviews = [newReview, ...reviews]
+      .filter((review) => review.instructorId === newReview.instructorId);
+    const averageRating = instructorReviews.reduce(
+      (sum, review) => sum + review.rating,
+      0
+    ) / instructorReviews.length;
+    await updateDoc(doc(db, 'instructors', newReview.instructorId), {
+      rating: Number(averageRating.toFixed(1)),
+      reviewsCount: instructorReviews.length,
+    });
   };
 
-  const handleAddInstructor = async (newIns: Instructor) => await setDoc(doc(db, 'instructors', newIns.id), newIns);
-  const handleUpdateInstructor = async (updatedIns: Instructor) => {
-    await setDoc(doc(db, 'instructors', updatedIns.id), updatedIns);
-    const bookingsToUpdate = bookings.filter((b) => b.instructorId === updatedIns.id);
-    for (const b of bookingsToUpdate) {
-      await updateDoc(doc(db, 'bookings', b.id), { instructorName: updatedIns.name, instructorAvatar: updatedIns.avatarUrl });
-    }
-  };
-  const handleDeleteInstructor = async (id: string) => await deleteDoc(doc(db, 'instructors', id));
-
-  const handleAddBooking = async (booking: Booking) => {
-    const isSystemBlock = booking.userId.startsWith('system_block_');
-    const userRef = doc(db, 'users', booking.userId);
-    const bookingRef = doc(db, 'bookings', booking.id);
-
-    try {
-      await runTransaction(db, async (transaction) => {
-        if (!isSystemBlock) {
-          const userSnap = await transaction.get(userRef);
-          if (userSnap.exists()) {
-            const userData = userSnap.data() as UserProfile;
-            const newBal = (userData.balanceUSD ?? 0) - booking.totalPrice;
-            transaction.update(userRef, { balanceUSD: newBal });
-          }
-        }
-        transaction.set(bookingRef, booking);
-        if (blocksInstructorAvailability(booking)) {
-          transaction.set(
-            doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id),
-            toAvailabilitySlot(booking)
-          );
-        }
-      });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `bookings/${booking.id}/add`);
-    }
+  const handleAddInstructor = async (instructor: Instructor) => {
+    await setDoc(doc(db, 'instructors', instructor.id), instructor);
   };
 
-  const handleDeleteBooking = async (id: string) => {
-    const booking = bookings.find((b) => b.id === id);
-    if (!booking) return;
+  const handleUpdateInstructor = async (instructor: Instructor) => {
+    await setDoc(doc(db, 'instructors', instructor.id), instructor);
+    const affectedBookings = bookingLogic.bookings.filter(
+      (booking) => booking.instructorId === instructor.id
+    );
+    await Promise.all(affectedBookings.map((booking) =>
+      updateDoc(doc(db, 'bookings', booking.id), {
+        instructorName: instructor.name,
+        instructorAvatar: instructor.avatarUrl,
+      })
+    ));
+  };
 
-    if (booking.status === 'completed') {
-      const newStats = { revenue: deletedCompletedStats.revenue + (booking.totalPrice || 0), count: deletedCompletedStats.count + 1 };
-      await setDoc(doc(db, 'users', 'school_global_stats'), { deletedCompletedRevenue: newStats.revenue, deletedCompletedCount: newStats.count }, { merge: true });
-      await updateDoc(doc(db, 'bookings', id), { isDeleted: true });
-    } else {
-      const batch = writeBatch(db);
-      batch.delete(doc(db, 'bookings', id));
-      if (!isCourseBooking(booking)) {
-        batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, id));
-      }
-      await batch.commit();
-    }
+  const handleDeleteInstructor = async (id: string) => {
+    await deleteDoc(doc(db, 'instructors', id));
   };
 
   const handleUpdateUserRole = async (targetUid: string, newRole: 'admin' | 'user') => {
     if (!canManageAdminRoles(userProfile)) {
-      addNotification(
-        'error',
-        t('accessDenied'),
-        t('accessDeniedDesc')
-      );
+      addNotification('error', t('accessDenied'), t('accessDeniedDesc'));
       return;
     }
+
     await updateDoc(doc(db, 'users', targetUid), { role: newRole });
     addNotification(
       'success',
@@ -629,50 +185,16 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
     );
   };
 
-  const handleAddUser = async (newUser: UserProfile) => await setDoc(doc(db, 'users', newUser.uid), newUser);
+  const handleAddUser = async (newUser: UserProfile) => {
+    await setDoc(doc(db, 'users', newUser.uid), newUser);
+  };
+
   const handleUpdateUser = async (updatedUser: UserProfile) => {
-    const userRef = doc(db, 'users', updatedUser.uid);
-    // Create a copy to avoid passing undefined values which Firestore rejects.
-    await updateDoc(userRef, { ...updatedUser });
-  };
-  const handleDeleteUser = async (targetUid: string) => await deleteDoc(doc(db, 'users', targetUid));
-
-  const handleConfirmBooking = async (id: string) => {
-    await updateDoc(doc(db, 'bookings', id), { status: 'confirmed' });
-    const booking = bookings.find((b) => b.id === id);
-    if (booking) {
-      await createNotificationForUser(
-        booking.userId,
-        t('lessonConfirmedAdmin'),
-        `${t('lessonConfirmedDescPrefix')} ${booking.instructorName} ${t('lessonConfirmedDescSuffix')}`,
-        'success'
-      );
-    }
+    await updateDoc(doc(db, 'users', updatedUser.uid), { ...updatedUser });
   };
 
-  const handleCompleteBooking = async (id: string) => {
-    const booking = bookings.find((b) => b.id === id);
-    const batch = writeBatch(db);
-    batch.update(doc(db, 'bookings', id), { status: 'completed' });
-    if (booking && !isCourseBooking(booking)) {
-      batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, id));
-    }
-    await batch.commit();
-    if (booking) {
-      await createNotificationForUser(
-        booking.userId,
-        t('lessonCompletedAdmin'),
-        `${t('lessonCompletedDescPrefix')} ${booking.instructorName} ${t('lessonCompletedDescSuffix')}`,
-        'success'
-      );
-    }
-  };
-
-  const handleClearNotifications = async () => {
-    if (!firebaseUser || dbNotifications.length === 0) return;
-    for (const notif of dbNotifications) {
-      await deleteDoc(doc(db, 'notifications', notif.id));
-    }
+  const handleDeleteUser = async (targetUid: string) => {
+    await deleteDoc(doc(db, 'users', targetUid));
   };
 
   const handleUpdateProfile = async (updatedData: Partial<UserProfile>) => {
@@ -693,12 +215,27 @@ export const useAppLogic = (firebaseUser: User | null, userProfile: UserProfile 
   };
 
   return {
-    instructors, reviews, bookings, usersList, courses, dbNotifications, deletedCompletedStats, filtersEnabled, skillConfig,
-    dismissedReviewIds, handleDismissReview,
-    handlePaymentSuccess, handleBookingSuccess, handleReschedule, handleAddCourse, handleUpdateCourse, handleDeleteCourse,
-    handleBookCourse, handleCancel, handleRequestCancel, handleAddReview, handleAddInstructor, handleUpdateInstructor,
-    handleDeleteInstructor, handleAddBooking, handleDeleteBooking, handleUpdateUserRole, handleAddUser, handleUpdateUser,
-    handleDeleteUser, handleConfirmBooking, handleCompleteBooking, handleClearNotifications, handleUpdateProfile,
-    handleToggleFilters, handleUpdateSkillConfig
+    instructors,
+    reviews,
+    usersList,
+    filtersEnabled,
+    skillConfig,
+    dismissedReviewIds,
+    handleDismissReview,
+    handlePaymentSuccess,
+    handleAddReview,
+    handleAddInstructor,
+    handleUpdateInstructor,
+    handleDeleteInstructor,
+    handleUpdateUserRole,
+    handleAddUser,
+    handleUpdateUser,
+    handleDeleteUser,
+    handleUpdateProfile,
+    handleToggleFilters,
+    handleUpdateSkillConfig,
+    ...bookingLogic,
+    ...courseLogic,
+    ...notificationLogic,
   };
 };

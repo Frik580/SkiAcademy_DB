@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLanguage, type Language } from '../lib/LanguageContext';
 import { ResortConfig } from '../types';
+import { AnimatedNumber } from './AnimatedNumber';
 
 interface ResortConditionsSidebarProps {
   data: {
@@ -55,7 +56,7 @@ export const ResortConditionsSidebar: React.FC<ResortConditionsSidebarProps> = (
       </span>
       <div className="flex items-baseline gap-1 mt-1">
         <span className="font-serif text-4xl font-light text-[var(--ink)] leading-none">
-          {isFahrenheit ? Math.round((tempC * 9) / 5 + 32) : tempC}°
+          <AnimatedNumber value={isFahrenheit ? Math.round((tempC * 9) / 5 + 32) : tempC} />°
         </span>
         <span className="text-xs font-mono text-[var(--ink-dim)]">
           {isFahrenheit ? 'F' : 'C'}
@@ -63,10 +64,10 @@ export const ResortConditionsSidebar: React.FC<ResortConditionsSidebarProps> = (
       </div>
       <div className="flex justify-between items-center mt-2.5">
         <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-          {t('freshSnow')}: +{newSnow24h}{t('centimetersShort')}
+          {t('freshSnow')}: +<AnimatedNumber value={newSnow24h} />{t('centimetersShort')}
         </span>
         <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-          {windKmh} {t('kilometersPerHourShort')}
+          <AnimatedNumber value={windKmh} /> {t('kilometersPerHourShort')}
         </span>
         <button
           onClick={onToggleTemperatureUnit}
@@ -82,7 +83,7 @@ export const ResortConditionsSidebar: React.FC<ResortConditionsSidebarProps> = (
         {t('snowCover')}
       </span>
       <span className="font-serif text-4xl font-light text-[var(--ink)] block mt-1">
-        {snowDepthCm}<small className="text-sm font-sans font-normal ml-0.5">cm</small>
+        <AnimatedNumber value={snowDepthCm} /><small className="text-sm font-sans font-normal ml-0.5">cm</small>
       </span>
       <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block mt-2">
         {t('safetyLevel')}: FIS-1
@@ -95,7 +96,7 @@ export const ResortConditionsSidebar: React.FC<ResortConditionsSidebarProps> = (
           {t('operatingLifts')}
         </span>
         <span className="font-serif text-4xl font-light text-[var(--ink)] block mt-1">
-          {resortConfig.openLifts !== undefined ? resortConfig.openLifts : openLifts}/{resortConfig.totalLifts !== undefined ? resortConfig.totalLifts : 14}
+          <AnimatedNumber value={resortConfig.openLifts !== undefined ? resortConfig.openLifts : openLifts} />/{resortConfig.totalLifts !== undefined ? resortConfig.totalLifts : 14}
         </span>
         {(() => {
           const statusText = language === 'ru'

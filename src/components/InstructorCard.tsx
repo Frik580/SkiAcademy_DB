@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { Instructor } from '../types';
 import { Star, Globe } from 'lucide-react';
 import { useLanguage, type TranslationKey } from '../lib/LanguageContext';
@@ -13,6 +13,7 @@ interface InstructorCardProps {
 export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardProps>(
   ({ instructor, onBook, onViewReviews }, ref) => {
     const { t } = useLanguage();
+    const shouldReduceMotion = useReducedMotion();
 
     const getSpecialtyLabel = (spec: Instructor['specialty']) => {
       switch (spec) {
@@ -39,10 +40,11 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
     return (
       <motion.div 
         ref={ref}
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.2 }}
         exit={{ opacity: 0, y: -12 }}
-        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: shouldReduceMotion ? 0 : 0.45, ease: [0.16, 1, 0.3, 1] }}
         layout="position"
         className={`border-b border-[var(--border)] py-6 flex flex-col sm:grid sm:grid-cols-[112px_1fr] items-center sm:items-start gap-6 transition duration-300 group ${
           !instructor.isAvailable ? 'opacity-60' : ''

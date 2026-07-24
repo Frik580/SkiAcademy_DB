@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import {
   translateCourse,
   splitCourseDates,
@@ -26,6 +27,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
   actions: { onViewDetails, onRequireAuth, onBookCourse }
 }) => {
   const { t } = useLanguage();
+  const shouldReduceMotion = useReducedMotion();
 
   return (
     <div id="courses-grid" className="space-y-6">
@@ -47,12 +49,20 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
         const orderB = b.order !== undefined ? b.order : 999;
         if (orderA !== orderB) return orderA - orderB;
         return a.title.localeCompare(b.title);
-      }).filter(c => !c.isHidden).map((rawCourse) => {
+      }).filter(c => !c.isHidden).map((rawCourse, index) => {
         const course = translateCourse(rawCourse, language);
         const isEnrolled = bookings.some(b => b.userId === userProfile?.uid && b.instructorId === `course_${course.id}` && b.status !== 'cancelled');
         return (
-          <div
+          <motion.div
             key={course.id}
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 32, scale: 0.985 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, amount: 0.1 }}
+            transition={{
+              duration: shouldReduceMotion ? 0 : 1.2,
+              delay: shouldReduceMotion ? 0 : Math.min(index * 0.12, 0.36),
+              ease: [0.22, 1, 0.36, 1],
+            }}
             className="border border-[var(--border)] bg-black/5 dark:bg-black/40 flex flex-col h-full relative overflow-hidden group min-w-[260px]"
           >
             <div className="h-55 relative overflow-hidden shrink-0 border-b border-[var(--border)]">
@@ -197,7 +207,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         );
       })}
     </div>

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { ArrowRight } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage, type Language } from '../lib/LanguageContext';
 import type { Theme } from './useTheme';
 import { CustomHeroSlide } from '../types';
@@ -43,6 +44,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   actions: { onSelectSlide, onScrollToSection }
 }) => {
   const { t } = useLanguage();
+  const shouldReduceMotion = useReducedMotion();
   const crossfadeStyle = {
     transitionDuration: `${HERO_CROSSFADE_MS}ms`,
     transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
@@ -92,15 +94,42 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                     }`}
                     style={crossfadeStyle}
                   >
-                    <span className="hero-copy-eyebrow text-[9px] font-mono uppercase tracking-widest block">
+                    <motion.span
+                      initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
+                      animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 10 }}
+                      transition={{
+                        duration: shouldReduceMotion ? 0 : 0.65,
+                        delay: isActive && !shouldReduceMotion ? 0.12 : 0,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                      className="hero-copy-eyebrow text-[9px] font-mono uppercase tracking-widest block"
+                    >
                       {language === 'en' ? slide.line1En : slide.line1Ru}
-                    </span>
-                    <h2 className="hero-copy-title text-3xl md:text-4xl lg:text-5xl font-serif font-light leading-[1.05] tracking-tight">
+                    </motion.span>
+                    <motion.h2
+                      initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+                      animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
+                      transition={{
+                        duration: shouldReduceMotion ? 0 : 0.75,
+                        delay: isActive && !shouldReduceMotion ? 0.26 : 0,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                      className="hero-copy-title text-3xl md:text-4xl lg:text-5xl font-serif font-light leading-[1.05] tracking-tight"
+                    >
                       {language === 'en' ? slide.line2En : slide.line2Ru}
-                    </h2>
-                    <p className="hero-copy-body text-xs font-mono max-w-lg tracking-wider leading-relaxed">
+                    </motion.h2>
+                    <motion.p
+                      initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+                      animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 12 }}
+                      transition={{
+                        duration: shouldReduceMotion ? 0 : 0.7,
+                        delay: isActive && !shouldReduceMotion ? 0.42 : 0,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                      className="hero-copy-body text-xs font-mono max-w-lg tracking-wider leading-relaxed"
+                    >
                       {language === 'en' ? slide.line3En : slide.line3Ru}
-                    </p>
+                    </motion.p>
                   </div>
                 );
               })}
@@ -124,7 +153,16 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 shrink-0 w-full md:w-auto md:min-w-[240px] self-start md:self-end">
+          <motion.div
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: shouldReduceMotion ? 0 : 0.75,
+              delay: shouldReduceMotion ? 0 : 0.58,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+            className="flex flex-col sm:flex-row md:flex-col gap-2.5 shrink-0 w-full md:w-auto md:min-w-[240px] self-start md:self-end"
+          >
             <button
               onClick={() => onScrollToSection('coaches-grid')}
               className="btn-primary-hero w-full px-5 py-3 inline-flex items-center justify-center gap-2"
@@ -138,7 +176,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
             >
               <span>{t('chooseCourse')}</span>
             </button>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>

@@ -26,6 +26,8 @@
   --hero-secondary-border-hover: color-mix(in srgb, var(--ink) 42%, transparent);
   --hero-secondary-shadow: 0 1px 4px rgba(13, 15, 18, 0.1);
   --hero-secondary-shadow-hover: 0 2px 8px rgba(13, 15, 18, 0.12);
+  --hero-ink: #0a0c0f;
+  --hero-ink-dim: #2f343c;
 }
 
 .dark, :root[class~="dark"] {
@@ -46,6 +48,8 @@
   --hero-secondary-border-hover: rgba(239, 238, 234, 0.38);
   --hero-secondary-shadow: none;
   --hero-secondary-shadow-hover: none;
+  --hero-ink: var(--ink);
+  --hero-ink-dim: var(--ink-dim);
 }
 
 @layer base {
@@ -200,6 +204,27 @@
   .focus-accent:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
     outline-offset: 1px;
+  }
+
+  .hero-copy-eyebrow {
+    color: var(--hero-ink-dim);
+  }
+
+  .hero-copy-title {
+    color: var(--hero-ink);
+  }
+
+  :root:not(.dark) .hero-copy-title {
+    text-shadow: 0 1px 16px rgba(250, 250, 247, 0.95), 0 0 1px rgba(255, 255, 255, 0.9);
+  }
+
+  :root:not(.dark) .hero-copy-eyebrow,
+  :root:not(.dark) .hero-copy-body {
+    text-shadow: 0 1px 12px rgba(250, 250, 247, 0.9);
+  }
+
+  .hero-copy-body {
+    color: var(--hero-ink-dim);
   }
 }
 

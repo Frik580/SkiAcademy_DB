@@ -35,7 +35,7 @@ const resolveSlideBackground = (activeSlide: CustomHeroSlide | undefined, slideI
 
 const buildBackgroundImage = (bgUrl: string, theme: Theme): string =>
   theme === 'light'
-    ? `linear-gradient(105deg, rgba(250,250,247,0.88) 0%, rgba(250,250,247,0.4) 42%, rgba(250,250,247,0.06) 100%), url('${bgUrl}')`
+    ? `linear-gradient(105deg, rgba(250,250,247,0.98) 0%, rgba(250,250,247,0.88) 32%, rgba(250,250,247,0.55) 55%, rgba(250,250,247,0.12) 100%), url('${bgUrl}')`
     : `linear-gradient(105deg, rgba(17,17,19,0.82) 0%, rgba(17,17,19,0.42) 42%, rgba(17,17,19,0.1) 100%), url('${bgUrl}')`;
 
 export const HeroCarousel: React.FC<HeroCarouselProps> = ({
@@ -92,13 +92,13 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                     }`}
                     style={crossfadeStyle}
                   >
-                    <span className="text-[9px] font-mono uppercase tracking-widest block text-[var(--ink-dim)]">
+                    <span className="hero-copy-eyebrow text-[9px] font-mono uppercase tracking-widest block">
                       {language === 'en' ? slide.line1En : slide.line1Ru}
                     </span>
-                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light leading-[1.05] tracking-tight text-[var(--ink)]">
+                    <h2 className="hero-copy-title text-3xl md:text-4xl lg:text-5xl font-serif font-light leading-[1.05] tracking-tight">
                       {language === 'en' ? slide.line2En : slide.line2Ru}
                     </h2>
-                    <p className="text-xs font-mono max-w-lg tracking-wider leading-relaxed text-[var(--ink-dim)]">
+                    <p className="hero-copy-body text-xs font-mono max-w-lg tracking-wider leading-relaxed">
                       {language === 'en' ? slide.line3En : slide.line3Ru}
                     </p>
                   </div>

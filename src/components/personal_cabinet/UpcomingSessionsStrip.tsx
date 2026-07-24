@@ -95,7 +95,7 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
                 key={dateStr}
                 className={`text-center py-2 text-[11px] font-mono transition duration-300 rounded-xs ${
                   hasBooking
-                    ? 'bg-indigo-600 text-white font-bold shadow-xs'
+                    ? 'bg-[var(--accent)] text-[var(--accent-foreground)] font-bold shadow-xs'
                     : 'bg-slate-100/70 dark:bg-slate-800/50 text-[var(--ink)] hover:bg-slate-200/60 dark:hover:bg-slate-800 font-medium'
                 }`}
                 title={hasBooking ? t('bookedLesson') : t('noLessons')}
@@ -126,7 +126,7 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
                         {getDifficultyLabel(b.difficulty, language, 'short')} • {b.durationHours}{getHourSuffix(language)}
                       </p>
                       <span className="text-[10px] font-mono text-[var(--ink-dim)]">•</span>
-                      <p className="text-[10px] font-mono text-indigo-700 dark:text-indigo-400 font-bold">
+                      <p className="text-[10px] font-mono text-accent font-bold">
                         {formatShortBookingDate(b, language, courses)}
                       </p>
                     </div>

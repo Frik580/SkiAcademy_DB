@@ -382,7 +382,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                 {/* 4. Фотогалерея (Photos) */}
                 <section className="space-y-4">
                   <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
-                    <ImageIcon className="w-4 h-4 text-indigo-500" />
+                    <ImageIcon className="w-4 h-4 text-accent" />
                     <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
                       {t('courseGallery')}
                     </h3>
@@ -722,14 +722,14 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                         onClose();
                       }}
                       disabled={(course.availableSeats === 0 && !isEnrolled) || userProfile?.isClientActive === false}
-                      className={`w-full py-3.5 border font-mono text-[10px] uppercase tracking-widest transition rounded-none font-bold ${
+                      className={`w-full py-3.5 font-mono text-[10px] uppercase tracking-widest transition rounded-none font-bold ${
                         isEnrolled
-                          ? 'bg-black/5 dark:bg-black/60 border-[var(--border)]/60 text-[var(--ink-dim)] cursor-default'
+                          ? 'bg-black/5 dark:bg-black/60 border border-[var(--border)]/60 text-[var(--ink-dim)] cursor-default'
                           : userProfile?.isClientActive === false
-                          ? 'border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10'
+                          ? 'border border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10'
                           : course.availableSeats === 0
-                          ? 'border-[var(--border)] text-[var(--ink-dim)] cursor-not-allowed bg-black/5'
-                          : 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)] hover:bg-transparent hover:text-[var(--ink)] cursor-pointer shadow-md'
+                          ? 'btn-secondary cursor-not-allowed opacity-60'
+                          : 'btn-primary cursor-pointer shadow-md'
                       }`}
                     >
                       {isEnrolled ? (

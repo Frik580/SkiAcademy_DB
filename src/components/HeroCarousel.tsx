@@ -1,5 +1,4 @@
-import React from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import React, { useEffect } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { useLanguage, type Language } from '../lib/LanguageContext';
 import type { Theme } from './useTheme';
@@ -18,117 +17,130 @@ interface HeroCarouselProps {
   };
 }
 
+const HERO_CROSSFADE_MS = 1400;
+
+const resolveSlideBackground = (activeSlide: CustomHeroSlide | undefined, slideIndex: number): string => {
+  let bg = activeSlide?.backgroundImage || 'wall';
+  if (bg === 'random') {
+    const walls = ['wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6', 'wall7'];
+    const slideId = activeSlide?.id || String(slideIndex);
+    const hash = Array.from(slideId).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    bg = walls[hash % walls.length];
+  }
+  if (bg.startsWith('http://') || bg.startsWith('https://')) {
+    return bg;
+  }
+  return `https://storage.yandexcloud.net/carve/${bg}.webp`;
+};
+
+const buildBackgroundImage = (bgUrl: string, theme: Theme): string =>
+  theme === 'light'
+    ? `linear-gradient(105deg, rgba(250,250,247,0.88) 0%, rgba(250,250,247,0.4) 42%, rgba(250,250,247,0.06) 100%), url('${bgUrl}')`
+    : `linear-gradient(105deg, rgba(17,17,19,0.82) 0%, rgba(17,17,19,0.42) 42%, rgba(17,17,19,0.1) 100%), url('${bgUrl}')`;
+
 export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   data: { slides, currentSlide, language, theme },
   actions: { onSelectSlide, onScrollToSection }
 }) => {
   const { t } = useLanguage();
+  const crossfadeStyle = {
+    transitionDuration: `${HERO_CROSSFADE_MS}ms`,
+    transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+  } as const;
+
+  useEffect(() => {
+    slides.forEach((slide, idx) => {
+      const img = new Image();
+      img.src = resolveSlideBackground(slide, idx);
+    });
+  }, [slides]);
 
   return (
-    <section
-      className="relative p-8 md:p-10 border-b border-[var(--border)] overflow-hidden flex flex-col justify-end min-h-[340px] bg-transparent"
-    >
-    {/* Background crossfader */}
-    <AnimatePresence mode="popLayout">
-      {(() => {
-        const activeSlide = slides[currentSlide] || slides[0];
-        let bg = activeSlide?.backgroundImage || 'wall';
-        if (bg === 'random') {
-          const walls = ['wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6', 'wall7'];
-          const slideId = activeSlide?.id || String(currentSlide);
-          const hash = Array.from(slideId).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-          bg = walls[hash % walls.length];
-        }
-        const bgUrl = bg.startsWith('http://') || bg.startsWith('https://')
-          ? bg
-          : `https://storage.yandexcloud.net/carve/${bg}.webp`;
-        return (
-          <motion.div
-            key={currentSlide}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.0 }}
-            className="absolute inset-0 bg-cover bg-center z-0"
-            style={{
-              backgroundImage: theme === 'light'
-                ? `linear-gradient(to right, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.5) 100%), url('${bgUrl}')`
-                : `linear-gradient(to right, rgba(15, 15, 18, 0.9) 0%, rgba(15, 15, 18, 0.4) 100%), url('${bgUrl}')`
-            }}
-          />
-        );
-      })()}
-    </AnimatePresence>
-
-    {/* Active Slide Content */}
-    <div className="relative z-10 space-y-3 flex flex-col justify-end h-full">
-      <AnimatePresence mode="wait">
-        {(() => {
-          const activeSlide = slides[currentSlide] || slides[0];
-          if (!activeSlide) return null;
+    <section className="relative w-full min-h-[calc(100svh-4.25rem)] border-b border-[var(--border)] overflow-hidden flex flex-col justify-end">
+      {/* Layered background crossfade */}
+      <div className="absolute inset-0 z-0" aria-hidden="true">
+        {slides.map((slide, idx) => {
+          const isActive = idx === currentSlide;
           return (
-            <motion.div
-              key={currentSlide}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-              className="flex flex-col md:flex-row md:items-end justify-between gap-6"
-            >
-              {/* Text content on the left */}
-              <div className="space-y-3 flex-1 min-w-0">
-                <span className={`text-[9px] font-mono uppercase tracking-widest block ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
-                  {language === 'en' ? activeSlide.line1En : activeSlide.line1Ru}
-                </span>
-                <h2 className={`text-2xl md:text-3xl lg:text-4xl font-serif font-light leading-[1.1] tracking-tight max-w-xl ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
-                  {language === 'en' ? activeSlide.line2En : activeSlide.line2Ru}
-                </h2>
-                <p className={`text-xs font-mono max-w-lg tracking-wider leading-relaxed pt-1 ${theme === 'light' ? 'text-slate-700' : 'text-slate-400'}`}>
-                  {language === 'en' ? activeSlide.line3En : activeSlide.line3Ru}
-                </p>
-              </div>
-
-              {/* Action Buttons on the right border */}
-              <div className="flex flex-col gap-2.5 shrink-0 w-full md:w-auto md:min-w-[240px] self-start md:self-end z-20">
-                <button
-                  onClick={() => onScrollToSection('coaches-grid')}
-                  className="w-full px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-mono text-[10px] uppercase tracking-widest transition-all duration-300 shadow-lg shadow-blue-500/20 active:translate-y-[1px] cursor-pointer inline-flex items-center justify-center gap-2 font-bold border border-blue-600 hover:border-blue-700 rounded-none"
-                >
-                  <span>{t('bookFirstLesson')}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => onScrollToSection('courses-grid')}
-                  className={`w-full px-5 py-3 font-mono text-[10px] uppercase tracking-widest transition-all duration-300 active:translate-y-[1px] cursor-pointer inline-flex items-center justify-center gap-2 border rounded-none ${
-                    theme === 'light'
-                      ? 'bg-slate-100 hover:bg-slate-200 border-slate-200 hover:border-slate-300 text-slate-800'
-                      : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white'
-                  }`}
-                >
-                  <span>{t('chooseCourse')}</span>
-                </button>
-              </div>
-            </motion.div>
+            <div
+              key={slide.id || `hero-bg-${idx}`}
+              className={`absolute inset-0 bg-cover bg-center will-change-[opacity] transition-opacity ${
+                isActive ? 'opacity-100' : 'opacity-0'
+              }`}
+              style={{
+                ...crossfadeStyle,
+                zIndex: isActive ? 2 : 1,
+                backgroundImage: buildBackgroundImage(resolveSlideBackground(slide, idx), theme),
+              }}
+            />
           );
-        })()}
-      </AnimatePresence>
-
-      {/* Elegant dots indicators */}
-      <div className="flex gap-2 pt-4">
-        {slides.map((_, idx) => (
-          <button
-            key={idx}
-            onClick={() => onSelectSlide(idx)}
-            className={`h-1 transition-all duration-300 rounded-none cursor-pointer ${
-              currentSlide === idx
-                ? 'w-8 bg-[var(--ink)]'
-                : 'w-2 bg-[var(--ink)]/30 hover:bg-[var(--ink)]/60'
-            }`}
-            aria-label={`${t('goToSlide')} ${idx + 1}`}
-          />
-        ))}
+        })}
       </div>
-    </div>
+
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-10 pb-10 md:pb-12 pt-16 md:pt-20 flex flex-col justify-end flex-1">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 w-full">
+          <div className="flex flex-col gap-5 flex-1 min-w-0 max-w-2xl">
+            <div className="grid [&>*]:col-start-1 [&>*]:row-start-1 min-w-0">
+              {slides.map((slide, idx) => {
+                const isActive = idx === currentSlide;
+                return (
+                  <div
+                    key={slide.id || `hero-copy-${idx}`}
+                    aria-hidden={!isActive}
+                    className={`col-start-1 row-start-1 space-y-4 will-change-[opacity] transition-opacity ${
+                      isActive ? 'opacity-100 z-[2]' : 'opacity-0 z-[1] pointer-events-none'
+                    }`}
+                    style={crossfadeStyle}
+                  >
+                    <span className="text-[9px] font-mono uppercase tracking-widest block text-[var(--ink-dim)]">
+                      {language === 'en' ? slide.line1En : slide.line1Ru}
+                    </span>
+                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-light leading-[1.05] tracking-tight text-[var(--ink)]">
+                      {language === 'en' ? slide.line2En : slide.line2Ru}
+                    </h2>
+                    <p className="text-xs font-mono max-w-lg tracking-wider leading-relaxed text-[var(--ink-dim)]">
+                      {language === 'en' ? slide.line3En : slide.line3Ru}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-2" role="tablist" aria-label={t('goToSlide')}>
+              {slides.map((_, idx) => (
+                <button
+                  key={idx}
+                  role="tab"
+                  aria-selected={currentSlide === idx}
+                  onClick={() => onSelectSlide(idx)}
+                  className={`h-1 transition-[width,background-color] duration-500 ease-in-out rounded-none cursor-pointer ${
+                    currentSlide === idx
+                      ? 'w-8 bg-[var(--accent)]'
+                      : 'w-2 bg-[var(--ink)]/30 hover:bg-[var(--ink)]/60'
+                  }`}
+                  aria-label={`${t('goToSlide')} ${idx + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 shrink-0 w-full md:w-auto md:min-w-[240px] self-start md:self-end">
+            <button
+              onClick={() => onScrollToSection('coaches-grid')}
+              className="btn-primary w-full px-5 py-3 inline-flex items-center justify-center gap-2"
+            >
+              <span>{t('bookFirstLesson')}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => onScrollToSection('courses-grid')}
+              className="btn-secondary-hero w-full px-5 py-3 inline-flex items-center justify-center gap-2"
+            >
+              <span>{t('chooseCourse')}</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </section>
   );
 };

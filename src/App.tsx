@@ -103,11 +103,17 @@ const AppContent: React.FC = () => {
     if (currentSlide >= activeSlides.length) {
       setCurrentSlide(0);
     }
+  }, [activeSlides.length, currentSlide]);
+
+  useEffect(() => {
+    if (activeSlides.length <= 1) return;
+
     const interval = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % activeSlides.length);
     }, slideInterval * 1000);
+
     return () => clearInterval(interval);
-  }, [activeSlides.length, slideInterval, currentSlide]);
+  }, [activeSlides.length, slideInterval]);
   const [dbStatusWarning, setDbStatusWarning] = useState<string | null>(null);
   const [isAdminView, setIsAdminView] = useState<boolean>(false);
   const [isTopUpOpen, setIsTopUpOpen] = useState<boolean>(false);
@@ -170,7 +176,7 @@ const AppContent: React.FC = () => {
   if (authLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 gap-3">
-        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin" />
+        <RefreshCw className="w-8 h-8 text-[var(--accent)] animate-spin" />
         <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{t('checkingCredentials')}</span>
       </div>
     );
@@ -213,9 +219,7 @@ const AppContent: React.FC = () => {
       <main className={`flex-1 w-full mx-auto ${
         isAdminView && userProfile && userProfile.role === 'admin'
           ? 'p-6 overflow-y-auto'
-          : userProfile
-            ? 'flex flex-col lg:grid lg:grid-cols-[minmax(140px,200px)_1fr] lg:h-[calc(100vh-62px)] lg:overflow-hidden'
-            : 'flex flex-col lg:grid lg:grid-cols-[minmax(140px,200px)_minmax(450px,1fr)_minmax(250px,320px)] lg:h-[calc(100vh-62px)] lg:overflow-hidden'
+          : 'flex flex-col'
       }`}>
         
         {/* Firestore Permission warning notice block */}
@@ -269,49 +273,50 @@ const AppContent: React.FC = () => {
         ) : (
           /* USER/CLIENT VIEW (Authenticated or Guest/Logged-out) */
           <>
-            {/* 1. Left Sidebar: Resort Conditions (placed in the first flexible column) */}
-            <ResortConditionsSidebar
+            <HeroCarousel
               data={{
+                slides: activeSlides,
+                currentSlide,
                 language,
-                resortConfig,
-                tempC,
-                snowDepthCm,
-                newSnow24h,
-                windKmh,
-                openLifts,
-                isFahrenheit,
-                isResortLoading,
-                lastUpdated
+                theme
               }}
               actions={{
-                onToggleTemperatureUnit: () => setIsFahrenheit(!isFahrenheit),
-                onRefresh: handleRefreshResortStats
+                onSelectSlide: setCurrentSlide,
+                onScrollToSection: handleScrollToSection
               }}
             />
 
-            {/* 2. Center Scroll Pane: Hero, Active Cabinet Lists & Browsing (placed in the fixed-width center column) */}
-            <div className="lg:col-start-2 flex-1 lg:h-full lg:overflow-y-auto flex flex-col justify-start">
-              
-              {/* Elegant welcoming Hero block with auto-rotating multi-slide panels */}
-              <HeroCarousel
+            <div className={`flex flex-col lg:grid ${
+              userProfile
+                ? 'lg:grid-cols-[minmax(140px,200px)_1fr]'
+                : 'lg:grid-cols-[minmax(140px,200px)_minmax(450px,1fr)_minmax(250px,320px)]'
+            }`}>
+              <ResortConditionsSidebar
                 data={{
-                  slides: activeSlides,
-                  currentSlide,
                   language,
-                  theme
+                  resortConfig,
+                  tempC,
+                  snowDepthCm,
+                  newSnow24h,
+                  windKmh,
+                  openLifts,
+                  isFahrenheit,
+                  isResortLoading,
+                  lastUpdated
                 }}
                 actions={{
-                  onSelectSlide: setCurrentSlide,
-                  onScrollToSection: handleScrollToSection
+                  onToggleTemperatureUnit: () => setIsFahrenheit(!isFahrenheit),
+                  onRefresh: handleRefreshResortStats
                 }}
               />
 
-              <div id="main-content-pane" className="p-6 md:p-8 space-y-8 flex flex-col justify-start">
+              <div className="flex flex-col">
+                <div id="main-content-pane" className="p-6 md:p-8 space-y-8 flex flex-col justify-start">
                 {/* Middle Section: Personal Cabinet Tracker / History of bookings */}
                 {userProfile && (
                   <div id="personal-cabinet-section" className="space-y-4">
                     <div className="border-b border-[var(--border)] pb-3 mb-2 flex items-center gap-2">
-                      <span className="w-2 h-2 bg-indigo-500 rounded-none"></span>
+                      <span className="w-2 h-2 bg-[var(--accent)] rounded-none"></span>
                       <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--ink)] font-bold">{t('activeCabinet')}</h3>
                     </div>
                     <React.Suspense fallback={<SectionLoadingFallback label={t('loading')} />}>
@@ -382,7 +387,7 @@ const AppContent: React.FC = () => {
                           setSelectedSpecialty('all');
                           setSelectedLanguage('all');
                         }}
-                        className="text-xs font-mono uppercase tracking-widest text-indigo-400 hover:text-indigo-300 mt-2 hover:underline transition cursor-pointer"
+                        className="text-xs font-mono uppercase tracking-widest text-accent text-accent-hover mt-2 hover:underline transition cursor-pointer"
                       >
                         {t('resetFilters')}
                       </button>
@@ -404,32 +409,30 @@ const AppContent: React.FC = () => {
                     </div>
                   )}
                 </div>
+                </div>
               </div>
 
+              {!userProfile && (
+                <aside className="border-t lg:border-t-0 lg:border-l border-[var(--border)] p-6 bg-[var(--profile-bg)] space-y-6 flex flex-col justify-start shrink-0">
+                  <div id="auth-section" className="space-y-6">
+                    <div className="text-center space-y-4 py-2">
+                      <img
+                        src={theme === 'light' ? logoLight : logoDark}
+                        alt={t('academyLogoAlt')}
+                        className="h-10 w-auto mx-auto object-contain transition-opacity duration-300"
+                        referrerPolicy="no-referrer"
+                      />
+                      <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider leading-relaxed">
+                        {t('bookingSignInDesc')}
+                      </p>
+                    </div>
+                    <div className="border border-[var(--border)] p-4 bg-black/5 dark:bg-black/10">
+                      <Auth onSuccess={(profile) => setUserProfile(profile)} />
+                    </div>
+                  </div>
+                </aside>
+              )}
             </div>
-
-            {/* 3. Right Sidebar */}
-            {!userProfile && (
-              <aside className="lg:col-start-3 border-t lg:border-t-0 lg:border-l border-[var(--border)] p-6 bg-[var(--profile-bg)] space-y-6 flex flex-col justify-start lg:h-full lg:overflow-y-auto shrink-0">
-                {/* Logged-out state: show Auth component inside Right Sidebar! */}
-                <div id="auth-section" className="space-y-6">
-                  <div className="text-center space-y-4 py-4">
-                    <img
-                      src={theme === 'light' ? logoLight : logoDark}
-                      alt={t('academyLogoAlt')}
-                      className="h-12 w-auto mx-auto object-contain transition-opacity duration-300"
-                      referrerPolicy="no-referrer"
-                    />
-                    <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider leading-relaxed">
-                      {t('bookingSignInDesc')}
-                    </p>
-                  </div>
-                  <div className="border border-[var(--border)] p-4 bg-black/10">
-                    <Auth onSuccess={(profile) => setUserProfile(profile)} />
-                  </div>
-                </div>
-              </aside>
-            )}
           </>
         )}
       </main>
@@ -521,7 +524,7 @@ const AppContent: React.FC = () => {
       <footer className="bg-black/95 border-t border-[var(--border)] py-3 px-6 shrink-0">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
           <div className="flex items-center gap-2 text-[var(--ink)] font-bold">
-            <Mountain className="w-3.5 h-3.5 text-sky-400 stroke-[2.5]" />
+            <Mountain className="w-3.5 h-3.5 text-[var(--accent)] stroke-[2.5]" />
             <span>CARVE ACADEMY DIGITAL INTERFACE v4.4</span>
           </div>
           <div className="text-center md:text-left">

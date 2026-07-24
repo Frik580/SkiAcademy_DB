@@ -72,7 +72,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {!userProfile && onSignInClick && (
             <button
               onClick={onSignInClick}
-              className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-600 hover:border-indigo-700 font-mono text-[10px] uppercase tracking-widest transition cursor-pointer font-bold"
+              className="px-3 py-1 btn-primary"
             >
               {t('signInBtn')}
             </button>
@@ -113,7 +113,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="p-1 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition relative cursor-pointer"
               >
                 <Bell className="w-3.5 h-3.5" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full ring-1 ring-[var(--bg)] animate-pulse" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-[var(--accent)] rounded-full ring-1 ring-[var(--bg)]" />
               </button>
 
               {/* Profile Avatar and Sign Out */}
@@ -199,7 +199,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <span>{t('notifications')}</span>
                     <div className="relative p-1">
                       <Bell className="w-4 h-4" />
-                      <span className="absolute -top-0 -right-0 w-2 h-2 bg-indigo-500 rounded-full ring-1 ring-[var(--bg)]" />
+                      <span className="absolute -top-0 -right-0 w-2 h-2 bg-[var(--accent)] rounded-full ring-1 ring-[var(--bg)]" />
                     </div>
                   </button>
                 </>
@@ -227,7 +227,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {!userProfile && onSignInClick && (
                 <button
                   onClick={() => { onSignInClick(); setIsMenuOpen(false); }}
-                  className="w-full mt-2 px-3 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-600 hover:border-indigo-700 transition cursor-pointer text-sm font-mono uppercase tracking-widest font-bold text-center"
+                  className="w-full mt-2 px-3 py-2.5 btn-primary text-sm text-center"
                 >
                   {t('signInBtn')}
                 </button>

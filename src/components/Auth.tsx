@@ -363,7 +363,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-2.5 bg-[var(--ink)] hover:bg-[var(--ink)]/90 text-[var(--bg)] rounded-none text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition duration-300 disabled:opacity-50 cursor-pointer"
+                  className="btn-primary w-full py-2.5 flex items-center justify-center gap-2"
                 >
                   <Mail className="w-4 h-4" />
                   {t('authSendRecoveryLink')}
@@ -507,7 +507,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-2.5 bg-[var(--ink)] hover:bg-[var(--ink)]/90 text-[var(--bg)] rounded-none text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition duration-300 disabled:opacity-50 cursor-pointer"
+                  className="btn-primary w-full py-2.5 flex items-center justify-center gap-2"
                 >
                   {isSignUp ? (
                     <>
@@ -537,7 +537,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
               <button
                 onClick={handleGoogleLogin}
                 disabled={isLoading}
-                className="w-full py-2.5 border border-[var(--border)] hover:border-[var(--ink)] hover:bg-black/10 rounded-none text-[10px] font-mono uppercase tracking-widest font-bold text-[var(--ink)] flex items-center justify-center gap-2 transition duration-300 disabled:opacity-50 cursor-pointer"
+                className="btn-secondary w-full py-2.5 flex items-center justify-center gap-2"
               >
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                   <path d="M12.24 10.285V14.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.859-3.579-7.859-8s3.529-8 7.859-8c2.46 0 4.105 1.025 5.047 1.926l3.245-3.125C18.465 2.1 15.62 1 12.24 1 6.033 1 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.478 0 10.793-4.537 10.793-10.977 0-.738-.078-1.3-.177-1.785H12.24z" />

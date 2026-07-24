@@ -376,7 +376,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenChat(activeSlot.booking!)}
-                  className="w-full mt-2.5 py-2.5 px-3 border border-indigo-500/30 bg-indigo-950/20 hover:bg-indigo-950/40 hover:border-indigo-400 text-indigo-400 rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
+                  className="w-full mt-2.5 py-2.5 px-3 border border-accent-soft bg-accent-muted hover:bg-accent-muted hover:border-accent text-accent rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
                 >
                   <MessageSquare className="w-4 h-4" />
                   {t('openChatDiscussion')}

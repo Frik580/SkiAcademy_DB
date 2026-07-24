@@ -91,8 +91,8 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
             onClick={() => fileInputRef.current?.click()}
             className={`relative w-16 h-16 rounded-full overflow-hidden shrink-0 group cursor-pointer transition-all duration-300 ${
               isDraggingAvatar
-                ? 'ring-2 ring-indigo-500 scale-105'
-                : 'ring-1 ring-slate-200 dark:ring-slate-800 hover:ring-indigo-500'
+                ? 'ring-2 ring-accent scale-105'
+                : 'ring-1 ring-slate-200 dark:ring-slate-800 hover:ring-accent'
             }`}
             title={t('changeProfilePhoto')}
           >

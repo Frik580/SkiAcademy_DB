@@ -231,7 +231,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                         <span
                           className={`px-2 py-0.5 border text-[9px] font-mono uppercase rounded-none ${
                             b.status === 'confirmed' ? 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' :
-                            b.status === 'completed' ? 'border-indigo-500/30 text-indigo-600 dark:text-indigo-400 bg-indigo-500/10' :
+                            b.status === 'completed' ? 'border-accent text-accent bg-accent-muted' :
                             b.status === 'cancelled' ? 'border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10' :
                             b.status === 'pending_cancellation' ? 'border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 animate-pulse' :
                             'border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10'

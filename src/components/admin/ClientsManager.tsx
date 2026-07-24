@@ -295,7 +295,7 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
                                   {u.role === 'admin' ? (t('adminRole')) : (t('userRole'))}
                                 </span>
                                 {u.isInstructor && (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[8px] font-mono uppercase border border-indigo-500/40 text-indigo-400 bg-indigo-950/20">
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[8px] font-mono uppercase border border-accent-soft text-accent bg-accent-muted">
                                     {t('coachLabel')}
                                   </span>
                                 )}

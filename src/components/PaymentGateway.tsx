@@ -226,7 +226,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
             <button
               type="submit"
               disabled={isPaying}
-              className="w-full py-3 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
+              className="btn-primary w-full py-3 flex items-center justify-center gap-2"
             >
               {isPaying ? (
                 <>

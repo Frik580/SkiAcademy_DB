@@ -583,7 +583,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           <button
             type="submit"
             disabled={isSubmitting || !hasSufficientFunds || isTimeSlotOccupied || !targetInstructor.isAvailable || userProfile?.isClientActive === false}
-            className="w-full py-3 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
+            className="btn-primary w-full py-3 flex items-center justify-center gap-2"
           >
             {isSubmitting ? (
               <>

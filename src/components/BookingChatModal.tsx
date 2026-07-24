@@ -421,7 +421,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/15 shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="p-2 bg-indigo-950/20 border border-indigo-500/20 text-indigo-400">
+            <div className="p-2 bg-accent-muted border border-accent text-accent">
               <MessageSquare className="w-4.5 h-4.5" />
             </div>
             <div className="min-w-0">
@@ -499,7 +499,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
                       <span className="font-bold text-[var(--ink)] truncate max-w-[120px]">{msg.senderName}</span>
                       <span className={`px-1 py-0.5 text-[7px] border rounded-none font-bold ${
                         isSenderClient 
-                          ? 'border-indigo-500/20 text-indigo-400 bg-indigo-950/20' 
+                          ? 'border-accent text-accent bg-accent-muted' 
                           : isSenderAdmin
                           ? 'border-amber-500/20 text-amber-400 bg-amber-950/20'
                           : 'border-emerald-500/20 text-emerald-400 bg-emerald-950/20'
@@ -556,7 +556,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
                             className={`flex items-center gap-2 p-2 border text-[10px] font-mono uppercase tracking-widest transition-all duration-300 ${
                               isMe 
                                 ? 'border-white/20 text-white bg-white/10 hover:bg-white/20' 
-                                : 'border-[var(--border)] text-indigo-400 hover:border-indigo-400 bg-black/5'
+                                : 'border-[var(--border)] text-accent hover:border-accent bg-black/5'
                             }`}
                           >
                             <ExternalLink className="w-3.5 h-3.5 shrink-0" />
@@ -634,7 +634,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
           </div>
 
           {isCompressing && (
-            <div className="flex items-center gap-1.5 text-[9px] font-mono text-indigo-400 uppercase tracking-widest animate-pulse font-bold">
+            <div className="flex items-center gap-1.5 text-[9px] font-mono text-accent uppercase tracking-widest animate-pulse font-bold">
               <Loader2 className="w-3 h-3 animate-spin" />
               <span>{compressionProgress}</span>
             </div>
@@ -676,15 +676,15 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
                   <img src={attachmentUrl} alt={t('chatPreviewAlt')} className="w-full h-full object-cover" />
                 ) : attachmentType === 'video' ? (
                   <div className="relative w-full h-full flex items-center justify-center bg-black">
-                    <Video className="w-5 h-5 text-indigo-400" />
-                    <span className="absolute bottom-0 right-0 text-[6px] font-mono bg-black/75 px-0.5 text-indigo-400">VM</span>
+                    <Video className="w-5 h-5 text-accent" />
+                    <span className="absolute bottom-0 right-0 text-[6px] font-mono bg-black/75 px-0.5 text-accent">VM</span>
                   </div>
                 ) : (
-                  <LinkIcon className="w-5 h-5 text-indigo-400" />
+                  <LinkIcon className="w-5 h-5 text-accent" />
                 )}
               </div>
               <div className="min-w-0">
-                <span className="text-[8px] font-mono uppercase tracking-wider text-indigo-400 font-bold block">
+                <span className="text-[8px] font-mono uppercase tracking-wider text-accent font-bold block">
                   {attachmentType === 'image' 
                     ? t('chatImageReady')
                     : attachmentType === 'video' 

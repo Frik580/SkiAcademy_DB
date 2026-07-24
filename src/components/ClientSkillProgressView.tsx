@@ -36,10 +36,10 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
           : 0;
 
         return (
-          <div className="p-4 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-500/20 rounded-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-4 surface-accent rounded-xs flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="space-y-1.5 flex-1">
               <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                <Target className="w-4 h-4 text-accent shrink-0" />
                 <span className="text-xs font-mono font-bold text-[var(--ink)] uppercase tracking-wider">
                   {t('currentLevelProgress')}
                 </span>
@@ -62,7 +62,7 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
                   cx="36"
                   cy="36"
                   r="28"
-                  className="stroke-indigo-600 dark:stroke-indigo-400 fill-none transition-all duration-700 ease-out"
+                  className="stroke-[var(--accent)] fill-none transition-all duration-700 ease-out"
                   strokeWidth="7"
                   strokeDasharray={175.93}
                   strokeDashoffset={175.93 - (175.93 * maxPercentage) / 100}
@@ -71,7 +71,7 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
               </svg>
               {/* Centered % Value inside the Hole */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-sm font-serif font-bold text-indigo-900 dark:text-indigo-300 leading-none">
+                <span className="text-sm font-serif font-bold text-accent leading-none">
                   {maxPercentage}%
                 </span>
               </div>
@@ -94,8 +94,8 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
             <div key={`level-group-${levelNum}`} className="space-y-2">
               {/* Small Header before exercises for this level */}
               <div className="flex items-center gap-2 pt-1">
-                <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400"></span>
-                <h6 className="text-xs font-mono font-bold text-indigo-900 dark:text-indigo-300 uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-[var(--accent)]"></span>
+                <h6 className="text-xs font-mono font-bold text-accent uppercase tracking-wider">
                   {t('instructorLevel')} {levelNum}
                 </h6>
                 <span className="text-[10px] font-mono text-[var(--ink-dim)]">
@@ -133,7 +133,7 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
                               <div className="flex-1 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                                 <div 
                                   className={`h-full transition-all duration-300 rounded-full ${
-                                    percent >= 100 ? 'bg-emerald-600 dark:bg-emerald-400' : percent > 0 ? 'bg-indigo-600 dark:bg-indigo-500' : 'bg-transparent'
+                                    percent >= 100 ? 'bg-emerald-600 dark:bg-emerald-400' : percent > 0 ? 'bg-[var(--accent)]' : 'bg-transparent'
                                   }`}
                                   style={{ width: `${percent}%` }}
                                 />

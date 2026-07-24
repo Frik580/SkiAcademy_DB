@@ -110,7 +110,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
               <div className="flex gap-2">
                 <button
                   onClick={() => onViewReviews && onViewReviews(instructor)}
-                  className="px-3 py-1.5 bg-transparent border border-[var(--border)] hover:border-[var(--ink)] text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] transition cursor-pointer"
+                  className="btn-secondary px-3 py-1.5"
                 >
                   {t('instructorReviewsCount')}
                 </button>
@@ -118,10 +118,10 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
                 <button
                   onClick={() => instructor.isAvailable && onBook(instructor)}
                   disabled={!instructor.isAvailable}
-                  className={`px-4 py-1.5 border font-mono text-[10px] uppercase tracking-wider transition ${
+                  className={`px-4 py-1.5 ${
                     instructor.isAvailable
-                      ? "bg-[var(--ink)] border-[var(--ink)] text-[var(--bg)] hover:bg-transparent hover:text-[var(--ink)] cursor-pointer"
-                      : "bg-transparent border-[var(--border)] text-[var(--ink-dim)] cursor-not-allowed"
+                      ? 'btn-primary'
+                      : 'btn-secondary'
                   }`}
                 >
                   {instructor.isAvailable 

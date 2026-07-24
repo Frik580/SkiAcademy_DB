@@ -254,7 +254,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
   if (!userProfile.instructorId) {
     return (
       <div className="border border-slate-200/70 dark:border-slate-800/70 p-8 space-y-6 animate-fade-in bg-[var(--card-bg)] text-center max-w-xl mx-auto my-12 rounded-xs shadow-xs">
-        <div className="w-16 h-16 border border-slate-200/60 dark:border-slate-800/60 rounded-full flex items-center justify-center mx-auto text-indigo-500 bg-indigo-50 dark:bg-indigo-950/30">
+        <div className="w-16 h-16 border border-slate-200/60 dark:border-slate-800/60 rounded-full flex items-center justify-center mx-auto text-accent bg-accent-muted dark:bg-accent-muted">
           <Lock className="w-8 h-8" />
         </div>
         <div className="space-y-2">
@@ -292,7 +292,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono uppercase bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-900/40 px-2 py-0.5 text-indigo-600 dark:text-indigo-400 tracking-wider rounded-xs font-bold">
+              <span className="text-[10px] font-mono uppercase bg-accent-muted dark:bg-accent-muted border border-accent-soft px-2 py-0.5 text-accent dark:text-accent tracking-wider rounded-xs font-bold">
                 {t('instructorActiveAccount')}
               </span>
             </div>
@@ -336,7 +336,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
             {t('instructorPendingActions')}
           </span>
           <span className="text-3xl font-serif font-light text-[var(--ink)] block">{stats.pending}</span>
-          <span className="text-[8px] font-mono text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
+          <span className="text-[8px] font-mono text-accent dark:text-accent uppercase tracking-wider block">
             {stats.confirmed} {t('confirmed')}
           </span>
         </div>
@@ -408,18 +408,18 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                     <div className="space-y-3 flex-1">
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1 text-[10px] font-mono text-[var(--ink)] font-bold">
-                          <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                          <Calendar className="w-3.5 h-3.5 text-accent" />
                           {b.date}
                         </div>
                         <div className="flex items-center gap-1 text-[10px] font-mono text-[var(--ink)] font-bold">
-                          <Clock className="w-3.5 h-3.5 text-indigo-500" />
+                          <Clock className="w-3.5 h-3.5 text-accent" />
                           {b.time} ({b.durationHours}h)
                         </div>
                         <span className={`px-2 py-0.5 text-[8px] font-mono uppercase font-bold rounded-xs ${
                           b.status === 'confirmed'
                             ? 'text-emerald-700 bg-emerald-100/80 dark:text-emerald-300 dark:bg-emerald-950/50'
                             : b.status === 'completed'
-                            ? 'text-indigo-700 bg-indigo-100/80 dark:text-indigo-300 dark:bg-indigo-950/50'
+                            ? 'badge-accent'
                             : b.status === 'cancelled'
                             ? 'text-rose-700 bg-rose-100/80 dark:text-rose-300 dark:bg-rose-950/50'
                             : 'text-amber-700 bg-amber-100/80 dark:text-amber-300 dark:bg-amber-950/50'
@@ -439,7 +439,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                       {/* Client profile(s) representation */}
                       <div className="p-3.5 border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30 rounded-xs w-full space-y-2.5">
                         <h5 className="text-[9px] font-mono uppercase tracking-widest text-[var(--ink-dim)] flex items-center gap-1.5 font-bold">
-                          <Users className="w-3.5 h-3.5 text-indigo-500" />
+                          <Users className="w-3.5 h-3.5 text-accent" />
                           {(b as any).isCourse 
                             ? t('instructorCourseParticipants')
                             : t('instructorLessonClient')} 
@@ -472,10 +472,10 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                         studentLevel: studentLevel,
                                         existingScores: studentUser?.skillScores || {}
                                       })}
-                                      className="px-2.5 py-1 border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 text-[9px] font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1 rounded-xs font-bold"
+                                      className="px-2.5 py-1 badge-accent-outline text-[9px] font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1 rounded-xs font-bold"
                                       title="Оценить навыки ученика"
                                     >
-                                      <Award className="w-3 h-3 text-indigo-500" />
+                                      <Award className="w-3 h-3 text-accent" />
                                       {t('instructorAssess')}
                                     </button>
 
@@ -497,7 +497,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                     <select
                                       value={studentLevel}
                                       onChange={(e) => handleUpdateStudentLevel(client.uid, client.name, Number(e.target.value))}
-                                      className="text-[9px] font-mono bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                                      className="text-[9px] font-mono bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-0.5 focus:outline-none focus:ring-1 ring-accent cursor-pointer"
                                     >
                                       <option value={1}>{t('instructorLevelShort')} 1</option>
                                       <option value={2}>{t('instructorLevelShort')} 2</option>
@@ -535,10 +535,10 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                         studentLevel: studentLevel,
                                         existingScores: studentUser?.skillScores || {}
                                       })}
-                                      className="px-2.5 py-1 border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 text-[9px] font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1 rounded-xs font-bold"
+                                      className="px-2.5 py-1 badge-accent-outline text-[9px] font-mono uppercase tracking-wider transition cursor-pointer flex items-center gap-1 rounded-xs font-bold"
                                       title="Оценить навыки ученика"
                                     >
-                                      <Award className="w-3 h-3 text-indigo-500" />
+                                      <Award className="w-3 h-3 text-accent" />
                                       {t('instructorAssess')}
                                     </button>
 
@@ -564,7 +564,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                       <select
                                         value={studentLevel}
                                         onChange={(e) => handleUpdateStudentLevel(b.userId, studentName, Number(e.target.value))}
-                                        className="text-[9px] font-mono bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                                        className="text-[9px] font-mono bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-0.5 focus:outline-none focus:ring-1 ring-accent cursor-pointer"
                                       >
                                         <option value={1}>{t('instructorLevel')} 1</option>
                                         <option value={2}>{t('instructorLevel')} 2</option>
@@ -604,9 +604,9 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                     <div className="flex flex-col gap-2 w-full md:w-56 justify-end shrink-0 self-stretch">
                       <button
                         onClick={() => setSelectedChatBooking(b)}
-                        className="w-full py-2.5 px-4 border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-950/50 text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer rounded-xs"
+                        className="w-full py-2.5 px-4 badge-accent-outline text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer rounded-xs"
                       >
-                        {(b as any).isCourse ? <Users className="w-4 h-4 text-indigo-500" /> : <MessageSquare className="w-4 h-4 text-indigo-500" />}
+                        {(b as any).isCourse ? <Users className="w-4 h-4 text-accent" /> : <MessageSquare className="w-4 h-4 text-accent" />}
                         {(b as any).isCourse ? t('instructorChatGroup') : t('instructorChatStudent')}
                       </button>
 
@@ -642,7 +642,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
       <div className="space-y-4">
         <h4 className="text-lg font-serif font-light text-[var(--ink)] tracking-tight border-b border-slate-200/80 dark:border-slate-800/80 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Award className="w-5 h-5 text-indigo-500" />
+            <Award className="w-5 h-5 text-accent" />
             <span>{t('instructorStudentsTitle')} ({myStudents.length})</span>
           </div>
           <span className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider font-normal">
@@ -690,7 +690,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                     <select
                       value={studentLevel}
                       onChange={(e) => handleUpdateStudentLevel(student.uid, student.name, Number(e.target.value))}
-                      className="text-[9px] font-mono uppercase bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                      className="text-[9px] font-mono uppercase bg-white dark:bg-slate-900 text-[var(--ink)] border border-slate-200 dark:border-slate-700 rounded-xs px-1.5 py-1 focus:outline-none focus:ring-1 ring-accent cursor-pointer"
                     >
                       <option value={1}>{t('instructorLevelShort')} 1</option>
                       <option value={2}>{t('instructorLevelShort')} 2</option>

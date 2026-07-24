@@ -21,10 +21,10 @@ export const UnreviewedCompletedBookingsNotice: React.FC<UnreviewedCompletedBook
   }
 
   return (
-    <div className="border border-indigo-200/60 dark:border-indigo-500/20 p-4 space-y-3 bg-indigo-50/50 dark:bg-indigo-950/20 animate-fade-in w-full min-w-0 max-w-full overflow-hidden rounded-xs shadow-xs">
+    <div className="border surface-accent p-4 space-y-3 animate-fade-in w-full min-w-0 max-w-full overflow-hidden rounded-xs shadow-xs">
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative">
-          <Bell className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+          <Bell className="w-4 h-4 text-accent" />
           <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping" />
           <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full" />
         </div>
@@ -37,7 +37,7 @@ export const UnreviewedCompletedBookingsNotice: React.FC<UnreviewedCompletedBook
           <div
             key={inv.id}
             id={`review-invitation-card-${inv.id}`}
-            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--card-bg)] p-3 rounded-xs border border-slate-200/70 dark:border-slate-800/70 hover:border-indigo-300 dark:hover:border-indigo-700 transition duration-200 w-full min-w-0"
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--card-bg)] p-3 rounded-xs border border-slate-200/70 dark:border-slate-800/70 hover:border-accent-soft transition duration-200 w-full min-w-0"
           >
             <div className="flex items-center gap-3 min-w-0 w-full">
               <img

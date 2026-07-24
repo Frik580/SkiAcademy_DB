@@ -94,7 +94,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-mono uppercase tracking-wider font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+          className="px-4 py-1.5 btn-primary flex items-center gap-1.5 shadow-md disabled:opacity-50"
         >
           <Save className="w-3.5 h-3.5" />
           {isSaving ? t('saving') : t('saveChanges')}
@@ -114,9 +114,9 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
               max={100} 
               value={passPercentage}
               onChange={(e) => setPassPercentage(Number(e.target.value))}
-              className="w-24 bg-[var(--bg)] border border-[var(--border)] px-3 py-1.5 text-xs font-mono text-[var(--ink)] focus:outline-none focus:border-indigo-500"
+              className="w-24 bg-[var(--bg)] border border-[var(--border)] px-3 py-1.5 text-xs font-mono text-[var(--ink)] focus:outline-none focus:border-accent"
             />
-            <span className="text-xs font-mono font-bold text-indigo-400">%</span>
+            <span className="text-xs font-mono font-bold text-accent">%</span>
           </div>
           <span className="text-[9px] text-[var(--ink-dim)] mt-1 block">
             {t('minimumAdvancementThresholdPrefix')} {passPercentage}% {t('minimumAdvancementThresholdSuffix')}
@@ -149,7 +149,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
           onClick={() => setSelectedLevelTransition(1)}
           className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider border transition cursor-pointer ${
             selectedLevelTransition === 1 
-              ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400 font-bold' 
+              ? 'border-accent bg-accent-muted text-accent font-bold' 
               : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
           }`}
         >
@@ -159,7 +159,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
           onClick={() => setSelectedLevelTransition(2)}
           className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider border transition cursor-pointer ${
             selectedLevelTransition === 2 
-              ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400 font-bold' 
+              ? 'border-accent bg-accent-muted text-accent font-bold' 
               : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
           }`}
         >
@@ -169,7 +169,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
           onClick={() => setSelectedLevelTransition(3)}
           className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider border transition cursor-pointer ${
             selectedLevelTransition === 3 
-              ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400 font-bold' 
+              ? 'border-accent bg-accent-muted text-accent font-bold' 
               : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
           }`}
         >
@@ -221,7 +221,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                         className="w-full bg-[var(--bg)] border border-[var(--border)] px-1.5 py-0.5 text-xs text-[var(--ink)]"
                       />
                     ) : (
-                      <span className="font-semibold text-indigo-300">{item.section}</span>
+                      <span className="font-semibold text-accent">{item.section}</span>
                     )}
                   </td>
 

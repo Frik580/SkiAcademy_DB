@@ -129,10 +129,10 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     const isPendingCancellation = b.status === 'pending_cancellation';
     const isCompleted = b.status === 'completed';
 
-    let cardBgClasses = 'bg-indigo-50/60 dark:bg-indigo-950/15 border border-indigo-250/45 dark:border-indigo-900/40 hover:border-indigo-400 dark:hover:border-indigo-700 text-indigo-950 dark:text-indigo-200';
-    let titleColorClasses = 'text-indigo-900 dark:text-indigo-200';
-    let buttonColorClasses = 'text-indigo-400 hover:text-red-500';
-    let textTimeClasses = 'text-indigo-600 dark:text-indigo-400';
+    let cardBgClasses = 'bg-accent-muted border border-accent-soft hover:border-accent text-[var(--ink)]';
+    let titleColorClasses = 'text-accent';
+    let buttonColorClasses = 'text-accent hover:text-red-500';
+    let textTimeClasses = 'text-accent';
 
     if (isPendingCancellation) {
       cardBgClasses = 'bg-rose-50/60 dark:bg-rose-950/15 border border-rose-250/45 dark:border-rose-900/40 hover:border-rose-400 dark:hover:border-rose-700 text-rose-950 dark:text-rose-200 animate-pulse';
@@ -359,10 +359,10 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             <td key={slotTime} className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40 text-center">
               <button
                 onClick={() => handleOpenSlotAction(ins, slotTime)}
-                className="w-full h-11 border border-dashed border-slate-200/60 dark:border-slate-800/40 hover:border-indigo-400 dark:hover:border-indigo-800 hover:bg-indigo-50/10 dark:hover:bg-indigo-950/10 rounded-xl transition flex items-center justify-center cursor-pointer group animate-fade-in"
+                className="w-full h-11 border border-dashed border-slate-200/60 dark:border-slate-800/40 hover:border-accent hover:bg-accent-muted rounded-xl transition flex items-center justify-center cursor-pointer group animate-fade-in"
                 title={t('manageSlot')}
               >
-                <Plus className="w-3.5 h-3.5 text-slate-300 dark:text-slate-700 group-hover:text-indigo-500 transition duration-200" />
+                <Plus className="w-3.5 h-3.5 text-slate-300 dark:text-slate-700 group-hover:text-accent transition duration-200" />
               </button>
             </td>
           );

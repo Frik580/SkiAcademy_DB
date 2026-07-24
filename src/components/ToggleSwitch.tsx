@@ -17,7 +17,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
   label,
   description,
   id,
-  activeColor = 'bg-indigo-600',
+  activeColor = 'bg-[var(--accent)]',
   disabled = false,
   className = '',
 }) => {

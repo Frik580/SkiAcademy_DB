@@ -509,7 +509,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               {t('accessSuspendedDesc')}
             </p>
             {showInstructorTab && (
-              <p className="text-xs text-indigo-400 font-mono uppercase tracking-wider leading-relaxed pt-2">
+              <p className="text-xs text-accent font-mono uppercase tracking-wider leading-relaxed pt-2">
                 {t('instructorWorkspaceAvailable')}
               </p>
             )}

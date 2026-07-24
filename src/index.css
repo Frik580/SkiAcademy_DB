@@ -28,6 +28,10 @@
   --hero-secondary-shadow-hover: 0 2px 8px rgba(13, 15, 18, 0.12);
   --hero-ink: #0a0c0f;
   --hero-ink-dim: #2f343c;
+  --hero-cta-bg: #0d0f12;
+  --hero-cta-bg-hover: #23262d;
+  --hero-cta-fg: #fafaf7;
+  --hero-cta-border: #0d0f12;
 }
 
 .dark, :root[class~="dark"] {
@@ -50,6 +54,10 @@
   --hero-secondary-shadow-hover: none;
   --hero-ink: var(--ink);
   --hero-ink-dim: var(--ink-dim);
+  --hero-cta-bg: #efeeea;
+  --hero-cta-bg-hover: #ffffff;
+  --hero-cta-fg: #0d0f12;
+  --hero-cta-border: #efeeea;
 }
 
 @layer base {
@@ -149,6 +157,39 @@
 
   .btn-secondary-hero:active:not(:disabled) {
     transform: translateY(1px);
+  }
+
+  /* Primary hero CTA — ink/cream, distinct from app-wide accent buttons */
+  .btn-primary-hero {
+    background-color: var(--hero-cta-bg);
+    border: 1px solid var(--hero-cta-border);
+    color: var(--hero-cta-fg);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    box-shadow: 0 2px 10px rgba(13, 15, 18, 0.18);
+    transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    cursor: pointer;
+  }
+
+  .btn-primary-hero:hover:not(:disabled) {
+    background-color: var(--hero-cta-bg-hover);
+    border-color: var(--hero-cta-bg-hover);
+    box-shadow: 0 4px 14px rgba(13, 15, 18, 0.22);
+  }
+
+  .btn-primary-hero:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  .dark .btn-primary-hero {
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+  }
+
+  .dark .btn-primary-hero:hover:not(:disabled) {
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
   }
 
   .text-accent {

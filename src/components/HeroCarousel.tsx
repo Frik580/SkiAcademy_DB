@@ -127,7 +127,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
           <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 shrink-0 w-full md:w-auto md:min-w-[240px] self-start md:self-end">
             <button
               onClick={() => onScrollToSection('coaches-grid')}
-              className="btn-primary w-full px-5 py-3 inline-flex items-center justify-center gap-2"
+              className="btn-primary-hero w-full px-5 py-3 inline-flex items-center justify-center gap-2"
             >
               <span>{t('bookFirstLesson')}</span>
               <ArrowRight className="w-3.5 h-3.5" />

@@ -102,9 +102,18 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
       )
       .map(b => {
         const client = usersList.find(u => u.uid === b.userId);
-        return client 
-          ? { ...b, clientName: client.displayName, clientAvatar: client.avatarUrl } 
-          : { ...b, clientName: t('instructorEnrolledStudent'), clientAvatar: '' };
+        const name = client?.displayName || 
+          b.guestName || 
+          (b.isGuest || b.userId?.startsWith('guest_') ? (b.guestName ? `${b.guestName} (${t('guestBadge') || 'Гость'})` : (t('guestBadge') || 'Гость')) : t('instructorEnrolledStudent'));
+        const avatar = client?.avatarUrl || '';
+        return { 
+          ...b, 
+          clientName: name, 
+          clientAvatar: avatar,
+          guestPhone: b.guestPhone,
+          guestEmail: b.guestEmail,
+          isGuest: b.isGuest || b.userId?.startsWith('guest_')
+        };
       });
 
     // 2. Get course bookings for courses this instructor teaches
@@ -148,6 +157,18 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
           uid: client.uid,
           name: client.displayName,
           avatar: client.avatarUrl,
+          phone: client.phoneNumber,
+          email: client.email,
+        });
+      } else {
+        const guestNameStr = b.guestName || (b.isGuest || b.userId?.startsWith('guest_') ? (t('guestBadge') || 'Гость') : t('instructorEnrolledStudent'));
+        groupedCourses.get(courseId).clients.push({
+          uid: b.userId,
+          name: guestNameStr,
+          avatar: '',
+          phone: b.guestPhone,
+          email: b.guestEmail,
+          isGuest: true,
         });
       }
     });
@@ -523,7 +544,30 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
                                         <div className="w-full h-full flex items-center justify-center text-[10px] font-serif">👤</div>
                                       )}
                                     </div>
-                                    <span className="text-xs font-mono text-[var(--ink)] font-medium">{studentName}</span>
+                                    <div>
+                                      <div className="text-xs font-mono text-[var(--ink)] font-medium flex items-center gap-1.5">
+                                        {studentName}
+                                        {(b as any).isGuest && (
+                                          <span className="px-1.5 py-0.2 bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[9px] font-mono rounded-xs border border-amber-500/30">
+                                            {t('guestBadge') || 'Гость'}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {((b as any).guestPhone || (b as any).guestEmail) && (
+                                        <div className="text-[10px] font-mono text-[var(--ink-dim)] flex flex-wrap gap-2 mt-0.5">
+                                          {(b as any).guestPhone && (
+                                            <a href={`tel:${(b as any).guestPhone}`} className="hover:text-accent">
+                                              📞 {(b as any).guestPhone}
+                                            </a>
+                                          )}
+                                          {(b as any).guestEmail && (
+                                            <a href={`mailto:${(b as any).guestEmail}`} className="hover:text-accent">
+                                              ✉️ {(b as any).guestEmail}
+                                            </a>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
 
                                   <div className="flex items-center gap-2">

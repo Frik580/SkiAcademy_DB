@@ -225,8 +225,10 @@ service cloud.firestore {
         isMigratableClientBooking(resource.data) ||
         (isAuthenticated() && !availabilityMigrationComplete());
 
-      allow create: if isAuthenticated() &&
-        (request.resource.data.userId == request.auth.uid || isAdmin()) &&
+      allow create: if (
+        (isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin())) ||
+        (request.resource.data.userId.matches('^guest_.*') && request.resource.data.status == 'pending')
+      ) &&
         request.resource.data.totalPrice >= 0 &&
         request.resource.data.durationHours > 0 &&
         (isAdmin() || availabilityIsSynchronized(bookingId, request.resource.data));
@@ -295,26 +297,38 @@ service cloud.firestore {
       allow read: if true;
 
       allow create, update: if isAdmin() || (
-        isAuthenticated() &&
         existsAfter(/databases/$(database)/documents/bookings/$(bookingId)) &&
-        (
-          isOwner(
-            getAfter(
-              /databases/$(database)/documents/bookings/$(bookingId)
-            ).data.userId
-          ) ||
-          isAssignedInstructor(
-            getAfter(
-              /databases/$(database)/documents/bookings/$(bookingId)
-            ).data
-          )
-        ) &&
         validAvailabilitySlot(
           request.resource.data,
           bookingId,
           getAfter(
             /databases/$(database)/documents/bookings/$(bookingId)
           ).data
+        ) &&
+        (
+          (
+            isAuthenticated() &&
+            (
+              isOwner(
+                getAfter(
+                  /databases/$(database)/documents/bookings/$(bookingId)
+                ).data.userId
+              ) ||
+              isAssignedInstructor(
+                getAfter(
+                  /databases/$(database)/documents/bookings/$(bookingId)
+                ).data
+              )
+            )
+          ) ||
+          (
+            getAfter(
+              /databases/$(database)/documents/bookings/$(bookingId)
+            ).data.userId.matches('^guest_.*') &&
+            getAfter(
+              /databases/$(database)/documents/bookings/$(bookingId)
+            ).data.status == 'pending'
+          )
         )
       );
 

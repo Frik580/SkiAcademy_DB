@@ -152,21 +152,24 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     const fetchInstructorBookings = async () => {
       setIsLoadingInstructorBookings(true);
       try {
+        const slotsMap = new Map<string, AvailabilitySlot>();
+
         const q = query(
           collection(db, AVAILABILITY_SLOTS_COLLECTION),
           where('instructorId', '==', currentBooking.instructorId)
         );
         const snap = await getDocs(q);
-        const list: AvailabilitySlot[] = [];
         if (snap && !snap.empty) {
           snap.forEach((doc) => {
             const b = doc.data() as AvailabilitySlot;
             if (b.bookingId !== rescheduleId) {
-              list.push(b);
+              const key = b.bookingId || `${b.instructorId}_${b.date}_${b.time}`;
+              slotsMap.set(key, b);
             }
           });
         }
-        setRescheduleInstructorBookings(list);
+
+        setRescheduleInstructorBookings(Array.from(slotsMap.values()));
       } catch (err) {
         console.error('Error fetching instructor bookings for reschedule:', err);
       } finally {

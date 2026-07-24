@@ -6,6 +6,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   handleFirestoreError,
   onSnapshot,
   OperationType,
@@ -295,6 +296,105 @@ export const useBookings = (
     }
   };
 
+  const handleLinkGuestBooking = async (bookingId: string, targetUserId: string) => {
+    const booking = bookings.find((b) => b.id === bookingId);
+    if (!booking) return;
+
+    const oldUserId = booking.userId;
+    const isConfirmed = booking.status === 'confirmed';
+
+    let lessonCost = booking.totalPrice || 0;
+    let updatedTargetBalance: number | null = null;
+
+    // 1. Check client balance and update booking + user balance in an atomic transaction
+    await runTransaction(db, async (transaction) => {
+      // If price was 0 on booking, attempt to lookup instructor rate
+      if (lessonCost === 0 && booking.instructorId) {
+        const instRef = doc(db, 'instructors', booking.instructorId);
+        const instSnap = await transaction.get(instRef);
+        if (instSnap.exists()) {
+          const instData = instSnap.data();
+          if (instData.pricePerHour) {
+            lessonCost = instData.pricePerHour * (booking.durationHours || 1);
+          }
+        }
+      }
+
+      const targetUserRef = doc(db, 'users', targetUserId);
+      const targetUserSnap = await transaction.get(targetUserRef);
+
+      let currentBalance = 0;
+      if (targetUserSnap.exists()) {
+        const userData = targetUserSnap.data() as UserProfile;
+        currentBalance = userData.balanceUSD ?? 0;
+      }
+
+      // If booking is confirmed, enforce sufficient funds check
+      if (isConfirmed && lessonCost > 0) {
+        if (currentBalance < lessonCost) {
+          const errMsg = `${t('insufficientFundsForLink') || 'Недостаточно средств на счету клиента для привязки этого занятия.'} (${t('balance') || 'Баланс'}: $${currentBalance}, ${t('costLabel') || 'стоимость'}: $${lessonCost})`;
+          throw new Error(errMsg);
+        }
+        updatedTargetBalance = currentBalance - lessonCost;
+        if (targetUserSnap.exists()) {
+          transaction.update(targetUserRef, {
+            balanceUSD: updatedTargetBalance,
+          });
+        }
+      }
+
+      const bookingRef = doc(db, 'bookings', bookingId);
+      transaction.update(bookingRef, {
+        userId: targetUserId,
+        isGuest: false,
+      });
+    });
+
+    if (updatedTargetBalance !== null && userProfile && userProfile.uid === targetUserId) {
+      setUserProfile({ ...userProfile, balanceUSD: updatedTargetBalance });
+    }
+
+    // 2. If guest had a profile record or skill scores, merge scores and reviews
+    if (oldUserId && (oldUserId.startsWith('guest_') || booking.isGuest)) {
+      try {
+        const oldUserDoc = await getDoc(doc(db, 'users', oldUserId));
+        if (oldUserDoc.exists()) {
+          const oldUserData = oldUserDoc.data();
+          if (oldUserData.skillScores && Object.keys(oldUserData.skillScores).length > 0) {
+            const targetUserDoc = await getDoc(doc(db, 'users', targetUserId));
+            const targetUserData = targetUserDoc.exists() ? targetUserDoc.data() : {};
+            const mergedScores = {
+              ...(targetUserData.skillScores || {}),
+              ...oldUserData.skillScores
+            };
+            await updateDoc(doc(db, 'users', targetUserId), {
+              skillScores: mergedScores
+            });
+          }
+        }
+
+        // Update reviews linked to guest
+        const rQuery = query(collection(db, 'reviews'), where('userId', '==', oldUserId));
+        const rSnap = await getDocs(rQuery);
+        for (const rDoc of rSnap.docs) {
+          await updateDoc(doc(db, 'reviews', rDoc.id), {
+            userId: targetUserId,
+          });
+        }
+      } catch (err) {
+        console.error('Error linking guest data:', err);
+      }
+    }
+
+    // 3. Send notification to target user
+    await createNotificationForUser(
+      targetUserId,
+      t('bookingLinkedTitle') || 'Урок добавлен в ваш личный кабинет',
+      `${t('bookingLinkedDesc') || 'Администратор привязал урок'} ${booking.instructorName} (${booking.date} @ ${booking.time}) к вашему аккаунту.`,
+      'success'
+    );
+  };
+
   return {
     bookings,
     bookingsLoaded,
@@ -307,5 +407,6 @@ export const useBookings = (
     handleDeleteBooking,
     handleConfirmBooking,
     handleCompleteBooking,
+    handleLinkGuestBooking,
   };
 };

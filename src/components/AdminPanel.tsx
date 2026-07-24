@@ -63,6 +63,7 @@ interface AdminPanelProps {
   onDeleteInstructor: (id: string) => Promise<void>;
   onConfirmBooking: (id: string) => Promise<void>;
   onCompleteBooking?: (id: string) => Promise<void>;
+  onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
   onCancelBooking: (id: string) => Promise<void>;
   onAddUser?: (user: UserProfile) => Promise<void>;
   onUpdateUser?: (user: UserProfile) => Promise<void>;
@@ -93,6 +94,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onDeleteInstructor,
   onConfirmBooking,
   onCompleteBooking,
+  onLinkGuestBooking,
   onCancelBooking,
   onAddUser,
   onUpdateUser,
@@ -184,6 +186,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             onDeleteBooking={onDeleteBooking}
             onCancelBooking={onCancelBooking}
             onCompleteBooking={onCompleteBooking}
+            onLinkGuestBooking={onLinkGuestBooking}
           />
         </AdminCollapsibleSection>
       </Suspense>
@@ -223,6 +226,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             instructors={instructors}
             onConfirmBooking={onConfirmBooking}
             onCompleteBooking={onCompleteBooking}
+            onLinkGuestBooking={onLinkGuestBooking}
             onCancelBooking={onCancelBooking}
             onRequestConfirm={onRequestConfirm}
           />

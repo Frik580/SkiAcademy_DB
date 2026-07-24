@@ -32,6 +32,7 @@ interface ScheduleCalendarProps {
   onDeleteBooking?: (id: string) => Promise<void>;
   onCancelBooking: (id: string) => Promise<void>;
   onCompleteBooking?: (id: string) => Promise<void>;
+  onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
 }
 
 export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
@@ -45,6 +46,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   onDeleteBooking,
   onCancelBooking,
   onCompleteBooking,
+  onLinkGuestBooking,
 }) => {
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
@@ -160,7 +162,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                 className="w-4 h-4 rounded-none border border-black/10 shrink-0"
               />
             )}
-            <span className="truncate">{client?.displayName || b.notes || (t('clientLesson'))}</span>
+            <span className="truncate">{client?.displayName || b.guestName || (b.isGuest || b.userId?.startsWith('guest_') ? (b.guestName ? `${b.guestName}` : 'Гость') : null) || b.notes || (t('clientLesson'))}</span>
             {isPendingCancellation && (
               <span className="ml-1 text-[9px] font-bold text-amber-600 dark:text-amber-400">
                 ({t('cancelReqShort')})
@@ -253,7 +255,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         const bookedCount = courseBookings.length;
         const enrolledNames = courseBookings.map((b) => {
           const u = usersList.find((usr) => usr.uid === b.userId);
-          return u?.displayName || u?.email || b.userId;
+          return u?.displayName || u?.email || b.guestName || (b.isGuest || b.userId?.startsWith('guest_') ? (b.guestName ? `${b.guestName} (${t('guestBadge') || 'Гость'})` : 'Гость') : b.userId);
         }).filter(Boolean);
 
         cells.push(
@@ -491,7 +493,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                                 const bookedCount = courseBookings.length;
                                 const enrolledNames = courseBookings.map((b) => {
                                   const u = usersList.find((usr) => usr.uid === b.userId);
-                                  return u?.displayName || u?.email || b.userId;
+                                  return u?.displayName || u?.email || b.guestName || (b.isGuest || b.userId?.startsWith('guest_') ? (b.guestName ? `${b.guestName} (${t('guestBadge') || 'Гость'})` : 'Гость') : b.userId);
                                 }).filter(Boolean);
 
                                 return (
@@ -554,6 +556,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         onDeleteBooking={onDeleteBooking}
         onCancelBooking={onCancelBooking}
         onCompleteBooking={onCompleteBooking}
+        onLinkGuestBooking={onLinkGuestBooking}
       />
     </>
   );

@@ -60,6 +60,10 @@ export interface Booking {
   notes?: string;
   cancellationReason?: string;
   isDeleted?: boolean;
+  isGuest?: boolean;
+  guestName?: string;
+  guestPhone?: string;
+  guestEmail?: string;
 }
 
 export interface AvailabilitySlot {

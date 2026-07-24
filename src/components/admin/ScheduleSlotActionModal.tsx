@@ -10,6 +10,7 @@ import {
   Calendar,
   Check,
   Clock,
+  Link2,
   Loader2,
   MessageSquare,
   Shield,
@@ -20,6 +21,7 @@ import type { Booking, Course, Instructor, UserProfile } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
 import { BookingChatModal } from '../BookingChatModal';
+import { LinkGuestBookingModal } from './LinkGuestBookingModal';
 import {
   getAvailableMoveTimeSlots,
   getAvailableScheduleDurations,
@@ -50,6 +52,7 @@ interface ScheduleSlotActionModalProps {
   onDeleteBooking?: (id: string) => Promise<void>;
   onCancelBooking: (id: string) => Promise<void>;
   onCompleteBooking?: (id: string) => Promise<void>;
+  onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
 }
 
 interface ActiveSlotDialogProps {
@@ -64,6 +67,7 @@ interface ActiveSlotDialogProps {
   onAddBooking?: (booking: Booking) => Promise<void>;
   onRescheduleBooking?: (id: string, newDate: string, newTime: string) => Promise<void>;
   onCompleteBooking?: (id: string) => Promise<void>;
+  onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
 }
 
 const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
@@ -78,6 +82,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   onAddBooking,
   onRescheduleBooking,
   onCompleteBooking,
+  onLinkGuestBooking,
 }) => {
   const { addNotification } = useNotifications();
   const { t } = useLanguage();
@@ -89,6 +94,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   const [bookingDifficulty, setBookingDifficulty] = useState<'beginner' | 'intermediate' | 'advanced' | 'freeride' | 'freestyle'>('beginner');
   const [bookingNotes, setBookingNotes] = useState('');
   const [isSlotActionSubmitting, setIsSlotActionSubmitting] = useState(false);
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [newMoveDate, setNewMoveDate] = useState(activeSlot.booking?.date || selectedDate);
   const [newMoveTime, setNewMoveTime] = useState(activeSlot.booking?.time || activeSlot.time);
 
@@ -358,8 +364,18 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
                   ? (t('breakLabel'))
                   : activeSlot.booking.userId === 'system_block_day_off'
                     ? (t('dayOffLabel'))
-                    : (`${t('lessonWithClientPrefix')} (${usersList.find(user => user.uid === activeSlot.booking?.userId)?.displayName || t('clientFallback')})`)}
+                    : (`${t('lessonWithClientPrefix')} (${usersList.find(user => user.uid === activeSlot.booking?.userId)?.displayName || activeSlot.booking?.guestName || (activeSlot.booking?.isGuest || activeSlot.booking?.userId?.startsWith('guest_') ? (activeSlot.booking?.guestName ? `${activeSlot.booking.guestName} (${t('guestBadge') || 'Гость'})` : (t('guestBadge') || 'Гость')) : t('clientFallback'))})`)}
               </div>
+              {(activeSlot.booking.guestPhone || activeSlot.booking.guestEmail) && (
+                <div className="text-xs text-[var(--ink-dim)] space-y-0.5 font-mono">
+                  {activeSlot.booking.guestPhone && (
+                    <div><strong>Тел:</strong> <a href={`tel:${activeSlot.booking.guestPhone}`} className="text-sky-600 dark:text-sky-400 hover:underline">{activeSlot.booking.guestPhone}</a></div>
+                  )}
+                  {activeSlot.booking.guestEmail && (
+                    <div><strong>Email:</strong> <a href={`mailto:${activeSlot.booking.guestEmail}`} className="text-sky-600 dark:text-sky-400 hover:underline">{activeSlot.booking.guestEmail}</a></div>
+                  )}
+                </div>
+              )}
               {activeSlot.booking.notes && (
                 <div className="text-xs text-[var(--ink-dim)] italic">
                   "{activeSlot.booking.notes}"
@@ -373,14 +389,26 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
               )}
 
               {activeSlot.booking.userId !== 'system_block_break' && activeSlot.booking.userId !== 'system_block_day_off' && (
-                <button
-                  type="button"
-                  onClick={() => onOpenChat(activeSlot.booking!)}
-                  className="w-full mt-2.5 py-2.5 px-3 border border-accent-soft bg-accent-muted hover:bg-accent-muted hover:border-accent text-accent rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  {t('openChatDiscussion')}
-                </button>
+                <>
+                  {(activeSlot.booking.isGuest || activeSlot.booking.userId?.startsWith('guest_')) && (
+                    <button
+                      type="button"
+                      onClick={() => setIsLinkModalOpen(true)}
+                      className="w-full mt-2.5 py-2 px-3 border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-none text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer"
+                    >
+                      <Link2 className="w-4 h-4" />
+                      {t('linkToClientBtn')}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onOpenChat(activeSlot.booking!)}
+                    className="w-full mt-2.5 py-2.5 px-3 border border-accent-soft bg-accent-muted hover:bg-accent-muted hover:border-accent text-accent rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    {t('openChatDiscussion')}
+                  </button>
+                </>
               )}
             </div>
 
@@ -644,6 +672,21 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
           </form>
         )}
       </div>
+      {activeSlot.booking && (
+        <LinkGuestBookingModal
+          isOpen={isLinkModalOpen}
+          onClose={() => setIsLinkModalOpen(false)}
+          booking={activeSlot.booking}
+          usersList={usersList}
+          onLinkBooking={async (bId, uId) => {
+            if (onLinkGuestBooking) {
+              await onLinkGuestBooking(bId, uId);
+            }
+            setIsLinkModalOpen(false);
+            onClose();
+          }}
+        />
+      )}
     </div>,
     document.body
   );
@@ -666,6 +709,7 @@ export const ScheduleSlotActionModal = forwardRef<
   onDeleteBooking,
   onCancelBooking,
   onCompleteBooking,
+  onLinkGuestBooking,
 }, ref) => {
   const { addNotification } = useNotifications();
   const { t } = useLanguage();
@@ -716,6 +760,7 @@ export const ScheduleSlotActionModal = forwardRef<
           onAddBooking={onAddBooking}
           onRescheduleBooking={onRescheduleBooking}
           onCompleteBooking={onCompleteBooking}
+          onLinkGuestBooking={onLinkGuestBooking}
         />
       )}
 

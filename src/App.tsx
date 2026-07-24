@@ -86,7 +86,7 @@ const AppContent: React.FC = () => {
     handlePaymentSuccess, handleBookingSuccess, handleReschedule, handleAddCourse, handleUpdateCourse, handleDeleteCourse,
     handleBookCourse, handleCancel, handleRequestCancel, handleAddReview, handleAddInstructor, handleUpdateInstructor,
     handleDeleteInstructor, handleAddBooking, handleDeleteBooking, handleUpdateUserRole, handleAddUser, handleUpdateUser,
-    handleDeleteUser, handleConfirmBooking, handleCompleteBooking, handleClearNotifications, handleUpdateProfile,
+    handleDeleteUser, handleConfirmBooking, handleCompleteBooking, handleLinkGuestBooking, handleClearNotifications, handleUpdateProfile,
     handleToggleFilters
   } = useAppLogic(firebaseUser, userProfile, setUserProfile);
 
@@ -254,6 +254,7 @@ const AppContent: React.FC = () => {
               onDeleteInstructor={handleDeleteInstructor}
               onConfirmBooking={handleConfirmBooking}
               onCompleteBooking={handleCompleteBooking}
+              onLinkGuestBooking={handleLinkGuestBooking}
               onCancelBooking={handleCancel}
               onAddUser={handleAddUser}
               onUpdateUser={handleUpdateUser}
@@ -549,5 +550,3 @@ export const App: React.FC = () => {
     </LanguageProvider>
   );
 };
-
-

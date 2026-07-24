@@ -50,7 +50,25 @@ export function useTranslatedBookings(
           name = getGroupCourseLabel(translated.title, language);
           avatar = translated.bgImageUrl || b.instructorAvatar;
           durationHours = parseDurationHours(translated.duration, b.durationHours);
-          notes = getGroupCourseEnrollmentNote(translated.description, language);
+
+          const defaultRu = getGroupCourseEnrollmentNote(liveCourse.description, 'ru');
+          const defaultEn = getGroupCourseEnrollmentNote(liveCourse.description, 'en');
+          const translatedDefaultRu = getGroupCourseEnrollmentNote(translated.description, 'ru');
+          const translatedDefaultEn = getGroupCourseEnrollmentNote(translated.description, 'en');
+
+          const rawNote = (b.notes || '').trim();
+          const isDefaultCourseNote =
+            !rawNote ||
+            rawNote === defaultRu ||
+            rawNote === defaultEn ||
+            rawNote === translatedDefaultRu ||
+            rawNote === translatedDefaultEn;
+
+          if (isDefaultCourseNote) {
+            notes = getGroupCourseEnrollmentNote(translated.description, language);
+          } else {
+            notes = b.notes;
+          }
 
           if (syncCoursePrice) {
             totalPrice = liveCourse.price;

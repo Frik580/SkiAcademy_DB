@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Check, X, ChevronLeft, ChevronRight, Link2 } from 'lucide-react';
 import { Booking, UserProfile, Instructor } from '../../types';
 import { useLanguage, getBookingStatusLabel } from '../../lib/LanguageContext';
+import { LinkGuestBookingModal } from './LinkGuestBookingModal';
 
 interface BookingsLogProps {
   bookings: Booking[];
@@ -9,6 +10,7 @@ interface BookingsLogProps {
   instructors: Instructor[];
   onConfirmBooking: (id: string) => Promise<void>;
   onCompleteBooking?: (id: string) => Promise<void>;
+  onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
   onCancelBooking: (id: string) => Promise<void>;
   onRequestConfirm: (message: string, onConfirm: () => void | Promise<void>) => void;
 }
@@ -19,11 +21,13 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
   instructors,
   onConfirmBooking,
   onCompleteBooking,
+  onLinkGuestBooking,
   onCancelBooking,
   onRequestConfirm,
 }) => {
   const { t, language } = useLanguage();
 
+  const [linkingBooking, setLinkingBooking] = useState<Booking | null>(null);
   const [monitorSearch, setMonitorSearch] = useState('');
   const [monitorStatusFilter, setMonitorStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'pending_cancellation'>('all');
   const [monitorInstructorFilter, setMonitorInstructorFilter] = useState('all');
@@ -39,18 +43,28 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
     if (b.userId?.startsWith('system_block_')) return false;
     const client = usersList.find((u) => u.uid === b.userId);
     const clientNameStr = (client?.displayName || '').toLowerCase();
+    const guestNameStr = (b.guestName || '').toLowerCase();
+    const guestPhoneStr = (b.guestPhone || '').toLowerCase();
+    const guestEmailStr = (b.guestEmail || '').toLowerCase();
     const instructorNameStr = b.instructorName.toLowerCase();
     const notesStr = (b.notes || '').toLowerCase();
     const searchLower = monitorSearch.toLowerCase();
     const matchesSearch = !monitorSearch || 
       clientNameStr.includes(searchLower) || 
+      guestNameStr.includes(searchLower) ||
+      guestPhoneStr.includes(searchLower) ||
+      guestEmailStr.includes(searchLower) ||
       instructorNameStr.includes(searchLower) || 
       notesStr.includes(searchLower) ||
       b.id.toLowerCase().includes(searchLower);
 
     const matchesStatus = monitorStatusFilter === 'all' || b.status === monitorStatusFilter;
     const matchesInstructor = monitorInstructorFilter === 'all' || b.instructorId === monitorInstructorFilter || b.instructorName === monitorInstructorFilter;
-    const matchesClient = monitorClientFilter === 'all' || b.userId === monitorClientFilter;
+    const matchesClient = monitorClientFilter === 'all'
+      ? true
+      : monitorClientFilter === 'guests'
+      ? (b.isGuest || b.userId?.startsWith('guest_'))
+      : b.userId === monitorClientFilter;
 
     return matchesSearch && matchesStatus && matchesInstructor && matchesClient;
   }).sort((a, b) => {
@@ -138,6 +152,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
               className="w-full px-3 py-2 border border-[var(--border)] bg-slate-50 dark:bg-slate-900 text-xs text-[var(--ink)] rounded-none focus:outline-none focus:border-[var(--ink)] transition cursor-pointer font-mono"
             >
               <option value="all" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">{t('allClientsFilter')}</option>
+              <option value="guests" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">📝 {t('filterGuestRequests')}</option>
               {usersList.map((user) => (
                 <option key={user.uid} value={user.uid} className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
                   {user.displayName || user.email || user.uid}
@@ -214,12 +229,54 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                     <tr key={b.id} className="border-b border-[var(--border)]/40 text-xs hover:bg-black/5 dark:hover:bg-white/5 transition">
                       <td className="py-3 px-2 font-mono text-[10px] text-[var(--ink-dim)]">{b.id}</td>
                       <td className="py-3 px-2">
-                        <span className="font-bold text-[var(--ink)] block leading-none">{client?.displayName || (t('skierLabel'))}</span>
-                        <span className="font-mono text-[9px] text-[var(--ink-dim)] mt-1 block">{b.userId.substring(0, 8)}...</span>
+                        {b.isGuest || b.userId?.startsWith('guest_') ? (
+                          <div className="space-y-1">
+                            <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 font-mono text-[9px] uppercase font-bold tracking-wider inline-block">
+                              {t('guestBadge')}
+                            </span>
+                            <span className="font-bold text-[var(--ink)] block leading-tight">
+                              {b.guestName || client?.displayName || 'Гость'}
+                            </span>
+                            {b.guestPhone && (
+                              <a
+                                href={`tel:${b.guestPhone}`}
+                                className="text-sky-600 dark:text-sky-400 font-mono text-[10px] flex items-center gap-1 hover:underline"
+                              >
+                                📞 {b.guestPhone}
+                              </a>
+                            )}
+                            {b.guestEmail && (
+                              <a
+                                href={`mailto:${b.guestEmail}`}
+                                className="text-[var(--ink-dim)] font-mono text-[10px] flex items-center gap-1 hover:underline"
+                              >
+                                ✉️ {b.guestEmail}
+                              </a>
+                            )}
+                            <button
+                              onClick={() => setLinkingBooking(b)}
+                              className="mt-1.5 px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-mono font-bold transition flex items-center gap-1 cursor-pointer"
+                              title={t('linkToClientBtn')}
+                            >
+                              <Link2 className="w-3 h-3" />
+                              {t('linkToClientBtn')}
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="font-bold text-[var(--ink)] block leading-none">{client?.displayName || (t('skierLabel'))}</span>
+                            <span className="font-mono text-[9px] text-[var(--ink-dim)] mt-1 block">{b.userId.substring(0, 8)}...</span>
+                          </>
+                        )}
                       </td>
                       <td className="py-3 px-2 font-bold text-[var(--ink)]">{instructorName}</td>
                       <td className="py-3 px-2 font-mono text-[11px] text-[var(--ink-dim)]">
                         <div>{b.date} @ {b.time} ({b.durationHours}h)</div>
+                        {b.notes && (
+                          <div className="mt-1 text-[10px] text-[var(--ink)] italic bg-black/5 dark:bg-white/5 border border-[var(--border)] p-1.5 max-w-xs font-sans">
+                            💬 {b.notes}
+                          </div>
+                        )}
                         {b.status === 'pending_cancellation' && b.cancellationReason && (
                           <div className="mt-1 text-[10px] text-rose-600 dark:text-rose-400 font-bold bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 rounded-none inline-block">
                             {t('reasonPrefix') }{b.cancellationReason}
@@ -342,6 +399,18 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
             </div>
           </div>
         )}
+
+        <LinkGuestBookingModal
+          isOpen={!!linkingBooking}
+          onClose={() => setLinkingBooking(null)}
+          booking={linkingBooking}
+          usersList={usersList}
+          onLinkBooking={async (bId, uId) => {
+            if (onLinkGuestBooking) {
+              await onLinkGuestBooking(bId, uId);
+            }
+          }}
+        />
       </div>
   );
 };

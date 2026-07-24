@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Booking } from '../types';
 import { migrateAvailabilitySlots } from '../lib/availabilityMigration';
+import { logger } from '../lib/logger';
 
 export const useAvailabilityMigration = (
   role: 'user' | 'admin' | undefined,
@@ -20,7 +21,7 @@ export const useAvailabilityMigration = (
       try {
         await migrateAvailabilitySlots(bookings);
       } catch (error) {
-        console.error('Availability slot migration failed:', error);
+        logger.error('Availability slot migration failed:', error);
       } finally {
         migrationRunningRef.current = false;
       }

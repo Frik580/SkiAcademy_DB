@@ -7,6 +7,7 @@ import {
 import { doc, getDoc, setDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import { Booking } from '../types';
 import { db } from './firebase';
+import { logger } from './logger';
 
 export const migrateAvailabilitySlots = async (
   bookings: Booking[],
@@ -35,5 +36,5 @@ export const migrateAvailabilitySlots = async (
     migratedCount: activeBookings.length,
     completedAt: new Date().toISOString(),
   });
-  console.info(`[Availability Migration] Migrated ${activeBookings.length} active slots.`);
+  logger.info(`[Availability Migration] Migrated ${activeBookings.length} active slots.`);
 };

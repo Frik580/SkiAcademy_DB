@@ -23,6 +23,7 @@ import { useCourses } from './useCourses';
 import { useDismissedReviews } from './useDismissedReviews';
 import { useNotifications as useDbNotifications } from './useNotifications';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
+import { logger } from '../lib/logger';
 
 type SetUserProfile = (profile: UserProfile | null) => void;
 
@@ -94,7 +95,7 @@ export const useAppLogic = (
             ? data.items
             : DEFAULT_SKILL_CONFIG.items,
         });
-      }, (error) => console.error('Skill config listener error:', error)),
+      }, (error) => logger.error('Skill config listener error:', error)),
     ];
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());

@@ -4,6 +4,7 @@ import { UserProfile } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useTheme } from '../useTheme';
 import { optimizeProfileImage } from './profileImage';
+import { logger } from '../../lib/logger';
 
 interface SkillProgressSummary {
   control: { percentage: number };
@@ -52,7 +53,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
         onUploadSuccess?.();
       }
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       onUploadError?.();
     } finally {
       setIsUploadingAvatar(false);

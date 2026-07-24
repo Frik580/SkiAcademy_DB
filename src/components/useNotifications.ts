@@ -10,6 +10,7 @@ import {
   where,
 } from '../lib/firebase';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
+import { logger } from '../lib/logger';
 
 interface DbNotification {
   id: string;
@@ -56,7 +57,7 @@ export const useNotifications = (firebaseUser: User | null) => {
           );
         }
       });
-    }, (error) => console.error('Notifications sync error:', error));
+    }, (error) => logger.error('Notifications sync error:', error));
   }, [addNotification, firebaseUser]);
 
   const handleClearNotifications = async () => {

@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage } from '../lib/LanguageContext';
+import { logger } from '../lib/logger';
 
 interface AuthProps {
   onSuccess: (profile: UserProfile) => void;
@@ -90,7 +91,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         try {
           finalProfile = await migratePreExistingProfile(user.uid, email, displayName);
         } catch (err) {
-          console.warn("Could not check/migrate pre-existing profile", err);
+          logger.warn("Could not check/migrate pre-existing profile", err);
         }
 
         if (!finalProfile) {
@@ -135,7 +136,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         try {
           finalProfile = await migratePreExistingProfile(user.uid, user.email || email);
         } catch (mErr) {
-          console.warn("Could not check/migrate pre-existing profile during sign-in", mErr);
+          logger.warn("Could not check/migrate pre-existing profile during sign-in", mErr);
         }
 
         if (finalProfile) {
@@ -177,7 +178,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         }
       }
     } catch (err: any) {
-      console.error(err);
+      logger.error(err);
       const errCode = err.code || '';
       const errMessage = err.message || '';
 
@@ -240,7 +241,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         try {
           finalProfile = await migratePreExistingProfile(user.uid, user.email || '', user.displayName || undefined);
         } catch (err) {
-          console.warn("Could not check/migrate pre-existing profile on Google login", err);
+          logger.warn("Could not check/migrate pre-existing profile on Google login", err);
         }
 
         if (!finalProfile) {
@@ -269,7 +270,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         onSuccess(finalProfile);
       }
     } catch (err: any) {
-      console.error(err);
+      logger.error(err);
       if (err.code === 'auth/popup-blocked') {
         const popupMsg = t('authPopupBlockedDesc');
         setError(popupMsg);
@@ -306,7 +307,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
       );
       setIsForgotPassword(false);
     } catch (err: any) {
-      console.error("Password reset error:", err);
+      logger.error("Password reset error:", err);
       const errorMsg = err.code === 'auth/user-not-found'
         ? t('authUserNotFound')
         : `${t('authErrorLabel')} ${err.message}`;

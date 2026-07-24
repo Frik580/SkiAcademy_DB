@@ -13,6 +13,7 @@ import { Booking, Instructor } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
 import { getSpecialtyLabel } from './scheduleUtils';
+import { logger } from '../../lib/logger';
 
 interface CoachesManagerProps {
   instructors: Instructor[];
@@ -157,7 +158,7 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
           t('photoAttachedDesc')
         );
       } catch (err) {
-        console.error(err);
+        logger.error(err);
         addNotification(
           'error',
           t('uploadFailed'),

@@ -7,6 +7,7 @@ import { useLanguage, getGroupCourseLabel, getGroupScheduleLabel } from '../lib/
 import { db, setDoc, doc } from '../lib/firebase';
 import { useNotifications } from './PushNotificationHub';
 import { Auth } from './Auth';
+import { logger } from '../lib/logger';
 
 interface CourseEnrollmentModalProps {
   isOpen: boolean;
@@ -82,7 +83,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       onClose();
     } catch (err) {
-      console.error('Error submitting guest course booking:', err);
+      logger.error('Error submitting guest course booking:', err);
       try {
         const existingStr = localStorage.getItem('alpine_glide_bookings_admin');
         const existing: Booking[] = existingStr ? JSON.parse(existingStr) : [];

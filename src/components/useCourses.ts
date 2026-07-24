@@ -27,6 +27,7 @@ import {
 import { createNotificationForUser } from '../lib/notifications';
 import { Booking, Course, UserProfile } from '../types';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
+import { logger } from '../lib/logger';
 
 type SetUserProfile = (profile: UserProfile | null) => void;
 
@@ -73,7 +74,7 @@ export const useCourses = (
         try {
           await updateDoc(doc(db, 'courses', course.id), { availableSeats });
         } catch (error) {
-          console.error(`Failed to auto-sync seats for course ${course.id}:`, error);
+          logger.error(`Failed to auto-sync seats for course ${course.id}:`, error);
         }
       }
     };

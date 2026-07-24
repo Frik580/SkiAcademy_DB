@@ -25,6 +25,7 @@ import { ClientBookingsList } from './personal_cabinet/ClientBookingsList';
 import { UnreviewedCompletedBookingsNotice } from './personal_cabinet/UnreviewedCompletedBookingsNotice';
 import { LevelUpModal } from './personal_cabinet/LevelUpModal';
 import { ToggleSwitch } from './ToggleSwitch';
+import { logger } from '../lib/logger';
 
 const InstructorWorkspace = React.lazy(() =>
   import('./InstructorWorkspace').then(({ InstructorWorkspace }) => ({ default: InstructorWorkspace }))
@@ -171,7 +172,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
         setRescheduleInstructorBookings(Array.from(slotsMap.values()));
       } catch (err) {
-        console.error('Error fetching instructor bookings for reschedule:', err);
+        logger.error('Error fetching instructor bookings for reschedule:', err);
       } finally {
         setIsLoadingInstructorBookings(false);
       }

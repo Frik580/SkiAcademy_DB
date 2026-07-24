@@ -21,6 +21,7 @@ import { BookingChatModal } from './BookingChatModal';
 import { useLanguage, translateInstructorName, translateCourse, splitCourseDates, parseDurationHours, getDifficultyLabel } from '../lib/LanguageContext';
 import { useNotifications } from './PushNotificationHub';
 import { useTheme } from './useTheme';
+import { logger } from '../lib/logger';
 import { SkillConfig } from '../lib/skillData';
 import { StudentSkillEvaluationModal } from './StudentSkillEvaluationModal';
 import {
@@ -80,7 +81,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
         `${t('instructorRatingsSavedDesc')} ${calculatedLevel}`
       );
     } catch (err) {
-      console.error("Error saving student skill scores:", err);
+      logger.error("Error saving student skill scores:", err);
     }
   };
 
@@ -245,7 +246,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
         `${t('instructorLevelUpdatedPrefix')} ${studentName} ${t('instructorLevelUpdatedTo')} ${newLevel}`
       );
     } catch (err) {
-      console.error("Error updating student level:", err);
+      logger.error("Error updating student level:", err);
     }
   };
 
@@ -267,7 +268,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = ({
       }
       await batch.commit();
     } catch (err) {
-      console.error("Error updating lesson status:", err);
+      logger.error("Error updating lesson status:", err);
     }
   };
 

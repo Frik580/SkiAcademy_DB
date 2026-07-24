@@ -4,6 +4,7 @@ import { ErrorLog, OperationType } from '../../types';
 import { db, doc, deleteDoc, collection, query, orderBy, onSnapshot, handleFirestoreError } from '../../lib/firebase';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
+import { logger } from '../../lib/logger';
 
 interface ErrorLogsPanelProps {
   onRequestConfirm: (message: string, onConfirm: () => void | Promise<void>) => void;
@@ -33,7 +34,7 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
         setErrorLogsLoading(false);
       },
       (error) => {
-        console.error('Error fetching logs:', error);
+        logger.error('Error fetching logs:', error);
         setErrorLogsLoading(false);
       }
     );

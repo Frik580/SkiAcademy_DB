@@ -16,6 +16,7 @@ import {
 import { Booking, UserProfile, ChatMessage, OperationType, Instructor } from '../types';
 import { db, collection, doc, setDoc, onSnapshot, handleFirestoreError } from '../lib/firebase';
 import { useLanguage, type TranslationKey } from '../lib/LanguageContext';
+import { logger } from '../lib/logger';
 
 class LocalizedCompressionError extends Error {
   i18nKey: TranslationKey;
@@ -309,7 +310,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
       setAttachmentName(result.name);
       setAttachmentSize(result.size);
     } catch (err: any) {
-      console.error(err);
+      logger.error(err);
       alert(formatCompressionError(err, t, 'chatImageProcessingFailed'));
     } finally {
       setIsCompressing(false);
@@ -344,7 +345,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
       setAttachmentName(result.name);
       setAttachmentSize(result.size);
     } catch (err: any) {
-      console.error(err);
+      logger.error(err);
       alert(formatCompressionError(err, t, 'chatVideoProcessingFailed'));
     } finally {
       setIsCompressing(false);

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Search, UserCheck, Link2, Check, User, AlertCircle } from 'lucide-react';
 import { Booking, UserProfile } from '../../types';
 import { useLanguage, getBookingStatusLabel } from '../../lib/LanguageContext';
+import { logger } from '../../lib/logger';
 
 interface LinkGuestBookingModalProps {
   isOpen: boolean;
@@ -62,7 +63,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
         onClose();
       }, 1200);
     } catch (err: any) {
-      console.error('Failed to link booking:', err);
+      logger.error('Failed to link booking:', err);
       setErrorMessage(err?.message || t('insufficientFundsForLink') || 'Не удалось привязать занятие к клиенту.');
     } finally {
       setIsSubmitting(false);

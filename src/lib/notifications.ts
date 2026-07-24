@@ -1,4 +1,5 @@
 import { db, doc, setDoc } from './firebase';
+import { logger } from './logger';
 
 export const createNotificationForUser = async (
   userId: string,
@@ -19,6 +20,6 @@ export const createNotificationForUser = async (
   try {
     await setDoc(doc(db, 'notifications', notifId), notification);
   } catch (e) {
-    console.error('Failed to create notification:', e);
+    logger.error('Failed to create notification:', e);
   }
 };

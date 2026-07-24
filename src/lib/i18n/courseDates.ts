@@ -1,4 +1,5 @@
 import type { Language } from './translations';
+import { logger } from '../logger';
 
 export function parseCourseDates(datesStr: string) {
   const today = new Date();
@@ -73,7 +74,7 @@ export function parseCourseDates(datesStr: string) {
       if (!isNaN(parsedEnd.getTime())) end = parsedEnd;
     }
   } catch (e) {
-    console.warn("Failed to parse course dates:", e);
+    logger.warn("Failed to parse course dates:", e);
   }
 
   return { start, end, startTime, endTime };

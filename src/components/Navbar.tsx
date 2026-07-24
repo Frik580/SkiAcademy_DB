@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { LogOut, Plus, Bell, Sun, Moon, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../lib/LanguageContext';
 import logoLight from '../assets/images/cropped1.png';
 import logoDark from '../assets/images/cropped2.png';
@@ -10,8 +11,6 @@ interface NavbarProps {
   userProfile: UserProfile | null;
   onOpenTopUp: () => void;
   onOpenNotifications: () => void;
-  onToggleAdminView: () => void;
-  isAdminView: boolean;
   onSignOut: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
@@ -22,28 +21,29 @@ export const Navbar: React.FC<NavbarProps> = ({
   userProfile,
   onOpenTopUp,
   onOpenNotifications,
-  onToggleAdminView,
-  isAdminView,
   onSignOut,
   theme,
   onToggleTheme,
   onSignInClick
 }) => {
   const { t, language, setLanguage } = useLanguage();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isAdminView = location.pathname === '/admin';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 bg-[var(--bg)] border-b border-[var(--border)] px-6 py-3 transition-colors duration-300">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         {/* Brand logo */}
-        <div className="flex items-center select-none">
+        <Link to="/" className="flex items-center select-none">
           <img
             src={theme === 'light' ? logoLight : logoDark}
             alt="Carve Academy Logo"
-            className="h-14 w-auto object-contain transition-opacity duration-300"
+            className="h-10 w-auto object-contain transition-opacity duration-300"
             referrerPolicy="no-referrer"
           />
-        </div>
+        </Link>
 
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-3 md:gap-6 font-mono text-xs tracking-wider">
@@ -83,7 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Admin Toggle button */}
               {userProfile.role === 'admin' && (
                 <button
-                  onClick={onToggleAdminView}
+                  onClick={() => navigate(isAdminView ? '/' : '/admin')}
                   className={`px-3 py-1 border transition cursor-pointer text-[10px] font-mono uppercase tracking-widest ${
                     isAdminView
                       ? 'bg-amber-500 border-amber-500 text-white hover:bg-amber-600'
@@ -165,7 +165,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {/* Admin Toggle button */}
                   {userProfile.role === 'admin' && (
                     <button
-                      onClick={() => { onToggleAdminView(); setIsMenuOpen(false); }}
+                      onClick={() => { navigate(isAdminView ? '/' : '/admin'); setIsMenuOpen(false); }}
                       className={`w-full px-3 py-2.5 border transition cursor-pointer text-xs font-mono uppercase tracking-widest ${
                         isAdminView
                           ? 'bg-amber-500 border-amber-500 text-white hover:bg-amber-600'

@@ -3,6 +3,7 @@ import { Camera, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
 import { optimizeCourseImage } from './courseImage';
+import { logger } from '../../lib/logger';
 
 interface CourseBackgroundImageFieldProps {
   value: string;
@@ -38,7 +39,7 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
         t('courseBgAttachedDesc')
       );
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       addNotification(
         'error',
         t('uploadFailed'),

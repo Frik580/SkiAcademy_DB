@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AnimatePresence } from 'motion/react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { 
   registerFirestoreErrorListener
 } from './lib/firebase';
@@ -14,8 +15,10 @@ import { useResortStats } from './components/useResortStats';
 import { useAppLogic } from './components/useAppLogic';
 
 // Components
+import { logger } from './lib/logger';
 import { NotificationProvider, useNotifications, NotificationHubModal } from './components/PushNotificationHub';
 import { Navbar } from './components/Navbar';
+import { AdminRoute } from './components/AdminRoute';
 import { Auth } from './components/Auth';
 import { LessonFilters } from './components/LessonFilters';
 import { InstructorCard } from './components/InstructorCard';
@@ -90,6 +93,10 @@ const AppContent: React.FC = () => {
     handleToggleFilters
   } = useAppLogic(firebaseUser, userProfile, setUserProfile);
 
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isAdminRoute = location.pathname === '/admin';
+
   // --- UI State (remains in component) ---
   const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -115,7 +122,6 @@ const AppContent: React.FC = () => {
     return () => clearInterval(interval);
   }, [activeSlides.length, slideInterval]);
   const [dbStatusWarning, setDbStatusWarning] = useState<string | null>(null);
-  const [isAdminView, setIsAdminView] = useState<boolean>(false);
   const [isTopUpOpen, setIsTopUpOpen] = useState<boolean>(false);
   const [isNotifHistoryOpen, setIsNotifHistoryOpen] = useState<boolean>(false);
   const [selectedInstructor, setSelectedInstructor] = useState<Instructor | null>(null);
@@ -130,7 +136,7 @@ const AppContent: React.FC = () => {
   // Register a global error listener to warn users about Firestore permission restrictions
   useEffect(() => {
     registerFirestoreErrorListener((_err, op, path) => {
-      console.warn(`[Firestore Safe Fallback Triggered] Error during ${op} on ${path}`);
+      logger.warn(`[Firestore Safe Fallback Triggered] Error during ${op} on ${path}`);
       setDbStatusWarning(`${t('dbRestricted')} (${t('operationLabel')}: ${op}, ${t('pathLabel')}: ${path})`);
     });
   }, [t]);
@@ -138,14 +144,14 @@ const AppContent: React.FC = () => {
   const handleSignOut = async () => {
     try {
       await signOutHandler();
-      setIsAdminView(false);
+      navigate('/', { replace: true });
       addNotification(
         'info',
         t('loggedOut'),
         t('loggedOutDesc')
       );
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     }
   };
 
@@ -207,9 +213,7 @@ const AppContent: React.FC = () => {
         userProfile={userProfile}
         onOpenTopUp={() => setIsTopUpOpen(true)}
         onOpenNotifications={() => setIsNotifHistoryOpen(true)}
-        onToggleAdminView={() => setIsAdminView(!isAdminView)}
-        isAdminView={isAdminView}
-        onSignOut={handleSignOut} // Use the wrapped sign out
+        onSignOut={handleSignOut}
         theme={theme}
         onToggleTheme={toggleTheme}
         onSignInClick={handleScrollToAuth}
@@ -217,7 +221,7 @@ const AppContent: React.FC = () => {
 
       {/* Main Body */}
       <main className={`flex-1 w-full mx-auto ${
-        isAdminView && userProfile && userProfile.role === 'admin'
+        isAdminRoute && userProfile && userProfile.role === 'admin'
           ? 'p-6 overflow-y-auto'
           : 'flex flex-col'
       }`}>
@@ -238,41 +242,48 @@ const AppContent: React.FC = () => {
           </div>
         )}
 
-        {isAdminView && userProfile && userProfile.role === 'admin' ? (
-          /* ADMIN VIEW */
-          <React.Suspense fallback={<SectionLoadingFallback label={t('loading')} />}>
-            <AdminPanel
-              instructors={translatedInstructors}
-              bookings={bookings}
-              usersList={usersList}
-              courses={courses}
-              deletedCompletedStats={deletedCompletedStats}
-              currentUserProfile={userProfile}
-              onUpdateUserRole={handleUpdateUserRole}
-              onAddInstructor={handleAddInstructor}
-              onUpdateInstructor={handleUpdateInstructor}
-              onDeleteInstructor={handleDeleteInstructor}
-              onConfirmBooking={handleConfirmBooking}
-              onCompleteBooking={handleCompleteBooking}
-              onLinkGuestBooking={handleLinkGuestBooking}
-              onCancelBooking={handleCancel}
-              onAddUser={handleAddUser}
-              onUpdateUser={handleUpdateUser}
-              onDeleteUser={handleDeleteUser}
-              onRescheduleBooking={handleReschedule}
-              onDeleteBooking={handleDeleteBooking}
-              onAddBooking={handleAddBooking}
-              onAddCourse={handleAddCourse}
-              onUpdateCourse={handleUpdateCourse}
-              onDeleteCourse={handleDeleteCourse}
-              filtersEnabled={filtersEnabled}
-              onToggleFilters={handleToggleFilters}
-              skillConfig={skillConfig}
-              onUpdateSkillConfig={handleUpdateSkillConfig}
-            />
-          </React.Suspense>
-        ) : (
-          /* USER/CLIENT VIEW (Authenticated or Guest/Logged-out) */
+        <Routes>
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute userProfile={userProfile}>
+                <React.Suspense fallback={<SectionLoadingFallback label={t('loading')} />}>
+                  <AdminPanel
+                    instructors={translatedInstructors}
+                    bookings={bookings}
+                    usersList={usersList}
+                    courses={courses}
+                    deletedCompletedStats={deletedCompletedStats}
+                    currentUserProfile={userProfile!} // AdminRoute guarantees a non-null admin profile
+                    onUpdateUserRole={handleUpdateUserRole}
+                    onAddInstructor={handleAddInstructor}
+                    onUpdateInstructor={handleUpdateInstructor}
+                    onDeleteInstructor={handleDeleteInstructor}
+                    onConfirmBooking={handleConfirmBooking}
+                    onCompleteBooking={handleCompleteBooking}
+                    onLinkGuestBooking={handleLinkGuestBooking}
+                    onCancelBooking={handleCancel}
+                    onAddUser={handleAddUser}
+                    onUpdateUser={handleUpdateUser}
+                    onDeleteUser={handleDeleteUser}
+                    onRescheduleBooking={handleReschedule}
+                    onDeleteBooking={handleDeleteBooking}
+                    onAddBooking={handleAddBooking}
+                    onAddCourse={handleAddCourse}
+                    onUpdateCourse={handleUpdateCourse}
+                    onDeleteCourse={handleDeleteCourse}
+                    filtersEnabled={filtersEnabled}
+                    onToggleFilters={handleToggleFilters}
+                    skillConfig={skillConfig}
+                    onUpdateSkillConfig={handleUpdateSkillConfig}
+                  />
+                </React.Suspense>
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/"
+            element={
           <>
             <HeroCarousel
               data={{
@@ -435,7 +446,10 @@ const AppContent: React.FC = () => {
               )}
             </div>
           </>
-        )}
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
 
       {/* Global Modals */}

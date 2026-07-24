@@ -32,6 +32,7 @@ import { createNotificationForUser } from '../lib/notifications';
 import { useLanguage } from '../lib/LanguageContext';
 import { Booking, UserProfile } from '../types';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
+import { logger } from '../lib/logger';
 
 type SetUserProfile = (profile: UserProfile | null) => void;
 
@@ -63,7 +64,7 @@ export const useBookings = (
           });
         }
       } catch (error) {
-        console.error('Error fetching stats:', error);
+        logger.error('Error fetching stats:', error);
       }
     };
 
@@ -121,7 +122,7 @@ export const useBookings = (
             `${t('lessonAutoCompletedDesc')} ${booking.instructorName} ${t('lessonAutoCompletedSuffix')}`
           );
         } catch (error) {
-          console.error(`Failed to auto-complete booking ${booking.id}:`, error);
+          logger.error(`Failed to auto-complete booking ${booking.id}:`, error);
         }
       }
     };
@@ -382,7 +383,7 @@ export const useBookings = (
           });
         }
       } catch (err) {
-        console.error('Error linking guest data:', err);
+        logger.error('Error linking guest data:', err);
       }
     }
 

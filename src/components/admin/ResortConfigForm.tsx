@@ -5,6 +5,7 @@ import { db, doc, onSnapshot, setDoc } from '../../lib/firebase';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
 import { FALLBACK_SLIDES } from './resortConfigDefaults';
+import { logger } from '../../lib/logger';
 import { ToggleSwitch } from '../ToggleSwitch';
 
 /**
@@ -51,7 +52,7 @@ export const ResortDataSection: React.FC = () => {
         setIsLoading(false);
       },
       (err) => {
-        console.error('Error reading resort data:', err);
+        logger.error('Error reading resort data:', err);
         setIsLoading(false);
       }
     );
@@ -82,7 +83,7 @@ export const ResortDataSection: React.FC = () => {
       );
       addNotification('success', t('configUpdated'), t('configUpdatedDesc'));
     } catch (err) {
-      console.error('Error saving resort data:', err);
+      logger.error('Error saving resort data:', err);
       addNotification('error', t('configSaveError'), t('configSaveErrorDesc'));
     } finally {
       setIsSaving(false);
@@ -291,7 +292,7 @@ export const ResortSliderSection: React.FC = () => {
         setIsLoading(false);
       },
       (err) => {
-        console.error('Error reading slider config:', err);
+        logger.error('Error reading slider config:', err);
         setIsLoading(false);
       }
     );
@@ -335,7 +336,7 @@ export const ResortSliderSection: React.FC = () => {
       );
       addNotification('success', t('configUpdated'), t('configUpdatedDesc'));
     } catch (err) {
-      console.error('Error saving slider config:', err);
+      logger.error('Error saving slider config:', err);
       addNotification('error', t('configSaveError'), t('configSaveErrorDesc'));
     } finally {
       setIsSaving(false);

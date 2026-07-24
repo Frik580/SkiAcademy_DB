@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db, doc, getDoc, setDoc, onSnapshot } from '../lib/firebase';
 import { ResortConfig } from '../types';
+import { logger } from '../lib/logger';
 
 const DEFAULT_CONFIG: ResortConfig = {
   nameEn: 'Chamonix-Mont-Blanc',
@@ -68,7 +69,7 @@ export const useResortStats = () => {
         setResortConfig(snap.data() as ResortConfig);
       } else {
         // Initialize config with defaults if it doesn't exist
-        setDoc(configRef, DEFAULT_CONFIG).catch(err => console.error("Error setting default config:", err));
+        setDoc(configRef, DEFAULT_CONFIG).catch(err => logger.error("Error setting default config:", err));
         setResortConfig(DEFAULT_CONFIG);
       }
     });
@@ -99,21 +100,21 @@ export const useResortStats = () => {
           setWindKmh(data.windKmh);
           setOpenLifts(data.openLifts);
           setLastUpdated(new Date(lastUpdatedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));          
-          console.log("Weather data loaded from Firestore cache.");
+          logger.debug("Weather data loaded from Firestore cache.");
           setIsResortLoading(false);
           return;
         }
       }
 
       // 2. Если кеш устарел или изменилась геолокация, запрашиваем API Open-Meteo
-      console.log(`Fetching fresh weather data for Lat: ${config.latitude}, Lon: ${config.longitude} from API...`);
+      logger.debug(`Fetching fresh weather data for Lat: ${config.latitude}, Lon: ${config.longitude} from API...`);
 
       const forecastApiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${config.latitude}&longitude=${config.longitude}&current=temperature_2m,wind_speed_10m&hourly=snow_depth&daily=snowfall_sum&timezone=auto`;
 
       const response = await fetch(forecastApiUrl);
 
       if (!response.ok) {
-        console.error("Forecast API Error:", await response.text());
+        logger.error("Forecast API Error:", await response.text());
         throw new Error('Failed to fetch weather data');
       }
 
@@ -157,12 +158,12 @@ export const useResortStats = () => {
       // successfully fetched weather data for regular visitors.
       try {
         await setDoc(cacheRef, dataToCache);
-        console.log("Weather data cached to Firestore.");
+        logger.debug("Weather data cached to Firestore.");
       } catch (cacheError) {
-        console.warn("Weather cache update skipped:", cacheError);
+        logger.warn("Weather cache update skipped:", cacheError);
       }
     } catch (error) {
-      console.error("Error fetching resort stats:", error);
+      logger.error("Error fetching resort stats:", error);
       // В случае ошибки устанавливаем запасные данные
       setTempC(-5);
       setSnowDepthCm(175);

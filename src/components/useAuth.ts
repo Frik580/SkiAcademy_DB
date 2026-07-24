@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth, db, doc, onSnapshot } from '../lib/firebase';
 import { UserProfile } from '../types';
+import { logger } from '../lib/logger';
 
 export const useAuth = () => {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
@@ -27,7 +28,7 @@ export const useAuth = () => {
           }
           setAuthLoading(false);
         }, (error) => {
-          console.error("Auth profile snapshot error:", error);
+          logger.error("Auth profile snapshot error:", error);
           setAuthLoading(false);
         });
       } else {
@@ -52,7 +53,7 @@ export const useAuth = () => {
       setUserProfile(null);
       setFirebaseUser(null);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       throw err;
     }
   };

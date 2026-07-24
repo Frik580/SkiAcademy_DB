@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Course, Instructor, UserProfile } from '../types';
 import { useLanguage, translateInstructorName, splitCourseDates } from '../lib/LanguageContext';
+import { logger } from '../lib/logger';
 
 interface CourseDetailsModalProps {
   isOpen: boolean;
@@ -207,7 +208,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
     } else {
       videoRef.current.play()
         .then(() => setIsPlaying(true))
-        .catch((e) => console.warn('Video failed to play:', e));
+        .catch((e) => logger.warn('Video failed to play:', e));
     }
   };
 

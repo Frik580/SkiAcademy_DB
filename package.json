@@ -20,11 +20,12 @@
     "lucide-react": "^1.24.0",
     "motion": "^12.42.2",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.0.0-alpha.18",
     "@firebase/rules-unit-testing": "^3.0.3",
+    "@tailwindcss/vite": "^4.0.0-alpha.18",
     "@types/canvas-confetti": "^1.9.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

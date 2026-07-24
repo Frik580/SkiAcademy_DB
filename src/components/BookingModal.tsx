@@ -5,6 +5,7 @@ import { Instructor, UserProfile, Booking, AvailabilitySlot, LessonDifficulty, C
 import { X, Calendar, Clock, HelpCircle, Wallet, ShieldAlert, Sparkles, Loader2, User, Phone, Mail, Send } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, parseCourseDates, getDifficultyLabel } from '../lib/LanguageContext';
+import { logger } from '../lib/logger';
 import { db, collection, query, getDocs, where, doc, writeBatch } from '../lib/firebase';
 import { Auth } from './Auth';
 import {
@@ -137,7 +138,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           );
         }
       } catch (err) {
-        console.error('Error fetching instructor bookings:', err);
+        logger.error('Error fetching instructor bookings:', err);
       } finally {
         setIsLoadingBookings(false);
       }
@@ -340,7 +341,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       onClose();
     } catch (err) {
-      console.error('Error submitting guest booking to Firestore:', err);
+      logger.error('Error submitting guest booking to Firestore:', err);
       try {
         const existingStr = localStorage.getItem('alpine_glide_bookings_admin');
         const existing: Booking[] = existingStr ? JSON.parse(existingStr) : [];

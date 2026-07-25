@@ -4,6 +4,7 @@ import { UserProfile } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useTheme } from '../useTheme';
 import { optimizeProfileImage } from './profileImage';
+import { uploadImage } from '../../lib/storage';
 import { logger } from '../../lib/logger';
 
 interface SkillProgressSummary {
@@ -47,9 +48,10 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
 
     setIsUploadingAvatar(true);
     try {
-      const optimizedBase64 = await optimizeProfileImage(file);
+      const optimizedBlob = await optimizeProfileImage(file);
+      const avatarUrl = await uploadImage(optimizedBlob, `avatars/${userProfile.uid}.jpg`);
       if (onUpdateProfile) {
-        await onUpdateProfile({ avatarUrl: optimizedBase64 });
+        await onUpdateProfile({ avatarUrl });
         onUploadSuccess?.();
       }
     } catch (err) {

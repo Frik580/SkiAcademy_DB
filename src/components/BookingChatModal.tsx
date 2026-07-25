@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Booking, UserProfile, ChatMessage, OperationType, Instructor } from '../types';
 import { db, collection, doc, setDoc, onSnapshot, handleFirestoreError } from '../lib/firebase';
+import { uploadImage } from '../lib/storage';
 import { useLanguage, type TranslationKey } from '../lib/LanguageContext';
 import { logger } from '../lib/logger';
 
@@ -47,7 +48,7 @@ interface BookingChatModalProps {
 }
 
 // Client-side image optimization / compression
-const compressImage = (file: File): Promise<{ url: string; name: string; size: number }> => {
+const compressImage = (file: File): Promise<{ blob: Blob; name: string; size: number }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -77,17 +78,21 @@ const compressImage = (file: File): Promise<{ url: string; name: string; size: n
 
         ctx.drawImage(img, 0, 0, width, height);
         // Compress to high-efficiency Jpeg at 0.7 quality
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-
-        // Compute approximate compressed payload size
-        const stringLength = dataUrl.length - 'data:image/jpeg;base64,'.length;
-        const actualSize = Math.round(stringLength * 0.75);
-
-        resolve({
-          url: dataUrl,
-          name: file.name,
-          size: actualSize,
-        });
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve({
+                blob,
+                name: file.name,
+                size: blob.size,
+              });
+            } else {
+              reject(new LocalizedCompressionError('chatCompressionCanvasError'));
+            }
+          },
+          'image/jpeg',
+          0.7
+        );
       };
       img.onerror = () => reject(new LocalizedCompressionError('chatCompressionImageLoadFailed'));
       img.src = e.target?.result as string;
@@ -98,31 +103,19 @@ const compressImage = (file: File): Promise<{ url: string; name: string; size: n
 };
 
 // Client-side video optimization / compression using Canvas and low-bitrate MediaRecorder
-const compressVideo = (file: File): Promise<{ url: string; name: string; size: number }> => {
-  // If video file is already small (under 400 KB), directly encode without lossy transcoding
+const compressVideo = (file: File): Promise<{ blob: Blob; name: string; size: number }> => {
+  // If video file is already small (under 400 KB), return directly without lossy transcoding
   if (file.size < 400 * 1024) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () =>
-        resolve({ url: reader.result as string, name: file.name, size: file.size });
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    return Promise.resolve({ blob: file, name: file.name, size: file.size });
   }
 
   const hasCapture =
     'captureStream' in HTMLCanvasElement.prototype ||
     'mozCaptureStream' in HTMLCanvasElement.prototype;
   if (!window.MediaRecorder || !hasCapture) {
-    // If not supported by browser, fall back to base64 directly if size permits, otherwise reject
+    // If not supported by browser, fall back to original file if size permits, otherwise reject
     if (file.size < 900 * 1024) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () =>
-          resolve({ url: reader.result as string, name: file.name, size: file.size });
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      return Promise.resolve({ blob: file, name: file.name, size: file.size });
     } else {
       return Promise.reject(new LocalizedCompressionError('chatCompressionUnsupported'));
     }
@@ -194,16 +187,11 @@ const compressVideo = (file: File): Promise<{ url: string; name: string; size: n
 
         mediaRecorder.onstop = () => {
           const compressedBlob = new Blob(chunks, { type: 'video/webm' });
-          const reader = new FileReader();
-          reader.onload = () => {
-            resolve({
-              url: reader.result as string,
-              name: file.name.replace(/\.[^/.]+$/, '') + '_optimized.webm',
-              size: compressedBlob.size,
-            });
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(compressedBlob);
+          resolve({
+            blob: compressedBlob,
+            name: file.name.replace(/\.[^/.]+$/, '') + '_optimized.webm',
+            size: compressedBlob.size,
+          });
           URL.revokeObjectURL(video.src);
         };
 
@@ -315,8 +303,12 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     setCompressionProgress(t('chatOptimizingImage'));
     try {
       const result = await compressImage(file);
+      const chatId = (booking as any).chatId || booking.id;
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      const path = `chat/${chatId}/${Date.now()}_${sanitizedName}`;
+      const downloadUrl = await uploadImage(result.blob, path);
       setAttachmentType('image');
-      setAttachmentUrl(result.url);
+      setAttachmentUrl(downloadUrl);
       setAttachmentName(result.name);
       setAttachmentSize(result.size);
     } catch (err: any) {
@@ -344,14 +336,18 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     try {
       const result = await compressVideo(file);
 
-      // Strict limit for Firestore documents (which has 1MB total size limit)
+      // Strict limit for chat attachments (keep well under Firestore document size)
       if (result.size > 800 * 1024) {
         alert(t('chatOptimizedVideoTooLarge'));
         return;
       }
 
+      const chatId = (booking as any).chatId || booking.id;
+      const sanitizedName = result.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      const path = `chat/${chatId}/${Date.now()}_${sanitizedName}`;
+      const downloadUrl = await uploadImage(result.blob, path);
       setAttachmentType('video');
-      setAttachmentUrl(result.url);
+      setAttachmentUrl(downloadUrl);
       setAttachmentName(result.name);
       setAttachmentSize(result.size);
     } catch (err: any) {

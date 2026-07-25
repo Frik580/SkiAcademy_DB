@@ -1,4 +1,4 @@
-export function optimizeCourseImage(file: File): Promise<string> {
+export function optimizeCourseImage(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) {
       reject(new Error('File is not an image'));
@@ -37,8 +37,17 @@ export function optimizeCourseImage(file: File): Promise<string> {
         }
         ctx.drawImage(img, 0, 0, width, height);
 
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85); // Slightly higher quality for backgrounds
-        resolve(dataUrl);
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Failed to create blob from canvas'));
+            }
+          },
+          'image/jpeg',
+          0.85 // Slightly higher quality for backgrounds
+        );
       };
       img.onerror = () => reject(new Error('Failed to load image source'));
       img.src = e.target?.result as string;

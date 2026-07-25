@@ -13,6 +13,7 @@ import { Booking, Instructor } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
 import { getSpecialtyLabel } from './scheduleUtils';
+import { uploadImage } from '../../lib/storage';
 import { logger } from '../../lib/logger';
 
 interface CoachesManagerProps {
@@ -35,7 +36,7 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
   const { t, language } = useLanguage();
   const { addNotification } = useNotifications();
 
-  function optimizeInstructorImage(file: File): Promise<string> {
+  function optimizeInstructorImage(file: File): Promise<Blob> {
     return new Promise((resolve, reject) => {
       if (!file.type.startsWith('image/')) {
         reject(new Error('File is not an image'));
@@ -77,8 +78,17 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
           ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, MAX_SIZE, MAX_SIZE);
 
           // Compress to JPEG with 80% quality
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-          resolve(dataUrl);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                reject(new Error('Failed to create blob from canvas'));
+              }
+            },
+            'image/jpeg',
+            0.8
+          );
         };
         img.onerror = () => reject(new Error('Failed to load image source'));
         img.src = e.target?.result as string;
@@ -136,8 +146,10 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
 
     setIsUploadingImage(true);
     try {
-      const optimizedBase64 = await optimizeInstructorImage(file);
-      setAvatarUrl(optimizedBase64);
+      const optimizedBlob = await optimizeInstructorImage(file);
+      const instructorId = editingIns?.id || `instructor_${Date.now()}`;
+      const imageUrl = await uploadImage(optimizedBlob, `instructors/${instructorId}.jpg`);
+      setAvatarUrl(imageUrl);
       addNotification('success', t('photoAttached'), t('photoAttachedDesc'));
     } catch (err) {
       logger.error(err);

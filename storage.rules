@@ -2,8 +2,54 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Firebase Storage is not used by the application yet.
-    // Keep the bucket private until uploads are moved out of Firestore.
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).role == 'admin';
+    }
+
+    function isBookingParticipant(bookingId) {
+      return isAuthenticated() &&
+        firestore.exists(/databases/(default)/documents/bookings/$(bookingId)) &&
+        (
+          firestore.get(/databases/(default)/documents/bookings/$(bookingId)).userId == request.auth.uid ||
+          firestore.get(/databases/(default)/documents/bookings/$(bookingId)).instructorId == request.auth.uid ||
+          isAdmin()
+        );
+    }
+
+    match /avatars/{uid} {
+      allow read: if true;
+      allow write: if isOwner(uid) && request.resource.contentType.matches('image/.*');
+    }
+
+    match /courses/{courseId} {
+      allow read: if true;
+      allow write: if isAdmin() && request.resource.contentType.matches('image/.*');
+    }
+
+    match /instructors/{instructorId} {
+      allow read: if true;
+      allow write: if isAdmin() && request.resource.contentType.matches('image/.*');
+    }
+
+    match /chat/{bookingId}/{allPaths=**} {
+      allow read: if isBookingParticipant(bookingId);
+      allow write: if isBookingParticipant(bookingId) &&
+        (
+          request.resource.contentType.matches('image/.*') ||
+          request.resource.contentType.matches('video/.*')
+        );
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

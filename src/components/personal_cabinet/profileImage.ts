@@ -1,4 +1,4 @@
-export function optimizeProfileImage(file: File): Promise<string> {
+export function optimizeProfileImage(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) {
       reject(new Error('File is not an image'));
@@ -38,7 +38,17 @@ export function optimizeProfileImage(file: File): Promise<string> {
 
         ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, MAX_SIZE, MAX_SIZE);
 
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Failed to create blob from canvas'));
+            }
+          },
+          'image/jpeg',
+          0.7
+        );
       };
       img.onerror = () => reject(new Error('Failed to load image source'));
       img.src = e.target?.result as string;

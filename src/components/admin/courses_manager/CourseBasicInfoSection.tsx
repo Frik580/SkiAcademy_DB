@@ -135,7 +135,11 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
       </div>
 
       {/* Background Image URL & File Upload */}
-      <CourseBackgroundImageField value={courseBgImageUrl} onChange={setCourseBgImageUrl} />
+      <CourseBackgroundImageField
+        value={courseBgImageUrl}
+        onChange={setCourseBgImageUrl}
+        courseId={form.editingCourse?.id}
+      />
     </div>
   );
 };

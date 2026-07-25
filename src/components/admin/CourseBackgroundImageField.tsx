@@ -3,16 +3,19 @@ import { Camera, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
 import { optimizeCourseImage } from './courseImage';
+import { uploadImage } from '../../lib/storage';
 import { logger } from '../../lib/logger';
 
 interface CourseBackgroundImageFieldProps {
   value: string;
   onChange: (value: string) => void;
+  courseId?: string;
 }
 
 export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProps> = ({
   value,
   onChange,
+  courseId,
 }) => {
   const { t } = useLanguage();
   const { addNotification } = useNotifications();
@@ -27,8 +30,10 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
 
     setIsUploadingCourseImage(true);
     try {
-      const optimizedBase64 = await optimizeCourseImage(file);
-      onChange(optimizedBase64);
+      const optimizedBlob = await optimizeCourseImage(file);
+      const targetCourseId = courseId || `course_${Date.now()}`;
+      const imageUrl = await uploadImage(optimizedBlob, `courses/${targetCourseId}.jpg`);
+      onChange(imageUrl);
       addNotification('success', t('courseBgAttached'), t('courseBgAttachedDesc'));
     } catch (err) {
       logger.error(err);

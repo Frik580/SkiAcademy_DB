@@ -73,6 +73,8 @@ interface AdminPanelProps {
   onAddBooking?: (booking: Booking) => Promise<void>;
   filtersEnabled?: boolean;
   onToggleFilters?: (enabled: boolean) => Promise<void>;
+  onboardingEnabled?: boolean;
+  onToggleOnboarding?: (enabled: boolean) => Promise<void>;
   courses?: Course[];
   onAddCourse?: (course: Course) => Promise<void>;
   onUpdateCourse?: (course: Course) => Promise<void>;
@@ -107,6 +109,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onDeleteCourse,
   filtersEnabled = true,
   onToggleFilters,
+  onboardingEnabled = true,
+  onToggleOnboarding,
   skillConfig,
   onUpdateSkillConfig,
 }) => {
@@ -168,6 +172,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <SystemSettings
           filtersEnabled={filtersEnabled}
           onToggleFilters={onToggleFilters}
+          onboardingEnabled={onboardingEnabled}
+          onToggleOnboarding={onToggleOnboarding}
           skillConfig={skillConfig}
           onUpdateSkillConfig={onUpdateSkillConfig}
         />

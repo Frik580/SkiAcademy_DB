@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AvailabilitySlot, Booking, UserProfile, Review, Course, Instructor } from '../types';
-import { Sliders, UserCheck, Lock } from 'lucide-react';
+import { Sliders, UserCheck, Lock, Sparkles } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, parseCourseDates, useTranslatedBookings } from '../lib/LanguageContext';
 import { useTheme } from './useTheme';
@@ -46,6 +46,7 @@ interface PersonalCabinetProps {
   instructors?: Instructor[];
   usersList?: UserProfile[];
   skillConfig?: SkillConfig;
+  onOpenOnboarding?: () => void;
 }
 
 export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
@@ -63,6 +64,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   instructors = [],
   usersList = [],
   skillConfig,
+  onOpenOnboarding,
 }) => {
   const { addNotification } = useNotifications();
   const { language, t } = useLanguage();
@@ -559,7 +561,31 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
         </div>
       ) : (
         <div className="space-y-6 animate-fade-in w-full max-w-full min-w-0">
-          {/* Cabinet Display Sliders Block */}
+          {/* Onboarding & Cabinet Display Sliders Block */}
+          {onOpenOnboarding && (
+            <div className="border border-cyan-500/30 bg-cyan-500/5 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-mono text-xs uppercase font-bold text-[var(--ink)]">
+                    {t('onboardingS1Title')}
+                  </h4>
+                  <p className="text-[11px] font-mono text-[var(--ink-dim)]">
+                    {t('onboardingS1Desc')}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={onOpenOnboarding}
+                className="btn-primary px-4 py-2 text-xs font-mono uppercase tracking-wider whitespace-nowrap shrink-0"
+              >
+                <span>{t('onboardingTitle')} →</span>
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
             {/* Slider 1: Progress Tracking */}
             <div className="border border-slate-200/70 dark:border-slate-800/70 p-3.5 bg-[var(--card-bg)] transition hover:border-slate-300 dark:hover:border-slate-700 rounded-xs shadow-xs">

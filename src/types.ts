@@ -17,6 +17,7 @@ export interface UserProfile {
   level?: number;
   skillScores?: Record<string, number>;
   hideProgressTracking?: boolean;
+  hasCompletedOnboarding?: boolean;
 }
 
 export interface Instructor {

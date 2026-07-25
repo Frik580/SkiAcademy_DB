@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { registerFirestoreErrorListener } from './lib/firebase';
+import { registerFirestoreErrorListener, db, doc, updateDoc } from './lib/firebase';
 import { Instructor, Course } from './types';
 import { LanguageProvider, useLanguage, translateCourse } from './lib/LanguageContext';
 
@@ -10,6 +10,7 @@ import { useResortStats } from './components/useResortStats';
 import { useAppLogic } from './components/useAppLogic';
 import { useInstructorFilters } from './components/useInstructorFilters';
 import { AppRoutes } from './components/AppRoutes';
+import { OnboardingModal } from './components/OnboardingModal';
 
 import { logger } from './lib/logger';
 import {
@@ -87,6 +88,7 @@ const AppContent: React.FC = () => {
     dbNotifications,
     deletedCompletedStats,
     filtersEnabled,
+    onboardingEnabled,
     skillConfig,
     handleUpdateSkillConfig,
     dismissedReviewIds,
@@ -115,6 +117,7 @@ const AppContent: React.FC = () => {
     handleClearNotifications,
     handleUpdateProfile,
     handleToggleFilters,
+    handleToggleOnboarding,
   } = appLogic;
 
   const filterState = useInstructorFilters(instructors, language, filtersEnabled);
@@ -126,10 +129,45 @@ const AppContent: React.FC = () => {
   const [dbStatusWarning, setDbStatusWarning] = useState<string | null>(null);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [isNotifHistoryOpen, setIsNotifHistoryOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [selectedInstructor, setSelectedInstructor] = useState<Instructor | null>(null);
   const [selectedCourseForAuth, setSelectedCourseForAuth] = useState<Course | null>(null);
   const [selectedCourseForDetails, setSelectedCourseForDetails] = useState<Course | null>(null);
   const [reviewsInstructor, setReviewsInstructor] = useState<Instructor | null>(null);
+
+  useEffect(() => {
+    if (onboardingEnabled && userProfile && userProfile.hasCompletedOnboarding === false) {
+      const sessionKey = `onboarding_shown_${userProfile.uid}`;
+      if (!sessionStorage.getItem(sessionKey)) {
+        sessionStorage.setItem(sessionKey, 'true');
+        setIsOnboardingOpen(true);
+      }
+    }
+  }, [userProfile?.uid, userProfile?.hasCompletedOnboarding, onboardingEnabled]);
+
+  const handleCompleteOnboarding = async () => {
+    setIsOnboardingOpen(false);
+    if (userProfile) {
+      try {
+        await updateDoc(doc(db, 'users', userProfile.uid), {
+          hasCompletedOnboarding: true,
+        });
+        setUserProfile((prev) => (prev ? { ...prev, hasCompletedOnboarding: true } : prev));
+      } catch (err) {
+        logger.warn('Failed to save onboarding completion', err);
+      }
+    }
+  };
+
+  const handleScheduleFirstLessonFromOnboarding = () => {
+    handleCompleteOnboarding();
+    setTimeout(() => {
+      const el = document.getElementById('coaches-grid') || document.getElementById('group-courses-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
 
   useEffect(() => {
     registerFirestoreErrorListener((_err, op, path) => {
@@ -244,7 +282,9 @@ const AppContent: React.FC = () => {
           setSelectedCourseForAuth={setSelectedCourseForAuth}
           setSelectedCourseForDetails={setSelectedCourseForDetails}
           setReviewsInstructor={setReviewsInstructor}
+          onboardingEnabled={onboardingEnabled}
           onToggleFilters={handleToggleFilters}
+          onToggleOnboarding={handleToggleOnboarding}
           onUpdateSkillConfig={handleUpdateSkillConfig}
           onBookCourse={handleBookCourse}
           onReschedule={handleReschedule}
@@ -271,8 +311,15 @@ const AppContent: React.FC = () => {
           onDeleteUser={handleDeleteUser}
           setIsFahrenheit={setIsFahrenheit}
           onRefreshResortStats={handleRefreshResortStats}
+          onOpenOnboarding={() => setIsOnboardingOpen(true)}
         />
       </main>
+
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={handleCompleteOnboarding}
+        onScheduleFirstLesson={handleScheduleFirstLessonFromOnboarding}
+      />
 
       {selectedInstructor && (
         <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>

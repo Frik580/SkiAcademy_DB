@@ -58,6 +58,7 @@ interface AppRoutesProps {
   language: Language;
   theme: 'light' | 'dark';
   filtersEnabled: boolean;
+  onboardingEnabled?: boolean;
   skillConfig: SkillConfig;
   resortData: ResortData;
   instructors: Instructor[];
@@ -86,6 +87,7 @@ interface AppRoutesProps {
   setReviewsInstructor: (ins: Instructor | null) => void;
   // Actions
   onToggleFilters: (enabled: boolean) => Promise<void>;
+  onToggleOnboarding?: (enabled: boolean) => Promise<void>;
   onUpdateSkillConfig: (config: SkillConfig) => Promise<void>;
   onBookCourse: (courseId: string) => Promise<void>;
   onReschedule: (id: string, newDate: string, newTime: string) => Promise<void>;
@@ -116,6 +118,7 @@ interface AppRoutesProps {
   // Resort actions
   setIsFahrenheit: (value: boolean) => void;
   onRefreshResortStats: () => void;
+  onOpenOnboarding?: () => void;
 }
 
 const HomeRoute: React.FC<AppRoutesProps> = (props) => {
@@ -155,6 +158,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
     onSignOut,
     onUpdateProfile,
     setUserProfile,
+    onOpenOnboarding,
   } = props;
 
   const handleScrollToSection = (id: string) => {
@@ -201,7 +205,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
         />
 
         <div className="flex flex-col">
-          <div id="main-content-pane" className="p-6 md:p-8 space-y-8 flex flex-col justify-start">
+          <div id="main-content-pane" className="p-3.5 sm:p-6 md:p-8 space-y-6 sm:space-y-8 flex flex-col justify-start min-w-0">
             {userProfile && (
               <div id="personal-cabinet-section" className="space-y-4">
                 <div className="border-b border-[var(--border)] pb-3 mb-2 flex items-center gap-2">
@@ -226,6 +230,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
                     instructors={instructors}
                     usersList={usersList}
                     skillConfig={skillConfig}
+                    onOpenOnboarding={onOpenOnboarding}
                   />
                 </LazyLoad>
               </div>
@@ -333,8 +338,10 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
     courses,
     deletedCompletedStats,
     filtersEnabled,
+    onboardingEnabled,
     skillConfig,
     onToggleFilters,
+    onToggleOnboarding,
     onUpdateSkillConfig,
     onUpdateUserRole,
     onAddInstructor,
@@ -386,6 +393,8 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
           onDeleteCourse={onDeleteCourse}
           filtersEnabled={filtersEnabled}
           onToggleFilters={onToggleFilters}
+          onboardingEnabled={onboardingEnabled}
+          onToggleOnboarding={onToggleOnboarding}
           skillConfig={skillConfig}
           onUpdateSkillConfig={onUpdateSkillConfig}
         />

@@ -41,6 +41,7 @@ export const useAppLogic = (
   const [reviews, setReviews] = useState<Review[]>([]);
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [filtersEnabled, setFiltersEnabled] = useState(true);
+  const [onboardingEnabled, setOnboardingEnabled] = useState(true);
   const [skillConfig, setSkillConfig] = useState<SkillConfig>(DEFAULT_SKILL_CONFIG);
 
   const bookingLogic = useBookings(firebaseUser, userProfile, setUserProfile);
@@ -50,7 +51,7 @@ export const useAppLogic = (
   useAvailabilityMigration(userProfile?.role, bookingLogic.bookingsLoaded, bookingLogic.bookings);
 
   useEffect(() => {
-    const loadFilters = async () => {
+    const loadSettings = async () => {
       try {
         const settingsSnapshot = await getDoc(doc(db, 'settings', 'instructor_filters'));
         setFiltersEnabled(
@@ -59,9 +60,18 @@ export const useAppLogic = (
       } catch {
         setFiltersEnabled(true);
       }
+
+      try {
+        const onboardingSnapshot = await getDoc(doc(db, 'settings', 'onboarding'));
+        setOnboardingEnabled(
+          onboardingSnapshot.exists() ? (onboardingSnapshot.data().enabled ?? true) : true
+        );
+      } catch {
+        setOnboardingEnabled(true);
+      }
     };
 
-    loadFilters();
+    loadSettings();
   }, []);
 
   useEffect(() => {
@@ -234,6 +244,11 @@ export const useAppLogic = (
     await setDoc(doc(db, 'settings', 'instructor_filters'), { enabled });
   };
 
+  const handleToggleOnboarding = async (enabled: boolean) => {
+    setOnboardingEnabled(enabled);
+    await setDoc(doc(db, 'settings', 'onboarding'), { enabled });
+  };
+
   const handleUpdateSkillConfig = async (newConfig: SkillConfig) => {
     setSkillConfig(newConfig);
     await setDoc(doc(db, 'settings', 'skill_config'), newConfig);
@@ -245,6 +260,7 @@ export const useAppLogic = (
     reviews,
     usersList,
     filtersEnabled,
+    onboardingEnabled,
     skillConfig,
     dismissedReviewIds,
     handleDismissReview,
@@ -259,6 +275,7 @@ export const useAppLogic = (
     handleDeleteUser,
     handleUpdateProfile,
     handleToggleFilters,
+    handleToggleOnboarding,
     handleUpdateSkillConfig,
     ...bookingLogic,
     ...courseLogic,

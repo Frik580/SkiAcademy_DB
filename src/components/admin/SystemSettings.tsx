@@ -10,6 +10,8 @@ import { ToggleSwitch } from '../ToggleSwitch';
 interface SystemSettingsProps {
   filtersEnabled?: boolean;
   onToggleFilters?: (enabled: boolean) => Promise<void>;
+  onboardingEnabled?: boolean;
+  onToggleOnboarding?: (enabled: boolean) => Promise<void>;
   skillConfig?: SkillConfig;
   onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
 }
@@ -17,6 +19,8 @@ interface SystemSettingsProps {
 export const SystemSettings: React.FC<SystemSettingsProps> = ({
   filtersEnabled = true,
   onToggleFilters,
+  onboardingEnabled = true,
+  onToggleOnboarding,
   skillConfig,
   onUpdateSkillConfig,
 }) => {
@@ -36,12 +40,18 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-4 border-t md:border-t-0 md:border-l border-[var(--border)] pt-3 md:pt-0 md:pl-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 border-t md:border-t-0 md:border-l border-[var(--border)] pt-3 md:pt-0 md:pl-4">
           <ToggleSwitch
             checked={filtersEnabled}
             onChange={(checked) => onToggleFilters?.(checked)}
             label={t('instructorFilters')}
             description={t('instructorFiltersDesc')}
+          />
+          <ToggleSwitch
+            checked={onboardingEnabled}
+            onChange={(checked) => onToggleOnboarding?.(checked)}
+            label={t('onboardingToggleLabel') || 'Онбординг клиентов'}
+            description={t('onboardingToggleDesc') || 'Показывать обучающий тур 6 шагов новым ученикам'}
           />
         </div>
       </div>

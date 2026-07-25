@@ -7,11 +7,13 @@ import {
   doc,
   getDoc,
   handleFirestoreError,
+  limit,
   onSnapshot,
   OperationType,
   query,
   setDoc,
   updateDoc,
+  writeBatch,
 } from '../lib/firebase';
 import { canManageAdminRoles } from '../lib/accessControl';
 import { useLanguage } from '../lib/LanguageContext';
@@ -23,6 +25,7 @@ import { useCourses } from './useCourses';
 import { useDismissedReviews } from './useDismissedReviews';
 import { useNotifications as useDbNotifications } from './useNotifications';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
+import { QUERY_LIMITS } from '../lib/queryLimits';
 import { logger } from '../lib/logger';
 
 type SetUserProfile = (profile: UserProfile | null) => void;
@@ -64,7 +67,7 @@ export const useAppLogic = (
   useEffect(() => {
     const unsubscribers = [
       onSnapshot(
-        query(collection(db, 'instructors')),
+        query(collection(db, 'instructors'), limit(QUERY_LIMITS.instructors)),
         (snapshot) => {
           setInstructors(
             snapshot.docs.map(
@@ -80,7 +83,7 @@ export const useAppLogic = (
       ),
 
       onSnapshot(
-        query(collection(db, 'reviews')),
+        query(collection(db, 'reviews'), limit(QUERY_LIMITS.reviews)),
         (snapshot) => {
           setReviews(
             snapshot.docs.map(
@@ -123,7 +126,7 @@ export const useAppLogic = (
     }
 
     return onSnapshot(
-      query(collection(db, 'users')),
+      query(collection(db, 'users'), limit(QUERY_LIMITS.users)),
       (snapshot) => {
         setUsersList(
           snapshot.docs
@@ -179,14 +182,19 @@ export const useAppLogic = (
     const affectedBookings = bookingLogic.bookings.filter(
       (booking) => booking.instructorId === instructor.id
     );
-    await Promise.all(
-      affectedBookings.map((booking) =>
-        updateDoc(doc(db, 'bookings', booking.id), {
+    if (affectedBookings.length === 0) return;
+
+    const BATCH_SIZE = 400;
+    for (let i = 0; i < affectedBookings.length; i += BATCH_SIZE) {
+      const batch = writeBatch(db);
+      for (const booking of affectedBookings.slice(i, i + BATCH_SIZE)) {
+        batch.update(doc(db, 'bookings', booking.id), {
           instructorName: instructor.name,
           instructorAvatar: instructor.avatarUrl,
-        })
-      )
-    );
+        });
+      }
+      await batch.commit();
+    }
   };
 
   const handleDeleteInstructor = async (id: string) => {

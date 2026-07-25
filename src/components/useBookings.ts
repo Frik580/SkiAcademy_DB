@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { User } from 'firebase/auth';
 import {
@@ -8,8 +8,10 @@ import {
   getDoc,
   getDocs,
   handleFirestoreError,
+  limit,
   onSnapshot,
   OperationType,
+  orderBy,
   query,
   runTransaction,
   setDoc,
@@ -32,6 +34,7 @@ import { createNotificationForUser } from '../lib/notifications';
 import { useLanguage } from '../lib/LanguageContext';
 import { Booking, UserProfile } from '../types';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
+import { QUERY_LIMITS } from '../lib/queryLimits';
 import { logger } from '../lib/logger';
 
 type SetUserProfile = (profile: UserProfile | null) => void;
@@ -79,12 +82,23 @@ export const useBookings = (
     }
 
     setBookingsLoaded(false);
+    const bookingsBase = collection(db, 'bookings');
     const bookingsQuery =
       userProfile?.role === 'admin'
-        ? query(collection(db, 'bookings'))
+        ? query(bookingsBase, orderBy('date', 'desc'), limit(QUERY_LIMITS.bookings))
         : userProfile?.instructorId
-          ? query(collection(db, 'bookings'), where('instructorId', '==', userProfile.instructorId))
-          : query(collection(db, 'bookings'), where('userId', '==', firebaseUser.uid));
+          ? query(
+              bookingsBase,
+              where('instructorId', '==', userProfile.instructorId),
+              orderBy('date', 'desc'),
+              limit(QUERY_LIMITS.bookings)
+            )
+          : query(
+              bookingsBase,
+              where('userId', '==', firebaseUser.uid),
+              orderBy('date', 'desc'),
+              limit(QUERY_LIMITS.bookings)
+            );
 
     return onSnapshot(
       bookingsQuery,
@@ -103,14 +117,28 @@ export const useBookings = (
     );
   }, [firebaseUser, userProfile?.instructorId, userProfile?.role]);
 
+  const autoCompleteRunningRef = useRef(false);
+
   useEffect(() => {
     if (!firebaseUser || bookings.length === 0) return;
 
     const checkAndCompleteLessons = async () => {
-      const now = new Date();
-      for (const booking of bookings) {
-        if (booking.status !== 'confirmed' && booking.status !== 'pending_cancellation') continue;
+      if (autoCompleteRunningRef.current) return;
+      autoCompleteRunningRef.current = true;
 
+      const now = new Date();
+      const candidateBookings = bookings.filter((booking) => {
+        if (booking.status !== 'confirmed' && booking.status !== 'pending_cancellation')
+          return false;
+        // Only consider bookings that are at most a few days in the past; ignore future bookings.
+        const [year, month, day] = booking.date.split('-').map(Number);
+        const bookingDate = new Date(year, month - 1, day);
+        const daysDiff = (now.getTime() - bookingDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysDiff < -1) return false;
+        return true;
+      });
+
+      for (const booking of candidateBookings) {
         const [year, month, day] = booking.date.split('-').map(Number);
         const [hour, minute] = booking.time.split(':').map(Number);
         const startsAt = new Date(year, month - 1, day, hour, minute, 0);
@@ -133,9 +161,12 @@ export const useBookings = (
           logger.error(`Failed to auto-complete booking ${booking.id}:`, error);
         }
       }
+
+      autoCompleteRunningRef.current = false;
     };
 
-    const interval = window.setInterval(checkAndCompleteLessons, 10000);
+    // Run once on mount and then every minute; auto-completion is not time-critical.
+    const interval = window.setInterval(checkAndCompleteLessons, 60000);
     return () => window.clearInterval(interval);
   }, [addNotification, bookings, firebaseUser, language, t]);
 

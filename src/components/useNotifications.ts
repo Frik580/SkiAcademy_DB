@@ -1,7 +1,18 @@
 import { useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
-import { collection, db, deleteDoc, doc, onSnapshot, query, where } from '../lib/firebase';
+import {
+  collection,
+  db,
+  deleteDoc,
+  doc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+} from '../lib/firebase';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
+import { QUERY_LIMITS } from '../lib/queryLimits';
 import { logger } from '../lib/logger';
 
 interface DbNotification {
@@ -25,7 +36,9 @@ export const useNotifications = (firebaseUser: User | null) => {
 
     const notificationsQuery = query(
       collection(db, 'notifications'),
-      where('userId', '==', firebaseUser.uid)
+      where('userId', '==', firebaseUser.uid),
+      orderBy('timestamp', 'desc'),
+      limit(QUERY_LIMITS.notifications)
     );
 
     return onSnapshot(

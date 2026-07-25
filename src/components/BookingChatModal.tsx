@@ -14,8 +14,19 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Booking, UserProfile, ChatMessage, OperationType, Instructor } from '../types';
-import { db, collection, doc, setDoc, onSnapshot, handleFirestoreError } from '../lib/firebase';
+import {
+  db,
+  collection,
+  doc,
+  setDoc,
+  onSnapshot,
+  handleFirestoreError,
+  limit,
+  orderBy,
+  query,
+} from '../lib/firebase';
 import { uploadImage } from '../lib/storage';
+import { QUERY_LIMITS } from '../lib/queryLimits';
 import { useLanguage, type TranslationKey } from '../lib/LanguageContext';
 import { logger } from '../lib/logger';
 
@@ -272,7 +283,11 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     setIsLoading(true);
 
     const unsubscribe = onSnapshot(
-      collection(db, 'bookings', chatId, 'messages'),
+      query(
+        collection(db, 'bookings', chatId, 'messages'),
+        orderBy('timestamp', 'desc'),
+        limit(QUERY_LIMITS.chatMessages)
+      ),
       (snapshot) => {
         const list: ChatMessage[] = snapshot.docs.map(
           (d) => ({ id: d.id, ...d.data() }) as ChatMessage

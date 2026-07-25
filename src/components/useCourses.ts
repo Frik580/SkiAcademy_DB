@@ -8,12 +8,14 @@ import {
   deleteDoc,
   doc,
   handleFirestoreError,
+  limit,
   onSnapshot,
   OperationType,
   query,
   runTransaction,
   setDoc,
   updateDoc,
+  writeBatch,
 } from '../lib/firebase';
 import {
   getGroupCourseEnrollmentNote,
@@ -25,6 +27,7 @@ import {
   useLanguage,
 } from '../lib/LanguageContext';
 import { createNotificationForUser } from '../lib/notifications';
+import { QUERY_LIMITS } from '../lib/queryLimits';
 import { Booking, Course, UserProfile } from '../types';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
 import { logger } from '../lib/logger';
@@ -42,7 +45,7 @@ export const useCourses = (
   const [courses, setCourses] = useState<Course[]>([]);
 
   useEffect(() => {
-    const coursesQuery = query(collection(db, 'courses'));
+    const coursesQuery = query(collection(db, 'courses'), limit(QUERY_LIMITS.courses));
     return onSnapshot(
       coursesQuery,
       (snapshot) => {
@@ -71,6 +74,9 @@ export const useCourses = (
     if (userProfile?.role !== 'admin' || courses.length === 0) return;
 
     const syncCourseSeats = async () => {
+      const batch = writeBatch(db);
+      let pendingWrites = 0;
+
       for (const course of courses) {
         const activeBookingsCount = bookings.filter(
           (booking) =>
@@ -81,11 +87,16 @@ export const useCourses = (
         const availableSeats = Math.max(0, course.totalSeats - activeBookingsCount);
         if (course.availableSeats === availableSeats) continue;
 
-        try {
-          await updateDoc(doc(db, 'courses', course.id), { availableSeats });
-        } catch (error) {
-          logger.error(`Failed to auto-sync seats for course ${course.id}:`, error);
-        }
+        batch.update(doc(db, 'courses', course.id), { availableSeats });
+        pendingWrites++;
+      }
+
+      if (pendingWrites === 0) return;
+
+      try {
+        await batch.commit();
+      } catch (error) {
+        logger.error(`Failed to auto-sync seats for ${pendingWrites} course(s):`, error);
       }
     };
 

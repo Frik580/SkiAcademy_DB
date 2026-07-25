@@ -18,6 +18,7 @@ import {
   NotificationHubModal,
 } from './components/PushNotificationHub';
 import { Navbar } from './components/Navbar';
+import { LazyLoad } from './components/LazyLoad';
 import { AlertCircle, RefreshCw, Mountain } from 'lucide-react';
 
 const BookingModal = React.lazy(() =>
@@ -274,7 +275,7 @@ const AppContent: React.FC = () => {
       </main>
 
       {selectedInstructor && (
-        <React.Suspense fallback={<ModalLoadingFallback label={t('loading')} />}>
+        <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
           <BookingModal
             isOpen
             onClose={() => setSelectedInstructor(null)}
@@ -285,11 +286,11 @@ const AppContent: React.FC = () => {
             courses={courses}
             onAuthSuccess={setUserProfile}
           />
-        </React.Suspense>
+        </LazyLoad>
       )}
 
       {selectedCourseForAuth && (
-        <React.Suspense fallback={<ModalLoadingFallback label={t('loading')} />}>
+        <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
           <CourseEnrollmentModal
             isOpen
             onClose={() => setSelectedCourseForAuth(null)}
@@ -297,11 +298,11 @@ const AppContent: React.FC = () => {
             onAuthSuccess={setUserProfile}
             onEnroll={handleBookCourse}
           />
-        </React.Suspense>
+        </LazyLoad>
       )}
 
       {selectedCourseForDetails && (
-        <React.Suspense fallback={<ModalLoadingFallback label={t('loading')} />}>
+        <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
           <CourseDetailsModal
             isOpen
             onClose={() => setSelectedCourseForDetails(null)}
@@ -323,29 +324,29 @@ const AppContent: React.FC = () => {
               }
             }}
           />
-        </React.Suspense>
+        </LazyLoad>
       )}
 
       {reviewsInstructor && (
-        <React.Suspense fallback={<ModalLoadingFallback label={t('loading')} />}>
+        <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
           <InstructorReviewsModal
             isOpen
             onClose={() => setReviewsInstructor(null)}
             instructor={reviewsInstructor}
             reviews={reviews}
           />
-        </React.Suspense>
+        </LazyLoad>
       )}
 
       {isTopUpOpen && (
-        <React.Suspense fallback={<ModalLoadingFallback label={t('loading')} />}>
+        <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
           <PaymentGateway
             isOpen
             onClose={() => setIsTopUpOpen(false)}
             currentBalance={userProfile?.balanceUSD || 0}
             onPaymentSuccess={handlePaymentSuccess}
           />
-        </React.Suspense>
+        </LazyLoad>
       )}
 
       <NotificationHubModal

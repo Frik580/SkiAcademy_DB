@@ -16,6 +16,7 @@ import { Language } from '../lib/LanguageContext';
 import { SkillConfig } from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
 import { InstructorSpecialty, InstructorSortBy } from './useInstructorFilters';
+import { LazyLoad } from './LazyLoad';
 
 import logoLight from '../assets/images/logo2.png';
 import logoDark from '../assets/images/logo1.png';
@@ -209,7 +210,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
                     {t('activeCabinet')}
                   </h3>
                 </div>
-                <React.Suspense fallback={<SectionLoadingFallback label={t('loading')} />}>
+                <LazyLoad fallback={<SectionLoadingFallback label={t('loading')} />}>
                   <PersonalCabinet
                     userProfile={userProfile}
                     bookings={bookings}
@@ -226,7 +227,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
                     usersList={usersList}
                     skillConfig={skillConfig}
                   />
-                </React.Suspense>
+                </LazyLoad>
               </div>
             )}
 
@@ -358,7 +359,7 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
 
   return (
     <AdminRoute userProfile={userProfile}>
-      <React.Suspense fallback={<SectionLoadingFallback label={t('loading')} />}>
+      <LazyLoad fallback={<SectionLoadingFallback label={t('loading')} />}>
         <AdminPanel
           instructors={translatedInstructors}
           bookings={bookings}
@@ -388,7 +389,7 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
           skillConfig={skillConfig}
           onUpdateSkillConfig={onUpdateSkillConfig}
         />
-      </React.Suspense>
+      </LazyLoad>
     </AdminRoute>
   );
 };

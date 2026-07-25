@@ -18,6 +18,7 @@ import { UnreviewedCompletedBookingsNotice } from './personal_cabinet/Unreviewed
 import { LevelUpModal } from './personal_cabinet/LevelUpModal';
 import { ToggleSwitch } from './ToggleSwitch';
 import { logger } from '../lib/logger';
+import { LazyLoad } from './LazyLoad';
 
 const InstructorWorkspace = React.lazy(() =>
   import('./InstructorWorkspace').then(({ InstructorWorkspace }) => ({
@@ -520,7 +521,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       )}
 
       {activeMode === 'instructor' ? (
-        <React.Suspense
+        <LazyLoad
           fallback={
             <div className="flex min-h-40 items-center justify-center border border-[var(--border)] font-mono text-[10px] uppercase tracking-wider text-[var(--ink-dim)]">
               {t('loading')}
@@ -536,7 +537,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             usersList={usersList}
             skillConfig={skillConfig}
           />
-        </React.Suspense>
+        </LazyLoad>
       ) : userProfile.isClientActive === false ? (
         <div className="border border-[var(--border)] p-8 space-y-6 animate-fade-in bg-black/10 dark:bg-black/30 text-center max-w-xl mx-auto my-12">
           <div className="w-16 h-16 border border-[var(--border)] rounded-none flex items-center justify-center mx-auto text-rose-400 bg-black/10">
@@ -694,7 +695,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           )}
 
           {selectedChatBooking && (
-            <React.Suspense
+            <LazyLoad
               fallback={
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 font-mono text-[10px] uppercase tracking-wider text-white">
                   {t('loading')}
@@ -708,7 +709,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                 instructors={instructors}
                 usersList={usersList}
               />
-            </React.Suspense>
+            </LazyLoad>
           )}
 
           {levelUpModal?.show && (

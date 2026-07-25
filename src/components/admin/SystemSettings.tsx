@@ -1,7 +1,8 @@
 import React from 'react';
-import { Settings, Award, Mountain, Sliders } from 'lucide-react';
+import { Settings, Award, Mountain, Sliders, Palette } from 'lucide-react';
 import { useLanguage } from '../../lib/LanguageContext';
 import { SkillConfig } from '../../lib/skillData';
+import { DesignTheme } from '../../lib/designTheme';
 import { SkillConfigManager } from '../SkillConfigManager';
 import { ResortDataSection, ResortSliderSection } from './ResortConfigForm';
 import { AdminCollapsibleSection } from './AdminCollapsibleSection';
@@ -12,15 +13,39 @@ interface SystemSettingsProps {
   onToggleFilters?: (enabled: boolean) => Promise<void>;
   onboardingEnabled?: boolean;
   onToggleOnboarding?: (enabled: boolean) => Promise<void>;
+  designTheme?: DesignTheme;
+  onSetDesignTheme?: (theme: DesignTheme) => Promise<void>;
   skillConfig?: SkillConfig;
   onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
 }
+
+const DESIGN_OPTIONS: {
+  id: DesignTheme;
+  labelKey: 'designThemeClassic' | 'designThemeLodge';
+  descKey: 'designThemeClassicDesc' | 'designThemeLodgeDesc';
+  swatches: string[];
+}[] = [
+  {
+    id: 'classic',
+    labelKey: 'designThemeClassic',
+    descKey: 'designThemeClassicDesc',
+    swatches: ['#fafaf7', '#1a6578', '#0d0f12'],
+  },
+  {
+    id: 'lodge',
+    labelKey: 'designThemeLodge',
+    descKey: 'designThemeLodgeDesc',
+    swatches: ['#f6efe2', '#b5541f', '#2b2116'],
+  },
+];
 
 export const SystemSettings: React.FC<SystemSettingsProps> = ({
   filtersEnabled = true,
   onToggleFilters,
   onboardingEnabled = true,
   onToggleOnboarding,
+  designTheme = 'classic',
+  onSetDesignTheme,
   skillConfig,
   onUpdateSkillConfig,
 }) => {
@@ -55,6 +80,56 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
           />
         </div>
       </div>
+
+      {/* Site design theme */}
+      <AdminCollapsibleSection
+        id="design_theme"
+        title={t('designThemeTitle')}
+        subtitle={t('designThemeSub')}
+        icon={Palette}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {DESIGN_OPTIONS.map((option) => {
+            const isActive = designTheme === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => onSetDesignTheme?.(option.id)}
+                className={`text-left border p-4 transition cursor-pointer ${
+                  isActive
+                    ? 'border-[var(--accent)] bg-[var(--accent-muted)]'
+                    : 'border-[var(--border)] bg-transparent hover:border-[var(--ink)]'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <span className="text-xs font-mono uppercase tracking-wider font-bold text-[var(--ink)]">
+                    {t(option.labelKey)}
+                  </span>
+                  {isActive && (
+                    <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--accent)]">
+                      {t('designThemeActive')}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-[var(--ink-dim)] leading-relaxed mb-3">
+                  {t(option.descKey)}
+                </p>
+                <div className="flex gap-1.5">
+                  {option.swatches.map((color) => (
+                    <span
+                      key={color}
+                      className="h-5 w-5 border border-[var(--border)]"
+                      style={{ backgroundColor: color }}
+                      aria-hidden
+                    />
+                  ))}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </AdminCollapsibleSection>
 
       {/* 1. Таблица начисления рейтинга клиентов (система уровней) */}
       <AdminCollapsibleSection

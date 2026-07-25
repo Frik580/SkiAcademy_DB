@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useLanguage, useTranslatedBookings } from '../lib/LanguageContext';
 import { SkillConfig } from '../lib/skillData';
+import { DesignTheme } from '../lib/designTheme';
 import { AdminCollapsibleSection } from './admin/AdminCollapsibleSection';
 
 // Lazy loading heavy admin tab modules
@@ -75,6 +76,8 @@ interface AdminPanelProps {
   onToggleFilters?: (enabled: boolean) => Promise<void>;
   onboardingEnabled?: boolean;
   onToggleOnboarding?: (enabled: boolean) => Promise<void>;
+  designTheme?: DesignTheme;
+  onSetDesignTheme?: (theme: DesignTheme) => Promise<void>;
   courses?: Course[];
   onAddCourse?: (course: Course) => Promise<void>;
   onUpdateCourse?: (course: Course) => Promise<void>;
@@ -111,6 +114,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onToggleFilters,
   onboardingEnabled = true,
   onToggleOnboarding,
+  designTheme = 'classic',
+  onSetDesignTheme,
   skillConfig,
   onUpdateSkillConfig,
 }) => {
@@ -174,6 +179,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           onToggleFilters={onToggleFilters}
           onboardingEnabled={onboardingEnabled}
           onToggleOnboarding={onToggleOnboarding}
+          designTheme={designTheme}
+          onSetDesignTheme={onSetDesignTheme}
           skillConfig={skillConfig}
           onUpdateSkillConfig={onUpdateSkillConfig}
         />

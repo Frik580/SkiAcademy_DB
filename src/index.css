@@ -8,6 +8,7 @@
 
 @variant dark (&:where(.dark, .dark *));
 
+/* ─── Classic (Alpine Glide) — default ─────────────────────────────── */
 :root {
   --bg: #fafaf7;
   --card-bg: #ffffff;
@@ -32,6 +33,17 @@
   --hero-cta-bg-hover: #23262d;
   --hero-cta-fg: #fafaf7;
   --hero-cta-border: #0d0f12;
+  --hero-cta-shadow: 0 2px 10px rgba(13, 15, 18, 0.18);
+  --hero-cta-shadow-hover: 0 4px 14px rgba(13, 15, 18, 0.22);
+  --hero-title-shadow:
+    0 1px 16px rgba(250, 250, 247, 0.95),
+    0 0 1px rgba(255, 255, 255, 0.9);
+  --hero-body-shadow: 0 1px 12px rgba(250, 250, 247, 0.9);
+  --hero-scrim: 250, 250, 247;
+  --hero-scrim-dark: 17, 17, 19;
+  --radius: 0px;
+  --radius-sm: 0px;
+  --shadow-card: none;
 }
 
 .dark,
@@ -59,6 +71,82 @@
   --hero-cta-bg-hover: #ffffff;
   --hero-cta-fg: #0d0f12;
   --hero-cta-border: #efeeea;
+  --hero-cta-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+  --hero-cta-shadow-hover: 0 4px 18px rgba(0, 0, 0, 0.4);
+  --hero-title-shadow: none;
+  --hero-body-shadow: none;
+}
+
+/* ─── Alpine Lodge — alternate design (admin-switchable) ───────────── */
+.theme-lodge {
+  --bg: #f6efe2;
+  --card-bg: #fffbf3;
+  --ink: #2b2116;
+  --ink-dim: #6d5d49;
+  --border: #ddccac;
+  --border-subtle: #ebe0c8;
+  --profile-bg: #efe3cc;
+  --accent: #b5541f;
+  --accent-hover: #94421a;
+  --accent-muted: rgba(181, 84, 31, 0.1);
+  --accent-foreground: #fffaf3;
+  --hero-secondary-bg: rgba(255, 251, 243, 0.94);
+  --hero-secondary-bg-hover: #fffbf3;
+  --hero-secondary-border: color-mix(in srgb, var(--ink) 28%, transparent);
+  --hero-secondary-border-hover: color-mix(in srgb, var(--ink) 42%, transparent);
+  --hero-secondary-shadow: 0 2px 10px rgba(43, 33, 22, 0.12);
+  --hero-secondary-shadow-hover: 0 4px 16px rgba(43, 33, 22, 0.16);
+  --hero-ink: #241b11;
+  --hero-ink-dim: #4c3d2a;
+  --hero-cta-bg: #2b2116;
+  --hero-cta-bg-hover: #423323;
+  --hero-cta-fg: #f6efe2;
+  --hero-cta-border: #2b2116;
+  --hero-cta-shadow: 0 2px 10px rgba(43, 33, 22, 0.22);
+  --hero-cta-shadow-hover: 0 4px 14px rgba(43, 33, 22, 0.26);
+  --hero-title-shadow:
+    0 1px 16px rgba(246, 239, 226, 0.95),
+    0 0 1px rgba(255, 251, 243, 0.9);
+  --hero-body-shadow: 0 1px 12px rgba(246, 239, 226, 0.9);
+  --hero-scrim: 246, 239, 226;
+  --hero-scrim-dark: 26, 20, 13;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --shadow-card: 0 10px 30px -12px rgba(43, 33, 22, 0.18), 0 2px 8px rgba(43, 33, 22, 0.06);
+}
+
+.theme-lodge.dark,
+:root.theme-lodge[class~='dark'] {
+  --bg: #1a140d;
+  --card-bg: #241b12;
+  --ink: #f3e9d8;
+  --ink-dim: rgba(243, 233, 216, 0.6);
+  --border: rgba(243, 233, 216, 0.14);
+  --border-subtle: rgba(243, 233, 216, 0.08);
+  --profile-bg: #241b12;
+  --accent: #e08a3c;
+  --accent-hover: #f0a355;
+  --accent-muted: rgba(224, 138, 60, 0.15);
+  --accent-foreground: #1a140d;
+  --hero-secondary-bg: rgba(255, 255, 255, 0.07);
+  --hero-secondary-bg-hover: rgba(255, 255, 255, 0.12);
+  --hero-secondary-border: rgba(243, 233, 216, 0.22);
+  --hero-secondary-border-hover: rgba(243, 233, 216, 0.38);
+  --hero-secondary-shadow: none;
+  --hero-secondary-shadow-hover: none;
+  --hero-ink: var(--ink);
+  --hero-ink-dim: var(--ink-dim);
+  --hero-cta-bg: #f3e9d8;
+  --hero-cta-bg-hover: #ffffff;
+  --hero-cta-fg: #1a140d;
+  --hero-cta-border: #f3e9d8;
+  --hero-cta-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+  --hero-cta-shadow-hover: 0 4px 18px rgba(0, 0, 0, 0.4);
+  --hero-title-shadow: none;
+  --hero-body-shadow: none;
+  --shadow-card:
+    0 10px 30px -10px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 @layer base {
@@ -83,6 +171,24 @@
   pre,
   .mono-label {
     font-family: var(--font-mono);
+  }
+
+  /* Soft corners + card shadow only in Alpine Lodge */
+  .theme-lodge button,
+  .theme-lodge input,
+  .theme-lodge select,
+  .theme-lodge textarea {
+    border-radius: var(--radius-sm);
+  }
+
+  .theme-lodge [class*='card-bg'] {
+    box-shadow: var(--shadow-card);
+  }
+}
+
+@layer utilities {
+  .theme-lodge .rounded-none {
+    border-radius: var(--radius);
   }
 }
 
@@ -184,7 +290,7 @@
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    box-shadow: 0 2px 10px rgba(13, 15, 18, 0.18);
+    box-shadow: var(--hero-cta-shadow);
     transition:
       background-color 0.2s,
       border-color 0.2s,
@@ -196,19 +302,11 @@
   .btn-primary-hero:hover:not(:disabled) {
     background-color: var(--hero-cta-bg-hover);
     border-color: var(--hero-cta-bg-hover);
-    box-shadow: 0 4px 14px rgba(13, 15, 18, 0.22);
+    box-shadow: var(--hero-cta-shadow-hover);
   }
 
   .btn-primary-hero:active:not(:disabled) {
     transform: translateY(1px);
-  }
-
-  .dark .btn-primary-hero {
-    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
-  }
-
-  .dark .btn-primary-hero:hover:not(:disabled) {
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
   }
 
   .text-accent {
@@ -275,14 +373,12 @@
   }
 
   :root:not(.dark) .hero-copy-title {
-    text-shadow:
-      0 1px 16px rgba(250, 250, 247, 0.95),
-      0 0 1px rgba(255, 255, 255, 0.9);
+    text-shadow: var(--hero-title-shadow);
   }
 
   :root:not(.dark) .hero-copy-eyebrow,
   :root:not(.dark) .hero-copy-body {
-    text-shadow: 0 1px 12px rgba(250, 250, 247, 0.9);
+    text-shadow: var(--hero-body-shadow);
   }
 
   .hero-copy-body {

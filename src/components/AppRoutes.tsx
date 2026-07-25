@@ -15,6 +15,7 @@ import { Instructor, Course, Booking, Review, UserProfile, ResortConfig } from '
 import { Language } from '../lib/LanguageContext';
 import { SkillConfig } from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
+import { DesignTheme } from '../lib/designTheme';
 import { InstructorSpecialty, InstructorSortBy } from './useInstructorFilters';
 import { LazyLoad } from './LazyLoad';
 
@@ -59,6 +60,7 @@ interface AppRoutesProps {
   theme: 'light' | 'dark';
   filtersEnabled: boolean;
   onboardingEnabled?: boolean;
+  designTheme: DesignTheme;
   skillConfig: SkillConfig;
   resortData: ResortData;
   instructors: Instructor[];
@@ -88,6 +90,7 @@ interface AppRoutesProps {
   // Actions
   onToggleFilters: (enabled: boolean) => Promise<void>;
   onToggleOnboarding?: (enabled: boolean) => Promise<void>;
+  onSetDesignTheme: (theme: DesignTheme) => Promise<void>;
   onUpdateSkillConfig: (config: SkillConfig) => Promise<void>;
   onBookCourse: (courseId: string) => Promise<void>;
   onReschedule: (id: string, newDate: string, newTime: string) => Promise<void>;
@@ -173,6 +176,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
           slides: resortData.resortConfig.slides,
           language,
           theme,
+          designTheme: props.designTheme,
           slideIntervalSeconds: resortData.resortConfig.slideIntervalSeconds,
         }}
         actions={{ onScrollToSection: handleScrollToSection }}
@@ -339,9 +343,11 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
     deletedCompletedStats,
     filtersEnabled,
     onboardingEnabled,
+    designTheme,
     skillConfig,
     onToggleFilters,
     onToggleOnboarding,
+    onSetDesignTheme,
     onUpdateSkillConfig,
     onUpdateUserRole,
     onAddInstructor,
@@ -395,6 +401,8 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
           onToggleFilters={onToggleFilters}
           onboardingEnabled={onboardingEnabled}
           onToggleOnboarding={onToggleOnboarding}
+          designTheme={designTheme}
+          onSetDesignTheme={onSetDesignTheme}
           skillConfig={skillConfig}
           onUpdateSkillConfig={onUpdateSkillConfig}
         />

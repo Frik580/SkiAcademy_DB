@@ -13,6 +13,7 @@ import { AppRoutes } from './components/AppRoutes';
 import { OnboardingModal } from './components/OnboardingModal';
 
 import { logger } from './lib/logger';
+import { applyDesignThemeToDOM } from './lib/designTheme';
 import {
   NotificationProvider,
   useNotifications,
@@ -89,8 +90,10 @@ const AppContent: React.FC = () => {
     deletedCompletedStats,
     filtersEnabled,
     onboardingEnabled,
+    designTheme,
     skillConfig,
     handleUpdateSkillConfig,
+    handleSetDesignTheme,
     dismissedReviewIds,
     handleDismissReview,
     handlePaymentSuccess,
@@ -119,6 +122,10 @@ const AppContent: React.FC = () => {
     handleToggleFilters,
     handleToggleOnboarding,
   } = appLogic;
+
+  useEffect(() => {
+    applyDesignThemeToDOM(designTheme);
+  }, [designTheme]);
 
   const filterState = useInstructorFilters(instructors, language, filtersEnabled);
 
@@ -248,6 +255,7 @@ const AppContent: React.FC = () => {
           language={language}
           theme={theme}
           filtersEnabled={filtersEnabled}
+          designTheme={designTheme}
           skillConfig={skillConfig}
           resortData={{
             resortConfig,
@@ -285,6 +293,7 @@ const AppContent: React.FC = () => {
           onboardingEnabled={onboardingEnabled}
           onToggleFilters={handleToggleFilters}
           onToggleOnboarding={handleToggleOnboarding}
+          onSetDesignTheme={handleSetDesignTheme}
           onUpdateSkillConfig={handleUpdateSkillConfig}
           onBookCourse={handleBookCourse}
           onReschedule={handleReschedule}

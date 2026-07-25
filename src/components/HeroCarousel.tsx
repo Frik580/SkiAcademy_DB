@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage, type Language } from '../lib/LanguageContext';
 import type { Theme } from './useTheme';
+import type { DesignTheme } from '../lib/designTheme';
 import { CustomHeroSlide } from '../types';
 import { FALLBACK_SLIDES } from './admin/resortConfigDefaults';
 
@@ -11,6 +12,7 @@ interface HeroCarouselProps {
     slides?: CustomHeroSlide[];
     language: Language;
     theme: Theme;
+    designTheme?: DesignTheme;
     slideIntervalSeconds?: number;
   };
   actions: {
@@ -19,6 +21,11 @@ interface HeroCarouselProps {
 }
 
 const HERO_CROSSFADE_MS = 1400;
+
+const HERO_SCRIM: Record<DesignTheme, { light: string; dark: string }> = {
+  classic: { light: '250, 250, 247', dark: '17, 17, 19' },
+  lodge: { light: '246, 239, 226', dark: '26, 20, 13' },
+};
 
 const resolveSlideBackground = (
   activeSlide: CustomHeroSlide | undefined,
@@ -37,13 +44,19 @@ const resolveSlideBackground = (
   return `https://storage.yandexcloud.net/carve/${bg}.webp`;
 };
 
-const buildBackgroundImage = (bgUrl: string, theme: Theme): string =>
-  theme === 'light'
-    ? `linear-gradient(105deg, rgba(250,250,247,0.98) 0%, rgba(250,250,247,0.88) 32%, rgba(250,250,247,0.55) 55%, rgba(250,250,247,0.12) 100%), url('${bgUrl}')`
-    : `linear-gradient(105deg, rgba(17,17,19,0.82) 0%, rgba(17,17,19,0.42) 42%, rgba(17,17,19,0.1) 100%), url('${bgUrl}')`;
+const buildBackgroundImage = (
+  bgUrl: string,
+  theme: Theme,
+  designTheme: DesignTheme = 'classic'
+): string => {
+  const scrim = HERO_SCRIM[designTheme];
+  return theme === 'light'
+    ? `linear-gradient(105deg, rgba(${scrim.light},0.98) 0%, rgba(${scrim.light},0.88) 32%, rgba(${scrim.light},0.55) 55%, rgba(${scrim.light},0.12) 100%), url('${bgUrl}')`
+    : `linear-gradient(105deg, rgba(${scrim.dark},0.82) 0%, rgba(${scrim.dark},0.42) 42%, rgba(${scrim.dark},0.1) 100%), url('${bgUrl}')`;
+};
 
 export const HeroCarousel: React.FC<HeroCarouselProps> = ({
-  data: { slides: rawSlides, language, theme, slideIntervalSeconds = 6 },
+  data: { slides: rawSlides, language, theme, designTheme = 'classic', slideIntervalSeconds = 6 },
   actions: { onScrollToSection },
 }) => {
   const { t } = useLanguage();
@@ -99,7 +112,11 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
               style={{
                 ...crossfadeStyle,
                 zIndex: isActive ? 2 : 1,
-                backgroundImage: buildBackgroundImage(resolveSlideBackground(slide, idx), theme),
+                backgroundImage: buildBackgroundImage(
+                  resolveSlideBackground(slide, idx),
+                  theme,
+                  designTheme
+                ),
               }}
             />
           );

@@ -499,6 +499,18 @@ export const translations = {
     onboardingToggleLabel: 'New Client Onboarding',
     onboardingToggleDesc:
       'Enable or disable the interactive 6-screen onboarding tour for newly registered students.',
+    designThemeTitle: 'Site Design Theme',
+    designThemeSub:
+      'Switch the global visual style for all visitors. Changes apply instantly site-wide.',
+    designThemeClassic: 'Alpine Glide',
+    designThemeClassicDesc:
+      'Cool editorial look — sharp edges, teal accent, crisp cream and charcoal surfaces.',
+    designThemeLodge: 'Alpine Lodge',
+    designThemeLodgeDesc:
+      'Warm lodge atmosphere — soft corners, terracotta accent, parchment and timber tones.',
+    designThemeActive: 'Active',
+    designThemeUpdated: 'Design theme updated',
+    designThemeUpdatedDesc: 'The new visual style is now live for all visitors.',
     resortDetailsTitle: 'Resort Details & Weather Location',
     resortDetailsSub:
       'Configure the default resort name and coordinate system. Weather statistics automatically load from Open-Meteo API.',
@@ -1682,6 +1694,18 @@ export const translations = {
     onboardingToggleLabel: 'Онбординг новых клиентов',
     onboardingToggleDesc:
       'Включение или отключение интерактивного тура из 6 экранов для вновь зарегистрированных учеников.',
+    designThemeTitle: 'Дизайн сайта',
+    designThemeSub:
+      'Переключение глобального визуального стиля для всех посетителей. Изменения применяются сразу.',
+    designThemeClassic: 'Alpine Glide',
+    designThemeClassicDesc:
+      'Холодный редакционный стиль — острые углы, бирюзовый акцент, кремовые и угольные поверхности.',
+    designThemeLodge: 'Alpine Lodge',
+    designThemeLodgeDesc:
+      'Тёплая атмосфера лоджа — мягкие скругления, терракотовый акцент, пергамент и древесные тона.',
+    designThemeActive: 'Активен',
+    designThemeUpdated: 'Дизайн обновлён',
+    designThemeUpdatedDesc: 'Новый визуальный стиль теперь активен для всех посетителей.',
     resortDetailsTitle: 'Данные курорта и геолокация погоды',
     resortDetailsSub:
       'Настройка названия курорта и географических координат. Статистика погоды загружается автоматически через API Open-Meteo.',

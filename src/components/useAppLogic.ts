@@ -27,6 +27,7 @@ import { useNotifications as useDbNotifications } from './useNotifications';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
 import { QUERY_LIMITS } from '../lib/queryLimits';
 import { logger } from '../lib/logger';
+import { DesignTheme, parseDesignTheme } from '../lib/designTheme';
 
 type SetUserProfile = (profile: UserProfile | null) => void;
 
@@ -42,6 +43,7 @@ export const useAppLogic = (
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [filtersEnabled, setFiltersEnabled] = useState(true);
   const [onboardingEnabled, setOnboardingEnabled] = useState(true);
+  const [designTheme, setDesignTheme] = useState<DesignTheme>('classic');
   const [skillConfig, setSkillConfig] = useState<SkillConfig>(DEFAULT_SKILL_CONFIG);
 
   const bookingLogic = useBookings(firebaseUser, userProfile, setUserProfile);
@@ -68,6 +70,17 @@ export const useAppLogic = (
         );
       } catch {
         setOnboardingEnabled(true);
+      }
+
+      try {
+        const designSnapshot = await getDoc(doc(db, 'settings', 'design_theme'));
+        setDesignTheme(
+          designSnapshot.exists()
+            ? parseDesignTheme(designSnapshot.data().theme)
+            : 'classic'
+        );
+      } catch {
+        setDesignTheme('classic');
       }
     };
 
@@ -122,6 +135,18 @@ export const useAppLogic = (
           });
         },
         (error) => logger.error('Skill config listener error:', error)
+      ),
+
+      onSnapshot(
+        doc(db, 'settings', 'design_theme'),
+        (snapshot) => {
+          if (!snapshot.exists()) {
+            setDesignTheme('classic');
+            return;
+          }
+          setDesignTheme(parseDesignTheme(snapshot.data().theme));
+        },
+        (error) => logger.error('Design theme listener error:', error)
       ),
     ];
 
@@ -249,6 +274,12 @@ export const useAppLogic = (
     await setDoc(doc(db, 'settings', 'onboarding'), { enabled });
   };
 
+  const handleSetDesignTheme = async (theme: DesignTheme) => {
+    setDesignTheme(theme);
+    await setDoc(doc(db, 'settings', 'design_theme'), { theme });
+    addNotification('info', t('designThemeUpdated'), t('designThemeUpdatedDesc'));
+  };
+
   const handleUpdateSkillConfig = async (newConfig: SkillConfig) => {
     setSkillConfig(newConfig);
     await setDoc(doc(db, 'settings', 'skill_config'), newConfig);
@@ -261,6 +292,7 @@ export const useAppLogic = (
     usersList,
     filtersEnabled,
     onboardingEnabled,
+    designTheme,
     skillConfig,
     dismissedReviewIds,
     handleDismissReview,
@@ -276,6 +308,7 @@ export const useAppLogic = (
     handleUpdateProfile,
     handleToggleFilters,
     handleToggleOnboarding,
+    handleSetDesignTheme,
     handleUpdateSkillConfig,
     ...bookingLogic,
     ...courseLogic,

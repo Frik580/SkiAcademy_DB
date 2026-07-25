@@ -31,7 +31,7 @@ import {
   InsufficientFundsError,
 } from '../lib/bookingTransactions';
 import { createNotificationForUser } from '../lib/notifications';
-import { useLanguage } from '../lib/LanguageContext';
+import { parseCourseEndDateTime, useLanguage } from '../lib/LanguageContext';
 import { Booking, UserProfile } from '../types';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
 import { QUERY_LIMITS } from '../lib/queryLimits';
@@ -128,23 +128,40 @@ export const useBookings = (
 
       const now = new Date();
       const candidateBookings = bookings.filter((booking) => {
-        if (booking.status !== 'confirmed' && booking.status !== 'pending_cancellation')
+        if (booking.status !== 'confirmed' && booking.status !== 'pending_cancellation') {
           return false;
-        // Only consider bookings that are at most a few days in the past; ignore future bookings.
-        const [year, month, day] = booking.date.split('-').map(Number);
-        const bookingDate = new Date(year, month - 1, day);
-        const daysDiff = (now.getTime() - bookingDate.getTime()) / (1000 * 60 * 60 * 24);
-        if (daysDiff < -1) return false;
-        return true;
+        }
+
+        let endsAt: Date | null = null;
+
+        if (isCourseBooking(booking)) {
+          // Group course booking: completion time is the end of the last day of the course
+          endsAt = parseCourseEndDateTime(booking.date);
+        } else {
+          // Individual lesson booking: date is YYYY-MM-DD
+          const parts = booking.date.split('-');
+          if (parts.length === 3) {
+            const [year, month, day] = parts.map(Number);
+            if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+              const [hour, minute] = (booking.time || '00:00').split(':').map(Number);
+              const startsAt = new Date(year, month - 1, day, hour || 0, minute || 0, 0);
+              if (!isNaN(startsAt.getTime())) {
+                endsAt = new Date(
+                  startsAt.getTime() + (booking.durationHours || 1) * 60 * 60 * 1000
+                );
+              }
+            }
+          }
+        }
+
+        if (!endsAt || isNaN(endsAt.getTime())) {
+          return false; // Cannot determine end date, do not auto-complete
+        }
+
+        return now >= endsAt;
       });
 
       for (const booking of candidateBookings) {
-        const [year, month, day] = booking.date.split('-').map(Number);
-        const [hour, minute] = booking.time.split(':').map(Number);
-        const startsAt = new Date(year, month - 1, day, hour, minute, 0);
-        const endsAt = new Date(startsAt.getTime() + booking.durationHours * 60 * 60 * 1000);
-        if (now < endsAt) continue;
-
         try {
           const batch = writeBatch(db);
           batch.update(doc(db, 'bookings', booking.id), { status: 'completed' });

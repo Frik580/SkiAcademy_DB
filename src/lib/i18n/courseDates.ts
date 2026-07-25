@@ -98,6 +98,99 @@ export function parseCourseDates(datesStr: string) {
   return { start, end, startTime, endTime };
 }
 
+export function parseCourseEndDateTime(datesStr: string): Date | null {
+  if (!datesStr || !datesStr.trim()) return null;
+
+  try {
+    let endTimeStr = '23:59';
+    const timeMatch = datesStr.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
+    if (timeMatch) {
+      endTimeStr = timeMatch[2];
+    }
+
+    let cleanDatesStr = datesStr.replace(/,?\s*\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/, '').trim();
+
+    const ruMonthMap: { [key: string]: string } = {
+      января: 'January',
+      февраля: 'February',
+      марта: 'March',
+      апреля: 'April',
+      мая: 'May',
+      июня: 'June',
+      июля: 'July',
+      августа: 'August',
+      сентября: 'September',
+      октября: 'October',
+      ноября: 'November',
+      декабря: 'December',
+      январь: 'January',
+      февраль: 'February',
+      март: 'March',
+      апрель: 'April',
+      май: 'May',
+      июнь: 'June',
+      июль: 'July',
+      август: 'August',
+      сентябрь: 'September',
+      октябрь: 'October',
+      ноябрь: 'November',
+      декабрь: 'December',
+    };
+
+    Object.keys(ruMonthMap).forEach((ruMonth) => {
+      const regex = new RegExp(ruMonth, 'gi');
+      cleanDatesStr = cleanDatesStr.replace(regex, ruMonthMap[ruMonth]);
+    });
+
+    const parts = cleanDatesStr.split(/[-–]|to/);
+    let endPart = '';
+
+    if (parts.length === 1) {
+      endPart = parts[0].trim();
+    } else if (parts.length >= 2) {
+      const startPart = parts[0].trim();
+      endPart = parts[1].trim();
+
+      const endHasMonth = /[a-zA-Z]/.test(endPart);
+      if (!endHasMonth) {
+        const monthMatch = startPart.match(/([a-zA-Z]+)/);
+        if (monthMatch) {
+          endPart = `${monthMatch[1]} ${endPart}`;
+        }
+      }
+
+      const yearMatch = endPart.match(/(\d{4})/);
+      if (!yearMatch) {
+        const startYearMatch = startPart.match(/(\d{4})/);
+        if (startYearMatch) {
+          endPart = `${endPart}, ${startYearMatch[1]}`;
+        }
+      }
+    }
+
+    if (!endPart) return null;
+
+    const parsedEnd = new Date(endPart);
+    if (isNaN(parsedEnd.getTime())) return null;
+
+    const [h, m] = endTimeStr.split(':').map(Number);
+    const hour = isNaN(h) ? 23 : h;
+    const minute = isNaN(m) ? 59 : m;
+
+    return new Date(
+      parsedEnd.getFullYear(),
+      parsedEnd.getMonth(),
+      parsedEnd.getDate(),
+      hour,
+      minute,
+      59
+    );
+  } catch (e) {
+    logger.warn('Failed to parse course end date time:', e);
+    return null;
+  }
+}
+
 export function parseDurationHours(durationStr: string, fallback: number = 1): number {
   if (!durationStr) return fallback;
   const hoursMatch =

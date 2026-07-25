@@ -6,7 +6,6 @@ import {
 } from './lib/firebase';
 import { Instructor } from './types';
 import { LanguageProvider, useLanguage, translateInstructor, translateCourse } from './lib/LanguageContext';
-import { FALLBACK_SLIDES } from './components/admin/resortConfigDefaults';
 
 // Custom Hooks
 import { useTheme } from './components/useTheme';
@@ -98,29 +97,6 @@ const AppContent: React.FC = () => {
   const isAdminRoute = location.pathname === '/admin';
 
   // --- UI State (remains in component) ---
-  const [currentSlide, setCurrentSlide] = useState(0);
-
-  const activeSlides = useMemo(() => {
-    return resortConfig.slides && resortConfig.slides.length > 0 ? resortConfig.slides : FALLBACK_SLIDES;
-  }, [resortConfig.slides]);
-
-  const slideInterval = resortConfig.slideIntervalSeconds || 6;
-
-  useEffect(() => {
-    if (currentSlide >= activeSlides.length) {
-      setCurrentSlide(0);
-    }
-  }, [activeSlides.length, currentSlide]);
-
-  useEffect(() => {
-    if (activeSlides.length <= 1) return;
-
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % activeSlides.length);
-    }, slideInterval * 1000);
-
-    return () => clearInterval(interval);
-  }, [activeSlides.length, slideInterval]);
   const [dbStatusWarning, setDbStatusWarning] = useState<string | null>(null);
   const [isTopUpOpen, setIsTopUpOpen] = useState<boolean>(false);
   const [isNotifHistoryOpen, setIsNotifHistoryOpen] = useState<boolean>(false);
@@ -287,13 +263,12 @@ const AppContent: React.FC = () => {
           <>
             <HeroCarousel
               data={{
-                slides: activeSlides,
-                currentSlide,
+                slides: resortConfig.slides,
                 language,
-                theme
+                theme,
+                slideIntervalSeconds: resortConfig.slideIntervalSeconds
               }}
               actions={{
-                onSelectSlide: setCurrentSlide,
                 onScrollToSection: handleScrollToSection
               }}
             />

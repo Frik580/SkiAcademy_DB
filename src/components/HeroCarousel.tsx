@@ -1,19 +1,19 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage, type Language } from '../lib/LanguageContext';
 import type { Theme } from './useTheme';
 import { CustomHeroSlide } from '../types';
+import { FALLBACK_SLIDES } from './admin/resortConfigDefaults';
 
 interface HeroCarouselProps {
   data: {
-    slides: CustomHeroSlide[];
-    currentSlide: number;
+    slides?: CustomHeroSlide[];
     language: Language;
     theme: Theme;
+    slideIntervalSeconds?: number;
   };
   actions: {
-    onSelectSlide: (index: number) => void;
     onScrollToSection: (id: string) => void;
   };
 }
@@ -40,11 +40,35 @@ const buildBackgroundImage = (bgUrl: string, theme: Theme): string =>
     : `linear-gradient(105deg, rgba(17,17,19,0.82) 0%, rgba(17,17,19,0.42) 42%, rgba(17,17,19,0.1) 100%), url('${bgUrl}')`;
 
 export const HeroCarousel: React.FC<HeroCarouselProps> = ({
-  data: { slides, currentSlide, language, theme },
-  actions: { onSelectSlide, onScrollToSection }
+  data: { slides: rawSlides, language, theme, slideIntervalSeconds = 6 },
+  actions: { onScrollToSection }
 }) => {
   const { t } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  const slides = useMemo(() => {
+    return rawSlides && rawSlides.length > 0 ? rawSlides : FALLBACK_SLIDES;
+  }, [rawSlides]);
+
+  const slideInterval = slideIntervalSeconds || 6;
+
+  useEffect(() => {
+    if (currentSlide >= slides.length) {
+      setCurrentSlide(0);
+    }
+  }, [slides.length, currentSlide]);
+
+  useEffect(() => {
+    if (slides.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, slideInterval * 1000);
+
+    return () => clearInterval(interval);
+  }, [slides.length, slideInterval]);
+
   const crossfadeStyle = {
     transitionDuration: `${HERO_CROSSFADE_MS}ms`,
     transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
@@ -141,7 +165,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   key={idx}
                   role="tab"
                   aria-selected={currentSlide === idx}
-                  onClick={() => onSelectSlide(idx)}
+                  onClick={() => setCurrentSlide(idx)}
                   className={`h-1 transition-[width,background-color] duration-500 ease-in-out rounded-none cursor-pointer ${
                     currentSlide === idx
                       ? 'w-8 bg-[var(--accent)]'

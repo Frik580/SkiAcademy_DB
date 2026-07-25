@@ -78,19 +78,24 @@ npm install
 1.  Создайте новый проект в консоли Firebase.
 2.  В настройках проекта добавьте новое веб-приложение.
 3.  Скопируйте объект конфигурации Firebase (`firebaseConfig`).
-4.  Вставьте вашу конфигурацию в файл `src/lib/firebase.ts`, заменив существующие заглушки:
+4.  Создайте файл `.env` в корне проекта (на основе `.env.example`) и заполните его своими значениями:
 
-    ```typescript
-    // src/lib/firebase.ts
-    const firebaseConfig = {
-      apiKey: 'ВАШ_API_KEY',
-      authDomain: 'ВАШ_AUTH_DOMAIN',
-      projectId: 'ВАШ_PROJECT_ID',
-      storageBucket: 'ВАШ_STORAGE_BUCKET',
-      messagingSenderId: 'ВАШ_MESSAGING_SENDER_ID',
-      appId: 'ВАШ_APP_ID',
-    };
+    ```bash
+    cp .env.example .env
     ```
+
+    ```env
+    VITE_FIREBASE_API_KEY=ВАШ_API_KEY
+    VITE_FIREBASE_APP_ID=ВАШ_APP_ID
+    VITE_FIREBASE_AUTH_DOMAIN=ВАШ_AUTH_DOMAIN
+    VITE_FIREBASE_MESSAGING_SENDER_ID=ВАШ_MESSAGING_SENDER_ID
+    VITE_FIREBASE_PROJECT_ID=ВАШ_PROJECT_ID
+    VITE_FIREBASE_STORAGE_BUCKET=ВАШ_STORAGE_BUCKET
+    VITE_FIREBASE_MEASUREMENT_ID=ВАШ_MEASUREMENT_ID
+    VITE_FIREBASE_DATABASE_ID=(default)
+    ```
+
+    > **Важно:** файл `.env` уже указан в `.gitignore` и не должен попадать в репозиторий. Не коммитьте секреты.
 
 5.  Включите следующие сервисы Firebase в вашем проекте:
     - **Authentication**: Включите провайдеров "Email/Пароль" и "Google".

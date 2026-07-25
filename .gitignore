@@ -18,6 +18,7 @@ lerna-debug.log*
 
 # Environment variables
 .env
+.firebase-applet-config.json
 .env.local
 .env.development.local
 .env.test.local

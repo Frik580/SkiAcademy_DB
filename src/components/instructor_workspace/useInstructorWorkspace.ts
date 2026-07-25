@@ -1,0 +1,354 @@
+import { useState, useMemo } from 'react';
+import { db, doc, updateDoc, writeBatch } from '../../lib/firebase';
+import { UserProfile, Instructor, Booking, Review, Course, LessonDifficulty } from '../../types';
+import {
+  useLanguage,
+  translateCourse,
+  splitCourseDates,
+  parseDurationHours,
+} from '../../lib/LanguageContext';
+import { useNotifications } from '../PushNotificationHub';
+import { useTheme } from '../useTheme';
+import { logger } from '../../lib/logger';
+import { SkillConfig } from '../../lib/skillData';
+import {
+  AVAILABILITY_SLOTS_COLLECTION,
+  blocksInstructorAvailability,
+  toAvailabilitySlot,
+} from '../../lib/availabilitySlots';
+
+export interface InstructorWorkspaceInput {
+  userProfile: UserProfile;
+  instructors: Instructor[];
+  allBookings: Booking[];
+  reviews: Review[];
+  courses: Course[];
+  usersList: UserProfile[];
+  skillConfig?: SkillConfig;
+}
+
+export interface EnrichedBooking extends Booking {
+  clientName?: string;
+  clientAvatar?: string;
+  isGuest?: boolean;
+  guestPhone?: string;
+  guestEmail?: string;
+}
+
+export interface EnrichedCourseBooking {
+  id: string;
+  isCourse: true;
+  instructorName: string;
+  instructorAvatar: string;
+  date: string;
+  time: string;
+  durationHours: number;
+  status: 'confirmed';
+  difficulty: LessonDifficulty;
+  notes: string;
+  clients: CourseClient[];
+  totalPrice?: number;
+  userId?: string;
+}
+
+export interface CourseClient {
+  uid: string;
+  name: string;
+  avatar?: string;
+  phone?: string;
+  email?: string;
+  isGuest?: boolean;
+}
+
+export type DisplayBooking = EnrichedBooking | EnrichedCourseBooking;
+
+type StatusFilter = 'all' | 'pending' | 'confirmed' | 'completed';
+
+export const useInstructorWorkspace = ({
+  userProfile,
+  instructors,
+  allBookings,
+  reviews,
+  courses,
+  usersList,
+  skillConfig,
+}: InstructorWorkspaceInput) => {
+  const { t, language } = useLanguage();
+  const { theme } = useTheme();
+  const { addNotification } = useNotifications();
+  const [selectedChatBooking, setSelectedChatBooking] = useState<DisplayBooking | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [evalModalState, setEvalModalState] = useState({
+    isOpen: false,
+    studentUid: '',
+    studentName: '',
+    studentLevel: 1,
+    existingScores: {} as Record<string, number>,
+  });
+
+  const linkedInstructor = useMemo(() => {
+    return instructors.find((ins) => ins.id === userProfile.instructorId);
+  }, [instructors, userProfile.instructorId]);
+
+  const instructorBookings = useMemo<DisplayBooking[]>(() => {
+    if (!userProfile.instructorId) return [];
+
+    const individualLessons = allBookings
+      .filter(
+        (b) =>
+          b.instructorId === userProfile.instructorId &&
+          !b.userId?.startsWith('system_block_') &&
+          b.status !== 'cancelled'
+      )
+      .map((b): EnrichedBooking => {
+        const client = usersList.find((u) => u.uid === b.userId);
+        const name =
+          client?.displayName ||
+          b.guestName ||
+          (b.isGuest || b.userId?.startsWith('guest_')
+            ? b.guestName
+              ? `${b.guestName} (${t('guestBadge') || 'Гость'})`
+              : t('guestBadge') || 'Гость'
+            : t('instructorEnrolledStudent'));
+        return {
+          ...b,
+          clientName: name,
+          clientAvatar: client?.avatarUrl || '',
+          guestPhone: b.guestPhone,
+          guestEmail: b.guestEmail,
+          isGuest: b.isGuest || b.userId?.startsWith('guest_'),
+        };
+      });
+
+    const instructorCourseIds = courses
+      .filter((c) => c.instructorIds?.includes(userProfile.instructorId!))
+      .map((c) => c.id);
+
+    const groupedCourses = new Map<string, EnrichedCourseBooking>();
+
+    allBookings.forEach((b) => {
+      if (!b.instructorId.startsWith('course_') || b.status === 'cancelled') return;
+      const courseId = b.instructorId.replace('course_', '');
+      if (!instructorCourseIds.includes(courseId)) return;
+
+      if (!groupedCourses.has(courseId)) {
+        const course = courses.find((c) => c.id === courseId);
+        if (!course) return;
+
+        const translated = translateCourse(course, language);
+        const { datePart, timePart } = splitCourseDates(translated.dates);
+
+        groupedCourses.set(courseId, {
+          id: courseId,
+          isCourse: true,
+          instructorName: `${translated.title} (${t('instructorGroupSuffix')})`,
+          instructorAvatar: translated.bgImageUrl || b.instructorAvatar,
+          date: datePart,
+          time: timePart,
+          durationHours: parseDurationHours(translated.duration, b.durationHours),
+          status: 'confirmed',
+          difficulty: b.difficulty,
+          notes: translated.description,
+          clients: [],
+        });
+      }
+
+      const group = groupedCourses.get(courseId)!;
+      const client = usersList.find((u) => u.uid === b.userId);
+      if (client) {
+        group.clients.push({
+          uid: client.uid,
+          name: client.displayName,
+          avatar: client.avatarUrl,
+          phone: client.phoneNumber,
+          email: client.email,
+        });
+      } else {
+        const guestNameStr =
+          b.guestName ||
+          (b.isGuest || b.userId?.startsWith('guest_')
+            ? t('guestBadge') || 'Гость'
+            : t('instructorEnrolledStudent'));
+        group.clients.push({
+          uid: b.userId,
+          name: guestNameStr,
+          avatar: '',
+          phone: b.guestPhone,
+          email: b.guestEmail,
+          isGuest: true,
+        });
+      }
+    });
+
+    return [...individualLessons, ...Array.from(groupedCourses.values())];
+  }, [allBookings, userProfile.instructorId, courses, language, usersList, t]);
+
+  const stats = useMemo(() => {
+    const total = instructorBookings.length;
+    const pending = instructorBookings.filter(
+      (b) => b.status === 'pending' || b.status === 'pending_cancellation'
+    ).length;
+    const confirmed = instructorBookings.filter((b) => b.status === 'confirmed').length;
+    const completed = instructorBookings.filter((b) => b.status === 'completed').length;
+    const cancelled = instructorBookings.filter((b) => b.status === 'cancelled').length;
+    const revenue = instructorBookings
+      .filter((b) => b.status === 'completed')
+      .reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+    return { total, pending, confirmed, completed, cancelled, revenue };
+  }, [instructorBookings]);
+
+  const displayedBookings = useMemo(() => {
+    return instructorBookings
+      .filter((b) => statusFilter === 'all' || b.status === statusFilter)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [instructorBookings, statusFilter]);
+
+  const instructorReviews = useMemo(() => {
+    if (!userProfile.instructorId) return [];
+    return reviews
+      .filter((r) => r.instructorId === userProfile.instructorId)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [reviews, userProfile.instructorId]);
+
+  const myStudents = useMemo(() => {
+    const map = new Map<
+      string,
+      { uid: string; name: string; avatar?: string; lessonsCount: number }
+    >();
+
+    instructorBookings.forEach((b) => {
+      const courseBooking = b as EnrichedCourseBooking;
+      if (courseBooking.isCourse) {
+        courseBooking.clients.forEach((c) => {
+          if (!c.uid) return;
+          const existing = map.get(c.uid) || {
+            uid: c.uid,
+            name: c.name,
+            avatar: c.avatar,
+            lessonsCount: 0,
+          };
+          existing.lessonsCount += 1;
+          map.set(c.uid, existing);
+        });
+      } else if (b.userId && !b.userId.startsWith('system_block_')) {
+        const individual = b as EnrichedBooking;
+        const existing = map.get(b.userId) || {
+          uid: b.userId,
+          name: individual.clientName || 'Student',
+          avatar: individual.clientAvatar,
+          lessonsCount: 0,
+        };
+        existing.lessonsCount += 1;
+        map.set(b.userId, existing);
+      }
+    });
+
+    return Array.from(map.values());
+  }, [instructorBookings]);
+
+  const handleSaveStudentScores = async (
+    studentUid: string,
+    updatedScores: Record<string, number>,
+    calculatedLevel: number
+  ) => {
+    try {
+      await updateDoc(doc(db, 'users', studentUid), {
+        skillScores: updatedScores,
+        level: calculatedLevel,
+      });
+      addNotification(
+        'success',
+        t('instructorRatingsSaved'),
+        `${t('instructorRatingsSavedDesc')} ${calculatedLevel}`
+      );
+    } catch (err) {
+      logger.error('Error saving student skill scores:', err);
+    }
+  };
+
+  const handleUpdateStudentLevel = async (
+    studentUid: string,
+    studentName: string,
+    newLevel: number
+  ) => {
+    try {
+      await updateDoc(doc(db, 'users', studentUid), { level: newLevel });
+      addNotification(
+        'info',
+        t('instructorLevelUpdated'),
+        `${t('instructorLevelUpdatedPrefix')} ${studentName} ${t('instructorLevelUpdatedTo')} ${newLevel}`
+      );
+    } catch (err) {
+      logger.error('Error updating student level:', err);
+    }
+  };
+
+  const handleUpdateStatus = async (bookingId: string, nextStatus: 'confirmed' | 'completed') => {
+    try {
+      const booking = allBookings.find((item) => item.id === bookingId);
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'bookings', bookingId), { status: nextStatus });
+      if (booking) {
+        const updatedBooking = { ...booking, status: nextStatus };
+        if (blocksInstructorAvailability(updatedBooking)) {
+          batch.set(
+            doc(db, AVAILABILITY_SLOTS_COLLECTION, bookingId),
+            toAvailabilitySlot(updatedBooking)
+          );
+        } else {
+          batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, bookingId));
+        }
+      }
+      await batch.commit();
+    } catch (err) {
+      logger.error('Error updating lesson status:', err);
+    }
+  };
+
+  const openEvalModal = (
+    studentUid: string,
+    studentName: string,
+    studentLevel: number,
+    existingScores?: Record<string, number>
+  ) => {
+    setEvalModalState({
+      isOpen: true,
+      studentUid,
+      studentName,
+      studentLevel,
+      existingScores: existingScores || {},
+    });
+  };
+
+  const closeEvalModal = () => {
+    setEvalModalState((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const closeChatModal = () => setSelectedChatBooking(null);
+
+  return {
+    theme,
+    t,
+    language,
+    linkedInstructor,
+    stats,
+    displayedBookings,
+    instructorReviews,
+    myStudents,
+    selectedChatBooking,
+    setSelectedChatBooking,
+    closeChatModal,
+    statusFilter,
+    setStatusFilter,
+    evalModalState,
+    openEvalModal,
+    closeEvalModal,
+    handleSaveStudentScores,
+    handleUpdateStudentLevel,
+    handleUpdateStatus,
+    userProfile,
+    instructors,
+    usersList,
+    skillConfig,
+  };
+};

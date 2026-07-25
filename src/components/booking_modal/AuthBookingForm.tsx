@@ -1,0 +1,172 @@
+import React from 'react';
+import { Sparkles, ShieldAlert, Wallet, Loader2 } from 'lucide-react';
+import { useBookingModal } from './useBookingModal';
+import { BookingSelectors } from './BookingSelectors';
+import { BookingOverlapWarnings } from './BookingOverlapWarnings';
+
+interface AuthBookingFormProps {
+  workspace: ReturnType<typeof useBookingModal>;
+}
+
+export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) => {
+  const {
+    t,
+    language,
+    getDifficultyLabel,
+    date,
+    setDate,
+    time,
+    setTime,
+    duration,
+    setDuration,
+    difficulty,
+    setDifficulty,
+    notes,
+    setNotes,
+    isSubmitting,
+    isLoadingBookings,
+    availableSlots,
+    tomorrowStr,
+    isTimeSlotOccupied,
+    overlappingBooking,
+    overlappingCourse,
+    totalCost,
+    userBalance,
+    hasSufficientFunds,
+    targetInstructor,
+    userProfile,
+    handleSubmit,
+    onClose,
+    onOpenTopUp,
+  } = workspace;
+
+  if (!targetInstructor) return null;
+
+  return (
+    <form onSubmit={handleSubmit} className="p-6 space-y-5">
+      <BookingSelectors
+        date={date}
+        setDate={setDate}
+        time={time}
+        setTime={setTime}
+        duration={duration}
+        setDuration={setDuration}
+        difficulty={difficulty}
+        setDifficulty={setDifficulty}
+        isLoadingBookings={isLoadingBookings}
+        availableSlots={availableSlots}
+        tomorrowStr={tomorrowStr}
+        t={t}
+        language={language}
+        getDifficultyLabel={getDifficultyLabel}
+        gapClass="gap-4"
+      />
+
+      <BookingOverlapWarnings
+        isTimeSlotOccupied={isTimeSlotOccupied}
+        overlappingBooking={overlappingBooking}
+        overlappingCourse={overlappingCourse}
+        targetInstructor={targetInstructor}
+        t={t}
+      />
+
+      <div className="space-y-1">
+        <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+          {t('personalGoalsNotes')}
+        </label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder={t('personalGoalsPlaceholder')}
+          className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition h-16 resize-none rounded-none"
+        />
+      </div>
+
+      <div className="bg-black/10 rounded-none p-4 border border-[var(--border)] space-y-2.5">
+        <div className="flex justify-between text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider">
+          <span>{t('hourlyRate')}:</span>
+          <span className="font-bold text-[var(--ink)]">
+            ${targetInstructor.pricePerHour} / {t('hr')}
+          </span>
+        </div>
+        <div className="flex justify-between text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider">
+          <span>{t('hoursBooked')}</span>
+          <span className="font-bold text-[var(--ink)]">x {duration}</span>
+        </div>
+        <div className="h-[1px] bg-[var(--border)]" />
+        <div className="flex justify-between items-baseline pt-1">
+          <span className="text-xs font-mono uppercase tracking-widest text-[var(--ink)]">
+            {t('totalLessonFee')}
+          </span>
+          <span className="text-xl font-extrabold text-sky-600 dark:text-sky-400 font-mono">
+            ${totalCost}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between px-4 py-3 rounded-none border border-[var(--border)] text-xs bg-black/5">
+        {userProfile?.isClientActive === false ? (
+          <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-mono text-[10px] uppercase tracking-wider font-semibold">
+            <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+            <span>{t('bookingAccessRestricted')}</span>
+          </div>
+        ) : hasSufficientFunds ? (
+          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] uppercase tracking-wider">
+            <Wallet className="w-3.5 h-3.5" />
+            <span>
+              {t('walletBalancePrefix')} <strong>${userBalance}</strong> {t('walletSufficient')}
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5 w-full">
+            <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-mono text-[10px] uppercase tracking-wider font-medium">
+              <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                {t('insufficientCreditsPrefix')} <strong>${userBalance}</strong>)
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenTopUp();
+              }}
+              className="w-full mt-1.5 py-2 border border-rose-900/40 bg-rose-950/10 hover:bg-rose-950/20 text-rose-500 rounded-none text-center transition cursor-pointer font-mono text-[10px] uppercase tracking-widest"
+            >
+              💡 {t('instantTopUp')} ${totalCost - userBalance}+
+            </button>
+          </div>
+        )}
+      </div>
+
+      <button
+        type="submit"
+        disabled={
+          isSubmitting ||
+          !hasSufficientFunds ||
+          isTimeSlotOccupied ||
+          !targetInstructor.isAvailable ||
+          userProfile?.isClientActive === false
+        }
+        className="btn-primary w-full py-3 flex items-center justify-center gap-2"
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            {t('submitting')}
+          </>
+        ) : userProfile?.isClientActive === false ? (
+          <>
+            <ShieldAlert className="w-3.5 h-3.5" />
+            {t('accessSuspended')}
+          </>
+        ) : (
+          <>
+            <Sparkles className="w-3.5 h-3.5" />
+            {t('payConfirmLesson')}
+          </>
+        )}
+      </button>
+    </form>
+  );
+};

@@ -562,7 +562,9 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                           {t('courseFeelAdrenaline')}
                         </span>
                         <span className="text-xs font-serif italic text-white/50 text-center max-w-xs mb-4">
-                          {'"'}{course.title}{'"'}
+                          {'"'}
+                          {course.title}
+                          {'"'}
                         </span>
                       </div>
                     )}
@@ -703,7 +705,9 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                           </div>
                         </div>
                         <p className="text-xs text-[var(--ink-dim)] italic leading-relaxed font-sans font-light">
-                          {'"'}{rev.comment}{'"'}
+                          {'"'}
+                          {rev.comment}
+                          {'"'}
                         </p>
                       </div>
                     ))}

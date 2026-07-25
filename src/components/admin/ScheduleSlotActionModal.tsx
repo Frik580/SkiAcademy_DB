@@ -406,7 +406,9 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
               )}
               {activeSlot.booking.notes && (
                 <div className="text-xs text-[var(--ink-dim)] italic">
-                  {'"'}{activeSlot.booking.notes}{'"'}
+                  {'"'}
+                  {activeSlot.booking.notes}
+                  {'"'}
                 </div>
               )}
               {activeSlot.booking.status === 'pending_cancellation' &&

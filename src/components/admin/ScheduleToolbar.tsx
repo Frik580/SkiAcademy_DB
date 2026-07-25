@@ -62,7 +62,16 @@ export const ScheduleToolbar: React.FC<ScheduleToolbarProps> = ({
         />
       ) : (
         <div className="px-2.5 py-1.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] rounded-none text-xs text-center text-[var(--ink)] w-48">
-          {weekStart.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', day: 'numeric' })} - {weekEnd.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          {weekStart.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
+            month: 'short',
+            day: 'numeric',
+          })}{' '}
+          -{' '}
+          {weekEnd.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })}
         </div>
       )}
 

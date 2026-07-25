@@ -67,9 +67,8 @@ export async function cancelBookingWithRefund(
     const courseRef = courseId ? doc(firestore, 'courses', courseId) : null;
     const courseSnap = courseRef ? await transaction.get(courseRef) : null;
 
-    const refund = bookingData.status === 'completed'
-      ? 0
-      : (refundAmount ?? bookingData.totalPrice ?? 0);
+    const refund =
+      bookingData.status === 'completed' ? 0 : (refundAmount ?? bookingData.totalPrice ?? 0);
 
     if (userSnap?.exists()) {
       const userData = userSnap.data() as UserProfile;

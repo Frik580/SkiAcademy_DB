@@ -21,7 +21,11 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
 
   const content = useMemo(() => {
     const isBookingOnDate = (b: Booking, dateStr: string) => {
-      if (b.status === 'cancelled' || b.status === 'completed' || b.userId?.startsWith('system_block_')) {
+      if (
+        b.status === 'cancelled' ||
+        b.status === 'completed' ||
+        b.userId?.startsWith('system_block_')
+      ) {
         return false;
       }
       if (b.instructorId.startsWith('course_')) {
@@ -48,7 +52,9 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
       upcomingDaysNumbers.push({ day: d.getDate(), dateStr });
     }
 
-    const monthName = todayDate.toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US', { month: 'long' });
+    const monthName = todayDate.toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US', {
+      month: 'long',
+    });
     const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
     const header = t('weeklyScheduleHeader')
       .replace('{month}', capitalizedMonth)
@@ -114,16 +120,26 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
         {content.sortedActiveBookings.length > 0 ? (
           <div className="space-y-2.5 max-h-[250px] overflow-y-auto pr-1">
             {content.sortedActiveBookings.map((b) => (
-              <div key={b.id} className="space-y-2.5 p-3 bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-800/70 rounded-xs hover:border-slate-300 dark:hover:border-slate-700 transition">
+              <div
+                key={b.id}
+                className="space-y-2.5 p-3 bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-800/70 rounded-xs hover:border-slate-300 dark:hover:border-slate-700 transition"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-800 shrink-0">
-                    <img src={b.instructorAvatar} alt={b.instructorName} className="w-full h-full object-cover filter grayscale" />
+                    <img
+                      src={b.instructorAvatar}
+                      alt={b.instructorName}
+                      className="w-full h-full object-cover filter grayscale"
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-serif text-base font-normal text-[var(--ink)] leading-none truncate">{b.instructorName}</h3>
+                    <h3 className="font-serif text-base font-normal text-[var(--ink)] leading-none truncate">
+                      {b.instructorName}
+                    </h3>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5">
                       <p className="text-[10px] font-mono text-[var(--ink)] uppercase tracking-wider font-medium">
-                        {getDifficultyLabel(b.difficulty, language, 'short')} • {b.durationHours}{getHourSuffix(language)}
+                        {getDifficultyLabel(b.difficulty, language, 'short')} • {b.durationHours}
+                        {getHourSuffix(language)}
                       </p>
                       <span className="text-[10px] font-mono text-[var(--ink-dim)]">•</span>
                       <p className="text-[10px] font-mono text-accent font-bold">
@@ -136,11 +152,13 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
                   <span className="font-mono text-[10px] text-[var(--ink)] font-bold">
                     {t('paid')} ${b.totalPrice}
                   </span>
-                  <span className={`font-mono text-[8px] px-2 py-0.5 uppercase font-bold tracking-widest rounded-xs ${
-                    b.status === 'confirmed'
-                      ? 'text-emerald-800 bg-emerald-100/80 dark:text-emerald-300 dark:bg-emerald-950/50'
-                      : 'text-amber-800 bg-amber-100/80 dark:text-amber-300 dark:bg-amber-950/50'
-                  }`}>
+                  <span
+                    className={`font-mono text-[8px] px-2 py-0.5 uppercase font-bold tracking-widest rounded-xs ${
+                      b.status === 'confirmed'
+                        ? 'text-emerald-800 bg-emerald-100/80 dark:text-emerald-300 dark:bg-emerald-950/50'
+                        : 'text-amber-800 bg-amber-100/80 dark:text-amber-300 dark:bg-amber-950/50'
+                    }`}
+                  >
                     {b.status === 'confirmed' ? t('confirmed') : t('pending')}
                   </span>
                 </div>
@@ -148,7 +166,9 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
             ))}
           </div>
         ) : (
-          <p className="text-[11px] font-mono text-[var(--ink-dim)] text-center py-3 bg-slate-50/50 dark:bg-slate-900/20 border border-slate-200/50 dark:border-slate-800/50 rounded-xs">{t('noSessionsThisWeek')}</p>
+          <p className="text-[11px] font-mono text-[var(--ink-dim)] text-center py-3 bg-slate-50/50 dark:bg-slate-900/20 border border-slate-200/50 dark:border-slate-800/50 rounded-xs">
+            {t('noSessionsThisWeek')}
+          </p>
         )}
       </div>
     </div>

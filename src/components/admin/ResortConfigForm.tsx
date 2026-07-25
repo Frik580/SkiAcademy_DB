@@ -258,7 +258,11 @@ export const ResortDataSection: React.FC = () => {
           disabled={isSaving}
           className="bg-[var(--ink)] text-[var(--bg)] hover:bg-[var(--ink)]/90 px-4 py-2 text-xs font-mono uppercase tracking-wider font-bold transition duration-300 rounded-none disabled:opacity-50 cursor-pointer flex items-center gap-2"
         >
-          {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+          {isSaving ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Save className="w-3.5 h-3.5" />
+          )}
           {t('saveResortSettings')}
         </button>
       </div>
@@ -405,7 +409,16 @@ export const ResortSliderSection: React.FC = () => {
         ) : (
           <div className="space-y-4">
             {resortSlides.map((slide, index) => {
-              const presetWalls = ['wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6', 'wall7', 'random'];
+              const presetWalls = [
+                'wall',
+                'wall2',
+                'wall3',
+                'wall4',
+                'wall5',
+                'wall6',
+                'wall7',
+                'random',
+              ];
               const isPreset = presetWalls.includes(slide.backgroundImage);
 
               return (
@@ -440,7 +453,9 @@ export const ResortSliderSection: React.FC = () => {
                           type="text"
                           required
                           value={slide.line1En}
-                          onChange={(e) => handleUpdateSlideField(slide.id, 'line1En', e.target.value)}
+                          onChange={(e) =>
+                            handleUpdateSlideField(slide.id, 'line1En', e.target.value)
+                          }
                           className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
                         />
                       </div>
@@ -452,7 +467,9 @@ export const ResortSliderSection: React.FC = () => {
                           type="text"
                           required
                           value={slide.line2En}
-                          onChange={(e) => handleUpdateSlideField(slide.id, 'line2En', e.target.value)}
+                          onChange={(e) =>
+                            handleUpdateSlideField(slide.id, 'line2En', e.target.value)
+                          }
                           className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
                         />
                       </div>
@@ -464,7 +481,9 @@ export const ResortSliderSection: React.FC = () => {
                           required
                           rows={2}
                           value={slide.line3En}
-                          onChange={(e) => handleUpdateSlideField(slide.id, 'line3En', e.target.value)}
+                          onChange={(e) =>
+                            handleUpdateSlideField(slide.id, 'line3En', e.target.value)
+                          }
                           className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none"
                         />
                       </div>
@@ -482,7 +501,9 @@ export const ResortSliderSection: React.FC = () => {
                           type="text"
                           required
                           value={slide.line1Ru}
-                          onChange={(e) => handleUpdateSlideField(slide.id, 'line1Ru', e.target.value)}
+                          onChange={(e) =>
+                            handleUpdateSlideField(slide.id, 'line1Ru', e.target.value)
+                          }
                           className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
                         />
                       </div>
@@ -494,7 +515,9 @@ export const ResortSliderSection: React.FC = () => {
                           type="text"
                           required
                           value={slide.line2Ru}
-                          onChange={(e) => handleUpdateSlideField(slide.id, 'line2Ru', e.target.value)}
+                          onChange={(e) =>
+                            handleUpdateSlideField(slide.id, 'line2Ru', e.target.value)
+                          }
                           className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
                         />
                       </div>
@@ -506,7 +529,9 @@ export const ResortSliderSection: React.FC = () => {
                           required
                           rows={2}
                           value={slide.line3Ru}
-                          onChange={(e) => handleUpdateSlideField(slide.id, 'line3Ru', e.target.value)}
+                          onChange={(e) =>
+                            handleUpdateSlideField(slide.id, 'line3Ru', e.target.value)
+                          }
                           className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none"
                         />
                       </div>
@@ -569,7 +594,9 @@ export const ResortSliderSection: React.FC = () => {
                           type="text"
                           required
                           value={slide.backgroundImage}
-                          onChange={(e) => handleUpdateSlideField(slide.id, 'backgroundImage', e.target.value)}
+                          onChange={(e) =>
+                            handleUpdateSlideField(slide.id, 'backgroundImage', e.target.value)
+                          }
                           className="w-full bg-transparent border border-[var(--border)] px-2.5 py-1 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
                           placeholder="https://images.unsplash.com/..."
                         />
@@ -589,7 +616,11 @@ export const ResortSliderSection: React.FC = () => {
           disabled={isSaving}
           className="bg-[var(--ink)] text-[var(--bg)] hover:bg-[var(--ink)]/90 px-4 py-2 text-xs font-mono uppercase tracking-wider font-bold transition duration-300 rounded-none disabled:opacity-50 cursor-pointer flex items-center gap-2"
         >
-          {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+          {isSaving ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Save className="w-3.5 h-3.5" />
+          )}
           {t('saveResortSettings')}
         </button>
       </div>

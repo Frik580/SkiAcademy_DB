@@ -11,8 +11,8 @@ export function optimizeProfileImage(file: File): Promise<string> {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const MAX_SIZE = 200;
-        let width = img.width;
-        let height = img.height;
+        const width = img.width;
+        const height = img.height;
 
         let sourceX = 0;
         let sourceY = 0;
@@ -36,17 +36,7 @@ export function optimizeProfileImage(file: File): Promise<string> {
           return;
         }
 
-        ctx.drawImage(
-          img,
-          sourceX,
-          sourceY,
-          sourceWidth,
-          sourceHeight,
-          0,
-          0,
-          MAX_SIZE,
-          MAX_SIZE
-        );
+        ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, MAX_SIZE, MAX_SIZE);
 
         resolve(canvas.toDataURL('image/jpeg', 0.7));
       };

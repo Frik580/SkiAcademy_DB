@@ -21,7 +21,7 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
   selectedLanguage,
   setSelectedLanguage,
   sortBy,
-  setSortBy
+  setSortBy,
 }) => {
   const { t } = useLanguage();
 
@@ -33,7 +33,7 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
       French: 'languageFrench',
       Russian: 'languageRussian',
       Italian: 'languageItalian',
-      Spanish: 'languageSpanish'
+      Spanish: 'languageSpanish',
     };
     return mapping[lang] ? t(mapping[lang]) : lang;
   };
@@ -43,12 +43,20 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
       all: 'allFilter',
       ski: 'specialtySki',
       snowboard: 'filterSnowboardShort',
-      both: 'specialtyBoth'
+      both: 'specialtyBoth',
     };
     return t(mapping[spec]);
   };
 
-  const languagesList = ['All Languages', 'English', 'German', 'French', 'Russian', 'Italian', 'Spanish'];
+  const languagesList = [
+    'All Languages',
+    'English',
+    'German',
+    'French',
+    'Russian',
+    'Italian',
+    'Spanish',
+  ];
 
   return (
     <div className="border border-[var(--border)] p-5 space-y-4 bg-transparent transition duration-300">
@@ -111,7 +119,11 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
             className="w-full px-3 py-1.5 border border-[var(--border)] focus:border-[var(--ink)] text-xs bg-[var(--bg)] text-[var(--ink)] focus:outline-none transition cursor-pointer font-sans rounded-none"
           >
             {languagesList.map((lang) => (
-              <option key={lang} value={lang === 'All Languages' ? 'all' : lang} className="bg-[var(--bg)] text-[var(--ink)]">
+              <option
+                key={lang}
+                value={lang === 'All Languages' ? 'all' : lang}
+                className="bg-[var(--bg)] text-[var(--ink)]"
+              >
                 {getLanguageLabel(lang)}
               </option>
             ))}
@@ -128,10 +140,18 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
             onChange={(e) => setSortBy(e.target.value as any)}
             className="w-full px-3 py-1.5 border border-[var(--border)] focus:border-[var(--ink)] text-xs bg-[var(--bg)] text-[var(--ink)] focus:outline-none transition cursor-pointer font-sans rounded-none"
           >
-            <option value="rating" className="bg-[var(--bg)] text-[var(--ink)]">★ {t('ratingHighToLow')}</option>
-            <option value="priceAsc" className="bg-[var(--bg)] text-[var(--ink)]">$ {t('priceLowToHigh')}</option>
-            <option value="priceDesc" className="bg-[var(--bg)] text-[var(--ink)]">$ {t('priceHighToLow')}</option>
-            <option value="experience" className="bg-[var(--bg)] text-[var(--ink)]">⚙ {t('experienceYears')}</option>
+            <option value="rating" className="bg-[var(--bg)] text-[var(--ink)]">
+              ★ {t('ratingHighToLow')}
+            </option>
+            <option value="priceAsc" className="bg-[var(--bg)] text-[var(--ink)]">
+              $ {t('priceLowToHigh')}
+            </option>
+            <option value="priceDesc" className="bg-[var(--bg)] text-[var(--ink)]">
+              $ {t('priceHighToLow')}
+            </option>
+            <option value="experience" className="bg-[var(--bg)] text-[var(--ink)]">
+              ⚙ {t('experienceYears')}
+            </option>
           </select>
         </div>
       </div>

@@ -38,7 +38,9 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in">
       <div className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-sm overflow-hidden animate-scale-up rounded-none">
         <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/10">
-          <h4 className="font-serif text-sm font-light text-[var(--ink)]">{t('rescheduleCoaching')}</h4>
+          <h4 className="font-serif text-sm font-light text-[var(--ink)]">
+            {t('rescheduleCoaching')}
+          </h4>
           <button
             onClick={onClose}
             className="p-1 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
@@ -48,7 +50,9 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
         </div>
         <form onSubmit={onSubmit} className="p-5 space-y-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">{t('newDate').toUpperCase()}</label>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+              {t('newDate').toUpperCase()}
+            </label>
             <input
               type="date"
               required
@@ -59,7 +63,9 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">{t('newTime').toUpperCase()}</label>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+              {t('newTime').toUpperCase()}
+            </label>
             {isLoadingSlots ? (
               <div className="flex items-center gap-2 text-xs text-[var(--ink-dim)] py-2.5 px-3 bg-black/10 rounded-none border border-[var(--border)]">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--ink)]" />
@@ -76,7 +82,9 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
                 className="w-full px-3 py-2 rounded-none border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition cursor-pointer"
               >
                 {availableSlots.map((slot) => (
-                  <option key={slot} value={slot} className="bg-[var(--bg)] text-[var(--ink)]">{slot}</option>
+                  <option key={slot} value={slot} className="bg-[var(--bg)] text-[var(--ink)]">
+                    {slot}
+                  </option>
                 ))}
               </select>
             )}
@@ -87,7 +95,11 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
             disabled={isSubmitting || isLoadingSlots || availableSlots.length === 0}
             className="w-full py-2.5 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
           >
-            {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : t('confirmRescheduling')}
+            {isSubmitting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              t('confirmRescheduling')
+            )}
           </button>
         </form>
       </div>

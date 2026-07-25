@@ -29,13 +29,14 @@ export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
 
   return (
     <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
-
       {!canManageRoles && (
         <div className="border border-[var(--border)] bg-black/5 dark:bg-white/5 text-[var(--ink)] p-4 text-xs font-mono flex items-start gap-2.5 rounded-none">
           <Shield className="w-4 h-4 shrink-0 mt-0.5 text-[var(--ink-dim)]" />
           <div>
             <p className="font-bold">{t('superAdminRequired')}</p>
-            <p className="mt-1 text-[var(--ink-dim)] leading-relaxed">{t('superAdminRequiredDesc')}</p>
+            <p className="mt-1 text-[var(--ink-dim)] leading-relaxed">
+              {t('superAdminRequiredDesc')}
+            </p>
           </div>
         </div>
       )}
@@ -60,7 +61,9 @@ export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <img
-                        src={u.avatarUrl || `https://api.dicebear.com/7.x/adventurer/svg?seed=${u.uid}`}
+                        src={
+                          u.avatarUrl || `https://api.dicebear.com/7.x/adventurer/svg?seed=${u.uid}`
+                        }
                         referrerPolicy="no-referrer"
                         alt={u.displayName}
                         className="w-9 h-9 rounded-none bg-black/5 dark:bg-white/5 border border-[var(--border)] shrink-0"
@@ -189,7 +192,9 @@ export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <img
-                        src={u.avatarUrl || `https://api.dicebear.com/7.x/adventurer/svg?seed=${u.uid}`}
+                        src={
+                          u.avatarUrl || `https://api.dicebear.com/7.x/adventurer/svg?seed=${u.uid}`
+                        }
                         referrerPolicy="no-referrer"
                         alt={u.displayName}
                         className="w-7 h-7 rounded-none bg-black/5 dark:bg-white/5 border border-[var(--border)] shrink-0"
@@ -198,7 +203,9 @@ export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
                         <span className="text-[11px] font-bold text-[var(--ink)] block truncate">
                           {u.displayName || t('userRole')}
                         </span>
-                        <span className="text-[9px] text-[var(--ink-dim)] block truncate">{u.email}</span>
+                        <span className="text-[9px] text-[var(--ink-dim)] block truncate">
+                          {u.email}
+                        </span>
                       </div>
                     </div>
                     {onUpdateUserRole && (
@@ -220,7 +227,9 @@ export const AdminRoleManager: React.FC<AdminRoleManagerProps> = ({
                   </div>
                 ))}
               {usersList.filter((u) => u.role !== 'admin').length === 0 && (
-                <div className="text-center py-4 text-[10px] text-[var(--ink-dim)]">{t('noRegularUsers')}</div>
+                <div className="text-center py-4 text-[10px] text-[var(--ink-dim)]">
+                  {t('noRegularUsers')}
+                </div>
               )}
             </div>
           </div>

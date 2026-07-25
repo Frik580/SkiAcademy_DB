@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-} from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { useLanguage } from '../../lib/LanguageContext';
 import { formatDateLocalYMD } from './scheduleUtils';
 import type { CourseDateRangeState } from './useCourseDateRange';
@@ -13,9 +8,7 @@ interface CourseDateRangePickerProps {
   dateRange: CourseDateRangeState;
 }
 
-export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({
-  dateRange,
-}) => {
+export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({ dateRange }) => {
   const { t, language } = useLanguage();
   const {
     courseDates,
@@ -39,7 +32,7 @@ export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({
       <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
         {t('datesTimeOfCourse')}
       </label>
-      
+
       {/* Visual trigger / current selection display */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -54,7 +47,7 @@ export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({
           />
           <Calendar className="absolute right-3 top-2.5 w-4.5 h-4.5 text-[var(--ink-dim)] pointer-events-none" />
         </div>
-        
+
         <button
           type="button"
           onClick={() => setShowCalendarPopover(!showCalendarPopover)}
@@ -70,9 +63,12 @@ export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({
           {/* Month Navigation */}
           <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
             <span className="font-serif text-xs font-bold text-[var(--ink)] capitalize">
-              {calendarViewMonth.toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US', { month: 'long', year: 'numeric' })}
+              {calendarViewMonth.toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US', {
+                month: 'long',
+                year: 'numeric',
+              })}
             </span>
-            
+
             <div className="flex items-center gap-1">
               <button
                 type="button"
@@ -94,7 +90,10 @@ export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({
           {/* Calendar Grid */}
           <div className="grid grid-cols-7 gap-1 text-center font-mono">
             {/* Weekday Headers */}
-            {(language === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']).map((wd) => (
+            {(language === 'ru'
+              ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+              : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+            ).map((wd) => (
               <span key={wd} className="text-[9px] font-bold text-[var(--ink-dim)] py-1">
                 {wd}
               </span>
@@ -105,18 +104,21 @@ export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({
               const cellDateStr = formatDateLocalYMD(cell.date);
               const isStart = cellDateStr === courseStartDate;
               const isEnd = cellDateStr === courseEndDate;
-              
+
               const startObj = courseStartDate ? new Date(courseStartDate) : null;
               const endObj = courseEndDate ? new Date(courseEndDate) : null;
               const isRange = startObj && endObj && cell.date >= startObj && cell.date <= endObj;
-              
-              let cellBgClass = "bg-transparent text-[var(--ink)] hover:bg-black/10 dark:hover:bg-white/10";
+
+              let cellBgClass =
+                'bg-transparent text-[var(--ink)] hover:bg-black/10 dark:hover:bg-white/10';
               if (isStart || isEnd) {
-                cellBgClass = "bg-[var(--ink)] text-[var(--bg)] font-bold";
+                cellBgClass = 'bg-[var(--ink)] text-[var(--bg)] font-bold';
               } else if (isRange) {
-                cellBgClass = "bg-sky-550/20 text-[var(--ink)] font-bold border-y border-dashed border-sky-500/20";
+                cellBgClass =
+                  'bg-sky-550/20 text-[var(--ink)] font-bold border-y border-dashed border-sky-500/20';
               } else if (!cell.isCurrentMonth) {
-                cellBgClass = "text-[var(--ink-dim)] opacity-40 hover:bg-black/5 dark:hover:bg-white/5";
+                cellBgClass =
+                  'text-[var(--ink-dim)] opacity-40 hover:bg-black/5 dark:hover:bg-white/5';
               }
 
               return (
@@ -143,12 +145,10 @@ export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({
               <Clock className="w-3.5 h-3.5" />
               {t('dailyHours')}
             </span>
-            
+
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <label className="text-[9px] text-[var(--ink-dim)] block">
-                  {t('startTime')}
-                </label>
+                <label className="text-[9px] text-[var(--ink-dim)] block">{t('startTime')}</label>
                 <input
                   type="time"
                   required
@@ -157,11 +157,9 @@ export const CourseDateRangePicker: React.FC<CourseDateRangePickerProps> = ({
                   className="w-full px-2 py-1 bg-transparent border border-[var(--border)] text-[var(--ink)] text-xs font-mono focus:outline-none focus:border-[var(--ink)] rounded-none"
                 />
               </div>
-              
+
               <div className="space-y-1">
-                <label className="text-[9px] text-[var(--ink-dim)] block">
-                  {t('endTime')}
-                </label>
+                <label className="text-[9px] text-[var(--ink-dim)] block">{t('endTime')}</label>
                 <input
                   type="time"
                   required

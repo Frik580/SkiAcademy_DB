@@ -17,9 +17,12 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
 
     const getSpecialtyLabel = (spec: Instructor['specialty']) => {
       switch (spec) {
-        case 'ski': return t('specialtySki');
-        case 'snowboard': return t('specialtySnowboard');
-        case 'both': return t('instructorSpecialtyBoth');
+        case 'ski':
+          return t('specialtySki');
+        case 'snowboard':
+          return t('specialtySnowboard');
+        case 'both':
+          return t('instructorSpecialtyBoth');
       }
     };
 
@@ -30,7 +33,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
         French: 'languageFrenchShort',
         Russian: 'languageRussianShort',
         Italian: 'languageItalianShort',
-        Spanish: 'languageSpanishShort'
+        Spanish: 'languageSpanishShort',
       };
       return mapping[lang] ? t(mapping[lang]) : lang;
     };
@@ -38,7 +41,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
     const specialtyText = getSpecialtyLabel(instructor.specialty);
 
     return (
-      <motion.div 
+      <motion.div
         ref={ref}
         initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -80,7 +83,9 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
                 title={t('readReviews')}
               >
                 <Star className="w-3 h-3 fill-amber-400 stroke-amber-500" />
-                <span>{instructor.rating.toFixed(1)} ({instructor.reviewsCount})</span>
+                <span>
+                  {instructor.rating.toFixed(1)} ({instructor.reviewsCount})
+                </span>
               </button>
             </div>
             <p className="text-xs text-[var(--ink-dim)] leading-relaxed max-w-2xl">
@@ -93,22 +98,24 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
             {/* Specialty / Experience / Languages */}
             <div className="text-center md:text-left space-y-1 w-full md:w-auto font-mono text-xs text-[var(--ink-dim)] uppercase tracking-wider">
               <div className="text-[var(--ink)] font-bold">
-                {specialtyText} • {instructor.experienceYears}{t('yearShort')}
+                {specialtyText} • {instructor.experienceYears}
+                {t('yearShort')}
               </div>
               <div className="flex flex-wrap gap-1 items-center justify-center md:justify-start text-[10px] lowercase text-[var(--ink-dim)]">
                 <Globe className="w-3 h-3 shrink-0" />
-                <span>
-                  {instructor.languages.map(getLanguageLabel).join(', ')}
-                </span>
+                <span>{instructor.languages.map(getLanguageLabel).join(', ')}</span>
               </div>
             </div>
 
             {/* Price & CTA Actions */}
             <div className="flex flex-col sm:flex-row items-center justify-center md:justify-end gap-3 w-full md:w-auto">
               <div className="text-2xl font-serif text-[var(--ink)] font-light">
-                ${instructor.pricePerHour} <span className="text-[9px] font-mono tracking-wider text-[var(--ink-dim)]">/ {t('hr')}</span>
+                ${instructor.pricePerHour}{' '}
+                <span className="text-[9px] font-mono tracking-wider text-[var(--ink-dim)]">
+                  / {t('hr')}
+                </span>
               </div>
-              
+
               <div className="flex gap-2">
                 <button
                   onClick={() => onViewReviews && onViewReviews(instructor)}
@@ -121,20 +128,17 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
                   onClick={() => instructor.isAvailable && onBook(instructor)}
                   disabled={!instructor.isAvailable}
                   className={`px-4 py-1.5 ${
-                    instructor.isAvailable
-                      ? 'btn-primary'
-                      : 'btn-secondary'
+                    instructor.isAvailable ? 'btn-primary' : 'btn-secondary'
                   }`}
                 >
-                  {instructor.isAvailable 
-                    ? t('bookNow') 
-                    : t('instructorFull')}
+                  {instructor.isAvailable ? t('bookNow') : t('instructorFull')}
                 </button>
               </div>
             </div>
           </div>
         </div>
       </motion.div>
-  );
-});
+    );
+  }
+);
 InstructorCard.displayName = 'InstructorCard';

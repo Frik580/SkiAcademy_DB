@@ -9,17 +9,19 @@ export const FALLBACK_SLIDES: CustomHeroSlide[] = [
     line2Ru: 'Совершенствуйте технику с лучшими гидами.',
     line3En: 'PROFESSIONAL TRAINING: ski and snowboard, from foundations to competitive mastery.',
     line3Ru: 'ПРОФЕССИОНАЛЬНОЕ ОБУЧЕНИЕ: лыжи и сноуборд, от азов до соревновательного мастерства.',
-    backgroundImage: 'wall'
+    backgroundImage: 'wall',
   },
   {
     id: '2',
     line1En: 'Premium Coaching',
     line1Ru: 'Индивидуальный подход',
-    line2En: 'Confidence on alpine skis — without fear and chaos, starting from the very first lesson.',
+    line2En:
+      'Confidence on alpine skis — without fear and chaos, starting from the very first lesson.',
     line2Ru: 'Уверенное катание на горных лыжах — без страха и хаоса уже с первого занятия.',
     line3En: 'TAILORED SESSIONS: Step-by-step guidance designed specifically for rapid confidence.',
-    line3Ru: 'ПЕРСОНАЛЬНЫЙ ФОРМАТ: Пошаговая методика, разработанная для быстрого преодоления барьеров.',
-    backgroundImage: 'wall2'
+    line3Ru:
+      'ПЕРСОНАЛЬНЫЙ ФОРМАТ: Пошаговая методика, разработанная для быстрого преодоления барьеров.',
+    backgroundImage: 'wall2',
   },
   {
     id: '3',
@@ -29,6 +31,6 @@ export const FALLBACK_SLIDES: CustomHeroSlide[] = [
     line2Ru: 'Научим получать удовольствие от катания независимо от вашего уровня.',
     line3En: 'EXPERT GUIDES: Discover the joy of fluid movement across all types of slopes.',
     line3Ru: 'ЭКСПЕРТНЫЙ КОНТРОЛЬ: Раскройте легкость скольжения на любых склонах курорта.',
-    backgroundImage: 'wall3'
-  }
+    backgroundImage: 'wall3',
+  },
 ];

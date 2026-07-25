@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { SkillConfig, DEFAULT_SKILL_CONFIG, calculateStudentLevel, calculateSkillProgress } from '../lib/skillData';
+import {
+  SkillConfig,
+  DEFAULT_SKILL_CONFIG,
+  calculateStudentLevel,
+  calculateSkillProgress,
+} from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
 import { X, Save, Award, CheckCircle2, AlertCircle } from 'lucide-react';
 
@@ -12,7 +17,11 @@ interface StudentSkillEvaluationModalProps {
   studentLevel: number;
   existingScores?: Record<string, number>;
   skillConfig?: SkillConfig;
-  onSaveScores: (studentUid: string, updatedScores: Record<string, number>, calculatedLevel: number) => Promise<void>;
+  onSaveScores: (
+    studentUid: string,
+    updatedScores: Record<string, number>,
+    calculatedLevel: number
+  ) => Promise<void>;
 }
 
 export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalProps> = ({
@@ -23,11 +32,13 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
   studentLevel,
   existingScores = {},
   skillConfig = DEFAULT_SKILL_CONFIG,
-  onSaveScores
+  onSaveScores,
 }) => {
   const { t } = useLanguage();
   const [scores, setScores] = useState<Record<string, number>>({});
-  const [activeTargetLevel, setActiveTargetLevel] = useState<number>(Math.min(studentLevel || 1, 3));
+  const [activeTargetLevel, setActiveTargetLevel] = useState<number>(
+    Math.min(studentLevel || 1, 3)
+  );
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
   useEffect(() => {
@@ -42,7 +53,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
 
   // Filter items by selected stage
   const stageItems = useMemo(() => {
-    return items.filter(item => item.levelTarget === activeTargetLevel);
+    return items.filter((item) => item.levelTarget === activeTargetLevel);
   }, [items, activeTargetLevel]);
 
   // Calculate current progress for this target level
@@ -59,15 +70,15 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
 
   const handleScoreChange = (itemId: string, val: number, maxPoints: number) => {
     const safeVal = Math.max(0, Math.min(maxPoints, val));
-    setScores(prev => ({
+    setScores((prev) => ({
       ...prev,
-      [itemId]: safeVal
+      [itemId]: safeVal,
     }));
   };
 
   const handleFillAllMax = () => {
     const updated = { ...scores };
-    stageItems.forEach(item => {
+    stageItems.forEach((item) => {
       updated[item.id] = item.maxPoints;
     });
     setScores(updated);
@@ -75,7 +86,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
 
   const handleClearStage = () => {
     const updated = { ...scores };
-    stageItems.forEach(item => {
+    stageItems.forEach((item) => {
       updated[item.id] = 0;
     });
     setScores(updated);
@@ -94,7 +105,6 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
       <div className="bg-[var(--bg)] border border-[var(--border)] w-full max-w-4xl max-h-[90vh] my-auto flex flex-col shadow-2xl rounded-none overflow-hidden text-[var(--ink)] relative">
-        
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-black/20">
           <div className="flex items-center gap-3">
@@ -106,12 +116,13 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                 {t('studentSkillEvaluation')}: {studentName}
               </h3>
               <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
-                {t('instructorCurrentLevel')}: {studentLevel} • {t('projectedLevel')}: {projectedLevel}
+                {t('instructorCurrentLevel')}: {studentLevel} • {t('projectedLevel')}:{' '}
+                {projectedLevel}
               </p>
             </div>
           </div>
 
-          <button 
+          <button
             onClick={onClose}
             className="p-1 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer"
           >
@@ -124,8 +135,8 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
           <button
             onClick={() => setActiveTargetLevel(1)}
             className={`px-4 py-2 text-xs font-mono uppercase tracking-wider border-b-2 transition cursor-pointer ${
-              activeTargetLevel === 1 
-                ? 'border-accent font-bold text-accent bg-black/20' 
+              activeTargetLevel === 1
+                ? 'border-accent font-bold text-accent bg-black/20'
                 : 'border-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
             }`}
           >
@@ -134,8 +145,8 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
           <button
             onClick={() => setActiveTargetLevel(2)}
             className={`px-4 py-2 text-xs font-mono uppercase tracking-wider border-b-2 transition cursor-pointer ${
-              activeTargetLevel === 2 
-                ? 'border-accent font-bold text-accent bg-black/20' 
+              activeTargetLevel === 2
+                ? 'border-accent font-bold text-accent bg-black/20'
                 : 'border-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
             }`}
           >
@@ -144,8 +155,8 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
           <button
             onClick={() => setActiveTargetLevel(3)}
             className={`px-4 py-2 text-xs font-mono uppercase tracking-wider border-b-2 transition cursor-pointer ${
-              activeTargetLevel === 3 
-                ? 'border-accent font-bold text-accent bg-black/20' 
+              activeTargetLevel === 3
+                ? 'border-accent font-bold text-accent bg-black/20'
                 : 'border-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
             }`}
           >
@@ -160,7 +171,8 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
               {t('earnedPoints')}
             </span>
             <span className="text-xl font-serif font-bold text-[var(--ink)]">
-              {progress.targetEarnedPoints} / <span className="text-sm text-[var(--ink-dim)]">{progress.targetMaxPoints}</span>
+              {progress.targetEarnedPoints} /{' '}
+              <span className="text-sm text-[var(--ink-dim)]">{progress.targetMaxPoints}</span>
             </span>
           </div>
 
@@ -169,7 +181,8 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
               {t('requiredToLevelUp')}
             </span>
             <span className="text-xl font-serif font-bold text-amber-400">
-              {progress.targetRequiredPoints} <span className="text-xs text-[var(--ink-dim)]">({passPercentage}%)</span>
+              {progress.targetRequiredPoints}{' '}
+              <span className="text-xs text-[var(--ink-dim)]">({passPercentage}%)</span>
             </span>
           </div>
 
@@ -216,8 +229,8 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
             stageItems.map((item) => {
               const currentScore = scores[item.id] ?? 0;
               return (
-                <div 
-                  key={item.id} 
+                <div
+                  key={item.id}
                   className="p-3 bg-black/10 border border-[var(--border)]/60 hover:border-[var(--border)] transition flex flex-col md:flex-row md:items-center justify-between gap-3"
                 >
                   <div className="space-y-1 flex-1">
@@ -242,10 +255,10 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                           key={val}
                           onClick={() => handleScoreChange(item.id, val, item.maxPoints)}
                           className={`w-6 h-6 text-[10px] font-mono font-bold transition cursor-pointer ${
-                            currentScore === val 
-                              ? 'bg-[var(--accent)] text-[var(--accent-foreground)] shadow' 
-                              : val <= currentScore 
-                                ? 'bg-accent-muted text-accent' 
+                            currentScore === val
+                              ? 'bg-[var(--accent)] text-[var(--accent-foreground)] shadow'
+                              : val <= currentScore
+                                ? 'bg-accent-muted text-accent'
                                 : 'bg-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
                           }`}
                         >
@@ -255,8 +268,13 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                     </div>
 
                     <div className="text-right w-14">
-                      <span className="text-xs font-mono font-bold text-amber-400">{currentScore}</span>
-                      <span className="text-[10px] font-mono text-[var(--ink-dim)]"> / {item.maxPoints}</span>
+                      <span className="text-xs font-mono font-bold text-amber-400">
+                        {currentScore}
+                      </span>
+                      <span className="text-[10px] font-mono text-[var(--ink-dim)]">
+                        {' '}
+                        / {item.maxPoints}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -288,7 +306,6 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
             </button>
           </div>
         </div>
-
       </div>
     </div>,
     document.body

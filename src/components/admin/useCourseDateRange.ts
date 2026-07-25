@@ -1,9 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  formatCourseDates,
-  parseCourseDates,
-  useLanguage,
-} from '../../lib/LanguageContext';
+import { formatCourseDates, parseCourseDates, useLanguage } from '../../lib/LanguageContext';
 import { formatDateLocalYMD } from './scheduleUtils';
 import { getDaysInMonth } from './courseCalendarUtils';
 
@@ -11,7 +7,9 @@ export function useCourseDateRange() {
   const { language } = useLanguage();
   const [courseDuration, setCourseDuration] = useState('');
   const [courseDates, setCourseDates] = useState('');
-  const [courseStartDate, setCourseStartDate] = useState<string>(() => formatDateLocalYMD(new Date()));
+  const [courseStartDate, setCourseStartDate] = useState<string>(() =>
+    formatDateLocalYMD(new Date())
+  );
   const [courseEndDate, setCourseEndDate] = useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() + 2);
@@ -34,23 +32,28 @@ export function useCourseDateRange() {
         // Auto-calculate Duration
         const diffTime = Math.abs(end.getTime() - start.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        
+
         let hoursPerDay = 4; // default
         if (courseStartTime && courseEndTime) {
           const [startH, startM] = courseStartTime.split(':').map(Number);
           const [endH, endM] = courseEndTime.split(':').map(Number);
-          hoursPerDay = (endH + endM / 60) - (startH + startM / 60);
+          hoursPerDay = endH + endM / 60 - (startH + startM / 60);
           if (hoursPerDay <= 0) hoursPerDay = 4;
         }
-        
+
         const totalHours = Math.round(diffDays * hoursPerDay);
-        
-        let durationText = "";
+
+        let durationText = '';
         if (language === 'en') {
-          const daysStr = diffDays === 1 ? "1 Day" : `${diffDays} Days`;
+          const daysStr = diffDays === 1 ? '1 Day' : `${diffDays} Days`;
           durationText = `${daysStr} (${totalHours} Hours)`;
         } else {
-          const daysStr = diffDays === 1 ? "1 день" : (diffDays >= 2 && diffDays <= 4 ? `${diffDays} дня` : `${diffDays} дней`);
+          const daysStr =
+            diffDays === 1
+              ? '1 день'
+              : diffDays >= 2 && diffDays <= 4
+                ? `${diffDays} дня`
+                : `${diffDays} дней`;
           durationText = `${daysStr} (${totalHours} ч.)`;
         }
         setCourseDuration(durationText);
@@ -63,21 +66,25 @@ export function useCourseDateRange() {
   }, [calendarViewMonth]);
 
   const handlePrevMonth = () => {
-    setCalendarViewMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+    setCalendarViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   };
 
   const handleNextMonth = () => {
-    setCalendarViewMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+    setCalendarViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
   };
 
   const handleCalendarDayClick = (dayDate: Date) => {
     const dateStr = formatDateLocalYMD(dayDate);
-    
+
     const startObj = courseStartDate ? new Date(courseStartDate) : null;
 
     // If no start date, or both are set and they are different (starting a new selection),
     // or if the clicked date is before start date, treat it as a new start date.
-    if (!courseStartDate || (courseStartDate && courseEndDate && courseStartDate !== courseEndDate) || (startObj && dayDate < startObj)) {
+    if (
+      !courseStartDate ||
+      (courseStartDate && courseEndDate && courseStartDate !== courseEndDate) ||
+      (startObj && dayDate < startObj)
+    ) {
       setCourseStartDate(dateStr);
       setCourseEndDate(dateStr);
     } else {

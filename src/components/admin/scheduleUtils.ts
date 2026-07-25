@@ -27,10 +27,14 @@ export function getWeekRange(date: Date) {
 export function getSpecialtyLabel(spec: string, language: Language): string {
   if (language === 'ru') {
     switch (spec) {
-      case 'ski': return 'Лыжи';
-      case 'snowboard': return 'Сноуборд';
-      case 'both': return 'Оба';
-      default: return spec;
+      case 'ski':
+        return 'Лыжи';
+      case 'snowboard':
+        return 'Сноуборд';
+      case 'both':
+        return 'Оба';
+      default:
+        return spec;
     }
   }
   return spec;

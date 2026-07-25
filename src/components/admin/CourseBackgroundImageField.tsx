@@ -21,11 +21,7 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
 
   const processAndOptimizeCourseImage = async (file: File) => {
     if (!file.type.startsWith('image/')) {
-      addNotification(
-        'error',
-        t('invalidFile'),
-        t('invalidFileDesc')
-      );
+      addNotification('error', t('invalidFile'), t('invalidFileDesc'));
       return;
     }
 
@@ -33,18 +29,10 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
     try {
       const optimizedBase64 = await optimizeCourseImage(file);
       onChange(optimizedBase64);
-      addNotification(
-        'success',
-        t('courseBgAttached'),
-        t('courseBgAttachedDesc')
-      );
+      addNotification('success', t('courseBgAttached'), t('courseBgAttachedDesc'));
     } catch (err) {
       logger.error(err);
-      addNotification(
-        'error',
-        t('uploadFailed'),
-        t('courseBgFailedDesc')
-      );
+      addNotification('error', t('uploadFailed'), t('courseBgFailedDesc'));
     } finally {
       setIsUploadingCourseImage(false);
     }
@@ -62,10 +50,13 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
         placeholder="https://images.unsplash.com/..."
         className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none mb-1"
       />
-      
+
       {/* File Upload zone */}
-      <div 
-        onDragOver={(e) => { e.preventDefault(); setIsCourseDragOver(true); }}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsCourseDragOver(true);
+        }}
         onDragLeave={() => setIsCourseDragOver(false)}
         onDrop={async (e) => {
           e.preventDefault();
@@ -77,16 +68,16 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
         className={`border border-dashed p-4 text-center cursor-pointer transition ${isCourseDragOver ? 'border-[var(--ink)] bg-black/10' : 'border-[var(--border)] hover:border-[var(--ink)]'}`}
         onClick={() => document.getElementById('course-image-input')?.click()}
       >
-        <input 
-          id="course-image-input" 
-          type="file" 
-          accept="image/*" 
-          className="hidden" 
+        <input
+          id="course-image-input"
+          type="file"
+          accept="image/*"
+          className="hidden"
           onChange={async (e) => {
             if (e.target.files && e.target.files.length > 0) {
               await processAndOptimizeCourseImage(e.target.files[0]);
             }
-          }} 
+          }}
         />
         <div className="flex flex-col items-center gap-1">
           {isUploadingCourseImage ? (
@@ -94,9 +85,7 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
           ) : (
             <Camera className="w-5 h-5 text-[var(--ink-dim)]" />
           )}
-          <span className="text-[10px] text-[var(--ink-dim)]">
-            {t('dragUploadBgPhoto')}
-          </span>
+          <span className="text-[10px] text-[var(--ink-dim)]">{t('dragUploadBgPhoto')}</span>
         </div>
       </div>
     </div>

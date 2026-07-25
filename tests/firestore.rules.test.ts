@@ -122,10 +122,7 @@ describe('bookings', () => {
     );
     await assertSucceeds(
       getDocs(
-        query(
-          collection(instructorDb, 'bookings'),
-          where('instructorId', '==', 'instructor-1')
-        )
+        query(collection(instructorDb, 'bookings'), where('instructorId', '==', 'instructor-1'))
       )
     );
     await assertSucceeds(getDocs(collection(adminDb, 'bookings')));
@@ -183,7 +180,10 @@ describe('user profiles and roles', () => {
     await seedData(async (context) => {
       const db = context.firestore();
       await setDoc(doc(db, 'users', USER_ID), userProfile(USER_ID, 'user@example.com'));
-      await setDoc(doc(db, 'users', OTHER_USER_ID), userProfile(OTHER_USER_ID, 'other@example.com'));
+      await setDoc(
+        doc(db, 'users', OTHER_USER_ID),
+        userProfile(OTHER_USER_ID, 'other@example.com')
+      );
       await setDoc(doc(db, 'users', ADMIN_ID), userProfile(ADMIN_ID, 'admin@example.com', 'admin'));
     });
   });
@@ -198,8 +198,12 @@ describe('user profiles and roles', () => {
   });
 
   it('allows only the system owner to change another user role', async () => {
-    const adminDb = testEnv.authenticatedContext(ADMIN_ID, { email: 'admin@example.com' }).firestore();
-    const ownerDb = testEnv.authenticatedContext(OWNER_ID, { email: 'owner@example.com' }).firestore();
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+    const ownerDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
 
     await assertFails(updateDoc(doc(adminDb, 'users', OTHER_USER_ID), { role: 'admin' }));
     await assertSucceeds(updateDoc(doc(ownerDb, 'users', OTHER_USER_ID), { role: 'admin' }));
@@ -209,7 +213,9 @@ describe('user profiles and roles', () => {
 describe('resort configuration and error logs', () => {
   it('allows only admins to write resort configuration', async () => {
     const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
-    const ownerDb = testEnv.authenticatedContext(OWNER_ID, { email: 'owner@example.com' }).firestore();
+    const ownerDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
 
     await assertFails(setDoc(doc(userDb, 'resort_data', 'config'), { nameEn: 'Unsafe update' }));
     await assertSucceeds(setDoc(doc(ownerDb, 'resort_data', 'config'), { nameEn: 'Chamonix' }));
@@ -280,11 +286,15 @@ describe('booking chat messages', () => {
   });
 
   it('allows booking participants to read and create chat messages', async () => {
-    const ownerDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const ownerDb = testEnv
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
     const instructorDb = testEnv
       .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
       .firestore();
-    const otherDb = testEnv.authenticatedContext(OTHER_USER_ID, { email: 'other@example.com' }).firestore();
+    const otherDb = testEnv
+      .authenticatedContext(OTHER_USER_ID, { email: 'other@example.com' })
+      .firestore();
     const messageRef = doc(ownerDb, 'bookings', 'booking-chat-1', 'messages', 'message-1');
     const message = {
       id: 'message-1',
@@ -297,7 +307,9 @@ describe('booking chat messages', () => {
     };
 
     await assertSucceeds(setDoc(messageRef, message));
-    await assertSucceeds(getDoc(doc(instructorDb, 'bookings', 'booking-chat-1', 'messages', 'message-1')));
+    await assertSucceeds(
+      getDoc(doc(instructorDb, 'bookings', 'booking-chat-1', 'messages', 'message-1'))
+    );
     await assertFails(getDoc(doc(otherDb, 'bookings', 'booking-chat-1', 'messages', 'message-1')));
     await assertFails(
       setDoc(doc(otherDb, 'bookings', 'booking-chat-1', 'messages', 'message-2'), {
@@ -309,8 +321,12 @@ describe('booking chat messages', () => {
   });
 
   it('allows admins to manage chat messages and blocks participant edits', async () => {
-    const ownerDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
-    const adminDb = testEnv.authenticatedContext(OWNER_ID, { email: 'owner@example.com' }).firestore();
+    const ownerDb = testEnv
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
+    const adminDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
     const messageRef = doc(ownerDb, 'bookings', 'booking-chat-1', 'messages', 'message-admin');
 
     await assertSucceeds(
@@ -326,10 +342,14 @@ describe('booking chat messages', () => {
     );
 
     await assertFails(updateDoc(messageRef, { text: 'Edited by participant' }));
-    await assertSucceeds(updateDoc(doc(adminDb, 'bookings', 'booking-chat-1', 'messages', 'message-admin'), {
-      text: 'Edited by admin',
-    }));
-    await assertSucceeds(deleteDoc(doc(adminDb, 'bookings', 'booking-chat-1', 'messages', 'message-admin')));
+    await assertSucceeds(
+      updateDoc(doc(adminDb, 'bookings', 'booking-chat-1', 'messages', 'message-admin'), {
+        text: 'Edited by admin',
+      })
+    );
+    await assertSucceeds(
+      deleteDoc(doc(adminDb, 'bookings', 'booking-chat-1', 'messages', 'message-admin'))
+    );
   });
 });
 

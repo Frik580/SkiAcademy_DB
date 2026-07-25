@@ -39,13 +39,17 @@ export const AdminCollapsibleSection: React.FC<AdminCollapsibleSectionProps> = (
       const next = !prev;
       try {
         localStorage.setItem(`admin_section_open_${id}`, JSON.stringify(next));
-      } catch {}
+      } catch {
+        // ignore localStorage errors
+      }
       return next;
     });
   };
 
   return (
-    <div className={`border border-[var(--border)] bg-transparent space-y-0 transition-colors duration-300 w-full min-w-0 overflow-hidden ${className}`}>
+    <div
+      className={`border border-[var(--border)] bg-transparent space-y-0 transition-colors duration-300 w-full min-w-0 overflow-hidden ${className}`}
+    >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 select-none gap-3">
         <div className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer" onClick={toggleOpen}>
           {Icon && (
@@ -55,9 +59,7 @@ export const AdminCollapsibleSection: React.FC<AdminCollapsibleSectionProps> = (
           )}
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-serif text-lg font-light text-[var(--ink)] truncate">
-                {title}
-              </h3>
+              <h3 className="font-serif text-lg font-light text-[var(--ink)] truncate">{title}</h3>
               {badge !== undefined && (
                 <span className="text-[9px] font-mono px-2 py-0.5 border border-[var(--border)] bg-[var(--bg)] text-[var(--ink-dim)] uppercase tracking-widest font-bold">
                   {badge}

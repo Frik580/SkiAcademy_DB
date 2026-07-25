@@ -56,7 +56,9 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({ level, theme, onClos
             src={`https://storage.yandexcloud.net/carve/level/${theme === 'light' ? 'b' : 'w'}/${level}.png`}
             alt={`Level ${level}`}
             className={`${level === 4 ? 'w-48 h-48' : 'w-40 h-40'} object-contain drop-shadow-[0_0_30px_rgba(251,191,36,0.45)]`}
-            style={{ animation: 'popBadgeAnimation 1.0s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
+            style={{
+              animation: 'popBadgeAnimation 1.0s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+            }}
             referrerPolicy="no-referrer"
           />
         </div>

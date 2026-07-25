@@ -31,7 +31,19 @@
         "isAvailable": { "type": "boolean" },
         "reviewsCount": { "type": "number" }
       },
-      "required": ["id", "name", "specialty", "languages", "rating", "pricePerHour", "experienceYears", "bio", "imageUrl", "isAvailable", "reviewsCount"]
+      "required": [
+        "id",
+        "name",
+        "specialty",
+        "languages",
+        "rating",
+        "pricePerHour",
+        "experienceYears",
+        "bio",
+        "imageUrl",
+        "isAvailable",
+        "reviewsCount"
+      ]
     },
     "Review": {
       "title": "Review",
@@ -47,7 +59,16 @@
         "comment": { "type": "string" },
         "createdAt": { "type": "string" }
       },
-      "required": ["id", "instructorId", "userId", "userName", "userAvatar", "rating", "comment", "createdAt"]
+      "required": [
+        "id",
+        "instructorId",
+        "userId",
+        "userName",
+        "userAvatar",
+        "rating",
+        "comment",
+        "createdAt"
+      ]
     },
     "Booking": {
       "title": "Booking",
@@ -65,7 +86,18 @@
         "status": { "type": "string" },
         "createdAt": { "type": "string" }
       },
-      "required": ["id", "userId", "instructorId", "instructorName", "date", "time", "hours", "totalPrice", "status", "createdAt"]
+      "required": [
+        "id",
+        "userId",
+        "instructorId",
+        "instructorName",
+        "date",
+        "time",
+        "hours",
+        "totalPrice",
+        "status",
+        "createdAt"
+      ]
     },
     "Setting": {
       "title": "Setting",
@@ -92,7 +124,17 @@
         "bgImageUrl": { "type": "string" },
         "isHidden": { "type": "boolean" }
       },
-      "required": ["id", "title", "duration", "description", "dates", "totalSeats", "availableSeats", "price", "bgImageUrl"]
+      "required": [
+        "id",
+        "title",
+        "duration",
+        "description",
+        "dates",
+        "totalSeats",
+        "availableSeats",
+        "price",
+        "bgImageUrl"
+      ]
     },
     "Notification": {
       "title": "Notification",
@@ -154,7 +196,14 @@
         "openLifts": { "type": "number" },
         "lastUpdatedTimestamp": { "type": "number" }
       },
-      "required": ["tempC", "windKmh", "snowDepthCm", "newSnow24h", "openLifts", "lastUpdatedTimestamp"]
+      "required": [
+        "tempC",
+        "windKmh",
+        "snowDepthCm",
+        "newSnow24h",
+        "openLifts",
+        "lastUpdatedTimestamp"
+      ]
     }
   },
   "firestore": {

@@ -43,12 +43,21 @@ export const useCourses = (
 
   useEffect(() => {
     const coursesQuery = query(collection(db, 'courses'));
-    return onSnapshot(coursesQuery, (snapshot) => {
-      setCourses(snapshot.docs.map((courseDoc) => ({
-        id: courseDoc.id,
-        ...courseDoc.data(),
-      } as Course)));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'courses'));
+    return onSnapshot(
+      coursesQuery,
+      (snapshot) => {
+        setCourses(
+          snapshot.docs.map(
+            (courseDoc) =>
+              ({
+                id: courseDoc.id,
+                ...courseDoc.data(),
+              }) as Course
+          )
+        );
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'courses')
+    );
   }, []);
 
   const bookingsDependency = bookings
@@ -63,10 +72,11 @@ export const useCourses = (
 
     const syncCourseSeats = async () => {
       for (const course of courses) {
-        const activeBookingsCount = bookings.filter((booking) =>
-          booking.instructorId === `course_${course.id}`
-          && booking.status !== 'cancelled'
-          && !booking.isDeleted
+        const activeBookingsCount = bookings.filter(
+          (booking) =>
+            booking.instructorId === `course_${course.id}` &&
+            booking.status !== 'cancelled' &&
+            !booking.isDeleted
         ).length;
         const availableSeats = Math.max(0, course.totalSeats - activeBookingsCount);
         if (course.availableSeats === availableSeats) continue;
@@ -93,8 +103,8 @@ export const useCourses = (
     if (userProfile?.role !== 'admin') return;
 
     const oldCourse = courses.find((item) => item.id === course.id);
-    const courseBookings = bookings.filter((booking) =>
-      booking.instructorId === `course_${course.id}` && booking.status !== 'cancelled'
+    const courseBookings = bookings.filter(
+      (booking) => booking.instructorId === `course_${course.id}` && booking.status !== 'cancelled'
     );
     let changeDetails = '';
 
@@ -107,12 +117,7 @@ export const useCourses = (
 
     const message = `${t('courseModifiedHeader')} "${course.title}":\n${changeDetails || t('courseModifiedDefault')}`;
     for (const booking of courseBookings) {
-      await createNotificationForUser(
-        booking.userId,
-        t('courseModified'),
-        message,
-        'warning'
-      );
+      await createNotificationForUser(booking.userId, t('courseModified'), message, 'warning');
     }
   };
 

@@ -5,8 +5,8 @@ export function parseCourseDates(datesStr: string) {
   const today = new Date();
   let start = new Date(today);
   let end = new Date(today);
-  let startTime = "09:00";
-  let endTime = "13:00";
+  let startTime = '09:00';
+  let endTime = '13:00';
 
   if (!datesStr) {
     return { start, end, startTime, endTime };
@@ -22,15 +22,33 @@ export function parseCourseDates(datesStr: string) {
     let cleanDatesStr = datesStr.replace(/,?\s*\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/, '').trim();
 
     const ruMonthMap: { [key: string]: string } = {
-      'января': 'January', 'февраля': 'February', 'марта': 'March', 'апреля': 'April',
-      'мая': 'May', 'июня': 'June', 'июля': 'July', 'августа': 'August',
-      'сентября': 'September', 'октября': 'October', 'ноября': 'November', 'декабря': 'December',
-      'январь': 'January', 'февраль': 'February', 'март': 'March', 'апрель': 'April',
-      'май': 'May', 'июнь': 'June', 'июль': 'July', 'август': 'August',
-      'сентябрь': 'September', 'октябрь': 'October', 'ноябрь': 'November', 'декабрь': 'December'
+      января: 'January',
+      февраля: 'February',
+      марта: 'March',
+      апреля: 'April',
+      мая: 'May',
+      июня: 'June',
+      июля: 'July',
+      августа: 'August',
+      сентября: 'September',
+      октября: 'October',
+      ноября: 'November',
+      декабря: 'December',
+      январь: 'January',
+      февраль: 'February',
+      март: 'March',
+      апрель: 'April',
+      май: 'May',
+      июнь: 'June',
+      июль: 'July',
+      август: 'August',
+      сентябрь: 'September',
+      октябрь: 'October',
+      ноябрь: 'November',
+      декабрь: 'December',
     };
 
-    Object.keys(ruMonthMap).forEach(ruMonth => {
+    Object.keys(ruMonthMap).forEach((ruMonth) => {
       const regex = new RegExp(ruMonth, 'gi');
       cleanDatesStr = cleanDatesStr.replace(regex, ruMonthMap[ruMonth]);
     });
@@ -74,7 +92,7 @@ export function parseCourseDates(datesStr: string) {
       if (!isNaN(parsedEnd.getTime())) end = parsedEnd;
     }
   } catch (e) {
-    logger.warn("Failed to parse course dates:", e);
+    logger.warn('Failed to parse course dates:', e);
   }
 
   return { start, end, startTime, endTime };
@@ -82,8 +100,9 @@ export function parseCourseDates(datesStr: string) {
 
 export function parseDurationHours(durationStr: string, fallback: number = 1): number {
   if (!durationStr) return fallback;
-  const hoursMatch = durationStr.match(/\((\d+)\s*(?:Hours?|часов|часа|час|ч|hours?|hrs?)\)/i) ||
-                     durationStr.match(/(\d+)\s*(?:Hours?|часов|часа|час|ч|hours?|hrs?)/i);
+  const hoursMatch =
+    durationStr.match(/\((\d+)\s*(?:Hours?|часов|часа|час|ч|hours?|hrs?)\)/i) ||
+    durationStr.match(/(\d+)\s*(?:Hours?|часов|часа|час|ч|hours?|hrs?)/i);
   if (hoursMatch) {
     return Number(hoursMatch[1]);
   }
@@ -115,9 +134,41 @@ export function splitCourseDates(datesStr: string, language: Language = 'en') {
   return { datePart: datesStr, timePart: fallbackTime };
 }
 
-export function formatCourseDates(start: Date, end: Date, startTime: string, endTime: string, lang: Language) {
-  const monthsEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const monthsRu = ['Января', 'Февраля', 'Марта', 'Апреля', 'Мая', 'Июня', 'Июля', 'Августа', 'Сентября', 'Октября', 'Ноября', 'Декабря'];
+export function formatCourseDates(
+  start: Date,
+  end: Date,
+  startTime: string,
+  endTime: string,
+  lang: Language
+) {
+  const monthsEn = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  const monthsRu = [
+    'Января',
+    'Февраля',
+    'Марта',
+    'Апреля',
+    'Мая',
+    'Июня',
+    'Июля',
+    'Августа',
+    'Сентября',
+    'Октября',
+    'Ноября',
+    'Декабря',
+  ];
 
   const startDay = start.getDate();
   const startMonth = start.getMonth();
@@ -127,7 +178,7 @@ export function formatCourseDates(start: Date, end: Date, startTime: string, end
   const endMonth = end.getMonth();
   const endYear = end.getFullYear();
 
-  let formattedDates = "";
+  let formattedDates = '';
 
   if (start.toDateString() === end.toDateString()) {
     if (lang === 'en') {
@@ -162,8 +213,18 @@ export function formatCourseDates(start: Date, end: Date, startTime: string, end
   return formattedDates;
 }
 export const MONTHS_SHORT_EN = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
 export function formatShortBookingDate(
@@ -213,18 +274,48 @@ export function formatShortBookingDate(
 }
 
 export const MONTHS_EN = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 export const MONTHS_RU = [
-  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+  'Январь',
+  'Февраль',
+  'Март',
+  'Апрель',
+  'Май',
+  'Июнь',
+  'Июль',
+  'Август',
+  'Сентябрь',
+  'Октябрь',
+  'Ноябрь',
+  'Декабрь',
 ];
 
 export const MONTHS_SHORT_RU = [
-  'янв', 'фев', 'мар', 'апр', 'май', 'июн',
-  'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'
+  'янв',
+  'фев',
+  'мар',
+  'апр',
+  'май',
+  'июн',
+  'июл',
+  'авг',
+  'сен',
+  'окт',
+  'ноя',
+  'дек',
 ];
 
 export const WEEKDAYS_EN = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];

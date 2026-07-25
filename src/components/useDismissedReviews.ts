@@ -16,10 +16,7 @@ export const useDismissedReviews = (userId?: string) => {
     if (userId) {
       const updated = [...dismissedReviewIds, bookingId];
       setDismissedReviewIds(updated);
-      localStorage.setItem(
-        `alpine_glide_dismissed_reviews_${userId}`,
-        JSON.stringify(updated)
-      );
+      localStorage.setItem(`alpine_glide_dismissed_reviews_${userId}`, JSON.stringify(updated));
     }
   };
 

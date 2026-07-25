@@ -45,7 +45,9 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
         </div>
         <form onSubmit={onSubmit} className="p-5 space-y-4">
           <div className="space-y-1.5 text-center">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">{t('rateInstructor')}</label>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+              {t('rateInstructor')}
+            </label>
             <div className="flex items-center justify-center gap-1">
               {[1, 2, 3, 4, 5].map((star) => (
                 <button
@@ -67,7 +69,9 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">{t('yourFeedback')}</label>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+              {t('yourFeedback')}
+            </label>
             <textarea
               required
               rows={3}
@@ -83,7 +87,11 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             disabled={isSubmitting}
             className="w-full py-2.5 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
           >
-            {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : t('postInstructorReview')}
+            {isSubmitting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              t('postInstructorReview')
+            )}
           </button>
         </form>
       </div>

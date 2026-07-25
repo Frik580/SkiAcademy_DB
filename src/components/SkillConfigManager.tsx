@@ -10,7 +10,7 @@ interface SkillConfigManagerProps {
 
 export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
   config = DEFAULT_SKILL_CONFIG,
-  onSaveConfig
+  onSaveConfig,
 }) => {
   const { t } = useLanguage();
   const [items, setItems] = useState<SkillItem[]>(config.items || DEFAULT_SKILL_CONFIG.items);
@@ -28,38 +28,45 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
   }, [config]);
 
   // Filter items by level transition
-  const filteredItems = items.filter(item => item.levelTarget === selectedLevelTransition);
+  const filteredItems = items.filter((item) => item.levelTarget === selectedLevelTransition);
 
   // Totals for current transition
   const transitionMaxPoints = filteredItems.reduce((sum, item) => sum + item.maxPoints, 0);
 
   const handleUpdateItemField = (id: string, field: keyof SkillItem, value: any) => {
-    setItems(prev => prev.map(item => {
-      if (item.id === id) {
-        return { ...item, [field]: value };
-      }
-      return item;
-    }));
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          return { ...item, [field]: value };
+        }
+        return item;
+      })
+    );
   };
 
   const handleAddItem = () => {
     const newItem: SkillItem = {
       id: `item_${Date.now()}`,
       levelTarget: selectedLevelTransition,
-      section: selectedLevelTransition === 1 ? 'Баланс' : selectedLevelTransition === 2 ? 'Техника' : 'Высокая скорость',
+      section:
+        selectedLevelTransition === 1
+          ? 'Баланс'
+          : selectedLevelTransition === 2
+            ? 'Техника'
+            : 'Высокая скорость',
       num: String(filteredItems.length + 1),
       title: 'Новое упражнение',
       maxPoints: 5,
       controlPoints: 2,
       speedPoints: 1,
-      techniquePoints: 2
+      techniquePoints: 2,
     };
-    setItems(prev => [...prev, newItem]);
+    setItems((prev) => [...prev, newItem]);
     setEditingItemId(newItem.id);
   };
 
   const handleDeleteItem = (id: string) => {
-    setItems(prev => prev.filter(item => item.id !== id));
+    setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   const handleResetToDefault = () => {
@@ -74,7 +81,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
     try {
       await onSaveConfig({
         passPercentage,
-        items
+        items,
       });
     } finally {
       setIsSaving(false);
@@ -108,10 +115,10 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
             {t('advancementThreshold')}
           </label>
           <div className="flex items-center gap-2">
-            <input 
-              type="number" 
-              min={50} 
-              max={100} 
+            <input
+              type="number"
+              min={50}
+              max={100}
               value={passPercentage}
               onChange={(e) => setPassPercentage(Number(e.target.value))}
               className="w-24 bg-[var(--bg)] border border-[var(--border)] px-3 py-1.5 text-xs font-mono text-[var(--ink)] focus:outline-none focus:border-accent"
@@ -119,7 +126,8 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
             <span className="text-xs font-mono font-bold text-accent">%</span>
           </div>
           <span className="text-[9px] text-[var(--ink-dim)] mt-1 block">
-            {t('minimumAdvancementThresholdPrefix')} {passPercentage}% {t('minimumAdvancementThresholdSuffix')}
+            {t('minimumAdvancementThresholdPrefix')} {passPercentage}%{' '}
+            {t('minimumAdvancementThresholdSuffix')}
           </span>
         </div>
 
@@ -148,8 +156,8 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
         <button
           onClick={() => setSelectedLevelTransition(1)}
           className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider border transition cursor-pointer ${
-            selectedLevelTransition === 1 
-              ? 'border-accent bg-accent-muted text-accent font-bold' 
+            selectedLevelTransition === 1
+              ? 'border-accent bg-accent-muted text-accent font-bold'
               : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
           }`}
         >
@@ -158,8 +166,8 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
         <button
           onClick={() => setSelectedLevelTransition(2)}
           className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider border transition cursor-pointer ${
-            selectedLevelTransition === 2 
-              ? 'border-accent bg-accent-muted text-accent font-bold' 
+            selectedLevelTransition === 2
+              ? 'border-accent bg-accent-muted text-accent font-bold'
               : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
           }`}
         >
@@ -168,8 +176,8 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
         <button
           onClick={() => setSelectedLevelTransition(3)}
           className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider border transition cursor-pointer ${
-            selectedLevelTransition === 3 
-              ? 'border-accent bg-accent-muted text-accent font-bold' 
+            selectedLevelTransition === 3
+              ? 'border-accent bg-accent-muted text-accent font-bold'
               : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
           }`}
         >
@@ -199,8 +207,12 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
               <th className="p-2 border-r border-[var(--border)]/40 w-12">№</th>
               <th className="p-2 border-r border-[var(--border)]/40">Категория / Раздел</th>
               <th className="p-2 border-r border-[var(--border)]/40">Наименование упражнения</th>
-              <th className="p-2 border-r border-[var(--border)]/40 w-20 text-center">Макс. балл</th>
-              <th className="p-2 border-r border-[var(--border)]/40 w-36 text-center">Распределение (К / СК / ТЕХ)</th>
+              <th className="p-2 border-r border-[var(--border)]/40 w-20 text-center">
+                Макс. балл
+              </th>
+              <th className="p-2 border-r border-[var(--border)]/40 w-36 text-center">
+                Распределение (К / СК / ТЕХ)
+              </th>
               <th className="p-2 w-20 text-center">Действия</th>
             </tr>
           </thead>
@@ -209,13 +221,15 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
               const isEditing = editingItemId === item.id;
               return (
                 <tr key={item.id} className="hover:bg-black/10 transition-colors">
-                  <td className="p-2 border-r border-[var(--border)]/40 text-center text-[var(--ink-dim)]">{idx + 1}</td>
-                  
+                  <td className="p-2 border-r border-[var(--border)]/40 text-center text-[var(--ink-dim)]">
+                    {idx + 1}
+                  </td>
+
                   {/* Category */}
                   <td className="p-2 border-r border-[var(--border)]/40">
                     {isEditing ? (
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={item.section}
                         onChange={(e) => handleUpdateItemField(item.id, 'section', e.target.value)}
                         className="w-full bg-[var(--bg)] border border-[var(--border)] px-1.5 py-0.5 text-xs text-[var(--ink)]"
@@ -228,8 +242,8 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                   {/* Title */}
                   <td className="p-2 border-r border-[var(--border)]/40">
                     {isEditing ? (
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={item.title}
                         onChange={(e) => handleUpdateItemField(item.id, 'title', e.target.value)}
                         className="w-full bg-[var(--bg)] border border-[var(--border)] px-1.5 py-0.5 text-xs text-[var(--ink)]"
@@ -242,11 +256,13 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                   {/* Max Points */}
                   <td className="p-2 border-r border-[var(--border)]/40 text-center">
                     {isEditing ? (
-                      <input 
-                        type="number" 
-                        min={1} 
+                      <input
+                        type="number"
+                        min={1}
                         value={item.maxPoints}
-                        onChange={(e) => handleUpdateItemField(item.id, 'maxPoints', Number(e.target.value))}
+                        onChange={(e) =>
+                          handleUpdateItemField(item.id, 'maxPoints', Number(e.target.value))
+                        }
                         className="w-14 bg-[var(--bg)] border border-[var(--border)] text-center px-1 py-0.5 text-xs text-[var(--ink)]"
                       />
                     ) : (
@@ -258,36 +274,52 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                   <td className="p-2 border-r border-[var(--border)]/40 text-center">
                     {isEditing ? (
                       <div className="flex gap-1 justify-center">
-                        <input 
-                          type="number" 
-                          title="Контроль" 
-                          placeholder="К" 
+                        <input
+                          type="number"
+                          title="Контроль"
+                          placeholder="К"
                           value={item.controlPoints || 0}
-                          onChange={(e) => handleUpdateItemField(item.id, 'controlPoints', Number(e.target.value))}
+                          onChange={(e) =>
+                            handleUpdateItemField(item.id, 'controlPoints', Number(e.target.value))
+                          }
                           className="w-10 bg-[var(--bg)] border border-[var(--border)] text-center text-[10px] text-cyan-300"
                         />
-                        <input 
-                          type="number" 
-                          title="Скорость" 
-                          placeholder="Ск" 
+                        <input
+                          type="number"
+                          title="Скорость"
+                          placeholder="Ск"
                           value={item.speedPoints || 0}
-                          onChange={(e) => handleUpdateItemField(item.id, 'speedPoints', Number(e.target.value))}
+                          onChange={(e) =>
+                            handleUpdateItemField(item.id, 'speedPoints', Number(e.target.value))
+                          }
                           className="w-10 bg-[var(--bg)] border border-[var(--border)] text-center text-[10px] text-amber-300"
                         />
-                        <input 
-                          type="number" 
-                          title="Техника" 
-                          placeholder="Тех" 
+                        <input
+                          type="number"
+                          title="Техника"
+                          placeholder="Тех"
                           value={item.techniquePoints || 0}
-                          onChange={(e) => handleUpdateItemField(item.id, 'techniquePoints', Number(e.target.value))}
+                          onChange={(e) =>
+                            handleUpdateItemField(
+                              item.id,
+                              'techniquePoints',
+                              Number(e.target.value)
+                            )
+                          }
                           className="w-10 bg-[var(--bg)] border border-[var(--border)] text-center text-[10px] text-purple-300"
                         />
                       </div>
                     ) : (
                       <div className="flex justify-center gap-2 text-[10px]">
-                        <span className="text-cyan-300" title="Контроль">К: {item.controlPoints || 0}</span>
-                        <span className="text-amber-300" title="Скорость">Ск: {item.speedPoints || 0}</span>
-                        <span className="text-purple-300" title="Техника">Тех: {item.techniquePoints || 0}</span>
+                        <span className="text-cyan-300" title="Контроль">
+                          К: {item.controlPoints || 0}
+                        </span>
+                        <span className="text-amber-300" title="Скорость">
+                          Ск: {item.speedPoints || 0}
+                        </span>
+                        <span className="text-purple-300" title="Техника">
+                          Тех: {item.techniquePoints || 0}
+                        </span>
                       </div>
                     )}
                   </td>
@@ -298,13 +330,17 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                       <button
                         onClick={() => setEditingItemId(isEditing ? null : item.id)}
                         className={`p-1 border transition cursor-pointer ${
-                          isEditing 
-                            ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300' 
+                          isEditing
+                            ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
                             : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
                         }`}
                         title={isEditing ? 'Готово' : 'Редактировать'}
                       >
-                        {isEditing ? <Check className="w-3.5 h-3.5" /> : <Edit2 className="w-3.5 h-3.5" />}
+                        {isEditing ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <Edit2 className="w-3.5 h-3.5" />
+                        )}
                       </button>
                       <button
                         onClick={() => handleDeleteItem(item.id)}

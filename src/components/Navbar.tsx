@@ -24,7 +24,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSignOut,
   theme,
   onToggleTheme,
-  onSignInClick
+  onSignInClick,
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const location = useLocation();
@@ -70,10 +70,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           {!userProfile && onSignInClick && (
-            <button
-              onClick={onSignInClick}
-              className="px-3 py-1 btn-primary"
-            >
+            <button onClick={onSignInClick} className="px-3 py-1 btn-primary">
               {t('signInBtn')}
             </button>
           )}
@@ -96,7 +93,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {/* Wallet details */}
               <div className="flex items-center gap-2 select-none text-[11px] text-[var(--ink)] font-mono">
-                <span className="text-[var(--ink-dim)] uppercase hidden sm:inline">{t('balance')}:</span>
+                <span className="text-[var(--ink-dim)] uppercase hidden sm:inline">
+                  {t('balance')}:
+                </span>
                 <span className="font-bold">${userProfile.balanceUSD.toFixed(2)}</span>
                 <button
                   onClick={onOpenTopUp}
@@ -130,7 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {userProfile.displayName.split(' ')[0]}
                   </span>
                 </div>
-                
+
                 <button
                   onClick={onSignOut}
                   title={t('signOut')}
@@ -165,7 +164,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {/* Admin Toggle button */}
                   {userProfile.role === 'admin' && (
                     <button
-                      onClick={() => { navigate(isAdminView ? '/' : '/admin'); setIsMenuOpen(false); }}
+                      onClick={() => {
+                        navigate(isAdminView ? '/' : '/admin');
+                        setIsMenuOpen(false);
+                      }}
                       className={`w-full px-3 py-2.5 border transition cursor-pointer text-xs font-mono uppercase tracking-widest ${
                         isAdminView
                           ? 'bg-amber-500 border-amber-500 text-white hover:bg-amber-600'
@@ -182,7 +184,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="font-bold">${userProfile.balanceUSD.toFixed(2)}</span>
                       <button
-                        onClick={() => { onOpenTopUp(); setIsMenuOpen(false); }}
+                        onClick={() => {
+                          onOpenTopUp();
+                          setIsMenuOpen(false);
+                        }}
                         title={t('topUpSimulated')}
                         className="p-1 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition cursor-pointer"
                       >
@@ -193,7 +198,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                   {/* Notification button */}
                   <button
-                    onClick={() => { onOpenNotifications(); setIsMenuOpen(false); }}
+                    onClick={() => {
+                      onOpenNotifications();
+                      setIsMenuOpen(false);
+                    }}
                     className="w-full flex justify-between items-center text-sm font-mono uppercase text-[var(--ink)]"
                   >
                     <span>{t('notifications')}</span>
@@ -212,7 +220,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onClick={onToggleTheme}
                   className="p-1.5 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition cursor-pointer"
                 >
-                  {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-amber-400" />}
+                  {theme === 'light' ? (
+                    <Moon className="w-4 h-4" />
+                  ) : (
+                    <Sun className="w-4 h-4 text-amber-400" />
+                  )}
                 </button>
               </div>
               <div className="flex items-center justify-between text-sm font-mono uppercase text-[var(--ink)]">
@@ -226,14 +238,23 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
               {!userProfile && onSignInClick && (
                 <button
-                  onClick={() => { onSignInClick(); setIsMenuOpen(false); }}
+                  onClick={() => {
+                    onSignInClick();
+                    setIsMenuOpen(false);
+                  }}
                   className="w-full mt-2 px-3 py-2.5 btn-primary text-sm text-center"
                 >
                   {t('signInBtn')}
                 </button>
               )}
               {userProfile && (
-                <button onClick={() => { onSignOut(); setIsMenuOpen(false); }} className="w-full mt-2 px-3 py-2.5 border border-rose-500/50 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer text-sm font-mono uppercase tracking-widest">
+                <button
+                  onClick={() => {
+                    onSignOut();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full mt-2 px-3 py-2.5 border border-rose-500/50 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer text-sm font-mono uppercase tracking-widest"
+                >
                   {t('signOut')}
                 </button>
               )}

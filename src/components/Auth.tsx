@@ -1,30 +1,23 @@
 import React, { useState } from 'react';
-import { 
-  auth, 
-  db, 
-  googleProvider, 
-  signInWithPopup, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  handleFirestoreError, 
+import {
+  auth,
+  db,
+  googleProvider,
+  signInWithPopup,
+  doc,
+  setDoc,
+  getDoc,
+  handleFirestoreError,
   OperationType,
-  migratePreExistingProfile
+  migratePreExistingProfile,
 } from '../lib/firebase';
-import { 
-  signInWithEmailAndPassword, 
+import {
+  signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import { UserProfile } from '../types';
-import { 
-  LogIn, 
-  UserPlus, 
-  Mail, 
-  Lock, 
-  Phone, 
-  User as UserIcon 
-} from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, Phone, User as UserIcon } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage } from '../lib/LanguageContext';
 import { logger } from '../lib/logger';
@@ -79,19 +72,14 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         }
 
         // Register new user
-        let user;
-        try {
-          const credentials = await createUserWithEmailAndPassword(auth, email, password);
-          user = credentials.user;
-        } catch (authErr) {
-          throw authErr;
-        }
+        const credentials = await createUserWithEmailAndPassword(auth, email, password);
+        const user = credentials.user;
 
         let finalProfile: UserProfile | null = null;
         try {
           finalProfile = await migratePreExistingProfile(user.uid, email, displayName);
         } catch (err) {
-          logger.warn("Could not check/migrate pre-existing profile", err);
+          logger.warn('Could not check/migrate pre-existing profile', err);
         }
 
         if (!finalProfile) {
@@ -103,7 +91,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
             avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(avatarSeed)}`,
             balanceUSD: 250, // Starter credits
             isClientActive: true,
-            level: 1
+            level: 1,
           };
           if (phoneNumber) {
             finalProfile.phoneNumber = phoneNumber;
@@ -117,30 +105,33 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
           }
           addNotification('success', t('authWelcomeAcademy'), t('authRegisteredCredits'));
         } else {
-          addNotification('success', t('authWelcomeBack'), `${t('authLinkedProfileName')} "${displayName}" ${t('authWithBalance')} $${finalProfile.balanceUSD}.`);
+          addNotification(
+            'success',
+            t('authWelcomeBack'),
+            `${t('authLinkedProfileName')} "${displayName}" ${t('authWithBalance')} $${finalProfile.balanceUSD}.`
+          );
         }
 
         onSuccess(finalProfile);
       } else {
         // Sign in existing user
-        let user;
-        try {
-          const credentials = await signInWithEmailAndPassword(auth, email, password);
-          user = credentials.user;
-        } catch (authErr) {
-          throw authErr;
-        }
+        const credentials = await signInWithEmailAndPassword(auth, email, password);
+        const user = credentials.user;
 
         // Check for and migrate pre-existing profile first to support self-healing
         let finalProfile: UserProfile | null = null;
         try {
           finalProfile = await migratePreExistingProfile(user.uid, user.email || email);
         } catch (mErr) {
-          logger.warn("Could not check/migrate pre-existing profile during sign-in", mErr);
+          logger.warn('Could not check/migrate pre-existing profile during sign-in', mErr);
         }
 
         if (finalProfile) {
-          addNotification('success', t('authWelcomeBack'), `${t('authLinkedProfileBalance')} $${finalProfile.balanceUSD} ${t('authMergedSuffix')}`);
+          addNotification(
+            'success',
+            t('authWelcomeBack'),
+            `${t('authLinkedProfileBalance')} $${finalProfile.balanceUSD} ${t('authMergedSuffix')}`
+          );
           onSuccess(finalProfile);
         } else {
           const userRef = doc(db, 'users', user.uid);
@@ -153,7 +144,11 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
 
           if (userSnap && userSnap.exists()) {
             const profile = userSnap.data() as UserProfile;
-            addNotification('success', t('authLoggedIn'), `${t('authWelcomeBackName')} ${profile.displayName}!`);
+            addNotification(
+              'success',
+              t('authLoggedIn'),
+              `${t('authWelcomeBackName')} ${profile.displayName}!`
+            );
             onSuccess(profile);
           } else {
             const seed = (user.displayName || user.uid).replace(/\s+/g, '_').toLowerCase();
@@ -162,10 +157,12 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
               email: user.email || email,
               displayName: user.displayName || 'Alpine Glider',
               role: 'user',
-              avatarUrl: user.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
+              avatarUrl:
+                user.photoURL ||
+                `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
               balanceUSD: 250,
               isClientActive: true,
-              level: 1
+              level: 1,
             };
             try {
               await setDoc(doc(db, 'users', user.uid), fallbackProfile);
@@ -182,19 +179,26 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
       const errCode = err.code || '';
       const errMessage = err.message || '';
 
-      const isEmailAlreadyInUse = errCode === 'auth/email-already-in-use' || errMessage.includes('auth/email-already-in-use');
-      const isWeakPassword = errCode === 'auth/weak-password' || errMessage.includes('auth/weak-password');
-      const isInvalidCredential = errCode === 'auth/invalid-credential' || 
-                                  errCode === 'auth/wrong-password' || 
-                                  errCode === 'auth/user-not-found' ||
-                                  errMessage.includes('auth/invalid-credential') ||
-                                  errMessage.includes('auth/wrong-password') ||
-                                  errMessage.includes('auth/user-not-found');
-      const isOperationNotAllowed = errCode === 'auth/operation-not-allowed' || errMessage.includes('auth/operation-not-allowed');
-      const isNetworkError = errCode === 'auth/network-request-failed' || errMessage.includes('auth/network-request-failed');
+      const isEmailAlreadyInUse =
+        errCode === 'auth/email-already-in-use' || errMessage.includes('auth/email-already-in-use');
+      const isWeakPassword =
+        errCode === 'auth/weak-password' || errMessage.includes('auth/weak-password');
+      const isInvalidCredential =
+        errCode === 'auth/invalid-credential' ||
+        errCode === 'auth/wrong-password' ||
+        errCode === 'auth/user-not-found' ||
+        errMessage.includes('auth/invalid-credential') ||
+        errMessage.includes('auth/wrong-password') ||
+        errMessage.includes('auth/user-not-found');
+      const isOperationNotAllowed =
+        errCode === 'auth/operation-not-allowed' ||
+        errMessage.includes('auth/operation-not-allowed');
+      const isNetworkError =
+        errCode === 'auth/network-request-failed' ||
+        errMessage.includes('auth/network-request-failed');
 
       let errMsg = t('authFailed');
-      
+
       if (isEmailAlreadyInUse) {
         errMsg = t('authEmailInUse');
       } else if (isWeakPassword) {
@@ -234,14 +238,22 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
 
       if (userSnap && userSnap.exists()) {
         const profile = userSnap.data() as UserProfile;
-        addNotification('success', t('authLoggedIn'), `${t('authWelcomeBackName')} ${profile.displayName}!`);
+        addNotification(
+          'success',
+          t('authLoggedIn'),
+          `${t('authWelcomeBackName')} ${profile.displayName}!`
+        );
         onSuccess(profile);
       } else {
         let finalProfile: UserProfile | null = null;
         try {
-          finalProfile = await migratePreExistingProfile(user.uid, user.email || '', user.displayName || undefined);
+          finalProfile = await migratePreExistingProfile(
+            user.uid,
+            user.email || '',
+            user.displayName || undefined
+          );
         } catch (err) {
-          logger.warn("Could not check/migrate pre-existing profile on Google login", err);
+          logger.warn('Could not check/migrate pre-existing profile on Google login', err);
         }
 
         if (!finalProfile) {
@@ -251,10 +263,12 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
             email: user.email || '',
             displayName: user.displayName || 'Alpine Glider',
             role: 'user',
-            avatarUrl: user.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
+            avatarUrl:
+              user.photoURL ||
+              `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
             balanceUSD: 250,
             isClientActive: true,
-            level: 1
+            level: 1,
           };
 
           try {
@@ -265,7 +279,11 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
           addNotification('success', t('authWelcomeAcademy'), t('authGoogleLinkedCredits'));
         } else {
           const actualName = user.displayName || finalProfile.displayName;
-          addNotification('success', t('authWelcomeBack'), `${t('authGoogleProfileFound')} $${finalProfile.balanceUSD}, ${t('authLinkedToName')} "${actualName}".`);
+          addNotification(
+            'success',
+            t('authWelcomeBack'),
+            `${t('authGoogleProfileFound')} $${finalProfile.balanceUSD}, ${t('authLinkedToName')} "${actualName}".`
+          );
         }
         onSuccess(finalProfile);
       }
@@ -291,7 +309,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (!email) {
       setError(t('authEnterEmail'));
       return;
@@ -307,17 +325,16 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
       );
       setIsForgotPassword(false);
     } catch (err: any) {
-      logger.error("Password reset error:", err);
-      const errorMsg = err.code === 'auth/user-not-found'
-        ? t('authUserNotFound')
-        : `${t('authErrorLabel')} ${err.message}`;
+      logger.error('Password reset error:', err);
+      const errorMsg =
+        err.code === 'auth/user-not-found'
+          ? t('authUserNotFound')
+          : `${t('authErrorLabel')} ${err.message}`;
       setError(errorMsg);
     } finally {
       setIsLoading(false);
     }
   };
-
-
 
   return (
     <div className="flex flex-col bg-transparent border border-[var(--border)] animate-fade-in">
@@ -326,14 +343,18 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         <div className="max-w-md w-full mx-auto space-y-6">
           <div className="text-center md:text-left">
             <h2 className="text-2xl font-serif font-light text-[var(--ink)] tracking-tight">
-              {isForgotPassword 
+              {isForgotPassword
                 ? t('authResetPassword')
-                : (isSignUp ? t('signUpTitle') : t('welcomeTitle'))}
+                : isSignUp
+                  ? t('signUpTitle')
+                  : t('welcomeTitle')}
             </h2>
             <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1.5 leading-relaxed">
-              {isForgotPassword 
+              {isForgotPassword
                 ? t('authResetPasswordSub')
-                : (isSignUp ? t('signUpSub') : t('welcomeSub'))}
+                : isSignUp
+                  ? t('signUpSub')
+                  : t('welcomeSub')}
             </p>
           </div>
 
@@ -343,11 +364,16 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
             </div>
           )}
 
-          <form onSubmit={isForgotPassword ? handlePasswordReset : handleSubmit} className="space-y-4">
+          <form
+            onSubmit={isForgotPassword ? handlePasswordReset : handleSubmit}
+            className="space-y-4"
+          >
             {isForgotPassword ? (
               <>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">{t('emailAddress')}</label>
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+                    {t('emailAddress')}
+                  </label>
                   <div className="relative">
                     <input
                       type="email"
@@ -375,7 +401,9 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                 {isSignUp && (
                   <>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">{t('fullName')}</label>
+                      <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+                        {t('fullName')}
+                      </label>
                       <div className="relative">
                         <input
                           type="text"
@@ -393,7 +421,9 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">{t('phoneOptional')}</label>
+                      <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+                        {t('phoneOptional')}
+                      </label>
                       <div className="relative">
                         <input
                           type="tel"
@@ -420,7 +450,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                           🎲 {t('authRandomize')}
                         </button>
                       </div>
-                      
+
                       {/* Avatar Previews Grid */}
                       <div className="grid grid-cols-6 gap-1.5">
                         {PRESET_SEEDS.map((seed) => {
@@ -432,15 +462,15 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                               type="button"
                               onClick={() => setAvatarSeed(seed)}
                               className={`relative aspect-square rounded-none p-1 bg-black/10 border transition hover:scale-105 cursor-pointer ${
-                                isSelected 
-                                  ? 'border-[var(--ink)] bg-black/25' 
+                                isSelected
+                                  ? 'border-[var(--ink)] bg-black/25'
                                   : 'border-[var(--border)] hover:border-[var(--ink)]'
                               }`}
                             >
-                              <img 
-                                src={url} 
-                                alt={seed} 
-                                className="w-full h-full object-contain filter grayscale" 
+                              <img
+                                src={url}
+                                alt={seed}
+                                className="w-full h-full object-contain filter grayscale"
                                 referrerPolicy="no-referrer"
                               />
                             </button>
@@ -457,14 +487,18 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                           placeholder={t('authAvatarSeedPlaceholder')}
                           className="w-full pl-8 pr-4 py-1.5 rounded-none border border-[var(--border)] text-[10px] font-mono bg-black/15 text-[var(--ink)] placeholder:text-[var(--ink-dim)]/30 focus:outline-none focus:border-[var(--ink)] transition"
                         />
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--ink-dim)] pointer-events-none">✨</span>
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--ink-dim)] pointer-events-none">
+                          ✨
+                        </span>
                       </div>
                     </div>
                   </>
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">{t('emailAddress')}</label>
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+                    {t('emailAddress')}
+                  </label>
                   <div className="relative">
                     <input
                       type="email"
@@ -480,7 +514,9 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
 
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
-                    <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">{t('password')}</label>
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+                      {t('password')}
+                    </label>
                     <button
                       type="button"
                       onClick={() => {
@@ -531,7 +567,9 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
               {/* Social Divider */}
               <div className="flex items-center gap-3 py-1">
                 <div className="h-[1px] bg-[var(--border)] flex-1" />
-                <span className="text-[9px] font-mono font-bold text-[var(--ink-dim)] uppercase tracking-widest">{t('orContinueWith')}</span>
+                <span className="text-[9px] font-mono font-bold text-[var(--ink-dim)] uppercase tracking-widest">
+                  {t('orContinueWith')}
+                </span>
                 <div className="h-[1px] bg-[var(--border)] flex-1" />
               </div>
 
@@ -577,4 +615,3 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
     </div>
   );
 };
-

@@ -86,7 +86,11 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
         const checkDate = new Date(dateStr);
         const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
         const endDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-        const currentDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate());
+        const currentDate = new Date(
+          checkDate.getFullYear(),
+          checkDate.getMonth(),
+          checkDate.getDate()
+        );
         return currentDate >= startDate && currentDate <= endDate;
       }
       return b.date === dateStr;
@@ -155,91 +159,95 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
             </div>
           </div>
 
-      {userBookings.length > 0 && (
-        <div className="border border-[var(--border)] p-4 rounded-none bg-[var(--card-bg)] space-y-3 w-full min-w-0 max-w-full overflow-hidden shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap w-full min-w-0">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink)] font-bold flex items-center gap-1.5 break-words">
-              📅 {t('interactiveCalendar')}
-            </span>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setCurrentMonth((prev) => {
-                  const next = new Date(prev);
-                  next.setMonth(next.getMonth() - 1);
-                  return next;
-                })}
-                className="p-1 hover:bg-[var(--bg)] rounded-none text-[var(--ink)] transition cursor-pointer border border-transparent hover:border-[var(--border)]"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-[10px] font-mono uppercase tracking-wider min-w-[100px] text-center text-[var(--ink)] font-bold">
-                {language === 'ru' ? MONTHS_RU[month] : MONTHS_EN[month]} {year}
-              </span>
-              <button
-                type="button"
-                onClick={() => setCurrentMonth((prev) => {
-                  const next = new Date(prev);
-                  next.setMonth(next.getMonth() + 1);
-                  return next;
-                })}
-                className="p-1 hover:bg-[var(--bg)] rounded-none text-[var(--ink)] transition cursor-pointer border border-transparent hover:border-[var(--border)]"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1 text-center text-[9px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold pb-1 border-b border-[var(--border)]">
-            {(language === 'ru' ? WEEKDAYS_RU : WEEKDAYS_EN).map((day) => (
-              <div key={day}>{day}</div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 gap-1">
-            {daysArray.map((day, idx) => {
-              if (day === null) {
-                return <div key={`empty-${idx}`} className="h-8" />;
-              }
-
-              const dateStr = formatDateStr(day);
-              const dayBookings = getBookingsOnDate(dateStr);
-              const isSelected = selectedDateFilter === dateStr;
-              const hasCourse = dayBookings.some((b) => b.instructorId.startsWith('course_'));
-              const hasLesson = dayBookings.some((b) => !b.instructorId.startsWith('course_'));
-
-              return (
-                <button
-                  key={`day-${day}`}
-                  type="button"
-                  onClick={() => {
-                    if (hasCourse || hasLesson) {
-                      handleSelectDateFilter(isSelected ? null : dateStr);
+          {userBookings.length > 0 && (
+            <div className="border border-[var(--border)] p-4 rounded-none bg-[var(--card-bg)] space-y-3 w-full min-w-0 max-w-full overflow-hidden shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap w-full min-w-0">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink)] font-bold flex items-center gap-1.5 break-words">
+                  📅 {t('interactiveCalendar')}
+                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentMonth((prev) => {
+                        const next = new Date(prev);
+                        next.setMonth(next.getMonth() - 1);
+                        return next;
+                      })
                     }
-                  }}
-                  className={`h-9 flex flex-col items-center justify-center rounded-xs transition text-[10px] font-mono relative cursor-pointer ${
-                    isSelected
-                      ? 'bg-[var(--ink)] text-[var(--bg)] font-bold shadow-xs'
-                      : hasCourse
-                      ? 'text-violet-800 dark:text-violet-200 bg-violet-100/80 dark:bg-violet-950/40 font-bold hover:bg-violet-200/80 cursor-pointer'
-                      : hasLesson
-                      ? 'text-[var(--ink)] bg-slate-100 dark:bg-slate-800 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer'
-                      : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:bg-slate-50 dark:hover:bg-slate-900/50 cursor-default'
-                  }`}
-                >
-                  <span>{day}</span>
-                  {hasLesson && !isSelected && (
-                    <span className="w-1 h-1 bg-[var(--ink)] rounded-none absolute bottom-1.5" />
-                  )}
-                  {hasCourse && !isSelected && (
-                    <span className="w-1 h-1 bg-violet-400 rounded-none absolute bottom-1.5" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                    className="p-1 hover:bg-[var(--bg)] rounded-none text-[var(--ink)] transition cursor-pointer border border-transparent hover:border-[var(--border)]"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-[10px] font-mono uppercase tracking-wider min-w-[100px] text-center text-[var(--ink)] font-bold">
+                    {language === 'ru' ? MONTHS_RU[month] : MONTHS_EN[month]} {year}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentMonth((prev) => {
+                        const next = new Date(prev);
+                        next.setMonth(next.getMonth() + 1);
+                        return next;
+                      })
+                    }
+                    className="p-1 hover:bg-[var(--bg)] rounded-none text-[var(--ink)] transition cursor-pointer border border-transparent hover:border-[var(--border)]"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-7 gap-1 text-center text-[9px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold pb-1 border-b border-[var(--border)]">
+                {(language === 'ru' ? WEEKDAYS_RU : WEEKDAYS_EN).map((day) => (
+                  <div key={day}>{day}</div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-7 gap-1">
+                {daysArray.map((day, idx) => {
+                  if (day === null) {
+                    return <div key={`empty-${idx}`} className="h-8" />;
+                  }
+
+                  const dateStr = formatDateStr(day);
+                  const dayBookings = getBookingsOnDate(dateStr);
+                  const isSelected = selectedDateFilter === dateStr;
+                  const hasCourse = dayBookings.some((b) => b.instructorId.startsWith('course_'));
+                  const hasLesson = dayBookings.some((b) => !b.instructorId.startsWith('course_'));
+
+                  return (
+                    <button
+                      key={`day-${day}`}
+                      type="button"
+                      onClick={() => {
+                        if (hasCourse || hasLesson) {
+                          handleSelectDateFilter(isSelected ? null : dateStr);
+                        }
+                      }}
+                      className={`h-9 flex flex-col items-center justify-center rounded-xs transition text-[10px] font-mono relative cursor-pointer ${
+                        isSelected
+                          ? 'bg-[var(--ink)] text-[var(--bg)] font-bold shadow-xs'
+                          : hasCourse
+                            ? 'text-violet-800 dark:text-violet-200 bg-violet-100/80 dark:bg-violet-950/40 font-bold hover:bg-violet-200/80 cursor-pointer'
+                            : hasLesson
+                              ? 'text-[var(--ink)] bg-slate-100 dark:bg-slate-800 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer'
+                              : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:bg-slate-50 dark:hover:bg-slate-900/50 cursor-default'
+                      }`}
+                    >
+                      <span>{day}</span>
+                      {hasLesson && !isSelected && (
+                        <span className="w-1 h-1 bg-[var(--ink)] rounded-none absolute bottom-1.5" />
+                      )}
+                      {hasCourse && !isSelected && (
+                        <span className="w-1 h-1 bg-violet-400 rounded-none absolute bottom-1.5" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {selectedDateFilter && (
             <div className="flex items-center justify-between border border-[var(--border)] bg-black/25 px-3 py-2 rounded-none">
@@ -293,7 +301,12 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                 let displayDate = b.date;
                 let displayTime = b.time;
 
-                if (isCourse && (b.time === 'Group Schedule' || b.time === getGroupScheduleLabel('en') || b.time === getGroupScheduleLabel('ru'))) {
+                if (
+                  isCourse &&
+                  (b.time === 'Group Schedule' ||
+                    b.time === getGroupScheduleLabel('en') ||
+                    b.time === getGroupScheduleLabel('ru'))
+                ) {
                   const { datePart, timePart } = splitCourseDates(b.date, language);
                   displayDate = datePart;
                   displayTime = timePart;
@@ -311,7 +324,11 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                   >
                     <div className="flex flex-1 items-center gap-4 min-w-0 w-full lg:flex-row lg:items-center 2xl:flex-row 2xl:items-center">
                       <div className="w-14 h-14 rounded-full overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800">
-                        <img src={b.instructorAvatar} alt={b.instructorName} className="w-full h-full object-cover" />
+                        <img
+                          src={b.instructorAvatar}
+                          alt={b.instructorName}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                       <div className="space-y-1 min-w-0 w-full">
                         <h4 className="text-xs font-serif text-[var(--ink)] flex items-center gap-2 flex-wrap">
@@ -333,7 +350,8 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                         </div>
                         {b.status === 'pending_cancellation' && b.cancellationReason && (
                           <p className="text-[9px] font-mono uppercase tracking-wider text-rose-600 dark:text-rose-400 mt-2 bg-rose-50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/30 px-2.5 py-1.5 rounded-xs">
-                            <span className="font-bold">{t('reason')} </span>{b.cancellationReason}
+                            <span className="font-bold">{t('reason')} </span>
+                            {b.cancellationReason}
                           </p>
                         )}
                       </div>
@@ -341,17 +359,24 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
 
                     <div className="flex flex-shrink items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-3 md:pt-0 border-slate-200/60 dark:border-slate-800/60 flex-wrap min-w-0 max-w-full">
                       <div className="text-left md:text-right shrink-0">
-                        <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">{t('totalFee')}</span>
-                        <span className="text-base font-serif font-light text-[var(--ink)]">${b.totalPrice}</span>
+                        <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">
+                          {t('totalFee')}
+                        </span>
+                        <span className="text-base font-serif font-light text-[var(--ink)]">
+                          ${b.totalPrice}
+                        </span>
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap min-w-0 max-w-full">
                         <span
                           className={`px-2 py-0.5 text-[8px] font-mono uppercase tracking-widest rounded-xs font-bold ${
-                            b.status === 'confirmed' ? 'text-emerald-700 bg-emerald-100/80 dark:text-emerald-300 dark:bg-emerald-950/50' :
-                            b.status === 'completed' ? 'badge-accent' :
-                            b.status === 'cancelled' ? 'text-rose-700 bg-rose-100/80 dark:text-rose-300 dark:bg-rose-950/50' :
-                            'text-amber-700 bg-amber-100/80 dark:text-amber-300 dark:bg-amber-950/50'
+                            b.status === 'confirmed'
+                              ? 'text-emerald-700 bg-emerald-100/80 dark:text-emerald-300 dark:bg-emerald-950/50'
+                              : b.status === 'completed'
+                                ? 'badge-accent'
+                                : b.status === 'cancelled'
+                                  ? 'text-rose-700 bg-rose-100/80 dark:text-rose-300 dark:bg-rose-950/50'
+                                  : 'text-amber-700 bg-amber-100/80 dark:text-amber-300 dark:bg-amber-950/50'
                           }`}
                         >
                           {getBookingStatusLabel(b.status, language)}
@@ -399,8 +424,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                   <div className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
                     {language === 'ru'
                       ? `Показано ${Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, displayedBookings.length)}–${Math.min(currentPage * ITEMS_PER_PAGE, displayedBookings.length)} из ${displayedBookings.length} занятий`
-                      : `Showing ${Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, displayedBookings.length)}–${Math.min(currentPage * ITEMS_PER_PAGE, displayedBookings.length)} of ${displayedBookings.length} sessions`
-                    }
+                      : `Showing ${Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, displayedBookings.length)}–${Math.min(currentPage * ITEMS_PER_PAGE, displayedBookings.length)} of ${displayedBookings.length} sessions`}
                   </div>
 
                   <div className="flex items-center gap-1.5 flex-wrap">

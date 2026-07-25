@@ -41,19 +41,10 @@ export const useAppLogic = (
   const [skillConfig, setSkillConfig] = useState<SkillConfig>(DEFAULT_SKILL_CONFIG);
 
   const bookingLogic = useBookings(firebaseUser, userProfile, setUserProfile);
-  const courseLogic = useCourses(
-    firebaseUser,
-    userProfile,
-    setUserProfile,
-    bookingLogic.bookings
-  );
+  const courseLogic = useCourses(firebaseUser, userProfile, setUserProfile, bookingLogic.bookings);
   const notificationLogic = useDbNotifications(firebaseUser);
 
-  useAvailabilityMigration(
-    userProfile?.role,
-    bookingLogic.bookingsLoaded,
-    bookingLogic.bookings
-  );
+  useAvailabilityMigration(userProfile?.role, bookingLogic.bookingsLoaded, bookingLogic.bookings);
 
   useEffect(() => {
     const loadFilters = async () => {
@@ -72,30 +63,53 @@ export const useAppLogic = (
 
   useEffect(() => {
     const unsubscribers = [
-      onSnapshot(query(collection(db, 'instructors')), (snapshot) => {
-        setInstructors(snapshot.docs.map((instructorDoc) => ({
-          id: instructorDoc.id,
-          ...instructorDoc.data(),
-        } as Instructor)));
-      }, (error) => handleFirestoreError(error, OperationType.LIST, 'instructors')),
+      onSnapshot(
+        query(collection(db, 'instructors')),
+        (snapshot) => {
+          setInstructors(
+            snapshot.docs.map(
+              (instructorDoc) =>
+                ({
+                  id: instructorDoc.id,
+                  ...instructorDoc.data(),
+                }) as Instructor
+            )
+          );
+        },
+        (error) => handleFirestoreError(error, OperationType.LIST, 'instructors')
+      ),
 
-      onSnapshot(query(collection(db, 'reviews')), (snapshot) => {
-        setReviews(snapshot.docs.map((reviewDoc) => ({
-          id: reviewDoc.id,
-          ...reviewDoc.data(),
-        } as Review)));
-      }, (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')),
+      onSnapshot(
+        query(collection(db, 'reviews')),
+        (snapshot) => {
+          setReviews(
+            snapshot.docs.map(
+              (reviewDoc) =>
+                ({
+                  id: reviewDoc.id,
+                  ...reviewDoc.data(),
+                }) as Review
+            )
+          );
+        },
+        (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
+      ),
 
-      onSnapshot(doc(db, 'settings', 'skill_config'), (snapshot) => {
-        if (!snapshot.exists()) return;
-        const data = snapshot.data();
-        setSkillConfig({
-          passPercentage: data.passPercentage ?? 80,
-          items: Array.isArray(data.items) && data.items.length > 0
-            ? data.items
-            : DEFAULT_SKILL_CONFIG.items,
-        });
-      }, (error) => logger.error('Skill config listener error:', error)),
+      onSnapshot(
+        doc(db, 'settings', 'skill_config'),
+        (snapshot) => {
+          if (!snapshot.exists()) return;
+          const data = snapshot.data();
+          setSkillConfig({
+            passPercentage: data.passPercentage ?? 80,
+            items:
+              Array.isArray(data.items) && data.items.length > 0
+                ? data.items
+                : DEFAULT_SKILL_CONFIG.items,
+          });
+        },
+        (error) => logger.error('Skill config listener error:', error)
+      ),
     ];
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
@@ -108,11 +122,17 @@ export const useAppLogic = (
       return;
     }
 
-    return onSnapshot(query(collection(db, 'users')), (snapshot) => {
-      setUsersList(snapshot.docs
-        .filter((userDoc) => userDoc.id !== 'school_global_stats')
-        .map((userDoc) => userDoc.data() as UserProfile));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
+    return onSnapshot(
+      query(collection(db, 'users')),
+      (snapshot) => {
+        setUsersList(
+          snapshot.docs
+            .filter((userDoc) => userDoc.id !== 'school_global_stats')
+            .map((userDoc) => userDoc.data() as UserProfile)
+        );
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'users')
+    );
   }, [firebaseUser, userProfile?.instructorId, userProfile?.role]);
 
   const { dismissedReviewIds, handleDismissReview } = useDismissedReviews(userProfile?.uid);
@@ -139,12 +159,11 @@ export const useAppLogic = (
     };
     await setDoc(doc(db, 'reviews', newReview.id), newReview);
 
-    const instructorReviews = [newReview, ...reviews]
-      .filter((review) => review.instructorId === newReview.instructorId);
-    const averageRating = instructorReviews.reduce(
-      (sum, review) => sum + review.rating,
-      0
-    ) / instructorReviews.length;
+    const instructorReviews = [newReview, ...reviews].filter(
+      (review) => review.instructorId === newReview.instructorId
+    );
+    const averageRating =
+      instructorReviews.reduce((sum, review) => sum + review.rating, 0) / instructorReviews.length;
     await updateDoc(doc(db, 'instructors', newReview.instructorId), {
       rating: Number(averageRating.toFixed(1)),
       reviewsCount: instructorReviews.length,
@@ -160,12 +179,14 @@ export const useAppLogic = (
     const affectedBookings = bookingLogic.bookings.filter(
       (booking) => booking.instructorId === instructor.id
     );
-    await Promise.all(affectedBookings.map((booking) =>
-      updateDoc(doc(db, 'bookings', booking.id), {
-        instructorName: instructor.name,
-        instructorAvatar: instructor.avatarUrl,
-      })
-    ));
+    await Promise.all(
+      affectedBookings.map((booking) =>
+        updateDoc(doc(db, 'bookings', booking.id), {
+          instructorName: instructor.name,
+          instructorAvatar: instructor.avatarUrl,
+        })
+      )
+    );
   };
 
   const handleDeleteInstructor = async (id: string) => {
@@ -179,11 +200,7 @@ export const useAppLogic = (
     }
 
     await updateDoc(doc(db, 'users', targetUid), { role: newRole });
-    addNotification(
-      'success',
-      t('roleUpdated'),
-      `${t('roleUpdatedDescPrefix')} ${newRole}.`
-    );
+    addNotification('success', t('roleUpdated'), `${t('roleUpdatedDescPrefix')} ${newRole}.`);
   };
 
   const handleAddUser = async (newUser: UserProfile) => {

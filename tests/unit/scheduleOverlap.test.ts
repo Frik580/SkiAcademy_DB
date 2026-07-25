@@ -40,9 +40,7 @@ const baseCourse = (overrides: Partial<Course> = {}): Course => ({
   ...overrides,
 });
 
-const overlapCheck = (
-  overrides: Partial<Parameters<typeof hasScheduleOverlap>[0]> = {}
-) =>
+const overlapCheck = (overrides: Partial<Parameters<typeof hasScheduleOverlap>[0]> = {}) =>
   hasScheduleOverlap({
     bookings: [],
     courses: [],

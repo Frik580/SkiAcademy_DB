@@ -18,19 +18,23 @@ export const useAuth = () => {
       if (user) {
         setFirebaseUser(user);
         const userRef = doc(db, 'users', user.uid);
-        
-        profileUnsubscribeRef.current = onSnapshot(userRef, (userSnap) => {
-          if (userSnap.exists()) {
-            const data = userSnap.data() as UserProfile;
-            setUserProfile(data);
-          } else {
-            setUserProfile(null);
+
+        profileUnsubscribeRef.current = onSnapshot(
+          userRef,
+          (userSnap) => {
+            if (userSnap.exists()) {
+              const data = userSnap.data() as UserProfile;
+              setUserProfile(data);
+            } else {
+              setUserProfile(null);
+            }
+            setAuthLoading(false);
+          },
+          (error) => {
+            logger.error('Auth profile snapshot error:', error);
+            setAuthLoading(false);
           }
-          setAuthLoading(false);
-        }, (error) => {
-          logger.error("Auth profile snapshot error:", error);
-          setAuthLoading(false);
-        });
+        );
       } else {
         setUserProfile(null);
         setFirebaseUser(null);

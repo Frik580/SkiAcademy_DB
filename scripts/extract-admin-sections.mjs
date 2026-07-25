@@ -5,12 +5,24 @@ const lines = fs.readFileSync(adminPath, 'utf8').split(/\r?\n/);
 
 function applyTReplacements(content) {
   const pairs = [
-    [/language === 'en' \? 'Active Bookings Monitor' : 'Монитор активных бронирований'/g, "t('activeBookingsMonitor')"],
-    [/language === 'en' \? 'Monitor and control individual skier bookings' : 'Контролируйте и управляйте бронированиями индивидуальных лыжников'/g, "t('bookingsLogsSub')"],
-    [/placeholder=\{language === 'en' \? 'Search bookings\.\.\.' : 'Поиск бронирований\.\.\.'\}/g, "placeholder={t('searchBookingsPlaceholder')}"],
+    [
+      /language === 'en' \? 'Active Bookings Monitor' : 'Монитор активных бронирований'/g,
+      "t('activeBookingsMonitor')",
+    ],
+    [
+      /language === 'en' \? 'Monitor and control individual skier bookings' : 'Контролируйте и управляйте бронированиями индивидуальных лыжников'/g,
+      "t('bookingsLogsSub')",
+    ],
+    [
+      /placeholder=\{language === 'en' \? 'Search bookings\.\.\.' : 'Поиск бронирований\.\.\.'\}/g,
+      "placeholder={t('searchBookingsPlaceholder')}",
+    ],
     [/language === 'en' \? 'All Statuses' : 'Все статусы'/g, "t('allStatuses')"],
     [/language === 'en' \? 'Pending' : 'Ожидающие'/g, "t('pendingStatus')"],
-    [/language === 'en' \? 'Pending Cancellation' : 'Ожидающие отмены'/g, "t('pendingCancellationStatus')"],
+    [
+      /language === 'en' \? 'Pending Cancellation' : 'Ожидающие отмены'/g,
+      "t('pendingCancellationStatus')",
+    ],
     [/language === 'en' \? 'Confirmed' : 'Подтвержденные'/g, "t('confirmedStatus')"],
     [/language === 'en' \? 'Completed' : 'Завершенные'/g, "t('completedStatus')"],
     [/language === 'en' \? 'Cancelled' : 'Отмененные'/g, "t('cancelledStatus')"],
@@ -28,8 +40,14 @@ function applyTReplacements(content) {
     [/language === 'en' \? 'Fee' : 'Стоимость'/g, "t('feeColumn')"],
     [/language === 'en' \? 'Status' : 'Статус'/g, "t('statusLabel')"],
     [/language === 'en' \? 'Approval Actions' : 'Одобрение'/g, "t('approvalActions')"],
-    [/language === 'en' \? 'No scheduled sessions recorded\.' : 'Запланированных уроков пока нет\.'/g, "t('noScheduledSessions')"],
-    [/language === 'en' \? 'No bookings match your filter criteria\.' : 'Занятий по выбранным фильтрам не найдено\.'/g, "t('noBookingsMatchFilter')"],
+    [
+      /language === 'en' \? 'No scheduled sessions recorded\.' : 'Запланированных уроков пока нет\.'/g,
+      "t('noScheduledSessions')",
+    ],
+    [
+      /language === 'en' \? 'No bookings match your filter criteria\.' : 'Занятий по выбранным фильтрам не найдено\.'/g,
+      "t('noBookingsMatchFilter')",
+    ],
     [/language === 'en' \? 'Reason: ' : 'Причина: '/g, "t('reasonPrefix') "],
     [/language === 'en' \? 'Approve Cancellation' : 'Одобрить отмену'/g, "t('approveCancel')"],
     [/language === 'en' \? 'Reject Request' : 'Отклонить запрос'/g, "t('rejectRequest')"],
@@ -39,11 +57,23 @@ function applyTReplacements(content) {
     [/language === 'en' \? 'Cancel' : 'Отменить'/g, "t('cancel')"],
     [/language === 'en' \? 'Cancelled' : 'Отменено'/g, "t('cancelledLabel')"],
     [/language === 'en' \? 'Finished' : 'Завершено'/g, "t('finishedLabel')"],
-    [/language === 'en' \? 'Client Database Management' : 'Управление базой клиентов'/g, "t('clientDatabaseTitle')"],
-    [/language === 'en' \? 'View and update client profiles, adjust user wallet balances' : 'Просмотр и редактирование профилей клиентов, управление балансом кошельков'/g, "t('clientDatabaseSub')"],
+    [
+      /language === 'en' \? 'Client Database Management' : 'Управление базой клиентов'/g,
+      "t('clientDatabaseTitle')",
+    ],
+    [
+      /language === 'en' \? 'View and update client profiles, adjust user wallet balances' : 'Просмотр и редактирование профилей клиентов, управление балансом кошельков'/g,
+      "t('clientDatabaseSub')",
+    ],
     [/language === 'en' \? 'Close Form' : 'Закрыть форму'/g, "t('closeForm')"],
-    [/language === 'en' \? 'Register New Client' : 'Зарегистрировать нового клиента'/g, "t('registerNewClient')"],
-    [/placeholder=\{language === 'en' \? 'Search clients\.\.\.' : 'Поиск клиентов\.\.\.'\}/g, "placeholder={t('searchClientsPlaceholder')}"],
+    [
+      /language === 'en' \? 'Register New Client' : 'Зарегистрировать нового клиента'/g,
+      "t('registerNewClient')",
+    ],
+    [
+      /placeholder=\{language === 'en' \? 'Search clients\.\.\.' : 'Поиск клиентов\.\.\.'\}/g,
+      "placeholder={t('searchClientsPlaceholder')}",
+    ],
     [/language === 'en' \? 'Contact details' : 'Контактные данные'/g, "t('contactDetails')"],
     [/language === 'en' \? 'Wallet Balance' : 'Баланс счета'/g, "t('walletBalance')"],
     [/language === 'en' \? 'Role' : 'Роль'/g, "t('roleLabel')"],
@@ -56,24 +86,54 @@ function applyTReplacements(content) {
     [/language === 'en' \? 'Edit client' : 'Редактировать клиента'/g, "t('editClient')"],
     [/language === 'en' \? 'Delete client' : 'Удалить клиента'/g, "t('deleteClient')"],
     [/language === 'en' \? 'Cannot delete self' : 'Нельзя удалить себя'/g, "t('cannotDeleteSelf')"],
-    [/language === 'en' \? 'No clients found in the database\.' : 'Клиенты в базе данных не найдены\.'/g, "t('noClientsFound')"],
+    [
+      /language === 'en' \? 'No clients found in the database\.' : 'Клиенты в базе данных не найдены\.'/g,
+      "t('noClientsFound')",
+    ],
     [/language === 'en' \? 'Edit Profile' : 'Редактирование профиля'/g, "t('editProfile')"],
     [/language === 'en' \? 'New Client' : 'Регистрация клиента'/g, "t('newClientRegistration')"],
     [/language === 'en' \? 'Display Name' : 'Имя пользователя'/g, "t('fullName')"],
     [/language === 'en' \? 'Email Address' : 'Электронная почта'/g, "t('emailAddress')"],
-    [/language === 'en' \? 'Phone Number \(Optional\)' : 'Номер телефона \(Необязательно\)'/g, "t('phoneOptional')"],
-    [/language === 'en' \? 'Starting Balance \(USD\)' : 'Стартовый баланс \(USD\)'/g, "t('startingBalance')"],
+    [
+      /language === 'en' \? 'Phone Number \(Optional\)' : 'Номер телефона \(Необязательно\)'/g,
+      "t('phoneOptional')",
+    ],
+    [
+      /language === 'en' \? 'Starting Balance \(USD\)' : 'Стартовый баланс \(USD\)'/g,
+      "t('startingBalance')",
+    ],
     [/language === 'en' \? 'Access Role' : 'Роль доступа'/g, "t('accessRole')"],
-    [/language === 'en' \? 'User \(Regular Client\)' : 'Пользователь \(Обычный клиент\)'/g, "t('userRegularClient')"],
-    [/language === 'en' \? 'Admin \(Resort Manager\)' : 'Администратор \(Менеджер курорта\)'/g, "t('adminResortManager')"],
-    [/language === 'en' \? 'Instructor Status \(Grants panel access\)' : 'Статус инструктора \(Доступ к панели\)'/g, "t('instructorStatusGrant')"],
-    [/language === 'en' \? 'Cabinet Access Enabled' : 'Доступ к кабинету включен'/g, "t('cabinetAccessEnabled')"],
+    [
+      /language === 'en' \? 'User \(Regular Client\)' : 'Пользователь \(Обычный клиент\)'/g,
+      "t('userRegularClient')",
+    ],
+    [
+      /language === 'en' \? 'Admin \(Resort Manager\)' : 'Администратор \(Менеджер курорта\)'/g,
+      "t('adminResortManager')",
+    ],
+    [
+      /language === 'en' \? 'Instructor Status \(Grants panel access\)' : 'Статус инструктора \(Доступ к панели\)'/g,
+      "t('instructorStatusGrant')",
+    ],
+    [
+      /language === 'en' \? 'Cabinet Access Enabled' : 'Доступ к кабинету включен'/g,
+      "t('cabinetAccessEnabled')",
+    ],
     [/language === 'en' \? 'Update Profile' : 'Обновить профиль'/g, "t('updateProfile')"],
     [/language === 'en' \? 'Create Client' : 'Создать клиента'/g, "t('createClient')"],
-    [/language === 'en' \? 'Please enter name and email\.' : 'Пожалуйста, укажите имя и email\.'/g, "t('enterNameAndEmail')"],
-    [/language === 'en' \? 'Failed to save client profile\.' : 'Не удалось сохранить профиль клиента\.'/g, "t('saveClientFailed')"],
+    [
+      /language === 'en' \? 'Please enter name and email\.' : 'Пожалуйста, укажите имя и email\.'/g,
+      "t('enterNameAndEmail')",
+    ],
+    [
+      /language === 'en' \? 'Failed to save client profile\.' : 'Не удалось сохранить профиль клиента\.'/g,
+      "t('saveClientFailed')",
+    ],
     [/language === 'en' \? 'Deletion Failed' : 'Ошибка удаления'/g, "t('deletionFailed')"],
-    [/language === 'en' \? 'Failed to remove client\.' : 'Не удалось удалить клиента\.'/g, "t('deleteClientFailed')"],
+    [
+      /language === 'en' \? 'Failed to remove client\.' : 'Не удалось удалить клиента\.'/g,
+      "t('deleteClientFailed')",
+    ],
     [/language === 'en' \? 'Administrator' : 'Администратор'/g, "t('administratorLabel')"],
     [/language === 'en' \? ' English' : 'Русский'/g, "t('englishLang')"],
   ];
@@ -100,9 +160,18 @@ function applyTReplacements(content) {
     "const confirmMsg = `${t('deleteClientConfirmPrefix')} ${u.displayName} (${u.email})?`;"
   );
   out = out.replace(/'Unnamed client'/g, "t('unnamedClient')");
-  out = out.replace(/title=\{language === 'en' \? 'Previous Page' : 'Предыдущая страница'\}/g, "title={t('previousPage')}");
-  out = out.replace(/title=\{language === 'en' \? 'Next Page' : 'Следующая страница'\}/g, "title={t('nextPage')}");
-  out = out.replace(/client\?\.displayName \|\| \(language === 'en' \? 'Client' : 'Клиент'\)/g, "client?.displayName || t('skierLabel')");
+  out = out.replace(
+    /title=\{language === 'en' \? 'Previous Page' : 'Предыдущая страница'\}/g,
+    "title={t('previousPage')}"
+  );
+  out = out.replace(
+    /title=\{language === 'en' \? 'Next Page' : 'Следующая страница'\}/g,
+    "title={t('nextPage')}"
+  );
+  out = out.replace(
+    /client\?\.displayName \|\| \(language === 'en' \? 'Client' : 'Клиент'\)/g,
+    "client?.displayName || t('skierLabel')"
+  );
   out = out.replace(/onRequestConfirm/g, 'onRequestConfirm');
   out = out.replace(/setConfirmModal\(\{/g, 'onRequestConfirm(');
   out = out.replace(/message: (t\('[^']+'\)|`[^`]+`|t\([^)]+\)),\s*\n\s*onConfirm:/g, '$1, ');
@@ -151,16 +220,22 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
 `;
 
 const bookingsLogic = lines.slice(1208, 1255).join('\n');
-const bookingsJsx = lines.slice(1560, 1842).join('\n')
+const bookingsJsx = lines
+  .slice(1560, 1842)
+  .join('\n')
   .replace(/setConfirmModal\(\{\s*\n\s*message: /g, 'onRequestConfirm(')
   .replace(/,\s*\n\s*onConfirm: async \(\) => \{/g, ', async () => {')
   .replace(/\}\s*\n\s*\}\);/g, '});\n                                });')
   .replace(/\}\);\s*\n\s*\}\);/g, '});');
 
-let bookingsContent = bookingsHeader + bookingsLogic + '\n  return (\n' + bookingsJsx + '\n  );\n};\n';
+let bookingsContent =
+  bookingsHeader + bookingsLogic + '\n  return (\n' + bookingsJsx + '\n  );\n};\n';
 bookingsContent = applyTReplacements(bookingsContent);
 // Fix broken onRequestConfirm from replace
-bookingsContent = bookingsContent.replace(/onRequestConfirm\(\s*\n\s*(t\('[^']+'\)|`[^`]+`),\s*\n\s*async \(\) => \{/g, 'onRequestConfirm($1, async () => {');
+bookingsContent = bookingsContent.replace(
+  /onRequestConfirm\(\s*\n\s*(t\('[^']+'\)|`[^`]+`),\s*\n\s*async \(\) => \{/g,
+  'onRequestConfirm($1, async () => {'
+);
 bookingsContent = bookingsContent.replace(/\}\);\s*\n\s*\}\);/g, '});');
 
 fs.writeFileSync('src/components/admin/BookingsLog.tsx', bookingsContent);
@@ -209,15 +284,31 @@ clientsHandlers = clientsHandlers.replace(/message: /g, '');
 clientsHandlers = clientsHandlers.replace(/onConfirm: async \(\) => \{/g, 'async () => {');
 clientsHandlers = clientsHandlers.replace(/\}\s*\n\s*\}\);/g, '});');
 
-const isSuperAdminLine = "  const isSuperAdmin = currentUserEmail.toLowerCase() === 'gerasimchuk.arseniy@gmail.com';\n";
+const isSuperAdminLine =
+  "  const isSuperAdmin = currentUserEmail.toLowerCase() === 'gerasimchuk.arseniy@gmail.com';\n";
 const clientsJsx = lines.slice(1843, 2155).join('\n');
 
-let clientsContent = clientsHeader + clientsState + '\n' + isSuperAdminLine + '\n' + clientsHandlers + '\n  return (\n' + clientsJsx + '\n  );\n};\n';
+let clientsContent =
+  clientsHeader +
+  clientsState +
+  '\n' +
+  isSuperAdminLine +
+  '\n' +
+  clientsHandlers +
+  '\n  return (\n' +
+  clientsJsx +
+  '\n  );\n};\n';
 clientsContent = applyTReplacements(clientsContent);
 clientsContent = clientsContent.replace(/onRequestConfirm\(\s*\n\s*`/g, 'onRequestConfirm(`');
 clientsContent = clientsContent.replace(/onRequestConfirm\(\s*\n\s*t\('/g, "onRequestConfirm(t('");
-clientsContent = clientsContent.replace(/languages: \[language === 'en' \? 'English' : 'Русский'\]/g, "languages: [language === 'en' ? 'English' : 'Russian']");
-clientsContent = clientsContent.replace(/bio: language === 'en'[\s\S]*?: `Профессиональный инструктор по лыжам и сноуборду, сертифицированный тренер\.`,/g, "bio: t('defaultInstructorBio'),");
+clientsContent = clientsContent.replace(
+  /languages: \[language === 'en' \? 'English' : 'Русский'\]/g,
+  "languages: [language === 'en' ? 'English' : 'Russian']"
+);
+clientsContent = clientsContent.replace(
+  /bio: language === 'en'[\s\S]*?: `Профессиональный инструктор по лыжам и сноуборду, сертифицированный тренер\.`,/g,
+  "bio: t('defaultInstructorBio'),"
+);
 
 fs.writeFileSync('src/components/admin/ClientsManager.tsx', clientsContent);
 
@@ -249,7 +340,13 @@ const clientsComponent = `      <ClientsManager
         onRequestConfirm={(message, onConfirm) => setConfirmModal({ message, onConfirm })}
       />`;
 
-let newAdmin = [...partBeforeBookings, ...partBetween, bookingsComponent, clientsComponent, ...partAfterClients].join('\n');
+let newAdmin = [
+  ...partBeforeBookings,
+  ...partBetween,
+  bookingsComponent,
+  clientsComponent,
+  ...partAfterClients,
+].join('\n');
 
 newAdmin = newAdmin.replace(
   "import { ScheduleCalendar } from './admin/ScheduleCalendar';",
@@ -265,10 +362,7 @@ newAdmin = newAdmin.replace(
   /language === 'en' \? 'Confirm Action' : 'Подтверждение'/g,
   "t('confirmAction')"
 );
-newAdmin = newAdmin.replace(
-  /language === 'en' \? 'Confirm' : 'Подтвердить'/g,
-  "t('confirm')"
-);
+newAdmin = newAdmin.replace(/language === 'en' \? 'Confirm' : 'Подтвердить'/g, "t('confirm')");
 
 fs.writeFileSync(adminPath, newAdmin);
 console.log('Extracted BookingsLog and ClientsManager, patched AdminPanel');

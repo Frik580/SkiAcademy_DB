@@ -69,26 +69,51 @@ const stateAndLogic = lines.slice(291, 453).join('\n');
 let handlers = lines.slice(583, 914).join('\n');
 const jsx = lines.slice(1369, 2368).join('\n');
 
-handlers = handlers.replace(/setConfirmModal\(\{ message: confirmMsg, onConfirm:/g, 'onRequestConfirm(confirmMsg,');
+handlers = handlers.replace(
+  /setConfirmModal\(\{ message: confirmMsg, onConfirm:/g,
+  'onRequestConfirm(confirmMsg,'
+);
 
-let body = helpers + '\n\n' + stateAndLogic + '\n\n' + handlers + '\n\n  return (\n' + jsx + '\n  );\n};\n';
+let body =
+  helpers + '\n\n' + stateAndLogic + '\n\n' + handlers + '\n\n  return (\n' + jsx + '\n  );\n};\n';
 
-const coursesManager = header + footer + body.replace(/^/gm, (m, offset, str) => {
-  // Don't double-indent header parts - footer already has component start
-  return '';
-}).split('\n').map((line, i) => {
-  if (i < header.split('\n').length + footer.split('\n').length - 1) return line;
-  if (line === '') return line;
-  if (line.startsWith('  ') || line.startsWith('function ') || line.startsWith('interface ')) return line.startsWith('  ') ? line : '  ' + line;
-  return '  ' + line;
-}).join('\n');
+const coursesManager =
+  header +
+  footer +
+  body
+    .replace(/^/gm, (m, offset, str) => {
+      // Don't double-indent header parts - footer already has component start
+      return '';
+    })
+    .split('\n')
+    .map((line, i) => {
+      if (i < header.split('\n').length + footer.split('\n').length - 1) return line;
+      if (line === '') return line;
+      if (line.startsWith('  ') || line.startsWith('function ') || line.startsWith('interface '))
+        return line.startsWith('  ') ? line : '  ' + line;
+      return '  ' + line;
+    })
+    .join('\n');
 
 // Fix botched indent pass - rebuild cleanly
 const componentBody = helpers + '\n\n' + stateAndLogic + '\n\n' + handlers;
-const indentedBody = componentBody.split('\n').map((l) => (l ? '  ' + l : l)).join('\n');
-const indentedJsx = jsx.split('\n').map((l) => (l ? '    ' + l : l)).join('\n');
+const indentedBody = componentBody
+  .split('\n')
+  .map((l) => (l ? '  ' + l : l))
+  .join('\n');
+const indentedJsx = jsx
+  .split('\n')
+  .map((l) => (l ? '    ' + l : l))
+  .join('\n');
 
-const finalContent = header + footer.trimEnd() + '\n' + indentedBody + '\n\n  return (\n' + indentedJsx + '\n  );\n};\n';
+const finalContent =
+  header +
+  footer.trimEnd() +
+  '\n' +
+  indentedBody +
+  '\n\n  return (\n' +
+  indentedJsx +
+  '\n  );\n};\n';
 
 fs.writeFileSync('src/components/admin/CoursesManager.tsx', finalContent);
 
@@ -119,13 +144,18 @@ const coursesComponent = `      <CoursesManager
       />`;
 
 const clientsEnd = adminLines.findIndex((l) => l.trim().startsWith('<ClientsManager'));
-const insertAt = adminLines.findIndex((l, i) => i > clientsEnd && l.includes('ClientsManager') && l.includes('/>'));
-const insertLine = insertAt >= 0 ? insertAt + 1 : adminLines.findIndex((l) => l.includes('Administrator Management'));
+const insertAt = adminLines.findIndex(
+  (l, i) => i > clientsEnd && l.includes('ClientsManager') && l.includes('/>')
+);
+const insertLine =
+  insertAt >= 0
+    ? insertAt + 1
+    : adminLines.findIndex((l) => l.includes('Administrator Management'));
 
 adminLines.splice(insertLine, 0, '', coursesComponent, '');
 
-if (!adminLines.some((l) => l.includes("import { CoursesManager }"))) {
-  const importIdx = adminLines.findIndex((l) => l.includes("import { ClientsManager }"));
+if (!adminLines.some((l) => l.includes('import { CoursesManager }'))) {
+  const importIdx = adminLines.findIndex((l) => l.includes('import { ClientsManager }'));
   adminLines.splice(importIdx + 1, 0, "import { CoursesManager } from './admin/CoursesManager';");
 }
 

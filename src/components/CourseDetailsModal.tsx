@@ -1,9 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { 
-  X, Calendar, Clock, Users, Award, Play, Pause, 
-  Volume2, VolumeX, ChevronDown, Star, HelpCircle, 
-  Film, Image as ImageIcon, BookOpen, ShieldCheck, Heart, Layers
+import {
+  X,
+  Calendar,
+  Clock,
+  Users,
+  Award,
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  ChevronDown,
+  Star,
+  HelpCircle,
+  Film,
+  Image as ImageIcon,
+  BookOpen,
+  ShieldCheck,
+  Heart,
+  Layers,
 } from 'lucide-react';
 import { Course, Instructor, UserProfile } from '../types';
 import { useLanguage, translateInstructorName, splitCourseDates } from '../lib/LanguageContext';
@@ -21,22 +36,28 @@ interface CourseDetailsModalProps {
 }
 
 // Helper to generate custom rich content dynamically based on course attributes
-const getCourseEnrichedData = (courseId: string, level: string, title: string, language: string) => {
-  const isSnowboard = title.toLowerCase().includes('snowboard') || 
-                      title.toLowerCase().includes('сноуборд') || 
-                      title.toLowerCase().includes('board') || 
-                      courseId.toLowerCase().includes('snowboard');
+const getCourseEnrichedData = (
+  courseId: string,
+  level: string,
+  title: string,
+  language: string
+) => {
+  const isSnowboard =
+    title.toLowerCase().includes('snowboard') ||
+    title.toLowerCase().includes('сноуборд') ||
+    title.toLowerCase().includes('board') ||
+    courseId.toLowerCase().includes('snowboard');
 
-  const photos = isSnowboard 
+  const photos = isSnowboard
     ? [
         'https://images.unsplash.com/photo-1522056690494-7b83f95415b9?auto=format&fit=crop&q=80&w=600',
         'https://images.unsplash.com/photo-1502126324834-38f8e02d7160?auto=format&fit=crop&q=80&w=600',
-        'https://images.unsplash.com/photo-1482862549707-f63cb32c5fd9?auto=format&fit=crop&q=80&w=600'
+        'https://images.unsplash.com/photo-1482862549707-f63cb32c5fd9?auto=format&fit=crop&q=80&w=600',
       ]
     : [
         'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=600',
         'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=600',
-        'https://images.unsplash.com/photo-1517153295259-74eb0b416cee?auto=format&fit=crop&q=80&w=600'
+        'https://images.unsplash.com/photo-1517153295259-74eb0b416cee?auto=format&fit=crop&q=80&w=600',
       ];
 
   const videoUrl = isSnowboard
@@ -50,90 +71,187 @@ const getCourseEnrichedData = (courseId: string, level: string, title: string, l
     benefitsEn = [
       'Master the basic safety rules on active ski slopes.',
       'Gain full control of your speed with confident snowplow turns.',
-      'Learn how to use t-bars and chairlifts without stress.'
+      'Learn how to use t-bars and chairlifts without stress.',
     ];
     benefitsRu = [
       'Освоите базовые правила безопасности на активных склонах.',
       'Получите полный контроль над скоростью благодаря уверенным поворотам.',
-      'Научитесь пользоваться бугельными и кресельными подъемниками без стресса.'
+      'Научитесь пользоваться бугельными и кресельными подъемниками без стресса.',
     ];
   } else if (level === 'intermediate') {
     benefitsEn = [
       'Understand body positioning and dynamic weight distribution.',
       'Perform high-speed carving turns with clean edge transitions.',
-      'Handle icy patches and moderate steeeps with solid control.'
+      'Handle icy patches and moderate steeeps with solid control.',
     ];
     benefitsRu = [
       'Поймете правильное положение тела и динамическое распределение веса.',
       'Освоите карвинговые повороты на скорости с чистым ведением дуги.',
-      'Сможете уверенно проходить обледенелые участки и склоны средней крутизны.'
+      'Сможете уверенно проходить обледенелые участки и склоны средней крутизны.',
     ];
   } else if (level === 'advanced') {
     benefitsEn = [
       'Tackle advanced mogul fields and steep off-piste terrain.',
       'Learn basic freestyle movements, small jumps, and box slides.',
-      'Optimize edge grip for high-velocity racing and sharp slalom.'
+      'Optimize edge grip for high-velocity racing and sharp slalom.',
     ];
     benefitsRu = [
       'Научитесь проходить бугры (могул) и крутые неподготовленные склоны.',
       'Освоите базовые элементы фристайла, небольшие прыжки и скольжение по боксам.',
-      'Оптимизируете сцепление кантов для скоростных спусков и слалома.'
+      'Оптимизируете сцепление кантов для скоростных спусков и слалома.',
     ];
   } else {
     benefitsEn = [
       'Conquer deep powder fields and technical backcountry couloirs.',
       'Master safety protocols, avalanche awareness, and terrain assessment.',
-      'Perfect your signature style for high-altitude competitive speeds.'
+      'Perfect your signature style for high-altitude competitive speeds.',
     ];
     benefitsRu = [
       'Покорите глубокий пухляк и техничные кулуары в бэккантри.',
       'Освоите протоколы лавинной безопасности и чтение сложного рельефа.',
-      'Отточите фирменный стиль для спусков на предельных скоростях.'
+      'Отточите фирменный стиль для спусков на предельных скоростях.',
     ];
   }
 
   let programEn = [
-    { day: 'Day 1', title: 'Stance & Balance Foundation', desc: 'Equipment inspection, basic mechanics of edge engagement, and body alignment adjustments.' },
-    { day: 'Day 2', title: 'Controlled Rotation Progression', desc: 'Initiating fluent turns, active compression/decompression, and speed control techniques.' },
-    { day: 'Day 3', title: 'Dynamic Alpine Integration', desc: 'Applying techniques on steeper slopes, individualized video feedback, and style optimization.' }
+    {
+      day: 'Day 1',
+      title: 'Stance & Balance Foundation',
+      desc: 'Equipment inspection, basic mechanics of edge engagement, and body alignment adjustments.',
+    },
+    {
+      day: 'Day 2',
+      title: 'Controlled Rotation Progression',
+      desc: 'Initiating fluent turns, active compression/decompression, and speed control techniques.',
+    },
+    {
+      day: 'Day 3',
+      title: 'Dynamic Alpine Integration',
+      desc: 'Applying techniques on steeper slopes, individualized video feedback, and style optimization.',
+    },
   ];
   let programRu = [
-    { day: 'День 1', title: 'Основа стойки и баланса', desc: 'Проверка снаряжения, базовая механика работы кантов и точная настройка положения тела.' },
-    { day: 'День 2', title: 'Прогрессия контролируемого поворота', desc: 'Инициирование плавных дуг, активная работа ног (разгрузка-закантовка) и контроль скорости.' },
-    { day: 'День 3', title: 'Динамическая интеграция на склоне', desc: 'Применение техники на крутых участках, индивидуальный видеоанализ вашей техники и шлифовка стиля.' }
+    {
+      day: 'День 1',
+      title: 'Основа стойки и баланса',
+      desc: 'Проверка снаряжения, базовая механика работы кантов и точная настройка положения тела.',
+    },
+    {
+      day: 'День 2',
+      title: 'Прогрессия контролируемого поворота',
+      desc: 'Инициирование плавных дуг, активная работа ног (разгрузка-закантовка) и контроль скорости.',
+    },
+    {
+      day: 'День 3',
+      title: 'Динамическая интеграция на склоне',
+      desc: 'Применение техники на крутых участках, индивидуальный видеоанализ вашей техники и шлифовка стиля.',
+    },
   ];
 
   if (level === 'expert' || level === 'advanced') {
     programEn = [
-      { day: 'Day 1', title: 'Tactical Terrain Assessment', desc: 'Advanced biomechanics, reading off-piste snow structure, and dynamic edge loading.' },
-      { day: 'Day 2', title: 'Off-Piste & Steep Technical Maneuvers', desc: 'Mogul absorption, carving under extreme G-force, and drop-in tactics.' },
-      { day: 'Day 3', title: 'Backcountry Expedition & Style Polish', desc: 'Finding natural features, freestyle jump integration, and full video analysis of speed runs.' }
+      {
+        day: 'Day 1',
+        title: 'Tactical Terrain Assessment',
+        desc: 'Advanced biomechanics, reading off-piste snow structure, and dynamic edge loading.',
+      },
+      {
+        day: 'Day 2',
+        title: 'Off-Piste & Steep Technical Maneuvers',
+        desc: 'Mogul absorption, carving under extreme G-force, and drop-in tactics.',
+      },
+      {
+        day: 'Day 3',
+        title: 'Backcountry Expedition & Style Polish',
+        desc: 'Finding natural features, freestyle jump integration, and full video analysis of speed runs.',
+      },
     ];
     programRu = [
-      { day: 'День 1', title: 'Тактический анализ рельефа', desc: 'Продвинутая биомеханика, чтение структуры снега вне трасс и динамическая закантовка.' },
-      { day: 'День 2', title: 'Внетрассовые и крутые технические маневры', desc: 'Амортизация бугров, карвинг в условиях сильных перегрузок и техника входов в кулуары.' },
-      { day: 'День 3', title: 'Бэккантри-экспедиция и шлифовка стиля', desc: 'Поиск естественного рельефа, интеграция прыжков с надувов и детальный разбор заездов на видео.' }
+      {
+        day: 'День 1',
+        title: 'Тактический анализ рельефа',
+        desc: 'Продвинутая биомеханика, чтение структуры снега вне трасс и динамическая закантовка.',
+      },
+      {
+        day: 'День 2',
+        title: 'Внетрассовые и крутые технические маневры',
+        desc: 'Амортизация бугров, карвинг в условиях сильных перегрузок и техника входов в кулуары.',
+      },
+      {
+        day: 'День 3',
+        title: 'Бэккантри-экспедиция и шлифовка стиля',
+        desc: 'Поиск естественного рельефа, интеграция прыжков с надувов и детальный разбор заездов на видео.',
+      },
     ];
   }
 
-  let reviewsEn = [
-    { name: 'Alex Thompson', rating: 5, date: 'Feb 15, 2026', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150', comment: 'Absolutely transformed my confidence on steep slopes. The level of detail from instructors is amazing.' },
-    { name: 'Emma Watson', rating: 5, date: 'Jan 10, 2026', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150', comment: 'Incredibly well structured. Worth every penny. Felt very safe yet challenged!' }
+  const reviewsEn = [
+    {
+      name: 'Alex Thompson',
+      rating: 5,
+      date: 'Feb 15, 2026',
+      avatar:
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150',
+      comment:
+        'Absolutely transformed my confidence on steep slopes. The level of detail from instructors is amazing.',
+    },
+    {
+      name: 'Emma Watson',
+      rating: 5,
+      date: 'Jan 10, 2026',
+      avatar:
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150',
+      comment: 'Incredibly well structured. Worth every penny. Felt very safe yet challenged!',
+    },
   ];
-  let reviewsRu = [
-    { name: 'Алексей Томпсон', rating: 5, date: '15 Фев 2026', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150', comment: 'Абсолютно изменило мою уверенность на крутых склонах. Уровень детализации от инструкторов поражает.' },
-    { name: 'Эмма Ватсон', rating: 5, date: '10 Янв 2026', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150', comment: 'Невероятно хорошо спланировано. Стоит каждой копейки. Чувствовала себя в безопасности, но при этом был классный вызов!' }
+  const reviewsRu = [
+    {
+      name: 'Алексей Томпсон',
+      rating: 5,
+      date: '15 Фев 2026',
+      avatar:
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150',
+      comment:
+        'Абсолютно изменило мою уверенность на крутых склонах. Уровень детализации от инструкторов поражает.',
+    },
+    {
+      name: 'Эмма Ватсон',
+      rating: 5,
+      date: '10 Янв 2026',
+      avatar:
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150',
+      comment:
+        'Невероятно хорошо спланировано. Стоит каждой копейки. Чувствовала себя в безопасности, но при этом был классный вызов!',
+    },
   ];
 
   const faqEn = [
-    { q: 'Is professional gear rental included in the price?', a: 'Rental equipment is not included in the course fee. However, our students get a 15% discount at the resort rental shop. We recommend arriving 45 minutes early if you need rental gear.' },
-    { q: 'What happens in case of extreme weather or lift closure?', a: 'If resort lifts are completely closed due to weather conditions, we will reschedule the sessions or offer a full refund for the affected days.' },
-    { q: 'Can I cancel or change dates?', a: 'Yes, you can cancel or reschedule free of charge up to 48 hours before the course starts. Within 48 hours, a 50% cancellation fee applies.' }
+    {
+      q: 'Is professional gear rental included in the price?',
+      a: 'Rental equipment is not included in the course fee. However, our students get a 15% discount at the resort rental shop. We recommend arriving 45 minutes early if you need rental gear.',
+    },
+    {
+      q: 'What happens in case of extreme weather or lift closure?',
+      a: 'If resort lifts are completely closed due to weather conditions, we will reschedule the sessions or offer a full refund for the affected days.',
+    },
+    {
+      q: 'Can I cancel or change dates?',
+      a: 'Yes, you can cancel or reschedule free of charge up to 48 hours before the course starts. Within 48 hours, a 50% cancellation fee applies.',
+    },
   ];
   const faqRu = [
-    { q: 'Входит ли аренда профессионального снаряжения в стоимость?', a: 'Аренда снаряжения не входит в стоимость курса. Однако наши ученики получают скидку 15% в партнерском прокате курорта. Мы рекомендуем приезжать за 45 минут до начала, если вам нужен прокат.' },
-    { q: 'Что происходит в случае экстремальной погоды или закрытия подъемников?', a: 'Если подъемники курорта полностью закрыты из-за погодных условий, мы перенесем занятие на другое время или вернем полную стоимость за отмененные дни.' },
-    { q: 'Могу ли я отменить бронирование или изменить даты?', a: 'Да, вы можете бесплатно отменить или изменить даты курса за 48 часов до его начала. При отмене менее чем за 48 часов удерживается сбор в размере 50%.' }
+    {
+      q: 'Входит ли аренда профессионального снаряжения в стоимость?',
+      a: 'Аренда снаряжения не входит в стоимость курса. Однако наши ученики получают скидку 15% в партнерском прокате курорта. Мы рекомендуем приезжать за 45 минут до начала, если вам нужен прокат.',
+    },
+    {
+      q: 'Что происходит в случае экстремальной погоды или закрытия подъемников?',
+      a: 'Если подъемники курорта полностью закрыты из-за погодных условий, мы перенесем занятие на другое время или вернем полную стоимость за отмененные дни.',
+    },
+    {
+      q: 'Могу ли я отменить бронирование или изменить даты?',
+      a: 'Да, вы можете бесплатно отменить или изменить даты курса за 48 часов до его начала. При отмене менее чем за 48 часов удерживается сбор в размере 50%.',
+    },
   ];
 
   return {
@@ -142,7 +260,7 @@ const getCourseEnrichedData = (courseId: string, level: string, title: string, l
     benefits: language === 'ru' ? benefitsRu : benefitsEn,
     program: language === 'ru' ? programRu : programEn,
     reviews: language === 'ru' ? reviewsRu : reviewsEn,
-    faq: language === 'ru' ? faqRu : faqEn
+    faq: language === 'ru' ? faqRu : faqEn,
   };
 };
 
@@ -185,8 +303,10 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
     language
   );
 
-  const benefits = (language === 'ru' ? rawCourse.benefitsRu : rawCourse.benefits) || defaultEnriched.benefits;
-  const program = (language === 'ru' ? rawCourse.programRu : rawCourse.program) || defaultEnriched.program;
+  const benefits =
+    (language === 'ru' ? rawCourse.benefitsRu : rawCourse.benefits) || defaultEnriched.benefits;
+  const program =
+    (language === 'ru' ? rawCourse.programRu : rawCourse.program) || defaultEnriched.program;
   const faq = (language === 'ru' ? rawCourse.faqRu : rawCourse.faq) || defaultEnriched.faq;
   const photos = rawCourse.galleryPhotos || defaultEnriched.photos;
   const videoUrl = rawCourse.videoUrl || defaultEnriched.videoUrl;
@@ -197,7 +317,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
     benefits,
     program,
     faq,
-    reviews: defaultEnriched.reviews
+    reviews: defaultEnriched.reviews,
   };
 
   const handlePlayPause = () => {
@@ -206,7 +326,8 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
       videoRef.current.pause();
       setIsPlaying(false);
     } else {
-      videoRef.current.play()
+      videoRef.current
+        .play()
         .then(() => setIsPlaying(true))
         .catch((e) => logger.warn('Video failed to play:', e));
     }
@@ -247,13 +368,16 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
           {/* Hero Section */}
           <div className="relative h-40 sm:h-50 shrink-0 border-b border-[var(--border)] bg-black">
             <img
-              src={course.bgImageUrl || 'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=1200'}
+              src={
+                course.bgImageUrl ||
+                'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=1200'
+              }
               referrerPolicy="no-referrer"
               alt={course.title}
               className="w-full h-full object-cover object-center sm:object-[center_-200px] grayscale opacity-75 brightness-[0.7] scale-102 transition duration-700 hover:scale-100"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/20" />
-            
+
             {/* Close button */}
             <button
               type="button"
@@ -270,12 +394,13 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
               </span>
               {course.badge && (
                 <>
-                  {/^(https?:\/\/|\/|data:image\/)/.test(course.badge) || /\.(png|jpg|jpeg|svg|gif|webp)/i.test(course.badge) ? (
-                    <img 
-                      src={course.badge} 
-                      referrerPolicy="no-referrer" 
+                  {/^(https?:\/\/|\/|data:image\/)/.test(course.badge) ||
+                  /\.(png|jpg|jpeg|svg|gif|webp)/i.test(course.badge) ? (
+                    <img
+                      src={course.badge}
+                      referrerPolicy="no-referrer"
                       alt={t('courseBadgeAlt')}
-                      className="h-7 w-auto object-contain max-w-[95px] drop-shadow-md" 
+                      className="h-7 w-auto object-contain max-w-[95px] drop-shadow-md"
                     />
                   ) : (
                     <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-white border border-white/40 bg-black/40 backdrop-blur-[2px] px-3 py-1 shadow-md">
@@ -289,12 +414,19 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
             {/* Editorial Title & Subtext inside Hero */}
             <div className="absolute bottom-0 inset-x-0 p-6 sm:p-8 flex flex-col justify-end">
               {course.levelLabel && (
-                <div className={`text-[10px] font-mono uppercase tracking-widest font-extrabold mb-1.5 flex items-center gap-1.5 drop-shadow ${
-                  course.level === 'beginner' ? 'text-emerald-400' :
-                  course.level === 'intermediate' ? 'text-amber-400' :
-                  course.level === 'advanced' ? 'text-rose-400' :
-                  course.level === 'expert' ? 'text-stone-300' : 'text-white/90'
-                }`}>
+                <div
+                  className={`text-[10px] font-mono uppercase tracking-widest font-extrabold mb-1.5 flex items-center gap-1.5 drop-shadow ${
+                    course.level === 'beginner'
+                      ? 'text-emerald-400'
+                      : course.level === 'intermediate'
+                        ? 'text-amber-400'
+                        : course.level === 'advanced'
+                          ? 'text-rose-400'
+                          : course.level === 'expert'
+                            ? 'text-stone-300'
+                            : 'text-white/90'
+                  }`}
+                >
                   {course.levelLabel}
                 </div>
               )}
@@ -307,10 +439,8 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
           {/* Modal Main Body (2-Column bento grid on desktop) */}
           <div className="overflow-y-auto flex-1 bg-[var(--bg)]">
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8 p-6 sm:p-8">
-              
               {/* Left Column (Rich Content Flow) */}
               <div className="space-y-10">
-                
                 {/* 1. Description */}
                 <section className="space-y-3">
                   <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
@@ -334,8 +464,8 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {enriched.benefits.map((benefit, idx) => (
-                      <div 
-                        key={idx} 
+                      <div
+                        key={idx}
                         className="p-4 border border-[var(--border)] bg-black/5 dark:bg-white/5 flex flex-col gap-3 group transition hover:border-[var(--ink)] duration-300"
                       >
                         <div className="w-8 h-8 rounded-none border border-[var(--border)] flex items-center justify-center font-mono text-xs text-[var(--ink-dim)] bg-transparent">
@@ -368,9 +498,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                           <span className="text-[9px] font-mono uppercase tracking-wider text-sky-500 font-bold">
                             {step.day}
                           </span>
-                          <h4 className="text-sm font-bold text-[var(--ink)]">
-                            {step.title}
-                          </h4>
+                          <h4 className="text-sm font-bold text-[var(--ink)]">{step.title}</h4>
                           <p className="text-xs text-[var(--ink-dim)] leading-relaxed">
                             {step.desc}
                           </p>
@@ -390,8 +518,8 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   </div>
                   <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     {enriched.photos.map((p, idx) => (
-                      <div 
-                        key={idx} 
+                      <div
+                        key={idx}
                         className="aspect-[4/3] border border-[var(--border)] overflow-hidden bg-black/10 relative group cursor-crosshair"
                       >
                         <img
@@ -414,7 +542,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                       {t('courseVideoTeaser')}
                     </h3>
                   </div>
-                  
+
                   {/* Interactive Video Box */}
                   <div className="relative aspect-video border border-[var(--border)] bg-black overflow-hidden group">
                     <video
@@ -434,29 +562,29 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                           {t('courseFeelAdrenaline')}
                         </span>
                         <span className="text-xs font-serif italic text-white/50 text-center max-w-xs mb-4">
-                          "{course.title}"
+                          {'"'}{course.title}{'"'}
                         </span>
                       </div>
                     )}
 
                     {/* Video Controls Panel */}
                     <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/90 via-black/60 to-transparent flex items-center justify-between gap-4 transition opacity-100 lg:opacity-0 lg:group-hover:opacity-100 duration-300 z-10">
-                      
                       {/* Play/Pause */}
                       <button
                         onClick={handlePlayPause}
                         className="p-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white transition cursor-pointer"
                         title={isPlaying ? t('pauseVideo') : t('playVideo')}
                       >
-                        {isPlaying ? <Pause className="w-3.5 h-3.5 fill-white" /> : <Play className="w-3.5 h-3.5 fill-white" />}
+                        {isPlaying ? (
+                          <Pause className="w-3.5 h-3.5 fill-white" />
+                        ) : (
+                          <Play className="w-3.5 h-3.5 fill-white" />
+                        )}
                       </button>
 
                       {/* Progress Line */}
                       <div className="flex-1 h-1 bg-white/20 relative rounded-none overflow-hidden cursor-pointer">
-                        <div 
-                          className="h-full bg-sky-400" 
-                          style={{ width: `${videoProgress}%` }}
-                        />
+                        <div className="h-full bg-sky-400" style={{ width: `${videoProgress}%` }} />
                       </div>
 
                       {/* Audio Controls */}
@@ -465,7 +593,11 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                         className="p-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white transition cursor-pointer"
                         title={isMuted ? t('unmuteVideo') : t('muteVideo')}
                       >
-                        {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                        {isMuted ? (
+                          <VolumeX className="w-3.5 h-3.5" />
+                        ) : (
+                          <Volume2 className="w-3.5 h-3.5" />
+                        )}
                       </button>
                     </div>
 
@@ -513,8 +645,8 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                                 {ins.specialty === 'both'
                                   ? t('bothSpecialties')
                                   : ins.specialty === 'ski'
-                                  ? t('courseSkiSpecialist')
-                                  : t('courseSnowboardSpecialist')}
+                                    ? t('courseSkiSpecialist')
+                                    : t('courseSnowboardSpecialist')}
                               </p>
                               <div className="flex items-center gap-2 mt-1.5">
                                 <span className="text-[9px] font-mono text-sky-500 bg-sky-500/10 dark:bg-sky-500/20 px-1.5 py-0.5 font-bold">
@@ -543,8 +675,8 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   </div>
                   <div className="space-y-4">
                     {enriched.reviews.map((rev, idx) => (
-                      <div 
-                        key={idx} 
+                      <div
+                        key={idx}
                         className="p-4 border border-[var(--border)]/70 bg-black/5 dark:bg-white/5 space-y-2.5"
                       >
                         <div className="flex items-center justify-between">
@@ -556,15 +688,13 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                               className="w-7 h-7 object-cover grayscale border border-[var(--border)]"
                             />
                             <div>
-                              <p className="text-xs font-bold text-[var(--ink)]">
-                                {rev.name}
-                              </p>
+                              <p className="text-xs font-bold text-[var(--ink)]">{rev.name}</p>
                               <p className="text-[9px] font-mono text-[var(--ink-dim)]">
                                 {rev.date}
                               </p>
                             </div>
                           </div>
-                          
+
                           {/* Rating */}
                           <div className="flex gap-0.5">
                             {[...Array(rev.rating)].map((_, i) => (
@@ -573,7 +703,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                           </div>
                         </div>
                         <p className="text-xs text-[var(--ink-dim)] italic leading-relaxed font-sans font-light">
-                          "{rev.comment}"
+                          {'"'}{rev.comment}{'"'}
                         </p>
                       </div>
                     ))}
@@ -592,8 +722,8 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                     {enriched.faq.map((item, idx) => {
                       const isExpanded = expandedFaq === idx;
                       return (
-                        <div 
-                          key={idx} 
+                        <div
+                          key={idx}
                           className="border border-[var(--border)]/80 bg-black/5 dark:bg-white/5 overflow-hidden transition-colors"
                         >
                           <button
@@ -601,13 +731,13 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                             className="w-full px-4 py-3.5 text-left flex items-center justify-between gap-4 font-bold text-xs text-[var(--ink)] transition-colors hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
                           >
                             <span>{item.q}</span>
-                            <ChevronDown 
+                            <ChevronDown
                               className={`w-4 h-4 text-[var(--ink-dim)] transition-transform duration-300 shrink-0 ${
                                 isExpanded ? 'rotate-180' : ''
-                              }`} 
+                              }`}
                             />
                           </button>
-                          
+
                           <AnimatePresence initial={false}>
                             {isExpanded && (
                               <motion.div
@@ -627,13 +757,11 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                     })}
                   </div>
                 </section>
-
               </div>
 
               {/* Right Column (Sticky Reservation/Pricing Card) */}
               <div className="relative">
                 <div className="lg:sticky lg:top-8 border border-[var(--border)] bg-black/5 dark:bg-black/40 p-6 space-y-6">
-                  
                   {/* Title & Level description */}
                   <div>
                     <span className="text-[9px] font-mono uppercase text-sky-500 tracking-widest font-bold">
@@ -674,26 +802,24 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   {/* Available Seats Progress Ratio */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-[9px] font-mono uppercase">
-                      <span className="text-[var(--ink-dim)]">
-                        {t('courseGroupSpace')}
-                      </span>
-                      <span className={`font-bold ${course.availableSeats === 0 ? 'text-rose-500' : course.availableSeats <= 3 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                        {course.availableSeats === 0 ? (
-                          t('courseSoldOutUpper')
-                        ) : (
-                          `${course.availableSeats} ${t('courseSeatsOf')} ${course.totalSeats} ${t('courseSeatsLeft')}`
-                        )}
+                      <span className="text-[var(--ink-dim)]">{t('courseGroupSpace')}</span>
+                      <span
+                        className={`font-bold ${course.availableSeats === 0 ? 'text-rose-500' : course.availableSeats <= 3 ? 'text-amber-500' : 'text-emerald-500'}`}
+                      >
+                        {course.availableSeats === 0
+                          ? t('courseSoldOutUpper')
+                          : `${course.availableSeats} ${t('courseSeatsOf')} ${course.totalSeats} ${t('courseSeatsLeft')}`}
                       </span>
                     </div>
 
                     <div className="w-full h-1.5 bg-black/10 dark:bg-white/5 border border-[var(--border)] overflow-hidden">
                       <div
                         className={`h-full transition-all duration-500 ${
-                          course.availableSeats === 0 
-                            ? 'bg-rose-500' 
-                            : course.availableSeats <= 3 
-                            ? 'bg-amber-500' 
-                            : 'bg-emerald-500'
+                          course.availableSeats === 0
+                            ? 'bg-rose-500'
+                            : course.availableSeats <= 3
+                              ? 'bg-amber-500'
+                              : 'bg-emerald-500'
                         }`}
                         style={{ width: `${Math.max(0, Math.min(100, seatsPercentage))}%` }}
                       />
@@ -722,15 +848,18 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                         onEnroll(course.id);
                         onClose();
                       }}
-                      disabled={(course.availableSeats === 0 && !isEnrolled) || userProfile?.isClientActive === false}
+                      disabled={
+                        (course.availableSeats === 0 && !isEnrolled) ||
+                        userProfile?.isClientActive === false
+                      }
                       className={`w-full py-3.5 font-mono text-[10px] uppercase tracking-widest transition rounded-none font-bold ${
                         isEnrolled
                           ? 'bg-black/5 dark:bg-black/60 border border-[var(--border)]/60 text-[var(--ink-dim)] cursor-default'
                           : userProfile?.isClientActive === false
-                          ? 'border border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10'
-                          : course.availableSeats === 0
-                          ? 'btn-secondary cursor-not-allowed opacity-60'
-                          : 'btn-primary cursor-pointer shadow-md'
+                            ? 'border border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10'
+                            : course.availableSeats === 0
+                              ? 'btn-secondary cursor-not-allowed opacity-60'
+                              : 'btn-primary cursor-pointer shadow-md'
                       }`}
                     >
                       {isEnrolled ? (
@@ -752,13 +881,10 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                       <span>{t('courseFreeCancellation')}</span>
                     </div>
                   </div>
-
                 </div>
               </div>
-
             </div>
           </div>
-
         </motion.div>
       </div>
     </AnimatePresence>

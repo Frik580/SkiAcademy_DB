@@ -78,9 +78,9 @@ describe('booking transactions', () => {
       .firestore();
     const booking = lessonBooking({ id: 'booking-too-expensive', totalPrice: 150 });
 
-    await expect(
-      createBookingWithPayment(userDb, USER_ID, booking, 150)
-    ).rejects.toBeInstanceOf(InsufficientFundsError);
+    await expect(createBookingWithPayment(userDb, USER_ID, booking, 150)).rejects.toBeInstanceOf(
+      InsufficientFundsError
+    );
 
     const adminDb = integrationTestEnv().authenticatedContext(OWNER_ID).firestore();
     const bookingDoc = await getDoc(doc(adminDb, 'bookings', booking.id));

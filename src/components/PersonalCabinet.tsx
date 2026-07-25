@@ -1,16 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AvailabilitySlot, Booking, UserProfile, Review, Course, Instructor } from '../types';
-import {
-  Sliders,
-  UserCheck,
-  Lock,
-} from 'lucide-react';
+import { Sliders, UserCheck, Lock } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
-import {
-  useLanguage,
-  parseCourseDates,
-  useTranslatedBookings,
-} from '../lib/LanguageContext';
+import { useLanguage, parseCourseDates, useTranslatedBookings } from '../lib/LanguageContext';
 import { useTheme } from './useTheme';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
 import { AVAILABILITY_SLOTS_COLLECTION } from '../lib/availabilitySlots';
@@ -28,7 +20,9 @@ import { ToggleSwitch } from './ToggleSwitch';
 import { logger } from '../lib/logger';
 
 const InstructorWorkspace = React.lazy(() =>
-  import('./InstructorWorkspace').then(({ InstructorWorkspace }) => ({ default: InstructorWorkspace }))
+  import('./InstructorWorkspace').then(({ InstructorWorkspace }) => ({
+    default: InstructorWorkspace,
+  }))
 );
 const BookingChatModal = React.lazy(() =>
   import('./BookingChatModal').then(({ BookingChatModal }) => ({ default: BookingChatModal }))
@@ -42,7 +36,9 @@ interface PersonalCabinetProps {
   onDismissReview?: (bookingId: string) => void;
   onReschedule: (id: string, newDate: string, newTime: string) => Promise<void>;
   onCancel: (id: string, reason?: string) => Promise<void>;
-  onAddReview: (newReview: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>) => Promise<void>;
+  onAddReview: (
+    newReview: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>
+  ) => Promise<void>;
   onSignOut: () => void;
   onUpdateProfile?: (updatedProfile: Partial<UserProfile>) => Promise<void>;
   courses?: Course[];
@@ -65,7 +61,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   courses = [],
   instructors = [],
   usersList = [],
-  skillConfig
+  skillConfig,
 }) => {
   const { addNotification } = useNotifications();
   const { language, t } = useLanguage();
@@ -77,7 +73,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   const [newTime, setNewTime] = useState<string>('09:00');
   const [isRescheduling, setIsRescheduling] = useState<boolean>(false);
   const [selectedChatBooking, setSelectedChatBooking] = useState<Booking | null>(null);
-  const [rescheduleInstructorBookings, setRescheduleInstructorBookings] = useState<AvailabilitySlot[]>([]);
+  const [rescheduleInstructorBookings, setRescheduleInstructorBookings] = useState<
+    AvailabilitySlot[]
+  >([]);
   const [isLoadingInstructorBookings, setIsLoadingInstructorBookings] = useState<boolean>(false);
   const [levelUpModal, setLevelUpModal] = useState<{ show: boolean; level: number } | null>(null);
   const prevLevelRef = useRef<number | undefined>(undefined);
@@ -86,7 +84,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     try {
       const saved = localStorage.getItem(`cabinet_show_progress_${userProfile?.uid}`);
       if (saved !== null) return JSON.parse(saved);
-    } catch {}
+    } catch {
+      // ignore localStorage errors
+    }
     return !userProfile?.hideProgressTracking;
   });
 
@@ -94,7 +94,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     try {
       const saved = localStorage.getItem(`cabinet_show_calendar_${userProfile?.uid}`);
       if (saved !== null) return JSON.parse(saved);
-    } catch {}
+    } catch {
+      // ignore localStorage errors
+    }
     return true;
   });
 
@@ -102,7 +104,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     setShowProgressTracking(val);
     try {
       localStorage.setItem(`cabinet_show_progress_${userProfile?.uid}`, JSON.stringify(val));
-    } catch {}
+    } catch {
+      // ignore localStorage errors
+    }
     if (onUpdateProfile) {
       onUpdateProfile({ hideProgressTracking: !val });
     }
@@ -112,7 +116,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     setShowWorkoutCalendar(val);
     try {
       localStorage.setItem(`cabinet_show_calendar_${userProfile?.uid}`, JSON.stringify(val));
-    } catch {}
+    } catch {
+      // ignore localStorage errors
+    }
   };
 
   const skillProgress = useMemo(() => {
@@ -186,7 +192,19 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     if (!currentBooking || !newDate) return [];
 
     const duration = currentBooking.durationHours;
-    const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+    const timeSlots = [
+      '08:00',
+      '09:00',
+      '10:00',
+      '11:00',
+      '12:00',
+      '13:00',
+      '14:00',
+      '15:00',
+      '16:00',
+      '17:00',
+      '18:00',
+    ];
 
     const timeToMinutes = (tStr: string): number => {
       const [h, m] = tStr.split(':').map(Number);
@@ -219,19 +237,25 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       // Check group courses overlap
       if (currentBooking.instructorId) {
         const hasCourseOverlap = (courses || []).some((course) => {
-          if (!course.instructorIds || !course.instructorIds.includes(currentBooking.instructorId)) return false;
-          
-          const { start: cStart, end: cEnd, startTime: cStartTime, endTime: cEndTime } = parseCourseDates(course.dates);
+          if (!course.instructorIds || !course.instructorIds.includes(currentBooking.instructorId))
+            return false;
+
+          const {
+            start: cStart,
+            end: cEnd,
+            startTime: cStartTime,
+            endTime: cEndTime,
+          } = parseCourseDates(course.dates);
           const startStr = toYMD(cStart);
           const endStr = toYMD(cEnd);
-          
+
           if (newDate < startStr || newDate > endStr) return false;
-          
+
           const cStartMin = timeToMinutes(cStartTime);
           const cEndMin = timeToMinutes(cEndTime);
           return start < cEndMin && end > cStartMin;
         });
-        
+
         if (hasCourseOverlap) return false;
       }
 
@@ -265,7 +289,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       if (b.status !== 'completed') return false;
       if (dismissedReviewIds.includes(b.id)) return false;
       const alreadyReviewed = reviews.some(
-        (r) => r.bookingId === b.id || (r.userId === userProfile.uid && r.instructorId === b.instructorId && r.date === b.date)
+        (r) =>
+          r.bookingId === b.id ||
+          (r.userId === userProfile.uid && r.instructorId === b.instructorId && r.date === b.date)
       );
       return !alreadyReviewed;
     });
@@ -326,7 +352,12 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           }
         });
       }
-      conflictBooking = checkOverlap(newDate, newTime, currentBooking.durationHours, activeBookings);
+      conflictBooking = checkOverlap(
+        newDate,
+        newTime,
+        currentBooking.durationHours,
+        activeBookings
+      );
 
       if (conflictBooking) {
         addNotification(
@@ -355,16 +386,22 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
         const end = start + currentBooking.durationHours * 60;
 
         for (const course of courses || []) {
-          if (!course.instructorIds || !course.instructorIds.includes(currentBooking.instructorId)) continue;
-          
-          const { start: cStart, end: cEnd, startTime: cStartTime, endTime: cEndTime } = parseCourseDates(course.dates);
+          if (!course.instructorIds || !course.instructorIds.includes(currentBooking.instructorId))
+            continue;
+
+          const {
+            start: cStart,
+            end: cEnd,
+            startTime: cStartTime,
+            endTime: cEndTime,
+          } = parseCourseDates(course.dates);
           const startStr = toYMD(cStart);
           const endStr = toYMD(cEnd);
-          
+
           if (newDate >= startStr && newDate <= endStr) {
             const cStartMin = timeToMinutes(cStartTime);
             const cEndMin = timeToMinutes(cEndTime);
-            
+
             if (start < cEndMin && end > cStartMin) {
               conflictCourse = course;
               break;
@@ -411,7 +448,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
         } catch (err) {
           addNotification('error', t('requestFailed'), t('requestFailedDesc'));
         }
-      }
+      },
     });
   };
 
@@ -430,7 +467,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
         instructorId: reviewBooking.instructorId,
         rating: reviewRating,
         comment: reviewComment.trim(),
-        bookingId: reviewBooking.id
+        bookingId: reviewBooking.id,
       });
       addNotification('success', t('reviewShared'), t('reviewSharedDesc'));
       setReviewBooking(null);
@@ -550,15 +587,23 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               skillProgress={skillProgress}
               onSignOut={onSignOut}
               onUpdateProfile={onUpdateProfile}
-              onLevelBadgeClick={() => setLevelUpModal({ show: true, level: userProfile.level || 1 })}
+              onLevelBadgeClick={() =>
+                setLevelUpModal({ show: true, level: userProfile.level || 1 })
+              }
               onInvalidFile={() => addNotification('error', t('invalidFile'), t('invalidFileDesc'))}
-              onUploadSuccess={() => addNotification('success', t('profilePhotoChanged'), t('profilePhotoChangedDesc'))}
-              onUploadError={() => addNotification('error', t('uploadFailed'), t('uploadFailedDesc'))}
+              onUploadSuccess={() =>
+                addNotification('success', t('profilePhotoChanged'), t('profilePhotoChangedDesc'))
+              }
+              onUploadError={() =>
+                addNotification('error', t('uploadFailed'), t('uploadFailedDesc'))
+              }
             />
 
             {/* Bookings Right Panel */}
-            <div id="personal-cabinet-bookings-panel" className="lg:col-span-8 space-y-5 transition-colors duration-300 bg-transparent w-full min-w-0 max-w-full overflow-hidden">
-
+            <div
+              id="personal-cabinet-bookings-panel"
+              className="lg:col-span-8 space-y-5 transition-colors duration-300 bg-transparent w-full min-w-0 max-w-full overflow-hidden"
+            >
               {/* 1. Недельное расписание */}
               {userBookings.length > 0 && (
                 <div className="border border-slate-200/70 dark:border-slate-800/70 p-4.5 bg-[var(--card-bg)] space-y-4 shadow-xs rounded-xs">
@@ -604,78 +649,77 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             </div>
           </div>
 
-      <RescheduleModal
-        isOpen={!!rescheduleId}
-        onClose={() => setRescheduleId(null)}
-        newDate={newDate}
-        setNewDate={setNewDate}
-        newTime={newTime}
-        setNewTime={setNewTime}
-        availableSlots={availableSlots}
-        isLoadingSlots={isLoadingInstructorBookings}
-        isSubmitting={isRescheduling}
-        minDate={tomorrowStr}
-        onSubmit={handleRescheduleSubmit}
-      />
-
-      <ReviewModal
-        booking={reviewBooking}
-        rating={reviewRating}
-        setRating={setReviewRating}
-        comment={reviewComment}
-        setComment={setReviewComment}
-        isSubmitting={isSubmittingReview}
-        onClose={() => setReviewBooking(null)}
-        onSubmit={handleReviewSubmit}
-      />
-
-      {confirmModal && (
-        <ConfirmActionModal
-          message={confirmModal.message}
-          showReasonInput={confirmModal.showReasonInput}
-          reason={cancelReason}
-          setReason={setCancelReason}
-          onCancel={() => {
-            setConfirmModal(null);
-            setCancelReason('');
-          }}
-          onConfirm={async (reason) => {
-            const action = confirmModal.onConfirm;
-            setConfirmModal(null);
-            setCancelReason('');
-            await action(reason);
-          }}
-        />
-      )}
-
-      {selectedChatBooking && (
-        <React.Suspense
-          fallback={
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 font-mono text-[10px] uppercase tracking-wider text-white">
-              {t('loading')}
-            </div>
-          }
-        >
-          <BookingChatModal
-            booking={selectedChatBooking}
-            currentUserProfile={userProfile}
-            onClose={() => setSelectedChatBooking(null)}
-            instructors={instructors}
-            usersList={usersList}
+          <RescheduleModal
+            isOpen={!!rescheduleId}
+            onClose={() => setRescheduleId(null)}
+            newDate={newDate}
+            setNewDate={setNewDate}
+            newTime={newTime}
+            setNewTime={setNewTime}
+            availableSlots={availableSlots}
+            isLoadingSlots={isLoadingInstructorBookings}
+            isSubmitting={isRescheduling}
+            minDate={tomorrowStr}
+            onSubmit={handleRescheduleSubmit}
           />
-        </React.Suspense>
-      )}
 
-      {levelUpModal?.show && (
-        <LevelUpModal
-          level={levelUpModal.level}
-          theme={theme}
-          onClose={() => setLevelUpModal(null)}
-        />
-      )}
+          <ReviewModal
+            booking={reviewBooking}
+            rating={reviewRating}
+            setRating={setReviewRating}
+            comment={reviewComment}
+            setComment={setReviewComment}
+            isSubmitting={isSubmittingReview}
+            onClose={() => setReviewBooking(null)}
+            onSubmit={handleReviewSubmit}
+          />
+
+          {confirmModal && (
+            <ConfirmActionModal
+              message={confirmModal.message}
+              showReasonInput={confirmModal.showReasonInput}
+              reason={cancelReason}
+              setReason={setCancelReason}
+              onCancel={() => {
+                setConfirmModal(null);
+                setCancelReason('');
+              }}
+              onConfirm={async (reason) => {
+                const action = confirmModal.onConfirm;
+                setConfirmModal(null);
+                setCancelReason('');
+                await action(reason);
+              }}
+            />
+          )}
+
+          {selectedChatBooking && (
+            <React.Suspense
+              fallback={
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 font-mono text-[10px] uppercase tracking-wider text-white">
+                  {t('loading')}
+                </div>
+              }
+            >
+              <BookingChatModal
+                booking={selectedChatBooking}
+                currentUserProfile={userProfile}
+                onClose={() => setSelectedChatBooking(null)}
+                instructors={instructors}
+                usersList={usersList}
+              />
+            </React.Suspense>
+          )}
+
+          {levelUpModal?.show && (
+            <LevelUpModal
+              level={levelUpModal.level}
+              theme={theme}
+              onClose={() => setLevelUpModal(null)}
+            />
+          )}
         </div>
       )}
     </div>
   );
 };
-

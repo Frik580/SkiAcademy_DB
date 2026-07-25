@@ -106,7 +106,11 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
                 <Camera className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             )}
-            <img src={userProfile.avatarUrl} alt={userProfile.displayName} className="w-full h-full object-cover" />
+            <img
+              src={userProfile.avatarUrl}
+              alt={userProfile.displayName}
+              className="w-full h-full object-cover"
+            />
             <div className="absolute bottom-0 right-0 bg-[var(--ink)] p-1 rounded-full text-[var(--bg)] shadow-md group-hover:scale-110 transition-transform z-20">
               <Camera className="w-2.5 h-2.5" />
             </div>
@@ -124,11 +128,11 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
             <h3 className="font-serif text-lg font-light tracking-tight text-[var(--ink)] leading-tight truncate">
               {userProfile.displayName}
             </h3>
-            <p className="text-[10px] font-mono text-[var(--ink-dim)] tracking-wider mt-1 truncate">{userProfile.email}</p>
+            <p className="text-[10px] font-mono text-[var(--ink-dim)] tracking-wider mt-1 truncate">
+              {userProfile.email}
+            </p>
             <span className="inline-block mt-2 text-[8px] font-mono uppercase tracking-widest text-[var(--ink)] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-xs w-fit">
-              {userProfile.role === 'admin'
-                ? `🛡️ ${t('adminRole')}`
-                : `👤 ${t('skiMember')}`}
+              {userProfile.role === 'admin' ? `🛡️ ${t('adminRole')}` : `👤 ${t('skiMember')}`}
             </span>
           </div>
         </div>
@@ -146,8 +150,12 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
                 alt={`Level ${userProfile.level || 1}`}
                 className={`${(userProfile.level || 1) === 4 ? 'w-52 h-52' : 'w-40 h-40'} object-contain transition-all duration-300 group-hover:scale-105`}
                 referrerPolicy="no-referrer"
-                onLoad={(e) => { e.currentTarget.style.display = 'block'; }}
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                onLoad={(e) => {
+                  e.currentTarget.style.display = 'block';
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
               />
             </div>
 
@@ -188,11 +196,17 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
           <div className="flex items-center gap-2">
             <Wallet className="w-4 h-4 text-[var(--ink)]" />
             <div>
-              <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">{t('walletBalance')}</span>
-              <span className="text-xl font-serif font-light text-[var(--ink)]">${userProfile.balanceUSD}</span>
+              <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">
+                {t('walletBalance')}
+              </span>
+              <span className="text-xl font-serif font-light text-[var(--ink)]">
+                ${userProfile.balanceUSD}
+              </span>
             </div>
           </div>
-          <div className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">Mock USD</div>
+          <div className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
+            Mock USD
+          </div>
         </div>
 
         {userProfile.phoneNumber && (

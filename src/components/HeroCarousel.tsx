@@ -20,7 +20,10 @@ interface HeroCarouselProps {
 
 const HERO_CROSSFADE_MS = 1400;
 
-const resolveSlideBackground = (activeSlide: CustomHeroSlide | undefined, slideIndex: number): string => {
+const resolveSlideBackground = (
+  activeSlide: CustomHeroSlide | undefined,
+  slideIndex: number
+): string => {
   let bg = activeSlide?.backgroundImage || 'wall';
   if (bg === 'random') {
     const walls = ['wall', 'wall2', 'wall3', 'wall4', 'wall5', 'wall6', 'wall7'];
@@ -41,7 +44,7 @@ const buildBackgroundImage = (bgUrl: string, theme: Theme): string =>
 
 export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   data: { slides: rawSlides, language, theme, slideIntervalSeconds = 6 },
-  actions: { onScrollToSection }
+  actions: { onScrollToSection },
 }) => {
   const { t } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
@@ -120,7 +123,11 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   >
                     <motion.span
                       initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
-                      animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 10 }}
+                      animate={
+                        isActive
+                          ? { opacity: 1, y: 0 }
+                          : { opacity: 0, y: shouldReduceMotion ? 0 : 10 }
+                      }
                       transition={{
                         duration: shouldReduceMotion ? 0 : 0.65,
                         delay: isActive && !shouldReduceMotion ? 0.12 : 0,
@@ -132,7 +139,11 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                     </motion.span>
                     <motion.h2
                       initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-                      animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
+                      animate={
+                        isActive
+                          ? { opacity: 1, y: 0 }
+                          : { opacity: 0, y: shouldReduceMotion ? 0 : 16 }
+                      }
                       transition={{
                         duration: shouldReduceMotion ? 0 : 0.75,
                         delay: isActive && !shouldReduceMotion ? 0.26 : 0,
@@ -144,7 +155,11 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                     </motion.h2>
                     <motion.p
                       initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
-                      animate={isActive ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 12 }}
+                      animate={
+                        isActive
+                          ? { opacity: 1, y: 0 }
+                          : { opacity: 0, y: shouldReduceMotion ? 0 : 12 }
+                      }
                       transition={{
                         duration: shouldReduceMotion ? 0 : 0.7,
                         delay: isActive && !shouldReduceMotion ? 0.42 : 0,

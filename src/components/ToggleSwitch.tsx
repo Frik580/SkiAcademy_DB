@@ -24,9 +24,18 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
   return (
     <div className={`flex items-center justify-between gap-3 ${className}`}>
       {(label || description) && (
-        <div className="min-w-0 flex-1 cursor-pointer select-none" onClick={() => !disabled && onChange(!checked)}>
-          {label && <span className="block text-xs font-mono uppercase tracking-wider text-[var(--ink)] font-bold">{label}</span>}
-          {description && <span className="block text-[9px] text-[var(--ink-dim)] mt-0.5">{description}</span>}
+        <div
+          className="min-w-0 flex-1 cursor-pointer select-none"
+          onClick={() => !disabled && onChange(!checked)}
+        >
+          {label && (
+            <span className="block text-xs font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
+              {label}
+            </span>
+          )}
+          {description && (
+            <span className="block text-[9px] text-[var(--ink-dim)] mt-0.5">{description}</span>
+          )}
         </div>
       )}
 

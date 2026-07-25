@@ -39,12 +39,9 @@ describe('blocksInstructorAvailability', () => {
     }
   );
 
-  it.each(['cancelled', 'completed'] as const)(
-    'does not block inactive status %s',
-    (status) => {
-      expect(blocksInstructorAvailability(baseBooking({ status }))).toBe(false);
-    }
-  );
+  it.each(['cancelled', 'completed'] as const)('does not block inactive status %s', (status) => {
+    expect(blocksInstructorAvailability(baseBooking({ status }))).toBe(false);
+  });
 
   it('does not block course bookings', () => {
     expect(
@@ -75,9 +72,7 @@ describe('toAvailabilitySlot', () => {
 
   it('marks system blocks separately from lessons', () => {
     expect(
-      toAvailabilitySlot(
-        baseBooking({ userId: 'system_block_maintenance', status: 'confirmed' })
-      )
+      toAvailabilitySlot(baseBooking({ userId: 'system_block_maintenance', status: 'confirmed' }))
     ).toEqual({
       bookingId: 'booking-1',
       instructorId: 'instructor-1',

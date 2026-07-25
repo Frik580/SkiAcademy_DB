@@ -79,20 +79,28 @@ export const useBookings = (
     }
 
     setBookingsLoaded(false);
-    const bookingsQuery = userProfile?.role === 'admin'
-      ? query(collection(db, 'bookings'))
-      : userProfile?.instructorId
-        ? query(collection(db, 'bookings'), where('instructorId', '==', userProfile.instructorId))
-        : query(collection(db, 'bookings'), where('userId', '==', firebaseUser.uid));
+    const bookingsQuery =
+      userProfile?.role === 'admin'
+        ? query(collection(db, 'bookings'))
+        : userProfile?.instructorId
+          ? query(collection(db, 'bookings'), where('instructorId', '==', userProfile.instructorId))
+          : query(collection(db, 'bookings'), where('userId', '==', firebaseUser.uid));
 
-    return onSnapshot(bookingsQuery, (snapshot) => {
-      const list = snapshot.docs.map((bookingDoc) => ({
-        id: bookingDoc.id,
-        ...bookingDoc.data(),
-      } as Booking));
-      setBookings(list.sort((a, b) => b.date.localeCompare(a.date)));
-      setBookingsLoaded(true);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'bookings'));
+    return onSnapshot(
+      bookingsQuery,
+      (snapshot) => {
+        const list = snapshot.docs.map(
+          (bookingDoc) =>
+            ({
+              id: bookingDoc.id,
+              ...bookingDoc.data(),
+            }) as Booking
+        );
+        setBookings(list.sort((a, b) => b.date.localeCompare(a.date)));
+        setBookingsLoaded(true);
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'bookings')
+    );
   }, [firebaseUser, userProfile?.instructorId, userProfile?.role]);
 
   useEffect(() => {
@@ -135,12 +143,7 @@ export const useBookings = (
     if (!userProfile || !firebaseUser) return;
 
     try {
-      const newBalance = await createBookingWithPayment(
-        db,
-        firebaseUser.uid,
-        booking,
-        totalCost
-      );
+      const newBalance = await createBookingWithPayment(db, firebaseUser.uid, booking, totalCost);
       setUserProfile({ ...userProfile, balanceUSD: newBalance });
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
     } catch (error) {
@@ -248,10 +251,14 @@ export const useBookings = (
         revenue: deletedCompletedStats.revenue + (booking.totalPrice || 0),
         count: deletedCompletedStats.count + 1,
       };
-      await setDoc(doc(db, 'users', 'school_global_stats'), {
-        deletedCompletedRevenue: newStats.revenue,
-        deletedCompletedCount: newStats.count,
-      }, { merge: true });
+      await setDoc(
+        doc(db, 'users', 'school_global_stats'),
+        {
+          deletedCompletedRevenue: newStats.revenue,
+          deletedCompletedCount: newStats.count,
+        },
+        { merge: true }
+      );
       await updateDoc(doc(db, 'bookings', id), { isDeleted: true });
       setDeletedCompletedStats(newStats);
       return;
@@ -366,10 +373,10 @@ export const useBookings = (
             const targetUserData = targetUserDoc.exists() ? targetUserDoc.data() : {};
             const mergedScores = {
               ...(targetUserData.skillScores || {}),
-              ...oldUserData.skillScores
+              ...oldUserData.skillScores,
             };
             await updateDoc(doc(db, 'users', targetUserId), {
-              skillScores: mergedScores
+              skillScores: mergedScores,
             });
           }
         }

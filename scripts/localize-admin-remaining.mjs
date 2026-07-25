@@ -5,24 +5,51 @@ let content = fs.readFileSync(path, 'utf8');
 
 const pairs = [
   [/language === 'en' \? 'Invalid File' : 'Неверный файл'/g, "t('invalidFile')"],
-  [/language === 'en' \? 'Please select an image file\.' : 'Пожалуйста, выберите изображение\.'/g, "t('invalidFileDesc')"],
+  [
+    /language === 'en' \? 'Please select an image file\.' : 'Пожалуйста, выберите изображение\.'/g,
+    "t('invalidFileDesc')",
+  ],
   [/language === 'en' \? 'Photo Attached' : 'Фотография прикреплена'/g, "t('photoAttached')"],
-  [/language === 'en' \? 'Instructor photo was successfully optimized and loaded\.' : 'Фото инструктора было успешно оптимизировано и загружено\.'/g, "t('photoAttachedDesc')"],
+  [
+    /language === 'en' \? 'Instructor photo was successfully optimized and loaded\.' : 'Фото инструктора было успешно оптимизировано и загружено\.'/g,
+    "t('photoAttachedDesc')",
+  ],
   [/language === 'en' \? 'Optimization Failed' : 'Ошибка оптимизации'/g, "t('uploadFailed')"],
-  [/language === 'en' \? 'Could not optimize the selected image\.' : 'Не удалось обработать выбранное изображение\.'/g, "t('couldNotOptimizeImage')"],
-  [/language === 'en' \? 'Coaches Directory Management' : 'Управление базой инструкторов'/g, "t('coachesDirectoryTitle')"],
-  [/language === 'en' \? 'Toggle availability, edit rates, add\/remove staff' : 'Управление доступностью, тарифами, добавление и удаление тренеров'/g, "t('coachesDirectorySub')"],
+  [
+    /language === 'en' \? 'Could not optimize the selected image\.' : 'Не удалось обработать выбранное изображение\.'/g,
+    "t('couldNotOptimizeImage')",
+  ],
+  [
+    /language === 'en' \? 'Coaches Directory Management' : 'Управление базой инструкторов'/g,
+    "t('coachesDirectoryTitle')",
+  ],
+  [
+    /language === 'en' \? 'Toggle availability, edit rates, add\/remove staff' : 'Управление доступностью, тарифами, добавление и удаление тренеров'/g,
+    "t('coachesDirectorySub')",
+  ],
   [/language === 'en' \? 'Add Coach' : 'Добавить'/g, "t('addCoachShort')"],
   [/language === 'en' \? 'Instructor' : 'Инструктор'/g, "t('instructorColumn')"],
   [/language === 'en' \? 'Discipline' : 'Дисциплина'/g, "t('discipline')"],
   [/language === 'en' \? 'Rate\/hr' : 'Ставка\/ч'/g, "t('ratePerHourShort')"],
   [/language === 'en' \? 'Availability' : 'Доступность'/g, "t('availabilityLabel')"],
   [/language === 'en' \? 'Actions' : 'Действия'/g, "t('actions')"],
-  [/language === 'en' \? `Exp: \$\{ins\.experienceYears\} Years` : `Опыт: \$\{ins\.experienceYears\} л\.`/g, "`${t('expYearsPrefix')} ${ins.experienceYears} ${t('expYearsSuffix')}`"],
+  [
+    /language === 'en' \? `Exp: \$\{ins\.experienceYears\} Years` : `Опыт: \$\{ins\.experienceYears\} л\.`/g,
+    "`${t('expYearsPrefix')} ${ins.experienceYears} ${t('expYearsSuffix')}`",
+  ],
   [/title=\{language === 'en' \? 'Edit Details' : 'Редактировать'\}/g, "title={t('editDetails')}"],
-  [/title=\{language === 'en' \? 'Delete Instructor' : 'Удалить'\}/g, "title={t('deleteInstructor')}"],
-  [/language === 'en' \? 'Register New Coach' : 'Зарегистрировать тренера'/g, "t('registerNewCoach')"],
-  [/language === 'en' \? 'Define specialty levels, rate limits, and language tags' : 'Укажите специальность, стоимость и языки'/g, "t('coachFormSub')"],
+  [
+    /title=\{language === 'en' \? 'Delete Instructor' : 'Удалить'\}/g,
+    "title={t('deleteInstructor')}",
+  ],
+  [
+    /language === 'en' \? 'Register New Coach' : 'Зарегистрировать тренера'/g,
+    "t('registerNewCoach')",
+  ],
+  [
+    /language === 'en' \? 'Define specialty levels, rate limits, and language tags' : 'Укажите специальность, стоимость и языки'/g,
+    "t('coachFormSub')",
+  ],
   [/language === 'en' \? 'Coach Full Name' : 'Имя тренера'/g, "t('coachFullName')"],
   [/language === 'en' \? 'Ski' : 'Лыжи'/g, "t('specialtySki')"],
   [/language === 'en' \? 'Snowboard' : 'Сноуборд'/g, "t('specialtySnowboard')"],
@@ -31,46 +58,127 @@ const pairs = [
   [/language === 'en' \? 'Experience \(Yrs\)' : 'Опыт \(лет\)'/g, "t('experienceYrsShort')"],
   [/language === 'en' \? 'Languages \(CSV\)' : 'Языки \(через запятую\)'/g, "t('languagesCsv')"],
   [/language === 'en' \? 'Bio Statement' : 'Биография \/ О себе'/g, "t('bioStatement')"],
-  [/placeholder=\{language === 'en' \? 'Tell students about lessons style\.\.\.' : 'Расскажите ученикам о вашем стиле обучения\.\.\.'\}/g, "placeholder={t('bioPlaceholder')}"],
-  [/language === 'en' \? 'Coach Photo \/ Avatar' : 'Фотография тренера \/ Аватар'/g, "t('coachPhoto')"],
+  [
+    /placeholder=\{language === 'en' \? 'Tell students about lessons style\.\.\.' : 'Расскажите ученикам о вашем стиле обучения\.\.\.'\}/g,
+    "placeholder={t('bioPlaceholder')}",
+  ],
+  [
+    /language === 'en' \? 'Coach Photo \/ Avatar' : 'Фотография тренера \/ Аватар'/g,
+    "t('coachPhoto')",
+  ],
   [/language === 'en' \? 'Optimizing\.\.\.' : 'Оптимизация\.\.\.'/g, "t('optimizing')"],
-  [/language === 'en' \? 'Click or drag photo here' : 'Нажмите или перетащите фото сюда'/g, "t('clickOrDragPhoto')"],
-  [/language === 'en' \? 'JPEG\/PNG will be auto-optimized' : 'JPEG\/PNG будут авто-оптимизированы'/g, "t('autoOptimizeHint')"],
-  [/language === 'en' \? 'Or paste an Image URL' : 'Или вставьте прямую ссылку на фото'/g, "t('orPasteImageUrl')"],
-  [/editingIns \? \(language === 'en' \? 'Save Updates' : 'Сохранить'\) : \(language === 'en' \? 'Add Coach' : 'Добавить'\)/g, "editingIns ? t('saveUpdates') : t('addCoachShort')"],
+  [
+    /language === 'en' \? 'Click or drag photo here' : 'Нажмите или перетащите фото сюда'/g,
+    "t('clickOrDragPhoto')",
+  ],
+  [
+    /language === 'en' \? 'JPEG\/PNG will be auto-optimized' : 'JPEG\/PNG будут авто-оптимизированы'/g,
+    "t('autoOptimizeHint')",
+  ],
+  [
+    /language === 'en' \? 'Or paste an Image URL' : 'Или вставьте прямую ссылку на фото'/g,
+    "t('orPasteImageUrl')",
+  ],
+  [
+    /editingIns \? \(language === 'en' \? 'Save Updates' : 'Сохранить'\) : \(language === 'en' \? 'Add Coach' : 'Добавить'\)/g,
+    "editingIns ? t('saveUpdates') : t('addCoachShort')",
+  ],
   [/language === 'en' \? 'Cancel' : 'Отмена'/g, "t('cancel')"],
-  [/language === 'en' \? 'Administrator Role Management' : 'Управление администраторами курорта'/g, "t('adminRoleManagementTitle')"],
-  [/language === 'en' \? 'Add, search, and remove administrative privileges for personnel' : 'Добавление, поиск и удаление административных прав сотрудников'/g, "t('adminRoleManagementSub')"],
-  [/language === 'en' \? 'Super Administrator Access Required' : 'Требуется доступ Главного Администратора'/g, "t('superAdminRequired')"],
-  [/language === 'en'\s*\n\s*\? 'Only the system owner \(gerasimchuk\.arseniy@gmail\.com\) is authorized to promote or demote other administrators\.'\s*\n\s*: 'Только владелец системы \(gerasimchuk\.arseniy@gmail\.com\) имеет право назначать и снимать других администраторов\.'/g, "t('superAdminRequiredDesc')"],
-  [/language === 'en' \? 'Current Administrators' : 'Действующие администраторы'/g, "t('currentAdministrators')"],
-  [/language === 'en' \? 'No other administrators found\.' : 'Другие администраторы не найдены\.'/g, "t('noAdministratorsFound')"],
-  [/title=\{language === 'en' \? 'Revoke Admin' : 'Снять статус админа'\}/g, "title={t('revokeAdmin')}"],
-  [/language === 'en' \? 'Appoint New Administrator' : 'Назначить нового администратора'/g, "t('appointNewAdmin')"],
-  [/language === 'en' \? 'Search for any registered user to promote them to admin\.' : 'Найдите любого зарегистрированного пользователя, чтобы повысить его до администратора\.'/g, "t('appointNewAdminSub')"],
+  [
+    /language === 'en' \? 'Administrator Role Management' : 'Управление администраторами курорта'/g,
+    "t('adminRoleManagementTitle')",
+  ],
+  [
+    /language === 'en' \? 'Add, search, and remove administrative privileges for personnel' : 'Добавление, поиск и удаление административных прав сотрудников'/g,
+    "t('adminRoleManagementSub')",
+  ],
+  [
+    /language === 'en' \? 'Super Administrator Access Required' : 'Требуется доступ Главного Администратора'/g,
+    "t('superAdminRequired')",
+  ],
+  [
+    /language === 'en'\s*\n\s*\? 'Only the system owner \(gerasimchuk\.arseniy@gmail\.com\) is authorized to promote or demote other administrators\.'\s*\n\s*: 'Только владелец системы \(gerasimchuk\.arseniy@gmail\.com\) имеет право назначать и снимать других администраторов\.'/g,
+    "t('superAdminRequiredDesc')",
+  ],
+  [
+    /language === 'en' \? 'Current Administrators' : 'Действующие администраторы'/g,
+    "t('currentAdministrators')",
+  ],
+  [
+    /language === 'en' \? 'No other administrators found\.' : 'Другие администраторы не найдены\.'/g,
+    "t('noAdministratorsFound')",
+  ],
+  [
+    /title=\{language === 'en' \? 'Revoke Admin' : 'Снять статус админа'\}/g,
+    "title={t('revokeAdmin')}",
+  ],
+  [
+    /language === 'en' \? 'Appoint New Administrator' : 'Назначить нового администратора'/g,
+    "t('appointNewAdmin')",
+  ],
+  [
+    /language === 'en' \? 'Search for any registered user to promote them to admin\.' : 'Найдите любого зарегистрированного пользователя, чтобы повысить его до администратора\.'/g,
+    "t('appointNewAdminSub')",
+  ],
   [/language === 'en' \? 'User Not Found' : 'Пользователь не найден'/g, "t('userNotFound')"],
-  [/language === 'en'\s*\n\s*\? 'The user with this email must be registered and have signed in at least once\.'\s*\n\s*: 'Пользователь с такой почтой должен зарегистрироваться и зайти в систему хотя бы раз\.'/g, "t('userNotFoundDesc')"],
-  [/placeholder=\{language === 'en' \? "Enter user's email address" : "Введите email пользователя"\}/g, "placeholder={t('enterUserEmail')}"],
+  [
+    /language === 'en'\s*\n\s*\? 'The user with this email must be registered and have signed in at least once\.'\s*\n\s*: 'Пользователь с такой почтой должен зарегистрироваться и зайти в систему хотя бы раз\.'/g,
+    "t('userNotFoundDesc')",
+  ],
+  [
+    /placeholder=\{language === 'en' \? "Enter user's email address" : "Введите email пользователя"\}/g,
+    "placeholder={t('enterUserEmail')}",
+  ],
   [/language === 'en' \? 'Promote' : 'Назначить'/g, "t('promoteBtn')"],
-  [/language === 'en' \? 'Quick Search & Select' : 'Быстрый поиск и выбор'/g, "t('quickSearchSelect')"],
-  [/placeholder=\{language === 'en' \? 'Filter by name or email\.\.\.' : 'Поиск по имени или почте\.\.\.'\}/g, "placeholder={t('filterNameEmail')}"],
+  [
+    /language === 'en' \? 'Quick Search & Select' : 'Быстрый поиск и выбор'/g,
+    "t('quickSearchSelect')",
+  ],
+  [
+    /placeholder=\{language === 'en' \? 'Filter by name or email\.\.\.' : 'Поиск по имени или почте\.\.\.'\}/g,
+    "placeholder={t('filterNameEmail')}",
+  ],
   [/language === 'en' \? 'Make Admin' : 'Сделать админом'/g, "t('makeAdmin')"],
-  [/language === 'en' \? 'No registered regular users\.' : 'Нет зарегистрированных обычных пользователей\.'/g, "t('noRegularUsers')"],
-  [/language === 'en' \? 'System Error Logs' : 'Логи системных ошибок'/g, "t('systemErrorLogsTitle')"],
-  [/language === 'en'\s*\n\s*\? 'Review unhandled rejections, window exceptions, and Firestore permission errors'\s*\n\s*: 'Просмотр необработанных отклонений промисов, исключений и ошибок доступа Firestore'/g, "t('systemErrorLogsSub')"],
+  [
+    /language === 'en' \? 'No registered regular users\.' : 'Нет зарегистрированных обычных пользователей\.'/g,
+    "t('noRegularUsers')",
+  ],
+  [
+    /language === 'en' \? 'System Error Logs' : 'Логи системных ошибок'/g,
+    "t('systemErrorLogsTitle')",
+  ],
+  [
+    /language === 'en'\s*\n\s*\? 'Review unhandled rejections, window exceptions, and Firestore permission errors'\s*\n\s*: 'Просмотр необработанных отклонений промисов, исключений и ошибок доступа Firestore'/g,
+    "t('systemErrorLogsSub')",
+  ],
   [/language === 'en' \? 'Clear All Logs' : 'Очистить все логи'/g, "t('clearAllLogs')"],
-  [/placeholder=\{language === 'en' \? 'Search logs by message, email, url\.\.\.' : 'Поиск по сообщению, email, url\.\.\.'\}/g, "placeholder={t('searchLogsPlaceholder')}"],
+  [
+    /placeholder=\{language === 'en' \? 'Search logs by message, email, url\.\.\.' : 'Поиск по сообщению, email, url\.\.\.'\}/g,
+    "placeholder={t('searchLogsPlaceholder')}",
+  ],
   [/language === 'en' \? 'All Sources' : 'Все источники'/g, "t('allSources')"],
   [/language === 'en' \? 'Global Window Error' : 'Глобальная ошибка'/g, "t('globalWindowError')"],
-  [/language === 'en' \? 'Unhandled Promise Rejection' : 'Необработанный промис'/g, "t('unhandledRejection')"],
-  [/language === 'en' \? 'Loading error logs\.\.\.' : 'Загрузка логов ошибок\.\.\.'/g, "t('loadingErrorLogs')"],
-  [/language === 'en' \? 'No error logs found matching filters\.' : 'Логи ошибок по заданным фильтрам не найдены\.'/g, "t('noErrorLogsMatch')"],
+  [
+    /language === 'en' \? 'Unhandled Promise Rejection' : 'Необработанный промис'/g,
+    "t('unhandledRejection')",
+  ],
+  [
+    /language === 'en' \? 'Loading error logs\.\.\.' : 'Загрузка логов ошибок\.\.\.'/g,
+    "t('loadingErrorLogs')",
+  ],
+  [
+    /language === 'en' \? 'No error logs found matching filters\.' : 'Логи ошибок по заданным фильтрам не найдены\.'/g,
+    "t('noErrorLogsMatch')",
+  ],
   [/title=\{language === 'en' \? 'Delete log' : 'Удалить лог'\}/g, "title={t('deleteLog')}"],
   [/language === 'en' \? 'User:' : 'Пользователь:'/g, "t('userLabelColon')"],
   [/language === 'en' \? 'Op:' : 'Оп:'/g, "t('opLabelColon')"],
   [/language === 'en' \? 'Path:' : 'Путь:'/g, "t('pathLabelColon')"],
   [/language === 'en' \? 'Stack Trace:' : 'Трассировка стека:'/g, "t('stackTraceLabel')"],
-  [/language === 'en' \? 'Client Environment details:' : 'Детали окружения клиента:'/g, "t('clientEnvDetails')"],
+  [
+    /language === 'en' \? 'Client Environment details:' : 'Детали окружения клиента:'/g,
+    "t('clientEnvDetails')",
+  ],
 ];
 
 for (const [re, rep] of pairs) {

@@ -1,14 +1,14 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { 
-  getFirestore, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  updateDoc, 
-  deleteDoc, 
-  collection, 
-  query, 
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  query,
   getDocs,
   where,
   addDoc,
@@ -16,7 +16,7 @@ import {
   limit,
   orderBy,
   runTransaction,
-  writeBatch
+  writeBatch,
 } from 'firebase/firestore';
 import { OperationType } from '../types';
 import { logger } from './logger';
@@ -38,10 +38,10 @@ export function registerFirestoreErrorListener(listener: ErrorListener) {
 }
 
 export async function logErrorToFirestore(
-  message: string, 
-  stack?: string, 
-  source: string = 'custom', 
-  operation?: string, 
+  message: string,
+  stack?: string,
+  source: string = 'custom',
+  operation?: string,
   path?: string
 ) {
   try {
@@ -57,7 +57,7 @@ export async function logErrorToFirestore(
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
       source,
       operation: operation || '',
-      path: path || ''
+      path: path || '',
     };
     await setDoc(doc(db, 'error_logs', id), logData);
   } catch (e) {
@@ -71,9 +71,9 @@ if (typeof window !== 'undefined') {
     // Filter out benign ResizeObserver/HMR/websocket warnings
     const msg = event.message || (event.error && event.error.message) || '';
     if (
-      msg.includes('ResizeObserver') || 
-      msg.includes('websocket') || 
-      msg.includes('HMR') || 
+      msg.includes('ResizeObserver') ||
+      msg.includes('websocket') ||
+      msg.includes('HMR') ||
       msg.includes('failed to connect to websocket')
     ) {
       return;
@@ -86,9 +86,9 @@ if (typeof window !== 'undefined') {
     const reason = event.reason;
     const msg = reason instanceof Error ? reason.message : String(reason);
     if (
-      msg.includes('ResizeObserver') || 
-      msg.includes('websocket') || 
-      msg.includes('HMR') || 
+      msg.includes('ResizeObserver') ||
+      msg.includes('websocket') ||
+      msg.includes('HMR') ||
       msg.includes('failed to connect to websocket')
     ) {
       return;
@@ -113,15 +113,21 @@ export function handleFirestoreError(err: any, operation: OperationType, path: s
   } else {
     // Fallback alert/toast warning
     const msg = err instanceof Error ? err.message : String(err);
-    logger.warn(`Database permission or structure issue while doing '${operation}' on '${path}': ${msg}`);
+    logger.warn(
+      `Database permission or structure issue while doing '${operation}' on '${path}': ${msg}`
+    );
   }
 }
 
-export async function migratePreExistingProfile(newUid: string, email: string, customDisplayName?: string): Promise<any | null> {
+export async function migratePreExistingProfile(
+  newUid: string,
+  email: string,
+  customDisplayName?: string
+): Promise<any | null> {
   if (!email) return null;
   const normalizedEmail = email.toLowerCase().trim();
   logger.debug(`Starting migration for email: ${normalizedEmail} to newUid: ${newUid}`);
-  
+
   try {
     let usnap;
     try {
@@ -129,39 +135,43 @@ export async function migratePreExistingProfile(newUid: string, email: string, c
       usnap = await getDocs(uq);
       logger.debug(`Successfully fetched users count: ${usnap.size}`);
     } catch (err: any) {
-      logger.error("Migration error at step 1: Query users by email failed", err);
+      logger.error('Migration error at step 1: Query users by email failed', err);
       throw new Error(`Query users failed: ${err.message}`);
     }
-    
+
     let oldProfile: any = null;
     let oldUid = '';
-    
+
     usnap.forEach((doc) => {
       if (doc.id !== newUid) {
         oldProfile = doc.data();
         oldUid = doc.id;
       }
     });
-    
+
     if (!oldProfile || !oldUid) {
-      logger.debug("No pre-existing profile to migrate.");
+      logger.debug('No pre-existing profile to migrate.');
       return null;
     }
-    
-    logger.debug(`Found pre-existing user: oldUid=${oldUid}, startsWith('client_')=${oldUid.startsWith('client_')}`);
-    
+
+    logger.debug(
+      `Found pre-existing user: oldUid=${oldUid}, startsWith('client_')=${oldUid.startsWith('client_')}`
+    );
+
     // Only migrate if the pre-existing profile was created by an admin
     if (!oldUid.startsWith('client_')) {
-      logger.debug(`Found pre-existing user with uid ${oldUid}, but it is not an admin-created client profile.`);
+      logger.debug(
+        `Found pre-existing user with uid ${oldUid}, but it is not an admin-created client profile.`
+      );
       return null;
     }
-    
+
     const migratedProfile = {
       ...oldProfile,
       uid: newUid,
-      ...(customDisplayName ? { displayName: customDisplayName } : {})
+      ...(customDisplayName ? { displayName: customDisplayName } : {}),
     };
-    
+
     try {
       logger.debug(`Writing migrated profile to users/${newUid}...`);
       await setDoc(doc(db, 'users', newUid), migratedProfile);
@@ -170,7 +180,7 @@ export async function migratePreExistingProfile(newUid: string, email: string, c
       logger.error(`Migration error at step 2: setDoc to users/${newUid} failed`, err);
       throw new Error(`Write user profile failed: ${err.message}`);
     }
-    
+
     try {
       logger.debug(`Checking bookings for oldUid: ${oldUid}...`);
       const bQuery = query(collection(db, 'bookings'), where('userId', '==', oldUid));
@@ -180,12 +190,12 @@ export async function migratePreExistingProfile(newUid: string, email: string, c
         logger.debug(`Updating booking ${bDoc.id}...`);
         await updateDoc(doc(db, 'bookings', bDoc.id), { userId: newUid });
       }
-      logger.debug("Bookings update complete.");
+      logger.debug('Bookings update complete.');
     } catch (err: any) {
-      logger.error("Migration error at step 3: Update bookings failed", err);
+      logger.error('Migration error at step 3: Update bookings failed', err);
       throw new Error(`Update bookings failed: ${err.message}`);
     }
-    
+
     try {
       logger.debug(`Checking reviews for oldUid: ${oldUid}...`);
       const rQuery = query(collection(db, 'reviews'), where('userId', '==', oldUid));
@@ -195,12 +205,12 @@ export async function migratePreExistingProfile(newUid: string, email: string, c
         logger.debug(`Updating review ${rDoc.id}...`);
         await updateDoc(doc(db, 'reviews', rDoc.id), { userId: newUid });
       }
-      logger.debug("Reviews update complete.");
+      logger.debug('Reviews update complete.');
     } catch (err: any) {
-      logger.error("Migration error at step 4: Update reviews failed", err);
+      logger.error('Migration error at step 4: Update reviews failed', err);
       throw new Error(`Update reviews failed: ${err.message}`);
     }
-    
+
     try {
       logger.debug(`Deleting old user profile users/${oldUid}...`);
       await deleteDoc(doc(db, 'users', oldUid));
@@ -209,23 +219,23 @@ export async function migratePreExistingProfile(newUid: string, email: string, c
       logger.error(`Migration error at step 5: Deleting users/${oldUid} failed`, err);
       throw new Error(`Delete old profile failed: ${err.message}`);
     }
-    
+
     logger.debug(`Successfully migrated profile and data from ${oldUid} to ${newUid}`);
     return migratedProfile;
   } catch (err: any) {
-    logger.error("Error migrating pre-existing profile:", err);
+    logger.error('Error migrating pre-existing profile:', err);
     throw err;
   }
 }
 
-export { 
-  doc, 
-  setDoc, 
-  getDoc, 
-  updateDoc, 
-  deleteDoc, 
-  collection, 
-  query, 
+export {
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  query,
   getDocs,
   where,
   addDoc,
@@ -236,6 +246,5 @@ export {
   writeBatch,
   GoogleAuthProvider,
   signInWithPopup,
-  OperationType
+  OperationType,
 };
-

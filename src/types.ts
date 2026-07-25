@@ -125,7 +125,7 @@ export enum OperationType {
   LIST = 'list',
   WRITE = 'write',
   UPDATE = 'update',
-  DELETE = 'delete'
+  DELETE = 'delete',
 }
 
 export interface ErrorLog {
@@ -168,4 +168,3 @@ export interface ResortConfig {
   slides?: CustomHeroSlide[];
   slideIntervalSeconds?: number;
 }
-

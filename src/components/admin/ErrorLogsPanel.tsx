@@ -1,7 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Trash2, Loader2, Search } from 'lucide-react';
 import { ErrorLog, OperationType } from '../../types';
-import { db, doc, deleteDoc, collection, query, orderBy, onSnapshot, handleFirestoreError } from '../../lib/firebase';
+import {
+  db,
+  doc,
+  deleteDoc,
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  handleFirestoreError,
+} from '../../lib/firebase';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
 import { logger } from '../../lib/logger';
@@ -128,7 +137,9 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
       {errorLogsLoading ? (
         <div className="py-12 flex flex-col items-center justify-center text-[var(--ink-dim)] gap-2">
           <Loader2 className="w-6 h-6 animate-spin text-[var(--ink)]" />
-          <span className="text-[10px] font-mono uppercase tracking-wider">{t('loadingErrorLogs')}</span>
+          <span className="text-[10px] font-mono uppercase tracking-wider">
+            {t('loadingErrorLogs')}
+          </span>
         </div>
       ) : filteredLogs.length === 0 ? (
         <div className="border border-[var(--border)] border-dashed p-12 text-center text-xs text-[var(--ink-dim)] font-mono">
@@ -177,7 +188,8 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
 
               <div className="text-[10px] text-[var(--ink-dim)] flex flex-wrap gap-x-4 gap-y-1 pt-1 border-t border-[var(--border)] border-dashed">
                 <div>
-                  <span className="font-bold">{t('userLabelColon')}</span> {log.userEmail || 'anonymous'}
+                  <span className="font-bold">{t('userLabelColon')}</span>{' '}
+                  {log.userEmail || 'anonymous'}
                 </div>
                 <div className="truncate max-w-xs md:max-w-md lg:max-w-xl">
                   <span className="font-bold">URL:</span> {log.url}
@@ -212,7 +224,8 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
                     </span>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 font-mono text-[9px] leading-relaxed text-[var(--ink-dim)]">
                       <div>
-                        <span className="font-bold text-[var(--ink)]">User Agent:</span> {log.userAgent}
+                        <span className="font-bold text-[var(--ink)]">User Agent:</span>{' '}
+                        {log.userAgent}
                       </div>
                       <div>
                         <span className="font-bold text-[var(--ink)]">Full URL:</span> {log.url}

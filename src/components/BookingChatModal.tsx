@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { 
-  Send, 
-  X, 
-  MessageSquare, 
-  Clock, 
-  User, 
+import {
+  Send,
+  X,
+  MessageSquare,
+  Clock,
+  User,
   Loader2,
   Image,
   Video,
   Link as LinkIcon,
   ExternalLink,
-  Trash2
+  Trash2,
 } from 'lucide-react';
 import { Booking, UserProfile, ChatMessage, OperationType, Instructor } from '../types';
 import { db, collection, doc, setDoc, onSnapshot, handleFirestoreError } from '../lib/firebase';
@@ -78,7 +78,7 @@ const compressImage = (file: File): Promise<{ url: string; name: string; size: n
         ctx.drawImage(img, 0, 0, width, height);
         // Compress to high-efficiency Jpeg at 0.7 quality
         const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        
+
         // Compute approximate compressed payload size
         const stringLength = dataUrl.length - 'data:image/jpeg;base64,'.length;
         const actualSize = Math.round(stringLength * 0.75);
@@ -86,7 +86,7 @@ const compressImage = (file: File): Promise<{ url: string; name: string; size: n
         resolve({
           url: dataUrl,
           name: file.name,
-          size: actualSize
+          size: actualSize,
         });
       };
       img.onerror = () => reject(new LocalizedCompressionError('chatCompressionImageLoadFailed'));
@@ -103,19 +103,23 @@ const compressVideo = (file: File): Promise<{ url: string; name: string; size: n
   if (file.size < 400 * 1024) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve({ url: reader.result as string, name: file.name, size: file.size });
+      reader.onload = () =>
+        resolve({ url: reader.result as string, name: file.name, size: file.size });
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
   }
 
-  const hasCapture = 'captureStream' in HTMLCanvasElement.prototype || 'mozCaptureStream' in HTMLCanvasElement.prototype;
+  const hasCapture =
+    'captureStream' in HTMLCanvasElement.prototype ||
+    'mozCaptureStream' in HTMLCanvasElement.prototype;
   if (!window.MediaRecorder || !hasCapture) {
     // If not supported by browser, fall back to base64 directly if size permits, otherwise reject
     if (file.size < 900 * 1024) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve({ url: reader.result as string, name: file.name, size: file.size });
+        reader.onload = () =>
+          resolve({ url: reader.result as string, name: file.name, size: file.size });
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
@@ -160,7 +164,11 @@ const compressVideo = (file: File): Promise<{ url: string; name: string; size: n
         return;
       }
 
-      const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(12) : (canvas as any).mozCaptureStream ? (canvas as any).mozCaptureStream(12) : null;
+      const canvasStream = (canvas as any).captureStream
+        ? (canvas as any).captureStream(12)
+        : (canvas as any).mozCaptureStream
+          ? (canvas as any).mozCaptureStream(12)
+          : null;
       if (!canvasStream) {
         reject(new LocalizedCompressionError('chatCompressionStreamFailed'));
         return;
@@ -190,8 +198,8 @@ const compressVideo = (file: File): Promise<{ url: string; name: string; size: n
           reader.onload = () => {
             resolve({
               url: reader.result as string,
-              name: file.name.replace(/\.[^/.]+$/, "") + "_optimized.webm",
-              size: compressedBlob.size
+              name: file.name.replace(/\.[^/.]+$/, '') + '_optimized.webm',
+              size: compressedBlob.size,
             });
           };
           reader.onerror = reject;
@@ -247,14 +255,14 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   currentUserProfile,
   onClose,
   usersList = [],
-  instructors = []
+  instructors = [],
 }) => {
   const { language, t } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Attachments State
   const [attachmentType, setAttachmentType] = useState<'image' | 'video' | 'link' | null>(null);
   const [attachmentUrl, setAttachmentUrl] = useState<string>('');
@@ -278,7 +286,9 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     const unsubscribe = onSnapshot(
       collection(db, 'bookings', chatId, 'messages'),
       (snapshot) => {
-        const list: ChatMessage[] = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ChatMessage));
+        const list: ChatMessage[] = snapshot.docs.map(
+          (d) => ({ id: d.id, ...d.data() }) as ChatMessage
+        );
         list.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
         setMessages(list);
         setIsLoading(false);
@@ -333,7 +343,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     setCompressionProgress(t('chatOptimizingVideo'));
     try {
       const result = await compressVideo(file);
-      
+
       // Strict limit for Firestore documents (which has 1MB total size limit)
       if (result.size > 800 * 1024) {
         alert(t('chatOptimizedVideoTooLarge'));
@@ -391,7 +401,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
         senderName: currentUserProfile.displayName || currentUserProfile.email,
         senderAvatar: currentUserProfile.avatarUrl || '',
         text: inputText.trim(),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
       if (attachmentUrl && attachmentType) {
@@ -448,46 +458,62 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
           {isLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center text-[var(--ink-dim)] gap-2">
               <Loader2 className="w-6 h-6 animate-spin text-[var(--ink)]" />
-              <span className="text-[10px] font-mono uppercase tracking-wider">{t('chatLoadingDiscussion')}</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider">
+                {t('chatLoadingDiscussion')}
+              </span>
             </div>
           ) : messages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center text-[var(--ink-dim)] p-8">
               <MessageSquare className="w-8 h-8 opacity-20 mb-2" />
-              <p className="text-xs font-mono uppercase tracking-wider max-w-xs">{t('chatNoMessages')}</p>
+              <p className="text-xs font-mono uppercase tracking-wider max-w-xs">
+                {t('chatNoMessages')}
+              </p>
             </div>
           ) : (
             messages.map((msg) => {
               const isMe = msg.senderId === currentUserProfile.uid;
-              
-              // Determine precise sender role
-              const isSenderAdmin = msg.senderId === 'admin' || 
-                                    msg.senderId.includes('admin') || 
-                                    msg.senderName.toLowerCase().includes('admin') ||
-                                    (isMe && currentUserProfile.role === 'admin') ||
-                                    (usersList || []).some(u => u.uid === msg.senderId && u.role === 'admin');
 
-              const isSenderInstructor = (isMe && (currentUserProfile.isInstructor || !!currentUserProfile.instructorId)) ||
-                                         (usersList || []).some(u => u.uid === msg.senderId && (u.isInstructor || !!u.instructorId)) ||
-                                         (instructors || []).some(ins => ins.name === msg.senderName);
+              // Determine precise sender role
+              const isSenderAdmin =
+                msg.senderId === 'admin' ||
+                msg.senderId.includes('admin') ||
+                msg.senderName.toLowerCase().includes('admin') ||
+                (isMe && currentUserProfile.role === 'admin') ||
+                (usersList || []).some((u) => u.uid === msg.senderId && u.role === 'admin');
+
+              const isSenderInstructor =
+                (isMe && (currentUserProfile.isInstructor || !!currentUserProfile.instructorId)) ||
+                (usersList || []).some(
+                  (u) => u.uid === msg.senderId && (u.isInstructor || !!u.instructorId)
+                ) ||
+                (instructors || []).some((ins) => ins.name === msg.senderName);
 
               const isSenderClient = !isSenderAdmin && !isSenderInstructor;
-              
+
               // Formatting time
               const dateObj = new Date(msg.timestamp);
-              const formattedTime = dateObj.toLocaleTimeString(language === 'ru' ? 'ru-RU' : 'en-US', {
-                hour: '2-digit',
-                minute: '2-digit'
-              });
+              const formattedTime = dateObj.toLocaleTimeString(
+                language === 'ru' ? 'ru-RU' : 'en-US',
+                {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }
+              );
 
               return (
-                <div 
-                  key={msg.id} 
+                <div
+                  key={msg.id}
                   className={`flex items-start gap-2.5 max-w-[85%] ${isMe ? 'self-end flex-row-reverse' : 'self-start'}`}
                 >
                   {/* Sender Avatar */}
                   <div className="w-8 h-8 rounded-none border border-[var(--border)] bg-black/10 shrink-0 overflow-hidden flex items-center justify-center">
                     {msg.senderAvatar ? (
-                      <img src={msg.senderAvatar} alt={msg.senderName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img
+                        src={msg.senderAvatar}
+                        alt={msg.senderName}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
                     ) : (
                       <User className="w-4 h-4 text-[var(--ink-dim)]" />
                     )}
@@ -496,79 +522,103 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
                   {/* Bubble Content */}
                   <div className="space-y-1">
                     {/* Sender Name and Role Tag */}
-                    <div className={`flex items-center gap-1.5 text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider ${isMe ? 'justify-end' : 'justify-start'}`}>
-                      <span className="font-bold text-[var(--ink)] truncate max-w-[120px]">{msg.senderName}</span>
-                      <span className={`px-1 py-0.5 text-[7px] border rounded-none font-bold ${
-                        isSenderClient 
-                          ? 'border-accent text-accent bg-accent-muted' 
+                    <div
+                      className={`flex items-center gap-1.5 text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider ${isMe ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <span className="font-bold text-[var(--ink)] truncate max-w-[120px]">
+                        {msg.senderName}
+                      </span>
+                      <span
+                        className={`px-1 py-0.5 text-[7px] border rounded-none font-bold ${
+                          isSenderClient
+                            ? 'border-accent text-accent bg-accent-muted'
+                            : isSenderAdmin
+                              ? 'border-amber-500/20 text-amber-400 bg-amber-950/20'
+                              : 'border-emerald-500/20 text-emerald-400 bg-emerald-950/20'
+                        }`}
+                      >
+                        {isSenderClient
+                          ? t('clientFallback')
                           : isSenderAdmin
-                          ? 'border-amber-500/20 text-amber-400 bg-amber-950/20'
-                          : 'border-emerald-500/20 text-emerald-400 bg-emerald-950/20'
-                      }`}>
-                        {isSenderClient ? t('clientFallback') : isSenderAdmin ? t('administratorLabel') : t('instructorColumn')}
+                            ? t('administratorLabel')
+                            : t('instructorColumn')}
                       </span>
                     </div>
 
                     {/* Chat Bubble text */}
-                    <div className={`p-3 text-xs leading-relaxed border transition-all duration-300 ${
-                      isMe 
-                        ? 'bg-[var(--ink)] text-[var(--bg)] border-transparent' 
-                        : 'bg-[var(--bg)] text-[var(--ink)] border-[var(--border)]'
-                    }`}>
+                    <div
+                      className={`p-3 text-xs leading-relaxed border transition-all duration-300 ${
+                        isMe
+                          ? 'bg-[var(--ink)] text-[var(--bg)] border-transparent'
+                          : 'bg-[var(--bg)] text-[var(--ink)] border-[var(--border)]'
+                      }`}
+                    >
                       {msg.text && <p className="whitespace-pre-wrap break-words">{msg.text}</p>}
-                      
+
                       {/* Media Attachments */}
                       {msg.attachmentType === 'image' && msg.attachmentUrl && (
-                        <div className={`overflow-hidden border border-black/10 bg-black/5 max-w-full ${msg.text ? 'mt-2.5' : ''}`}>
-                          <img 
-                            src={msg.attachmentUrl} 
+                        <div
+                          className={`overflow-hidden border border-black/10 bg-black/5 max-w-full ${msg.text ? 'mt-2.5' : ''}`}
+                        >
+                          <img
+                            src={msg.attachmentUrl}
                             alt={msg.attachmentName || t('chatAttachedPhotoAlt')}
                             className="max-h-[220px] w-auto max-w-full object-contain mx-auto hover:scale-[1.02] transition-transform duration-300"
                             referrerPolicy="no-referrer"
                           />
                           <div className="p-1 px-2 text-[8px] font-mono text-[var(--ink-dim)] bg-black/15 flex items-center justify-between gap-2 border-t border-black/10">
                             <span className="truncate max-w-[150px]">{msg.attachmentName}</span>
-                            {msg.attachmentSize && <span>{(msg.attachmentSize / 1024).toFixed(1)} KB</span>}
+                            {msg.attachmentSize && (
+                              <span>{(msg.attachmentSize / 1024).toFixed(1)} KB</span>
+                            )}
                           </div>
                         </div>
                       )}
 
                       {msg.attachmentType === 'video' && msg.attachmentUrl && (
-                        <div className={`overflow-hidden border border-black/10 bg-black/5 max-w-full ${msg.text ? 'mt-2.5' : ''}`}>
-                          <video 
-                            src={msg.attachmentUrl} 
-                            controls 
+                        <div
+                          className={`overflow-hidden border border-black/10 bg-black/5 max-w-full ${msg.text ? 'mt-2.5' : ''}`}
+                        >
+                          <video
+                            src={msg.attachmentUrl}
+                            controls
                             playsInline
                             className="max-h-[220px] w-auto max-w-full object-contain mx-auto"
                           />
                           <div className="p-1 px-2 text-[8px] font-mono text-[var(--ink-dim)] bg-black/15 flex items-center justify-between gap-2 border-t border-black/10">
                             <span className="truncate max-w-[150px]">{msg.attachmentName}</span>
-                            {msg.attachmentSize && <span>{(msg.attachmentSize / 1024).toFixed(1)} KB</span>}
+                            {msg.attachmentSize && (
+                              <span>{(msg.attachmentSize / 1024).toFixed(1)} KB</span>
+                            )}
                           </div>
                         </div>
                       )}
 
                       {msg.attachmentType === 'link' && msg.attachmentUrl && (
                         <div className={msg.text ? 'mt-2.5' : ''}>
-                          <a 
-                            href={msg.attachmentUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
+                          <a
+                            href={msg.attachmentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className={`flex items-center gap-2 p-2 border text-[10px] font-mono uppercase tracking-widest transition-all duration-300 ${
-                              isMe 
-                                ? 'border-white/20 text-white bg-white/10 hover:bg-white/20' 
+                              isMe
+                                ? 'border-white/20 text-white bg-white/10 hover:bg-white/20'
                                 : 'border-[var(--border)] text-accent hover:border-accent bg-black/5'
                             }`}
                           >
                             <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate max-w-[180px]">{msg.attachmentName || msg.attachmentUrl}</span>
+                            <span className="truncate max-w-[180px]">
+                              {msg.attachmentName || msg.attachmentUrl}
+                            </span>
                           </a>
                         </div>
                       )}
                     </div>
 
                     {/* Time */}
-                    <div className={`flex items-center gap-1 text-[8px] font-mono text-[var(--ink-dim)] ${isMe ? 'justify-end' : 'justify-start'}`}>
+                    <div
+                      className={`flex items-center gap-1 text-[8px] font-mono text-[var(--ink-dim)] ${isMe ? 'justify-end' : 'justify-start'}`}
+                    >
                       <Clock className="w-2.5 h-2.5" />
                       <span>{formattedTime}</span>
                     </div>
@@ -583,19 +633,19 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
         {/* Attachment Options Toolbar */}
         <div className="px-4 py-1.5 border-t border-[var(--border)] bg-black/10 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleImageSelect} 
-              accept="image/*" 
-              className="hidden" 
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageSelect}
+              accept="image/*"
+              className="hidden"
             />
-            <input 
-              type="file" 
-              ref={videoInputRef} 
-              onChange={handleVideoSelect} 
-              accept="video/*" 
-              className="hidden" 
+            <input
+              type="file"
+              ref={videoInputRef}
+              onChange={handleVideoSelect}
+              accept="video/*"
+              className="hidden"
             />
 
             <button
@@ -674,11 +724,17 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-12 h-12 border border-[var(--border)] bg-black/20 overflow-hidden flex items-center justify-center shrink-0">
                 {attachmentType === 'image' ? (
-                  <img src={attachmentUrl} alt={t('chatPreviewAlt')} className="w-full h-full object-cover" />
+                  <img
+                    src={attachmentUrl}
+                    alt={t('chatPreviewAlt')}
+                    className="w-full h-full object-cover"
+                  />
                 ) : attachmentType === 'video' ? (
                   <div className="relative w-full h-full flex items-center justify-center bg-black">
                     <Video className="w-5 h-5 text-accent" />
-                    <span className="absolute bottom-0 right-0 text-[6px] font-mono bg-black/75 px-0.5 text-accent">VM</span>
+                    <span className="absolute bottom-0 right-0 text-[6px] font-mono bg-black/75 px-0.5 text-accent">
+                      VM
+                    </span>
                   </div>
                 ) : (
                   <LinkIcon className="w-5 h-5 text-accent" />
@@ -686,11 +742,11 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
               </div>
               <div className="min-w-0">
                 <span className="text-[8px] font-mono uppercase tracking-wider text-accent font-bold block">
-                  {attachmentType === 'image' 
+                  {attachmentType === 'image'
                     ? t('chatImageReady')
-                    : attachmentType === 'video' 
-                    ? t('chatOptimizedVideo')
-                    : t('chatLinkAttachment')}
+                    : attachmentType === 'video'
+                      ? t('chatOptimizedVideo')
+                      : t('chatLinkAttachment')}
                 </span>
                 <span className="text-[10px] font-mono text-[var(--ink)] truncate block">
                   {attachmentName || t('chatAttachment')}
@@ -719,8 +775,8 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
         )}
 
         {/* Input area */}
-        <form 
-          onSubmit={handleSendMessage} 
+        <form
+          onSubmit={handleSendMessage}
           className="p-3 border-t border-[var(--border)] bg-[var(--bg)] flex items-center gap-2 shrink-0"
         >
           <input
@@ -750,4 +806,3 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     document.body
   );
 };
-

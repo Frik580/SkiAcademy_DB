@@ -1,7 +1,10 @@
 import { doc, getDoc } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { migrateAvailabilitySlots } from '../../src/lib/availabilityMigration';
-import { AVAILABILITY_MIGRATION_SETTING, AVAILABILITY_SLOTS_COLLECTION } from '../../src/lib/availabilitySlots';
+import {
+  AVAILABILITY_MIGRATION_SETTING,
+  AVAILABILITY_SLOTS_COLLECTION,
+} from '../../src/lib/availabilitySlots';
 import type { Booking } from '../../src/types';
 import {
   INSTRUCTOR_ID,
@@ -87,16 +90,12 @@ describe('availability slot migration', () => {
 
     await migrateAvailabilitySlots([lessonBooking({ id: 'booking-first' })], adminDb);
 
-    const firstMigration = await getDoc(
-      doc(adminDb, 'settings', AVAILABILITY_MIGRATION_SETTING)
-    );
+    const firstMigration = await getDoc(doc(adminDb, 'settings', AVAILABILITY_MIGRATION_SETTING));
     expect(firstMigration.data()?.migratedCount).toBe(1);
 
     await migrateAvailabilitySlots([lessonBooking({ id: 'booking-second' })], adminDb);
 
-    const secondSlot = await getDoc(
-      doc(adminDb, AVAILABILITY_SLOTS_COLLECTION, 'booking-second')
-    );
+    const secondSlot = await getDoc(doc(adminDb, AVAILABILITY_SLOTS_COLLECTION, 'booking-second'));
     const migrationDoc = await getDoc(doc(adminDb, 'settings', AVAILABILITY_MIGRATION_SETTING));
 
     expect(secondSlot.exists()).toBe(false);

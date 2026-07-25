@@ -14,7 +14,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
   isOpen,
   onClose,
   currentBalance,
-  onPaymentSuccess
+  onPaymentSuccess,
 }) => {
   const { addNotification } = useNotifications();
   const { t } = useLanguage();
@@ -30,10 +30,10 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
 
   // Format Card Number (space every 4 digits)
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    let matches = value.match(/\d{4,16}/g);
-    let match = (matches && matches[0]) || '';
-    let parts = [];
+    const value = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    const matches = value.match(/\d{4,16}/g);
+    const match = (matches && matches[0]) || '';
+    const parts = [];
 
     for (let i = 0, len = match.length; i < len; i += 4) {
       parts.push(match.substring(i, i + 4));
@@ -48,7 +48,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
 
   // Format Expiry (MM/YY)
   const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/[^0-9]/g, '');
+    const value = e.target.value.replace(/[^0-9]/g, '');
     if (value.length > 2) {
       setExpiry(`${value.substring(0, 2)}/${value.substring(2, 4)}`);
     } else {
@@ -99,8 +99,12 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10">
           <div>
-            <h3 className="font-serif text-lg font-light text-[var(--ink)]">{t('topUpWalletTitle')}</h3>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5">{t('topUpWalletSub')}</p>
+            <h3 className="font-serif text-lg font-light text-[var(--ink)]">
+              {t('topUpWalletTitle')}
+            </h3>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5">
+              {t('topUpWalletSub')}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -122,7 +126,8 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
                 <strong className="text-[var(--ink)] font-bold">${selectedAmount}</strong>.
               </p>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/10 border border-[var(--border)] rounded-none text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] mt-4">
-                <CreditCard className="w-3.5 h-3.5 text-[var(--ink-dim)]" /> {t('newBalance')}: ${currentBalance + selectedAmount}
+                <CreditCard className="w-3.5 h-3.5 text-[var(--ink-dim)]" /> {t('newBalance')}: $
+                {currentBalance + selectedAmount}
               </div>
             </div>
           </div>
@@ -130,8 +135,12 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
           <form onSubmit={handlePay} className="p-6 space-y-5">
             {/* Quick Balance Information */}
             <div className="flex items-center justify-between bg-black/10 rounded-none p-4 border border-[var(--border)]">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">{t('currentBalance')}:</span>
-              <span className="text-xl font-extrabold text-[var(--ink)] font-mono">${currentBalance}</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                {t('currentBalance')}:
+              </span>
+              <span className="text-xl font-extrabold text-[var(--ink)] font-mono">
+                ${currentBalance}
+              </span>
             </div>
 
             {/* Select Top-up Amount */}
@@ -165,7 +174,9 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
 
               {/* Cardholder Name */}
               <div className="space-y-1">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">{t('cardHolder')}</label>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+                  {t('cardHolder')}
+                </label>
                 <input
                   type="text"
                   required
@@ -178,7 +189,9 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
 
               {/* Card Number */}
               <div className="space-y-1">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">{t('paymentCardNumber')}</label>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+                  {t('paymentCardNumber')}
+                </label>
                 <div className="relative">
                   <input
                     type="text"
@@ -196,7 +209,9 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
               {/* Expiry & CVV */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">{t('expiry')}</label>
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+                    {t('expiry')}
+                  </label>
                   <input
                     type="text"
                     required
@@ -208,7 +223,9 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">{t('cvv')}</label>
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+                    {t('cvv')}
+                  </label>
                   <input
                     type="password"
                     required

@@ -2,15 +2,8 @@ import { useMemo } from 'react';
 import { Booking, Course } from '../types';
 import type { Language } from './i18n/translations';
 import { translateInstructorName, translateCourse } from './i18n/contentTranslation';
-import {
-  parseDurationHours,
-  splitCourseDates,
-  getGroupScheduleLabel,
-} from './i18n/courseDates';
-import {
-  getGroupCourseEnrollmentNote,
-  getGroupCourseLabel,
-} from './i18n/bookingLabels';
+import { parseDurationHours, splitCourseDates, getGroupScheduleLabel } from './i18n/courseDates';
+import { getGroupCourseEnrollmentNote, getGroupCourseLabel } from './i18n/bookingLabels';
 
 export type TranslatedBooking = Booking & { chatId: string };
 
@@ -99,7 +92,11 @@ export function useTranslatedBookings(
             const translated = translateCourse(dummyCourse, language);
             name = getGroupCourseLabel(translated.title, language);
           }
-          if (time === 'Group Schedule' || time === getGroupScheduleLabel('ru') || time === getGroupScheduleLabel('en')) {
+          if (
+            time === 'Group Schedule' ||
+            time === getGroupScheduleLabel('ru') ||
+            time === getGroupScheduleLabel('en')
+          ) {
             const { datePart, timePart } = splitCourseDates(date, language);
             date = datePart;
             time = timePart;

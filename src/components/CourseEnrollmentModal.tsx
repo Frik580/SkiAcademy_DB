@@ -75,11 +75,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
 
     try {
       await setDoc(doc(db, 'bookings', guestBooking.id), guestBooking);
-      addNotification(
-        'success',
-        t('guestApplicationSuccess'),
-        t('guestApplicationSuccessDesc')
-      );
+      addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       onClose();
     } catch (err) {
@@ -89,11 +85,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         const existing: Booking[] = existingStr ? JSON.parse(existingStr) : [];
         existing.push(guestBooking);
         localStorage.setItem('alpine_glide_bookings_admin', JSON.stringify(existing));
-        addNotification(
-          'success',
-          t('guestApplicationSuccess'),
-          t('guestApplicationSuccessDesc')
-        );
+        addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
         onClose();
       } catch {
@@ -249,8 +241,12 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
 
                 <div className="bg-black/10 rounded-none p-3 border border-[var(--border)] space-y-1">
                   <div className="flex justify-between items-baseline">
-                    <span className="text-xs font-mono uppercase tracking-widest text-[var(--ink)]">{t('courseTotalTuition')}</span>
-                    <span className="text-lg font-extrabold text-sky-600 dark:text-sky-400 font-mono">${course.price}</span>
+                    <span className="text-xs font-mono uppercase tracking-widest text-[var(--ink)]">
+                      {t('courseTotalTuition')}
+                    </span>
+                    <span className="text-lg font-extrabold text-sky-600 dark:text-sky-400 font-mono">
+                      ${course.price}
+                    </span>
                   </div>
                   <div className="text-[10px] font-mono text-[var(--ink-dim)]">
                     📅 {course.dates}

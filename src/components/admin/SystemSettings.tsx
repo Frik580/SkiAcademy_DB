@@ -49,8 +49,13 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
       {/* 1. Таблица начисления рейтинга клиентов (система уровней) */}
       <AdminCollapsibleSection
         id="skill_matrix"
-        title={t('clientRatingSkillMatrix') || 'Таблица начисления рейтинга клиентов (система уровней)'}
-        subtitle={t('skillMatrixDescription') || 'Настройка критериев перехода между уровнями и матрицы навыков'}
+        title={
+          t('clientRatingSkillMatrix') || 'Таблица начисления рейтинга клиентов (система уровней)'
+        }
+        subtitle={
+          t('skillMatrixDescription') ||
+          'Настройка критериев перехода между уровнями и матрицы навыков'
+        }
         icon={Award}
       >
         <SkillConfigManager
@@ -75,7 +80,9 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
       <AdminCollapsibleSection
         id="resort_slider"
         title={t('heroSliderTitle') || 'Настройка рекламного баннера (Слайдер)'}
-        subtitle={t('heroSliderDesc') || 'Интервал смены и конфигурация промо-слайдов на главной странице'}
+        subtitle={
+          t('heroSliderDesc') || 'Интервал смены и конфигурация промо-слайдов на главной странице'
+        }
         icon={Sliders}
       >
         <ResortSliderSection />

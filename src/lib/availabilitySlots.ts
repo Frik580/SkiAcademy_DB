@@ -11,17 +11,12 @@ export const blocksInstructorAvailability = (
 ): boolean =>
   !isCourseBooking(booking) &&
   !booking.isDeleted &&
-  (
-    booking.status === 'pending' ||
+  (booking.status === 'pending' ||
     booking.status === 'confirmed' ||
-    booking.status === 'pending_cancellation'
-  );
+    booking.status === 'pending_cancellation');
 
 export const toAvailabilitySlot = (
-  booking: Pick<
-    Booking,
-    'id' | 'userId' | 'instructorId' | 'date' | 'time' | 'durationHours'
-  >
+  booking: Pick<Booking, 'id' | 'userId' | 'instructorId' | 'date' | 'time' | 'durationHours'>
 ): AvailabilitySlot => ({
   bookingId: booking.id,
   instructorId: booking.instructorId,

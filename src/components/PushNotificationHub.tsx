@@ -31,23 +31,26 @@ export const useNotifications = () => {
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  const addNotification = useCallback((type: Notification['type'], title: string, message: string) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    const newNotif: Notification = {
-      id,
-      type,
-      title,
-      message,
-      timestamp: new Date()
-    };
-    
-    setNotifications((prev) => [newNotif, ...prev].slice(0, 10)); // keep last 10 notifications
+  const addNotification = useCallback(
+    (type: Notification['type'], title: string, message: string) => {
+      const id = Math.random().toString(36).substring(2, 9);
+      const newNotif: Notification = {
+        id,
+        type,
+        title,
+        message,
+        timestamp: new Date(),
+      };
 
-    // Auto remove after 6 seconds
-    setTimeout(() => {
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-    }, 6000);
-  }, []);
+      setNotifications((prev) => [newNotif, ...prev].slice(0, 10)); // keep last 10 notifications
+
+      // Auto remove after 6 seconds
+      setTimeout(() => {
+        setNotifications((prev) => prev.filter((n) => n.id !== id));
+      }, 6000);
+    },
+    []
+  );
 
   const removeNotification = useCallback((id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
@@ -58,7 +61,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   return (
-    <NotificationContext.Provider value={{ notifications, addNotification, removeNotification, clearAll }}>
+    <NotificationContext.Provider
+      value={{ notifications, addNotification, removeNotification, clearAll }}
+    >
       {children}
       {/* Toast Notification Area */}
       <div className="fixed bottom-4 sm:bottom-6 left-4 sm:left-auto right-4 sm:right-6 z-50 flex flex-col gap-3 max-w-[calc(100vw-2rem)] sm:max-w-sm w-auto sm:w-full">
@@ -68,10 +73,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             id={`toast-${n.id}`}
             className="flex items-start gap-3 p-4 border bg-[var(--bg)] shadow-xl transition-all duration-300 animate-slide-in rounded-none hover:scale-[1.01]"
             style={{
-              borderColor: 
-                n.type === 'success' ? '#10b981' :
-                n.type === 'warning' ? '#f59e0b' :
-                n.type === 'error' ? '#ef4444' : '#3b82f6'
+              borderColor:
+                n.type === 'success'
+                  ? '#10b981'
+                  : n.type === 'warning'
+                    ? '#f59e0b'
+                    : n.type === 'error'
+                      ? '#ef4444'
+                      : '#3b82f6',
             }}
           >
             <div className="shrink-0 mt-0.5">
@@ -80,7 +89,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               {n.type === 'error' && <ShieldAlert className="w-5 h-5 text-red-500" />}
               {n.type === 'info' && <Info className="w-5 h-5 text-blue-500" />}
             </div>
-            
+
             <div className="flex-1 min-w-0">
               <h4 className="font-serif text-sm font-medium text-[var(--ink)] leading-tight">
                 {n.title}
@@ -116,8 +125,8 @@ export interface NotificationHubModalProps {
   onClearNotifications?: () => Promise<void>;
 }
 
-export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({ 
-  isOpen, 
+export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
+  isOpen,
   onClose,
   bookings = [],
   reviews = [],
@@ -125,22 +134,23 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
   dismissedReviewIds = [],
   onDismissReview,
   dbNotifications = [],
-  onClearNotifications
+  onClearNotifications,
 }) => {
   const { notifications: localNotifications, clearAll: localClearAll } = useNotifications();
   const { t } = useLanguage();
 
   if (!isOpen) return null;
 
-  const notificationsToShow = dbNotifications && dbNotifications.length > 0 
-    ? dbNotifications.map(n => ({
-        id: n.id,
-        type: n.type || 'info',
-        title: n.title,
-        message: n.message,
-        timestamp: new Date(n.timestamp)
-      }))
-    : localNotifications;
+  const notificationsToShow =
+    dbNotifications && dbNotifications.length > 0
+      ? dbNotifications.map((n) => ({
+          id: n.id,
+          type: n.type || 'info',
+          title: n.title,
+          message: n.message,
+          timestamp: new Date(n.timestamp),
+        }))
+      : localNotifications;
 
   const handleClearAll = async () => {
     if (onClearNotifications) {
@@ -157,7 +167,9 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
     if (b.status !== 'completed') return false;
     if (dismissedReviewIds.includes(b.id)) return false;
     const alreadyReviewed = reviews.some(
-      (r) => r.bookingId === b.id || (uid && r.userId === uid && r.instructorId === b.instructorId && r.date === b.date)
+      (r) =>
+        r.bookingId === b.id ||
+        (uid && r.userId === uid && r.instructorId === b.instructorId && r.date === b.date)
     );
     return !alreadyReviewed;
   });
@@ -202,14 +214,14 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
               </h4>
               <div className="space-y-2">
                 {unreviewedCompletedBookings.map((b) => (
-                  <div 
-                    key={b.id} 
+                  <div
+                    key={b.id}
                     className="p-3 border border-[var(--border)] bg-black/10 flex items-center justify-between gap-3 rounded-none"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <img 
-                        src={b.instructorAvatar} 
-                        alt={b.instructorName} 
+                      <img
+                        src={b.instructorAvatar}
+                        alt={b.instructorName}
                         className="w-8 h-8 rounded-none object-cover shrink-0 border border-[var(--border)]"
                       />
                       <div className="min-w-0">
@@ -273,7 +285,9 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
                   </div>
                   <div className="flex-1">
                     <h4 className="text-xs font-semibold text-[var(--ink)]">{n.title}</h4>
-                    <p className="text-xs text-[var(--ink-dim)] mt-0.5 whitespace-pre-wrap">{n.message}</p>
+                    <p className="text-xs text-[var(--ink-dim)] mt-0.5 whitespace-pre-wrap">
+                      {n.message}
+                    </p>
                     <span className="text-[10px] text-[var(--ink-dim)] block mt-2 font-mono">
                       {n.timestamp.toLocaleTimeString()}
                     </span>

@@ -9,11 +9,9 @@ interface UnreviewedCompletedBookingsNoticeProps {
   onDismissReview?: (bookingId: string) => void;
 }
 
-export const UnreviewedCompletedBookingsNotice: React.FC<UnreviewedCompletedBookingsNoticeProps> = ({
-  unreviewedCompletedBookings,
-  onWriteReview,
-  onDismissReview,
-}) => {
+export const UnreviewedCompletedBookingsNotice: React.FC<
+  UnreviewedCompletedBookingsNoticeProps
+> = ({ unreviewedCompletedBookings, onWriteReview, onDismissReview }) => {
   const { t } = useLanguage();
 
   if (!unreviewedCompletedBookings || unreviewedCompletedBookings.length === 0) {

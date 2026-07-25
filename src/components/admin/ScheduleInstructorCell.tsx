@@ -15,7 +15,9 @@ export const ScheduleInstructorCell: React.FC<ScheduleInstructorCellProps> = ({
   language,
   t,
 }) => (
-  <td className={`p-3 align-middle border-r border-[var(--border)] bg-black/5 dark:bg-white/5 ${!instructor.isAvailable ? 'opacity-75' : ''}`}>
+  <td
+    className={`p-3 align-middle border-r border-[var(--border)] bg-black/5 dark:bg-white/5 ${!instructor.isAvailable ? 'opacity-75' : ''}`}
+  >
     <div className="flex items-center gap-2 min-w-0">
       <div className="relative">
         <img
@@ -31,7 +33,9 @@ export const ScheduleInstructorCell: React.FC<ScheduleInstructorCellProps> = ({
         )}
       </div>
       <div className="min-w-0">
-        <div className={`text-xs font-bold truncate flex items-center gap-1 ${!instructor.isAvailable ? 'text-[var(--ink-dim)] line-through' : 'text-[var(--ink)]'}`}>
+        <div
+          className={`text-xs font-bold truncate flex items-center gap-1 ${!instructor.isAvailable ? 'text-[var(--ink-dim)] line-through' : 'text-[var(--ink)]'}`}
+        >
           {instructor.name}
         </div>
         <div className="text-[9px] text-[var(--ink-dim)] font-mono capitalize truncate flex items-center gap-1">

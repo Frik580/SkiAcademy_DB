@@ -64,7 +64,9 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
       }, 1200);
     } catch (err: any) {
       logger.error('Failed to link booking:', err);
-      setErrorMessage(err?.message || t('insufficientFundsForLink') || 'Не удалось привязать занятие к клиенту.');
+      setErrorMessage(
+        err?.message || t('insufficientFundsForLink') || 'Не удалось привязать занятие к клиенту.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -72,7 +74,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
 
   const modalContent = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-sans text-[var(--ink)]">
-      <div 
+      <div
         className="w-full max-w-lg border border-[var(--border)] bg-slate-50 dark:bg-slate-900 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
@@ -86,9 +88,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
               <h3 className="text-sm font-bold font-mono tracking-wide">
                 {t('linkGuestBookingTitle')}
               </h3>
-              <p className="text-[11px] text-[var(--ink-dim)] mt-0.5">
-                {t('linkGuestBookingSub')}
-              </p>
+              <p className="text-[11px] text-[var(--ink-dim)] mt-0.5">{t('linkGuestBookingSub')}</p>
             </div>
           </div>
           <button
@@ -125,7 +125,9 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
               <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-mono flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
                 <div>
-                  <span className="font-bold block">{t('insufficientFundsLinkTitle') || 'Нехватка средств на счету клиента'}</span>
+                  <span className="font-bold block">
+                    {t('insufficientFundsLinkTitle') || 'Нехватка средств на счету клиента'}
+                  </span>
                   <span>{errorMessage}</span>
                 </div>
               </div>
@@ -139,9 +141,11 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                 </span>
                 <span
                   className={`px-1.5 py-0.2 border text-[9px] uppercase ${
-                    booking.status === 'confirmed' ? 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' :
-                    booking.status === 'completed' ? 'border-accent text-accent bg-accent-muted' :
-                    'border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10'
+                    booking.status === 'confirmed'
+                      ? 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
+                      : booking.status === 'completed'
+                        ? 'border-accent text-accent bg-accent-muted'
+                        : 'border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10'
                   }`}
                 >
                   {getBookingStatusLabel(booking.status, language)}
@@ -150,16 +154,24 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
 
               <div className="grid grid-cols-3 gap-2 text-[11px] pt-1">
                 <div>
-                  <span className="text-[var(--ink-dim)] block text-[10px]">{t('dateTimeColumn')}</span>
-                  <span className="font-bold">{booking.date} @ {booking.time} ({booking.durationHours}h)</span>
+                  <span className="text-[var(--ink-dim)] block text-[10px]">
+                    {t('dateTimeColumn')}
+                  </span>
+                  <span className="font-bold">
+                    {booking.date} @ {booking.time} ({booking.durationHours}h)
+                  </span>
                 </div>
                 <div>
                   <span className="text-[var(--ink-dim)] block text-[10px]">{t('coachLabel')}</span>
                   <span className="font-bold">{booking.instructorName}</span>
                 </div>
                 <div>
-                  <span className="text-[var(--ink-dim)] block text-[10px]">{t('costLabel') || 'Стоимость:'}</span>
-                  <span className="font-bold text-amber-600 dark:text-amber-400">${booking.totalPrice}</span>
+                  <span className="text-[var(--ink-dim)] block text-[10px]">
+                    {t('costLabel') || 'Стоимость:'}
+                  </span>
+                  <span className="font-bold text-amber-600 dark:text-amber-400">
+                    ${booking.totalPrice}
+                  </span>
                 </div>
               </div>
 
@@ -208,7 +220,8 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                   clientUsers.map((user) => {
                     const isSelected = selectedUserId === user.uid;
                     const userBalance = user.balanceUSD ?? 0;
-                    const isLowBalance = booking.status === 'confirmed' && userBalance < booking.totalPrice;
+                    const isLowBalance =
+                      booking.status === 'confirmed' && userBalance < booking.totalPrice;
 
                     return (
                       <div
@@ -226,7 +239,11 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 border border-[var(--border)] flex items-center justify-center shrink-0 overflow-hidden text-xs">
                             {user.avatarUrl ? (
-                              <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+                              <img
+                                src={user.avatarUrl}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
                             ) : (
                               <User className="w-4 h-4 text-[var(--ink-dim)]" />
                             )}
@@ -243,7 +260,9 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
 
                         <div className="flex items-center gap-3 shrink-0 font-mono text-right">
                           <div>
-                            <div className={`text-xs font-bold ${isLowBalance ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                            <div
+                              className={`text-xs font-bold ${isLowBalance ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400'}`}
+                            >
                               ${userBalance}
                             </div>
                             {isLowBalance && (
@@ -285,7 +304,9 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                 className="px-4 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer flex items-center gap-1.5"
               >
                 <UserCheck className="w-4 h-4" />
-                {isSubmitting ? t('saving') : `${t('confirmLinkToClient')} ${selectedUser ? selectedUser.displayName : ''}`}
+                {isSubmitting
+                  ? t('saving')
+                  : `${t('confirmLinkToClient')} ${selectedUser ? selectedUser.displayName : ''}`}
               </button>
             </div>
           </form>

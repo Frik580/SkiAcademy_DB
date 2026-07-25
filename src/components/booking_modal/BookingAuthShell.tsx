@@ -4,6 +4,7 @@ import { Auth } from '../Auth';
 import { BookingModalHeader } from './BookingModalHeader';
 import { GuestBookingForm } from './GuestBookingForm';
 import { useBookingModal } from './useBookingModal';
+import { AuthModeSliderSwitch } from './AuthModeSliderSwitch';
 
 interface BookingAuthShellProps {
   workspace: ReturnType<typeof useBookingModal>;
@@ -25,29 +26,13 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
     >
       <BookingModalHeader targetInstructor={targetInstructor} t={t} onClose={onClose} />
 
-      <div className="grid grid-cols-2 border-b border-[var(--border)] bg-black/5 font-mono text-xs shrink-0">
-        <button
-          type="button"
-          onClick={() => setUnauthTab('guest')}
-          className={`py-2.5 px-3 text-center font-bold uppercase tracking-wider transition cursor-pointer ${
-            unauthTab === 'guest'
-              ? 'bg-[var(--bg)] text-[var(--ink)] border-b-2 border-sky-600 dark:border-sky-400'
-              : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
-          }`}
-        >
-          📝 {t('guestBookingTab')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setUnauthTab('auth')}
-          className={`py-2.5 px-3 text-center font-bold uppercase tracking-wider transition cursor-pointer ${
-            unauthTab === 'auth'
-              ? 'bg-[var(--bg)] text-[var(--ink)] border-b-2 border-sky-600 dark:border-sky-400'
-              : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
-          }`}
-        >
-          🔐 {t('authTab')}
-        </button>
+      <div className="p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
+        <AuthModeSliderSwitch
+          unauthTab={unauthTab}
+          onChange={setUnauthTab}
+          guestLabel={t('guestBookingTab')}
+          authLabel={t('authTab')}
+        />
       </div>
 
       <div className="p-6 overflow-y-auto space-y-4">

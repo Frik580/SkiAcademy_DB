@@ -14,7 +14,14 @@ service cloud.firestore {
     }
 
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return isAuthenticated() && (
+        request.auth.uid == userId ||
+        (
+          userId.matches('^client_.*') &&
+          exists(/databases/$(database)/documents/users/$(userId)) &&
+          isOwnEmail(get(/databases/$(database)/documents/users/$(userId)).data.email)
+        )
+      );
     }
 
     function isSystemOwner() {
@@ -123,7 +130,7 @@ service cloud.firestore {
     // User Profiles
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin() || isInstructor();
-      allow list: if isAdmin() || isInstructor() || isOwnEmail(resource.data.email);
+      allow list: if isAdmin() || isInstructor() || (resource != null && isOwnEmail(resource.data.email));
 
       allow create: if (
         isOwner(userId) &&
@@ -146,15 +153,18 @@ service cloud.firestore {
           'phoneNumber',
           'avatarUrl',
           'balanceUSD',
-          'hideProgressTracking'
+          'hideProgressTracking',
+          'hasCompletedOnboarding'
         ]) &&
         request.resource.data.balanceUSD >= 0
       ) || (
         isInstructor() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'level',
-          'skillScores'
-        ])
+          'skillScores',
+          'balanceUSD'
+        ]) &&
+        request.resource.data.balanceUSD >= 0
       ) || (
         isAdmin() &&
         (!('role' in resource.data) || resource.data.role != 'admin') &&
@@ -220,9 +230,12 @@ service cloud.firestore {
     // Bookings
     match /bookings/{bookingId} {
       allow read: if isAdmin() ||
-        isOwner(resource.data.userId) ||
-        isAssignedInstructor(resource.data) ||
-        isMigratableClientBooking(resource.data) ||
+        resource == null ||
+        (resource != null && (
+          isOwner(resource.data.userId) ||
+          isAssignedInstructor(resource.data) ||
+          isMigratableClientBooking(resource.data)
+        )) ||
         (isAuthenticated() && !availabilityMigrationComplete());
 
       allow create: if (
@@ -266,6 +279,14 @@ service cloud.firestore {
         isOwnEmail(
           get(/databases/$(database)/documents/users/$(resource.data.userId)).data.email
         )
+      ) || (
+        (resource.data.userId.matches('^client_.*') || resource.data.userId.matches('^guest_.*')) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'date',
+          'time',
+          'cancellationReason'
+        ])
       ) || isAdmin();
 
       allow delete: if isAdmin();
@@ -374,23 +395,9 @@ service cloud.firestore {
         request.resource.data.availableSeats >= 0 &&
         request.resource.data.availableSeats <= resource.data.totalSeats &&
         (
-          (
-            request.resource.data.availableSeats == resource.data.availableSeats - 1 &&
-            existsAfter(
-              /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
-            ) &&
-            getAfter(
-              /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
-            ).data.userId == request.auth.uid
-          ) || (
-            request.resource.data.availableSeats == resource.data.availableSeats + 1 &&
-            exists(
-              /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
-            ) &&
-            getAfter(
-              /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
-            ).data.status == 'cancelled'
-          )
+          request.resource.data.availableSeats == resource.data.availableSeats - 1 ||
+          request.resource.data.availableSeats == resource.data.availableSeats + 1 ||
+          request.resource.data.availableSeats == resource.data.availableSeats
         )
       );
     }

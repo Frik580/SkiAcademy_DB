@@ -227,26 +227,35 @@ export const useBookings = (
   };
 
   const handleCancel = async (id: string, refundAmount?: number) => {
-    if (!firebaseUser) return;
     const booking = bookings.find((item) => item.id === id);
     if (!booking) return;
 
     const bookingOwnerId = booking.userId;
     const isSystemBlock = bookingOwnerId.startsWith('system_block_');
+    const isGuest = bookingOwnerId.startsWith('guest_');
 
     try {
-      const { refunded } = await cancelBookingWithRefund(db, id, refundAmount);
+      const { refunded, alreadyCancelled } = await cancelBookingWithRefund(db, id, refundAmount);
 
-      if (bookingOwnerId === firebaseUser.uid && userProfile) {
+      if (alreadyCancelled) return;
+
+      if (firebaseUser && bookingOwnerId === firebaseUser.uid && userProfile) {
         setUserProfile({ ...userProfile, balanceUSD: userProfile.balanceUSD + refunded });
       }
 
-      if (userProfile?.role === 'admin' && !isSystemBlock) {
-        await createNotificationForUser(
-          bookingOwnerId,
+      if (userProfile?.role === 'admin') {
+        if (!isSystemBlock && !isGuest) {
+          await createNotificationForUser(
+            bookingOwnerId,
+            t('lessonCancelled'),
+            `${t('lessonCancelledDescPrefix')} ${booking.instructorName} ${t('lessonCancelledDescSuffix')}`,
+            'warning'
+          );
+        }
+        addNotification(
+          'success',
           t('lessonCancelled'),
-          `${t('lessonCancelledDescPrefix')} ${booking.instructorName} ${t('lessonCancelledDescSuffix')}`,
-          'warning'
+          `${t('lessonCancelledDescPrefix')} ${booking.instructorName} ${t('lessonCancelledDescSuffix')}`
         );
       }
     } catch (error) {

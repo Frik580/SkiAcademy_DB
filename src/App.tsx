@@ -103,6 +103,7 @@ const AppContent: React.FC = () => {
     handleUpdateCourse,
     handleDeleteCourse,
     handleBookCourse,
+    handleCancel,
     handleRequestCancel,
     handleAddReview,
     handleAddInstructor,
@@ -298,6 +299,7 @@ const AppContent: React.FC = () => {
           onBookCourse={handleBookCourse}
           onReschedule={handleReschedule}
           onCancel={handleRequestCancel}
+          onCancelBooking={handleCancel}
           onAddReview={handleAddReview}
           onDismissReview={handleDismissReview}
           onSignOut={handleSignOut}

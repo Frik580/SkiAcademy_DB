@@ -57,9 +57,10 @@ export async function cancelBookingWithRefund(
     }
 
     const bookingOwnerId = bookingData.userId;
-    const isSystemBlock = bookingOwnerId.startsWith('system_block_');
-    const userRef = doc(firestore, 'users', bookingOwnerId);
-    const userSnap = isSystemBlock ? null : await transaction.get(userRef);
+    const isGuestOrSystemBlock =
+      bookingOwnerId.startsWith('guest_') || bookingOwnerId.startsWith('system_block_');
+    const userRef = isGuestOrSystemBlock ? null : doc(firestore, 'users', bookingOwnerId);
+    const userSnap = userRef ? await transaction.get(userRef) : null;
 
     const courseId = isCourseBooking(bookingData)
       ? bookingData.instructorId.substring('course_'.length)
@@ -70,7 +71,7 @@ export async function cancelBookingWithRefund(
     const refund =
       bookingData.status === 'completed' ? 0 : (refundAmount ?? bookingData.totalPrice ?? 0);
 
-    if (userSnap?.exists()) {
+    if (userRef && userSnap?.exists()) {
       const userData = userSnap.data() as UserProfile;
       transaction.update(userRef, { balanceUSD: (userData.balanceUSD ?? 0) + refund });
     }
@@ -82,9 +83,11 @@ export async function cancelBookingWithRefund(
 
     if (courseRef && courseSnap?.exists()) {
       const courseData = courseSnap.data() as Course;
-      transaction.update(courseRef, {
-        availableSeats: Math.min(courseData.totalSeats, courseData.availableSeats + 1),
-      });
+      if (courseData.availableSeats < courseData.totalSeats) {
+        transaction.update(courseRef, {
+          availableSeats: courseData.availableSeats + 1,
+        });
+      }
     }
 
     return { refunded: refund, alreadyCancelled: false };

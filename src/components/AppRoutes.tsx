@@ -95,6 +95,7 @@ interface AppRoutesProps {
   onBookCourse: (courseId: string) => Promise<void>;
   onReschedule: (id: string, newDate: string, newTime: string) => Promise<void>;
   onCancel: (id: string, reason?: string) => Promise<void>;
+  onCancelBooking: (id: string) => Promise<void>;
   onAddReview: (
     review: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>
   ) => Promise<void>;
@@ -356,7 +357,7 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
     onConfirmBooking,
     onCompleteBooking,
     onLinkGuestBooking,
-    onCancel,
+    onCancelBooking,
     onAddUser,
     onUpdateUser,
     onDeleteUser,
@@ -387,7 +388,7 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
           onConfirmBooking={onConfirmBooking}
           onCompleteBooking={onCompleteBooking}
           onLinkGuestBooking={onLinkGuestBooking}
-          onCancelBooking={onCancel}
+          onCancelBooking={onCancelBooking}
           onAddUser={onAddUser}
           onUpdateUser={onUpdateUser}
           onDeleteUser={onDeleteUser}

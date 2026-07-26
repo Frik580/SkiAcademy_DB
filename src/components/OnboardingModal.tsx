@@ -22,7 +22,7 @@ const SCENES = {
   // Wide hero plan (mountains at top of screen.png)
   hero: { fx: 771, fy: 420, scale: 1.05 },
   // Badge center on screen.png ≈ (443, 1496)
-  level: { fx: 443, fy: 1496, scale: 1.8 },
+  level: { fx: 460, fy: 1496, scale: 1.8 },
   progressStart: { fx: 1100, fy: 2280, scale: 1.78 },
   progressEnd: { fx: 1100, fy: 3050, scale: 1.78 },
   calendarStart: { fx: 1050, fy: 3480, scale: 1.58 },
@@ -216,8 +216,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const pct = (x: number, axis: 'w' | 'h') => `${(x / IMG[axis]) * 100}%`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in overflow-y-auto">
-      <div className="relative bg-[var(--bg)] border border-[var(--border)] max-w-2xl w-full text-[var(--ink)] overflow-hidden shadow-2xl flex flex-col my-auto max-h-[92vh] sm:max-h-[88vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in overflow-hidden">
+      <div className="relative bg-[var(--bg)] border border-[var(--border)] max-w-3xl w-full text-[var(--ink)] overflow-hidden shadow-2xl flex flex-col h-[min(760px,calc(100dvh-1.5rem))] sm:h-[min(760px,calc(100dvh-2rem))] max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)]">
         <div className="w-full bg-black/10 dark:bg-white/10 h-1 relative">
           <motion.div
             className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-amber-500"
@@ -244,231 +244,229 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           </button>
         </div>
 
-        <div className="p-4 sm:p-6 flex-1 overflow-y-auto flex flex-col min-h-0">
-          {/* Step title */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`title-${currentStep}`}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22 }}
-              className="text-center space-y-1.5 mb-3 shrink-0"
-            >
-              {/* <h2 className="text-xl sm:text-2xl font-serif font-light text-[var(--ink)]">
-                {currentStep === 1 && t('onboardingS1Title')}
-                {currentStep === 2 && t('onboardingS2Title')}
-                {currentStep === 3 && t('onboardingS3Title')}
-              </h2> */}
-              <p className="text-xs font-mono text-[var(--ink-dim)] leading-relaxed max-w-md mx-auto">
-                {currentStep === 1 && t('onboardingS1Desc')}
-                {currentStep === 2 && t('onboardingS2Desc')}
-                {currentStep === 3 && t('onboardingS3Desc')}
-              </p>
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Flight stage */}
-          <div
-            ref={stageRef}
-            className="relative w-full max-w-xl mx-auto h-[300px] sm:h-[380px] border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden shadow-xl shrink-0"
-          >
-            <div className="absolute top-0 inset-x-0 z-20 flex items-center gap-1.5 px-3 py-1.5 bg-black/50 border-b border-white/10">
-              <span className="w-2 h-2 rounded-full bg-rose-400/80" />
-              <span className="w-2 h-2 rounded-full bg-amber-400/80" />
-              <span className="w-2 h-2 rounded-full bg-emerald-400/80" />
-              <span className="ml-2 text-[9px] font-mono uppercase tracking-wider text-white/45 truncate">
-                {currentStep === 1 &&
-                  (playBadgeAnim
-                    ? language === 'ru'
-                      ? 'Личный кабинет → Уровень'
-                      : 'Personal Cabinet → Level'
-                    : language === 'ru'
-                      ? 'Hero → Уровень'
-                      : 'Hero → Level')}
-                {currentStep === 2 &&
-                  (language === 'ru'
-                    ? 'Личный кабинет → Прогресс текущего уровня'
-                    : 'Personal Cabinet → Current Level Progress')}
-                {currentStep === 3 &&
-                  (language === 'ru'
-                    ? 'Личный кабинет → Календарь тренировок'
-                    : 'Personal Cabinet → Training Calendar')}
-              </span>
-            </div>
-
-            <motion.div
-              className="absolute top-0 left-0 will-change-transform"
-              animate={{
-                x: camStyle.x,
-                y: camStyle.y,
-                width: camStyle.width,
-                height: camStyle.height,
-              }}
-              transition={{
-                duration: camDuration,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-            >
-              <img
-                src={SCREEN_URL}
-                alt="Carve Academy cabinet"
-                className="absolute inset-0 w-full h-full select-none pointer-events-none"
-                draggable={false}
-              />
-
-              {/* Screen 1: morph badges only after camera lands on the crystal */}
-              {currentStep === 1 && playBadgeAnim && (
-                <div
-                  className="absolute"
-                  style={{
-                    left: pct(LEVEL_BADGE.x, 'w'),
-                    top: pct(LEVEL_BADGE.y, 'h'),
-                    width: pct(LEVEL_BADGE.w, 'w'),
-                    height: pct(LEVEL_BADGE.h, 'h'),
-                  }}
-                >
-                  <div className="absolute inset-0 bg-[var(--card-bg)]" />
-                  <AnimatePresence mode="wait">
-                    <motion.img
-                      key={`badge-${activeLevel}`}
-                      src={getLevelSrc(activeLevel)}
-                      alt={`Level ${activeLevel}`}
-                      className="absolute inset-0 w-full h-full object-contain"
-                      initial={{ opacity: 0, scale: 0.85 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 1.06 }}
-                      transition={{ duration: 0.38, ease: [0.34, 1.4, 0.64, 1] }}
-                      referrerPolicy="no-referrer"
-                    />
-                  </AnimatePresence>
-                </div>
-              )}
-
-              {/* Screen 2: animated ring + per-row bars over Progress column */}
-              {currentStep === 2 && (
-                <>
-                  <div
-                    className="absolute flex items-center justify-center"
-                    style={{
-                      left: pct(PROGRESS_RING.x, 'w'),
-                      top: pct(PROGRESS_RING.y, 'h'),
-                      width: pct(PROGRESS_RING.w, 'w'),
-                      height: pct(PROGRESS_RING.h, 'h'),
-                    }}
-                  >
-                    <div className="absolute inset-0 rounded-full bg-[#0d1520]" />
-                    <svg viewBox="0 0 100 100" className="relative w-full h-full -rotate-90">
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="40"
-                        fill="none"
-                        stroke="rgba(148,163,184,0.25)"
-                        strokeWidth="9"
-                      />
-                      <motion.circle
-                        cx="50"
-                        cy="50"
-                        r="40"
-                        fill="none"
-                        stroke="#38bdf8"
-                        strokeWidth="9"
-                        strokeLinecap="round"
-                        strokeDasharray={RING_CIRC}
-                        initial={{ strokeDashoffset: RING_CIRC }}
-                        animate={{
-                          strokeDashoffset: playProgressAnim
-                            ? RING_CIRC - (RING_CIRC * RING_TARGET) / 100
-                            : RING_CIRC,
-                        }}
-                        transition={{ duration: 1.15, ease: [0.16, 1, 0.3, 1] }}
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="font-serif font-bold text-[#38bdf8] text-[clamp(10px,1.5vw,16px)]">
-                        {playProgressAnim ? <CountUp to={RING_TARGET} duration={1100} /> : 0}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {BAR_ROWS.map((bar, idx) => (
-                    <div
-                      key={idx}
-                      className="absolute overflow-hidden rounded-full bg-slate-800"
-                      style={{
-                        left: pct(BAR_TRACK.x, 'w'),
-                        top: pct(bar.y - BAR_TRACK.h / 2, 'h'),
-                        width: pct(BAR_TRACK.w, 'w'),
-                        height: pct(BAR_TRACK.h, 'h'),
-                      }}
-                    >
-                      <motion.div
-                        className={`h-full rounded-full ${
-                          bar.done ? 'bg-emerald-400' : 'bg-sky-400'
-                        }`}
-                        initial={{ width: 0 }}
-                        animate={{ width: playProgressAnim ? `${bar.pct}%` : 0 }}
-                        transition={{
-                          duration: 0.65,
-                          delay: playProgressAnim ? 0.12 + idx * 0.04 : 0,
-                          ease: [0.16, 1, 0.3, 1],
-                        }}
-                      />
-                    </div>
-                  ))}
-                </>
-              )}
-            </motion.div>
+        {/* Browser stage fills the whole modal body */}
+        <div
+          ref={stageRef}
+          className="relative flex-1 min-h-0 bg-[var(--card-bg)] overflow-hidden"
+        >
+          <div className="absolute top-0 inset-x-0 z-20 flex items-center gap-1.5 px-3 py-1.5 bg-black/55 border-b border-white/10 backdrop-blur-sm">
+            <span className="w-2 h-2 rounded-full bg-rose-400/80" />
+            <span className="w-2 h-2 rounded-full bg-amber-400/80" />
+            <span className="w-2 h-2 rounded-full bg-emerald-400/80" />
+            <span className="ml-2 text-[9px] font-mono uppercase tracking-wider text-white/45 truncate">
+              {currentStep === 1 &&
+                (playBadgeAnim
+                  ? language === 'ru'
+                    ? 'Личный кабинет → Уровень'
+                    : 'Personal Cabinet → Level'
+                  : language === 'ru'
+                    ? 'Hero → Уровень'
+                    : 'Hero → Level')}
+              {currentStep === 2 &&
+                (language === 'ru'
+                  ? 'Личный кабинет → Прогресс текущего уровня'
+                  : 'Personal Cabinet → Current Level Progress')}
+              {currentStep === 3 &&
+                (language === 'ru'
+                  ? 'Личный кабинет → Календарь тренировок'
+                  : 'Personal Cabinet → Training Calendar')}
+            </span>
           </div>
 
-          {/* Screen 3 CTA */}
-          {currentStep === 3 && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-              className="w-full max-w-sm mx-auto mt-4 shrink-0"
-            >
-              <button
-                onClick={handleFinalAction}
-                className="btn-primary w-full py-3 text-xs uppercase font-mono tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20"
-              >
-                <span>{t('onboardingS3PrimaryBtn')}</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-              <button
-                onClick={onClose}
-                className="mt-2 text-[11px] font-mono uppercase tracking-wider text-[var(--ink-dim)] hover:text-[var(--ink)] underline transition w-full"
-              >
-                {t('onboardingS3LaterBtn')}
-              </button>
-            </motion.div>
-          )}
+          <motion.div
+            className="absolute top-0 left-0 will-change-transform"
+            animate={{
+              x: camStyle.x,
+              y: camStyle.y,
+              width: camStyle.width,
+              height: camStyle.height,
+            }}
+            transition={{
+              duration: camDuration,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+          >
+            <img
+              src={SCREEN_URL}
+              alt="Carve Academy cabinet"
+              className="absolute inset-0 w-full h-full select-none pointer-events-none"
+              draggable={false}
+            />
 
-          {currentStep === 1 && (
-            <p className="text-[11px] font-mono text-[var(--ink-dim)] italic text-center mt-3 shrink-0">
-              {t('onboardingS1PathNote')}
-            </p>
-          )}
+            {/* Screen 1: morph badges only after camera lands on the crystal */}
+            {currentStep === 1 && playBadgeAnim && (
+              <div
+                className="absolute"
+                style={{
+                  left: pct(LEVEL_BADGE.x, 'w'),
+                  top: pct(LEVEL_BADGE.y, 'h'),
+                  width: pct(LEVEL_BADGE.w, 'w'),
+                  height: pct(LEVEL_BADGE.h, 'h'),
+                }}
+              >
+                <div className="absolute inset-0 bg-[var(--card-bg)]" />
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={`badge-${activeLevel}`}
+                    src={getLevelSrc(activeLevel)}
+                    alt={`Level ${activeLevel}`}
+                    className="absolute inset-0 w-full h-full object-contain"
+                    initial={{ opacity: 0, scale: 0.85 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1.06 }}
+                    transition={{ duration: 0.38, ease: [0.34, 1.4, 0.64, 1] }}
+                    referrerPolicy="no-referrer"
+                  />
+                </AnimatePresence>
+              </div>
+            )}
+
+            {/* Screen 2: animated ring + per-row bars over Progress column */}
+            {currentStep === 2 && (
+              <>
+                <div
+                  className="absolute flex items-center justify-center"
+                  style={{
+                    left: pct(PROGRESS_RING.x, 'w'),
+                    top: pct(PROGRESS_RING.y, 'h'),
+                    width: pct(PROGRESS_RING.w, 'w'),
+                    height: pct(PROGRESS_RING.h, 'h'),
+                  }}
+                >
+                  <div className="absolute inset-0 rounded-full bg-[#0d1520]" />
+                  <svg viewBox="0 0 100 100" className="relative w-full h-full -rotate-90">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      fill="none"
+                      stroke="rgba(148,163,184,0.25)"
+                      strokeWidth="9"
+                    />
+                    <motion.circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      fill="none"
+                      stroke="#38bdf8"
+                      strokeWidth="9"
+                      strokeLinecap="round"
+                      strokeDasharray={RING_CIRC}
+                      initial={{ strokeDashoffset: RING_CIRC }}
+                      animate={{
+                        strokeDashoffset: playProgressAnim
+                          ? RING_CIRC - (RING_CIRC * RING_TARGET) / 100
+                          : RING_CIRC,
+                      }}
+                      transition={{ duration: 1.15, ease: [0.16, 1, 0.3, 1] }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="font-serif font-bold text-[#38bdf8] text-[clamp(10px,1.5vw,16px)]">
+                      {playProgressAnim ? <CountUp to={RING_TARGET} duration={1100} /> : 0}%
+                    </span>
+                  </div>
+                </div>
+
+                {BAR_ROWS.map((bar, idx) => (
+                  <div
+                    key={idx}
+                    className="absolute overflow-hidden rounded-full bg-slate-800"
+                    style={{
+                      left: pct(BAR_TRACK.x, 'w'),
+                      top: pct(bar.y - BAR_TRACK.h / 2, 'h'),
+                      width: pct(BAR_TRACK.w, 'w'),
+                      height: pct(BAR_TRACK.h, 'h'),
+                    }}
+                  >
+                    <motion.div
+                      className={`h-full rounded-full ${
+                        bar.done ? 'bg-emerald-400' : 'bg-sky-400'
+                      }`}
+                      initial={{ width: 0 }}
+                      animate={{ width: playProgressAnim ? `${bar.pct}%` : 0 }}
+                      transition={{
+                        duration: 0.65,
+                        delay: playProgressAnim ? 0.12 + idx * 0.04 : 0,
+                        ease: [0.16, 1, 0.3, 1],
+                      }}
+                    />
+                  </div>
+                ))}
+              </>
+            )}
+          </motion.div>
+
+          {/* Screen copy + CTA inside the browser frame */}
+          <div className="absolute inset-x-0 bottom-0 z-20 pointer-events-none">
+            <div className="bg-gradient-to-t from-black/85 via-black/55 to-transparent pt-16 pb-4 px-4 sm:px-6">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`copy-${currentStep}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.22 }}
+                  className="text-center space-y-1.5 max-w-lg mx-auto"
+                >
+                  <h2 className="text-lg sm:text-xl font-serif font-light text-white">
+                    {currentStep === 1 && t('onboardingS1Title')}
+                    {currentStep === 2 && t('onboardingS2Title')}
+                    {currentStep === 3 && t('onboardingS3Title')}
+                  </h2>
+                  <p className="text-[11px] sm:text-xs font-mono text-white/70 leading-relaxed">
+                    {currentStep === 1 && t('onboardingS1Desc')}
+                    {currentStep === 2 && t('onboardingS2Desc')}
+                    {currentStep === 3 && t('onboardingS3Desc')}
+                  </p>
+                </motion.div>
+              </AnimatePresence>
+
+              {currentStep === 3 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35 }}
+                  className="w-full max-w-sm mx-auto mt-3 pointer-events-auto"
+                >
+                  <button
+                    onClick={handleFinalAction}
+                    className="btn-primary w-full py-2.5 text-xs uppercase font-mono tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20"
+                  >
+                    <span>{t('onboardingS3PrimaryBtn')}</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="mt-2 text-[11px] font-mono uppercase tracking-wider text-white/55 hover:text-white underline transition w-full"
+                  >
+                    {t('onboardingS3LaterBtn')}
+                  </button>
+                </motion.div>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="p-4 border-t border-[var(--border)] bg-black/5 dark:bg-white/5 flex items-center justify-between shrink-0">
-          <div>
+        <div className="relative p-4 border-t border-[var(--border)] bg-black/5 dark:bg-white/5 flex items-center justify-between shrink-0">
+          <div className="w-[8.5rem] flex items-center justify-start">
             {currentStep > 1 ? (
               <button
                 onClick={handleBack}
-                className="btn-secondary px-3.5 py-1.5 text-xs uppercase font-mono tracking-wider flex items-center gap-1"
+                className="btn-secondary px-3.5 py-1.5 text-xs uppercase font-mono tracking-wider inline-flex items-center justify-center gap-1"
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
                 <span>{t('onboardingBack')}</span>
               </button>
             ) : (
-              <div />
+              <span className="invisible btn-secondary px-3.5 py-1.5 text-xs uppercase font-mono tracking-wider inline-flex items-center justify-center gap-1" aria-hidden>
+                <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
+                <span>{t('onboardingBack')}</span>
+              </span>
             )}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5">
             {Array.from({ length: totalSteps }).map((_, idx) => (
               <button
                 key={idx}
@@ -483,19 +481,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             ))}
           </div>
 
-          <div>
+          <div className="w-[8.5rem] flex items-center justify-end">
             {currentStep < totalSteps ? (
               <button
                 onClick={handleNext}
-                className="btn-primary px-4 py-1.5 text-xs uppercase font-mono tracking-wider flex items-center gap-1"
+                className="btn-primary px-4 py-1.5 text-xs uppercase font-mono tracking-wider inline-flex items-center justify-center gap-1"
               >
                 <span>{t('onboardingNext')}</span>
-                <ChevronRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-3.5 h-3.5 shrink-0" />
               </button>
             ) : (
               <button
                 onClick={handleFinalAction}
-                className="btn-primary px-4 py-1.5 text-xs uppercase font-mono tracking-wider"
+                className="btn-primary px-4 py-1.5 text-xs uppercase font-mono tracking-wider inline-flex items-center justify-center"
               >
                 {language === 'ru' ? 'Записаться' : 'Book now'}
               </button>

@@ -218,8 +218,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const pct = (x: number, axis: 'w' | 'h') => `${(x / IMG[axis]) * 100}%`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in overflow-hidden">
-      <div className="relative bg-[var(--bg)] border border-[var(--border)] max-w-3xl w-full text-[var(--ink)] overflow-hidden shadow-2xl flex flex-col h-[min(760px,calc(100dvh-1.5rem))] sm:h-[min(760px,calc(100dvh-2rem))] max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)]">
+    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 animate-fade-in overflow-hidden">
+      <div className="ui-modal relative max-w-3xl w-full text-[var(--ink)] overflow-hidden shadow-2xl flex flex-col h-[min(760px,calc(100dvh-1.5rem))] sm:h-[min(760px,calc(100dvh-2rem))] max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)]">
         <div className="w-full bg-black/10 dark:bg-white/10 h-1 relative">
           <motion.div
             className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-amber-500"

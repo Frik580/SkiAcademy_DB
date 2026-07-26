@@ -160,7 +160,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
           </div>
 
           {userBookings.length > 0 && (
-            <div className="border border-[var(--border)] p-4 rounded-none bg-[var(--card-bg)] space-y-3 w-full min-w-0 max-w-full overflow-hidden shadow-xs">
+            <div className="ui-card p-4 lg:p-5 space-y-3 w-full min-w-0 max-w-full overflow-hidden">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap w-full min-w-0">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink)] font-bold flex items-center gap-1.5 break-words">
                   📅 {t('interactiveCalendar')}
@@ -264,7 +264,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
           )}
 
           {userBookings.length === 0 ? (
-            <div className="py-16 text-center border border-[var(--border)] bg-black/10">
+            <div className="ui-empty-state py-16">
               <Calendar className="w-8 h-8 text-[var(--ink-dim)] mx-auto mb-3" />
               <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] leading-relaxed">
                 {t('noSessionsScheduledYet')}

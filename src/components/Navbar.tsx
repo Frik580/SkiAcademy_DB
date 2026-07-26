@@ -40,9 +40,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     : t('notifications');
 
   return (
-    <header className="sticky top-0 z-40 bg-[var(--bg)] border-b border-[var(--border)] px-6 py-3 transition-colors duration-300">
+    <header className="ui-navbar sticky top-0 z-40 px-6 py-4 transition-colors duration-300">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-        {/* Brand logo */}
         <Link to="/" className="flex items-center select-none">
           <img
             src={theme === 'light' ? logoLight : logoDark}
@@ -52,92 +51,85 @@ export const Navbar: React.FC<NavbarProps> = ({
           />
         </Link>
 
-        {/* Desktop Menu */}
-        <div className="hidden md:flex items-center gap-3 md:gap-6 font-mono text-xs tracking-wider">
-          {/* Theme Switch Button */}
+        <div className="hidden md:flex items-center gap-2 md:gap-4 font-mono text-xs tracking-wider">
           <button
             onClick={onToggleTheme}
-            className="p-1 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition cursor-pointer"
+            className="ui-icon-btn"
             title={t(theme === 'light' ? 'switchToDark' : 'switchToLight')}
           >
             {theme === 'light' ? (
-              <Moon className="w-3.5 h-3.5 text-[var(--ink)]" />
+              <Moon className="w-4 h-4 text-[var(--ink)]" />
             ) : (
-              <Sun className="w-3.5 h-3.5 text-amber-400" />
+              <Sun className="w-4 h-4 text-amber-400" />
             )}
           </button>
 
-          {/* Language Switch Button */}
           <button
             onClick={() => setLanguage(language === 'en' ? 'ru' : 'en')}
-            className="px-2 py-1 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition cursor-pointer font-mono text-[10px]"
+            className="ui-icon-btn px-3 font-mono text-[10px] theme-air:font-sans theme-air:text-sm theme-air:normal-case"
             title={t('switchLanguage')}
           >
-            [{language === 'en' ? 'RU' : 'EN'}]
+            {language === 'en' ? 'RU' : 'EN'}
           </button>
 
           {!userProfile && onSignInClick && (
-            <button onClick={onSignInClick} className="px-3 py-1 btn-primary">
+            <button onClick={onSignInClick} className="px-4 py-2 btn-primary">
               {t('signInBtn')}
             </button>
           )}
 
           {userProfile && (
             <>
-              {/* Admin Toggle button */}
               {userProfile.role === 'admin' && (
                 <button
                   onClick={() => navigate(isAdminView ? '/' : '/admin')}
-                  className={`px-3 py-1 border transition cursor-pointer text-[10px] font-mono uppercase tracking-widest ${
+                  className={`px-4 py-2 transition cursor-pointer text-[10px] font-mono uppercase tracking-widest theme-air:font-sans theme-air:normal-case theme-air:text-sm theme-air:tracking-normal rounded-none theme-air:rounded-full ${
                     isAdminView
-                      ? 'bg-amber-500 border-amber-500 text-white hover:bg-amber-600'
-                      : 'bg-transparent border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)]'
+                      ? 'bg-amber-500 border border-amber-500 text-white hover:bg-amber-600 theme-air:border-none'
+                      : 'bg-transparent border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] theme-air:border-none theme-air:bg-[var(--profile-bg)]'
                   }`}
                 >
                   {isAdminView ? t('browseSlopes') : t('manageResort')}
                 </button>
               )}
 
-              {/* Wallet details */}
-              <div className="flex items-center gap-2 select-none text-[11px] text-[var(--ink)] font-mono">
-                <span className="text-[var(--ink-dim)] uppercase hidden sm:inline">
+              <div className="flex items-center gap-2 select-none text-[11px] text-[var(--ink)] font-mono theme-air:font-sans theme-air:text-sm px-2">
+                <span className="text-[var(--ink-dim)] uppercase hidden sm:inline theme-air:normal-case">
                   {t('balance')}:
                 </span>
                 <span className="font-bold">${userProfile.balanceUSD.toFixed(2)}</span>
                 <button
                   onClick={onOpenTopUp}
                   title={t('topUpSimulated')}
-                  className="p-0.5 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition cursor-pointer"
+                  className="ui-icon-btn p-1"
                 >
-                  <Plus className="w-3 h-3 stroke-[2]" />
+                  <Plus className="w-3.5 h-3.5 stroke-[2]" />
                 </button>
               </div>
 
-              {/* Notification button */}
               <button
                 onClick={onOpenNotifications}
                 title={notificationButtonTitle}
                 aria-label={notificationButtonTitle}
-                className={`p-1 border transition relative cursor-pointer ${
+                className={`ui-icon-btn relative ${
                   hasUnreadNotifications
-                    ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent)]/20'
-                    : 'border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)]'
+                    ? 'text-[var(--accent)] bg-[var(--accent)]/10 theme-air:bg-[var(--accent-muted)]'
+                    : ''
                 }`}
               >
-                <Bell className={`w-3.5 h-3.5 ${hasUnreadNotifications ? 'animate-pulse' : ''}`} />
+                <Bell className={`w-4 h-4 ${hasUnreadNotifications ? 'animate-pulse' : ''}`} />
                 {hasUnreadNotifications && (
                   <>
-                    <span className="absolute -top-1 -right-1 min-w-[0.95rem] h-[0.95rem] px-0.5 bg-rose-500 text-white text-[9px] font-bold leading-none rounded-full ring-1 ring-[var(--bg)] flex items-center justify-center">
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[0.95rem] h-[0.95rem] px-0.5 bg-rose-500 text-white text-[9px] font-bold leading-none rounded-full ring-1 ring-[var(--bg)] flex items-center justify-center">
                       {badgeLabel}
                     </span>
-                    <span className="absolute -top-1 -right-1 min-w-[0.95rem] h-[0.95rem] bg-rose-500 rounded-full animate-ping opacity-60" />
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[0.95rem] h-[0.95rem] bg-rose-500 rounded-full animate-ping opacity-60" />
                   </>
                 )}
               </button>
 
-              {/* Profile Avatar and Sign Out */}
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 border border-[var(--border)] overflow-hidden bg-slate-900 shrink-0">
+              <div className="flex items-center gap-3 pl-1">
+                <div className="ui-avatar w-8 h-8">
                   <img
                     src={userProfile.avatarUrl}
                     alt={userProfile.displayName}
@@ -145,7 +137,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   />
                 </div>
                 <div className="hidden lg:block text-left leading-none">
-                  <span className="text-[10px] font-bold text-[var(--ink)] block">
+                  <span className="text-[10px] font-bold text-[var(--ink)] block theme-air:text-sm theme-air:font-normal">
                     {userProfile.displayName.split(' ')[0]}
                   </span>
                 </div>
@@ -153,23 +145,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   onClick={onSignOut}
                   title={t('signOut')}
-                  className="p-1 border border-[var(--border)] hover:border-rose-500 text-[var(--ink-dim)] hover:text-rose-500 transition cursor-pointer"
+                  className="ui-icon-btn text-[var(--ink-dim)] hover:text-rose-500"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
+                  <LogOut className="w-4 h-4" />
                 </button>
               </div>
             </>
           )}
         </div>
 
-        {/* Mobile Menu Button */}
         <div className="md:hidden flex items-center">
-          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1 text-[var(--ink)]">
+          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="ui-icon-btn text-[var(--ink)]">
             {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
 
-        {/* Mobile Menu Dropdown */}
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div
@@ -177,30 +167,28 @@ export const Navbar: React.FC<NavbarProps> = ({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.2 }}
-              className="md:hidden absolute top-full left-0 w-full bg-[var(--bg)] border-b border-[var(--border)] p-6 flex flex-col gap-6"
+              className="md:hidden absolute top-full left-0 w-full bg-[var(--bg)]/95 backdrop-blur-md border-b border-[var(--border-subtle)] p-8 flex flex-col gap-6"
             >
               {userProfile && (
                 <>
-                  {/* Admin Toggle button */}
                   {userProfile.role === 'admin' && (
                     <button
                       onClick={() => {
                         navigate(isAdminView ? '/' : '/admin');
                         setIsMenuOpen(false);
                       }}
-                      className={`w-full px-3 py-2.5 border transition cursor-pointer text-xs font-mono uppercase tracking-widest ${
+                      className={`w-full px-4 py-3 transition cursor-pointer text-xs font-mono uppercase tracking-widest rounded-none theme-air:rounded-full theme-air:font-sans theme-air:normal-case ${
                         isAdminView
-                          ? 'bg-amber-500 border-amber-500 text-white hover:bg-amber-600'
-                          : 'bg-transparent border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)]'
+                          ? 'bg-amber-500 border border-amber-500 text-white'
+                          : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] theme-air:border-none'
                       }`}
                     >
                       {isAdminView ? t('browseSlopes') : t('manageResort')}
                     </button>
                   )}
 
-                  {/* Wallet details */}
-                  <div className="flex items-center justify-between gap-2 select-none text-sm text-[var(--ink)] font-mono">
-                    <span className="text-[var(--ink-dim)] uppercase">{t('balance')}:</span>
+                  <div className="flex items-center justify-between gap-2 text-sm text-[var(--ink)]">
+                    <span className="text-[var(--ink-dim)]">{t('balance')}:</span>
                     <div className="flex items-center gap-2">
                       <span className="font-bold">${userProfile.balanceUSD.toFixed(2)}</span>
                       <button
@@ -208,23 +196,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                           onOpenTopUp();
                           setIsMenuOpen(false);
                         }}
-                        title={t('topUpSimulated')}
-                        className="p-1 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition cursor-pointer"
+                        className="ui-icon-btn"
                       >
                         <Plus className="w-4 h-4 stroke-[2]" />
                       </button>
                     </div>
                   </div>
 
-                  {/* Notification button */}
                   <button
                     onClick={() => {
                       onOpenNotifications();
                       setIsMenuOpen(false);
                     }}
-                    title={notificationButtonTitle}
-                    aria-label={notificationButtonTitle}
-                    className="w-full flex justify-between items-center text-sm font-mono uppercase text-[var(--ink)]"
+                    className="w-full flex justify-between items-center text-sm text-[var(--ink)]"
                   >
                     <span className="flex items-center gap-2">
                       {t('notifications')}
@@ -234,22 +218,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </span>
                       )}
                     </span>
-                    <div className="relative p-1">
-                      <Bell
-                        className={`w-4 h-4 ${hasUnreadNotifications ? 'text-[var(--accent)]' : ''}`}
-                      />
-                    </div>
+                    <Bell className={`w-4 h-4 ${hasUnreadNotifications ? 'text-[var(--accent)]' : ''}`} />
                   </button>
                 </>
               )}
 
-              {/* Theme & Language Switchers */}
-              <div className="flex items-center justify-between text-sm font-mono uppercase text-[var(--ink)]">
+              <div className="flex items-center justify-between text-sm text-[var(--ink)]">
                 <span>{t(theme === 'light' ? 'lightTheme' : 'darkTheme')}</span>
-                <button
-                  onClick={onToggleTheme}
-                  className="p-1.5 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition cursor-pointer"
-                >
+                <button onClick={onToggleTheme} className="ui-icon-btn">
                   {theme === 'light' ? (
                     <Moon className="w-4 h-4" />
                   ) : (
@@ -257,13 +233,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                   )}
                 </button>
               </div>
-              <div className="flex items-center justify-between text-sm font-mono uppercase text-[var(--ink)]">
+              <div className="flex items-center justify-between text-sm text-[var(--ink)]">
                 <span>{t('languageLabel')}</span>
                 <button
                   onClick={() => setLanguage(language === 'en' ? 'ru' : 'en')}
-                  className="px-3 py-1.5 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition cursor-pointer font-mono text-xs"
+                  className="ui-icon-btn px-3 text-xs"
                 >
-                  [{language === 'en' ? 'RU' : 'EN'}]
+                  {language === 'en' ? 'RU' : 'EN'}
                 </button>
               </div>
               {!userProfile && onSignInClick && (
@@ -272,7 +248,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onSignInClick();
                     setIsMenuOpen(false);
                   }}
-                  className="w-full mt-2 px-3 py-2.5 btn-primary text-sm text-center"
+                  className="w-full mt-2 px-4 py-3 btn-primary text-sm text-center"
                 >
                   {t('signInBtn')}
                 </button>
@@ -283,7 +259,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onSignOut();
                     setIsMenuOpen(false);
                   }}
-                  className="w-full mt-2 px-3 py-2.5 border border-rose-500/50 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer text-sm font-mono uppercase tracking-widest"
+                  className="w-full mt-2 px-4 py-3 text-rose-500 hover:bg-rose-500/10 transition cursor-pointer text-sm theme-air:rounded-full"
                 >
                   {t('signOut')}
                 </button>

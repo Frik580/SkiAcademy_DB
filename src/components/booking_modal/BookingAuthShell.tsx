@@ -22,7 +22,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: 15 }}
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 rounded-none flex flex-col max-h-[90vh]"
+      className="ui-modal shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 flex flex-col max-h-[90vh]"
     >
       <BookingModalHeader targetInstructor={targetInstructor} t={t} onClose={onClose} />
 

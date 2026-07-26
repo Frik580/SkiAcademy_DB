@@ -31,7 +31,7 @@ export const BookingModal: React.FC<BookingModalProps> = (props) => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4"
+          className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
         >
           {!userProfile ? (
             <BookingAuthShell workspace={workspace} />
@@ -42,7 +42,7 @@ export const BookingModal: React.FC<BookingModalProps> = (props) => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 rounded-none"
+              className="ui-modal shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300"
             >
               <BookingModalHeader
                 targetInstructor={targetInstructor}

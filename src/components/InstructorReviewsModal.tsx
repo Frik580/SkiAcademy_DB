@@ -54,14 +54,14 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4"
+          className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-xl overflow-hidden transition-colors duration-300 flex flex-col max-h-[85vh] rounded-none"
+            className="ui-modal shadow-2xl w-full max-w-xl overflow-hidden transition-colors duration-300 flex flex-col max-h-[85vh]"
           >
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10 shrink-0">

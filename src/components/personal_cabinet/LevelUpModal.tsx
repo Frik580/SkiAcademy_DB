@@ -14,7 +14,7 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({ level, theme, onClos
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/75 backdrop-blur-md animate-fade-in p-4 cursor-pointer"
+      className="ui-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center animate-fade-in p-4 cursor-pointer"
       onClick={onClose}
     >
       <style>{`
@@ -31,7 +31,7 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({ level, theme, onClos
       `}</style>
 
       <div
-        className="relative bg-black/85 dark:bg-black/95 border border-[var(--border)] p-8 rounded-2xl flex flex-col items-center text-center shadow-2xl max-w-sm w-full backdrop-blur-xl overflow-hidden cursor-default"
+        className="ui-modal relative p-8 flex flex-col items-center text-center shadow-2xl max-w-sm w-full overflow-hidden cursor-default theme-air:bg-[var(--card-bg)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div

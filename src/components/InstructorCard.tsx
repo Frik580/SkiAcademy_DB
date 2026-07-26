@@ -49,37 +49,34 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
         exit={{ opacity: 0, y: -12 }}
         transition={{ duration: shouldReduceMotion ? 0 : 0.45, ease: [0.16, 1, 0.3, 1] }}
         layout="position"
-        className={`border-b border-[var(--border)] py-6 flex flex-col sm:grid sm:grid-cols-[112px_1fr] items-center sm:items-start gap-6 transition duration-300 group ${
+        className={`ui-list-row flex flex-col sm:grid sm:grid-cols-[112px_1fr] items-center sm:items-start gap-6 transition duration-300 group ${
           !instructor.isAvailable ? 'opacity-60' : ''
         }`}
       >
-        {/* 1. Grayscale Image */}
-        <div className="relative w-30 h-30 sm:w-30 sm:h-30 bg-slate-900 rounded-none overflow-hidden shrink-0 border border-[var(--border)]">
+        <div className="ui-avatar relative w-28 h-28 sm:w-32 sm:h-32 rounded-none theme-air:rounded-full">
           <img
             src={instructor.avatarUrl}
             alt={instructor.name}
-            className="w-full h-full object-cover filter grayscale group-hover:grayscale-0 transition duration-500"
+            className="w-full h-full object-cover filter grayscale group-hover:grayscale-0 transition duration-500 theme-air:rounded-full"
           />
           {!instructor.isAvailable && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-              <span className="text-[9px] font-mono tracking-wider text-rose-400 font-bold uppercase rotate-12">
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center theme-air:rounded-full">
+              <span className="text-[9px] font-mono tracking-wider text-rose-400 font-bold uppercase rotate-12 theme-air:normal-case theme-air:rotate-0 theme-air:font-sans theme-air:text-xs">
                 {t('instructorOffline')}
               </span>
             </div>
           )}
         </div>
 
-        {/* Right side container: Title, Bio, and Footer row (Specialties + Price & CTA) */}
-        <div className="flex-1 w-full flex flex-col gap-4">
-          {/* Top Row: Title, rating, and Bio */}
-          <div className="space-y-1.5 w-full text-center sm:text-left">
+        <div className="flex-1 w-full flex flex-col gap-5">
+          <div className="space-y-2 w-full text-center sm:text-left">
             <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 justify-center sm:justify-start">
-              <h3 className="font-serif text-2xl font-light text-[var(--ink)] tracking-tight group-hover:text-[var(--accent)] transition">
+              <h3 className="font-serif text-2xl font-light text-[var(--ink)] tracking-tight group-hover:text-[var(--accent)] transition theme-air:text-3xl">
                 {instructor.name}
               </h3>
               <button
                 onClick={() => onViewReviews && onViewReviews(instructor)}
-                className="inline-flex items-center gap-1 self-center sm:self-baseline text-[10px] font-mono text-amber-500 hover:underline transition select-none"
+                className="inline-flex items-center gap-1 self-center sm:self-baseline text-[10px] font-mono text-amber-500 hover:underline transition select-none theme-air:text-sm theme-air:font-sans"
                 title={t('readReviews')}
               >
                 <Star className="w-3 h-3 fill-amber-400 stroke-amber-500" />
@@ -88,30 +85,27 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
                 </span>
               </button>
             </div>
-            <p className="text-xs text-[var(--ink-dim)] leading-relaxed max-w-2xl">
+            <p className="text-xs text-[var(--ink-dim)] leading-relaxed max-w-2xl theme-air:text-sm theme-air:leading-relaxed">
               {instructor.bio}
             </p>
           </div>
 
-          {/* Bottom Row: Specialty (left) & Price/CTA (right) */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-3 border-t border-[var(--border)]/30">
-            {/* Specialty / Experience / Languages */}
-            <div className="text-center md:text-left space-y-1 w-full md:w-auto font-mono text-xs text-[var(--ink-dim)] uppercase tracking-wider">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2 ui-divider-t theme-air:pt-4">
+            <div className="text-center md:text-left space-y-1 w-full md:w-auto font-mono text-xs text-[var(--ink-dim)] uppercase tracking-wider theme-air:font-sans theme-air:normal-case theme-air:text-sm">
               <div className="text-[var(--ink)] font-bold">
                 {specialtyText} • {instructor.experienceYears}
                 {t('yearShort')}
               </div>
-              <div className="flex flex-wrap gap-1 items-center justify-center md:justify-start text-[10px] lowercase text-[var(--ink-dim)]">
+              <div className="flex flex-wrap gap-1 items-center justify-center md:justify-start text-[10px] lowercase text-[var(--ink-dim)] theme-air:text-sm">
                 <Globe className="w-3 h-3 shrink-0" />
                 <span>{instructor.languages.map(getLanguageLabel).join(', ')}</span>
               </div>
             </div>
 
-            {/* Price & CTA Actions */}
             <div className="flex flex-col sm:flex-row items-center justify-center md:justify-end gap-3 w-full md:w-auto">
-              <div className="text-2xl font-serif text-[var(--ink)] font-light">
+              <div className="text-2xl font-serif text-[var(--ink)] font-light theme-air:text-3xl">
                 ${instructor.pricePerHour}{' '}
-                <span className="text-[9px] font-mono tracking-wider text-[var(--ink-dim)]">
+                <span className="text-[9px] font-mono tracking-wider text-[var(--ink-dim)] theme-air:text-xs theme-air:font-sans">
                   / {t('hr')}
                 </span>
               </div>
@@ -119,7 +113,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
               <div className="flex gap-2">
                 <button
                   onClick={() => onViewReviews && onViewReviews(instructor)}
-                  className="btn-secondary px-3 py-1.5"
+                  className="btn-secondary px-4 py-2 theme-air:bg-transparent theme-air:hover:bg-[var(--profile-bg)]"
                 >
                   {t('instructorReviewsCount')}
                 </button>
@@ -127,7 +121,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
                 <button
                   onClick={() => instructor.isAvailable && onBook(instructor)}
                   disabled={!instructor.isAvailable}
-                  className={`px-4 py-1.5 ${
+                  className={`px-5 py-2 ${
                     instructor.isAvailable ? 'btn-primary' : 'btn-secondary'
                   }`}
                 >

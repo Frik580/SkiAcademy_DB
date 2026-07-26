@@ -40,64 +40,58 @@ export const ResortConditionsSidebar: React.FC<ResortConditionsSidebarProps> = (
   const { t } = useLanguage();
 
   return (
-    <aside className="lg:col-start-1 border-b lg:border-b-0 lg:border-r border-[var(--border)] p-6 space-y-6 flex flex-col justify-start shrink-0 lg:h-full lg:overflow-y-auto bg-transparent">
-      <div className="border-b border-[var(--border)] pb-4">
-        <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
+    <aside className="lg:col-start-1 border-b lg:border-b-0 lg:border-r border-[var(--layout-divider)] p-6 lg:p-8 space-y-8 flex flex-col justify-start shrink-0 lg:h-full lg:overflow-y-auto bg-transparent">
+      <div className="space-y-1">
+        <span className="ui-section-eyebrow font-bold text-[var(--ink)] block">
           {language === 'ru' ? resortConfig.nameRu : resortConfig.nameEn}
         </span>
-        <span className="text-[9px] text-[var(--ink-dim)] font-mono block mt-0.5">
+        <span className="text-[var(--ink-dim)] text-xs block theme-air:text-sm">
           {language === 'ru' ? resortConfig.subNameRu : resortConfig.subNameEn}
         </span>
       </div>
 
-      <div className="border-b border-[var(--border)] pb-4">
-        <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
-          {t('mountainTemp')}
-        </span>
-        <div className="flex items-baseline gap-1 mt-1">
-          <span className="font-serif text-4xl font-light text-[var(--ink)] leading-none">
+      <div className="space-y-2">
+        <span className="ui-section-eyebrow block">{t('mountainTemp')}</span>
+        <div className="flex items-baseline gap-1">
+          <span className="font-serif text-4xl font-light text-[var(--ink)] leading-none theme-air:text-5xl">
             <AnimatedNumber value={isFahrenheit ? Math.round((tempC * 9) / 5 + 32) : tempC} />°
           </span>
-          <span className="text-xs font-mono text-[var(--ink-dim)]">
+          <span className="text-xs text-[var(--ink-dim)] theme-air:text-sm">
             {isFahrenheit ? 'F' : 'C'}
           </span>
         </div>
-        <div className="flex justify-between items-center mt-2.5">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+        <div className="flex flex-wrap justify-between items-center gap-2 pt-1">
+          <span className="ui-section-eyebrow text-[var(--ink-dim)]">
             {t('freshSnow')}: +<AnimatedNumber value={newSnow24h} />
             {t('centimetersShort')}
           </span>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+          <span className="ui-section-eyebrow text-[var(--ink-dim)]">
             <AnimatedNumber value={windKmh} /> {t('kilometersPerHourShort')}
           </span>
           <button
             onClick={onToggleTemperatureUnit}
-            className="text-[9px] font-mono border border-[var(--border)] px-1 hover:border-[var(--ink)] text-[var(--ink)] transition bg-transparent cursor-pointer"
+            className="ui-section-eyebrow text-[var(--ink)] hover:text-[var(--accent)] transition cursor-pointer bg-transparent border-0 underline-offset-2 hover:underline theme-air:text-sm"
           >
             °{isFahrenheit ? 'C' : 'F'}
           </button>
         </div>
       </div>
 
-      <div className="border-b border-[var(--border)] pb-4">
-        <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
-          {t('snowCover')}
-        </span>
-        <span className="font-serif text-4xl font-light text-[var(--ink)] block mt-1">
+      <div className="space-y-2">
+        <span className="ui-section-eyebrow block">{t('snowCover')}</span>
+        <span className="font-serif text-4xl font-light text-[var(--ink)] block theme-air:text-5xl">
           <AnimatedNumber value={snowDepthCm} />
           <small className="text-sm font-sans font-normal ml-0.5">cm</small>
         </span>
-        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block mt-2">
+        <span className="ui-section-eyebrow text-[var(--ink-dim)] block">
           {t('safetyLevel')}: FIS-1
         </span>
       </div>
 
       {resortConfig.showLifts !== false && (
-        <div className="border-b border-[var(--border)] pb-4">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
-            {t('operatingLifts')}
-          </span>
-          <span className="font-serif text-4xl font-light text-[var(--ink)] block mt-1">
+        <div className="space-y-2">
+          <span className="ui-section-eyebrow block">{t('operatingLifts')}</span>
+          <span className="font-serif text-4xl font-light text-[var(--ink)] block theme-air:text-5xl">
             <AnimatedNumber
               value={resortConfig.openLifts !== undefined ? resortConfig.openLifts : openLifts}
             />
@@ -116,7 +110,7 @@ export const ResortConditionsSidebar: React.FC<ResortConditionsSidebarProps> = (
             const bgClass = isClosed ? 'bg-rose-500' : 'bg-emerald-500';
             return (
               <span
-                className={`text-[10px] font-mono uppercase tracking-wider ${colorClass} font-bold block mt-2.5 flex items-center gap-1.5`}
+                className={`ui-section-eyebrow ${colorClass} font-bold flex items-center gap-1.5`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${bgClass} animate-pulse`}></span>
                 {t('statusLabel')}: {statusText}
@@ -126,20 +120,20 @@ export const ResortConditionsSidebar: React.FC<ResortConditionsSidebarProps> = (
         </div>
       )}
 
-      <div className="pt-2 flex flex-col gap-2 font-mono">
-        <div className="flex justify-between items-center text-[10px]">
-          <span className="text-[9px] text-[var(--ink-dim)]">
+      <div className="pt-2 flex flex-col gap-3">
+        <div className="flex justify-between items-center text-[10px] theme-air:text-xs">
+          <span className="text-[var(--ink-dim)]">
             {t('lastUpdated')}: {lastUpdated}
           </span>
           <button
             onClick={onRefresh}
             disabled={isResortLoading}
-            className="text-[9px] font-mono uppercase border border-[var(--border)] px-2 py-0.5 hover:border-[var(--ink)] text-[var(--ink)] transition disabled:opacity-50 bg-transparent cursor-pointer"
+            className="ui-section-eyebrow hover:text-[var(--ink)] transition disabled:opacity-50 bg-transparent border-0 cursor-pointer underline-offset-2 hover:underline"
           >
             {isResortLoading ? '...' : t('refresh')}
           </button>
         </div>
-        <div className="text-[9px] text-[var(--ink-dim)] font-mono text-center pt-2 border-t border-[var(--border)]/40 mt-1">
+        <div className="text-[9px] text-[var(--ink-dim)] text-center pt-2 ui-divider-t theme-air:text-xs">
           {t('weatherSource')}: Open-Meteo
         </div>
       </div>

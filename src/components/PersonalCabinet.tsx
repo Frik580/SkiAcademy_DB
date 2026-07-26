@@ -496,13 +496,11 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     <div className="space-y-6 w-full max-w-full min-w-0">
       {/* Workspace Tab Switcher */}
       {showInstructorTab && (
-        <div className="flex border border-[var(--border)] bg-black/5 p-1 w-full max-w-md mx-auto">
+        <div className="ui-chip-group flex w-full max-w-md mx-auto theme-air:bg-[var(--profile-bg)] theme-air:p-1 theme-air:rounded-full">
           <button
             onClick={() => setCabinetMode('client')}
-            className={`flex-1 py-2 text-[10px] font-mono uppercase tracking-widest font-bold transition-all duration-200 cursor-pointer text-center rounded-none flex items-center justify-center gap-2 ${
-              activeMode === 'client'
-                ? 'bg-[var(--ink)] text-[var(--bg)]'
-                : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
+            className={`ui-chip flex-1 py-2.5 font-bold flex items-center justify-center gap-2 theme-air:rounded-full ${
+              activeMode === 'client' ? 'ui-chip-active' : ''
             }`}
           >
             <UserCheck className="w-4 h-4" />
@@ -510,10 +508,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           </button>
           <button
             onClick={() => setCabinetMode('instructor')}
-            className={`flex-1 py-2 text-[10px] font-mono uppercase tracking-widest font-bold transition-all duration-200 cursor-pointer text-center rounded-none flex items-center justify-center gap-2 ${
-              activeMode === 'instructor'
-                ? 'bg-[var(--ink)] text-[var(--bg)]'
-                : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
+            className={`ui-chip flex-1 py-2.5 font-bold flex items-center justify-center gap-2 theme-air:rounded-full ${
+              activeMode === 'instructor' ? 'ui-chip-active' : ''
             }`}
           >
             <Sliders className="w-4 h-4" />
@@ -525,8 +521,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       {activeMode === 'instructor' ? (
         <LazyLoad
           fallback={
-            <div className="flex min-h-40 items-center justify-center border border-[var(--border)] font-mono text-[10px] uppercase tracking-wider text-[var(--ink-dim)]">
-              {t('loading')}
+            <div className="ui-empty-state flex min-h-40 items-center justify-center">
+              <span className="ui-section-eyebrow">{t('loading')}</span>
             </div>
           }
         >
@@ -541,8 +537,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           />
         </LazyLoad>
       ) : userProfile.isClientActive === false ? (
-        <div className="border border-[var(--border)] p-8 space-y-6 animate-fade-in bg-black/10 dark:bg-black/30 text-center max-w-xl mx-auto my-12">
-          <div className="w-16 h-16 border border-[var(--border)] rounded-none flex items-center justify-center mx-auto text-rose-400 bg-black/10">
+        <div className="ui-card p-8 lg:p-10 space-y-6 animate-fade-in text-center max-w-xl mx-auto my-12 theme-air:shadow-soft">
+          <div className="w-16 h-16 ui-avatar rounded-full flex items-center justify-center mx-auto text-rose-400 bg-rose-500/10 theme-air:border-none">
             <Lock className="w-8 h-8" />
           </div>
           <div className="space-y-2">

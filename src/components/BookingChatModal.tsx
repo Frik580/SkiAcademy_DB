@@ -438,8 +438,8 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-lg h-[550px] flex flex-col overflow-hidden rounded-none animate-scale-up">
+    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+      <div className="ui-modal shadow-2xl w-full max-w-lg h-[550px] flex flex-col overflow-hidden animate-scale-up">
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/15 shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">

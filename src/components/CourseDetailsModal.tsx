@@ -355,7 +355,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-black/85 backdrop-blur-md z-40"
+          className="ui-modal-overlay fixed inset-0 z-40"
         />
 
         {/* Content Container (Premium Wide Editorial Modal) */}
@@ -364,7 +364,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.98, y: 20 }}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="relative bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-4xl lg:max-w-5xl overflow-hidden transition-colors duration-300 rounded-none flex flex-col my-8 z-50 max-h-[90vh]"
+          className="ui-modal relative shadow-2xl w-full max-w-4xl lg:max-w-5xl overflow-hidden transition-colors duration-300 flex flex-col my-8 z-50 max-h-[90vh]"
         >
           {/* Hero Section */}
           <div className="relative h-40 sm:h-50 shrink-0 border-b border-[var(--border)] bg-black">

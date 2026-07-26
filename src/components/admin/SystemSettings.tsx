@@ -21,8 +21,8 @@ interface SystemSettingsProps {
 
 const DESIGN_OPTIONS: {
   id: DesignTheme;
-  labelKey: 'designThemeClassic' | 'designThemeLodge';
-  descKey: 'designThemeClassicDesc' | 'designThemeLodgeDesc';
+  labelKey: 'designThemeClassic' | 'designThemeLodge' | 'designThemeAir';
+  descKey: 'designThemeClassicDesc' | 'designThemeLodgeDesc' | 'designThemeAirDesc';
   swatches: string[];
 }[] = [
   {
@@ -36,6 +36,12 @@ const DESIGN_OPTIONS: {
     labelKey: 'designThemeLodge',
     descKey: 'designThemeLodgeDesc',
     swatches: ['#f6efe2', '#b5541f', '#2b2116'],
+  },
+  {
+    id: 'air',
+    labelKey: 'designThemeAir',
+    descKey: 'designThemeAirDesc',
+    swatches: ['#ffffff', '#1a6578', '#111111'],
   },
 ];
 
@@ -90,7 +96,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         subtitle={t('designThemeSub')}
         icon={Palette}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {DESIGN_OPTIONS.map((option) => {
             const isActive = designTheme === option.id;
             return (

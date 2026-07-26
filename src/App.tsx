@@ -46,10 +46,10 @@ const PaymentGateway = React.lazy(() =>
 );
 
 const ModalLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md">
-    <div className="flex items-center gap-2 border border-[var(--border)] bg-[var(--bg)] px-6 py-4 text-[var(--ink-dim)]">
+  <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center">
+    <div className="ui-modal flex items-center gap-2 px-6 py-4 text-[var(--ink-dim)]">
       <RefreshCw className="h-4 w-4 animate-spin" />
-      <span className="font-mono text-[10px] uppercase tracking-wider">{label}</span>
+      <span className="ui-section-eyebrow">{label}</span>
     </div>
   </div>
 );
@@ -455,14 +455,15 @@ const AppContent: React.FC = () => {
         onClearNotifications={handleClearNotifications}
       />
 
-      <footer className="bg-black/95 border-t border-[var(--border)] py-3 px-6 shrink-0">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-          <div className="flex items-center gap-2 text-[var(--ink)] font-bold">
+      <footer className="ui-footer py-6 lg:py-8 px-6 shrink-0">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] theme-air:font-sans theme-air:normal-case theme-air:text-xs">
+          <div className="flex items-center gap-2 text-[var(--ink)] font-bold theme-air:font-medium">
             <Mountain className="w-3.5 h-3.5 text-[var(--accent)] stroke-[2.5]" />
-            <span>CARVE ACADEMY DIGITAL INTERFACE v4.4</span>
+            <span className="theme-air:hidden">CARVE ACADEMY DIGITAL INTERFACE v4.4</span>
+            <span className="hidden theme-air:inline">Carve Academy</span>
           </div>
           <div className="text-center md:text-left">{t('simulationEnvironment')}</div>
-          <div className="flex gap-4">
+          <div className="flex gap-4 theme-air:gap-6">
             <span>{t('fisStandard')}</span>
             <span>{t('slopeSafetyPresets')}</span>
           </div>

@@ -30,9 +30,9 @@ const PersonalCabinet = React.lazy(() =>
 );
 
 const SectionLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
-  <div className="flex min-h-40 items-center justify-center gap-2 border border-[var(--border)] text-[var(--ink-dim)]">
+  <div className="ui-empty-state flex min-h-40 items-center justify-center gap-2">
     <RefreshCw className="h-4 w-4 animate-spin" />
-    <span className="font-mono text-[10px] uppercase tracking-wider">{label}</span>
+    <span className="ui-section-eyebrow">{label}</span>
   </div>
 );
 
@@ -191,7 +191,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
       />
 
       <div
-        className={`flex flex-col lg:grid ${
+        className={`flex flex-col lg:grid gap-0 lg:gap-12 theme-air:lg:gap-16 ${
           userProfile
             ? 'lg:grid-cols-[minmax(140px,200px)_1fr]'
             : 'lg:grid-cols-[minmax(140px,200px)_minmax(450px,1fr)_minmax(250px,320px)]'
@@ -219,13 +219,13 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
         <div className="flex flex-col">
           <div
             id="main-content-pane"
-            className="p-3.5 sm:p-6 md:p-8 space-y-6 sm:space-y-8 flex flex-col justify-start min-w-0"
+            className="p-4 sm:p-8 md:p-10 lg:p-12 space-y-10 sm:space-y-12 theme-air:space-y-16 flex flex-col justify-start min-w-0"
           >
             {userProfile && (
-              <div id="personal-cabinet-section" className="space-y-4">
-                <div className="border-b border-[var(--border)] pb-3 mb-2 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-[var(--accent)] rounded-none"></span>
-                  <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--ink)] font-bold">
+              <div id="personal-cabinet-section" className="space-y-6">
+                <div className="pb-2 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full theme-air:w-2 theme-air:h-2"></span>
+                  <h3 className="ui-section-eyebrow text-[var(--ink)] font-bold">
                     {t('activeCabinet')}
                   </h3>
                 </div>
@@ -265,14 +265,10 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
               }}
             />
 
-            <div id="coaches-grid" className="space-y-6">
+            <div id="coaches-grid" className="space-y-8 theme-air:space-y-10">
               <div>
-                <h3 className="text-2xl font-serif text-[var(--ink)] tracking-tight font-light">
-                  {t('meetGuides')}
-                </h3>
-                <p className="text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider mt-1">
-                  {t('meetGuidesSub')}
-                </p>
+                <h3 className="ui-section-title">{t('meetGuides')}</h3>
+                <p className="ui-section-eyebrow mt-2">{t('meetGuidesSub')}</p>
               </div>
 
               {filtersEnabled && (
@@ -289,7 +285,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
               )}
 
               {filteredInstructors.length === 0 ? (
-                <div className="py-16 text-center border border-dashed border-[var(--border)]">
+                <div className="ui-empty-state py-16">
                   <Compass className="w-10 h-10 text-[var(--ink-dim)] mx-auto mb-3" />
                   <p className="text-xs font-mono text-[var(--ink-dim)] uppercase tracking-wider">
                     {t('noCoachesMatch')}
@@ -320,7 +316,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
         </div>
 
         {!userProfile && (
-          <aside className="border-t lg:border-t-0 lg:border-l border-[var(--border)] p-6 bg-[var(--profile-bg)] space-y-6 flex flex-col justify-start shrink-0">
+          <aside className="border-t lg:border-t-0 lg:border-l border-[var(--layout-divider)] p-6 lg:p-8 bg-[var(--profile-bg)] space-y-6 flex flex-col justify-start shrink-0 theme-air:bg-transparent">
             <div id="auth-section" className="space-y-6">
               <div className="text-center space-y-4 py-2">
                 <img
@@ -329,11 +325,11 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
                   className="h-10 w-auto mx-auto object-contain transition-opacity duration-300"
                   referrerPolicy="no-referrer"
                 />
-                <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider leading-relaxed">
+                <p className="ui-section-eyebrow leading-relaxed max-w-xs mx-auto">
                   {t('bookingSignInDesc')}
                 </p>
               </div>
-              <div className="border border-[var(--border)] p-4 bg-black/5 dark:bg-black/10">
+              <div className="ui-panel p-4 lg:p-6">
                 <Auth onSuccess={(profile) => setUserProfile(profile)} />
               </div>
             </div>

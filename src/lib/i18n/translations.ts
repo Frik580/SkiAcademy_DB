@@ -495,6 +495,9 @@ export const translations = {
     designThemeLodge: 'Alpine Lodge',
     designThemeLodgeDesc:
       'Warm lodge atmosphere — soft corners, terracotta accent, parchment and timber tones.',
+    designThemeAir: 'Alpine Air',
+    designThemeAirDesc:
+      'Editorial outdoor aesthetic — generous whitespace, soft shadows, minimal frames, full-bleed imagery.',
     designThemeActive: 'Active',
     designThemeUpdated: 'Design theme updated',
     designThemeUpdatedDesc: 'The new visual style is now live for all visitors.',
@@ -1689,6 +1692,9 @@ export const translations = {
     designThemeLodge: 'Alpine Lodge',
     designThemeLodgeDesc:
       'Тёплая атмосфера лоджа — мягкие скругления, терракотовый акцент, пергамент и древесные тона.',
+    designThemeAir: 'Alpine Air',
+    designThemeAirDesc:
+      'Редакционный outdoor-стиль — много воздуха, мягкие тени, минимум рамок, full-bleed фото.',
     designThemeActive: 'Активен',
     designThemeUpdated: 'Дизайн обновлён',
     designThemeUpdatedDesc: 'Новый визуальный стиль теперь активен для всех посетителей.',

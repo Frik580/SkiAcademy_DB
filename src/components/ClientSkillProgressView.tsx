@@ -45,7 +45,7 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
   return (
     <div
       ref={containerRef}
-      className="border border-slate-200/70 dark:border-slate-800/70 p-5 bg-[var(--card-bg)] rounded-xs shadow-xs space-y-6"
+      className="ui-card p-5 lg:p-6 space-y-6 theme-air:shadow-soft"
     >
       {/* Target Progress Requirement Banner */}
       <div className="p-4 surface-accent rounded-xs flex flex-col sm:flex-row items-center justify-between gap-4">

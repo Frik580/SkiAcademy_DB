@@ -33,16 +33,12 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
   return (
     <div id="courses-grid" className="space-y-6">
       <div>
-        <h3 className="text-2xl font-serif text-[var(--ink)] tracking-tight font-light">
-          {t('intensiveGroupCourses')}
-        </h3>
-        <p className="text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider mt-1 text-slate-400 dark:text-slate-500">
-          {t('intensiveGroupCoursesSub')}
-        </p>
+        <h3 className="ui-section-title">{t('intensiveGroupCourses')}</h3>
+        <p className="ui-section-eyebrow mt-2">{t('intensiveGroupCoursesSub')}</p>
       </div>
 
       <div
-        className="grid gap-6"
+        className="grid gap-6 theme-air:gap-8"
         style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}
       >
         {[...courses]
@@ -72,9 +68,9 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
                   delay: shouldReduceMotion ? 0 : Math.min(index * 0.12, 0.36),
                   ease: [0.22, 1, 0.36, 1],
                 }}
-                className="border border-[var(--border)] bg-black/5 dark:bg-black/40 flex flex-col h-full relative overflow-hidden group min-w-[260px]"
+                className="ui-card flex flex-col h-full relative overflow-hidden group min-w-[260px] theme-air:bg-[var(--card-bg)]"
               >
-                <div className="h-55 relative overflow-hidden shrink-0 border-b border-[var(--border)]">
+                <div className="h-55 relative overflow-hidden shrink-0 theme-air:rounded-t-[var(--radius)]">
                   {course.badge && (
                     <div className="absolute top-3 left-3 z-10">
                       {/^(https?:\/\/|\/|data:image\/)/.test(course.badge) ||
@@ -86,7 +82,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
                           className="h-7 w-auto object-contain max-w-[80px]"
                         />
                       ) : (
-                        <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-white border border-white/50 bg-transparent backdrop-blur-[2px] px-2 py-0.5 shadow-md">
+                        <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-white bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full theme-air:font-sans theme-air:normal-case theme-air:text-xs">
                           {course.badge}
                         </span>
                       )}
@@ -102,13 +98,13 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
                     className="w-full h-full object-cover transition-all duration-500 scale-100 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4">
-                    <span className="font-mono text-[9px] uppercase tracking-widest text-sky-400 bg-sky-950/40 border border-sky-900/50 px-2 py-0.5 self-start">
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-sky-300 bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full self-start theme-air:font-sans theme-air:normal-case theme-air:text-xs">
                       {course.duration}
                     </span>
                   </div>
                 </div>
 
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                <div className="p-5 lg:p-6 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
                     <h4 className="font-serif text-lg font-light text-[var(--ink)] leading-tight">
                       {course.title}
@@ -129,7 +125,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
                     {(() => {
                       const { datePart, timePart } = splitCourseDates(course.dates);
                       return (
-                        <div className="space-y-2 text-xs border-t border-[var(--border)]/40 pt-4">
+                        <div className="space-y-2 text-xs ui-divider-t pt-4 theme-air:text-sm">
                           <div className="flex items-center gap-2 text-[var(--ink-dim)] font-sans font-light">
                             <span className="text-sm">📅</span>
                             <span className="font-mono text-[11px] tracking-wide">{datePart}</span>
@@ -166,7 +162,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
                             )}
                           </div>
 
-                          <div className="border-t border-[var(--border)]/30 my-3 pt-3 flex justify-between items-baseline">
+                          <div className="ui-divider-t my-3 pt-3 flex justify-between items-baseline">
                             <span className="text-2xl font-serif text-[var(--ink)] font-light">
                               ${course.price}
                             </span>
@@ -228,7 +224,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
           })}
       </div>
       {courses.filter((c) => !c.isHidden).length === 0 && (
-        <div className="text-center py-12 border border-dashed border-[var(--border)] bg-black/5 dark:bg-white/5 font-mono text-[11px] text-[var(--ink-dim)]">
+        <div className="ui-empty-state">
           {t('noIntensiveCoursesAvailable')}
         </div>
       )}

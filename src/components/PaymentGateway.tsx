@@ -94,8 +94,8 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in">
-      <div className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-md overflow-hidden animate-scale-up transition-colors duration-300 rounded-none">
+    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+      <div className="ui-modal shadow-2xl w-full max-w-md overflow-hidden animate-scale-up transition-colors duration-300">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10">
           <div>

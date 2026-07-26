@@ -35,6 +35,7 @@ const HERO_CROSSFADE_MS = 1400;
 const HERO_SCRIM: Record<DesignTheme, { light: string; dark: string }> = {
   classic: { light: '250, 250, 247', dark: '17, 17, 19' },
   lodge: { light: '246, 239, 226', dark: '26, 20, 13' },
+  air: { light: '255, 255, 255', dark: '10, 10, 10' },
 };
 
 const resolveSlideBackground = (
@@ -60,10 +61,16 @@ const buildBackgroundImage = (
   designTheme: DesignTheme = 'classic'
 ): string => {
   const scrim = HERO_SCRIM[designTheme];
+  if (designTheme === 'air') {
+    return theme === 'light'
+      ? `linear-gradient(105deg, rgba(${scrim.light},0.94) 0%, rgba(${scrim.light},0.78) 38%, rgba(${scrim.light},0.35) 62%, rgba(${scrim.light},0.05) 100%), url('${bgUrl}')`
+      : `linear-gradient(105deg, rgba(${scrim.dark},0.88) 0%, rgba(${scrim.dark},0.5) 45%, rgba(${scrim.dark},0.12) 100%), url('${bgUrl}')`;
+  }
   return theme === 'light'
     ? `linear-gradient(105deg, rgba(${scrim.light},0.98) 0%, rgba(${scrim.light},0.88) 32%, rgba(${scrim.light},0.55) 55%, rgba(${scrim.light},0.12) 100%), url('${bgUrl}')`
     : `linear-gradient(105deg, rgba(${scrim.dark},0.82) 0%, rgba(${scrim.dark},0.42) 42%, rgba(${scrim.dark},0.1) 100%), url('${bgUrl}')`;
 };
+
 
 export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   data: {
@@ -121,7 +128,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   }, [slides]);
 
   return (
-    <section className="relative w-full min-h-[calc(100svh-4.25rem)] border-b border-[var(--border)] overflow-hidden flex flex-col justify-end">
+    <section className="ui-hero relative w-full min-h-[calc(100svh-4.25rem)] overflow-hidden flex flex-col justify-end">
       {/* Layered background crossfade */}
       <div className="absolute inset-0 z-0" aria-hidden="true">
         {slides.map((slide, idx) => {
@@ -221,7 +228,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   role="tab"
                   aria-selected={currentSlide === idx}
                   onClick={() => setCurrentSlide(idx)}
-                  className={`h-1 transition-[width,background-color] duration-500 ease-in-out rounded-none cursor-pointer ${
+                  className={`h-1 transition-[width,background-color] duration-500 ease-in-out cursor-pointer rounded-full ${
                     currentSlide === idx
                       ? 'w-8 bg-[var(--accent)]'
                       : 'w-2 bg-[var(--ink)]/30 hover:bg-[var(--ink)]/60'

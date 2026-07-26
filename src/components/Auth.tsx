@@ -339,19 +339,18 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
   };
 
   return (
-    <div className="flex flex-col bg-transparent border border-[var(--border)] animate-fade-in">
-      {/* Form Side */}
+    <div className="flex flex-col bg-transparent animate-fade-in">
       <div className="p-6 md:p-8 flex flex-col justify-center bg-transparent">
         <div className="max-w-md w-full mx-auto space-y-6">
           <div className="text-center md:text-left">
-            <h2 className="text-2xl font-serif font-light text-[var(--ink)] tracking-tight">
+            <h2 className="text-2xl font-serif font-light text-[var(--ink)] tracking-tight theme-air:text-3xl">
               {isForgotPassword
                 ? t('authResetPassword')
                 : isSignUp
                   ? t('signUpTitle')
                   : t('welcomeTitle')}
             </h2>
-            <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1.5 leading-relaxed">
+            <p className="ui-section-eyebrow mt-2 leading-relaxed">
               {isForgotPassword
                 ? t('authResetPasswordSub')
                 : isSignUp
@@ -361,7 +360,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
           </div>
 
           {error && (
-            <div className="p-3 bg-red-950/20 border border-red-900/40 text-[10px] font-mono text-red-400 rounded-none uppercase tracking-wider leading-normal">
+            <div className="p-3 bg-red-950/20 border border-red-900/40 text-[10px] font-mono text-red-400 uppercase tracking-wider leading-normal theme-air:rounded-[var(--radius-md)] theme-air:font-sans theme-air:normal-case theme-air:text-sm theme-air:border-red-500/20 theme-air:bg-red-500/10">
               {error}
             </div>
           )}
@@ -373,7 +372,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
             {isForgotPassword ? (
               <>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+                  <label className="ui-label">
                     {t('emailAddress')}
                   </label>
                   <div className="relative">
@@ -383,7 +382,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="name@example.com"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-none border border-[var(--border)] text-xs font-mono bg-black/15 text-[var(--ink)] placeholder:text-[var(--ink-dim)]/30 focus:outline-none focus:border-[var(--ink)] transition"
+                      className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
                     />
                     <Mail className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
                   </div>
@@ -403,7 +402,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                 {isSignUp && (
                   <>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+                      <label className="ui-label">
                         {t('fullName')}
                       </label>
                       <div className="relative">
@@ -413,7 +412,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                           value={displayName}
                           onChange={(e) => setDisplayName(e.target.value)}
                           placeholder={t('authNamePlaceholder')}
-                          className="w-full pl-10 pr-4 py-2.5 rounded-none border border-[var(--border)] text-xs font-mono bg-black/15 text-[var(--ink)] placeholder:text-[var(--ink-dim)]/30 focus:outline-none focus:border-[var(--ink)] transition"
+                          className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
                         />
                         <UserIcon className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
                       </div>
@@ -423,7 +422,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+                      <label className="ui-label">
                         {t('phoneOptional')}
                       </label>
                       <div className="relative">
@@ -432,16 +431,16 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                           value={phoneNumber}
                           onChange={(e) => setPhoneNumber(e.target.value)}
                           placeholder="+1 (555) 000-0000"
-                          className="w-full pl-10 pr-4 py-2.5 rounded-none border border-[var(--border)] text-xs font-mono bg-black/15 text-[var(--ink)] placeholder:text-[var(--ink-dim)]/30 focus:outline-none focus:border-[var(--ink)] transition"
+                          className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
                         />
                         <Phone className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
                       </div>
                     </div>
 
                     {/* Avatar Selection Block */}
-                    <div className="space-y-2 pt-3 border-t border-[var(--border)]">
+                    <div className="space-y-2 pt-3 ui-divider-t">
                       <div className="flex justify-between items-center">
-                        <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+                        <label className="ui-label">
                           {t('authChooseAvatar')}
                         </label>
                         <button
@@ -463,10 +462,10 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                               key={seed}
                               type="button"
                               onClick={() => setAvatarSeed(seed)}
-                              className={`relative aspect-square rounded-none p-1 bg-black/10 border transition hover:scale-105 cursor-pointer ${
+                              className={`relative aspect-square p-1 bg-black/10 border transition hover:scale-105 cursor-pointer theme-air:rounded-full theme-air:border-none theme-air:bg-[var(--profile-bg)] ${
                                 isSelected
-                                  ? 'border-[var(--ink)] bg-black/25'
-                                  : 'border-[var(--border)] hover:border-[var(--ink)]'
+                                  ? 'border-[var(--ink)] bg-black/25 theme-air:ring-2 theme-air:ring-[var(--accent)]'
+                                  : 'border-[var(--border)] hover:border-[var(--ink)] theme-air:hover:bg-[var(--accent-muted)]'
                               }`}
                             >
                               <img
@@ -487,7 +486,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                           value={avatarSeed}
                           onChange={(e) => setAvatarSeed(e.target.value)}
                           placeholder={t('authAvatarSeedPlaceholder')}
-                          className="w-full pl-8 pr-4 py-1.5 rounded-none border border-[var(--border)] text-[10px] font-mono bg-black/15 text-[var(--ink)] placeholder:text-[var(--ink-dim)]/30 focus:outline-none focus:border-[var(--ink)] transition"
+                          className="ui-field-plain pl-8 focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
                         />
                         <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--ink-dim)] pointer-events-none">
                           ✨
@@ -498,7 +497,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+                  <label className="ui-label">
                     {t('emailAddress')}
                   </label>
                   <div className="relative">
@@ -508,7 +507,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="name@example.com"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-none border border-[var(--border)] text-xs font-mono bg-black/15 text-[var(--ink)] placeholder:text-[var(--ink-dim)]/30 focus:outline-none focus:border-[var(--ink)] transition"
+                      className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
                     />
                     <Mail className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
                   </div>
@@ -516,7 +515,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
 
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
-                    <label className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+                    <label className="ui-label">
                       {t('password')}
                     </label>
                     <button
@@ -537,7 +536,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-none border border-[var(--border)] text-xs font-mono bg-black/15 text-[var(--ink)] placeholder:text-[var(--ink-dim)]/30 focus:outline-none focus:border-[var(--ink)] transition"
+                      className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
                     />
                     <Lock className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
                   </div>

@@ -30,8 +30,8 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   if (!booking) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in">
-      <div className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-sm overflow-hidden animate-scale-up rounded-none">
+    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+      <div className="ui-modal shadow-2xl w-full max-w-sm overflow-hidden animate-scale-up">
         <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/10">
           <h4 className="font-serif text-sm font-light text-[var(--ink)]">
             {t('reviewAbout')} {booking.instructorName}

@@ -7,6 +7,7 @@ import {
   type Language,
 } from '../lib/LanguageContext';
 import { Booking, Course, UserProfile } from '../types';
+import { getCourseLevelCardClass } from '../lib/courseLevelStyles';
 
 interface GroupCoursesSectionProps {
   data: {
@@ -114,17 +115,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
                     </h4>
                     {course.levelLabel && (
                       <div
-                        className={`text-[10px] font-mono uppercase tracking-wider font-bold flex items-center gap-1 mt-1 ${
-                          course.level === 'beginner'
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : course.level === 'intermediate'
-                              ? 'text-amber-600 dark:text-amber-400'
-                              : course.level === 'advanced'
-                                ? 'text-rose-600 dark:text-rose-400'
-                                : course.level === 'expert'
-                                  ? 'text-stone-500 dark:text-stone-400'
-                                  : 'text-[var(--ink-dim)]'
-                        }`}
+                        className={`text-[10px] font-mono uppercase tracking-wider font-bold flex items-center gap-1 mt-1 ${getCourseLevelCardClass(course.level)}`}
                       >
                         {course.levelLabel}
                       </div>

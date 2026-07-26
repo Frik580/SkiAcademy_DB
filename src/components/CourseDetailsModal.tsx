@@ -21,6 +21,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { Course, Instructor, UserProfile } from '../types';
+import { getCourseLevelModalClass } from '../lib/courseLevelStyles';
 import { useLanguage, translateInstructorName, splitCourseDates } from '../lib/LanguageContext';
 import { logger } from '../lib/logger';
 
@@ -309,7 +310,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
     (language === 'ru' ? rawCourse.programRu : rawCourse.program) || defaultEnriched.program;
   const faq = (language === 'ru' ? rawCourse.faqRu : rawCourse.faq) || defaultEnriched.faq;
   const photos = rawCourse.galleryPhotos || defaultEnriched.photos;
-  const videoUrl = rawCourse.videoUrl || defaultEnriched.videoUrl;
+  const videoUrl = rawCourse.videoUrl?.trim() || '';
 
   const enriched = {
     photos,
@@ -415,17 +416,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
             <div className="absolute bottom-0 inset-x-0 p-6 sm:p-8 flex flex-col justify-end">
               {course.levelLabel && (
                 <div
-                  className={`text-[10px] font-mono uppercase tracking-widest font-extrabold mb-1.5 flex items-center gap-1.5 drop-shadow ${
-                    course.level === 'beginner'
-                      ? 'text-emerald-400'
-                      : course.level === 'intermediate'
-                        ? 'text-amber-400'
-                        : course.level === 'advanced'
-                          ? 'text-rose-400'
-                          : course.level === 'expert'
-                            ? 'text-stone-300'
-                            : 'text-white/90'
-                  }`}
+                  className={`text-[10px] font-mono uppercase tracking-widest font-extrabold mb-1.5 flex items-center gap-1.5 drop-shadow ${getCourseLevelModalClass(course.level)}`}
                 >
                   {course.levelLabel}
                 </div>
@@ -534,86 +525,91 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   </div>
                 </section>
 
-                {/* 5. Видео (Video Showcase with Real Custom Interactive Player) */}
-                <section className="space-y-4">
-                  <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
-                    <Film className="w-4 h-4 text-rose-500" />
-                    <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
-                      {t('courseVideoTeaser')}
-                    </h3>
-                  </div>
-
-                  {/* Interactive Video Box */}
-                  <div className="relative aspect-video border border-[var(--border)] bg-black overflow-hidden group">
-                    <video
-                      ref={videoRef}
-                      src={enriched.videoUrl}
-                      className="w-full h-full object-cover"
-                      loop
-                      muted={isMuted}
-                      onTimeUpdate={handleTimeUpdate}
-                      playsInline
-                    />
-
-                    {/* Dark Vignette Overlay when paused */}
-                    {!isPlaying && (
-                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-4 transition-opacity duration-300 pointer-events-none">
-                        <span className="text-[10px] font-mono tracking-widest uppercase text-white/70 mb-2">
-                          {t('courseFeelAdrenaline')}
-                        </span>
-                        <span className="text-xs font-serif italic text-white/50 text-center max-w-xs mb-4">
-                          {'"'}
-                          {course.title}
-                          {'"'}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Video Controls Panel */}
-                    <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/90 via-black/60 to-transparent flex items-center justify-between gap-4 transition opacity-100 lg:opacity-0 lg:group-hover:opacity-100 duration-300 z-10">
-                      {/* Play/Pause */}
-                      <button
-                        onClick={handlePlayPause}
-                        className="p-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white transition cursor-pointer"
-                        title={isPlaying ? t('pauseVideo') : t('playVideo')}
-                      >
-                        {isPlaying ? (
-                          <Pause className="w-3.5 h-3.5 fill-white" />
-                        ) : (
-                          <Play className="w-3.5 h-3.5 fill-white" />
-                        )}
-                      </button>
-
-                      {/* Progress Line */}
-                      <div className="flex-1 h-1 bg-white/20 relative rounded-none overflow-hidden cursor-pointer">
-                        <div className="h-full bg-sky-400" style={{ width: `${videoProgress}%` }} />
-                      </div>
-
-                      {/* Audio Controls */}
-                      <button
-                        onClick={handleToggleMute}
-                        className="p-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white transition cursor-pointer"
-                        title={isMuted ? t('unmuteVideo') : t('muteVideo')}
-                      >
-                        {isMuted ? (
-                          <VolumeX className="w-3.5 h-3.5" />
-                        ) : (
-                          <Volume2 className="w-3.5 h-3.5" />
-                        )}
-                      </button>
+                {/* 5. Видео — only when promo URL is set */}
+                {enriched.videoUrl && (
+                  <section className="space-y-4">
+                    <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
+                      <Film className="w-4 h-4 text-rose-500" />
+                      <h3 className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] font-bold">
+                        {t('courseVideoTeaser')}
+                      </h3>
                     </div>
 
-                    {/* Central Glowing Big Play Button (shows when not playing) */}
-                    {!isPlaying && (
-                      <button
-                        onClick={handlePlayPause}
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-white/15 hover:bg-white/30 text-white flex items-center justify-center border border-white/30 backdrop-blur-md transition-all duration-300 hover:scale-105 z-20 cursor-pointer shadow-lg"
-                      >
-                        <Play className="w-6 h-6 fill-white ml-0.5" />
-                      </button>
-                    )}
-                  </div>
-                </section>
+                    {/* Interactive Video Box */}
+                    <div className="relative aspect-video border border-[var(--border)] bg-black overflow-hidden group">
+                      <video
+                        ref={videoRef}
+                        src={enriched.videoUrl}
+                        className="w-full h-full object-cover"
+                        loop
+                        muted={isMuted}
+                        onTimeUpdate={handleTimeUpdate}
+                        playsInline
+                      />
+
+                      {/* Dark Vignette Overlay when paused */}
+                      {!isPlaying && (
+                        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-4 transition-opacity duration-300 pointer-events-none">
+                          <span className="text-[10px] font-mono tracking-widest uppercase text-white/70 mb-2">
+                            {t('courseFeelAdrenaline')}
+                          </span>
+                          <span className="text-xs font-serif italic text-white/50 text-center max-w-xs mb-4">
+                            {'"'}
+                            {course.title}
+                            {'"'}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Video Controls Panel */}
+                      <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/90 via-black/60 to-transparent flex items-center justify-between gap-4 transition opacity-100 lg:opacity-0 lg:group-hover:opacity-100 duration-300 z-10">
+                        {/* Play/Pause */}
+                        <button
+                          onClick={handlePlayPause}
+                          className="p-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white transition cursor-pointer"
+                          title={isPlaying ? t('pauseVideo') : t('playVideo')}
+                        >
+                          {isPlaying ? (
+                            <Pause className="w-3.5 h-3.5 fill-white" />
+                          ) : (
+                            <Play className="w-3.5 h-3.5 fill-white" />
+                          )}
+                        </button>
+
+                        {/* Progress Line */}
+                        <div className="flex-1 h-1 bg-white/20 relative rounded-none overflow-hidden cursor-pointer">
+                          <div
+                            className="h-full bg-sky-400"
+                            style={{ width: `${videoProgress}%` }}
+                          />
+                        </div>
+
+                        {/* Audio Controls */}
+                        <button
+                          onClick={handleToggleMute}
+                          className="p-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white transition cursor-pointer"
+                          title={isMuted ? t('unmuteVideo') : t('muteVideo')}
+                        >
+                          {isMuted ? (
+                            <VolumeX className="w-3.5 h-3.5" />
+                          ) : (
+                            <Volume2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Central Glowing Big Play Button (shows when not playing) */}
+                      {!isPlaying && (
+                        <button
+                          onClick={handlePlayPause}
+                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-white/15 hover:bg-white/30 text-white flex items-center justify-center border border-white/30 backdrop-blur-md transition-all duration-300 hover:scale-105 z-20 cursor-pointer shadow-lg"
+                        >
+                          <Play className="w-6 h-6 fill-white ml-0.5" />
+                        </button>
+                      )}
+                    </div>
+                  </section>
+                )}
 
                 {/* 6. Инструкторы (Instructors) */}
                 {rawCourse.instructorIds && rawCourse.instructorIds.length > 0 && (

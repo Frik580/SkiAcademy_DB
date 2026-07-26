@@ -2,6 +2,7 @@ import React from 'react';
 import { useCourseForm } from './useCourseForm';
 import { CourseBackgroundImageField } from '../CourseBackgroundImageField';
 import { CourseDateRangePicker } from '../CourseDateRangePicker';
+import { getCourseLevelCardClass } from '../../../lib/courseLevelStyles';
 
 interface CourseBasicInfoSectionProps {
   form: ReturnType<typeof useCourseForm>;
@@ -12,8 +13,8 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
     t,
     courseTitle,
     setCourseTitle,
-    courseDescription,
-    setCourseDescription,
+    courseTitleRu,
+    setCourseTitleRu,
     courseLevel,
     setCourseLevel,
     courseTotalSeats,
@@ -27,19 +28,34 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
 
   return (
     <div className="space-y-4">
-      {/* Title */}
-      <div className="space-y-1.5">
-        <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
-          {t('courseTitleField')}
-        </label>
-        <input
-          type="text"
-          required
-          value={courseTitle}
-          onChange={(e) => setCourseTitle(e.target.value)}
-          placeholder={t('courseTitlePlaceholder')}
-          className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
-        />
+      {/* Title EN / RU */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
+            {t('courseTitleFieldEn')}
+          </label>
+          <input
+            type="text"
+            required
+            value={courseTitle}
+            onChange={(e) => setCourseTitle(e.target.value)}
+            placeholder={t('courseTitlePlaceholder')}
+            className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
+            {t('courseTitleFieldRu')}
+          </label>
+          <input
+            type="text"
+            required
+            value={courseTitleRu}
+            onChange={(e) => setCourseTitleRu(e.target.value)}
+            placeholder={t('courseTitlePlaceholderRu')}
+            className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+          />
+        </div>
       </div>
 
       {/* Duration */}
@@ -60,21 +76,6 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
       {/* Dates & Calendar Selection */}
       <CourseDateRangePicker dateRange={courseDateRange} />
 
-      {/* Description */}
-      <div className="space-y-1.5">
-        <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
-          {t('fallbackDescEn')}
-        </label>
-        <textarea
-          required
-          rows={2}
-          value={courseDescription}
-          onChange={(e) => setCourseDescription(e.target.value)}
-          placeholder={t('fallbackDescPlaceholder')}
-          className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none resize-none leading-relaxed text-xs"
-        />
-      </div>
-
       {/* Course Level (Difficulty) */}
       <div className="space-y-1.5">
         <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
@@ -88,17 +89,17 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
           <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
             {t('selectLevelNone')}
           </option>
-          <option value="beginner" className="bg-[var(--bg)] text-[var(--ink)]">
-            🟢 LEVEL 1 • BEGINNER
+          <option value="beginner" className={`bg-[var(--bg)] font-bold ${getCourseLevelCardClass('beginner')}`}>
+            {t('courseLevelBeginner')}
           </option>
-          <option value="intermediate" className="bg-[var(--bg)] text-[var(--ink)]">
-            🟡 LEVEL 2 • CARVE
+          <option value="intermediate" className={`bg-[var(--bg)] font-bold ${getCourseLevelCardClass('intermediate')}`}>
+            {t('courseLevelIntermediate')}
           </option>
-          <option value="advanced" className="bg-[var(--bg)] text-[var(--ink)]">
-            🔴 LEVEL 3 • PRO
+          <option value="advanced" className={`bg-[var(--bg)] font-bold ${getCourseLevelCardClass('advanced')}`}>
+            {t('courseLevelAdvanced')}
           </option>
-          <option value="expert" className="bg-[var(--bg)] text-[var(--ink)]">
-            ⚫ LEVEL 4 • EXPERT
+          <option value="expert" className={`bg-[var(--bg)] font-bold ${getCourseLevelCardClass('expert')}`}>
+            {t('courseLevelExpert')}
           </option>
         </select>
       </div>

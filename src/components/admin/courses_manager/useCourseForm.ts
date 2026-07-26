@@ -41,7 +41,7 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
 
   const [courseTitle, setCourseTitle] = useState('');
-  const [courseDescription, setCourseDescription] = useState('');
+  const [courseTitleRu, setCourseTitleRu] = useState('');
   const [courseShortDescription, setCourseShortDescription] = useState('');
   const [courseShortDescriptionRu, setCourseShortDescriptionRu] = useState('');
   const [courseDetailedDescription, setCourseDetailedDescription] = useState('');
@@ -122,8 +122,9 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
 
     if (editingCourse) {
       if (courseTitle.trim()) courseData.title = courseTitle.trim();
+      if (courseTitleRu.trim()) courseData.titleRu = courseTitleRu.trim();
       if (courseDuration.trim()) courseData.duration = courseDuration.trim();
-      if (courseDescription.trim()) courseData.description = courseDescription.trim();
+      courseData.description = courseShortDescription.trim() || editingCourse.description || '';
       if (courseDates.trim()) courseData.dates = courseDates.trim();
       if (courseTotalSeats) {
         courseData.totalSeats = Number(courseTotalSeats);
@@ -148,7 +149,7 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
       if (courseBadge.trim()) courseData.badge = courseBadge.trim();
       if (courseBadgeRu.trim()) courseData.badgeRu = courseBadgeRu.trim();
       if (courseLevel) courseData.level = courseLevel;
-      if (courseVideoUrl.trim()) courseData.videoUrl = courseVideoUrl.trim();
+      courseData.videoUrl = courseVideoUrl.trim();
       if (benefitsArr.length > 0) courseData.benefits = benefitsArr;
       if (benefitsRuArr.length > 0) courseData.benefitsRu = benefitsRuArr;
       if (programArr.length > 0) courseData.program = programArr;
@@ -158,8 +159,9 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
       if (galleryArr.length > 0) courseData.galleryPhotos = galleryArr;
     } else {
       courseData.title = courseTitle.trim();
+      if (courseTitleRu.trim()) courseData.titleRu = courseTitleRu.trim();
       courseData.duration = courseDuration.trim();
-      courseData.description = courseDescription.trim();
+      courseData.description = courseShortDescription.trim() || '';
       courseData.dates = courseDates.trim();
       courseData.totalSeats = Number(courseTotalSeats) || 5;
       courseData.availableSeats = Number(courseTotalSeats) || 5;
@@ -202,12 +204,7 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
 
   const handleCourseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (
-      !courseTitle.trim() ||
-      !courseDuration.trim() ||
-      !courseDates.trim() ||
-      !courseDescription.trim()
-    ) {
+    if (!courseTitle.trim() || !courseTitleRu.trim() || !courseDuration.trim() || !courseDates.trim()) {
       addNotification('warning', t('missingDetails'), t('fillCourseDetails'));
       return;
     }
@@ -244,7 +241,7 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
   const startEditCourse = (course: Course) => {
     setEditingCourse(course);
     setCourseTitle(course.title);
-    setCourseDescription(course.description);
+    setCourseTitleRu(course.titleRu || '');
     setCourseShortDescription(course.shortDescription || '');
     setCourseShortDescriptionRu(course.shortDescriptionRu || '');
     setCourseDetailedDescription(course.detailedDescription || '');
@@ -305,7 +302,7 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
 
   const resetCourseForm = () => {
     setCourseTitle('');
-    setCourseDescription('');
+    setCourseTitleRu('');
     setCourseShortDescription('');
     setCourseShortDescriptionRu('');
     setCourseDetailedDescription('');
@@ -366,8 +363,8 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
     // Basic info
     courseTitle,
     setCourseTitle,
-    courseDescription,
-    setCourseDescription,
+    courseTitleRu,
+    setCourseTitleRu,
     courseShortDescription,
     setCourseShortDescription,
     courseShortDescriptionRu,

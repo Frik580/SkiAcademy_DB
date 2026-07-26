@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUp, ArrowDown, Eye, EyeOff, Edit2, Trash2 } from 'lucide-react';
+import { ArrowUp, ArrowDown, Eye, EyeOff, Edit2, Trash2, Copy } from 'lucide-react';
 import { Booking, Course, Instructor, UserProfile } from '../../../types';
 import {
   translateCourse,
@@ -7,6 +7,7 @@ import {
   type TranslationKey,
   type Language,
 } from '../../../lib/LanguageContext';
+import { getCourseLevelBadgeClass } from '../../../lib/courseLevelStyles';
 
 interface CourseTableRowProps {
   course: Course;
@@ -20,6 +21,7 @@ interface CourseTableRowProps {
   onToggleVisibility: (course: Course) => void;
   onEdit: (course: Course) => void;
   onDelete: (course: Course) => void;
+  onClone: (course: Course) => void;
   onMove: (course: Course, direction: 'up' | 'down') => void;
 }
 
@@ -35,20 +37,12 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
   onToggleVisibility,
   onEdit,
   onDelete,
+  onClone,
   onMove,
 }) => {
   const translatedCourse = translateCourse(course, language);
 
-  const levelClass =
-    course.level === 'beginner'
-      ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50'
-      : course.level === 'intermediate'
-        ? 'bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/50'
-        : course.level === 'advanced'
-          ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/50'
-          : course.level === 'expert'
-            ? 'bg-stone-50 dark:bg-stone-950/20 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-900/50'
-            : 'bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-900/50';
+  const levelClass = getCourseLevelBadgeClass(course.level);
 
   const courseBookings = bookings.filter(
     (b) => b.instructorId === `course_${course.id}` && b.status !== 'cancelled' && !b.isDeleted
@@ -88,9 +82,11 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
             </span>
           )}
         </div>
-        <span className="text-[10px] text-[var(--ink-dim)] line-clamp-1 mt-0.5">
-          {translatedCourse.description}
-        </span>
+        {(translatedCourse.shortDescription || translatedCourse.description) && (
+          <span className="text-[10px] text-[var(--ink-dim)] line-clamp-1 mt-0.5">
+            {translatedCourse.shortDescription || translatedCourse.description}
+          </span>
+        )}
 
         {course.instructorIds && course.instructorIds.length > 0 && (
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
@@ -180,6 +176,13 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
             title={t('editCourse')}
           >
             <Edit2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => onClone(course)}
+            className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] border border-transparent rounded-none transition cursor-pointer"
+            title={t('cloneCourse')}
+          >
+            <Copy className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => onDelete(course)}

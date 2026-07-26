@@ -296,87 +296,97 @@ export function translateCourse(course: Course, language: Language): Course {
     },
   };
 
-  let title = course.title;
+  let title =
+    language === 'ru' ? course.titleRu || course.title : course.title || course.titleRu || '';
   let duration = course.duration;
-  let description = course.description;
+  let description = course.description || '';
   let dates = course.dates;
 
-  const tMap = titlesMap[course.title] || titlesMap[course.title.trim()];
-  if (tMap) {
-    title = tMap[language];
-  } else {
-    const lowerTitle = course.title.toLowerCase();
-    if (lowerTitle.includes('carving') || lowerTitle.includes('карвинг')) {
-      title = language === 'ru' ? 'Мастерство Карвинга Pro' : 'Carving Mastery Pro';
-    } else if (lowerTitle.includes('freeride') || lowerTitle.includes('фрирайд')) {
-      title =
-        language === 'ru'
-          ? 'Основы Фрирайда и Катания по Пухляку'
-          : 'Freeride & Powder Foundations';
-    } else if (lowerTitle.includes('park') || lowerTitle.includes('сноуборд-парк')) {
-      title =
-        language === 'ru'
-          ? 'Сноуборд-Парк и Основы Фристайла'
-          : 'Snowboard Park & Freestyle Basics';
-    } else if (lowerTitle.includes('начинающие') || lowerTitle.includes('beginners')) {
-      title = language === 'ru' ? 'Начинающие' : 'Beginners';
-    } else if (
-      lowerTitle.includes('техники катания') ||
-      lowerTitle.includes('technique improvement')
-    ) {
-      title = language === 'ru' ? 'Совершенствование техники катания' : 'Technique Improvement';
+  // Prefer explicit bilingual titles; fall back to legacy hardcoded maps when titleRu is missing
+  if (language === 'ru' ? !course.titleRu : !course.title) {
+    const tMap =
+      titlesMap[course.title] ||
+      titlesMap[course.title.trim()] ||
+      (course.titleRu ? titlesMap[course.titleRu] || titlesMap[course.titleRu.trim()] : undefined);
+    if (tMap) {
+      title = tMap[language];
+    } else {
+      const lowerTitle = `${course.title} ${course.titleRu || ''}`.toLowerCase();
+      if (lowerTitle.includes('carving') || lowerTitle.includes('карвинг')) {
+        title = language === 'ru' ? 'Мастерство Карвинга Pro' : 'Carving Mastery Pro';
+      } else if (lowerTitle.includes('freeride') || lowerTitle.includes('фрирайд')) {
+        title =
+          language === 'ru'
+            ? 'Основы Фрирайда и Катания по Пухляку'
+            : 'Freeride & Powder Foundations';
+      } else if (lowerTitle.includes('park') || lowerTitle.includes('сноуборд-парк')) {
+        title =
+          language === 'ru'
+            ? 'Сноуборд-Парк и Основы Фристайла'
+            : 'Snowboard Park & Freestyle Basics';
+      } else if (lowerTitle.includes('начинающие') || lowerTitle.includes('beginners')) {
+        title = language === 'ru' ? 'Начинающие' : 'Beginners';
+      } else if (
+        lowerTitle.includes('техники катания') ||
+        lowerTitle.includes('technique improvement')
+      ) {
+        title = language === 'ru' ? 'Совершенствование техники катания' : 'Technique Improvement';
+      }
     }
   }
 
   const durMap = durationsMap[course.duration] || durationsMap[course.duration.trim()];
   if (durMap) duration = durMap[language];
 
-  const descMap = descriptionsMap[course.description] || descriptionsMap[course.description.trim()];
-  if (descMap) {
-    description = descMap[language];
-  } else {
-    const lowerDesc = course.description.toLowerCase();
-    if (
-      lowerDesc.includes('освойте с нуля') ||
-      lowerDesc.includes('освоите с нуля') ||
-      lowerDesc.includes('confident, safe, and technical skiing from scratch')
-    ) {
-      description =
-        language === 'ru'
-          ? 'Освойте с нуля уверенное, безопасное и техничное катание. Вы научитесь правильной стойке, балансу, торможению, поворотам и постепенно перейдёте к катанию на параллельных лыжах на более крутых склонах.'
-          : 'Master confident, safe, and technical skiing from scratch. Learn proper stance, balance, braking, turns, and gradually transition to parallel skiing on steeper slopes.';
-    } else if (
-      lowerDesc.includes('курс поможет уверенным') ||
-      lowerDesc.includes('this course will help confident')
-    ) {
-      description =
-        language === 'ru'
-          ? 'Курс поможет уверенным лыжникам сделать катание более техничным, стабильным и эффективным. Вы освоите современные техники карвинга, улучшите контроль лыж, баланс, работу стоп и уверенность на склонах любой сложности.'
-          : 'This course will help confident skiers make their skiing more technical, stable, and efficient. Master modern carving techniques, improve ski control, balance, footwork, and confidence on any slope.';
-    } else if (
-      lowerDesc.includes('unlock maximum speed') ||
-      lowerDesc.includes('освойте максимальную скорость')
-    ) {
-      description =
-        language === 'ru'
-          ? 'Освойте максимальную скорость и идеальный контроль канта на высоких скоростях. Разработано для продвинутых лыжников.'
-          : 'Unlock maximum speed and perfect edge control on high-velocity slopes. Designed for advanced skiers.';
-    } else if (
-      lowerDesc.includes('learn to navigate deep') ||
-      lowerDesc.includes('научитесь кататься по глубокому')
-    ) {
-      description =
-        language === 'ru'
-          ? 'Научитесь кататься по глубокому пухляку, выбирать безопасные маршруты и освойте основы лавинной безопасности. Лыжи или сноуборд.'
-          : 'Learn to navigate deep powder, select safe mountain lines, and master avalanche safety basics. Ski or Snowboard.';
-    } else if (
-      lowerDesc.includes('master jumps, rails') ||
-      lowerDesc.includes('освойте прыжки, перила')
-    ) {
-      description =
-        language === 'ru'
-          ? 'Освойте прыжки, перила, грэбы и вращения в нашем специализированном сноупарке под руководством бывших профессиональных спортсменов.'
-          : 'Master jumps, rails, grabs, and spins in our specialized terrain park under the guidance of former athletes.';
+  if (course.description) {
+    const descMap =
+      descriptionsMap[course.description] || descriptionsMap[course.description.trim()];
+    if (descMap) {
+      description = descMap[language];
+    } else {
+      const lowerDesc = course.description.toLowerCase();
+      if (
+        lowerDesc.includes('освойте с нуля') ||
+        lowerDesc.includes('освоите с нуля') ||
+        lowerDesc.includes('confident, safe, and technical skiing from scratch')
+      ) {
+        description =
+          language === 'ru'
+            ? 'Освойте с нуля уверенное, безопасное и техничное катание. Вы научитесь правильной стойке, балансу, торможению, поворотам и постепенно перейдёте к катанию на параллельных лыжах на более крутых склонах.'
+            : 'Master confident, safe, and technical skiing from scratch. Learn proper stance, balance, braking, turns, and gradually transition to parallel skiing on steeper slopes.';
+      } else if (
+        lowerDesc.includes('курс поможет уверенным') ||
+        lowerDesc.includes('this course will help confident')
+      ) {
+        description =
+          language === 'ru'
+            ? 'Курс поможет уверенным лыжникам сделать катание более техничным, стабильным и эффективным. Вы освоите современные техники карвинга, улучшите контроль лыж, баланс, работу стоп и уверенность на склонах любой сложности.'
+            : 'This course will help confident skiers make their skiing more technical, stable, and efficient. Master modern carving techniques, improve ski control, balance, footwork, and confidence on any slope.';
+      } else if (
+        lowerDesc.includes('unlock maximum speed') ||
+        lowerDesc.includes('освойте максимальную скорость')
+      ) {
+        description =
+          language === 'ru'
+            ? 'Освойте максимальную скорость и идеальный контроль канта на высоких скоростях. Разработано для продвинутых лыжников.'
+            : 'Unlock maximum speed and perfect edge control on high-velocity slopes. Designed for advanced skiers.';
+      } else if (
+        lowerDesc.includes('learn to navigate deep') ||
+        lowerDesc.includes('научитесь кататься по глубокому')
+      ) {
+        description =
+          language === 'ru'
+            ? 'Научитесь кататься по глубокому пухляку, выбирать безопасные маршруты и освойте основы лавинной безопасности. Лыжи или сноуборд.'
+            : 'Learn to navigate deep powder, select safe mountain lines, and master avalanche safety basics. Ski or Snowboard.';
+      } else if (
+        lowerDesc.includes('master jumps, rails') ||
+        lowerDesc.includes('освойте прыжки, перила')
+      ) {
+        description =
+          language === 'ru'
+            ? 'Освойте прыжки, перила, грэбы и вращения в нашем специализированном сноупарке под руководством бывших профессиональных спортсменов.'
+            : 'Master jumps, rails, grabs, and spins in our specialized terrain park under the guidance of former athletes.';
+      }
     }
   }
 

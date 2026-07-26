@@ -79,6 +79,7 @@ export interface AvailabilitySlot {
 export interface Course {
   id: string;
   title: string;
+  titleRu?: string;
   duration: string;
   description: string;
   dates: string;

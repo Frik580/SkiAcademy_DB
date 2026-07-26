@@ -18,6 +18,7 @@ import {
 } from '../lib/firebase';
 import { useLanguage } from '../lib/LanguageContext';
 import { enrollInCourse } from '../lib/courseTransactions';
+import { stripUndefinedFields } from '../lib/courseClone';
 import { createNotificationForUser } from '../lib/notifications';
 import { QUERY_LIMITS } from '../lib/queryLimits';
 import { Booking, Course, UserProfile } from '../types';
@@ -98,7 +99,7 @@ export const useCourses = (
   }, [bookingsDependency, coursesDependency, userProfile?.role]);
 
   const handleAddCourse = async (course: Course) => {
-    await setDoc(doc(db, 'courses', course.id), course);
+    await setDoc(doc(db, 'courses', course.id), stripUndefinedFields(course as Record<string, unknown>));
   };
 
   const handleUpdateCourse = async (course: Course) => {

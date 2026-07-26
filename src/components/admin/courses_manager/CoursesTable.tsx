@@ -13,6 +13,7 @@ interface CoursesTableProps {
   onToggleVisibility: (course: Course) => void;
   onEdit: (course: Course) => void;
   onDelete: (course: Course) => void;
+  onClone: (course: Course) => void;
   onMove: (course: Course, direction: 'up' | 'down') => void;
 }
 
@@ -26,6 +27,7 @@ export const CoursesTable: React.FC<CoursesTableProps> = ({
   onToggleVisibility,
   onEdit,
   onDelete,
+  onClone,
   onMove,
 }) => {
   const sortedCourses = [...courses].sort((a, b) => {
@@ -65,6 +67,7 @@ export const CoursesTable: React.FC<CoursesTableProps> = ({
               onToggleVisibility={onToggleVisibility}
               onEdit={onEdit}
               onDelete={onDelete}
+              onClone={onClone}
               onMove={onMove}
             />
           ))}

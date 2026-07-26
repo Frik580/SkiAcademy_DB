@@ -1,6 +1,8 @@
 import React from 'react';
 import { Booking, Course, Instructor, UserProfile } from '../../types';
 import { useLanguage, translateCourse } from '../../lib/LanguageContext';
+import { buildClonedCourse } from '../../lib/courseClone';
+import { logger } from '../../lib/logger';
 import { useNotifications } from '../PushNotificationHub';
 import { useCourseForm } from './courses_manager/useCourseForm';
 import { CoursesManagerToolbar } from './courses_manager/CoursesManagerToolbar';
@@ -93,6 +95,20 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
     }
   };
 
+  const handleCloneCourse = async (course: Course) => {
+    if (!onAddCourse) return;
+
+    const cloned = buildClonedCourse(course, courses.length);
+
+    try {
+      await onAddCourse(cloned);
+      addNotification('success', t('successTitle'), t('courseCloned'));
+    } catch (err) {
+      logger.error('Failed to clone course:', err);
+      addNotification('error', t('errorTitle'), t('courseCloneFailed'));
+    }
+  };
+
   return (
     <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
       <CoursesManagerToolbar
@@ -113,6 +129,7 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
             onToggleVisibility={handleToggleVisibility}
             onEdit={form.startEditCourse}
             onDelete={handleDeleteCourseClick}
+            onClone={handleCloneCourse}
             onMove={handleMoveCourse}
           />
         </div>

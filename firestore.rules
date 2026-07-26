@@ -395,9 +395,23 @@ service cloud.firestore {
         request.resource.data.availableSeats >= 0 &&
         request.resource.data.availableSeats <= resource.data.totalSeats &&
         (
-          request.resource.data.availableSeats == resource.data.availableSeats - 1 ||
-          request.resource.data.availableSeats == resource.data.availableSeats + 1 ||
-          request.resource.data.availableSeats == resource.data.availableSeats
+          (
+            request.resource.data.availableSeats == resource.data.availableSeats - 1 &&
+            existsAfter(
+              /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
+            ) &&
+            getAfter(
+              /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
+            ).data.userId == request.auth.uid
+          ) || (
+            request.resource.data.availableSeats == resource.data.availableSeats + 1 &&
+            exists(
+              /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
+            ) &&
+            getAfter(
+              /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
+            ).data.status == 'cancelled'
+          )
         )
       );
     }

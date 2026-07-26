@@ -396,4 +396,44 @@ describe('course enrollment transactions', () => {
       })
     );
   });
+
+  it('allows an admin to restore a course seat when cancelling another user booking', async () => {
+    const adminDb = testEnv.authenticatedContext(OWNER_ID).firestore();
+    const courseRef = doc(adminDb, 'courses', 'course-1');
+    const bookingRef = doc(adminDb, 'bookings', `booking_course_${USER_ID}_course-1`);
+    const userRef = doc(adminDb, 'users', USER_ID);
+
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'users', USER_ID), userProfile(USER_ID, 'user@example.com', 'user'));
+      await setDoc(bookingRef, {
+        id: bookingRef.id,
+        userId: USER_ID,
+        instructorId: 'course_course-1',
+        instructorName: 'Course',
+        instructorAvatar: '',
+        date: '2026-12-01',
+        time: '09:00',
+        durationHours: 2,
+        totalPrice: 100,
+        status: 'confirmed',
+        difficulty: 'intermediate',
+        notes: '',
+      });
+      await setDoc(courseRef, {
+        title: 'Course',
+        totalSeats: 2,
+        availableSeats: 1,
+        price: 100,
+      });
+    });
+
+    await assertSucceeds(
+      runTransaction(adminDb, async (transaction) => {
+        transaction.update(bookingRef, { status: 'cancelled' });
+        transaction.update(userRef, { balanceUSD: 200 });
+        transaction.update(courseRef, { availableSeats: 2 });
+      })
+    );
+  });
 });

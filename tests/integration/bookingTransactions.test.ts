@@ -22,6 +22,7 @@ import {
   seedOwnerAndMigrationFlag,
   setupIntegrationTestEnvironment,
   teardownIntegrationTestEnvironment,
+  userProfile,
 } from './helpers';
 
 const lessonBooking = (overrides: Partial<Booking> = {}): Booking => ({
@@ -141,6 +142,104 @@ describe('booking transactions', () => {
     const slotDoc = await getDoc(doc(userDb, AVAILABILITY_SLOTS_COLLECTION, courseBookingId));
 
     expect(courseDoc.data()?.availableSeats).toBe(3);
+    expect(bookingDoc.data()?.status).toBe('cancelled');
+    expect(slotDoc.exists()).toBe(false);
+  });
+
+  it('allows an admin to cancel another user course booking, refund balance, and restore the seat', async () => {
+    const adminDb = integrationTestEnv().authenticatedContext(OWNER_ID).firestore();
+    const courseBookingId = `booking_course_${USER_ID}_course-1`;
+    const courseBooking = lessonBooking({
+      id: courseBookingId,
+      instructorId: 'course_course-1',
+      instructorName: 'Group Course',
+      totalPrice: 200,
+    });
+
+    await seedData(async (context) => {
+      const db = context.firestore();
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'users', USER_ID), {
+        ...userProfile(USER_ID, 'user@example.com', 'user'),
+        balanceUSD: 0,
+      });
+      batch.set(doc(db, 'courses', 'course-1'), {
+        title: 'Course',
+        totalSeats: 5,
+        availableSeats: 2,
+        price: 200,
+      });
+      batch.set(doc(db, 'bookings', courseBookingId), courseBooking);
+      await batch.commit();
+    });
+
+    const { refunded } = await cancelBookingWithRefund(adminDb, courseBookingId);
+
+    const userDoc = await getDoc(doc(adminDb, 'users', USER_ID));
+    const courseDoc = await getDoc(doc(adminDb, 'courses', 'course-1'));
+    const bookingDoc = await getDoc(doc(adminDb, 'bookings', courseBookingId));
+
+    expect(refunded).toBe(200);
+    expect(userDoc.data()?.balanceUSD).toBe(200);
+    expect(courseDoc.data()?.availableSeats).toBe(3);
+    expect(bookingDoc.data()?.status).toBe('cancelled');
+  });
+
+  it('allows an admin to cancel another user lesson booking and refund balance', async () => {
+    const adminDb = integrationTestEnv().authenticatedContext(OWNER_ID).firestore();
+    const booking = lessonBooking();
+
+    await seedData(async (context) => {
+      const db = context.firestore();
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'users', USER_ID), {
+        ...userProfile(USER_ID, 'user@example.com', 'user'),
+        balanceUSD: 0,
+      });
+      batch.set(doc(db, 'bookings', booking.id), booking);
+      batch.set(doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id), toAvailabilitySlot(booking));
+      await batch.commit();
+    });
+
+    const { refunded } = await cancelBookingWithRefund(adminDb, booking.id);
+
+    const userDoc = await getDoc(doc(adminDb, 'users', USER_ID));
+    const bookingDoc = await getDoc(doc(adminDb, 'bookings', booking.id));
+    const slotDoc = await getDoc(doc(adminDb, AVAILABILITY_SLOTS_COLLECTION, booking.id));
+
+    expect(refunded).toBe(100);
+    expect(userDoc.data()?.balanceUSD).toBe(100);
+    expect(bookingDoc.data()?.status).toBe('cancelled');
+    expect(slotDoc.exists()).toBe(false);
+  });
+
+  it('skips balance refund for guest bookings during admin cancellation', async () => {
+    const adminDb = integrationTestEnv().authenticatedContext(OWNER_ID).firestore();
+    const guestBooking = lessonBooking({
+      id: 'booking-guest-1',
+      userId: 'guest_abc123',
+      isGuest: true,
+      guestName: 'Walk-in Guest',
+      totalPrice: 80,
+    });
+
+    await seedData(async (context) => {
+      const db = context.firestore();
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'bookings', guestBooking.id), guestBooking);
+      batch.set(
+        doc(db, AVAILABILITY_SLOTS_COLLECTION, guestBooking.id),
+        toAvailabilitySlot(guestBooking)
+      );
+      await batch.commit();
+    });
+
+    const { refunded } = await cancelBookingWithRefund(adminDb, guestBooking.id);
+
+    const bookingDoc = await getDoc(doc(adminDb, 'bookings', guestBooking.id));
+    const slotDoc = await getDoc(doc(adminDb, AVAILABILITY_SLOTS_COLLECTION, guestBooking.id));
+
+    expect(refunded).toBe(80);
     expect(bookingDoc.data()?.status).toBe('cancelled');
     expect(slotDoc.exists()).toBe(false);
   });

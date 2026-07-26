@@ -12,20 +12,12 @@ import {
   onSnapshot,
   OperationType,
   query,
-  runTransaction,
   setDoc,
   updateDoc,
   writeBatch,
 } from '../lib/firebase';
-import {
-  getGroupCourseEnrollmentNote,
-  getGroupCourseLabel,
-  getGroupScheduleLabel,
-  parseDurationHours,
-  splitCourseDates,
-  translateCourse,
-  useLanguage,
-} from '../lib/LanguageContext';
+import { useLanguage } from '../lib/LanguageContext';
+import { enrollInCourse } from '../lib/courseTransactions';
 import { createNotificationForUser } from '../lib/notifications';
 import { QUERY_LIMITS } from '../lib/queryLimits';
 import { Booking, Course, UserProfile } from '../types';
@@ -149,60 +141,15 @@ export const useCourses = (
       return;
     }
 
-    const courseDocRef = doc(db, 'courses', courseId);
-    const userDocRef = doc(db, 'users', activeUser.uid);
-    const bookingId = `booking_course_${activeUser.uid}_${courseId}`;
-    const bookingDocRef = doc(db, 'bookings', bookingId);
-
     try {
-      let courseTitle = '';
-      await runTransaction(db, async (transaction) => {
-        const courseSnap = await transaction.get(courseDocRef);
-        const userSnap = await transaction.get(userDocRef);
-        const bookingSnap = await transaction.get(bookingDocRef);
+      const { newBalance, courseTitle } = await enrollInCourse(
+        db,
+        activeUser.uid,
+        courseId,
+        language
+      );
 
-        if (!courseSnap.exists()) throw new Error('Course does not exist.');
-        if (!userSnap.exists()) throw new Error('User profile does not exist.');
-
-        const courseData = courseSnap.data() as Course;
-        const userData = userSnap.data() as UserProfile;
-        const localizedCourse = translateCourse(courseData, language);
-        courseTitle = localizedCourse.title;
-
-        if (bookingSnap.exists()) {
-          const bookingData = bookingSnap.data();
-          if (bookingData.status !== 'cancelled' && !bookingData.isDeleted) {
-            throw new Error('ALREADY_ENROLLED');
-          }
-        }
-        if (courseData.availableSeats <= 0) throw new Error('COURSE_FULL');
-        if (userData.balanceUSD < courseData.price) throw new Error('INSUFFICIENT_FUNDS');
-
-        const { datePart, timePart } = splitCourseDates(courseData.dates, language);
-        const newBooking: Booking = {
-          id: bookingId,
-          userId: userData.uid,
-          instructorId: `course_${courseId}`,
-          instructorName: getGroupCourseLabel(localizedCourse.title, language),
-          instructorAvatar: courseData.bgImageUrl,
-          date: datePart || courseData.dates,
-          time: timePart || getGroupScheduleLabel(language),
-          durationHours: parseDurationHours(courseData.duration, 10),
-          totalPrice: courseData.price,
-          status: 'confirmed',
-          difficulty: 'intermediate',
-          notes: getGroupCourseEnrollmentNote(localizedCourse.description, language),
-        };
-
-        transaction.update(userDocRef, { balanceUSD: userData.balanceUSD - courseData.price });
-        transaction.update(courseDocRef, { availableSeats: courseData.availableSeats - 1 });
-        transaction.set(bookingDocRef, newBooking);
-      });
-
-      const course = courses.find((item) => item.id === courseId);
-      if (course) {
-        setUserProfile({ ...activeProfile, balanceUSD: activeProfile.balanceUSD - course.price });
-      }
+      setUserProfile({ ...activeProfile, balanceUSD: newBalance });
 
       addNotification(
         'success',

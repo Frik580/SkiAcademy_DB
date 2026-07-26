@@ -152,6 +152,7 @@ export interface CustomHeroSlide {
   line3En: string;
   line3Ru: string;
   backgroundImage: string; // e.g. 'wall', 'wall2', etc., or custom url
+  hidden?: boolean;
 }
 
 export interface ResortConfig {
@@ -168,4 +169,5 @@ export interface ResortConfig {
   liftsStatusRu?: string;
   slides?: CustomHeroSlide[];
   slideIntervalSeconds?: number;
+  slidesRandomOrder?: boolean;
 }

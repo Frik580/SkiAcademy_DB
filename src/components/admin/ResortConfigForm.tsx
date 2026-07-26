@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, Plus, RefreshCw, Trash2, Save } from 'lucide-react';
+import { Loader2, Plus, RefreshCw, Trash2, Save, ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react';
 import { CustomHeroSlide, ResortConfig } from '../../types';
 import { db, doc, onSnapshot, setDoc } from '../../lib/firebase';
 import { useLanguage } from '../../lib/LanguageContext';
@@ -280,6 +280,7 @@ export const ResortSliderSection: React.FC = () => {
 
   const [resortSlides, setResortSlides] = useState<CustomHeroSlide[]>([]);
   const [resortSlideInterval, setResortSlideInterval] = useState(6);
+  const [slidesRandomOrder, setSlidesRandomOrder] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -292,6 +293,7 @@ export const ResortSliderSection: React.FC = () => {
           const data = snap.data() as ResortConfig;
           setResortSlides(data.slides && data.slides.length > 0 ? data.slides : FALLBACK_SLIDES);
           setResortSlideInterval(data.slideIntervalSeconds || 6);
+          setSlidesRandomOrder(data.slidesRandomOrder === true);
         }
         setIsLoading(false);
       },
@@ -321,6 +323,20 @@ export const ResortSliderSection: React.FC = () => {
     setResortSlides(resortSlides.filter((s) => s.id !== id));
   };
 
+  const handleMoveSlide = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= resortSlides.length) return;
+    const updated = [...resortSlides];
+    [updated[index], updated[targetIndex]] = [updated[targetIndex], updated[index]];
+    setResortSlides(updated);
+  };
+
+  const handleToggleSlideVisibility = (id: string) => {
+    setResortSlides(
+      resortSlides.map((s) => (s.id === id ? { ...s, hidden: !s.hidden } : s))
+    );
+  };
+
   const handleUpdateSlideField = (id: string, field: keyof CustomHeroSlide, value: string) => {
     setResortSlides(resortSlides.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
   };
@@ -335,6 +351,7 @@ export const ResortSliderSection: React.FC = () => {
         {
           slides: resortSlides,
           slideIntervalSeconds: Number(resortSlideInterval),
+          slidesRandomOrder,
         },
         { merge: true }
       );
@@ -356,27 +373,40 @@ export const ResortSliderSection: React.FC = () => {
     );
   }
 
+  const visibleSlideCount = resortSlides.filter((s) => !s.hidden).length;
+
   return (
     <form onSubmit={handleSaveSliderConfig} className="space-y-4">
-      <div className="space-y-1.5 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
-        <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
-          {t('slideIntervalLabel')}
-        </label>
-        <input
-          type="number"
-          required
-          min="2"
-          max="60"
-          value={resortSlideInterval}
-          onChange={(e) => setResortSlideInterval(Number(e.target.value))}
-          className="w-32 bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-1.5 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
+          <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
+            {t('slideIntervalLabel')}
+          </label>
+          <input
+            type="number"
+            required
+            min="2"
+            max="60"
+            value={resortSlideInterval}
+            onChange={(e) => setResortSlideInterval(Number(e.target.value))}
+            className="w-32 bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+          />
+        </div>
+
+        <div className="border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
+          <ToggleSwitch
+            checked={slidesRandomOrder}
+            onChange={(checked) => setSlidesRandomOrder(checked)}
+            label={t('slidesRandomOrder')}
+            description={t('slidesRandomOrderDesc')}
+          />
+        </div>
       </div>
 
       <div className="space-y-4">
         <div className="flex justify-between items-center border-b border-[var(--border)] pb-2">
           <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-bold">
-            {t('activeSlides')} ({resortSlides.length})
+            {t('activeSlides')} ({visibleSlideCount}/{resortSlides.length})
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -384,6 +414,7 @@ export const ResortSliderSection: React.FC = () => {
               onClick={() => {
                 if (window.confirm(t('resetSlidesConfirm'))) {
                   setResortSlides(JSON.parse(JSON.stringify(FALLBACK_SLIDES)));
+                  setSlidesRandomOrder(false);
                 }
               }}
               className="border border-[var(--border)] px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] transition cursor-pointer flex items-center gap-1"
@@ -424,12 +455,63 @@ export const ResortSliderSection: React.FC = () => {
               return (
                 <div
                   key={slide.id}
-                  className="border border-[var(--border)] p-4 bg-black/5 dark:bg-white/5 space-y-3 relative"
+                  className={`border border-[var(--border)] p-4 bg-black/5 dark:bg-white/5 space-y-3 relative ${
+                    slide.hidden ? 'opacity-60' : ''
+                  }`}
                 >
                   <div className="absolute top-4 right-4 flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleMoveSlide(index, 'up')}
+                        disabled={index === 0}
+                        className={`p-1 border border-transparent transition cursor-pointer ${
+                          index === 0
+                            ? 'text-[var(--border)] cursor-not-allowed opacity-30'
+                            : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--border)] bg-[var(--bg)]'
+                        }`}
+                        title={t('moveUp')}
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveSlide(index, 'down')}
+                        disabled={index === resortSlides.length - 1}
+                        className={`p-1 border border-transparent transition cursor-pointer ${
+                          index === resortSlides.length - 1
+                            ? 'text-[var(--border)] cursor-not-allowed opacity-30'
+                            : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--border)] bg-[var(--bg)]'
+                        }`}
+                        title={t('moveDown')}
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                     <span className="font-mono text-[9px] px-1.5 py-0.5 border border-[var(--border)] bg-[var(--bg)] text-[var(--ink-dim)]">
                       #{index + 1}
                     </span>
+                    {slide.hidden && (
+                      <span className="font-mono text-[9px] px-1.5 py-0.5 border border-rose-500/30 bg-rose-500/10 text-rose-500">
+                        {t('hiddenSlideBadge')}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSlideVisibility(slide.id)}
+                      className={`transition cursor-pointer p-1 border border-[var(--border)] bg-[var(--bg)] ${
+                        slide.hidden
+                          ? 'text-rose-400 hover:text-rose-300 hover:border-rose-500/30'
+                          : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
+                      }`}
+                      title={slide.hidden ? t('showSlide') : t('hideSlide')}
+                    >
+                      {slide.hidden ? (
+                        <EyeOff className="w-3.5 h-3.5" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5" />
+                      )}
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleDeleteSlide(slide.id)}

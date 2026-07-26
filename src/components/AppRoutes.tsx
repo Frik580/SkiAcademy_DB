@@ -185,6 +185,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
           theme,
           designTheme: props.designTheme,
           slideIntervalSeconds: resortData.resortConfig.slideIntervalSeconds,
+          slidesRandomOrder: resortData.resortConfig.slidesRandomOrder,
         }}
         actions={{ onScrollToSection: handleScrollToSection }}
       />

@@ -14,11 +14,21 @@ interface HeroCarouselProps {
     theme: Theme;
     designTheme?: DesignTheme;
     slideIntervalSeconds?: number;
+    slidesRandomOrder?: boolean;
   };
   actions: {
     onScrollToSection: (id: string) => void;
   };
 }
+
+const shuffleSlides = (items: CustomHeroSlide[]): CustomHeroSlide[] => {
+  const arr = [...items];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+};
 
 const HERO_CROSSFADE_MS = 1400;
 
@@ -56,7 +66,14 @@ const buildBackgroundImage = (
 };
 
 export const HeroCarousel: React.FC<HeroCarouselProps> = ({
-  data: { slides: rawSlides, language, theme, designTheme = 'classic', slideIntervalSeconds = 6 },
+  data: {
+    slides: rawSlides,
+    language,
+    theme,
+    designTheme = 'classic',
+    slideIntervalSeconds = 6,
+    slidesRandomOrder = false,
+  },
   actions: { onScrollToSection },
 }) => {
   const { t } = useLanguage();
@@ -64,8 +81,14 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   const [currentSlide, setCurrentSlide] = useState(0);
 
   const slides = useMemo(() => {
-    return rawSlides && rawSlides.length > 0 ? rawSlides : FALLBACK_SLIDES;
-  }, [rawSlides]);
+    const source = rawSlides && rawSlides.length > 0 ? rawSlides : FALLBACK_SLIDES;
+    const visible = source.filter((s) => !s.hidden);
+    const base = visible.length > 0 ? visible : FALLBACK_SLIDES;
+    if (slidesRandomOrder && base.length > 1) {
+      return shuffleSlides(base);
+    }
+    return base;
+  }, [rawSlides, slidesRandomOrder]);
 
   const slideInterval = slideIntervalSeconds || 6;
 

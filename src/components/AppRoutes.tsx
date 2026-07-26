@@ -94,6 +94,12 @@ interface AppRoutesProps {
   onUpdateSkillConfig: (config: SkillConfig) => Promise<void>;
   onBookCourse: (courseId: string) => Promise<void>;
   onReschedule: (id: string, newDate: string, newTime: string) => Promise<void>;
+  onReassignInstructor: (
+    id: string,
+    newInstructor: Instructor,
+    newDate?: string,
+    newTime?: string
+  ) => Promise<void>;
   onCancel: (id: string, reason?: string) => Promise<void>;
   onCancelBooking: (id: string) => Promise<void>;
   onAddReview: (
@@ -362,6 +368,7 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
     onUpdateUser,
     onDeleteUser,
     onReschedule,
+    onReassignInstructor,
     onDeleteBooking,
     onAddBooking,
     onAddCourse,
@@ -393,6 +400,7 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
           onUpdateUser={onUpdateUser}
           onDeleteUser={onDeleteUser}
           onRescheduleBooking={onReschedule}
+          onReassignInstructor={onReassignInstructor}
           onDeleteBooking={onDeleteBooking}
           onAddBooking={onAddBooking}
           onAddCourse={onAddCourse}

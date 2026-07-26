@@ -43,6 +43,12 @@ interface ScheduleSlotActionModalProps {
   onClose: () => void;
   onAddBooking?: (booking: Booking) => Promise<void>;
   onRescheduleBooking?: (id: string, newDate: string, newTime: string) => Promise<void>;
+  onReassignInstructor?: (
+    id: string,
+    newInstructor: Instructor,
+    newDate?: string,
+    newTime?: string
+  ) => Promise<void>;
   onDeleteBooking?: (id: string) => Promise<void>;
   onCancelBooking: (id: string) => Promise<void>;
   onCompleteBooking?: (id: string) => Promise<void>;
@@ -52,6 +58,7 @@ interface ScheduleSlotActionModalProps {
 interface ActiveSlotDialogProps {
   activeSlot: ActiveScheduleSlot;
   selectedDate: string;
+  instructors: Instructor[];
   bookings: Booking[];
   courses: Course[];
   usersList: UserProfile[];
@@ -60,13 +67,28 @@ interface ActiveSlotDialogProps {
   onOpenChat: (booking: Booking) => void;
   onAddBooking?: (booking: Booking) => Promise<void>;
   onRescheduleBooking?: (id: string, newDate: string, newTime: string) => Promise<void>;
+  onReassignInstructor?: (
+    id: string,
+    newInstructor: Instructor,
+    newDate?: string,
+    newTime?: string
+  ) => Promise<void>;
   onCompleteBooking?: (id: string) => Promise<void>;
   onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
 }
 
+const isReassignableBooking = (booking: Booking): boolean =>
+  !booking.instructorId.startsWith('course_') &&
+  booking.userId !== 'system_block_break' &&
+  booking.userId !== 'system_block_day_off' &&
+  booking.status !== 'cancelled' &&
+  booking.status !== 'completed' &&
+  !booking.isDeleted;
+
 const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   activeSlot,
   selectedDate,
+  instructors,
   bookings,
   courses,
   usersList,
@@ -75,6 +97,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   onOpenChat,
   onAddBooking,
   onRescheduleBooking,
+  onReassignInstructor,
   onCompleteBooking,
   onLinkGuestBooking,
 }) => {
@@ -93,18 +116,34 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [newMoveDate, setNewMoveDate] = useState(activeSlot.booking?.date || selectedDate);
   const [newMoveTime, setNewMoveTime] = useState(activeSlot.booking?.time || activeSlot.time);
+  const [newInstructorId, setNewInstructorId] = useState(
+    activeSlot.booking?.instructorId || activeSlot.instructor.id
+  );
+
+  const canReassignInstructor = Boolean(
+    activeSlot.booking && isReassignableBooking(activeSlot.booking) && onReassignInstructor
+  );
+
+  const availableInstructors = useMemo(() => {
+    const list = instructors.filter((instructor) => instructor.isAvailable);
+    const current = instructors.find((instructor) => instructor.id === newInstructorId);
+    if (current && !list.some((instructor) => instructor.id === current.id)) {
+      return [current, ...list];
+    }
+    return list;
+  }, [instructors, newInstructorId]);
 
   const availableMoveTimeSlots = useMemo(() => {
     if (!activeSlot.booking) return [];
     return getAvailableMoveTimeSlots({
       bookings,
       courses,
-      instructorId: activeSlot.instructor.id,
+      instructorId: newInstructorId,
       date: newMoveDate,
       durationHours: activeSlot.booking.durationHours,
       excludeBookingId: activeSlot.booking.id,
     });
-  }, [activeSlot, newMoveDate, bookings, courses]);
+  }, [activeSlot, newMoveDate, newInstructorId, bookings, courses]);
 
   useEffect(() => {
     if (activeSlot.booking && availableMoveTimeSlots.length > 0) {
@@ -314,7 +353,20 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
 
   const handleSlotMoveSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!activeSlot.booking || !onRescheduleBooking) return;
+    if (!activeSlot.booking) return;
+
+    const instructorChanged =
+      canReassignInstructor && newInstructorId !== activeSlot.booking.instructorId;
+    const scheduleChanged =
+      newMoveDate !== activeSlot.booking.date || newMoveTime !== activeSlot.booking.time;
+
+    if (!instructorChanged && !scheduleChanged) {
+      onClose();
+      return;
+    }
+
+    if (instructorChanged && !onReassignInstructor) return;
+    if (!instructorChanged && !onRescheduleBooking) return;
 
     setIsSlotActionSubmitting(true);
     try {
@@ -322,7 +374,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
         hasScheduleOverlap({
           bookings,
           courses,
-          instructorId: activeSlot.instructor.id,
+          instructorId: newInstructorId,
           date: newMoveDate,
           time: newMoveTime,
           durationHours: activeSlot.booking.durationHours,
@@ -334,8 +386,36 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
         return;
       }
 
-      await onRescheduleBooking(activeSlot.booking.id, newMoveDate, newMoveTime);
-      addNotification('success', t('scheduleUpdated'), t('scheduleUpdatedDesc'));
+      if (instructorChanged) {
+        const targetInstructor = instructors.find(
+          (instructor) => instructor.id === newInstructorId
+        );
+        if (!targetInstructor) {
+          addNotification('error', t('updateFailed'), t('moveSessionFailed'));
+          setIsSlotActionSubmitting(false);
+          return;
+        }
+        if (!targetInstructor.isAvailable && targetInstructor.id !== activeSlot.booking.instructorId) {
+          addNotification(
+            'error',
+            t('instructorUnavailableTitle'),
+            `${targetInstructor.name} ${t('instructorUnavailableDesc')}`
+          );
+          setIsSlotActionSubmitting(false);
+          return;
+        }
+
+        await onReassignInstructor!(
+          activeSlot.booking.id,
+          targetInstructor,
+          newMoveDate,
+          newMoveTime
+        );
+        addNotification('success', t('lessonReassigned'), t('lessonReassignedDesc'));
+      } else {
+        await onRescheduleBooking!(activeSlot.booking.id, newMoveDate, newMoveTime);
+        addNotification('success', t('scheduleUpdated'), t('scheduleUpdatedDesc'));
+      }
       onClose();
     } catch (err) {
       addNotification('error', t('updateFailed'), t('moveSessionFailed'));
@@ -449,6 +529,30 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
               <h5 className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
                 {t('rescheduleMove')}
               </h5>
+
+              {canReassignInstructor && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+                    {t('reassignInstructor')}
+                  </label>
+                  <select
+                    value={newInstructorId}
+                    onChange={(event) => setNewInstructorId(event.target.value)}
+                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer font-mono"
+                  >
+                    {availableInstructors.map((instructor) => (
+                      <option
+                        key={instructor.id}
+                        value={instructor.id}
+                        className="bg-[var(--bg)] text-[var(--ink)]"
+                      >
+                        {instructor.name}
+                        {!instructor.isAvailable ? ` (${t('unavailableLabel')})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -788,6 +892,7 @@ export const ScheduleSlotActionModal = forwardRef<
       onClose,
       onAddBooking,
       onRescheduleBooking,
+      onReassignInstructor,
       onDeleteBooking,
       onCancelBooking,
       onCompleteBooking,
@@ -835,6 +940,7 @@ export const ScheduleSlotActionModal = forwardRef<
             key={`${activeSlot.instructor.id}-${activeSlot.time}-${activeSlot.booking?.id || 'empty'}`}
             activeSlot={activeSlot}
             selectedDate={selectedDate}
+            instructors={instructors}
             bookings={bookings}
             courses={courses}
             usersList={usersList}
@@ -843,6 +949,7 @@ export const ScheduleSlotActionModal = forwardRef<
             onOpenChat={setSelectedChatBooking}
             onAddBooking={onAddBooking}
             onRescheduleBooking={onRescheduleBooking}
+            onReassignInstructor={onReassignInstructor}
             onCompleteBooking={onCompleteBooking}
             onLinkGuestBooking={onLinkGuestBooking}
           />

@@ -15,6 +15,7 @@ interface NavbarProps {
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   onSignInClick?: () => void;
+  unreadNotificationCount?: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -25,12 +26,19 @@ export const Navbar: React.FC<NavbarProps> = ({
   theme,
   onToggleTheme,
   onSignInClick,
+  unreadNotificationCount = 0,
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminView = location.pathname === '/admin';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const hasUnreadNotifications = unreadNotificationCount > 0;
+  const badgeLabel =
+    unreadNotificationCount > 9 ? '9+' : unreadNotificationCount.toString();
+  const notificationButtonTitle = hasUnreadNotifications
+    ? `${t('newNotifications')} (${unreadNotificationCount})`
+    : t('notifications');
 
   return (
     <header className="sticky top-0 z-40 bg-[var(--bg)] border-b border-[var(--border)] px-6 py-3 transition-colors duration-300">
@@ -109,10 +117,23 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Notification button */}
               <button
                 onClick={onOpenNotifications}
-                className="p-1 border border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)] transition relative cursor-pointer"
+                title={notificationButtonTitle}
+                aria-label={notificationButtonTitle}
+                className={`p-1 border transition relative cursor-pointer ${
+                  hasUnreadNotifications
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent)]/20'
+                    : 'border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)]'
+                }`}
               >
-                <Bell className="w-3.5 h-3.5" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-[var(--accent)] rounded-full ring-1 ring-[var(--bg)]" />
+                <Bell className={`w-3.5 h-3.5 ${hasUnreadNotifications ? 'animate-pulse' : ''}`} />
+                {hasUnreadNotifications && (
+                  <>
+                    <span className="absolute -top-1 -right-1 min-w-[0.95rem] h-[0.95rem] px-0.5 bg-rose-500 text-white text-[9px] font-bold leading-none rounded-full ring-1 ring-[var(--bg)] flex items-center justify-center">
+                      {badgeLabel}
+                    </span>
+                    <span className="absolute -top-1 -right-1 min-w-[0.95rem] h-[0.95rem] bg-rose-500 rounded-full animate-ping opacity-60" />
+                  </>
+                )}
               </button>
 
               {/* Profile Avatar and Sign Out */}
@@ -202,12 +223,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                       onOpenNotifications();
                       setIsMenuOpen(false);
                     }}
+                    title={notificationButtonTitle}
+                    aria-label={notificationButtonTitle}
                     className="w-full flex justify-between items-center text-sm font-mono uppercase text-[var(--ink)]"
                   >
-                    <span>{t('notifications')}</span>
+                    <span className="flex items-center gap-2">
+                      {t('notifications')}
+                      {hasUnreadNotifications && (
+                        <span className="min-w-[1.1rem] h-[1.1rem] px-1 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                          {badgeLabel}
+                        </span>
+                      )}
+                    </span>
                     <div className="relative p-1">
-                      <Bell className="w-4 h-4" />
-                      <span className="absolute -top-0 -right-0 w-2 h-2 bg-[var(--accent)] rounded-full ring-1 ring-[var(--bg)]" />
+                      <Bell className={`w-4 h-4 ${hasUnreadNotifications ? 'text-[var(--accent)]' : ''}`} />
                     </div>
                   </button>
                 </>

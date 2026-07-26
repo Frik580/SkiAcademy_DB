@@ -141,26 +141,6 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
 
   if (!isOpen) return null;
 
-  const notificationsToShow =
-    dbNotifications && dbNotifications.length > 0
-      ? dbNotifications.map((n) => ({
-          id: n.id,
-          type: n.type || 'info',
-          title: n.title,
-          message: n.message,
-          timestamp: new Date(n.timestamp),
-        }))
-      : localNotifications;
-
-  const handleClearAll = async () => {
-    if (onClearNotifications) {
-      await onClearNotifications();
-    } else {
-      localClearAll();
-    }
-  };
-
-  // Filter out unreviewed completed bookings
   const uid = userProfile?.uid;
   const userBookings = uid ? bookings.filter((b) => b.userId === uid && !b.isDeleted) : [];
   const unreviewedCompletedBookings = userBookings.filter((b) => {
@@ -173,6 +153,32 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
     );
     return !alreadyReviewed;
   });
+
+  const notificationsToShow =
+    dbNotifications && dbNotifications.length > 0
+      ? dbNotifications.map((n) => ({
+          id: n.id,
+          type: n.type || 'info',
+          title: n.title,
+          message: n.message,
+          timestamp: new Date(n.timestamp),
+          isRead: n.isRead ?? false,
+        }))
+      : localNotifications.map((n) => ({
+          ...n,
+          isRead: true,
+        }));
+
+  const unreadDbCount = notificationsToShow.filter((notification) => !notification.isRead).length;
+  const totalUnreadCount = unreadDbCount + unreviewedCompletedBookings.length;
+
+  const handleClearAll = async () => {
+    if (onClearNotifications) {
+      await onClearNotifications();
+    } else {
+      localClearAll();
+    }
+  };
 
   const handleTriggerReview = (bookingId: string) => {
     onClose();
@@ -192,10 +198,20 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
       <div className="bg-[var(--bg)] border border-[var(--border)] shadow-2xl w-full max-w-md overflow-hidden animate-scale-up rounded-none">
         <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-black/10">
           <div className="flex items-center gap-2">
-            <Bell className="w-4 h-4 text-[var(--ink-dim)]" />
+            <div className="relative">
+              <Bell className="w-4 h-4 text-[var(--ink-dim)]" />
+              {totalUnreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full ring-1 ring-[var(--bg)]" />
+              )}
+            </div>
             <h3 className="font-serif text-sm font-light text-[var(--ink)]">
               {t('notificationHistory')}
             </h3>
+            {totalUnreadCount > 0 && (
+              <span className="text-[10px] font-mono uppercase tracking-wider text-rose-500 bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 rounded-none">
+                {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
+              </span>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -275,7 +291,11 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
               notificationsToShow.map((n) => (
                 <div
                   key={n.id}
-                  className="p-3 border border-[var(--border)] bg-black/10 flex gap-3 animate-fade-in rounded-none"
+                  className={`p-3 border flex gap-3 animate-fade-in rounded-none ${
+                    n.isRead
+                      ? 'border-[var(--border)] bg-black/10'
+                      : 'border-[var(--accent)]/40 bg-[var(--accent)]/10 ring-1 ring-[var(--accent)]/20'
+                  }`}
                 >
                   <div className="shrink-0 mt-0.5">
                     {n.type === 'success' && <CheckCircle className="w-4 h-4 text-emerald-500" />}
@@ -284,7 +304,14 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
                     {n.type === 'info' && <Info className="w-4 h-4 text-blue-500" />}
                   </div>
                   <div className="flex-1">
-                    <h4 className="text-xs font-semibold text-[var(--ink)]">{n.title}</h4>
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="text-xs font-semibold text-[var(--ink)]">{n.title}</h4>
+                      {!n.isRead && (
+                        <span className="shrink-0 text-[9px] font-mono uppercase tracking-wider text-[var(--accent)]">
+                          {t('newBadge')}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-[var(--ink-dim)] mt-0.5 whitespace-pre-wrap">
                       {n.message}
                     </p>

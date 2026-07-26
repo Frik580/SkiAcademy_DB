@@ -10,6 +10,7 @@ import {
   orderBy,
   query,
   where,
+  writeBatch,
 } from '../lib/firebase';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
 import { QUERY_LIMITS } from '../lib/queryLimits';
@@ -22,11 +23,15 @@ interface DbNotification {
   type?: 'success' | 'error' | 'info' | 'warning';
   title: string;
   message: string;
+  isRead?: boolean;
 }
 
 export const useNotifications = (firebaseUser: User | null) => {
   const { addNotification } = useNotificationHub();
   const [dbNotifications, setDbNotifications] = useState<DbNotification[]>([]);
+
+  const unreadNotificationCount = dbNotifications.filter((notification) => !notification.isRead)
+    .length;
 
   useEffect(() => {
     if (!firebaseUser) {
@@ -75,5 +80,23 @@ export const useNotifications = (firebaseUser: User | null) => {
     );
   };
 
-  return { dbNotifications, handleClearNotifications };
+  const handleMarkNotificationsAsRead = async () => {
+    if (!firebaseUser) return;
+
+    const unreadNotifications = dbNotifications.filter((notification) => !notification.isRead);
+    if (unreadNotifications.length === 0) return;
+
+    const batch = writeBatch(db);
+    unreadNotifications.forEach((notification) => {
+      batch.update(doc(db, 'notifications', notification.id), { isRead: true });
+    });
+    await batch.commit();
+  };
+
+  return {
+    dbNotifications,
+    unreadNotificationCount,
+    handleClearNotifications,
+    handleMarkNotificationsAsRead,
+  };
 };

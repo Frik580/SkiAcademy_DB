@@ -32,7 +32,7 @@ import {
 } from '../lib/bookingTransactions';
 import { createNotificationForUser } from '../lib/notifications';
 import { parseCourseEndDateTime, useLanguage } from '../lib/LanguageContext';
-import { Booking, UserProfile } from '../types';
+import { Booking, Instructor, UserProfile } from '../types';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
 import { QUERY_LIMITS } from '../lib/queryLimits';
 import { logger } from '../lib/logger';
@@ -223,6 +223,56 @@ export const useBookings = (
         t('lessonRescheduled'),
         `${t('lessonRescheduledAdminPrefix')} ${booking.instructorName} ${t('lessonRescheduledAdminMiddle')} ${newDate} ${t('lessonRescheduledAdminAt')} ${newTime}.`
       );
+    }
+  };
+
+  const handleReassignInstructor = async (
+    id: string,
+    newInstructor: Instructor,
+    newDate?: string,
+    newTime?: string
+  ) => {
+    const booking = bookings.find((item) => item.id === id);
+    if (!booking || isCourseBooking(booking)) return;
+
+    const date = newDate ?? booking.date;
+    const time = newTime ?? booking.time;
+    const previousInstructorName = booking.instructorName;
+    const updatedBooking = {
+      ...booking,
+      instructorId: newInstructor.id,
+      instructorName: newInstructor.name,
+      instructorAvatar: newInstructor.avatarUrl,
+      date,
+      time,
+    };
+
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'bookings', id), {
+      instructorId: updatedBooking.instructorId,
+      instructorName: updatedBooking.instructorName,
+      instructorAvatar: updatedBooking.instructorAvatar,
+      date,
+      time,
+    });
+    if (blocksInstructorAvailability(updatedBooking)) {
+      batch.set(
+        doc(db, AVAILABILITY_SLOTS_COLLECTION, id),
+        toAvailabilitySlot(updatedBooking)
+      );
+    }
+    await batch.commit();
+
+    if (userProfile?.role === 'admin') {
+      const isSystemBlock = booking.userId.startsWith('system_block_');
+      const isGuest = booking.userId.startsWith('guest_');
+      if (!isSystemBlock && !isGuest) {
+        await createNotificationForUser(
+          booking.userId,
+          t('lessonReassigned'),
+          `${t('lessonReassignedAdminPrefix')} ${previousInstructorName} ${t('lessonReassignedAdminMiddle')} ${newInstructor.name} (${date} ${t('lessonRescheduledAdminAt')} ${time}).`
+        );
+      }
     }
   };
 
@@ -466,6 +516,7 @@ export const useBookings = (
     deletedCompletedStats,
     handleBookingSuccess,
     handleReschedule,
+    handleReassignInstructor,
     handleCancel,
     handleRequestCancel,
     handleAddBooking,

@@ -21,6 +21,12 @@ interface ScheduleCalendarProps {
   adminProfile: UserProfile;
   onAddBooking?: (booking: Booking) => Promise<void>;
   onRescheduleBooking?: (id: string, newDate: string, newTime: string) => Promise<void>;
+  onReassignInstructor?: (
+    id: string,
+    newInstructor: Instructor,
+    newDate?: string,
+    newTime?: string
+  ) => Promise<void>;
   onDeleteBooking?: (id: string) => Promise<void>;
   onCancelBooking: (id: string) => Promise<void>;
   onCompleteBooking?: (id: string) => Promise<void>;
@@ -35,6 +41,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   adminProfile,
   onAddBooking,
   onRescheduleBooking,
+  onReassignInstructor,
   onDeleteBooking,
   onCancelBooking,
   onCompleteBooking,
@@ -676,6 +683,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         onClose={() => setActiveSlotModal(null)}
         onAddBooking={onAddBooking}
         onRescheduleBooking={onRescheduleBooking}
+        onReassignInstructor={onReassignInstructor}
         onDeleteBooking={onDeleteBooking}
         onCancelBooking={onCancelBooking}
         onCompleteBooking={onCompleteBooking}

@@ -70,6 +70,12 @@ interface AdminPanelProps {
   onUpdateUser?: (user: UserProfile) => Promise<void>;
   onDeleteUser?: (uid: string) => Promise<void>;
   onRescheduleBooking?: (id: string, newDate: string, newTime: string) => Promise<void>;
+  onReassignInstructor?: (
+    id: string,
+    newInstructor: Instructor,
+    newDate?: string,
+    newTime?: string
+  ) => Promise<void>;
   onDeleteBooking?: (id: string) => Promise<void>;
   onAddBooking?: (booking: Booking) => Promise<void>;
   filtersEnabled?: boolean;
@@ -105,6 +111,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateUser,
   onDeleteUser,
   onRescheduleBooking,
+  onReassignInstructor,
   onDeleteBooking,
   onAddBooking,
   onAddCourse,
@@ -208,6 +215,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             adminProfile={adminProfile}
             onAddBooking={onAddBooking}
             onRescheduleBooking={onRescheduleBooking}
+            onReassignInstructor={onReassignInstructor}
             onDeleteBooking={onDeleteBooking}
             onCancelBooking={onCancelBooking}
             onCompleteBooking={onCompleteBooking}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { registerFirestoreErrorListener, db, doc, updateDoc } from './lib/firebase';
 import { Instructor, Course } from './types';
@@ -99,6 +99,7 @@ const AppContent: React.FC = () => {
     handlePaymentSuccess,
     handleBookingSuccess,
     handleReschedule,
+    handleReassignInstructor,
     handleAddCourse,
     handleUpdateCourse,
     handleDeleteCourse,
@@ -119,6 +120,8 @@ const AppContent: React.FC = () => {
     handleCompleteBooking,
     handleLinkGuestBooking,
     handleClearNotifications,
+    handleMarkNotificationsAsRead,
+    unreadNotificationCount,
     handleUpdateProfile,
     handleToggleFilters,
     handleToggleOnboarding,
@@ -142,6 +145,36 @@ const AppContent: React.FC = () => {
   const [selectedCourseForAuth, setSelectedCourseForAuth] = useState<Course | null>(null);
   const [selectedCourseForDetails, setSelectedCourseForDetails] = useState<Course | null>(null);
   const [reviewsInstructor, setReviewsInstructor] = useState<Instructor | null>(null);
+
+  const unreviewedCompletedCount = useMemo(() => {
+    if (!userProfile?.uid) return 0;
+
+    const userBookings = bookings.filter(
+      (booking) => booking.userId === userProfile.uid && !booking.isDeleted
+    );
+
+    return userBookings.filter((booking) => {
+      if (booking.status !== 'completed') return false;
+      if (dismissedReviewIds.includes(booking.id)) return false;
+
+      const alreadyReviewed = reviews.some(
+        (review) =>
+          review.bookingId === booking.id ||
+          (review.userId === userProfile.uid &&
+            review.instructorId === booking.instructorId &&
+            review.date === booking.date)
+      );
+
+      return !alreadyReviewed;
+    }).length;
+  }, [bookings, reviews, userProfile?.uid, dismissedReviewIds]);
+
+  const notificationBadgeCount = unreadNotificationCount + unreviewedCompletedCount;
+
+  const handleOpenNotifications = () => {
+    setIsNotifHistoryOpen(true);
+    void handleMarkNotificationsAsRead();
+  };
 
   useEffect(() => {
     if (onboardingEnabled && userProfile && userProfile.hasCompletedOnboarding === false) {
@@ -221,7 +254,8 @@ const AppContent: React.FC = () => {
       <Navbar
         userProfile={userProfile}
         onOpenTopUp={() => setIsTopUpOpen(true)}
-        onOpenNotifications={() => setIsNotifHistoryOpen(true)}
+        onOpenNotifications={handleOpenNotifications}
+        unreadNotificationCount={notificationBadgeCount}
         onSignOut={handleSignOut}
         theme={theme}
         onToggleTheme={toggleTheme}
@@ -298,6 +332,7 @@ const AppContent: React.FC = () => {
           onUpdateSkillConfig={handleUpdateSkillConfig}
           onBookCourse={handleBookCourse}
           onReschedule={handleReschedule}
+          onReassignInstructor={handleReassignInstructor}
           onCancel={handleRequestCancel}
           onCancelBooking={handleCancel}
           onAddReview={handleAddReview}

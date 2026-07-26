@@ -203,7 +203,8 @@ const AppContent: React.FC = () => {
   const handleScheduleFirstLessonFromOnboarding = () => {
     handleCompleteOnboarding();
     setTimeout(() => {
-      const el = document.getElementById('coaches-grid') || document.getElementById('group-courses-section');
+      const el =
+        document.getElementById('coaches-grid') || document.getElementById('group-courses-section');
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }

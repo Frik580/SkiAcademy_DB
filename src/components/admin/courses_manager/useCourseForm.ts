@@ -204,7 +204,12 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
 
   const handleCourseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!courseTitle.trim() || !courseTitleRu.trim() || !courseDuration.trim() || !courseDates.trim()) {
+    if (
+      !courseTitle.trim() ||
+      !courseTitleRu.trim() ||
+      !courseDuration.trim() ||
+      !courseDates.trim()
+    ) {
       addNotification('warning', t('missingDetails'), t('fillCourseDetails'));
       return;
     }

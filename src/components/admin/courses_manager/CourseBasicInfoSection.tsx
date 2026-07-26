@@ -89,16 +89,28 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
           <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
             {t('selectLevelNone')}
           </option>
-          <option value="beginner" className={`bg-[var(--bg)] font-bold ${getCourseLevelCardClass('beginner')}`}>
+          <option
+            value="beginner"
+            className={`bg-[var(--bg)] font-bold ${getCourseLevelCardClass('beginner')}`}
+          >
             {t('courseLevelBeginner')}
           </option>
-          <option value="intermediate" className={`bg-[var(--bg)] font-bold ${getCourseLevelCardClass('intermediate')}`}>
+          <option
+            value="intermediate"
+            className={`bg-[var(--bg)] font-bold ${getCourseLevelCardClass('intermediate')}`}
+          >
             {t('courseLevelIntermediate')}
           </option>
-          <option value="advanced" className={`bg-[var(--bg)] font-bold ${getCourseLevelCardClass('advanced')}`}>
+          <option
+            value="advanced"
+            className={`bg-[var(--bg)] font-bold ${getCourseLevelCardClass('advanced')}`}
+          >
             {t('courseLevelAdvanced')}
           </option>
-          <option value="expert" className={`bg-[var(--bg)] font-bold ${getCourseLevelCardClass('expert')}`}>
+          <option
+            value="expert"
+            className={`bg-[var(--bg)] font-bold ${getCourseLevelCardClass('expert')}`}
+          >
             {t('courseLevelExpert')}
           </option>
         </select>

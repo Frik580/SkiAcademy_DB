@@ -76,7 +76,9 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             checked={onboardingEnabled}
             onChange={(checked) => onToggleOnboarding?.(checked)}
             label={t('onboardingToggleLabel') || 'Онбординг клиентов'}
-            description={t('onboardingToggleDesc') || 'Показывать обучающий тур 6 шагов новым ученикам'}
+            description={
+              t('onboardingToggleDesc') || 'Показывать обучающий тур 6 шагов новым ученикам'
+            }
           />
         </div>
       </div>

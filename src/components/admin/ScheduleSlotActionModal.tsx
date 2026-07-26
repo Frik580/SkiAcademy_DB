@@ -395,7 +395,10 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
           setIsSlotActionSubmitting(false);
           return;
         }
-        if (!targetInstructor.isAvailable && targetInstructor.id !== activeSlot.booking.instructorId) {
+        if (
+          !targetInstructor.isAvailable &&
+          targetInstructor.id !== activeSlot.booking.instructorId
+        ) {
           addNotification(
             'error',
             t('instructorUnavailableTitle'),

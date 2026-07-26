@@ -70,7 +70,9 @@ describe('BookingsLog admin cancellation', () => {
   it('cancels a confirmed booking immediately through onCancelBooking', async () => {
     render(
       <BookingsLog
-        bookings={[{ ...pendingCancellationBooking, status: 'confirmed', cancellationReason: undefined }]}
+        bookings={[
+          { ...pendingCancellationBooking, status: 'confirmed', cancellationReason: undefined },
+        ]}
         usersList={usersList}
         instructors={instructors}
         onConfirmBooking={onConfirmBooking}

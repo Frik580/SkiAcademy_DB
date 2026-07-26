@@ -75,9 +75,7 @@ export const useAppLogic = (
       try {
         const designSnapshot = await getDoc(doc(db, 'settings', 'design_theme'));
         setDesignTheme(
-          designSnapshot.exists()
-            ? parseDesignTheme(designSnapshot.data().theme)
-            : 'classic'
+          designSnapshot.exists() ? parseDesignTheme(designSnapshot.data().theme) : 'classic'
         );
       } catch {
         setDesignTheme('classic');

@@ -97,11 +97,14 @@ export const translations = {
     onboardingNext: 'Next',
     onboardingBack: 'Back',
     onboardingS1Title: 'Your Path: Level 1 → 4',
-    onboardingS1Desc: 'Grow from Beginner to Expert. Each crystal is a real academy level unlocked through training and skill progress.',
+    onboardingS1Desc:
+      'Grow from Beginner to Expert. Each crystal is a real academy level unlocked through training and skill progress.',
     onboardingS2Title: 'Track Your Progress',
-    onboardingS2Desc: 'In your personal cabinet you see Control, Speed and Technique scores, a level ring, and skill exercises with live bars.',
+    onboardingS2Desc:
+      'In your personal cabinet you see Control, Speed and Technique scores, a level ring, and skill exercises with live bars.',
     onboardingS3Title: 'Calendar & Schedule',
-    onboardingS3Desc: 'Manage lessons in the interactive calendar: pick a day, chat with your coach, reschedule or cancel — then book your first session.',
+    onboardingS3Desc:
+      'Manage lessons in the interactive calendar: pick a day, chat with your coach, reschedule or cancel — then book your first session.',
     onboardingS3PrimaryBtn: 'Schedule First Workout',
     onboardingS3LaterBtn: 'Maybe later',
 
@@ -1285,11 +1288,14 @@ export const translations = {
     onboardingNext: 'Далее',
     onboardingBack: 'Назад',
     onboardingS1Title: 'Ваш путь: Level 1 → 4',
-    onboardingS1Desc: 'Рост от Beginner до Expert. Каждый кристалл — реальный уровень академии, который открывается через тренировки и навыки.',
+    onboardingS1Desc:
+      'Рост от Beginner до Expert. Каждый кристалл — реальный уровень академии, который открывается через тренировки и навыки.',
     onboardingS2Title: 'Наглядный прогресс',
-    onboardingS2Desc: 'В личном кабинете видны оценки Control, Speed и Technique, кольцо уровня и упражнения с живыми шкалами прогресса.',
+    onboardingS2Desc:
+      'В личном кабинете видны оценки Control, Speed и Technique, кольцо уровня и упражнения с живыми шкалами прогресса.',
     onboardingS3Title: 'Календарь и расписание',
-    onboardingS3Desc: 'Управляйте занятиями в интерактивном календаре: выбирайте день, пишите тренеру, переносите или отменяйте — и запишитесь на первую тренировку.',
+    onboardingS3Desc:
+      'Управляйте занятиями в интерактивном календаре: выбирайте день, пишите тренеру, переносите или отменяйте — и запишитесь на первую тренировку.',
     onboardingS3PrimaryBtn: 'Запланировать первую тренировку',
     onboardingS3LaterBtn: 'Позже',
 

@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, Plus, RefreshCw, Trash2, Save, ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react';
+import {
+  Loader2,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Save,
+  ArrowUp,
+  ArrowDown,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 import { CustomHeroSlide, ResortConfig } from '../../types';
 import { db, doc, onSnapshot, setDoc } from '../../lib/firebase';
 import { useLanguage } from '../../lib/LanguageContext';
@@ -332,9 +342,7 @@ export const ResortSliderSection: React.FC = () => {
   };
 
   const handleToggleSlideVisibility = (id: string) => {
-    setResortSlides(
-      resortSlides.map((s) => (s.id === id ? { ...s, hidden: !s.hidden } : s))
-    );
+    setResortSlides(resortSlides.map((s) => (s.id === id ? { ...s, hidden: !s.hidden } : s)));
   };
 
   const handleUpdateSlideField = (id: string, field: keyof CustomHeroSlide, value: string) => {

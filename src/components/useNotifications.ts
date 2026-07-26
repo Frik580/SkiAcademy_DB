@@ -30,8 +30,9 @@ export const useNotifications = (firebaseUser: User | null) => {
   const { addNotification } = useNotificationHub();
   const [dbNotifications, setDbNotifications] = useState<DbNotification[]>([]);
 
-  const unreadNotificationCount = dbNotifications.filter((notification) => !notification.isRead)
-    .length;
+  const unreadNotificationCount = dbNotifications.filter(
+    (notification) => !notification.isRead
+  ).length;
 
   useEffect(() => {
     if (!firebaseUser) {

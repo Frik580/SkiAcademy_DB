@@ -34,8 +34,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isAdminView = location.pathname === '/admin';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const hasUnreadNotifications = unreadNotificationCount > 0;
-  const badgeLabel =
-    unreadNotificationCount > 9 ? '9+' : unreadNotificationCount.toString();
+  const badgeLabel = unreadNotificationCount > 9 ? '9+' : unreadNotificationCount.toString();
   const notificationButtonTitle = hasUnreadNotifications
     ? `${t('newNotifications')} (${unreadNotificationCount})`
     : t('notifications');
@@ -236,7 +235,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                       )}
                     </span>
                     <div className="relative p-1">
-                      <Bell className={`w-4 h-4 ${hasUnreadNotifications ? 'text-[var(--accent)]' : ''}`} />
+                      <Bell
+                        className={`w-4 h-4 ${hasUnreadNotifications ? 'text-[var(--accent)]' : ''}`}
+                      />
                     </div>
                   </button>
                 </>

@@ -14,8 +14,7 @@ const SCREEN_URL = 'https://storage.yandexcloud.net/carve/images/screen.png';
 const IMG = { w: 1542, h: 6206 };
 
 /** Dark-theme crystals only — screen.png is a dark UI capture (`w/`, not `b/`) */
-const getLevelSrc = (level: number) =>
-  `https://storage.yandexcloud.net/carve/level/w/${level}.png`;
+const getLevelSrc = (level: number) => `https://storage.yandexcloud.net/carve/level/w/${level}.png`;
 
 /** Camera focal points on the full screenshot (image px + zoom) */
 const SCENES = {
@@ -154,9 +153,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           setCamera(SCENES.level);
         }, S1_HERO_HOLD_MS),
         // 3) Start badge morph after the fly finishes
-        window.setTimeout(() => {
-          setPlayBadgeAnim(true);
-        }, S1_HERO_HOLD_MS + S1_FLY_MS + 80)
+        window.setTimeout(
+          () => {
+            setPlayBadgeAnim(true);
+          },
+          S1_HERO_HOLD_MS + S1_FLY_MS + 80
+        )
       );
     } else if (currentStep === 2) {
       setPlayBadgeAnim(false);
@@ -245,10 +247,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         </div>
 
         {/* Browser stage fills the whole modal body */}
-        <div
-          ref={stageRef}
-          className="relative flex-1 min-h-0 bg-[var(--card-bg)] overflow-hidden"
-        >
+        <div ref={stageRef} className="relative flex-1 min-h-0 bg-[var(--card-bg)] overflow-hidden">
           <div className="absolute top-0 inset-x-0 z-20 flex items-center gap-1.5 px-3 py-1.5 bg-black/55 border-b border-white/10 backdrop-blur-sm">
             <span className="w-2 h-2 rounded-full bg-rose-400/80" />
             <span className="w-2 h-2 rounded-full bg-amber-400/80" />
@@ -459,7 +458,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <span>{t('onboardingBack')}</span>
               </button>
             ) : (
-              <span className="invisible btn-secondary px-3.5 py-1.5 text-xs uppercase font-mono tracking-wider inline-flex items-center justify-center gap-1" aria-hidden>
+              <span
+                className="invisible btn-secondary px-3.5 py-1.5 text-xs uppercase font-mono tracking-wider inline-flex items-center justify-center gap-1"
+                aria-hidden
+              >
                 <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
                 <span>{t('onboardingBack')}</span>
               </span>

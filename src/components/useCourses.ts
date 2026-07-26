@@ -99,7 +99,10 @@ export const useCourses = (
   }, [bookingsDependency, coursesDependency, userProfile?.role]);
 
   const handleAddCourse = async (course: Course) => {
-    await setDoc(doc(db, 'courses', course.id), stripUndefinedFields(course as Record<string, unknown>));
+    await setDoc(
+      doc(db, 'courses', course.id),
+      stripUndefinedFields(course as unknown as Record<string, unknown>)
+    );
   };
 
   const handleUpdateCourse = async (course: Course) => {

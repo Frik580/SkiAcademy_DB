@@ -256,10 +256,7 @@ export const useBookings = (
       time,
     });
     if (blocksInstructorAvailability(updatedBooking)) {
-      batch.set(
-        doc(db, AVAILABILITY_SLOTS_COLLECTION, id),
-        toAvailabilitySlot(updatedBooking)
-      );
+      batch.set(doc(db, AVAILABILITY_SLOTS_COLLECTION, id), toAvailabilitySlot(updatedBooking));
     }
     await batch.commit();
 

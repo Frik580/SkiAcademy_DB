@@ -47,7 +47,8 @@ export async function enrollInCourse(
       }
     }
     if (courseData.availableSeats <= 0) throw new CourseEnrollmentError('COURSE_FULL');
-    if (userData.balanceUSD < courseData.price) throw new CourseEnrollmentError('INSUFFICIENT_FUNDS');
+    if (userData.balanceUSD < courseData.price)
+      throw new CourseEnrollmentError('INSUFFICIENT_FUNDS');
 
     const { datePart, timePart } = splitCourseDates(courseData.dates, language);
     const newBooking: Booking = {

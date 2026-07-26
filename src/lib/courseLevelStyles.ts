@@ -1,6 +1,6 @@
 import type { Course } from '../types';
 
-export type CourseLevel = NonNullable<Course['level']>;
+export type CourseLevel = Exclude<NonNullable<Course['level']>, ''>;
 
 /** Tailwind color tokens per course level — change colors here only. */
 export const courseLevelColors = {

@@ -217,7 +217,10 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
         />
 
         <div className="flex flex-col">
-          <div id="main-content-pane" className="p-3.5 sm:p-6 md:p-8 space-y-6 sm:space-y-8 flex flex-col justify-start min-w-0">
+          <div
+            id="main-content-pane"
+            className="p-3.5 sm:p-6 md:p-8 space-y-6 sm:space-y-8 flex flex-col justify-start min-w-0"
+          >
             {userProfile && (
               <div id="personal-cabinet-section" className="space-y-4">
                 <div className="border-b border-[var(--border)] pb-3 mb-2 flex items-center gap-2">

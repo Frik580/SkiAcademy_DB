@@ -134,9 +134,7 @@ describe('useBookings.handleCancel', () => {
     };
     const clientUser = { uid: 'client-1', email: 'client@example.com' } as any;
 
-    const { result } = renderHook(() =>
-      useBookings(clientUser, clientProfile, mockSetUserProfile)
-    );
+    const { result } = renderHook(() => useBookings(clientUser, clientProfile, mockSetUserProfile));
 
     await waitFor(() => {
       expect(result.current.bookings).toHaveLength(1);

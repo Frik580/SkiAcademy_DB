@@ -4,7 +4,10 @@ import { describe, expect, it } from 'vitest';
 
 describe('admin reassign instructor wiring', () => {
   it('wires handleReassignInstructor from bookings through admin schedule modal', () => {
-    const bookingsSource = readFileSync(join(process.cwd(), 'src/components/useBookings.ts'), 'utf8');
+    const bookingsSource = readFileSync(
+      join(process.cwd(), 'src/components/useBookings.ts'),
+      'utf8'
+    );
     const appSource = readFileSync(join(process.cwd(), 'src/App.tsx'), 'utf8');
     const routesSource = readFileSync(join(process.cwd(), 'src/components/AppRoutes.tsx'), 'utf8');
     const modalSource = readFileSync(

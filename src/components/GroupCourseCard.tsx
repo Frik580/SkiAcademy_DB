@@ -162,12 +162,6 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
               <span className="group-hover/link:underline underline-offset-2">
                 {t('courseDetails')}
               </span>
-              <span
-                className="transition-transform duration-200 group-hover/link:translate-x-0.5"
-                aria-hidden
-              >
-                →
-              </span>
             </button>
             <button
               type="button"
@@ -202,7 +196,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
               ) : course.availableSeats === 0 ? (
                 t('courseSoldOut')
               ) : (
-                `${t('enroll')} →`
+                t('enroll')
               )}
             </button>
           </div>

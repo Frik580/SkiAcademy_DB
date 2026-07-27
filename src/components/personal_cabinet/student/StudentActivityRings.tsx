@@ -36,10 +36,12 @@ export const StudentActivityRings: React.FC<StudentActivityRingsProps> = ({
   const center = 60;
 
   const legend = (
-    <ul className={`min-w-0 space-y-2 ${layout === 'stacked' ? 'w-full' : 'w-[5.5rem] sm:w-auto'}`}>
+    <ul
+      className={`space-y-2 ${layout === 'stacked' ? 'w-full' : 'min-w-[125px] sm:min-w-[135px] w-auto'}`}
+    >
       {rings.map((ring) => (
         <li key={ring.label} className="leading-tight">
-          <span className="block text-sm font-medium text-[var(--ink)] truncate">
+          <span className="block text-sm font-medium text-[var(--ink)] whitespace-nowrap">
             {ring.label}{' '}
             <span className="font-semibold tabular-nums" style={{ color: ring.color }}>
               {clamp(ring.percent)}%
@@ -108,7 +110,7 @@ export const StudentActivityRings: React.FC<StudentActivityRingsProps> = ({
 
   return (
     <div
-      className={`flex items-center shrink-0 ${layout === 'stacked' ? 'flex-col gap-3 w-full max-w-[9.5rem]' : 'gap-3 sm:gap-4'}`}
+      className={`flex items-center shrink-0 ${layout === 'stacked' ? 'flex-col gap-3 w-full max-w-[9.5rem]' : 'gap-3 sm:gap-4 min-w-[215px] sm:min-w-[235px]'}`}
     >
       {ringsSvg}
       {legend}

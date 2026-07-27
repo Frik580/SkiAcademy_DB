@@ -365,7 +365,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex flex-shrink items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-3 md:pt-0 border-slate-200/60 dark:border-slate-800/60 flex-wrap min-w-0 max-w-full">
+                    <div className="flex shrink-0 w-full md:w-auto items-center justify-between md:justify-end gap-3 sm:gap-4 border-t md:border-t-0 pt-3 md:pt-0 border-slate-200/60 dark:border-slate-800/60 flex-wrap min-w-0 max-w-full">
                       <div className="text-left md:text-right shrink-0">
                         <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">
                           {t('totalFee')}

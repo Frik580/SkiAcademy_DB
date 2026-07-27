@@ -153,15 +153,13 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => onViewDetails(rawCourse)}
-              className="group/link inline-flex shrink-0 items-center gap-0.5 text-xs text-[var(--ink-dim)]/75 hover:text-[var(--accent)] transition-colors"
+              className="btn-secondary px-4 py-2 theme-air:bg-transparent theme-air:hover:bg-[var(--profile-bg)]"
             >
-              <span className="group-hover/link:underline underline-offset-2">
-                {t('courseDetails')}
-              </span>
+              {t('courseDetails')}
             </button>
             <button
               type="button"
@@ -176,9 +174,9 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
                 (course.availableSeats === 0 && !isEnrolled) ||
                 userProfile?.isClientActive === false
               }
-              className={`flex-1 min-w-0 py-2 font-mono text-[10px] uppercase tracking-wider transition rounded-none ${
+              className={`flex-1 min-w-0 px-5 py-2 ${
                 isEnrolled
-                  ? 'bg-black/0 dark:bg-black/0 border border-[var(--border)]/60 text-[var(--ink-dim)] cursor-default'
+                  ? 'btn-secondary cursor-default'
                   : userProfile?.isClientActive === false
                     ? 'border border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10 font-bold'
                     : course.availableSeats === 0
@@ -187,7 +185,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
               }`}
             >
               {isEnrolled ? (
-                <span className="flex items-center justify-center gap-1 normal-case font-sans">
+                <span className="flex items-center justify-center gap-1">
                   <span className="text-emerald-500 font-bold text-xs">✔</span>{' '}
                   {t('courseEnrolled')}
                 </span>

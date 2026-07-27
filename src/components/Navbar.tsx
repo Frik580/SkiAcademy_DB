@@ -45,21 +45,21 @@ export const Navbar: React.FC<NavbarProps> = ({
     : t('notifications');
 
   return (
-    <header className="ui-navbar sticky top-0 z-40 px-6 py-4 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-        <Link to="/" className="flex items-center select-none">
+    <header className="ui-navbar sticky top-0 z-40 px-4 sm:px-6 py-3 transition-colors duration-300">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+        <Link to="/" className="flex items-center select-none shrink-0">
           <img
             src={theme === 'light' ? logoLight : logoDark}
             alt="Carve Academy Logo"
-            className="h-10 w-auto object-contain transition-opacity duration-300"
+            className="h-8 sm:h-9 md:h-10 w-auto object-contain transition-opacity duration-300"
             referrerPolicy="no-referrer"
           />
         </Link>
 
-        <div className="hidden md:flex items-center gap-2 md:gap-4 font-mono text-xs tracking-wider">
+        <div className="hidden lg:flex items-center gap-1.5 xl:gap-3 font-mono text-xs tracking-wider">
           <button
             onClick={onToggleTheme}
-            className="ui-icon-btn"
+            className="ui-icon-btn shrink-0"
             title={t(theme === 'light' ? 'switchToDark' : 'switchToLight')}
           >
             {theme === 'light' ? (
@@ -71,14 +71,17 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <button
             onClick={() => setLanguage(language === 'en' ? 'ru' : 'en')}
-            className="ui-icon-btn px-3 font-mono text-[10px] theme-air:font-sans theme-air:text-sm theme-air:normal-case"
+            className="ui-icon-btn px-2.5 sm:px-3 font-mono text-[10px] theme-air:font-sans theme-air:text-xs xl:theme-air:text-sm theme-air:normal-case shrink-0"
             title={t('switchLanguage')}
           >
             {language === 'en' ? 'RU' : 'EN'}
           </button>
 
           {!userProfile && onSignInClick && (
-            <button onClick={onSignInClick} className="px-4 py-2 btn-primary">
+            <button
+              onClick={onSignInClick}
+              className="px-3 xl:px-4 py-1.5 xl:py-2 btn-primary whitespace-nowrap"
+            >
               {t('signInBtn')}
             </button>
           )}
@@ -87,7 +90,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <>
               <Link
                 to="/cabinet"
-                className={`px-4 py-2 transition text-[10px] font-mono uppercase tracking-widest theme-air:font-sans theme-air:normal-case theme-air:text-sm theme-air:tracking-normal rounded-none theme-air:rounded-full no-underline ${
+                className={`px-3 xl:px-4 py-1.5 xl:py-2 transition text-[10px] font-mono uppercase tracking-widest theme-air:font-sans theme-air:normal-case theme-air:text-xs xl:theme-air:text-sm theme-air:tracking-normal rounded-none theme-air:rounded-full no-underline whitespace-nowrap ${
                   isCabinetView
                     ? 'bg-[var(--accent-muted)] text-[var(--accent)] theme-air:bg-[var(--accent-muted)]'
                     : 'bg-transparent border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] theme-air:border-none theme-air:bg-[var(--profile-bg)]'
@@ -99,7 +102,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {showInstructorNav && (
                 <Link
                   to="/instructor"
-                  className={`px-4 py-2 transition text-[10px] font-mono uppercase tracking-widest theme-air:font-sans theme-air:normal-case theme-air:text-sm theme-air:tracking-normal rounded-none theme-air:rounded-full no-underline ${
+                  className={`px-3 xl:px-4 py-1.5 xl:py-2 transition text-[10px] font-mono uppercase tracking-widest theme-air:font-sans theme-air:normal-case theme-air:text-xs xl:theme-air:text-sm theme-air:tracking-normal rounded-none theme-air:rounded-full no-underline whitespace-nowrap ${
                     isInstructorView
                       ? 'bg-[var(--accent-muted)] text-[var(--accent)] theme-air:bg-[var(--accent-muted)]'
                       : 'bg-transparent border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] theme-air:border-none theme-air:bg-[var(--profile-bg)]'
@@ -112,7 +115,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {userProfile.role === 'admin' && (
                 <button
                   onClick={() => navigate(isAdminView ? '/' : '/admin')}
-                  className={`px-4 py-2 transition cursor-pointer text-[10px] font-mono uppercase tracking-widest theme-air:font-sans theme-air:normal-case theme-air:text-sm theme-air:tracking-normal rounded-none theme-air:rounded-full ${
+                  className={`px-3 xl:px-4 py-1.5 xl:py-2 transition cursor-pointer text-[10px] font-mono uppercase tracking-widest theme-air:font-sans theme-air:normal-case theme-air:text-xs xl:theme-air:text-sm theme-air:tracking-normal rounded-none theme-air:rounded-full whitespace-nowrap ${
                     isAdminView
                       ? 'bg-amber-500 border border-amber-500 text-white hover:bg-amber-600 theme-air:border-none'
                       : 'bg-transparent border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] theme-air:border-none theme-air:bg-[var(--profile-bg)]'
@@ -122,15 +125,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               )}
 
-              <div className="flex items-center gap-2 select-none text-[11px] text-[var(--ink)] font-mono theme-air:font-sans theme-air:text-sm px-2">
-                <span className="text-[var(--ink-dim)] uppercase hidden sm:inline theme-air:normal-case">
+              <div className="flex items-center gap-1.5 xl:gap-2 select-none text-[11px] text-[var(--ink)] font-mono theme-air:font-sans theme-air:text-xs xl:theme-air:text-sm px-1 xl:px-2 whitespace-nowrap">
+                <span className="text-[var(--ink-dim)] uppercase hidden xl:inline theme-air:normal-case">
                   {t('balance')}:
                 </span>
                 <span className="font-bold">${userProfile.balanceUSD.toFixed(2)}</span>
                 <button
                   onClick={onOpenTopUp}
                   title={t('topUpSimulated')}
-                  className="ui-icon-btn p-1"
+                  className="ui-icon-btn p-1 shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[2]" />
                 </button>
@@ -140,7 +143,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={onOpenNotifications}
                 title={notificationButtonTitle}
                 aria-label={notificationButtonTitle}
-                className={`ui-icon-btn relative ${
+                className={`ui-icon-btn relative shrink-0 ${
                   hasUnreadNotifications
                     ? 'text-[var(--accent)] bg-[var(--accent)]/10 theme-air:bg-[var(--accent-muted)]'
                     : ''
@@ -157,15 +160,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
               </button>
 
-              <div className="flex items-center gap-3 pl-1">
-                <div className="ui-avatar w-8 h-8">
+              <div className="flex items-center gap-2 xl:gap-3 pl-1 shrink-0">
+                <div className="ui-avatar w-8 h-8 shrink-0">
                   <img
                     src={userProfile.avatarUrl}
                     alt={userProfile.displayName}
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="hidden lg:block text-left leading-none">
+                <div className="hidden 2xl:block text-left leading-none">
                   <span className="text-[10px] font-bold text-[var(--ink)] block theme-air:text-sm theme-air:font-normal">
                     {userProfile.displayName.split(' ')[0]}
                   </span>
@@ -174,7 +177,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   onClick={onSignOut}
                   title={t('signOut')}
-                  className="ui-icon-btn text-[var(--ink-dim)] hover:text-rose-500"
+                  className="ui-icon-btn text-[var(--ink-dim)] hover:text-rose-500 shrink-0"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -183,7 +186,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
-        <div className="md:hidden flex items-center">
+        <div className="lg:hidden flex items-center">
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="ui-icon-btn text-[var(--ink)]"
@@ -199,7 +202,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.2 }}
-              className="md:hidden absolute top-full left-0 w-full bg-[var(--bg)]/95 backdrop-blur-md border-b border-[var(--border-subtle)] p-8 flex flex-col gap-6"
+              className="lg:hidden absolute top-full left-0 w-full bg-[var(--bg)]/95 backdrop-blur-md border-b border-[var(--border-subtle)] p-6 sm:p-8 flex flex-col gap-5 sm:gap-6 shadow-xl z-50"
             >
               {userProfile && (
                 <>

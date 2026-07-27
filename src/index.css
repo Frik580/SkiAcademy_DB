@@ -227,10 +227,17 @@
 }
 
 @layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     background-color: var(--bg);
     color: var(--ink);
     font-family: var(--font-sans);
+    line-height: 1.5;
     transition:
       background-color 0.3s,
       color 0.3s,
@@ -239,9 +246,14 @@
 
   h1,
   h2,
-  h3 {
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-serif);
-    font-weight: 300;
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
   }
 
   code,
@@ -291,10 +303,10 @@
     background-color: var(--accent);
     border: 1px solid var(--accent);
     color: var(--accent-foreground);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     transition:
       background-color 0.2s,
@@ -322,10 +334,10 @@
     background-color: transparent;
     border: 1px solid var(--border);
     color: var(--ink);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.1em;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     transition:
       border-color 0.2s,
@@ -353,10 +365,10 @@
     background-color: var(--hero-secondary-bg);
     border: 1px solid var(--hero-secondary-border);
     color: var(--ink);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     backdrop-filter: blur(10px);
     box-shadow: var(--hero-secondary-shadow);
@@ -379,10 +391,10 @@
     background-color: var(--hero-cta-bg);
     border: 1px solid var(--hero-cta-border);
     color: var(--hero-cta-fg);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     box-shadow: var(--hero-cta-shadow);
     transition:

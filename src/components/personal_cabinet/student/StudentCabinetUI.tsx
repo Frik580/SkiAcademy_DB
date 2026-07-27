@@ -31,7 +31,7 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
 
   return (
     <nav className="sc-tab-bar fixed inset-x-0 bottom-0 z-30" aria-label={t('scNavHome')}>
-      <div className="sc-tab-bar-inner mx-auto flex max-w-2xl items-stretch justify-around px-1">
+      <div className="sc-tab-bar-inner mx-auto flex max-w-2xl items-stretch justify-around px-1 overflow-x-auto no-scrollbar">
         {STUDENT_TABS.map(({ id, labelKey, icon: Icon }) => {
           const active = activeTab === id;
           return (
@@ -40,12 +40,12 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
               type="button"
               onClick={() => onSelect(id)}
               aria-current={active ? 'page' : undefined}
-              className={`group flex min-w-0 flex-1 flex-col items-center justify-center gap-[3px] px-0.5 py-1 transition-[color,transform] duration-200 ease-out active:scale-[0.96] active:opacity-80 ${
+              className={`group flex min-w-[48px] sm:min-w-0 flex-1 shrink-0 sm:shrink flex-col items-center justify-center gap-[2px] px-0.5 py-1 transition-[color,transform] duration-200 ease-out active:scale-[0.96] active:opacity-80 ${
                 active ? 'text-[var(--accent)]' : 'text-[var(--ink-dim)]'
               }`}
             >
               <Icon
-                className={`h-[22px] w-[22px] shrink-0 transition-all duration-200 ${
+                className={`h-[20px] w-[20px] sm:h-[22px] sm:w-[22px] shrink-0 transition-all duration-200 ${
                   active
                     ? 'opacity-100'
                     : 'opacity-[0.72] group-hover:opacity-100 group-hover:text-[var(--ink)]'
@@ -54,7 +54,7 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
                 aria-hidden
               />
               <span
-                className={`max-w-full truncate text-[10px] leading-[1.1] tracking-[-0.02em] ${
+                className={`text-[8.5px] xs:text-[9.5px] sm:text-[10px] leading-[1.1] tracking-[-0.02em] text-center whitespace-normal break-words max-w-full ${
                   active ? 'font-semibold' : 'font-medium'
                 }`}
               >

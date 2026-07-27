@@ -340,265 +340,263 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
 
   return (
     <div className="flex flex-col bg-transparent animate-fade-in">
-      <div className="p-6 md:p-8 flex flex-col justify-center bg-transparent">
-        <div className="max-w-md w-full mx-auto space-y-6">
-          <div className="text-center md:text-left">
-            <h2 className="text-2xl font-serif font-light text-[var(--ink)] tracking-tight theme-air:text-3xl">
-              {isForgotPassword
-                ? t('authResetPassword')
-                : isSignUp
-                  ? t('signUpTitle')
-                  : t('welcomeTitle')}
-            </h2>
-            <p className="ui-section-eyebrow mt-2 leading-relaxed">
-              {isForgotPassword
-                ? t('authResetPasswordSub')
-                : isSignUp
-                  ? t('signUpSub')
-                  : t('welcomeSub')}
-            </p>
+      <div className="p-6 md:p-6 flex flex-col justify-center bg-transparent">
+        <div className="text-center md:text-left">
+          <h2 className="text-2xl font-serif font-light text-[var(--ink)] tracking-tight theme-air:text-3xl">
+            {isForgotPassword
+              ? t('authResetPassword')
+              : isSignUp
+                ? t('signUpTitle')
+                : t('welcomeTitle')}
+          </h2>
+          <p className="ui-section-eyebrow mt-2 leading-relaxed">
+            {isForgotPassword
+              ? t('authResetPasswordSub')
+              : isSignUp
+                ? t('signUpSub')
+                : t('welcomeSub')}
+          </p>
+        </div>
+
+        {error && (
+          <div className="p-3 bg-red-950/20 border border-red-900/40 text-[10px] font-mono text-red-400 uppercase tracking-wider leading-normal theme-air:rounded-[var(--radius-md)] theme-air:font-sans theme-air:normal-case theme-air:text-sm theme-air:border-red-500/20 theme-air:bg-red-500/10">
+            {error}
           </div>
+        )}
 
-          {error && (
-            <div className="p-3 bg-red-950/20 border border-red-900/40 text-[10px] font-mono text-red-400 uppercase tracking-wider leading-normal theme-air:rounded-[var(--radius-md)] theme-air:font-sans theme-air:normal-case theme-air:text-sm theme-air:border-red-500/20 theme-air:bg-red-500/10">
-              {error}
-            </div>
-          )}
-
-          <form
-            onSubmit={isForgotPassword ? handlePasswordReset : handleSubmit}
-            className="space-y-4"
-          >
-            {isForgotPassword ? (
-              <>
-                <div className="space-y-1.5">
-                  <label className="ui-label">{t('emailAddress')}</label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@example.com"
-                      className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
-                    />
-                    <Mail className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="btn-primary w-full py-2.5 flex items-center justify-center gap-2"
-                >
-                  <Mail className="w-4 h-4" />
-                  {t('authSendRecoveryLink')}
-                </button>
-              </>
-            ) : (
-              <>
-                {isSignUp && (
-                  <>
-                    <div className="space-y-1.5">
-                      <label className="ui-label">{t('fullName')}</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          required
-                          value={displayName}
-                          onChange={(e) => setDisplayName(e.target.value)}
-                          placeholder={t('authNamePlaceholder')}
-                          className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
-                        />
-                        <UserIcon className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      </div>
-                      <p className="text-[8px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1">
-                        {t('authNameHint')}
-                      </p>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="ui-label">{t('phoneOptional')}</label>
-                      <div className="relative">
-                        <input
-                          type="tel"
-                          value={phoneNumber}
-                          onChange={(e) => setPhoneNumber(e.target.value)}
-                          placeholder="+1 (555) 000-0000"
-                          className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
-                        />
-                        <Phone className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      </div>
-                    </div>
-
-                    {/* Avatar Selection Block */}
-                    <div className="space-y-2 pt-3 ui-divider-t">
-                      <div className="flex justify-between items-center">
-                        <label className="ui-label">{t('authChooseAvatar')}</label>
-                        <button
-                          type="button"
-                          onClick={handleRandomizeAvatar}
-                          className="text-[10px] font-mono font-bold text-[var(--ink)] hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 outline-none"
-                        >
-                          🎲 {t('authRandomize')}
-                        </button>
-                      </div>
-
-                      {/* Avatar Previews Grid */}
-                      <div className="grid grid-cols-6 gap-1.5">
-                        {PRESET_SEEDS.map((seed) => {
-                          const isSelected = avatarSeed === seed;
-                          const url = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
-                          return (
-                            <button
-                              key={seed}
-                              type="button"
-                              onClick={() => setAvatarSeed(seed)}
-                              className={`relative aspect-square p-1 bg-black/10 border transition hover:scale-105 cursor-pointer theme-air:rounded-full theme-air:border-none theme-air:bg-[var(--profile-bg)] ${
-                                isSelected
-                                  ? 'border-[var(--ink)] bg-black/25 theme-air:ring-2 theme-air:ring-[var(--accent)]'
-                                  : 'border-[var(--border)] hover:border-[var(--ink)] theme-air:hover:bg-[var(--accent-muted)]'
-                              }`}
-                            >
-                              <img
-                                src={url}
-                                alt={seed}
-                                className="w-full h-full object-contain filter grayscale"
-                                referrerPolicy="no-referrer"
-                              />
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Custom Seed input */}
-                      <div className="relative mt-2">
-                        <input
-                          type="text"
-                          value={avatarSeed}
-                          onChange={(e) => setAvatarSeed(e.target.value)}
-                          placeholder={t('authAvatarSeedPlaceholder')}
-                          className="ui-field-plain pl-8 focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
-                        />
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--ink-dim)] pointer-events-none">
-                          ✨
-                        </span>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <div className="space-y-1.5">
-                  <label className="ui-label">{t('emailAddress')}</label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@example.com"
-                      className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
-                    />
-                    <Mail className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <label className="ui-label">{t('password')}</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsForgotPassword(true);
-                        setError('');
-                      }}
-                      className="text-[10px] font-mono font-bold text-[var(--ink-dim)] hover:text-[var(--ink)] hover:underline bg-transparent border-0 p-0 outline-none cursor-pointer"
-                    >
-                      {t('authForgotPassword')}
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
-                    />
-                    <Lock className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="btn-primary w-full py-2.5 flex items-center justify-center gap-2"
-                >
-                  {isSignUp ? (
-                    <>
-                      <UserPlus className="w-4 h-4" />
-                      {t('signUpBtn')}
-                    </>
-                  ) : (
-                    <>
-                      <LogIn className="w-4 h-4" />
-                      {t('signInBtn')}
-                    </>
-                  )}
-                </button>
-              </>
-            )}
-          </form>
-
-          {!isForgotPassword && (
+        <form
+          onSubmit={isForgotPassword ? handlePasswordReset : handleSubmit}
+          className="space-y-4"
+        >
+          {isForgotPassword ? (
             <>
-              {/* Social Divider */}
-              <div className="flex items-center gap-3 py-1">
-                <div className="h-[1px] bg-[var(--border)] flex-1" />
-                <span className="text-[9px] font-mono font-bold text-[var(--ink-dim)] uppercase tracking-widest">
-                  {t('orContinueWith')}
-                </span>
-                <div className="h-[1px] bg-[var(--border)] flex-1" />
+              <div className="space-y-1.5">
+                <label className="ui-label">{t('emailAddress')}</label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
+                  />
+                  <Mail className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                </div>
               </div>
 
               <button
-                onClick={handleGoogleLogin}
+                type="submit"
                 disabled={isLoading}
-                className="btn-secondary w-full py-2.5 flex items-center justify-center gap-2"
+                className="btn-primary w-full py-2.5 flex items-center justify-center gap-2"
               >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                  <path d="M12.24 10.285V14.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.859-3.579-7.859-8s3.529-8 7.859-8c2.46 0 4.105 1.025 5.047 1.926l3.245-3.125C18.465 2.1 15.62 1 12.24 1 6.033 1 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.478 0 10.793-4.537 10.793-10.977 0-.738-.078-1.3-.177-1.785H12.24z" />
-                </svg>
-                {t('googleSignIn')}
+                <Mail className="w-4 h-4" />
+                {t('authSendRecoveryLink')}
+              </button>
+            </>
+          ) : (
+            <>
+              {isSignUp && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="ui-label">{t('fullName')}</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder={t('authNamePlaceholder')}
+                        className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
+                      />
+                      <UserIcon className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    </div>
+                    <p className="text-[8px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1">
+                      {t('authNameHint')}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="ui-label">{t('phoneOptional')}</label>
+                    <div className="relative">
+                      <input
+                        type="tel"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        placeholder="+1 (555) 000-0000"
+                        className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
+                      />
+                      <Phone className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    </div>
+                  </div>
+
+                  {/* Avatar Selection Block */}
+                  <div className="space-y-2 pt-3 ui-divider-t">
+                    <div className="flex justify-between items-center">
+                      <label className="ui-label">{t('authChooseAvatar')}</label>
+                      <button
+                        type="button"
+                        onClick={handleRandomizeAvatar}
+                        className="text-[10px] font-mono font-bold text-[var(--ink)] hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 outline-none"
+                      >
+                        🎲 {t('authRandomize')}
+                      </button>
+                    </div>
+
+                    {/* Avatar Previews Grid */}
+                    <div className="grid grid-cols-6 gap-1.5">
+                      {PRESET_SEEDS.map((seed) => {
+                        const isSelected = avatarSeed === seed;
+                        const url = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
+                        return (
+                          <button
+                            key={seed}
+                            type="button"
+                            onClick={() => setAvatarSeed(seed)}
+                            className={`relative aspect-square p-1 bg-black/10 border transition hover:scale-105 cursor-pointer theme-air:rounded-full theme-air:border-none theme-air:bg-[var(--profile-bg)] ${
+                              isSelected
+                                ? 'border-[var(--ink)] bg-black/25 theme-air:ring-2 theme-air:ring-[var(--accent)]'
+                                : 'border-[var(--border)] hover:border-[var(--ink)] theme-air:hover:bg-[var(--accent-muted)]'
+                            }`}
+                          >
+                            <img
+                              src={url}
+                              alt={seed}
+                              className="w-full h-full object-contain filter grayscale"
+                              referrerPolicy="no-referrer"
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Custom Seed input */}
+                    <div className="relative mt-2">
+                      <input
+                        type="text"
+                        value={avatarSeed}
+                        onChange={(e) => setAvatarSeed(e.target.value)}
+                        placeholder={t('authAvatarSeedPlaceholder')}
+                        className="ui-field-plain pl-8 focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
+                      />
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--ink-dim)] pointer-events-none">
+                        ✨
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="ui-label">{t('emailAddress')}</label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
+                  />
+                  <Mail className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="ui-label">{t('password')}</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPassword(true);
+                      setError('');
+                    }}
+                    className="text-[10px] font-mono font-bold text-[var(--ink-dim)] hover:text-[var(--ink)] hover:underline bg-transparent border-0 p-0 outline-none cursor-pointer"
+                  >
+                    {t('authForgotPassword')}
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="ui-field focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
+                  />
+                  <Lock className="w-4 h-4 text-[var(--ink-dim)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="btn-primary w-full py-2.5 flex items-center justify-center gap-2"
+              >
+                {isSignUp ? (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    {t('signUpBtn')}
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    {t('signInBtn')}
+                  </>
+                )}
               </button>
             </>
           )}
+        </form>
 
-          <div className="text-center pt-2">
-            {isForgotPassword ? (
-              <button
-                onClick={() => {
-                  setIsForgotPassword(false);
-                  setError('');
-                }}
-                className="text-[10px] font-mono uppercase tracking-widest font-bold text-[var(--ink)] hover:underline transition cursor-pointer"
-              >
-                {t('authBackToLogin')}
-              </button>
-            ) : (
-              <button
-                onClick={() => {
-                  setIsSignUp(!isSignUp);
-                  setIsForgotPassword(false);
-                  setError('');
-                }}
-                className="text-[10px] font-mono uppercase tracking-widest font-bold text-[var(--ink)] hover:underline transition cursor-pointer"
-              >
-                {isSignUp ? t('haveAccount') : t('noAccount')}
-              </button>
-            )}
-          </div>
+        {!isForgotPassword && (
+          <>
+            {/* Social Divider */}
+            <div className="flex items-center gap-3 py-1">
+              <div className="h-[1px] bg-[var(--border)] flex-1" />
+              <span className="text-[9px] font-mono font-bold text-[var(--ink-dim)] uppercase tracking-widest">
+                {t('orContinueWith')}
+              </span>
+              <div className="h-[1px] bg-[var(--border)] flex-1" />
+            </div>
+
+            <button
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              className="btn-secondary w-full py-2.5 flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                <path d="M12.24 10.285V14.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.859-3.579-7.859-8s3.529-8 7.859-8c2.46 0 4.105 1.025 5.047 1.926l3.245-3.125C18.465 2.1 15.62 1 12.24 1 6.033 1 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.478 0 10.793-4.537 10.793-10.977 0-.738-.078-1.3-.177-1.785H12.24z" />
+              </svg>
+              {t('googleSignIn')}
+            </button>
+          </>
+        )}
+
+        <div className="text-center pt-2">
+          {isForgotPassword ? (
+            <button
+              onClick={() => {
+                setIsForgotPassword(false);
+                setError('');
+              }}
+              className="text-[10px] font-mono uppercase tracking-widest font-bold text-[var(--ink)] hover:underline transition cursor-pointer"
+            >
+              {t('authBackToLogin')}
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setIsForgotPassword(false);
+                setError('');
+              }}
+              className="text-[10px] font-mono uppercase tracking-widest font-bold text-[var(--ink)] hover:underline transition cursor-pointer"
+            >
+              {isSignUp ? t('haveAccount') : t('noAccount')}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -148,7 +148,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     .toUpperCase();
 
   return (
-    <div className="space-y-0 pb-24 max-w-2xl mx-auto w-full">
+    <div className="space-y-0 pb-24 max-w-2xl mx-auto w-full px-4 sm:px-6 min-w-0">
       {/* Hero — level + activity rings */}
       <section className="py-6 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-4 sm:gap-6 sm:items-center">
         <div className="space-y-2 min-w-0">
@@ -227,7 +227,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           <ScSectionTitle>{monthLabel}</ScSectionTitle>
           <ScTextButton onClick={() => onGoToTab('calendar')}>{t('scFullCalendar')}</ScTextButton>
         </div>
-        <div className="flex justify-between gap-1 text-center text-sm">
+        <div className="flex justify-between gap-1 text-center text-sm overflow-x-auto no-scrollbar pb-1">
           {miniDays.map(({ day, dateStr, hasSession, isToday, weekdayLabel }) => (
             <div key={dateStr} className="flex flex-col items-center gap-1 min-w-[2rem] flex-1">
               <span className="text-[10px] uppercase text-[var(--ink-dim)]">{weekdayLabel}</span>
@@ -299,9 +299,9 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
                 key={lesson.id}
                 className="space-y-2 pb-6 border-b border-[var(--border-subtle)] last:border-0"
               >
-                <div className="flex justify-between items-baseline gap-2">
-                  <span className="font-medium text-[var(--ink)] flex items-center gap-2 min-w-0">
-                    <span className="truncate">{lesson.title}</span>
+                <div className="flex justify-between items-baseline gap-2 flex-wrap">
+                  <span className="font-medium text-[var(--ink)] flex items-center gap-2 min-w-0 flex-1">
+                    <span className="break-words min-w-0">{lesson.title}</span>
                     {hasBookingRecommendations(lesson.booking) && (
                       <RecommendationIndicator
                         pending={hasPendingRecommendations(lesson.booking)}

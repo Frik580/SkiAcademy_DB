@@ -41,7 +41,7 @@ export const StudentCalendarPanel: React.FC<
   const userBookings = bookings.filter((b) => b.userId === userProfile.uid && !b.isDeleted);
 
   return (
-    <div className="space-y-6 pb-24 max-w-2xl mx-auto">
+    <div className="space-y-6 pb-24 max-w-2xl mx-auto px-4 sm:px-6 w-full min-w-0">
       <h1 className="text-2xl font-serif font-light text-[var(--ink)] pt-6">
         {t('scFullCalendar')}
       </h1>
@@ -77,7 +77,7 @@ export const StudentCoursesPanel: React.FC<
   const visibleCourses = sortVisibleCourses(courses);
 
   return (
-    <div className="pb-24 max-w-7xl mx-auto pt-6 px-1 space-y-6">
+    <div className="pb-24 max-w-7xl mx-auto pt-6 px-4 sm:px-6 space-y-6 w-full min-w-0">
       <div>
         <h1 className="text-2xl font-serif font-light text-[var(--ink)]">
           {t('intensiveGroupCourses')}
@@ -124,7 +124,7 @@ export const StudentInstructorsPanel: React.FC<
     .map((ins) => translateInstructor(ins, lang));
 
   return (
-    <div className="space-y-6 pb-24 max-w-2xl mx-auto pt-6">
+    <div className="space-y-6 pb-24 max-w-2xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
       <div className="space-y-1">
         <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scInstructors')}</h1>
         <p className="text-sm text-[var(--ink-dim)]">{t('meetGuidesSub')}</p>
@@ -163,7 +163,7 @@ export const StudentSettingsPanel: React.FC<
   const { t } = useLanguage();
 
   return (
-    <div className="pb-24 max-w-2xl mx-auto pt-6">
+    <div className="pb-24 max-w-2xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
       <h1 className="text-2xl font-serif font-light text-[var(--ink)] mb-6">
         {t('scNavSettings')}
       </h1>

@@ -76,9 +76,11 @@ export const StudentSettingsCompact: React.FC<StudentSettingsCompactProps> = ({
           className="hidden"
           onChange={(e) => e.target.files?.[0] && void upload(e.target.files[0])}
         />
-        <div className="min-w-0">
-          <p className="text-lg text-[var(--ink)] truncate">{userProfile.displayName}</p>
-          <p className="text-sm text-[var(--ink-dim)] truncate">{userProfile.email}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-lg font-medium text-[var(--ink)] break-words">
+            {userProfile.displayName}
+          </p>
+          <p className="text-sm text-[var(--ink-dim)] break-all">{userProfile.email}</p>
         </div>
       </div>
 

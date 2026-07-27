@@ -19,7 +19,7 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelProps> = (
   const level = userProfile.level || 1;
 
   return (
-    <div className="space-y-0 pb-24 max-w-2xl mx-auto">
+    <div className="space-y-0 pb-24 max-w-2xl mx-auto px-4 sm:px-6 w-full min-w-0">
       <section className="py-6 space-y-1">
         <h1 className="text-2xl font-serif font-light text-[var(--ink)]">
           {t('scDevelopmentDetail')}

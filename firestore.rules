@@ -154,7 +154,11 @@ service cloud.firestore {
           'avatarUrl',
           'balanceUSD',
           'hideProgressTracking',
-          'hasCompletedOnboarding'
+          'hasCompletedOnboarding',
+          'todaySkillItemIds',
+          'completedTodayTaskIds',
+          'customTodayTasks',
+          'dismissedTodayTaskIds'
         ]) &&
         request.resource.data.balanceUSD >= 0
       ) || (
@@ -253,7 +257,8 @@ service cloud.firestore {
           'status',
           'date',
           'time',
-          'cancellationReason'
+          'cancellationReason',
+          'completedRecommendationIds'
         ]) &&
         (
           !availabilityMigrationComplete() ||
@@ -266,7 +271,8 @@ service cloud.firestore {
           'status',
           'date',
           'time',
-          'cancellationReason'
+          'cancellationReason',
+          'recommendations'
         ]) &&
         (
           !availabilityMigrationComplete() ||

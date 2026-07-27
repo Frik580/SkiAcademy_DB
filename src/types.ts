@@ -2,6 +2,11 @@ export type Language = 'en' | 'de' | 'fr' | 'ru' | 'it' | 'es';
 
 export type LessonDifficulty = 'beginner' | 'intermediate' | 'advanced' | 'freeride' | 'freestyle';
 
+export interface CustomTodayTask {
+  id: string;
+  text: string;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -18,6 +23,14 @@ export interface UserProfile {
   skillScores?: Record<string, number>;
   hideProgressTracking?: boolean;
   hasCompletedOnboarding?: boolean;
+  /** Skill exercise ids pinned to the Today checklist */
+  todaySkillItemIds?: string[];
+  /** Completed Today task ids (skill:*, custom:*) */
+  completedTodayTaskIds?: string[];
+  /** User-created Today checklist items */
+  customTodayTasks?: CustomTodayTask[];
+  /** Today checklist items hidden by the user (recommendation task ids) */
+  dismissedTodayTaskIds?: string[];
 }
 
 export interface Instructor {
@@ -46,6 +59,11 @@ export interface Review {
   bookingId?: string;
 }
 
+export interface LessonRecommendation {
+  id: string;
+  text: string;
+}
+
 export interface Booking {
   id: string;
   userId: string;
@@ -65,6 +83,10 @@ export interface Booking {
   guestName?: string;
   guestPhone?: string;
   guestEmail?: string;
+  /** Instructor-assigned recommendation checklist for this lesson */
+  recommendations?: LessonRecommendation[];
+  /** IDs of recommendations marked done by the client */
+  completedRecommendationIds?: string[];
 }
 
 export interface AvailabilitySlot {

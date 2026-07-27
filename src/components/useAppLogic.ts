@@ -27,6 +27,13 @@ import { useNotifications as useDbNotifications } from './useNotifications';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
 import { QUERY_LIMITS } from '../lib/queryLimits';
 import { logger } from '../lib/logger';
+import {
+  buildAddCustomTodayTaskUpdate,
+  buildRemoveTodayTaskUpdate,
+  buildToggleSkillTodayUpdate,
+  buildToggleTodayCompleteUpdate,
+  type TodayTaskRef,
+} from '../lib/todayChecklist';
 import { DesignTheme, parseDesignTheme } from '../lib/designTheme';
 
 type SetUserProfile = (profile: UserProfile | null) => void;
@@ -262,6 +269,31 @@ export const useAppLogic = (
     setUserProfile({ ...userProfile, ...updatedData });
   };
 
+  const handleToggleSkillToday = async (skillItemId: string, pinned: boolean) => {
+    if (!firebaseUser || !userProfile) return;
+    const updated = buildToggleSkillTodayUpdate(userProfile, skillItemId, pinned);
+    await handleUpdateProfile(updated);
+  };
+
+  const handleToggleTodayTaskComplete = async (taskId: string, done: boolean) => {
+    if (!firebaseUser || !userProfile) return;
+    const updated = buildToggleTodayCompleteUpdate(userProfile, taskId, done);
+    await handleUpdateProfile(updated);
+  };
+
+  const handleAddCustomTodayTask = async (text: string) => {
+    if (!firebaseUser || !userProfile) return;
+    const updated = buildAddCustomTodayTaskUpdate(userProfile, text);
+    if (!updated) return;
+    await handleUpdateProfile(updated);
+  };
+
+  const handleRemoveTodayTask = async (task: TodayTaskRef) => {
+    if (!firebaseUser || !userProfile) return;
+    const updated = buildRemoveTodayTaskUpdate(userProfile, task);
+    await handleUpdateProfile(updated);
+  };
+
   const handleToggleFilters = async (enabled: boolean) => {
     setFiltersEnabled(enabled);
     await setDoc(doc(db, 'settings', 'instructor_filters'), { enabled });
@@ -304,6 +336,10 @@ export const useAppLogic = (
     handleUpdateUser,
     handleDeleteUser,
     handleUpdateProfile,
+    handleToggleSkillToday,
+    handleToggleTodayTaskComplete,
+    handleAddCustomTodayTask,
+    handleRemoveTodayTask,
     handleToggleFilters,
     handleToggleOnboarding,
     handleSetDesignTheme,

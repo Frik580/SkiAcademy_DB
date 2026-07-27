@@ -39,6 +39,29 @@ const adminBadgeClass: Record<CourseLevel | '', string> = {
     'bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-900/50',
 };
 
+/** Badge on public / cabinet course cards. */
+export function getCourseLevelCardBadgeClass(level: Course['level']): string {
+  return adminBadgeClass[level || ''];
+}
+
+export const courseLevelBadgeLabel: Record<CourseLevel, string> = {
+  beginner: 'BEGINNER',
+  intermediate: 'CARVE',
+  advanced: 'PERFORMANCE',
+  expert: 'EXPERT',
+};
+
+export function getCourseTrackLabel(level: Course['level']): string {
+  if (!level) return '';
+  const map: Record<CourseLevel, string> = {
+    beginner: 'BASE',
+    intermediate: 'CARVE',
+    advanced: 'PRO',
+    expert: 'PRO',
+  };
+  return map[level] ?? 'BASE';
+}
+
 /** Course cards on the public courses section. */
 export function getCourseLevelCardClass(level: Course['level']): string {
   return cardTextClass[level || ''];

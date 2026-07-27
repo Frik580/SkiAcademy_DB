@@ -19,6 +19,7 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({ wo
     handleUpdateStatus,
     handleUpdateStudentLevel,
     openEvalModal,
+    handleSaveRecommendations,
     usersList,
   } = workspace;
 
@@ -86,6 +87,7 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({ wo
               onUpdateStatus={handleUpdateStatus}
               onUpdateStudentLevel={handleUpdateStudentLevel}
               onOpenEval={openEvalModal}
+              onSaveRecommendations={handleSaveRecommendations}
             />
           ))}
         </div>

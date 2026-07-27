@@ -4,6 +4,7 @@ import { LogOut, Plus, Bell, Sun, Moon, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../lib/LanguageContext';
+import { isInstructorWorkspaceUser } from '../lib/workspaceRoutes';
 import logoLight from '../assets/images/cropped1.png';
 import logoDark from '../assets/images/cropped2.png';
 
@@ -32,6 +33,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminView = location.pathname === '/admin';
+  const isCabinetView =
+    location.pathname === '/cabinet' || location.pathname.startsWith('/cabinet/');
+  const isInstructorView = location.pathname === '/instructor';
+  const showInstructorNav = !!userProfile && isInstructorWorkspaceUser(userProfile);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const hasUnreadNotifications = unreadNotificationCount > 0;
   const badgeLabel = unreadNotificationCount > 9 ? '9+' : unreadNotificationCount.toString();
@@ -80,6 +85,30 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {userProfile && (
             <>
+              <Link
+                to="/cabinet"
+                className={`px-4 py-2 transition text-[10px] font-mono uppercase tracking-widest theme-air:font-sans theme-air:normal-case theme-air:text-sm theme-air:tracking-normal rounded-none theme-air:rounded-full no-underline ${
+                  isCabinetView
+                    ? 'bg-[var(--accent-muted)] text-[var(--accent)] theme-air:bg-[var(--accent-muted)]'
+                    : 'bg-transparent border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] theme-air:border-none theme-air:bg-[var(--profile-bg)]'
+                }`}
+              >
+                {t('clientCabinet')}
+              </Link>
+
+              {showInstructorNav && (
+                <Link
+                  to="/instructor"
+                  className={`px-4 py-2 transition text-[10px] font-mono uppercase tracking-widest theme-air:font-sans theme-air:normal-case theme-air:text-sm theme-air:tracking-normal rounded-none theme-air:rounded-full no-underline ${
+                    isInstructorView
+                      ? 'bg-[var(--accent-muted)] text-[var(--accent)] theme-air:bg-[var(--accent-muted)]'
+                      : 'bg-transparent border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] theme-air:border-none theme-air:bg-[var(--profile-bg)]'
+                  }`}
+                >
+                  {t('instructorWorkspaceTab')}
+                </Link>
+              )}
+
               {userProfile.role === 'admin' && (
                 <button
                   onClick={() => navigate(isAdminView ? '/' : '/admin')}
@@ -155,7 +184,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         <div className="md:hidden flex items-center">
-          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="ui-icon-btn text-[var(--ink)]">
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="ui-icon-btn text-[var(--ink)]"
+          >
             {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
@@ -171,6 +203,32 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               {userProfile && (
                 <>
+                  <Link
+                    to="/cabinet"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`w-full px-4 py-3 transition text-xs font-mono uppercase tracking-widest rounded-none theme-air:rounded-full theme-air:font-sans theme-air:normal-case no-underline text-center ${
+                      isCabinetView
+                        ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
+                        : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] theme-air:border-none'
+                    }`}
+                  >
+                    {t('clientCabinet')}
+                  </Link>
+
+                  {showInstructorNav && (
+                    <Link
+                      to="/instructor"
+                      onClick={() => setIsMenuOpen(false)}
+                      className={`w-full px-4 py-3 transition text-xs font-mono uppercase tracking-widest rounded-none theme-air:rounded-full theme-air:font-sans theme-air:normal-case no-underline text-center ${
+                        isInstructorView
+                          ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
+                          : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] theme-air:border-none'
+                      }`}
+                    >
+                      {t('instructorWorkspaceTab')}
+                    </Link>
+                  )}
+
                   {userProfile.role === 'admin' && (
                     <button
                       onClick={() => {
@@ -218,7 +276,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </span>
                       )}
                     </span>
-                    <Bell className={`w-4 h-4 ${hasUnreadNotifications ? 'text-[var(--accent)]' : ''}`} />
+                    <Bell
+                      className={`w-4 h-4 ${hasUnreadNotifications ? 'text-[var(--accent)]' : ''}`}
+                    />
                   </button>
                 </>
               )}

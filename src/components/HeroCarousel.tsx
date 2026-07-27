@@ -71,7 +71,6 @@ const buildBackgroundImage = (
     : `linear-gradient(105deg, rgba(${scrim.dark},0.82) 0%, rgba(${scrim.dark},0.42) 42%, rgba(${scrim.dark},0.1) 100%), url('${bgUrl}')`;
 };
 
-
 export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   data: {
     slides: rawSlides,

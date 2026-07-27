@@ -372,9 +372,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
             {isForgotPassword ? (
               <>
                 <div className="space-y-1.5">
-                  <label className="ui-label">
-                    {t('emailAddress')}
-                  </label>
+                  <label className="ui-label">{t('emailAddress')}</label>
                   <div className="relative">
                     <input
                       type="email"
@@ -402,9 +400,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                 {isSignUp && (
                   <>
                     <div className="space-y-1.5">
-                      <label className="ui-label">
-                        {t('fullName')}
-                      </label>
+                      <label className="ui-label">{t('fullName')}</label>
                       <div className="relative">
                         <input
                           type="text"
@@ -422,9 +418,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="ui-label">
-                        {t('phoneOptional')}
-                      </label>
+                      <label className="ui-label">{t('phoneOptional')}</label>
                       <div className="relative">
                         <input
                           type="tel"
@@ -440,9 +434,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                     {/* Avatar Selection Block */}
                     <div className="space-y-2 pt-3 ui-divider-t">
                       <div className="flex justify-between items-center">
-                        <label className="ui-label">
-                          {t('authChooseAvatar')}
-                        </label>
+                        <label className="ui-label">{t('authChooseAvatar')}</label>
                         <button
                           type="button"
                           onClick={handleRandomizeAvatar}
@@ -497,9 +489,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="ui-label">
-                    {t('emailAddress')}
-                  </label>
+                  <label className="ui-label">{t('emailAddress')}</label>
                   <div className="relative">
                     <input
                       type="email"
@@ -515,9 +505,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
 
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
-                    <label className="ui-label">
-                      {t('password')}
-                    </label>
+                    <label className="ui-label">{t('password')}</label>
                     <button
                       type="button"
                       onClick={() => {

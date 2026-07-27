@@ -210,6 +210,27 @@ export function getGroupScheduleLabel(language: Language): string {
   return language === 'ru' ? 'Групповое расписание' : 'Group Schedule';
 }
 
+export function formatCourseCardDuration(durationStr: string): string {
+  if (!durationStr) return '';
+
+  const ruMatch = durationStr.match(
+    /^(\d+\s*(?:день|дня|дней))\s*\((\d+\s*(?:час|часа|часов|ч\.?))\)$/i
+  );
+  if (ruMatch) {
+    return `${ruMatch[1]} • ${ruMatch[2]}`;
+  }
+
+  const enMatch = durationStr.match(/^(\d+\s*days?)\s*\((\d+\s*hours?)\)$/i);
+  if (enMatch) {
+    return `${enMatch[1].toLowerCase()} • ${enMatch[2].toLowerCase()}`;
+  }
+
+  return durationStr
+    .replace(/\s*\(\s*/, ' • ')
+    .replace(/\)\s*$/, '')
+    .trim();
+}
+
 export function splitCourseDates(datesStr: string, language: Language = 'en') {
   const fallbackTime = getGroupScheduleLabel(language);
   if (!datesStr) return { datePart: '', timePart: fallbackTime };

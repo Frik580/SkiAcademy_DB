@@ -1,10 +1,12 @@
 import React from 'react';
 import { AnimatePresence } from 'motion/react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { User } from 'firebase/auth';
 import { Compass, RefreshCw } from 'lucide-react';
 
 import { AdminRoute } from './AdminRoute';
+import { AuthRoute } from './AuthRoute';
+import { InstructorRoute } from './InstructorRoute';
 import { Auth } from './Auth';
 import { GroupCoursesSection } from './GroupCoursesSection';
 import { HeroCarousel } from './HeroCarousel';
@@ -16,6 +18,7 @@ import { Language } from '../lib/LanguageContext';
 import { SkillConfig } from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
 import { DesignTheme } from '../lib/designTheme';
+import { CABINET_TABS, getDefaultWorkspacePath } from '../lib/workspaceRoutes';
 import { InstructorSpecialty, InstructorSortBy } from './useInstructorFilters';
 import { LazyLoad } from './LazyLoad';
 
@@ -105,6 +108,15 @@ interface AppRoutesProps {
   onAddReview: (
     review: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>
   ) => Promise<void>;
+  onToggleRecommendation?: (
+    bookingId: string,
+    recommendationId: string,
+    checked: boolean
+  ) => Promise<void>;
+  onToggleSkillToday?: (skillItemId: string, pinned: boolean) => Promise<void>;
+  onToggleTodayTaskComplete?: (taskId: string, done: boolean) => Promise<void>;
+  onAddCustomTodayTask?: (text: string) => Promise<void>;
+  onRemoveTodayTask?: (task: import('../lib/todayChecklist').TodayTaskRef) => Promise<void>;
   onDismissReview: (reviewId: string) => void;
   onSignOut: () => void;
   onUpdateProfile: (data: Partial<UserProfile>) => Promise<void>;
@@ -131,8 +143,102 @@ interface AppRoutesProps {
   onOpenOnboarding?: () => void;
 }
 
+const PersonalCabinetPage: React.FC<AppRoutesProps & { forcedMode: 'client' | 'instructor' }> = (
+  props
+) => {
+  const { t } = useLanguage();
+  const {
+    userProfile,
+    bookings,
+    reviews,
+    dismissedReviewIds,
+    courses,
+    instructors,
+    usersList,
+    skillConfig,
+    onDismissReview,
+    onReschedule,
+    onCancel,
+    onAddReview,
+    onToggleRecommendation,
+    onToggleSkillToday,
+    onToggleTodayTaskComplete,
+    onAddCustomTodayTask,
+    onRemoveTodayTask,
+    onSignOut,
+    onUpdateProfile,
+    onOpenOnboarding,
+    setSelectedCourseForDetails,
+    setSelectedCourseForAuth,
+    onBookCourse,
+    setSelectedInstructor,
+    setReviewsInstructor,
+    forcedMode,
+  } = props;
+
+  if (!userProfile) return null;
+
+  return (
+    <LazyLoad fallback={<SectionLoadingFallback label={t('loading')} />}>
+      <PersonalCabinet
+        userProfile={userProfile}
+        bookings={bookings}
+        reviews={reviews}
+        dismissedReviewIds={dismissedReviewIds}
+        onDismissReview={onDismissReview}
+        onReschedule={onReschedule}
+        onCancel={onCancel}
+        onAddReview={onAddReview}
+        onToggleRecommendation={onToggleRecommendation}
+        onToggleSkillToday={onToggleSkillToday}
+        onToggleTodayTaskComplete={onToggleTodayTaskComplete}
+        onAddCustomTodayTask={onAddCustomTodayTask}
+        onRemoveTodayTask={onRemoveTodayTask}
+        onSignOut={onSignOut}
+        onUpdateProfile={onUpdateProfile}
+        courses={courses}
+        instructors={instructors}
+        usersList={usersList}
+        skillConfig={skillConfig}
+        onOpenOnboarding={onOpenOnboarding}
+        onViewCourseDetails={setSelectedCourseForDetails}
+        onRequireCourseAuth={setSelectedCourseForAuth}
+        onBookCourse={onBookCourse}
+        onBookInstructor={setSelectedInstructor}
+        onViewInstructorReviews={setReviewsInstructor}
+        forcedMode={forcedMode}
+      />
+    </LazyLoad>
+  );
+};
+
+const CabinetRouteWrapper: React.FC<AppRoutesProps> = (props) => {
+  const { tab } = useParams<{ tab?: string }>();
+
+  if (tab && !CABINET_TABS.includes(tab as (typeof CABINET_TABS)[number])) {
+    return <Navigate to="/cabinet" replace />;
+  }
+
+  return (
+    <AuthRoute userProfile={props.userProfile}>
+      <div className="w-full max-w-7xl mx-auto min-w-0">
+        <PersonalCabinetPage {...props} forcedMode="client" />
+      </div>
+    </AuthRoute>
+  );
+};
+
+const InstructorRouteWrapper: React.FC<AppRoutesProps> = (props) => (
+  <InstructorRoute userProfile={props.userProfile}>
+    <div className="w-full max-w-7xl mx-auto min-w-0">
+      <PersonalCabinetPage {...props} forcedMode="instructor" />
+    </div>
+  </InstructorRoute>
+);
+
 const HomeRoute: React.FC<AppRoutesProps> = (props) => {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const {
     userProfile,
     language,
@@ -141,12 +247,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
     resortData,
     courses,
     bookings,
-    instructors,
     filteredInstructors,
-    reviews,
-    usersList,
-    dismissedReviewIds,
-    skillConfig,
     searchQuery,
     setSearchQuery,
     selectedSpecialty,
@@ -161,14 +262,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
     setSelectedCourseForDetails,
     setReviewsInstructor,
     onBookCourse,
-    onReschedule,
-    onCancel,
-    onAddReview,
-    onDismissReview,
-    onSignOut,
-    onUpdateProfile,
     setUserProfile,
-    onOpenOnboarding,
   } = props;
 
   const handleScrollToSection = (id: string) => {
@@ -221,36 +315,6 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
             id="main-content-pane"
             className="p-4 sm:p-8 md:p-10 lg:p-12 space-y-10 sm:space-y-12 theme-air:space-y-16 flex flex-col justify-start min-w-0"
           >
-            {userProfile && (
-              <div id="personal-cabinet-section" className="space-y-6">
-                <div className="pb-2 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full theme-air:w-2 theme-air:h-2"></span>
-                  <h3 className="ui-section-eyebrow text-[var(--ink)] font-bold">
-                    {t('activeCabinet')}
-                  </h3>
-                </div>
-                <LazyLoad fallback={<SectionLoadingFallback label={t('loading')} />}>
-                  <PersonalCabinet
-                    userProfile={userProfile}
-                    bookings={bookings}
-                    reviews={reviews}
-                    dismissedReviewIds={dismissedReviewIds}
-                    onDismissReview={onDismissReview}
-                    onReschedule={onReschedule}
-                    onCancel={onCancel}
-                    onAddReview={onAddReview}
-                    onSignOut={onSignOut}
-                    onUpdateProfile={onUpdateProfile}
-                    courses={courses}
-                    instructors={instructors}
-                    usersList={usersList}
-                    skillConfig={skillConfig}
-                    onOpenOnboarding={onOpenOnboarding}
-                  />
-                </LazyLoad>
-              </div>
-            )}
-
             <GroupCoursesSection
               data={{
                 courses,
@@ -330,7 +394,12 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
                 </p>
               </div>
               <div className="ui-panel p-4 lg:p-6">
-                <Auth onSuccess={(profile) => setUserProfile(profile)} />
+                <Auth
+                  onSuccess={(profile) => {
+                    setUserProfile(profile);
+                    navigate(getDefaultWorkspacePath(profile));
+                  }}
+                />
               </div>
             </div>
           </aside>
@@ -424,6 +493,9 @@ export const AppRoutes: React.FC<AppRoutesProps> = (props) => {
   return (
     <Routes>
       <Route path="/admin" element={<AdminRouteWrapper {...props} />} />
+      <Route path="/cabinet" element={<CabinetRouteWrapper {...props} />} />
+      <Route path="/cabinet/:tab" element={<CabinetRouteWrapper {...props} />} />
+      <Route path="/instructor" element={<InstructorRouteWrapper {...props} />} />
       <Route path="/" element={<HomeRoute {...props} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

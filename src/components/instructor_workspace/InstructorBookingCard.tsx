@@ -5,7 +5,10 @@ import { UserProfile } from '../../types';
 import { DisplayBooking, EnrichedCourseBooking, EnrichedBooking } from './useInstructorWorkspace';
 import { StudentLevelControls } from './StudentLevelControls';
 import { StudentAssessButton } from './StudentAssessButton';
+import { InstructorRecommendationsEditor } from './InstructorRecommendationsEditor';
 import { type TranslationKey, type Language } from '../../lib/LanguageContext';
+import { canInstructorEditRecommendations } from '../../lib/lessonRecommendations';
+import { LessonRecommendation } from '../../types';
 
 interface InstructorBookingCardProps {
   booking: DisplayBooking;
@@ -22,6 +25,7 @@ interface InstructorBookingCardProps {
     studentLevel: number,
     existingScores?: Record<string, number>
   ) => void;
+  onSaveRecommendations: (bookingId: string, items: LessonRecommendation[]) => Promise<void>;
 }
 
 export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
@@ -34,6 +38,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
   onUpdateStatus,
   onUpdateStudentLevel,
   onOpenEval,
+  onSaveRecommendations,
 }) => {
   const isCourse = !('userId' in booking);
   const b = booking;
@@ -58,61 +63,82 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
           ? 'text-rose-700 bg-rose-100/80 dark:text-rose-300 dark:bg-rose-950/50'
           : 'text-amber-700 bg-amber-100/80 dark:text-amber-300 dark:bg-amber-950/50';
 
+  const canEditRecs = canInstructorEditRecommendations(b.status);
+
   const courseBooking = booking as EnrichedCourseBooking;
   const individualBooking = booking as EnrichedBooking;
+
+  const renderRecommendationsBlock = (bookingId: string, items: LessonRecommendation[] = []) => (
+    <InstructorRecommendationsEditor
+      bookingId={bookingId}
+      initialItems={items}
+      canEdit={canEditRecs}
+      t={t}
+      onSave={onSaveRecommendations}
+    />
+  );
+
+  const renderClientRecommendations = (client: {
+    bookingId: string;
+    recommendations?: LessonRecommendation[];
+  }) => renderRecommendationsBlock(client.bookingId, client.recommendations);
 
   const renderClientRow = (params: {
     uid: string;
     name: string;
     avatar?: string;
     showSetLevelLabel?: boolean;
+    bookingId: string;
+    recommendations?: LessonRecommendation[];
   }) => {
-    const { uid, name, avatar, showSetLevelLabel } = params;
+    const { uid, name, avatar, showSetLevelLabel, bookingId, recommendations } = params;
     const studentUser = usersList.find((u) => u.uid === uid);
     const studentLevel = studentUser?.level || 1;
 
     return (
-      <div
-        key={uid}
-        className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-slate-900/60 p-2.5 border border-slate-200/70 dark:border-slate-800/70 rounded-xs hover:border-slate-300 transition-colors duration-200 w-full"
-        title={name}
-      >
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800">
-            {avatar ? (
-              <img
-                src={avatar}
-                alt={name}
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-[10px] font-serif">
-                👤
-              </div>
-            )}
+      <div key={uid} className="w-full space-y-2">
+        <div
+          className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-slate-900/60 p-2.5 border border-slate-200/70 dark:border-slate-800/70 rounded-xs hover:border-slate-300 transition-colors duration-200 w-full"
+          title={name}
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800">
+              {avatar ? (
+                <img
+                  src={avatar}
+                  alt={name}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[10px] font-serif">
+                  👤
+                </div>
+              )}
+            </div>
+            <span className="text-xs font-mono text-[var(--ink)] font-medium max-w-[140px] truncate">
+              {name}
+            </span>
           </div>
-          <span className="text-xs font-mono text-[var(--ink)] font-medium max-w-[140px] truncate">
-            {name}
-          </span>
-        </div>
 
-        <div className="flex items-center gap-1.5">
-          <StudentAssessButton
-            t={t}
-            onClick={() => onOpenEval(uid, name, studentLevel, studentUser?.skillScores || {})}
-          />
-          <StudentLevelControls
-            studentUid={uid}
-            usersList={usersList}
-            theme={theme}
-            t={t}
-            badgeTitleKey={showSetLevelLabel ? 'instructorCurrentLevel' : 'instructorLevel'}
-            selectLabelKey={showSetLevelLabel ? 'instructorLevel' : 'instructorLevelShort'}
-            showSetLevelLabel={showSetLevelLabel}
-            onChange={(newLevel) => onUpdateStudentLevel(uid, name, newLevel)}
-          />
+          <div className="flex items-center gap-1.5">
+            <StudentAssessButton
+              t={t}
+              onClick={() => onOpenEval(uid, name, studentLevel, studentUser?.skillScores || {})}
+            />
+            <StudentLevelControls
+              studentUid={uid}
+              usersList={usersList}
+              theme={theme}
+              t={t}
+              badgeTitleKey={showSetLevelLabel ? 'instructorCurrentLevel' : 'instructorLevel'}
+              selectLabelKey={showSetLevelLabel ? 'instructorLevel' : 'instructorLevelShort'}
+              showSetLevelLabel={showSetLevelLabel}
+              onChange={(newLevel) => onUpdateStudentLevel(uid, name, newLevel)}
+            />
+          </div>
         </div>
+        {renderClientRecommendations({ bookingId, recommendations })}
       </div>
     );
   };
@@ -234,10 +260,14 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
                       name: client.name,
                       avatar: client.avatar,
                       showSetLevelLabel: false,
+                      bookingId: client.bookingId,
+                      recommendations: client.recommendations,
                     })
                   )
                 : renderIndividualClient()}
             </div>
+            {!isCourse &&
+              renderRecommendationsBlock(individualBooking.id, individualBooking.recommendations)}
           </div>
 
           <div

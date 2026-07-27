@@ -22,6 +22,11 @@ import {
   getDifficultyLabel,
 } from '../../lib/LanguageContext';
 import { ToggleSwitch } from '../ToggleSwitch';
+import { RecommendationIndicator } from './RecommendationIndicator';
+import {
+  hasBookingRecommendations,
+  hasPendingRecommendations,
+} from '../../lib/lessonRecommendations';
 
 interface ClientBookingsListProps {
   userBookings: Booking[];
@@ -333,6 +338,9 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                       <div className="space-y-1 min-w-0 w-full">
                         <h4 className="text-xs font-serif text-[var(--ink)] flex items-center gap-2 flex-wrap">
                           {b.instructorName}
+                          {hasBookingRecommendations(b) && (
+                            <RecommendationIndicator pending={hasPendingRecommendations(b)} />
+                          )}
                           <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] font-normal">
                             • {b.durationHours} {t('hrSession')}
                           </span>

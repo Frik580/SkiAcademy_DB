@@ -1,13 +1,8 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import {
-  translateCourse,
-  splitCourseDates,
-  useLanguage,
-  type Language,
-} from '../lib/LanguageContext';
+import { useLanguage, type Language } from '../lib/LanguageContext';
 import { Booking, Course, UserProfile } from '../types';
-import { getCourseLevelCardClass } from '../lib/courseLevelStyles';
+import { GroupCourseCard, sortVisibleCourses } from './GroupCourseCard';
 
 interface GroupCoursesSectionProps {
   data: {
@@ -29,6 +24,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
 }) => {
   const { t } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
+  const visibleCourses = sortVisibleCourses(courses);
 
   return (
     <div id="courses-grid" className="space-y-6">
@@ -41,192 +37,34 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
         className="grid gap-6 theme-air:gap-8"
         style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}
       >
-        {[...courses]
-          .sort((a, b) => {
-            const orderA = a.order !== undefined ? a.order : 999;
-            const orderB = b.order !== undefined ? b.order : 999;
-            if (orderA !== orderB) return orderA - orderB;
-            return a.title.localeCompare(b.title);
-          })
-          .filter((c) => !c.isHidden)
-          .map((rawCourse, index) => {
-            const course = translateCourse(rawCourse, language);
-            const isEnrolled = bookings.some(
-              (b) =>
-                b.userId === userProfile?.uid &&
-                b.instructorId === `course_${course.id}` &&
-                b.status !== 'cancelled'
-            );
-            return (
-              <motion.div
-                key={course.id}
-                initial={shouldReduceMotion ? false : { opacity: 0, y: 32, scale: 0.985 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                viewport={{ once: true, amount: 0.1 }}
-                transition={{
-                  duration: shouldReduceMotion ? 0 : 1.2,
-                  delay: shouldReduceMotion ? 0 : Math.min(index * 0.12, 0.36),
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                className="ui-card flex flex-col h-full relative overflow-hidden group min-w-[260px] theme-air:bg-[var(--card-bg)]"
-              >
-                <div className="h-55 relative overflow-hidden shrink-0 theme-air:rounded-t-[var(--radius)]">
-                  {course.badge && (
-                    <div className="absolute top-3 left-3 z-10">
-                      {/^(https?:\/\/|\/|data:image\/)/.test(course.badge) ||
-                      /\.(png|jpg|jpeg|svg|gif|webp)/i.test(course.badge) ? (
-                        <img
-                          src={course.badge}
-                          referrerPolicy="no-referrer"
-                          alt="badge"
-                          className="h-7 w-auto object-contain max-w-[80px]"
-                        />
-                      ) : (
-                        <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-white bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full theme-air:font-sans theme-air:normal-case theme-air:text-xs">
-                          {course.badge}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  <img
-                    src={
-                      course.bgImageUrl ||
-                      'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800'
-                    }
-                    referrerPolicy="no-referrer"
-                    alt={course.title}
-                    className="w-full h-full object-cover transition-all duration-500 scale-100 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4">
-                    <span className="font-mono text-[9px] uppercase tracking-widest text-sky-300 bg-black/30 backdrop-blur-sm px-3 py-1 rounded-full self-start theme-air:font-sans theme-air:normal-case theme-air:text-xs">
-                      {course.duration}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-5 lg:p-6 flex-1 flex flex-col justify-between space-y-4">
-                  <div className="space-y-2">
-                    <h4 className="font-serif text-lg font-light text-[var(--ink)] leading-tight">
-                      {course.title}
-                    </h4>
-                    {course.levelLabel && (
-                      <div
-                        className={`text-[10px] font-mono uppercase tracking-wider font-bold flex items-center gap-1 mt-1 ${getCourseLevelCardClass(course.level)}`}
-                      >
-                        {course.levelLabel}
-                      </div>
-                    )}
-                    <p className="text-xs text-[var(--ink)] leading-relaxed font-mono">
-                      {course.shortDescription || course.description}
-                    </p>
-                  </div>
-
-                  <div className="space-y-4 pt-2">
-                    {(() => {
-                      const { datePart, timePart } = splitCourseDates(course.dates);
-                      return (
-                        <div className="space-y-2 text-xs ui-divider-t pt-4 theme-air:text-sm">
-                          <div className="flex items-center gap-2 text-[var(--ink-dim)] font-sans font-light">
-                            <span className="text-sm">📅</span>
-                            <span className="font-mono text-[11px] tracking-wide">{datePart}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-[var(--ink-dim)] font-sans font-light">
-                            <span className="text-sm">🕘</span>
-                            <span className="font-mono text-[11px] tracking-wide">{timePart}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-[var(--ink)] font-sans font-light">
-                            {course.availableSeats === 0 ? (
-                              <>
-                                <span className="text-sm">🔴</span>
-                                <span className="font-mono text-[11px] tracking-wide text-rose-500 font-bold">
-                                  {t('noSeatsLeft')}
-                                </span>
-                              </>
-                            ) : course.availableSeats <= 3 ? (
-                              <>
-                                <span className="text-sm">🟠</span>
-                                <span className="font-mono text-[11px] tracking-wide text-amber-500 font-semibold">
-                                  {t('onlySeatsLeftPrefix')}
-                                  {course.availableSeats}
-                                  {t('onlySeatsLeftSuffix')}
-                                </span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="text-sm">🟢</span>
-                                <span className="font-mono text-[11px] tracking-wide text-emerald-500">
-                                  {course.availableSeats} {t('courseSeatsOf')} {course.totalSeats}{' '}
-                                  {t('seatsAvailableSuffix')}
-                                </span>
-                              </>
-                            )}
-                          </div>
-
-                          <div className="ui-divider-t my-3 pt-3 flex justify-between items-baseline">
-                            <span className="text-2xl font-serif text-[var(--ink)] font-light">
-                              ${course.price}
-                            </span>
-                            <span className="text-[9px] font-mono tracking-wider text-[var(--ink-dim)]">
-                              {t('perCourse')}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    <div className="grid grid-cols-[2fr_3fr] gap-2">
-                      <button
-                        onClick={() => onViewDetails(rawCourse)}
-                        className="btn-secondary w-full py-2 text-center"
-                      >
-                        {t('courseDetails')}
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (!userProfile) {
-                            onRequireAuth(rawCourse);
-                          } else {
-                            onBookCourse(course.id);
-                          }
-                        }}
-                        disabled={
-                          (course.availableSeats === 0 && !isEnrolled) ||
-                          userProfile?.isClientActive === false
-                        }
-                        className={`w-full py-2 font-mono text-[10px] uppercase tracking-wider transition rounded-none ${
-                          isEnrolled
-                            ? 'bg-black/0 dark:bg-black/0 border border-[var(--border)]/60 text-[var(--ink-dim)] cursor-default'
-                            : userProfile?.isClientActive === false
-                              ? 'border border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10 font-bold'
-                              : course.availableSeats === 0
-                                ? 'btn-secondary cursor-not-allowed opacity-60'
-                                : 'btn-primary cursor-pointer'
-                        }`}
-                      >
-                        {isEnrolled ? (
-                          <span className="flex items-center justify-center gap-1 normal-case font-sans">
-                            <span className="text-emerald-500 font-bold text-xs">✔</span>{' '}
-                            {t('courseEnrolled')}
-                          </span>
-                        ) : userProfile?.isClientActive === false ? (
-                          t('accessSuspended')
-                        ) : course.availableSeats === 0 ? (
-                          t('courseSoldOut')
-                        ) : (
-                          `${t('enroll')} →`
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
+        {visibleCourses.map((rawCourse, index) => (
+          <motion.div
+            key={rawCourse.id}
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 32, scale: 0.985 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, amount: 0.1 }}
+            transition={{
+              duration: shouldReduceMotion ? 0 : 1.2,
+              delay: shouldReduceMotion ? 0 : Math.min(index * 0.12, 0.36),
+              ease: [0.22, 1, 0.36, 1],
+            }}
+            className="min-w-[260px] h-full"
+          >
+            <GroupCourseCard
+              rawCourse={rawCourse}
+              bookings={bookings}
+              userProfile={userProfile}
+              language={language}
+              onViewDetails={onViewDetails}
+              onRequireAuth={onRequireAuth}
+              onBookCourse={onBookCourse}
+              className="h-full"
+            />
+          </motion.div>
+        ))}
       </div>
-      {courses.filter((c) => !c.isHidden).length === 0 && (
-        <div className="ui-empty-state">
-          {t('noIntensiveCoursesAvailable')}
-        </div>
+      {visibleCourses.length === 0 && (
+        <div className="ui-empty-state">{t('noIntensiveCoursesAvailable')}</div>
       )}
     </div>
   );

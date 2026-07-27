@@ -29,6 +29,8 @@ import { uploadImage } from '../lib/storage';
 import { QUERY_LIMITS } from '../lib/queryLimits';
 import { useLanguage, type TranslationKey } from '../lib/LanguageContext';
 import { logger } from '../lib/logger';
+import { hasBookingRecommendations } from '../lib/lessonRecommendations';
+import { LessonRecommendationsList } from './personal_cabinet/LessonRecommendationsList';
 
 class LocalizedCompressionError extends Error {
   i18nKey: TranslationKey;
@@ -56,6 +58,7 @@ interface BookingChatModalProps {
   onClose: () => void;
   usersList?: UserProfile[];
   instructors?: Instructor[];
+  onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
 }
 
 // Client-side image optimization / compression
@@ -255,6 +258,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   onClose,
   usersList = [],
   instructors = [],
+  onToggleRecommendation,
 }) => {
   const { language, t } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -463,6 +467,12 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {hasBookingRecommendations(booking) && (
+          <div className="shrink-0 border-b border-[var(--border)] bg-[var(--card-bg)] px-4 py-3 max-h-[min(30svh,180px)] overflow-y-auto">
+            <LessonRecommendationsList booking={booking} onToggle={onToggleRecommendation} />
+          </div>
+        )}
 
         {/* Message area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-black/5 flex flex-col min-w-0">

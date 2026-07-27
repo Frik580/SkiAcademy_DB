@@ -16,6 +16,8 @@ import {
   blocksInstructorAvailability,
   toAvailabilitySlot,
 } from '../../lib/availabilitySlots';
+import { LessonRecommendation } from '../../types';
+import { sanitizeRecommendations } from '../../lib/lessonRecommendations';
 
 export interface InstructorWorkspaceInput {
   userProfile: UserProfile;
@@ -58,6 +60,8 @@ export interface CourseClient {
   phone?: string;
   email?: string;
   isGuest?: boolean;
+  bookingId: string;
+  recommendations?: LessonRecommendation[];
 }
 
 export type DisplayBooking = EnrichedBooking | EnrichedCourseBooking;
@@ -162,6 +166,8 @@ export const useInstructorWorkspace = ({
           avatar: client.avatarUrl,
           phone: client.phoneNumber,
           email: client.email,
+          bookingId: b.id,
+          recommendations: b.recommendations,
         });
       } else {
         const guestNameStr =
@@ -176,6 +182,8 @@ export const useInstructorWorkspace = ({
           phone: b.guestPhone,
           email: b.guestEmail,
           isGuest: true,
+          bookingId: b.id,
+          recommendations: b.recommendations,
         });
       }
     });
@@ -283,6 +291,21 @@ export const useInstructorWorkspace = ({
     }
   };
 
+  const handleSaveRecommendations = async (bookingId: string, items: LessonRecommendation[]) => {
+    try {
+      const cleaned = sanitizeRecommendations(items);
+      await updateDoc(doc(db, 'bookings', bookingId), { recommendations: cleaned });
+      addNotification(
+        'success',
+        t('instructorRecommendationsSaved'),
+        t('instructorRecommendationsSavedDesc')
+      );
+    } catch (err) {
+      logger.error('Error saving recommendations:', err);
+      addNotification('error', t('updateFailed'), t('updateFailedDesc'));
+    }
+  };
+
   const handleUpdateStatus = async (bookingId: string, nextStatus: 'confirmed' | 'completed') => {
     try {
       const booking = allBookings.find((item) => item.id === bookingId);
@@ -346,6 +369,7 @@ export const useInstructorWorkspace = ({
     handleSaveStudentScores,
     handleUpdateStudentLevel,
     handleUpdateStatus,
+    handleSaveRecommendations,
     userProfile,
     instructors,
     usersList,

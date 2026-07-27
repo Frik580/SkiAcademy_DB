@@ -36,6 +36,7 @@ import { Booking, Instructor, UserProfile } from '../types';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
 import { QUERY_LIMITS } from '../lib/queryLimits';
 import { logger } from '../lib/logger';
+import { toggleCompletedRecommendationIds } from '../lib/lessonRecommendations';
 
 type SetUserProfile = (profile: UserProfile | null) => void;
 
@@ -408,6 +409,29 @@ export const useBookings = (
     }
   };
 
+  const handleToggleRecommendation = async (
+    bookingId: string,
+    recommendationId: string,
+    checked: boolean
+  ) => {
+    const booking = bookings.find((item) => item.id === bookingId);
+    if (!booking) return;
+
+    const completedRecommendationIds = toggleCompletedRecommendationIds(
+      booking.completedRecommendationIds,
+      recommendationId,
+      checked
+    );
+
+    try {
+      await updateDoc(doc(db, 'bookings', bookingId), { completedRecommendationIds });
+    } catch (error) {
+      logger.error('Error toggling recommendation:', error);
+      handleFirestoreError(error, OperationType.UPDATE, `bookings/${bookingId}`);
+      throw error;
+    }
+  };
+
   const handleLinkGuestBooking = async (bookingId: string, targetUserId: string) => {
     const booking = bookings.find((b) => b.id === bookingId);
     if (!booking) return;
@@ -521,5 +545,6 @@ export const useBookings = (
     handleConfirmBooking,
     handleCompleteBooking,
     handleLinkGuestBooking,
+    handleToggleRecommendation,
   };
 };

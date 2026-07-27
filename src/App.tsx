@@ -119,6 +119,11 @@ const AppContent: React.FC = () => {
     handleConfirmBooking,
     handleCompleteBooking,
     handleLinkGuestBooking,
+    handleToggleRecommendation,
+    handleToggleSkillToday,
+    handleToggleTodayTaskComplete,
+    handleAddCustomTodayTask,
+    handleRemoveTodayTask,
     handleClearNotifications,
     handleMarkNotificationsAsRead,
     unreadNotificationCount,
@@ -136,6 +141,10 @@ const AppContent: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminRoute = location.pathname === '/admin';
+  const isWorkspaceRoute =
+    location.pathname === '/cabinet' ||
+    location.pathname.startsWith('/cabinet/') ||
+    location.pathname === '/instructor';
 
   const [dbStatusWarning, setDbStatusWarning] = useState<string | null>(null);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
@@ -265,7 +274,7 @@ const AppContent: React.FC = () => {
 
       <main
         className={`flex-1 w-full mx-auto ${
-          isAdminRoute && userProfile && userProfile.role === 'admin'
+          (isAdminRoute || isWorkspaceRoute) && userProfile
             ? 'p-6 overflow-y-auto'
             : 'flex flex-col'
         }`}
@@ -337,6 +346,11 @@ const AppContent: React.FC = () => {
           onCancel={handleRequestCancel}
           onCancelBooking={handleCancel}
           onAddReview={handleAddReview}
+          onToggleRecommendation={handleToggleRecommendation}
+          onToggleSkillToday={handleToggleSkillToday}
+          onToggleTodayTaskComplete={handleToggleTodayTaskComplete}
+          onAddCustomTodayTask={handleAddCustomTodayTask}
+          onRemoveTodayTask={handleRemoveTodayTask}
           onDismissReview={handleDismissReview}
           onSignOut={handleSignOut}
           onUpdateProfile={handleUpdateProfile}

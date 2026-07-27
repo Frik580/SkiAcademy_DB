@@ -1,22 +1,18 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AvailabilitySlot, Booking, UserProfile, Review, Course, Instructor } from '../types';
-import { Sliders, UserCheck, Lock, Sparkles } from 'lucide-react';
+import { Lock, Sparkles } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, parseCourseDates, useTranslatedBookings } from '../lib/LanguageContext';
 import { useTheme } from './useTheme';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
 import { AVAILABILITY_SLOTS_COLLECTION } from '../lib/availabilitySlots';
-import { SkillConfig, DEFAULT_SKILL_CONFIG, calculateSkillProgress } from '../lib/skillData';
-import { ClientSkillProgressView } from './ClientSkillProgressView';
-import { ProfileSettings } from './personal_cabinet/ProfileSettings';
-import { UpcomingSessionsStrip } from './personal_cabinet/UpcomingSessionsStrip';
+import { SkillConfig } from '../lib/skillData';
+import { StudentCabinetShell } from './personal_cabinet/student/StudentCabinetShell';
 import { RescheduleModal } from './personal_cabinet/RescheduleModal';
 import { ReviewModal } from './personal_cabinet/ReviewModal';
+import { LessonDetailsModal } from './personal_cabinet/LessonDetailsModal';
 import { ConfirmActionModal } from './personal_cabinet/ConfirmActionModal';
-import { ClientBookingsList } from './personal_cabinet/ClientBookingsList';
-import { UnreviewedCompletedBookingsNotice } from './personal_cabinet/UnreviewedCompletedBookingsNotice';
 import { LevelUpModal } from './personal_cabinet/LevelUpModal';
-import { ToggleSwitch } from './ToggleSwitch';
 import { logger } from '../lib/logger';
 import { LazyLoad } from './LazyLoad';
 
@@ -40,6 +36,15 @@ interface PersonalCabinetProps {
   onAddReview: (
     newReview: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>
   ) => Promise<void>;
+  onToggleRecommendation?: (
+    bookingId: string,
+    recommendationId: string,
+    checked: boolean
+  ) => Promise<void>;
+  onToggleSkillToday?: (skillItemId: string, pinned: boolean) => Promise<void>;
+  onToggleTodayTaskComplete?: (taskId: string, done: boolean) => Promise<void>;
+  onAddCustomTodayTask?: (text: string) => Promise<void>;
+  onRemoveTodayTask?: (task: import('../lib/todayChecklist').TodayTaskRef) => Promise<void>;
   onSignOut: () => void;
   onUpdateProfile?: (updatedProfile: Partial<UserProfile>) => Promise<void>;
   courses?: Course[];
@@ -47,6 +52,12 @@ interface PersonalCabinetProps {
   usersList?: UserProfile[];
   skillConfig?: SkillConfig;
   onOpenOnboarding?: () => void;
+  onViewCourseDetails?: (course: Course) => void;
+  onRequireCourseAuth?: (course: Course) => void;
+  onBookCourse?: (courseId: string) => Promise<void>;
+  onBookInstructor?: (instructor: Instructor) => void;
+  onViewInstructorReviews?: (instructor: Instructor) => void;
+  forcedMode?: 'client' | 'instructor';
 }
 
 export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
@@ -58,6 +69,11 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   onReschedule,
   onCancel,
   onAddReview,
+  onToggleRecommendation,
+  onToggleSkillToday,
+  onToggleTodayTaskComplete,
+  onAddCustomTodayTask,
+  onRemoveTodayTask,
   onSignOut,
   onUpdateProfile,
   courses = [],
@@ -65,6 +81,12 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   usersList = [],
   skillConfig,
   onOpenOnboarding,
+  onViewCourseDetails,
+  onRequireCourseAuth,
+  onBookCourse,
+  onBookInstructor,
+  onViewInstructorReviews,
+  forcedMode,
 }) => {
   const { addNotification } = useNotifications();
   const { language, t } = useLanguage();
@@ -75,63 +97,17 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   const [newDate, setNewDate] = useState<string>('');
   const [newTime, setNewTime] = useState<string>('09:00');
   const [isRescheduling, setIsRescheduling] = useState<boolean>(false);
-  const [selectedChatBooking, setSelectedChatBooking] = useState<Booking | null>(null);
+  const [selectedChatBookingId, setSelectedChatBookingId] = useState<string | null>(null);
+  const selectedChatBooking = useMemo(
+    () => rawBookings.find((b) => b.id === selectedChatBookingId) ?? null,
+    [rawBookings, selectedChatBookingId]
+  );
   const [rescheduleInstructorBookings, setRescheduleInstructorBookings] = useState<
     AvailabilitySlot[]
   >([]);
   const [isLoadingInstructorBookings, setIsLoadingInstructorBookings] = useState<boolean>(false);
   const [levelUpModal, setLevelUpModal] = useState<{ show: boolean; level: number } | null>(null);
   const prevLevelRef = useRef<number | undefined>(undefined);
-
-  const [showProgressTracking, setShowProgressTracking] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem(`cabinet_show_progress_${userProfile?.uid}`);
-      if (saved !== null) return JSON.parse(saved);
-    } catch {
-      // ignore localStorage errors
-    }
-    return !userProfile?.hideProgressTracking;
-  });
-
-  const [showWorkoutCalendar, setShowWorkoutCalendar] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem(`cabinet_show_calendar_${userProfile?.uid}`);
-      if (saved !== null) return JSON.parse(saved);
-    } catch {
-      // ignore localStorage errors
-    }
-    return true;
-  });
-
-  const handleToggleProgress = (val: boolean) => {
-    setShowProgressTracking(val);
-    try {
-      localStorage.setItem(`cabinet_show_progress_${userProfile?.uid}`, JSON.stringify(val));
-    } catch {
-      // ignore localStorage errors
-    }
-    if (onUpdateProfile) {
-      onUpdateProfile({ hideProgressTracking: !val });
-    }
-  };
-
-  const handleToggleCalendar = (val: boolean) => {
-    setShowWorkoutCalendar(val);
-    try {
-      localStorage.setItem(`cabinet_show_calendar_${userProfile?.uid}`, JSON.stringify(val));
-    } catch {
-      // ignore localStorage errors
-    }
-  };
-
-  const skillProgress = useMemo(() => {
-    return calculateSkillProgress(
-      userProfile?.skillScores || {},
-      skillConfig?.items || DEFAULT_SKILL_CONFIG.items,
-      userProfile?.level || 1,
-      skillConfig?.passPercentage ?? 80
-    );
-  }, [userProfile?.skillScores, userProfile?.level, skillConfig]);
 
   useEffect(() => {
     const currentLevel = userProfile?.level || 1;
@@ -274,6 +250,11 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   }, [availableSlots, newTime]);
 
   const [reviewBooking, setReviewBooking] = useState<Booking | null>(null);
+  const [lessonDetailsId, setLessonDetailsId] = useState<string | null>(null);
+  const lessonDetailsBooking = useMemo(
+    () => rawBookings.find((b) => b.id === lessonDetailsId) ?? null,
+    [rawBookings, lessonDetailsId]
+  );
   const [reviewRating, setReviewRating] = useState<number>(5);
   const [reviewComment, setReviewComment] = useState<string>('');
   const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
@@ -299,8 +280,6 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
       return !alreadyReviewed;
     });
   }, [userBookings, reviews, userProfile.uid, dismissedReviewIds]);
-
-  const [cabinetMode, setCabinetMode] = useState<'client' | 'instructor'>('client');
 
   const handleRescheduleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -490,34 +469,10 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   })();
 
   const showInstructorTab = userProfile.role === 'admin' || !!userProfile.isInstructor;
-  const activeMode = showInstructorTab ? cabinetMode : 'client';
+  const activeMode = forcedMode ?? 'client';
 
   return (
     <div className="space-y-6 w-full max-w-full min-w-0">
-      {/* Workspace Tab Switcher */}
-      {showInstructorTab && (
-        <div className="ui-chip-group flex w-full max-w-md mx-auto theme-air:bg-[var(--profile-bg)] theme-air:p-1 theme-air:rounded-full">
-          <button
-            onClick={() => setCabinetMode('client')}
-            className={`ui-chip flex-1 py-2.5 font-bold flex items-center justify-center gap-2 theme-air:rounded-full ${
-              activeMode === 'client' ? 'ui-chip-active' : ''
-            }`}
-          >
-            <UserCheck className="w-4 h-4" />
-            {t('clientCabinet')}
-          </button>
-          <button
-            onClick={() => setCabinetMode('instructor')}
-            className={`ui-chip flex-1 py-2.5 font-bold flex items-center justify-center gap-2 theme-air:rounded-full ${
-              activeMode === 'instructor' ? 'ui-chip-active' : ''
-            }`}
-          >
-            <Sliders className="w-4 h-4" />
-            {t('instructorWorkspaceTab')}
-          </button>
-        </div>
-      )}
-
       {activeMode === 'instructor' ? (
         <LazyLoad
           fallback={
@@ -556,121 +511,71 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           </div>
         </div>
       ) : (
-        <div className="space-y-6 animate-fade-in w-full max-w-full min-w-0">
-          {/* Onboarding & Cabinet Display Sliders Block */}
-          {onOpenOnboarding && (
-            <div className="border border-cyan-500/30 bg-cyan-500/5 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left">
+        <div className="animate-fade-in w-full max-w-full min-w-0">
+          {onOpenOnboarding && !userProfile.hasCompletedOnboarding && (
+            <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-3 text-left max-w-2xl mx-auto">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 shrink-0">
-                  <Sparkles className="w-5 h-5" />
-                </div>
+                <Sparkles className="w-5 h-5 text-[var(--accent)] shrink-0" />
                 <div>
-                  <h4 className="font-mono text-xs uppercase font-bold text-[var(--ink)]">
+                  <h4 className="text-sm font-medium text-[var(--ink)]">
                     {t('onboardingS1Title')}
                   </h4>
-                  <p className="text-[11px] font-mono text-[var(--ink-dim)]">
-                    {t('onboardingS1Desc')}
-                  </p>
+                  <p className="text-xs text-[var(--ink-dim)]">{t('onboardingS1Desc')}</p>
                 </div>
               </div>
               <button
                 onClick={onOpenOnboarding}
-                className="btn-primary px-4 py-2 text-xs font-mono uppercase tracking-wider whitespace-nowrap shrink-0"
+                className="btn-primary px-4 py-2 text-sm whitespace-nowrap shrink-0"
               >
-                <span>{t('onboardingTitle')} →</span>
+                {t('onboardingTitle')} →
               </button>
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-            {/* Slider 1: Progress Tracking */}
-            <div className="border border-slate-200/70 dark:border-slate-800/70 p-3.5 bg-[var(--card-bg)] transition hover:border-slate-300 dark:hover:border-slate-700 rounded-xs shadow-xs">
-              <ToggleSwitch
-                checked={showProgressTracking}
-                onChange={handleToggleProgress}
-                label={t('toggleProgressTracking')}
-                description={t('toggleProgressTrackingSub')}
-              />
-            </div>
-
-            {/* Slider 2: Workout Calendar */}
-            <div className="border border-slate-200/70 dark:border-slate-800/70 p-3.5 bg-[var(--card-bg)] transition hover:border-slate-300 dark:hover:border-slate-700 rounded-xs shadow-xs">
-              <ToggleSwitch
-                checked={showWorkoutCalendar}
-                onChange={handleToggleCalendar}
-                label={t('toggleWorkoutCalendar')}
-                description={t('toggleWorkoutCalendarSub')}
-              />
-            </div>
-          </div>
-
-          <div className="grid lg:grid-cols-12 gap-6 w-full max-w-full min-w-0">
-            <ProfileSettings
-              userProfile={userProfile}
-              skillProgress={skillProgress}
-              onSignOut={onSignOut}
-              onUpdateProfile={onUpdateProfile}
-              onLevelBadgeClick={() =>
-                setLevelUpModal({ show: true, level: userProfile.level || 1 })
-              }
-              onInvalidFile={() => addNotification('error', t('invalidFile'), t('invalidFileDesc'))}
-              onUploadSuccess={() =>
-                addNotification('success', t('profilePhotoChanged'), t('profilePhotoChangedDesc'))
-              }
-              onUploadError={() =>
-                addNotification('error', t('uploadFailed'), t('uploadFailedDesc'))
-              }
-            />
-
-            {/* Bookings Right Panel */}
-            <div
-              id="personal-cabinet-bookings-panel"
-              className="lg:col-span-8 space-y-5 transition-colors duration-300 bg-transparent w-full min-w-0 max-w-full overflow-hidden"
-            >
-              {/* 1. Недельное расписание */}
-              {userBookings.length > 0 && (
-                <div className="border border-slate-200/70 dark:border-slate-800/70 p-4.5 bg-[var(--card-bg)] space-y-4 shadow-xs rounded-xs">
-                  <UpcomingSessionsStrip userBookings={userBookings} courses={courses} />
-                </div>
-              )}
-
-              {/* 2. Новые уведомления */}
-              <UnreviewedCompletedBookingsNotice
-                unreviewedCompletedBookings={unreviewedCompletedBookings}
-                onWriteReview={(booking) => {
-                  setReviewBooking(booking);
-                  setReviewComment('');
-                  setReviewRating(5);
-                }}
-                onDismissReview={onDismissReview}
-              />
-
-              {/* 3. Прогресс и цели уровня */}
-              {showProgressTracking && (
-                <ClientSkillProgressView userProfile={userProfile} skillConfig={skillConfig} />
-              )}
-
-              {/* 4. Календарь тренировок и список бронирований */}
-              <ClientBookingsList
-                userBookings={userBookings}
-                unreviewedCompletedBookings={unreviewedCompletedBookings}
-                showWorkoutCalendar={showWorkoutCalendar}
-                onDismissReview={onDismissReview}
-                onWriteReview={(booking) => {
-                  setReviewBooking(booking);
-                  setReviewComment('');
-                  setReviewRating(5);
-                }}
-                onReschedule={(booking) => {
-                  setRescheduleId(booking.id);
-                  setNewDate(booking.date);
-                  setNewTime(booking.time);
-                }}
-                onCancel={handleCancelClick}
-                onChat={setSelectedChatBooking}
-              />
-            </div>
-          </div>
+          <StudentCabinetShell
+            userProfile={userProfile}
+            bookings={userBookings}
+            courses={courses}
+            instructors={instructors}
+            reviews={reviews}
+            skillConfig={skillConfig}
+            unreviewedCompletedBookings={unreviewedCompletedBookings}
+            onDismissReview={onDismissReview}
+            onReschedule={(booking) => {
+              setRescheduleId(booking.id);
+              setNewDate(booking.date);
+              setNewTime(booking.time);
+            }}
+            onCancel={handleCancelClick}
+            onChat={(booking) => setSelectedChatBookingId(booking.id)}
+            onOpenLesson={(booking) => setLessonDetailsId(booking.id)}
+            onWriteReview={(booking) => {
+              setReviewBooking(booking);
+              setReviewComment('');
+              setReviewRating(5);
+            }}
+            onToggleRecommendation={onToggleRecommendation}
+            onToggleSkillToday={onToggleSkillToday}
+            onToggleTodayTaskComplete={onToggleTodayTaskComplete}
+            onAddCustomTodayTask={onAddCustomTodayTask}
+            onRemoveTodayTask={onRemoveTodayTask}
+            onSignOut={onSignOut}
+            onUpdateProfile={onUpdateProfile}
+            onLevelBadgeClick={() => setLevelUpModal({ show: true, level: userProfile.level || 1 })}
+            onInvalidFile={() => addNotification('error', t('invalidFile'), t('invalidFileDesc'))}
+            onUploadSuccess={() =>
+              addNotification('success', t('profilePhotoChanged'), t('profilePhotoChangedDesc'))
+            }
+            onUploadError={() => addNotification('error', t('uploadFailed'), t('uploadFailedDesc'))}
+            onViewCourseDetails={onViewCourseDetails ?? (() => {})}
+            onRequireCourseAuth={onRequireCourseAuth ?? (() => {})}
+            onBookCourse={(courseId) => {
+              void onBookCourse?.(courseId);
+            }}
+            onBookInstructor={onBookInstructor ?? (() => {})}
+            onViewInstructorReviews={onViewInstructorReviews ?? (() => {})}
+            syncTabWithRoute={forcedMode === 'client'}
+          />
 
           <RescheduleModal
             isOpen={!!rescheduleId}
@@ -684,6 +589,30 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             isSubmitting={isRescheduling}
             minDate={tomorrowStr}
             onSubmit={handleRescheduleSubmit}
+          />
+
+          <LessonDetailsModal
+            booking={lessonDetailsBooking}
+            courses={courses}
+            onClose={() => setLessonDetailsId(null)}
+            onWriteReview={(booking) => {
+              setLessonDetailsId(null);
+              setReviewBooking(booking);
+              setReviewComment('');
+              setReviewRating(5);
+            }}
+            onToggleRecommendation={onToggleRecommendation}
+            hasReview={
+              lessonDetailsBooking
+                ? reviews.some(
+                    (r) =>
+                      r.bookingId === lessonDetailsBooking.id ||
+                      (r.userId === userProfile.uid &&
+                        r.instructorId === lessonDetailsBooking.instructorId &&
+                        r.date === lessonDetailsBooking.date)
+                  )
+                : false
+            }
           />
 
           <ReviewModal
@@ -727,9 +656,10 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               <BookingChatModal
                 booking={selectedChatBooking}
                 currentUserProfile={userProfile}
-                onClose={() => setSelectedChatBooking(null)}
+                onClose={() => setSelectedChatBookingId(null)}
                 instructors={instructors}
                 usersList={usersList}
+                onToggleRecommendation={onToggleRecommendation}
               />
             </LazyLoad>
           )}

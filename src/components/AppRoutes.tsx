@@ -13,9 +13,10 @@ import { HeroCarousel } from './HeroCarousel';
 import { InstructorCard } from './InstructorCard';
 import { LessonFilters } from './LessonFilters';
 import { ResortConditionsSidebar } from './ResortConditionsSidebar';
-import { Instructor, Course, Booking, Review, UserProfile, ResortConfig } from '../types';
+import { Instructor, Course, Booking, Review, UserProfile, ResortConfig, ActivityLog } from '../types';
 import { Language } from '../lib/LanguageContext';
 import { SkillConfig } from '../lib/skillData';
+import { AchievementsConfig } from '../lib/achievementConfig';
 import { useLanguage } from '../lib/LanguageContext';
 import { DesignTheme } from '../lib/designTheme';
 import { CABINET_TABS, getDefaultWorkspacePath } from '../lib/workspaceRoutes';
@@ -65,6 +66,7 @@ interface AppRoutesProps {
   onboardingEnabled?: boolean;
   designTheme: DesignTheme;
   skillConfig: SkillConfig;
+  achievementsConfig: AchievementsConfig;
   resortData: ResortData;
   instructors: Instructor[];
   translatedInstructors: Instructor[];
@@ -73,6 +75,7 @@ interface AppRoutesProps {
   bookings: Booking[];
   reviews: Review[];
   usersList: UserProfile[];
+  activityLogs: ActivityLog[];
   deletedCompletedStats: DeletedCompletedStats;
   dismissedReviewIds: string[];
   // Filter state
@@ -95,6 +98,7 @@ interface AppRoutesProps {
   onToggleOnboarding?: (enabled: boolean) => Promise<void>;
   onSetDesignTheme: (theme: DesignTheme) => Promise<void>;
   onUpdateSkillConfig: (config: SkillConfig) => Promise<void>;
+  onUpdateAchievementsConfig: (config: AchievementsConfig) => Promise<void>;
   onBookCourse: (courseId: string) => Promise<void>;
   onReschedule: (id: string, newDate: string, newTime: string) => Promise<void>;
   onReassignInstructor: (
@@ -156,6 +160,8 @@ const PersonalCabinetPage: React.FC<AppRoutesProps & { forcedMode: 'client' | 'i
     instructors,
     usersList,
     skillConfig,
+    achievementsConfig,
+    activityLogs,
     onDismissReview,
     onReschedule,
     onCancel,
@@ -200,6 +206,8 @@ const PersonalCabinetPage: React.FC<AppRoutesProps & { forcedMode: 'client' | 'i
         instructors={instructors}
         usersList={usersList}
         skillConfig={skillConfig}
+        achievementsConfig={achievementsConfig}
+        activityLogs={activityLogs}
         onOpenOnboarding={onOpenOnboarding}
         onViewCourseDetails={setSelectedCourseForDetails}
         onRequireCourseAuth={setSelectedCourseForAuth}
@@ -421,10 +429,12 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
     onboardingEnabled,
     designTheme,
     skillConfig,
+    achievementsConfig,
     onToggleFilters,
     onToggleOnboarding,
     onSetDesignTheme,
     onUpdateSkillConfig,
+    onUpdateAchievementsConfig,
     onUpdateUserRole,
     onAddInstructor,
     onUpdateInstructor,
@@ -483,6 +493,8 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
           onSetDesignTheme={onSetDesignTheme}
           skillConfig={skillConfig}
           onUpdateSkillConfig={onUpdateSkillConfig}
+          achievementsConfig={achievementsConfig}
+          onUpdateAchievementsConfig={onUpdateAchievementsConfig}
         />
       </LazyLoad>
     </AdminRoute>

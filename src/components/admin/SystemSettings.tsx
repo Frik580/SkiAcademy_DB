@@ -1,9 +1,13 @@
-import React from 'react';
-import { Settings, Award, Mountain, Sliders, Palette } from 'lucide-react';
+import React, { useState } from 'react';
+import { Settings, Award, Mountain, Sliders, Palette, History, Trophy } from 'lucide-react';
 import { useLanguage } from '../../lib/LanguageContext';
 import { SkillConfig } from '../../lib/skillData';
+import { AchievementsConfig } from '../../lib/achievementConfig';
 import { DesignTheme } from '../../lib/designTheme';
+import { Booking, Course } from '../../types';
+import { backfillCompletedBookingActivityLogs } from '../../lib/backfillActivityLog';
 import { SkillConfigManager } from '../SkillConfigManager';
+import { AchievementsManager } from './AchievementsManager';
 import { ResortDataSection, ResortSliderSection } from './ResortConfigForm';
 import { AdminCollapsibleSection } from './AdminCollapsibleSection';
 import { ToggleSwitch } from '../ToggleSwitch';
@@ -16,7 +20,12 @@ interface SystemSettingsProps {
   designTheme?: DesignTheme;
   onSetDesignTheme?: (theme: DesignTheme) => Promise<void>;
   skillConfig?: SkillConfig;
+  achievementsConfig?: AchievementsConfig;
   onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
+  onUpdateAchievementsConfig?: (config: AchievementsConfig) => Promise<void>;
+  bookings?: Booking[];
+  courses?: Course[];
+  adminUid?: string;
 }
 
 const DESIGN_OPTIONS: {
@@ -53,9 +62,30 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   designTheme = 'classic',
   onSetDesignTheme,
   skillConfig,
+  achievementsConfig,
   onUpdateSkillConfig,
+  onUpdateAchievementsConfig,
+  bookings = [],
+  courses = [],
+  adminUid,
 }) => {
   const { t } = useLanguage();
+  const [isBackfilling, setIsBackfilling] = useState(false);
+  const [backfillMessage, setBackfillMessage] = useState<string | null>(null);
+
+  const handleBackfillHistory = async () => {
+    if (!adminUid || isBackfilling) return;
+    setIsBackfilling(true);
+    setBackfillMessage(null);
+    try {
+      const result = await backfillCompletedBookingActivityLogs(bookings, courses, adminUid);
+      setBackfillMessage(t('scHistoryBackfillDone').replace('{n}', String(result.written)));
+    } catch {
+      setBackfillMessage(t('updateFailed'));
+    } finally {
+      setIsBackfilling(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in transition-colors duration-300 w-full min-w-0 overflow-hidden">
@@ -159,6 +189,21 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         />
       </AdminCollapsibleSection>
 
+      <AdminCollapsibleSection
+        id="achievements_config"
+        title={t('achievementsManagerTitle')}
+        subtitle={t('achievementsManagerSectionSub')}
+        icon={Trophy}
+      >
+        <AchievementsManager
+          config={achievementsConfig}
+          skillConfig={skillConfig}
+          onSaveConfig={async (cfg) => {
+            if (onUpdateAchievementsConfig) await onUpdateAchievementsConfig(cfg);
+          }}
+        />
+      </AdminCollapsibleSection>
+
       {/* 2. Данные курорта и геолокация погоды */}
       <AdminCollapsibleSection
         id="resort_data"
@@ -179,6 +224,27 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         icon={Sliders}
       >
         <ResortSliderSection />
+      </AdminCollapsibleSection>
+
+      <AdminCollapsibleSection
+        id="activity_history_backfill"
+        title={t('scHistoryBackfillTitle')}
+        subtitle={t('scHistoryBackfillDesc')}
+        icon={History}
+      >
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => void handleBackfillHistory()}
+            disabled={!adminUid || isBackfilling || bookings.length === 0}
+            className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
+          >
+            {isBackfilling ? t('loading') : t('scHistoryBackfillRun')}
+          </button>
+          {backfillMessage && (
+            <p className="text-xs text-[var(--ink-dim)] font-mono">{backfillMessage}</p>
+          )}
+        </div>
       </AdminCollapsibleSection>
     </div>
   );

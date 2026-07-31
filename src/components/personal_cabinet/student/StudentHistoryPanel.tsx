@@ -1,0 +1,86 @@
+import React, { useMemo, useState } from 'react';
+import { useLanguage } from '../../../lib/LanguageContext';
+import { ActivityLog, Booking, Course, Review, UserProfile } from '../../../types';
+import { buildStudentHistory, HistoryFilter } from './studentCabinetUtils';
+import { ScSectionTitle, StudentPanelBackLink } from './StudentCabinetUI';
+import { StudentHistoryList } from './StudentHistoryList';
+
+interface StudentHistoryPanelProps {
+  userProfile: UserProfile;
+  bookings: Booking[];
+  courses: Course[];
+  reviews: Review[];
+  activityLogs?: ActivityLog[];
+  dismissedReviewIds?: string[];
+  onOpenLesson: (booking: Booking) => void;
+  onWriteReview: (booking: Booking) => void;
+  onOpenDevelopment: () => void;
+  onBack: () => void;
+  onToggleRecommendation?: (
+    bookingId: string,
+    recommendationId: string,
+    checked: boolean
+  ) => void;
+}
+
+export const StudentHistoryPanel: React.FC<StudentHistoryPanelProps> = ({
+  userProfile,
+  bookings,
+  courses,
+  reviews,
+  activityLogs = [],
+  dismissedReviewIds = [],
+  onOpenLesson,
+  onWriteReview,
+  onOpenDevelopment,
+  onBack,
+  onToggleRecommendation,
+}) => {
+  const { language, t } = useLanguage();
+  const lang = language === 'ru' ? 'ru' : 'en';
+  const [filter, setFilter] = useState<HistoryFilter>('all');
+
+  const history = useMemo(
+    () =>
+      buildStudentHistory(
+        userProfile,
+        bookings,
+        courses,
+        reviews,
+        lang,
+        t,
+        activityLogs,
+        dismissedReviewIds
+      ),
+    [userProfile, bookings, courses, reviews, lang, t, activityLogs, dismissedReviewIds]
+  );
+
+  return (
+    <div className="space-y-0 pb-24 max-w-2xl mx-auto w-full px-4 sm:px-6 min-w-0">
+      <section className="py-6 space-y-4">
+        <StudentPanelBackLink onClick={onBack} />
+        <div className="space-y-1">
+          <ScSectionTitle>{t('scHistoryFullTitle')}</ScSectionTitle>
+          <p className="text-sm text-[var(--ink-dim)]">{t('scHistorySubtitle')}</p>
+        </div>
+        <StudentHistoryList
+          events={history}
+          bookings={bookings}
+          courses={courses}
+          reviews={reviews}
+          dismissedReviewIds={dismissedReviewIds}
+          filter={filter}
+          onFilterChange={setFilter}
+          showFilters
+          groupByMonth
+          showDateLabels={false}
+          expandedTrainingCards
+          onOpenLesson={onOpenLesson}
+          onWriteReview={onWriteReview}
+          onOpenDevelopment={onOpenDevelopment}
+          onToggleRecommendation={onToggleRecommendation}
+        />
+      </section>
+    </div>
+  );
+};

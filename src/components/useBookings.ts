@@ -30,6 +30,11 @@ import {
   createBookingWithPayment,
   InsufficientFundsError,
 } from '../lib/bookingTransactions';
+import {
+  activityLogId,
+  buildBookingCompletedMetadata,
+  logActivityForUser,
+} from '../lib/activityLog';
 import { createNotificationForUser } from '../lib/notifications';
 import { parseCourseEndDateTime, useLanguage } from '../lib/LanguageContext';
 import { Booking, Instructor, UserProfile } from '../types';
@@ -170,6 +175,15 @@ export const useBookings = (
             batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id));
           }
           await batch.commit();
+          if (firebaseUser) {
+            await logActivityForUser(
+              booking.userId,
+              firebaseUser.uid,
+              'booking_completed',
+              buildBookingCompletedMetadata(booking, []),
+              activityLogId.bookingCompleted(booking.id)
+            );
+          }
           addNotification(
             'success',
             t('lessonAutoCompleted'),
@@ -399,7 +413,14 @@ export const useBookings = (
     }
     await batch.commit();
 
-    if (booking) {
+    if (booking && firebaseUser) {
+      await logActivityForUser(
+        booking.userId,
+        firebaseUser.uid,
+        'booking_completed',
+        buildBookingCompletedMetadata(booking, []),
+        activityLogId.bookingCompleted(booking.id)
+      );
       await createNotificationForUser(
         booking.userId,
         t('lessonCompletedAdmin'),
@@ -425,6 +446,40 @@ export const useBookings = (
 
     try {
       await updateDoc(doc(db, 'bookings', bookingId), { completedRecommendationIds });
+      if (checked && firebaseUser) {
+        const recommendation = booking.recommendations?.find((item) => item.id === recommendationId);
+        await logActivityForUser(
+          booking.userId,
+          firebaseUser.uid,
+          'recommendation_completed',
+          {
+            bookingId,
+            recommendationId,
+            recommendationText: recommendation?.text,
+            instructorName: booking.instructorName,
+            lessonTitle: booking.instructorName,
+          },
+          activityLogId.recommendationCompleted(bookingId, recommendationId)
+        );
+
+        const recs = booking.recommendations ?? [];
+        const allDone =
+          recs.length > 0 &&
+          recs.every((item) => completedRecommendationIds.includes(item.id));
+        if (allDone) {
+          await logActivityForUser(
+            booking.userId,
+            firebaseUser.uid,
+            'recommendations_completed_all',
+            {
+              bookingId,
+              instructorName: booking.instructorName,
+              lessonTitle: booking.instructorName,
+            },
+            activityLogId.recommendationsAllCompleted(bookingId)
+          );
+        }
+      }
     } catch (error) {
       logger.error('Error toggling recommendation:', error);
       handleFirestoreError(error, OperationType.UPDATE, `bookings/${bookingId}`);
@@ -503,8 +558,13 @@ export const useBookings = (
               ...(targetUserData.skillScores || {}),
               ...oldUserData.skillScores,
             };
+            const mergedComments = {
+              ...(targetUserData.skillComments || {}),
+              ...(oldUserData.skillComments || {}),
+            };
             await updateDoc(doc(db, 'users', targetUserId), {
               skillScores: mergedScores,
+              skillComments: mergedComments,
             });
           }
         }

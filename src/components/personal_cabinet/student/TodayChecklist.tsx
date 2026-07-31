@@ -13,6 +13,7 @@ interface TodayChecklistProps {
   onAddTask?: (text: string) => void;
   onRemoveTask?: (task: TodayTaskRef) => void;
   onOpenLesson?: (booking: Booking) => void;
+  onOpenDevelopment?: () => void;
 }
 
 const toTaskRef = (task: TodayTask): TodayTaskRef => ({
@@ -56,6 +57,7 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
   onAddTask,
   onRemoveTask,
   onOpenLesson,
+  onOpenDevelopment,
 }) => {
   const { t } = useLanguage();
   const [draft, setDraft] = useState('');
@@ -116,33 +118,48 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
 
   return (
     <div className="space-y-3">
-      <ul className="space-y-4">
-        {groups.map(({ context, tasks: groupTasks }) => (
-          <li key={context.bookingId} className="space-y-2">
+      {tasks.length === 0 ? (
+        <div className="space-y-2 py-2">
+          <p className="text-sm text-[var(--ink-dim)]">{t('scTodayEmpty')}</p>
+          {onOpenDevelopment && (
             <button
               type="button"
-              onClick={() => openBooking(context.bookingId)}
-              disabled={!onOpenLesson}
-              className="w-full text-left rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-3 py-2.5 transition hover:border-[var(--accent)]/40 disabled:cursor-default disabled:hover:border-[var(--border-subtle)]"
+              onClick={onOpenDevelopment}
+              className="text-sm font-medium text-[var(--accent)] hover:underline"
             >
-              <p className="text-[10px] uppercase tracking-wider text-[var(--ink-dim)]">
-                {context.isCourse ? t('groupCourseInfoPrefix') : t('scTodayFromLesson')}
-              </p>
-              <p className="text-sm font-medium text-[var(--ink)] leading-snug">{context.title}</p>
-              <p className="text-xs text-[var(--ink-dim)] mt-0.5">{context.dateLabel}</p>
-              {onOpenLesson && (
-                <p className="text-xs text-[var(--accent)] mt-1.5">
-                  {t('scViewAllRecommendations')}
-                </p>
-              )}
+              {t('scTodayEmptyHint')} →
             </button>
-            <ul className="space-y-2 pl-1 border-l border-[var(--border-subtle)] ml-2">
-              {groupTasks.map(renderTaskRow)}
-            </ul>
-          </li>
-        ))}
-        {other.map(renderTaskRow)}
-      </ul>
+          )}
+        </div>
+      ) : (
+        <ul className="space-y-4">
+          {groups.map(({ context, tasks: groupTasks }) => (
+            <li key={context.bookingId} className="space-y-2">
+              <button
+                type="button"
+                onClick={() => openBooking(context.bookingId)}
+                disabled={!onOpenLesson}
+                className="w-full text-left rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-3 py-2.5 transition hover:border-[var(--accent)]/40 disabled:cursor-default disabled:hover:border-[var(--border-subtle)]"
+              >
+                <p className="text-[10px] uppercase tracking-wider text-[var(--ink-dim)]">
+                  {context.isCourse ? t('groupCourseInfoPrefix') : t('scTodayFromLesson')}
+                </p>
+                <p className="text-sm font-medium text-[var(--ink)] leading-snug">{context.title}</p>
+                <p className="text-xs text-[var(--ink-dim)] mt-0.5">{context.dateLabel}</p>
+                {onOpenLesson && (
+                  <p className="text-xs text-[var(--accent)] mt-1.5">
+                    {t('scViewAllRecommendations')}
+                  </p>
+                )}
+              </button>
+              <ul className="space-y-2 pl-1 border-l border-[var(--border-subtle)] ml-2">
+                {groupTasks.map(renderTaskRow)}
+              </ul>
+            </li>
+          ))}
+          {other.map(renderTaskRow)}
+        </ul>
+      )}
 
       {onAddTask && (
         <form onSubmit={handleSubmit} className="pt-1">

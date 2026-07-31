@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Home, LayoutGrid, LucideIcon, Settings, TrendingUp, Users } from 'lucide-react';
+import { ArrowLeft, Calendar, Home, LayoutGrid, LucideIcon, Settings, TrendingUp, Users } from 'lucide-react';
 import { useLanguage, type TranslationKey } from '../../../lib/LanguageContext';
 import { StudentCabinetTab } from './studentCabinetUtils';
 
@@ -17,6 +17,24 @@ export const STUDENT_TABS: {
 ];
 
 export const STUDENT_TAB_BAR_HEIGHT = '3.25rem';
+
+export const StudentPanelBackLink: React.FC<{
+  onClick: () => void;
+  className?: string;
+}> = ({ onClick, className = '' }) => {
+  const { t } = useLanguage();
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-2 text-sm text-[var(--ink-dim)] hover:text-[var(--ink)] transition-colors ${className}`}
+    >
+      <ArrowLeft className="h-4 w-4" aria-hidden />
+      {t('scNavHome')}
+    </button>
+  );
+};
 
 interface StudentCabinetTabBarProps {
   activeTab: StudentCabinetTab;

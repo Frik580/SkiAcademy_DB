@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Booking, Course, Instructor, Review, UserProfile } from '../../../types';
+import { Booking, Course, Instructor, Review, UserProfile, ActivityLog } from '../../../types';
 import { SkillConfig, DEFAULT_SKILL_CONFIG, calculateSkillProgress } from '../../../lib/skillData';
+import { AchievementsConfig } from '../../../lib/achievementConfig';
 import { cabinetPathForTab, parseCabinetTabParam } from '../../../lib/workspaceRoutes';
 import { StudentCabinetHome } from './StudentCabinetHome';
+import { StudentHistoryPanel } from './StudentHistoryPanel';
 import {
   StudentCalendarPanel,
   StudentCoursesPanel,
@@ -20,7 +22,10 @@ export interface StudentCabinetShellProps {
   courses: Course[];
   instructors: Instructor[];
   reviews: Review[];
+  activityLogs?: ActivityLog[];
   skillConfig?: SkillConfig;
+  achievementsConfig?: AchievementsConfig;
+  dismissedReviewIds?: string[];
   unreviewedCompletedBookings: Booking[];
   onDismissReview?: (id: string) => void;
   onReschedule: (booking: Booking) => void;
@@ -82,9 +87,14 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     courses: props.courses,
     instructors: props.instructors,
     reviews: props.reviews,
+    activityLogs: props.activityLogs ?? [],
+    dismissedReviewIds: props.dismissedReviewIds ?? [],
     skillConfig: props.skillConfig,
+    achievementsConfig: props.achievementsConfig,
     onOpenSession: (booking: Booking) => props.onChat(booking),
     onOpenLesson: props.onOpenLesson,
+    onWriteReview: props.onWriteReview,
+    onDismissReview: props.onDismissReview,
     onGoToTab: goToTab,
     onOpenDevelopmentSection: () => goToTab('development'),
     onContinueDevelopment: () => goToTab('development'),
@@ -126,6 +136,21 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       }}
     >
       {activeTab === 'home' && <StudentCabinetHome {...ctx} />}
+      {activeTab === 'history' && (
+        <StudentHistoryPanel
+          userProfile={props.userProfile}
+          bookings={props.bookings}
+          courses={props.courses}
+          reviews={props.reviews}
+          activityLogs={props.activityLogs}
+          dismissedReviewIds={props.dismissedReviewIds}
+          onOpenLesson={props.onOpenLesson}
+          onWriteReview={props.onWriteReview}
+          onOpenDevelopment={() => goToTab('development')}
+          onBack={() => goToTab('home')}
+          onToggleRecommendation={props.onToggleRecommendation}
+        />
+      )}
       {activeTab === 'development' && (
         <StudentDevelopmentPanel {...panelProps} onToggleSkillToday={props.onToggleSkillToday} />
       )}

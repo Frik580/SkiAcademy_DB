@@ -8,10 +8,11 @@ interface InstructorCardProps {
   instructor: Instructor;
   onBook: (instructor: Instructor) => void;
   onViewReviews?: (instructor: Instructor) => void;
+  bookLabel?: string;
 }
 
 export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardProps>(
-  ({ instructor, onBook, onViewReviews }, ref) => {
+  ({ instructor, onBook, onViewReviews, bookLabel }, ref) => {
     const { t } = useLanguage();
     const shouldReduceMotion = useReducedMotion();
 
@@ -125,7 +126,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
                     instructor.isAvailable ? 'btn-primary' : 'btn-secondary'
                   }`}
                 >
-                  {instructor.isAvailable ? t('bookNow') : t('instructorFull')}
+                  {instructor.isAvailable ? (bookLabel ?? t('bookNow')) : t('instructorFull')}
                 </button>
               </div>
             </div>

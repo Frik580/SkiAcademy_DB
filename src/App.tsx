@@ -92,7 +92,9 @@ const AppContent: React.FC = () => {
     onboardingEnabled,
     designTheme,
     skillConfig,
+    achievementsConfig,
     handleUpdateSkillConfig,
+    handleUpdateAchievementsConfig,
     handleSetDesignTheme,
     dismissedReviewIds,
     handleDismissReview,
@@ -127,6 +129,7 @@ const AppContent: React.FC = () => {
     handleClearNotifications,
     handleMarkNotificationsAsRead,
     unreadNotificationCount,
+    activityLogs,
     handleUpdateProfile,
     handleToggleFilters,
     handleToggleOnboarding,
@@ -302,6 +305,7 @@ const AppContent: React.FC = () => {
           filtersEnabled={filtersEnabled}
           designTheme={designTheme}
           skillConfig={skillConfig}
+          achievementsConfig={achievementsConfig}
           resortData={{
             resortConfig,
             tempC,
@@ -320,6 +324,7 @@ const AppContent: React.FC = () => {
           bookings={bookings}
           reviews={reviews}
           usersList={usersList}
+          activityLogs={activityLogs}
           deletedCompletedStats={deletedCompletedStats}
           dismissedReviewIds={dismissedReviewIds}
           searchQuery={filterState.searchQuery}
@@ -340,6 +345,7 @@ const AppContent: React.FC = () => {
           onToggleOnboarding={handleToggleOnboarding}
           onSetDesignTheme={handleSetDesignTheme}
           onUpdateSkillConfig={handleUpdateSkillConfig}
+          onUpdateAchievementsConfig={handleUpdateAchievementsConfig}
           onBookCourse={handleBookCourse}
           onReschedule={handleReschedule}
           onReassignInstructor={handleReassignInstructor}

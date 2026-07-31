@@ -1,10 +1,12 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Loader2, LogOut, Wallet } from 'lucide-react';
 import { UserProfile } from '../../../types';
 import { useLanguage } from '../../../lib/LanguageContext';
 import { optimizeProfileImage } from '../profileImage';
 import { uploadImage } from '../../../lib/storage';
 import { logger } from '../../../lib/logger';
+import { ToggleSwitch } from '../../ToggleSwitch';
+import { ScDivider, ScSectionTitle } from './StudentCabinetUI';
 
 interface StudentSettingsCompactProps {
   userProfile: UserProfile;
@@ -26,6 +28,16 @@ export const StudentSettingsCompact: React.FC<StudentSettingsCompactProps> = ({
   const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [displayName, setDisplayName] = useState(userProfile.displayName);
+  const [phoneNumber, setPhoneNumber] = useState(userProfile.phoneNumber ?? '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [hideProgress, setHideProgress] = useState(Boolean(userProfile.hideProgressTracking));
+
+  useEffect(() => {
+    setDisplayName(userProfile.displayName);
+    setPhoneNumber(userProfile.phoneNumber ?? '');
+    setHideProgress(Boolean(userProfile.hideProgressTracking));
+  }, [userProfile.displayName, userProfile.phoneNumber, userProfile.hideProgressTracking]);
 
   const upload = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -45,6 +57,40 @@ export const StudentSettingsCompact: React.FC<StudentSettingsCompactProps> = ({
       setIsUploading(false);
     }
   };
+
+  const handleSaveProfile = async () => {
+    if (!onUpdateProfile) return;
+    const trimmedName = displayName.trim();
+    if (!trimmedName) return;
+
+    setIsSaving(true);
+    try {
+      await onUpdateProfile({
+        displayName: trimmedName,
+        phoneNumber: phoneNumber.trim() || undefined,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleHideProgressChange = async (checked: boolean) => {
+    if (!onUpdateProfile) return;
+    setHideProgress(checked);
+    try {
+      await onUpdateProfile({ hideProgressTracking: checked });
+    } catch (err) {
+      logger.error(err);
+      setHideProgress(!checked);
+    }
+  };
+
+  const profileDirty =
+    displayName.trim() !== userProfile.displayName ||
+    (phoneNumber.trim() || '') !== (userProfile.phoneNumber ?? '');
+
+  const inputClassName =
+    'w-full min-h-[2.75rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-3 py-2.5 text-sm text-[var(--ink)] placeholder:text-[var(--ink-dim)] focus:outline-none focus:border-[var(--accent)] transition box-border';
 
   return (
     <div className="space-y-8">
@@ -84,6 +130,57 @@ export const StudentSettingsCompact: React.FC<StudentSettingsCompactProps> = ({
         </div>
       </div>
 
+      <section className="space-y-4">
+        <ScSectionTitle>{t('editProfile')}</ScSectionTitle>
+        <div className="space-y-3">
+          <label className="block space-y-1.5">
+            <span className="text-xs text-[var(--ink-dim)]">{t('scDisplayNameLabel')}</span>
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className={inputClassName}
+              disabled={!onUpdateProfile}
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-xs text-[var(--ink-dim)]">{t('phone')}</span>
+            <input
+              type="tel"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder={t('phoneOptional')}
+              className={inputClassName}
+              disabled={!onUpdateProfile}
+            />
+          </label>
+          {onUpdateProfile && (
+            <button
+              type="button"
+              onClick={() => void handleSaveProfile()}
+              disabled={!profileDirty || isSaving || !displayName.trim()}
+              className="text-sm font-medium text-[var(--accent)] hover:underline disabled:opacity-50 disabled:no-underline"
+            >
+              {isSaving ? '…' : t('saveChanges')}
+            </button>
+          )}
+        </div>
+      </section>
+
+      <ScDivider />
+
+      <section className="space-y-3">
+        <ToggleSwitch
+          checked={hideProgress}
+          onChange={(checked) => void handleHideProgressChange(checked)}
+          label={t('scHideProgressTracking')}
+          description={t('scHideProgressTrackingSub')}
+          disabled={!onUpdateProfile}
+        />
+      </section>
+
+      <ScDivider />
+
       <div className="flex items-center gap-3 py-2">
         <Wallet className="w-5 h-5 text-[var(--ink-dim)]" />
         <div>
@@ -93,12 +190,6 @@ export const StudentSettingsCompact: React.FC<StudentSettingsCompactProps> = ({
           </p>
         </div>
       </div>
-
-      {userProfile.phoneNumber && (
-        <p className="text-sm text-[var(--ink-dim)]">
-          {t('phone')}: <span className="text-[var(--ink)]">{userProfile.phoneNumber}</span>
-        </p>
-      )}
 
       <button
         type="button"

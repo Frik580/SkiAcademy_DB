@@ -8,6 +8,7 @@ export const CABINET_TABS: StudentCabinetTab[] = [
   'courses',
   'instructors',
   'settings',
+  'history',
 ];
 
 export const isInstructorWorkspaceUser = (profile: UserProfile) =>

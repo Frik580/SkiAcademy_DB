@@ -23,7 +23,8 @@ interface InstructorBookingCardProps {
     studentUid: string,
     studentName: string,
     studentLevel: number,
-    existingScores?: Record<string, number>
+    existingScores?: Record<string, number>,
+    existingComments?: Record<string, string>
   ) => void;
   onSaveRecommendations: (bookingId: string, items: LessonRecommendation[]) => Promise<void>;
 }
@@ -124,7 +125,15 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
           <div className="flex items-center gap-1.5">
             <StudentAssessButton
               t={t}
-              onClick={() => onOpenEval(uid, name, studentLevel, studentUser?.skillScores || {})}
+              onClick={() =>
+                onOpenEval(
+                  uid,
+                  name,
+                  studentLevel,
+                  studentUser?.skillScores || {},
+                  studentUser?.skillComments || {}
+                )
+              }
             />
             <StudentLevelControls
               studentUid={uid}
@@ -199,7 +208,8 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
                 individualBooking.userId,
                 studentName,
                 studentLevel,
-                studentUser?.skillScores || {}
+                studentUser?.skillScores || {},
+                studentUser?.skillComments || {}
               )
             }
           />

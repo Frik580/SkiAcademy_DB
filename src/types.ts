@@ -21,12 +21,16 @@ export interface UserProfile {
   isClientActive?: boolean;
   level?: number;
   skillScores?: Record<string, number>;
+  /** Instructor comments per skill exercise id */
+  skillComments?: Record<string, string>;
   hideProgressTracking?: boolean;
   hasCompletedOnboarding?: boolean;
   /** Skill exercise ids pinned to the Today checklist */
   todaySkillItemIds?: string[];
   /** Completed Today task ids (skill:*, custom:*) */
   completedTodayTaskIds?: string[];
+  /** YYYY-MM-DD — date when completedTodayTaskIds was last updated (daily reset) */
+  completedTodayDate?: string;
   /** User-created Today checklist items */
   customTodayTasks?: CustomTodayTask[];
   /** Today checklist items hidden by the user (recommendation task ids) */
@@ -142,6 +146,44 @@ export interface ChatMessage {
   attachmentUrl?: string;
   attachmentName?: string;
   attachmentSize?: number;
+}
+
+export type ActivityLogType =
+  | 'booking_completed'
+  | 'level_up'
+  | 'skill_scores_updated'
+  | 'review_created'
+  | 'recommendation_completed'
+  | 'recommendations_completed_all'
+  | 'achievement_earned';
+
+export interface ActivityLogMetadata {
+  bookingId?: string;
+  instructorId?: string;
+  instructorName?: string;
+  lessonTitle?: string;
+  difficulty?: LessonDifficulty;
+  durationHours?: number;
+  oldLevel?: number;
+  newLevel?: number;
+  pointsDelta?: number;
+  reviewId?: string;
+  rating?: number;
+  recommendationId?: string;
+  recommendationText?: string;
+  achievementId?: string;
+  sectionName?: string;
+  achievementLabelRu?: string;
+  achievementLabelEn?: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  userId: string;
+  actorId: string;
+  type: ActivityLogType;
+  timestamp: string;
+  metadata?: ActivityLogMetadata;
 }
 
 export enum OperationType {

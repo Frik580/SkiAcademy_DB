@@ -1,18 +1,24 @@
 import React, { useMemo } from 'react';
-import { Booking, Course, Instructor, Review, UserProfile } from '../../../types';
+import { Booking, Course, Instructor, Review, UserProfile, ActivityLog } from '../../../types';
 import { SkillConfig, DEFAULT_SKILL_CONFIG, calculateSkillProgress } from '../../../lib/skillData';
+import { AchievementsConfig } from '../../../lib/achievementConfig';
 import { useLanguage, translateInstructor } from '../../../lib/LanguageContext';
 import { GroupCourseCard, sortVisibleCourses } from '../../GroupCourseCard';
 import { InstructorCard } from '../../InstructorCard';
 import {
-  getHistoryEvents,
+  buildStudentHistory,
+  getAchievements,
+  getFirstName,
+  getGreeting,
   getLevelName,
   getLevelProgressPercent,
   getMiniCalendarDays,
+  getRecommendedCourses,
+  getRecommendedInstructors,
+  getTrainingStreakWeeks,
   getWeekBookedSessions,
   getNextCalendarSession,
   getNextSession,
-  getRecentLessons,
   getStudentStats,
   getTodayTasks,
   formatSessionDayLabel,
@@ -30,14 +36,15 @@ import {
   ScStatGrid,
   ScTextButton,
 } from './StudentCabinetUI';
-import { LessonRecommendationsList } from '../LessonRecommendationsList';
+import { StudentHistoryList } from './StudentHistoryList';
+import { StudentNeedsAttention } from './StudentNeedsAttention';
+import { StudentActivityRings } from './StudentActivityRings';
+import { TodayChecklist } from './TodayChecklist';
 import { RecommendationIndicator } from '../RecommendationIndicator';
 import {
   hasBookingRecommendations,
   hasPendingRecommendations,
 } from '../../../lib/lessonRecommendations';
-import { StudentActivityRings } from './StudentActivityRings';
-import { TodayChecklist } from './TodayChecklist';
 
 export interface StudentCabinetContext {
   userProfile: UserProfile;
@@ -45,9 +52,14 @@ export interface StudentCabinetContext {
   courses: Course[];
   instructors: Instructor[];
   reviews: Review[];
+  activityLogs?: ActivityLog[];
+  dismissedReviewIds?: string[];
   skillConfig?: SkillConfig;
+  achievementsConfig?: AchievementsConfig;
   onOpenSession: (booking: Booking) => void;
   onOpenLesson: (booking: Booking) => void;
+  onWriteReview: (booking: Booking) => void;
+  onDismissReview?: (bookingId: string) => void;
   onGoToTab: (tab: StudentCabinetTab) => void;
   onOpenDevelopmentSection: (sectionId: string) => void;
   onContinueDevelopment: () => void;
@@ -64,6 +76,8 @@ export interface StudentCabinetContext {
 
 type StudentCabinetHomeProps = StudentCabinetContext;
 
+const HOME_PREVIEW_COUNT = 2;
+
 export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => {
   const { language, t } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
@@ -73,9 +87,14 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     courses,
     instructors,
     reviews,
+    activityLogs = [],
+    dismissedReviewIds = [],
     skillConfig,
+    achievementsConfig,
     onOpenSession,
     onOpenLesson,
+    onWriteReview,
+    onDismissReview,
     onGoToTab,
     onContinueDevelopment,
     onToggleRecommendation,
@@ -90,6 +109,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   } = props;
 
   const level = userProfile.level || 1;
+  const hideProgress = Boolean(userProfile.hideProgressTracking);
   const { percent, remaining } = getLevelProgressPercent(userProfile, skillConfig);
 
   const skillItems = skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
@@ -129,17 +149,68 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
         : getDifficultyShort(nextSession.difficulty)
     : '';
   const todayTasks = getTodayTasks(userProfile, bookings, courses, lang, skillConfig);
-  const history = getHistoryEvents(userProfile, bookings, courses, lang, t);
-  const recentLessons = getRecentLessons(bookings, reviews, courses, lang);
-  const stats = getStudentStats(userProfile, bookings);
+  const history = useMemo(
+    () =>
+      buildStudentHistory(
+        userProfile,
+        bookings,
+        courses,
+        reviews,
+        lang,
+        t,
+        activityLogs,
+        dismissedReviewIds
+      ),
+    [userProfile, bookings, courses, reviews, lang, t, activityLogs, dismissedReviewIds]
+  );
+  const stats = getStudentStats(userProfile, bookings, skillItems);
+  const achievements = useMemo(
+    () =>
+      getAchievements(
+        userProfile,
+        bookings,
+        skillConfig,
+        lang,
+        activityLogs,
+        reviews.filter((review) => review.userId === userProfile.uid),
+        courses,
+        achievementsConfig
+      ),
+    [userProfile, bookings, skillConfig, lang, activityLogs, reviews, courses, achievementsConfig]
+  );
+  const streakWeeks = useMemo(
+    () => getTrainingStreakWeeks(bookings, activityLogs),
+    [bookings, activityLogs]
+  );
+  const recommendedCourses = useMemo(
+    () => getRecommendedCourses(userProfile, courses, bookings, HOME_PREVIEW_COUNT),
+    [userProfile, courses, bookings]
+  );
+  const recommendedInstructors = useMemo(
+    () =>
+      getRecommendedInstructors(userProfile, instructors, bookings, HOME_PREVIEW_COUNT).map((ins) =>
+        translateInstructor(ins, lang)
+      ),
+    [userProfile, instructors, bookings, lang]
+  );
   const miniDays = getMiniCalendarDays(bookings, courses, lang);
   const weekSessions = getWeekBookedSessions(bookings, courses);
   const nextCal = getNextCalendarSession(bookings, courses, lang);
   const visibleCourses = sortVisibleCourses(courses);
+  const previewCourses =
+    recommendedCourses.length > 0
+      ? recommendedCourses
+      : visibleCourses.slice(0, HOME_PREVIEW_COUNT);
   const availableInstructors = useMemo(
     () => instructors.filter((ins) => ins.isAvailable).map((ins) => translateInstructor(ins, lang)),
     [instructors, lang]
   );
+  const previewInstructors =
+    recommendedInstructors.length > 0
+      ? recommendedInstructors
+      : availableInstructors.slice(0, HOME_PREVIEW_COUNT);
+  const showCourseRecommendations = recommendedCourses.length > 0;
+  const showInstructorRecommendations = recommendedInstructors.length > 0;
 
   const monthLabel = new Date()
     .toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', {
@@ -149,27 +220,68 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
 
   return (
     <div className="space-y-0 pb-24 max-w-2xl mx-auto w-full px-4 sm:px-6 min-w-0">
-      {/* Hero — level + activity rings */}
-      <section className="py-6 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-4 sm:gap-6 sm:items-center">
+      {/* Hero — greeting, level + activity rings */}
+      <section
+        className={`py-6 ${hideProgress ? 'space-y-2' : 'grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-4 sm:gap-6 sm:items-center'}`}
+      >
         <div className="space-y-2 min-w-0">
+          <p className="text-lg font-medium text-[var(--ink)]">
+            {getGreeting(lang, getFirstName(userProfile.displayName))}
+          </p>
           <p className="text-xs font-medium tracking-widest text-[var(--ink-dim)] uppercase">
             LEVEL {level} · {getLevelName(level, lang)}
           </p>
-          <ScProgressBar percent={percent} variant="apple" showLabel />
-          <p className="text-sm text-[var(--ink-dim)]">
-            {t('scPointsToNextLevel').replace('{n}', String(remaining))}
-          </p>
-          <div className="pt-2 flex justify-center sm:hidden">
-            <StudentActivityRings rings={activityRings} layout="row" size={104} />
-          </div>
+          {streakWeeks > 0 && (
+            <p className="text-sm text-[var(--accent)]">
+              {t('scStreakWeeks').replace('{n}', String(streakWeeks))}
+            </p>
+          )}
+          {!hideProgress && (
+            <>
+              <ScProgressBar percent={percent} variant="apple" showLabel />
+              <p className="text-sm text-[var(--ink-dim)]">
+                {t('scPointsToNextLevel').replace('{n}', String(remaining))}
+              </p>
+              <div className="pt-2 flex justify-center sm:hidden">
+                <StudentActivityRings rings={activityRings} layout="row" size={104} />
+              </div>
+            </>
+          )}
           <ScTextButton arrow onClick={onContinueDevelopment}>
             {t('scContinueDevelopment')}
           </ScTextButton>
         </div>
-        <div className="hidden sm:flex justify-end">
-          <StudentActivityRings rings={activityRings} layout="row" size={104} />
-        </div>
+        {!hideProgress && (
+          <div className="hidden sm:flex justify-end">
+            <StudentActivityRings rings={activityRings} layout="row" size={104} />
+          </div>
+        )}
       </section>
+
+      {achievements.length > 0 && (
+        <>
+          <ScDivider />
+          <section className="py-6 space-y-3">
+            <ScSectionTitle>{t('scRecentAchievements')}</ScSectionTitle>
+            <div className="flex flex-wrap gap-2">
+              {achievements.map((item) => (
+                <span
+                  key={item.id}
+                  className="inline-flex flex-col gap-0.5 rounded-full border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-3 py-1.5 text-sm text-[var(--ink)]"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <span aria-hidden>{item.icon}</span>
+                    {item.label}
+                  </span>
+                  {item.earnedAtLabel && (
+                    <span className="text-[10px] text-[var(--ink-dim)] pl-6">{item.earnedAtLabel}</span>
+                  )}
+                </span>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
 
       <ScDivider />
 
@@ -184,19 +296,21 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             <p className="text-2xl font-serif font-light text-[var(--ink)]">
               {nextSession.time}–{addMinutesToTime(nextSession.time, nextSession.durationHours)}
             </p>
-            <button
-              type="button"
-              onClick={() => onOpenSession(nextSession)}
-              className="flex items-center gap-2 flex-wrap text-base text-[var(--ink)] hover:text-[var(--accent)] transition text-left"
-            >
+            <p className="flex items-center gap-2 flex-wrap text-base text-[var(--ink)]">
               <span>{nextSessionLessonLabel}</span>
               {hasBookingRecommendations(nextSession) && (
                 <RecommendationIndicator pending={hasPendingRecommendations(nextSession)} />
               )}
-            </button>
+            </p>
             <p className="text-sm text-[var(--ink-dim)]">
               {getRecentLessonInstructorLabel(nextSession, lang)}
             </p>
+            <div className="flex flex-wrap gap-4 pt-2">
+              <ScTextButton onClick={() => onOpenLesson(nextSession)}>
+                {t('scMoreDetails')}
+              </ScTextButton>
+              <ScTextButton onClick={() => onOpenSession(nextSession)}>{t('chat')}</ScTextButton>
+            </div>
           </div>
         ) : (
           <p className="text-sm text-[var(--ink-dim)]">{t('scNoUpcomingSession')}</p>
@@ -216,6 +330,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           onAddTask={onAddCustomTodayTask}
           onRemoveTask={onRemoveTodayTask}
           onOpenLesson={onOpenLesson}
+          onOpenDevelopment={onContinueDevelopment}
         />
       </section>
 
@@ -287,49 +402,40 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
 
       <ScDivider />
 
-      {/* Recent lessons */}
+      {/* Courses preview */}
       <section className="py-6 space-y-4">
-        <ScSectionTitle>{t('scRecentLessons')}</ScSectionTitle>
-        {recentLessons.length === 0 ? (
-          <p className="text-sm text-[var(--ink-dim)]">{t('scNoRecentLessons')}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <ScSectionTitle>{t('intensiveGroupCourses')}</ScSectionTitle>
+            <p className="text-sm text-[var(--ink-dim)]">
+              {showCourseRecommendations ? t('scRecommendedCoursesSub') : t('intensiveGroupCoursesSub')}
+            </p>
+          </div>
+          {visibleCourses.length > HOME_PREVIEW_COUNT && (
+            <ScTextButton arrow onClick={() => onGoToTab('courses')}>
+              {t('scViewAllCourses')}
+            </ScTextButton>
+          )}
+        </div>
+        {previewCourses.length === 0 ? (
+          <p className="text-sm text-[var(--ink-dim)]">{t('noIntensiveCoursesAvailable')}</p>
         ) : (
-          <div className="space-y-6">
-            {recentLessons.map((lesson) => (
-              <article
-                key={lesson.id}
-                className="space-y-2 pb-6 border-b border-[var(--border-subtle)] last:border-0"
-              >
-                <div className="flex justify-between items-baseline gap-2 flex-wrap">
-                  <span className="font-medium text-[var(--ink)] flex items-center gap-2 min-w-0 flex-1">
-                    <span className="break-words min-w-0">{lesson.title}</span>
-                    {hasBookingRecommendations(lesson.booking) && (
-                      <RecommendationIndicator
-                        pending={hasPendingRecommendations(lesson.booking)}
-                      />
-                    )}
-                  </span>
-                  <span className="text-xs text-[var(--ink-dim)] shrink-0">{lesson.dateLabel}</span>
-                </div>
-                <p className="text-sm text-[var(--ink-dim)]">{lesson.instructorName}</p>
-                <p className="text-amber-500 text-sm">
-                  {'★'.repeat(lesson.rating)}
-                  {'☆'.repeat(5 - lesson.rating)}
-                </p>
-                <LessonRecommendationsList
-                  booking={lesson.booking}
-                  onToggle={onToggleRecommendation}
-                  compact
-                />
-                {lesson.reviewSnippet && (
-                  <div className="text-sm space-y-1">
-                    <p className="text-[var(--ink-dim)]">{t('scCoachReview')}</p>
-                    <p className="text-[var(--ink)] italic">&ldquo;{lesson.reviewSnippet}&rdquo;</p>
-                  </div>
-                )}
-                <ScTextButton onClick={() => onOpenLesson(lesson.booking)}>
-                  {t('scMoreDetails')}
-                </ScTextButton>
-              </article>
+          <div
+            className="grid gap-6 theme-air:gap-8"
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}
+          >
+            {previewCourses.map((rawCourse) => (
+              <GroupCourseCard
+                key={rawCourse.id}
+                rawCourse={rawCourse}
+                bookings={bookings}
+                userProfile={userProfile}
+                language={lang}
+                onViewDetails={onViewCourseDetails}
+                onRequireAuth={onRequireCourseAuth}
+                onBookCourse={onBookCourse}
+                className="h-full"
+              />
             ))}
           </div>
         )}
@@ -337,93 +443,95 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
 
       <ScDivider />
 
-      {/* Courses */}
+      {/* Instructors preview */}
       <section className="py-6 space-y-4">
-        <div className="space-y-1">
-          <ScSectionTitle>{t('intensiveGroupCourses')}</ScSectionTitle>
-          <p className="text-sm text-[var(--ink-dim)]">{t('intensiveGroupCoursesSub')}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <ScSectionTitle>{t('scInstructors')}</ScSectionTitle>
+            <p className="text-sm text-[var(--ink-dim)]">
+              {showInstructorRecommendations ? t('scRecommendedInstructorsSub') : t('meetGuidesSub')}
+            </p>
+          </div>
+          {availableInstructors.length > HOME_PREVIEW_COUNT && (
+            <ScTextButton arrow onClick={() => onGoToTab('instructors')}>
+              {t('scViewAllInstructors')}
+            </ScTextButton>
+          )}
         </div>
-        <div
-          className="grid gap-6 theme-air:gap-8"
-          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}
-        >
-          {visibleCourses.map((rawCourse) => (
-            <GroupCourseCard
-              key={rawCourse.id}
-              rawCourse={rawCourse}
-              bookings={bookings}
-              userProfile={userProfile}
-              language={lang}
-              onViewDetails={onViewCourseDetails}
-              onRequireAuth={onRequireCourseAuth}
-              onBookCourse={onBookCourse}
-              className="h-full"
-            />
-          ))}
-        </div>
-        {visibleCourses.length === 0 && (
-          <p className="text-sm text-[var(--ink-dim)]">{t('noIntensiveCoursesAvailable')}</p>
-        )}
-      </section>
-
-      <ScDivider />
-
-      {/* Instructors */}
-      <section className="py-6 space-y-6">
-        <div className="space-y-1">
-          <ScSectionTitle>{t('scInstructors')}</ScSectionTitle>
-          <p className="text-sm text-[var(--ink-dim)]">{t('meetGuidesSub')}</p>
-        </div>
-        <div className="flex flex-col gap-8">
-          {availableInstructors.map((ins) => (
-            <InstructorCard
-              key={ins.id}
-              instructor={ins}
-              onBook={onBookInstructor}
-              onViewReviews={onViewInstructorReviews}
-            />
-          ))}
-        </div>
-        {availableInstructors.length === 0 && (
+        {previewInstructors.length === 0 ? (
           <p className="text-sm text-[var(--ink-dim)]">{t('noCoachesMatch')}</p>
+        ) : (
+          <div className="flex flex-col gap-8">
+            {previewInstructors.map((ins) => (
+              <InstructorCard
+                key={ins.id}
+                instructor={ins}
+                onBook={onBookInstructor}
+                onViewReviews={onViewInstructorReviews}
+              />
+            ))}
+          </div>
         )}
       </section>
 
+      {!hideProgress && (
+        <>
+          <ScDivider />
+
+          {/* Stats */}
+          <section className="py-6 space-y-4">
+            <ScSectionTitle>{t('scMyStats')}</ScSectionTitle>
+            <ScStatGrid
+              items={[
+                { label: t('scLessonsCount'), value: stats.lessons },
+                { label: t('scHoursCount'), value: stats.hours },
+                { label: t('scExercisesMastered'), value: stats.exercisesMastered },
+                { label: t('scPointsEarned'), value: stats.points },
+              ]}
+            />
+          </section>
+        </>
+      )}
+
       <ScDivider />
 
-      {/* Stats */}
-      <section className="py-6 space-y-4">
-        <ScSectionTitle>{t('scMyStats')}</ScSectionTitle>
-        <ScStatGrid
-          items={[
-            { label: t('scLessonsCount'), value: stats.lessons },
-            { label: t('scHoursCount'), value: stats.hours },
-            { label: t('scKilometersCount'), value: stats.kilometers },
-            { label: t('scPointsEarned'), value: stats.points },
-          ]}
-        />
-      </section>
+      {/* Needs attention — unreviewed lessons and open recommendations */}
+      <StudentNeedsAttention
+        bookings={bookings}
+        reviews={reviews}
+        userId={userProfile.uid}
+        dismissedReviewIds={dismissedReviewIds}
+        onOpenLesson={onOpenLesson}
+        onWriteReview={onWriteReview}
+        onDismissReview={onDismissReview}
+      />
 
-      <ScDivider />
-
-      {/* History */}
+      {/* History — progress timeline */}
       <section className="py-6 space-y-4">
-        <ScSectionTitle>{t('scHistory')}</ScSectionTitle>
-        <div className="space-y-0">
-          {history.map((ev, idx) => (
-            <div key={ev.id}>
-              <div className="py-4 space-y-1">
-                <p className="text-xs text-[var(--ink-dim)]">{ev.dateLabel}</p>
-                <p className="text-sm text-[var(--ink)]">
-                  {ev.kind === 'training' && '✓ '}
-                  {ev.title}
-                </p>
-                {ev.subtitle && <p className="text-sm text-[var(--ink-dim)]">{ev.subtitle}</p>}
-              </div>
-              {idx < history.length - 1 && <div className="h-px bg-[var(--border-subtle)]" />}
-            </div>
-          ))}
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <ScSectionTitle>{t('scHistory')}</ScSectionTitle>
+            <p className="text-sm text-[var(--ink-dim)]">{t('scHistorySubtitle')}</p>
+          </div>
         </div>
+        <StudentHistoryList
+          events={history}
+          bookings={bookings}
+          courses={courses}
+          reviews={reviews}
+          dismissedReviewIds={dismissedReviewIds}
+          filter="all"
+          limit={5}
+          onOpenLesson={onOpenLesson}
+          onWriteReview={onWriteReview}
+          onOpenDevelopment={onContinueDevelopment}
+          onToggleRecommendation={onToggleRecommendation}
+        />
+        {history.length > 0 && (
+          <ScTextButton arrow onClick={() => onGoToTab('history')}>
+            {t('scHistoryShowAll')}
+          </ScTextButton>
+        )}
       </section>
     </div>
   );

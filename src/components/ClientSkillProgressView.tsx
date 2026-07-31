@@ -2,16 +2,21 @@ import React, { useMemo } from 'react';
 import { UserProfile } from '../types';
 import { SkillConfig, DEFAULT_SKILL_CONFIG, calculateSkillProgress } from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
+import { matchesSkillRingFilter, SkillRingFilter } from './personal_cabinet/student/studentCabinetUtils';
 
 interface ClientSkillProgressViewProps {
   userProfile: UserProfile;
   skillConfig?: SkillConfig;
+  ringFilter?: SkillRingFilter;
+  hideScores?: boolean;
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
 }
 
 export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = ({
   userProfile,
   skillConfig = DEFAULT_SKILL_CONFIG,
+  ringFilter = 'all',
+  hideScores = false,
   onToggleSkillToday,
 }) => {
   const { t } = useLanguage();
@@ -33,7 +38,10 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
     <div className="space-y-8">
       {levelGroups.map((levelNum) => {
         const levelItems = progress.displayItems.filter((i) => i.levelTarget === levelNum);
-        if (levelItems.length === 0) return null;
+        const filteredLevelItems = levelItems.filter((item) =>
+          matchesSkillRingFilter(item, ringFilter)
+        );
+        if (filteredLevelItems.length === 0) return null;
 
         return (
           <div key={`level-group-${levelNum}`} className="space-y-1">
@@ -41,7 +49,7 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
               {t('instructorLevel')} {levelNum}
             </h3>
             <ul className="divide-y divide-[var(--border-subtle)]">
-              {levelItems.map((item) => {
+              {filteredLevelItems.map((item) => {
                 const earned = userProfile.skillScores?.[item.id] ?? 0;
                 const pinned = pinnedIds.has(item.id);
                 const isMaxScore = item.maxPoints > 0 && earned >= item.maxPoints;
@@ -78,15 +86,27 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
                       <p className={`leading-snug ${isMaxScore ? 'text-[var(--ink-dim)]' : ''}`}>
                         {item.title}
                       </p>
-                      <p
-                        className={`text-xs tabular-nums ${
-                          isMaxScore
-                            ? 'text-emerald-600 dark:text-emerald-400 font-medium'
-                            : 'text-[var(--ink-dim)]'
-                        }`}
-                      >
-                        {earned} / {item.maxPoints}
-                      </p>
+                      {!hideScores && (
+                        <p
+                          className={`text-xs tabular-nums ${
+                            isMaxScore
+                              ? 'text-emerald-600 dark:text-emerald-400 font-medium'
+                              : 'text-[var(--ink-dim)]'
+                          }`}
+                        >
+                          {earned} / {item.maxPoints}
+                        </p>
+                      )}
+                      {userProfile.skillComments?.[item.id]?.trim() && (
+                        <div className="pt-1 space-y-0.5">
+                          <p className="text-[10px] uppercase tracking-wide text-[var(--ink-dim)]">
+                            {t('scCoachExerciseComment')}
+                          </p>
+                          <p className="text-xs text-[var(--ink)] italic leading-relaxed">
+                            &ldquo;{userProfile.skillComments[item.id].trim()}&rdquo;
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </li>
                 );

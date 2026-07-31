@@ -262,6 +262,56 @@ describe('notifications', () => {
   });
 });
 
+describe('activity_logs', () => {
+  beforeEach(async () => {
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'users', USER_ID), userProfile(USER_ID, 'user@example.com'));
+      await setDoc(doc(db, 'users', OTHER_USER_ID), userProfile(OTHER_USER_ID, 'other@example.com'));
+      await setDoc(doc(db, 'users', INSTRUCTOR_USER_ID), {
+        ...userProfile(INSTRUCTOR_USER_ID, 'instructor@example.com'),
+        instructorId: 'instructor-1',
+      });
+      await setDoc(doc(db, 'activity_logs', 'activity-1'), {
+        userId: USER_ID,
+        actorId: INSTRUCTOR_USER_ID,
+        type: 'booking_completed',
+        timestamp: '2026-07-28T12:00:00.000Z',
+      });
+    });
+  });
+
+  it('allows the student to read their activity logs and rejects other users', async () => {
+    const ownerDb = testEnv.authenticatedContext(USER_ID).firestore();
+    const otherDb = testEnv.authenticatedContext(OTHER_USER_ID).firestore();
+
+    await assertSucceeds(getDoc(doc(ownerDb, 'activity_logs', 'activity-1')));
+    await assertFails(getDoc(doc(otherDb, 'activity_logs', 'activity-1')));
+  });
+
+  it('allows instructors to create activity logs for students', async () => {
+    const instructorDb = testEnv.authenticatedContext(INSTRUCTOR_USER_ID).firestore();
+
+    await assertSucceeds(
+      setDoc(doc(instructorDb, 'activity_logs', 'activity-2'), {
+        userId: USER_ID,
+        actorId: INSTRUCTOR_USER_ID,
+        type: 'level_up',
+        timestamp: '2026-07-28T12:00:00.000Z',
+      })
+    );
+  });
+
+  it('rejects updates and deletes', async () => {
+    const ownerDb = testEnv.authenticatedContext(USER_ID).firestore();
+
+    await assertFails(
+      updateDoc(doc(ownerDb, 'activity_logs', 'activity-1'), { type: 'review_created' })
+    );
+    await assertFails(deleteDoc(doc(ownerDb, 'activity_logs', 'activity-1')));
+  });
+});
+
 describe('booking chat messages', () => {
   beforeEach(async () => {
     await seedData(async (context) => {

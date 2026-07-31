@@ -63,6 +63,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
         studentName={evalModalState.studentName}
         studentLevel={evalModalState.studentLevel}
         existingScores={evalModalState.existingScores}
+        existingComments={evalModalState.existingComments}
         skillConfig={skillConfig}
         onSaveScores={handleSaveStudentScores}
       />

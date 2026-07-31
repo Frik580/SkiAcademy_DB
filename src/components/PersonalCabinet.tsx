@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { AvailabilitySlot, Booking, UserProfile, Review, Course, Instructor } from '../types';
+import { AvailabilitySlot, Booking, UserProfile, Review, Course, Instructor, ActivityLog } from '../types';
 import { Lock, Sparkles } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, parseCourseDates, useTranslatedBookings } from '../lib/LanguageContext';
@@ -7,6 +7,7 @@ import { useTheme } from './useTheme';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
 import { AVAILABILITY_SLOTS_COLLECTION } from '../lib/availabilitySlots';
 import { SkillConfig } from '../lib/skillData';
+import { AchievementsConfig } from '../lib/achievementConfig';
 import { StudentCabinetShell } from './personal_cabinet/student/StudentCabinetShell';
 import { RescheduleModal } from './personal_cabinet/RescheduleModal';
 import { ReviewModal } from './personal_cabinet/ReviewModal';
@@ -51,6 +52,8 @@ interface PersonalCabinetProps {
   instructors?: Instructor[];
   usersList?: UserProfile[];
   skillConfig?: SkillConfig;
+  achievementsConfig?: AchievementsConfig;
+  activityLogs?: ActivityLog[];
   onOpenOnboarding?: () => void;
   onViewCourseDetails?: (course: Course) => void;
   onRequireCourseAuth?: (course: Course) => void;
@@ -80,6 +83,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   instructors = [],
   usersList = [],
   skillConfig,
+  achievementsConfig,
+  activityLogs = [],
   onOpenOnboarding,
   onViewCourseDetails,
   onRequireCourseAuth,
@@ -538,7 +543,10 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             courses={courses}
             instructors={instructors}
             reviews={reviews}
+            activityLogs={activityLogs}
+            dismissedReviewIds={dismissedReviewIds}
             skillConfig={skillConfig}
+            achievementsConfig={achievementsConfig}
             unreviewedCompletedBookings={unreviewedCompletedBookings}
             onDismissReview={onDismissReview}
             onReschedule={(booking) => {

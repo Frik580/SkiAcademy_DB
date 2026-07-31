@@ -18,6 +18,11 @@ import {
 } from '../../lib/availabilitySlots';
 import { LessonRecommendation } from '../../types';
 import { sanitizeRecommendations } from '../../lib/lessonRecommendations';
+import {
+  activityLogId,
+  buildBookingCompletedMetadata,
+  logActivityForUser,
+} from '../../lib/activityLog';
 
 export interface InstructorWorkspaceInput {
   userProfile: UserProfile;
@@ -88,6 +93,7 @@ export const useInstructorWorkspace = ({
     studentName: '',
     studentLevel: 1,
     existingScores: {} as Record<string, number>,
+    existingComments: {} as Record<string, string>,
   });
 
   const linkedInstructor = useMemo(() => {
@@ -257,13 +263,50 @@ export const useInstructorWorkspace = ({
   const handleSaveStudentScores = async (
     studentUid: string,
     updatedScores: Record<string, number>,
-    calculatedLevel: number
+    calculatedLevel: number,
+    updatedComments: Record<string, string> = {}
   ) => {
     try {
+      const student = usersList.find((item) => item.uid === studentUid);
+      const oldLevel = student?.level ?? 1;
+      const oldScores = student?.skillScores ?? {};
+      const oldTotal = Object.values(oldScores).reduce((sum, value) => sum + value, 0);
+      const newTotal = Object.values(updatedScores).reduce((sum, value) => sum + value, 0);
+      const pointsDelta = newTotal - oldTotal;
+
+      const mergedComments = { ...(student?.skillComments ?? {}), ...updatedComments };
+      for (const itemId of Object.keys(mergedComments)) {
+        if (!(itemId in updatedScores) || updatedScores[itemId] === 0) {
+          delete mergedComments[itemId];
+        }
+      }
+      for (const itemId of Object.keys(updatedScores)) {
+        if (updatedScores[itemId] === 0) {
+          delete mergedComments[itemId];
+        }
+      }
+
       await updateDoc(doc(db, 'users', studentUid), {
         skillScores: updatedScores,
+        skillComments: mergedComments,
         level: calculatedLevel,
       });
+
+      if (calculatedLevel > oldLevel) {
+        await logActivityForUser(
+          studentUid,
+          userProfile.uid,
+          'level_up',
+          { oldLevel, newLevel: calculatedLevel },
+          activityLogId.levelUp(studentUid, calculatedLevel)
+        );
+      } else if (pointsDelta > 0) {
+        await logActivityForUser(studentUid, userProfile.uid, 'skill_scores_updated', {
+          pointsDelta,
+          newLevel: calculatedLevel,
+        });
+      }
+
       addNotification(
         'success',
         t('instructorRatingsSaved'),
@@ -280,7 +323,21 @@ export const useInstructorWorkspace = ({
     newLevel: number
   ) => {
     try {
+      const student = usersList.find((item) => item.uid === studentUid);
+      const oldLevel = student?.level ?? 1;
+
       await updateDoc(doc(db, 'users', studentUid), { level: newLevel });
+
+      if (newLevel > oldLevel) {
+        await logActivityForUser(
+          studentUid,
+          userProfile.uid,
+          'level_up',
+          { oldLevel, newLevel },
+          activityLogId.levelUp(studentUid, newLevel)
+        );
+      }
+
       addNotification(
         'info',
         t('instructorLevelUpdated'),
@@ -323,6 +380,16 @@ export const useInstructorWorkspace = ({
         }
       }
       await batch.commit();
+
+      if (nextStatus === 'completed' && booking) {
+        await logActivityForUser(
+          booking.userId,
+          userProfile.uid,
+          'booking_completed',
+          buildBookingCompletedMetadata(booking, courses),
+          activityLogId.bookingCompleted(booking.id)
+        );
+      }
     } catch (err) {
       logger.error('Error updating lesson status:', err);
     }
@@ -332,7 +399,8 @@ export const useInstructorWorkspace = ({
     studentUid: string,
     studentName: string,
     studentLevel: number,
-    existingScores?: Record<string, number>
+    existingScores?: Record<string, number>,
+    existingComments?: Record<string, string>
   ) => {
     setEvalModalState({
       isOpen: true,
@@ -340,6 +408,7 @@ export const useInstructorWorkspace = ({
       studentName,
       studentLevel,
       existingScores: existingScores || {},
+      existingComments: existingComments || {},
     });
   };
 

@@ -18,12 +18,20 @@ import {
 import { canManageAdminRoles } from '../lib/accessControl';
 import { useLanguage } from '../lib/LanguageContext';
 import { DEFAULT_SKILL_CONFIG, SkillConfig } from '../lib/skillData';
+import {
+  AchievementsConfig,
+  DEFAULT_ACHIEVEMENTS_CONFIG,
+  normalizeAchievementsConfig,
+} from '../lib/achievementConfig';
 import { Instructor, Review, UserProfile } from '../types';
+import { activityLogId, logActivityForUser } from '../lib/activityLog';
+import { syncAchievementActivityLogs } from '../lib/achievements';
 import { useAvailabilityMigration } from './useAvailabilityMigration';
 import { useBookings } from './useBookings';
 import { useCourses } from './useCourses';
 import { useDismissedReviews } from './useDismissedReviews';
 import { useNotifications as useDbNotifications } from './useNotifications';
+import { useActivityLog } from './useActivityLog';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
 import { QUERY_LIMITS } from '../lib/queryLimits';
 import { logger } from '../lib/logger';
@@ -52,10 +60,14 @@ export const useAppLogic = (
   const [onboardingEnabled, setOnboardingEnabled] = useState(true);
   const [designTheme, setDesignTheme] = useState<DesignTheme>('classic');
   const [skillConfig, setSkillConfig] = useState<SkillConfig>(DEFAULT_SKILL_CONFIG);
+  const [achievementsConfig, setAchievementsConfig] = useState<AchievementsConfig>(
+    DEFAULT_ACHIEVEMENTS_CONFIG
+  );
 
   const bookingLogic = useBookings(firebaseUser, userProfile, setUserProfile);
   const courseLogic = useCourses(firebaseUser, userProfile, setUserProfile, bookingLogic.bookings);
   const notificationLogic = useDbNotifications(firebaseUser);
+  const activityLogLogic = useActivityLog(firebaseUser);
 
   useAvailabilityMigration(userProfile?.role, bookingLogic.bookingsLoaded, bookingLogic.bookings);
 
@@ -143,6 +155,18 @@ export const useAppLogic = (
       ),
 
       onSnapshot(
+        doc(db, 'settings', 'achievements_config'),
+        (snapshot) => {
+          if (!snapshot.exists()) {
+            setAchievementsConfig(DEFAULT_ACHIEVEMENTS_CONFIG);
+            return;
+          }
+          setAchievementsConfig(normalizeAchievementsConfig(snapshot.data() as AchievementsConfig));
+        },
+        (error) => logger.error('Achievements config listener error:', error)
+      ),
+
+      onSnapshot(
         doc(db, 'settings', 'design_theme'),
         (snapshot) => {
           if (!snapshot.exists()) {
@@ -201,6 +225,21 @@ export const useAppLogic = (
       ...newReviewInput,
     };
     await setDoc(doc(db, 'reviews', newReview.id), newReview);
+
+    const booking = bookingLogic.bookings.find((item) => item.id === newReviewInput.bookingId);
+    await logActivityForUser(
+      userProfile.uid,
+      userProfile.uid,
+      'review_created',
+      {
+        reviewId: newReview.id,
+        bookingId: newReviewInput.bookingId,
+        instructorId: newReview.instructorId,
+        instructorName: booking?.instructorName,
+        rating: newReview.rating,
+      },
+      activityLogId.reviewCreated(newReview.id)
+    );
 
     const instructorReviews = [newReview, ...reviews].filter(
       (review) => review.instructorId === newReview.instructorId
@@ -265,8 +304,13 @@ export const useAppLogic = (
 
   const handleUpdateProfile = async (updatedData: Partial<UserProfile>) => {
     if (!firebaseUser || !userProfile) return;
-    await updateDoc(doc(db, 'users', firebaseUser.uid), updatedData);
-    setUserProfile({ ...userProfile, ...updatedData });
+    try {
+      await updateDoc(doc(db, 'users', firebaseUser.uid), updatedData);
+      setUserProfile({ ...userProfile, ...updatedData });
+    } catch (err) {
+      logger.error('Profile update failed:', err);
+      throw err;
+    }
   };
 
   const handleToggleSkillToday = async (skillItemId: string, pinned: boolean) => {
@@ -310,11 +354,43 @@ export const useAppLogic = (
     addNotification('info', t('designThemeUpdated'), t('designThemeUpdatedDesc'));
   };
 
+  const handleUpdateAchievementsConfig = async (config: AchievementsConfig) => {
+    const normalized = normalizeAchievementsConfig(config);
+    setAchievementsConfig(normalized);
+    await setDoc(doc(db, 'settings', 'achievements_config'), normalized);
+    addNotification('info', t('achievementsSaved'), t('achievementsSavedDesc'));
+  };
+
   const handleUpdateSkillConfig = async (newConfig: SkillConfig) => {
     setSkillConfig(newConfig);
     await setDoc(doc(db, 'settings', 'skill_config'), newConfig);
     addNotification('info', t('skillTableUpdated'), t('skillTableUpdatedDesc'));
   };
+
+  useEffect(() => {
+    if (!firebaseUser || !userProfile || userProfile.role !== 'user') return;
+    if (!bookingLogic.bookingsLoaded) return;
+
+    syncAchievementActivityLogs(firebaseUser.uid, {
+      userProfile,
+      bookings: bookingLogic.bookings,
+      courses: courseLogic.courses,
+      reviews: reviews.filter((review) => review.userId === firebaseUser.uid),
+      skillConfig,
+      activityLogs: activityLogLogic.activityLogs,
+      achievementsConfig,
+    }).catch((error) => logger.error('Achievement sync failed:', error));
+  }, [
+    firebaseUser,
+    userProfile,
+    bookingLogic.bookings,
+    bookingLogic.bookingsLoaded,
+    courseLogic.courses,
+    reviews,
+    skillConfig,
+    achievementsConfig,
+    activityLogLogic.activityLogs,
+  ]);
 
   return {
     instructors,
@@ -324,6 +400,7 @@ export const useAppLogic = (
     onboardingEnabled,
     designTheme,
     skillConfig,
+    achievementsConfig,
     dismissedReviewIds,
     handleDismissReview,
     handlePaymentSuccess,
@@ -344,8 +421,10 @@ export const useAppLogic = (
     handleToggleOnboarding,
     handleSetDesignTheme,
     handleUpdateSkillConfig,
+    handleUpdateAchievementsConfig,
     ...bookingLogic,
     ...courseLogic,
     ...notificationLogic,
+    ...activityLogLogic,
   };
 };

@@ -8,6 +8,14 @@ import { InstructorCard } from '../../InstructorCard';
 import { StudentSettingsCompact } from './StudentSettingsCompact';
 import { StudentCabinetContext } from './StudentCabinetHome';
 import { StudentDevelopmentPanel } from './StudentDevelopmentPanel';
+import { ScDivider, ScSectionTitle, StudentPanelBackLink } from './StudentCabinetUI';
+import {
+  getAvailableCourses,
+  getEnrolledCourses,
+  getMyInstructors,
+  getRecommendedCourses,
+  getRecommendedInstructors,
+} from './studentCabinetUtils';
 
 export { StudentDevelopmentPanel };
 
@@ -36,21 +44,27 @@ export const StudentCalendarPanel: React.FC<
   onCancel,
   onChat,
   onWriteReview,
+  onOpenLesson,
+  onGoToTab,
 }) => {
   const { t } = useLanguage();
   const userBookings = bookings.filter((b) => b.userId === userProfile.uid && !b.isDeleted);
 
   return (
     <div className="space-y-6 pb-24 max-w-2xl mx-auto px-4 sm:px-6 w-full min-w-0">
-      <h1 className="text-2xl font-serif font-light text-[var(--ink)] pt-6">
-        {t('scFullCalendar')}
-      </h1>
+      <div className="pt-6 space-y-4">
+        <StudentPanelBackLink onClick={() => onGoToTab('home')} />
+        <h1 className="text-2xl font-serif font-light text-[var(--ink)]">
+          {t('scFullCalendar')}
+        </h1>
+      </div>
       <ClientBookingsList
         userBookings={userBookings}
         unreviewedCompletedBookings={unreviewedCompletedBookings}
         showWorkoutCalendar
         onDismissReview={onDismissReview}
         onWriteReview={onWriteReview}
+        onOpenLesson={onOpenLesson}
         onReschedule={onReschedule}
         onCancel={onCancel}
         onChat={onChat}
@@ -72,12 +86,39 @@ export const StudentCoursesPanel: React.FC<
   onViewCourseDetails,
   onRequireCourseAuth,
   onBookCourse,
+  onGoToTab,
 }) => {
   const { t, language } = useLanguage();
-  const visibleCourses = sortVisibleCourses(courses);
+  const myCourses = getEnrolledCourses(bookings, courses, userProfile.uid);
+  const recommendedCourses = getRecommendedCourses(userProfile, courses, bookings, 2);
+  const availableCourses = sortVisibleCourses(
+    getAvailableCourses(bookings, courses, userProfile.uid)
+  );
+
+  const renderCourseGrid = (items: Course[]) => (
+    <div
+      className="grid gap-6 theme-air:gap-8"
+      style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}
+    >
+      {items.map((rawCourse) => (
+        <GroupCourseCard
+          key={rawCourse.id}
+          rawCourse={rawCourse}
+          bookings={bookings}
+          userProfile={userProfile}
+          language={language}
+          onViewDetails={onViewCourseDetails}
+          onRequireAuth={onRequireCourseAuth}
+          onBookCourse={onBookCourse}
+          className="h-full"
+        />
+      ))}
+    </div>
+  );
 
   return (
     <div className="pb-24 max-w-7xl mx-auto pt-6 px-4 sm:px-6 space-y-6 w-full min-w-0">
+      <StudentPanelBackLink onClick={() => onGoToTab('home')} />
       <div>
         <h1 className="text-2xl font-serif font-light text-[var(--ink)]">
           {t('intensiveGroupCourses')}
@@ -85,28 +126,49 @@ export const StudentCoursesPanel: React.FC<
         <p className="text-sm text-[var(--ink-dim)] mt-2">{t('intensiveGroupCoursesSub')}</p>
       </div>
 
-      <div
-        className="grid gap-6 theme-air:gap-8"
-        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}
-      >
-        {visibleCourses.map((rawCourse) => (
-          <GroupCourseCard
-            key={rawCourse.id}
-            rawCourse={rawCourse}
-            bookings={bookings}
-            userProfile={userProfile}
-            language={language}
-            onViewDetails={onViewCourseDetails}
-            onRequireAuth={onRequireCourseAuth}
-            onBookCourse={onBookCourse}
-            className="h-full"
-          />
-        ))}
-      </div>
-
-      {visibleCourses.length === 0 && (
-        <div className="ui-empty-state">{t('noIntensiveCoursesAvailable')}</div>
+      {recommendedCourses.length > 0 && myCourses.length === 0 && (
+        <section className="space-y-4">
+          <div className="space-y-1">
+            <ScSectionTitle>{t('scRecommendedCourses')}</ScSectionTitle>
+            <p className="text-sm text-[var(--ink-dim)]">{t('scRecommendedCoursesSub')}</p>
+          </div>
+          {renderCourseGrid(recommendedCourses)}
+        </section>
       )}
+
+      {recommendedCourses.length > 0 && myCourses.length === 0 && availableCourses.length > 0 && (
+        <ScDivider />
+      )}
+
+      {myCourses.length > 0 && (
+        <section className="space-y-4">
+          <div className="space-y-1">
+            <ScSectionTitle>{t('scMyCourses')}</ScSectionTitle>
+            <p className="text-sm text-[var(--ink-dim)]">{t('scMyCoursesSub')}</p>
+          </div>
+          {renderCourseGrid(myCourses)}
+        </section>
+      )}
+
+      {myCourses.length > 0 && availableCourses.length > 0 && <ScDivider />}
+
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <ScSectionTitle>
+            {myCourses.length > 0 ? t('scAvailableCourses') : t('intensiveGroupCourses')}
+          </ScSectionTitle>
+          {myCourses.length > 0 && (
+            <p className="text-sm text-[var(--ink-dim)]">{t('scAvailableCoursesSub')}</p>
+          )}
+        </div>
+        {availableCourses.length > 0 ? (
+          renderCourseGrid(availableCourses)
+        ) : myCourses.length === 0 ? (
+          <div className="ui-empty-state">{t('noIntensiveCoursesAvailable')}</div>
+        ) : (
+          <p className="text-sm text-[var(--ink-dim)]">{t('scNoAvailableCourses')}</p>
+        )}
+      </section>
     </div>
   );
 };
@@ -116,32 +178,102 @@ export const StudentInstructorsPanel: React.FC<
     onBookInstructor: (instructor: Instructor) => void;
     onViewInstructorReviews: (instructor: Instructor) => void;
   }
-> = ({ instructors, onBookInstructor, onViewInstructorReviews }) => {
+> = ({ bookings, instructors, userProfile, onBookInstructor, onViewInstructorReviews, onGoToTab }) => {
   const { t, language } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
+  const myInstructors = getMyInstructors(bookings, instructors, userProfile.uid).map((ins) =>
+    translateInstructor(ins, lang)
+  );
+  const recommendedInstructors = getRecommendedInstructors(userProfile, instructors, bookings, 2).map(
+    (ins) => translateInstructor(ins, lang)
+  );
+  const myInstructorIds = new Set([
+    ...myInstructors.map((i) => i.id),
+    ...recommendedInstructors.map((i) => i.id),
+  ]);
   const availableInstructors = instructors
-    .filter((ins) => ins.isAvailable)
+    .filter((ins) => ins.isAvailable && !myInstructorIds.has(ins.id))
     .map((ins) => translateInstructor(ins, lang));
 
   return (
     <div className="space-y-6 pb-24 max-w-2xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
+      <StudentPanelBackLink onClick={() => onGoToTab('home')} />
       <div className="space-y-1">
         <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scInstructors')}</h1>
         <p className="text-sm text-[var(--ink-dim)]">{t('meetGuidesSub')}</p>
       </div>
-      <div className="flex flex-col gap-8">
-        {availableInstructors.map((ins) => (
-          <InstructorCard
-            key={ins.id}
-            instructor={ins}
-            onBook={onBookInstructor}
-            onViewReviews={onViewInstructorReviews}
-          />
-        ))}
-      </div>
-      {availableInstructors.length === 0 && (
-        <p className="text-sm text-[var(--ink-dim)]">{t('noCoachesMatch')}</p>
+
+      {recommendedInstructors.length > 0 && myInstructors.length === 0 && (
+        <section className="space-y-4">
+          <div className="space-y-1">
+            <ScSectionTitle>{t('scRecommendedInstructors')}</ScSectionTitle>
+            <p className="text-sm text-[var(--ink-dim)]">{t('scRecommendedInstructorsSub')}</p>
+          </div>
+          <div className="flex flex-col gap-8">
+            {recommendedInstructors.map((ins) => (
+              <InstructorCard
+                key={ins.id}
+                instructor={ins}
+                onBook={onBookInstructor}
+                onViewReviews={onViewInstructorReviews}
+              />
+            ))}
+          </div>
+        </section>
       )}
+
+      {recommendedInstructors.length > 0 && myInstructors.length === 0 && availableInstructors.length > 0 && (
+        <ScDivider />
+      )}
+
+      {myInstructors.length > 0 && (
+        <section className="space-y-4">
+          <div className="space-y-1">
+            <ScSectionTitle>{t('scMyInstructors')}</ScSectionTitle>
+            <p className="text-sm text-[var(--ink-dim)]">{t('scMyInstructorsSub')}</p>
+          </div>
+          <div className="flex flex-col gap-8">
+            {myInstructors.map((ins) => (
+              <InstructorCard
+                key={ins.id}
+                instructor={ins}
+                onBook={onBookInstructor}
+                onViewReviews={onViewInstructorReviews}
+                bookLabel={t('scBookAgain')}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {myInstructors.length > 0 && availableInstructors.length > 0 && <ScDivider />}
+
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <ScSectionTitle>
+            {myInstructors.length > 0 ? t('scAvailableInstructors') : t('scInstructors')}
+          </ScSectionTitle>
+          {myInstructors.length > 0 && (
+            <p className="text-sm text-[var(--ink-dim)]">{t('meetGuidesSub')}</p>
+          )}
+        </div>
+        {availableInstructors.length > 0 ? (
+          <div className="flex flex-col gap-8">
+            {availableInstructors.map((ins) => (
+              <InstructorCard
+                key={ins.id}
+                instructor={ins}
+                onBook={onBookInstructor}
+                onViewReviews={onViewInstructorReviews}
+              />
+            ))}
+          </div>
+        ) : myInstructors.length === 0 ? (
+          <p className="text-sm text-[var(--ink-dim)]">{t('noCoachesMatch')}</p>
+        ) : (
+          <p className="text-sm text-[var(--ink-dim)]">{t('scNoAvailableInstructors')}</p>
+        )}
+      </section>
     </div>
   );
 };
@@ -159,12 +291,14 @@ export const StudentSettingsPanel: React.FC<
   onInvalidFile,
   onUploadSuccess,
   onUploadError,
+  onGoToTab,
 }) => {
   const { t } = useLanguage();
 
   return (
-    <div className="pb-24 max-w-2xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
-      <h1 className="text-2xl font-serif font-light text-[var(--ink)] mb-6">
+    <div className="pb-24 max-w-2xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0 space-y-6">
+      <StudentPanelBackLink onClick={() => onGoToTab('home')} />
+      <h1 className="text-2xl font-serif font-light text-[var(--ink)]">
         {t('scNavSettings')}
       </h1>
       <StudentSettingsCompact

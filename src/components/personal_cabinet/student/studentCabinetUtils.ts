@@ -1,4 +1,4 @@
-import { Booking, Course, Instructor, Review, UserProfile } from '../../../types';
+import { ActivityLog, Booking, Course, Instructor, Review, UserProfile } from '../../../types';
 import {
   SkillConfig,
   SkillItem,
@@ -10,12 +10,25 @@ import {
   type TranslationKey,
   getDifficultyLabel,
 } from '../../../lib/LanguageContext';
-import { getRecommendationTasks } from '../../../lib/lessonRecommendations';
+import {
+  getRecommendationTasks,
+  hasPendingRecommendations,
+} from '../../../lib/lessonRecommendations';
 import { getCourseTrackLabel as getTrackLabelForLevel } from '../../../lib/courseLevelStyles';
-import { customTodayTaskId, skillTodayTaskId } from '../../../lib/todayChecklist';
+import {
+  customTodayTaskId,
+  resolveCompletedTodayTaskIds,
+  skillTodayTaskId,
+} from '../../../lib/todayChecklist';
+import {
+  evaluateEarnedAchievements,
+  formatAchievementLabel,
+  normalizeAchievementsConfig,
+  type AchievementsConfig,
+} from '../../../lib/achievements';
 
 export type StudentCabinetTab =
-  'home' | 'development' | 'calendar' | 'courses' | 'instructors' | 'settings';
+  'home' | 'development' | 'calendar' | 'courses' | 'instructors' | 'settings' | 'history';
 
 export interface SectionProgress {
   id: string;
@@ -46,15 +59,8 @@ export interface Achievement {
   id: string;
   icon: string;
   label: string;
-}
-
-export interface HistoryEvent {
-  id: string;
-  date: string;
-  dateLabel: string;
-  title: string;
-  subtitle?: string;
-  kind: 'training' | 'level' | 'homework' | 'points';
+  earnedAtLabel?: string;
+  earnedAt?: string;
 }
 
 export interface RecentLesson {
@@ -65,12 +71,43 @@ export interface RecentLesson {
   reviewSnippet?: string;
   instructorName: string;
   booking: Booking;
+  needsReview?: boolean;
+  pendingRecommendationsCount?: number;
+}
+
+export type HistoryFilter = 'all' | 'training' | 'progress' | 'homework';
+
+export type HistoryEventAction =
+  | { type: 'open_lesson'; bookingId: string }
+  | { type: 'write_review'; bookingId: string }
+  | { type: 'open_development' };
+
+export interface HistoryEventCta {
+  labelKey: TranslationKey;
+  action: HistoryEventAction;
+}
+
+export interface HistoryEvent {
+  id: string;
+  date: string;
+  dateLabel: string;
+  title: string;
+  subtitle?: string;
+  kind: 'training' | 'level' | 'homework' | 'points' | 'review';
+  bookingId?: string;
+  cta?: HistoryEventCta;
+}
+
+export interface HistoryMonthGroup {
+  monthKey: string;
+  monthLabel: string;
+  events: HistoryEvent[];
 }
 
 export interface StudentStats {
   lessons: number;
   hours: number;
-  kilometers: number;
+  exercisesMastered: number;
   points: number;
 }
 
@@ -322,6 +359,62 @@ export const getSectionProgress = (
     .slice(0, 6);
 };
 
+export type SkillRingFilter = 'all' | 'technique' | 'control' | 'speed';
+
+export const getSkillItemRingCategory = (item: SkillItem): Exclude<SkillRingFilter, 'all'> => {
+  if (item.techniquePoints >= item.controlPoints && item.techniquePoints >= item.speedPoints) {
+    return 'technique';
+  }
+  if (item.controlPoints >= item.speedPoints) return 'control';
+  return 'speed';
+};
+
+export const matchesSkillRingFilter = (item: SkillItem, filter: SkillRingFilter) =>
+  filter === 'all' || getSkillItemRingCategory(item) === filter;
+
+export interface PrioritySkillItem {
+  id: string;
+  title: string;
+  earned: number;
+  maxPoints: number;
+  percent: number;
+  pinned: boolean;
+}
+
+export const getPrioritySkillItems = (
+  userProfile: UserProfile,
+  skillConfig?: SkillConfig,
+  limit = 3
+): PrioritySkillItem[] => {
+  const items = skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
+  const currentLevel = userProfile.level || 1;
+  const targetStage = Math.min(currentLevel, 3);
+  const scores = userProfile.skillScores || {};
+  const pinnedIds = new Set(userProfile.todaySkillItemIds ?? []);
+
+  return items
+    .filter((item) => item.levelTarget <= targetStage)
+    .map((item) => {
+      const earned = scores[item.id] ?? 0;
+      const percent =
+        item.maxPoints > 0 ? Math.min(100, Math.round((earned / item.maxPoints) * 100)) : 100;
+      return {
+        id: item.id,
+        title: item.title,
+        earned,
+        maxPoints: item.maxPoints,
+        percent,
+        pinned: pinnedIds.has(item.id),
+      };
+    })
+    .filter((item) => item.earned < item.maxPoints)
+    .sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      return a.percent - b.percent;
+    })
+    .slice(0, limit);
+};
+
 export const getTodayTasks = (
   userProfile: UserProfile,
   bookings: Booking[],
@@ -330,7 +423,7 @@ export const getTodayTasks = (
   skillConfig: SkillConfig | undefined
 ): TodayTask[] => {
   const items = skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
-  const completed = new Set(userProfile.completedTodayTaskIds ?? []);
+  const completed = new Set(resolveCompletedTodayTaskIds(userProfile));
   const dismissed = new Set(userProfile.dismissedTodayTaskIds ?? []);
 
   const recTasks: TodayTask[] = getRecommendationTasks(bookings)
@@ -379,47 +472,285 @@ export const getTodayTasks = (
   });
 };
 
+export { getTrainingStreakWeeks } from '../../../lib/trainingStreak';
+
 export const getAchievements = (
   userProfile: UserProfile,
   bookings: Booking[],
   skillConfig: SkillConfig | undefined,
-  _language: 'en' | 'ru',
-  t: (key: TranslationKey) => string
+  language: 'en' | 'ru',
+  activityLogs: ActivityLog[] = [],
+  reviews: Review[] = [],
+  courses: Course[] = [],
+  achievementsConfig?: AchievementsConfig
 ): Achievement[] => {
-  const completed = bookings.filter((b) => b.status === 'completed' && !b.isDeleted);
-  const sections = getSectionProgress(userProfile, skillConfig);
-  const carving = sections.find((s) => /карв|carv|поворот|turn/i.test(s.label));
-  const speed = sections.find((s) => /скор|speed|контр/i.test(s.label));
+  const config = normalizeAchievementsConfig(achievementsConfig);
+  const earned = evaluateEarnedAchievements(
+    {
+      userProfile,
+      bookings,
+      courses,
+      reviews,
+      skillConfig,
+      activityLogs,
+    },
+    config
+  );
 
-  const list: Achievement[] = [];
-  if ((carving?.percent ?? 0) >= 60 || (userProfile.level || 1) >= 2) {
-    list.push({ id: 'carving', icon: '🏆', label: t('scAchCarvingArcs') });
-  }
-  if ((speed?.percent ?? 0) >= 80) {
-    list.push({ id: 'speed', icon: '🏆', label: t('scAchSpeedControl') });
-  }
-  if (completed.length >= 10) {
-    list.push({ id: 'ten', icon: '🏆', label: t('scAchTenLessons') });
-  }
-  if (list.length === 0) {
-    list.push({ id: 'start', icon: '🏆', label: t('scAchFirstSteps') });
-  }
-  return list.slice(0, 4);
+  const logTimestamps = new Map<string, string>(
+    activityLogs
+      .filter((log) => log.type === 'achievement_earned' && log.metadata?.achievementId)
+      .map((log) => [log.metadata!.achievementId as string, log.timestamp])
+  );
+
+  const logLabels = new Map<string, { ru?: string; en?: string }>(
+    activityLogs
+      .filter((log) => log.type === 'achievement_earned' && log.metadata?.achievementId)
+      .map((log) => [
+        log.metadata!.achievementId as string,
+        {
+          ru: log.metadata?.achievementLabelRu,
+          en: log.metadata?.achievementLabelEn,
+        },
+      ])
+  );
+
+  return earned
+    .map((item) => {
+      const timestamp = logTimestamps.get(item.id) ?? item.earnedAt;
+      const storedLabels = logLabels.get(item.id);
+      return {
+        id: item.id,
+        icon: item.icon,
+        label: formatAchievementLabel(item.id, language, config, {
+          achievementLabelRu: storedLabels?.ru ?? item.labelRu,
+          achievementLabelEn: storedLabels?.en ?? item.labelEn,
+        }),
+        earnedAtLabel: timestamp
+          ? formatActivityTimestamp(timestamp, language)
+          : undefined,
+        earnedAt: timestamp,
+      };
+    })
+    .sort((a, b) => (b.earnedAt ?? '').localeCompare(a.earnedAt ?? ''));
 };
 
-export const getStudentStats = (userProfile: UserProfile, bookings: Booking[]): StudentStats => {
+const USER_LEVEL_TO_COURSE_LEVEL: Record<number, NonNullable<Course['level']>> = {
+  1: 'beginner',
+  2: 'intermediate',
+  3: 'advanced',
+  4: 'expert',
+};
+
+export const getRecommendedCourses = (
+  userProfile: UserProfile,
+  courses: Course[],
+  bookings: Booking[],
+  limit = 2
+): Course[] => {
+  const targetLevel = USER_LEVEL_TO_COURSE_LEVEL[userProfile.level || 1] ?? 'beginner';
+  const enrolledIds = new Set(getEnrolledCourses(bookings, courses, userProfile.uid).map((c) => c.id));
+
+  return courses
+    .filter((c) => !c.isHidden && !enrolledIds.has(c.id) && c.availableSeats > 0)
+    .sort((a, b) => {
+      const aMatch = a.level === targetLevel ? 0 : 1;
+      const bMatch = b.level === targetLevel ? 0 : 1;
+      if (aMatch !== bMatch) return aMatch - bMatch;
+      return (a.order ?? 999) - (b.order ?? 999);
+    })
+    .slice(0, limit);
+};
+
+export const getRecommendedInstructors = (
+  userProfile: UserProfile,
+  instructors: Instructor[],
+  bookings: Booking[],
+  limit = 2
+): Instructor[] => {
+  const myIds = new Set(getMyInstructors(bookings, instructors, userProfile.uid).map((i) => i.id));
+
+  return instructors
+    .filter((i) => i.isAvailable && !myIds.has(i.id))
+    .sort((a, b) => b.rating - a.rating || b.reviewsCount - a.reviewsCount)
+    .slice(0, limit);
+};
+
+export type BookingListScope = 'upcoming' | 'past' | 'all';
+
+export const filterBookingsByScope = (
+  bookings: Booking[],
+  scope: BookingListScope
+): Booking[] => {
+  if (scope === 'all') return bookings;
+  if (scope === 'upcoming') {
+    return bookings.filter(
+      (b) =>
+        b.status === 'confirmed' ||
+        b.status === 'pending' ||
+        b.status === 'pending_cancellation'
+    );
+  }
+  return bookings.filter((b) => b.status === 'completed' || b.status === 'cancelled');
+};
+
+export const getStudentStats = (
+  userProfile: UserProfile,
+  bookings: Booking[],
+  skillItems: SkillItem[] = DEFAULT_SKILL_CONFIG.items
+): StudentStats => {
   const completed = bookings.filter((b) => b.status === 'completed' && !b.isDeleted);
   const hours = completed.reduce((acc, b) => acc + b.durationHours, 0);
-  const points = Object.values(userProfile.skillScores || {}).reduce((a, b) => a + b, 0);
+  const scores = userProfile.skillScores || {};
+  const points = Object.values(scores).reduce((a, b) => a + b, 0);
+  const exercisesMastered = skillItems.filter(
+    (item) => item.maxPoints > 0 && (scores[item.id] ?? 0) >= item.maxPoints
+  ).length;
   return {
     lessons: completed.length,
     hours: Math.round(hours),
-    kilometers: Math.round(hours * 8),
+    exercisesMastered,
     points,
   };
 };
 
-export const getHistoryEvents = (
+const historyEventPrefix = (kind: HistoryEvent['kind']) => {
+  switch (kind) {
+    case 'training':
+      return '✓ ';
+    case 'level':
+      return '★ ';
+    case 'homework':
+      return '◆ ';
+    case 'review':
+      return '★ ';
+    case 'points':
+      return '+ ';
+    default:
+      return '';
+  }
+};
+
+export const getHistoryEventPrefix = historyEventPrefix;
+
+const formatActivityTimestamp = (timestamp: string, language: 'en' | 'ru') => {
+  const d = new Date(timestamp);
+  if (Number.isNaN(d.getTime())) return timestamp;
+  return d.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
+    day: 'numeric',
+    month: 'long',
+  });
+};
+
+const mapActivityLogToHistoryEvent = (
+  log: ActivityLog,
+  language: 'en' | 'ru',
+  t: (key: TranslationKey) => string
+): HistoryEvent => {
+  const meta = log.metadata ?? {};
+  const dateLabel = formatActivityTimestamp(log.timestamp, language);
+
+  switch (log.type) {
+    case 'booking_completed': {
+      const isCourse = meta.instructorId?.startsWith('course_');
+      const title = isCourse
+        ? t('scHistoryCourseCompleted').replace('{name}', meta.lessonTitle ?? meta.instructorName ?? '')
+        : t('scHistoryLessonWith').replace('{name}', meta.instructorName ?? meta.lessonTitle ?? '');
+      const subtitleParts: string[] = [];
+      if (meta.durationHours) {
+        subtitleParts.push(`${meta.durationHours} ${t('hoursShort')}`);
+      }
+      if (meta.difficulty) {
+        subtitleParts.push(getDifficultyShort(meta.difficulty));
+      }
+      return {
+        id: log.id,
+        date: log.timestamp,
+        dateLabel,
+        title,
+        subtitle: subtitleParts.length > 0 ? subtitleParts.join(' · ') : undefined,
+        kind: 'training',
+        bookingId: meta.bookingId,
+      };
+    }
+    case 'level_up':
+      return {
+        id: log.id,
+        date: log.timestamp,
+        dateLabel,
+        title: t('scHistoryNewLevel'),
+        subtitle: t('scHistoryLevelReached').replace('{n}', String(meta.newLevel ?? '')),
+        kind: 'level',
+      };
+    case 'skill_scores_updated':
+      return {
+        id: log.id,
+        date: log.timestamp,
+        dateLabel,
+        title: t('scHistorySkillUpdated'),
+        subtitle:
+          meta.pointsDelta && meta.pointsDelta > 0
+            ? t('scHistoryPointsReceived').replace('{n}', String(meta.pointsDelta))
+            : undefined,
+        kind: 'points',
+      };
+    case 'review_created':
+      return {
+        id: log.id,
+        date: log.timestamp,
+        dateLabel,
+        title: t('scHistoryReviewLeft'),
+        subtitle: meta.rating
+          ? t('scHistoryReviewRating').replace('{n}', String(meta.rating))
+          : undefined,
+        kind: 'review',
+        bookingId: meta.bookingId,
+      };
+    case 'recommendation_completed':
+      return {
+        id: log.id,
+        date: log.timestamp,
+        dateLabel,
+        title: t('scHistoryRecommendationDone'),
+        subtitle: meta.recommendationText,
+        kind: 'homework',
+        bookingId: meta.bookingId,
+      };
+    case 'recommendations_completed_all':
+      return {
+        id: log.id,
+        date: log.timestamp,
+        dateLabel,
+        title: t('scHistoryAllRecommendationsDone'),
+        subtitle: meta.lessonTitle ?? meta.instructorName,
+        kind: 'homework',
+        bookingId: meta.bookingId,
+      };
+    case 'achievement_earned': {
+      const achievementId = meta.achievementId;
+      const label = achievementId
+        ? formatAchievementLabel(achievementId, language, undefined, meta)
+        : t('scHistoryAchievementEarnedGeneric');
+      return {
+        id: log.id,
+        date: log.timestamp,
+        dateLabel,
+        title: t('scHistoryAchievementEarned').replace('{name}', label),
+        kind: 'level',
+      };
+    }
+    default:
+      return {
+        id: log.id,
+        date: log.timestamp,
+        dateLabel,
+        title: t('scHistoryTrainingDone'),
+        kind: 'training',
+      };
+  }
+};
+
+const getLegacyHistoryEvents = (
   userProfile: UserProfile,
   bookings: Booking[],
   courses: Course[],
@@ -442,6 +773,7 @@ export const getHistoryEvents = (
       title: t('scHistoryTrainingDone'),
       subtitle: t('scHistoryPointsReceived').replace('{n}', '8'),
       kind: 'training',
+      bookingId: b.id,
     });
   });
 
@@ -463,11 +795,249 @@ export const getHistoryEvents = (
   return events.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
 };
 
+export const getHistoryEvents = (
+  userProfile: UserProfile,
+  bookings: Booking[],
+  courses: Course[],
+  language: 'en' | 'ru',
+  t: (key: TranslationKey) => string,
+  activityLogs: ActivityLog[] = []
+): HistoryEvent[] => {
+  const fromLogs = activityLogs.map((log) => mapActivityLogToHistoryEvent(log, language, t));
+
+  const loggedBookingIds = new Set(
+    activityLogs
+      .filter((log) => log.type === 'booking_completed')
+      .map((log) => log.metadata?.bookingId)
+      .filter(Boolean) as string[]
+  );
+
+  const backfilledBookings = bookings
+    .filter((b) => b.status === 'completed' && !b.isDeleted && !loggedBookingIds.has(b.id))
+    .sort((a, b) =>
+      resolveBookingStartDate(b, courses).localeCompare(resolveBookingStartDate(a, courses))
+    )
+    .slice(0, 10)
+    .map((b) => {
+      const dateStr = resolveBookingStartDate(b, courses);
+      const isCourse = b.instructorId.startsWith('course_');
+      return {
+        id: `train-${b.id}`,
+        date: dateStr,
+        dateLabel: formatBookingDayMonth(b, courses, language),
+        title: isCourse
+          ? t('scHistoryCourseCompleted').replace('{name}', getRecentLessonTitle(b, courses, language))
+          : t('scHistoryLessonWith').replace('{name}', b.instructorName),
+        subtitle: `${b.durationHours} ${t('hoursShort')} · ${getDifficultyShort(b.difficulty)}`,
+        kind: 'training' as const,
+        bookingId: b.id,
+      };
+    });
+
+  const hasLevelLog = activityLogs.some((log) => log.type === 'level_up');
+  const legacyLevel =
+    !hasLevelLog && (userProfile.level || 1) > 1
+      ? getLegacyHistoryEvents(userProfile, bookings, courses, language, t).filter(
+          (event) => event.kind === 'level'
+        )
+      : [];
+
+  return [...fromLogs, ...backfilledBookings, ...legacyLevel]
+    .sort((a, b) => b.date.localeCompare(a.date));
+};
+
+const isBookingReviewed = (
+  booking: Booking,
+  reviews: Review[],
+  dismissedReviewIds: string[]
+) => {
+  if (dismissedReviewIds.includes(booking.id)) return true;
+  return reviews.some(
+    (review) =>
+      review.bookingId === booking.id ||
+      (review.userId === booking.userId &&
+        review.instructorId === booking.instructorId &&
+        review.date === booking.date)
+  );
+};
+
+export { isBookingReviewed };
+
+const countPendingRecommendations = (booking: Booking) => {
+  const completed = new Set(booking.completedRecommendationIds ?? []);
+  return (booking.recommendations ?? []).filter((rec) => !completed.has(rec.id)).length;
+};
+
+export const enrichHistoryEventsWithActions = (
+  events: HistoryEvent[],
+  bookings: Booking[],
+  reviews: Review[],
+  dismissedReviewIds: string[] = [],
+  t?: (key: TranslationKey) => string
+): HistoryEvent[] =>
+  events.map((event) => {
+    if (event.kind === 'training' && event.bookingId) {
+      const booking = bookings.find((item) => item.id === event.bookingId);
+      if (!booking) return event;
+
+      const pending = countPendingRecommendations(booking);
+      const pendingSubtitle =
+        pending > 0 && t
+          ? t('scHistoryPendingRecommendations').replace('{n}', String(pending))
+          : undefined;
+
+      if (!isBookingReviewed(booking, reviews, dismissedReviewIds)) {
+        return {
+          ...event,
+          subtitle: pendingSubtitle ?? event.subtitle,
+          cta: {
+            labelKey: 'writeReviewBtn',
+            action: { type: 'write_review', bookingId: event.bookingId },
+          },
+        };
+      }
+
+      if (hasPendingRecommendations(booking)) {
+        return {
+          ...event,
+          subtitle: pendingSubtitle ?? event.subtitle,
+          cta: {
+            labelKey: 'scHistoryOpenRecommendations',
+            action: { type: 'open_lesson', bookingId: event.bookingId },
+          },
+        };
+      }
+
+      return {
+        ...event,
+        cta: {
+          labelKey: 'scMoreDetails',
+          action: { type: 'open_lesson', bookingId: event.bookingId },
+        },
+      };
+    }
+
+    if (event.kind === 'level') {
+      return {
+        ...event,
+        cta: {
+          labelKey: 'scHistoryViewExercises',
+          action: { type: 'open_development' },
+        },
+      };
+    }
+
+    if (event.kind === 'homework' && event.bookingId) {
+      return {
+        ...event,
+        cta: {
+          labelKey: 'scMoreDetails',
+          action: { type: 'open_lesson', bookingId: event.bookingId },
+        },
+      };
+    }
+
+    if (event.kind === 'review' && event.bookingId) {
+      return {
+        ...event,
+        cta: {
+          labelKey: 'scMoreDetails',
+          action: { type: 'open_lesson', bookingId: event.bookingId },
+        },
+      };
+    }
+
+    return event;
+  });
+
+export const filterHistoryEvents = (
+  events: HistoryEvent[],
+  filter: HistoryFilter
+): HistoryEvent[] => {
+  if (filter === 'all') return events;
+  if (filter === 'training') return events.filter((event) => event.kind === 'training');
+  if (filter === 'progress') {
+    return events.filter((event) =>
+      event.kind === 'level' || event.kind === 'points' || event.kind === 'review'
+    );
+  }
+  return events.filter((event) => event.kind === 'homework');
+};
+
+export const groupHistoryByMonth = (
+  events: HistoryEvent[],
+  language: 'en' | 'ru'
+): HistoryMonthGroup[] => {
+  const map = new Map<string, HistoryEvent[]>();
+
+  events.forEach((event) => {
+    const parsed = new Date(
+      event.date.includes('T') ? event.date : `${event.date}T12:00:00`
+    );
+    if (Number.isNaN(parsed.getTime())) return;
+    const monthKey = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
+    const bucket = map.get(monthKey) ?? [];
+    bucket.push(event);
+    map.set(monthKey, bucket);
+  });
+
+  return Array.from(map.entries())
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([monthKey, monthEvents]) => {
+      const [year, month] = monthKey.split('-').map(Number);
+      const monthLabel = new Date(year, month - 1, 1).toLocaleDateString(
+        language === 'ru' ? 'ru-RU' : 'en-US',
+        { month: 'long', year: 'numeric' }
+      );
+      return {
+        monthKey,
+        monthLabel: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
+        events: monthEvents.sort((a, b) => b.date.localeCompare(a.date)),
+      };
+    });
+};
+
+export const buildStudentHistory = (
+  userProfile: UserProfile,
+  bookings: Booking[],
+  courses: Course[],
+  reviews: Review[],
+  language: 'en' | 'ru',
+  t: (key: TranslationKey) => string,
+  activityLogs: ActivityLog[] = [],
+  dismissedReviewIds: string[] = []
+): HistoryEvent[] =>
+  enrichHistoryEventsWithActions(
+    getHistoryEvents(userProfile, bookings, courses, language, t, activityLogs),
+    bookings,
+    reviews,
+    dismissedReviewIds,
+    t
+  );
+
+export const getNeedsAttentionBookings = (
+  bookings: Booking[],
+  reviews: Review[],
+  dismissedReviewIds: string[],
+  userId: string,
+  limit = 5
+): Booking[] =>
+  bookings
+    .filter((booking) => booking.userId === userId && booking.status === 'completed' && !booking.isDeleted)
+    .filter(
+      (booking) =>
+        !isBookingReviewed(booking, reviews, dismissedReviewIds) ||
+        hasPendingRecommendations(booking)
+    )
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, limit);
+
 export const getRecentLessons = (
   bookings: Booking[],
   reviews: Review[],
   courses: Course[],
-  language: 'en' | 'ru'
+  language: 'en' | 'ru',
+  dismissedReviewIds: string[] = []
 ): RecentLesson[] => {
   return bookings
     .filter((b) => b.status === 'completed' && !b.isDeleted)
@@ -479,6 +1049,8 @@ export const getRecentLessons = (
       const review = reviews.find(
         (r) => r.bookingId === b.id || (r.userId === b.userId && r.date === b.date)
       );
+      const needsReview = !isBookingReviewed(b, reviews, dismissedReviewIds);
+      const pendingRecommendationsCount = countPendingRecommendations(b);
       return {
         id: b.id,
         title: getRecentLessonTitle(b, courses, language),
@@ -487,6 +1059,8 @@ export const getRecentLessons = (
         reviewSnippet: review?.comment,
         instructorName: getRecentLessonInstructorLabel(b, language),
         booking: b,
+        needsReview,
+        pendingRecommendationsCount: pendingRecommendationsCount > 0 ? pendingRecommendationsCount : undefined,
       };
     });
 };
@@ -591,24 +1165,58 @@ export const getNextCalendarSession = (
   };
 };
 
-export const getInstructorsForStudent = (bookings: Booking[], instructors: Instructor[]) => {
-  const ids = new Set(
-    bookings
-      .filter((b) => !b.isDeleted && b.status !== 'cancelled')
-      .map((b) => b.instructorId)
-      .filter((id) => !id.startsWith('course_'))
-  );
-  const matched = instructors.filter((i) => ids.has(i.id));
-  return matched.length > 0 ? matched : instructors.slice(0, 4);
+export const getInstructorsForStudent = (bookings: Booking[], instructors: Instructor[]) =>
+  getMyInstructors(bookings, instructors);
+
+export const getMyInstructors = (
+  bookings: Booking[],
+  instructors: Instructor[],
+  userId?: string
+): Instructor[] => {
+  const lastDateByInstructor = new Map<string, string>();
+
+  bookings
+    .filter(
+      (b) =>
+        (!userId || b.userId === userId) &&
+        !b.isDeleted &&
+        b.status !== 'cancelled' &&
+        !b.instructorId.startsWith('course_')
+    )
+    .forEach((b) => {
+      const prev = lastDateByInstructor.get(b.instructorId);
+      if (!prev || b.date > prev) lastDateByInstructor.set(b.instructorId, b.date);
+    });
+
+  return instructors
+    .filter((i) => lastDateByInstructor.has(i.id))
+    .sort((a, b) =>
+      (lastDateByInstructor.get(b.id) ?? '').localeCompare(lastDateByInstructor.get(a.id) ?? '')
+    );
 };
 
-export const getEnrolledCourses = (bookings: Booking[], courses: Course[]) => {
+export const getEnrolledCourses = (bookings: Booking[], courses: Course[], userId?: string) => {
   const enrolledIds = new Set(
     bookings
-      .filter((b) => b.instructorId.startsWith('course_') && b.status !== 'cancelled')
+      .filter(
+        (b) =>
+          (!userId || b.userId === userId) &&
+          !b.isDeleted &&
+          b.instructorId.startsWith('course_') &&
+          b.status !== 'cancelled'
+      )
       .map((b) => b.instructorId.replace('course_', ''))
   );
   return courses.filter((c) => !c.isHidden && enrolledIds.has(c.id));
+};
+
+export const getAvailableCourses = (
+  bookings: Booking[],
+  courses: Course[],
+  userId?: string
+): Course[] => {
+  const enrolledIds = new Set(getEnrolledCourses(bookings, courses, userId).map((c) => c.id));
+  return courses.filter((c) => !c.isHidden && !enrolledIds.has(c.id));
 };
 
 export const getCourseTrackLabel = (course: Course) =>

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useLanguage, useTranslatedBookings } from '../lib/LanguageContext';
 import { SkillConfig } from '../lib/skillData';
+import { AchievementsConfig } from '../lib/achievementConfig';
 import { DesignTheme } from '../lib/designTheme';
 import { AdminCollapsibleSection } from './admin/AdminCollapsibleSection';
 
@@ -89,7 +90,9 @@ interface AdminPanelProps {
   onUpdateCourse?: (course: Course) => Promise<void>;
   onDeleteCourse?: (courseId: string) => Promise<void>;
   skillConfig?: SkillConfig;
+  achievementsConfig?: AchievementsConfig;
   onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
+  onUpdateAchievementsConfig?: (config: AchievementsConfig) => Promise<void>;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -125,6 +128,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onSetDesignTheme,
   skillConfig,
   onUpdateSkillConfig,
+  achievementsConfig,
+  onUpdateAchievementsConfig,
 }) => {
   const { t, language } = useLanguage();
 
@@ -190,6 +195,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           onSetDesignTheme={onSetDesignTheme}
           skillConfig={skillConfig}
           onUpdateSkillConfig={onUpdateSkillConfig}
+          achievementsConfig={achievementsConfig}
+          onUpdateAchievementsConfig={onUpdateAchievementsConfig}
+          bookings={bookings}
+          courses={courses}
+          adminUid={currentUserProfile.uid}
         />
       </Suspense>
 

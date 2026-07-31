@@ -6,6 +6,14 @@ export const customTodayTaskId = (customId: string) => `custom:${customId}`;
 export const createCustomTodayTaskId = () =>
   `ct_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
+export const toTodayDateStr = () => new Date().toISOString().split('T')[0];
+
+export const resolveCompletedTodayTaskIds = (profile: UserProfile): string[] => {
+  const today = toTodayDateStr();
+  if (profile.completedTodayDate !== today) return [];
+  return profile.completedTodayTaskIds ?? [];
+};
+
 export const toggleStringList = (list: string[] | undefined, value: string, include: boolean) => {
   const set = new Set(list ?? []);
   if (include) set.add(value);
@@ -25,9 +33,15 @@ export const buildToggleTodayCompleteUpdate = (
   profile: UserProfile,
   taskId: string,
   done: boolean
-): Partial<UserProfile> => ({
-  completedTodayTaskIds: toggleStringList(profile.completedTodayTaskIds, taskId, done),
-});
+): Partial<UserProfile> => {
+  const today = toTodayDateStr();
+  const currentIds =
+    profile.completedTodayDate === today ? (profile.completedTodayTaskIds ?? []) : [];
+  return {
+    completedTodayDate: today,
+    completedTodayTaskIds: toggleStringList(currentIds, taskId, done),
+  };
+};
 
 export const buildAddCustomTodayTaskUpdate = (
   profile: UserProfile,

@@ -3,6 +3,7 @@ import { Booking, Course, Instructor, Review, UserProfile, ActivityLog } from '.
 import { SkillConfig, DEFAULT_SKILL_CONFIG } from '../../../lib/skillData';
 import { AchievementsConfig } from '../../../lib/achievementConfig';
 import { useLanguage, translateInstructor } from '../../../lib/LanguageContext';
+import { getUserLevelBadgeClass } from '../../../lib/courseLevelStyles';
 import { GroupCourseCard, sortVisibleCourses } from '../../GroupCourseCard';
 import { InstructorCard } from '../../InstructorCard';
 import {
@@ -10,6 +11,7 @@ import {
   getAchievements,
   getFirstName,
   getGreeting,
+  getNextStepAction,
   getLevelName,
   getLevelProgressPercent,
   getMiniCalendarDays,
@@ -35,12 +37,14 @@ import {
   ScSectionTitle,
   ScStatGrid,
   ScTextButton,
+  ScTintCard,
 } from './StudentCabinetUI';
 import { StudentHistoryList } from './StudentHistoryList';
 import { StudentNeedsAttention } from './StudentNeedsAttention';
 import { TodayChecklist } from './TodayChecklist';
 import { RecommendationIndicator } from '../RecommendationIndicator';
 import { SkillRadarChart } from './SkillRadarChart';
+import { StudentNextStepCard } from './StudentNextStepCard';
 import {
   hasBookingRecommendations,
   hasPendingRecommendations,
@@ -99,6 +103,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     onDismissReview,
     onGoToTab,
     onContinueDevelopment,
+    onToggleSkillToday,
     onToggleRecommendation,
     onToggleTodayTaskComplete,
     onAddCustomTodayTask,
@@ -113,6 +118,11 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   const level = userProfile.level || 1;
   const hideProgress = Boolean(userProfile.hideProgressTracking);
   const { percent, remaining } = getLevelProgressPercent(userProfile, skillConfig);
+
+  const nextStepAction = useMemo(
+    () => getNextStepAction(userProfile, bookings, skillConfig),
+    [userProfile, bookings, skillConfig]
+  );
 
   const skillItems = skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
 
@@ -201,22 +211,54 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
         <p className="text-base sm:text-lg font-medium text-[var(--ink)] leading-snug break-words">
           {getGreeting(lang, getFirstName(userProfile.displayName))}
         </p>
-        <p className="text-[10px] sm:text-xs font-medium tracking-wide sm:tracking-widest text-[var(--ink-dim)] uppercase leading-relaxed break-words">
+        <span
+          className={`inline-flex items-center rounded-full border px-2.5 py-1 mt-0.5 text-[10px] sm:text-xs font-semibold uppercase tracking-wide sm:tracking-widest leading-relaxed break-words ${getUserLevelBadgeClass(level)}`}
+        >
           LEVEL {level} · {getLevelName(level, lang)}
-        </p>
+        </span>
         {streakWeeks > 0 && (
-          <p className="text-sm text-[var(--accent)] leading-snug">
+          <p className="text-sm text-[#FF9F0A] leading-snug">
             {t('scStreakWeeks').replace('{n}', String(streakWeeks))}
           </p>
         )}
         {!hideProgress && (
           <>
-            <div className="space-y-2 pt-0.5 max-w-full">
-              <ScProgressBar percent={percent} variant="apple" showLabel />
+            <ScTintCard tint="accent" className="space-y-2 px-3.5 py-3.5 mt-1 max-w-full">
+              <ScProgressBar percent={percent} variant="apple" showLabel fillColor="#64D2FF" />
               <p className="text-xs sm:text-sm text-[var(--ink-dim)] leading-snug">
-                {t('scPointsToNextLevel').replace('{n}', String(remaining))}
+                {t('scPointsToNextLevel')
+                  .replace('{n}', `§${remaining}§`)
+                  .split('§')
+                  .map((part, i) =>
+                    i % 2 === 1 ? (
+                      <span key={i} className="text-[#64D2FF] font-semibold tabular-nums">
+                        {part}
+                      </span>
+                    ) : (
+                      part
+                    )
+                  )}
               </p>
-            </div>
+            </ScTintCard>
+            {nextStepAction && (
+              <div className="pt-3">
+                <StudentNextStepCard
+                  action={nextStepAction}
+                  onStartExercise={(exerciseId) => {
+                    const pinned = userProfile.todaySkillItemIds?.includes(exerciseId);
+                    if (!pinned) {
+                      void onToggleSkillToday?.(exerciseId, true);
+                    }
+                    onContinueDevelopment();
+                  }}
+                  onOpenRecommendation={(bookingId) => {
+                    const booking = bookings.find((b) => b.id === bookingId);
+                    if (booking) onOpenLesson(booking);
+                  }}
+                  onContinueDevelopment={onContinueDevelopment}
+                />
+              </div>
+            )}
             <div className="pt-3 min-w-0 w-full">
               <p className="text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)] mb-2.5">
                 {t('scRadarTitle')}
@@ -231,23 +273,18 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             </div>
           </>
         )}
-        <div className="pt-1">
-          <ScTextButton arrow onClick={onContinueDevelopment}>
-            {t('scContinueDevelopment')}
-          </ScTextButton>
-        </div>
       </section>
 
       {achievements.length > 0 && (
         <>
           <ScDivider />
           <section className="py-6 space-y-3">
-            <ScSectionTitle>{t('scRecentAchievements')}</ScSectionTitle>
+            <ScSectionTitle tint="amber">{t('scRecentAchievements')}</ScSectionTitle>
             <div className="flex flex-wrap gap-2">
               {achievements.map((item) => (
                 <span
                   key={item.id}
-                  className="inline-flex flex-col gap-0.5 rounded-full border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-3 py-1.5 text-sm text-[var(--ink)]"
+                  className="inline-flex flex-col gap-0.5 rounded-full border border-[#FFD60A]/28 bg-[#FFD60A]/10 px-3 py-1.5 text-sm text-[var(--ink)]"
                 >
                   <span className="inline-flex items-center gap-1.5">
                     <span aria-hidden>{item.icon}</span>
@@ -316,24 +353,27 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
 
       <ScDivider />
 
-      {/* Mini calendar — current week booked sessions */}
-      <section className="py-6 space-y-4">
+      <ScTintCard tint="purple" className="py-6 px-4 sm:px-5 space-y-4">
         <div className="flex items-center justify-between">
-          <ScSectionTitle>{monthLabel}</ScSectionTitle>
+          <ScSectionTitle tint="purple">{monthLabel}</ScSectionTitle>
           <ScTextButton onClick={() => onGoToTab('calendar')}>{t('scFullCalendar')}</ScTextButton>
         </div>
         <div className="flex justify-between gap-1 text-center text-sm overflow-x-auto no-scrollbar pb-1">
           {miniDays.map(({ day, dateStr, hasSession, isToday, weekdayLabel }) => (
             <div key={dateStr} className="flex flex-col items-center gap-1 min-w-[2rem] flex-1">
-              <span className="text-[10px] uppercase text-[var(--ink-dim)]">{weekdayLabel}</span>
+              <span className={`text-[10px] uppercase ${isToday ? 'text-[#BF5AF2]' : 'text-[var(--ink-dim)]'}`}>
+                {weekdayLabel}
+              </span>
               <span
-                className={`text-[var(--ink)] ${isToday ? 'font-bold text-[var(--accent)]' : ''}`}
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-[var(--ink)] ${
+                  isToday ? 'font-bold bg-[#BF5AF2]/20 text-[#BF5AF2]' : ''
+                }`}
               >
                 {day}
               </span>
               <span
                 className={`text-[10px] ${
-                  hasSession ? 'text-[var(--accent)]' : 'text-[var(--border)]'
+                  hasSession ? 'text-[#30D158]' : 'text-[var(--border)]'
                 }`}
                 title={hasSession ? t('bookedLesson') : t('noLessons')}
               >
@@ -349,9 +389,9 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
                 <button
                   type="button"
                   onClick={() => onOpenSession(booking)}
-                  className="w-full text-left hover:text-[var(--accent)] transition"
+                  className="w-full text-left rounded-lg border border-[#BF5AF2]/15 bg-[#BF5AF2]/6 px-3 py-2 hover:border-[#BF5AF2]/35 transition"
                 >
-                  <span className="text-[var(--ink-dim)]">
+                  <span className="text-[#BF5AF2]">
                     {formatSessionDayLabel(dateStr, lang, t)}
                   </span>
                   {' · '}
@@ -373,12 +413,12 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           </ul>
         ) : nextCal ? (
           <p className="text-sm text-[var(--ink-dim)]">
-            {t('scMiniCalendarNext')}: <span className="text-[var(--ink)]">{nextCal.label}</span>
+            {t('scMiniCalendarNext')}: <span className="text-[#BF5AF2]">{nextCal.label}</span>
           </p>
         ) : (
           <p className="text-sm text-[var(--ink-dim)]">{t('scNoUpcomingSession')}</p>
         )}
-      </section>
+      </ScTintCard>
 
       <ScDivider />
 
@@ -460,13 +500,13 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
 
           {/* Stats */}
           <section className="py-6 space-y-4">
-            <ScSectionTitle>{t('scMyStats')}</ScSectionTitle>
+            <ScSectionTitle tint="sky">{t('scMyStats')}</ScSectionTitle>
             <ScStatGrid
               items={[
-                { label: t('scLessonsCount'), value: stats.lessons },
-                { label: t('scHoursCount'), value: stats.hours },
-                { label: t('scExercisesMastered'), value: stats.exercisesMastered },
-                { label: t('scPointsEarned'), value: stats.points },
+                { label: t('scLessonsCount'), value: stats.lessons, tint: 'sky' },
+                { label: t('scHoursCount'), value: stats.hours, tint: 'green' },
+                { label: t('scExercisesMastered'), value: stats.exercisesMastered, tint: 'purple' },
+                { label: t('scPointsEarned'), value: stats.points, tint: 'orange' },
               ]}
             />
           </section>

@@ -137,6 +137,15 @@ export const translations = {
     scGoodAfternoon: 'Good afternoon',
     scGoodEvening: 'Good evening',
     scPointsToNextLevel: '{n} points to the next level',
+    scNextStepTitle: '🎯 Next step',
+    scNextStepExerciseBody:
+      'Complete the exercise «{title}» — earn +{points} points and get {delta}% closer to Level {level}.',
+    scNextStepRecommendationBody: 'Complete your instructor task: «{title}».',
+    scNextStepCompleteBody:
+      'You have completed all exercises for this stage. Keep training to maintain your skills.',
+    scNextStepStartTraining: 'Start training',
+    scNextStepOpenLesson: 'Open lesson',
+    scNextStepExploreDevelopment: 'Explore development',
     scContinueDevelopment: 'Continue developing',
     scRadarTitle: 'Interactive Skill Radar',
     scRadarSubtitle: 'Visual analysis of your skiing capabilities across 6 key dimensions',
@@ -1527,6 +1536,15 @@ export const translations = {
     scGoodAfternoon: 'Добрый день',
     scGoodEvening: 'Добрый вечер',
     scPointsToNextLevel: 'До следующего уровня осталось {n} баллов',
+    scNextStepTitle: '🎯 Следующий шаг',
+    scNextStepExerciseBody:
+      'Выполните упражнение «{title}» — получите +{points} баллов и приблизитесь к Уровню {level} на {delta}%.',
+    scNextStepRecommendationBody: 'Выполните задание от инструктора: «{title}».',
+    scNextStepCompleteBody:
+      'Вы выполнили все упражнения на этом этапе. Продолжайте тренироваться, чтобы закрепить навыки.',
+    scNextStepStartTraining: 'Начать тренировку',
+    scNextStepOpenLesson: 'Открыть занятие',
+    scNextStepExploreDevelopment: 'Перейти к развитию',
     scContinueDevelopment: 'Продолжить развитие',
     scRadarTitle: 'Интерактивный Радар Навыков',
     scRadarSubtitle: 'Наглядный анализ вашей горнолыжной техники по 6 ключевым измерениям',

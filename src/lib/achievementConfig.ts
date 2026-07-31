@@ -270,7 +270,25 @@ const getCompletedBookings = (bookings: Booking[]) =>
     .filter((b) => b.status === 'completed' && !b.isDeleted)
     .sort((a, b) => a.date.localeCompare(b.date));
 
-const bookingTimestamp = (booking: Booking) => `${booking.date}T12:00:00.000Z`;
+const toYMD = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const resolveBookingStartDate = (booking: Booking, courses: Course[]) => {
+  if (booking.instructorId.startsWith('course_')) {
+    const courseId = booking.instructorId.substring('course_'.length);
+    const course = courses.find((c) => c.id === courseId);
+    const parsed = parseCourseDates(course ? course.dates : booking.date);
+    return toYMD(parsed.start);
+  }
+  return booking.date;
+};
+
+const bookingTimestamp = (booking: Booking, courses: Course[]) =>
+  `${resolveBookingStartDate(booking, courses)}T12:00:00.000Z`;
 
 const countExercisesMastered = (scores: Record<string, number>, skillItems: SkillItem[]) =>
   skillItems.filter(
@@ -317,11 +335,11 @@ const hasGraduatedCourse = (
     return end.getTime() <= now.getTime();
   });
 
-const findTwentyHoursTimestamp = (completed: Booking[]) => {
+const findTwentyHoursTimestamp = (completed: Booking[], courses: Course[]) => {
   let total = 0;
   for (const booking of completed) {
     total += booking.durationHours;
-    if (total >= 20) return bookingTimestamp(booking);
+    if (total >= 20) return bookingTimestamp(booking, courses);
   }
   return undefined;
 };
@@ -333,7 +351,7 @@ const findLevelUpTimestamp = (ctx: AchievementEvaluationContext) => {
   if (levelUpLog) return levelUpLog.timestamp;
   if ((ctx.userProfile.level || 1) >= 2) {
     const firstCompleted = getCompletedBookings(ctx.bookings)[0];
-    return firstCompleted ? bookingTimestamp(firstCompleted) : undefined;
+    return firstCompleted ? bookingTimestamp(firstCompleted, ctx.courses) : undefined;
   }
   return undefined;
 };
@@ -350,7 +368,7 @@ const findHomeworkDoneTimestamp = (ctx: AchievementEvaluationContext) => {
     const completed = new Set(item.completedRecommendationIds ?? []);
     return recommendations.every((rec) => completed.has(rec.id));
   });
-  return booking ? bookingTimestamp(booking) : undefined;
+  return booking ? bookingTimestamp(booking, ctx.courses) : undefined;
 };
 
 const findFeedbackTimestamp = (ctx: AchievementEvaluationContext) => {
@@ -446,10 +464,13 @@ const inferEarnedAt = (
   switch (definition.rule.type) {
     case 'lessons_completed': {
       const index = Math.max(0, (definition.rule.count ?? 1) - 1);
-      return completedLogs[index]?.timestamp ?? (completed[index] ? bookingTimestamp(completed[index]) : undefined);
+      return (
+        completedLogs[index]?.timestamp ??
+        (completed[index] ? bookingTimestamp(completed[index], ctx.courses) : undefined)
+      );
     }
     case 'hours_completed':
-      return findTwentyHoursTimestamp(completed);
+      return findTwentyHoursTimestamp(completed, ctx.courses);
     case 'streak_weeks':
       return new Date().toISOString();
     case 'exercises_mastered':

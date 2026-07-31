@@ -211,6 +211,33 @@ export const resolveBookingStartDate = (booking: Booking, courses: Course[]) => 
   return booking.date;
 };
 
+/** Instructor homework stays in «Today» only for recent lessons (days since lesson date). */
+export const RECOMMENDATION_TODAY_WINDOW_DAYS = 14;
+
+export const getLessonAgeDays = (
+  booking: Booking,
+  courses: Course[],
+  fromDate = new Date()
+): number | null => {
+  const dateStr = resolveBookingStartDate(booking, courses);
+  const lessonDate = new Date(`${dateStr}T12:00:00`);
+  if (Number.isNaN(lessonDate.getTime())) return null;
+  const today = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+  const lessonDay = new Date(lessonDate.getFullYear(), lessonDate.getMonth(), lessonDate.getDate());
+  return Math.floor((today.getTime() - lessonDay.getTime()) / 86_400_000);
+};
+
+export const isBookingInTodayRecommendationWindow = (
+  booking: Booking,
+  courses: Course[],
+  maxDays = RECOMMENDATION_TODAY_WINDOW_DAYS,
+  fromDate = new Date()
+) => {
+  const ageDays = getLessonAgeDays(booking, courses, fromDate);
+  if (ageDays === null) return true;
+  return ageDays >= 0 && ageDays <= maxDays;
+};
+
 export const formatBookingDayMonth = (
   booking: Booking,
   courses: Course[],
@@ -415,6 +442,68 @@ export const getPrioritySkillItems = (
     .slice(0, limit);
 };
 
+export type NextStepAction =
+  | {
+      kind: 'exercise';
+      exerciseId: string;
+      exerciseTitle: string;
+      pointsGain: number;
+      levelProgressDelta: number;
+      targetLevel: number;
+      pinned: boolean;
+    }
+  | {
+      kind: 'recommendation';
+      label: string;
+      bookingId: string;
+    }
+  | { kind: 'complete' };
+
+export const getNextStepAction = (
+  userProfile: UserProfile,
+  bookings: Booking[],
+  skillConfig?: SkillConfig
+): NextStepAction | null => {
+  if (userProfile.hideProgressTracking) return null;
+
+  const pendingRec = getRecommendationTasks(bookings).find((task) => !task.done);
+  if (pendingRec) {
+    return {
+      kind: 'recommendation',
+      label: pendingRec.label,
+      bookingId: pendingRec.bookingId,
+    };
+  }
+
+  const nextExercise = getPrioritySkillItems(userProfile, skillConfig, 1)[0];
+  if (!nextExercise) {
+    return { kind: 'complete' };
+  }
+
+  const level = userProfile.level || 1;
+  const targetLevel = Math.min(4, level + 1);
+  const pointsGain = Math.max(0, nextExercise.maxPoints - nextExercise.earned);
+  const { percent: currentPercent } = getLevelProgressPercent(userProfile, skillConfig);
+  const simulatedScores = {
+    ...(userProfile.skillScores || {}),
+    [nextExercise.id]: nextExercise.maxPoints,
+  };
+  const { percent: afterPercent } = getLevelProgressPercent(
+    { ...userProfile, skillScores: simulatedScores },
+    skillConfig
+  );
+
+  return {
+    kind: 'exercise',
+    exerciseId: nextExercise.id,
+    exerciseTitle: nextExercise.title,
+    pointsGain,
+    levelProgressDelta: Math.max(0, afterPercent - currentPercent),
+    targetLevel,
+    pinned: nextExercise.pinned,
+  };
+};
+
 export const getTodayTasks = (
   userProfile: UserProfile,
   bookings: Booking[],
@@ -427,7 +516,12 @@ export const getTodayTasks = (
   const dismissed = new Set(userProfile.dismissedTodayTaskIds ?? []);
 
   const recTasks: TodayTask[] = getRecommendationTasks(bookings)
+    .filter((task) => !task.done)
     .filter((task) => !dismissed.has(task.id))
+    .filter((task) => {
+      const booking = bookings.find((b) => b.id === task.bookingId);
+      return booking ? isBookingInTodayRecommendationWindow(booking, courses) : false;
+    })
     .map((task) => {
       const booking = bookings.find((b) => b.id === task.bookingId);
       return {

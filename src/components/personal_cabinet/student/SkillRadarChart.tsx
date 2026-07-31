@@ -29,7 +29,6 @@ export interface RadarDimension {
   earned: number;
   max: number;
   percent: number;
-  benchmarkPercent: number;
   exercises: {
     item: SkillItem;
     earned: number;
@@ -59,7 +58,6 @@ const APPLE = {
   green: '#30D158',
   orange: '#FF9F0A',
   purple: '#BF5AF2',
-  benchmark: '#30D158',
   simulation: '#FF9F0A',
 } as const;
 
@@ -109,6 +107,12 @@ function getArcAngles(index: number, total: number, gapRad: number) {
 
 function angleAtPercent(start: number, span: number, percent: number) {
   return start + span * (Math.max(0, Math.min(100, percent)) / 100);
+}
+
+const RADAR_DRAW_MS = 700;
+
+function easeOutCubic(t: number): number {
+  return 1 - (1 - t) ** 3;
 }
 
 function SegmentedControl<T extends string>({
@@ -170,7 +174,6 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
   const [selectedDimensionKey, setSelectedDimensionKey] = useState<RadarDimensionFilter>(
     embed ? 'technique' : 'all'
   );
-  const [showBenchmarkOverlay, setShowBenchmarkOverlay] = useState(true);
   const [simulatedValues, setSimulatedValues] = useState<Record<RadarDimensionKey, number>>({
     technique: 0,
     control: 0,
@@ -179,6 +182,27 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
     coordination: 0,
     terrain: 0,
   });
+  const [drawProgress, setDrawProgress] = useState(0);
+
+  useEffect(() => {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) {
+      setDrawProgress(1);
+      return;
+    }
+
+    let raf = 0;
+    const start = performance.now();
+
+    const frame = (now: number) => {
+      const t = Math.min(1, (now - start) / RADAR_DRAW_MS);
+      setDrawProgress(easeOutCubic(t));
+      if (t < 1) raf = requestAnimationFrame(frame);
+    };
+
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   const targetStage = Math.min(currentLevel, 3);
 
@@ -216,7 +240,6 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
         earned: data.earned,
         max: data.max,
         percent,
-        benchmarkPercent: passPercentage,
         exercises: data.exercises,
       } as RadarDimension;
     });
@@ -277,18 +300,21 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
     return calculateSkillProgress(simScores, items, targetStage, passPercentage);
   }, [userProfile.skillScores, dimensionData, simulatedValues, items, targetStage, passPercentage]);
 
-  const radarPadding = compact ? (embed ? 28 : 32) : 40;
-  const chartBase = compact ? (embed ? 240 : 260) : 320;
+  const radarPadding = compact ? (embed ? 38 : 43) : 53;
+  const chartBase = compact ? (embed ? 360 : 384) : 480;
   const size = chartBase + radarPadding * 2;
   const center = size / 2;
-  const radius = compact ? (embed ? 72 : 80) : 100;
+  const radius = compact ? (embed ? 110 : 122) : 154;
   const numSides = chartDimensions.length;
-  const strokeWidth = compact ? (embed ? 18 : 20) : 24;
+  const strokeWidth = compact ? (embed ? 22 : 24) : 29;
   const segmentGapRad = numSides > 1 ? getSegmentGapRad(radius, strokeWidth) : 0;
   const glowMargin = strokeWidth + 8;
   const hasAxisFocus = selectedDimensionKey !== 'all';
 
   const hubDimension = selectedDimension ?? chartDimensions[0] ?? null;
+  const hubAnimatedPercent = hubDimension
+    ? Math.round(hubDimension.percent * drawProgress)
+    : 0;
 
   const isSimulating = chartDimensions.some((d) => simulatedValues[d.key] > d.percent);
 
@@ -321,7 +347,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
         {t('scRadarNoExercises').replace('{n}', String(targetStage))}
       </p>
     ) : (
-    <div className={`relative flex items-center justify-center w-full overflow-visible ${embed ? 'max-w-[min(100%,15.5rem)] mx-auto' : 'max-w-[min(100%,20rem)] mx-auto'}`}>
+    <div className={`relative flex items-center justify-center w-full overflow-visible ${embed ? 'max-w-[min(100%,23.5rem)] mx-auto' : 'max-w-[min(100%,31rem)] mx-auto'}`}>
       <svg
         viewBox={`0 0 ${size} ${size}`}
         className="w-full h-auto block"
@@ -357,22 +383,8 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
               stroke={chartDimensions[0].color}
               strokeWidth={strokeWidth}
               strokeLinecap="round"
-              opacity={0.28}
+              opacity={0.28 * drawProgress}
             />
-            {showBenchmarkOverlay && (
-              <circle
-                cx={center}
-                cy={center}
-                r={radius}
-                fill="none"
-                stroke={APPLE.benchmark}
-                strokeWidth={1.5}
-                strokeLinecap="round"
-                strokeDasharray={`${(2 * Math.PI * radius * chartDimensions[0].benchmarkPercent) / 100} ${2 * Math.PI * radius}`}
-                transform={`rotate(-90 ${center} ${center})`}
-                opacity={0.55}
-              />
-            )}
             {isSimulating && simulatedValues[chartDimensions[0].key] > chartDimensions[0].percent && (
               <circle
                 cx={center}
@@ -395,31 +407,26 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
               stroke={chartDimensions[0].color}
               strokeWidth={strokeWidth}
               strokeLinecap="round"
-              strokeDasharray={`${(2 * Math.PI * radius * chartDimensions[0].percent) / 100} ${2 * Math.PI * radius}`}
+              strokeDasharray={`${(2 * Math.PI * radius * chartDimensions[0].percent * drawProgress) / 100} ${2 * Math.PI * radius}`}
               transform={`rotate(-90 ${center} ${center})`}
-              className="transition-all duration-500"
             />
           </>
         ) : (
           chartDimensions.map((dim, i) => {
             const { start, end, span } = getArcAngles(i, numSides, segmentGapRad);
             const isSelected = selectedDimensionKey !== 'all' && dim.key === selectedDimensionKey;
-            const currentEnd = angleAtPercent(start, span, dim.percent);
+            const animatedPercent = dim.percent * drawProgress;
+            const currentEnd = angleAtPercent(start, span, animatedPercent);
             const simVal = Math.max(dim.percent, simulatedValues[dim.key]);
             const simEnd = angleAtPercent(start, span, simVal);
-            const benchEnd = angleAtPercent(start, span, dim.benchmarkPercent);
             const trackPath = describeArcSegment(center, center, radius, start, end);
             const currentPath =
-              dim.percent > 0
+              animatedPercent > 0
                 ? describeArcSegment(center, center, radius, start, currentEnd)
                 : '';
             const simPath =
               isSimulating && simVal > dim.percent
                 ? describeArcSegment(center, center, radius, currentEnd, simEnd)
-                : '';
-            const benchPath =
-              showBenchmarkOverlay && dim.benchmarkPercent > 0
-                ? describeArcSegment(center, center, radius, start, benchEnd)
                 : '';
 
             return (
@@ -434,19 +441,8 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
                   stroke={dim.color}
                   strokeWidth={strokeWidth}
                   strokeLinecap="round"
-                  opacity={0.28}
+                  opacity={0.28 * drawProgress}
                 />
-                {benchPath && (
-                  <path
-                    d={benchPath}
-                    fill="none"
-                    stroke={APPLE.benchmark}
-                    strokeWidth={1.5}
-                    strokeLinecap="round"
-                    strokeDasharray="3 4"
-                    opacity={0.5}
-                  />
-                )}
                 {simPath && (
                   <path
                     d={simPath}
@@ -465,8 +461,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
                     stroke={dim.color}
                     strokeWidth={strokeWidth}
                     strokeLinecap="round"
-                    filter={isSelected ? 'url(#radar-arc-glow)' : undefined}
-                    className="transition-all duration-500"
+                    filter={isSelected && drawProgress >= 1 ? 'url(#radar-arc-glow)' : undefined}
                   />
                 )}
                 <path
@@ -486,14 +481,15 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
         {hubDimension && (
           <text
             x={center}
-            y={center + (compact ? (embed ? 7 : 8) : 10)}
+            y={center + (compact ? (embed ? 10 : 11) : 13)}
             textAnchor="middle"
-            fontSize={compact ? (embed ? '26' : '28') : '34'}
+            fontSize={compact ? (embed ? '36' : '38') : '48'}
             fontWeight="300"
             fill={hubDimension.color}
+            fillOpacity={Math.min(1, drawProgress * 1.2)}
             className="font-serif tabular-nums pointer-events-none"
           >
-            {hubDimension.percent}%
+            {hubAnimatedPercent}%
           </text>
         )}
       </svg>
@@ -506,12 +502,6 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
         <span className="w-4 h-1 rounded-full bg-gradient-to-r from-[#5E5CE6] via-[#A8E10C] to-[#FA114F]" />
         {t('scRadarCurrentScore')}
       </span>
-      {showBenchmarkOverlay && (
-        <span className="inline-flex items-center gap-1.5">
-          <span className="w-4 border-b border-dashed border-[#30D158] opacity-70" />
-          {t('scRadarTargetLevel').replace('{n}', String(passPercentage))}
-        </span>
-      )}
       {isSimulating && (
         <span className="inline-flex items-center gap-1.5 text-[var(--ink)]">
           <span className="w-2 h-2 rounded-full bg-[#FF9F0A]" />
@@ -572,7 +562,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <SegmentedControl
           value={activeTab}
           onChange={setActiveTab}
@@ -581,17 +571,6 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
             { id: 'simulator', label: t('scRadarViewSimulator'), badge: isSimulating },
           ]}
         />
-        <button
-          type="button"
-          onClick={() => setShowBenchmarkOverlay(!showBenchmarkOverlay)}
-          className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-all duration-200 ${
-            showBenchmarkOverlay
-              ? 'border-[#30D158]/35 bg-[#30D158]/8 text-[#30D158]'
-              : 'border-[var(--border-subtle)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
-          }`}
-        >
-          {t('scRadarViewComparison')}
-        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
@@ -663,40 +642,49 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
                             {t('instructorLevel')} {levelNum}
                           </h4>
                           <ul className="space-y-2">
-                            {levelExercises.map(({ item, pinned, isMaxScore }) => {
+                            {levelExercises.map(({ item, earned, maxPoints, pinned, isMaxScore }) => {
                               const coachComment = userProfile.skillComments?.[item.id]?.trim();
                               return (
                                 <li
                                   key={item.id}
-                                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-3 flex items-start gap-3"
+                                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-3 flex items-start justify-between gap-3"
                                 >
-                                  {isMaxScore ? (
-                                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#30D158]/12 text-[#30D158]">
-                                      <Check className="h-3 w-3" />
-                                    </span>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => onToggleSkillToday?.(item.id, !pinned)}
-                                      disabled={!onToggleSkillToday}
-                                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ${
-                                        pinned
-                                          ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]'
-                                          : 'border-[var(--border-subtle)] text-[var(--ink-dim)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
-                                      } disabled:opacity-50`}
-                                      title={pinned ? t('scRemoveFromToday') : t('scAddToToday')}
-                                    >
-                                      {pinned ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-                                    </button>
-                                  )}
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-sm leading-snug text-[var(--ink)]">{item.title}</p>
-                                    {coachComment && (
-                                      <p className="text-xs mt-0.5 leading-relaxed text-[var(--ink)] italic">
-                                        &ldquo;{coachComment}&rdquo;
-                                      </p>
+                                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                                    {isMaxScore ? (
+                                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#30D158]/12 text-[#30D158]">
+                                        <Check className="h-3 w-3" />
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => onToggleSkillToday?.(item.id, !pinned)}
+                                        disabled={!onToggleSkillToday}
+                                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ${
+                                          pinned
+                                            ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]'
+                                            : 'border-[var(--border-subtle)] text-[var(--ink-dim)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
+                                        } disabled:opacity-50`}
+                                        title={pinned ? t('scRemoveFromToday') : t('scAddToToday')}
+                                      >
+                                        {pinned ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                                      </button>
                                     )}
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm leading-snug text-[var(--ink)]">{item.title}</p>
+                                      {coachComment && (
+                                        <p className="text-xs mt-0.5 leading-relaxed text-[var(--ink)] italic">
+                                          &ldquo;{coachComment}&rdquo;
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
+                                  <span
+                                    className={`shrink-0 text-xs tabular-nums ${
+                                      isMaxScore ? 'font-semibold text-[#30D158]' : 'text-[var(--ink-dim)]'
+                                    }`}
+                                  >
+                                    {earned}/{maxPoints}
+                                  </span>
                                 </li>
                               );
                             })}

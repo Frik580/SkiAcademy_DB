@@ -92,8 +92,48 @@ export const ScDivider: React.FC = () => (
   </div>
 );
 
-export const ScSectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <h2 className="text-sm font-medium text-[var(--ink-dim)] tracking-wide">{children}</h2>
+/** Muted Apple-style tints for student cabinet sections */
+export type ScTint = 'indigo' | 'accent' | 'amber' | 'sky' | 'green' | 'purple' | 'orange';
+
+const SC_TINT_CARD: Record<ScTint, string> = {
+  indigo: 'border-[#5E5CE6]/22 bg-[#5E5CE6]/10',
+  accent: 'border-[var(--accent)]/22 bg-[var(--accent-muted)]/45',
+  amber: 'border-[#FFD60A]/22 bg-[#FFD60A]/10',
+  sky: 'border-[#64D2FF]/22 bg-[#64D2FF]/10',
+  green: 'border-[#30D158]/22 bg-[#30D158]/10',
+  purple: 'border-[#BF5AF2]/22 bg-[#BF5AF2]/10',
+  orange: 'border-[#FF9F0A]/22 bg-[#FF9F0A]/10',
+};
+
+const SC_TINT_VALUE: Record<ScTint, string> = {
+  indigo: 'text-[#9B99FF]',
+  accent: 'text-[var(--accent)]',
+  amber: 'text-[#FFD60A]',
+  sky: 'text-[#64D2FF]',
+  green: 'text-[#30D158]',
+  purple: 'text-[#BF5AF2]',
+  orange: 'text-[#FF9F0A]',
+};
+
+export const ScTintCard: React.FC<{
+  tint: ScTint;
+  className?: string;
+  children: React.ReactNode;
+}> = ({ tint, className = '', children }) => (
+  <div className={`rounded-xl border ${SC_TINT_CARD[tint]} ${className}`}>{children}</div>
+);
+
+export const ScSectionTitle: React.FC<{
+  children: React.ReactNode;
+  tint?: ScTint;
+}> = ({ children, tint }) => (
+  <h2
+    className={`text-sm font-medium tracking-wide ${
+      tint ? SC_TINT_VALUE[tint] : 'text-[var(--ink-dim)]'
+    }`}
+  >
+    {children}
+  </h2>
 );
 
 export const ScProgressBar: React.FC<{
@@ -102,7 +142,9 @@ export const ScProgressBar: React.FC<{
   block?: boolean;
   variant?: 'default' | 'block' | 'apple';
   showLabel?: boolean;
-}> = ({ percent, className = '', block = false, variant, showLabel = false }) => {
+  /** Optional fill color for apple variant (CSS color) */
+  fillColor?: string;
+}> = ({ percent, className = '', block = false, variant, showLabel = false, fillColor }) => {
   const clamped = Math.min(100, Math.max(0, Math.round(percent)));
   const resolvedVariant = variant ?? (block ? 'block' : 'default');
 
@@ -129,8 +171,11 @@ export const ScProgressBar: React.FC<{
           aria-valuemax={100}
         >
           <div
-            className="absolute inset-y-0 left-0 rounded-full bg-[var(--accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] transition-[width] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
-            style={{ width: `${clamped}%` }}
+            className="absolute inset-y-0 left-0 rounded-full shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] transition-[width] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+            style={{
+              width: `${clamped}%`,
+              backgroundColor: fillColor ?? 'var(--accent)',
+            }}
           />
         </div>
         {showLabel && (
@@ -172,14 +217,22 @@ export const ScTextButton: React.FC<
 );
 
 export const ScStatGrid: React.FC<{
-  items: { label: string; value: string | number }[];
+  items: { label: string; value: string | number; tint?: ScTint }[];
 }> = ({ items }) => (
-  <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-4">
-    {items.map((item) => (
-      <div key={item.label}>
-        <dt className="text-xs text-[var(--ink-dim)]">{item.label}</dt>
-        <dd className="text-2xl font-serif font-light text-[var(--ink)] mt-0.5">{item.value}</dd>
-      </div>
-    ))}
+  <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    {items.map((item) => {
+      const tint = item.tint ?? 'accent';
+      return (
+        <div
+          key={item.label}
+          className={`rounded-xl border px-3 py-3 ${SC_TINT_CARD[tint]}`}
+        >
+          <dt className="text-[10px] uppercase tracking-wider text-[var(--ink-dim)]">{item.label}</dt>
+          <dd className={`text-2xl font-serif font-light mt-1 tabular-nums ${SC_TINT_VALUE[tint]}`}>
+            {item.value}
+          </dd>
+        </div>
+      );
+    })}
   </dl>
 );

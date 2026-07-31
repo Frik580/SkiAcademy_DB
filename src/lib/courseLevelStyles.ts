@@ -76,3 +76,19 @@ export function getCourseLevelModalClass(level: Course['level']): string {
 export function getCourseLevelBadgeClass(level: Course['level']): string {
   return adminBadgeClass[level || ''];
 }
+
+const USER_LEVEL_TO_COURSE_LEVEL: Record<number, CourseLevel> = {
+  1: 'beginner',
+  2: 'intermediate',
+  3: 'advanced',
+  4: 'expert',
+};
+
+export function userLevelToCourseLevel(level: number): CourseLevel {
+  return USER_LEVEL_TO_COURSE_LEVEL[level] ?? 'beginner';
+}
+
+/** Level badge in the student cabinet — same palette as course cards. */
+export function getUserLevelBadgeClass(level: number): string {
+  return getCourseLevelCardBadgeClass(userLevelToCourseLevel(level));
+}

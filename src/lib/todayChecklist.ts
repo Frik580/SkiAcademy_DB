@@ -29,6 +29,15 @@ export const buildToggleSkillTodayUpdate = (
   todaySkillItemIds: toggleStringList(profile.todaySkillItemIds, skillItemId, pinned),
 });
 
+export const buildPinSkillsTodayUpdate = (
+  profile: UserProfile,
+  skillItemIds: string[]
+): Partial<UserProfile> => {
+  const set = new Set(profile.todaySkillItemIds ?? []);
+  skillItemIds.forEach((id) => set.add(id));
+  return { todaySkillItemIds: Array.from(set) };
+};
+
 export const buildToggleTodayCompleteUpdate = (
   profile: UserProfile,
   taskId: string,

@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { SkillConfig, SkillItem, DEFAULT_SKILL_CONFIG } from '../lib/skillData';
+import {
+  SkillConfig,
+  SkillItem,
+  DEFAULT_SKILL_CONFIG,
+  RADAR_DIMENSION_KEYS,
+  RADAR_DIMENSION_LABELS,
+  classifySkillItemToRadarDimension,
+  RadarDimensionKey,
+} from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
 import { Plus, Trash2, Edit2, Save, RotateCcw, Check } from 'lucide-react';
 
@@ -57,9 +65,10 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
       num: String(filteredItems.length + 1),
       title: 'Новое упражнение',
       maxPoints: 5,
-      controlPoints: 2,
-      speedPoints: 1,
-      techniquePoints: 2,
+      controlPoints: 0,
+      speedPoints: 0,
+      techniquePoints: 0,
+      radarDimension: 'technique',
     };
     setItems((prev) => [...prev, newItem]);
     setEditingItemId(newItem.id);
@@ -201,7 +210,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
 
       {/* Table of Skill Items */}
       <div className="overflow-x-auto border border-[var(--border)]">
-        <table className="w-full text-left border-collapse min-w-[700px]">
+        <table className="w-full text-left border-collapse min-w-[560px]">
           <thead>
             <tr className="bg-black/30 text-[9px] font-mono uppercase text-[var(--ink-dim)] tracking-wider border-b border-[var(--border)]">
               <th className="p-2 border-r border-[var(--border)]/40 w-12">№</th>
@@ -210,9 +219,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
               <th className="p-2 border-r border-[var(--border)]/40 w-20 text-center">
                 Макс. балл
               </th>
-              <th className="p-2 border-r border-[var(--border)]/40 w-36 text-center">
-                Распределение (К / СК / ТЕХ)
-              </th>
+              <th className="p-2 border-r border-[var(--border)]/40 w-28 text-center">Радар</th>
               <th className="p-2 w-20 text-center">Действия</th>
             </tr>
           </thead>
@@ -270,57 +277,26 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                     )}
                   </td>
 
-                  {/* Points breakdown: Control, Speed, Technique */}
+                  {/* Radar dimension */}
                   <td className="p-2 border-r border-[var(--border)]/40 text-center">
                     {isEditing ? (
-                      <div className="flex gap-1 justify-center">
-                        <input
-                          type="number"
-                          title="Контроль"
-                          placeholder="К"
-                          value={item.controlPoints || 0}
-                          onChange={(e) =>
-                            handleUpdateItemField(item.id, 'controlPoints', Number(e.target.value))
-                          }
-                          className="w-10 bg-[var(--bg)] border border-[var(--border)] text-center text-[10px] text-cyan-300"
-                        />
-                        <input
-                          type="number"
-                          title="Скорость"
-                          placeholder="Ск"
-                          value={item.speedPoints || 0}
-                          onChange={(e) =>
-                            handleUpdateItemField(item.id, 'speedPoints', Number(e.target.value))
-                          }
-                          className="w-10 bg-[var(--bg)] border border-[var(--border)] text-center text-[10px] text-amber-300"
-                        />
-                        <input
-                          type="number"
-                          title="Техника"
-                          placeholder="Тех"
-                          value={item.techniquePoints || 0}
-                          onChange={(e) =>
-                            handleUpdateItemField(
-                              item.id,
-                              'techniquePoints',
-                              Number(e.target.value)
-                            )
-                          }
-                          className="w-10 bg-[var(--bg)] border border-[var(--border)] text-center text-[10px] text-purple-300"
-                        />
-                      </div>
+                      <select
+                        value={item.radarDimension ?? classifySkillItemToRadarDimension(item)}
+                        onChange={(e) =>
+                          handleUpdateItemField(item.id, 'radarDimension', e.target.value as RadarDimensionKey)
+                        }
+                        className="w-full max-w-[7.5rem] bg-[var(--bg)] border border-[var(--border)] px-1 py-0.5 text-[10px] text-[var(--ink)]"
+                      >
+                        {RADAR_DIMENSION_KEYS.map((key) => (
+                          <option key={key} value={key}>
+                            {RADAR_DIMENSION_LABELS[key]}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
-                      <div className="flex justify-center gap-2 text-[10px]">
-                        <span className="text-cyan-300" title="Контроль">
-                          К: {item.controlPoints || 0}
-                        </span>
-                        <span className="text-amber-300" title="Скорость">
-                          Ск: {item.speedPoints || 0}
-                        </span>
-                        <span className="text-purple-300" title="Техника">
-                          Тех: {item.techniquePoints || 0}
-                        </span>
-                      </div>
+                      <span className="text-[10px] text-[var(--ink-dim)]">
+                        {RADAR_DIMENSION_LABELS[classifySkillItemToRadarDimension(item)]}
+                      </span>
                     )}
                   </td>
 

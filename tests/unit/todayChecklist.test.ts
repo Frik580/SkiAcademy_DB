@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildToggleTodayCompleteUpdate,
+  buildPinSkillsTodayUpdate,
   resolveCompletedTodayTaskIds,
   toTodayDateStr,
 } from '../../src/lib/todayChecklist';
@@ -37,5 +38,13 @@ describe('today checklist daily reset', () => {
     const update = buildToggleTodayCompleteUpdate(baseProfile, 'skill:item-2', true);
     expect(update.completedTodayDate).toBe(today);
     expect(update.completedTodayTaskIds).toEqual(['skill:item-2']);
+  });
+
+  it('pins multiple skill items in one update', () => {
+    const update = buildPinSkillsTodayUpdate(
+      { ...baseProfile, todaySkillItemIds: ['l1_1'] },
+      ['l1_2', 'l1_3', 'l1_1']
+    );
+    expect(update.todaySkillItemIds).toEqual(['l1_1', 'l1_2', 'l1_3']);
   });
 });

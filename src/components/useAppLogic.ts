@@ -37,6 +37,7 @@ import { QUERY_LIMITS } from '../lib/queryLimits';
 import { logger } from '../lib/logger';
 import {
   buildAddCustomTodayTaskUpdate,
+  buildPinSkillsTodayUpdate,
   buildRemoveTodayTaskUpdate,
   buildToggleSkillTodayUpdate,
   buildToggleTodayCompleteUpdate,
@@ -319,6 +320,12 @@ export const useAppLogic = (
     await handleUpdateProfile(updated);
   };
 
+  const handlePinSkillsToday = async (skillItemIds: string[]) => {
+    if (!firebaseUser || !userProfile || skillItemIds.length === 0) return;
+    const updated = buildPinSkillsTodayUpdate(userProfile, skillItemIds);
+    await handleUpdateProfile(updated);
+  };
+
   const handleToggleTodayTaskComplete = async (taskId: string, done: boolean) => {
     if (!firebaseUser || !userProfile) return;
     const updated = buildToggleTodayCompleteUpdate(userProfile, taskId, done);
@@ -414,6 +421,7 @@ export const useAppLogic = (
     handleDeleteUser,
     handleUpdateProfile,
     handleToggleSkillToday,
+    handlePinSkillsToday,
     handleToggleTodayTaskComplete,
     handleAddCustomTodayTask,
     handleRemoveTodayTask,

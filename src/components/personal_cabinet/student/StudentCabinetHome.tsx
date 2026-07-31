@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Booking, Course, Instructor, Review, UserProfile, ActivityLog } from '../../../types';
-import { SkillConfig, DEFAULT_SKILL_CONFIG, calculateSkillProgress } from '../../../lib/skillData';
+import { SkillConfig, DEFAULT_SKILL_CONFIG } from '../../../lib/skillData';
 import { AchievementsConfig } from '../../../lib/achievementConfig';
 import { useLanguage, translateInstructor } from '../../../lib/LanguageContext';
 import { GroupCourseCard, sortVisibleCourses } from '../../GroupCourseCard';
@@ -38,9 +38,9 @@ import {
 } from './StudentCabinetUI';
 import { StudentHistoryList } from './StudentHistoryList';
 import { StudentNeedsAttention } from './StudentNeedsAttention';
-import { StudentActivityRings } from './StudentActivityRings';
 import { TodayChecklist } from './TodayChecklist';
 import { RecommendationIndicator } from '../RecommendationIndicator';
+import { SkillRadarChart } from './SkillRadarChart';
 import {
   hasBookingRecommendations,
   hasPendingRecommendations,
@@ -64,6 +64,8 @@ export interface StudentCabinetContext {
   onOpenDevelopmentSection: (sectionId: string) => void;
   onContinueDevelopment: () => void;
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
+  onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
+  onPinSkillsToday?: (skillItemIds: string[]) => void | Promise<void>;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
   onAddCustomTodayTask?: (text: string) => void;
   onRemoveTodayTask?: (task: import('../../../lib/todayChecklist').TodayTaskRef) => void;
@@ -113,32 +115,6 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   const { percent, remaining } = getLevelProgressPercent(userProfile, skillConfig);
 
   const skillItems = skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
-  const passPercentage = skillConfig?.passPercentage ?? DEFAULT_SKILL_CONFIG.passPercentage;
-  const skillProgress = useMemo(
-    () => calculateSkillProgress(userProfile.skillScores || {}, skillItems, level, passPercentage),
-    [userProfile.skillScores, skillItems, level, passPercentage]
-  );
-
-  const activityRings = useMemo(
-    () => [
-      {
-        label: t('technique'),
-        percent: skillProgress.technique.percentage,
-        color: '#BF5AF2',
-      },
-      {
-        label: t('control'),
-        percent: skillProgress.control.percentage,
-        color: '#30D158',
-      },
-      {
-        label: t('speed'),
-        percent: skillProgress.speed.percentage,
-        color: '#FF9F0A',
-      },
-    ],
-    [skillProgress, t]
-  );
 
   const nextSession = getNextSession(bookings, courses);
   const nextSessionLessonLabel = nextSession
@@ -220,42 +196,46 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
 
   return (
     <div className="space-y-0 pb-24 max-w-2xl mx-auto w-full px-4 sm:px-6 min-w-0">
-      {/* Hero — greeting, level + activity rings */}
-      <section
-        className={`py-6 ${hideProgress ? 'space-y-2' : 'grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-4 sm:gap-6 sm:items-center'}`}
-      >
-        <div className="space-y-2 min-w-0">
-          <p className="text-lg font-medium text-[var(--ink)]">
-            {getGreeting(lang, getFirstName(userProfile.displayName))}
+      {/* Hero — greeting, level, progress, skill radar */}
+      <section className="py-6 space-y-2.5 min-w-0">
+        <p className="text-base sm:text-lg font-medium text-[var(--ink)] leading-snug break-words">
+          {getGreeting(lang, getFirstName(userProfile.displayName))}
+        </p>
+        <p className="text-[10px] sm:text-xs font-medium tracking-wide sm:tracking-widest text-[var(--ink-dim)] uppercase leading-relaxed break-words">
+          LEVEL {level} · {getLevelName(level, lang)}
+        </p>
+        {streakWeeks > 0 && (
+          <p className="text-sm text-[var(--accent)] leading-snug">
+            {t('scStreakWeeks').replace('{n}', String(streakWeeks))}
           </p>
-          <p className="text-xs font-medium tracking-widest text-[var(--ink-dim)] uppercase">
-            LEVEL {level} · {getLevelName(level, lang)}
-          </p>
-          {streakWeeks > 0 && (
-            <p className="text-sm text-[var(--accent)]">
-              {t('scStreakWeeks').replace('{n}', String(streakWeeks))}
-            </p>
-          )}
-          {!hideProgress && (
-            <>
+        )}
+        {!hideProgress && (
+          <>
+            <div className="space-y-2 pt-0.5 max-w-full">
               <ScProgressBar percent={percent} variant="apple" showLabel />
-              <p className="text-sm text-[var(--ink-dim)]">
+              <p className="text-xs sm:text-sm text-[var(--ink-dim)] leading-snug">
                 {t('scPointsToNextLevel').replace('{n}', String(remaining))}
               </p>
-              <div className="pt-2 flex justify-center sm:hidden">
-                <StudentActivityRings rings={activityRings} layout="row" size={104} />
-              </div>
-            </>
-          )}
+            </div>
+            <div className="pt-3 min-w-0 w-full">
+              <p className="text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)] mb-2.5">
+                {t('scRadarTitle')}
+              </p>
+              <SkillRadarChart
+                userProfile={userProfile}
+                skillConfig={skillConfig}
+                onToggleSkillToday={props.onToggleSkillToday}
+                compact
+                embed
+              />
+            </div>
+          </>
+        )}
+        <div className="pt-1">
           <ScTextButton arrow onClick={onContinueDevelopment}>
             {t('scContinueDevelopment')}
           </ScTextButton>
         </div>
-        {!hideProgress && (
-          <div className="hidden sm:flex justify-end">
-            <StudentActivityRings rings={activityRings} layout="row" size={104} />
-          </div>
-        )}
       </section>
 
       {achievements.length > 0 && (

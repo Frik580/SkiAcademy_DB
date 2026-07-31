@@ -43,6 +43,7 @@ interface PersonalCabinetProps {
     checked: boolean
   ) => Promise<void>;
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => Promise<void>;
+  onPinSkillsToday?: (skillItemIds: string[]) => Promise<void>;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => Promise<void>;
   onAddCustomTodayTask?: (text: string) => Promise<void>;
   onRemoveTodayTask?: (task: import('../lib/todayChecklist').TodayTaskRef) => Promise<void>;
@@ -74,6 +75,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   onAddReview,
   onToggleRecommendation,
   onToggleSkillToday,
+  onPinSkillsToday,
   onToggleTodayTaskComplete,
   onAddCustomTodayTask,
   onRemoveTodayTask,
@@ -564,6 +566,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             }}
             onToggleRecommendation={onToggleRecommendation}
             onToggleSkillToday={onToggleSkillToday}
+            onPinSkillsToday={onPinSkillsToday}
             onToggleTodayTaskComplete={onToggleTodayTaskComplete}
             onAddCustomTodayTask={onAddCustomTodayTask}
             onRemoveTodayTask={onRemoveTodayTask}

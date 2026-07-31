@@ -5,6 +5,8 @@ import {
   DEFAULT_SKILL_CONFIG,
   calculateStudentLevel,
   calculateSkillProgress,
+  classifySkillItemToRadarDimension,
+  RADAR_DIMENSION_LABELS,
 } from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
 import { X, Save, Award, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -274,10 +276,8 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                     <h5 className="text-xs font-medium text-[var(--ink)] leading-snug">
                       {item.title}
                     </h5>
-                    <div className="flex gap-2 text-[9px] font-mono text-[var(--ink-dim)]">
-                      <span className="text-cyan-300">Контроль: {item.controlPoints || 0}</span>
-                      <span className="text-amber-300">Скорость: {item.speedPoints || 0}</span>
-                      <span className="text-purple-300">Техника: {item.techniquePoints || 0}</span>
+                    <div className="text-[9px] font-mono text-[var(--ink-dim)]">
+                      Радар: {RADAR_DIMENSION_LABELS[classifySkillItemToRadarDimension(item)]}
                     </div>
                   </div>
 

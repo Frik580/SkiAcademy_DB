@@ -118,6 +118,7 @@ interface AppRoutesProps {
     checked: boolean
   ) => Promise<void>;
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => Promise<void>;
+  onPinSkillsToday?: (skillItemIds: string[]) => Promise<void>;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => Promise<void>;
   onAddCustomTodayTask?: (text: string) => Promise<void>;
   onRemoveTodayTask?: (task: import('../lib/todayChecklist').TodayTaskRef) => Promise<void>;
@@ -168,6 +169,7 @@ const PersonalCabinetPage: React.FC<AppRoutesProps & { forcedMode: 'client' | 'i
     onAddReview,
     onToggleRecommendation,
     onToggleSkillToday,
+    onPinSkillsToday,
     onToggleTodayTaskComplete,
     onAddCustomTodayTask,
     onRemoveTodayTask,
@@ -197,6 +199,7 @@ const PersonalCabinetPage: React.FC<AppRoutesProps & { forcedMode: 'client' | 'i
         onAddReview={onAddReview}
         onToggleRecommendation={onToggleRecommendation}
         onToggleSkillToday={onToggleSkillToday}
+        onPinSkillsToday={onPinSkillsToday}
         onToggleTodayTaskComplete={onToggleTodayTaskComplete}
         onAddCustomTodayTask={onAddCustomTodayTask}
         onRemoveTodayTask={onRemoveTodayTask}

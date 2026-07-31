@@ -123,6 +123,7 @@ const AppContent: React.FC = () => {
     handleLinkGuestBooking,
     handleToggleRecommendation,
     handleToggleSkillToday,
+    handlePinSkillsToday,
     handleToggleTodayTaskComplete,
     handleAddCustomTodayTask,
     handleRemoveTodayTask,
@@ -354,6 +355,7 @@ const AppContent: React.FC = () => {
           onAddReview={handleAddReview}
           onToggleRecommendation={handleToggleRecommendation}
           onToggleSkillToday={handleToggleSkillToday}
+          onPinSkillsToday={handlePinSkillsToday}
           onToggleTodayTaskComplete={handleToggleTodayTaskComplete}
           onAddCustomTodayTask={handleAddCustomTodayTask}
           onRemoveTodayTask={handleRemoveTodayTask}

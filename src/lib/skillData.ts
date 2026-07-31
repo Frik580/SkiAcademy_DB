@@ -1,3 +1,29 @@
+export type RadarDimensionKey =
+  | 'technique'
+  | 'control'
+  | 'speed'
+  | 'balance'
+  | 'coordination'
+  | 'terrain';
+
+export const RADAR_DIMENSION_KEYS: RadarDimensionKey[] = [
+  'technique',
+  'control',
+  'speed',
+  'balance',
+  'coordination',
+  'terrain',
+];
+
+export const RADAR_DIMENSION_LABELS: Record<RadarDimensionKey, string> = {
+  technique: 'Техника',
+  control: 'Контроль',
+  speed: 'Скорость',
+  balance: 'Баланс',
+  coordination: 'Координация',
+  terrain: 'Сложный склон',
+};
+
 export interface SkillItem {
   id: string;
   levelTarget: number; // 1 = Beginner->Carve (Level 1->2), 2 = Carve->Performance (Level 2->3), 3 = Performance->Expert (Level 3->4)
@@ -8,6 +34,8 @@ export interface SkillItem {
   controlPoints: number;
   speedPoints: number;
   techniquePoints: number;
+  /** Explicit radar axis; falls back to default map + keyword heuristic when omitted */
+  radarDimension?: RadarDimensionKey;
 }
 
 export interface SkillConfig {
@@ -583,6 +611,98 @@ export const DEFAULT_SKILL_ITEMS: SkillItem[] = [
     techniquePoints: 0,
   },
 ];
+
+/** Default radar axis per exercise id (canonical mapping for built-in curriculum) */
+export const DEFAULT_RADAR_DIMENSION_BY_ITEM_ID: Record<string, RadarDimensionKey> = {
+  l1_1: 'balance',
+  l1_2: 'balance',
+  l1_3: 'control',
+  l1_4: 'control',
+  l1_5: 'technique',
+  l1_6: 'technique',
+  l1_7: 'coordination',
+  l1_8: 'coordination',
+  l1_9: 'technique',
+  l1_10: 'technique',
+  l1_11: 'speed',
+  l1_12: 'control',
+  l1_13: 'technique',
+  l1_14: 'technique',
+  l1_15: 'technique',
+  l2_1: 'technique',
+  l2_2: 'technique',
+  l2_3: 'technique',
+  l2_4: 'technique',
+  l2_5: 'speed',
+  l2_6: 'speed',
+  l2_7: 'control',
+  l2_8: 'balance',
+  l2_9: 'balance',
+  l2_10: 'balance',
+  l2_11: 'balance',
+  l2_12: 'balance',
+  l2_13: 'balance',
+  l2_14: 'speed',
+  l3_1: 'speed',
+  l3_2: 'speed',
+  l3_3: 'speed',
+  l3_4: 'technique',
+  l3_5: 'technique',
+  l3_6: 'technique',
+  l3_7: 'technique',
+  l3_8: 'technique',
+  l3_9: 'terrain',
+  l3_10: 'terrain',
+  l3_11: 'terrain',
+  l3_12: 'terrain',
+  l3_13: 'terrain',
+  l3_14: 'coordination',
+  l3_15: 'coordination',
+  l3_16: 'coordination',
+  l3_17: 'coordination',
+  l3_18: 'coordination',
+  l3_19: 'coordination',
+  l3_20: 'coordination',
+  l3_21: 'coordination',
+  l3_22: 'control',
+};
+
+function inferRadarDimensionFromText(item: Pick<SkillItem, 'section' | 'title'>): RadarDimensionKey {
+  const sec = (item.section || '').toLowerCase();
+  const title = (item.title || '').toLowerCase();
+
+  if (sec.includes('баланс') || title.includes('стойк') || title.includes('баланс')) return 'balance';
+  if (sec.includes('контроль') || title.includes('торможен') || title.includes('остановк') || title.includes('соскальз')) {
+    return 'control';
+  }
+  if (sec.includes('скорость') || sec.includes('уверенность') || title.includes('скорост') || title.includes('без остановок')) {
+    return 'speed';
+  }
+  if (
+    sec.includes('координаци') ||
+    sec.includes('универсальн') ||
+    title.includes('джавилин') ||
+    title.includes('одной лыже') ||
+    title.includes('чарльстон') ||
+    title.includes('дельфин')
+  ) {
+    return 'coordination';
+  }
+  if (sec.includes('сложный') || title.includes('лед') || title.includes('разбит') || title.includes('бугр') || title.includes('целин')) {
+    return 'terrain';
+  }
+  return 'technique';
+}
+
+/** Resolves radar axis: explicit field → default curriculum map → keyword fallback */
+export function classifySkillItemToRadarDimension(
+  item: Pick<SkillItem, 'id' | 'section' | 'title' | 'radarDimension'>,
+  defaultMap: Record<string, RadarDimensionKey> = DEFAULT_RADAR_DIMENSION_BY_ITEM_ID
+): RadarDimensionKey {
+  if (item.radarDimension) return item.radarDimension;
+  if (defaultMap[item.id]) return defaultMap[item.id];
+  return inferRadarDimensionFromText(item);
+}
 
 export const DEFAULT_SKILL_CONFIG: SkillConfig = {
   passPercentage: 80,

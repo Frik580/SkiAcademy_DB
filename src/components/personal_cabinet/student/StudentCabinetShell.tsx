@@ -35,6 +35,7 @@ export interface StudentCabinetShellProps {
   onWriteReview: (booking: Booking) => void;
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
+  onPinSkillsToday?: (skillItemIds: string[]) => void | Promise<void>;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
   onAddCustomTodayTask?: (text: string) => void;
   onRemoveTodayTask?: (task: import('../../../lib/todayChecklist').TodayTaskRef) => void;
@@ -99,6 +100,8 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     onOpenDevelopmentSection: () => goToTab('development'),
     onContinueDevelopment: () => goToTab('development'),
     onToggleRecommendation: props.onToggleRecommendation,
+    onToggleSkillToday: props.onToggleSkillToday,
+    onPinSkillsToday: props.onPinSkillsToday,
     onToggleTodayTaskComplete: props.onToggleTodayTaskComplete,
     onAddCustomTodayTask: props.onAddCustomTodayTask,
     onRemoveTodayTask: props.onRemoveTodayTask,
@@ -120,6 +123,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     onLevelBadgeClick: props.onLevelBadgeClick,
     skillProgress,
     onToggleSkillToday: props.onToggleSkillToday,
+    onPinSkillsToday: props.onPinSkillsToday,
     onToggleTodayTaskComplete: props.onToggleTodayTaskComplete,
     onAddCustomTodayTask: props.onAddCustomTodayTask,
     onRemoveTodayTask: props.onRemoveTodayTask,

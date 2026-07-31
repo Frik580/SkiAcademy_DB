@@ -190,6 +190,30 @@ const LEGACY_ACHIEVEMENT_LABELS: Record<string, { ru: string; en: string }> = {
   section_master: { ru: 'Мастер секции', en: 'Section master' },
 };
 
+const normalizeRule = (rule: AchievementRule): AchievementRule => {
+  switch (rule.type) {
+    case 'lessons_completed':
+    case 'hours_completed':
+    case 'streak_weeks':
+    case 'exercises_mastered':
+      return { type: rule.type, count: rule.count ?? 1 };
+    case 'skill_items_max':
+      return {
+        type: rule.type,
+        skillItemIds: Array.isArray(rule.skillItemIds)
+          ? rule.skillItemIds.filter(Boolean)
+          : [],
+      };
+    case 'level_up':
+    case 'feedback_given':
+    case 'homework_done':
+    case 'course_graduate':
+      return { type: rule.type };
+    default:
+      return { type: rule.type };
+  }
+};
+
 export const normalizeAchievementsConfig = (raw?: Partial<AchievementsConfig>): AchievementsConfig => {
   const items = Array.isArray(raw?.items) ? raw!.items : DEFAULT_ACHIEVEMENTS_CONFIG.items;
   const normalized = items
@@ -209,13 +233,7 @@ export const normalizeAchievementsConfig = (raw?: Partial<AchievementsConfig>): 
       labelEn: item.labelEn.trim(),
       icon: item.icon?.trim() || '🏆',
       order: typeof item.order === 'number' ? item.order : index + 1,
-      rule: {
-        type: item.rule.type,
-        count: item.rule.count,
-        skillItemIds: Array.isArray(item.rule.skillItemIds)
-          ? item.rule.skillItemIds.filter(Boolean)
-          : undefined,
-      },
+      rule: normalizeRule(item.rule),
     }));
 
   const unique = new Map<string, AchievementDefinition>();

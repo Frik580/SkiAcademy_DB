@@ -119,4 +119,21 @@ describe('achievement config', () => {
     expect(normalized.items).toHaveLength(1);
     expect(normalized.items[0]?.id).toBe('custom_1');
   });
+
+  it('strips undefined fields from rules for Firestore', () => {
+    const normalized = normalizeAchievementsConfig({
+      items: [
+        {
+          id: 'level_up',
+          labelRu: 'Уровень',
+          labelEn: 'Level',
+          icon: '⬆️',
+          order: 1,
+          rule: { type: 'level_up', count: undefined, skillItemIds: undefined },
+        },
+      ],
+    });
+    expect(normalized.items[0]?.rule).toEqual({ type: 'level_up' });
+    expect(JSON.stringify(normalized)).not.toContain('undefined');
+  });
 });

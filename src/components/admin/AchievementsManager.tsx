@@ -56,10 +56,7 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
 
   const skillItems = skillConfig.items ?? DEFAULT_SKILL_CONFIG.items;
 
-  const sortedItems = useMemo(
-    () => [...items].sort((a, b) => a.order - b.order),
-    [items]
-  );
+  const sortedItems = useMemo(() => [...items].sort((a, b) => a.order - b.order), [items]);
 
   const updateItem = (id: string, patch: Partial<AchievementDefinition>) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -67,9 +64,7 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
 
   const updateRule = (id: string, patch: Partial<AchievementDefinition['rule']>) => {
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, rule: { ...item.rule, ...patch } } : item
-      )
+      prev.map((item) => (item.id === id ? { ...item, rule: { ...item.rule, ...patch } } : item))
     );
   };
 
@@ -111,8 +106,7 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
     }
   };
 
-  const ruleTypeLabel = (type: AchievementRuleType) =>
-    t(`achRule_${type}` as TranslationKey);
+  const ruleTypeLabel = (type: AchievementRuleType) => t(`achRule_${type}` as TranslationKey);
 
   return (
     <div className="space-y-4">
@@ -228,9 +222,12 @@ export const AchievementsManager: React.FC<AchievementsManagerProps> = ({
               </label>
             </div>
 
-            {['lessons_completed', 'hours_completed', 'streak_weeks', 'exercises_mastered'].includes(
-              item.rule.type
-            ) && (
+            {[
+              'lessons_completed',
+              'hours_completed',
+              'streak_weeks',
+              'exercises_mastered',
+            ].includes(item.rule.type) && (
               <label className="block space-y-1 max-w-xs">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
                   {t('achievementsThreshold')}

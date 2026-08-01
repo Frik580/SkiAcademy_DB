@@ -144,7 +144,9 @@ export const TodayChecklist: React.FC<TodayChecklistProps> = ({
                 <p className="text-[10px] uppercase tracking-wider text-[var(--ink-dim)]">
                   {context.isCourse ? t('groupCourseInfoPrefix') : t('scTodayFromLesson')}
                 </p>
-                <p className="text-sm font-medium text-[var(--ink)] leading-snug">{context.title}</p>
+                <p className="text-sm font-medium text-[var(--ink)] leading-snug">
+                  {context.title}
+                </p>
                 <p className="text-xs text-[var(--ink-dim)] mt-0.5">{context.dateLabel}</p>
                 {onOpenLesson && (
                   <p className="text-xs text-[var(--accent)] mt-1.5">

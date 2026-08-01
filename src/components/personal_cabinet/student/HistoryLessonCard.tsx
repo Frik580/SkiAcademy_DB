@@ -22,11 +22,7 @@ interface HistoryLessonCardProps {
   dismissedReviewIds?: string[];
   onOpenLesson: (booking: Booking) => void;
   onWriteReview: (booking: Booking) => void;
-  onToggleRecommendation?: (
-    bookingId: string,
-    recommendationId: string,
-    checked: boolean
-  ) => void;
+  onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
 }
 
 export const HistoryLessonCard: React.FC<HistoryLessonCardProps> = ({
@@ -71,11 +67,7 @@ export const HistoryLessonCard: React.FC<HistoryLessonCardProps> = ({
           {'☆'.repeat(5 - review.rating)}
         </p>
       )}
-      <LessonRecommendationsList
-        booking={booking}
-        onToggle={onToggleRecommendation}
-        compact
-      />
+      <LessonRecommendationsList booking={booking} onToggle={onToggleRecommendation} compact />
       {review?.comment && (
         <div className="text-sm space-y-1">
           <p className="text-[var(--ink-dim)]">{t('scCoachReview')}</p>

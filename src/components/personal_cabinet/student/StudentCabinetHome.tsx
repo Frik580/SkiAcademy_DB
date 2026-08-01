@@ -206,7 +206,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     .toUpperCase();
 
   return (
-    <div className="space-y-0 pb-24 max-w-2xl mx-auto w-full px-4 sm:px-6 min-w-0">
+    <div className="space-y-0 pb-24 max-w-3xl mx-auto w-full px-4 sm:px-6 min-w-0">
       {/* Hero — greeting, level, progress, skill radar */}
       <section className="py-6 space-y-2.5 min-w-0">
         <p className="text-base sm:text-lg font-medium text-[var(--ink)] leading-snug break-words">
@@ -302,7 +302,9 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
                     {item.label}
                   </span>
                   {item.earnedAtLabel && (
-                    <span className="text-[10px] text-[var(--ink-dim)] pl-6">{item.earnedAtLabel}</span>
+                    <span className="text-[10px] text-[var(--ink-dim)] pl-6">
+                      {item.earnedAtLabel}
+                    </span>
                   )}
                 </span>
               ))}
@@ -372,7 +374,9 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
         <div className="flex justify-between gap-1 text-center text-sm overflow-x-auto no-scrollbar pb-1">
           {miniDays.map(({ day, dateStr, hasSession, isToday, weekdayLabel }) => (
             <div key={dateStr} className="flex flex-col items-center gap-1 min-w-[2rem] flex-1">
-              <span className={`text-[10px] uppercase ${isToday ? 'text-[#BF5AF2]' : 'text-[var(--ink-dim)]'}`}>
+              <span
+                className={`text-[10px] uppercase ${isToday ? 'text-[#BF5AF2]' : 'text-[var(--ink-dim)]'}`}
+              >
                 {weekdayLabel}
               </span>
               <span
@@ -383,9 +387,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
                 {day}
               </span>
               <span
-                className={`text-[10px] ${
-                  hasSession ? 'text-[#30D158]' : 'text-[var(--border)]'
-                }`}
+                className={`text-[10px] ${hasSession ? 'text-[#30D158]' : 'text-[var(--border)]'}`}
                 title={hasSession ? t('bookedLesson') : t('noLessons')}
               >
                 {hasSession ? '●' : '○'}
@@ -402,9 +404,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
                   onClick={() => onOpenSession(booking)}
                   className="w-full text-left rounded-lg border border-[#BF5AF2]/15 bg-[#BF5AF2]/6 px-3 py-2 hover:border-[#BF5AF2]/35 transition"
                 >
-                  <span className="text-[#BF5AF2]">
-                    {formatSessionDayLabel(dateStr, lang, t)}
-                  </span>
+                  <span className="text-[#BF5AF2]">{formatSessionDayLabel(dateStr, lang, t)}</span>
                   {' · '}
                   {booking.time}–{addMinutesToTime(booking.time, booking.durationHours)}
                   {' · '}
@@ -439,7 +439,9 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           <div className="space-y-1">
             <ScSectionTitle>{t('intensiveGroupCourses')}</ScSectionTitle>
             <p className="text-sm text-[var(--ink-dim)]">
-              {showCourseRecommendations ? t('scRecommendedCoursesSub') : t('intensiveGroupCoursesSub')}
+              {showCourseRecommendations
+                ? t('scRecommendedCoursesSub')
+                : t('intensiveGroupCoursesSub')}
             </p>
           </div>
           {visibleCourses.length > HOME_PREVIEW_COUNT && (
@@ -480,7 +482,9 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           <div className="space-y-1">
             <ScSectionTitle>{t('scInstructors')}</ScSectionTitle>
             <p className="text-sm text-[var(--ink-dim)]">
-              {showInstructorRecommendations ? t('scRecommendedInstructorsSub') : t('meetGuidesSub')}
+              {showInstructorRecommendations
+                ? t('scRecommendedInstructorsSub')
+                : t('meetGuidesSub')}
             </p>
           </div>
           {availableInstructors.length > HOME_PREVIEW_COUNT && (

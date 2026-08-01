@@ -171,7 +171,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                 (b.isGuest || b.userId?.startsWith('guest_')
                   ? b.guestName
                     ? `${b.guestName}`
-                    : 'Гость'
+                    : t('guestBadge') || (language === 'ru' ? 'Гость' : 'Guest')
                   : null) ||
                 b.notes ||
                 t('clientLesson')}
@@ -289,8 +289,8 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
               b.guestName ||
               (b.isGuest || b.userId?.startsWith('guest_')
                 ? b.guestName
-                  ? `${b.guestName} (${t('guestBadge') || 'Гость'})`
-                  : 'Гость'
+                  ? `${b.guestName} (${t('guestBadge') || (language === 'ru' ? 'Гость' : 'Guest')})`
+                  : t('guestBadge') || (language === 'ru' ? 'Гость' : 'Guest')
                 : b.userId)
             );
           })
@@ -601,8 +601,9 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                                       b.guestName ||
                                       (b.isGuest || b.userId?.startsWith('guest_')
                                         ? b.guestName
-                                          ? `${b.guestName} (${t('guestBadge') || 'Гость'})`
-                                          : 'Гость'
+                                          ? `${b.guestName} (${t('guestBadge') || (language === 'ru' ? 'Гость' : 'Guest')})`
+                                          : t('guestBadge') ||
+                                            (language === 'ru' ? 'Гость' : 'Guest')
                                         : b.userId)
                                     );
                                   })

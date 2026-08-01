@@ -7,6 +7,7 @@ import {
   calculateSkillProgress,
   classifySkillItemToRadarDimension,
   RadarDimensionKey,
+  getSkillItemTitle,
 } from '../../../lib/skillData';
 import { useLanguage } from '../../../lib/LanguageContext';
 import { ScSectionTitle } from './StudentCabinetUI';
@@ -75,12 +76,48 @@ const DIMENSION_CONFIGS: {
   icon: React.FC<{ className?: string }>;
   color: string;
 }[] = [
-  { key: 'technique', titleKey: 'scRadarAxisTechnique', defaultTitle: 'Техника', icon: Compass, color: APPLE.ringMove },
-  { key: 'control', titleKey: 'scRadarAxisControl', defaultTitle: 'Контроль', icon: ShieldCheck, color: APPLE.ringExercise },
-  { key: 'speed', titleKey: 'scRadarAxisSpeed', defaultTitle: 'Скорость', icon: Zap, color: APPLE.ringStand },
-  { key: 'balance', titleKey: 'scRadarAxisBalance', defaultTitle: 'Баланс', icon: Activity, color: APPLE.purple },
-  { key: 'coordination', titleKey: 'scRadarAxisCoordination', defaultTitle: 'Координация', icon: Layers, color: APPLE.indigo },
-  { key: 'terrain', titleKey: 'scRadarAxisTerrain', defaultTitle: 'Сложный склон', icon: Award, color: APPLE.orange },
+  {
+    key: 'technique',
+    titleKey: 'scRadarAxisTechnique',
+    defaultTitle: 'Техника',
+    icon: Compass,
+    color: APPLE.ringMove,
+  },
+  {
+    key: 'control',
+    titleKey: 'scRadarAxisControl',
+    defaultTitle: 'Контроль',
+    icon: ShieldCheck,
+    color: APPLE.ringExercise,
+  },
+  {
+    key: 'speed',
+    titleKey: 'scRadarAxisSpeed',
+    defaultTitle: 'Скорость',
+    icon: Zap,
+    color: APPLE.ringStand,
+  },
+  {
+    key: 'balance',
+    titleKey: 'scRadarAxisBalance',
+    defaultTitle: 'Баланс',
+    icon: Activity,
+    color: APPLE.purple,
+  },
+  {
+    key: 'coordination',
+    titleKey: 'scRadarAxisCoordination',
+    defaultTitle: 'Координация',
+    icon: Layers,
+    color: APPLE.indigo,
+  },
+  {
+    key: 'terrain',
+    titleKey: 'scRadarAxisTerrain',
+    defaultTitle: 'Сложный склон',
+    icon: Award,
+    color: APPLE.orange,
+  },
 ];
 
 const RADAR_DRAW_MS = 900;
@@ -234,7 +271,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
   embed = false,
   className = '',
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const currentLevel = userProfile.level || 1;
   const items = skillConfig?.items || DEFAULT_SKILL_CONFIG.items;
   const passPercentage = skillConfig?.passPercentage ?? 80;
@@ -427,8 +464,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
         {chartDimensions.map((dim, i) => {
           const r = outerRadius - i * (strokeWidth + ringGap);
           if (r < strokeWidth) return null;
-          const isSelected =
-            selectedDimensionKey === 'all' || dim.key === selectedDimensionKey;
+          const isSelected = selectedDimensionKey === 'all' || dim.key === selectedDimensionKey;
           const simVal = Math.max(dim.percent, simulatedValues[dim.key]);
 
           return (
@@ -460,9 +496,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
   const fitnessLegend = ringCount > 0 && (
     <ul
       className={`flex flex-row flex-wrap justify-center gap-x-3 gap-y-2 shrink-0 items-center ${
-        sideLegend
-          ? 'sm:flex-col sm:flex-nowrap sm:justify-center sm:gap-2.5 sm:items-start'
-          : ''
+        sideLegend ? 'sm:flex-col sm:flex-nowrap sm:justify-center sm:gap-2.5 sm:items-start' : ''
       }`}
     >
       {chartDimensions.map((dim) => {
@@ -494,12 +528,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
                 style={{ color: dim.color }}
               >
                 {Math.round(dim.percent * drawProgress)}%
-                {showSim && (
-                  <span className="text-[#FF9F0A] font-medium">
-                    {' '}
-                    → {simVal}%
-                  </span>
-                )}
+                {showSim && <span className="text-[#FF9F0A] font-medium"> → {simVal}%</span>}
                 {sideLegend && (
                   <span className="hidden sm:inline text-[var(--ink-dim)] font-normal text-[11px] ml-1.5">
                     {dim.earned}/{dim.max}
@@ -572,9 +601,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
     return (
       <div className={`space-y-3 min-w-0 w-full ${className}`}>
         {activityCard}
-        {chartDimensions.length > 0 && !embed && (
-          <div className="px-0.5">{dimensionPills}</div>
-        )}
+        {chartDimensions.length > 0 && !embed && <div className="px-0.5">{dimensionPills}</div>}
       </div>
     );
   }
@@ -660,60 +687,64 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
                             {t('instructorLevel')} {levelNum}
                           </h4>
                           <ul className="space-y-2">
-                            {levelExercises.map(({ item, earned, maxPoints, pinned, isMaxScore }) => {
-                              const coachComment = userProfile.skillComments?.[item.id]?.trim();
-                              return (
-                                <li
-                                  key={item.id}
-                                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-3 flex items-start justify-between gap-3"
-                                >
-                                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                                    {isMaxScore ? (
-                                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#30D158]/12 text-[#30D158]">
-                                        <Check className="h-3 w-3" />
-                                      </span>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => onToggleSkillToday?.(item.id, !pinned)}
-                                        disabled={!onToggleSkillToday}
-                                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ${
-                                          pinned
-                                            ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]'
-                                            : 'border-[var(--border-subtle)] text-[var(--ink-dim)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
-                                        } disabled:opacity-50`}
-                                        title={pinned ? t('scRemoveFromToday') : t('scAddToToday')}
-                                      >
-                                        {pinned ? (
-                                          <Check className="h-3 w-3" />
-                                        ) : (
-                                          <Plus className="h-3 w-3" />
-                                        )}
-                                      </button>
-                                    )}
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-sm leading-snug text-[var(--ink)]">
-                                        {item.title}
-                                      </p>
-                                      {coachComment && (
-                                        <p className="text-xs mt-0.5 leading-relaxed text-[var(--ink)] italic">
-                                          &ldquo;{coachComment}&rdquo;
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <span
-                                    className={`shrink-0 text-xs tabular-nums ${
-                                      isMaxScore
-                                        ? 'font-semibold text-[#30D158]'
-                                        : 'text-[var(--ink-dim)]'
-                                    }`}
+                            {levelExercises.map(
+                              ({ item, earned, maxPoints, pinned, isMaxScore }) => {
+                                const coachComment = userProfile.skillComments?.[item.id]?.trim();
+                                return (
+                                  <li
+                                    key={item.id}
+                                    className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-3 flex items-start justify-between gap-3"
                                   >
-                                    {earned}/{maxPoints}
-                                  </span>
-                                </li>
-                              );
-                            })}
+                                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                                      {isMaxScore ? (
+                                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#30D158]/12 text-[#30D158]">
+                                          <Check className="h-3 w-3" />
+                                        </span>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => onToggleSkillToday?.(item.id, !pinned)}
+                                          disabled={!onToggleSkillToday}
+                                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ${
+                                            pinned
+                                              ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]'
+                                              : 'border-[var(--border-subtle)] text-[var(--ink-dim)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
+                                          } disabled:opacity-50`}
+                                          title={
+                                            pinned ? t('scRemoveFromToday') : t('scAddToToday')
+                                          }
+                                        >
+                                          {pinned ? (
+                                            <Check className="h-3 w-3" />
+                                          ) : (
+                                            <Plus className="h-3 w-3" />
+                                          )}
+                                        </button>
+                                      )}
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-sm leading-snug text-[var(--ink)]">
+                                          {getSkillItemTitle(item, language)}
+                                        </p>
+                                        {coachComment && (
+                                          <p className="text-xs mt-0.5 leading-relaxed text-[var(--ink)] italic">
+                                            &ldquo;{coachComment}&rdquo;
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <span
+                                      className={`shrink-0 text-xs tabular-nums ${
+                                        isMaxScore
+                                          ? 'font-semibold text-[#30D158]'
+                                          : 'text-[var(--ink-dim)]'
+                                      }`}
+                                    >
+                                      {earned}/{maxPoints}
+                                    </span>
+                                  </li>
+                                );
+                              }
+                            )}
                           </ul>
                         </div>
                       ))}
@@ -805,7 +836,9 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
                       {t('scRadarResetSimulation')}
                     </button>
                   ) : (
-                    <span className="text-xs text-[var(--ink-dim)]">{t('scRadarAdjustSliders')}</span>
+                    <span className="text-xs text-[var(--ink-dim)]">
+                      {t('scRadarAdjustSliders')}
+                    </span>
                   )}
 
                   {(onPinSkillsToday || onToggleSkillToday) && isSimulating && (

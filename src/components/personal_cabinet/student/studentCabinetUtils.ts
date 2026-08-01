@@ -4,7 +4,11 @@ import {
   SkillItem,
   DEFAULT_SKILL_CONFIG,
   calculateSkillProgress,
+  getSkillItemTitle,
+  getSkillItemSection,
 } from '../../../lib/skillData';
+import { Language } from '../../../lib/i18n/translations';
+import { translateCourse, translateInstructorName } from '../../../lib/i18n/contentTranslation';
 import {
   parseCourseDates,
   type TranslationKey,
@@ -286,9 +290,12 @@ export const getRecentLessonTitle = (
     const courseId = booking.instructorId.substring('course_'.length);
     const course = courses.find((c) => c.id === courseId);
     if (course) {
-      return language === 'ru' && course.titleRu ? course.titleRu : course.title;
+      return translateCourse(course, language).title;
     }
-    return booking.instructorName.replace(/\s*\((Групповой курс|Group Course)\)\s*$/i, '').trim();
+    const cleanName = booking.instructorName
+      .replace(/\s*\((Групповой курс|Group Course)\)\s*$/i, '')
+      .trim();
+    return translateInstructorName(cleanName, language);
   }
   return getDifficultyLabel(booking.difficulty, language, 'short');
 };
@@ -297,7 +304,7 @@ export const getRecentLessonInstructorLabel = (booking: Booking, language: 'en' 
   if (booking.instructorId.startsWith('course_')) {
     return language === 'ru' ? 'Групповой курс' : 'Group course';
   }
-  return booking.instructorName;
+  return translateInstructorName(booking.instructorName, language);
 };
 
 export const getTodayTaskBookingContext = (
@@ -306,11 +313,12 @@ export const getTodayTaskBookingContext = (
   language: 'en' | 'ru'
 ): TodayTaskBookingContext => {
   const isCourse = booking.instructorId.startsWith('course_');
+  const instructorName = translateInstructorName(booking.instructorName, language);
   return {
     bookingId: booking.id,
     title: isCourse
       ? getRecentLessonTitle(booking, courses, language)
-      : `${getDifficultyLabel(booking.difficulty, language, 'short')} — ${booking.instructorName}`,
+      : `${getDifficultyLabel(booking.difficulty, language, 'short')} — ${instructorName}`,
     dateLabel: formatRecentLessonDateLabel(booking, courses, language),
     isCourse,
   };
@@ -360,7 +368,8 @@ export const getLevelProgressPercent = (userProfile: UserProfile, skillConfig?: 
 
 export const getSectionProgress = (
   userProfile: UserProfile,
-  skillConfig?: SkillConfig
+  skillConfig?: SkillConfig,
+  language: Language = 'ru'
 ): SectionProgress[] => {
   const items = skillConfig?.items || DEFAULT_SKILL_CONFIG.items;
   const level = userProfile.level || 1;
@@ -370,10 +379,11 @@ export const getSectionProgress = (
 
   const bySection = new Map<string, { earned: number; max: number }>();
   relevant.forEach((item) => {
-    const cur = bySection.get(item.section) || { earned: 0, max: 0 };
+    const secName = getSkillItemSection(item, language);
+    const cur = bySection.get(secName) || { earned: 0, max: 0 };
     cur.earned += scores[item.id] || 0;
     cur.max += item.maxPoints;
-    bySection.set(item.section, cur);
+    bySection.set(secName, cur);
   });
 
   return Array.from(bySection.entries())
@@ -411,7 +421,8 @@ export interface PrioritySkillItem {
 export const getPrioritySkillItems = (
   userProfile: UserProfile,
   skillConfig?: SkillConfig,
-  limit = 3
+  limit = 3,
+  language: Language = 'ru'
 ): PrioritySkillItem[] => {
   const items = skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
   const currentLevel = userProfile.level || 1;
@@ -427,7 +438,7 @@ export const getPrioritySkillItems = (
         item.maxPoints > 0 ? Math.min(100, Math.round((earned / item.maxPoints) * 100)) : 100;
       return {
         id: item.id,
-        title: item.title,
+        title: getSkillItemTitle(item, language),
         earned,
         maxPoints: item.maxPoints,
         percent,
@@ -542,7 +553,7 @@ export const getTodayTasks = (
     const taskId = skillTodayTaskId(skillId);
     return {
       id: taskId,
-      label: item?.title ?? skillId,
+      label: item ? getSkillItemTitle(item, language) : skillId,
       done: completed.has(taskId),
       kind: 'skill' as const,
       skillItemId: skillId,
@@ -620,9 +631,7 @@ export const getAchievements = (
           achievementLabelRu: storedLabels?.ru ?? item.labelRu,
           achievementLabelEn: storedLabels?.en ?? item.labelEn,
         }),
-        earnedAtLabel: timestamp
-          ? formatActivityTimestamp(timestamp, language)
-          : undefined,
+        earnedAtLabel: timestamp ? formatActivityTimestamp(timestamp, language) : undefined,
         earnedAt: timestamp,
       };
     })
@@ -643,7 +652,9 @@ export const getRecommendedCourses = (
   limit = 2
 ): Course[] => {
   const targetLevel = USER_LEVEL_TO_COURSE_LEVEL[userProfile.level || 1] ?? 'beginner';
-  const enrolledIds = new Set(getEnrolledCourses(bookings, courses, userProfile.uid).map((c) => c.id));
+  const enrolledIds = new Set(
+    getEnrolledCourses(bookings, courses, userProfile.uid).map((c) => c.id)
+  );
 
   return courses
     .filter((c) => !c.isHidden && !enrolledIds.has(c.id) && c.availableSeats > 0)
@@ -672,17 +683,12 @@ export const getRecommendedInstructors = (
 
 export type BookingListScope = 'upcoming' | 'past' | 'all';
 
-export const filterBookingsByScope = (
-  bookings: Booking[],
-  scope: BookingListScope
-): Booking[] => {
+export const filterBookingsByScope = (bookings: Booking[], scope: BookingListScope): Booking[] => {
   if (scope === 'all') return bookings;
   if (scope === 'upcoming') {
     return bookings.filter(
       (b) =>
-        b.status === 'confirmed' ||
-        b.status === 'pending' ||
-        b.status === 'pending_cancellation'
+        b.status === 'confirmed' || b.status === 'pending' || b.status === 'pending_cancellation'
     );
   }
   return bookings.filter((b) => b.status === 'completed' || b.status === 'cancelled');
@@ -748,7 +754,10 @@ const mapActivityLogToHistoryEvent = (
     case 'booking_completed': {
       const isCourse = meta.instructorId?.startsWith('course_');
       const title = isCourse
-        ? t('scHistoryCourseCompleted').replace('{name}', meta.lessonTitle ?? meta.instructorName ?? '')
+        ? t('scHistoryCourseCompleted').replace(
+            '{name}',
+            meta.lessonTitle ?? meta.instructorName ?? ''
+          )
         : t('scHistoryLessonWith').replace('{name}', meta.instructorName ?? meta.lessonTitle ?? '');
       const subtitleParts: string[] = [];
       if (meta.durationHours) {
@@ -920,7 +929,10 @@ export const getHistoryEvents = (
         date: dateStr,
         dateLabel: formatBookingDayMonth(b, courses, language),
         title: isCourse
-          ? t('scHistoryCourseCompleted').replace('{name}', getRecentLessonTitle(b, courses, language))
+          ? t('scHistoryCourseCompleted').replace(
+              '{name}',
+              getRecentLessonTitle(b, courses, language)
+            )
           : t('scHistoryLessonWith').replace('{name}', b.instructorName),
         subtitle: `${b.durationHours} ${t('hoursShort')} · ${getDifficultyShort(b.difficulty)}`,
         kind: 'training' as const,
@@ -936,15 +948,12 @@ export const getHistoryEvents = (
         )
       : [];
 
-  return [...fromLogs, ...backfilledBookings, ...legacyLevel]
-    .sort((a, b) => b.date.localeCompare(a.date));
+  return [...fromLogs, ...backfilledBookings, ...legacyLevel].sort((a, b) =>
+    b.date.localeCompare(a.date)
+  );
 };
 
-const isBookingReviewed = (
-  booking: Booking,
-  reviews: Review[],
-  dismissedReviewIds: string[]
-) => {
+const isBookingReviewed = (booking: Booking, reviews: Review[], dismissedReviewIds: string[]) => {
   if (dismissedReviewIds.includes(booking.id)) return true;
   return reviews.some(
     (review) =>
@@ -1051,8 +1060,8 @@ export const filterHistoryEvents = (
   if (filter === 'all') return events;
   if (filter === 'training') return events.filter((event) => event.kind === 'training');
   if (filter === 'progress') {
-    return events.filter((event) =>
-      event.kind === 'level' || event.kind === 'points' || event.kind === 'review'
+    return events.filter(
+      (event) => event.kind === 'level' || event.kind === 'points' || event.kind === 'review'
     );
   }
   return events.filter((event) => event.kind === 'homework');
@@ -1065,9 +1074,7 @@ export const groupHistoryByMonth = (
   const map = new Map<string, HistoryEvent[]>();
 
   events.forEach((event) => {
-    const parsed = new Date(
-      event.date.includes('T') ? event.date : `${event.date}T12:00:00`
-    );
+    const parsed = new Date(event.date.includes('T') ? event.date : `${event.date}T12:00:00`);
     if (Number.isNaN(parsed.getTime())) return;
     const monthKey = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
     const bucket = map.get(monthKey) ?? [];
@@ -1117,7 +1124,9 @@ export const getNeedsAttentionBookings = (
   limit = 5
 ): Booking[] =>
   bookings
-    .filter((booking) => booking.userId === userId && booking.status === 'completed' && !booking.isDeleted)
+    .filter(
+      (booking) => booking.userId === userId && booking.status === 'completed' && !booking.isDeleted
+    )
     .filter(
       (booking) =>
         !isBookingReviewed(booking, reviews, dismissedReviewIds) ||
@@ -1154,7 +1163,8 @@ export const getRecentLessons = (
         instructorName: getRecentLessonInstructorLabel(b, language),
         booking: b,
         needsReview,
-        pendingRecommendationsCount: pendingRecommendationsCount > 0 ? pendingRecommendationsCount : undefined,
+        pendingRecommendationsCount:
+          pendingRecommendationsCount > 0 ? pendingRecommendationsCount : undefined,
       };
     });
 };

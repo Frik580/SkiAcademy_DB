@@ -7,6 +7,7 @@ import {
   getDifficultyLabel,
   getHourSuffix,
 } from '../../lib/LanguageContext';
+import { StatusBadge } from '../ui/StatusBadge';
 
 interface UpcomingSessionsStripProps {
   userBookings: Booking[];
@@ -152,15 +153,7 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
                   <span className="font-mono text-[10px] text-[var(--ink)] font-bold">
                     {t('paid')} ${b.totalPrice}
                   </span>
-                  <span
-                    className={`font-mono text-[8px] px-2 py-0.5 uppercase font-bold tracking-widest rounded-xs ${
-                      b.status === 'confirmed'
-                        ? 'text-emerald-800 bg-emerald-100/80 dark:text-emerald-300 dark:bg-emerald-950/50'
-                        : 'text-amber-800 bg-amber-100/80 dark:text-amber-300 dark:bg-amber-950/50'
-                    }`}
-                  >
-                    {b.status === 'confirmed' ? t('confirmed') : t('pending')}
-                  </span>
+                  <StatusBadge status={b.status} size="xs" />
                 </div>
               </div>
             ))}

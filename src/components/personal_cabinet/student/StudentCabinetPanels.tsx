@@ -51,12 +51,10 @@ export const StudentCalendarPanel: React.FC<
   const userBookings = bookings.filter((b) => b.userId === userProfile.uid && !b.isDeleted);
 
   return (
-    <div className="space-y-6 pb-24 max-w-2xl mx-auto px-4 sm:px-6 w-full min-w-0">
+    <div className="space-y-6 pb-24 max-w-3xl mx-auto px-4 sm:px-6 w-full min-w-0">
       <div className="pt-6 space-y-4">
         <StudentPanelBackLink onClick={() => onGoToTab('home')} />
-        <h1 className="text-2xl font-serif font-light text-[var(--ink)]">
-          {t('scFullCalendar')}
-        </h1>
+        <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scFullCalendar')}</h1>
       </div>
       <ClientBookingsList
         userBookings={userBookings}
@@ -117,7 +115,7 @@ export const StudentCoursesPanel: React.FC<
   );
 
   return (
-    <div className="pb-24 max-w-7xl mx-auto pt-6 px-4 sm:px-6 space-y-6 w-full min-w-0">
+    <div className="pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 space-y-6 w-full min-w-0">
       <StudentPanelBackLink onClick={() => onGoToTab('home')} />
       <div>
         <h1 className="text-2xl font-serif font-light text-[var(--ink)]">
@@ -178,15 +176,25 @@ export const StudentInstructorsPanel: React.FC<
     onBookInstructor: (instructor: Instructor) => void;
     onViewInstructorReviews: (instructor: Instructor) => void;
   }
-> = ({ bookings, instructors, userProfile, onBookInstructor, onViewInstructorReviews, onGoToTab }) => {
+> = ({
+  bookings,
+  instructors,
+  userProfile,
+  onBookInstructor,
+  onViewInstructorReviews,
+  onGoToTab,
+}) => {
   const { t, language } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
   const myInstructors = getMyInstructors(bookings, instructors, userProfile.uid).map((ins) =>
     translateInstructor(ins, lang)
   );
-  const recommendedInstructors = getRecommendedInstructors(userProfile, instructors, bookings, 2).map(
-    (ins) => translateInstructor(ins, lang)
-  );
+  const recommendedInstructors = getRecommendedInstructors(
+    userProfile,
+    instructors,
+    bookings,
+    2
+  ).map((ins) => translateInstructor(ins, lang));
   const myInstructorIds = new Set([
     ...myInstructors.map((i) => i.id),
     ...recommendedInstructors.map((i) => i.id),
@@ -196,7 +204,7 @@ export const StudentInstructorsPanel: React.FC<
     .map((ins) => translateInstructor(ins, lang));
 
   return (
-    <div className="space-y-6 pb-24 max-w-2xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
+    <div className="space-y-6 pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
       <StudentPanelBackLink onClick={() => onGoToTab('home')} />
       <div className="space-y-1">
         <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scInstructors')}</h1>
@@ -222,9 +230,9 @@ export const StudentInstructorsPanel: React.FC<
         </section>
       )}
 
-      {recommendedInstructors.length > 0 && myInstructors.length === 0 && availableInstructors.length > 0 && (
-        <ScDivider />
-      )}
+      {recommendedInstructors.length > 0 &&
+        myInstructors.length === 0 &&
+        availableInstructors.length > 0 && <ScDivider />}
 
       {myInstructors.length > 0 && (
         <section className="space-y-4">
@@ -296,11 +304,9 @@ export const StudentSettingsPanel: React.FC<
   const { t } = useLanguage();
 
   return (
-    <div className="pb-24 max-w-2xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0 space-y-6">
+    <div className="pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0 space-y-6">
       <StudentPanelBackLink onClick={() => onGoToTab('home')} />
-      <h1 className="text-2xl font-serif font-light text-[var(--ink)]">
-        {t('scNavSettings')}
-      </h1>
+      <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scNavSettings')}</h1>
       <StudentSettingsCompact
         userProfile={userProfile}
         onSignOut={onSignOut}

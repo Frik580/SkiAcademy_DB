@@ -6,7 +6,9 @@ import {
   calculateStudentLevel,
   calculateSkillProgress,
   classifySkillItemToRadarDimension,
-  RADAR_DIMENSION_LABELS,
+  getSkillItemTitle,
+  getSkillItemSection,
+  getRadarDimensionLabel,
 } from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
 import { X, Save, Award, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -39,7 +41,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
   skillConfig = DEFAULT_SKILL_CONFIG,
   onSaveScores,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [scores, setScores] = useState<Record<string, number>>({});
   const [comments, setComments] = useState<Record<string, string>>({});
   const [activeTargetLevel, setActiveTargetLevel] = useState<number>(
@@ -176,7 +178,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                 : 'border-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
             }`}
           >
-            Beginner → Carve (Уровень 1 → 2)
+            Beginner → Carve ({t('levelStage')} 1 → 2)
           </button>
           <button
             onClick={() => setActiveTargetLevel(2)}
@@ -186,7 +188,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                 : 'border-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
             }`}
           >
-            Carve → Performance (Уровень 2 → 3)
+            Carve → Performance ({t('levelStage')} 2 → 3)
           </button>
           <button
             onClick={() => setActiveTargetLevel(3)}
@@ -196,7 +198,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                 : 'border-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
             }`}
           >
-            Performance → Expert (Уровень 3 → 4)
+            Performance → Expert ({t('levelStage')} 3 → 4)
           </button>
         </div>
 
@@ -271,13 +273,14 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                 >
                   <div className="space-y-1 flex-1">
                     <span className="text-[9px] font-mono uppercase tracking-wider text-accent block font-semibold">
-                      {item.section}
+                      {getSkillItemSection(item, language)}
                     </span>
                     <h5 className="text-xs font-medium text-[var(--ink)] leading-snug">
-                      {item.title}
+                      {getSkillItemTitle(item, language)}
                     </h5>
                     <div className="text-[9px] font-mono text-[var(--ink-dim)]">
-                      Радар: {RADAR_DIMENSION_LABELS[classifySkillItemToRadarDimension(item)]}
+                      {t('radarAxisCol')}:{' '}
+                      {getRadarDimensionLabel(classifySkillItemToRadarDimension(item), language)}
                     </div>
                   </div>
 

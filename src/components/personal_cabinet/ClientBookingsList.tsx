@@ -18,16 +18,14 @@ import {
   MONTHS_RU,
   WEEKDAYS_EN,
   WEEKDAYS_RU,
-  getBookingStatusLabel,
   getDifficultyLabel,
 } from '../../lib/LanguageContext';
 import { ToggleSwitch } from '../ToggleSwitch';
+import { StatusBadge } from '../ui/StatusBadge';
 import { ScTextButton } from './student/StudentCabinetUI';
-import {
-  BookingListScope,
-  filterBookingsByScope,
-} from './student/studentCabinetUtils';
+import { BookingListScope, filterBookingsByScope } from './student/studentCabinetUtils';
 import { RecommendationIndicator } from './RecommendationIndicator';
+import { ApplePagination } from '../common/ApplePagination';
 import {
   hasBookingRecommendations,
   hasPendingRecommendations,
@@ -140,7 +138,8 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
   };
 
   const scopedBookings = useMemo(
-    () => (selectedDateFilter ? filteredBookings : filterBookingsByScope(filteredBookings, listScope)),
+    () =>
+      selectedDateFilter ? filteredBookings : filterBookingsByScope(filteredBookings, listScope),
     [filteredBookings, listScope, selectedDateFilter]
   );
 
@@ -171,10 +170,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
       {unreviewedCompletedBookings.length > 0 && onWriteReview && (
         <div className="mb-4 rounded-lg border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 space-y-3">
           <p className="text-sm font-medium text-[var(--ink)]">
-            {t('scUnreviewedBanner').replace(
-              '{n}',
-              String(unreviewedCompletedBookings.length)
-            )}
+            {t('scUnreviewedBanner').replace('{n}', String(unreviewedCompletedBookings.length))}
           </p>
           <ul className="space-y-2">
             {unreviewedCompletedBookings.slice(0, 3).map((booking) => (
@@ -231,7 +227,9 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
           {userBookings.length > 0 && (
             <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] p-4 space-y-3 w-full min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap w-full min-w-0">
-                <span className="text-sm font-medium text-[var(--ink)]">{t('interactiveCalendar')}</span>
+                <span className="text-sm font-medium text-[var(--ink)]">
+                  {t('interactiveCalendar')}
+                </span>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
@@ -322,7 +320,9 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
               <span className="text-sm text-[var(--ink-dim)]">
                 {t('showingLessonsFor')} {selectedDateFilter}
               </span>
-              <ScTextButton onClick={() => handleSelectDateFilter(null)}>{t('showAll')}</ScTextButton>
+              <ScTextButton onClick={() => handleSelectDateFilter(null)}>
+                {t('showAll')}
+              </ScTextButton>
             </div>
           )}
 
@@ -416,7 +416,8 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                           )}
                         </h4>
                         <p className="text-xs text-[var(--ink-dim)]">
-                          {getDifficultyLabel(b.difficulty, language)} · {b.durationHours} {t('hrSession')}
+                          {getDifficultyLabel(b.difficulty, language)} · {b.durationHours}{' '}
+                          {t('hrSession')}
                         </p>
                         <div className="flex items-center gap-2 flex-wrap text-xs text-[var(--ink-dim)]">
                           <span className="inline-flex items-center gap-1">
@@ -438,23 +439,13 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-3">
                       <div>
                         <span className="text-xs text-[var(--ink-dim)] block">{t('totalFee')}</span>
-                        <span className="text-lg font-serif text-[var(--ink)]">${b.totalPrice}</span>
+                        <span className="text-lg font-serif text-[var(--ink)]">
+                          ${b.totalPrice}
+                        </span>
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span
-                          className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                            b.status === 'confirmed'
-                              ? 'text-emerald-700 bg-emerald-100/80 dark:text-emerald-300 dark:bg-emerald-950/50'
-                              : b.status === 'completed'
-                                ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
-                                : b.status === 'cancelled'
-                                  ? 'text-rose-700 bg-rose-100/80 dark:text-rose-300 dark:bg-rose-950/50'
-                                  : 'text-amber-700 bg-amber-100/80 dark:text-amber-300 dark:bg-amber-950/50'
-                          }`}
-                        >
-                          {getBookingStatusLabel(b.status, language)}
-                        </span>
+                        <StatusBadge status={b.status} />
 
                         {b.status !== 'cancelled' && (
                           <button
@@ -477,17 +468,15 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                           </button>
                         )}
 
-                        {b.status === 'completed' &&
-                          unreviewedIds.has(b.id) &&
-                          onWriteReview && (
-                            <button
-                              type="button"
-                              onClick={() => onWriteReview(b)}
-                              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--accent)] text-white transition"
-                            >
-                              {t('writeReviewBtn')}
-                            </button>
-                          )}
+                        {b.status === 'completed' && unreviewedIds.has(b.id) && onWriteReview && (
+                          <button
+                            type="button"
+                            onClick={() => onWriteReview(b)}
+                            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--accent)] text-white transition"
+                          >
+                            {t('writeReviewBtn')}
+                          </button>
+                        )}
 
                         {b.status === 'confirmed' && (
                           <div className="flex items-center gap-1">
@@ -515,52 +504,14 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                 );
               })}
 
-              {totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-[var(--border-subtle)] mt-4">
-                  <div className="text-xs text-[var(--ink-dim)]">
-                    {language === 'ru'
-                      ? `Показано ${Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, displayedBookings.length)}–${Math.min(currentPage * ITEMS_PER_PAGE, displayedBookings.length)} из ${displayedBookings.length} занятий`
-                      : `Showing ${Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, displayedBookings.length)}–${Math.min(currentPage * ITEMS_PER_PAGE, displayedBookings.length)} of ${displayedBookings.length} sessions`}
-                  </div>
-
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                      className="px-2.5 py-1 text-[9px] font-mono uppercase tracking-wider border rounded-xs transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--ink)] flex items-center gap-1 font-bold"
-                    >
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                      <span>{language === 'ru' ? 'Назад' : 'Prev'}</span>
-                    </button>
-
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                      <button
-                        key={page}
-                        type="button"
-                        onClick={() => setCurrentPage(page)}
-                        className={`w-7 h-7 text-[10px] font-mono font-bold rounded-xs transition cursor-pointer flex items-center justify-center ${
-                          currentPage === page
-                            ? 'bg-[var(--ink)] text-[var(--bg)] shadow-xs'
-                            : 'border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--ink-dim)] hover:text-[var(--ink)]'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    ))}
-
-                    <button
-                      type="button"
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                      className="px-2.5 py-1 text-[9px] font-mono uppercase tracking-wider border rounded-xs transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--ink)] flex items-center gap-1 font-bold"
-                    >
-                      <span>{language === 'ru' ? 'Вперед' : 'Next'}</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )}
+              <ApplePagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={displayedBookings.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+                itemLabel={language === 'ru' ? 'занятий' : 'sessions'}
+              />
             </div>
           )}
         </div>

@@ -19,9 +19,9 @@ export function useTranslatedBookings(
   options: UseTranslatedBookingsOptions = {}
 ): TranslatedBooking[] {
   const { syncCoursePrice = false } = options;
-  const courseList = courses || [];
 
   return useMemo(() => {
+    const courseList = courses || [];
     return rawBookings.map((b) => {
       const isCourse = b.instructorId.startsWith('course_');
       let name = b.instructorName;
@@ -118,5 +118,5 @@ export function useTranslatedBookings(
         chatId,
       };
     });
-  }, [rawBookings, courseList, language, syncCoursePrice]);
+  }, [rawBookings, courses, language, syncCoursePrice]);
 }

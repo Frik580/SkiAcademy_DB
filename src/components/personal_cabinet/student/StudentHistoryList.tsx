@@ -37,11 +37,7 @@ interface StudentHistoryListProps {
   onOpenLesson: (booking: Booking) => void;
   onWriteReview: (booking: Booking) => void;
   onOpenDevelopment: () => void;
-  onToggleRecommendation?: (
-    bookingId: string,
-    recommendationId: string,
-    checked: boolean
-  ) => void;
+  onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
 }
 
 export const StudentHistoryList: React.FC<StudentHistoryListProps> = ({
@@ -180,17 +176,13 @@ export const StudentHistoryList: React.FC<StudentHistoryListProps> = ({
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-dim)] pb-2">
                 {group.monthLabel}
               </h3>
-              {group.events.map((event, idx) =>
-                renderEvent(event, idx < group.events.length - 1)
-              )}
+              {group.events.map((event, idx) => renderEvent(event, idx < group.events.length - 1))}
             </div>
           ))}
         </div>
       ) : (
         <div className="space-y-0">
-          {filteredEvents.map((event, idx) =>
-            renderEvent(event, idx < filteredEvents.length - 1)
-          )}
+          {filteredEvents.map((event, idx) => renderEvent(event, idx < filteredEvents.length - 1))}
         </div>
       )}
     </div>

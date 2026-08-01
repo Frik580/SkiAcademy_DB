@@ -31,9 +31,7 @@ export const useActivityLog = (firebaseUser: User | null) => {
               ...activityDoc.data(),
             }) as ActivityLog
         );
-        logs.sort(
-          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
+        logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         setActivityLogs(logs);
       },
       (error) => logger.error('Activity log sync error:', error)

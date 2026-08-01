@@ -1,8 +1,16 @@
 import React, { useMemo } from 'react';
 import { UserProfile } from '../types';
-import { SkillConfig, DEFAULT_SKILL_CONFIG, calculateSkillProgress } from '../lib/skillData';
+import {
+  SkillConfig,
+  DEFAULT_SKILL_CONFIG,
+  calculateSkillProgress,
+  getSkillItemTitle,
+} from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
-import { matchesSkillRingFilter, SkillRingFilter } from './personal_cabinet/student/studentCabinetUtils';
+import {
+  matchesSkillRingFilter,
+  SkillRingFilter,
+} from './personal_cabinet/student/studentCabinetUtils';
 
 interface ClientSkillProgressViewProps {
   userProfile: UserProfile;
@@ -19,7 +27,7 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
   hideScores = false,
   onToggleSkillToday,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const currentLevel = userProfile.level || 1;
   const items = skillConfig?.items || DEFAULT_SKILL_CONFIG.items;
   const passPercentage = skillConfig?.passPercentage ?? 80;
@@ -84,7 +92,7 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
                     )}
                     <div className="flex-1 min-w-0 space-y-0.5">
                       <p className={`leading-snug ${isMaxScore ? 'text-[var(--ink-dim)]' : ''}`}>
-                        {item.title}
+                        {getSkillItemTitle(item, language)}
                       </p>
                       {!hideScores && (
                         <p

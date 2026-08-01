@@ -1,5 +1,15 @@
 import React from 'react';
-import { ArrowLeft, Calendar, Home, LayoutGrid, LucideIcon, Settings, TrendingUp, Users } from 'lucide-react';
+import { motion } from 'motion/react';
+import {
+  ArrowLeft,
+  Calendar,
+  Home,
+  LayoutGrid,
+  LucideIcon,
+  Settings,
+  TrendingUp,
+  Users,
+} from 'lucide-react';
 import { useLanguage, type TranslationKey } from '../../../lib/LanguageContext';
 import { StudentCabinetTab } from './studentCabinetUtils';
 
@@ -48,8 +58,11 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
   const { t } = useLanguage();
 
   return (
-    <nav className="sc-tab-bar fixed inset-x-0 bottom-0 z-30" aria-label={t('scNavHome')}>
-      <div className="sc-tab-bar-inner mx-auto flex max-w-2xl items-stretch justify-around px-1 overflow-x-auto no-scrollbar">
+    <nav
+      className="fixed inset-x-0 bottom-3 sm:bottom-5 z-40 px-3 sm:px-6 pointer-events-none flex justify-center"
+      aria-label={t('scNavHome')}
+    >
+      <div className="pointer-events-auto w-full max-w-2xl mx-auto rounded-full bg-[color-mix(in_srgb,var(--card-bg)_78%,transparent)] backdrop-blur-2xl backdrop-saturate-150 border border-[color-mix(in_srgb,var(--ink)_10%,transparent)] shadow-[0_12px_36px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.06),inset_0_1px_1px_rgba(255,255,255,0.3)] p-1.5 flex items-center justify-around relative gap-1">
         {STUDENT_TABS.map(({ id, labelKey, icon: Icon }) => {
           const active = activeTab === id;
           return (
@@ -58,24 +71,27 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
               type="button"
               onClick={() => onSelect(id)}
               aria-current={active ? 'page' : undefined}
-              className={`group flex min-w-[48px] sm:min-w-0 flex-1 shrink-0 sm:shrink flex-col items-center justify-center gap-[2px] px-0.5 py-1 transition-[color,transform] duration-200 ease-out active:scale-[0.96] active:opacity-80 ${
-                active ? 'text-[var(--accent)]' : 'text-[var(--ink-dim)]'
+              className={`relative z-10 group flex min-w-[44px] sm:min-w-0 flex-1 shrink-0 flex-col items-center justify-center gap-0.5 px-2 py-2 sm:py-1.5 transition-all duration-200 ease-out active:scale-95 cursor-pointer ${
+                active ? 'text-[var(--accent)]' : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
               }`}
             >
+              {active && (
+                <motion.div
+                  layoutId="sc-tab-active-pill"
+                  className="absolute inset-0 rounded-full bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] border border-[var(--accent)]/30 shadow-xs"
+                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                />
+              )}
               <Icon
-                className={`h-[20px] w-[20px] sm:h-[22px] sm:w-[22px] shrink-0 transition-all duration-200 ${
+                className={`h-5 w-5 shrink-0 transition-all duration-200 relative z-10 group-hover:-translate-y-0.5 ${
                   active
-                    ? 'opacity-100'
-                    : 'opacity-[0.72] group-hover:opacity-100 group-hover:text-[var(--ink)]'
+                    ? 'scale-105 opacity-100 text-[var(--accent)]'
+                    : 'opacity-70 group-hover:opacity-100'
                 }`}
-                strokeWidth={active ? 2.25 : 1.75}
+                strokeWidth={active ? 2.2 : 1.8}
                 aria-hidden
               />
-              <span
-                className={`text-[8.5px] xs:text-[9.5px] sm:text-[10px] leading-[1.1] tracking-[-0.02em] text-center whitespace-normal break-words max-w-full ${
-                  active ? 'font-semibold' : 'font-medium'
-                }`}
-              >
+              <span className="hidden sm:block text-[10px] leading-tight tracking-tight text-center truncate max-w-[85px] relative z-10 font-medium">
                 {t(labelKey)}
               </span>
             </button>
@@ -223,11 +239,10 @@ export const ScStatGrid: React.FC<{
     {items.map((item) => {
       const tint = item.tint ?? 'accent';
       return (
-        <div
-          key={item.label}
-          className={`rounded-xl border px-3 py-3 ${SC_TINT_CARD[tint]}`}
-        >
-          <dt className="text-[10px] uppercase tracking-wider text-[var(--ink-dim)]">{item.label}</dt>
+        <div key={item.label} className={`rounded-xl border px-3 py-3 ${SC_TINT_CARD[tint]}`}>
+          <dt className="text-[10px] uppercase tracking-wider text-[var(--ink-dim)]">
+            {item.label}
+          </dt>
           <dd className={`text-2xl font-serif font-light mt-1 tabular-nums ${SC_TINT_VALUE[tint]}`}>
             {item.value}
           </dd>

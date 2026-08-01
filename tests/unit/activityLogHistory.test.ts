@@ -101,22 +101,13 @@ describe('student history', () => {
     ]);
 
     expect(history.some((event) => event.kind === 'review')).toBe(true);
-    expect(history.some((event) => event.bookingId === 'booking-1' && event.kind === 'training')).toBe(
-      true
-    );
+    expect(
+      history.some((event) => event.bookingId === 'booking-1' && event.kind === 'training')
+    ).toBe(true);
   });
 
   it('adds review CTA for unreviewed completed lessons', () => {
-    const history = buildStudentHistory(
-      userProfile,
-      bookings,
-      courses,
-      [],
-      'en',
-      t,
-      [],
-      []
-    );
+    const history = buildStudentHistory(userProfile, bookings, courses, [], 'en', t, [], []);
 
     const training = history.find((event) => event.kind === 'training');
     expect(training?.cta?.action.type).toBe('write_review');

@@ -5,6 +5,7 @@ import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
 import { isSystemOwner } from '../../lib/accessControl';
 import { ToggleSwitch } from '../ToggleSwitch';
+import { ApplePagination } from '../common/ApplePagination';
 
 interface ClientsManagerProps {
   usersList: UserProfile[];
@@ -35,6 +36,8 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
   const { addNotification } = useNotifications();
 
   const [clientSearchText, setClientSearchText] = useState('');
+  const [clientPage, setClientPage] = useState(1);
+  const CLIENTS_PER_PAGE = 8;
   const [showClientAddForm, setShowClientAddForm] = useState(false);
   const [editingClient, setEditingClient] = useState<UserProfile | null>(null);
 
@@ -238,132 +241,154 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
           </div>
 
           {/* Clients Table */}
-          <div className="border border-[var(--border)] overflow-hidden bg-transparent w-full min-w-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-[var(--border)] text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
-                    <th className="px-4 py-3">{t('skierLabel')}</th>
-                    <th className="px-4 py-3">{t('contactDetails')}</th>
-                    <th className="px-4 py-3">{t('walletBalance')}</th>
-                    <th className="px-4 py-3">{t('roleLabel')}</th>
-                    <th className="px-4 py-3 text-right">{t('actions')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border)]/40">
-                  {usersList
-                    .filter((u) => {
-                      if (!clientSearchText) return true;
-                      const search = clientSearchText.toLowerCase();
-                      return (
-                        (u.displayName || '').toLowerCase().includes(search) ||
-                        (u.email || '').toLowerCase().includes(search) ||
-                        (u.phoneNumber || '').toLowerCase().includes(search)
-                      );
-                    })
-                    .map((u) => {
-                      const isSelf = currentUserProfile.uid === u.uid;
-                      return (
-                        <tr
-                          key={u.uid}
-                          className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                        >
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <img
-                                src={
-                                  u.avatarUrl ||
-                                  `https://api.dicebear.com/7.x/adventurer/svg?seed=${u.uid}`
-                                }
-                                referrerPolicy="no-referrer"
-                                alt={u.displayName}
-                                className="w-10 h-10 rounded-none bg-black/5 dark:bg-white/5 border border-[var(--border)]"
-                              />
-                              <div>
-                                <span className="text-xs font-bold text-[var(--ink)] block flex items-center gap-1.5">
-                                  {u.displayName || t('unnamedClient')}
-                                  {isSelf && (
-                                    <span className="bg-black/10 dark:bg-white/10 text-[var(--ink-dim)] text-[8px] font-mono px-1.5 py-0.5 rounded-none uppercase">
-                                      {t('youBadge')}
+          {(() => {
+            const filteredUsers = usersList.filter((u) => {
+              if (!clientSearchText) return true;
+              const search = clientSearchText.toLowerCase();
+              return (
+                (u.displayName || '').toLowerCase().includes(search) ||
+                (u.email || '').toLowerCase().includes(search) ||
+                (u.phoneNumber || '').toLowerCase().includes(search)
+              );
+            });
+            const totalClientPages = Math.max(
+              1,
+              Math.ceil(filteredUsers.length / CLIENTS_PER_PAGE)
+            );
+            const safePage = Math.min(clientPage, totalClientPages);
+            const startIndex = (safePage - 1) * CLIENTS_PER_PAGE;
+            const paginatedUsers = filteredUsers.slice(startIndex, startIndex + CLIENTS_PER_PAGE);
+
+            return (
+              <>
+                <div className="border border-[var(--border)] overflow-hidden bg-transparent w-full min-w-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-[var(--border)] text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
+                          <th className="px-4 py-3">{t('skierLabel')}</th>
+                          <th className="px-4 py-3">{t('contactDetails')}</th>
+                          <th className="px-4 py-3">{t('walletBalance')}</th>
+                          <th className="px-4 py-3">{t('roleLabel')}</th>
+                          <th className="px-4 py-3 text-right">{t('actions')}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border)]/40">
+                        {paginatedUsers.map((u) => {
+                          const isSelf = currentUserProfile.uid === u.uid;
+                          return (
+                            <tr
+                              key={u.uid}
+                              className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                            >
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-3">
+                                  <img
+                                    src={
+                                      u.avatarUrl ||
+                                      `https://api.dicebear.com/7.x/adventurer/svg?seed=${u.uid}`
+                                    }
+                                    referrerPolicy="no-referrer"
+                                    alt={u.displayName}
+                                    className="w-10 h-10 rounded-none bg-black/5 dark:bg-white/5 border border-[var(--border)]"
+                                  />
+                                  <div>
+                                    <span className="text-xs font-bold text-[var(--ink)] block flex items-center gap-1.5">
+                                      {u.displayName || t('unnamedClient')}
+                                      {isSelf && (
+                                        <span className="bg-black/10 dark:bg-white/10 text-[var(--ink-dim)] text-[8px] font-mono px-1.5 py-0.5 rounded-none uppercase">
+                                          {t('youBadge')}
+                                        </span>
+                                      )}
+                                    </span>
+                                    <span className="text-[10px] text-[var(--ink-dim)] font-mono block mt-0.5">
+                                      {u.uid}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-xs font-bold text-[var(--ink)] block">
+                                  {u.email}
+                                </span>
+                                {u.phoneNumber ? (
+                                  <span className="text-[10px] text-[var(--ink-dim)] font-mono block mt-1">
+                                    {u.phoneNumber}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-[var(--ink-dim)] font-mono italic block mt-1">
+                                    {t('noPhoneSpecified')}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="text-xs font-bold text-[var(--ink)] flex items-center gap-1 font-mono">
+                                  <DollarSign className="w-3.5 h-3.5" />
+                                  {u.balanceUSD}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex flex-col gap-1 items-start">
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-mono uppercase border ${u.role === 'admin' ? 'border-[var(--ink)] text-[var(--ink)] bg-black/5 dark:bg-white/5' : 'border-[var(--border)] text-[var(--ink-dim)] bg-transparent'}`}
+                                  >
+                                    {u.role === 'admin' ? t('adminRole') : t('userRole')}
+                                  </span>
+                                  {u.isInstructor && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[8px] font-mono uppercase border border-accent-soft text-accent bg-accent-muted">
+                                      {t('coachLabel')}
                                     </span>
                                   )}
-                                </span>
-                                <span className="text-[10px] text-[var(--ink-dim)] font-mono block mt-0.5">
-                                  {u.uid}
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs font-bold text-[var(--ink)] block">
-                              {u.email}
-                            </span>
-                            {u.phoneNumber ? (
-                              <span className="text-[10px] text-[var(--ink-dim)] font-mono block mt-1">
-                                {u.phoneNumber}
-                              </span>
-                            ) : (
-                              <span className="text-[10px] text-[var(--ink-dim)] font-mono italic block mt-1">
-                                {t('noPhoneSpecified')}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs font-bold text-[var(--ink)] flex items-center gap-1 font-mono">
-                              <DollarSign className="w-3.5 h-3.5" />
-                              {u.balanceUSD}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col gap-1 items-start">
-                              <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-mono uppercase border ${u.role === 'admin' ? 'border-[var(--ink)] text-[var(--ink)] bg-black/5 dark:bg-white/5' : 'border-[var(--border)] text-[var(--ink-dim)] bg-transparent'}`}
-                              >
-                                {u.role === 'admin' ? t('adminRole') : t('userRole')}
-                              </span>
-                              {u.isInstructor && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[8px] font-mono uppercase border border-accent-soft text-accent bg-accent-muted">
-                                  {t('coachLabel')}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-1 font-mono">
-                              <button
-                                onClick={() => startEditClient(u)}
-                                className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] border border-transparent rounded-none transition cursor-pointer"
-                                title={t('editClient')}
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                disabled={isSelf}
-                                onClick={() => handleDeleteClient(u)}
-                                className={`p-1.5 border border-transparent rounded-none transition ${isSelf ? 'text-[var(--ink-dim)]/20 cursor-not-allowed' : 'text-rose-500 hover:text-rose-600 hover:border-rose-500/30 cursor-pointer'}`}
-                                title={isSelf ? t('cannotDeleteSelf') : t('deleteClient')}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  {usersList.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="text-center py-8 text-xs text-[var(--ink-dim)] font-mono"
-                      >
-                        {t('noClientsFound')}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-1 font-mono">
+                                  <button
+                                    onClick={() => startEditClient(u)}
+                                    className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] border border-transparent rounded-none transition cursor-pointer"
+                                    title={t('editClient')}
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    disabled={isSelf}
+                                    onClick={() => handleDeleteClient(u)}
+                                    className={`p-1.5 border border-transparent rounded-none transition ${isSelf ? 'text-[var(--ink-dim)]/20 cursor-not-allowed' : 'text-rose-500 hover:text-rose-600 hover:border-rose-500/30 cursor-pointer'}`}
+                                    title={isSelf ? t('cannotDeleteSelf') : t('deleteClient')}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {filteredUsers.length === 0 && (
+                          <tr>
+                            <td
+                              colSpan={5}
+                              className="text-center py-8 text-xs text-[var(--ink-dim)] font-mono"
+                            >
+                              {t('noClientsFound')}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <ApplePagination
+                  currentPage={safePage}
+                  totalPages={totalClientPages}
+                  totalItems={filteredUsers.length}
+                  itemsPerPage={CLIENTS_PER_PAGE}
+                  onPageChange={setClientPage}
+                  itemLabel={language === 'ru' ? 'клиентов' : 'clients'}
+                />
+              </>
+            );
+          })()}
         </div>
 
         {/* Right Column: Add / Edit Client Form */}

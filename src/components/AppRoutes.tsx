@@ -2,7 +2,7 @@ import React from 'react';
 import { AnimatePresence } from 'motion/react';
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { User } from 'firebase/auth';
-import { Compass, RefreshCw } from 'lucide-react';
+import { Compass } from 'lucide-react';
 
 import { AdminRoute } from './AdminRoute';
 import { AuthRoute } from './AuthRoute';
@@ -13,7 +13,15 @@ import { HeroCarousel } from './HeroCarousel';
 import { InstructorCard } from './InstructorCard';
 import { LessonFilters } from './LessonFilters';
 import { ResortConditionsSidebar } from './ResortConditionsSidebar';
-import { Instructor, Course, Booking, Review, UserProfile, ResortConfig, ActivityLog } from '../types';
+import {
+  Instructor,
+  Course,
+  Booking,
+  Review,
+  UserProfile,
+  ResortConfig,
+  ActivityLog,
+} from '../types';
 import { Language } from '../lib/LanguageContext';
 import { SkillConfig } from '../lib/skillData';
 import { AchievementsConfig } from '../lib/achievementConfig';
@@ -22,9 +30,8 @@ import { DesignTheme } from '../lib/designTheme';
 import { CABINET_TABS, getDefaultWorkspacePath } from '../lib/workspaceRoutes';
 import { InstructorSpecialty, InstructorSortBy } from './useInstructorFilters';
 import { LazyLoad } from './LazyLoad';
-
-import logoLight from '../assets/images/logo2.png';
-import logoDark from '../assets/images/logo1.png';
+import { CardSkeleton, Skeleton } from './ui/Skeleton';
+import { Logo } from './Logo';
 
 const AdminPanel = React.lazy(() =>
   import('./AdminPanel').then(({ AdminPanel }) => ({ default: AdminPanel }))
@@ -34,9 +41,12 @@ const PersonalCabinet = React.lazy(() =>
 );
 
 const SectionLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
-  <div className="ui-empty-state flex min-h-40 items-center justify-center gap-2">
-    <RefreshCw className="h-4 w-4 animate-spin" />
-    <span className="ui-section-eyebrow">{label}</span>
+  <div className="max-w-7xl mx-auto p-6 space-y-6">
+    <div className="flex items-center justify-between">
+      <Skeleton className="h-6 w-48" />
+      <span className="ui-section-eyebrow text-xs">{label}</span>
+    </div>
+    <CardSkeleton count={3} />
   </div>
 );
 
@@ -394,12 +404,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
           <aside className="border-t lg:border-t-0 lg:border-l border-[var(--layout-divider)] p-6 lg:p-8 bg-[var(--profile-bg)] space-y-6 flex flex-col justify-start shrink-0 theme-air:bg-transparent">
             <div id="auth-section" className="space-y-6">
               <div className="text-center space-y-4 py-2">
-                <img
-                  src={theme === 'light' ? logoLight : logoDark}
-                  alt={t('academyLogoAlt')}
-                  className="h-10 w-auto mx-auto object-contain transition-opacity duration-300"
-                  referrerPolicy="no-referrer"
-                />
+                <Logo theme={theme} alt={t('academyLogoAlt')} className="h-10 mx-auto" />
                 <p className="ui-section-eyebrow leading-relaxed max-w-xs mx-auto">
                   {t('bookingSignInDesc')}
                 </p>

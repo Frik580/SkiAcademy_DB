@@ -4,9 +4,11 @@ import {
   SkillItem,
   DEFAULT_SKILL_CONFIG,
   RADAR_DIMENSION_KEYS,
-  RADAR_DIMENSION_LABELS,
   classifySkillItemToRadarDimension,
   RadarDimensionKey,
+  getSkillItemTitle,
+  getSkillItemSection,
+  getRadarDimensionLabel,
 } from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
 import { Plus, Trash2, Edit2, Save, RotateCcw, Check } from 'lucide-react';
@@ -20,7 +22,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
   config = DEFAULT_SKILL_CONFIG,
   onSaveConfig,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [items, setItems] = useState<SkillItem[]>(config.items || DEFAULT_SKILL_CONFIG.items);
   const [passPercentage, setPassPercentage] = useState<number>(config.passPercentage ?? 80);
   const [selectedLevelTransition, setSelectedLevelTransition] = useState<number>(1); // 1 = Lvl1->2, 2 = Lvl2->3, 3 = Lvl3->4
@@ -53,17 +55,27 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
   };
 
   const handleAddItem = () => {
+    const defaultSection =
+      selectedLevelTransition === 1
+        ? language === 'en'
+          ? 'Balance'
+          : 'Баланс'
+        : selectedLevelTransition === 2
+          ? language === 'en'
+            ? 'Technique'
+            : 'Техника'
+          : language === 'en'
+            ? 'High Speed'
+            : 'Высокая скорость';
+
     const newItem: SkillItem = {
       id: `item_${Date.now()}`,
       levelTarget: selectedLevelTransition,
-      section:
-        selectedLevelTransition === 1
-          ? 'Баланс'
-          : selectedLevelTransition === 2
-            ? 'Техника'
-            : 'Высокая скорость',
+      section: defaultSection,
+      sectionEn: language === 'en' ? defaultSection : undefined,
       num: String(filteredItems.length + 1),
-      title: 'Новое упражнение',
+      title: language === 'en' ? 'New exercise' : 'Новое упражнение',
+      titleEn: language === 'en' ? 'New exercise' : undefined,
       maxPoints: 5,
       controlPoints: 0,
       speedPoints: 0,
@@ -154,7 +166,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
           <span className="text-lg font-serif font-bold text-emerald-400">
             {transitionMaxPoints} {t('points')}
             <span className="text-xs font-mono text-[var(--ink-dim)] ml-2">
-              (нужно: {Math.ceil(transitionMaxPoints * (passPercentage / 100))})
+              ({t('requiredPrefix')}: {Math.ceil(transitionMaxPoints * (passPercentage / 100))})
             </span>
           </span>
         </div>
@@ -170,7 +182,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
               : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
           }`}
         >
-          Beginner → Carve (Уровень 1 → 2)
+          Beginner → Carve ({t('levelStage')} 1 → 2)
         </button>
         <button
           onClick={() => setSelectedLevelTransition(2)}
@@ -180,7 +192,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
               : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
           }`}
         >
-          Carve → Performance (Уровень 2 → 3)
+          Carve → Performance ({t('levelStage')} 2 → 3)
         </button>
         <button
           onClick={() => setSelectedLevelTransition(3)}
@@ -190,7 +202,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
               : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
           }`}
         >
-          Performance → Expert (Уровень 3 → 4)
+          Performance → Expert ({t('levelStage')} 3 → 4)
         </button>
       </div>
 
@@ -213,19 +225,24 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
         <table className="w-full text-left border-collapse min-w-[560px]">
           <thead>
             <tr className="bg-black/30 text-[9px] font-mono uppercase text-[var(--ink-dim)] tracking-wider border-b border-[var(--border)]">
-              <th className="p-2 border-r border-[var(--border)]/40 w-12">№</th>
-              <th className="p-2 border-r border-[var(--border)]/40">Категория / Раздел</th>
-              <th className="p-2 border-r border-[var(--border)]/40">Наименование упражнения</th>
+              <th className="p-2 border-r border-[var(--border)]/40 w-12">{t('numberCol')}</th>
+              <th className="p-2 border-r border-[var(--border)]/40">{t('categoryCol')}</th>
+              <th className="p-2 border-r border-[var(--border)]/40">{t('exerciseTitleCol')}</th>
               <th className="p-2 border-r border-[var(--border)]/40 w-20 text-center">
-                Макс. балл
+                {t('maxPointsCol')}
               </th>
-              <th className="p-2 border-r border-[var(--border)]/40 w-28 text-center">Радар</th>
-              <th className="p-2 w-20 text-center">Действия</th>
+              <th className="p-2 border-r border-[var(--border)]/40 w-28 text-center">
+                {t('radarAxisCol')}
+              </th>
+              <th className="p-2 w-20 text-center">{t('actionsCol')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)]/40 text-xs font-mono text-[var(--ink)]">
             {filteredItems.map((item, idx) => {
               const isEditing = editingItemId === item.id;
+              const displaySection = getSkillItemSection(item, language);
+              const displayTitle = getSkillItemTitle(item, language);
+
               return (
                 <tr key={item.id} className="hover:bg-black/10 transition-colors">
                   <td className="p-2 border-r border-[var(--border)]/40 text-center text-[var(--ink-dim)]">
@@ -237,12 +254,17 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                     {isEditing ? (
                       <input
                         type="text"
-                        value={item.section}
-                        onChange={(e) => handleUpdateItemField(item.id, 'section', e.target.value)}
+                        value={language === 'en' ? item.sectionEn || displaySection : item.section}
+                        onChange={(e) => {
+                          if (language === 'en') {
+                            handleUpdateItemField(item.id, 'sectionEn', e.target.value);
+                          }
+                          handleUpdateItemField(item.id, 'section', e.target.value);
+                        }}
                         className="w-full bg-[var(--bg)] border border-[var(--border)] px-1.5 py-0.5 text-xs text-[var(--ink)]"
                       />
                     ) : (
-                      <span className="font-semibold text-accent">{item.section}</span>
+                      <span className="font-semibold text-accent">{displaySection}</span>
                     )}
                   </td>
 
@@ -251,12 +273,17 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                     {isEditing ? (
                       <input
                         type="text"
-                        value={item.title}
-                        onChange={(e) => handleUpdateItemField(item.id, 'title', e.target.value)}
+                        value={language === 'en' ? item.titleEn || displayTitle : item.title}
+                        onChange={(e) => {
+                          if (language === 'en') {
+                            handleUpdateItemField(item.id, 'titleEn', e.target.value);
+                          }
+                          handleUpdateItemField(item.id, 'title', e.target.value);
+                        }}
                         className="w-full bg-[var(--bg)] border border-[var(--border)] px-1.5 py-0.5 text-xs text-[var(--ink)]"
                       />
                     ) : (
-                      <span>{item.title}</span>
+                      <span>{displayTitle}</span>
                     )}
                   </td>
 
@@ -283,19 +310,23 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                       <select
                         value={item.radarDimension ?? classifySkillItemToRadarDimension(item)}
                         onChange={(e) =>
-                          handleUpdateItemField(item.id, 'radarDimension', e.target.value as RadarDimensionKey)
+                          handleUpdateItemField(
+                            item.id,
+                            'radarDimension',
+                            e.target.value as RadarDimensionKey
+                          )
                         }
                         className="w-full max-w-[7.5rem] bg-[var(--bg)] border border-[var(--border)] px-1 py-0.5 text-[10px] text-[var(--ink)]"
                       >
                         {RADAR_DIMENSION_KEYS.map((key) => (
                           <option key={key} value={key}>
-                            {RADAR_DIMENSION_LABELS[key]}
+                            {getRadarDimensionLabel(key, language)}
                           </option>
                         ))}
                       </select>
                     ) : (
                       <span className="text-[10px] text-[var(--ink-dim)]">
-                        {RADAR_DIMENSION_LABELS[classifySkillItemToRadarDimension(item)]}
+                        {getRadarDimensionLabel(classifySkillItemToRadarDimension(item), language)}
                       </span>
                     )}
                   </td>
@@ -310,7 +341,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                             ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
                             : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
                         }`}
-                        title={isEditing ? 'Готово' : 'Редактировать'}
+                        title={isEditing ? t('done') : t('edit')}
                       >
                         {isEditing ? (
                           <Check className="w-3.5 h-3.5" />
@@ -321,7 +352,7 @@ export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
                       <button
                         onClick={() => handleDeleteItem(item.id)}
                         className="p-1 border border-[var(--border)] text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
-                        title="Удалить"
+                        title={t('delete')}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

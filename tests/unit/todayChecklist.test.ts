@@ -42,10 +42,11 @@ describe('today checklist daily reset', () => {
   });
 
   it('pins multiple skill items in one update', () => {
-    const update = buildPinSkillsTodayUpdate(
-      { ...baseProfile, todaySkillItemIds: ['l1_1'] },
-      ['l1_2', 'l1_3', 'l1_1']
-    );
+    const update = buildPinSkillsTodayUpdate({ ...baseProfile, todaySkillItemIds: ['l1_1'] }, [
+      'l1_2',
+      'l1_3',
+      'l1_1',
+    ]);
     expect(update.todaySkillItemIds).toEqual(['l1_1', 'l1_2', 'l1_3']);
   });
 

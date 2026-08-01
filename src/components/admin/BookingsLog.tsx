@@ -1,8 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Check, X, ChevronLeft, ChevronRight, Link2 } from 'lucide-react';
+import { Search, Check, X, Link2 } from 'lucide-react';
 import { Booking, UserProfile, Instructor } from '../../types';
-import { useLanguage, getBookingStatusLabel } from '../../lib/LanguageContext';
+import { useLanguage } from '../../lib/LanguageContext';
+import { StatusBadge } from '../ui/StatusBadge';
 import { LinkGuestBookingModal } from './LinkGuestBookingModal';
+import { ApplePagination } from '../common/ApplePagination';
 
 interface BookingsLogProps {
   bookings: Booking[];
@@ -321,7 +323,10 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                             {t('guestBadge')}
                           </span>
                           <span className="font-bold text-[var(--ink)] block leading-tight">
-                            {b.guestName || client?.displayName || 'Гость'}
+                            {b.guestName ||
+                              client?.displayName ||
+                              t('guestBadge') ||
+                              (language === 'ru' ? 'Гость' : 'Guest')}
                           </span>
                           {b.guestPhone && (
                             <a
@@ -378,21 +383,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                     </td>
                     <td className="py-3 px-2 font-mono text-[var(--ink)]">${b.totalPrice}</td>
                     <td className="py-3 px-2">
-                      <span
-                        className={`px-2 py-0.5 border text-[9px] font-mono uppercase rounded-none ${
-                          b.status === 'confirmed'
-                            ? 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
-                            : b.status === 'completed'
-                              ? 'border-accent text-accent bg-accent-muted'
-                              : b.status === 'cancelled'
-                                ? 'border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10'
-                                : b.status === 'pending_cancellation'
-                                  ? 'border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 animate-pulse'
-                                  : 'border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10'
-                        }`}
-                      >
-                        {getBookingStatusLabel(b.status, language)}
-                      </span>
+                      <StatusBadge status={b.status} size="xs" />
                     </td>
                     <td className="py-3 px-2 text-right font-mono">
                       {b.status === 'pending' && (
@@ -475,31 +466,14 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
       </div>
 
       {/* Pagination Controls */}
-      {monitorTotalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-[var(--border)] pt-4 font-mono text-xs">
-          <div className="text-[var(--ink-dim)]">
-            {`${t('pagePrefix')} ${monitorPage} ${t('pageOf')} ${monitorTotalPages} (${filteredBookings.length} ${t('totalSuffix')})`}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setMonitorPage((prev) => Math.max(1, prev - 1))}
-              disabled={monitorPage === 1}
-              className="p-1 border border-[var(--border)] hover:border-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 rounded-none disabled:opacity-30 disabled:hover:bg-transparent disabled:border-[var(--border)] disabled:cursor-not-allowed cursor-pointer transition text-[var(--ink)]"
-              title={t('previousPage')}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setMonitorPage((prev) => Math.min(monitorTotalPages, prev + 1))}
-              disabled={monitorPage === monitorTotalPages}
-              className="p-1 border border-[var(--border)] hover:border-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 rounded-none disabled:opacity-30 disabled:hover:bg-transparent disabled:border-[var(--border)] disabled:cursor-not-allowed cursor-pointer transition text-[var(--ink)]"
-              title={t('nextPage')}
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+      <ApplePagination
+        currentPage={monitorPage}
+        totalPages={monitorTotalPages}
+        totalItems={filteredBookings.length}
+        itemsPerPage={10}
+        onPageChange={setMonitorPage}
+        itemLabel={t('totalSuffix') || 'items'}
+      />
 
       <LinkGuestBookingModal
         isOpen={!!linkingBooking}

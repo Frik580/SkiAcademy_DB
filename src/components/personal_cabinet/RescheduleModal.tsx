@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Loader2, X } from 'lucide-react';
 import { useLanguage } from '../../lib/LanguageContext';
+import { Skeleton } from '../ui/Skeleton';
 
 interface RescheduleModalProps {
   isOpen: boolean;
@@ -67,10 +68,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
               {t('newTime').toUpperCase()}
             </label>
             {isLoadingSlots ? (
-              <div className="flex items-center gap-2 text-xs text-[var(--ink-dim)] py-2.5 px-3 bg-black/10 rounded-none border border-[var(--border)]">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--ink)]" />
-                <span>{t('checkingAvailability')}</span>
-              </div>
+              <Skeleton className="h-9 w-full rounded-none" />
             ) : availableSlots.length === 0 ? (
               <div className="text-xs text-rose-400 font-mono py-2.5 px-3 bg-rose-955/20 rounded-none border border-rose-900/40">
                 ⚠️ {t('noAvailableSlots')}

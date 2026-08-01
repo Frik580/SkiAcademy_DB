@@ -102,7 +102,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   onLinkGuestBooking,
 }) => {
   const { addNotification } = useNotifications();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [modalTab, setModalTab] = useState<'break' | 'day_off' | 'booking'>('break');
   const [blockDuration, setBlockDuration] = useState(1);
   const [blockNotes, setBlockNotes] = useState('');
@@ -465,7 +465,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
                 <div className="text-xs text-[var(--ink-dim)] space-y-0.5 font-mono">
                   {activeSlot.booking.guestPhone && (
                     <div>
-                      <strong>Тел:</strong>{' '}
+                      <strong>{t('phone') || (language === 'ru' ? 'Тел' : 'Phone')}:</strong>{' '}
                       <a
                         href={`tel:${activeSlot.booking.guestPhone}`}
                         className="text-sky-600 dark:text-sky-400 hover:underline"

@@ -21,7 +21,8 @@ import {
 } from './components/PushNotificationHub';
 import { Navbar } from './components/Navbar';
 import { LazyLoad } from './components/LazyLoad';
-import { AlertCircle, RefreshCw, Mountain } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import { AppInitSkeleton, ModalSkeleton } from './components/ui/Skeleton';
 
 const BookingModal = React.lazy(() =>
   import('./components/BookingModal').then(({ BookingModal }) => ({ default: BookingModal }))
@@ -46,11 +47,8 @@ const PaymentGateway = React.lazy(() =>
 );
 
 const ModalLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
-  <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center">
-    <div className="ui-modal flex items-center gap-2 px-6 py-4 text-[var(--ink-dim)]">
-      <RefreshCw className="h-4 w-4 animate-spin" />
-      <span className="ui-section-eyebrow">{label}</span>
-    </div>
+  <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+    <ModalSkeleton title={label} />
   </div>
 );
 
@@ -253,14 +251,7 @@ const AppContent: React.FC = () => {
   };
 
   if (authLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 gap-3">
-        <RefreshCw className="w-8 h-8 text-[var(--accent)] animate-spin" />
-        <span className="text-sm font-bold text-slate-500 dark:text-slate-400">
-          {t('checkingCredentials')}
-        </span>
-      </div>
-    );
+    return <AppInitSkeleton label={t('checkingCredentials')} />;
   }
 
   return (
@@ -477,17 +468,15 @@ const AppContent: React.FC = () => {
         onClearNotifications={handleClearNotifications}
       />
 
-      <footer className="ui-footer py-6 lg:py-8 px-6 shrink-0">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] theme-air:font-sans theme-air:normal-case theme-air:text-xs">
-          <div className="flex items-center gap-2 text-[var(--ink)] font-bold theme-air:font-medium">
-            <Mountain className="w-3.5 h-3.5 text-[var(--accent)] stroke-[2.5]" />
-            <span className="theme-air:hidden">CARVE ACADEMY DIGITAL INTERFACE v4.4</span>
-            <span className="hidden theme-air:inline">Carve Academy</span>
-          </div>
-          <div className="text-center md:text-left">{t('simulationEnvironment')}</div>
-          <div className="flex gap-4 theme-air:gap-6">
-            <span>{t('fisStandard')}</span>
-            <span>{t('slopeSafetyPresets')}</span>
+      <footer className="ui-footer border-t border-[var(--border-subtle)] py-8 lg:py-12 px-6 shrink-0 bg-[var(--profile-bg)]/40">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[var(--ink-dim)] font-mono">
+            <div>© {new Date().getFullYear()} Carve Academy</div>
+            <div className="flex items-center gap-4 text-[11px]">
+              <span className="hover:text-[var(--ink)] transition-colors cursor-default">
+                Ski & Snowboard Instruction
+              </span>
+            </div>
           </div>
         </div>
       </footer>

@@ -1,21 +1,13 @@
 import React, { useState, Suspense, lazy } from 'react';
 import { createPortal } from 'react-dom';
 import { Instructor, Booking, UserProfile, Course } from '../types';
-import {
-  Shield,
-  Calendar,
-  Users,
-  Clock,
-  UserCheck,
-  BookOpen,
-  AlertTriangle,
-  RefreshCw,
-} from 'lucide-react';
+import { Shield, Calendar, Users, Clock, UserCheck, BookOpen, AlertTriangle } from 'lucide-react';
 import { useLanguage, useTranslatedBookings } from '../lib/LanguageContext';
 import { SkillConfig } from '../lib/skillData';
 import { AchievementsConfig } from '../lib/achievementConfig';
 import { DesignTheme } from '../lib/designTheme';
 import { AdminCollapsibleSection } from './admin/AdminCollapsibleSection';
+import { TableSkeleton } from './ui/Skeleton';
 
 // Lazy loading heavy admin tab modules
 const FinancialOverview = lazy(() =>
@@ -47,9 +39,13 @@ const ErrorLogsPanel = lazy(() =>
 );
 
 const SectionLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
-  <div className="flex items-center justify-center p-8 border border-[var(--border)] bg-black/5 dark:bg-white/5 text-[var(--ink-dim)]">
-    <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-    <span className="font-mono text-xs uppercase tracking-wider">{label}</span>
+  <div className="space-y-3 p-4">
+    <div className="flex items-center justify-between pb-2">
+      <span className="font-mono text-xs uppercase tracking-wider text-[var(--ink-dim)]">
+        {label}
+      </span>
+    </div>
+    <TableSkeleton rows={5} cols={5} />
   </div>
 );
 

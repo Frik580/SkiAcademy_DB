@@ -17,6 +17,7 @@ import { useNotifications } from '../PushNotificationHub';
 import { FALLBACK_SLIDES } from './resortConfigDefaults';
 import { logger } from '../../lib/logger';
 import { ToggleSwitch } from '../ToggleSwitch';
+import { FormSkeleton } from '../ui/Skeleton';
 
 /**
  * 2. Данные курорта и геолокация погоды (Resort Data & Weather Geolocation Section)
@@ -103,12 +104,7 @@ export const ResortDataSection: React.FC = () => {
   const liftsStatusLabel = language === 'en' ? resortLiftsStatusEn : resortLiftsStatusRu;
 
   if (isLoading) {
-    return (
-      <div className="flex items-center gap-2 text-xs font-mono py-4 text-[var(--ink-dim)]">
-        <Loader2 className="w-4 h-4 animate-spin" />
-        <span>{t('loadingResortConfig')}</span>
-      </div>
-    );
+    return <FormSkeleton fields={4} />;
   }
 
   return (
@@ -373,12 +369,7 @@ export const ResortSliderSection: React.FC = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center gap-2 text-xs font-mono py-4 text-[var(--ink-dim)]">
-        <Loader2 className="w-4 h-4 animate-spin" />
-        <span>{t('loadingResortConfig')}</span>
-      </div>
-    );
+    return <FormSkeleton fields={4} />;
   }
 
   const visibleSlideCount = resortSlides.filter((s) => !s.hidden).length;

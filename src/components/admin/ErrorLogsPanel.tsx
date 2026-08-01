@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Trash2, Loader2, Search } from 'lucide-react';
+import { Trash2, Search } from 'lucide-react';
 import { ErrorLog, OperationType } from '../../types';
 import {
   db,
@@ -13,6 +13,7 @@ import {
 } from '../../lib/firebase';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
+import { TableSkeleton } from '../ui/Skeleton';
 import { logger } from '../../lib/logger';
 
 interface ErrorLogsPanelProps {
@@ -135,12 +136,7 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
       </div>
 
       {errorLogsLoading ? (
-        <div className="py-12 flex flex-col items-center justify-center text-[var(--ink-dim)] gap-2">
-          <Loader2 className="w-6 h-6 animate-spin text-[var(--ink)]" />
-          <span className="text-[10px] font-mono uppercase tracking-wider">
-            {t('loadingErrorLogs')}
-          </span>
-        </div>
+        <TableSkeleton rows={5} cols={4} />
       ) : filteredLogs.length === 0 ? (
         <div className="border border-[var(--border)] border-dashed p-12 text-center text-xs text-[var(--ink-dim)] font-mono">
           {t('noErrorLogsMatch')}

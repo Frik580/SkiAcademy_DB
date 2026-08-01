@@ -1,13 +1,6 @@
 import { parseCourseDates } from './LanguageContext';
 import { getTrainingStreakWeeks } from './trainingStreak';
-import {
-  ActivityLog,
-  ActivityLogMetadata,
-  Booking,
-  Course,
-  Review,
-  UserProfile,
-} from '../types';
+import { ActivityLog, ActivityLogMetadata, Booking, Course, Review, UserProfile } from '../types';
 import { DEFAULT_SKILL_CONFIG, SkillConfig, SkillItem } from './skillData';
 
 export type AchievementRuleType =
@@ -200,9 +193,7 @@ const normalizeRule = (rule: AchievementRule): AchievementRule => {
     case 'skill_items_max':
       return {
         type: rule.type,
-        skillItemIds: Array.isArray(rule.skillItemIds)
-          ? rule.skillItemIds.filter(Boolean)
-          : [],
+        skillItemIds: Array.isArray(rule.skillItemIds) ? rule.skillItemIds.filter(Boolean) : [],
       };
     case 'level_up':
     case 'feedback_given':
@@ -214,7 +205,9 @@ const normalizeRule = (rule: AchievementRule): AchievementRule => {
   }
 };
 
-export const normalizeAchievementsConfig = (raw?: Partial<AchievementsConfig>): AchievementsConfig => {
+export const normalizeAchievementsConfig = (
+  raw?: Partial<AchievementsConfig>
+): AchievementsConfig => {
   const items = Array.isArray(raw?.items) ? raw!.items : DEFAULT_ACHIEVEMENTS_CONFIG.items;
   const normalized = items
     .filter(
@@ -291,9 +284,8 @@ const bookingTimestamp = (booking: Booking, courses: Course[]) =>
   `${resolveBookingStartDate(booking, courses)}T12:00:00.000Z`;
 
 const countExercisesMastered = (scores: Record<string, number>, skillItems: SkillItem[]) =>
-  skillItems.filter(
-    (item) => item.maxPoints > 0 && (scores[item.id] ?? 0) >= item.maxPoints
-  ).length;
+  skillItems.filter((item) => item.maxPoints > 0 && (scores[item.id] ?? 0) >= item.maxPoints)
+    .length;
 
 const isExerciseMastered = (scores: Record<string, number>, item: SkillItem) =>
   item.maxPoints > 0 && (scores[item.id] ?? 0) >= item.maxPoints;
@@ -421,15 +413,16 @@ export const isAchievementRuleMet = (
     case 'lessons_completed':
       return completed.length >= (rule.count ?? 1);
     case 'hours_completed':
-      return completed.reduce((sum, booking) => sum + booking.durationHours, 0) >= (rule.count ?? 1);
+      return (
+        completed.reduce((sum, booking) => sum + booking.durationHours, 0) >= (rule.count ?? 1)
+      );
     case 'streak_weeks':
       return getTrainingStreakWeeks(ctx.bookings, ctx.activityLogs) >= (rule.count ?? 1);
     case 'exercises_mastered':
       return countExercisesMastered(scores, skillItems) >= (rule.count ?? 1);
     case 'level_up':
       return (
-        (ctx.userProfile.level || 1) >= 2 ||
-        ctx.activityLogs.some((log) => log.type === 'level_up')
+        (ctx.userProfile.level || 1) >= 2 || ctx.activityLogs.some((log) => log.type === 'level_up')
       );
     case 'feedback_given':
       return (

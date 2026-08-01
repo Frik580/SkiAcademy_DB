@@ -1,10 +1,7 @@
+import { Language } from './i18n/translations';
+
 export type RadarDimensionKey =
-  | 'technique'
-  | 'control'
-  | 'speed'
-  | 'balance'
-  | 'coordination'
-  | 'terrain';
+  'technique' | 'control' | 'speed' | 'balance' | 'coordination' | 'terrain';
 
 export const RADAR_DIMENSION_KEYS: RadarDimensionKey[] = [
   'technique',
@@ -24,18 +21,133 @@ export const RADAR_DIMENSION_LABELS: Record<RadarDimensionKey, string> = {
   terrain: 'Сложный склон',
 };
 
+export const RADAR_DIMENSION_LABELS_EN: Record<RadarDimensionKey, string> = {
+  technique: 'Technique',
+  control: 'Control',
+  speed: 'Speed',
+  balance: 'Balance',
+  coordination: 'Coordination',
+  terrain: 'Steep Terrain',
+};
+
+export function getRadarDimensionLabel(key: RadarDimensionKey, language: Language = 'ru'): string {
+  if (language === 'en') {
+    return RADAR_DIMENSION_LABELS_EN[key] || RADAR_DIMENSION_LABELS[key];
+  }
+  return RADAR_DIMENSION_LABELS[key];
+}
+
 export interface SkillItem {
   id: string;
   levelTarget: number; // 1 = Beginner->Carve (Level 1->2), 2 = Carve->Performance (Level 2->3), 3 = Performance->Expert (Level 3->4)
   section: string;
+  sectionEn?: string;
   num: string;
   title: string;
+  titleEn?: string;
   maxPoints: number;
   controlPoints: number;
   speedPoints: number;
   techniquePoints: number;
   /** Explicit radar axis; falls back to default map + keyword heuristic when omitted */
   radarDimension?: RadarDimensionKey;
+}
+
+export const DEFAULT_SKILL_TITLES_EN: Record<string, string> = {
+  l1_1: 'Maintain basic stance in motion for 100 m',
+  l1_2: 'Slide 20 m on a steep slope using side-slipping',
+  l1_3: 'Controlled snowplow braking',
+  l1_4: 'Hockey stop',
+  l1_5: '10 consecutive snowplow turns',
+  l1_6: '10 consecutive parallel ski turns',
+  l1_7: 'Ski 20 meters on a single ski',
+  l1_8: 'Javelin turn drill',
+  l1_9: 'Pole plant technique',
+  l1_10: 'Entry-level carved turn',
+  l1_11: 'Non-stop descent down a blue slope',
+  l1_12: 'Speed control throughout the entire descent',
+  l1_13: 'Linked long-radius turns with pole plant',
+  l1_14: 'Proper ski lift boarding & disembarkation',
+  l1_15: 'Snowflake turn drill',
+
+  l2_1: 'Short-radius skidded turn',
+  l2_2: 'Long-radius carved turn',
+  l2_3: 'Short-radius carved turn',
+  l2_4: 'Drift turn drill',
+  l2_5: 'Control speed through turn shape',
+  l2_6: 'Sustain a long sequence of carved arcs at speed',
+  l2_7: 'Maintain stable outside edge engagement',
+  l2_8: 'Proper leg work and flexion-extension',
+  l2_9: 'Correct upper body alignment in long-radius turns',
+  l2_10: 'Quiet upper body in short-radius turns',
+  l2_11: 'Ski a section on one ski',
+  l2_12: 'Execute a sequence of switch (backward) turns',
+  l2_13: 'Ride through a zip line / fall line track',
+  l2_14: 'Descent down a red or black slope',
+
+  l3_1: 'Clean high-speed carving',
+  l3_2: 'Center of mass & body position control',
+  l3_3: 'High edge-angle carving execution',
+  l3_4: 'Short slalom sports arcs',
+  l3_5: 'Long Giant Slalom (GS) arcs',
+  l3_6: 'Mogul terrain turns',
+  l3_7: 'Short ski training (UPS system)',
+  l3_8: 'Turn rhythm and cadence variations',
+  l3_9: 'Controlled navigation on icy terrain',
+  l3_10: 'Chop and tracked-out snow navigation',
+  l3_11: 'Short-radius control in a narrow corridor',
+  l3_12: 'Deep powder skiing technique',
+  l3_13: 'Steep headwall descent control',
+  l3_14: 'Seamless transition between skiing styles',
+  l3_15: 'Synchronized demo skiing',
+  l3_16: 'Charleston turn drill',
+  l3_17: 'Fliegent turn drill',
+  l3_18: 'Swedish turn drill',
+  l3_19: 'Dolphin turn drill',
+  l3_20: 'Counter-weight turn drill',
+  l3_21: 'Klammer turn drill',
+  l3_22: 'Landing recovery and post-jump control',
+};
+
+export const DEFAULT_SECTION_TRANSLATIONS_EN: Record<string, string> = {
+  Баланс: 'Balance',
+  Контроль: 'Control',
+  Повороты: 'Turns',
+  Координация: 'Coordination',
+  Техника: 'Technique',
+  Уверенность: 'Confidence',
+  'Финальный спуск': 'Final Descent',
+  Скорость: 'Speed',
+  'Работа ног и корпуса': 'Leg & Core Work',
+  'Высокая скорость': 'High Speed',
+  'Сложный склон': 'Steep Terrain',
+  Универсальность: 'Versatility',
+};
+
+export function getSkillItemTitle(
+  item: { id?: string; title: string; titleEn?: string },
+  language: Language = 'ru'
+): string {
+  if (language === 'en') {
+    if (item.titleEn) return item.titleEn;
+    if (item.id && DEFAULT_SKILL_TITLES_EN[item.id]) return DEFAULT_SKILL_TITLES_EN[item.id];
+    return item.title;
+  }
+  return item.title;
+}
+
+export function getSkillItemSection(
+  item: { section: string; sectionEn?: string },
+  language: Language = 'ru'
+): string {
+  if (language === 'en') {
+    if (item.sectionEn) return item.sectionEn;
+    if (DEFAULT_SECTION_TRANSLATIONS_EN[item.section]) {
+      return DEFAULT_SECTION_TRANSLATIONS_EN[item.section];
+    }
+    return item.section;
+  }
+  return item.section;
 }
 
 export interface SkillConfig {
@@ -667,15 +779,28 @@ export const DEFAULT_RADAR_DIMENSION_BY_ITEM_ID: Record<string, RadarDimensionKe
   l3_22: 'control',
 };
 
-function inferRadarDimensionFromText(item: Pick<SkillItem, 'section' | 'title'>): RadarDimensionKey {
+function inferRadarDimensionFromText(
+  item: Pick<SkillItem, 'section' | 'title'>
+): RadarDimensionKey {
   const sec = (item.section || '').toLowerCase();
   const title = (item.title || '').toLowerCase();
 
-  if (sec.includes('баланс') || title.includes('стойк') || title.includes('баланс')) return 'balance';
-  if (sec.includes('контроль') || title.includes('торможен') || title.includes('остановк') || title.includes('соскальз')) {
+  if (sec.includes('баланс') || title.includes('стойк') || title.includes('баланс'))
+    return 'balance';
+  if (
+    sec.includes('контроль') ||
+    title.includes('торможен') ||
+    title.includes('остановк') ||
+    title.includes('соскальз')
+  ) {
     return 'control';
   }
-  if (sec.includes('скорость') || sec.includes('уверенность') || title.includes('скорост') || title.includes('без остановок')) {
+  if (
+    sec.includes('скорость') ||
+    sec.includes('уверенность') ||
+    title.includes('скорост') ||
+    title.includes('без остановок')
+  ) {
     return 'speed';
   }
   if (
@@ -688,7 +813,13 @@ function inferRadarDimensionFromText(item: Pick<SkillItem, 'section' | 'title'>)
   ) {
     return 'coordination';
   }
-  if (sec.includes('сложный') || title.includes('лед') || title.includes('разбит') || title.includes('бугр') || title.includes('целин')) {
+  if (
+    sec.includes('сложный') ||
+    title.includes('лед') ||
+    title.includes('разбит') ||
+    title.includes('бугр') ||
+    title.includes('целин')
+  ) {
     return 'terrain';
   }
   return 'technique';

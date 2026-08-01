@@ -11,9 +11,7 @@ const toIsoWeekKey = (input: string | Date): string | null => {
   const week1 = new Date(d.getFullYear(), 0, 4);
   const weekNum =
     1 +
-    Math.round(
-      ((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7
-    );
+    Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
   return `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
 };
 

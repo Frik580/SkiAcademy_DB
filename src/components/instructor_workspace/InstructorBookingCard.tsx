@@ -7,6 +7,7 @@ import { StudentLevelControls } from './StudentLevelControls';
 import { StudentAssessButton } from './StudentAssessButton';
 import { InstructorRecommendationsEditor } from './InstructorRecommendationsEditor';
 import { type TranslationKey, type Language } from '../../lib/LanguageContext';
+import { StatusBadge } from '../ui/StatusBadge';
 import { canInstructorEditRecommendations } from '../../lib/lessonRecommendations';
 import { LessonRecommendation } from '../../types';
 
@@ -43,26 +44,6 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
 }) => {
   const isCourse = !('userId' in booking);
   const b = booking;
-
-  const statusLabel =
-    b.status === 'pending'
-      ? t('pending')
-      : b.status === 'confirmed'
-        ? t('confirmed')
-        : b.status === 'completed'
-          ? t('completed')
-          : b.status === 'cancelled'
-            ? t('cancelled')
-            : t('pendingCancellationStatus');
-
-  const statusClass =
-    b.status === 'confirmed'
-      ? 'text-emerald-700 bg-emerald-100/80 dark:text-emerald-300 dark:bg-emerald-950/50'
-      : b.status === 'completed'
-        ? 'badge-accent'
-        : b.status === 'cancelled'
-          ? 'text-rose-700 bg-rose-100/80 dark:text-rose-300 dark:bg-rose-950/50'
-          : 'text-amber-700 bg-amber-100/80 dark:text-amber-300 dark:bg-amber-950/50';
 
   const canEditRecs = canInstructorEditRecommendations(b.status);
 
@@ -249,11 +230,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
               <Clock className="w-3.5 h-3.5 text-accent" />
               {b.time} ({b.durationHours}h)
             </div>
-            <span
-              className={`px-2 py-0.5 text-[8px] font-mono uppercase font-bold rounded-xs ${statusClass}`}
-            >
-              {statusLabel}
-            </span>
+            <StatusBadge status={b.status} size="xs" />
           </div>
 
           <div className="p-3.5 border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30 rounded-xs w-full space-y-2.5">

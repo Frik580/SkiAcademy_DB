@@ -447,7 +447,9 @@ export const useBookings = (
     try {
       await updateDoc(doc(db, 'bookings', bookingId), { completedRecommendationIds });
       if (checked && firebaseUser) {
-        const recommendation = booking.recommendations?.find((item) => item.id === recommendationId);
+        const recommendation = booking.recommendations?.find(
+          (item) => item.id === recommendationId
+        );
         await logActivityForUser(
           booking.userId,
           firebaseUser.uid,
@@ -464,8 +466,7 @@ export const useBookings = (
 
         const recs = booking.recommendations ?? [];
         const allDone =
-          recs.length > 0 &&
-          recs.every((item) => completedRecommendationIds.includes(item.id));
+          recs.length > 0 && recs.every((item) => completedRecommendationIds.includes(item.id));
         if (allDone) {
           await logActivityForUser(
             booking.userId,

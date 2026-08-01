@@ -14,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Booking, UserProfile, ChatMessage, OperationType, Instructor } from '../types';
+import { Skeleton } from './ui/Skeleton';
 import {
   db,
   collection,
@@ -477,11 +478,19 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
         {/* Message area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-black/5 flex flex-col min-w-0">
           {isLoading ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-[var(--ink-dim)] gap-2">
-              <Loader2 className="w-6 h-6 animate-spin text-[var(--ink)]" />
-              <span className="text-[10px] font-mono uppercase tracking-wider">
-                {t('chatLoadingDiscussion')}
-              </span>
+            <div className="space-y-3 p-2">
+              <div className="flex items-start gap-2 max-w-[80%]">
+                <Skeleton variant="circular" className="w-7 h-7 shrink-0" />
+                <Skeleton className="h-12 flex-1 rounded-lg" />
+              </div>
+              <div className="flex items-start gap-2 max-w-[80%] ml-auto flex-row-reverse">
+                <Skeleton variant="circular" className="w-7 h-7 shrink-0" />
+                <Skeleton className="h-10 flex-1 rounded-lg" />
+              </div>
+              <div className="flex items-start gap-2 max-w-[70%]">
+                <Skeleton variant="circular" className="w-7 h-7 shrink-0" />
+                <Skeleton className="h-14 flex-1 rounded-lg" />
+              </div>
             </div>
           ) : messages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center text-[var(--ink-dim)] p-8">

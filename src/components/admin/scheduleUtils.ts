@@ -37,5 +37,14 @@ export function getSpecialtyLabel(spec: string, language: Language): string {
         return spec;
     }
   }
-  return spec;
+  switch (spec) {
+    case 'ski':
+      return 'Ski';
+    case 'snowboard':
+      return 'Snowboard';
+    case 'both':
+      return 'Both';
+    default:
+      return spec;
+  }
 }

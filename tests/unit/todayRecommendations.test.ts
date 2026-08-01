@@ -24,24 +24,24 @@ describe('today recommendation window', () => {
     const from = new Date('2026-07-31T12:00:00');
     const lesson = booking('2026-07-28');
     expect(getLessonAgeDays(lesson, [], from)).toBe(3);
-    expect(isBookingInTodayRecommendationWindow(lesson, [], RECOMMENDATION_TODAY_WINDOW_DAYS, from)).toBe(
-      true
-    );
+    expect(
+      isBookingInTodayRecommendationWindow(lesson, [], RECOMMENDATION_TODAY_WINDOW_DAYS, from)
+    ).toBe(true);
   });
 
   it('excludes lessons older than the window', () => {
     const from = new Date('2026-08-20T12:00:00');
     const lesson = booking('2026-07-28');
-    expect(isBookingInTodayRecommendationWindow(lesson, [], RECOMMENDATION_TODAY_WINDOW_DAYS, from)).toBe(
-      false
-    );
+    expect(
+      isBookingInTodayRecommendationWindow(lesson, [], RECOMMENDATION_TODAY_WINDOW_DAYS, from)
+    ).toBe(false);
   });
 
   it('excludes future lessons', () => {
     const from = new Date('2026-07-31T12:00:00');
     const lesson = booking('2026-08-05');
-    expect(isBookingInTodayRecommendationWindow(lesson, [], RECOMMENDATION_TODAY_WINDOW_DAYS, from)).toBe(
-      false
-    );
+    expect(
+      isBookingInTodayRecommendationWindow(lesson, [], RECOMMENDATION_TODAY_WINDOW_DAYS, from)
+    ).toBe(false);
   });
 });

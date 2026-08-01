@@ -1,10 +1,7 @@
 import React, { useMemo } from 'react';
 import { Booking, Review } from '../../../types';
 import { useLanguage } from '../../../lib/LanguageContext';
-import {
-  getNeedsAttentionBookings,
-  isBookingReviewed,
-} from './studentCabinetUtils';
+import { getNeedsAttentionBookings, isBookingReviewed } from './studentCabinetUtils';
 import { ScSectionTitle, ScTextButton } from './StudentCabinetUI';
 import { RecommendationIndicator } from '../RecommendationIndicator';
 import { hasPendingRecommendations } from '../../../lib/lessonRecommendations';

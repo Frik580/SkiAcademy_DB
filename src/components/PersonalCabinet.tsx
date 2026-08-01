@@ -1,5 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { AvailabilitySlot, Booking, UserProfile, Review, Course, Instructor, ActivityLog } from '../types';
+import {
+  AvailabilitySlot,
+  Booking,
+  UserProfile,
+  Review,
+  Course,
+  Instructor,
+  ActivityLog,
+} from '../types';
 import { Lock, Sparkles } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, parseCourseDates, useTranslatedBookings } from '../lib/LanguageContext';

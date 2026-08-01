@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Search, UserCheck, Link2, Check, User, AlertCircle } from 'lucide-react';
 import { Booking, UserProfile } from '../../types';
-import { useLanguage, getBookingStatusLabel } from '../../lib/LanguageContext';
+import { useLanguage } from '../../lib/LanguageContext';
+import { StatusBadge } from '../ui/StatusBadge';
 import { logger } from '../../lib/logger';
 
 interface LinkGuestBookingModalProps {
@@ -20,7 +21,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
   usersList,
   onLinkBooking,
 }) => {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -139,17 +140,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                 <span className="text-[10px] text-[var(--ink-dim)] uppercase tracking-wider font-bold">
                   {t('bookingId')}: {booking.id}
                 </span>
-                <span
-                  className={`px-1.5 py-0.2 border text-[9px] uppercase ${
-                    booking.status === 'confirmed'
-                      ? 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
-                      : booking.status === 'completed'
-                        ? 'border-accent text-accent bg-accent-muted'
-                        : 'border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10'
-                  }`}
-                >
-                  {getBookingStatusLabel(booking.status, language)}
-                </span>
+                <StatusBadge status={booking.status} size="xs" />
               </div>
 
               <div className="grid grid-cols-3 gap-2 text-[11px] pt-1">

@@ -267,7 +267,10 @@ describe('activity_logs', () => {
     await seedData(async (context) => {
       const db = context.firestore();
       await setDoc(doc(db, 'users', USER_ID), userProfile(USER_ID, 'user@example.com'));
-      await setDoc(doc(db, 'users', OTHER_USER_ID), userProfile(OTHER_USER_ID, 'other@example.com'));
+      await setDoc(
+        doc(db, 'users', OTHER_USER_ID),
+        userProfile(OTHER_USER_ID, 'other@example.com')
+      );
       await setDoc(doc(db, 'users', INSTRUCTOR_USER_ID), {
         ...userProfile(INSTRUCTOR_USER_ID, 'instructor@example.com'),
         instructorId: 'instructor-1',

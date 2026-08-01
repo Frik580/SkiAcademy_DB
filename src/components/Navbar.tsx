@@ -5,8 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../lib/LanguageContext';
 import { isInstructorWorkspaceUser } from '../lib/workspaceRoutes';
-import logoLight from '../assets/images/cropped1.png';
-import logoDark from '../assets/images/cropped2.png';
+import { Logo } from './Logo';
 
 interface NavbarProps {
   userProfile: UserProfile | null;
@@ -48,12 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="ui-navbar sticky top-0 z-40 px-4 sm:px-6 py-3 transition-colors duration-300">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
         <Link to="/" className="flex items-center select-none shrink-0">
-          <img
-            src={theme === 'light' ? logoLight : logoDark}
-            alt="Carve Academy Logo"
-            className="h-8 sm:h-9 md:h-10 w-auto object-contain transition-opacity duration-300"
-            referrerPolicy="no-referrer"
-          />
+          <Logo theme={theme} className="h-8 sm:h-9 md:h-10" />
         </Link>
 
         <div className="hidden lg:flex items-center gap-1.5 xl:gap-3 font-mono text-xs tracking-wider">

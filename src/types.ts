@@ -68,6 +68,9 @@ export interface LessonRecommendation {
   text: string;
 }
 
+export type BookingStatus =
+  'pending' | 'confirmed' | 'cancelled' | 'completed' | 'pending_cancellation';
+
 export interface Booking {
   id: string;
   userId: string;

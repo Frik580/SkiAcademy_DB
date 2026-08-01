@@ -9,6 +9,7 @@ import {
 } from './studentCabinetUtils';
 import { ScDivider, ScProgressBar, ScSectionTitle, StudentPanelBackLink } from './StudentCabinetUI';
 import { SkillRadarChart } from './SkillRadarChart';
+import { getSkillItemTitle } from '../../../lib/skillData';
 
 interface StudentDevelopmentPanelProps extends StudentCabinetContext {
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
@@ -43,7 +44,7 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelProps> = (
   );
 
   return (
-    <div className="space-y-0 pb-24 max-w-2xl mx-auto px-4 sm:px-6 w-full min-w-0">
+    <div className="space-y-0 pb-24 max-w-3xl mx-auto px-4 sm:px-6 w-full min-w-0">
       <section className="py-6 space-y-4">
         <StudentPanelBackLink onClick={() => onGoToTab('home')} />
         <div className="space-y-1">
@@ -122,7 +123,9 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelProps> = (
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm text-[var(--ink)] leading-snug">{item.title}</p>
+                      <p className="text-sm text-[var(--ink)] leading-snug">
+                        {getSkillItemTitle(item, language)}
+                      </p>
                       {!hideProgress && (
                         <p className="text-xs text-[var(--ink-dim)] tabular-nums mt-1">
                           {item.earned} / {item.maxPoints} · {item.percent}%

@@ -41,6 +41,7 @@ import {
   buildRemoveTodayTaskUpdate,
   buildToggleSkillTodayUpdate,
   buildToggleTodayCompleteUpdate,
+  getNewlyPinnedSkillTitles,
   type TodayTaskRef,
 } from '../lib/todayChecklist';
 import { DesignTheme, parseDesignTheme } from '../lib/designTheme';
@@ -322,8 +323,15 @@ export const useAppLogic = (
 
   const handlePinSkillsToday = async (skillItemIds: string[]) => {
     if (!firebaseUser || !userProfile || skillItemIds.length === 0) return;
+    const addedTitles = getNewlyPinnedSkillTitles(userProfile, skillItemIds, skillConfig.items);
     const updated = buildPinSkillsTodayUpdate(userProfile, skillItemIds);
     await handleUpdateProfile(updated);
+    if (addedTitles.length === 0) return;
+    addNotification(
+      'success',
+      t('scRadarTasksAddedTitle'),
+      addedTitles.map((title) => `• ${title}`).join('\n')
+    );
   };
 
   const handleToggleTodayTaskComplete = async (taskId: string, done: boolean) => {

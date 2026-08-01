@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useLanguage } from '../../../lib/LanguageContext';
+import { formatPointsCount } from '../../../lib/i18n/pluralize';
 import { StudentCabinetContext } from './StudentCabinetHome';
 import {
   getLevelLabel,
@@ -58,7 +59,10 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelProps> = (
             <>
               <ScProgressBar percent={percent} variant="apple" showLabel />
               <p className="text-sm text-[var(--ink-dim)]">
-                {t('scPointsToNextLevel').replace('{n}', String(remaining))}
+                {t('scPointsToNextLevel').replace(
+                  '{pointsLabel}',
+                  formatPointsCount(remaining, lang)
+                )}
               </p>
             </>
           )}

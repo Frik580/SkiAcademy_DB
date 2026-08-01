@@ -1,6 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { UserProfile } from '../../../types';
-import { SkillConfig, DEFAULT_SKILL_CONFIG, SkillItem, calculateSkillProgress, classifySkillItemToRadarDimension, RadarDimensionKey } from '../../../lib/skillData';
+import {
+  SkillConfig,
+  DEFAULT_SKILL_CONFIG,
+  SkillItem,
+  calculateSkillProgress,
+  classifySkillItemToRadarDimension,
+  RadarDimensionKey,
+} from '../../../lib/skillData';
 import { useLanguage } from '../../../lib/LanguageContext';
 import { ScSectionTitle } from './StudentCabinetUI';
 import {
@@ -44,12 +51,12 @@ interface SkillRadarChartProps {
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
   onPinSkillsToday?: (skillItemIds: string[]) => void | Promise<void>;
   compact?: boolean;
-  /** Tighter hero embed: responsive chart, no legend strip */
+  /** Tighter hero embed: responsive chart */
   embed?: boolean;
   className?: string;
 }
 
-/** Apple HIG system colors — dark appearance + Activity Rings */
+/** Apple Fitness Activity Rings palette */
 const APPLE = {
   ringMove: '#FA114F',
   ringExercise: '#A8E10C',
@@ -68,48 +75,15 @@ const DIMENSION_CONFIGS: {
   icon: React.FC<{ className?: string }>;
   color: string;
 }[] = [
-  { key: 'technique', titleKey: 'scRadarAxisTechnique', defaultTitle: 'Техника', icon: Compass, color: APPLE.indigo },
+  { key: 'technique', titleKey: 'scRadarAxisTechnique', defaultTitle: 'Техника', icon: Compass, color: APPLE.ringMove },
   { key: 'control', titleKey: 'scRadarAxisControl', defaultTitle: 'Контроль', icon: ShieldCheck, color: APPLE.ringExercise },
-  { key: 'speed', titleKey: 'scRadarAxisSpeed', defaultTitle: 'Скорость', icon: Zap, color: APPLE.ringMove },
-  { key: 'balance', titleKey: 'scRadarAxisBalance', defaultTitle: 'Баланс', icon: Activity, color: APPLE.ringStand },
-  { key: 'coordination', titleKey: 'scRadarAxisCoordination', defaultTitle: 'Координация', icon: Layers, color: APPLE.purple },
+  { key: 'speed', titleKey: 'scRadarAxisSpeed', defaultTitle: 'Скорость', icon: Zap, color: APPLE.ringStand },
+  { key: 'balance', titleKey: 'scRadarAxisBalance', defaultTitle: 'Баланс', icon: Activity, color: APPLE.purple },
+  { key: 'coordination', titleKey: 'scRadarAxisCoordination', defaultTitle: 'Координация', icon: Layers, color: APPLE.indigo },
   { key: 'terrain', titleKey: 'scRadarAxisTerrain', defaultTitle: 'Сложный склон', icon: Award, color: APPLE.orange },
 ];
 
-function polarToCartesian(cx: number, cy: number, r: number, angleRad: number) {
-  return { x: cx + r * Math.cos(angleRad), y: cy + r * Math.sin(angleRad) };
-}
-
-function describeArcSegment(
-  cx: number,
-  cy: number,
-  r: number,
-  startAngle: number,
-  endAngle: number
-): string {
-  const start = polarToCartesian(cx, cy, r, startAngle);
-  const end = polarToCartesian(cx, cy, r, endAngle);
-  const largeArc = endAngle - startAngle > Math.PI ? 1 : 0;
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`;
-}
-
-function getSegmentGapRad(radius: number, strokeWidth: number): number {
-  const capPadRad = (strokeWidth / 2 / radius) * 1.15;
-  return Math.max(0.12, capPadRad * 2 + 0.07);
-}
-
-function getArcAngles(index: number, total: number, gapRad: number) {
-  const slice = (Math.PI * 2) / total;
-  const start = index * slice - Math.PI / 2 + gapRad / 2;
-  const end = (index + 1) * slice - Math.PI / 2 - gapRad / 2;
-  return { start, end, mid: (start + end) / 2, span: end - start };
-}
-
-function angleAtPercent(start: number, span: number, percent: number) {
-  return start + span * (Math.max(0, Math.min(100, percent)) / 100);
-}
-
-const RADAR_DRAW_MS = 700;
+const RADAR_DRAW_MS = 900;
 
 function easeOutCubic(t: number): number {
   return 1 - (1 - t) ** 3;
@@ -146,12 +120,108 @@ function SegmentedControl<T extends string>({
           >
             {label}
             {badge && (
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" aria-hidden />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FF9F0A] animate-pulse" aria-hidden />
             )}
           </button>
         );
       })}
     </div>
+  );
+}
+
+function ActivityRing({
+  cx,
+  cy,
+  r,
+  strokeWidth,
+  color,
+  percent,
+  drawProgress,
+  simPercent,
+  selected,
+  dimmed,
+  onClick,
+}: {
+  cx: number;
+  cy: number;
+  r: number;
+  strokeWidth: number;
+  color: string;
+  percent: number;
+  drawProgress: number;
+  simPercent?: number;
+  selected: boolean;
+  dimmed: boolean;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  const circumference = 2 * Math.PI * r;
+  const animated = Math.max(0, Math.min(100, percent)) * drawProgress;
+  const progressLen = (circumference * animated) / 100;
+  const sim = simPercent != null ? Math.max(percent, simPercent) : percent;
+  const simLen = (circumference * (sim - percent)) / 100;
+  const hasSim = sim > percent;
+
+  return (
+    <g
+      opacity={dimmed ? 0.28 : 1}
+      className="transition-opacity duration-300"
+      style={{ cursor: 'pointer' }}
+      onClick={onClick}
+    >
+      {/* Track — dark tint of ring color */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        opacity={0.18}
+      />
+      {/* Simulated gain (orange) */}
+      {hasSim && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={APPLE.simulation}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={`${simLen} ${circumference}`}
+          transform={`rotate(${-90 + (360 * percent) / 100} ${cx} ${cy})`}
+          opacity={0.9}
+          className="transition-all duration-500"
+        />
+      )}
+      {/* Progress */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={`${progressLen} ${circumference}`}
+        transform={`rotate(-90 ${cx} ${cy})`}
+        className={
+          selected && drawProgress >= 1
+            ? '[filter:drop-shadow(0_0_1.5px_var(--ring-glow))] dark:[filter:drop-shadow(0_0_4px_var(--ring-glow))]'
+            : undefined
+        }
+        style={{ ['--ring-glow' as string]: color }}
+      />
+      {/* Hit area */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="none"
+        stroke="transparent"
+        strokeWidth={strokeWidth + 10}
+      />
+    </g>
   );
 }
 
@@ -171,9 +241,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
   const pinnedIds = new Set(userProfile.todaySkillItemIds ?? []);
 
   const [activeTab, setActiveTab] = useState<'radar' | 'simulator'>('radar');
-  const [selectedDimensionKey, setSelectedDimensionKey] = useState<RadarDimensionFilter>(
-    embed ? 'technique' : 'all'
-  );
+  const [selectedDimensionKey, setSelectedDimensionKey] = useState<RadarDimensionFilter>('all');
   const [simulatedValues, setSimulatedValues] = useState<Record<RadarDimensionKey, number>>({
     technique: 0,
     control: 0,
@@ -210,7 +278,10 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
     const scores = userProfile.skillScores || {};
     const displayItems = items.filter((i) => i.levelTarget <= targetStage);
 
-    const map: Record<RadarDimensionKey, { earned: number; max: number; exercises: RadarDimension['exercises'] }> = {
+    const map: Record<
+      RadarDimensionKey,
+      { earned: number; max: number; exercises: RadarDimension['exercises'] }
+    > = {
       technique: { earned: 0, max: 0, exercises: [] },
       control: { earned: 0, max: 0, exercises: [] },
       speed: { earned: 0, max: 0, exercises: [] },
@@ -243,9 +314,8 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
         exercises: data.exercises,
       } as RadarDimension;
     });
-  }, [items, userProfile.skillScores, targetStage, passPercentage, pinnedIds]);
+  }, [items, userProfile.skillScores, targetStage, pinnedIds]);
 
-  /** Only dimensions that have exercises for the current level stage */
   const chartDimensions = useMemo(
     () => dimensionData.filter((d) => d.exercises.length > 0),
     [dimensionData]
@@ -253,17 +323,13 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
 
   useEffect(() => {
     if (chartDimensions.length === 0) return;
-    if (embed && selectedDimensionKey === 'all') {
-      setSelectedDimensionKey(chartDimensions[0].key);
-      return;
-    }
     if (
       selectedDimensionKey !== 'all' &&
       !chartDimensions.some((d) => d.key === selectedDimensionKey)
     ) {
-      setSelectedDimensionKey(embed ? chartDimensions[0].key : 'all');
+      setSelectedDimensionKey('all');
     }
-  }, [chartDimensions, selectedDimensionKey, embed]);
+  }, [chartDimensions, selectedDimensionKey]);
 
   const selectedDimension = useMemo(() => {
     if (selectedDimensionKey === 'all') return null;
@@ -300,26 +366,29 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
     return calculateSkillProgress(simScores, items, targetStage, passPercentage);
   }, [userProfile.skillScores, dimensionData, simulatedValues, items, targetStage, passPercentage]);
 
-  const radarPadding = compact ? (embed ? 38 : 43) : 53;
-  const chartBase = compact ? (embed ? 360 : 384) : 480;
-  const size = chartBase + radarPadding * 2;
+  const ringCount = Math.max(1, chartDimensions.length);
+  const size = compact ? (embed ? 210 : 230) : 280;
+  const ringGap = 3;
+  const maxStroke = compact ? (embed ? 15 : 16) : 18;
+  const strokeWidth = Math.max(
+    9,
+    Math.min(maxStroke, Math.floor((size / 2 - 10) / ringCount) - ringGap)
+  );
+  const outerRadius = size / 2 - strokeWidth / 2 - 4;
   const center = size / 2;
-  const radius = compact ? (embed ? 110 : 122) : 154;
-  const numSides = chartDimensions.length;
-  const strokeWidth = compact ? (embed ? 22 : 24) : 29;
-  const segmentGapRad = numSides > 1 ? getSegmentGapRad(radius, strokeWidth) : 0;
-  const glowMargin = strokeWidth + 8;
   const hasAxisFocus = selectedDimensionKey !== 'all';
-
-  const hubDimension = selectedDimension ?? chartDimensions[0] ?? null;
-  const hubAnimatedPercent = hubDimension
-    ? Math.round(hubDimension.percent * drawProgress)
-    : 0;
 
   const isSimulating = chartDimensions.some((d) => simulatedValues[d.key] > d.percent);
 
   const handleResetSimulation = () => {
-    setSimulatedValues({ technique: 0, control: 0, speed: 0, balance: 0, coordination: 0, terrain: 0 });
+    setSimulatedValues({
+      technique: 0,
+      control: 0,
+      speed: 0,
+      balance: 0,
+      coordination: 0,
+      terrain: 0,
+    });
   };
 
   const handleApplySimulatedTasks = () => {
@@ -341,175 +410,125 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
     toPin.forEach((id) => onToggleSkillToday(id, true));
   };
 
-  const radarSvg =
-    numSides === 0 ? (
+  const ringsSvg =
+    ringCount === 0 ? (
       <p className="text-sm text-[var(--ink-dim)] text-center py-8">
         {t('scRadarNoExercises').replace('{n}', String(targetStage))}
       </p>
     ) : (
-    <div className={`relative flex items-center justify-center w-full overflow-visible ${embed ? 'max-w-[min(100%,23.5rem)] mx-auto' : 'max-w-[min(100%,31rem)] mx-auto'}`}>
       <svg
         viewBox={`0 0 ${size} ${size}`}
-        className="w-full h-auto block"
-        style={{ overflow: 'visible' }}
-        preserveAspectRatio="xMidYMid meet"
+        className="block h-auto w-[13rem] sm:w-[11.5rem] lg:w-[10.5rem] cursor-pointer"
         role="img"
         aria-label={t('scRadarTitle')}
+        onClick={() => setSelectedDimensionKey('all')}
       >
-        <defs>
-          <filter
-            id="radar-arc-glow"
-            filterUnits="userSpaceOnUse"
-            x={-glowMargin}
-            y={-glowMargin}
-            width={size + glowMargin * 2}
-            height={size + glowMargin * 2}
-          >
-            <feGaussianBlur stdDeviation="2.5" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
+        <rect width={size} height={size} fill="transparent" />
+        {chartDimensions.map((dim, i) => {
+          const r = outerRadius - i * (strokeWidth + ringGap);
+          if (r < strokeWidth) return null;
+          const isSelected =
+            selectedDimensionKey === 'all' || dim.key === selectedDimensionKey;
+          const simVal = Math.max(dim.percent, simulatedValues[dim.key]);
 
-        {numSides === 1 ? (
-          <>
-            <circle
+          return (
+            <ActivityRing
+              key={dim.key}
               cx={center}
               cy={center}
-              r={radius}
-              fill="none"
-              stroke={chartDimensions[0].color}
+              r={r}
               strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              opacity={0.28 * drawProgress}
+              color={dim.color}
+              percent={dim.percent}
+              drawProgress={drawProgress}
+              simPercent={isSimulating && simVal > dim.percent ? simVal : undefined}
+              selected={isSelected}
+              dimmed={hasAxisFocus && dim.key !== selectedDimensionKey}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedDimensionKey(dim.key);
+              }}
             />
-            {isSimulating && simulatedValues[chartDimensions[0].key] > chartDimensions[0].percent && (
-              <circle
-                cx={center}
-                cy={center}
-                r={radius}
-                fill="none"
-                stroke={APPLE.simulation}
-                strokeWidth={strokeWidth}
-                strokeLinecap="round"
-                strokeDasharray={`${(2 * Math.PI * radius * (Math.max(chartDimensions[0].percent, simulatedValues[chartDimensions[0].key]) - chartDimensions[0].percent)) / 100} ${2 * Math.PI * radius}`}
-                transform={`rotate(${-90 + (360 * chartDimensions[0].percent) / 100} ${center} ${center})`}
-                opacity={0.85}
-              />
-            )}
-            <circle
-              cx={center}
-              cy={center}
-              r={radius}
-              fill="none"
-              stroke={chartDimensions[0].color}
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              strokeDasharray={`${(2 * Math.PI * radius * chartDimensions[0].percent * drawProgress) / 100} ${2 * Math.PI * radius}`}
-              transform={`rotate(-90 ${center} ${center})`}
-            />
-          </>
-        ) : (
-          chartDimensions.map((dim, i) => {
-            const { start, end, span } = getArcAngles(i, numSides, segmentGapRad);
-            const isSelected = selectedDimensionKey !== 'all' && dim.key === selectedDimensionKey;
-            const animatedPercent = dim.percent * drawProgress;
-            const currentEnd = angleAtPercent(start, span, animatedPercent);
-            const simVal = Math.max(dim.percent, simulatedValues[dim.key]);
-            const simEnd = angleAtPercent(start, span, simVal);
-            const trackPath = describeArcSegment(center, center, radius, start, end);
-            const currentPath =
-              animatedPercent > 0
-                ? describeArcSegment(center, center, radius, start, currentEnd)
-                : '';
-            const simPath =
-              isSimulating && simVal > dim.percent
-                ? describeArcSegment(center, center, radius, currentEnd, simEnd)
-                : '';
-
-            return (
-              <g
-                key={`arc-${dim.key}`}
-                opacity={hasAxisFocus && !isSelected ? 0.38 : 1}
-                className="transition-opacity duration-300"
-              >
-                <path
-                  d={trackPath}
-                  fill="none"
-                  stroke={dim.color}
-                  strokeWidth={strokeWidth}
-                  strokeLinecap="round"
-                  opacity={0.28 * drawProgress}
-                />
-                {simPath && (
-                  <path
-                    d={simPath}
-                    fill="none"
-                    stroke={APPLE.simulation}
-                    strokeWidth={strokeWidth - 1}
-                    strokeLinecap="round"
-                    opacity={0.85}
-                    className="transition-all duration-500"
-                  />
-                )}
-                {currentPath && (
-                  <path
-                    d={currentPath}
-                    fill="none"
-                    stroke={dim.color}
-                    strokeWidth={strokeWidth}
-                    strokeLinecap="round"
-                    filter={isSelected && drawProgress >= 1 ? 'url(#radar-arc-glow)' : undefined}
-                  />
-                )}
-                <path
-                  d={trackPath}
-                  fill="none"
-                  stroke="transparent"
-                  strokeWidth={strokeWidth + 14}
-                  strokeLinecap="round"
-                  className="cursor-pointer"
-                  onClick={() => setSelectedDimensionKey(dim.key)}
-                />
-              </g>
-            );
-          })
-        )}
-
-        {hubDimension && (
-          <text
-            x={center}
-            y={center + (compact ? (embed ? 10 : 11) : 13)}
-            textAnchor="middle"
-            fontSize={compact ? (embed ? '36' : '38') : '48'}
-            fontWeight="300"
-            fill={hubDimension.color}
-            fillOpacity={Math.min(1, drawProgress * 1.2)}
-            className="font-serif tabular-nums pointer-events-none"
-          >
-            {hubAnimatedPercent}%
-          </text>
-        )}
+          );
+        })}
       </svg>
-    </div>
     );
 
-  const legendStrip = numSides > 0 ? (
-    <div className="flex flex-wrap items-center justify-center gap-x-3 sm:gap-x-5 gap-y-1.5 text-[10px] sm:text-xs text-[var(--ink-dim)] px-1 max-w-full text-center leading-snug">
-      <span className="inline-flex items-center gap-1.5">
-        <span className="w-4 h-1 rounded-full bg-gradient-to-r from-[#5E5CE6] via-[#A8E10C] to-[#FA114F]" />
-        {t('scRadarCurrentScore')}
-      </span>
-      {isSimulating && (
-        <span className="inline-flex items-center gap-1.5 text-[var(--ink)]">
-          <span className="w-2 h-2 rounded-full bg-[#FF9F0A]" />
-          {t('scRadarSimulatedScore')}
-        </span>
-      )}
+  /** Home embed: side legend from sm+. Development: always mobile-style row under rings. */
+  const sideLegend = Boolean(embed);
+
+  const fitnessLegend = ringCount > 0 && (
+    <ul
+      className={`flex flex-row flex-wrap justify-center gap-x-3 gap-y-2 shrink-0 items-center ${
+        sideLegend
+          ? 'sm:flex-col sm:flex-nowrap sm:justify-center sm:gap-2.5 sm:items-start'
+          : ''
+      }`}
+    >
+      {chartDimensions.map((dim) => {
+        const titleText = t(dim.titleKey as any) || dim.defaultTitle;
+        const active = dim.key === selectedDimensionKey;
+        const simVal = Math.max(dim.percent, simulatedValues[dim.key]);
+        const showSim = isSimulating && simVal > dim.percent;
+
+        return (
+          <li key={`legend-${dim.key}`}>
+            <button
+              type="button"
+              onClick={() => setSelectedDimensionKey(dim.key)}
+              className={`text-center rounded-lg px-0.5 py-0.5 transition ${
+                sideLegend ? 'sm:text-left' : ''
+              } ${active ? 'opacity-100' : hasAxisFocus ? 'opacity-45' : 'opacity-100'} hover:opacity-100`}
+            >
+              <p
+                className={`font-semibold tracking-wide text-[var(--ink)] leading-tight ${
+                  sideLegend ? 'text-[10px] sm:text-xs' : 'text-[10px]'
+                }`}
+              >
+                {titleText}
+              </p>
+              <p
+                className={`font-semibold tabular-nums leading-tight mt-0.5 ${
+                  sideLegend ? 'text-xs sm:text-[15px]' : 'text-xs'
+                }`}
+                style={{ color: dim.color }}
+              >
+                {Math.round(dim.percent * drawProgress)}%
+                {showSim && (
+                  <span className="text-[#FF9F0A] font-medium">
+                    {' '}
+                    → {simVal}%
+                  </span>
+                )}
+                {sideLegend && (
+                  <span className="hidden sm:inline text-[var(--ink-dim)] font-normal text-[11px] ml-1.5">
+                    {dim.earned}/{dim.max}
+                  </span>
+                )}
+              </p>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  const activityCard = (
+    <div
+      className={`rounded-[1.35rem] px-3.5 py-3.5 sm:px-4 sm:py-4 max-w-full bg-transparent border border-black/10 dark:border-transparent dark:bg-[#1C1C1E] ${
+        embed ? 'w-full lg:w-fit' : 'w-full'
+      }`}
+    >
+      <div
+        className={`flex flex-col items-center gap-3 ${
+          sideLegend ? 'sm:flex-row sm:gap-3.5 sm:justify-center lg:justify-start' : ''
+        }`}
+      >
+        <div className="shrink-0 flex items-center justify-center">{ringsSvg}</div>
+        {fitnessLegend}
+      </div>
     </div>
-  ) : null;
+  );
 
   const dimensionPills = (
     <div className={`flex flex-wrap gap-2 ${embed ? 'justify-center' : ''}`}>
@@ -537,9 +556,10 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
             title={titleText}
             className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
               active
-                ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                ? 'border-transparent text-black'
                 : 'border-[var(--border-subtle)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
             }`}
+            style={active ? { backgroundColor: dim.color } : undefined}
           >
             {titleText}
           </button>
@@ -550,12 +570,11 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
 
   if (compact) {
     return (
-      <div className={`space-y-3 sm:space-y-4 min-w-0 w-full ${className}`}>
-        <div className="flex flex-col items-center gap-2 sm:gap-3 min-w-0 w-full">
-          {radarSvg}
-          {!embed && legendStrip}
-        </div>
-        {chartDimensions.length > 0 && dimensionPills}
+      <div className={`space-y-3 min-w-0 w-full ${className}`}>
+        {activityCard}
+        {chartDimensions.length > 0 && !embed && (
+          <div className="px-0.5">{dimensionPills}</div>
+        )}
       </div>
     );
   }
@@ -574,12 +593,11 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
-        <div className="flex flex-col items-center gap-3">
-          <p className="w-full text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]">
+        <div className="flex flex-col gap-3">
+          <p className="text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]">
             {t('scRadarLevelMatrix').replace('{n}', String(targetStage))}
           </p>
-          {radarSvg}
-          {legendStrip}
+          {activityCard}
         </div>
 
         <div className="space-y-4">
@@ -588,19 +606,19 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
               {dimensionPills}
 
               {selectedDimension && (
-              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white"
-                    style={{ backgroundColor: selectedDimension.color }}
-                  >
-                    <selectedDimension.icon className="h-4 w-4" />
-                  </span>
-                  <p className="text-sm font-medium text-[var(--ink)]">
-                    {t(selectedDimension.titleKey as any) || selectedDimension.defaultTitle}
-                  </p>
+                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white"
+                      style={{ backgroundColor: selectedDimension.color }}
+                    >
+                      <selectedDimension.icon className="h-4 w-4" />
+                    </span>
+                    <p className="text-sm font-medium text-[var(--ink)]">
+                      {t(selectedDimension.titleKey as any) || selectedDimension.defaultTitle}
+                    </p>
+                  </div>
                 </div>
-              </div>
               )}
 
               <div className="space-y-2">
@@ -666,11 +684,17 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
                                         } disabled:opacity-50`}
                                         title={pinned ? t('scRemoveFromToday') : t('scAddToToday')}
                                       >
-                                        {pinned ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                                        {pinned ? (
+                                          <Check className="h-3 w-3" />
+                                        ) : (
+                                          <Plus className="h-3 w-3" />
+                                        )}
                                       </button>
                                     )}
                                     <div className="min-w-0 flex-1">
-                                      <p className="text-sm leading-snug text-[var(--ink)]">{item.title}</p>
+                                      <p className="text-sm leading-snug text-[var(--ink)]">
+                                        {item.title}
+                                      </p>
                                       {coachComment && (
                                         <p className="text-xs mt-0.5 leading-relaxed text-[var(--ink)] italic">
                                           &ldquo;{coachComment}&rdquo;
@@ -680,7 +704,9 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
                                   </div>
                                   <span
                                     className={`shrink-0 text-xs tabular-nums ${
-                                      isMaxScore ? 'font-semibold text-[#30D158]' : 'text-[var(--ink-dim)]'
+                                      isMaxScore
+                                        ? 'font-semibold text-[#30D158]'
+                                        : 'text-[var(--ink-dim)]'
                                     }`}
                                   >
                                     {earned}/{maxPoints}
@@ -697,7 +723,9 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
             </>
           ) : (
             <div className="space-y-4">
-              <p className="text-sm text-[var(--ink-dim)] leading-relaxed">{t('scRadarSimulateDesc')}</p>
+              <p className="text-sm text-[var(--ink-dim)] leading-relaxed">
+                {t('scRadarSimulateDesc')}
+              </p>
 
               <div className="space-y-3">
                 {chartDimensions.map((dim) => {

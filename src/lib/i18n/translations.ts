@@ -136,10 +136,11 @@ export const translations = {
     scGoodMorning: 'Good morning',
     scGoodAfternoon: 'Good afternoon',
     scGoodEvening: 'Good evening',
-    scPointsToNextLevel: '{n} points to the next level',
+    scPointsToNextLevel: '{pointsLabel} to the next level',
     scNextStepTitle: '🎯 Next step',
     scNextStepExerciseBody:
-      'Complete the exercise «{title}» — earn +{points} points and get {delta}% closer to Level {level}.',
+      'Complete the exercise «{title}» — earn {pointsLabel} and get {delta}% closer to Level {level}.',
+    scNextStepExerciseBodyPointsOnly: 'Complete the exercise «{title}» — earn {pointsLabel}.',
     scNextStepRecommendationBody: 'Complete your instructor task: «{title}».',
     scNextStepCompleteBody:
       'You have completed all exercises for this stage. Keep training to maintain your skills.',
@@ -168,6 +169,7 @@ export const translations = {
     scRadarPointsNeeded: '{n} points remaining to unlock next level',
     scRadarResetSimulation: 'Reset Simulation',
     scRadarApplyGoalTasks: 'Add High-Impact Tasks to Today',
+    scRadarTasksAddedTitle: 'Added to Today',
     scRadarAllBalanced: 'Your skill profile is well-balanced across all dimensions!',
     scRadarGrowthFocus: 'Recommended Growth Focus',
     scRadarLevelMatrix: 'Level {n} profile',
@@ -1535,10 +1537,11 @@ export const translations = {
     scGoodMorning: 'Доброе утро',
     scGoodAfternoon: 'Добрый день',
     scGoodEvening: 'Добрый вечер',
-    scPointsToNextLevel: 'До следующего уровня осталось {n} баллов',
+    scPointsToNextLevel: 'До следующего уровня осталось {pointsLabel}',
     scNextStepTitle: '🎯 Следующий шаг',
     scNextStepExerciseBody:
-      'Выполните упражнение «{title}» — получите +{points} баллов и приблизитесь к Уровню {level} на {delta}%.',
+      'Выполните упражнение «{title}» — получите {pointsLabel} и приблизитесь к Уровню {level} на {delta}%.',
+    scNextStepExerciseBodyPointsOnly: 'Выполните упражнение «{title}» — получите {pointsLabel}.',
     scNextStepRecommendationBody: 'Выполните задание от инструктора: «{title}».',
     scNextStepCompleteBody:
       'Вы выполнили все упражнения на этом этапе. Продолжайте тренироваться, чтобы закрепить навыки.',
@@ -1567,6 +1570,7 @@ export const translations = {
     scRadarPointsNeeded: 'Осталось {n} баллов для перехода на следующий уровень',
     scRadarResetSimulation: 'Сбросить симуляцию',
     scRadarApplyGoalTasks: 'Добавить ключевые задачи в «Сегодня»',
+    scRadarTasksAddedTitle: 'Добавлено в «Сегодня»',
     scRadarAllBalanced: 'Ваш профиль навыков гармонично развит во всех направлениях!',
     scRadarGrowthFocus: 'Рекомендуемая зона роста',
     scRadarLevelMatrix: 'Профиль уровня {n}',

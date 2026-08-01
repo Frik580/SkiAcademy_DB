@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildToggleTodayCompleteUpdate,
   buildPinSkillsTodayUpdate,
+  getNewlyPinnedSkillTitles,
   resolveCompletedTodayTaskIds,
   toTodayDateStr,
 } from '../../src/lib/todayChecklist';
@@ -46,5 +47,17 @@ describe('today checklist daily reset', () => {
       ['l1_2', 'l1_3', 'l1_1']
     );
     expect(update.todaySkillItemIds).toEqual(['l1_1', 'l1_2', 'l1_3']);
+  });
+
+  it('returns titles only for newly pinned skills', () => {
+    const titles = getNewlyPinnedSkillTitles(
+      { ...baseProfile, todaySkillItemIds: ['l1_1'] },
+      ['l1_1', 'l1_2'],
+      [
+        { id: 'l1_1', title: 'Exercise A' },
+        { id: 'l1_2', title: 'Exercise B' },
+      ]
+    );
+    expect(titles).toEqual(['Exercise B']);
   });
 });

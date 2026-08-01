@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../../../lib/LanguageContext';
+import { formatPointsGain } from '../../../lib/i18n/pluralize';
 import { NextStepAction } from './studentCabinetUtils';
 
 interface StudentNextStepCardProps {
@@ -7,6 +8,7 @@ interface StudentNextStepCardProps {
   onStartExercise: (exerciseId: string) => void;
   onOpenRecommendation: (bookingId: string) => void;
   onContinueDevelopment: () => void;
+  className?: string;
 }
 
 export const StudentNextStepCard: React.FC<StudentNextStepCardProps> = ({
@@ -14,14 +16,18 @@ export const StudentNextStepCard: React.FC<StudentNextStepCardProps> = ({
   onStartExercise,
   onOpenRecommendation,
   onContinueDevelopment,
+  className = '',
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const body =
     action.kind === 'exercise'
-      ? t('scNextStepExerciseBody')
+      ? (action.levelProgressDelta > 0
+          ? t('scNextStepExerciseBody')
+          : t('scNextStepExerciseBodyPointsOnly')
+        )
           .replace('{title}', action.exerciseTitle)
-          .replace('{points}', String(action.pointsGain))
+          .replace('{pointsLabel}', formatPointsGain(action.pointsGain, language))
           .replace('{delta}', String(action.levelProgressDelta))
           .replace('{level}', String(action.targetLevel))
       : action.kind === 'recommendation'
@@ -48,13 +54,15 @@ export const StudentNextStepCard: React.FC<StudentNextStepCardProps> = ({
   };
 
   return (
-    <div className="rounded-2xl border border-[var(--accent)]/20 bg-[var(--accent-muted)]/40 px-4 py-4 sm:px-5 sm:py-5 space-y-3.5">
+    <div
+      className={`rounded-2xl border border-[var(--accent)]/20 bg-[var(--accent-muted)]/40 px-4 py-4 sm:px-5 sm:py-5 space-y-3.5 flex flex-col ${className}`}
+    >
       <h2 className="text-sm font-semibold text-[var(--ink)] tracking-tight">{t('scNextStepTitle')}</h2>
-      <p className="text-sm sm:text-[15px] text-[var(--ink)] leading-relaxed">{body}</p>
+      <p className="text-sm sm:text-[15px] text-[var(--ink)] leading-relaxed flex-1">{body}</p>
       <button
         type="button"
         onClick={handleClick}
-        className="btn-primary w-full sm:w-auto px-5 py-2.5 text-sm font-medium inline-flex items-center justify-center gap-1.5"
+        className="btn-primary w-full sm:w-auto px-5 py-2.5 text-sm font-medium inline-flex items-center justify-center gap-1.5 mt-auto"
       >
         {ctaLabel}
         <span aria-hidden>→</span>

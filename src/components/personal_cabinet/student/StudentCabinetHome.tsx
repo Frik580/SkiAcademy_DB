@@ -3,6 +3,7 @@ import { Booking, Course, Instructor, Review, UserProfile, ActivityLog } from '.
 import { SkillConfig, DEFAULT_SKILL_CONFIG } from '../../../lib/skillData';
 import { AchievementsConfig } from '../../../lib/achievementConfig';
 import { useLanguage, translateInstructor } from '../../../lib/LanguageContext';
+import { formatPointsCount } from '../../../lib/i18n/pluralize';
 import { getUserLevelBadgeClass } from '../../../lib/courseLevelStyles';
 import { GroupCourseCard, sortVisibleCourses } from '../../GroupCourseCard';
 import { InstructorCard } from '../../InstructorCard';
@@ -227,7 +228,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
               <ScProgressBar percent={percent} variant="apple" showLabel fillColor="#64D2FF" />
               <p className="text-xs sm:text-sm text-[var(--ink-dim)] leading-snug">
                 {t('scPointsToNextLevel')
-                  .replace('{n}', `§${remaining}§`)
+                  .replace('{pointsLabel}', `§${formatPointsCount(remaining, lang)}§`)
                   .split('§')
                   .map((part, i) =>
                     i % 2 === 1 ? (
@@ -240,36 +241,46 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
                   )}
               </p>
             </ScTintCard>
-            {nextStepAction && (
-              <div className="pt-3">
-                <StudentNextStepCard
-                  action={nextStepAction}
-                  onStartExercise={(exerciseId) => {
-                    const pinned = userProfile.todaySkillItemIds?.includes(exerciseId);
-                    if (!pinned) {
-                      void onToggleSkillToday?.(exerciseId, true);
-                    }
-                    onContinueDevelopment();
-                  }}
-                  onOpenRecommendation={(bookingId) => {
-                    const booking = bookings.find((b) => b.id === bookingId);
-                    if (booking) onOpenLesson(booking);
-                  }}
-                  onContinueDevelopment={onContinueDevelopment}
-                />
-              </div>
-            )}
             <div className="pt-3 min-w-0 w-full">
               <p className="text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)] mb-2.5">
                 {t('scRadarTitle')}
               </p>
-              <SkillRadarChart
-                userProfile={userProfile}
-                skillConfig={skillConfig}
-                onToggleSkillToday={props.onToggleSkillToday}
-                compact
-                embed
-              />
+              <div className="flex flex-col lg:flex-row lg:items-stretch gap-3 lg:gap-4">
+                {nextStepAction && (
+                  <div className="order-1 lg:order-2 min-w-0 flex-1 flex">
+                    <StudentNextStepCard
+                      className="flex-1 w-full"
+                      action={nextStepAction}
+                      onStartExercise={(exerciseId) => {
+                        const pinned = userProfile.todaySkillItemIds?.includes(exerciseId);
+                        if (!pinned) {
+                          void onToggleSkillToday?.(exerciseId, true);
+                        }
+                        onContinueDevelopment();
+                      }}
+                      onOpenRecommendation={(bookingId) => {
+                        const booking = bookings.find((b) => b.id === bookingId);
+                        if (booking) onOpenLesson(booking);
+                      }}
+                      onContinueDevelopment={onContinueDevelopment}
+                    />
+                  </div>
+                )}
+                <div className="order-2 lg:order-1 shrink-0 min-w-0 w-full lg:w-auto">
+                  <SkillRadarChart
+                    userProfile={userProfile}
+                    skillConfig={skillConfig}
+                    onToggleSkillToday={props.onToggleSkillToday}
+                    compact
+                    embed
+                  />
+                </div>
+              </div>
+              <div className="pt-2">
+                <ScTextButton arrow onClick={onContinueDevelopment}>
+                  {t('scContinueDevelopment')}
+                </ScTextButton>
+              </div>
             </div>
           </>
         )}

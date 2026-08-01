@@ -38,6 +38,16 @@ export const buildPinSkillsTodayUpdate = (
   return { todaySkillItemIds: Array.from(set) };
 };
 
+export const getNewlyPinnedSkillTitles = (
+  profile: UserProfile,
+  skillItemIds: string[],
+  items: { id: string; title: string }[]
+): string[] =>
+  skillItemIds
+    .filter((id) => !(profile.todaySkillItemIds ?? []).includes(id))
+    .map((id) => items.find((item) => item.id === id)?.title)
+    .filter((title): title is string => Boolean(title));
+
 export const buildToggleTodayCompleteUpdate = (
   profile: UserProfile,
   taskId: string,

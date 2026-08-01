@@ -1,8 +1,15 @@
 import React, { createContext, useContext, useState } from 'react';
-import { translations, type Language, type TranslationKey } from './i18n/translations';
+import {
+  translations,
+  type Language,
+  type TranslationKey,
+  isUiLanguage,
+  resolveUiLanguage,
+  UI_LANGUAGES,
+} from './i18n/translations';
 
 export type { Language, TranslationKey };
-export { translations };
+export { translations, isUiLanguage, resolveUiLanguage, UI_LANGUAGES };
 export * from './i18n/courseDates';
 export * from './i18n/contentTranslation';
 export * from './i18n/bookingLabels';
@@ -18,14 +25,12 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>(() => {
-    const saved = localStorage.getItem('alpine_glide_lang');
-    if (saved === 'ru' || saved === 'en') return saved;
-    const browserLang = navigator.language.toLowerCase();
-    return browserLang.startsWith('ru') ? 'ru' : 'en';
-  });
+  const [language, setLanguageState] = useState<Language>(() =>
+    resolveUiLanguage(localStorage.getItem('alpine_glide_lang'))
+  );
 
   const setLanguage = (lang: Language) => {
+    if (!isUiLanguage(lang)) return;
     setLanguageState(lang);
     localStorage.setItem('alpine_glide_lang', lang);
   };

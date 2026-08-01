@@ -44,6 +44,7 @@ import {
   getNewlyPinnedSkillTitles,
   type TodayTaskRef,
 } from '../lib/todayChecklist';
+import { grantAndApplyWalletCredit } from '../lib/walletCredit';
 import { DesignTheme, parseDesignTheme } from '../lib/designTheme';
 
 type SetUserProfile = (profile: UserProfile | null) => void;
@@ -208,8 +209,7 @@ export const useAppLogic = (
 
   const handlePaymentSuccess = async (amount: number) => {
     if (!userProfile || !firebaseUser) return;
-    const balanceUSD = userProfile.balanceUSD + amount;
-    await updateDoc(doc(db, 'users', firebaseUser.uid), { balanceUSD });
+    const balanceUSD = await grantAndApplyWalletCredit(db, firebaseUser.uid, amount);
     setUserProfile({ ...userProfile, balanceUSD });
   };
 

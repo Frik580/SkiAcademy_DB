@@ -166,7 +166,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     <div className="space-y-6 animate-fade-in">
       {/* Financial KPI Summary Header */}
       <Suspense
-        fallback={<SectionLoadingFallback label={t('financialOverview') || 'Финансовая сводка'} />}
+        fallback={<SectionLoadingFallback label={t('financialOverview')} />}
       >
         <FinancialOverview
           totalRevenue={totalRevenue}
@@ -178,9 +178,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* 1, 2, 3: System Settings (Skill Config Matrix, Resort Data, Slider Config) */}
       <Suspense
-        fallback={
-          <SectionLoadingFallback label={t('systemSettingsTitle') || 'Системные настройки'} />
-        }
+        fallback={<SectionLoadingFallback label={t('systemSettingsTitle')} />}
       >
         <SystemSettings
           filtersEnabled={filtersEnabled}
@@ -201,16 +199,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* 4. Интерактивный планер и расписание инструкторов */}
       <Suspense
-        fallback={
-          <SectionLoadingFallback label={t('scheduleBoardTitle') || 'Интерактивный планер'} />
-        }
+        fallback={<SectionLoadingFallback label={t('scheduleBoardTitle')} />}
       >
         <AdminCollapsibleSection
           id="schedule_calendar"
-          title={t('scheduleBoardTitle') || 'Интерактивный планер и расписание инструкторов'}
-          subtitle={
-            t('scheduleBoardSub') || 'Управление сеткой слотов, созданием и блокировкой времени'
-          }
+          title={t('scheduleBoardTitle')}
+          subtitle={t('scheduleBoardSub')}
           icon={Calendar}
         >
           <ScheduleCalendar
@@ -232,17 +226,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* 5. Управление базой инструкторов */}
       <Suspense
-        fallback={
-          <SectionLoadingFallback label={t('coachesDirectoryTitle') || 'База инструкторов'} />
-        }
+        fallback={<SectionLoadingFallback label={t('coachesDirectoryTitle')} />}
       >
         <AdminCollapsibleSection
           id="coaches_manager"
-          title={t('coachesDirectoryTitle') || 'Управление базой инструкторов'}
-          subtitle={
-            t('coachesDirectorySub') ||
-            'Список тренеров, добавление, редактирование и статус доступности'
-          }
+          title={t('coachesDirectoryTitle')}
+          subtitle={t('coachesDirectorySub')}
           icon={Users}
           badge={instructors.length}
         >
@@ -259,16 +248,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* 6. Монитор активных бронирований */}
       <Suspense
-        fallback={
-          <SectionLoadingFallback label={t('bookingsLogTitle') || 'Монитор бронирований'} />
-        }
+        fallback={<SectionLoadingFallback label={t('bookingsLogTitle')} />}
       >
         <AdminCollapsibleSection
           id="bookings_log"
-          title={t('bookingsLogTitle') || 'Монитор активных бронирований'}
-          subtitle={
-            t('bookingsLogSub') || 'Журнал запросов, подтверждение, завершение и отмена занятий'
-          }
+          title={t('bookingsLogTitle')}
+          subtitle={t('bookingsLogSub')}
           icon={Clock}
           badge={activeBookings}
         >
@@ -287,15 +272,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* 7. Управление базой клиентов */}
       <Suspense
-        fallback={<SectionLoadingFallback label={t('clientsManagerTitle') || 'База клиентов'} />}
+        fallback={<SectionLoadingFallback label={t('clientsManagerTitle')} />}
       >
         <AdminCollapsibleSection
           id="clients_manager"
-          title={t('clientsManagerTitle') || 'Управление базой клиентов'}
-          subtitle={
-            t('clientsManagerSub') ||
-            'Учет пользователей, балансы, назначение инструкторов и удаление'
-          }
+          title={t('clientsManagerTitle')}
+          subtitle={t('clientsManagerSub')}
           icon={UserCheck}
           badge={usersList.length}
         >
@@ -316,14 +298,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* 8. Управление базой курсов */}
       <Suspense
-        fallback={<SectionLoadingFallback label={t('coursesManagerTitle') || 'База курсов'} />}
+        fallback={<SectionLoadingFallback label={t('coursesManagerTitle')} />}
       >
         <AdminCollapsibleSection
           id="courses_manager"
-          title={t('coursesManagerTitle') || 'Управление базой курсов'}
-          subtitle={
-            t('coursesManagerSub') || 'Групповые программы, даты проведения, цены и описания'
-          }
+          title={t('coursesManagerTitle')}
+          subtitle={t('coursesManagerSub')}
           icon={BookOpen}
           badge={courses.length}
         >
@@ -342,17 +322,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* 9. Управление администраторами курорта */}
       <Suspense
-        fallback={
-          <SectionLoadingFallback label={t('adminRoleManagementTitle') || 'Администраторы'} />
-        }
+        fallback={<SectionLoadingFallback label={t('adminRoleManagementTitle')} />}
       >
         <AdminCollapsibleSection
           id="admin_role_manager"
-          title={t('adminRoleManagementTitle') || 'Управление администраторами курорта'}
-          subtitle={
-            t('adminRoleManagementSub') ||
-            'Назначение прав администратора и управление ролями пользователей'
-          }
+          title={t('adminRoleManagementTitle')}
+          subtitle={t('adminRoleManagementSub')}
           icon={Shield}
         >
           <AdminRoleManager
@@ -365,13 +340,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </Suspense>
 
       {/* 10. Логи системных ошибок */}
-      <Suspense fallback={<SectionLoadingFallback label={t('errorLogsTitle') || 'Логи ошибок'} />}>
+      <Suspense fallback={<SectionLoadingFallback label={t('errorLogsTitle')} />}>
         <AdminCollapsibleSection
           id="error_logs"
-          title={t('errorLogsTitle') || 'Логи системных ошибок'}
-          subtitle={
-            t('errorLogsSub') || 'Мониторинг исключений, сетевых ошибок и журналов безопасности'
-          }
+          title={t('errorLogsTitle')}
+          subtitle={t('errorLogsSub')}
           icon={AlertTriangle}
         >
           <ErrorLogsPanel onRequestConfirm={onRequestConfirm} />

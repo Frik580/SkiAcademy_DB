@@ -167,12 +167,40 @@ export const toYMD = (d: Date) => {
   return `${y}-${m}-${day}`;
 };
 
+const BOOKING_TIME_RANGE_RE = /(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/;
+const BOOKING_START_TIME_RE = /^(\d{2}):(\d{2})$/;
+
+export const parseBookingStartTime = (time: string): { h: number; m: number } | null => {
+  const rangeMatch = time.match(BOOKING_TIME_RANGE_RE);
+  if (rangeMatch) {
+    const [h, m] = rangeMatch[1].split(':').map(Number);
+    return { h, m };
+  }
+  const startMatch = time.match(BOOKING_START_TIME_RE);
+  if (startMatch) {
+    return { h: Number(startMatch[1]), m: Number(startMatch[2]) };
+  }
+  return null;
+};
+
 export const addMinutesToTime = (time: string, hours: number) => {
-  const [h, m] = time.split(':').map(Number);
-  const total = h * 60 + m + Math.round(hours * 60);
+  const parsed = parseBookingStartTime(time);
+  if (!parsed || !Number.isFinite(hours)) return '';
+  const total = parsed.h * 60 + parsed.m + Math.round(hours * 60);
   const nh = Math.floor(total / 60) % 24;
   const nm = total % 60;
   return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+};
+
+/** Private lessons: "09:00–11:00". Course bookings already store a range: "09:00–13:00". */
+export const formatSessionTimeRange = (booking: Pick<Booking, 'time' | 'durationHours'>) => {
+  const rangeMatch = booking.time.match(BOOKING_TIME_RANGE_RE);
+  if (rangeMatch) {
+    return `${rangeMatch[1]}–${rangeMatch[2]}`;
+  }
+  const endTime = addMinutesToTime(booking.time, booking.durationHours);
+  if (!endTime) return booking.time;
+  return `${booking.time}–${endTime}`;
 };
 
 export const formatSessionDayLabel = (
@@ -337,9 +365,10 @@ export const getNextSession = (bookings: Booking[], courses: Course[]) => {
     .filter(({ date, booking }) => {
       if (date > todayStr) return true;
       if (date < todayStr) return false;
-      const [h, m] = booking.time.split(':').map(Number);
+      const startTime = parseBookingStartTime(booking.time);
+      if (!startTime) return true;
       const sessionStart = new Date();
-      sessionStart.setHours(h, m, 0, 0);
+      sessionStart.setHours(startTime.h, startTime.m, 0, 0);
       return sessionStart >= now;
     })
     .sort((a, b) => {

@@ -197,6 +197,34 @@ describe('user profiles and roles', () => {
     await assertFails(updateDoc(profileRef, { systemRole: 'owner' }));
   });
 
+  it('blocks direct client balance inflation', async () => {
+    const db = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const profileRef = doc(db, 'users', USER_ID);
+
+    await assertFails(updateDoc(profileRef, { balanceUSD: 999999 }));
+    await assertFails(updateDoc(profileRef, { balanceUSD: 200 }));
+  });
+
+  it('allows balance decreases for client payments', async () => {
+    const db = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const profileRef = doc(db, 'users', USER_ID);
+
+    await assertSucceeds(updateDoc(profileRef, { balanceUSD: 50 }));
+  });
+
+  it('allows wallet credits through pendingWalletCredit staging', async () => {
+    const db = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const profileRef = doc(db, 'users', USER_ID);
+
+    await assertSucceeds(updateDoc(profileRef, { pendingWalletCredit: 100 }));
+    await assertSucceeds(
+      updateDoc(profileRef, {
+        balanceUSD: 200,
+        pendingWalletCredit: 0,
+      })
+    );
+  });
+
   it('allows only the system owner to change another user role', async () => {
     const adminDb = testEnv
       .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })

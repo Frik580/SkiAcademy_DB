@@ -1,4 +1,18 @@
-export type Language = 'en' | 'ru';
+/** Supported UI locales — the app only exposes English and Russian. */
+export const UI_LANGUAGES = ['en', 'ru'] as const;
+
+export type Language = (typeof UI_LANGUAGES)[number];
+
+export function isUiLanguage(value: unknown): value is Language {
+  return value === 'en' || value === 'ru';
+}
+
+/** Resolve persisted or browser locale to a supported UI language. */
+export function resolveUiLanguage(saved?: string | null): Language {
+  if (isUiLanguage(saved)) return saved;
+  const browserLang = typeof navigator !== 'undefined' ? navigator.language.toLowerCase() : '';
+  return browserLang.startsWith('ru') ? 'ru' : 'en';
+}
 
 export const translations = {
   en: {
@@ -402,6 +416,9 @@ export const translations = {
     newNotifications: 'New Notifications',
     newBadge: 'New',
     hide: 'Hide',
+    show: 'Show',
+    hideTable: 'Hide table',
+    showTable: 'Show table',
     interactiveCalendar: 'Interactive Calendar',
     showingLessonsFor: 'Showing lessons scheduled for:',
     showAll: 'Show All',
@@ -1408,6 +1425,7 @@ export const translations = {
     bookingLinkedSuccess: 'Booking successfully attached to client',
     bookingLinkedTitle: 'Lesson added to your account',
     bookingLinkedDesc: 'Administrator linked lesson with',
+    bookingLinkedAccountSuffix: 'to your account.',
     insufficientFundsForLink: 'Insufficient funds on client account to attach this lesson.',
     insufficientFundsLinkTitle: 'Insufficient Account Balance',
     clientBalanceLabel: 'Balance:',
@@ -1818,6 +1836,9 @@ export const translations = {
     newNotifications: 'Новые уведомления',
     newBadge: 'Новое',
     hide: 'Скрыть',
+    show: 'Показать',
+    hideTable: 'Скрыть таблицу',
+    showTable: 'Показать таблицу',
     interactiveCalendar: 'Интерактивный календарь',
     showingLessonsFor: 'Показаны тренировки на:',
     showAll: 'Сбросить фильтр',
@@ -2828,6 +2849,7 @@ export const translations = {
     bookingLinkedSuccess: 'Заявка успешно привязана к клиенту',
     bookingLinkedTitle: 'Урок добавлен в ваш личный кабинет',
     bookingLinkedDesc: 'Администратор привязал урок с',
+    bookingLinkedAccountSuffix: 'к вашему аккаунту.',
     insufficientFundsForLink: 'Недостаточно средств на счету клиента для привязки этого занятия.',
     insufficientFundsLinkTitle: 'Нехватка средств на счету клиента',
     clientBalanceLabel: 'Баланс:',

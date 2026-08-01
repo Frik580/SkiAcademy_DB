@@ -113,8 +113,12 @@ describe('useBookings.handleCancel', () => {
     expect(mockCancelBookingWithRefund).toHaveBeenCalledWith({}, 'booking-course-1', undefined);
     expect(mockCreateNotificationForUser).toHaveBeenCalledWith(
       'client-1',
-      'lessonCancelled',
-      expect.stringContaining('Freeride Camp'),
+      expect.objectContaining({
+        titleEn: 'Lesson Cancelled',
+        titleRu: 'Урок отменен',
+        messageEn: expect.stringContaining('Freeride Camp'),
+        messageRu: expect.stringContaining('Freeride Camp'),
+      }),
       'warning'
     );
     expect(mockAddNotification).toHaveBeenCalledWith(

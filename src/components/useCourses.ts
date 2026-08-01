@@ -20,6 +20,7 @@ import { useLanguage } from '../lib/LanguageContext';
 import { enrollInCourse } from '../lib/courseTransactions';
 import { stripUndefinedFields } from '../lib/courseClone';
 import { createNotificationForUser } from '../lib/notifications';
+import { buildNotification, translateKey } from '../lib/notificationText';
 import { QUERY_LIMITS } from '../lib/queryLimits';
 import { Booking, Course, UserProfile } from '../types';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
@@ -113,18 +114,24 @@ export const useCourses = (
     const courseBookings = bookings.filter(
       (booking) => booking.instructorId === `course_${course.id}` && booking.status !== 'cancelled'
     );
-    let changeDetails = '';
 
-    if (oldCourse?.title !== course.title) {
-      changeDetails += `${t('courseModifiedTitleLine')} "${course.title}".\n`;
-    }
-    if (oldCourse?.dates !== course.dates) {
-      changeDetails += `${t('courseModifiedDatesLine')} ${course.dates}.\n`;
-    }
+    const buildCourseModifiedMessage = (lang: 'en' | 'ru') => {
+      let changeDetails = '';
+      if (oldCourse?.title !== course.title) {
+        changeDetails += `${translateKey('courseModifiedTitleLine', lang)} "${course.title}".\n`;
+      }
+      if (oldCourse?.dates !== course.dates) {
+        changeDetails += `${translateKey('courseModifiedDatesLine', lang)} ${course.dates}.\n`;
+      }
+      return `${translateKey('courseModifiedHeader', lang)} "${course.title}":\n${changeDetails || translateKey('courseModifiedDefault', lang)}`;
+    };
 
-    const message = `${t('courseModifiedHeader')} "${course.title}":\n${changeDetails || t('courseModifiedDefault')}`;
     for (const booking of courseBookings) {
-      await createNotificationForUser(booking.userId, t('courseModified'), message, 'warning');
+      await createNotificationForUser(
+        booking.userId,
+        buildNotification('courseModified', buildCourseModifiedMessage),
+        'warning'
+      );
     }
   };
 

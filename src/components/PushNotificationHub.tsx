@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { X, Bell, CheckCircle, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 import { useLanguage } from '../lib/LanguageContext';
+import { resolveNotificationText, type DbNotification } from '../lib/notificationText';
 import { Booking, Review, UserProfile } from '../types';
 
 export interface Notification {
@@ -121,7 +122,7 @@ export interface NotificationHubModalProps {
   userProfile?: UserProfile | null;
   dismissedReviewIds?: string[];
   onDismissReview?: (bookingId: string) => void;
-  dbNotifications?: any[];
+  dbNotifications?: DbNotification[];
   onClearNotifications?: () => Promise<void>;
 }
 
@@ -137,7 +138,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
   onClearNotifications,
 }) => {
   const { notifications: localNotifications, clearAll: localClearAll } = useNotifications();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   if (!isOpen) return null;
 
@@ -156,14 +157,17 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
 
   const notificationsToShow =
     dbNotifications && dbNotifications.length > 0
-      ? dbNotifications.map((n) => ({
-          id: n.id,
-          type: n.type || 'info',
-          title: n.title,
-          message: n.message,
-          timestamp: new Date(n.timestamp),
-          isRead: n.isRead ?? false,
-        }))
+      ? dbNotifications.map((n) => {
+          const { title, message } = resolveNotificationText(n, language);
+          return {
+            id: n.id,
+            type: n.type || 'info',
+            title,
+            message,
+            timestamp: new Date(n.timestamp),
+            isRead: n.isRead ?? false,
+          };
+        })
       : localNotifications.map((n) => ({
           ...n,
           isRead: true,

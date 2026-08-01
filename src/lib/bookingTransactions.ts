@@ -1,11 +1,12 @@
-import { doc, runTransaction, type Firestore } from 'firebase/firestore';
-import { Booking, Course, UserProfile } from '../types';
+import { doc, getDoc, runTransaction, type Firestore } from 'firebase/firestore';
+import { Booking, Course } from '../types';
 import {
   AVAILABILITY_SLOTS_COLLECTION,
   blocksInstructorAvailability,
   isCourseBooking,
   toAvailabilitySlot,
 } from './availabilitySlots';
+import { applyPendingWalletCredit } from './walletCredit';
 
 export class InsufficientFundsError extends Error {
   constructor() {
@@ -46,7 +47,7 @@ export async function cancelBookingWithRefund(
   bookingId: string,
   refundAmount?: number
 ): Promise<{ refunded: number; alreadyCancelled: boolean }> {
-  return runTransaction(firestore, async (transaction) => {
+  const result = await runTransaction(firestore, async (transaction) => {
     const bookingRef = doc(firestore, 'bookings', bookingId);
     const bookingSnap = await transaction.get(bookingRef);
     if (!bookingSnap.exists()) throw new Error('Booking does not exist.');
@@ -71,9 +72,8 @@ export async function cancelBookingWithRefund(
     const refund =
       bookingData.status === 'completed' ? 0 : (refundAmount ?? bookingData.totalPrice ?? 0);
 
-    if (userRef && userSnap?.exists()) {
-      const userData = userSnap.data() as UserProfile;
-      transaction.update(userRef, { balanceUSD: (userData.balanceUSD ?? 0) + refund });
+    if (userRef && userSnap?.exists() && refund > 0) {
+      transaction.update(userRef, { pendingWalletCredit: refund });
     }
 
     transaction.update(bookingRef, { status: 'cancelled' });
@@ -92,4 +92,15 @@ export async function cancelBookingWithRefund(
 
     return { refunded: refund, alreadyCancelled: false };
   });
+
+  if (result.alreadyCancelled || result.refunded <= 0) return result;
+
+  const bookingSnap = await getDoc(doc(firestore, 'bookings', bookingId));
+  if (!bookingSnap.exists()) return result;
+  const bookingData = bookingSnap.data() as Booking;
+  const bookingOwnerId = bookingData.userId;
+  if (!bookingOwnerId.startsWith('guest_') && !bookingOwnerId.startsWith('system_block_')) {
+    await applyPendingWalletCredit(firestore, bookingOwnerId);
+  }
+  return result;
 }

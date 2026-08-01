@@ -127,6 +127,28 @@ service cloud.firestore {
         );
     }
 
+    function validBalanceDecreaseOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balanceUSD']) &&
+        request.resource.data.balanceUSD is number &&
+        request.resource.data.balanceUSD >= 0 &&
+        request.resource.data.balanceUSD < resource.data.balanceUSD;
+    }
+
+    function validPendingWalletCreditPrepare() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pendingWalletCredit']) &&
+        request.resource.data.pendingWalletCredit is number &&
+        request.resource.data.pendingWalletCredit >= 1 &&
+        request.resource.data.pendingWalletCredit <= 10000;
+    }
+
+    function validPendingWalletCreditApply() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balanceUSD', 'pendingWalletCredit']) &&
+        resource.data.pendingWalletCredit is number &&
+        resource.data.pendingWalletCredit >= 1 &&
+        request.resource.data.balanceUSD == resource.data.balanceUSD + resource.data.pendingWalletCredit &&
+        request.resource.data.pendingWalletCredit == 0;
+    }
+
     // User Profiles
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin() || isInstructor();
@@ -152,7 +174,6 @@ service cloud.firestore {
           'displayName',
           'phoneNumber',
           'avatarUrl',
-          'balanceUSD',
           'hideProgressTracking',
           'hasCompletedOnboarding',
           'todaySkillItemIds',
@@ -160,17 +181,20 @@ service cloud.firestore {
           'completedTodayDate',
           'customTodayTasks',
           'dismissedTodayTaskIds'
-        ]) &&
-        request.resource.data.balanceUSD >= 0
+        ])
+      ) || (
+        isOwner(userId) && validBalanceDecreaseOnly()
+      ) || (
+        isOwner(userId) && validPendingWalletCreditPrepare()
+      ) || (
+        isOwner(userId) && validPendingWalletCreditApply()
       ) || (
         isInstructor() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'level',
           'skillScores',
-          'skillComments',
-          'balanceUSD'
-        ]) &&
-        request.resource.data.balanceUSD >= 0
+          'skillComments'
+        ])
       ) || (
         isAdmin() &&
         (!('role' in resource.data) || resource.data.role != 'admin') &&

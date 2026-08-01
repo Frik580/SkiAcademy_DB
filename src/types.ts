@@ -1,5 +1,3 @@
-export type Language = 'en' | 'de' | 'fr' | 'ru' | 'it' | 'es';
-
 export type LessonDifficulty = 'beginner' | 'intermediate' | 'advanced' | 'freeride' | 'freestyle';
 
 export interface CustomTodayTask {
@@ -16,6 +14,8 @@ export interface UserProfile {
   systemRole?: 'owner';
   avatarUrl: string;
   balanceUSD: number;
+  /** Staging field for secure wallet credits (top-ups / refunds) before apply. */
+  pendingWalletCredit?: number;
   instructorId?: string;
   isInstructor?: boolean;
   isClientActive?: boolean;

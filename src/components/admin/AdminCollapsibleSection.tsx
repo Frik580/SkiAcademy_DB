@@ -26,7 +26,7 @@ export const AdminCollapsibleSection: React.FC<AdminCollapsibleSectionProps> = (
   children,
   className = '',
 }) => {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem(`admin_section_open_${id}`);
@@ -82,28 +82,18 @@ export const AdminCollapsibleSection: React.FC<AdminCollapsibleSectionProps> = (
             type="button"
             onClick={toggleOpen}
             className="p-1.5 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink-dim)] hover:text-[var(--ink)] bg-[var(--bg)] transition cursor-pointer flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider px-2.5"
-            title={
-              isOpen
-                ? language === 'ru'
-                  ? 'Скрыть таблицу'
-                  : 'Hide table'
-                : language === 'ru'
-                  ? 'Показать таблицу'
-                  : 'Show table'
-            }
+            title={isOpen ? t('hideTable') : t('showTable')}
           >
             {isOpen ? (
               <>
                 <EyeOff className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">
-                  {t('hide') || (language === 'ru' ? 'Скрыть' : 'Hide')}
-                </span>
+                <span className="hidden sm:inline">{t('hide')}</span>
                 <ChevronUp className="w-3.5 h-3.5 ml-0.5" />
               </>
             ) : (
               <>
                 <Eye className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{language === 'ru' ? 'Показать' : 'Show'}</span>
+                <span className="hidden sm:inline">{t('show')}</span>
                 <ChevronDown className="w-3.5 h-3.5 ml-0.5" />
               </>
             )}

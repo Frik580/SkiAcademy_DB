@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    env:
+      VITE_FIREBASE_API_KEY: ci-placeholder-api-key
+      VITE_FIREBASE_APP_ID: ci-placeholder-app-id
+      VITE_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
+      VITE_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
+      VITE_FIREBASE_PROJECT_ID: ci-placeholder-project
+      VITE_FIREBASE_STORAGE_BUCKET: ci-placeholder-project.appspot.com
+      VITE_FIREBASE_MEASUREMENT_ID: G-PLACEHOLDER
+      VITE_FIREBASE_DATABASE_ID: '(default)'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install coverage tooling
+        run: npm install -D @vitest/coverage-v8@2.1.9
+
+      - name: Lint
+        run: npm run lint
+
+      - name: i18n key parity
+        run: npm run i18n:check
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Coverage (lib + studentCabinetUtils)
+        run: npm run test:coverage
+
+      - name: Production build
+        run: npm run build

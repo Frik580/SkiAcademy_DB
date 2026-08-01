@@ -36,6 +36,7 @@ import {
   logActivityForUser,
 } from '../lib/activityLog';
 import { createNotificationForUser } from '../lib/notifications';
+import { buildNotification, translateKey } from '../lib/notificationText';
 import { parseCourseEndDateTime, useLanguage } from '../lib/LanguageContext';
 import { Booking, Instructor, UserProfile } from '../types';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
@@ -235,8 +236,11 @@ export const useBookings = (
     if (userProfile?.role === 'admin') {
       await createNotificationForUser(
         booking.userId,
-        t('lessonRescheduled'),
-        `${t('lessonRescheduledAdminPrefix')} ${booking.instructorName} ${t('lessonRescheduledAdminMiddle')} ${newDate} ${t('lessonRescheduledAdminAt')} ${newTime}.`
+        buildNotification(
+          'lessonRescheduled',
+          (lang) =>
+            `${translateKey('lessonRescheduledAdminPrefix', lang)} ${booking.instructorName} ${translateKey('lessonRescheduledAdminMiddle', lang)} ${newDate} ${translateKey('lessonRescheduledAdminAt', lang)} ${newTime}.`
+        )
       );
     }
   };
@@ -281,8 +285,11 @@ export const useBookings = (
       if (!isSystemBlock && !isGuest) {
         await createNotificationForUser(
           booking.userId,
-          t('lessonReassigned'),
-          `${t('lessonReassignedAdminPrefix')} ${previousInstructorName} ${t('lessonReassignedAdminMiddle')} ${newInstructor.name} (${date} ${t('lessonRescheduledAdminAt')} ${time}).`
+          buildNotification(
+            'lessonReassigned',
+            (lang) =>
+              `${translateKey('lessonReassignedAdminPrefix', lang)} ${previousInstructorName} ${translateKey('lessonReassignedAdminMiddle', lang)} ${newInstructor.name} (${date} ${translateKey('lessonRescheduledAdminAt', lang)} ${time}).`
+          )
         );
       }
     }
@@ -309,8 +316,11 @@ export const useBookings = (
         if (!isSystemBlock && !isGuest) {
           await createNotificationForUser(
             bookingOwnerId,
-            t('lessonCancelled'),
-            `${t('lessonCancelledDescPrefix')} ${booking.instructorName} ${t('lessonCancelledDescSuffix')}`,
+            buildNotification(
+              'lessonCancelled',
+              (lang) =>
+                `${translateKey('lessonCancelledDescPrefix', lang)} ${booking.instructorName} ${translateKey('lessonCancelledDescSuffix', lang)}`
+            ),
             'warning'
           );
         }
@@ -397,8 +407,11 @@ export const useBookings = (
     if (booking) {
       await createNotificationForUser(
         booking.userId,
-        t('lessonConfirmedAdmin'),
-        `${t('lessonConfirmedDescPrefix')} ${booking.instructorName} ${t('lessonConfirmedDescSuffix')}`,
+        buildNotification(
+          'lessonConfirmedAdmin',
+          (lang) =>
+            `${translateKey('lessonConfirmedDescPrefix', lang)} ${booking.instructorName} ${translateKey('lessonConfirmedDescSuffix', lang)}`
+        ),
         'success'
       );
     }
@@ -423,8 +436,11 @@ export const useBookings = (
       );
       await createNotificationForUser(
         booking.userId,
-        t('lessonCompletedAdmin'),
-        `${t('lessonCompletedDescPrefix')} ${booking.instructorName} ${t('lessonCompletedDescSuffix')}`,
+        buildNotification(
+          'lessonCompletedAdmin',
+          (lang) =>
+            `${translateKey('lessonCompletedDescPrefix', lang)} ${booking.instructorName} ${translateKey('lessonCompletedDescSuffix', lang)}`
+        ),
         'success'
       );
     }
@@ -586,8 +602,11 @@ export const useBookings = (
     // 3. Send notification to target user
     await createNotificationForUser(
       targetUserId,
-      t('bookingLinkedTitle') || 'Урок добавлен в ваш личный кабинет',
-      `${t('bookingLinkedDesc') || 'Администратор привязал урок'} ${booking.instructorName} (${booking.date} @ ${booking.time}) к вашему аккаунту.`,
+      buildNotification(
+        'bookingLinkedTitle',
+        (lang) =>
+          `${translateKey('bookingLinkedDesc', lang)} ${booking.instructorName} (${booking.date} @ ${booking.time}) ${translateKey('bookingLinkedAccountSuffix', lang)}`
+      ),
       'success'
     );
   };

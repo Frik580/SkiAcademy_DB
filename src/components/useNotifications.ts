@@ -13,21 +13,16 @@ import {
   writeBatch,
 } from '../lib/firebase';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
+import { useLanguage } from '../lib/LanguageContext';
+import { resolveNotificationText, type DbNotification } from '../lib/notificationText';
 import { QUERY_LIMITS } from '../lib/queryLimits';
 import { logger } from '../lib/logger';
 
-interface DbNotification {
-  id: string;
-  userId: string;
-  timestamp: string;
-  type?: 'success' | 'error' | 'info' | 'warning';
-  title: string;
-  message: string;
-  isRead?: boolean;
-}
+export type { DbNotification } from '../lib/notificationText';
 
 export const useNotifications = (firebaseUser: User | null) => {
   const { addNotification } = useNotificationHub();
+  const { language } = useLanguage();
   const [dbNotifications, setDbNotifications] = useState<DbNotification[]>([]);
 
   const unreadNotificationCount = dbNotifications.filter(
@@ -66,13 +61,14 @@ export const useNotifications = (firebaseUser: User | null) => {
           if (change.type !== 'added') return;
           const notification = change.doc.data() as Omit<DbNotification, 'id'>;
           if (Date.now() - new Date(notification.timestamp).getTime() < 15000) {
-            addNotification(notification.type || 'info', notification.title, notification.message);
+            const { title, message } = resolveNotificationText(notification, language);
+            addNotification(notification.type || 'info', title, message);
           }
         });
       },
       (error) => logger.error('Notifications sync error:', error)
     );
-  }, [addNotification, firebaseUser]);
+  }, [addNotification, firebaseUser, language]);
 
   const handleClearNotifications = async () => {
     if (!firebaseUser || dbNotifications.length === 0) return;

@@ -25,7 +25,7 @@ import {
   getStudentStats,
   getTodayTasks,
   formatSessionDayLabel,
-  addMinutesToTime,
+  formatSessionTimeRange,
   getDifficultyShort,
   resolveBookingStartDate,
   getRecentLessonTitle,
@@ -324,7 +324,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
               {formatSessionDayLabel(resolveBookingStartDate(nextSession, courses), lang, t)}
             </p>
             <p className="text-2xl font-serif font-light text-[var(--ink)]">
-              {nextSession.time}–{addMinutesToTime(nextSession.time, nextSession.durationHours)}
+              {formatSessionTimeRange(nextSession)}
             </p>
             <p className="flex items-center gap-2 flex-wrap text-base text-[var(--ink)]">
               <span>{nextSessionLessonLabel}</span>
@@ -406,7 +406,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
                 >
                   <span className="text-[#BF5AF2]">{formatSessionDayLabel(dateStr, lang, t)}</span>
                   {' · '}
-                  {booking.time}–{addMinutesToTime(booking.time, booking.durationHours)}
+                  {formatSessionTimeRange(booking)}
                   {' · '}
                   {getDifficultyShort(booking.difficulty)} — {booking.instructorName}
                   {hasBookingRecommendations(booking) && (

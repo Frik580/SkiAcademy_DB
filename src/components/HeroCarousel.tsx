@@ -15,6 +15,8 @@ interface HeroCarouselProps {
     designTheme?: DesignTheme;
     slideIntervalSeconds?: number;
     slidesRandomOrder?: boolean;
+    /** Авторизованный пользователь — другой текст CTA */
+    isAuthenticated?: boolean;
   };
   actions: {
     onScrollToSection: (id: string) => void;
@@ -79,6 +81,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     designTheme = 'classic',
     slideIntervalSeconds = 6,
     slidesRandomOrder = false,
+    isAuthenticated = false,
   },
   actions: { onScrollToSection },
 }) => {
@@ -153,89 +156,70 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
       </div>
 
       <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-10 pb-10 md:pb-12 pt-16 md:pt-20 flex flex-col justify-end flex-1">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 w-full">
-          <div className="flex flex-col gap-5 flex-1 min-w-0 max-w-2xl">
-            <div className="grid [&>*]:col-start-1 [&>*]:row-start-1 min-w-0">
-              {slides.map((slide, idx) => {
-                const isActive = idx === currentSlide;
-                return (
-                  <div
-                    key={slide.id || `hero-copy-${idx}`}
-                    aria-hidden={!isActive}
-                    className={`col-start-1 row-start-1 space-y-4 will-change-[opacity] transition-opacity ${
-                      isActive ? 'opacity-100 z-[2]' : 'opacity-0 z-[1] pointer-events-none'
-                    }`}
-                    style={crossfadeStyle}
-                  >
-                    <motion.span
-                      initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
-                      animate={
-                        isActive
-                          ? { opacity: 1, y: 0 }
-                          : { opacity: 0, y: shouldReduceMotion ? 0 : 10 }
-                      }
-                      transition={{
-                        duration: shouldReduceMotion ? 0 : 0.65,
-                        delay: isActive && !shouldReduceMotion ? 0.12 : 0,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                      className="hero-copy-eyebrow text-[9px] font-mono uppercase tracking-widest block"
-                    >
-                      {language === 'en' ? slide.line1En : slide.line1Ru}
-                    </motion.span>
-                    <motion.h2
-                      initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
-                      animate={
-                        isActive
-                          ? { opacity: 1, y: 0 }
-                          : { opacity: 0, y: shouldReduceMotion ? 0 : 16 }
-                      }
-                      transition={{
-                        duration: shouldReduceMotion ? 0 : 0.75,
-                        delay: isActive && !shouldReduceMotion ? 0.26 : 0,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                      className="hero-copy-title text-3xl md:text-4xl lg:text-5xl font-serif font-light leading-[1.05] tracking-tight"
-                    >
-                      {language === 'en' ? slide.line2En : slide.line2Ru}
-                    </motion.h2>
-                    <motion.p
-                      initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
-                      animate={
-                        isActive
-                          ? { opacity: 1, y: 0 }
-                          : { opacity: 0, y: shouldReduceMotion ? 0 : 12 }
-                      }
-                      transition={{
-                        duration: shouldReduceMotion ? 0 : 0.7,
-                        delay: isActive && !shouldReduceMotion ? 0.42 : 0,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                      className="hero-copy-body text-xs font-mono max-w-lg tracking-wider leading-relaxed"
-                    >
-                      {language === 'en' ? slide.line3En : slide.line3Ru}
-                    </motion.p>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="flex gap-2" role="tablist" aria-label={t('goToSlide')}>
-              {slides.map((_, idx) => (
-                <button
-                  key={idx}
-                  role="tab"
-                  aria-selected={currentSlide === idx}
-                  onClick={() => setCurrentSlide(idx)}
-                  className={`h-1 transition-[width,background-color] duration-500 ease-in-out cursor-pointer rounded-full ${
-                    currentSlide === idx
-                      ? 'w-8 bg-[var(--accent)]'
-                      : 'w-2 bg-[var(--ink)]/30 hover:bg-[var(--ink)]/60'
+        <div className="flex flex-col gap-8 w-full max-w-2xl">
+          <div className="grid [&>*]:col-start-1 [&>*]:row-start-1 min-w-0">
+            {slides.map((slide, idx) => {
+              const isActive = idx === currentSlide;
+              return (
+                <div
+                  key={slide.id || `hero-copy-${idx}`}
+                  aria-hidden={!isActive}
+                  className={`col-start-1 row-start-1 space-y-4 will-change-[opacity] transition-opacity ${
+                    isActive ? 'opacity-100 z-[2]' : 'opacity-0 z-[1] pointer-events-none'
                   }`}
-                  aria-label={`${t('goToSlide')} ${idx + 1}`}
-                />
-              ))}
-            </div>
+                  style={crossfadeStyle}
+                >
+                  <motion.span
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
+                    animate={
+                      isActive
+                        ? { opacity: 1, y: 0 }
+                        : { opacity: 0, y: shouldReduceMotion ? 0 : 10 }
+                    }
+                    transition={{
+                      duration: shouldReduceMotion ? 0 : 0.65,
+                      delay: isActive && !shouldReduceMotion ? 0.12 : 0,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                    className="hero-copy-eyebrow text-[9px] font-mono uppercase tracking-widest block"
+                  >
+                    {language === 'en' ? slide.line1En : slide.line1Ru}
+                  </motion.span>
+                  <motion.h2
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+                    animate={
+                      isActive
+                        ? { opacity: 1, y: 0 }
+                        : { opacity: 0, y: shouldReduceMotion ? 0 : 16 }
+                    }
+                    transition={{
+                      duration: shouldReduceMotion ? 0 : 0.75,
+                      delay: isActive && !shouldReduceMotion ? 0.26 : 0,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                    className="hero-copy-title text-3xl md:text-4xl lg:text-5xl font-serif font-light leading-[1.05] tracking-tight"
+                  >
+                    {language === 'en' ? slide.line2En : slide.line2Ru}
+                  </motion.h2>
+                  <motion.p
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+                    animate={
+                      isActive
+                        ? { opacity: 1, y: 0 }
+                        : { opacity: 0, y: shouldReduceMotion ? 0 : 12 }
+                    }
+                    transition={{
+                      duration: shouldReduceMotion ? 0 : 0.7,
+                      delay: isActive && !shouldReduceMotion ? 0.42 : 0,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                    className="hero-copy-body text-xs font-mono max-w-lg tracking-wider leading-relaxed"
+                  >
+                    {language === 'en' ? slide.line3En : slide.line3Ru}
+                  </motion.p>
+                </div>
+              );
+            })}
           </div>
 
           <motion.div
@@ -246,22 +230,41 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
               delay: shouldReduceMotion ? 0 : 0.58,
               ease: [0.22, 1, 0.36, 1],
             }}
-            className="flex flex-col sm:flex-row md:flex-col gap-2.5 shrink-0 w-full md:w-auto md:min-w-[240px] self-start md:self-end"
+            className="flex flex-col items-start gap-3 pt-1"
           >
             <button
               onClick={() => onScrollToSection('coaches-grid')}
-              className="btn-primary-hero w-full px-5 py-3 inline-flex items-center justify-center gap-2"
+              className="btn-primary-hero px-5 py-3 inline-flex items-center justify-center gap-2"
             >
-              <span>{t('bookFirstLesson')}</span>
+              <span>{t(isAuthenticated ? 'bookLesson' : 'bookFirstLesson')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
             <button
+              type="button"
               onClick={() => onScrollToSection('courses-grid')}
-              className="btn-secondary-hero w-full px-5 py-3 inline-flex items-center justify-center gap-2"
+              className="inline-flex items-center gap-1.5 text-sm text-[var(--ink)]/80 hover:text-[var(--ink)] transition-colors bg-transparent border-0 p-0 cursor-pointer group"
             >
               <span>{t('chooseCourse')}</span>
+              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
             </button>
           </motion.div>
+
+          <div className="flex gap-2" role="tablist" aria-label={t('goToSlide')}>
+            {slides.map((_, idx) => (
+              <button
+                key={idx}
+                role="tab"
+                aria-selected={currentSlide === idx}
+                onClick={() => setCurrentSlide(idx)}
+                className={`h-1 transition-[width,background-color] duration-500 ease-in-out cursor-pointer rounded-full ${
+                  currentSlide === idx
+                    ? 'w-8 bg-[var(--accent)]'
+                    : 'w-2 bg-[var(--ink)]/30 hover:bg-[var(--ink)]/60'
+                }`}
+                aria-label={`${t('goToSlide')} ${idx + 1}`}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </section>

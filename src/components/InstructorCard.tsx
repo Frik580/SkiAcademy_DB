@@ -50,7 +50,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
         exit={{ opacity: 0, y: -12 }}
         transition={{ duration: shouldReduceMotion ? 0 : 0.45, ease: [0.16, 1, 0.3, 1] }}
         layout="position"
-        className={`ui-list-row flex flex-col sm:grid sm:grid-cols-[112px_1fr] items-center sm:items-start gap-6 transition duration-300 group ${
+        className={`ui-list-row w-full max-w-6xl flex flex-col sm:grid sm:grid-cols-[112px_1fr] items-center sm:items-start gap-6 transition duration-300 group ${
           !instructor.isAvailable ? 'opacity-60' : ''
         }`}
       >
@@ -71,20 +71,30 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
 
         <div className="flex-1 w-full flex flex-col gap-5">
           <div className="space-y-2 w-full text-center sm:text-left">
-            <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 justify-center sm:justify-start">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 justify-center sm:justify-start">
               <h3 className="font-serif text-2xl font-light text-[var(--ink)] tracking-tight group-hover:text-[var(--accent)] transition theme-air:text-3xl">
                 {instructor.name}
               </h3>
-              <button
-                onClick={() => onViewReviews && onViewReviews(instructor)}
-                className="inline-flex items-center gap-1 self-center sm:self-baseline text-[10px] font-mono text-amber-500 hover:underline transition select-none theme-air:text-sm theme-air:font-sans"
-                title={t('readReviews')}
-              >
-                <Star className="w-3 h-3 fill-amber-400 stroke-amber-500" />
-                <span>
-                  {instructor.rating.toFixed(1)} ({instructor.reviewsCount})
+              {onViewReviews ? (
+                <button
+                  type="button"
+                  onClick={() => onViewReviews(instructor)}
+                  className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-500 hover:text-amber-400 hover:underline transition select-none theme-air:text-sm theme-air:font-sans bg-transparent border-0 p-0 cursor-pointer"
+                  title={t('readReviews')}
+                >
+                  <Star className="w-3 h-3 fill-amber-400 stroke-amber-500" />
+                  <span>
+                    {instructor.rating.toFixed(1)} ({instructor.reviewsCount})
+                  </span>
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-500 theme-air:text-sm theme-air:font-sans">
+                  <Star className="w-3 h-3 fill-amber-400 stroke-amber-500" />
+                  <span>
+                    {instructor.rating.toFixed(1)} ({instructor.reviewsCount})
+                  </span>
                 </span>
-              </button>
+              )}
             </div>
             <p className="text-xs text-[var(--ink-dim)] leading-relaxed max-w-2xl theme-air:text-sm theme-air:leading-relaxed">
               {instructor.bio}
@@ -111,24 +121,13 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
                 </span>
               </div>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() => onViewReviews && onViewReviews(instructor)}
-                  className="btn-secondary px-4 py-2 theme-air:bg-transparent theme-air:hover:bg-[var(--profile-bg)]"
-                >
-                  {t('instructorReviewsCount')}
-                </button>
-
-                <button
-                  onClick={() => instructor.isAvailable && onBook(instructor)}
-                  disabled={!instructor.isAvailable}
-                  className={`px-5 py-2 ${
-                    instructor.isAvailable ? 'btn-primary' : 'btn-secondary'
-                  }`}
-                >
-                  {instructor.isAvailable ? (bookLabel ?? t('bookNow')) : t('instructorFull')}
-                </button>
-              </div>
+              <button
+                onClick={() => instructor.isAvailable && onBook(instructor)}
+                disabled={!instructor.isAvailable}
+                className={`px-5 py-2 ${instructor.isAvailable ? 'btn-primary' : 'btn-secondary'}`}
+              >
+                {instructor.isAvailable ? (bookLabel ?? t('bookNow')) : t('instructorFull')}
+              </button>
             </div>
           </div>
         </div>

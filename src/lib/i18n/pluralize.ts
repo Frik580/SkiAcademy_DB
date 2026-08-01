@@ -13,19 +13,17 @@ export function russianPlural(
   return forms[2];
 }
 
-const POINT_FORMS_RU = ['балл', 'балла', 'баллов'] as const;
-
-export function pointsWord(count: number, language: Language): string {
-  if (language === 'ru') return russianPlural(count, POINT_FORMS_RU);
-  return count === 1 ? 'point' : 'points';
+/** Unit label for skill progress — always XP (no plural forms). */
+export function pointsWord(_count: number, _language: Language): string {
+  return 'XP';
 }
 
-/** e.g. 1 балл, 2 балла, 5 баллов / 1 point, 2 points */
+/** e.g. 1 XP, 5 XP */
 export function formatPointsCount(count: number, language: Language): string {
   return `${count} ${pointsWord(count, language)}`;
 }
 
-/** e.g. +1 балл, +2 балла, +5 баллов / +1 point, +2 points */
+/** e.g. +1 XP, +5 XP */
 export function formatPointsGain(count: number, language: Language): string {
   return `+${formatPointsCount(count, language)}`;
 }

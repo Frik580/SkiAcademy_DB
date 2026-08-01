@@ -46,13 +46,13 @@ export function resolveNotificationText(
 ): { title: string; message: string } {
   const title =
     language === 'ru'
-      ? notification.titleRu ?? notification.titleEn ?? notification.title ?? ''
-      : notification.titleEn ?? notification.titleRu ?? notification.title ?? '';
+      ? (notification.titleRu ?? notification.titleEn ?? notification.title ?? '')
+      : (notification.titleEn ?? notification.titleRu ?? notification.title ?? '');
 
   const message =
     language === 'ru'
-      ? notification.messageRu ?? notification.messageEn ?? notification.message ?? ''
-      : notification.messageEn ?? notification.messageRu ?? notification.message ?? '';
+      ? (notification.messageRu ?? notification.messageEn ?? notification.message ?? '')
+      : (notification.messageEn ?? notification.messageRu ?? notification.message ?? '');
 
   return { title, message };
 }

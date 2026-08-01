@@ -8,6 +8,7 @@ import { AdminRoute } from './AdminRoute';
 import { AuthRoute } from './AuthRoute';
 import { InstructorRoute } from './InstructorRoute';
 import { Auth } from './Auth';
+import { YourJourneySection } from './YourJourneySection';
 import { GroupCoursesSection } from './GroupCoursesSection';
 import { HeroCarousel } from './HeroCarousel';
 import { InstructorCard } from './InstructorCard';
@@ -27,12 +28,10 @@ import { SkillConfig } from '../lib/skillData';
 import { AchievementsConfig } from '../lib/achievementConfig';
 import { useLanguage } from '../lib/LanguageContext';
 import { DesignTheme } from '../lib/designTheme';
-import { CABINET_TABS, getDefaultWorkspacePath } from '../lib/workspaceRoutes';
+import { CABINET_TABS } from '../lib/workspaceRoutes';
 import { InstructorSpecialty, InstructorSortBy } from './useInstructorFilters';
 import { LazyLoad } from './LazyLoad';
 import { CardSkeleton, Skeleton } from './ui/Skeleton';
-import { Logo } from './Logo';
-
 const AdminPanel = React.lazy(() =>
   import('./AdminPanel').then(({ AdminPanel }) => ({ default: AdminPanel }))
 );
@@ -56,6 +55,7 @@ interface ResortData {
   snowDepthCm: number;
   newSnow24h: number;
   windKmh: number;
+  weatherCode: number;
   openLifts: number;
   isFahrenheit: boolean;
   isResortLoading: boolean;
@@ -301,9 +301,12 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
           designTheme: props.designTheme,
           slideIntervalSeconds: resortData.resortConfig.slideIntervalSeconds,
           slidesRandomOrder: resortData.resortConfig.slidesRandomOrder,
+          isAuthenticated: Boolean(userProfile),
         }}
         actions={{ onScrollToSection: handleScrollToSection }}
       />
+
+      <YourJourneySection skillConfig={props.skillConfig} userProfile={userProfile} />
 
       <div
         className={`flex flex-col lg:grid gap-0 lg:gap-12 theme-air:lg:gap-16 ${
@@ -318,16 +321,12 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
             resortConfig: resortData.resortConfig,
             tempC: resortData.tempC,
             snowDepthCm: resortData.snowDepthCm,
-            newSnow24h: resortData.newSnow24h,
             windKmh: resortData.windKmh,
-            openLifts: resortData.openLifts,
+            weatherCode: resortData.weatherCode,
             isFahrenheit: resortData.isFahrenheit,
-            isResortLoading: resortData.isResortLoading,
-            lastUpdated: resortData.lastUpdated,
           }}
           actions={{
             onToggleTemperatureUnit: () => props.setIsFahrenheit(!resortData.isFahrenheit),
-            onRefresh: props.onRefreshResortStats,
           }}
         />
 
@@ -401,22 +400,15 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
         </div>
 
         {!userProfile && (
-          <aside className="border-t lg:border-t-0 lg:border-l border-[var(--layout-divider)] p-6 lg:p-8 bg-[var(--profile-bg)] space-y-6 flex flex-col justify-start shrink-0 theme-air:bg-transparent">
-            <div id="auth-section" className="space-y-6">
-              <div className="text-center space-y-4 py-2">
-                <Logo theme={theme} alt={t('academyLogoAlt')} className="h-10 mx-auto" />
-                <p className="ui-section-eyebrow leading-relaxed max-w-xs mx-auto">
-                  {t('bookingSignInDesc')}
-                </p>
-              </div>
-              <div className="ui-panel p-4 lg:p-6">
-                <Auth
-                  onSuccess={(profile) => {
-                    setUserProfile(profile);
-                    navigate(getDefaultWorkspacePath(profile));
-                  }}
-                />
-              </div>
+          <aside className="border-t lg:border-t-0 lg:border-l border-[var(--layout-divider)] px-6 pt-8 pb-10 lg:px-10 lg:pt-10 lg:pb-14 bg-[var(--profile-bg)] flex flex-col justify-start shrink-0 theme-air:bg-transparent">
+            <div id="auth-section" className="w-full max-w-[240px] mx-auto">
+              <Auth
+                variant="sidebar"
+                onSuccess={(profile) => {
+                  setUserProfile(profile);
+                  navigate('/');
+                }}
+              />
             </div>
           </aside>
         )}

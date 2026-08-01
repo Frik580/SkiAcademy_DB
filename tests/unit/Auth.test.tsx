@@ -62,15 +62,15 @@ describe('Auth', () => {
     await userEvent.click(switchButton);
 
     expect(screen.getByRole('button', { name: /signUpBtn/i })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('authNamePlaceholder')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('fullName')).toBeInTheDocument();
   });
 
   it('shows an error when signing up with an empty display name', async () => {
     render(<Auth onSuccess={onSuccess} />);
 
     await userEvent.click(screen.getByRole('button', { name: /noAccount/i }));
-    await userEvent.type(screen.getByPlaceholderText('name@example.com'), 'user@example.com');
-    await userEvent.type(screen.getByPlaceholderText('••••••••'), 'password123');
+    await userEvent.type(screen.getByPlaceholderText('emailAddress'), 'user@example.com');
+    await userEvent.type(screen.getByPlaceholderText('password'), 'password123');
 
     const form = screen.getByRole('button', { name: /signUpBtn/i }).closest('form');
     fireEvent.submit(form!);
@@ -89,9 +89,9 @@ describe('Auth', () => {
     render(<Auth onSuccess={onSuccess} />);
 
     await userEvent.click(screen.getByRole('button', { name: /noAccount/i }));
-    await userEvent.type(screen.getByPlaceholderText('authNamePlaceholder'), 'Alex Carter');
-    await userEvent.type(screen.getByPlaceholderText('name@example.com'), 'user@example.com');
-    await userEvent.type(screen.getByPlaceholderText('••••••••'), 'password123');
+    await userEvent.type(screen.getByPlaceholderText('fullName'), 'Alex Carter');
+    await userEvent.type(screen.getByPlaceholderText('emailAddress'), 'user@example.com');
+    await userEvent.type(screen.getByPlaceholderText('password'), 'password123');
 
     await userEvent.click(screen.getByRole('button', { name: /signUpBtn/i }));
 
@@ -138,8 +138,8 @@ describe('Auth', () => {
 
     render(<Auth onSuccess={onSuccess} />);
 
-    await userEvent.type(screen.getByPlaceholderText('name@example.com'), 'user@example.com');
-    await userEvent.type(screen.getByPlaceholderText('••••••••'), 'password123');
+    await userEvent.type(screen.getByPlaceholderText('emailAddress'), 'user@example.com');
+    await userEvent.type(screen.getByPlaceholderText('password'), 'password123');
     await userEvent.click(screen.getByRole('button', { name: /signInBtn/i }));
 
     await waitFor(() => {

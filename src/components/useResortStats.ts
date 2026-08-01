@@ -60,6 +60,7 @@ export const useResortStats = () => {
   const [snowDepthCm, setSnowDepthCm] = useState(0);
   const [newSnow24h, setNewSnow24h] = useState(0);
   const [windKmh, setWindKmh] = useState(0);
+  const [weatherCode, setWeatherCode] = useState(0);
   const [openLifts, setOpenLifts] = useState(0);
   const [isFahrenheit, setIsFahrenheit] = useState(false);
   const [isResortLoading, setIsResortLoading] = useState(true);
@@ -104,6 +105,7 @@ export const useResortStats = () => {
           setSnowDepthCm(data.snowDepthCm);
           setNewSnow24h(data.newSnow24h);
           setWindKmh(data.windKmh);
+          setWeatherCode(typeof data.weatherCode === 'number' ? data.weatherCode : 0);
           setOpenLifts(data.openLifts);
           setLastUpdated(
             new Date(lastUpdatedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -119,7 +121,7 @@ export const useResortStats = () => {
         `Fetching fresh weather data for Lat: ${config.latitude}, Lon: ${config.longitude} from API...`
       );
 
-      const forecastApiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${config.latitude}&longitude=${config.longitude}&current=temperature_2m,wind_speed_10m&hourly=snow_depth&daily=snowfall_sum&timezone=auto`;
+      const forecastApiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${config.latitude}&longitude=${config.longitude}&current=temperature_2m,wind_speed_10m,weather_code&hourly=snow_depth&daily=snowfall_sum&timezone=auto`;
 
       const response = await fetch(forecastApiUrl);
 
@@ -139,6 +141,8 @@ export const useResortStats = () => {
         forecastData.current?.wind_speed_10m !== undefined
           ? Math.round(forecastData.current.wind_speed_10m)
           : 15;
+      const newWeatherCode =
+        forecastData.current?.weather_code !== undefined ? forecastData.current.weather_code : 0;
       const newSnowfall24h =
         forecastData.daily?.snowfall_sum?.[0] !== undefined
           ? Math.round(forecastData.daily.snowfall_sum[0])
@@ -158,6 +162,7 @@ export const useResortStats = () => {
 
       setTempC(newTempC);
       setWindKmh(newWindKmh);
+      setWeatherCode(newWeatherCode);
       setSnowDepthCm(newSnowDepthCm);
       setNewSnow24h(newSnowfall24h);
       setOpenLifts(newOpenLifts);
@@ -169,6 +174,7 @@ export const useResortStats = () => {
       const dataToCache = {
         tempC: newTempC,
         windKmh: newWindKmh,
+        weatherCode: newWeatherCode,
         snowDepthCm: newSnowDepthCm,
         newSnow24h: newSnowfall24h,
         openLifts: newOpenLifts,
@@ -191,6 +197,7 @@ export const useResortStats = () => {
       setSnowDepthCm(175);
       setNewSnow24h(12);
       setWindKmh(15);
+      setWeatherCode(0);
       setOpenLifts(12);
     } finally {
       setIsResortLoading(false);
@@ -208,6 +215,7 @@ export const useResortStats = () => {
     snowDepthCm,
     newSnow24h,
     windKmh,
+    weatherCode,
     openLifts,
     isFahrenheit,
     setIsFahrenheit,

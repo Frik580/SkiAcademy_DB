@@ -877,6 +877,25 @@ export function calculateStudentLevel(
   return 4; // Expert
 }
 
+export function getLevelStageMaxPoints(items: SkillItem[]): Record<1 | 2 | 3, number> {
+  return {
+    1: items.filter((i) => i.levelTarget === 1).reduce((acc, i) => acc + i.maxPoints, 0),
+    2: items.filter((i) => i.levelTarget === 2).reduce((acc, i) => acc + i.maxPoints, 0),
+    3: items.filter((i) => i.levelTarget === 3).reduce((acc, i) => acc + i.maxPoints, 0),
+  };
+}
+
+/** Cumulative max rating points for each academy level on the public journey map. */
+export function getJourneyLevelXpThresholds(
+  items: SkillItem[] = DEFAULT_SKILL_ITEMS
+): [number, number, number, number] {
+  const stage = getLevelStageMaxPoints(items);
+  const throughCarve = stage[1];
+  const throughPerformance = stage[1] + stage[2];
+  const throughExpert = stage[1] + stage[2] + stage[3];
+  return [0, throughCarve, throughPerformance, throughExpert];
+}
+
 /**
  * Calculates progress for the client cabinet breakdown (overall, control, speed, technique).
  */

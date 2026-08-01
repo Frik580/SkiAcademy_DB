@@ -905,6 +905,29 @@
   animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Journey path — пульс метки «Вы здесь» */
+@keyframes journeyMarkerPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.14);
+    filter: brightness(1.18);
+  }
+}
+
+.journey-marker-pulse {
+  animation: journeyMarkerPulse 1.7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-marker-pulse {
+    animation: none !important;
+  }
+}
+
 /* Student cabinet — iOS-style tab bar */
 .sc-tab-bar {
   background: color-mix(in srgb, var(--bg) 78%, transparent);

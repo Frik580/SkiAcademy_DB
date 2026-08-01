@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formatPointsCount, formatPointsGain, russianPlural } from '../../src/lib/i18n/pluralize';
 
 describe('russianPlural', () => {
-  it('declines балл correctly', () => {
+  it('picks one / few / many forms', () => {
     expect(russianPlural(1, ['балл', 'балла', 'баллов'])).toBe('балл');
     expect(russianPlural(2, ['балл', 'балла', 'баллов'])).toBe('балла');
     expect(russianPlural(3, ['балл', 'балла', 'баллов'])).toBe('балла');
@@ -15,24 +15,24 @@ describe('russianPlural', () => {
 });
 
 describe('formatPointsCount', () => {
-  it('formats Russian points with correct endings', () => {
-    expect(formatPointsCount(1, 'ru')).toBe('1 балл');
-    expect(formatPointsCount(2, 'ru')).toBe('2 балла');
-    expect(formatPointsCount(5, 'ru')).toBe('5 баллов');
+  it('formats as XP in Russian', () => {
+    expect(formatPointsCount(1, 'ru')).toBe('1 XP');
+    expect(formatPointsCount(2, 'ru')).toBe('2 XP');
+    expect(formatPointsCount(5, 'ru')).toBe('5 XP');
   });
 
-  it('formats English points', () => {
-    expect(formatPointsCount(1, 'en')).toBe('1 point');
-    expect(formatPointsCount(2, 'en')).toBe('2 points');
+  it('formats as XP in English', () => {
+    expect(formatPointsCount(1, 'en')).toBe('1 XP');
+    expect(formatPointsCount(2, 'en')).toBe('2 XP');
   });
 });
 
 describe('formatPointsGain', () => {
-  it('prefixes formatted count with plus', () => {
-    expect(formatPointsGain(1, 'ru')).toBe('+1 балл');
-    expect(formatPointsGain(2, 'ru')).toBe('+2 балла');
-    expect(formatPointsGain(5, 'ru')).toBe('+5 баллов');
-    expect(formatPointsGain(1, 'en')).toBe('+1 point');
-    expect(formatPointsGain(2, 'en')).toBe('+2 points');
+  it('formats signed XP for both languages', () => {
+    expect(formatPointsGain(1, 'ru')).toBe('+1 XP');
+    expect(formatPointsGain(2, 'ru')).toBe('+2 XP');
+    expect(formatPointsGain(5, 'ru')).toBe('+5 XP');
+    expect(formatPointsGain(1, 'en')).toBe('+1 XP');
+    expect(formatPointsGain(2, 'en')).toBe('+2 XP');
   });
 });

@@ -71,6 +71,14 @@ service cloud.firestore {
         booking.status in ['pending', 'confirmed', 'pending_cancellation'];
     }
 
+    function isCancelledCourseBooking(booking) {
+      return booking.instructorId.matches('^course_.*') &&
+        (
+          booking.status == 'cancelled' ||
+          (('isDeleted' in booking) && booking.isDeleted == true)
+        );
+    }
+
     function validAvailabilitySlot(slot, bookingId, booking) {
       return slot.keys().hasAll([
           'bookingId',
@@ -98,22 +106,40 @@ service cloud.firestore {
     }
 
     function availabilityIsSynchronized(bookingId, booking) {
-      return bookingBlocksAvailability(booking)
-        ? (
-          existsAfter(
-            /databases/$(database)/documents/availability_slots/$(bookingId)
-          ) &&
-          validAvailabilitySlot(
-            getAfter(
+      return booking.instructorId.matches('^course_.*') || (
+        bookingBlocksAvailability(booking)
+          ? (
+            existsAfter(
               /databases/$(database)/documents/availability_slots/$(bookingId)
-            ).data,
-            bookingId,
-            booking
+            ) &&
+            validAvailabilitySlot(
+              getAfter(
+                /databases/$(database)/documents/availability_slots/$(bookingId)
+              ).data,
+              bookingId,
+              booking
+            )
           )
-        )
-        : !existsAfter(
-          /databases/$(database)/documents/availability_slots/$(bookingId)
-        );
+          : !existsAfter(
+            /databases/$(database)/documents/availability_slots/$(bookingId)
+          )
+      );
+    }
+
+    function validCourseEnrollmentReactivation(bookingId, before, after) {
+      return before.instructorId.matches('^course_.*') &&
+        after.instructorId.matches('^course_.*') &&
+        before.instructorId == after.instructorId &&
+        before.userId == after.userId &&
+        after.userId == request.auth.uid &&
+        bookingId.matches('^booking_course_' + after.userId + '_.*') &&
+        (
+          before.status == 'cancelled' ||
+          (('isDeleted' in before) && before.isDeleted == true)
+        ) &&
+        after.status == 'confirmed' &&
+        after.totalPrice >= 0 &&
+        after.durationHours > 0;
     }
 
     function isMigratableClientBooking(booking) {
@@ -128,10 +154,14 @@ service cloud.firestore {
     }
 
     function validBalanceDecreaseOnly() {
+      let previousBalance =
+        ('balanceUSD' in resource.data) && resource.data.balanceUSD is number
+          ? resource.data.balanceUSD
+          : 0;
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balanceUSD']) &&
         request.resource.data.balanceUSD is number &&
         request.resource.data.balanceUSD >= 0 &&
-        request.resource.data.balanceUSD < resource.data.balanceUSD;
+        request.resource.data.balanceUSD < previousBalance;
     }
 
     function validPendingWalletCreditPrepare() {
@@ -319,9 +349,15 @@ service cloud.firestore {
           'time',
           'cancellationReason'
         ])
+      ) || (
+        isOwner(resource.data.userId) &&
+        validCourseEnrollmentReactivation(bookingId, resource.data, request.resource.data)
       ) || isAdmin();
 
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (
+        isOwner(resource.data.userId) &&
+        isCancelledCourseBooking(resource.data)
+      );
 
       // Booking specific chat messages
       match /messages/{messageId} {
@@ -425,7 +461,11 @@ service cloud.firestore {
         isAuthenticated() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['availableSeats']) &&
         request.resource.data.availableSeats >= 0 &&
-        request.resource.data.availableSeats <= resource.data.totalSeats &&
+        request.resource.data.availableSeats <= (
+          ('totalSeats' in resource.data) && resource.data.totalSeats is number
+            ? resource.data.totalSeats
+            : resource.data.availableSeats
+        ) &&
         (
           (
             request.resource.data.availableSeats == resource.data.availableSeats - 1 &&

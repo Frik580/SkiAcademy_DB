@@ -40,6 +40,8 @@ export async function enrollInCourse(
     const userData = userSnap.data() as UserProfile;
     const localizedCourse = translateCourse(courseData, language);
 
+    const userBalance = userData.balanceUSD ?? 0;
+
     if (bookingSnap.exists()) {
       const bookingData = bookingSnap.data();
       if (bookingData.status !== 'cancelled' && !bookingData.isDeleted) {
@@ -47,8 +49,7 @@ export async function enrollInCourse(
       }
     }
     if (courseData.availableSeats <= 0) throw new CourseEnrollmentError('COURSE_FULL');
-    if (userData.balanceUSD < courseData.price)
-      throw new CourseEnrollmentError('INSUFFICIENT_FUNDS');
+    if (userBalance < courseData.price) throw new CourseEnrollmentError('INSUFFICIENT_FUNDS');
 
     const { datePart, timePart } = splitCourseDates(courseData.dates, language);
     const newBooking: Booking = {
@@ -56,7 +57,7 @@ export async function enrollInCourse(
       userId: userData.uid,
       instructorId: `course_${courseId}`,
       instructorName: getGroupCourseLabel(localizedCourse.title, language),
-      instructorAvatar: courseData.bgImageUrl,
+      instructorAvatar: courseData.bgImageUrl ?? '',
       date: datePart || courseData.dates,
       time: timePart || getGroupScheduleLabel(language),
       durationHours: parseDurationHours(courseData.duration, 10),
@@ -66,10 +67,11 @@ export async function enrollInCourse(
       notes: getGroupCourseEnrollmentNote(localizedCourse.description, language),
     };
 
-    const newBalance = userData.balanceUSD - courseData.price;
+    const newBalance = userBalance - courseData.price;
+
     transaction.update(userDocRef, { balanceUSD: newBalance });
-    transaction.update(courseDocRef, { availableSeats: courseData.availableSeats - 1 });
     transaction.set(bookingDocRef, newBooking);
+    transaction.update(courseDocRef, { availableSeats: courseData.availableSeats - 1 });
 
     return { newBalance, bookingId, courseTitle: localizedCourse.title };
   });

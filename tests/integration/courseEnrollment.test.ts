@@ -1,7 +1,9 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { cancelBookingWithRefund } from '../../src/lib/bookingTransactions';
 import { CourseEnrollmentError, enrollInCourse } from '../../src/lib/courseTransactions';
 import {
+  OWNER_ID,
   USER_ID,
   clearIntegrationFirestore,
   integrationTestEnv,
@@ -95,6 +97,22 @@ describe('course enrollment transactions', () => {
     await expect(enrollInCourse(userDb, USER_ID, courseId, 'en')).rejects.toMatchObject({
       message: 'INSUFFICIENT_FUNDS',
     });
+  });
+
+  it('allows re-enrollment after a cancelled course booking', async () => {
+    const userDb = integrationTestEnv()
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
+    const adminDb = integrationTestEnv().authenticatedContext(OWNER_ID).firestore();
+
+    await enrollInCourse(userDb, USER_ID, courseId, 'en');
+    await cancelBookingWithRefund(adminDb, bookingId);
+
+    const { newBalance } = await enrollInCourse(userDb, USER_ID, courseId, 'en');
+
+    const bookingDoc = await getDoc(doc(userDb, 'bookings', bookingId));
+    expect(newBalance).toBe(150);
+    expect(bookingDoc.data()?.status).toBe('confirmed');
   });
 
   it('rejects duplicate enrollment for the same active course booking', async () => {

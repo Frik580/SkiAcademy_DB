@@ -20,6 +20,13 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  PROD_COURSE_ID,
+  PROD_USER_ID,
+  buildCourseEnrollmentBooking,
+  buildProdCourseSeed,
+  prodBookingId,
+} from './helpers/courseEnrollmentFixtures';
 
 const PROJECT_ID = 'ski-academy-rules-test';
 const USER_ID = 'user-1';
@@ -448,9 +455,17 @@ describe('course enrollment transactions', () => {
   });
 
   it('rejects standalone seat changes and allows an atomic enrollment', async () => {
-    const db = testEnv.authenticatedContext(USER_ID).firestore();
+    const db = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
     const courseRef = doc(db, 'courses', 'course-1');
     const bookingRef = doc(db, 'bookings', `booking_course_${USER_ID}_course-1`);
+    const userRef = doc(db, 'users', USER_ID);
+
+    await seedData(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'users', USER_ID),
+        userProfile(USER_ID, 'user@example.com', 'user')
+      );
+    });
 
     await assertFails(updateDoc(courseRef, { availableSeats: 1 }));
 
@@ -459,6 +474,7 @@ describe('course enrollment transactions', () => {
         const courseSnapshot = await transaction.get(courseRef);
         expect(courseSnapshot.exists()).toBe(true);
 
+        transaction.update(userRef, { balanceUSD: 0 });
         transaction.update(courseRef, { availableSeats: 1 });
         transaction.set(bookingRef, {
           id: bookingRef.id,
@@ -476,6 +492,163 @@ describe('course enrollment transactions', () => {
         });
       })
     );
+  });
+
+  it('allows re-enrollment by replacing a cancelled course booking', async () => {
+    const db = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const courseRef = doc(db, 'courses', 'course-1');
+    const bookingRef = doc(db, 'bookings', `booking_course_${USER_ID}_course-1`);
+    const userRef = doc(db, 'users', USER_ID);
+
+    await seedData(async (context) => {
+      const seedDb = context.firestore();
+      await setDoc(
+        doc(seedDb, 'users', USER_ID),
+        userProfile(USER_ID, 'user@example.com', 'user')
+      );
+      await setDoc(
+        bookingRef,
+        buildCourseEnrollmentBooking(USER_ID, 'course-1', {
+          instructorName: 'Course',
+          instructorAvatar: '',
+          date: '2026-12-01',
+          time: '09:00',
+          durationHours: 2,
+          totalPrice: 100,
+          notes: '',
+          status: 'cancelled',
+        })
+      );
+      await setDoc(doc(seedDb, 'availability_slots', bookingRef.id), {
+        bookingId: bookingRef.id,
+        instructorId: 'course_course-1',
+        date: '2026-12-01',
+        time: '09:00',
+        durationHours: 2,
+        slotType: 'lesson',
+      });
+    });
+
+    await assertSucceeds(
+      runTransaction(db, async (transaction) => {
+        transaction.update(userRef, { balanceUSD: 0 });
+        transaction.set(
+          bookingRef,
+          buildCourseEnrollmentBooking(USER_ID, 'course-1', {
+            instructorName: 'Course',
+            instructorAvatar: '',
+            date: '2026-12-01',
+            time: '09:00',
+            durationHours: 2,
+            totalPrice: 100,
+            notes: '',
+            status: 'confirmed',
+          })
+        );
+        transaction.update(courseRef, { availableSeats: 1 });
+      })
+    );
+  });
+
+  it('allows the production enrollment transaction when a legacy cancelled booking exists', async () => {
+    const db = testEnv.authenticatedContext(PROD_USER_ID, { email: 'user@example.com' }).firestore();
+    const courseRef = doc(db, 'courses', PROD_COURSE_ID);
+    const bookingRef = doc(db, 'bookings', prodBookingId(PROD_USER_ID, PROD_COURSE_ID));
+    const userRef = doc(db, 'users', PROD_USER_ID);
+
+    await seedData(async (context) => {
+      const seedDb = context.firestore();
+      await setDoc(doc(seedDb, 'users', PROD_USER_ID), {
+        ...userProfile(PROD_USER_ID, 'user@example.com', 'user'),
+        balanceUSD: 3860,
+      });
+      await setDoc(doc(seedDb, 'courses', PROD_COURSE_ID), buildProdCourseSeed(PROD_COURSE_ID, 3));
+      await setDoc(
+        doc(seedDb, 'bookings', bookingRef.id),
+        buildCourseEnrollmentBooking(PROD_USER_ID, PROD_COURSE_ID, { status: 'cancelled' })
+      );
+      await setDoc(doc(seedDb, 'availability_slots', bookingRef.id), {
+        bookingId: bookingRef.id,
+        instructorId: `course_${PROD_COURSE_ID}`,
+        date: '2026-12-02',
+        time: '09:00',
+        durationHours: 20,
+        slotType: 'lesson',
+      });
+    });
+
+    await assertSucceeds(
+      runTransaction(db, async (transaction) => {
+        transaction.update(userRef, { balanceUSD: 3661 });
+        transaction.set(bookingRef, buildCourseEnrollmentBooking(PROD_USER_ID, PROD_COURSE_ID));
+        transaction.update(courseRef, { availableSeats: 2 });
+      })
+    );
+  });
+
+  it('allows seat decrement when course totalSeats is missing', async () => {
+    const db = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const courseRef = doc(db, 'courses', 'course-no-total-seats');
+    const bookingRef = doc(db, 'bookings', `booking_course_${USER_ID}_course-no-total-seats`);
+
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'courses', 'course-no-total-seats'), {
+        title: 'Legacy Course',
+        availableSeats: 2,
+        price: 100,
+      });
+    });
+
+    await assertSucceeds(
+      runTransaction(db, async (transaction) => {
+        transaction.update(courseRef, { availableSeats: 1 });
+        transaction.set(bookingRef, {
+          id: bookingRef.id,
+          userId: USER_ID,
+          instructorId: 'course_course-no-total-seats',
+          instructorName: 'Legacy Course',
+          instructorAvatar: '',
+          date: '2026-12-01',
+          time: '09:00',
+          durationHours: 2,
+          totalPrice: 100,
+          status: 'confirmed',
+          difficulty: 'intermediate',
+          notes: '',
+        });
+      })
+    );
+  });
+
+  it('allows balance decrease during course payment', async () => {
+    const db = testEnv.authenticatedContext(PROD_USER_ID, { email: 'user@example.com' }).firestore();
+    const userRef = doc(db, 'users', PROD_USER_ID);
+
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'users', PROD_USER_ID), {
+        ...userProfile(PROD_USER_ID, 'user@example.com', 'user'),
+        balanceUSD: 3860,
+      });
+    });
+
+    await assertSucceeds(updateDoc(userRef, { balanceUSD: 3661 }));
+  });
+
+  it('blocks balance writes when balanceUSD was never set on the profile', async () => {
+    const db = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const userRef = doc(db, 'users', USER_ID);
+
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'users', USER_ID), {
+        uid: USER_ID,
+        email: 'user@example.com',
+        displayName: USER_ID,
+        role: 'user',
+        avatarUrl: '',
+      });
+    });
+
+    await assertFails(updateDoc(userRef, { balanceUSD: 50 }));
   });
 
   it('allows an admin to restore a course seat when cancelling another user booking', async () => {

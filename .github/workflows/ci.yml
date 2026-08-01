@@ -45,6 +45,15 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Firestore rules and course enrollment tests
+        run: npm run test:firestore-enrollment
+
       - name: Coverage (lib + studentCabinetUtils)
         run: npm run test:coverage
 

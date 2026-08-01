@@ -165,9 +165,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Financial KPI Summary Header */}
-      <Suspense
-        fallback={<SectionLoadingFallback label={t('financialOverview')} />}
-      >
+      <Suspense fallback={<SectionLoadingFallback label={t('financialOverview')} />}>
         <FinancialOverview
           totalRevenue={totalRevenue}
           activeBookings={activeBookings}
@@ -177,9 +175,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </Suspense>
 
       {/* 1, 2, 3: System Settings (Skill Config Matrix, Resort Data, Slider Config) */}
-      <Suspense
-        fallback={<SectionLoadingFallback label={t('systemSettingsTitle')} />}
-      >
+      <Suspense fallback={<SectionLoadingFallback label={t('systemSettingsTitle')} />}>
         <SystemSettings
           filtersEnabled={filtersEnabled}
           onToggleFilters={onToggleFilters}
@@ -198,9 +194,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </Suspense>
 
       {/* 4. Интерактивный планер и расписание инструкторов */}
-      <Suspense
-        fallback={<SectionLoadingFallback label={t('scheduleBoardTitle')} />}
-      >
+      <Suspense fallback={<SectionLoadingFallback label={t('scheduleBoardTitle')} />}>
         <AdminCollapsibleSection
           id="schedule_calendar"
           title={t('scheduleBoardTitle')}
@@ -225,9 +219,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </Suspense>
 
       {/* 5. Управление базой инструкторов */}
-      <Suspense
-        fallback={<SectionLoadingFallback label={t('coachesDirectoryTitle')} />}
-      >
+      <Suspense fallback={<SectionLoadingFallback label={t('coachesDirectoryTitle')} />}>
         <AdminCollapsibleSection
           id="coaches_manager"
           title={t('coachesDirectoryTitle')}
@@ -247,9 +239,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </Suspense>
 
       {/* 6. Монитор активных бронирований */}
-      <Suspense
-        fallback={<SectionLoadingFallback label={t('bookingsLogTitle')} />}
-      >
+      <Suspense fallback={<SectionLoadingFallback label={t('bookingsLogTitle')} />}>
         <AdminCollapsibleSection
           id="bookings_log"
           title={t('bookingsLogTitle')}
@@ -271,9 +261,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </Suspense>
 
       {/* 7. Управление базой клиентов */}
-      <Suspense
-        fallback={<SectionLoadingFallback label={t('clientsManagerTitle')} />}
-      >
+      <Suspense fallback={<SectionLoadingFallback label={t('clientsManagerTitle')} />}>
         <AdminCollapsibleSection
           id="clients_manager"
           title={t('clientsManagerTitle')}
@@ -297,9 +285,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </Suspense>
 
       {/* 8. Управление базой курсов */}
-      <Suspense
-        fallback={<SectionLoadingFallback label={t('coursesManagerTitle')} />}
-      >
+      <Suspense fallback={<SectionLoadingFallback label={t('coursesManagerTitle')} />}>
         <AdminCollapsibleSection
           id="courses_manager"
           title={t('coursesManagerTitle')}
@@ -321,9 +307,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </Suspense>
 
       {/* 9. Управление администраторами курорта */}
-      <Suspense
-        fallback={<SectionLoadingFallback label={t('adminRoleManagementTitle')} />}
-      >
+      <Suspense fallback={<SectionLoadingFallback label={t('adminRoleManagementTitle')} />}>
         <AdminCollapsibleSection
           id="admin_role_manager"
           title={t('adminRoleManagementTitle')}

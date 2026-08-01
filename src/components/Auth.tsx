@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FirebaseError } from 'firebase/app';
 import {
   auth,
   db,
@@ -175,10 +176,10 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
           }
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error(err);
-      const errCode = err.code || '';
-      const errMessage = err.message || '';
+      const errCode = err instanceof FirebaseError ? err.code : '';
+      const errMessage = err instanceof Error ? err.message : '';
 
       const isEmailAlreadyInUse =
         errCode === 'auth/email-already-in-use' || errMessage.includes('auth/email-already-in-use');

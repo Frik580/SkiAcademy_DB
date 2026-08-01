@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getNextStepAction,
   getPrioritySkillItems,
   getSkillItemRingCategory,
   matchesSkillRingFilter,
@@ -40,5 +41,13 @@ describe('development helpers', () => {
     expect(items[0].id).toBe('l1_3');
     expect(items[0].pinned).toBe(true);
     expect(items.every((item) => item.earned < item.maxPoints)).toBe(true);
+  });
+
+  it('localizes next-step exercise titles for English UI', () => {
+    const action = getNextStepAction(baseProfile, [], DEFAULT_SKILL_CONFIG, 'en');
+    expect(action?.kind).toBe('exercise');
+    if (action?.kind === 'exercise') {
+      expect(action.exerciseTitle).toBe('Controlled snowplow braking');
+    }
   });
 });

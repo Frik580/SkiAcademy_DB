@@ -195,7 +195,7 @@ const AppContent: React.FC = () => {
         setIsOnboardingOpen(true);
       }
     }
-  }, [userProfile?.uid, userProfile?.hasCompletedOnboarding, onboardingEnabled]);
+  }, [userProfile, onboardingEnabled]);
 
   const handleCompleteOnboarding = async () => {
     setIsOnboardingOpen(false);

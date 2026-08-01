@@ -121,8 +121,8 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   const { percent, remaining } = getLevelProgressPercent(userProfile, skillConfig);
 
   const nextStepAction = useMemo(
-    () => getNextStepAction(userProfile, bookings, skillConfig),
-    [userProfile, bookings, skillConfig]
+    () => getNextStepAction(userProfile, bookings, skillConfig, lang),
+    [userProfile, bookings, skillConfig, lang]
   );
 
   const skillItems = skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;

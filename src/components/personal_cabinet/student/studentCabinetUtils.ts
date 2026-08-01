@@ -502,7 +502,8 @@ export type NextStepAction =
 export const getNextStepAction = (
   userProfile: UserProfile,
   bookings: Booking[],
-  skillConfig?: SkillConfig
+  skillConfig?: SkillConfig,
+  language: Language = 'ru'
 ): NextStepAction | null => {
   if (userProfile.hideProgressTracking) return null;
 
@@ -515,7 +516,7 @@ export const getNextStepAction = (
     };
   }
 
-  const nextExercise = getPrioritySkillItems(userProfile, skillConfig, 1)[0];
+  const nextExercise = getPrioritySkillItems(userProfile, skillConfig, 1, language)[0];
   if (!nextExercise) {
     return { kind: 'complete' };
   }

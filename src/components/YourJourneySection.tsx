@@ -32,7 +32,7 @@ type Breakpoint = 'mobile' | 'tablet' | 'desktop';
  */
 export const LEVEL_MARKER_Y: Record<Breakpoint, [number, number, number, number]> = {
   //          Beginner  Carve  Performance  Expert
-  mobile: [100, 97, 65, 20],
+  mobile: [100, 90, 65, 20],
   tablet: [100, 80, 45, 0],
   desktop: [100, 80, 45, 0],
 };
@@ -742,7 +742,6 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           >
             <p>{t('journeyDesc1')}</p>
             <p>{t('journeyDesc2')}</p>
-            <p>{t('journeyDesc3')}</p>
           </div>
         </header>
 

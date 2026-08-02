@@ -1,5 +1,6 @@
 import React, { Component, ReactNode } from 'react';
 import PropTypes from 'prop-types';
+import { isChunkLoadError, reloadForStaleChunk } from '../lib/chunkLoadRecovery';
 import { logErrorToFirestore } from '../lib/firebase';
 
 interface ErrorBoundaryProps {
@@ -30,6 +31,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    if (isChunkLoadError(error)) {
+      reloadForStaleChunk();
+      return;
+    }
+
     logErrorToFirestore(error.message, error.stack, 'error_boundary');
     this.props.onError?.(error, errorInfo);
   }

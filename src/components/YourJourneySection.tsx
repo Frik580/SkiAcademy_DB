@@ -682,7 +682,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
 
     let rafId = 0;
     let cancelled = false;
-    const timers: number[] = [];
+    const timers: ReturnType<typeof setTimeout>[] = [];
 
     const startAnimation = () => {
       if (cancelled || hasAnimatedSequenceRef.current) return;

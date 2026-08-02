@@ -14,9 +14,9 @@ export const BookingModalHeader: React.FC<BookingModalHeaderProps> = ({
   t,
   onClose,
 }) => (
-  <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10 shrink-0">
+  <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
     <div className="flex items-center gap-3">
-      <div className="w-10 h-10 border border-[var(--border)] rounded-none overflow-hidden bg-black/15 shrink-0 filter grayscale">
+      <div className="w-10 h-10 border border-[var(--border)] rounded-full overflow-hidden bg-black/5 dark:bg-white/5 shrink-0 filter grayscale">
         <img
           src={targetInstructor.avatarUrl}
           alt={targetInstructor.name}
@@ -35,9 +35,10 @@ export const BookingModalHeader: React.FC<BookingModalHeaderProps> = ({
     <button
       type="button"
       onClick={onClose}
-      className="p-1.5 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
+      className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
+      aria-label={t('cancel')}
     >
-      <X className="w-4 h-4" />
+      <X className="w-5 h-5" />
     </button>
   </div>
 );

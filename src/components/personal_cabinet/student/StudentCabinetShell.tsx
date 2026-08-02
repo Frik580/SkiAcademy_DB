@@ -6,15 +6,27 @@ import { AchievementsConfig } from '../../../lib/achievementConfig';
 import { cabinetPathForTab, parseCabinetTabParam } from '../../../lib/workspaceRoutes';
 import { StudentCabinetHome } from './StudentCabinetHome';
 import { StudentHistoryPanel } from './StudentHistoryPanel';
+import { StudentCoachPanel } from './StudentCoachPanel';
 import {
   StudentCalendarPanel,
   StudentCoursesPanel,
   StudentDevelopmentPanel,
-  StudentInstructorsPanel,
-  StudentSettingsPanel,
+  StudentTrainingPanel,
 } from './StudentCabinetPanels';
+import {
+  StudentProfileHubPanel,
+  StudentProfilePersonalPanel,
+  StudentProfileJourneyPanel,
+  StudentProfileSkillsPanel,
+  StudentProfileCertificatesPanel,
+  StudentProfileAchievementsPanel,
+  StudentProfileSeasonPanel,
+  StudentProfileVideosPanel,
+  StudentProfilePreferencesPanel,
+} from './StudentProfilePanels';
 import { StudentCabinetTabBar, STUDENT_TAB_BAR_HEIGHT } from './StudentCabinetUI';
 import { StudentCabinetTab } from './studentCabinetUtils';
+import { StudentCabinetResortSnapshot } from './StudentHomeBottomSections';
 
 export interface StudentCabinetShellProps {
   userProfile: UserProfile;
@@ -51,6 +63,9 @@ export interface StudentCabinetShellProps {
   onBookInstructor: (instructor: Instructor) => void;
   onViewInstructorReviews: (instructor: Instructor) => void;
   syncTabWithRoute?: boolean;
+  resortSnapshot?: StudentCabinetResortSnapshot;
+  onToggleTemperatureUnit?: () => void;
+  usersList?: UserProfile[];
 }
 
 export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) => {
@@ -74,6 +89,13 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
   };
 
   const activeTab = props.syncTabWithRoute ? routeTab : tab;
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      document.querySelector('main')?.scrollTo(0, 0);
+    });
+  }, [activeTab]);
 
   const skillProgress = calculateSkillProgress(
     props.userProfile.skillScores || {},
@@ -110,6 +132,8 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     onBookCourse: props.onBookCourse,
     onBookInstructor: props.onBookInstructor,
     onViewInstructorReviews: props.onViewInstructorReviews,
+    resortSnapshot: props.resortSnapshot,
+    onToggleTemperatureUnit: props.onToggleTemperatureUnit,
   };
 
   const panelProps = {
@@ -140,6 +164,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       }}
     >
       {activeTab === 'home' && <StudentCabinetHome {...ctx} />}
+      {activeTab === 'training' && <StudentTrainingPanel onGoToTab={goToTab} />}
       {activeTab === 'history' && (
         <StudentHistoryPanel
           userProfile={props.userProfile}
@@ -173,14 +198,38 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
           onBookCourse={props.onBookCourse}
         />
       )}
-      {activeTab === 'instructors' && (
-        <StudentInstructorsPanel
-          {...panelProps}
+      {(activeTab === 'coach' || activeTab === 'instructors') && (
+        <StudentCoachPanel
+          bookings={props.bookings}
+          courses={props.courses}
+          instructors={props.instructors}
+          userProfile={props.userProfile}
+          usersList={props.usersList}
+          activityLogs={props.activityLogs}
+          skillConfig={props.skillConfig}
+          onGoToTab={goToTab}
+          onChat={props.onChat}
+          onOpenLesson={props.onOpenLesson}
+          onToggleRecommendation={props.onToggleRecommendation}
           onBookInstructor={props.onBookInstructor}
           onViewInstructorReviews={props.onViewInstructorReviews}
         />
       )}
-      {activeTab === 'settings' && <StudentSettingsPanel {...panelProps} />}
+      {activeTab === 'settings' && <StudentProfileHubPanel onGoToTab={goToTab} />}
+      {activeTab === 'profile_personal' && <StudentProfilePersonalPanel {...panelProps} />}
+      {activeTab === 'profile_journey' && <StudentProfileJourneyPanel {...panelProps} />}
+      {activeTab === 'profile_skills' && <StudentProfileSkillsPanel {...panelProps} />}
+      {activeTab === 'profile_certificates' && (
+        <StudentProfileCertificatesPanel {...panelProps} />
+      )}
+      {activeTab === 'profile_achievements' && (
+        <StudentProfileAchievementsPanel {...panelProps} />
+      )}
+      {activeTab === 'profile_season' && <StudentProfileSeasonPanel {...panelProps} />}
+      {activeTab === 'profile_videos' && <StudentProfileVideosPanel {...panelProps} />}
+      {activeTab === 'profile_preferences' && (
+        <StudentProfilePreferencesPanel {...panelProps} />
+      )}
 
       <StudentCabinetTabBar activeTab={activeTab} onSelect={goToTab} />
     </div>

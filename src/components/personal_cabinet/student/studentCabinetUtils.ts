@@ -32,7 +32,45 @@ import {
 } from '../../../lib/achievements';
 
 export type StudentCabinetTab =
-  'home' | 'development' | 'calendar' | 'courses' | 'instructors' | 'settings' | 'history';
+  | 'home'
+  | 'training'
+  | 'coach'
+  | 'development'
+  | 'calendar'
+  | 'courses'
+  | 'instructors'
+  | 'settings'
+  | 'profile_personal'
+  | 'profile_journey'
+  | 'profile_skills'
+  | 'profile_certificates'
+  | 'profile_achievements'
+  | 'profile_season'
+  | 'profile_videos'
+  | 'profile_preferences'
+  | 'history';
+
+export const PROFILE_TABS: StudentCabinetTab[] = [
+  'settings',
+  'profile_personal',
+  'profile_journey',
+  'profile_skills',
+  'profile_certificates',
+  'profile_achievements',
+  'profile_season',
+  'profile_videos',
+  'profile_preferences',
+];
+
+export const isProfileTab = (tab: StudentCabinetTab) => PROFILE_TABS.includes(tab);
+
+/** Maps deep-link tabs to the bottom navigation item that should appear active. */
+export const resolveStudentBottomNavTab = (tab: StudentCabinetTab): StudentCabinetTab => {
+  if (tab === 'development' || tab === 'calendar' || tab === 'courses') return 'training';
+  if (tab === 'instructors') return 'coach';
+  if (isProfileTab(tab)) return 'settings';
+  return tab;
+};
 
 export interface SectionProgress {
   id: string;
@@ -744,6 +782,39 @@ export const getStudentStats = (
   };
 };
 
+/** Completed lessons in the current calendar year. */
+export const getSeasonBookings = (
+  bookings: Booking[],
+  userId?: string,
+  fromDate = new Date()
+): Booking[] => {
+  const yearPrefix = String(fromDate.getFullYear());
+  return bookings.filter(
+    (b) =>
+      (!userId || b.userId === userId) &&
+      !b.isDeleted &&
+      b.status === 'completed' &&
+      b.date.startsWith(yearPrefix)
+  );
+};
+
+/** True if the student has a non-cancelled booking on today's date (private or course day). */
+export const hasTrainingToday = (
+  bookings: Booking[],
+  courses: Course[],
+  userId?: string,
+  fromDate = new Date()
+): boolean => {
+  const todayStr = toYMD(fromDate);
+  return bookings.some(
+    (b) =>
+      (!userId || b.userId === userId) &&
+      !b.isDeleted &&
+      b.status !== 'cancelled' &&
+      isBookingOnDate(b, todayStr, courses)
+  );
+};
+
 const historyEventPrefix = (kind: HistoryEvent['kind']) => {
   switch (kind) {
     case 'training':
@@ -1216,15 +1287,6 @@ export const isBookingOnDate = (booking: Booking, dateStr: string, courses: Cour
   return booking.date === dateStr;
 };
 
-const startOfWeekMonday = (from: Date) => {
-  const d = new Date(from);
-  d.setHours(12, 0, 0, 0);
-  const day = d.getDay(); // 0 Sun … 6 Sat
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d;
-};
-
 export type MiniCalendarDay = {
   day: number;
   dateStr: string;
@@ -1233,21 +1295,22 @@ export type MiniCalendarDay = {
   weekdayLabel: string;
 };
 
-/** Current calendar week (Mon–Sun) with booked sessions marked. */
+/** Next 7 days starting from today with booked sessions marked. */
 export const getMiniCalendarDays = (
   bookings: Booking[],
   courses: Course[],
-  language: 'en' | 'ru' = 'ru'
+  language: 'en' | 'ru' = 'ru',
+  fromDate = new Date()
 ): MiniCalendarDay[] => {
-  const todayStr = toYMD(new Date());
-  const weekStart = startOfWeekMonday(new Date());
+  const todayStr = toYMD(fromDate);
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
   const booked = bookings.filter(isActiveBooking);
 
   const days: MiniCalendarDay[] = [];
   for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart);
-    d.setDate(weekStart.getDate() + i);
+    const d = new Date(fromDate);
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() + i);
     const dateStr = toYMD(d);
     const hasSession = booked.some((b) => isBookingOnDate(b, dateStr, courses));
     days.push({
@@ -1261,7 +1324,7 @@ export const getMiniCalendarDays = (
   return days;
 };
 
-/** Booked sessions that fall on the current Mon–Sun week, sorted by date/time. */
+/** Booked sessions within the next 7 days from today, sorted by date/time. */
 export const getWeekBookedSessions = (bookings: Booking[], courses: Course[]) => {
   const days = getMiniCalendarDays(bookings, courses);
   const weekDateSet = new Set(days.map((d) => d.dateStr));
@@ -1342,6 +1405,36 @@ export const getEnrolledCourses = (bookings: Booking[], courses: Course[], userI
       .map((b) => b.instructorId.replace('course_', ''))
   );
   return courses.filter((c) => !c.isHidden && enrolledIds.has(c.id));
+};
+
+export interface ActiveCourseEnrollment {
+  course: Course;
+  booking: Booking;
+}
+
+/** Enrolled group course that includes today in its date range. */
+export const getActiveCourseEnrollment = (
+  bookings: Booking[],
+  courses: Course[],
+  userId?: string,
+  fromDate = new Date()
+): ActiveCourseEnrollment | null => {
+  const todayStr = toYMD(fromDate);
+  const enrolled = getEnrolledCourses(bookings, courses, userId);
+
+  for (const course of enrolled) {
+    const booking = bookings.find(
+      (b) =>
+        (!userId || b.userId === userId) &&
+        !b.isDeleted &&
+        b.instructorId === `course_${course.id}` &&
+        b.status !== 'cancelled' &&
+        isBookingOnDate(b, todayStr, courses)
+    );
+    if (booking) return { course, booking };
+  }
+
+  return null;
 };
 
 export const getAvailableCourses = (

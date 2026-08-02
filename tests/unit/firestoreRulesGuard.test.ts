@@ -23,7 +23,9 @@ describe('firestore.rules guardrails', () => {
 
   it('defines course enrollment reactivation validation', () => {
     expect(rulesSource).toContain('function validCourseEnrollmentReactivation');
-    expect(rulesSource).toContain('validCourseEnrollmentReactivation(bookingId, resource.data, request.resource.data)');
+    expect(rulesSource).toContain(
+      'validCourseEnrollmentReactivation(bookingId, resource.data, request.resource.data)'
+    );
   });
 
   it('skips availability slot sync for group course bookings', () => {
@@ -42,6 +44,8 @@ describe('firestore.rules guardrails', () => {
 
   it('allows users to delete their own cancelled course bookings', () => {
     expect(rulesSource).toContain('function isCancelledCourseBooking');
-    expect(rulesSource).toMatch(/allow delete: if isAdmin\(\) \|\| \([\s\S]*isCancelledCourseBooking/);
+    expect(rulesSource).toMatch(
+      /allow delete: if isAdmin\(\) \|\| \([\s\S]*isCancelledCourseBooking/
+    );
   });
 });

@@ -74,15 +74,15 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
   };
 
   const modalContent = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-sans text-[var(--ink)]">
+    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-sans text-[var(--ink)]">
       <div
-        className="w-full max-w-lg border border-[var(--border)] bg-slate-50 dark:bg-slate-900 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="ui-modal relative w-full max-w-lg border border-[var(--border)] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+            <div className="p-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-lg">
               <Link2 className="w-5 h-5" />
             </div>
             <div>
@@ -98,7 +98,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
               onClose();
             }}
             disabled={isSubmitting}
-            className="p-1 hover:bg-black/10 dark:hover:bg-white/10 transition cursor-pointer text-[var(--ink-dim)] hover:text-[var(--ink)]"
+            className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
           >
             <X className="w-5 h-5" />
           </button>

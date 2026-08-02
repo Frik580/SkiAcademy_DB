@@ -23,8 +23,8 @@ export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
   const { t } = useLanguage();
 
   return createPortal(
-    <div className="ui-modal-overlay fixed inset-0 flex items-center justify-center z-55 p-4 animate-fade-in">
-      <div className="ui-modal w-full max-w-sm p-6 shadow-2xl relative space-y-4 animate-scale-up transition-colors duration-300">
+    <div className="ui-modal-overlay fixed inset-0 flex items-center justify-center z-55 p-4 bg-black/60 backdrop-blur-xs">
+      <div className="ui-modal w-full max-w-sm p-6 shadow-2xl relative space-y-4 rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]">
         <h4 className="font-serif text-sm font-light text-[var(--ink)] flex items-center gap-2">
           <Shield className="w-4.5 h-4.5 text-[var(--ink-dim)] animate-pulse" />
           {t('confirmAction')}

@@ -81,7 +81,6 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     designTheme = 'classic',
     slideIntervalSeconds = 6,
     slidesRandomOrder = false,
-    isAuthenticated = false,
   },
   actions: { onScrollToSection },
 }) => {
@@ -236,7 +235,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
               onClick={() => onScrollToSection('coaches-grid')}
               className="btn-primary-hero px-5 py-3 inline-flex items-center justify-center gap-2"
             >
-              <span>{t(isAuthenticated ? 'bookLesson' : 'bookFirstLesson')}</span>
+              <span>{t('startYourJourney')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
             <button

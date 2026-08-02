@@ -42,7 +42,7 @@ export const BookingModal: React.FC<BookingModalProps> = (props) => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="ui-modal shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300"
+              className="ui-modal shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
             >
               <BookingModalHeader
                 targetInstructor={targetInstructor}

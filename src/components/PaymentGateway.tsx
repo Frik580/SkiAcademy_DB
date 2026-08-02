@@ -94,10 +94,10 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
   };
 
   return (
-    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="ui-modal shadow-2xl w-full max-w-md overflow-hidden animate-scale-up transition-colors duration-300">
+    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+      <div className="ui-modal shadow-2xl w-full max-w-md overflow-hidden relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10">
+        <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5">
           <div>
             <h3 className="font-serif text-lg font-light text-[var(--ink)]">
               {t('topUpWalletTitle')}
@@ -108,9 +108,9 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
+            className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 

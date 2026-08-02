@@ -99,7 +99,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
         {/* Backdrop overlay */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -115,10 +115,10 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="ui-modal relative shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 flex flex-col max-h-[90vh] z-10"
+          className="ui-modal relative shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 flex flex-col max-h-[90vh] z-10 rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10 shrink-0">
+          <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
             <div>
               <h3 className="font-serif text-lg font-light text-[var(--ink)]">
                 {t('courseEnrollment')}
@@ -130,9 +130,9 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
+              className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
@@ -154,7 +154,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                   {t('courseEnrollmentAuthPrompt')}
                 </p>
 
-                <div className="border border-[var(--border)] p-4 bg-black/10">
+                <div className="border border-[var(--border)] p-4 bg-black/5 dark:bg-white/5 rounded-xl">
                   <Auth
                     onSuccess={(profile) => {
                       onAuthSuccess(profile);

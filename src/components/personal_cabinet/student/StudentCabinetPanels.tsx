@@ -5,7 +5,6 @@ import { useLanguage, translateInstructor } from '../../../lib/LanguageContext';
 import { ClientBookingsList } from '../ClientBookingsList';
 import { GroupCourseCard, sortVisibleCourses } from '../../GroupCourseCard';
 import { InstructorCard } from '../../InstructorCard';
-import { StudentSettingsCompact } from './StudentSettingsCompact';
 import { StudentCabinetContext } from './StudentCabinetHome';
 import { StudentDevelopmentPanel } from './StudentDevelopmentPanel';
 import { ScDivider, ScSectionTitle, StudentPanelBackLink } from './StudentCabinetUI';
@@ -15,9 +14,63 @@ import {
   getMyInstructors,
   getRecommendedCourses,
   getRecommendedInstructors,
+  StudentCabinetTab,
 } from './studentCabinetUtils';
+import { Calendar, ChevronRight, LayoutGrid, TrendingUp } from 'lucide-react';
 
 export { StudentDevelopmentPanel };
+
+const TRAINING_HUB_ITEMS: {
+  tab: StudentCabinetTab;
+  labelKey: 'scNavDevelopment' | 'scNavCalendar' | 'scNavCourses';
+  descKey: 'scDevelopmentDetail' | 'scFullCalendar' | 'scCourses';
+  icon: typeof TrendingUp;
+}[] = [
+  {
+    tab: 'development',
+    labelKey: 'scNavDevelopment',
+    descKey: 'scDevelopmentDetail',
+    icon: TrendingUp,
+  },
+  { tab: 'calendar', labelKey: 'scNavCalendar', descKey: 'scFullCalendar', icon: Calendar },
+  { tab: 'courses', labelKey: 'scNavCourses', descKey: 'scCourses', icon: LayoutGrid },
+];
+
+export const StudentTrainingPanel: React.FC<Pick<StudentCabinetContext, 'onGoToTab'>> = ({
+  onGoToTab,
+}) => {
+  const { t } = useLanguage();
+
+  return (
+    <div className="space-y-6 pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
+      <StudentPanelBackLink onClick={() => onGoToTab('home')} />
+      <div className="space-y-1">
+        <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scNavTraining')}</h1>
+        <p className="text-sm text-[var(--ink-dim)]">{t('scTrainingHubSub')}</p>
+      </div>
+
+      <div className="rounded-2xl border border-[var(--border-subtle)] overflow-hidden divide-y divide-[var(--border-subtle)]">
+        {TRAINING_HUB_ITEMS.map(({ tab, labelKey, descKey, icon: Icon }) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => onGoToTab(tab)}
+            className="w-full flex items-center gap-4 px-4 py-4 text-left hover:bg-[var(--border-subtle)]/40 transition-colors"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--accent)]/22 bg-[var(--accent-muted)]/45 text-[var(--accent)]">
+              <Icon className="h-5 w-5" strokeWidth={1.8} aria-hidden />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-medium text-[var(--ink)]">{t(labelKey)}</span>
+              <span className="block text-xs text-[var(--ink-dim)] mt-0.5 truncate">{t(descKey)}</span>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ink-dim)]" aria-hidden />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 interface PanelProps extends StudentCabinetContext {
   onReschedule: (booking: Booking) => void;
@@ -53,7 +106,7 @@ export const StudentCalendarPanel: React.FC<
   return (
     <div className="space-y-6 pb-24 max-w-3xl mx-auto px-4 sm:px-6 w-full min-w-0">
       <div className="pt-6 space-y-4">
-        <StudentPanelBackLink onClick={() => onGoToTab('home')} />
+        <StudentPanelBackLink onClick={() => onGoToTab('training')} labelKey="scNavTraining" />
         <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scFullCalendar')}</h1>
       </div>
       <ClientBookingsList
@@ -116,7 +169,7 @@ export const StudentCoursesPanel: React.FC<
 
   return (
     <div className="pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 space-y-6 w-full min-w-0">
-      <StudentPanelBackLink onClick={() => onGoToTab('home')} />
+      <StudentPanelBackLink onClick={() => onGoToTab('training')} labelKey="scNavTraining" />
       <div>
         <h1 className="text-2xl font-serif font-light text-[var(--ink)]">
           {t('intensiveGroupCourses')}
@@ -207,7 +260,7 @@ export const StudentInstructorsPanel: React.FC<
     <div className="space-y-6 pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
       <StudentPanelBackLink onClick={() => onGoToTab('home')} />
       <div className="space-y-1">
-        <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scInstructors')}</h1>
+        <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scNavCoach')}</h1>
         <p className="text-sm text-[var(--ink-dim)]">{t('meetGuidesSub')}</p>
       </div>
 
@@ -282,39 +335,6 @@ export const StudentInstructorsPanel: React.FC<
           <p className="text-sm text-[var(--ink-dim)]">{t('scNoAvailableInstructors')}</p>
         )}
       </section>
-    </div>
-  );
-};
-
-export const StudentSettingsPanel: React.FC<
-  PanelProps & {
-    onInvalidFile: () => void;
-    onUploadSuccess: () => void;
-    onUploadError: () => void;
-  }
-> = ({
-  userProfile,
-  onSignOut,
-  onUpdateProfile,
-  onInvalidFile,
-  onUploadSuccess,
-  onUploadError,
-  onGoToTab,
-}) => {
-  const { t } = useLanguage();
-
-  return (
-    <div className="pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0 space-y-6">
-      <StudentPanelBackLink onClick={() => onGoToTab('home')} />
-      <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scNavSettings')}</h1>
-      <StudentSettingsCompact
-        userProfile={userProfile}
-        onSignOut={onSignOut}
-        onUpdateProfile={onUpdateProfile}
-        onInvalidFile={onInvalidFile}
-        onUploadSuccess={onUploadSuccess}
-        onUploadError={onUploadError}
-      />
     </div>
   );
 };

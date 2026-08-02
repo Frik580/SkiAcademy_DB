@@ -244,7 +244,9 @@ const JourneyPath: React.FC<{
   activeId: number | null;
   /** Пройденная часть пути 0…1; подсвечивает трек до позиции пользователя */
   progress?: number | null;
-}> = ({ ys, bends, activeId, progress = null }) => {
+  /** Прогресс отрисовки линии (0…1) */
+  lineDrawProgress?: number;
+}> = ({ ys, bends, activeId, progress = null, lineDrawProgress = 1 }) => {
   const d = buildWavyPath(LEVEL_MARKER_X, ys, bends);
   const measureRef = useRef<SVGPathElement>(null);
   const [pathLength, setPathLength] = useState(0);
@@ -257,6 +259,9 @@ const JourneyPath: React.FC<{
 
   const traveled =
     progress != null && pathLength > 0 ? Math.min(1, Math.max(0, progress)) * pathLength : null;
+
+  const strokeDashoffset =
+    pathLength > 0 ? pathLength * (1 - Math.min(1, Math.max(0, lineDrawProgress))) : 0;
 
   return (
     <svg
@@ -288,6 +293,8 @@ const JourneyPath: React.FC<{
         strokeWidth="5"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeDasharray={pathLength > 0 ? pathLength : undefined}
+        strokeDashoffset={strokeDashoffset}
         opacity="0.22"
       />
       <path
@@ -297,10 +304,12 @@ const JourneyPath: React.FC<{
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeDasharray={pathLength > 0 ? pathLength : undefined}
+        strokeDashoffset={strokeDashoffset}
         filter="url(#journey-glow)"
         opacity={activeId ? 0.98 : 0.9}
       />
-      {traveled != null && (
+      {traveled != null && lineDrawProgress >= 1 && (
         <path
           d={d}
           fill="none"
@@ -321,45 +330,67 @@ const UserPathMarker: React.FC<{
   point: { x: number; y: number };
   isDark: boolean;
   label: string;
-  onClick: () => void;
-}> = ({ point, isDark, label, onClick }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-label={label}
-    className="absolute z-30 -translate-x-1/2 -translate-y-1/2 cursor-pointer bg-transparent border-0 p-3 group"
-    style={{
-      left: `${(point.x / 400) * 100}%`,
-      top: `${(point.y / 100) * 100}%`,
-    }}
-  >
-    <span className="relative block w-3.5 h-3.5 sm:w-4 sm:h-4">
-      {/* Пульсирующее кольцо */}
-      <span className="absolute inset-0 animate-ping" aria-hidden="true">
-        <span className="block h-full w-full rotate-45 border-2 border-[#f5d76e]/55" />
+  onClick?: () => void;
+}> = ({ point, isDark, label, onClick }) => {
+  const innerContent = (
+    <>
+      <span className="relative block w-3.5 h-3.5 sm:w-4 sm:h-4">
+        {/* Пульсирующее кольцо */}
+        <span className="absolute inset-0 animate-ping" aria-hidden="true">
+          <span className="block h-full w-full rotate-45 border-2 border-[#f5d76e]/55" />
+        </span>
+        <span className="journey-marker-pulse absolute inset-0" aria-hidden="true">
+          <span
+            className="block h-full w-full rotate-45 border-2 border-[#f0d060]"
+            style={{
+              background:
+                'linear-gradient(145deg, #fff3b0 0%, #f5d76e 42%, #d4a017 78%, #a67c00 100%)',
+              boxShadow: '0 0 12px rgba(245, 215, 110, 0.85), 0 0 22px rgba(212, 160, 23, 0.45)',
+            }}
+          />
+        </span>
       </span>
-      <span className="journey-marker-pulse absolute inset-0" aria-hidden="true">
-        <span
-          className="block h-full w-full rotate-45 border-2 border-[#f0d060]"
-          style={{
-            background:
-              'linear-gradient(145deg, #fff3b0 0%, #f5d76e 42%, #d4a017 78%, #a67c00 100%)',
-            boxShadow: '0 0 12px rgba(245, 215, 110, 0.85), 0 0 22px rgba(212, 160, 23, 0.45)',
-          }}
-        />
+      <span
+        className={`absolute left-1/2 bottom-full mb-4 -translate-x-1/2 whitespace-nowrap rounded-full px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold tracking-[0.12em] uppercase shadow-sm transition-opacity group-hover:opacity-100 ${
+          isDark
+            ? 'bg-[#0b1220]/90 text-[#f5d76e] border border-[#f5d76e]/35'
+            : 'bg-white/95 text-[#b8860b] border border-[#d4a017]/40'
+        }`}
+      >
+        {label}
       </span>
-    </span>
-    <span
-      className={`absolute left-1/2 bottom-full mb-4 -translate-x-1/2 whitespace-nowrap rounded-full px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold tracking-[0.12em] uppercase shadow-sm transition-opacity group-hover:opacity-100 ${
-        isDark
-          ? 'bg-[#0b1220]/90 text-[#f5d76e] border border-[#f5d76e]/35'
-          : 'bg-white/95 text-[#b8860b] border border-[#d4a017]/40'
-      }`}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className="absolute z-30 -translate-x-1/2 -translate-y-1/2 cursor-pointer bg-transparent border-0 p-3 group"
+        style={{
+          left: `${(point.x / 400) * 100}%`,
+          top: `${(point.y / 100) * 100}%`,
+        }}
+      >
+        {innerContent}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className="absolute z-30 -translate-x-1/2 -translate-y-1/2 p-3 group cursor-default"
+      style={{
+        left: `${(point.x / 400) * 100}%`,
+        top: `${(point.y / 100) * 100}%`,
+      }}
     >
-      {label}
-    </span>
-  </button>
-);
+      {innerContent}
+    </div>
+  );
+};
 
 const LevelNode: React.FC<{
   shape: LevelShape;
@@ -417,35 +448,62 @@ const LevelNode: React.FC<{
 const CompactLevelCards: React.FC<{
   levels: Array<JourneyLevel & { xp: number }>;
   activeLevelId: number;
+  visibleLevelCount: number;
   isDark: boolean;
   formatMeta: (skills: number, achievements: number) => string;
   onActivate: (id: number) => void;
   onClearHover: () => void;
-}> = ({ levels, activeLevelId, isDark, formatMeta, onActivate, onClearHover }) => {
+}> = ({
+  levels,
+  activeLevelId,
+  visibleLevelCount,
+  isDark,
+  formatMeta,
+  onActivate,
+  onClearHover,
+}) => {
   const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
-  const [offsetLeft, setOffsetLeft] = useState(0);
-
-  const activeIndex = Math.max(
-    0,
-    levels.findIndex((level) => level.id === activeLevelId)
-  );
+  const [layoutState, setLayoutState] = useState<{
+    containerWidth: number;
+    cardWidths: number[];
+  }>({ containerWidth: 0, cardWidths: [] });
 
   useLayoutEffect(() => {
     const container = containerRef.current;
-    const card = cardRefs.current[activeIndex];
-    if (!container || !card) return;
+    if (!container) return;
 
-    const reposition = () => {
-      const containerRect = container.getBoundingClientRect();
-      const cardWidth = card.offsetWidth;
-      const centerX = containerRect.width * ((activeIndex + 0.5) / 4);
-      const idealLeft = centerX - cardWidth / 2;
+    const measure = () => {
+      const cWidth = container.offsetWidth;
+      const cWidths = cardRefs.current.map((el) => el?.offsetWidth || 0);
+      setLayoutState({ containerWidth: cWidth, cardWidths: cWidths });
+    };
 
-      let left = Math.max(0, Math.min(idealLeft, containerRect.width - cardWidth));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(container);
+    cardRefs.current.forEach((el) => el && ro.observe(el));
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [levels.length]);
 
-      const edgePad = 12;
+  const calculateLeftForIndex = (idx: number) => {
+    const cWidth = layoutState.containerWidth || containerRef.current?.offsetWidth || 0;
+    const cardWidth = layoutState.cardWidths[idx] || cardRefs.current[idx]?.offsetWidth || 0;
+
+    if (!cWidth || !cardWidth) return 0;
+
+    const centerX = cWidth * ((idx + 0.5) / 4);
+    const idealLeft = centerX - cardWidth / 2;
+    let left = Math.max(0, Math.min(idealLeft, cWidth - cardWidth));
+
+    const edgePad = 12;
+    if (typeof window !== 'undefined' && containerRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect();
       const screenLeft = containerRect.left + left;
       const screenRight = screenLeft + cardWidth;
       if (screenLeft < edgePad) {
@@ -454,41 +512,32 @@ const CompactLevelCards: React.FC<{
       if (screenRight > window.innerWidth - edgePad) {
         left -= screenRight - (window.innerWidth - edgePad);
       }
-      left = Math.max(0, Math.min(left, containerRect.width - cardWidth));
-
-      setOffsetLeft(left);
-    };
-
-    reposition();
-    const ro = new ResizeObserver(reposition);
-    ro.observe(container);
-    ro.observe(card);
-    window.addEventListener('resize', reposition);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', reposition);
-    };
-  }, [activeIndex, activeLevelId]);
+      left = Math.max(0, Math.min(left, cWidth - cardWidth));
+    }
+    return left;
+  };
 
   return (
     // grid + одна ячейка: row sizing берёт max среди детей
     <div ref={containerRef} className="relative w-full grid">
       {levels.map((level, index) => {
-        const isActive = level.id === activeLevelId;
+        const isRevealed = level.id <= visibleLevelCount;
+        const isActive = level.id === activeLevelId && isRevealed;
+        const leftOffset = calculateLeftForIndex(index);
         return (
           <article
             key={level.id}
             ref={(el) => {
               cardRefs.current[index] = el;
             }}
-            className={`col-start-1 row-start-1 w-max max-w-full justify-self-start rounded-2xl border px-3.5 py-4 flex flex-col gap-3 transition-opacity duration-300 ${
+            className={`col-start-1 row-start-1 w-max max-w-full justify-self-start rounded-2xl border px-3.5 py-4 flex flex-col gap-3 transition-all duration-300 ${
               isActive ? 'opacity-100 z-10' : 'opacity-0 pointer-events-none z-0'
             } ${
               isDark
                 ? 'bg-white/[0.08] border-white/20 shadow-[0_0_24px_rgba(62,207,255,0.12)]'
                 : 'bg-white border-black/10 shadow-[0_8px_28px_rgba(17,17,17,0.08)]'
             }`}
-            style={{ marginLeft: isActive ? offsetLeft : 0 }}
+            style={{ marginLeft: leftOffset }}
             aria-hidden={!isActive}
             onMouseEnter={() => onActivate(level.id)}
             onMouseLeave={onClearHover}
@@ -527,20 +576,22 @@ const CompactLevelCards: React.FC<{
 interface YourJourneySectionProps {
   skillConfig?: SkillConfig;
   userProfile?: UserProfile | null;
+  animateSequence?: boolean;
+  /** В личном кабинете — секция на высоту видимой области (минус нижнее меню и шапка). */
+  fillViewport?: boolean;
 }
 
 export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   skillConfig = DEFAULT_SKILL_CONFIG,
   userProfile = null,
+  animateSequence = true,
+  fillViewport = false,
 }) => {
   const { t } = useLanguage();
   const { theme } = useTheme();
   const navigate = useNavigate();
   const isDark = theme === 'dark';
   const breakpoint = useBreakpoint();
-  const [hoveredLevelId, setHoveredLevelId] = useState<number | null>(null);
-  const [selectedLevelId, setSelectedLevelId] = useState<number | null>(1);
-
   /** Текущий уровень по XP — его подсвечиваем при авторизации. */
   const currentUserLevelId = useMemo(() => {
     if (!userProfile || userProfile.hideProgressTracking) return null;
@@ -551,6 +602,12 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
     );
   }, [userProfile, skillConfig]);
 
+  const [hoveredLevelId, setHoveredLevelId] = useState<number | null>(null);
+  const [selectedLevelId, setSelectedLevelId] = useState<number | null>(() => {
+    if (currentUserLevelId != null) return currentUserLevelId;
+    return breakpoint !== 'desktop' ? 1 : null;
+  });
+
   useEffect(() => {
     if (currentUserLevelId != null) {
       setSelectedLevelId(currentUserLevelId);
@@ -559,7 +616,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
 
   /** На desktop все 4 карточки в ряд; иначе — только активная. */
   const showAllCards = breakpoint === 'desktop';
-  // По умолчанию — уровень пользователя (если авторизован), иначе Beginner
+  // По умолчанию — уровень пользователя (если авторизован), иначе 1 на мобильном
   const activeLevelId =
     hoveredLevelId ?? selectedLevelId ?? (showAllCards ? null : (currentUserLevelId ?? 1));
 
@@ -583,89 +640,153 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   const showUserPosition = Boolean(userProfile && !userProfile.hideProgressTracking);
   const pathBlockRef = useRef<HTMLDivElement>(null);
   const hasAnimatedMarkerRef = useRef(false);
+  const hasAnimatedSequenceRef = useRef(false);
+
+  const [lineDrawProgress, setLineDrawProgress] = useState(0);
+  const [visibleLevelCount, setVisibleLevelCount] = useState(0);
 
   const userProgress = useMemo(() => {
     if (!showUserPosition || !userProfile) return null;
     return getJourneyPathProgress(userProfile, skillConfig);
   }, [showUserPosition, userProfile, skillConfig]);
 
-  /** Анимированный прогресс метки (0 → userProgress, когда виден весь блок пути). */
+  /** Анимированный прогресс метки (0 → userProgress). */
   const [displayProgress, setDisplayProgress] = useState<number | null>(null);
   const [userPoint, setUserPoint] = useState<{ x: number; y: number } | null>(null);
   const pathSampler = useMemo(() => createPathSampler(pathD), [pathD]);
 
+  // Последовательная анимация линии и уровней (занимает ~5 секунд) — только если animateSequence === true
   useEffect(() => {
-    if (userProgress == null) {
-      setDisplayProgress(null);
-      hasAnimatedMarkerRef.current = false;
-      return;
-    }
-
-    // После первой анимации просто синхронизируем с актуальным прогрессом
-    if (hasAnimatedMarkerRef.current) {
-      setDisplayProgress(userProgress);
-      return;
-    }
-
-    const reduceMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (reduceMotion) {
-      hasAnimatedMarkerRef.current = true;
-      setDisplayProgress(userProgress);
+    if (!animateSequence) {
+      hasAnimatedSequenceRef.current = true;
+      setLineDrawProgress(1);
+      setVisibleLevelCount(4);
       return;
     }
 
     const block = pathBlockRef.current;
     if (!block) return;
 
+    const reduceMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (reduceMotion) {
+      hasAnimatedSequenceRef.current = true;
+      setLineDrawProgress(1);
+      setVisibleLevelCount(4);
+      return;
+    }
+
+    if (hasAnimatedSequenceRef.current) return;
+
     let rafId = 0;
     let cancelled = false;
+    const timers: number[] = [];
 
-    const play = () => {
-      if (cancelled || hasAnimatedMarkerRef.current) return;
-      hasAnimatedMarkerRef.current = true;
-      setDisplayProgress(0);
+    const startAnimation = () => {
+      if (cancelled || hasAnimatedSequenceRef.current) return;
+      hasAnimatedSequenceRef.current = true;
 
-      const target = userProgress;
-      const durationMs = 1200 + target * 1000; // дальше по пути — чуть дольше
-      const startedAt = performance.now();
+      // 1. Появление линии (0 -> 1 за 2200мс)
+      const LINE_DRAW_DURATION = 2200;
+      const startTime = performance.now();
 
-      const tick = (now: number) => {
+      const animateLine = (now: number) => {
         if (cancelled) return;
-        const t = Math.min(1, (now - startedAt) / durationMs);
-        // ease-out cubic
-        const eased = 1 - (1 - t) ** 3;
-        setDisplayProgress(target * eased);
-        if (t < 1) {
-          rafId = requestAnimationFrame(tick);
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / LINE_DRAW_DURATION);
+        const eased =
+          progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+        setLineDrawProgress(eased);
+
+        if (progress < 1) {
+          rafId = requestAnimationFrame(animateLine);
         } else {
-          setDisplayProgress(target);
+          setLineDrawProgress(1);
         }
       };
+      rafId = requestAnimationFrame(animateLine);
 
-      rafId = requestAnimationFrame(tick);
+      // 2. Уровни появляются один за другим за оставшиеся ~2.8 секунды (итого ~5 сек)
+      timers.push(
+        setTimeout(() => {
+          if (!cancelled) setVisibleLevelCount(1);
+        }, 2200)
+      );
+      timers.push(
+        setTimeout(() => {
+          if (!cancelled) setVisibleLevelCount(2);
+        }, 2850)
+      );
+      timers.push(
+        setTimeout(() => {
+          if (!cancelled) setVisibleLevelCount(3);
+        }, 3500)
+      );
+      timers.push(
+        setTimeout(() => {
+          if (!cancelled) setVisibleLevelCount(4);
+        }, 4150)
+      );
     };
 
-    // Старт только когда виден весь блок пути/карточек
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry && entry.intersectionRatio >= 1) {
-          play();
+        if (entry && entry.isIntersecting) {
+          startAnimation();
           observer.disconnect();
         }
       },
-      { threshold: 1 }
+      { threshold: 0.15 }
     );
+
     observer.observe(block);
 
     return () => {
       cancelled = true;
       cancelAnimationFrame(rafId);
+      timers.forEach((t) => clearTimeout(t));
       observer.disconnect();
     };
-  }, [userProgress]);
+  }, [animateSequence]);
+
+  useEffect(() => {
+    if (userProgress == null || visibleLevelCount < 4) {
+      if (userProgress == null) {
+        setDisplayProgress(null);
+        hasAnimatedMarkerRef.current = false;
+      }
+      return;
+    }
+
+    if (hasAnimatedMarkerRef.current) {
+      setDisplayProgress(userProgress);
+      return;
+    }
+
+    hasAnimatedMarkerRef.current = true;
+    setDisplayProgress(0);
+
+    const target = userProgress;
+    const durationMs = 1000 + target * 800;
+    const startedAt = performance.now();
+    let rafId = 0;
+
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - startedAt) / durationMs);
+      const eased = 1 - (1 - t) ** 3;
+      setDisplayProgress(target * eased);
+      if (t < 1) {
+        rafId = requestAnimationFrame(tick);
+      } else {
+        setDisplayProgress(target);
+      }
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [userProgress, visibleLevelCount]);
 
   useLayoutEffect(() => {
     if (displayProgress == null || !pathSampler) {
@@ -701,7 +822,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
       id="your-journey"
       className={`relative overflow-hidden border-y ${
         isDark ? 'bg-[#070b14] border-white/5' : 'bg-[#eef1f5] border-black/5'
-      }`}
+      } ${fillViewport ? 'cabinet-journey-fill' : ''}`}
     >
       <img
         src={bgUrl}
@@ -719,7 +840,13 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
         aria-hidden="true"
       />
 
-      <div className="relative z-10 max-w-5xl mx-auto px-5 sm:px-8 md:px-10 py-14 md:py-20 space-y-10 md:space-y-12">
+      <div
+        className={`relative z-10 max-w-5xl mx-auto px-5 sm:px-8 md:px-10 w-full ${
+          fillViewport
+            ? 'flex-1 flex flex-col justify-center min-h-0 py-6 sm:py-8 md:py-10 gap-6 sm:gap-8 md:gap-10'
+            : 'py-14 md:py-20 space-y-10 md:space-y-12'
+        }`}
+      >
         <header className="text-center space-y-3 max-w-2xl mx-auto">
           <p
             className={`text-[11px] sm:text-xs font-medium tracking-[0.22em] uppercase ${
@@ -745,14 +872,28 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           </div>
         </header>
 
-        <div ref={pathBlockRef} className="relative space-y-4">
+        <div
+          ref={pathBlockRef}
+          className={
+            fillViewport
+              ? 'relative flex-1 flex flex-col justify-center min-h-0 space-y-3 sm:space-y-4'
+              : 'relative space-y-4'
+          }
+        >
           {/* Полоса пути: метки + волнистая линия */}
-          <div className="relative w-full h-36 sm:h-44 md:h-52">
+          <div
+            className={
+              fillViewport
+                ? 'relative w-full flex-1 min-h-[7.5rem] max-h-[11rem] sm:max-h-[13rem] md:max-h-[15rem]'
+                : 'relative w-full h-36 sm:h-44 md:h-52'
+            }
+          >
             <JourneyPath
               ys={markerYs}
               bends={pathBends}
               activeId={activeLevelId}
               progress={displayProgress}
+              lineDrawProgress={lineDrawProgress}
             />
 
             {userPoint && userProfile && displayProgress != null && (
@@ -760,7 +901,9 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
                 point={userPoint}
                 isDark={isDark}
                 label={t('journeyYouAreHere')}
-                onClick={() => navigate(getDefaultWorkspacePath(userProfile))}
+                onClick={
+                  animateSequence ? () => navigate(getDefaultWorkspacePath(userProfile)) : undefined
+                }
               />
             )}
 
@@ -768,21 +911,26 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
               {levelsWithXp.map((level, index) => {
                 const isActive = activeLevelId === level.id;
                 const topPct = markerYs[index];
+                const isRevealed = level.id <= visibleLevelCount;
                 const showDropLine = showAllCards || isActive;
                 return (
                   <div key={level.id} className="relative flex justify-center">
                     {showDropLine && (
                       <div
-                        className={`absolute w-px border-l border-dashed ${
+                        className={`absolute w-px border-l border-dashed transition-opacity duration-500 ${
                           isDark ? 'border-white/25' : 'border-black/15'
-                        }`}
+                        } ${isRevealed ? 'opacity-100' : 'opacity-0'}`}
                         style={{ top: `${topPct}%`, bottom: 0, left: '50%' }}
                         aria-hidden="true"
                       />
                     )}
                     <button
                       type="button"
-                      className="absolute -translate-x-1/2 -translate-y-1/2 left-1/2 z-10 bg-transparent border-0 p-3 cursor-pointer"
+                      className={`absolute -translate-x-1/2 -translate-y-1/2 left-1/2 z-10 bg-transparent border-0 p-3 cursor-pointer transition-all duration-500 transform ${
+                        isRevealed
+                          ? 'opacity-100 scale-100'
+                          : 'opacity-0 scale-50 pointer-events-none'
+                      }`}
                       style={{ top: `${topPct}%` }}
                       aria-label={t(level.labelKey)}
                       aria-pressed={isActive}
@@ -806,17 +954,22 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           </div>
 
           {/*
-            Название + XP всегда видны у всех 4 уровней.
+            Название + XP.
             Desktop: все карточки с навыками в ряд.
             Mobile/tablet: одна карточка под активной меткой, clamped в видимую область.
           */}
           <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-4">
             {levelsWithXp.map((level) => {
               const isActive = activeLevelId === level.id;
+              const isRevealed = level.id <= visibleLevelCount;
               return (
                 <div
                   key={level.id}
-                  className="min-w-0 text-center space-y-0.5 px-0.5"
+                  className={`min-w-0 text-center space-y-0.5 px-0.5 transition-all duration-500 transform ${
+                    isRevealed
+                      ? 'opacity-100 translate-y-0'
+                      : 'opacity-0 translate-y-3 pointer-events-none'
+                  }`}
                   onMouseEnter={() => activateLevel(level.id)}
                   onMouseLeave={clearHover}
                 >
@@ -839,12 +992,17 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
             <div className="grid grid-cols-4 gap-3 sm:gap-4 items-end">
               {levelsWithXp.map((level) => {
                 const isActive = activeLevelId === level.id;
+                const isRevealed = level.id <= visibleLevelCount;
                 return (
                   <article
                     key={level.id}
                     onMouseEnter={() => activateLevel(level.id)}
                     onMouseLeave={clearHover}
-                    className={`w-full min-w-0 rounded-2xl border px-3.5 py-4 md:px-4 md:py-5 flex flex-col gap-3 transition-all duration-300 ${
+                    className={`w-full min-w-0 rounded-2xl border px-3.5 py-4 md:px-4 md:py-5 flex flex-col gap-3 transition-all duration-500 transform ${
+                      isRevealed
+                        ? 'opacity-100 translate-y-0'
+                        : 'opacity-0 translate-y-4 pointer-events-none'
+                    } ${
                       isDark
                         ? isActive
                           ? 'bg-white/[0.08] border-white/20 shadow-[0_0_24px_rgba(62,207,255,0.12)]'
@@ -889,6 +1047,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
               <CompactLevelCards
                 levels={levelsWithXp}
                 activeLevelId={activeLevelId}
+                visibleLevelCount={visibleLevelCount}
                 isDark={isDark}
                 formatMeta={formatMeta}
                 onActivate={activateLevel}
@@ -898,24 +1057,30 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           )}
         </div>
 
-        <ul
-          className={`flex flex-wrap items-center justify-center gap-x-6 gap-y-3 sm:gap-x-8 rounded-2xl border px-5 py-4 sm:px-8 ${
-            isDark
-              ? 'border-white/10 bg-black/30 text-white/70 backdrop-blur-[2px]'
-              : 'border-black/8 bg-white/80 text-[var(--ink-dim)]'
-          }`}
-        >
-          {SUMMARY_STATS.map(({ key, icon: Icon }) => (
-            <li key={key} className="inline-flex items-center gap-2 text-xs sm:text-sm">
-              <Icon
-                className={`w-3.5 h-3.5 shrink-0 ${isDark ? 'text-[#7ec8ff]' : 'text-[var(--accent)]'}`}
-                strokeWidth={1.75}
-                aria-hidden="true"
-              />
-              <span>{t(key)}</span>
-            </li>
-          ))}
-        </ul>
+        {!userProfile && (
+          <ul
+            className={`flex flex-wrap items-center justify-center gap-x-6 gap-y-3 sm:gap-x-8 rounded-2xl border px-5 py-4 sm:px-8 transition-all duration-700 transform ${
+              visibleLevelCount >= 4
+                ? 'opacity-100 translate-y-0'
+                : 'opacity-0 translate-y-4 pointer-events-none'
+            } ${
+              isDark
+                ? 'border-white/10 bg-black/30 text-white/70 backdrop-blur-[2px]'
+                : 'border-black/8 bg-white/80 text-[var(--ink-dim)]'
+            }`}
+          >
+            {SUMMARY_STATS.map(({ key, icon: Icon }) => (
+              <li key={key} className="inline-flex items-center gap-2 text-xs sm:text-sm">
+                <Icon
+                  className={`w-3.5 h-3.5 shrink-0 ${isDark ? 'text-[#7ec8ff]' : 'text-[var(--accent)]'}`}
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+                <span>{t(key)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </section>
   );

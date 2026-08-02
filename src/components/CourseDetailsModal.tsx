@@ -364,7 +364,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.98, y: 20 }}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="ui-modal relative shadow-2xl w-full max-w-4xl lg:max-w-5xl overflow-hidden transition-colors duration-300 flex flex-col my-8 z-50 max-h-[90vh]"
+          className="ui-modal relative shadow-2xl w-full max-w-4xl lg:max-w-5xl overflow-hidden transition-colors duration-300 flex flex-col my-8 z-50 max-h-[90vh] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
         >
           {/* Hero Section */}
           <div className="relative h-40 sm:h-50 shrink-0 border-b border-[var(--border)] bg-black">
@@ -383,9 +383,9 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="absolute top-4 right-4 p-2 border border-white/20 bg-black/50 hover:bg-black/90 text-white/80 hover:text-white transition cursor-pointer rounded-none z-30"
+              className="absolute top-4 right-4 p-2 rounded-full border border-white/20 bg-black/50 hover:bg-black/90 text-white/80 hover:text-white transition cursor-pointer z-30"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
 
             {/* Badges */}

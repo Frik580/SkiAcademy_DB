@@ -443,12 +443,12 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   };
 
   return createPortal(
-    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="ui-modal shadow-2xl w-full max-w-lg h-[550px] flex flex-col overflow-hidden animate-scale-up">
+    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+      <div className="ui-modal shadow-2xl w-full max-w-lg h-[550px] flex flex-col overflow-hidden relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]">
         {/* Header */}
-        <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/15 shrink-0">
+        <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="p-2 bg-accent-muted border border-accent text-accent">
+            <div className="p-2 rounded-lg bg-accent-muted border border-accent text-accent">
               <MessageSquare className="w-4.5 h-4.5" />
             </div>
             <div className="min-w-0">
@@ -462,10 +462,10 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
+            className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
             title={t('closeBtn')}
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 

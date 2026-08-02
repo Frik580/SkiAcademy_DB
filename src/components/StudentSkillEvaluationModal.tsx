@@ -141,12 +141,12 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
   };
 
   return createPortal(
-    <div className="ui-modal-overlay fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 animate-fade-in overflow-y-auto">
-      <div className="ui-modal w-full max-w-4xl max-h-[90vh] my-auto flex flex-col shadow-2xl overflow-hidden text-[var(--ink)] relative">
+    <div className="ui-modal-overlay fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-xs overflow-y-auto">
+      <div className="ui-modal w-full max-w-4xl max-h-[90vh] my-auto flex flex-col shadow-2xl overflow-hidden rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] relative">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-black/20">
+        <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-accent-muted border border-accent/40 text-accent">
+            <div className="p-2 bg-accent-muted border border-accent/40 text-accent rounded-lg">
               <Award className="w-5 h-5" />
             </div>
             <div>
@@ -162,7 +162,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
 
           <button
             onClick={onClose}
-            className="p-1 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer"
+            className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
           >
             <X className="w-5 h-5" />
           </button>

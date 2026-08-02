@@ -11,6 +11,7 @@ import { useAppLogic } from './components/useAppLogic';
 import { useInstructorFilters } from './components/useInstructorFilters';
 import { AppRoutes } from './components/AppRoutes';
 import { OnboardingModal } from './components/OnboardingModal';
+import { AuthModal } from './components/AuthModal';
 
 import { logger } from './lib/logger';
 import { applyDesignThemeToDOM } from './lib/designTheme';
@@ -144,15 +145,13 @@ const AppContent: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminRoute = location.pathname === '/admin';
-  const isWorkspaceRoute =
-    location.pathname === '/cabinet' ||
-    location.pathname.startsWith('/cabinet/') ||
-    location.pathname === '/instructor';
+  const isPaddedWorkspaceRoute = isAdminRoute || location.pathname === '/instructor';
 
   const [dbStatusWarning, setDbStatusWarning] = useState<string | null>(null);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [isNotifHistoryOpen, setIsNotifHistoryOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [selectedInstructor, setSelectedInstructor] = useState<Instructor | null>(null);
   const [selectedCourseForAuth, setSelectedCourseForAuth] = useState<Course | null>(null);
   const [selectedCourseForDetails, setSelectedCourseForDetails] = useState<Course | null>(null);
@@ -242,15 +241,6 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const handleScrollToAuth = () => {
-    const el = document.getElementById('auth-section');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const input = el.querySelector('input');
-      if (input) input.focus();
-    }
-  };
-
   if (authLoading) {
     return <AppInitSkeleton label={t('checkingCredentials')} />;
   }
@@ -265,14 +255,12 @@ const AppContent: React.FC = () => {
         onSignOut={handleSignOut}
         theme={theme}
         onToggleTheme={toggleTheme}
-        onSignInClick={handleScrollToAuth}
+        onSignInClick={() => setIsAuthModalOpen(true)}
       />
 
       <main
         className={`flex-1 w-full mx-auto ${
-          (isAdminRoute || isWorkspaceRoute) && userProfile
-            ? 'p-6 overflow-y-auto'
-            : 'flex flex-col'
+          isPaddedWorkspaceRoute && userProfile ? 'p-6 overflow-y-auto' : 'flex flex-col'
         }`}
       >
         {dbStatusWarning && (
@@ -468,6 +456,12 @@ const AppContent: React.FC = () => {
         onDismissReview={handleDismissReview}
         dbNotifications={dbNotifications}
         onClearNotifications={handleClearNotifications}
+      />
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={setUserProfile}
       />
 
       <footer className="ui-footer border-t border-[var(--border-subtle)] py-8 lg:py-12 px-6 shrink-0 bg-[var(--profile-bg)]/40">

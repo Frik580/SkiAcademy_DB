@@ -121,11 +121,11 @@ describe('course enrollment production regressions', () => {
       .authenticatedContext(PROD_USER_ID, { email: 'user@example.com' })
       .firestore();
 
-    await expect(
-      enrollInCourse(userDb, PROD_USER_ID, PROD_COURSE_ID, 'en')
-    ).resolves.toMatchObject({
-      bookingId,
-      newBalance: 3860 - 199,
-    });
+    await expect(enrollInCourse(userDb, PROD_USER_ID, PROD_COURSE_ID, 'en')).resolves.toMatchObject(
+      {
+        bookingId,
+        newBalance: 3860 - 199,
+      }
+    );
   });
 });

@@ -45,6 +45,42 @@ export const getRecommendationTasks = (bookings: Booking[]): RecommendationTask[
   });
 };
 
+export interface LatestCoachRecommendation {
+  booking: Booking;
+  recommendation: LessonRecommendation;
+  isPending: boolean;
+}
+
+/** Most recent recommendation from the latest completed lesson that has any. */
+export const getLatestCoachRecommendation = (
+  bookings: Booking[],
+  userId?: string
+): LatestCoachRecommendation | null => {
+  const booking = bookings
+    .filter(
+      (b) =>
+        (!userId || b.userId === userId) &&
+        !b.isDeleted &&
+        b.status === 'completed' &&
+        (b.recommendations?.length ?? 0) > 0
+    )
+    .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time))[0];
+
+  if (!booking) return null;
+
+  const completed = new Set(booking.completedRecommendationIds ?? []);
+  const recs = booking.recommendations ?? [];
+  const pending = recs.find((rec) => !completed.has(rec.id));
+  const recommendation = pending ?? recs[recs.length - 1];
+  if (!recommendation) return null;
+
+  return {
+    booking,
+    recommendation,
+    isPending: pending != null,
+  };
+};
+
 export const toggleCompletedRecommendationIds = (
   current: string[] | undefined,
   itemId: string,

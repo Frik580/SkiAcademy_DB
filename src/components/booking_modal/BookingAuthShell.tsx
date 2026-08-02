@@ -22,7 +22,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: 15 }}
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      className="ui-modal shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 flex flex-col max-h-[90vh]"
+      className="ui-modal shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 flex flex-col max-h-[90vh] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
     >
       <BookingModalHeader targetInstructor={targetInstructor} t={t} onClose={onClose} />
 
@@ -41,7 +41,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
             <p className="text-[11px] font-mono text-[var(--ink-dim)] uppercase tracking-wider text-center leading-relaxed">
               {t('bookingSignInPrompt')}
             </p>
-            <div className="border border-[var(--border)] p-4 bg-black/10">
+            <div className="border border-[var(--border)] p-4 bg-black/5 dark:bg-white/5 rounded-xl">
               <Auth onSuccess={onAuthSuccess || (() => {})} />
             </div>
           </div>

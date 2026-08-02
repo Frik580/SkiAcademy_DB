@@ -54,19 +54,19 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="ui-modal shadow-2xl w-full max-w-xl overflow-hidden transition-colors duration-300 flex flex-col max-h-[85vh]"
+            className="ui-modal shadow-2xl w-full max-w-xl overflow-hidden transition-colors duration-300 flex flex-col max-h-[85vh] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] relative"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/10 shrink-0">
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 overflow-hidden bg-black/15 border border-[var(--border)] rounded-none shrink-0 filter grayscale">
+                <div className="w-10 h-10 overflow-hidden bg-black/5 dark:bg-white/5 border border-[var(--border)] rounded-full shrink-0 filter grayscale">
                   <img
                     src={targetInstructor.avatarUrl}
                     alt={targetInstructor.name}
@@ -84,16 +84,16 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
               </div>
               <button
                 onClick={onClose}
-                className="p-1.5 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
+                className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Content Area with scroll */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
               {/* Summary / Stats Block */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 bg-black/10 p-4 border border-[var(--border)] rounded-none">
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 bg-black/5 dark:bg-white/5 p-4 border border-[var(--border)] rounded-xl">
                 {/* Big Rating */}
                 <div className="sm:col-span-5 flex flex-col items-center justify-center text-center sm:border-r border-[var(--border)] pr-2 font-mono">
                   <span className="text-4xl font-light text-[var(--ink)] leading-none">

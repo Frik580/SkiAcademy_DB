@@ -46,11 +46,7 @@ export const buildCourseEnrollmentBooking = (
   };
 };
 
-export const buildProdCourseSeed = (
-  courseId: string,
-  availableSeats = 3,
-  price = 199
-) => ({
+export const buildProdCourseSeed = (courseId: string, availableSeats = 3, price = 199) => ({
   title: 'BASE — Первые повороты',
   duration: '5 days',
   description: 'Learn to ski confidently from scratch',

@@ -3,11 +3,21 @@ import { StudentCabinetTab } from '../components/personal_cabinet/student/studen
 
 export const CABINET_TABS: StudentCabinetTab[] = [
   'home',
+  'training',
+  'coach',
   'development',
   'calendar',
   'courses',
   'instructors',
   'settings',
+  'profile_personal',
+  'profile_journey',
+  'profile_skills',
+  'profile_certificates',
+  'profile_achievements',
+  'profile_season',
+  'profile_videos',
+  'profile_preferences',
   'history',
 ];
 

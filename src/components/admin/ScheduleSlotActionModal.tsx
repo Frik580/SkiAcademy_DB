@@ -428,13 +428,13 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="bg-[var(--bg)] border border-[var(--border)] rounded-none w-full max-w-md p-6 shadow-2xl relative space-y-4 transition-colors duration-300 animate-scale-up">
+    <div className="ui-modal-overlay fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+      <div className="ui-modal bg-[var(--card-bg)] border border-[var(--border)] text-[var(--ink)] rounded-2xl w-full max-w-md p-6 shadow-2xl relative space-y-4">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-[var(--ink-dim)] hover:text-[var(--ink)] border border-[var(--border)] bg-black/5 hover:bg-black/10 transition p-1 rounded-none cursor-pointer"
+          className="absolute top-4 right-4 p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
         >
-          <X className="w-4 h-4" />
+          <X className="w-5 h-5" />
         </button>
 
         <div>
@@ -449,7 +449,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
 
         {activeSlot.booking ? (
           <form onSubmit={handleSlotMoveSubmit} className="space-y-4">
-            <div className="bg-black/10 p-3 rounded-none border border-[var(--border)] space-y-1.5">
+            <div className="bg-black/5 dark:bg-white/5 p-3.5 rounded-xl border border-[var(--border)] space-y-1.5">
               <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink)]">
                 {t('currentDetails')}
               </div>
@@ -797,19 +797,22 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
                       }
                       className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer"
                     >
-                      <option value="beginner" className="bg-[var(--bg)] text-[var(--ink)]">
+                      <option value="beginner" className="bg-[var(--card-bg)] text-[var(--ink)]">
                         {t('difficultyBeginner')}
                       </option>
-                      <option value="intermediate" className="bg-[var(--bg)] text-[var(--ink)]">
+                      <option
+                        value="intermediate"
+                        className="bg-[var(--card-bg)] text-[var(--ink)]"
+                      >
                         {t('difficultyIntermediate')}
                       </option>
-                      <option value="advanced" className="bg-[var(--bg)] text-[var(--ink)]">
+                      <option value="advanced" className="bg-[var(--card-bg)] text-[var(--ink)]">
                         {t('difficultyAdvanced')}
                       </option>
-                      <option value="freeride" className="bg-[var(--bg)] text-[var(--ink)]">
+                      <option value="freeride" className="bg-[var(--card-bg)] text-[var(--ink)]">
                         {t('difficultyFreeride')}
                       </option>
-                      <option value="freestyle" className="bg-[var(--bg)] text-[var(--ink)]">
+                      <option value="freestyle" className="bg-[var(--card-bg)] text-[var(--ink)]">
                         {t('difficultyFreestyle')}
                       </option>
                     </select>

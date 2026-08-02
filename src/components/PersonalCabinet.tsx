@@ -17,6 +17,7 @@ import { AVAILABILITY_SLOTS_COLLECTION } from '../lib/availabilitySlots';
 import { SkillConfig } from '../lib/skillData';
 import { AchievementsConfig } from '../lib/achievementConfig';
 import { StudentCabinetShell } from './personal_cabinet/student/StudentCabinetShell';
+import { StudentCabinetResortSnapshot } from './personal_cabinet/student/StudentHomeBottomSections';
 import { RescheduleModal } from './personal_cabinet/RescheduleModal';
 import { ReviewModal } from './personal_cabinet/ReviewModal';
 import { LessonDetailsModal } from './personal_cabinet/LessonDetailsModal';
@@ -70,6 +71,8 @@ interface PersonalCabinetProps {
   onBookInstructor?: (instructor: Instructor) => void;
   onViewInstructorReviews?: (instructor: Instructor) => void;
   forcedMode?: 'client' | 'instructor';
+  resortSnapshot?: StudentCabinetResortSnapshot;
+  onToggleTemperatureUnit?: () => void;
 }
 
 export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
@@ -102,6 +105,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   onBookInstructor,
   onViewInstructorReviews,
   forcedMode,
+  resortSnapshot,
+  onToggleTemperatureUnit,
 }) => {
   const { addNotification } = useNotifications();
   const { language, t } = useLanguage();
@@ -487,7 +492,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   const activeMode = forcedMode ?? 'client';
 
   return (
-    <div className="space-y-6 w-full max-w-full min-w-0">
+    <div className="w-full max-w-full min-w-0">
       {activeMode === 'instructor' ? (
         <LazyLoad
           fallback={
@@ -594,6 +599,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             onBookInstructor={onBookInstructor ?? (() => {})}
             onViewInstructorReviews={onViewInstructorReviews ?? (() => {})}
             syncTabWithRoute={forcedMode === 'client'}
+            resortSnapshot={resortSnapshot}
+            onToggleTemperatureUnit={onToggleTemperatureUnit}
+            usersList={usersList}
           />
 
           <RescheduleModal

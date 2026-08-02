@@ -14,7 +14,7 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({ level, theme, onClos
 
   return createPortal(
     <div
-      className="ui-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center animate-fade-in p-4 cursor-pointer"
+      className="ui-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 cursor-pointer bg-black/60 backdrop-blur-xs"
       onClick={onClose}
     >
       <style>{`
@@ -31,7 +31,7 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({ level, theme, onClos
       `}</style>
 
       <div
-        className="ui-modal relative p-8 flex flex-col items-center text-center shadow-2xl max-w-sm w-full overflow-hidden cursor-default theme-air:bg-[var(--card-bg)]"
+        className="ui-modal relative p-8 flex flex-col items-center text-center shadow-2xl max-w-sm w-full overflow-hidden cursor-default rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div
@@ -41,7 +41,7 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({ level, theme, onClos
 
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 text-[var(--ink-dim)] hover:text-[var(--ink)] p-1.5 transition-colors z-10 cursor-pointer"
+          className="absolute top-4 right-4 p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
         >
           <X className="w-5 h-5" />
         </button>

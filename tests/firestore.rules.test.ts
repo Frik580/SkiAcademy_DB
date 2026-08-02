@@ -502,10 +502,7 @@ describe('course enrollment transactions', () => {
 
     await seedData(async (context) => {
       const seedDb = context.firestore();
-      await setDoc(
-        doc(seedDb, 'users', USER_ID),
-        userProfile(USER_ID, 'user@example.com', 'user')
-      );
+      await setDoc(doc(seedDb, 'users', USER_ID), userProfile(USER_ID, 'user@example.com', 'user'));
       await setDoc(
         bookingRef,
         buildCourseEnrollmentBooking(USER_ID, 'course-1', {
@@ -551,7 +548,9 @@ describe('course enrollment transactions', () => {
   });
 
   it('allows the production enrollment transaction when a legacy cancelled booking exists', async () => {
-    const db = testEnv.authenticatedContext(PROD_USER_ID, { email: 'user@example.com' }).firestore();
+    const db = testEnv
+      .authenticatedContext(PROD_USER_ID, { email: 'user@example.com' })
+      .firestore();
     const courseRef = doc(db, 'courses', PROD_COURSE_ID);
     const bookingRef = doc(db, 'bookings', prodBookingId(PROD_USER_ID, PROD_COURSE_ID));
     const userRef = doc(db, 'users', PROD_USER_ID);
@@ -621,7 +620,9 @@ describe('course enrollment transactions', () => {
   });
 
   it('allows balance decrease during course payment', async () => {
-    const db = testEnv.authenticatedContext(PROD_USER_ID, { email: 'user@example.com' }).firestore();
+    const db = testEnv
+      .authenticatedContext(PROD_USER_ID, { email: 'user@example.com' })
+      .firestore();
     const userRef = doc(db, 'users', PROD_USER_ID);
 
     await seedData(async (context) => {

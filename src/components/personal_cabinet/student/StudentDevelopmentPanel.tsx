@@ -46,7 +46,7 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelProps> = (
   return (
     <div className="space-y-0 pb-24 max-w-3xl mx-auto px-4 sm:px-6 w-full min-w-0">
       <section className="py-6 space-y-4">
-        <StudentPanelBackLink onClick={() => onGoToTab('home')} />
+        <StudentPanelBackLink onClick={() => onGoToTab('training')} labelKey="scNavTraining" />
         <div className="space-y-1">
           <h1 className="text-2xl font-serif font-light text-[var(--ink)]">
             {t('scDevelopmentDetail')}

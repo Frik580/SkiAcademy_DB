@@ -30,17 +30,17 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   if (!booking) return null;
 
   return createPortal(
-    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="ui-modal shadow-2xl w-full max-w-sm overflow-hidden animate-scale-up">
-        <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/10">
+    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+      <div className="ui-modal shadow-2xl w-full max-w-sm overflow-hidden relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]">
+        <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5">
           <h4 className="font-serif text-sm font-light text-[var(--ink)]">
             {t('reviewAbout')} {booking.instructorName}
           </h4>
           <button
             onClick={onClose}
-            className="p-1 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
+            className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
         <form onSubmit={onSubmit} className="p-5 space-y-4">

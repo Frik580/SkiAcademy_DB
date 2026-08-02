@@ -2,28 +2,24 @@ import React from 'react';
 import { motion } from 'motion/react';
 import {
   ArrowLeft,
-  Calendar,
+  GraduationCap,
   Home,
-  LayoutGrid,
   LucideIcon,
-  Settings,
-  TrendingUp,
-  Users,
+  User,
+  UserRound,
 } from 'lucide-react';
 import { useLanguage, type TranslationKey } from '../../../lib/LanguageContext';
-import { StudentCabinetTab } from './studentCabinetUtils';
+import { resolveStudentBottomNavTab, StudentCabinetTab } from './studentCabinetUtils';
 
-export const STUDENT_TABS: {
+export const STUDENT_BOTTOM_TABS: {
   id: StudentCabinetTab;
   labelKey: TranslationKey;
   icon: LucideIcon;
 }[] = [
   { id: 'home', labelKey: 'scNavHome', icon: Home },
-  { id: 'development', labelKey: 'scNavDevelopment', icon: TrendingUp },
-  { id: 'calendar', labelKey: 'scNavCalendar', icon: Calendar },
-  { id: 'courses', labelKey: 'scNavCourses', icon: LayoutGrid },
-  { id: 'instructors', labelKey: 'scNavInstructors', icon: Users },
-  { id: 'settings', labelKey: 'scNavSettings', icon: Settings },
+  { id: 'training', labelKey: 'scNavTraining', icon: GraduationCap },
+  { id: 'coach', labelKey: 'scNavCoach', icon: UserRound },
+  { id: 'settings', labelKey: 'scNavProfile', icon: User },
 ];
 
 export const STUDENT_TAB_BAR_HEIGHT = '3.25rem';
@@ -31,7 +27,9 @@ export const STUDENT_TAB_BAR_HEIGHT = '3.25rem';
 export const StudentPanelBackLink: React.FC<{
   onClick: () => void;
   className?: string;
-}> = ({ onClick, className = '' }) => {
+  labelKey?: TranslationKey;
+  label?: string;
+}> = ({ onClick, className = '', labelKey = 'scNavHome', label }) => {
   const { t } = useLanguage();
 
   return (
@@ -41,7 +39,7 @@ export const StudentPanelBackLink: React.FC<{
       className={`inline-flex items-center gap-2 text-sm text-[var(--ink-dim)] hover:text-[var(--ink)] transition-colors ${className}`}
     >
       <ArrowLeft className="h-4 w-4" aria-hidden />
-      {t('scNavHome')}
+      {label ?? t(labelKey)}
     </button>
   );
 };
@@ -63,8 +61,8 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
       aria-label={t('scNavHome')}
     >
       <div className="pointer-events-auto w-full max-w-2xl mx-auto rounded-full bg-[color-mix(in_srgb,var(--card-bg)_78%,transparent)] backdrop-blur-2xl backdrop-saturate-150 border border-[color-mix(in_srgb,var(--ink)_10%,transparent)] shadow-[0_12px_36px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.06),inset_0_1px_1px_rgba(255,255,255,0.3)] p-1.5 flex items-center justify-around relative gap-1">
-        {STUDENT_TABS.map(({ id, labelKey, icon: Icon }) => {
-          const active = activeTab === id;
+        {STUDENT_BOTTOM_TABS.map(({ id, labelKey, icon: Icon }) => {
+          const active = resolveStudentBottomNavTab(activeTab) === id;
           return (
             <button
               key={id}

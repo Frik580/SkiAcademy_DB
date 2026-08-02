@@ -1,13 +1,12 @@
 import React from 'react';
 import { AnimatePresence } from 'motion/react';
-import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { User } from 'firebase/auth';
 import { Compass } from 'lucide-react';
 
 import { AdminRoute } from './AdminRoute';
 import { AuthRoute } from './AuthRoute';
 import { InstructorRoute } from './InstructorRoute';
-import { Auth } from './Auth';
 import { YourJourneySection } from './YourJourneySection';
 import { GroupCoursesSection } from './GroupCoursesSection';
 import { HeroCarousel } from './HeroCarousel';
@@ -28,7 +27,7 @@ import { SkillConfig } from '../lib/skillData';
 import { AchievementsConfig } from '../lib/achievementConfig';
 import { useLanguage } from '../lib/LanguageContext';
 import { DesignTheme } from '../lib/designTheme';
-import { CABINET_TABS } from '../lib/workspaceRoutes';
+import { CABINET_TABS, getDefaultWorkspacePath } from '../lib/workspaceRoutes';
 import { InstructorSpecialty, InstructorSortBy } from './useInstructorFilters';
 import { LazyLoad } from './LazyLoad';
 import { CardSkeleton, Skeleton } from './ui/Skeleton';
@@ -192,6 +191,8 @@ const PersonalCabinetPage: React.FC<AppRoutesProps & { forcedMode: 'client' | 'i
     setSelectedInstructor,
     setReviewsInstructor,
     forcedMode,
+    resortData,
+    setIsFahrenheit,
   } = props;
 
   if (!userProfile) return null;
@@ -228,6 +229,15 @@ const PersonalCabinetPage: React.FC<AppRoutesProps & { forcedMode: 'client' | 'i
         onBookInstructor={setSelectedInstructor}
         onViewInstructorReviews={setReviewsInstructor}
         forcedMode={forcedMode}
+        resortSnapshot={{
+          resortConfig: resortData.resortConfig,
+          tempC: resortData.tempC,
+          snowDepthCm: resortData.snowDepthCm,
+          windKmh: resortData.windKmh,
+          weatherCode: resortData.weatherCode,
+          isFahrenheit: resortData.isFahrenheit,
+        }}
+        onToggleTemperatureUnit={() => setIsFahrenheit(!resortData.isFahrenheit)}
       />
     </LazyLoad>
   );
@@ -242,7 +252,7 @@ const CabinetRouteWrapper: React.FC<AppRoutesProps> = (props) => {
 
   return (
     <AuthRoute userProfile={props.userProfile}>
-      <div className="w-full max-w-7xl mx-auto min-w-0">
+      <div className="w-full min-w-0">
         <PersonalCabinetPage {...props} forcedMode="client" />
       </div>
     </AuthRoute>
@@ -259,7 +269,6 @@ const InstructorRouteWrapper: React.FC<AppRoutesProps> = (props) => (
 
 const HomeRoute: React.FC<AppRoutesProps> = (props) => {
   const { t } = useLanguage();
-  const navigate = useNavigate();
   const {
     userProfile,
     language,
@@ -283,13 +292,16 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
     setSelectedCourseForDetails,
     setReviewsInstructor,
     onBookCourse,
-    setUserProfile,
   } = props;
 
   const handleScrollToSection = (id: string) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+
+  if (userProfile && userProfile.role !== 'admin') {
+    return <Navigate to={getDefaultWorkspacePath(userProfile)} replace />;
+  }
 
   return (
     <>
@@ -306,15 +318,9 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
         actions={{ onScrollToSection: handleScrollToSection }}
       />
 
-      <YourJourneySection skillConfig={props.skillConfig} userProfile={userProfile} />
+      <YourJourneySection skillConfig={props.skillConfig} userProfile={null} />
 
-      <div
-        className={`flex flex-col lg:grid gap-0 lg:gap-12 theme-air:lg:gap-16 ${
-          userProfile
-            ? 'lg:grid-cols-[minmax(140px,200px)_1fr]'
-            : 'lg:grid-cols-[minmax(140px,200px)_minmax(450px,1fr)_minmax(250px,320px)]'
-        }`}
-      >
+      <div className="flex flex-col lg:grid gap-0 lg:gap-12 theme-air:lg:gap-16 lg:grid-cols-[minmax(140px,200px)_1fr]">
         <ResortConditionsSidebar
           data={{
             language,
@@ -398,20 +404,6 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
             </div>
           </div>
         </div>
-
-        {!userProfile && (
-          <aside className="border-t lg:border-t-0 lg:border-l border-[var(--layout-divider)] px-6 pt-8 pb-10 lg:px-10 lg:pt-10 lg:pb-14 bg-[var(--profile-bg)] flex flex-col justify-start shrink-0 theme-air:bg-transparent">
-            <div id="auth-section" className="w-full max-w-[240px] mx-auto">
-              <Auth
-                variant="sidebar"
-                onSuccess={(profile) => {
-                  setUserProfile(profile);
-                  navigate('/');
-                }}
-              />
-            </div>
-          </aside>
-        )}
       </div>
     </>
   );

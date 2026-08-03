@@ -13,7 +13,14 @@ import { useNotifications } from './PushNotificationHub';
 import { useLanguage, parseCourseDates, useTranslatedBookings } from '../lib/LanguageContext';
 import { useTheme } from './useTheme';
 import { db, collection, query, getDocs, where } from '../lib/firebase';
-import { AVAILABILITY_SLOTS_COLLECTION } from '../lib/availabilitySlots';
+import {
+  AVAILABILITY_SLOTS_COLLECTION,
+  DEFAULT_LESSON_TIME_SLOTS,
+  fitsLessonDaySchedule,
+  isBookingSlotInPast,
+  timeStrToMinutes,
+  toLocalDateStr,
+} from '../lib/availabilitySlots';
 import { SkillConfig } from '../lib/skillData';
 import { AchievementsConfig } from '../lib/achievementConfig';
 import { StudentCabinetShell } from './personal_cabinet/student/StudentCabinetShell';
@@ -191,41 +198,18 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     if (!currentBooking || !newDate) return [];
 
     const duration = currentBooking.durationHours;
-    const timeSlots = [
-      '08:00',
-      '09:00',
-      '10:00',
-      '11:00',
-      '12:00',
-      '13:00',
-      '14:00',
-      '15:00',
-      '16:00',
-      '17:00',
-      '18:00',
-    ];
 
-    const timeToMinutes = (tStr: string): number => {
-      const [h, m] = tStr.split(':').map(Number);
-      return h * 60 + m;
-    };
+    return DEFAULT_LESSON_TIME_SLOTS.filter((slot) => {
+      if (!fitsLessonDaySchedule(slot, duration)) return false;
+      if (isBookingSlotInPast(newDate, slot)) return false;
 
-    const toYMD = (d: Date): string => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${day}`;
-    };
-
-    return timeSlots.filter((slot) => {
-      const start = timeToMinutes(slot);
+      const start = timeStrToMinutes(slot);
       const end = start + duration * 60;
-      if (end > 1140) return false; // Exceeds closing time 19:00
 
       // Check standard bookings overlap
       for (const b of rescheduleInstructorBookings) {
         if (b.date !== newDate) continue;
-        const bStart = timeToMinutes(b.time);
+        const bStart = timeStrToMinutes(b.time);
         const bEnd = bStart + b.durationHours * 60;
 
         if (start < bEnd && end > bStart) {
@@ -245,13 +229,13 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             startTime: cStartTime,
             endTime: cEndTime,
           } = parseCourseDates(course.dates);
-          const startStr = toYMD(cStart);
-          const endStr = toYMD(cEnd);
+          const startStr = toLocalDateStr(cStart);
+          const endStr = toLocalDateStr(cEnd);
 
           if (newDate < startStr || newDate > endStr) return false;
 
-          const cStartMin = timeToMinutes(cStartTime);
-          const cEndMin = timeToMinutes(cEndTime);
+          const cStartMin = timeStrToMinutes(cStartTime);
+          const cEndMin = timeStrToMinutes(cEndTime);
           return start < cEndMin && end > cStartMin;
         });
 
@@ -482,11 +466,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     }
   };
 
-  const tomorrowStr = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().split('T')[0];
-  })();
+  const minBookingDateStr = toLocalDateStr();
 
   const showInstructorTab = userProfile.role === 'admin' || !!userProfile.isInstructor;
   const activeMode = forcedMode ?? 'client';
@@ -614,7 +594,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             availableSlots={availableSlots}
             isLoadingSlots={isLoadingInstructorBookings}
             isSubmitting={isRescheduling}
-            minDate={tomorrowStr}
+            minDate={minBookingDateStr}
             onSubmit={handleRescheduleSubmit}
           />
 

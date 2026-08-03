@@ -15,7 +15,12 @@ import { db, collection, query, getDocs, where, doc, writeBatch } from '../../li
 import {
   AVAILABILITY_SLOTS_COLLECTION,
   blocksInstructorAvailability,
+  DEFAULT_LESSON_TIME_SLOTS,
+  isBookingSlotInPast,
+  fitsLessonDaySchedule,
+  timeStrToMinutes,
   toAvailabilitySlot,
+  toLocalDateStr,
 } from '../../lib/availabilitySlots';
 
 export interface BookingModalInput {
@@ -91,17 +96,11 @@ export const useBookingModal = ({
     return `${y}-${m}-${day}`;
   };
 
-  const tomorrowStr = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().split('T')[0];
-  }, []);
+  const minBookingDateStr = useMemo(() => toLocalDateStr(), []);
 
   useEffect(() => {
     if (isOpen) {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      setDate(tomorrow.toISOString().split('T')[0]);
+      setDate(toLocalDateStr());
       setTime('08:00');
     }
   }, [isOpen]);
@@ -167,25 +166,15 @@ export const useBookingModal = ({
   }, [isOpen, targetInstructor?.id, userProfile?.uid]);
 
   const availableSlots = useMemo(() => {
-    const slots = [
-      '08:00',
-      '09:00',
-      '10:00',
-      '11:00',
-      '12:00',
-      '13:00',
-      '14:00',
-      '15:00',
-      '16:00',
-      '17:00',
-      '18:00',
-    ];
+    const slots = [...DEFAULT_LESSON_TIME_SLOTS];
     const normDate = normalizeDateStr(date);
 
     return slots.filter((slot) => {
-      const start = timeToMinutes(slot);
+      if (!fitsLessonDaySchedule(slot, duration)) return false;
+      if (normDate && isBookingSlotInPast(normDate, slot)) return false;
+
+      const start = timeStrToMinutes(slot);
       const end = start + duration * 60;
-      if (end > 1140) return false;
 
       if (!normDate) return true;
 
@@ -490,7 +479,7 @@ export const useBookingModal = ({
     totalCost,
     userBalance,
     hasSufficientFunds,
-    tomorrowStr,
+    minBookingDateStr,
     handleSubmitGuest,
     handleSubmit,
     onOpenTopUp,

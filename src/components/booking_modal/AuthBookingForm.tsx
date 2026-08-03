@@ -26,7 +26,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
     isSubmitting,
     isLoadingBookings,
     availableSlots,
-    tomorrowStr,
+    minBookingDateStr,
     isTimeSlotOccupied,
     overlappingBooking,
     overlappingCourse,
@@ -55,7 +55,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
         setDifficulty={setDifficulty}
         isLoadingBookings={isLoadingBookings}
         availableSlots={availableSlots}
-        tomorrowStr={tomorrowStr}
+        minBookingDateStr={minBookingDateStr}
         t={t}
         language={language}
         getDifficultyLabel={getDifficultyLabel}

@@ -1,13 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import {
-  ArrowLeft,
-  GraduationCap,
-  Home,
-  LucideIcon,
-  User,
-  UserRound,
-} from 'lucide-react';
+import { ArrowLeft, GraduationCap, Home, LucideIcon, User, UserRound } from 'lucide-react';
 import { useLanguage, type TranslationKey } from '../../../lib/LanguageContext';
 import { resolveStudentBottomNavTab, StudentCabinetTab } from './studentCabinetUtils';
 

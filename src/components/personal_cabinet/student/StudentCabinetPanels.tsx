@@ -62,7 +62,9 @@ export const StudentTrainingPanel: React.FC<Pick<StudentCabinetContext, 'onGoToT
             </span>
             <span className="flex-1 min-w-0">
               <span className="block text-sm font-medium text-[var(--ink)]">{t(labelKey)}</span>
-              <span className="block text-xs text-[var(--ink-dim)] mt-0.5 truncate">{t(descKey)}</span>
+              <span className="block text-xs text-[var(--ink-dim)] mt-0.5 truncate">
+                {t(descKey)}
+              </span>
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ink-dim)]" aria-hidden />
           </button>
@@ -91,6 +93,8 @@ export const StudentCalendarPanel: React.FC<
 > = ({
   userProfile,
   bookings,
+  courses,
+  usersList = [],
   unreviewedCompletedBookings,
   onDismissReview,
   onReschedule,
@@ -111,6 +115,8 @@ export const StudentCalendarPanel: React.FC<
       </div>
       <ClientBookingsList
         userBookings={userBookings}
+        courses={courses}
+        usersList={usersList}
         unreviewedCompletedBookings={unreviewedCompletedBookings}
         showWorkoutCalendar
         onDismissReview={onDismissReview}

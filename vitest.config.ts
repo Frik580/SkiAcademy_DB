@@ -33,7 +33,10 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      include: ['src/lib/**/*.ts', 'src/components/personal_cabinet/student/studentCabinetUtils.ts'],
+      include: [
+        'src/lib/**/*.ts',
+        'src/components/personal_cabinet/student/studentCabinetUtils.ts',
+      ],
       exclude: COVERAGE_EXCLUDE,
       thresholds: {
         lines: 45,

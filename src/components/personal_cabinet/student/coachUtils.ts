@@ -9,6 +9,33 @@ export const resolveInstructorUserId = (
   usersList: UserProfile[]
 ): string | undefined => usersList.find((u) => u.instructorId === instructorId)?.uid;
 
+export const resolveInstructorPhone = (
+  instructorId: string,
+  usersList: UserProfile[]
+): string | undefined => {
+  const phone = usersList.find((u) => u.instructorId === instructorId)?.phoneNumber?.trim();
+  return phone || undefined;
+};
+
+export const resolveBookingCoachPhone = (
+  booking: Booking,
+  courses: Course[],
+  usersList: UserProfile[]
+): string | undefined => {
+  if (booking.instructorId.startsWith('course_')) {
+    const courseId = booking.instructorId.substring('course_'.length);
+    const course = courses.find((c) => c.id === courseId);
+    for (const instructorId of course?.instructorIds ?? []) {
+      const phone = resolveInstructorPhone(instructorId, usersList);
+      if (phone) return phone;
+    }
+    return undefined;
+  }
+  return resolveInstructorPhone(booking.instructorId, usersList);
+};
+
+export const normalizeTelHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`;
+
 export const getStudentBookingsWithInstructor = (
   bookings: Booking[],
   instructorId: string,
@@ -160,7 +187,11 @@ export const getInstructorLastLessonDate = (
   return formatBookingDayMonth(latest, courses, language);
 };
 
-export const getPreferredChatBooking = (bookings: Booking[], instructorId: string, userId?: string) => {
+export const getPreferredChatBooking = (
+  bookings: Booking[],
+  instructorId: string,
+  userId?: string
+) => {
   const list = getStudentBookingsWithInstructor(bookings, instructorId, userId);
   const active = list.find((b) => b.status === 'confirmed' || b.status === 'pending');
   return active ?? list[0] ?? null;

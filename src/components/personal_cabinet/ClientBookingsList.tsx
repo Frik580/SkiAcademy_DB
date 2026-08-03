@@ -8,7 +8,8 @@ import {
   MessageSquare,
   Trash2,
 } from 'lucide-react';
-import { Booking } from '../../types';
+import { Booking, Course, UserProfile } from '../../types';
+import { BookingCallCoachButton } from './student/BookingCallCoachButton';
 import {
   useLanguage,
   parseCourseDates,
@@ -31,16 +32,19 @@ import {
   hasPendingRecommendations,
 } from '../../lib/lessonRecommendations';
 
-const LIST_SCOPE_FILTERS: BookingListScope[] = ['upcoming', 'past', 'all'];
+const LIST_SCOPE_FILTERS: BookingListScope[] = ['upcoming', 'current', 'past', 'all'];
 
 const LIST_SCOPE_LABEL_KEYS = {
   upcoming: 'scCalendarUpcoming',
+  current: 'scCalendarCurrent',
   past: 'scCalendarPast',
   all: 'scHistoryFilterAll',
 } as const;
 
 interface ClientBookingsListProps {
   userBookings: Booking[];
+  courses?: Course[];
+  usersList?: UserProfile[];
   unreviewedCompletedBookings?: Booking[];
   showWorkoutCalendar?: boolean;
   onDismissReview?: (bookingId: string) => void;
@@ -53,6 +57,8 @@ interface ClientBookingsListProps {
 
 export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
   userBookings,
+  courses = [],
+  usersList = [],
   unreviewedCompletedBookings = [],
   showWorkoutCalendar = true,
   onDismissReview,
@@ -139,8 +145,10 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
 
   const scopedBookings = useMemo(
     () =>
-      selectedDateFilter ? filteredBookings : filterBookingsByScope(filteredBookings, listScope),
-    [filteredBookings, listScope, selectedDateFilter]
+      selectedDateFilter
+        ? filteredBookings
+        : filterBookingsByScope(filteredBookings, listScope, courses),
+    [filteredBookings, listScope, selectedDateFilter, courses]
   );
 
   const displayedBookings = selectedDateFilter
@@ -456,6 +464,15 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                             <MessageSquare className="w-3.5 h-3.5" />
                             {t('chat')}
                           </button>
+                        )}
+
+                        {b.status !== 'cancelled' && (
+                          <BookingCallCoachButton
+                            booking={b}
+                            courses={courses}
+                            usersList={usersList}
+                            variant="outline"
+                          />
                         )}
 
                         {b.status !== 'cancelled' && onOpenLesson && (

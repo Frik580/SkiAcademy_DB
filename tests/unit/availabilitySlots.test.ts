@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   blocksInstructorAvailability,
+  fitsLessonDaySchedule,
+  isBookingSlotInPast,
   isCourseBooking,
   toAvailabilitySlot,
+  toLocalDateStr,
 } from '../../src/lib/availabilitySlots';
 import type { Booking } from '../../src/types';
 
@@ -81,5 +84,39 @@ describe('toAvailabilitySlot', () => {
       durationHours: 2,
       slotType: 'block',
     });
+  });
+});
+
+describe('toLocalDateStr', () => {
+  it('formats local calendar date as YYYY-MM-DD', () => {
+    expect(toLocalDateStr(new Date(2026, 7, 3, 23, 59))).toBe('2026-08-03');
+  });
+});
+
+describe('isBookingSlotInPast', () => {
+  const noon = new Date(2026, 7, 3, 12, 0);
+
+  it('returns false for future dates', () => {
+    expect(isBookingSlotInPast('2026-08-04', '08:00', noon)).toBe(false);
+  });
+
+  it('returns true for earlier slots today', () => {
+    expect(isBookingSlotInPast('2026-08-03', '08:00', noon)).toBe(true);
+    expect(isBookingSlotInPast('2026-08-03', '11:00', noon)).toBe(true);
+  });
+
+  it('returns false for current or later slots today', () => {
+    expect(isBookingSlotInPast('2026-08-03', '12:00', noon)).toBe(false);
+    expect(isBookingSlotInPast('2026-08-03', '14:00', noon)).toBe(false);
+  });
+});
+
+describe('fitsLessonDaySchedule', () => {
+  it('allows slots that end by 19:00', () => {
+    expect(fitsLessonDaySchedule('17:00', 2)).toBe(true);
+  });
+
+  it('rejects slots that extend past 19:00', () => {
+    expect(fitsLessonDaySchedule('18:00', 2)).toBe(false);
   });
 });

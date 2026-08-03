@@ -1,13 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import {
-  ActivityLog,
-  Booking,
-  Course,
-  Instructor,
-  UserProfile,
-} from '../../../types';
+import { ActivityLog, Booking, Course, Instructor, UserProfile } from '../../../types';
 import { SkillConfig } from '../../../lib/skillData';
-import { useLanguage, translateInstructor, type TranslationKey } from '../../../lib/LanguageContext';
+import {
+  useLanguage,
+  translateInstructor,
+  type TranslationKey,
+} from '../../../lib/LanguageContext';
 import { InstructorCard } from '../../InstructorCard';
 import {
   ScDivider,
@@ -45,6 +43,8 @@ import {
 
 type CoachSubView = 'chat' | 'videos' | 'comments' | 'homework' | 'recommendations';
 type CoachView = 'list' | CoachSubView;
+
+const EMPTY_BOOKING_IDS: string[] = [];
 
 const COACH_HUB_ITEMS: {
   view: CoachSubView;
@@ -155,7 +155,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
 
   const bookingIds = useMemo(() => instructorBookings.map((b) => b.id), [instructorBookings]);
   const { messages, loading: messagesLoading } = useInstructorBookingMessages(
-    view !== 'list' ? bookingIds : []
+    view !== 'list' ? bookingIds : EMPTY_BOOKING_IDS
   );
 
   const instructorUserId = selectedInstructor
@@ -189,13 +189,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
       )
     : [];
   const recommendationRows = selectedInstructor
-    ? getInstructorRecommendations(
-        bookings,
-        courses,
-        selectedInstructor.id,
-        userProfile.uid,
-        lang
-      )
+    ? getInstructorRecommendations(bookings, courses, selectedInstructor.id, userProfile.uid, lang)
     : [];
 
   const renderList = () => (
@@ -281,7 +275,9 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
             {preferred && (
               <ScTintCard tint="accent" className="px-4 py-3.5 space-y-2">
                 <p className="text-xs text-[var(--ink-dim)]">{t('scCoachOpenLatestChat')}</p>
-                <ScTextButton onClick={() => onChat(preferred)}>{t('scCoachOpenChat')}</ScTextButton>
+                <ScTextButton onClick={() => onChat(preferred)}>
+                  {t('scCoachOpenChat')}
+                </ScTextButton>
               </ScTintCard>
             )}
             <ScSectionTitle>{t('scCoachSelectLessonChat')}</ScSectionTitle>
@@ -505,7 +501,9 @@ const CoachExtendedActions: React.FC<{
             </span>
             <span className="flex-1 min-w-0">
               <span className="block text-sm font-medium text-[var(--ink)]">{t(labelKey)}</span>
-              <span className="block text-xs text-[var(--ink-dim)] mt-0.5 truncate">{t(descKey)}</span>
+              <span className="block text-xs text-[var(--ink-dim)] mt-0.5 truncate">
+                {t(descKey)}
+              </span>
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ink-dim)]" aria-hidden />
           </button>

@@ -18,11 +18,7 @@ import { StudentCabinetContext } from './StudentCabinetHome';
 import { StudentProfilePersonalSection } from './StudentProfilePersonalSection';
 import { StudentProfilePreferencesSection } from './StudentProfilePreferencesSection';
 import { SkillRadarChart } from './SkillRadarChart';
-import {
-  ScStatGrid,
-  ScTextButton,
-  StudentPanelBackLink,
-} from './StudentCabinetUI';
+import { ScStatGrid, ScTextButton, StudentPanelBackLink } from './StudentCabinetUI';
 import {
   buildStudentHistory,
   getAchievements,
@@ -155,7 +151,9 @@ export const StudentProfileHubPanel: React.FC<Pick<StudentCabinetContext, 'onGoT
             </span>
             <span className="flex-1 min-w-0">
               <span className="block text-sm font-medium text-[var(--ink)]">{t(labelKey)}</span>
-              <span className="block text-xs text-[var(--ink-dim)] mt-0.5 truncate">{t(descKey)}</span>
+              <span className="block text-xs text-[var(--ink-dim)] mt-0.5 truncate">
+                {t(descKey)}
+              </span>
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ink-dim)]" aria-hidden />
           </button>
@@ -308,16 +306,7 @@ export const StudentProfileAchievementsPanel: React.FC<ProfileSubPanelProps> = (
         courses,
         achievementsConfig
       ),
-    [
-      userProfile,
-      bookings,
-      skillConfig,
-      lang,
-      activityLogs,
-      reviews,
-      courses,
-      achievementsConfig,
-    ]
+    [userProfile, bookings, skillConfig, lang, activityLogs, reviews, courses, achievementsConfig]
   );
 
   return (

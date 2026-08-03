@@ -48,7 +48,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="ui-navbar sticky top-0 z-40 px-4 sm:px-6 py-3 transition-colors duration-300">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
         <Link
-          to={userProfile && userProfile.role !== 'admin' ? getDefaultWorkspacePath(userProfile) : '/'}
+          to={
+            userProfile && userProfile.role !== 'admin' ? getDefaultWorkspacePath(userProfile) : '/'
+          }
           className="flex items-center select-none shrink-0"
         >
           <Logo theme={theme} className="h-8 sm:h-9 md:h-10" />

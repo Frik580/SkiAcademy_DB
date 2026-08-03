@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Booking, Course, Instructor, Review, UserProfile, ActivityLog } from '../../../types';
 import { SkillConfig } from '../../../lib/skillData';
 import { AchievementsConfig } from '../../../lib/achievementConfig';
@@ -15,16 +15,13 @@ import {
   getMiniCalendarDays,
   getNextSession,
   getTodayTasks,
-  getActiveCourseEnrollment,
+  getCurrentSessions,
   hasTrainingToday,
   StudentCabinetTab,
 } from './studentCabinetUtils';
-import {
-  ScDivider,
-  ScProgressBar,
-  ScTextButton,
-  ScTintCard,
-} from './StudentCabinetUI';
+import { StudentBookNextFab } from './StudentBookNextFab';
+import { BookInstructorPickerModal } from './BookInstructorPickerModal';
+import { ScDivider, ScProgressBar, ScTextButton, ScTintCard } from './StudentCabinetUI';
 import { StudentNeedsAttention } from './StudentNeedsAttention';
 import { StudentTodaySection } from './StudentTodaySection';
 import { SkillRadarChart } from './SkillRadarChart';
@@ -40,6 +37,7 @@ export interface StudentCabinetContext {
   bookings: Booking[];
   courses: Course[];
   instructors: Instructor[];
+  usersList?: UserProfile[];
   reviews: Review[];
   activityLogs?: ActivityLog[];
   dismissedReviewIds?: string[];
@@ -76,7 +74,9 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     userProfile,
     bookings,
     courses,
+    instructors,
     reviews,
+    usersList = [],
     dismissedReviewIds = [],
     skillConfig,
     onOpenSession,
@@ -90,6 +90,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     onToggleTodayTaskComplete,
     onAddCustomTodayTask,
     onRemoveTodayTask,
+    onBookInstructor,
     resortSnapshot,
     onToggleTemperatureUnit,
   } = props;
@@ -103,16 +104,24 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     [userProfile, bookings, skillConfig, lang]
   );
 
-  const nextSession = getNextSession(bookings, courses);
-  const activeCourse = useMemo(
-    () => getActiveCourseEnrollment(bookings, courses, userProfile.uid),
-    [bookings, courses, userProfile.uid]
+  const nextSession = useMemo(() => getNextSession(bookings, courses), [bookings, courses]);
+  const currentSessions = useMemo(
+    () => getCurrentSessions(bookings, courses),
+    [bookings, courses]
   );
-  const todayTasks = getTodayTasks(userProfile, bookings, courses, lang, skillConfig);
-  const miniDays = getMiniCalendarDays(bookings, courses, lang);
+  const todayTasks = useMemo(
+    () => getTodayTasks(userProfile, bookings, courses, lang, skillConfig),
+    [userProfile, bookings, courses, lang, skillConfig]
+  );
+  const miniDays = useMemo(
+    () => getMiniCalendarDays(bookings, courses, lang),
+    [bookings, courses, lang]
+  );
   const showWeather =
     Boolean(resortSnapshot) &&
-    (Boolean(activeCourse) || hasTrainingToday(bookings, courses, userProfile.uid));
+    (currentSessions.length > 0 || hasTrainingToday(bookings, courses, userProfile.uid));
+
+  const [instructorPickerOpen, setInstructorPickerOpen] = useState(false);
 
   return (
     <div className="space-y-0 pb-24 w-full min-w-0">
@@ -139,10 +148,11 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           </span>
 
           <StudentTodaySection
-            activeCourse={activeCourse}
+            currentSessions={currentSessions}
             nextSession={nextSession}
             miniDays={miniDays}
             courses={courses}
+            usersList={usersList}
             todayTasks={todayTasks}
             bookings={bookings}
             onOpenSession={onOpenSession}
@@ -250,8 +260,18 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             />
           </>
         )}
-
       </div>
+
+      <StudentBookNextFab onClick={() => setInstructorPickerOpen(true)} />
+      <BookInstructorPickerModal
+        open={instructorPickerOpen}
+        onClose={() => setInstructorPickerOpen(false)}
+        userProfile={userProfile}
+        bookings={bookings}
+        instructors={instructors}
+        onSelectInstructor={onBookInstructor}
+        onBrowseCourses={() => onGoToTab('courses')}
+      />
     </div>
   );
 };

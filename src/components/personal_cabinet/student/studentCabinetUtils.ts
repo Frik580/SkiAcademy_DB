@@ -221,6 +221,179 @@ export const parseBookingStartTime = (time: string): { h: number; m: number } | 
   return null;
 };
 
+export const parseBookingEndTime = (
+  time: string,
+  durationHours: number
+): { h: number; m: number } | null => {
+  const rangeMatch = time.match(BOOKING_TIME_RANGE_RE);
+  if (rangeMatch) {
+    const [h, m] = rangeMatch[2].split(':').map(Number);
+    return { h, m };
+  }
+  const start = parseBookingStartTime(time);
+  if (!start) return null;
+  const total = start.h * 60 + start.m + Math.round(durationHours * 60);
+  return { h: Math.floor(total / 60) % 24, m: total % 60 };
+};
+
+const buildLocalDateTime = (dateStr: string, h: number, m: number): Date => {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  return new Date(y, mo - 1, d, h, m, 0, 0);
+};
+
+const getBookingDailyTimeWindow = (
+  booking: Booking,
+  courses: Course[],
+  dateStr: string
+): { start: Date; end: Date } | null => {
+  if (booking.instructorId.startsWith('course_')) {
+    const courseId = booking.instructorId.substring('course_'.length);
+    const course = courses.find((c) => c.id === courseId);
+    const parsed = parseCourseDates(course ? course.dates : booking.date);
+    const [sh, sm] = parsed.startTime.split(':').map(Number);
+    const [eh, em] = parsed.endTime.split(':').map(Number);
+    return {
+      start: buildLocalDateTime(dateStr, sh, sm),
+      end: buildLocalDateTime(dateStr, eh, em),
+    };
+  }
+  const startParsed = parseBookingStartTime(booking.time);
+  const endParsed = parseBookingEndTime(booking.time, booking.durationHours);
+  if (!startParsed || !endParsed) return null;
+  return {
+    start: buildLocalDateTime(dateStr, startParsed.h, startParsed.m),
+    end: buildLocalDateTime(dateStr, endParsed.h, endParsed.m),
+  };
+};
+
+/** First day + start hour of the booking or course. */
+export const resolveBookingStartDateTime = (booking: Booking, courses: Course[]): Date | null => {
+  if (booking.instructorId.startsWith('course_')) {
+    const courseId = booking.instructorId.substring('course_'.length);
+    const course = courses.find((c) => c.id === courseId);
+    const parsed = parseCourseDates(course ? course.dates : booking.date);
+    const [h, m] = parsed.startTime.split(':').map(Number);
+    return buildLocalDateTime(toYMD(parsed.start), h, m);
+  }
+  const startTime = parseBookingStartTime(booking.time);
+  if (!startTime) return buildLocalDateTime(booking.date, 0, 0);
+  return buildLocalDateTime(booking.date, startTime.h, startTime.m);
+};
+
+/** Last day + end hour of the booking or course. */
+export const resolveBookingEndDateTime = (booking: Booking, courses: Course[]): Date | null => {
+  if (booking.instructorId.startsWith('course_')) {
+    const courseId = booking.instructorId.substring('course_'.length);
+    const course = courses.find((c) => c.id === courseId);
+    const parsed = parseCourseDates(course ? course.dates : booking.date);
+    const [h, m] = parsed.endTime.split(':').map(Number);
+    return buildLocalDateTime(toYMD(parsed.end), h, m);
+  }
+  const endTime = parseBookingEndTime(booking.time, booking.durationHours);
+  if (!endTime) return null;
+  return buildLocalDateTime(booking.date, endTime.h, endTime.m);
+};
+
+export const isBookingPastBySchedule = (
+  booking: Booking,
+  courses: Course[],
+  now = new Date()
+): boolean => {
+  if (booking.isDeleted) return true;
+  if (booking.status === 'cancelled' || booking.status === 'completed') return true;
+  const end = resolveBookingEndDateTime(booking, courses);
+  return end ? now >= end : false;
+};
+
+export const isBookingUpcomingBySchedule = (
+  booking: Booking,
+  courses: Course[],
+  now = new Date()
+): boolean => {
+  if (booking.isDeleted || booking.status === 'cancelled' || booking.status === 'completed') {
+    return false;
+  }
+  const start = resolveBookingStartDateTime(booking, courses);
+  return start ? now < start : false;
+};
+
+/** Started but last day/end hour not reached yet (multi-day courses included). */
+export const isBookingCurrentBySchedule = (
+  booking: Booking,
+  courses: Course[],
+  now = new Date()
+): boolean => {
+  if (booking.isDeleted || booking.status === 'cancelled' || booking.status === 'completed') {
+    return false;
+  }
+  return (
+    !isBookingPastBySchedule(booking, courses, now) &&
+    !isBookingUpcomingBySchedule(booking, courses, now)
+  );
+};
+
+/** In session right now (today's time slot). */
+export const isBookingInProgressNow = (
+  booking: Booking,
+  courses: Course[],
+  now = new Date()
+): boolean => {
+  if (!isActiveBooking(booking)) return false;
+  const todayStr = toYMD(now);
+  if (!isBookingOnDate(booking, todayStr, courses)) return false;
+  const window = getBookingDailyTimeWindow(booking, courses, todayStr);
+  if (!window) return false;
+  return now >= window.start && now < window.end;
+};
+
+export const getCurrentSessions = (
+  bookings: Booking[],
+  courses: Course[],
+  now = new Date()
+): Booking[] =>
+  bookings
+    .filter((b) => isBookingInProgressNow(b, courses, now))
+    .sort((a, b) => a.time.localeCompare(b.time));
+
+export interface TodaySessionCountdown {
+  booking: Booking;
+  startsAt: Date;
+}
+
+/** Nearest session or course on today that has not started yet. */
+export const getTodaySessionCountdown = (
+  bookings: Booking[],
+  courses: Course[],
+  now = new Date()
+): TodaySessionCountdown | null => {
+  const todayStr = toYMD(now);
+  const candidates: TodaySessionCountdown[] = [];
+
+  for (const booking of bookings.filter(isActiveBooking)) {
+    if (!isBookingOnDate(booking, todayStr, courses)) continue;
+    const window = getBookingDailyTimeWindow(booking, courses, todayStr);
+    if (!window || now >= window.start) continue;
+    candidates.push({ booking, startsAt: window.start });
+  }
+
+  candidates.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+  return candidates[0] ?? null;
+};
+
+export const formatCountdownRemaining = (ms: number, language: 'en' | 'ru') => {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  if (language === 'ru') {
+    if (h > 0) return `${h}ч ${pad(m)}м ${pad(s)}с`;
+    return `${m}м ${pad(s)}с`;
+  }
+  if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
+  return `${pad(m)}:${pad(s)}`;
+};
+
 export const addMinutesToTime = (time: string, hours: number) => {
   const parsed = parseBookingStartTime(time);
   if (!parsed || !Number.isFinite(hours)) return '';
@@ -749,17 +922,104 @@ export const getRecommendedInstructors = (
     .slice(0, limit);
 };
 
-export type BookingListScope = 'upcoming' | 'past' | 'all';
+export type NextLessonBookingTarget =
+  | { kind: 'instructor'; instructor: Instructor }
+  | { kind: 'course'; course: Course }
+  | { kind: 'pick'; tab: 'coach' | 'courses' };
 
-export const filterBookingsByScope = (bookings: Booking[], scope: BookingListScope): Booking[] => {
+/** Best target when the student taps «Book next lesson». */
+export const resolveNextLessonBookingTarget = (
+  userProfile: UserProfile,
+  bookings: Booking[],
+  courses: Course[],
+  instructors: Instructor[]
+): NextLessonBookingTarget => {
+  const myInstructors = getMyInstructors(bookings, instructors, userProfile.uid);
+  const recentAvailable = myInstructors.find((i) => i.isAvailable);
+  if (recentAvailable) return { kind: 'instructor', instructor: recentAvailable };
+
+  const recommendedInstructor = getRecommendedInstructors(
+    userProfile,
+    instructors,
+    bookings,
+    1
+  )[0];
+  if (recommendedInstructor) return { kind: 'instructor', instructor: recommendedInstructor };
+
+  const fallbackInstructor = instructors.find((i) => i.isAvailable);
+  if (fallbackInstructor) return { kind: 'instructor', instructor: fallbackInstructor };
+
+  const recommendedCourse = getRecommendedCourses(userProfile, courses, bookings, 1)[0];
+  if (recommendedCourse) return { kind: 'course', course: recommendedCourse };
+
+  return { kind: 'pick', tab: myInstructors.length > 0 ? 'coach' : 'courses' };
+};
+
+export type InstructorPickerGroup = {
+  id: string;
+  labelKey: TranslationKey;
+  subtitleKey?: TranslationKey;
+  instructors: Instructor[];
+  bookLabelKey?: TranslationKey;
+};
+
+export const getInstructorPickerGroups = (
+  userProfile: UserProfile,
+  bookings: Booking[],
+  instructors: Instructor[]
+): InstructorPickerGroup[] => {
+  const myInstructors = getMyInstructors(bookings, instructors, userProfile.uid);
+  const recommended = getRecommendedInstructors(userProfile, instructors, bookings, 5);
+  const shownIds = new Set([
+    ...myInstructors.map((i) => i.id),
+    ...recommended.map((i) => i.id),
+  ]);
+  const others = instructors.filter((i) => i.isAvailable && !shownIds.has(i.id));
+
+  const groups: InstructorPickerGroup[] = [];
+  if (myInstructors.length > 0) {
+    groups.push({
+      id: 'my',
+      labelKey: 'scMyInstructors',
+      subtitleKey: 'scMyInstructorsSub',
+      instructors: myInstructors,
+      bookLabelKey: 'scBookAgain',
+    });
+  }
+  if (recommended.length > 0) {
+    groups.push({
+      id: 'recommended',
+      labelKey: 'scRecommendedInstructors',
+      subtitleKey: 'scRecommendedInstructorsSub',
+      instructors: recommended,
+    });
+  }
+  if (others.length > 0) {
+    groups.push({
+      id: 'others',
+      labelKey: 'scAvailableInstructors',
+      instructors: others,
+    });
+  }
+  return groups;
+};
+
+export type BookingListScope = 'upcoming' | 'current' | 'past' | 'all';
+
+export const filterBookingsByScope = (
+  bookings: Booking[],
+  scope: BookingListScope,
+  courses: Course[] = [],
+  now = new Date()
+): Booking[] => {
   if (scope === 'all') return bookings;
   if (scope === 'upcoming') {
-    return bookings.filter(
-      (b) =>
-        b.status === 'confirmed' || b.status === 'pending' || b.status === 'pending_cancellation'
-    );
+    return bookings.filter((b) => isBookingUpcomingBySchedule(b, courses, now));
   }
-  return bookings.filter((b) => b.status === 'completed' || b.status === 'cancelled');
+  if (scope === 'current') {
+    return bookings.filter((b) => isBookingCurrentBySchedule(b, courses, now));
+  }
+  return bookings.filter((b) => isBookingPastBySchedule(b, courses, now));
 };
 
 export const getStudentStats = (

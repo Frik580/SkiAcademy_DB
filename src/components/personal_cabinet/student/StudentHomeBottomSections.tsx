@@ -24,12 +24,9 @@ interface StudentLatestRecommendationSectionProps {
   onOpenLesson: (booking: Booking) => void;
 }
 
-export const StudentLatestRecommendationSection: React.FC<StudentLatestRecommendationSectionProps> = ({
-  bookings,
-  courses,
-  userId,
-  onOpenLesson,
-}) => {
+export const StudentLatestRecommendationSection: React.FC<
+  StudentLatestRecommendationSectionProps
+> = ({ bookings, courses, userId, onOpenLesson }) => {
   const { language, t } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
   const latest = getLatestCoachRecommendation(bookings, userId);
@@ -44,13 +41,18 @@ export const StudentLatestRecommendationSection: React.FC<StudentLatestRecommend
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
               <p className="text-xs text-[var(--ink-dim)]">
-                {formatBookingDayMonth(latest.booking, courses, lang)} · {latest.booking.instructorName}
+                {formatBookingDayMonth(latest.booking, courses, lang)} ·{' '}
+                {latest.booking.instructorName}
               </p>
-              <p className="text-sm text-[var(--ink)] leading-relaxed">{latest.recommendation.text}</p>
+              <p className="text-sm text-[var(--ink)] leading-relaxed">
+                {latest.recommendation.text}
+              </p>
             </div>
             {latest.isPending && <RecommendationIndicator pending className="shrink-0 mt-0.5" />}
           </div>
-          <ScTextButton onClick={() => onOpenLesson(latest.booking)}>{t('scMoreDetails')}</ScTextButton>
+          <ScTextButton onClick={() => onOpenLesson(latest.booking)}>
+            {t('scMoreDetails')}
+          </ScTextButton>
         </ScTintCard>
       )}
     </section>
@@ -89,7 +91,9 @@ export const StudentCabinetWeatherSection: React.FC<StudentCabinetWeatherSection
             <p className="text-sm font-medium text-[var(--ink)]">
               {language === 'ru' ? resortConfig.nameRu : resortConfig.nameEn}
             </p>
-            <p className="text-xs text-[var(--ink-dim)]">{t(getWeatherConditionKey(weatherCode))}</p>
+            <p className="text-xs text-[var(--ink-dim)]">
+              {t(getWeatherConditionKey(weatherCode))}
+            </p>
           </div>
           <button
             type="button"
@@ -109,7 +113,9 @@ export const StudentCabinetWeatherSection: React.FC<StudentCabinetWeatherSection
           </span>
         </div>
         {resortConfig.showLifts !== false && (
-          <p className={`text-xs sm:text-sm font-medium ${isClosed ? 'text-rose-500' : 'text-[var(--ink)]'}`}>
+          <p
+            className={`text-xs sm:text-sm font-medium ${isClosed ? 'text-rose-500' : 'text-[var(--ink)]'}`}
+          >
             {isClosed ? t('closedToday') : t('openToday')}
           </p>
         )}

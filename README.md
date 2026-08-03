@@ -44,14 +44,14 @@
 
 ## Технологический стек
 
-| Слой | Технологии |
-|------|------------|
-| UI | React 18, TypeScript, Vite |
-| Стили | Tailwind CSS 4 (alpha), CSS variables |
-| Анимации | Motion |
-| Backend | Firebase Auth, Firestore, Storage |
-| i18n | EN / RU (`src/lib/i18n/translations.ts`) |
-| Тесты | Vitest, Testing Library, Firebase emulators |
+| Слой     | Технологии                                  |
+| -------- | ------------------------------------------- |
+| UI       | React 18, TypeScript, Vite                  |
+| Стили    | Tailwind CSS 4 (alpha), CSS variables       |
+| Анимации | Motion                                      |
+| Backend  | Firebase Auth, Firestore, Storage           |
+| i18n     | EN / RU (`src/lib/i18n/translations.ts`)    |
+| Тесты    | Vitest, Testing Library, Firebase emulators |
 
 ---
 
@@ -80,16 +80,16 @@ npm run dev
 
 ## Скрипты
 
-| Команда | Описание |
-|---------|----------|
-| `npm run dev` | Dev-сервер (порт 3000) |
-| `npm run build` | Type-check + production build |
-| `npm run lint` | ESLint + `tsc --noEmit` |
-| `npm run test:unit` | Unit-тесты (Vitest) |
+| Команда                 | Описание                                        |
+| ----------------------- | ----------------------------------------------- |
+| `npm run dev`           | Dev-сервер (порт 3000)                          |
+| `npm run build`         | Type-check + production build                   |
+| `npm run lint`          | ESLint + `tsc --noEmit`                         |
+| `npm run test:unit`     | Unit-тесты (Vitest)                             |
 | `npm run test:coverage` | Coverage для `src/lib/` и `studentCabinetUtils` |
-| `npm run test:rules` | Firestore security rules (emulator) |
-| `npm run test` | Полный набор тестов |
-| `npm run i18n:check` | Проверка паритета ключей en/ru |
+| `npm run test:rules`    | Firestore security rules (emulator)             |
+| `npm run test`          | Полный набор тестов                             |
+| `npm run i18n:check`    | Проверка паритета ключей en/ru                  |
 
 ---
 

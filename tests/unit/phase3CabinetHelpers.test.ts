@@ -112,6 +112,7 @@ describe('phase 3 cabinet helpers', () => {
   });
 
   it('filters bookings by upcoming and past scope', () => {
+    const now = new Date('2026-07-15T12:00:00');
     const bookings: Booking[] = [
       {
         id: 'b1',
@@ -140,7 +141,7 @@ describe('phase 3 cabinet helpers', () => {
         difficulty: 'intermediate',
       },
     ];
-    expect(filterBookingsByScope(bookings, 'upcoming')).toHaveLength(1);
-    expect(filterBookingsByScope(bookings, 'past')).toHaveLength(1);
+    expect(filterBookingsByScope(bookings, 'upcoming', [], now)).toHaveLength(1);
+    expect(filterBookingsByScope(bookings, 'past', [], now)).toHaveLength(1);
   });
 });

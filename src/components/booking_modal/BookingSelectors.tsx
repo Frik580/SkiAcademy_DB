@@ -15,7 +15,7 @@ interface BookingSelectorsProps {
   setDifficulty: (value: LessonDifficulty) => void;
   isLoadingBookings: boolean;
   availableSlots: string[];
-  tomorrowStr: string;
+  minBookingDateStr: string;
   t: (key: TranslationKey) => string;
   language: Language;
   getDifficultyLabel: (
@@ -37,7 +37,7 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
   setDifficulty,
   isLoadingBookings,
   availableSlots,
-  tomorrowStr,
+  minBookingDateStr,
   t,
   language,
   getDifficultyLabel,
@@ -60,7 +60,7 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
         <input
           type="date"
           required
-          min={tomorrowStr}
+          min={minBookingDateStr}
           value={date}
           onChange={(e) => setDate(e.target.value)}
           className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition cursor-pointer rounded-none"

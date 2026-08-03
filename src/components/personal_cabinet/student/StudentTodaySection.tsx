@@ -1,33 +1,39 @@
-import React from 'react';
-import { Booking, Course } from '../../../types';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { Booking, Course, UserProfile } from '../../../types';
 import { useLanguage } from '../../../lib/LanguageContext';
-import { translateCourse } from '../../../lib/i18n/contentTranslation';
 import {
-  ActiveCourseEnrollment,
+  formatCountdownRemaining,
   formatCourseDateRangeLabel,
   formatSessionDayLabel,
   formatSessionTimeRange,
   getDifficultyShort,
   getRecentLessonInstructorLabel,
   getRecentLessonTitle,
+  getTodaySessionCountdown,
   MiniCalendarDay,
   resolveBookingStartDate,
   StudentCabinetTab,
   TodayTask,
+  type TodaySessionCountdown,
 } from './studentCabinetUtils';
 import { ScDivider, ScSectionTitle, ScTextButton, ScTintCard } from './StudentCabinetUI';
 import { TodayChecklist } from './TodayChecklist';
+import { BookingCallCoachButton } from './BookingCallCoachButton';
 import { RecommendationIndicator } from '../RecommendationIndicator';
 import {
   hasBookingRecommendations,
   hasPendingRecommendations,
 } from '../../../lib/lessonRecommendations';
 
+const SUBSECTION_LABEL =
+  'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
+
 interface StudentTodaySectionProps {
-  activeCourse: ActiveCourseEnrollment | null;
+  currentSessions: Booking[];
   nextSession: Booking | null;
   miniDays: MiniCalendarDay[];
   courses: Course[];
+  usersList?: UserProfile[];
   todayTasks: TodayTask[];
   bookings: Booking[];
   onOpenSession: (booking: Booking) => void;
@@ -40,11 +46,12 @@ interface StudentTodaySectionProps {
   onRemoveTodayTask?: (task: import('../../../lib/todayChecklist').TodayTaskRef) => void;
 }
 
-export const StudentTodaySection: React.FC<StudentTodaySectionProps> = ({
-  activeCourse,
+export const StudentTodaySection = memo<StudentTodaySectionProps>(function StudentTodaySection({
+  currentSessions,
   nextSession,
   miniDays,
   courses,
+  usersList = [],
   todayTasks,
   bookings,
   onOpenSession,
@@ -55,135 +62,369 @@ export const StudentTodaySection: React.FC<StudentTodaySectionProps> = ({
   onToggleTodayTaskComplete,
   onAddCustomTodayTask,
   onRemoveTodayTask,
-}) => {
-  const { language, t } = useLanguage();
-  const lang = language === 'ru' ? 'ru' : 'en';
+}) {
+  const { t } = useLanguage();
 
-  const subsectionLabel = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
-  const nextSessionDateStr = nextSession ? resolveBookingStartDate(nextSession, courses) : null;
-  const isNextCourse = Boolean(nextSession?.instructorId.startsWith('course_'));
+  const todayCountdown = useMemo(
+    () => getTodaySessionCountdown(bookings, courses),
+    [bookings, courses]
+  );
 
   return (
     <section className="py-5 space-y-0">
       <ScSectionTitle>{t('scTodaySection')}</ScSectionTitle>
 
-      {activeCourse && (
-        <>
-          <div className="pt-5 pb-5 space-y-2">
-            <p className={subsectionLabel}>{t('scActiveCourse')}</p>
-            <ScTintCard tint="green" className="px-4 py-3.5 space-y-2">
-              <p className="text-base font-medium text-[var(--ink)] leading-snug">
-                {translateCourse(activeCourse.course, lang).title}
-              </p>
-              <p className="text-sm text-[var(--ink-dim)]">
-                {formatCourseDateRangeLabel(activeCourse.booking, courses, lang)}
-              </p>
-              <div className="flex flex-wrap gap-3 pt-1">
-                <ScTextButton onClick={() => onOpenLesson(activeCourse.booking)}>
-                  {t('scMoreDetails')}
-                </ScTextButton>
-                <ScTextButton onClick={() => onOpenSession(activeCourse.booking)}>
-                  {t('chat')}
-                </ScTextButton>
-              </div>
-            </ScTintCard>
-          </div>
-          <ScDivider />
-        </>
+      {todayCountdown && (
+        <SessionCountdownBlock
+          countdown={todayCountdown}
+          courses={courses}
+          usersList={usersList}
+        />
       )}
 
-      <div className="py-5 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <p className={subsectionLabel}>{t('scNextSessionOrCourse')}</p>
-          <ScTextButton onClick={() => onGoToTab('calendar')}>{t('scFullCalendar')}</ScTextButton>
-        </div>
+      {currentSessions.length > 0 && (
+        <CurrentSessionsBlock
+          sessions={currentSessions}
+          courses={courses}
+          usersList={usersList}
+          onOpenLesson={onOpenLesson}
+          onOpenSession={onOpenSession}
+        />
+      )}
 
-        <ScTintCard tint="purple" className="px-4 py-4 sm:px-5 space-y-4">
-          <div className="flex justify-between gap-1 text-center text-sm overflow-x-auto no-scrollbar pb-1">
-            {miniDays.map(({ day, dateStr, hasSession, isToday, weekdayLabel }) => {
-              const isNextDay = nextSessionDateStr === dateStr;
-              return (
-                <div key={dateStr} className="flex flex-col items-center gap-1 min-w-[2rem] flex-1">
-                  <span
-                    className={`text-[10px] uppercase ${
-                      isToday || isNextDay ? 'text-[#BF5AF2]' : 'text-[var(--ink-dim)]'
-                    }`}
-                  >
-                    {weekdayLabel}
-                  </span>
-                  <span
-                    className={`flex h-8 w-8 items-center justify-center rounded-full text-[var(--ink)] ${
-                      isToday || isNextDay
-                        ? 'font-bold bg-[#BF5AF2]/20 text-[#BF5AF2]'
-                        : ''
-                    } ${isNextDay && !isToday ? 'ring-2 ring-[#BF5AF2]/40' : ''}`}
-                  >
-                    {day}
-                  </span>
-                  <span
-                    className={`text-[10px] ${hasSession ? 'text-[#30D158]' : 'text-[var(--border)]'}`}
-                    title={hasSession ? t('bookedLesson') : t('noLessons')}
-                  >
-                    {hasSession ? '●' : '○'}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {nextSession ? (
-            <div className="space-y-1 pt-1 border-t border-[#BF5AF2]/15">
-              <p className="text-sm text-[var(--ink-dim)]">
-                {formatSessionDayLabel(nextSessionDateStr!, lang, t)}
-              </p>
-              <p className="text-2xl font-serif font-light text-[var(--ink)]">
-                {formatSessionTimeRange(nextSession)}
-              </p>
-              <p className="flex items-center gap-2 flex-wrap text-base font-medium text-[var(--ink)]">
-                <span>
-                  {isNextCourse
-                    ? getRecentLessonTitle(nextSession, courses, lang)
-                    : getDifficultyShort(nextSession.difficulty)}
-                </span>
-                {hasBookingRecommendations(nextSession) && (
-                  <RecommendationIndicator pending={hasPendingRecommendations(nextSession)} />
-                )}
-              </p>
-              <p className="text-sm text-[var(--ink-dim)]">
-                {isNextCourse
-                  ? formatCourseDateRangeLabel(nextSession, courses, lang)
-                  : getRecentLessonInstructorLabel(nextSession, lang)}
-              </p>
-              <div className="flex flex-wrap gap-4 pt-2">
-                <ScTextButton onClick={() => onOpenLesson(nextSession)}>
-                  {t('scMoreDetails')}
-                </ScTextButton>
-                <ScTextButton onClick={() => onOpenSession(nextSession)}>{t('chat')}</ScTextButton>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-[var(--ink-dim)] pt-1 border-t border-[#BF5AF2]/15">
-              {t('scNoUpcomingSession')}
-            </p>
-          )}
-        </ScTintCard>
-      </div>
+      <NextSessionBlock
+        nextSession={nextSession}
+        miniDays={miniDays}
+        courses={courses}
+        usersList={usersList}
+        onGoToTab={onGoToTab}
+        onOpenLesson={onOpenLesson}
+        onOpenSession={onOpenSession}
+      />
 
       <ScDivider />
 
-      <div className="pt-5 space-y-2">
-        <p className={subsectionLabel}>{t('scQuickActions')}</p>
-        <TodayChecklist
-          tasks={todayTasks}
-          bookings={bookings}
-          onToggleRecommendation={onToggleRecommendation}
-          onToggleTaskComplete={onToggleTodayTaskComplete}
-          onAddTask={onAddCustomTodayTask}
-          onRemoveTask={onRemoveTodayTask}
-          onOpenLesson={onOpenLesson}
-          onOpenDevelopment={onContinueDevelopment}
-        />
-      </div>
+      <TodayTasksBlock
+        todayTasks={todayTasks}
+        bookings={bookings}
+        onToggleRecommendation={onToggleRecommendation}
+        onToggleTodayTaskComplete={onToggleTodayTaskComplete}
+        onAddCustomTodayTask={onAddCustomTodayTask}
+        onRemoveTodayTask={onRemoveTodayTask}
+        onOpenLesson={onOpenLesson}
+        onContinueDevelopment={onContinueDevelopment}
+      />
     </section>
   );
-};
+});
+
+const CountdownDigits = memo<{
+  startsAtMs: number;
+  lang: 'en' | 'ru';
+  onExpire: () => void;
+}>(function CountdownDigits({ startsAtMs, lang, onExpire }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
+
+  useEffect(() => {
+    const tick = () => {
+      const ms = startsAtMs - Date.now();
+      if (ms <= 0) {
+        onExpireRef.current();
+        return false;
+      }
+      if (ref.current) {
+        ref.current.textContent = formatCountdownRemaining(ms, lang);
+      }
+      return true;
+    };
+
+    if (!tick()) return;
+
+    const id = window.setInterval(() => {
+      if (!tick()) window.clearInterval(id);
+    }, 1000);
+
+    return () => window.clearInterval(id);
+  }, [startsAtMs, lang]);
+
+  const initialMs = Math.max(0, startsAtMs - Date.now());
+
+  return (
+    <p
+      ref={ref}
+      className="text-3xl sm:text-4xl font-serif font-light tabular-nums text-[#64D2FF]"
+      aria-live="polite"
+    >
+      {formatCountdownRemaining(initialMs, lang)}
+    </p>
+  );
+});
+
+const SessionCountdownBlock = memo<{
+  countdown: TodaySessionCountdown;
+  courses: Course[];
+  usersList: UserProfile[];
+}>(function SessionCountdownBlock({ countdown, courses, usersList }) {
+  const { language, t } = useLanguage();
+  const lang = language === 'ru' ? 'ru' : 'en';
+  const [visible, setVisible] = useState(() => countdown.startsAt.getTime() > Date.now());
+
+  if (!visible) return null;
+
+  const { booking } = countdown;
+  const isCourse = booking.instructorId.startsWith('course_');
+
+  return (
+    <>
+      <div className="pt-5 pb-5 space-y-2">
+        <p className={SUBSECTION_LABEL}>{t('scCountdownToSession')}</p>
+        <ScTintCard tint="accent" className="px-4 py-4 space-y-2">
+          <CountdownDigits
+            startsAtMs={countdown.startsAt.getTime()}
+            lang={lang}
+            onExpire={() => setVisible(false)}
+          />
+          <p className="text-base font-medium text-[var(--ink)]">
+            {isCourse
+              ? getRecentLessonTitle(booking, courses, lang)
+              : getDifficultyShort(booking.difficulty)}
+          </p>
+          <p className="text-sm text-[var(--ink-dim)]">
+            {formatSessionTimeRange(booking)}
+            {' · '}
+            {isCourse
+              ? formatCourseDateRangeLabel(booking, courses, lang)
+              : getRecentLessonInstructorLabel(booking, lang)}
+          </p>
+          <div className="flex flex-wrap gap-4 pt-1">
+            <BookingCallCoachButton booking={booking} courses={courses} usersList={usersList} />
+          </div>
+        </ScTintCard>
+      </div>
+      <ScDivider />
+    </>
+  );
+});
+
+const SessionCard = memo<{
+  session: Booking;
+  courses: Course[];
+  usersList: UserProfile[];
+  onOpenLesson: (booking: Booking) => void;
+  onOpenSession: (booking: Booking) => void;
+}>(function SessionCard({ session, courses, usersList, onOpenLesson, onOpenSession }) {
+  const { language, t } = useLanguage();
+  const lang = language === 'ru' ? 'ru' : 'en';
+  const isCourse = session.instructorId.startsWith('course_');
+
+  return (
+    <ScTintCard tint="green" className="px-4 py-3.5 space-y-2">
+      <p className="text-sm text-[var(--ink-dim)]">{t('scToday')}</p>
+      <p className="text-2xl font-serif font-light text-[var(--ink)]">
+        {formatSessionTimeRange(session)}
+      </p>
+      <p className="flex items-center gap-2 flex-wrap text-base font-medium text-[var(--ink)]">
+        <span>
+          {isCourse
+            ? getRecentLessonTitle(session, courses, lang)
+            : getDifficultyShort(session.difficulty)}
+        </span>
+        {hasBookingRecommendations(session) && (
+          <RecommendationIndicator pending={hasPendingRecommendations(session)} />
+        )}
+      </p>
+      <p className="text-sm text-[var(--ink-dim)]">
+        {isCourse
+          ? formatCourseDateRangeLabel(session, courses, lang)
+          : getRecentLessonInstructorLabel(session, lang)}
+      </p>
+      <div className="flex flex-wrap gap-4 pt-2">
+        <ScTextButton onClick={() => onOpenLesson(session)}>{t('scMoreDetails')}</ScTextButton>
+        <ScTextButton onClick={() => onOpenSession(session)}>{t('chat')}</ScTextButton>
+        <BookingCallCoachButton booking={session} courses={courses} usersList={usersList} />
+      </div>
+    </ScTintCard>
+  );
+});
+
+const CurrentSessionsBlock = memo<{
+  sessions: Booking[];
+  courses: Course[];
+  usersList: UserProfile[];
+  onOpenLesson: (booking: Booking) => void;
+  onOpenSession: (booking: Booking) => void;
+}>(function CurrentSessionsBlock({
+  sessions,
+  courses,
+  usersList,
+  onOpenLesson,
+  onOpenSession,
+}) {
+  const { t } = useLanguage();
+
+  return (
+    <>
+      <div className="pt-5 pb-5 space-y-2">
+        <p className={SUBSECTION_LABEL}>{t('scCurrentSessions')}</p>
+        <div className="space-y-2">
+          {sessions.map((session) => (
+            <SessionCard
+              key={session.id}
+              session={session}
+              courses={courses}
+              usersList={usersList}
+              onOpenLesson={onOpenLesson}
+              onOpenSession={onOpenSession}
+            />
+          ))}
+        </div>
+      </div>
+      <ScDivider />
+    </>
+  );
+});
+
+const NextSessionBlock = memo<{
+  nextSession: Booking | null;
+  miniDays: MiniCalendarDay[];
+  courses: Course[];
+  usersList: UserProfile[];
+  onGoToTab: (tab: StudentCabinetTab) => void;
+  onOpenLesson: (booking: Booking) => void;
+  onOpenSession: (booking: Booking) => void;
+}>(function NextSessionBlock({
+  nextSession,
+  miniDays,
+  courses,
+  usersList,
+  onGoToTab,
+  onOpenLesson,
+  onOpenSession,
+}) {
+  const { language, t } = useLanguage();
+  const lang = language === 'ru' ? 'ru' : 'en';
+  const nextSessionDateStr = nextSession ? resolveBookingStartDate(nextSession, courses) : null;
+  const isNextCourse = Boolean(nextSession?.instructorId.startsWith('course_'));
+
+  return (
+    <div className="py-5 space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className={SUBSECTION_LABEL}>{t('scNextSessionOrCourse')}</p>
+        <ScTextButton onClick={() => onGoToTab('calendar')}>{t('scFullCalendar')}</ScTextButton>
+      </div>
+
+      <ScTintCard tint="purple" className="px-4 py-4 sm:px-5 space-y-4">
+        <div className="flex justify-between gap-1 text-center text-sm overflow-x-auto no-scrollbar pb-1">
+          {miniDays.map(({ day, dateStr, hasSession, isToday, weekdayLabel }) => {
+            const isNextDay = nextSessionDateStr === dateStr;
+            return (
+              <div key={dateStr} className="flex flex-col items-center gap-1 min-w-[2rem] flex-1">
+                <span
+                  className={`text-[10px] uppercase ${
+                    isToday || isNextDay ? 'text-[#BF5AF2]' : 'text-[var(--ink-dim)]'
+                  }`}
+                >
+                  {weekdayLabel}
+                </span>
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-[var(--ink)] ${
+                    isToday || isNextDay ? 'font-bold bg-[#BF5AF2]/20 text-[#BF5AF2]' : ''
+                  } ${isNextDay && !isToday ? 'ring-2 ring-[#BF5AF2]/40' : ''}`}
+                >
+                  {day}
+                </span>
+                <span
+                  className={`text-[10px] ${hasSession ? 'text-[#30D158]' : 'text-[var(--border)]'}`}
+                  title={hasSession ? t('bookedLesson') : t('noLessons')}
+                >
+                  {hasSession ? '●' : '○'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {nextSession ? (
+          <div className="space-y-1 pt-1 border-t border-[#BF5AF2]/15">
+            <p className="text-sm text-[var(--ink-dim)]">
+              {formatSessionDayLabel(nextSessionDateStr!, lang, t)}
+            </p>
+            <p className="text-2xl font-serif font-light text-[var(--ink)]">
+              {formatSessionTimeRange(nextSession)}
+            </p>
+            <p className="flex items-center gap-2 flex-wrap text-base font-medium text-[var(--ink)]">
+              <span>
+                {isNextCourse
+                  ? getRecentLessonTitle(nextSession, courses, lang)
+                  : getDifficultyShort(nextSession.difficulty)}
+              </span>
+              {hasBookingRecommendations(nextSession) && (
+                <RecommendationIndicator pending={hasPendingRecommendations(nextSession)} />
+              )}
+            </p>
+            <p className="text-sm text-[var(--ink-dim)]">
+              {isNextCourse
+                ? formatCourseDateRangeLabel(nextSession, courses, lang)
+                : getRecentLessonInstructorLabel(nextSession, lang)}
+            </p>
+            <div className="flex flex-wrap gap-4 pt-2">
+              <ScTextButton onClick={() => onOpenLesson(nextSession)}>
+                {t('scMoreDetails')}
+              </ScTextButton>
+              <ScTextButton onClick={() => onOpenSession(nextSession)}>{t('chat')}</ScTextButton>
+              <BookingCallCoachButton
+                booking={nextSession}
+                courses={courses}
+                usersList={usersList}
+              />
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-[var(--ink-dim)] pt-1 border-t border-[#BF5AF2]/15">
+            {t('scNoUpcomingSession')}
+          </p>
+        )}
+      </ScTintCard>
+    </div>
+  );
+});
+
+const TodayTasksBlock = memo<{
+  todayTasks: TodayTask[];
+  bookings: Booking[];
+  onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
+  onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
+  onAddCustomTodayTask?: (text: string) => void;
+  onRemoveTodayTask?: (task: import('../../../lib/todayChecklist').TodayTaskRef) => void;
+  onOpenLesson: (booking: Booking) => void;
+  onContinueDevelopment: () => void;
+}>(function TodayTasksBlock({
+  todayTasks,
+  bookings,
+  onToggleRecommendation,
+  onToggleTodayTaskComplete,
+  onAddCustomTodayTask,
+  onRemoveTodayTask,
+  onOpenLesson,
+  onContinueDevelopment,
+}) {
+  const { t } = useLanguage();
+
+  return (
+    <div className="pt-5 space-y-2">
+      <p className={SUBSECTION_LABEL}>{t('scQuickActions')}</p>
+      <TodayChecklist
+        tasks={todayTasks}
+        bookings={bookings}
+        onToggleRecommendation={onToggleRecommendation}
+        onToggleTaskComplete={onToggleTodayTaskComplete}
+        onAddTask={onAddCustomTodayTask}
+        onRemoveTask={onRemoveTodayTask}
+        onOpenLesson={onOpenLesson}
+        onOpenDevelopment={onContinueDevelopment}
+      />
+    </div>
+  );
+});

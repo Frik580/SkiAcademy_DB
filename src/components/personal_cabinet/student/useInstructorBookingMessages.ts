@@ -19,9 +19,11 @@ export const useInstructorBookingMessages = (bookingIds: string[]) => {
   const bookingKey = useMemo(() => bookingIds.slice().sort().join(','), [bookingIds]);
 
   useEffect(() => {
-    if (bookingIds.length === 0) {
-      setMessagesByBooking(new Map());
-      setLoading(false);
+    const ids = bookingKey ? bookingKey.split(',') : [];
+
+    if (ids.length === 0) {
+      setMessagesByBooking((prev) => (prev.size === 0 ? prev : new Map()));
+      setLoading((prev) => (prev ? false : prev));
       return;
     }
 
@@ -29,7 +31,7 @@ export const useInstructorBookingMessages = (bookingIds: string[]) => {
     const localMap = new Map<string, ChatMessage[]>();
     const loadedIds = new Set<string>();
 
-    const unsubscribes = bookingIds.map((bookingId) => {
+    const unsubscribes = ids.map((bookingId) => {
       const messagesPath = `bookings/${bookingId}/messages`;
       return onSnapshot(
         query(
@@ -43,18 +45,18 @@ export const useInstructorBookingMessages = (bookingIds: string[]) => {
           localMap.set(bookingId, list);
           loadedIds.add(bookingId);
           setMessagesByBooking(new Map(localMap));
-          if (loadedIds.size >= bookingIds.length) setLoading(false);
+          if (loadedIds.size >= ids.length) setLoading(false);
         },
         (error) => {
           loadedIds.add(bookingId);
-          if (loadedIds.size >= bookingIds.length) setLoading(false);
+          if (loadedIds.size >= ids.length) setLoading(false);
           handleFirestoreError(error, OperationType.GET, messagesPath);
         }
       );
     });
 
     return () => unsubscribes.forEach((unsub) => unsub());
-  }, [bookingKey, bookingIds]);
+  }, [bookingKey]);
 
   const messages: InstructorMessage[] = useMemo(() => {
     const merged: InstructorMessage[] = [];

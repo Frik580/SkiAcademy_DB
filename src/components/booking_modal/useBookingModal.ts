@@ -165,7 +165,7 @@ export const useBookingModal = ({
     fetchBookings();
   }, [isOpen, targetInstructor?.id, userProfile?.uid]);
 
-  const availableSlots = useMemo(() => {
+  const availableSlots = useMemo((): string[] => {
     const slots = [...DEFAULT_LESSON_TIME_SLOTS];
     const normDate = normalizeDateStr(date);
 

@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Booking, Course, UserProfile } from '../../../types';
 import { useLanguage } from '../../../lib/LanguageContext';
 import {

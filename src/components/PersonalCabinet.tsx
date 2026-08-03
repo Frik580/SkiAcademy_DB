@@ -193,7 +193,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     fetchInstructorBookings();
   }, [rescheduleId, bookings, userProfile?.uid]);
 
-  const availableSlots = useMemo(() => {
+  const availableSlots = useMemo((): string[] => {
     const currentBooking = rescheduleId ? bookings.find((b) => b.id === rescheduleId) : null;
     if (!currentBooking || !newDate) return [];
 

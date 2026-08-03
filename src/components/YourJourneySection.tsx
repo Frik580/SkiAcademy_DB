@@ -205,7 +205,16 @@ function buildWavyPath(
   return d;
 }
 
-/** Прогресс пользователя вдоль пути 0…1 (по уровню и % внутри текущего этапа). */
+/** Доля этапа (0…1), с которой начинается зона повышения уровня. */
+function getLevelUpZoneStartRatio(passPercentage: number): number {
+  return Math.min(1, Math.max(0, passPercentage / 100));
+}
+
+/**
+ * Прогресс пользователя вдоль пути 0…1.
+ * Внутри этапа позиция = earned / max XP этапа (не от порога прохождения),
+ * чтобы метка стояла до зоны level-up, пока порог ещё не набран.
+ */
 function getJourneyPathProgress(userProfile: UserProfile, skillConfig: SkillConfig): number {
   const level = Math.min(4, Math.max(1, userProfile.level || 1));
   if (level >= 4) return 1;
@@ -217,11 +226,60 @@ function getJourneyPathProgress(userProfile: UserProfile, skillConfig: SkillConf
     skillConfig.passPercentage ?? 80
   );
   const frac =
-    progress.targetRequiredPoints > 0
-      ? Math.min(1, Math.max(0, progress.targetEarnedPoints / progress.targetRequiredPoints))
+    progress.targetMaxPoints > 0
+      ? Math.min(1, Math.max(0, progress.targetEarnedPoints / progress.targetMaxPoints))
       : 0;
   // 3 сегмента между 4 метками
   return (level - 1 + frac) / 3;
+}
+
+/** Зоны повышения уровня: логические доли 0…1 (равные сегменты уровней). */
+function getJourneyLevelUpZones(passPercentage: number): Array<{ start: number; end: number }> {
+  const zoneStart = getLevelUpZoneStartRatio(passPercentage);
+  return [0, 1, 2].map((segment) => ({
+    start: (segment + zoneStart) / 3,
+    end: (segment + 1) / 3,
+  }));
+}
+
+const EQUAL_MARKER_STOPS: [number, number, number, number] = [0, 1 / 3, 2 / 3, 1];
+
+/**
+ * Реальные позиции меток уровней вдоль длины волнистого пути (0…1).
+ * Сегменты разной длины из‑за изгибов — нельзя делить путь на равные трети.
+ */
+function measureMarkerStops(
+  xs: readonly number[],
+  ys: readonly number[],
+  bends: readonly PathBend[]
+): [number, number, number, number] | null {
+  if (typeof document === 'undefined') return null;
+  const segLens: number[] = [];
+  for (let i = 0; i < 3; i++) {
+    const segD = buildWavyPath([xs[i], xs[i + 1]], [ys[i], ys[i + 1]], [bends[i]]);
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', segD);
+    const len = path.getTotalLength();
+    if (!Number.isFinite(len) || len <= 0) return null;
+    segLens.push(len);
+  }
+  const total = segLens[0] + segLens[1] + segLens[2];
+  if (total <= 0) return null;
+  return [0, segLens[0] / total, (segLens[0] + segLens[1]) / total, 1];
+}
+
+/** Логический прогресс уровня (равные трети) → доля длины реального пути. */
+function mapLogicalPathProgress(
+  logical: number,
+  stops: readonly [number, number, number, number] = EQUAL_MARKER_STOPS
+): number {
+  const t = Math.min(1, Math.max(0, logical));
+  if (t <= 0) return stops[0];
+  if (t >= 1) return stops[3];
+  const x = t * 3;
+  const seg = Math.min(2, Math.floor(x));
+  const frac = x - seg;
+  return stops[seg] + (stops[seg + 1] - stops[seg]) * frac;
 }
 
 function createPathSampler(
@@ -242,11 +300,23 @@ const JourneyPath: React.FC<{
   ys: [number, number, number, number];
   bends: [PathBend, PathBend, PathBend];
   activeId: number | null;
-  /** Пройденная часть пути 0…1; подсвечивает трек до позиции пользователя */
+  /** Логический прогресс 0…1 (равные сегменты уровней) */
   progress?: number | null;
   /** Прогресс отрисовки линии (0…1) */
   lineDrawProgress?: number;
-}> = ({ ys, bends, activeId, progress = null, lineDrawProgress = 1 }) => {
+  /** Зоны повышения уровня — логические доли 0…1 */
+  levelUpZones?: Array<{ start: number; end: number }>;
+  /** Реальные позиции меток на длине пути */
+  markerStops?: [number, number, number, number];
+}> = ({
+  ys,
+  bends,
+  activeId,
+  progress = null,
+  lineDrawProgress = 1,
+  levelUpZones = [],
+  markerStops = EQUAL_MARKER_STOPS,
+}) => {
   const d = buildWavyPath(LEVEL_MARKER_X, ys, bends);
   const measureRef = useRef<SVGPathElement>(null);
   const [pathLength, setPathLength] = useState(0);
@@ -257,8 +327,12 @@ const JourneyPath: React.FC<{
     setPathLength(el.getTotalLength());
   }, [d]);
 
+  const mappedProgress =
+    progress != null ? mapLogicalPathProgress(progress, markerStops) : null;
   const traveled =
-    progress != null && pathLength > 0 ? Math.min(1, Math.max(0, progress)) * pathLength : null;
+    mappedProgress != null && pathLength > 0
+      ? Math.min(1, Math.max(0, mappedProgress)) * pathLength
+      : null;
 
   const strokeDashoffset =
     pathLength > 0 ? pathLength * (1 - Math.min(1, Math.max(0, lineDrawProgress))) : 0;
@@ -284,6 +358,30 @@ const JourneyPath: React.FC<{
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+        {pathLength > 0 &&
+          lineDrawProgress >= 1 &&
+          levelUpZones.map((zone, index) => {
+            const startLen = mapLogicalPathProgress(zone.start, markerStops) * pathLength;
+            const endLen = mapLogicalPathProgress(zone.end, markerStops) * pathLength;
+            if (endLen <= startLen) return null;
+            const startPt = measureRef.current?.getPointAtLength(startLen);
+            const endPt = measureRef.current?.getPointAtLength(endLen);
+            if (!startPt || !endPt) return null;
+            return (
+              <linearGradient
+                key={`journey-levelup-grad-${index}`}
+                id={`journey-levelup-grad-${index}`}
+                gradientUnits="userSpaceOnUse"
+                x1={startPt.x}
+                y1={startPt.y}
+                x2={endPt.x}
+                y2={endPt.y}
+              >
+                <stop offset="0%" stopColor="#f5d76e" stopOpacity="0" />
+                <stop offset="100%" stopColor="#f0a020" stopOpacity="1" />
+              </linearGradient>
+            );
+          })}
       </defs>
       <path
         ref={measureRef}
@@ -309,6 +407,27 @@ const JourneyPath: React.FC<{
         filter="url(#journey-glow)"
         opacity={activeId ? 0.98 : 0.9}
       />
+      {pathLength > 0 &&
+        lineDrawProgress >= 1 &&
+        levelUpZones.map((zone, index) => {
+          const start = mapLogicalPathProgress(zone.start, markerStops) * pathLength;
+          const end = mapLogicalPathProgress(zone.end, markerStops) * pathLength;
+          const zoneLength = Math.max(0, end - start);
+          if (zoneLength <= 0) return null;
+          return (
+            <path
+              key={`level-up-zone-${index}`}
+              d={d}
+              fill="none"
+              stroke={`url(#journey-levelup-grad-${index})`}
+              strokeWidth="3.25"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeDasharray={`${zoneLength} ${pathLength}`}
+              strokeDashoffset={-start}
+            />
+          );
+        })}
       {traveled != null && lineDrawProgress >= 1 && (
         <path
           d={d}
@@ -678,6 +797,20 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
     return getJourneyPathProgress(userProfile, skillConfig);
   }, [showUserPosition, userProfile, skillConfig]);
 
+  const levelUpZones = useMemo(
+    () =>
+      showUserPosition ? getJourneyLevelUpZones(skillConfig.passPercentage ?? 80) : [],
+    [showUserPosition, skillConfig.passPercentage]
+  );
+
+  const [markerStops, setMarkerStops] =
+    useState<[number, number, number, number]>(EQUAL_MARKER_STOPS);
+
+  useLayoutEffect(() => {
+    const stops = measureMarkerStops(LEVEL_MARKER_X, markerYs, pathBends);
+    if (stops) setMarkerStops(stops);
+  }, [markerYs, pathBends]);
+
   /** Анимированный прогресс метки (0 → userProgress). */
   const [displayProgress, setDisplayProgress] = useState<number | null>(null);
   const [userPoint, setUserPoint] = useState<{ x: number; y: number } | null>(null);
@@ -820,8 +953,8 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
       setUserPoint(null);
       return;
     }
-    setUserPoint(pathSampler(displayProgress));
-  }, [pathSampler, displayProgress]);
+    setUserPoint(pathSampler(mapLogicalPathProgress(displayProgress, markerStops)));
+  }, [pathSampler, displayProgress, markerStops]);
 
   const totalUserXp = useMemo(() => {
     if (!userProfile) return 0;
@@ -942,6 +1075,8 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
               activeId={activeLevelId}
               progress={displayProgress}
               lineDrawProgress={lineDrawProgress}
+              levelUpZones={levelUpZones}
+              markerStops={markerStops}
             />
 
             {userPoint && userProfile && displayProgress != null && (

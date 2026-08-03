@@ -128,6 +128,7 @@ const AppContent: React.FC = () => {
     handleAddCustomTodayTask,
     handleRemoveTodayTask,
     handleClearNotifications,
+    handleDeleteNotification,
     handleMarkNotificationsAsRead,
     unreadNotificationCount,
     activityLogs,
@@ -456,6 +457,7 @@ const AppContent: React.FC = () => {
         onDismissReview={handleDismissReview}
         dbNotifications={dbNotifications}
         onClearNotifications={handleClearNotifications}
+        onDeleteNotification={handleDeleteNotification}
       />
 
       <AuthModal

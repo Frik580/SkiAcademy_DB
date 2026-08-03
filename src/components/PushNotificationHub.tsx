@@ -124,6 +124,7 @@ export interface NotificationHubModalProps {
   onDismissReview?: (bookingId: string) => void;
   dbNotifications?: DbNotification[];
   onClearNotifications?: () => Promise<void>;
+  onDeleteNotification?: (id: string) => Promise<void>;
 }
 
 export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
@@ -136,8 +137,9 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
   onDismissReview,
   dbNotifications = [],
   onClearNotifications,
+  onDeleteNotification,
 }) => {
-  const { notifications: localNotifications, clearAll: localClearAll } = useNotifications();
+  const { notifications: localNotifications, clearAll: localClearAll, removeNotification: removeLocalNotification } = useNotifications();
   const { t, language } = useLanguage();
 
   if (!isOpen) return null;
@@ -181,6 +183,14 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
       await onClearNotifications();
     } else {
       localClearAll();
+    }
+  };
+
+  const handleDeleteItem = async (id: string) => {
+    if (onDeleteNotification) {
+      await onDeleteNotification(id);
+    } else {
+      removeLocalNotification(id);
     }
   };
 
@@ -307,14 +317,24 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
                     {n.type === 'error' && <ShieldAlert className="w-4 h-4 text-red-500" />}
                     {n.type === 'info' && <Info className="w-4 h-4 text-blue-500" />}
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <h4 className="text-xs font-semibold text-[var(--ink)]">{n.title}</h4>
-                      {!n.isRead && (
-                        <span className="shrink-0 text-[9px] font-mono uppercase tracking-wider text-[var(--accent)]">
-                          {t('newBadge')}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {!n.isRead && (
+                          <span className="shrink-0 text-[9px] font-mono uppercase tracking-wider text-[var(--accent)]">
+                            {t('newBadge')}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handleDeleteItem(n.id)}
+                          className="p-1 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
+                          title={t('hide')}
+                          id={`delete-notif-${n.id}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <p className="text-xs text-[var(--ink-dim)] mt-0.5 whitespace-pre-wrap">
                       {n.message}

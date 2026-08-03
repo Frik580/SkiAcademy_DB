@@ -435,8 +435,8 @@ export const getDifficultyShort = (difficulty: Booking['difficulty']) => {
     beginner: 'BASE',
     intermediate: 'CARVE',
     advanced: 'PRO',
-    freeride: 'PRO',
-    freestyle: 'PRO',
+    freeride: 'FREERIDE',
+    freestyle: 'PARK',
   };
   return map[difficulty] || 'BASE';
 };
@@ -563,30 +563,65 @@ export const getTodayTaskBookingContext = (
   };
 };
 
-export const getNextSession = (bookings: Booking[], courses: Course[]) => {
-  const now = new Date();
-  const todayStr = toYMD(now);
+export interface NextSessionItem {
+  booking: Booking;
+  dateStr: string;
+}
 
-  const upcoming = bookings
-    .filter(isActiveBooking)
-    .map((b) => ({
-      booking: b,
-      date: resolveBookingStartDate(b, courses),
-    }))
-    .filter(({ date, booking }) => {
-      if (date > todayStr) return true;
-      if (date < todayStr) return false;
-      const startTime = parseBookingStartTime(booking.time);
-      if (!startTime) return true;
-      const sessionStart = new Date();
-      sessionStart.setHours(startTime.h, startTime.m, 0, 0);
-      return sessionStart >= now;
-    })
-    .sort((a, b) => {
-      if (a.date !== b.date) return a.date.localeCompare(b.date);
-      return a.booking.time.localeCompare(b.booking.time);
-    });
+export const getNextSessionsNext7Days = (
+  bookings: Booking[],
+  courses: Course[],
+  fromDate = new Date()
+): NextSessionItem[] => {
+  const todayStr = toYMD(fromDate);
 
+  const weekDateStrs: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(fromDate);
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() + i);
+    weekDateStrs.push(toYMD(d));
+  }
+
+  const activeBookings = bookings.filter(isActiveBooking);
+  const items: NextSessionItem[] = [];
+
+  for (const b of activeBookings) {
+    for (const dateStr of weekDateStrs) {
+      if (isBookingOnDate(b, dateStr, courses)) {
+        if (dateStr === todayStr) {
+          const startTime = parseBookingStartTime(b.time);
+          if (startTime) {
+            const sessionStart = new Date(fromDate);
+            sessionStart.setHours(startTime.h, startTime.m, 0, 0);
+            const durationMs = (b.durationHours || 1) * 3600 * 1000;
+            const sessionEnd = new Date(sessionStart.getTime() + durationMs);
+            if (sessionEnd < fromDate) continue;
+          }
+        }
+        items.push({ booking: b, dateStr });
+      }
+    }
+  }
+
+  const compareTimes = (timeA: string, timeB: string) => {
+    const startA = parseBookingStartTime(timeA);
+    const startB = parseBookingStartTime(timeB);
+    if (startA && startB) {
+      if (startA.h !== startB.h) return startA.h - startB.h;
+      return startA.m - startB.m;
+    }
+    return timeA.localeCompare(timeB);
+  };
+
+  return items.sort((a, b) => {
+    if (a.dateStr !== b.dateStr) return a.dateStr.localeCompare(b.dateStr);
+    return compareTimes(a.booking.time, b.booking.time);
+  });
+};
+
+export const getNextSession = (bookings: Booking[], courses: Course[]): Booking | null => {
+  const upcoming = getNextSessionsNext7Days(bookings, courses);
   return upcoming[0]?.booking ?? null;
 };
 

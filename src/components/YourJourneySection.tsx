@@ -326,12 +326,22 @@ const JourneyPath: React.FC<{
   );
 };
 
+/** Размер цифр XP (10→20px) по прогрессу текущего движения метки 0…1. */
+function getJourneyMarkerXpFontSize(travelRatio: number, min = 10, max = 20): number {
+  const t = Math.max(0, Math.min(1, travelRatio));
+  return min * (max / min) ** t;
+}
+
 const UserPathMarker: React.FC<{
   point: { x: number; y: number };
   isDark: boolean;
   label: string;
+  xp?: number;
+  markerTravelRatio?: number;
   onClick?: () => void;
-}> = ({ point, isDark, label, onClick }) => {
+}> = ({ point, isDark, label, xp = 0, markerTravelRatio = 0, onClick }) => {
+  const xpFontSizePx = getJourneyMarkerXpFontSize(markerTravelRatio);
+
   const innerContent = (
     <>
       <span className="relative block w-3.5 h-3.5 sm:w-4 sm:h-4">
@@ -350,15 +360,33 @@ const UserPathMarker: React.FC<{
           />
         </span>
       </span>
-      <span
-        className={`absolute left-1/2 bottom-full mb-4 -translate-x-1/2 whitespace-nowrap rounded-full px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold tracking-[0.12em] uppercase shadow-sm transition-opacity group-hover:opacity-100 ${
-          isDark
-            ? 'bg-[#0b1220]/90 text-[#f5d76e] border border-[#f5d76e]/35'
-            : 'bg-white/95 text-[#b8860b] border border-[#d4a017]/40'
-        }`}
-      >
-        {label}
-      </span>
+      <div className="absolute left-1/2 bottom-full mb-3.5 -translate-x-1/2 whitespace-nowrap z-20 flex flex-col items-center gap-1">
+        <div
+          className={`bg-transparent font-mono font-bold tracking-wider flex items-baseline justify-center gap-1 ${
+            isDark ? 'text-[#f5d76e]' : 'text-[#b8860b]'
+          }`}
+        >
+          <span
+            className="inline-block"
+            style={{
+              fontSize: `${xpFontSizePx}px`,
+              lineHeight: '1',
+            }}
+          >
+            {xp}
+          </span>
+          <span className="text-[10px] font-sans font-semibold opacity-85 leading-none">XP</span>
+        </div>
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-[9px] sm:text-[10px] font-semibold tracking-[0.12em] uppercase shadow-sm transition-opacity ${
+            isDark
+              ? 'bg-[#0b1220]/90 text-[#f5d76e] border border-[#f5d76e]/35'
+              : 'bg-white/95 text-[#b8860b] border border-[#d4a017]/40'
+          }`}
+        >
+          {label}
+        </span>
+      </div>
     </>
   );
 
@@ -775,8 +803,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
 
     const tick = (now: number) => {
       const t = Math.min(1, (now - startedAt) / durationMs);
-      const eased = 1 - (1 - t) ** 3;
-      setDisplayProgress(target * eased);
+      setDisplayProgress(target * t);
       if (t < 1) {
         rafId = requestAnimationFrame(tick);
       } else {
@@ -795,6 +822,27 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
     }
     setUserPoint(pathSampler(displayProgress));
   }, [pathSampler, displayProgress]);
+
+  const totalUserXp = useMemo(() => {
+    if (!userProfile) return 0;
+    return calculateSkillProgress(userProfile.skillScores || {}, skillConfig.items).overall.earned;
+  }, [userProfile, skillConfig.items]);
+
+  const animatedXp = useMemo(() => {
+    if (displayProgress == null || userProgress == null || userProgress <= 0) {
+      return totalUserXp;
+    }
+    const t = Math.min(1, Math.max(0, displayProgress / userProgress));
+    return Math.round(totalUserXp * t);
+  }, [displayProgress, userProgress, totalUserXp]);
+
+  /** 0…1 — доля пройденного пути в текущей анимации метки (для размера XP). */
+  const markerTravelRatio = useMemo(() => {
+    if (displayProgress == null || userProgress == null || userProgress <= 0) {
+      return userProgress != null && userProgress <= 0 ? 1 : 0;
+    }
+    return Math.min(1, Math.max(0, displayProgress / userProgress));
+  }, [displayProgress, userProgress]);
 
   const formatMeta = (skills: number, achievements: number) =>
     t('journeyLevelMeta')
@@ -901,6 +949,8 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
                 point={userPoint}
                 isDark={isDark}
                 label={t('journeyYouAreHere')}
+                xp={animatedXp}
+                markerTravelRatio={markerTravelRatio}
                 onClick={
                   animateSequence ? () => navigate(getDefaultWorkspacePath(userProfile)) : undefined
                 }

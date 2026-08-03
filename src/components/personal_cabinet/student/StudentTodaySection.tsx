@@ -14,6 +14,7 @@ import {
   resolveBookingStartDate,
   StudentCabinetTab,
   TodayTask,
+  type NextSessionItem,
   type TodaySessionCountdown,
 } from './studentCabinetUtils';
 import { ScDivider, ScSectionTitle, ScTextButton, ScTintCard } from './StudentCabinetUI';
@@ -30,7 +31,8 @@ const SUBSECTION_LABEL =
 
 interface StudentTodaySectionProps {
   currentSessions: Booking[];
-  nextSession: Booking | null;
+  nextSession?: Booking | null;
+  nextSessions?: NextSessionItem[];
   miniDays: MiniCalendarDay[];
   courses: Course[];
   usersList?: UserProfile[];
@@ -48,7 +50,8 @@ interface StudentTodaySectionProps {
 
 export const StudentTodaySection = memo<StudentTodaySectionProps>(function StudentTodaySection({
   currentSessions,
-  nextSession,
+  nextSession = null,
+  nextSessions,
   miniDays,
   courses,
   usersList = [],
@@ -64,6 +67,12 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
   onRemoveTodayTask,
 }) {
   const { t } = useLanguage();
+
+  const effectiveNextSessions = useMemo(() => {
+    if (nextSessions) return nextSessions;
+    if (!nextSession) return [];
+    return [{ booking: nextSession, dateStr: resolveBookingStartDate(nextSession, courses) }];
+  }, [nextSessions, nextSession, courses]);
 
   const todayCountdown = useMemo(
     () => getTodaySessionCountdown(bookings, courses),
@@ -93,7 +102,7 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
       )}
 
       <NextSessionBlock
-        nextSession={nextSession}
+        nextSessions={effectiveNextSessions}
         miniDays={miniDays}
         courses={courses}
         usersList={usersList}
@@ -287,7 +296,7 @@ const CurrentSessionsBlock = memo<{
 });
 
 const NextSessionBlock = memo<{
-  nextSession: Booking | null;
+  nextSessions: NextSessionItem[];
   miniDays: MiniCalendarDay[];
   courses: Course[];
   usersList: UserProfile[];
@@ -295,7 +304,7 @@ const NextSessionBlock = memo<{
   onOpenLesson: (booking: Booking) => void;
   onOpenSession: (booking: Booking) => void;
 }>(function NextSessionBlock({
-  nextSession,
+  nextSessions,
   miniDays,
   courses,
   usersList,
@@ -305,8 +314,11 @@ const NextSessionBlock = memo<{
 }) {
   const { language, t } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
-  const nextSessionDateStr = nextSession ? resolveBookingStartDate(nextSession, courses) : null;
-  const isNextCourse = Boolean(nextSession?.instructorId.startsWith('course_'));
+
+  const upcomingDatesSet = useMemo(
+    () => new Set(nextSessions.map((s) => s.dateStr)),
+    [nextSessions]
+  );
 
   return (
     <div className="py-5 space-y-3">
@@ -318,20 +330,20 @@ const NextSessionBlock = memo<{
       <ScTintCard tint="purple" className="px-4 py-4 sm:px-5 space-y-4">
         <div className="flex justify-between gap-1 text-center text-sm overflow-x-auto no-scrollbar pb-1">
           {miniDays.map(({ day, dateStr, hasSession, isToday, weekdayLabel }) => {
-            const isNextDay = nextSessionDateStr === dateStr;
+            const isUpcomingDay = upcomingDatesSet.has(dateStr);
             return (
               <div key={dateStr} className="flex flex-col items-center gap-1 min-w-[2rem] flex-1">
                 <span
                   className={`text-[10px] uppercase ${
-                    isToday || isNextDay ? 'text-[#BF5AF2]' : 'text-[var(--ink-dim)]'
+                    isToday || isUpcomingDay ? 'text-[#BF5AF2]' : 'text-[var(--ink-dim)]'
                   }`}
                 >
                   {weekdayLabel}
                 </span>
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-full text-[var(--ink)] ${
-                    isToday || isNextDay ? 'font-bold bg-[#BF5AF2]/20 text-[#BF5AF2]' : ''
-                  } ${isNextDay && !isToday ? 'ring-2 ring-[#BF5AF2]/40' : ''}`}
+                    isToday || isUpcomingDay ? 'font-bold bg-[#BF5AF2]/20 text-[#BF5AF2]' : ''
+                  } ${isUpcomingDay && !isToday ? 'ring-2 ring-[#BF5AF2]/40' : ''}`}
                 >
                   {day}
                 </span>
@@ -346,40 +358,50 @@ const NextSessionBlock = memo<{
           })}
         </div>
 
-        {nextSession ? (
-          <div className="space-y-1 pt-1 border-t border-[#BF5AF2]/15">
-            <p className="text-sm text-[var(--ink-dim)]">
-              {formatSessionDayLabel(nextSessionDateStr!, lang, t)}
-            </p>
-            <p className="text-2xl font-serif font-light text-[var(--ink)]">
-              {formatSessionTimeRange(nextSession)}
-            </p>
-            <p className="flex items-center gap-2 flex-wrap text-base font-medium text-[var(--ink)]">
-              <span>
-                {isNextCourse
-                  ? getRecentLessonTitle(nextSession, courses, lang)
-                  : getDifficultyShort(nextSession.difficulty)}
-              </span>
-              {hasBookingRecommendations(nextSession) && (
-                <RecommendationIndicator pending={hasPendingRecommendations(nextSession)} />
-              )}
-            </p>
-            <p className="text-sm text-[var(--ink-dim)]">
-              {isNextCourse
-                ? formatCourseDateRangeLabel(nextSession, courses, lang)
-                : getRecentLessonInstructorLabel(nextSession, lang)}
-            </p>
-            <div className="flex flex-wrap gap-4 pt-2">
-              <ScTextButton onClick={() => onOpenLesson(nextSession)}>
-                {t('scMoreDetails')}
-              </ScTextButton>
-              <ScTextButton onClick={() => onOpenSession(nextSession)}>{t('chat')}</ScTextButton>
-              <BookingCallCoachButton
-                booking={nextSession}
-                courses={courses}
-                usersList={usersList}
-              />
-            </div>
+        {nextSessions.length > 0 ? (
+          <div className="space-y-4 pt-1 border-t border-[#BF5AF2]/15 divide-y divide-[#BF5AF2]/15">
+            {nextSessions.map(({ booking, dateStr }, index) => {
+              const isNextCourse = Boolean(booking.instructorId.startsWith('course_'));
+              return (
+                <div
+                  key={`${booking.id}_${dateStr}_${index}`}
+                  className={index > 0 ? 'pt-3 space-y-1' : 'space-y-1'}
+                >
+                  <p className="text-sm font-medium text-[var(--ink-dim)]">
+                    {formatSessionDayLabel(dateStr, lang, t)}
+                  </p>
+                  <p className="text-2xl font-serif font-light text-[var(--ink)]">
+                    {formatSessionTimeRange(booking)}
+                  </p>
+                  <p className="flex items-center gap-2 flex-wrap text-base font-medium text-[var(--ink)]">
+                    <span>
+                      {isNextCourse
+                        ? getRecentLessonTitle(booking, courses, lang)
+                        : getDifficultyShort(booking.difficulty)}
+                    </span>
+                    {hasBookingRecommendations(booking) && (
+                      <RecommendationIndicator pending={hasPendingRecommendations(booking)} />
+                    )}
+                  </p>
+                  <p className="text-sm text-[var(--ink-dim)]">
+                    {isNextCourse
+                      ? formatCourseDateRangeLabel(booking, courses, lang)
+                      : getRecentLessonInstructorLabel(booking, lang)}
+                  </p>
+                  <div className="flex flex-wrap gap-4 pt-2">
+                    <ScTextButton onClick={() => onOpenLesson(booking)}>
+                      {t('scMoreDetails')}
+                    </ScTextButton>
+                    <ScTextButton onClick={() => onOpenSession(booking)}>{t('chat')}</ScTextButton>
+                    <BookingCallCoachButton
+                      booking={booking}
+                      courses={courses}
+                      usersList={usersList}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="text-sm text-[var(--ink-dim)] pt-1 border-t border-[#BF5AF2]/15">

@@ -13,7 +13,7 @@ import {
   getLevelName,
   getLevelProgressPercent,
   getMiniCalendarDays,
-  getNextSession,
+  getNextSessionsNext7Days,
   getTodayTasks,
   getCurrentSessions,
   hasTrainingToday,
@@ -104,7 +104,11 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     [userProfile, bookings, skillConfig, lang]
   );
 
-  const nextSession = useMemo(() => getNextSession(bookings, courses), [bookings, courses]);
+  const nextSessions = useMemo(
+    () => getNextSessionsNext7Days(bookings, courses),
+    [bookings, courses]
+  );
+  const nextSession = nextSessions[0]?.booking ?? null;
   const currentSessions = useMemo(
     () => getCurrentSessions(bookings, courses),
     [bookings, courses]
@@ -150,6 +154,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           <StudentTodaySection
             currentSessions={currentSessions}
             nextSession={nextSession}
+            nextSessions={nextSessions}
             miniDays={miniDays}
             courses={courses}
             usersList={usersList}

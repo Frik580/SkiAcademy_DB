@@ -53,11 +53,13 @@ export const courseLevelBadgeLabel: Record<CourseLevel, string> = {
 
 export function getCourseTrackLabel(level: Course['level']): string {
   if (!level) return '';
-  const map: Record<CourseLevel, string> = {
+  const map: Record<string, string> = {
     beginner: 'BASE',
     intermediate: 'CARVE',
     advanced: 'PRO',
     expert: 'PRO',
+    freeride: 'FREERIDE',
+    freestyle: 'PARK',
   };
   return map[level] ?? 'BASE';
 }

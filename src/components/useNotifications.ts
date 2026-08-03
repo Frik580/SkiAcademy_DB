@@ -20,6 +20,8 @@ import { logger } from '../lib/logger';
 
 export type { DbNotification } from '../lib/notificationText';
 
+export const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+
 export const useNotifications = (firebaseUser: User | null) => {
   const { addNotification } = useNotificationHub();
   const { language } = useLanguage();
@@ -45,17 +47,38 @@ export const useNotifications = (firebaseUser: User | null) => {
     return onSnapshot(
       notificationsQuery,
       (snapshot) => {
-        const notifications = snapshot.docs.map(
+        const now = Date.now();
+        const allNotifications = snapshot.docs.map(
           (notificationDoc) =>
             ({
               id: notificationDoc.id,
               ...notificationDoc.data(),
             }) as DbNotification
         );
-        notifications.sort(
+
+        // Auto-delete notifications older than 2 weeks (14 days)
+        const expiredNotifications = allNotifications.filter((n) => {
+          const time = new Date(n.timestamp).getTime();
+          return !isNaN(time) && now - time > TWO_WEEKS_MS;
+        });
+
+        if (expiredNotifications.length > 0) {
+          expiredNotifications.forEach((expired) => {
+            deleteDoc(doc(db, 'notifications', expired.id)).catch((err) =>
+              logger.error('Failed to auto-delete expired notification:', err)
+            );
+          });
+        }
+
+        const validNotifications = allNotifications.filter((n) => {
+          const time = new Date(n.timestamp).getTime();
+          return isNaN(time) || now - time <= TWO_WEEKS_MS;
+        });
+
+        validNotifications.sort(
           (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
-        setDbNotifications(notifications);
+        setDbNotifications(validNotifications);
 
         snapshot.docChanges().forEach((change) => {
           if (change.type !== 'added') return;
@@ -69,6 +92,15 @@ export const useNotifications = (firebaseUser: User | null) => {
       (error) => logger.error('Notifications sync error:', error)
     );
   }, [addNotification, firebaseUser, language]);
+
+  const handleDeleteNotification = async (id: string) => {
+    if (!firebaseUser) return;
+    try {
+      await deleteDoc(doc(db, 'notifications', id));
+    } catch (error) {
+      logger.error('Failed to delete notification:', error);
+    }
+  };
 
   const handleClearNotifications = async () => {
     if (!firebaseUser || dbNotifications.length === 0) return;
@@ -93,6 +125,7 @@ export const useNotifications = (firebaseUser: User | null) => {
   return {
     dbNotifications,
     unreadNotificationCount,
+    handleDeleteNotification,
     handleClearNotifications,
     handleMarkNotificationsAsRead,
   };

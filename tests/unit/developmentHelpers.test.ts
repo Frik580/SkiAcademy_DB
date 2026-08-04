@@ -47,7 +47,9 @@ describe('development helpers', () => {
     const action = getNextStepAction(baseProfile, [], DEFAULT_SKILL_CONFIG, 'en');
     expect(action?.kind).toBe('exercise');
     if (action?.kind === 'exercise') {
-      expect(action.exerciseTitle).toBe('Controlled snowplow braking');
+      // Pinned today items (l1_3) are skipped; next unpinned incomplete item is l1_1.
+      expect(action.exerciseId).toBe('l1_1');
+      expect(action.exerciseTitle).toBe('Maintain basic stance in motion for 100 m');
     }
   });
 });

@@ -504,7 +504,15 @@ service cloud.firestore {
         request.resource.data.type is string &&
         request.resource.data.timestamp is string &&
         (request.resource.data.userId == request.auth.uid || isAdmin() || isInstructor());
-      allow update, delete: if false;
+      // Idempotent setDoc for deterministic ids (e.g. act_level_{userId}_{level})
+      allow update: if isAuthenticated() &&
+        resource.data.actorId == request.auth.uid &&
+        request.resource.data.actorId == request.auth.uid &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.type == resource.data.type &&
+        request.resource.data.timestamp is string &&
+        (request.resource.data.userId == request.auth.uid || isAdmin() || isInstructor());
+      allow delete: if false;
     }
 
     // Error Logs

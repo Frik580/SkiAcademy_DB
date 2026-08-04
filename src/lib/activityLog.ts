@@ -37,6 +37,7 @@ export const buildBookingCompletedMetadata = (
     lessonTitle,
     difficulty: booking.difficulty,
     durationHours: booking.durationHours,
+    time: booking.time,
   };
 };
 

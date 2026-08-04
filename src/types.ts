@@ -160,6 +160,15 @@ export type ActivityLogType =
   | 'recommendations_completed_all'
   | 'achievement_earned';
 
+export interface SkillDeltaMeta {
+  itemId: string;
+  title?: string;
+  oldScore?: number;
+  newScore?: number;
+  delta: number;
+  maxPoints?: number;
+}
+
 export interface ActivityLogMetadata {
   bookingId?: string;
   instructorId?: string;
@@ -167,6 +176,7 @@ export interface ActivityLogMetadata {
   lessonTitle?: string;
   difficulty?: LessonDifficulty;
   durationHours?: number;
+  time?: string;
   oldLevel?: number;
   newLevel?: number;
   pointsDelta?: number;
@@ -178,6 +188,7 @@ export interface ActivityLogMetadata {
   sectionName?: string;
   achievementLabelRu?: string;
   achievementLabelEn?: string;
+  skillDeltas?: SkillDeltaMeta[];
 }
 
 export interface ActivityLog {

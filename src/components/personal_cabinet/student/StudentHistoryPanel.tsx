@@ -54,7 +54,7 @@ export const StudentHistoryPanel: React.FC<StudentHistoryPanelProps> = ({
   return (
     <div className="space-y-0 pb-24 max-w-3xl mx-auto w-full px-4 sm:px-6 min-w-0">
       <section className="py-6 space-y-4">
-        <StudentPanelBackLink onClick={onBack} />
+        <StudentPanelBackLink onClick={onBack} labelKey="scNavProfile" />
         <div className="space-y-1">
           <ScSectionTitle>{t('scHistoryFullTitle')}</ScSectionTitle>
           <p className="text-sm text-[var(--ink-dim)]">{t('scHistorySubtitle')}</p>

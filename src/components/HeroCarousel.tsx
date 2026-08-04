@@ -154,7 +154,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
         })}
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-10 pb-10 md:pb-12 pt-16 md:pt-20 flex flex-col justify-end flex-1">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-10 pb-2 md:pb-4 pt-16 md:pt-20 flex flex-col justify-end flex-1">
         <div className="flex flex-col gap-8 w-full max-w-2xl">
           <div className="grid [&>*]:col-start-1 [&>*]:row-start-1 min-w-0">
             {slides.map((slide, idx) => {
@@ -247,23 +247,26 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
               <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
             </button>
           </motion.div>
-
-          <div className="flex gap-2" role="tablist" aria-label={t('goToSlide')}>
-            {slides.map((_, idx) => (
-              <button
-                key={idx}
-                role="tab"
-                aria-selected={currentSlide === idx}
-                onClick={() => setCurrentSlide(idx)}
-                className={`h-1 transition-[width,background-color] duration-500 ease-in-out cursor-pointer rounded-full ${
-                  currentSlide === idx
-                    ? 'w-8 bg-[var(--accent)]'
-                    : 'w-2 bg-[var(--ink)]/30 hover:bg-[var(--ink)]/60'
-                }`}
-                aria-label={`${t('goToSlide')} ${idx + 1}`}
-              />
-            ))}
-          </div>
+        </div>
+        <div
+          className="flex justify-center gap-2 mt-8 md:mt-10"
+          role="tablist"
+          aria-label={t('goToSlide')}
+        >
+          {slides.map((_, idx) => (
+            <button
+              key={idx}
+              role="tab"
+              aria-selected={currentSlide === idx}
+              onClick={() => setCurrentSlide(idx)}
+              className={`h-1 transition-[width,background-color] duration-500 ease-in-out cursor-pointer rounded-full ${
+                currentSlide === idx
+                  ? 'w-8 bg-[var(--accent)]'
+                  : 'w-2 bg-[var(--ink)]/30 hover:bg-[var(--ink)]/60'
+              }`}
+              aria-label={`${t('goToSlide')} ${idx + 1}`}
+            />
+          ))}
         </div>
       </div>
     </section>

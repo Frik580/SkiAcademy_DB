@@ -2,7 +2,10 @@ import React from 'react';
 import { Booking, Course, Review } from '../../../types';
 import { useLanguage } from '../../../lib/LanguageContext';
 import {
+  formatDurationLabel,
   formatRecentLessonDateLabel,
+  formatSessionTimeRange,
+  getDifficultyShort,
   getRecentLessonInstructorLabel,
   getRecentLessonTitle,
   isBookingReviewed,
@@ -40,6 +43,8 @@ export const HistoryLessonCard: React.FC<HistoryLessonCardProps> = ({
   const title = getRecentLessonTitle(booking, courses, lang);
   const dateLabel = formatRecentLessonDateLabel(booking, courses, lang);
   const instructorName = getRecentLessonInstructorLabel(booking, lang);
+  const timeRange = formatSessionTimeRange(booking);
+  const durationText = formatDurationLabel(booking.durationHours, lang);
   const needsReview = !isBookingReviewed(booking, reviews, dismissedReviewIds);
   const review = reviews.find(
     (item) =>
@@ -61,6 +66,23 @@ export const HistoryLessonCard: React.FC<HistoryLessonCardProps> = ({
         <span className="text-xs text-[var(--ink-dim)] shrink-0">{dateLabel}</span>
       </div>
       <p className="text-sm text-[var(--ink-dim)]">{instructorName}</p>
+      <div className="text-xs text-[var(--ink-dim)] flex flex-wrap items-center gap-x-2.5 gap-y-1 pt-0.5">
+        <span>
+          {t('scHistoryTimeLabel')}:{' '}
+          <strong className="font-medium text-[var(--ink)]">{timeRange}</strong>
+        </span>
+        <span>·</span>
+        <span>
+          {t('scHistoryDurationLabel')}:{' '}
+          <strong className="font-medium text-[var(--ink)]">{durationText}</strong>
+        </span>
+        {booking.difficulty && (
+          <>
+            <span>·</span>
+            <span>{getDifficultyShort(booking.difficulty)}</span>
+          </>
+        )}
+      </div>
       {!needsReview && review && (
         <p className="text-amber-500 text-sm">
           {'★'.repeat(review.rating)}

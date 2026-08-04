@@ -7,6 +7,7 @@ import {
   calculateSkillProgress,
   calculateStudentLevel,
   getJourneyLevelXpThresholds,
+  getLevelStageMaxPoints,
   type SkillConfig,
 } from '../lib/skillData';
 import { getDefaultWorkspacePath } from '../lib/workspaceRoutes';
@@ -212,25 +213,25 @@ function getLevelUpZoneStartRatio(passPercentage: number): number {
 
 /**
  * Прогресс пользователя вдоль пути 0…1.
- * Внутри этапа позиция = earned / max XP этапа (не от порога прохождения),
- * чтобы метка стояла до зоны level-up, пока порог ещё не набран.
+ * Позиция = earned / max XP каждого этапа по порядку (не по user.level):
+ * при 88/100 метка на ~88% сегмента Beginner→Carve, даже если уровень уже 2.
  */
 function getJourneyPathProgress(userProfile: UserProfile, skillConfig: SkillConfig): number {
-  const level = Math.min(4, Math.max(1, userProfile.level || 1));
-  if (level >= 4) return 1;
+  const scores = userProfile.skillScores || {};
+  const items = skillConfig.items;
+  const stageMax = getLevelStageMaxPoints(items);
 
-  const progress = calculateSkillProgress(
-    userProfile.skillScores || {},
-    skillConfig.items,
-    level,
-    skillConfig.passPercentage ?? 80
-  );
-  const frac =
-    progress.targetMaxPoints > 0
-      ? Math.min(1, Math.max(0, progress.targetEarnedPoints / progress.targetMaxPoints))
-      : 0;
-  // 3 сегмента между 4 метками
-  return (level - 1 + frac) / 3;
+  for (let stage = 1; stage <= 3; stage++) {
+    const max = stageMax[stage as 1 | 2 | 3];
+    const earned = items
+      .filter((item) => item.levelTarget === stage)
+      .reduce((acc, item) => acc + (scores[item.id] || 0), 0);
+    const frac = max > 0 ? Math.min(1, Math.max(0, earned / max)) : 1;
+    if (frac < 1) {
+      return (stage - 1 + frac) / 3;
+    }
+  }
+  return 1;
 }
 
 /** Зоны повышения уровня: логические доли 0…1 (равные сегменты уровней). */
@@ -327,8 +328,7 @@ const JourneyPath: React.FC<{
     setPathLength(el.getTotalLength());
   }, [d]);
 
-  const mappedProgress =
-    progress != null ? mapLogicalPathProgress(progress, markerStops) : null;
+  const mappedProgress = progress != null ? mapLogicalPathProgress(progress, markerStops) : null;
   const traveled =
     mappedProgress != null && pathLength > 0
       ? Math.min(1, Math.max(0, mappedProgress)) * pathLength
@@ -367,6 +367,12 @@ const JourneyPath: React.FC<{
             const startPt = measureRef.current?.getPointAtLength(startLen);
             const endPt = measureRef.current?.getPointAtLength(endLen);
             if (!startPt || !endPt) return null;
+            // Нелинейный рост прозрачности 0→1 (ease-out) — усиливается раньше
+            const opacityStops = [0, 0.15, 0.3, 0.45, 0.6, 0.8, 1].map((t) => ({
+              offset: `${t * 100}%`,
+              opacity: 1 - (1 - t) ** 2,
+              color: t < 0.5 ? '#f5d76e' : '#f0a020',
+            }));
             return (
               <linearGradient
                 key={`journey-levelup-grad-${index}`}
@@ -377,8 +383,14 @@ const JourneyPath: React.FC<{
                 x2={endPt.x}
                 y2={endPt.y}
               >
-                <stop offset="0%" stopColor="#f5d76e" stopOpacity="0" />
-                <stop offset="100%" stopColor="#f0a020" stopOpacity="1" />
+                {opacityStops.map((stop) => (
+                  <stop
+                    key={stop.offset}
+                    offset={stop.offset}
+                    stopColor={stop.color}
+                    stopOpacity={stop.opacity}
+                  />
+                ))}
               </linearGradient>
             );
           })}
@@ -798,8 +810,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   }, [showUserPosition, userProfile, skillConfig]);
 
   const levelUpZones = useMemo(
-    () =>
-      showUserPosition ? getJourneyLevelUpZones(skillConfig.passPercentage ?? 80) : [],
+    () => (showUserPosition ? getJourneyLevelUpZones(skillConfig.passPercentage ?? 80) : []),
     [showUserPosition, skillConfig.passPercentage]
   );
 

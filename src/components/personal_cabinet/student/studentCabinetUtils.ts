@@ -3,6 +3,7 @@ import {
   SkillConfig,
   SkillItem,
   DEFAULT_SKILL_CONFIG,
+  DEFAULT_SKILL_ITEMS,
   calculateSkillProgress,
   getSkillItemTitle,
   getSkillItemSection,
@@ -129,6 +130,15 @@ export interface HistoryEventCta {
   action: HistoryEventAction;
 }
 
+export interface SkillDeltaItem {
+  itemId: string;
+  title: string;
+  delta: number;
+  oldScore?: number;
+  newScore?: number;
+  maxPoints?: number;
+}
+
 export interface HistoryEvent {
   id: string;
   date: string;
@@ -138,6 +148,7 @@ export interface HistoryEvent {
   kind: 'training' | 'level' | 'homework' | 'points' | 'review';
   bookingId?: string;
   cta?: HistoryEventCta;
+  skillDeltas?: SkillDeltaItem[];
 }
 
 export interface HistoryMonthGroup {
@@ -349,10 +360,11 @@ export const isBookingInProgressNow = (
 export const getCurrentSessions = (
   bookings: Booking[],
   courses: Course[],
-  now = new Date()
+  now = new Date(),
+  userId?: string
 ): Booking[] =>
   bookings
-    .filter((b) => isBookingInProgressNow(b, courses, now))
+    .filter((b) => (!userId || b.userId === userId) && isBookingInProgressNow(b, courses, now))
     .sort((a, b) => a.time.localeCompare(b.time));
 
 export interface TodaySessionCountdown {
@@ -404,6 +416,20 @@ export const addMinutesToTime = (time: string, hours: number) => {
 };
 
 /** Private lessons: "09:00–11:00". Course bookings already store a range: "09:00–13:00". */
+export const formatDurationLabel = (hours: number, lang: 'en' | 'ru'): string => {
+  if (lang === 'en') {
+    return hours === 1 ? '1 hour' : `${hours} hours`;
+  }
+  if (hours === 1) return '1 час';
+  if (hours % 1 !== 0) return `${hours} часа`;
+  const lastDigit = hours % 10;
+  const lastTwo = hours % 100;
+  if (lastTwo >= 11 && lastTwo <= 19) return `${hours} часов`;
+  if (lastDigit === 1) return `${hours} час`;
+  if (lastDigit >= 2 && lastDigit <= 4) return `${hours} часа`;
+  return `${hours} часов`;
+};
+
 export const formatSessionTimeRange = (booking: Pick<Booking, 'time' | 'durationHours'>) => {
   const rangeMatch = booking.time.match(BOOKING_TIME_RANGE_RE);
   if (rangeMatch) {
@@ -571,7 +597,8 @@ export interface NextSessionItem {
 export const getNextSessionsNext7Days = (
   bookings: Booking[],
   courses: Course[],
-  fromDate = new Date()
+  fromDate = new Date(),
+  userId?: string
 ): NextSessionItem[] => {
   const todayStr = toYMD(fromDate);
 
@@ -583,7 +610,9 @@ export const getNextSessionsNext7Days = (
     weekDateStrs.push(toYMD(d));
   }
 
-  const activeBookings = bookings.filter(isActiveBooking);
+  const activeBookings = bookings.filter(
+    (b) => (!userId || b.userId === userId) && isActiveBooking(b)
+  );
   const items: NextSessionItem[] = [];
 
   for (const b of activeBookings) {
@@ -700,13 +729,13 @@ export const getPrioritySkillItems = (
   language: Language = 'ru'
 ): PrioritySkillItem[] => {
   const items = skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
-  const currentLevel = userProfile.level || 1;
+  const currentLevel = Math.max(1, userProfile.level || 1);
   const targetStage = Math.min(currentLevel, 3);
   const scores = userProfile.skillScores || {};
   const pinnedIds = new Set(userProfile.todaySkillItemIds ?? []);
 
   return items
-    .filter((item) => item.levelTarget <= targetStage)
+    .filter((item) => item.levelTarget === targetStage)
     .map((item) => {
       const earned = scores[item.id] ?? 0;
       const percent =
@@ -762,7 +791,39 @@ export const getNextStepAction = (
     };
   }
 
-  const nextExercise = getPrioritySkillItems(userProfile, skillConfig, 1, language)[0];
+  const currentLevel = Math.max(1, userProfile.level || 1);
+  const targetStage = Math.min(currentLevel, 3);
+  const pinnedIds = new Set(userProfile.todaySkillItemIds ?? []);
+  const priorityItems = getPrioritySkillItems(userProfile, skillConfig, 20, language);
+  let nextExercise = priorityItems.find((item) => !item.pinned);
+
+  if (!nextExercise) {
+    const items = skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
+    const scores = userProfile.skillScores || {};
+    const unpinnedCandidate = items
+      .filter((item) => item.levelTarget === targetStage)
+      .map((item) => {
+        const earned = scores[item.id] ?? 0;
+        const percent =
+          item.maxPoints > 0 ? Math.min(100, Math.round((earned / item.maxPoints) * 100)) : 100;
+        return {
+          id: item.id,
+          title: getSkillItemTitle(item, language),
+          earned,
+          maxPoints: item.maxPoints,
+          percent,
+          pinned: pinnedIds.has(item.id),
+          levelTarget: item.levelTarget,
+        };
+      })
+      .filter((item) => item.earned < item.maxPoints && !item.pinned)
+      .sort((a, b) => a.percent - b.percent)[0];
+
+    if (unpinnedCandidate) {
+      nextExercise = unpinnedCandidate;
+    }
+  }
+
   if (!nextExercise) {
     return { kind: 'complete' };
   }
@@ -973,12 +1034,7 @@ export const resolveNextLessonBookingTarget = (
   const recentAvailable = myInstructors.find((i) => i.isAvailable);
   if (recentAvailable) return { kind: 'instructor', instructor: recentAvailable };
 
-  const recommendedInstructor = getRecommendedInstructors(
-    userProfile,
-    instructors,
-    bookings,
-    1
-  )[0];
+  const recommendedInstructor = getRecommendedInstructors(userProfile, instructors, bookings, 1)[0];
   if (recommendedInstructor) return { kind: 'instructor', instructor: recommendedInstructor };
 
   const fallbackInstructor = instructors.find((i) => i.isAvailable);
@@ -1005,10 +1061,7 @@ export const getInstructorPickerGroups = (
 ): InstructorPickerGroup[] => {
   const myInstructors = getMyInstructors(bookings, instructors, userProfile.uid);
   const recommended = getRecommendedInstructors(userProfile, instructors, bookings, 5);
-  const shownIds = new Set([
-    ...myInstructors.map((i) => i.id),
-    ...recommended.map((i) => i.id),
-  ]);
+  const shownIds = new Set([...myInstructors.map((i) => i.id), ...recommended.map((i) => i.id)]);
   const others = instructors.filter((i) => i.isAvailable && !shownIds.has(i.id));
 
   const groups: InstructorPickerGroup[] = [];
@@ -1141,7 +1194,8 @@ const formatActivityTimestamp = (timestamp: string, language: 'en' | 'ru') => {
 const mapActivityLogToHistoryEvent = (
   log: ActivityLog,
   language: 'en' | 'ru',
-  t: (key: TranslationKey) => string
+  t: (key: TranslationKey) => string,
+  bookings: Booking[] = []
 ): HistoryEvent => {
   const meta = log.metadata ?? {};
   const dateLabel = formatActivityTimestamp(log.timestamp, language);
@@ -1149,19 +1203,34 @@ const mapActivityLogToHistoryEvent = (
   switch (log.type) {
     case 'booking_completed': {
       const isCourse = meta.instructorId?.startsWith('course_');
+      const linkedBooking = meta.bookingId
+        ? bookings.find((b) => b.id === meta.bookingId)
+        : undefined;
+
       const title = isCourse
         ? t('scHistoryCourseCompleted').replace(
             '{name}',
             meta.lessonTitle ?? meta.instructorName ?? ''
           )
         : t('scHistoryLessonWith').replace('{name}', meta.instructorName ?? meta.lessonTitle ?? '');
+
+      const timeVal = meta.time ?? linkedBooking?.time;
+      const durationHours = meta.durationHours ?? linkedBooking?.durationHours ?? 1;
+
       const subtitleParts: string[] = [];
-      if (meta.durationHours) {
-        subtitleParts.push(`${meta.durationHours} ${t('hoursShort')}`);
+      if (timeVal) {
+        const timeRange = formatSessionTimeRange({ time: timeVal, durationHours });
+        subtitleParts.push(`${t('scHistoryTimeLabel')}: ${timeRange}`);
       }
-      if (meta.difficulty) {
-        subtitleParts.push(getDifficultyShort(meta.difficulty));
+      if (durationHours) {
+        subtitleParts.push(
+          `${t('scHistoryDurationLabel')}: ${formatDurationLabel(durationHours, language)}`
+        );
       }
+      if (meta.difficulty ?? linkedBooking?.difficulty) {
+        subtitleParts.push(getDifficultyShort(meta.difficulty ?? linkedBooking!.difficulty));
+      }
+
       return {
         id: log.id,
         date: log.timestamp,
@@ -1172,7 +1241,18 @@ const mapActivityLogToHistoryEvent = (
         bookingId: meta.bookingId,
       };
     }
-    case 'level_up':
+    case 'level_up': {
+      const skillDeltas = meta.skillDeltas?.map((d) => {
+        const item = DEFAULT_SKILL_ITEMS.find((i) => i.id === d.itemId);
+        return {
+          itemId: d.itemId,
+          title: d.title || item?.title || d.itemId,
+          delta: d.delta,
+          oldScore: d.oldScore,
+          newScore: d.newScore,
+          maxPoints: d.maxPoints ?? item?.maxPoints,
+        };
+      });
       return {
         id: log.id,
         date: log.timestamp,
@@ -1180,8 +1260,21 @@ const mapActivityLogToHistoryEvent = (
         title: t('scHistoryNewLevel'),
         subtitle: t('scHistoryLevelReached').replace('{n}', String(meta.newLevel ?? '')),
         kind: 'level',
+        skillDeltas,
       };
-    case 'skill_scores_updated':
+    }
+    case 'skill_scores_updated': {
+      const skillDeltas = meta.skillDeltas?.map((d) => {
+        const item = DEFAULT_SKILL_ITEMS.find((i) => i.id === d.itemId);
+        return {
+          itemId: d.itemId,
+          title: d.title || item?.title || d.itemId,
+          delta: d.delta,
+          oldScore: d.oldScore,
+          newScore: d.newScore,
+          maxPoints: d.maxPoints ?? item?.maxPoints,
+        };
+      });
       return {
         id: log.id,
         date: log.timestamp,
@@ -1192,7 +1285,9 @@ const mapActivityLogToHistoryEvent = (
             ? t('scHistoryPointsReceived').replace('{n}', String(meta.pointsDelta))
             : undefined,
         kind: 'points',
+        skillDeltas,
       };
+    }
     case 'review_created':
       return {
         id: log.id,
@@ -1302,7 +1397,9 @@ export const getHistoryEvents = (
   t: (key: TranslationKey) => string,
   activityLogs: ActivityLog[] = []
 ): HistoryEvent[] => {
-  const fromLogs = activityLogs.map((log) => mapActivityLogToHistoryEvent(log, language, t));
+  const fromLogs = activityLogs.map((log) =>
+    mapActivityLogToHistoryEvent(log, language, t, bookings)
+  );
 
   const loggedBookingIds = new Set(
     activityLogs
@@ -1320,6 +1417,8 @@ export const getHistoryEvents = (
     .map((b) => {
       const dateStr = resolveBookingStartDate(b, courses);
       const isCourse = b.instructorId.startsWith('course_');
+      const timeRange = formatSessionTimeRange(b);
+      const durationText = formatDurationLabel(b.durationHours, language);
       return {
         id: `train-${b.id}`,
         date: dateStr,
@@ -1330,7 +1429,7 @@ export const getHistoryEvents = (
               getRecentLessonTitle(b, courses, language)
             )
           : t('scHistoryLessonWith').replace('{name}', b.instructorName),
-        subtitle: `${b.durationHours} ${t('hoursShort')} · ${getDifficultyShort(b.difficulty)}`,
+        subtitle: `${t('scHistoryTimeLabel')}: ${timeRange} · ${t('scHistoryDurationLabel')}: ${durationText} · ${getDifficultyShort(b.difficulty)}`,
         kind: 'training' as const,
         bookingId: b.id,
       };
@@ -1567,19 +1666,41 @@ export const getRecentLessons = (
 
 /** True if booking has a session on dateStr (private lesson or multi-day course). */
 export const isBookingOnDate = (booking: Booking, dateStr: string, courses: Course[]) => {
-  if (booking.isDeleted || booking.status === 'cancelled') return false;
+  if (!booking || booking.isDeleted || booking.status === 'cancelled') return false;
   if (booking.userId?.startsWith('system_block_')) return false;
 
+  // 1. Direct YYYY-MM-DD match
+  if (booking.date === dateStr) return true;
+
+  // 2. Direct DD.MM.YYYY match
+  if (booking.date) {
+    const parts = booking.date.split('.');
+    if (parts.length === 3) {
+      const ymd = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      if (ymd === dateStr) return true;
+    }
+  }
+
+  // 3. Course date range check
+  let datesToParse = '';
   if (booking.instructorId.startsWith('course_')) {
     const courseId = booking.instructorId.substring('course_'.length);
     const course = courses.find((c) => c.id === courseId);
-    const parsed = parseCourseDates(course ? course.dates : booking.date);
-    const startStr = toYMD(parsed.start);
-    const endStr = toYMD(parsed.end);
-    return dateStr >= startStr && dateStr <= endStr;
+    if (course && course.dates) {
+      datesToParse = course.dates;
+    }
   }
 
-  return booking.date === dateStr;
+  if (datesToParse) {
+    const parsed = parseCourseDates(datesToParse);
+    if (parsed && parsed.isValid) {
+      const startStr = toYMD(parsed.start);
+      const endStr = toYMD(parsed.end);
+      return dateStr >= startStr && dateStr <= endStr;
+    }
+  }
+
+  return false;
 };
 
 export type MiniCalendarDay = {

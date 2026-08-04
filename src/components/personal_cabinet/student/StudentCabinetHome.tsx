@@ -105,13 +105,13 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   );
 
   const nextSessions = useMemo(
-    () => getNextSessionsNext7Days(bookings, courses),
-    [bookings, courses]
+    () => getNextSessionsNext7Days(bookings, courses, new Date(), userProfile.uid),
+    [bookings, courses, userProfile.uid]
   );
   const nextSession = nextSessions[0]?.booking ?? null;
   const currentSessions = useMemo(
-    () => getCurrentSessions(bookings, courses),
-    [bookings, courses]
+    () => getCurrentSessions(bookings, courses, new Date(), userProfile.uid),
+    [bookings, courses, userProfile.uid]
   );
   const todayTasks = useMemo(
     () => getTodayTasks(userProfile, bookings, courses, lang, skillConfig),
@@ -160,6 +160,10 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             usersList={usersList}
             todayTasks={todayTasks}
             bookings={bookings}
+            userProfile={userProfile}
+            activityLogs={props.activityLogs}
+            achievementsConfig={props.achievementsConfig}
+            skillConfig={props.skillConfig}
             onOpenSession={onOpenSession}
             onOpenLesson={onOpenLesson}
             onGoToTab={onGoToTab}
@@ -204,7 +208,6 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
                           if (!pinned) {
                             void onToggleSkillToday?.(exerciseId, true);
                           }
-                          onContinueDevelopment();
                         }}
                         onOpenRecommendation={(bookingId) => {
                           const booking = bookings.find((b) => b.id === bookingId);

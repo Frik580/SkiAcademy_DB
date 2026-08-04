@@ -10,7 +10,7 @@ import {
 import { useNotifications } from '../PushNotificationHub';
 import { useTheme } from '../useTheme';
 import { logger } from '../../lib/logger';
-import { SkillConfig } from '../../lib/skillData';
+import { SkillConfig, DEFAULT_SKILL_ITEMS } from '../../lib/skillData';
 import {
   AVAILABILITY_SLOTS_COLLECTION,
   blocksInstructorAvailability,
@@ -292,18 +292,45 @@ export const useInstructorWorkspace = ({
         level: calculatedLevel,
       });
 
+      const skillItems = skillConfig?.items || DEFAULT_SKILL_ITEMS;
+
+      const skillDeltas = Object.entries(updatedScores)
+        .map(([itemId, newScore]) => {
+          const oldScore = oldScores[itemId] ?? 0;
+          const delta = newScore - oldScore;
+          if (delta === 0) return null;
+          const item = skillItems.find((i) => i.id === itemId);
+          return {
+            itemId,
+            title: item?.title ?? itemId,
+            oldScore,
+            newScore,
+            delta,
+            maxPoints: item?.maxPoints ?? 20,
+          };
+        })
+        .filter(Boolean) as Array<{
+        itemId: string;
+        title: string;
+        oldScore: number;
+        newScore: number;
+        delta: number;
+        maxPoints?: number;
+      }>;
+
       if (calculatedLevel > oldLevel) {
         await logActivityForUser(
           studentUid,
           userProfile.uid,
           'level_up',
-          { oldLevel, newLevel: calculatedLevel },
+          { oldLevel, newLevel: calculatedLevel, skillDeltas, pointsDelta },
           activityLogId.levelUp(studentUid, calculatedLevel)
         );
-      } else if (pointsDelta > 0) {
+      } else if (skillDeltas.length > 0) {
         await logActivityForUser(studentUid, userProfile.uid, 'skill_scores_updated', {
           pointsDelta,
           newLevel: calculatedLevel,
+          skillDeltas,
         });
       }
 

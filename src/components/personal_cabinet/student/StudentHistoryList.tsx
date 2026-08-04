@@ -132,6 +132,30 @@ export const StudentHistoryList: React.FC<StudentHistoryListProps> = ({
             </p>
           )}
           {event.subtitle && <p className="text-sm text-[var(--ink-dim)]">{event.subtitle}</p>}
+          {event.skillDeltas && event.skillDeltas.length > 0 && (
+            <div className="mt-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)]/40 p-3 space-y-1.5">
+              <p className="text-[11px] font-semibold text-[var(--ink-dim)] uppercase tracking-wider">
+                {t('scHistoryAssessedSkills')}
+              </p>
+              <ul className="space-y-1 text-xs">
+                {event.skillDeltas.map((item, idx) => (
+                  <li key={idx} className="flex justify-between items-center gap-3">
+                    <span className="text-[var(--ink)] font-medium min-w-0 break-words flex-1">
+                      • {item.title}
+                    </span>
+                    <span className="text-[var(--accent)] font-semibold shrink-0 flex items-center gap-1.5">
+                      <span>+{item.delta} XP</span>
+                      {item.maxPoints != null && item.maxPoints > 0 && (
+                        <span className="text-[var(--ink-dim)] font-normal text-[11px]">
+                          ({t('scHistoryMaxXp').replace('{n}', String(item.maxPoints))})
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {event.cta && (
             <ScTextButton arrow onClick={() => handleAction(event.cta!.action)}>
               {t(event.cta.labelKey)}

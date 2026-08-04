@@ -7,9 +7,10 @@ export function parseCourseDates(datesStr: string) {
   let end = new Date(today);
   let startTime = '09:00';
   let endTime = '13:00';
+  let isValid = false;
 
   if (!datesStr) {
-    return { start, end, startTime, endTime };
+    return { start, end, startTime, endTime, isValid: false };
   }
 
   try {
@@ -20,6 +21,36 @@ export function parseCourseDates(datesStr: string) {
     }
 
     let cleanDatesStr = datesStr.replace(/,?\s*\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/, '').trim();
+
+    // Check DD.MM.YYYY or DD.MM.YYYY - DD.MM.YYYY format
+    const dotRegex = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/;
+    const dotRangeRegex =
+      /^(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?\s*[-–]\s*(\d{1,2})\.(\d{1,2})\.(\d{4})$/;
+
+    if (dotRegex.test(cleanDatesStr)) {
+      const m = cleanDatesStr.match(dotRegex)!;
+      const d = new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10));
+      if (!isNaN(d.getTime())) {
+        start = d;
+        end = d;
+        isValid = true;
+        return { start, end, startTime, endTime, isValid };
+      }
+    }
+
+    if (dotRangeRegex.test(cleanDatesStr)) {
+      const m = cleanDatesStr.match(dotRangeRegex)!;
+      const yrEnd = parseInt(m[6], 10);
+      const yrStart = m[3] ? parseInt(m[3], 10) : yrEnd;
+      const d1 = new Date(yrStart, parseInt(m[2], 10) - 1, parseInt(m[1], 10));
+      const d2 = new Date(yrEnd, parseInt(m[5], 10) - 1, parseInt(m[4], 10));
+      if (!isNaN(d1.getTime()) && !isNaN(d2.getTime())) {
+        start = d1;
+        end = d2;
+        isValid = true;
+        return { start, end, startTime, endTime, isValid };
+      }
+    }
 
     const ruMonthMap: { [key: string]: string } = {
       января: 'January',
@@ -59,6 +90,7 @@ export function parseCourseDates(datesStr: string) {
       if (!isNaN(parsedDate.getTime())) {
         start = parsedDate;
         end = parsedDate;
+        isValid = true;
       }
     } else if (parts.length === 2) {
       let startPart = parts[0].trim();
@@ -88,14 +120,17 @@ export function parseCourseDates(datesStr: string) {
       const parsedStart = new Date(startPart);
       const parsedEnd = new Date(endPart);
 
-      if (!isNaN(parsedStart.getTime())) start = parsedStart;
-      if (!isNaN(parsedEnd.getTime())) end = parsedEnd;
+      if (!isNaN(parsedStart.getTime()) && !isNaN(parsedEnd.getTime())) {
+        start = parsedStart;
+        end = parsedEnd;
+        isValid = true;
+      }
     }
   } catch (e) {
     logger.warn('Failed to parse course dates:', e);
   }
 
-  return { start, end, startTime, endTime };
+  return { start, end, startTime, endTime, isValid };
 }
 
 export function parseCourseEndDateTime(datesStr: string): Date | null {

@@ -177,7 +177,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
           onOpenLesson={props.onOpenLesson}
           onWriteReview={props.onWriteReview}
           onOpenDevelopment={() => goToTab('development')}
-          onBack={() => goToTab('home')}
+          onBack={() => goToTab('settings')}
           onToggleRecommendation={props.onToggleRecommendation}
         />
       )}

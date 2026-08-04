@@ -340,11 +340,37 @@ describe('activity_logs', () => {
     );
   });
 
-  it('rejects updates and deletes', async () => {
+  it('allows the same actor to idempotently rewrite a level_up log', async () => {
+    const instructorDb = testEnv.authenticatedContext(INSTRUCTOR_USER_ID).firestore();
+    const logRef = doc(instructorDb, 'activity_logs', `act_level_${USER_ID}_2`);
+
+    await assertSucceeds(
+      setDoc(logRef, {
+        userId: USER_ID,
+        actorId: INSTRUCTOR_USER_ID,
+        type: 'level_up',
+        timestamp: '2026-07-28T12:00:00.000Z',
+        metadata: { oldLevel: 1, newLevel: 2 },
+      })
+    );
+
+    await assertSucceeds(
+      setDoc(logRef, {
+        userId: USER_ID,
+        actorId: INSTRUCTOR_USER_ID,
+        type: 'level_up',
+        timestamp: '2026-07-28T12:05:00.000Z',
+        metadata: { oldLevel: 1, newLevel: 2 },
+      })
+    );
+  });
+
+  it('rejects type changes and deletes on activity logs', async () => {
     const ownerDb = testEnv.authenticatedContext(USER_ID).firestore();
+    const instructorDb = testEnv.authenticatedContext(INSTRUCTOR_USER_ID).firestore();
 
     await assertFails(
-      updateDoc(doc(ownerDb, 'activity_logs', 'activity-1'), { type: 'review_created' })
+      updateDoc(doc(instructorDb, 'activity_logs', 'activity-1'), { type: 'review_created' })
     );
     await assertFails(deleteDoc(doc(ownerDb, 'activity_logs', 'activity-1')));
   });

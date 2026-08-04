@@ -74,7 +74,9 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
                   <h3 id="book-instructor-picker-title" className="text-lg font-serif font-light">
                     {t('scChooseInstructor')}
                   </h3>
-                  <p className="text-sm text-[var(--ink-dim)] mt-0.5">{t('scChooseInstructorSub')}</p>
+                  <p className="text-sm text-[var(--ink-dim)] mt-0.5">
+                    {t('scChooseInstructorSub')}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -99,7 +101,9 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
                           {t(group.labelKey)}
                         </p>
                         {group.subtitleKey && (
-                          <p className="text-xs text-[var(--ink-dim)] mt-0.5">{t(group.subtitleKey)}</p>
+                          <p className="text-xs text-[var(--ink-dim)] mt-0.5">
+                            {t(group.subtitleKey)}
+                          </p>
                         )}
                       </div>
                       <ul className="space-y-2">

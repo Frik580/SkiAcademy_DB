@@ -404,9 +404,9 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
   }, [userProfile.skillScores, dimensionData, simulatedValues, items, targetStage, passPercentage]);
 
   const ringCount = Math.max(1, chartDimensions.length);
-  const size = compact ? (embed ? 210 : 230) : 280;
+  const size = 230;
   const ringGap = 3;
-  const maxStroke = compact ? (embed ? 15 : 16) : 18;
+  const maxStroke = 15;
   const strokeWidth = Math.max(
     9,
     Math.min(maxStroke, Math.floor((size / 2 - 10) / ringCount) - ringGap)
@@ -455,7 +455,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
     ) : (
       <svg
         viewBox={`0 0 ${size} ${size}`}
-        className="block h-auto w-[13rem] sm:w-[11.5rem] lg:w-[10.5rem] cursor-pointer"
+        className="block h-auto w-[230px] max-w-full cursor-pointer shrink-0"
         role="img"
         aria-label={t('scRadarTitle')}
         onClick={() => setSelectedDimensionKey('all')}

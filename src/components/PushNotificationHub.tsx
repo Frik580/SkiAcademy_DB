@@ -139,7 +139,11 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
   onClearNotifications,
   onDeleteNotification,
 }) => {
-  const { notifications: localNotifications, clearAll: localClearAll, removeNotification: removeLocalNotification } = useNotifications();
+  const {
+    notifications: localNotifications,
+    clearAll: localClearAll,
+    removeNotification: removeLocalNotification,
+  } = useNotifications();
   const { t, language } = useLanguage();
 
   if (!isOpen) return null;

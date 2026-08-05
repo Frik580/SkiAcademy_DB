@@ -124,7 +124,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   return (
     <div className="space-y-0 pb-24 w-full min-w-0">
       {/* Путь к мастерству (Your Journey) for authorized client — full width, no frames or card margins */}
-      <div className="w-full">
+      <div className="w-full shrink-0">
         <YourJourneySection
           skillConfig={skillConfig}
           userProfile={userProfile}

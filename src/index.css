@@ -831,20 +831,21 @@
     position: absolute;
     inset-inline: 0;
     bottom: 0;
-    height: clamp(4rem, 20vh, 9rem);
+    height: clamp(4rem, 5rem, 9rem);
     background: linear-gradient(to bottom, transparent, var(--bg));
     pointer-events: none;
     z-index: 5;
   }
 
-  /* ЛК: «Путь к мастерству» — фиксированная высота: viewport минус header */
+  /* ЛК: «Путь к мастерству» — фиксированная высота: viewport минус header (svh стабилен на iOS) */
   .cabinet-journey-fill {
     display: flex;
     flex-direction: column;
-    min-height: calc(100vh - var(--app-navbar-height));
-    min-height: calc(100dvh - var(--app-navbar-height));
-    max-height: calc(100vh - var(--app-navbar-height));
-    max-height: calc(100dvh - var(--app-navbar-height));
+    flex-shrink: 0;
+    height: calc(100svh - var(--app-navbar-height));
+    min-height: calc(100svh - var(--app-navbar-height));
+    max-height: calc(100svh - var(--app-navbar-height));
+    overflow: hidden;
   }
 
   @media (min-width: 640px) {

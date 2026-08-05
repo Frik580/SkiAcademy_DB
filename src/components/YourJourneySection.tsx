@@ -296,6 +296,55 @@ function useBreakpoint(): Breakpoint {
   return bp;
 }
 
+/** Фиксирует высоту секции в ЛК в px — только mount/orientation, без scroll. */
+function useCabinetJourneyHeightLock(enabled: boolean) {
+  const sectionRef = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    const section = sectionRef.current;
+    if (!enabled || !section) return;
+
+    let lastWidth = window.innerWidth;
+
+    const lock = () => {
+      const navbar = document.querySelector('.ui-navbar');
+      const navbarPx =
+        navbar instanceof HTMLElement
+          ? navbar.offsetHeight
+          : parseFloat(
+              getComputedStyle(document.documentElement).getPropertyValue('--app-navbar-height')
+            ) || 0;
+      const height = Math.max(0, Math.round(window.innerHeight - navbarPx));
+      section.style.height = `${height}px`;
+      section.style.minHeight = `${height}px`;
+      section.style.maxHeight = `${height}px`;
+    };
+
+    lock();
+
+    const onOrientation = () => requestAnimationFrame(lock);
+    const onResize = () => {
+      const width = window.innerWidth;
+      if (width === lastWidth) return;
+      lastWidth = width;
+      lock();
+    };
+
+    window.addEventListener('orientationchange', onOrientation);
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      window.removeEventListener('orientationchange', onOrientation);
+      window.removeEventListener('resize', onResize);
+      section.style.removeProperty('height');
+      section.style.removeProperty('min-height');
+      section.style.removeProperty('max-height');
+    };
+  }, [enabled]);
+
+  return sectionRef;
+}
+
 /**
  * Кривая через метки.
  * bends[i].at — позиция пика на сегменте; amount — знак и сила отклонения от прямой.
@@ -891,6 +940,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   const navigate = useNavigate();
   const isDark = theme === 'dark';
   const breakpoint = useBreakpoint();
+  const sectionRef = useCabinetJourneyHeightLock(fillViewport);
   /** Текущий уровень по XP — его подсвечиваем при авторизации. */
   const currentUserLevelId = useMemo(() => {
     if (!userProfile || userProfile.hideProgressTracking) return null;
@@ -1179,8 +1229,9 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
 
   return (
     <section
+      ref={sectionRef}
       id="your-journey"
-      className={`journey-section relative overflow-hidden ${
+      className={`journey-section relative overflow-hidden shrink-0 ${
         isDark ? 'bg-[#070b14]' : 'bg-[#eef1f5]'
       } ${fillViewport ? 'cabinet-journey-fill' : ''}`}
     >

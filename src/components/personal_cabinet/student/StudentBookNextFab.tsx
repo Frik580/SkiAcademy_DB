@@ -20,7 +20,7 @@ export const StudentBookNextFab: React.FC<StudentBookNextFabProps> = ({ onClick 
       onClick={onClick}
       className="student-book-fab fixed z-[60] right-4 sm:right-6"
       style={{
-        bottom: `calc(${STUDENT_TAB_BAR_HEIGHT} + env(safe-area-inset-bottom, 0px) + 0.75rem)`,
+        bottom: `calc(${STUDENT_TAB_BAR_HEIGHT} + env(safe-area-inset-bottom, 0px) + 2.25rem)`,
       }}
       aria-label={t('bookLesson')}
       title={t('bookLesson')}

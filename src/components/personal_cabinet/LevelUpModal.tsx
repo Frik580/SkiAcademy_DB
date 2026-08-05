@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useLanguage } from '../../lib/LanguageContext';
+import { BodyScrollLock } from '../ui/BodyScrollLock';
 
 interface LevelUpModalProps {
   level: number;
@@ -17,6 +18,7 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({ level, theme, onClos
       className="ui-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 cursor-pointer bg-black/60 backdrop-blur-xs"
       onClick={onClose}
     >
+      <BodyScrollLock />
       <style>{`
         @keyframes popBadgeAnimation {
           0% { transform: scale(0.2); opacity: 0; }

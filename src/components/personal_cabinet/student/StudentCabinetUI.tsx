@@ -63,7 +63,7 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
   const bar = (
     <nav
       data-student-tab-bar
-      className="fixed inset-x-0 bottom-0 z-50 pointer-events-none flex flex-col"
+      className="fixed inset-x-0 bottom-0 z-30 pointer-events-none flex flex-col"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       aria-label={t('scNavHome')}
     >

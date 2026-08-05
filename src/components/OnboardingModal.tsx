@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ChevronRight, ChevronLeft, X } from 'lucide-react';
 import { useLanguage } from '../lib/LanguageContext';
 import confetti from 'canvas-confetti';
+import { BodyScrollLock } from './ui/BodyScrollLock';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -219,6 +220,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
   return (
     <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-hidden">
+      <BodyScrollLock />
       <div className="ui-modal relative max-w-3xl w-full text-[var(--ink)] overflow-hidden shadow-2xl flex flex-col h-[min(760px,calc(100dvh-1.5rem))] sm:h-[min(760px,calc(100dvh-2rem))] max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] rounded-2xl bg-[var(--card-bg)] border border-[var(--border)]">
         <div className="w-full bg-black/10 dark:bg-white/10 h-1 relative">
           <motion.div

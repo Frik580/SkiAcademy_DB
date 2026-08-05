@@ -24,6 +24,7 @@ import { Navbar } from './components/Navbar';
 import { LazyLoad } from './components/LazyLoad';
 import { AlertCircle } from 'lucide-react';
 import { AppInitSkeleton, ModalSkeleton } from './components/ui/Skeleton';
+import { BodyScrollLock } from './components/ui/BodyScrollLock';
 
 const BookingModal = React.lazy(() =>
   import('./components/BookingModal').then(({ BookingModal }) => ({ default: BookingModal }))
@@ -49,6 +50,7 @@ const PaymentGateway = React.lazy(() =>
 
 const ModalLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
   <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+    <BodyScrollLock />
     <ModalSkeleton title={label} />
   </div>
 );

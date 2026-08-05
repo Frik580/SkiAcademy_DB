@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { Booking, Course, Instructor, UserProfile } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
+import { BodyScrollLock } from '../ui/BodyScrollLock';
 import { useNotifications } from '../PushNotificationHub';
 import { BookingChatModal } from '../BookingChatModal';
 import { LinkGuestBookingModal } from './LinkGuestBookingModal';
@@ -429,6 +430,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
 
   return createPortal(
     <div className="ui-modal-overlay fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+      <BodyScrollLock />
       <div className="ui-modal bg-[var(--card-bg)] border border-[var(--border)] text-[var(--ink)] rounded-2xl w-full max-w-md p-6 shadow-2xl relative space-y-4">
         <button
           onClick={onClose}
@@ -964,6 +966,7 @@ export const ScheduleSlotActionModal = forwardRef<
         {confirmModal &&
           createPortal(
             <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-55 p-4 animate-fade-in">
+              <BodyScrollLock />
               <div className="bg-[var(--bg)] border border-[var(--border)] rounded-none w-full max-w-sm p-6 shadow-2xl relative space-y-4 animate-scale-up">
                 <h4 className="font-serif text-sm font-light text-[var(--ink)] flex items-center gap-2">
                   <Shield className="w-4.5 h-4.5 text-[var(--ink-dim)]" />

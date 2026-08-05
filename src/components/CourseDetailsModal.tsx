@@ -24,6 +24,7 @@ import { Course, Instructor, UserProfile } from '../types';
 import { getCourseLevelModalClass } from '../lib/courseLevelStyles';
 import { useLanguage, translateInstructorName, splitCourseDates } from '../lib/LanguageContext';
 import { logger } from '../lib/logger';
+import { BodyScrollLock } from './ui/BodyScrollLock';
 
 interface CourseDetailsModalProps {
   isOpen: boolean;
@@ -349,6 +350,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <BodyScrollLock />
         {/* Backdrop Overlay */}
         <motion.div
           initial={{ opacity: 0 }}

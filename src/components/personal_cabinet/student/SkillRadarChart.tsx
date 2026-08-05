@@ -11,6 +11,7 @@ import {
 } from '../../../lib/skillData';
 import { useLanguage } from '../../../lib/LanguageContext';
 import { ScSectionTitle } from './StudentCabinetUI';
+import { getLevelLabel } from './studentCabinetUtils';
 import {
   Compass,
   Zap,
@@ -22,6 +23,7 @@ import {
   Activity,
   Layers,
   ChevronRight,
+  ChevronDown,
 } from 'lucide-react';
 
 export type { RadarDimensionKey } from '../../../lib/skillData';
@@ -272,6 +274,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
   className = '',
 }) => {
   const { t, language } = useLanguage();
+  const lang = language === 'ru' ? 'ru' : 'en';
   const currentLevel = userProfile.level || 1;
   const items = skillConfig?.items || DEFAULT_SKILL_CONFIG.items;
   const passPercentage = skillConfig?.passPercentage ?? 80;
@@ -288,6 +291,16 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
     terrain: 0,
   });
   const [drawProgress, setDrawProgress] = useState(0);
+  const [collapsedLevelTargets, setCollapsedLevelTargets] = useState<Set<number>>(() => new Set());
+
+  const toggleLevelExercises = (levelNum: number) => {
+    setCollapsedLevelTargets((prev) => {
+      const next = new Set(prev);
+      if (next.has(levelNum)) next.delete(levelNum);
+      else next.add(levelNum);
+      return next;
+    });
+  };
 
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -379,6 +392,17 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
     }
     return selectedDimension?.exercises ?? [];
   }, [selectedDimensionKey, chartDimensions, selectedDimension]);
+
+  const exercisesByLevel = useMemo(() => {
+    const map = new Map<number, (typeof visibleExercises)[number][]>();
+    visibleExercises.forEach((exercise) => {
+      const levelNum = exercise.item.levelTarget;
+      const list = map.get(levelNum) ?? [];
+      list.push(exercise);
+      map.set(levelNum, list);
+    });
+    return Array.from(map.entries()).sort(([a], [b]) => a - b);
+  }, [visibleExercises]);
 
   const progressSummary = useMemo(
     () => calculateSkillProgress(userProfile.skillScores || {}, items, targetStage, passPercentage),
@@ -670,84 +694,106 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
                     {t('scRadarNoExercises').replace('{n}', String(targetStage))}
                   </p>
                 ) : (
-                  <div className="space-y-5">
-                    {Array.from(
-                      visibleExercises.reduce((map, ex) => {
-                        const levelNum = ex.item.levelTarget;
-                        const list = map.get(levelNum) ?? [];
-                        list.push(ex);
-                        map.set(levelNum, list);
-                        return map;
-                      }, new Map<number, typeof visibleExercises>())
-                    )
-                      .sort(([a], [b]) => a - b)
-                      .map(([levelNum, levelExercises]) => (
+                  <div className="space-y-4">
+                    {exercisesByLevel.map(([levelNum, levelExercises]) => {
+                      const isCollapsed = collapsedLevelTargets.has(levelNum);
+                      const levelLabel = getLevelLabel(levelNum, lang);
+                      return (
                         <div key={`level-${levelNum}`} className="space-y-2">
-                          <h4 className="text-[10px] font-medium uppercase tracking-wider text-[var(--ink-dim)] px-0.5">
-                            {t('instructorLevel')} {levelNum}
-                          </h4>
-                          <ul className="space-y-2">
-                            {levelExercises.map(
-                              ({ item, earned, maxPoints, pinned, isMaxScore }) => {
-                                const coachComment = userProfile.skillComments?.[item.id]?.trim();
-                                return (
-                                  <li
-                                    key={item.id}
-                                    className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-3 flex items-start justify-between gap-3"
-                                  >
-                                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                                      {isMaxScore ? (
-                                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#30D158]/12 text-[#30D158]">
-                                          <Check className="h-3 w-3" />
-                                        </span>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => onToggleSkillToday?.(item.id, !pinned)}
-                                          disabled={!onToggleSkillToday}
-                                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ${
-                                            pinned
-                                              ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]'
-                                              : 'border-[var(--border-subtle)] text-[var(--ink-dim)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
-                                          } disabled:opacity-50`}
-                                          title={
-                                            pinned ? t('scRemoveFromToday') : t('scAddToToday')
-                                          }
-                                        >
-                                          {pinned ? (
-                                            <Check className="h-3 w-3" />
-                                          ) : (
-                                            <Plus className="h-3 w-3" />
-                                          )}
-                                        </button>
-                                      )}
-                                      <div className="min-w-0 flex-1">
-                                        <p className="text-sm leading-snug text-[var(--ink)]">
-                                          {getSkillItemTitle(item, language)}
-                                        </p>
-                                        {coachComment && (
-                                          <p className="text-xs mt-0.5 leading-relaxed text-[var(--ink)] italic">
-                                            &ldquo;{coachComment}&rdquo;
-                                          </p>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <span
-                                      className={`shrink-0 text-xs tabular-nums ${
-                                        isMaxScore
-                                          ? 'font-semibold text-[#30D158]'
-                                          : 'text-[var(--ink-dim)]'
-                                      }`}
+                          <button
+                            type="button"
+                            onClick={() => toggleLevelExercises(levelNum)}
+                            aria-expanded={!isCollapsed}
+                            aria-label={`${
+                              isCollapsed
+                                ? t('scDevExpandLevelExercises')
+                                : t('scDevCollapseLevelExercises')
+                            }: ${levelLabel}`}
+                            className="flex w-full items-center justify-between gap-2 px-0.5 py-1 text-left rounded-md hover:bg-[var(--profile-bg)] transition-colors"
+                          >
+                            <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--ink-dim)]">
+                              {levelLabel}
+                            </span>
+                            <span className="flex items-center gap-1.5 text-[10px] text-[var(--ink-dim)] tabular-nums shrink-0">
+                              <span>
+                                {t('scRadarItemsCount').replace(
+                                  '{n}',
+                                  String(levelExercises.length)
+                                )}
+                              </span>
+                              <ChevronDown
+                                className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                                  isCollapsed ? '' : 'rotate-180'
+                                }`}
+                                aria-hidden
+                              />
+                            </span>
+                          </button>
+                          {!isCollapsed && (
+                            <ul className="space-y-2">
+                              {levelExercises.map(
+                                ({ item, earned, maxPoints, pinned, isMaxScore }) => {
+                                  const coachComment = userProfile.skillComments?.[item.id]?.trim();
+                                  return (
+                                    <li
+                                      key={item.id}
+                                      className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-3 flex items-start justify-between gap-3"
                                     >
-                                      {earned}/{maxPoints}
-                                    </span>
-                                  </li>
-                                );
-                              }
-                            )}
-                          </ul>
+                                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                                        {isMaxScore ? (
+                                          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#30D158]/12 text-[#30D158]">
+                                            <Check className="h-3 w-3" />
+                                          </span>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => onToggleSkillToday?.(item.id, !pinned)}
+                                            disabled={!onToggleSkillToday}
+                                            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ${
+                                              pinned
+                                                ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]'
+                                                : 'border-[var(--border-subtle)] text-[var(--ink-dim)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
+                                            } disabled:opacity-50`}
+                                            title={
+                                              pinned ? t('scRemoveFromToday') : t('scAddToToday')
+                                            }
+                                          >
+                                            {pinned ? (
+                                              <Check className="h-3 w-3" />
+                                            ) : (
+                                              <Plus className="h-3 w-3" />
+                                            )}
+                                          </button>
+                                        )}
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-sm leading-snug text-[var(--ink)]">
+                                            {getSkillItemTitle(item, language)}
+                                          </p>
+                                          {coachComment && (
+                                            <p className="text-xs mt-0.5 leading-relaxed text-[var(--ink)] italic">
+                                              &ldquo;{coachComment}&rdquo;
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <span
+                                        className={`shrink-0 text-xs tabular-nums ${
+                                          isMaxScore
+                                            ? 'font-semibold text-[#30D158]'
+                                            : 'text-[var(--ink-dim)]'
+                                        }`}
+                                      >
+                                        {earned}/{maxPoints}
+                                      </span>
+                                    </li>
+                                  );
+                                }
+                              )}
+                            </ul>
+                          )}
                         </div>
-                      ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

@@ -11,6 +11,7 @@ import {
 } from './student/studentCabinetUtils';
 import { LessonRecommendationsList } from './LessonRecommendationsList';
 import { Course } from '../../types';
+import { BodyScrollLock } from '../ui/BodyScrollLock';
 
 interface LessonDetailsModalProps {
   booking: Booking | null;
@@ -48,6 +49,7 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
         key="lesson-details-modal"
         className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-xs"
       >
+        <BodyScrollLock />
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Instructor, Review } from '../types';
 import { X, Star, MessageSquare, Calendar, User } from 'lucide-react';
 import { useLanguage } from '../lib/LanguageContext';
+import { BodyScrollLock } from './ui/BodyScrollLock';
 
 interface InstructorReviewsModalProps {
   isOpen: boolean;
@@ -56,6 +57,7 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
           transition={{ duration: 0.2 }}
           className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
         >
+          <BodyScrollLock />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}

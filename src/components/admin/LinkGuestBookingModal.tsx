@@ -5,6 +5,7 @@ import { Booking, UserProfile } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
 import { StatusBadge } from '../ui/StatusBadge';
 import { logger } from '../../lib/logger';
+import { BodyScrollLock } from '../ui/BodyScrollLock';
 
 interface LinkGuestBookingModalProps {
   isOpen: boolean;
@@ -75,6 +76,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
 
   const modalContent = (
     <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-sans text-[var(--ink)]">
+      <BodyScrollLock />
       <div
         className="ui-modal relative w-full max-w-lg border border-[var(--border)] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}

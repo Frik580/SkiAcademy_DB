@@ -714,6 +714,12 @@
     backdrop-filter: blur(12px);
   }
 
+  html.modal-scroll-lock,
+  html.modal-scroll-lock body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   .theme-air .ui-modal-overlay {
     background-color: rgba(10, 10, 10, 0.55);
     backdrop-filter: blur(20px);

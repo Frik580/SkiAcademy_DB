@@ -12,6 +12,7 @@ import {
 } from '../lib/skillData';
 import { useLanguage } from '../lib/LanguageContext';
 import { X, Save, Award, CheckCircle2, AlertCircle } from 'lucide-react';
+import { BodyScrollLock } from './ui/BodyScrollLock';
 
 interface StudentSkillEvaluationModalProps {
   isOpen: boolean;
@@ -142,6 +143,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
 
   return createPortal(
     <div className="ui-modal-overlay fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-xs overflow-y-auto">
+      <BodyScrollLock />
       <div className="ui-modal w-full max-w-4xl max-h-[90vh] my-auto flex flex-col shadow-2xl overflow-hidden rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] relative">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5">

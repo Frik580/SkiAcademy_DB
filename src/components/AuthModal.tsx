@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { Auth } from './Auth';
 import { UserProfile } from '../types';
 import { useLanguage } from '../lib/LanguageContext';
+import { BodyScrollLock } from './ui/BodyScrollLock';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
           onClick={onClose}
         >
+          <BodyScrollLock />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}

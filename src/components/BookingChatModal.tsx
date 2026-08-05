@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Booking, UserProfile, ChatMessage, OperationType, Instructor } from '../types';
 import { Skeleton } from './ui/Skeleton';
+import { BodyScrollLock } from './ui/BodyScrollLock';
 import {
   db,
   collection,
@@ -444,6 +445,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
 
   return createPortal(
     <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+      <BodyScrollLock />
       <div className="ui-modal shadow-2xl w-full max-w-lg h-[550px] flex flex-col overflow-hidden relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]">
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">

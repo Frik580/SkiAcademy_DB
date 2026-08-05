@@ -3,6 +3,7 @@ import { X, Bell, CheckCircle, AlertTriangle, Info, ShieldAlert } from 'lucide-r
 import { useLanguage } from '../lib/LanguageContext';
 import { resolveNotificationText, type DbNotification } from '../lib/notificationText';
 import { Booking, Review, UserProfile } from '../types';
+import { BodyScrollLock } from './ui/BodyScrollLock';
 
 export interface Notification {
   id: string;
@@ -213,6 +214,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
 
   return (
     <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+      <BodyScrollLock />
       <div className="ui-modal shadow-2xl w-full max-w-md overflow-hidden animate-scale-up">
         <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-black/10">
           <div className="flex items-center gap-2">

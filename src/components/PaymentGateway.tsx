@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CreditCard, X, Check, ArrowRight, Loader2 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage } from '../lib/LanguageContext';
+import { BodyScrollLock } from './ui/BodyScrollLock';
 
 interface PaymentGatewayProps {
   isOpen: boolean;
@@ -95,6 +96,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
 
   return (
     <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+      <BodyScrollLock />
       <div className="ui-modal shadow-2xl w-full max-w-md overflow-hidden relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5">

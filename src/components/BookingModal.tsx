@@ -5,6 +5,7 @@ import { useBookingModal } from './booking_modal/useBookingModal';
 import { BookingAuthShell } from './booking_modal/BookingAuthShell';
 import { AuthBookingForm } from './booking_modal/AuthBookingForm';
 import { BookingModalHeader } from './booking_modal/BookingModalHeader';
+import { BodyScrollLock } from './ui/BodyScrollLock';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export const BookingModal: React.FC<BookingModalProps> = (props) => {
           transition={{ duration: 0.2 }}
           className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
         >
+          <BodyScrollLock />
           {!userProfile ? (
             <BookingAuthShell workspace={workspace} />
           ) : (

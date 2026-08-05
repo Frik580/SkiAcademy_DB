@@ -1180,8 +1180,8 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   return (
     <section
       id="your-journey"
-      className={`relative overflow-hidden border-y ${
-        isDark ? 'bg-[#070b14] border-white/5' : 'bg-[#eef1f5] border-black/5'
+      className={`journey-section relative overflow-hidden ${
+        isDark ? 'bg-[#070b14]' : 'bg-[#eef1f5]'
       } ${fillViewport ? 'cabinet-journey-fill' : ''}`}
     >
       <img
@@ -1194,8 +1194,8 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
       <div
         className={`absolute inset-0 pointer-events-none ${
           isDark
-            ? 'bg-gradient-to-b from-[#070b14]/55 via-transparent to-[#070b14]/88'
-            : 'bg-gradient-to-b from-[#eef1f5]/50 via-transparent to-[#eef1f5]/85'
+            ? 'bg-gradient-to-b from-[#070b14]/55 via-transparent to-transparent'
+            : 'bg-gradient-to-b from-[#eef1f5]/50 via-transparent to-transparent'
         }`}
         aria-hidden="true"
       />

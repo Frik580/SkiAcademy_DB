@@ -820,6 +820,23 @@
     backdrop-filter: var(--nav-blur);
   }
 
+  /* «Путь к мастерству» — плавный переход к фону следующего блока */
+  .journey-section {
+    border-top-width: 0;
+    border-bottom-width: 0;
+  }
+
+  .journey-section::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: clamp(4rem, 20vh, 9rem);
+    background: linear-gradient(to bottom, transparent, var(--bg));
+    pointer-events: none;
+    z-index: 5;
+  }
+
   /* ЛК: «Путь к мастерству» — фиксированная высота: viewport минус header */
   .cabinet-journey-fill {
     display: flex;

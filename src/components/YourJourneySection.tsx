@@ -8,7 +8,6 @@ import {
   calculateSkillProgress,
   calculateStudentLevel,
   getJourneyLevelXpThresholds,
-  getLevelStageMaxPoints,
   getSkillItemTitle,
   type SkillConfig,
   type SkillItem,
@@ -185,6 +184,36 @@ function getTopEarnedSkillsForJourneyLevel(
 
 type JourneyEarnedSkill = { id: string; title: string };
 
+function isJourneyLevelUnlocked(
+  levelId: number,
+  earnedSkillsByLevel: Record<number, JourneyEarnedSkill[]>
+): boolean {
+  return (earnedSkillsByLevel[levelId]?.length ?? 0) > 0;
+}
+
+function getFirstUnlockedJourneyLevelId(
+  earnedSkillsByLevel: Record<number, JourneyEarnedSkill[]>
+): number | null {
+  return (
+    JOURNEY_LEVELS.find((level) => isJourneyLevelUnlocked(level.id, earnedSkillsByLevel))?.id ??
+    null
+  );
+}
+
+function resolveCompactJourneyActiveLevel(
+  hoveredLevelId: number | null,
+  selectedLevelId: number | null,
+  currentUserLevelId: number | null,
+  earnedSkillsByLevel: Record<number, JourneyEarnedSkill[]>
+): number {
+  for (const levelId of [hoveredLevelId, selectedLevelId, currentUserLevelId, 1]) {
+    if (levelId != null && isJourneyLevelUnlocked(levelId, earnedSkillsByLevel)) {
+      return levelId;
+    }
+  }
+  return getFirstUnlockedJourneyLevelId(earnedSkillsByLevel) ?? 1;
+}
+
 const LevelCardBody: React.FC<{
   level: JourneyLevel;
   isDark: boolean;
@@ -197,13 +226,41 @@ const LevelCardBody: React.FC<{
   const showEarned = earnedSkills != null;
 
   return (
-    <>
-      {showEarned ? (
-        earnedSkills.length > 0 ? (
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
+      <div className="min-h-0 flex-1">
+        {showEarned ? (
+          earnedSkills.length > 0 ? (
+            <ul className="space-y-1.5">
+              {earnedSkills.map((skill) => (
+                <li
+                  key={skill.id}
+                  className={`flex items-start gap-1.5 ${
+                    compact ? 'text-[11px] sm:text-xs' : 'text-xs'
+                  } leading-snug ${isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'}`}
+                >
+                  <Check
+                    className="w-3 h-3 shrink-0 mt-0.5"
+                    strokeWidth={2.5}
+                    style={{ color: level.accent }}
+                  />
+                  <span>{skill.title}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p
+              className={`${compact ? 'text-[11px] sm:text-xs' : 'text-xs'} leading-snug ${
+                isDark ? 'text-white/40' : 'text-[var(--ink-dim)]/70'
+              }`}
+            >
+              {t('journeyNoEarnedSkills')}
+            </p>
+          )
+        ) : (
           <ul className="space-y-1.5">
-            {earnedSkills.map((skill) => (
+            {level.skillKeys.map((skillKey) => (
               <li
-                key={skill.id}
+                key={skillKey}
                 className={`flex items-start gap-1.5 ${
                   compact ? 'text-[11px] sm:text-xs' : 'text-xs'
                 } leading-snug ${isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'}`}
@@ -213,38 +270,12 @@ const LevelCardBody: React.FC<{
                   strokeWidth={2.5}
                   style={{ color: level.accent }}
                 />
-                <span>{skill.title}</span>
+                <span>{t(skillKey)}</span>
               </li>
             ))}
           </ul>
-        ) : (
-          <p
-            className={`${compact ? 'text-[11px] sm:text-xs' : 'text-xs'} leading-snug ${
-              isDark ? 'text-white/40' : 'text-[var(--ink-dim)]/70'
-            }`}
-          >
-            {t('journeyNoEarnedSkills')}
-          </p>
-        )
-      ) : (
-        <ul className="space-y-1.5">
-          {level.skillKeys.map((skillKey) => (
-            <li
-              key={skillKey}
-              className={`flex items-start gap-1.5 ${
-                compact ? 'text-[11px] sm:text-xs' : 'text-xs'
-              } leading-snug ${isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'}`}
-            >
-              <Check
-                className="w-3 h-3 shrink-0 mt-0.5"
-                strokeWidth={2.5}
-                style={{ color: level.accent }}
-              />
-              <span>{t(skillKey)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+        )}
+      </div>
 
       {onOpenDevelopment ? (
         <button
@@ -253,7 +284,7 @@ const LevelCardBody: React.FC<{
             e.stopPropagation();
             onOpenDevelopment();
           }}
-          className={`pt-1 border-t text-left text-[11px] sm:text-xs font-medium transition-colors inline-flex items-center gap-1 ${
+          className={`shrink-0 pt-1 border-t text-left text-[11px] sm:text-xs font-medium transition-colors inline-flex items-center gap-1 ${
             isDark
               ? 'border-white/10 text-[#7ec8ff] hover:text-white'
               : 'border-black/8 text-[var(--accent)] hover:text-[var(--ink)]'
@@ -264,14 +295,14 @@ const LevelCardBody: React.FC<{
         </button>
       ) : (
         <p
-          className={`${compact ? 'text-[10px] sm:text-[11px]' : 'text-[11px]'} pt-1 border-t ${
+          className={`shrink-0 ${compact ? 'text-[10px] sm:text-[11px]' : 'text-[11px]'} pt-1 border-t ${
             isDark ? 'text-white/35 border-white/10' : 'text-[var(--ink-dim)]/80 border-black/8'
           }`}
         >
           {formatMeta(level.skillsCount, level.achievementsCount)}
         </p>
       )}
-    </>
+    </div>
   );
 };
 
@@ -392,22 +423,25 @@ function getLevelUpZoneStartRatio(passPercentage: number): number {
 
 /**
  * Прогресс пользователя вдоль пути 0…1.
- * Позиция = earned / max XP каждого этапа по порядку (не по user.level):
- * при 88/100 метка на ~88% сегмента Beginner→Carve, даже если уровень уже 2.
+ * Позиция = суммарный XP относительно порогов на графике (0, Carve, Performance, Expert),
+ * чтобы метка совпадала с отображаемым XP (например, 125 XP — между Carve и Performance).
  */
 function getJourneyPathProgress(userProfile: UserProfile, skillConfig: SkillConfig): number {
   const scores = userProfile.skillScores || {};
   const items = skillConfig.items;
-  const stageMax = getLevelStageMaxPoints(items);
+  const thresholds = getJourneyLevelXpThresholds(items);
+  const totalEarned = items.reduce((acc, item) => acc + (scores[item.id] || 0), 0);
 
-  for (let stage = 1; stage <= 3; stage++) {
-    const max = stageMax[stage as 1 | 2 | 3];
-    const earned = items
-      .filter((item) => item.levelTarget === stage)
-      .reduce((acc, item) => acc + (scores[item.id] || 0), 0);
-    const frac = max > 0 ? Math.min(1, Math.max(0, earned / max)) : 1;
-    if (frac < 1) {
-      return (stage - 1 + frac) / 3;
+  if (totalEarned <= 0) return 0;
+  if (totalEarned >= thresholds[3]) return 1;
+
+  for (let i = 0; i < 3; i++) {
+    const start = thresholds[i];
+    const end = thresholds[i + 1];
+    if (totalEarned < end) {
+      const span = end - start;
+      const frac = span > 0 ? (totalEarned - start) / span : 0;
+      return (i + frac) / 3;
     }
   }
   return 1;
@@ -830,6 +864,7 @@ const CompactLevelCards: React.FC<{
     containerWidth: number;
     cardWidths: number[];
   }>({ containerWidth: 0, cardWidths: [] });
+  const [lockedHeight, setLockedHeight] = useState(0);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -837,11 +872,18 @@ const CompactLevelCards: React.FC<{
 
     const measure = () => {
       const cWidth = container.offsetWidth;
-      const cWidths = cardRefs.current.map((el) => el?.offsetWidth || 0);
-      setLayoutState({ containerWidth: cWidth, cardWidths: cWidths });
+      const maxH = Math.max(0, ...cardRefs.current.map((el) => el?.offsetHeight ?? 0));
+      if (maxH > 0) {
+        setLockedHeight((prev) => Math.max(prev, maxH));
+      }
+      setLayoutState({
+        containerWidth: cWidth,
+        cardWidths: cardRefs.current.map((el) => el?.offsetWidth || 0),
+      });
     };
 
     measure();
+    requestAnimationFrame(measure);
     const ro = new ResizeObserver(measure);
     ro.observe(container);
     cardRefs.current.forEach((el) => el && ro.observe(el));
@@ -880,10 +922,16 @@ const CompactLevelCards: React.FC<{
 
   return (
     // grid + одна ячейка: row sizing берёт max среди детей
-    <div ref={containerRef} className="relative w-full grid">
+    <div
+      ref={containerRef}
+      className="relative grid h-full w-full"
+      style={lockedHeight > 0 ? { minHeight: lockedHeight, height: lockedHeight } : undefined}
+    >
       {levels.map((level, index) => {
+        const earnedSkills = onOpenDevelopment ? (earnedSkillsByLevel[level.id] ?? []) : null;
+        const isEmpty = Boolean(onOpenDevelopment && (earnedSkills?.length ?? 0) === 0);
         const isRevealed = level.id <= visibleLevelCount;
-        const isActive = level.id === activeLevelId && isRevealed;
+        const isActive = !isEmpty && level.id === activeLevelId && isRevealed;
         const leftOffset = calculateLeftForIndex(index);
         return (
           <article
@@ -891,22 +939,26 @@ const CompactLevelCards: React.FC<{
             ref={(el) => {
               cardRefs.current[index] = el;
             }}
-            className={`col-start-1 row-start-1 w-max max-w-[min(100%,20rem)] justify-self-start rounded-2xl border px-3.5 py-4 flex flex-col gap-3 transition-all duration-300 ${
-              isActive ? 'opacity-100 z-10' : 'opacity-0 pointer-events-none z-0'
+            className={`col-start-1 row-start-1 h-full w-max max-w-[min(100%,20rem)] justify-self-start rounded-2xl border px-3.5 py-4 flex flex-col transition-all duration-300 ${
+              isEmpty
+                ? 'invisible opacity-0 pointer-events-none z-0'
+                : isActive
+                  ? 'opacity-100 z-10'
+                  : 'opacity-0 pointer-events-none z-0'
             } ${
               isDark
                 ? 'bg-white/[0.08] border-white/20 shadow-[0_0_24px_rgba(62,207,255,0.12)]'
                 : 'bg-white border-black/10 shadow-[0_8px_28px_rgba(17,17,17,0.08)]'
             }`}
             style={{ marginLeft: leftOffset }}
-            aria-hidden={!isActive}
-            onMouseEnter={() => onActivate(level.id)}
+            aria-hidden={isEmpty || !isActive}
+            onMouseEnter={() => !isEmpty && onActivate(level.id)}
             onMouseLeave={onClearHover}
           >
             <LevelCardBody
               level={level}
               isDark={isDark}
-              earnedSkills={onOpenDevelopment ? (earnedSkillsByLevel[level.id] ?? []) : null}
+              earnedSkills={earnedSkills}
               onOpenDevelopment={onOpenDevelopment}
               formatMeta={formatMeta}
               compact
@@ -941,6 +993,9 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   const isDark = theme === 'dark';
   const breakpoint = useBreakpoint();
   const sectionRef = useCabinetJourneyHeightLock(fillViewport);
+  const showAllCards = breakpoint === 'desktop';
+  const isCompactJourneyLayout = !showAllCards;
+  const showUserPosition = Boolean(userProfile && !userProfile.hideProgressTracking);
   /** Текущий уровень по XP — его подсвечиваем при авторизации. */
   const currentUserLevelId = useMemo(() => {
     if (!userProfile || userProfile.hideProgressTracking) return null;
@@ -970,17 +1025,60 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
     return breakpoint !== 'desktop' ? 1 : null;
   });
 
-  useEffect(() => {
-    if (currentUserLevelId != null) {
-      setSelectedLevelId(currentUserLevelId);
+  const earnedSkillsByLevel = useMemo(() => {
+    const scores = userProfile?.skillScores || {};
+    const map: Record<number, JourneyEarnedSkill[]> = {};
+    for (const level of JOURNEY_LEVELS) {
+      map[level.id] = getTopEarnedSkillsForJourneyLevel(
+        level.id,
+        skillConfig.items,
+        scores,
+        language,
+        5
+      );
     }
-  }, [currentUserLevelId]);
+    return map;
+  }, [userProfile?.skillScores, skillConfig.items, language]);
 
-  /** На desktop все 4 карточки в ряд; иначе — только активная. */
-  const showAllCards = breakpoint === 'desktop';
-  // По умолчанию — уровень пользователя (если авторизован), иначе 1 на мобильном
-  const activeLevelId =
-    hoveredLevelId ?? selectedLevelId ?? (showAllCards ? null : (currentUserLevelId ?? 1));
+  useEffect(() => {
+    if (currentUserLevelId == null) return;
+
+    if (isCompactJourneyLayout && showUserPosition) {
+      const preferred = isJourneyLevelUnlocked(currentUserLevelId, earnedSkillsByLevel)
+        ? currentUserLevelId
+        : getFirstUnlockedJourneyLevelId(earnedSkillsByLevel);
+      if (preferred != null) {
+        setSelectedLevelId(preferred);
+      }
+      return;
+    }
+
+    setSelectedLevelId(currentUserLevelId);
+  }, [currentUserLevelId, isCompactJourneyLayout, showUserPosition, earnedSkillsByLevel]);
+
+  const activeLevelId = useMemo(() => {
+    if (showAllCards) {
+      return hoveredLevelId ?? selectedLevelId ?? null;
+    }
+
+    if (showUserPosition) {
+      return resolveCompactJourneyActiveLevel(
+        hoveredLevelId,
+        selectedLevelId,
+        currentUserLevelId,
+        earnedSkillsByLevel
+      );
+    }
+
+    return hoveredLevelId ?? selectedLevelId ?? currentUserLevelId ?? 1;
+  }, [
+    showAllCards,
+    showUserPosition,
+    hoveredLevelId,
+    selectedLevelId,
+    currentUserLevelId,
+    earnedSkillsByLevel,
+  ]);
 
   const markerYs = LEVEL_MARKER_Y[breakpoint];
   const pathBends = LEVEL_PATH_BEND[breakpoint];
@@ -999,22 +1097,6 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
     [levelXp]
   );
 
-  const earnedSkillsByLevel = useMemo(() => {
-    const scores = userProfile?.skillScores || {};
-    const map: Record<number, JourneyEarnedSkill[]> = {};
-    for (const level of JOURNEY_LEVELS) {
-      map[level.id] = getTopEarnedSkillsForJourneyLevel(
-        level.id,
-        skillConfig.items,
-        scores,
-        language,
-        5
-      );
-    }
-    return map;
-  }, [userProfile?.skillScores, skillConfig.items, language]);
-
-  const showUserPosition = Boolean(userProfile && !userProfile.hideProgressTracking);
   const pathBlockRef = useRef<HTMLDivElement>(null);
   const hasAnimatedMarkerRef = useRef(false);
   const hasAnimatedSequenceRef = useRef(false);
@@ -1142,16 +1224,19 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   }, [animateSequence]);
 
   useEffect(() => {
-    if (userProgress == null || visibleLevelCount < 4) {
-      if (userProgress == null) {
-        setDisplayProgress(null);
-        hasAnimatedMarkerRef.current = false;
-      }
+    if (userProgress == null) {
+      setDisplayProgress(null);
+      hasAnimatedMarkerRef.current = false;
       return;
     }
 
-    if (hasAnimatedMarkerRef.current) {
+    if (animateSequence && visibleLevelCount < 4) {
+      return;
+    }
+
+    if (!animateSequence || hasAnimatedMarkerRef.current) {
       setDisplayProgress(userProgress);
+      hasAnimatedMarkerRef.current = true;
       return;
     }
 
@@ -1175,7 +1260,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [userProgress, visibleLevelCount]);
+  }, [userProgress, visibleLevelCount, animateSequence]);
 
   useLayoutEffect(() => {
     if (displayProgress == null || !pathSampler) {
@@ -1214,6 +1299,13 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   const bgUrl = isDark ? JOURNEY_BG.dark : JOURNEY_BG.light;
 
   const activateLevel = (levelId: number) => {
+    if (
+      isCompactJourneyLayout &&
+      showUserPosition &&
+      !isJourneyLevelUnlocked(levelId, earnedSkillsByLevel)
+    ) {
+      return;
+    }
     setHoveredLevelId(levelId);
     // После наведения блок остаётся подсвеченным (как после клика)
     setSelectedLevelId(levelId);
@@ -1224,6 +1316,13 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   };
 
   const selectLevel = (levelId: number) => {
+    if (
+      isCompactJourneyLayout &&
+      showUserPosition &&
+      !isJourneyLevelUnlocked(levelId, earnedSkillsByLevel)
+    ) {
+      return;
+    }
     setSelectedLevelId(levelId);
   };
 
@@ -1254,11 +1353,11 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
       <div
         className={`relative z-10 max-w-5xl mx-auto px-5 sm:px-8 md:px-10 w-full ${
           fillViewport
-            ? 'flex-1 flex flex-col justify-center min-h-0 py-6 sm:py-8 md:py-10 gap-6 sm:gap-8 md:gap-10'
+            ? 'flex-1 flex flex-col min-h-0 pt-6 sm:pt-8 md:pt-10 pb-22 sm:pb-22 md:pb-22 gap-6 sm:gap-8 md:gap-10'
             : 'py-14 md:py-20 space-y-10 md:space-y-12'
         }`}
       >
-        <header className="text-center space-y-3 max-w-2xl mx-auto">
+        <header className="text-center space-y-3 max-w-2xl mx-auto shrink-0">
           <p
             className={`text-[11px] sm:text-xs font-medium tracking-[0.22em] uppercase ${
               isDark ? 'text-[#7ec8ff]' : 'text-[var(--accent)]'
@@ -1322,8 +1421,10 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           ref={pathBlockRef}
           className={
             fillViewport
-              ? 'relative flex-1 flex flex-col justify-center min-h-0 space-y-3 sm:space-y-4'
-              : 'relative space-y-4'
+              ? 'relative flex-1 flex flex-col min-h-0 space-y-3 sm:space-y-4'
+              : isCompactJourneyLayout
+                ? 'relative flex flex-col space-y-3 sm:space-y-4'
+                : 'relative space-y-4'
           }
         >
           {/* Полоса пути: метки + волнистая линия */}
@@ -1331,7 +1432,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
             className={
               fillViewport
                 ? 'relative w-full flex-1 min-h-[7.5rem]'
-                : 'relative w-full h-36 sm:h-44 md:h-52'
+                : 'relative w-full h-36 sm:h-44 md:h-52 shrink-0'
             }
           >
             <JourneyPath
@@ -1359,6 +1460,11 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
 
             <div className="absolute inset-0 grid grid-cols-4">
               {levelsWithXp.map((level, index) => {
+                const earnedSkills = showUserPosition
+                  ? (earnedSkillsByLevel[level.id] ?? [])
+                  : null;
+                const isLocked =
+                  isCompactJourneyLayout && showUserPosition && (earnedSkills?.length ?? 0) === 0;
                 const isActive = activeLevelId === level.id;
                 const isCurrent = currentUserLevelId === level.id;
                 const topPct = markerYs[index];
@@ -1379,20 +1485,21 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
                     )}
                     <button
                       type="button"
-                      className={`absolute -translate-x-1/2 -translate-y-1/2 left-1/2 z-10 bg-transparent border-0 p-3 cursor-pointer transition-all duration-500 transform ${
+                      className={`absolute -translate-x-1/2 -translate-y-1/2 left-1/2 z-10 bg-transparent border-0 p-3 transition-all duration-500 transform ${
                         isRevealed
                           ? 'opacity-100 scale-100'
                           : 'opacity-0 scale-50 pointer-events-none'
-                      }`}
+                      } ${isLocked ? 'cursor-default pointer-events-none' : 'cursor-pointer'}`}
                       style={{ top: `${topPct}%` }}
                       aria-label={t(level.labelKey)}
                       aria-pressed={isActive || isCurrent}
                       aria-current={isCurrent ? 'step' : undefined}
-                      onMouseEnter={() => activateLevel(level.id)}
+                      aria-disabled={isLocked || undefined}
+                      onMouseEnter={() => !isLocked && activateLevel(level.id)}
                       onMouseLeave={clearHover}
-                      onFocus={() => activateLevel(level.id)}
+                      onFocus={() => !isLocked && activateLevel(level.id)}
                       onBlur={clearHover}
-                      onClick={() => selectLevel(level.id)}
+                      onClick={() => !isLocked && selectLevel(level.id)}
                     >
                       <LevelNode
                         shape={level.shape}
@@ -1413,8 +1520,11 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
             Desktop: все карточки с навыками в ряд.
             Mobile/tablet: одна карточка под активной меткой, clamped в видимую область.
           */}
-          <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+          <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-4 shrink-0">
             {levelsWithXp.map((level) => {
+              const earnedSkills = showUserPosition ? (earnedSkillsByLevel[level.id] ?? []) : null;
+              const isLocked =
+                isCompactJourneyLayout && showUserPosition && (earnedSkills?.length ?? 0) === 0;
               const isActive = activeLevelId === level.id;
               const isCurrent = currentUserLevelId === level.id;
               const isRevealed = level.id <= visibleLevelCount;
@@ -1422,11 +1532,13 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
                 <div
                   key={level.id}
                   className={`min-w-0 text-center space-y-0.5 px-0.5 transition-all duration-500 transform ${
+                    isCompactJourneyLayout ? 'min-h-[3.25rem] sm:min-h-[3.5rem]' : ''
+                  } ${
                     isRevealed
                       ? 'opacity-100 translate-y-0'
                       : 'opacity-0 translate-y-3 pointer-events-none'
-                  }`}
-                  onMouseEnter={() => activateLevel(level.id)}
+                  } ${isLocked ? 'pointer-events-none cursor-default' : ''}`}
+                  onMouseEnter={() => !isLocked && activateLevel(level.id)}
                   onMouseLeave={clearHover}
                 >
                   <h3
@@ -1465,7 +1577,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           </div>
 
           {showAllCards ? (
-            <div className="grid grid-cols-4 gap-3 sm:gap-4 items-end">
+            <div className="grid grid-cols-4 gap-3 sm:gap-4 items-stretch">
               {levelsWithXp.map((level) => {
                 const isActive = activeLevelId === level.id;
                 const isCurrent = currentUserLevelId === level.id;
@@ -1474,18 +1586,18 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
                 const earnedSkills = showUserPosition
                   ? (earnedSkillsByLevel[level.id] ?? [])
                   : null;
-                if (showUserPosition && (earnedSkills?.length ?? 0) === 0) {
-                  return <div key={level.id} className="min-w-0" aria-hidden />;
-                }
+                const isEmpty = Boolean(showUserPosition && (earnedSkills?.length ?? 0) === 0);
                 return (
                   <article
                     key={level.id}
-                    onMouseEnter={() => activateLevel(level.id)}
+                    onMouseEnter={() => !isEmpty && activateLevel(level.id)}
                     onMouseLeave={clearHover}
-                    className={`w-full min-w-0 rounded-2xl border px-3.5 py-4 md:px-4 md:py-5 flex flex-col gap-3 transition-all duration-500 transform ${
-                      isRevealed
-                        ? 'opacity-100 translate-y-0'
-                        : 'opacity-0 translate-y-4 pointer-events-none'
+                    className={`h-full w-full min-w-0 rounded-2xl border px-3.5 py-4 md:px-4 md:py-5 flex flex-col transition-all duration-500 transform ${
+                      isEmpty
+                        ? 'invisible opacity-0 pointer-events-none'
+                        : isRevealed
+                          ? 'opacity-100 translate-y-0'
+                          : 'opacity-0 translate-y-4 pointer-events-none'
                     } ${
                       isDark
                         ? isCurrent
@@ -1512,19 +1624,20 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
               })}
             </div>
           ) : (
-            activeLevelId != null &&
-            (!showUserPosition || (earnedSkillsByLevel[activeLevelId]?.length ?? 0) > 0) && (
-              <CompactLevelCards
-                levels={levelsWithXp}
-                activeLevelId={activeLevelId}
-                visibleLevelCount={visibleLevelCount}
-                isDark={isDark}
-                formatMeta={formatMeta}
-                earnedSkillsByLevel={earnedSkillsByLevel}
-                onOpenDevelopment={showUserPosition ? onOpenDevelopment : undefined}
-                onActivate={activateLevel}
-                onClearHover={clearHover}
-              />
+            activeLevelId != null && (
+              <div className="relative shrink-0">
+                <CompactLevelCards
+                  levels={levelsWithXp}
+                  activeLevelId={activeLevelId}
+                  visibleLevelCount={visibleLevelCount}
+                  isDark={isDark}
+                  formatMeta={formatMeta}
+                  earnedSkillsByLevel={earnedSkillsByLevel}
+                  onOpenDevelopment={showUserPosition ? onOpenDevelopment : undefined}
+                  onActivate={activateLevel}
+                  onClearHover={clearHover}
+                />
+              </div>
             )
           )}
         </div>

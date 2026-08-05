@@ -29,7 +29,9 @@
   --hero-secondary-shadow: 0 1px 4px rgba(13, 15, 18, 0.1);
   --hero-secondary-shadow-hover: 0 2px 8px rgba(13, 15, 18, 0.12);
   --app-navbar-height: 4.5rem;
-  --app-student-tab-bar-stack: calc(3.25rem + 0.75rem + env(safe-area-inset-bottom, 0px));
+  --app-student-tab-pill-height: 3.25rem;
+  --site-footer-height: calc(var(--app-student-tab-pill-height) + 40px);
+  --app-student-tab-bar-stack: calc(3.25rem + 2 * 1.25rem + env(safe-area-inset-bottom, 0px));
   --hero-ink: #0a0c0f;
   --hero-ink-dim: #2f343c;
   --hero-cta-bg: #0d0f12;
@@ -850,7 +852,7 @@
 
   @media (min-width: 640px) {
     :root {
-      --app-student-tab-bar-stack: calc(3.25rem + 1.25rem + env(safe-area-inset-bottom, 0px));
+      --app-student-tab-bar-stack: calc(3.25rem + 2 * 1.25rem + env(safe-area-inset-bottom, 0px));
     }
   }
 
@@ -862,6 +864,14 @@
   .theme-air .ui-footer {
     background-color: transparent;
     border-top-color: var(--border-subtle);
+  }
+
+  .ui-site-footer {
+    height: var(--site-footer-height);
+    min-height: var(--site-footer-height);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
   }
 
   .ui-hero {

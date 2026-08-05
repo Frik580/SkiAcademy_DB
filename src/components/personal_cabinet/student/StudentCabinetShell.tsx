@@ -24,7 +24,7 @@ import {
   StudentProfileVideosPanel,
   StudentProfilePreferencesPanel,
 } from './StudentProfilePanels';
-import { StudentCabinetTabBar, STUDENT_TAB_BAR_HEIGHT } from './StudentCabinetUI';
+import { StudentCabinetTabBar, studentCabinetFooterHeight } from './StudentCabinetUI';
 import { StudentCabinetTab } from './studentCabinetUtils';
 import { StudentCabinetResortSnapshot } from './StudentHomeBottomSections';
 
@@ -161,7 +161,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     <div
       className="relative w-full min-w-0"
       style={{
-        paddingBottom: `calc(${STUDENT_TAB_BAR_HEIGHT} + env(safe-area-inset-bottom, 0px))`,
+        paddingBottom: studentCabinetFooterHeight,
       }}
     >
       {activeTab === 'home' && <StudentCabinetHome {...ctx} />}

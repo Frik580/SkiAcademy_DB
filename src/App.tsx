@@ -151,6 +151,7 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const isAdminRoute = location.pathname === '/admin';
   const isPaddedWorkspaceRoute = isAdminRoute || location.pathname === '/instructor';
+  const isHomeRoute = location.pathname === '/';
 
   const [dbStatusWarning, setDbStatusWarning] = useState<string | null>(null);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
@@ -474,8 +475,12 @@ const AppContent: React.FC = () => {
         onSuccess={setUserProfile}
       />
 
-      <footer className="ui-footer border-t border-[var(--border-subtle)] py-8 lg:py-12 px-6 shrink-0 bg-[var(--profile-bg)]/40">
-        <div className="max-w-7xl mx-auto space-y-8">
+      <footer
+        className={`ui-footer ui-site-footer border-t border-[var(--border-subtle)] px-6 shrink-0 bg-[var(--profile-bg)]/40 ${
+          isHomeRoute ? '' : 'max-[1199px]:hidden'
+        }`}
+      >
+        <div className="max-w-7xl mx-auto w-full">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[var(--ink-dim)] font-mono">
             <div>© {new Date().getFullYear()} Carve Academy</div>
             <div className="flex items-center gap-4 text-[11px]">

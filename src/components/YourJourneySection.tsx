@@ -2,15 +2,19 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { useNavigate } from 'react-router-dom';
 import { Award, Check, Crosshair, Mountain, Play, type LucideIcon } from 'lucide-react';
 import { useLanguage, type TranslationKey } from '../lib/LanguageContext';
+import { formatPointsCount } from '../lib/i18n/pluralize';
 import {
   DEFAULT_SKILL_CONFIG,
   calculateSkillProgress,
   calculateStudentLevel,
   getJourneyLevelXpThresholds,
   getLevelStageMaxPoints,
+  getSkillItemTitle,
   type SkillConfig,
+  type SkillItem,
 } from '../lib/skillData';
 import { getDefaultWorkspacePath } from '../lib/workspaceRoutes';
+import type { Language } from '../lib/i18n/translations';
 import type { UserProfile } from '../types';
 import { useTheme } from './useTheme';
 
@@ -144,6 +148,132 @@ const SUMMARY_STATS: { key: TranslationKey; icon: LucideIcon }[] = [
   { key: 'journeyStatLevels', icon: Mountain },
   { key: 'journeyStatVideo', icon: Play },
 ];
+
+/** Journey level id (1–4) → skill matrix stage (levelTarget 1–3). */
+function journeyLevelToSkillStage(journeyLevelId: number): 1 | 2 | 3 {
+  if (journeyLevelId <= 1) return 1;
+  if (journeyLevelId === 2) return 2;
+  return 3;
+}
+
+/** Top earned skills for a journey level — up to `limit`, sorted by progress. */
+function getTopEarnedSkillsForJourneyLevel(
+  journeyLevelId: number,
+  items: SkillItem[],
+  scores: Record<string, number>,
+  language: Language,
+  limit = 5
+): Array<{ id: string; title: string }> {
+  const stage = journeyLevelToSkillStage(journeyLevelId);
+  return items
+    .filter((item) => item.levelTarget === stage)
+    .map((item) => {
+      const earned = scores[item.id] || 0;
+      const percent = item.maxPoints > 0 ? earned / item.maxPoints : 0;
+      return {
+        id: item.id,
+        title: getSkillItemTitle(item, language),
+        earned,
+        percent,
+      };
+    })
+    .filter((item) => item.earned > 0)
+    .sort((a, b) => b.percent - a.percent || b.earned - a.earned)
+    .slice(0, limit)
+    .map(({ id, title }) => ({ id, title }));
+}
+
+type JourneyEarnedSkill = { id: string; title: string };
+
+const LevelCardBody: React.FC<{
+  level: JourneyLevel;
+  isDark: boolean;
+  earnedSkills?: JourneyEarnedSkill[] | null;
+  onOpenDevelopment?: () => void;
+  formatMeta: (skills: number, achievements: number) => string;
+  compact?: boolean;
+}> = ({ level, isDark, earnedSkills, onOpenDevelopment, formatMeta, compact = false }) => {
+  const { t } = useLanguage();
+  const showEarned = earnedSkills != null;
+
+  return (
+    <>
+      {showEarned ? (
+        earnedSkills.length > 0 ? (
+          <ul className="space-y-1.5">
+            {earnedSkills.map((skill) => (
+              <li
+                key={skill.id}
+                className={`flex items-start gap-1.5 ${
+                  compact ? 'text-[11px] sm:text-xs' : 'text-xs'
+                } leading-snug ${isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'}`}
+              >
+                <Check
+                  className="w-3 h-3 shrink-0 mt-0.5"
+                  strokeWidth={2.5}
+                  style={{ color: level.accent }}
+                />
+                <span>{skill.title}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p
+            className={`${compact ? 'text-[11px] sm:text-xs' : 'text-xs'} leading-snug ${
+              isDark ? 'text-white/40' : 'text-[var(--ink-dim)]/70'
+            }`}
+          >
+            {t('journeyNoEarnedSkills')}
+          </p>
+        )
+      ) : (
+        <ul className="space-y-1.5">
+          {level.skillKeys.map((skillKey) => (
+            <li
+              key={skillKey}
+              className={`flex items-start gap-1.5 ${
+                compact ? 'text-[11px] sm:text-xs' : 'text-xs'
+              } leading-snug ${isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'}`}
+            >
+              <Check
+                className="w-3 h-3 shrink-0 mt-0.5"
+                strokeWidth={2.5}
+                style={{ color: level.accent }}
+              />
+              <span>{t(skillKey)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {onOpenDevelopment ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenDevelopment();
+          }}
+          className={`pt-1 border-t text-left text-[11px] sm:text-xs font-medium transition-colors inline-flex items-center gap-1 ${
+            isDark
+              ? 'border-white/10 text-[#7ec8ff] hover:text-white'
+              : 'border-black/8 text-[var(--accent)] hover:text-[var(--ink)]'
+          }`}
+        >
+          {t('scMoreDetails')}
+          <span aria-hidden>→</span>
+        </button>
+      ) : (
+        <p
+          className={`${compact ? 'text-[10px] sm:text-[11px]' : 'text-[11px]'} pt-1 border-t ${
+            isDark ? 'text-white/35 border-white/10' : 'text-[var(--ink-dim)]/80 border-black/8'
+          }`}
+        >
+          {formatMeta(level.skillsCount, level.achievementsCount)}
+        </p>
+      )}
+    </>
+  );
+};
 
 function getBreakpoint(width: number): Breakpoint {
   if (width < 640) return 'mobile';
@@ -555,16 +685,30 @@ const LevelNode: React.FC<{
   shape: LevelShape;
   accent: string;
   active: boolean;
+  current?: boolean;
   isDark: boolean;
-}> = ({ shape, accent, active, isDark }) => {
+}> = ({ shape, accent, active, current = false, isDark }) => {
   const fill = isDark ? '#070b14' : '#f4f6fa';
-  const glow = active ? `0 0 16px ${accent}cc, 0 0 32px ${accent}66` : `0 0 10px ${accent}88`;
+  const emphasized = active || current;
+  const glow = current
+    ? `0 0 18px ${accent}ee, 0 0 36px ${accent}99, 0 0 8px ${accent}`
+    : emphasized
+      ? `0 0 16px ${accent}cc, 0 0 32px ${accent}66`
+      : `0 0 10px ${accent}88`;
+  const borderWidth = current ? 3 : 2;
+  const scaleClass = current ? 'scale-125' : '';
 
   if (shape === 'circle') {
     return (
       <span
-        className="inline-block w-[1.125rem] h-[1.125rem] rounded-full border-2 transition-shadow duration-300"
-        style={{ borderColor: accent, backgroundColor: fill, boxShadow: glow }}
+        className={`inline-block w-[1.125rem] h-[1.125rem] rounded-full transition-all duration-300 ${scaleClass}`}
+        style={{
+          borderColor: accent,
+          borderWidth,
+          borderStyle: 'solid',
+          backgroundColor: fill,
+          boxShadow: glow,
+        }}
         aria-hidden="true"
       />
     );
@@ -573,8 +717,14 @@ const LevelNode: React.FC<{
   if (shape === 'diamond') {
     return (
       <span
-        className="inline-block w-3.5 h-3.5 rotate-45 border-2 transition-shadow duration-300"
-        style={{ borderColor: accent, backgroundColor: fill, boxShadow: glow }}
+        className={`inline-block w-3.5 h-3.5 rotate-45 transition-all duration-300 ${scaleClass}`}
+        style={{
+          borderColor: accent,
+          borderWidth,
+          borderStyle: 'solid',
+          backgroundColor: current ? accent : fill,
+          boxShadow: glow,
+        }}
         aria-hidden="true"
       />
     );
@@ -610,6 +760,8 @@ const CompactLevelCards: React.FC<{
   visibleLevelCount: number;
   isDark: boolean;
   formatMeta: (skills: number, achievements: number) => string;
+  earnedSkillsByLevel: Record<number, JourneyEarnedSkill[]>;
+  onOpenDevelopment?: () => void;
   onActivate: (id: number) => void;
   onClearHover: () => void;
 }> = ({
@@ -618,10 +770,11 @@ const CompactLevelCards: React.FC<{
   visibleLevelCount,
   isDark,
   formatMeta,
+  earnedSkillsByLevel,
+  onOpenDevelopment,
   onActivate,
   onClearHover,
 }) => {
-  const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
   const [layoutState, setLayoutState] = useState<{
@@ -648,7 +801,7 @@ const CompactLevelCards: React.FC<{
       ro.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [levels.length]);
+  }, [levels.length, earnedSkillsByLevel]);
 
   const calculateLeftForIndex = (idx: number) => {
     const cWidth = layoutState.containerWidth || containerRef.current?.offsetWidth || 0;
@@ -689,7 +842,7 @@ const CompactLevelCards: React.FC<{
             ref={(el) => {
               cardRefs.current[index] = el;
             }}
-            className={`col-start-1 row-start-1 w-max max-w-full justify-self-start rounded-2xl border px-3.5 py-4 flex flex-col gap-3 transition-all duration-300 ${
+            className={`col-start-1 row-start-1 w-max max-w-[min(100%,20rem)] justify-self-start rounded-2xl border px-3.5 py-4 flex flex-col gap-3 transition-all duration-300 ${
               isActive ? 'opacity-100 z-10' : 'opacity-0 pointer-events-none z-0'
             } ${
               isDark
@@ -701,30 +854,14 @@ const CompactLevelCards: React.FC<{
             onMouseEnter={() => onActivate(level.id)}
             onMouseLeave={onClearHover}
           >
-            <ul className="space-y-1.5">
-              {level.skillKeys.map((skillKey) => (
-                <li
-                  key={skillKey}
-                  className={`flex items-start gap-1.5 text-[11px] sm:text-xs leading-snug ${
-                    isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'
-                  }`}
-                >
-                  <Check
-                    className="w-3 h-3 shrink-0 mt-0.5"
-                    strokeWidth={2.5}
-                    style={{ color: level.accent }}
-                  />
-                  <span>{t(skillKey)}</span>
-                </li>
-              ))}
-            </ul>
-            <p
-              className={`text-[10px] sm:text-[11px] pt-1 border-t ${
-                isDark ? 'text-white/35 border-white/10' : 'text-[var(--ink-dim)]/80 border-black/8'
-              }`}
-            >
-              {formatMeta(level.skillsCount, level.achievementsCount)}
-            </p>
+            <LevelCardBody
+              level={level}
+              isDark={isDark}
+              earnedSkills={onOpenDevelopment ? (earnedSkillsByLevel[level.id] ?? []) : null}
+              onOpenDevelopment={onOpenDevelopment}
+              formatMeta={formatMeta}
+              compact
+            />
           </article>
         );
       })}
@@ -738,6 +875,8 @@ interface YourJourneySectionProps {
   animateSequence?: boolean;
   /** В личном кабинете — секция на высоту видимой области (минус нижнее меню и шапка). */
   fillViewport?: boolean;
+  /** Открыть «Систему развития» из карточки уровня. */
+  onOpenDevelopment?: () => void;
 }
 
 export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
@@ -745,8 +884,9 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   userProfile = null,
   animateSequence = true,
   fillViewport = false,
+  onOpenDevelopment,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { theme } = useTheme();
   const navigate = useNavigate();
   const isDark = theme === 'dark';
@@ -760,6 +900,19 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
       skillConfig.passPercentage ?? 80
     );
   }, [userProfile, skillConfig]);
+
+  const xpToNextLevel = useMemo(() => {
+    if (!userProfile || userProfile.hideProgressTracking) return null;
+    const level = userProfile.level || currentUserLevelId || 1;
+    if (level >= 4) return { remaining: 0, isMax: true as const };
+    const progress = calculateSkillProgress(
+      userProfile.skillScores || {},
+      skillConfig.items,
+      level,
+      skillConfig.passPercentage ?? 80
+    );
+    return { remaining: progress.remainingPointsNeeded, isMax: false as const };
+  }, [userProfile, skillConfig, currentUserLevelId]);
 
   const [hoveredLevelId, setHoveredLevelId] = useState<number | null>(null);
   const [selectedLevelId, setSelectedLevelId] = useState<number | null>(() => {
@@ -795,6 +948,21 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
     () => JOURNEY_LEVELS.map((level, index) => ({ ...level, xp: levelXp[index] })),
     [levelXp]
   );
+
+  const earnedSkillsByLevel = useMemo(() => {
+    const scores = userProfile?.skillScores || {};
+    const map: Record<number, JourneyEarnedSkill[]> = {};
+    for (const level of JOURNEY_LEVELS) {
+      map[level.id] = getTopEarnedSkillsForJourneyLevel(
+        level.id,
+        skillConfig.items,
+        scores,
+        language,
+        5
+      );
+    }
+    return map;
+  }, [userProfile?.skillScores, skillConfig.items, language]);
 
   const showUserPosition = Boolean(userProfile && !userProfile.hideProgressTracking);
   const pathBlockRef = useRef<HTMLDivElement>(null);
@@ -1054,14 +1222,49 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           >
             {t('journeyTitle')}
           </h2>
-          <div
-            className={`space-y-0.5 text-sm leading-relaxed ${
-              isDark ? 'text-white/55' : 'text-[var(--ink-dim)]'
-            }`}
-          >
-            <p>{t('journeyDesc1')}</p>
-            <p>{t('journeyDesc2')}</p>
-          </div>
+          {showUserPosition && xpToNextLevel ? (
+            <p
+              className={`text-sm sm:text-base leading-relaxed ${
+                isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'
+              }`}
+            >
+              {xpToNextLevel.isMax ? (
+                t('journeyMaxLevelReached')
+              ) : (
+                <>
+                  {t('scPointsToNextLevel')
+                    .replace(
+                      '{pointsLabel}',
+                      `§${formatPointsCount(xpToNextLevel.remaining, language)}§`
+                    )
+                    .split('§')
+                    .map((part, i) =>
+                      i % 2 === 1 ? (
+                        <span
+                          key={i}
+                          className={`font-semibold tabular-nums ${
+                            isDark ? 'text-[#f5d76e]' : 'text-[#b8860b]'
+                          }`}
+                        >
+                          {part}
+                        </span>
+                      ) : (
+                        <React.Fragment key={i}>{part}</React.Fragment>
+                      )
+                    )}
+                </>
+              )}
+            </p>
+          ) : (
+            <div
+              className={`space-y-0.5 text-sm leading-relaxed ${
+                isDark ? 'text-white/55' : 'text-[var(--ink-dim)]'
+              }`}
+            >
+              <p>{t('journeyDesc1')}</p>
+              <p>{t('journeyDesc2')}</p>
+            </div>
+          )}
         </header>
 
         <div
@@ -1106,16 +1309,19 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
             <div className="absolute inset-0 grid grid-cols-4">
               {levelsWithXp.map((level, index) => {
                 const isActive = activeLevelId === level.id;
+                const isCurrent = currentUserLevelId === level.id;
                 const topPct = markerYs[index];
                 const isRevealed = level.id <= visibleLevelCount;
-                const showDropLine = showAllCards || isActive;
+                const showDropLine = showAllCards || isActive || isCurrent;
                 return (
                   <div key={level.id} className="relative flex justify-center">
                     {showDropLine && (
                       <div
                         className={`absolute w-px border-l border-dashed transition-opacity duration-500 ${
                           isDark ? 'border-white/25' : 'border-black/15'
-                        } ${isRevealed ? 'opacity-100' : 'opacity-0'}`}
+                        } ${isRevealed ? 'opacity-100' : 'opacity-0'} ${
+                          isCurrent ? (isDark ? 'border-[#f5d76e]/50' : 'border-[#d4a017]/45') : ''
+                        }`}
                         style={{ top: `${topPct}%`, bottom: 0, left: '50%' }}
                         aria-hidden="true"
                       />
@@ -1129,7 +1335,8 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
                       }`}
                       style={{ top: `${topPct}%` }}
                       aria-label={t(level.labelKey)}
-                      aria-pressed={isActive}
+                      aria-pressed={isActive || isCurrent}
+                      aria-current={isCurrent ? 'step' : undefined}
                       onMouseEnter={() => activateLevel(level.id)}
                       onMouseLeave={clearHover}
                       onFocus={() => activateLevel(level.id)}
@@ -1140,6 +1347,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
                         shape={level.shape}
                         accent={level.accent}
                         active={isActive}
+                        current={isCurrent}
                         isDark={isDark}
                       />
                     </button>
@@ -1157,6 +1365,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-4">
             {levelsWithXp.map((level) => {
               const isActive = activeLevelId === level.id;
+              const isCurrent = currentUserLevelId === level.id;
               const isRevealed = level.id <= visibleLevelCount;
               return (
                 <div
@@ -1170,15 +1379,35 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
                   onMouseLeave={clearHover}
                 >
                   <h3
-                    className={`text-[10px] sm:text-xs md:text-sm font-semibold tracking-[0.08em] sm:tracking-[0.12em] uppercase ${
-                      isDark ? 'text-white' : 'text-[var(--ink)]'
-                    } ${isActive ? 'opacity-100' : 'opacity-80'}`}
+                    className={`text-[10px] sm:text-xs md:text-sm font-semibold tracking-[0.08em] sm:tracking-[0.12em] uppercase transition-opacity ${
+                      isCurrent
+                        ? isDark
+                          ? 'text-[#f5d76e]'
+                          : 'text-[#b8860b]'
+                        : isDark
+                          ? 'text-white'
+                          : 'text-[var(--ink)]'
+                    } ${isCurrent ? 'opacity-100' : isActive ? 'opacity-100' : 'opacity-55'}`}
                   >
                     {t(level.labelKey)}
                   </h3>
-                  <p className="text-[11px] sm:text-xs font-medium" style={{ color: level.accent }}>
+                  <p
+                    className={`text-[11px] sm:text-xs font-medium ${
+                      isCurrent ? (isDark ? 'text-[#f5d76e]' : 'text-[#b8860b]') : ''
+                    }`}
+                    style={isCurrent ? undefined : { color: level.accent }}
+                  >
                     {level.xp} {t('journeyXp')}
                   </p>
+                  {isCurrent && (
+                    <p
+                      className={`text-[9px] sm:text-[10px] font-semibold tracking-[0.14em] uppercase ${
+                        isDark ? 'text-[#f5d76e]/80' : 'text-[#b8860b]/90'
+                      }`}
+                    >
+                      {t('journeyCurrentLevel')}
+                    </p>
+                  )}
                 </div>
               );
             })}
@@ -1188,7 +1417,15 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
             <div className="grid grid-cols-4 gap-3 sm:gap-4 items-end">
               {levelsWithXp.map((level) => {
                 const isActive = activeLevelId === level.id;
+                const isCurrent = currentUserLevelId === level.id;
                 const isRevealed = level.id <= visibleLevelCount;
+                const isHighlighted = isCurrent || isActive;
+                const earnedSkills = showUserPosition
+                  ? (earnedSkillsByLevel[level.id] ?? [])
+                  : null;
+                if (showUserPosition && (earnedSkills?.length ?? 0) === 0) {
+                  return <div key={level.id} className="min-w-0" aria-hidden />;
+                }
                 return (
                   <article
                     key={level.id}
@@ -1200,52 +1437,40 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
                         : 'opacity-0 translate-y-4 pointer-events-none'
                     } ${
                       isDark
-                        ? isActive
-                          ? 'bg-white/[0.08] border-white/20 shadow-[0_0_24px_rgba(62,207,255,0.12)]'
-                          : 'bg-black/35 border-white/10 backdrop-blur-[2px]'
-                        : isActive
-                          ? 'bg-white border-black/10 shadow-[0_8px_28px_rgba(17,17,17,0.08)]'
-                          : 'bg-white/75 border-black/8'
+                        ? isCurrent
+                          ? 'bg-white/[0.1] border-[#f5d76e]/45 shadow-[0_0_24px_rgba(245,215,110,0.18)]'
+                          : isHighlighted
+                            ? 'bg-white/[0.08] border-white/20 shadow-[0_0_24px_rgba(62,207,255,0.12)]'
+                            : 'bg-black/35 border-white/10 backdrop-blur-[2px]'
+                        : isCurrent
+                          ? 'bg-white border-[#d4a017]/45 shadow-[0_8px_28px_rgba(212,160,23,0.14)]'
+                          : isHighlighted
+                            ? 'bg-white border-black/10 shadow-[0_8px_28px_rgba(17,17,17,0.08)]'
+                            : 'bg-white/75 border-black/8'
                     }`}
                   >
-                    <ul className="space-y-1.5">
-                      {level.skillKeys.map((skillKey) => (
-                        <li
-                          key={skillKey}
-                          className={`flex items-start gap-1.5 text-xs leading-snug ${
-                            isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'
-                          }`}
-                        >
-                          <Check
-                            className="w-3 h-3 shrink-0 mt-0.5"
-                            strokeWidth={2.5}
-                            style={{ color: level.accent }}
-                          />
-                          <span>{t(skillKey)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <p
-                      className={`text-[11px] pt-1 border-t ${
-                        isDark
-                          ? 'text-white/35 border-white/10'
-                          : 'text-[var(--ink-dim)]/80 border-black/8'
-                      }`}
-                    >
-                      {formatMeta(level.skillsCount, level.achievementsCount)}
-                    </p>
+                    <LevelCardBody
+                      level={level}
+                      isDark={isDark}
+                      earnedSkills={earnedSkills}
+                      onOpenDevelopment={showUserPosition ? onOpenDevelopment : undefined}
+                      formatMeta={formatMeta}
+                    />
                   </article>
                 );
               })}
             </div>
           ) : (
-            activeLevelId != null && (
+            activeLevelId != null &&
+            (!showUserPosition || (earnedSkillsByLevel[activeLevelId]?.length ?? 0) > 0) && (
               <CompactLevelCards
                 levels={levelsWithXp}
                 activeLevelId={activeLevelId}
                 visibleLevelCount={visibleLevelCount}
                 isDark={isDark}
                 formatMeta={formatMeta}
+                earnedSkillsByLevel={earnedSkillsByLevel}
+                onOpenDevelopment={showUserPosition ? onOpenDevelopment : undefined}
                 onActivate={activateLevel}
                 onClearHover={clearHover}
               />

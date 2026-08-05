@@ -11,27 +11,32 @@ export const resolveInstructorUserId = (
 
 export const resolveInstructorPhone = (
   instructorId: string,
-  usersList: UserProfile[]
+  usersList: UserProfile[],
+  instructors: Instructor[] = []
 ): string | undefined => {
-  const phone = usersList.find((u) => u.instructorId === instructorId)?.phoneNumber?.trim();
-  return phone || undefined;
+  const fromPublicProfile = instructors.find((ins) => ins.id === instructorId)?.phoneNumber?.trim();
+  if (fromPublicProfile) return fromPublicProfile;
+
+  const fromUser = usersList.find((u) => u.instructorId === instructorId)?.phoneNumber?.trim();
+  return fromUser || undefined;
 };
 
 export const resolveBookingCoachPhone = (
   booking: Booking,
   courses: Course[],
-  usersList: UserProfile[]
+  usersList: UserProfile[],
+  instructors: Instructor[] = []
 ): string | undefined => {
   if (booking.instructorId.startsWith('course_')) {
     const courseId = booking.instructorId.substring('course_'.length);
     const course = courses.find((c) => c.id === courseId);
     for (const instructorId of course?.instructorIds ?? []) {
-      const phone = resolveInstructorPhone(instructorId, usersList);
+      const phone = resolveInstructorPhone(instructorId, usersList, instructors);
       if (phone) return phone;
     }
     return undefined;
   }
-  return resolveInstructorPhone(booking.instructorId, usersList);
+  return resolveInstructorPhone(booking.instructorId, usersList, instructors);
 };
 
 export const normalizeTelHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`;

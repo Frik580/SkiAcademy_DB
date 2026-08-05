@@ -1,16 +1,35 @@
 import React, { useState } from 'react';
-import { Settings, Award, Mountain, Sliders, Palette, History, Trophy } from 'lucide-react';
+import {
+  Settings,
+  Award,
+  Mountain,
+  Sliders,
+  Palette,
+  History,
+  Trophy,
+  Bell,
+  Trash2,
+} from 'lucide-react';
 import { useLanguage } from '../../lib/LanguageContext';
 import { SkillConfig } from '../../lib/skillData';
 import { AchievementsConfig } from '../../lib/achievementConfig';
 import { DesignTheme } from '../../lib/designTheme';
 import { Booking, Course } from '../../types';
 import { backfillCompletedBookingActivityLogs } from '../../lib/backfillActivityLog';
+import {
+  DEFAULT_NOTIFICATION_RETENTION_DAYS,
+  MAX_NOTIFICATION_RETENTION_DAYS,
+  MIN_NOTIFICATION_RETENTION_DAYS,
+} from '../../lib/notificationConfig';
 import { SkillConfigManager } from '../SkillConfigManager';
 import { AchievementsManager } from './AchievementsManager';
 import { ResortDataSection, ResortSliderSection } from './ResortConfigForm';
 import { AdminCollapsibleSection } from './AdminCollapsibleSection';
 import { ToggleSwitch } from '../ToggleSwitch';
+import {
+  ClearStudentBookingsResult,
+  ClearCancelledBookingsResult,
+} from '../../lib/clearStudentBookings';
 
 interface SystemSettingsProps {
   filtersEnabled?: boolean;
@@ -19,6 +38,8 @@ interface SystemSettingsProps {
   onToggleOnboarding?: (enabled: boolean) => Promise<void>;
   designTheme?: DesignTheme;
   onSetDesignTheme?: (theme: DesignTheme) => Promise<void>;
+  notificationRetentionDays?: number;
+  onSetNotificationRetentionDays?: (days: number) => Promise<void>;
   skillConfig?: SkillConfig;
   achievementsConfig?: AchievementsConfig;
   onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
@@ -26,6 +47,13 @@ interface SystemSettingsProps {
   bookings?: Booking[];
   courses?: Course[];
   adminUid?: string;
+  onRequestConfirm?: (message: string, onConfirm: () => void | Promise<void>) => void;
+  onClearStudentBookings?: (
+    onProgress?: (deleted: number) => void
+  ) => Promise<ClearStudentBookingsResult>;
+  onClearCancelledBookings?: (
+    onProgress?: (deleted: number) => void
+  ) => Promise<ClearCancelledBookingsResult>;
 }
 
 const DESIGN_OPTIONS: {
@@ -61,6 +89,8 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   onToggleOnboarding,
   designTheme = 'classic',
   onSetDesignTheme,
+  notificationRetentionDays = DEFAULT_NOTIFICATION_RETENTION_DAYS,
+  onSetNotificationRetentionDays,
   skillConfig,
   achievementsConfig,
   onUpdateSkillConfig,
@@ -68,10 +98,97 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   bookings = [],
   courses = [],
   adminUid,
+  onRequestConfirm,
+  onClearStudentBookings,
+  onClearCancelledBookings,
 }) => {
   const { t } = useLanguage();
   const [isBackfilling, setIsBackfilling] = useState(false);
   const [backfillMessage, setBackfillMessage] = useState<string | null>(null);
+  const [retentionInput, setRetentionInput] = useState(String(notificationRetentionDays));
+  const [isSavingRetention, setIsSavingRetention] = useState(false);
+  const [isClearingBookings, setIsClearingBookings] = useState(false);
+  const [clearBookingsProgress, setClearBookingsProgress] = useState(0);
+  const [clearBookingsMessage, setClearBookingsMessage] = useState<string | null>(null);
+
+  const [isClearingCancelled, setIsClearingCancelled] = useState(false);
+  const [clearCancelledProgress, setClearCancelledProgress] = useState(0);
+  const [clearCancelledMessage, setClearCancelledMessage] = useState<string | null>(null);
+
+  const studentBookingsCount = bookings.filter(
+    (booking) => !booking.userId.startsWith('system_block_')
+  ).length;
+
+  const cancelledBookingsCount = bookings.filter(
+    (booking) => booking.status === 'cancelled'
+  ).length;
+
+  React.useEffect(() => {
+    setRetentionInput(String(notificationRetentionDays));
+  }, [notificationRetentionDays]);
+
+  const handleSaveRetention = async () => {
+    if (!onSetNotificationRetentionDays || isSavingRetention) return;
+
+    const parsed = Number(retentionInput);
+    if (
+      !Number.isFinite(parsed) ||
+      parsed < MIN_NOTIFICATION_RETENTION_DAYS ||
+      parsed > MAX_NOTIFICATION_RETENTION_DAYS
+    ) {
+      setRetentionInput(String(notificationRetentionDays));
+      return;
+    }
+
+    setIsSavingRetention(true);
+    try {
+      await onSetNotificationRetentionDays(parsed);
+    } finally {
+      setIsSavingRetention(false);
+    }
+  };
+
+  const handleClearCancelledBookingsClick = () => {
+    if (!onRequestConfirm || !onClearCancelledBookings || isClearingCancelled) return;
+
+    onRequestConfirm(t('clearCancelledBookingsConfirm'), async () => {
+      setIsClearingCancelled(true);
+      setClearCancelledMessage(null);
+      setClearCancelledProgress(0);
+      try {
+        const result = await onClearCancelledBookings(setClearCancelledProgress);
+        setClearCancelledMessage(
+          t('clearCancelledBookingsDone').replace('{bookings}', String(result.bookingsDeleted))
+        );
+      } catch {
+        setClearCancelledMessage(t('updateFailed'));
+      } finally {
+        setIsClearingCancelled(false);
+      }
+    });
+  };
+
+  const handleClearStudentBookingsClick = () => {
+    if (!onRequestConfirm || !onClearStudentBookings || isClearingBookings) return;
+
+    onRequestConfirm(t('clearStudentBookingsConfirm'), async () => {
+      setIsClearingBookings(true);
+      setClearBookingsMessage(null);
+      setClearBookingsProgress(0);
+      try {
+        const result = await onClearStudentBookings(setClearBookingsProgress);
+        setClearBookingsMessage(
+          t('clearStudentBookingsDone')
+            .replace('{bookings}', String(result.bookingsDeleted))
+            .replace('{courses}', String(result.coursesReset))
+        );
+      } catch {
+        setClearBookingsMessage(t('updateFailed'));
+      } finally {
+        setIsClearingBookings(false);
+      }
+    });
+  };
 
   const handleBackfillHistory = async () => {
     if (!adminUid || isBackfilling) return;
@@ -169,6 +286,55 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         </div>
       </AdminCollapsibleSection>
 
+      <AdminCollapsibleSection
+        id="notification_retention"
+        title={t('notificationRetentionTitle')}
+        subtitle={t('notificationRetentionSub')}
+        icon={Bell}
+      >
+        <div className="space-y-3 max-w-md">
+          <div className="space-y-1.5 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
+            <label
+              htmlFor="notification-retention-days"
+              className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold"
+            >
+              {t('notificationRetentionLabel')}
+            </label>
+            <p className="text-[10px] text-[var(--ink-dim)] leading-relaxed">
+              {t('notificationRetentionDesc')}
+            </p>
+            <div className="flex items-center gap-3 pt-1">
+              <input
+                id="notification-retention-days"
+                type="number"
+                min={MIN_NOTIFICATION_RETENTION_DAYS}
+                max={MAX_NOTIFICATION_RETENTION_DAYS}
+                value={retentionInput}
+                onChange={(e) => setRetentionInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void handleSaveRetention();
+                  }
+                }}
+                className="w-24 bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+              />
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                {t('notificationRetentionUnit')}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleSaveRetention()}
+            disabled={isSavingRetention}
+            className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
+          >
+            {isSavingRetention ? t('saving') : t('saveChanges')}
+          </button>
+        </div>
+      </AdminCollapsibleSection>
+
       {/* 1. Таблица начисления рейтинга клиентов (система уровней) */}
       <AdminCollapsibleSection
         id="skill_matrix"
@@ -224,6 +390,74 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         icon={Sliders}
       >
         <ResortSliderSection />
+      </AdminCollapsibleSection>
+
+      <AdminCollapsibleSection
+        id="clear_student_bookings"
+        title={t('clearStudentBookingsTitle')}
+        subtitle={t('clearStudentBookingsSub')}
+        icon={Trash2}
+      >
+        <div className="space-y-6 max-w-2xl">
+          {/* Sub-block 1: Clear cancelled bookings only */}
+          <div className="space-y-3 border-b border-[var(--border)] pb-5">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
+              {t('clearCancelledBookingsTitle')}
+            </h4>
+            <p className="text-[10px] text-[var(--ink-dim)] leading-relaxed font-mono">
+              {t('clearCancelledBookingsDesc')}
+            </p>
+            {cancelledBookingsCount > 0 && (
+              <p className="text-[10px] font-mono text-[var(--ink)]">
+                {t('clearCancelledBookingsLoadedCount').replace(
+                  '{n}',
+                  String(cancelledBookingsCount)
+                )}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleClearCancelledBookingsClick}
+              disabled={!onClearCancelledBookings || isClearingCancelled}
+              className="py-2 px-4 border border-amber-900/40 hover:border-amber-500 text-amber-500 hover:bg-amber-950/10 rounded-none text-xs font-mono uppercase tracking-wider transition cursor-pointer disabled:opacity-50"
+            >
+              {isClearingCancelled
+                ? t('clearCancelledBookingsRunning').replace('{n}', String(clearCancelledProgress))
+                : t('clearCancelledBookingsRun')}
+            </button>
+            {clearCancelledMessage && (
+              <p className="text-xs text-[var(--ink-dim)] font-mono">{clearCancelledMessage}</p>
+            )}
+          </div>
+
+          {/* Sub-block 2: Clear ALL student bookings */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
+              {t('clearStudentBookingsTitle')}
+            </h4>
+            <p className="text-[10px] text-[var(--ink-dim)] leading-relaxed font-mono">
+              {t('clearStudentBookingsDesc')}
+            </p>
+            {studentBookingsCount > 0 && (
+              <p className="text-[10px] font-mono text-[var(--ink)]">
+                {t('clearStudentBookingsLoadedCount').replace('{n}', String(studentBookingsCount))}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleClearStudentBookingsClick}
+              disabled={!onClearStudentBookings || isClearingBookings}
+              className="py-2 px-4 border border-rose-900/40 hover:border-rose-500 text-rose-500 hover:bg-rose-950/10 rounded-none text-xs font-mono uppercase tracking-wider transition cursor-pointer disabled:opacity-50"
+            >
+              {isClearingBookings
+                ? t('clearStudentBookingsRunning').replace('{n}', String(clearBookingsProgress))
+                : t('clearStudentBookingsRun')}
+            </button>
+            {clearBookingsMessage && (
+              <p className="text-xs text-[var(--ink-dim)] font-mono">{clearBookingsMessage}</p>
+            )}
+          </div>
+        </div>
       </AdminCollapsibleSection>
 
       <AdminCollapsibleSection

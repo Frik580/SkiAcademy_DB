@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Award, Sparkles, Trophy, Zap } from 'lucide-react';
-import { ActivityLog, Booking, Course, UserProfile } from '../../../types';
+import { ActivityLog, Booking, Course, Instructor, UserProfile } from '../../../types';
 import { useLanguage } from '../../../lib/LanguageContext';
 import { AchievementsConfig, getAchievementLabel } from '../../../lib/achievementConfig';
 import { DEFAULT_SKILL_CONFIG, SkillConfig, getSkillItemTitle } from '../../../lib/skillData';
@@ -37,6 +37,7 @@ interface StudentTodaySectionProps {
   nextSessions?: NextSessionItem[];
   miniDays: MiniCalendarDay[];
   courses: Course[];
+  instructors?: Instructor[];
   usersList?: UserProfile[];
   todayTasks: TodayTask[];
   bookings: Booking[];
@@ -60,6 +61,7 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
   nextSessions,
   miniDays,
   courses,
+  instructors = [],
   usersList = [],
   todayTasks,
   bookings,
@@ -94,13 +96,19 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
       <ScSectionTitle>{t('scTodaySection')}</ScSectionTitle>
 
       {todayCountdown && (
-        <SessionCountdownBlock countdown={todayCountdown} courses={courses} usersList={usersList} />
+        <SessionCountdownBlock
+          countdown={todayCountdown}
+          courses={courses}
+          instructors={instructors}
+          usersList={usersList}
+        />
       )}
 
       {currentSessions.length > 0 && (
         <CurrentSessionsBlock
           sessions={currentSessions}
           courses={courses}
+          instructors={instructors}
           usersList={usersList}
           onOpenLesson={onOpenLesson}
           onOpenSession={onOpenSession}
@@ -111,6 +119,7 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
         nextSessions={effectiveNextSessions}
         miniDays={miniDays}
         courses={courses}
+        instructors={instructors}
         usersList={usersList}
         onGoToTab={onGoToTab}
         onOpenLesson={onOpenLesson}
@@ -188,8 +197,9 @@ const CountdownDigits = memo<{
 const SessionCountdownBlock = memo<{
   countdown: TodaySessionCountdown;
   courses: Course[];
+  instructors: Instructor[];
   usersList: UserProfile[];
-}>(function SessionCountdownBlock({ countdown, courses, usersList }) {
+}>(function SessionCountdownBlock({ countdown, courses, instructors, usersList }) {
   const { language, t } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
   const [visible, setVisible] = useState(() => countdown.startsAt.getTime() > Date.now());
@@ -222,7 +232,12 @@ const SessionCountdownBlock = memo<{
               : getRecentLessonInstructorLabel(booking, lang)}
           </p>
           <div className="flex flex-wrap gap-4 pt-1">
-            <BookingCallCoachButton booking={booking} courses={courses} usersList={usersList} />
+            <BookingCallCoachButton
+              booking={booking}
+              courses={courses}
+              instructors={instructors}
+              usersList={usersList}
+            />
           </div>
         </ScTintCard>
       </div>
@@ -234,10 +249,11 @@ const SessionCountdownBlock = memo<{
 const SessionCard = memo<{
   session: Booking;
   courses: Course[];
+  instructors: Instructor[];
   usersList: UserProfile[];
   onOpenLesson: (booking: Booking) => void;
   onOpenSession: (booking: Booking) => void;
-}>(function SessionCard({ session, courses, usersList, onOpenLesson, onOpenSession }) {
+}>(function SessionCard({ session, courses, instructors, usersList, onOpenLesson, onOpenSession }) {
   const { language, t } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
   const isCourse = session.instructorId.startsWith('course_');
@@ -266,7 +282,12 @@ const SessionCard = memo<{
       <div className="flex flex-wrap gap-4 pt-2">
         <ScTextButton onClick={() => onOpenLesson(session)}>{t('scMoreDetails')}</ScTextButton>
         <ScTextButton onClick={() => onOpenSession(session)}>{t('chat')}</ScTextButton>
-        <BookingCallCoachButton booking={session} courses={courses} usersList={usersList} />
+        <BookingCallCoachButton
+          booking={session}
+          courses={courses}
+          instructors={instructors}
+          usersList={usersList}
+        />
       </div>
     </ScTintCard>
   );
@@ -275,10 +296,18 @@ const SessionCard = memo<{
 const CurrentSessionsBlock = memo<{
   sessions: Booking[];
   courses: Course[];
+  instructors: Instructor[];
   usersList: UserProfile[];
   onOpenLesson: (booking: Booking) => void;
   onOpenSession: (booking: Booking) => void;
-}>(function CurrentSessionsBlock({ sessions, courses, usersList, onOpenLesson, onOpenSession }) {
+}>(function CurrentSessionsBlock({
+  sessions,
+  courses,
+  instructors,
+  usersList,
+  onOpenLesson,
+  onOpenSession,
+}) {
   const { t } = useLanguage();
 
   return (
@@ -291,6 +320,7 @@ const CurrentSessionsBlock = memo<{
               key={session.id}
               session={session}
               courses={courses}
+              instructors={instructors}
               usersList={usersList}
               onOpenLesson={onOpenLesson}
               onOpenSession={onOpenSession}
@@ -307,6 +337,7 @@ const NextSessionBlock = memo<{
   nextSessions: NextSessionItem[];
   miniDays: MiniCalendarDay[];
   courses: Course[];
+  instructors: Instructor[];
   usersList: UserProfile[];
   onGoToTab: (tab: StudentCabinetTab) => void;
   onOpenLesson: (booking: Booking) => void;
@@ -315,6 +346,7 @@ const NextSessionBlock = memo<{
   nextSessions,
   miniDays,
   courses,
+  instructors,
   usersList,
   onGoToTab,
   onOpenLesson,
@@ -404,6 +436,7 @@ const NextSessionBlock = memo<{
                     <BookingCallCoachButton
                       booking={booking}
                       courses={courses}
+                      instructors={instructors}
                       usersList={usersList}
                     />
                   </div>
@@ -604,6 +637,15 @@ const TodayProgressBlock = memo<{
     const index = (new Date().getDate() + todayXP) % phrases.length;
     return phrases[index];
   }, [lang, todayXP, todayLevelUp, todayAchievements.length]);
+
+  if (
+    todayXP === 0 &&
+    !todayLevelUp &&
+    todayAchievements.length === 0 &&
+    todayExerciseItems.length === 0
+  ) {
+    return null;
+  }
 
   return (
     <div className="pt-5 space-y-2">

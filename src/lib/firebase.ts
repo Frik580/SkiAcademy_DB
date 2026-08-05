@@ -18,6 +18,8 @@ import {
   orderBy,
   runTransaction,
   writeBatch,
+  startAfter,
+  documentId,
 } from 'firebase/firestore';
 import { OperationType } from '../types';
 import { logger } from './logger';
@@ -273,6 +275,8 @@ export {
   orderBy,
   runTransaction,
   writeBatch,
+  startAfter,
+  documentId,
   GoogleAuthProvider,
   signInWithPopup,
   OperationType,

@@ -4,6 +4,7 @@ import { LogOut, Plus, Bell, Sun, Moon, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../lib/LanguageContext';
+import { getUserLevelBadgeClass } from '../lib/courseLevelStyles';
 import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../lib/workspaceRoutes';
 import { Logo } from './Logo';
 
@@ -170,10 +171,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="hidden 2xl:block text-left leading-none">
-                  <span className="text-[10px] font-bold text-[var(--ink)] block theme-air:text-sm theme-air:font-normal">
+                <div className="hidden sm:flex items-center gap-2 text-left leading-none">
+                  <span className="hidden 2xl:inline text-[10px] font-bold text-[var(--ink)] theme-air:text-sm theme-air:font-normal">
                     {userProfile.displayName.split(' ')[0]}
                   </span>
+                  {!userProfile.hideProgressTracking && (
+                    <span
+                      className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide leading-none ${getUserLevelBadgeClass(userProfile.level || 1)}`}
+                    >
+                      LEVEL {userProfile.level || 1}
+                    </span>
+                  )}
                 </div>
 
                 <button
@@ -188,10 +196,33 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
-        <div className="lg:hidden flex items-center">
+        <div className="lg:hidden flex items-center gap-2 sm:gap-3 min-w-0">
+          {userProfile && (
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="ui-avatar w-8 h-8 shrink-0">
+                <img
+                  src={userProfile.avatarUrl}
+                  alt={userProfile.displayName}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[11px] font-bold text-[var(--ink)] truncate theme-air:text-sm theme-air:font-normal">
+                  {userProfile.displayName.split(' ')[0]}
+                </span>
+                {!userProfile.hideProgressTracking && (
+                  <span
+                    className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide leading-none shrink-0 ${getUserLevelBadgeClass(userProfile.level || 1)}`}
+                  >
+                    LEVEL {userProfile.level || 1}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="ui-icon-btn text-[var(--ink)]"
+            className="ui-icon-btn text-[var(--ink)] shrink-0"
           >
             {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>

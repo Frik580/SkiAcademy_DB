@@ -270,6 +270,26 @@ export const translations = {
     scHistoryBackfillDesc: 'Create history entries for all completed lessons (one-time migration)',
     scHistoryBackfillRun: 'Run backfill',
     scHistoryBackfillDone: 'Backfill complete: {n} entries written',
+    clearStudentBookingsTitle: 'Clear student bookings',
+    clearStudentBookingsSub: 'Remove all lesson and course enrollment records from the database',
+    clearStudentBookingsDesc:
+      'Permanently deletes all student lesson bookings and course enrollments, related chat messages, and schedule slots. Instructor schedule blocks, course catalog, client balances, and activity history are preserved. Course seats are reset to full capacity.',
+    clearStudentBookingsLoadedCount: 'Currently loaded in admin panel: {n} student bookings',
+    clearStudentBookingsRun: 'Clear all student bookings',
+    clearStudentBookingsRunning: 'Clearing… {n} deleted',
+    clearStudentBookingsConfirm:
+      'This will permanently delete ALL student lesson bookings and course enrollments from the database. This action cannot be undone. Continue?',
+    clearStudentBookingsDone: 'Cleared {bookings} bookings. Reset seats on {courses} courses.',
+    clearCancelledBookingsTitle: 'Clear cancelled bookings',
+    clearCancelledBookingsSub: 'Remove all cancelled lesson records from the database',
+    clearCancelledBookingsDesc:
+      'Permanently deletes all bookings with "cancelled" status, their chat messages, and schedule slot records.',
+    clearCancelledBookingsLoadedCount: 'Currently loaded in admin panel: {n} cancelled bookings',
+    clearCancelledBookingsRun: 'Clear cancelled bookings',
+    clearCancelledBookingsRunning: 'Clearing… {n} deleted',
+    clearCancelledBookingsConfirm:
+      'This will permanently delete ALL cancelled bookings from the database. This action cannot be undone. Continue?',
+    clearCancelledBookingsDone: 'Cleared {bookings} cancelled bookings.',
     scViewAllCourses: 'View all courses',
     scViewAllInstructors: 'View all instructors',
     scTodayEmpty: 'Nothing planned for today',
@@ -774,6 +794,15 @@ export const translations = {
     onboardingToggleLabel: 'New Client Onboarding',
     onboardingToggleDesc:
       'Enable or disable the interactive 6-screen onboarding tour for newly registered students.',
+    notificationRetentionTitle: 'Notification Retention',
+    notificationRetentionSub:
+      'Automatically delete stored notifications from the database after the specified number of days.',
+    notificationRetentionLabel: 'Retention period',
+    notificationRetentionDesc:
+      'Notifications older than this value are removed from the database when a user opens their notification list. Range: 1–365 days.',
+    notificationRetentionUnit: 'days',
+    notificationRetentionUpdated: 'Notification retention updated',
+    notificationRetentionUpdatedDesc: 'The auto-deletion period for notifications has been saved.',
     designThemeTitle: 'Site Design Theme',
     designThemeSub:
       'Switch the global visual style for all visitors. Changes apply instantly site-wide.',
@@ -1351,6 +1380,9 @@ export const translations = {
     journeyStatLevels: '4 levels',
     journeyStatVideo: 'Video analysis at every stage',
     journeyYouAreHere: 'You are here',
+    journeyMaxLevelReached: 'You have reached the highest level',
+    journeyCurrentLevel: 'Current',
+    journeyNoEarnedSkills: 'No earned skills on this level yet',
     intensiveGroupCourses: 'Intensive Group Courses',
     intensiveGroupCoursesSub:
       'Accelerate your progress in focused, small-group training cohorts led by team leads',
@@ -1800,6 +1832,29 @@ export const translations = {
     scHistoryBackfillDesc: 'Создать записи истории для всех завершённых занятий (разовая миграция)',
     scHistoryBackfillRun: 'Запустить',
     scHistoryBackfillDone: 'Готово: записано {n} событий',
+    clearStudentBookingsTitle: 'Очистка бронирований учеников',
+    clearStudentBookingsSub: 'Удаление всех уроков и записей на курсы из базы данных',
+    clearStudentBookingsDesc:
+      'Безвозвратно удаляет все бронирования уроков и записи на курсы учеников, связанные сообщения чата и слоты расписания. Блоки расписания инструкторов, каталог курсов, балансы клиентов и история активности сохраняются. Места на курсах сбрасываются до полной вместимости.',
+    clearStudentBookingsLoadedCount:
+      'Сейчас загружено в панели администратора: {n} бронирований учеников',
+    clearStudentBookingsRun: 'Очистить все бронирования учеников',
+    clearStudentBookingsRunning: 'Очистка… удалено {n}',
+    clearStudentBookingsConfirm:
+      'Будут безвозвратно удалены ВСЕ бронирования уроков и записи на курсы учеников из базы данных. Это действие нельзя отменить. Продолжить?',
+    clearStudentBookingsDone:
+      'Удалено бронирований: {bookings}. Сброшены места на {courses} курсах.',
+    clearCancelledBookingsTitle: 'Удаление отменённых занятий',
+    clearCancelledBookingsSub: 'Удаление всех отменённых уроков и записей из базы данных',
+    clearCancelledBookingsDesc:
+      'Безвозвратно удаляет все бронирования со статусом «отменено», их сообщения в чате и записи слотов расписания.',
+    clearCancelledBookingsLoadedCount:
+      'Сейчас загружено в панели администратора: {n} отменённых бронирований',
+    clearCancelledBookingsRun: 'Удалить отменённые занятия',
+    clearCancelledBookingsRunning: 'Очистка… удалено {n}',
+    clearCancelledBookingsConfirm:
+      'Будут безвозвратно удалены ВСЕ отменённые бронирования из базы данных. Это действие нельзя отменить. Продолжить?',
+    clearCancelledBookingsDone: 'Удалено отменённых бронирований: {bookings}.',
     scViewAllCourses: 'Все курсы',
     scViewAllInstructors: 'Все инструкторы',
     scTodayEmpty: 'На сегодня задач нет',
@@ -2307,6 +2362,15 @@ export const translations = {
     onboardingToggleLabel: 'Онбординг новых клиентов',
     onboardingToggleDesc:
       'Включение или отключение интерактивного тура из 6 экранов для вновь зарегистрированных учеников.',
+    notificationRetentionTitle: 'Хранение уведомлений',
+    notificationRetentionSub:
+      'Автоматическое удаление сохранённых уведомлений из базы данных через заданное количество дней.',
+    notificationRetentionLabel: 'Срок хранения',
+    notificationRetentionDesc:
+      'Уведомления старше этого срока удаляются из базы данных при открытии списка уведомлений пользователем. Диапазон: 1–365 дней.',
+    notificationRetentionUnit: 'дней',
+    notificationRetentionUpdated: 'Срок хранения уведомлений обновлён',
+    notificationRetentionUpdatedDesc: 'Период автоматического удаления уведомлений сохранён.',
     designThemeTitle: 'Дизайн сайта',
     designThemeSub:
       'Переключение глобального визуального стиля для всех посетителей. Изменения применяются сразу.',
@@ -2890,6 +2954,9 @@ export const translations = {
     journeyStatLevels: '4 уровня',
     journeyStatVideo: 'Видеоанализ на каждом этапе',
     journeyYouAreHere: 'Вы здесь',
+    journeyMaxLevelReached: 'Вы достигли максимального уровня',
+    journeyCurrentLevel: 'Текущий',
+    journeyNoEarnedSkills: 'Пока нет полученных навыков на этом уровне',
     intensiveGroupCourses: 'Интенсивные групповые курсы',
     intensiveGroupCoursesSub: 'Ускорьте прогресс в мини-группах под руководством ведущих тренеров',
     noSeatsLeft: 'Мест нет',

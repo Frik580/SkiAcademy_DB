@@ -17,12 +17,19 @@ import { useLanguage } from '../lib/LanguageContext';
 import { resolveNotificationText, type DbNotification } from '../lib/notificationText';
 import { QUERY_LIMITS } from '../lib/queryLimits';
 import { logger } from '../lib/logger';
+import {
+  DEFAULT_NOTIFICATION_RETENTION_DAYS,
+  getNotificationRetentionMs,
+} from '../lib/notificationConfig';
 
 export type { DbNotification } from '../lib/notificationText';
 
-export const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+export const TWO_WEEKS_MS = getNotificationRetentionMs(DEFAULT_NOTIFICATION_RETENTION_DAYS);
 
-export const useNotifications = (firebaseUser: User | null) => {
+export const useNotifications = (
+  firebaseUser: User | null,
+  retentionDays: number = DEFAULT_NOTIFICATION_RETENTION_DAYS
+) => {
   const { addNotification } = useNotificationHub();
   const { language } = useLanguage();
   const [dbNotifications, setDbNotifications] = useState<DbNotification[]>([]);
@@ -56,10 +63,11 @@ export const useNotifications = (firebaseUser: User | null) => {
             }) as DbNotification
         );
 
-        // Auto-delete notifications older than 2 weeks (14 days)
+        const retentionMs = getNotificationRetentionMs(retentionDays);
+
         const expiredNotifications = allNotifications.filter((n) => {
           const time = new Date(n.timestamp).getTime();
-          return !isNaN(time) && now - time > TWO_WEEKS_MS;
+          return !isNaN(time) && now - time > retentionMs;
         });
 
         if (expiredNotifications.length > 0) {
@@ -72,7 +80,7 @@ export const useNotifications = (firebaseUser: User | null) => {
 
         const validNotifications = allNotifications.filter((n) => {
           const time = new Date(n.timestamp).getTime();
-          return isNaN(time) || now - time <= TWO_WEEKS_MS;
+          return isNaN(time) || now - time <= retentionMs;
         });
 
         validNotifications.sort(
@@ -91,7 +99,7 @@ export const useNotifications = (firebaseUser: User | null) => {
       },
       (error) => logger.error('Notifications sync error:', error)
     );
-  }, [addNotification, firebaseUser, language]);
+  }, [addNotification, firebaseUser, language, retentionDays]);
 
   const handleDeleteNotification = async (id: string) => {
     if (!firebaseUser) return;

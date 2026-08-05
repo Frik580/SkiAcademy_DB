@@ -49,6 +49,8 @@ export interface Instructor {
   avatarUrl: string;
   pricePerHour: number;
   isAvailable: boolean;
+  /** Public contact phone — used by students to call the coach during lessons. */
+  phoneNumber?: string;
 }
 
 export interface Review {

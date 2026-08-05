@@ -90,6 +90,7 @@ const AppContent: React.FC = () => {
     deletedCompletedStats,
     filtersEnabled,
     onboardingEnabled,
+    notificationRetentionDays,
     designTheme,
     skillConfig,
     achievementsConfig,
@@ -114,6 +115,8 @@ const AppContent: React.FC = () => {
     handleDeleteInstructor,
     handleAddBooking,
     handleDeleteBooking,
+    handleClearStudentBookings,
+    handleClearCancelledBookings,
     handleUpdateUserRole,
     handleAddUser,
     handleUpdateUser,
@@ -135,6 +138,7 @@ const AppContent: React.FC = () => {
     handleUpdateProfile,
     handleToggleFilters,
     handleToggleOnboarding,
+    handleSetNotificationRetentionDays,
   } = appLogic;
 
   useEffect(() => {
@@ -324,8 +328,10 @@ const AppContent: React.FC = () => {
           setSelectedCourseForDetails={setSelectedCourseForDetails}
           setReviewsInstructor={setReviewsInstructor}
           onboardingEnabled={onboardingEnabled}
+          notificationRetentionDays={notificationRetentionDays}
           onToggleFilters={handleToggleFilters}
           onToggleOnboarding={handleToggleOnboarding}
+          onSetNotificationRetentionDays={handleSetNotificationRetentionDays}
           onSetDesignTheme={handleSetDesignTheme}
           onUpdateSkillConfig={handleUpdateSkillConfig}
           onUpdateAchievementsConfig={handleUpdateAchievementsConfig}
@@ -360,6 +366,8 @@ const AppContent: React.FC = () => {
           onAddUser={handleAddUser}
           onUpdateUser={handleUpdateUser}
           onDeleteUser={handleDeleteUser}
+          onClearStudentBookings={handleClearStudentBookings}
+          onClearCancelledBookings={handleClearCancelledBookings}
           setIsFahrenheit={setIsFahrenheit}
           onRefreshResortStats={handleRefreshResortStats}
           onOpenOnboarding={() => setIsOnboardingOpen(true)}

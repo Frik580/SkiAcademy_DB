@@ -94,6 +94,7 @@ export const StudentCalendarPanel: React.FC<
   userProfile,
   bookings,
   courses,
+  instructors,
   usersList = [],
   unreviewedCompletedBookings,
   onDismissReview,
@@ -116,6 +117,7 @@ export const StudentCalendarPanel: React.FC<
       <ClientBookingsList
         userBookings={userBookings}
         courses={courses}
+        instructors={instructors}
         usersList={usersList}
         unreviewedCompletedBookings={unreviewedCompletedBookings}
         showWorkoutCalendar

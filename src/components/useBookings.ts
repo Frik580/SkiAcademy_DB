@@ -43,6 +43,7 @@ import { useNotifications as useNotificationHub } from './PushNotificationHub';
 import { QUERY_LIMITS } from '../lib/queryLimits';
 import { logger } from '../lib/logger';
 import { toggleCompletedRecommendationIds } from '../lib/lessonRecommendations';
+import { clearStudentBookings, clearCancelledBookings } from '../lib/clearStudentBookings';
 
 type SetUserProfile = (profile: UserProfile | null) => void;
 
@@ -611,6 +612,27 @@ export const useBookings = (
     );
   };
 
+  const handleClearStudentBookings = async (onProgress?: (deleted: number) => void) => {
+    try {
+      const result = await clearStudentBookings(onProgress);
+      setDeletedCompletedStats({ revenue: 0, count: 0 });
+      return result;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'bookings/clear-student-bookings');
+      throw error;
+    }
+  };
+
+  const handleClearCancelledBookings = async (onProgress?: (deleted: number) => void) => {
+    try {
+      const result = await clearCancelledBookings(onProgress);
+      return result;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'bookings/clear-cancelled-bookings');
+      throw error;
+    }
+  };
+
   return {
     bookings,
     bookingsLoaded,
@@ -622,6 +644,8 @@ export const useBookings = (
     handleRequestCancel,
     handleAddBooking,
     handleDeleteBooking,
+    handleClearStudentBookings,
+    handleClearCancelledBookings,
     handleConfirmBooking,
     handleCompleteBooking,
     handleLinkGuestBooking,

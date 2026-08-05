@@ -46,6 +46,11 @@ import {
 } from '../lib/todayChecklist';
 import { grantAndApplyWalletCredit } from '../lib/walletCredit';
 import { DesignTheme, parseDesignTheme } from '../lib/designTheme';
+import {
+  DEFAULT_NOTIFICATION_RETENTION_DAYS,
+  MAX_NOTIFICATION_RETENTION_DAYS,
+  MIN_NOTIFICATION_RETENTION_DAYS,
+} from '../lib/notificationConfig';
 
 type SetUserProfile = (profile: UserProfile | null) => void;
 
@@ -66,10 +71,13 @@ export const useAppLogic = (
   const [achievementsConfig, setAchievementsConfig] = useState<AchievementsConfig>(
     DEFAULT_ACHIEVEMENTS_CONFIG
   );
+  const [notificationRetentionDays, setNotificationRetentionDays] = useState(
+    DEFAULT_NOTIFICATION_RETENTION_DAYS
+  );
 
   const bookingLogic = useBookings(firebaseUser, userProfile, setUserProfile);
   const courseLogic = useCourses(firebaseUser, userProfile, setUserProfile, bookingLogic.bookings);
-  const notificationLogic = useDbNotifications(firebaseUser);
+  const notificationLogic = useDbNotifications(firebaseUser, notificationRetentionDays);
   const activityLogLogic = useActivityLog(firebaseUser);
 
   useAvailabilityMigration(userProfile?.role, bookingLogic.bookingsLoaded, bookingLogic.bookings);
@@ -101,6 +109,17 @@ export const useAppLogic = (
         );
       } catch {
         setDesignTheme('classic');
+      }
+
+      try {
+        const retentionSnapshot = await getDoc(doc(db, 'settings', 'notification_retention'));
+        setNotificationRetentionDays(
+          retentionSnapshot.exists()
+            ? (retentionSnapshot.data().days ?? DEFAULT_NOTIFICATION_RETENTION_DAYS)
+            : DEFAULT_NOTIFICATION_RETENTION_DAYS
+        );
+      } catch {
+        setNotificationRetentionDays(DEFAULT_NOTIFICATION_RETENTION_DAYS);
       }
     };
 
@@ -309,6 +328,17 @@ export const useAppLogic = (
     try {
       await updateDoc(doc(db, 'users', firebaseUser.uid), updatedData);
       setUserProfile({ ...userProfile, ...updatedData });
+
+      // Keep public instructor card in sync so students can call the coach.
+      if (
+        userProfile.instructorId &&
+        Object.prototype.hasOwnProperty.call(updatedData, 'phoneNumber')
+      ) {
+        const phoneNumber = (updatedData.phoneNumber || '').trim();
+        await updateDoc(doc(db, 'instructors', userProfile.instructorId), {
+          phoneNumber,
+        });
+      }
     } catch (err) {
       logger.error('Profile update failed:', err);
       throw err;
@@ -369,6 +399,20 @@ export const useAppLogic = (
     addNotification('info', t('designThemeUpdated'), t('designThemeUpdatedDesc'));
   };
 
+  const handleSetNotificationRetentionDays = async (days: number) => {
+    const clamped = Math.min(
+      MAX_NOTIFICATION_RETENTION_DAYS,
+      Math.max(MIN_NOTIFICATION_RETENTION_DAYS, Math.round(days))
+    );
+    setNotificationRetentionDays(clamped);
+    await setDoc(doc(db, 'settings', 'notification_retention'), { days: clamped });
+    addNotification(
+      'info',
+      t('notificationRetentionUpdated'),
+      t('notificationRetentionUpdatedDesc')
+    );
+  };
+
   const handleUpdateAchievementsConfig = async (config: AchievementsConfig) => {
     const normalized = normalizeAchievementsConfig(config);
     setAchievementsConfig(normalized);
@@ -414,6 +458,7 @@ export const useAppLogic = (
     filtersEnabled,
     onboardingEnabled,
     designTheme,
+    notificationRetentionDays,
     skillConfig,
     achievementsConfig,
     dismissedReviewIds,
@@ -436,6 +481,7 @@ export const useAppLogic = (
     handleToggleFilters,
     handleToggleOnboarding,
     handleSetDesignTheme,
+    handleSetNotificationRetentionDays,
     handleUpdateSkillConfig,
     handleUpdateAchievementsConfig,
     ...bookingLogic,

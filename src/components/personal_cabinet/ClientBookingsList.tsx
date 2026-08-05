@@ -8,7 +8,7 @@ import {
   MessageSquare,
   Trash2,
 } from 'lucide-react';
-import { Booking, Course, UserProfile } from '../../types';
+import { Booking, Course, Instructor, UserProfile } from '../../types';
 import { BookingCallCoachButton } from './student/BookingCallCoachButton';
 import {
   useLanguage,
@@ -44,6 +44,7 @@ const LIST_SCOPE_LABEL_KEYS = {
 interface ClientBookingsListProps {
   userBookings: Booking[];
   courses?: Course[];
+  instructors?: Instructor[];
   usersList?: UserProfile[];
   unreviewedCompletedBookings?: Booking[];
   showWorkoutCalendar?: boolean;
@@ -58,6 +59,7 @@ interface ClientBookingsListProps {
 export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
   userBookings,
   courses = [],
+  instructors = [],
   usersList = [],
   unreviewedCompletedBookings = [],
   showWorkoutCalendar = true,
@@ -470,6 +472,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                           <BookingCallCoachButton
                             booking={b}
                             courses={courses}
+                            instructors={instructors}
                             usersList={usersList}
                             variant="outline"
                           />

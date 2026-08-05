@@ -109,6 +109,7 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
   const [bio, setBio] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [pricePerHour, setPricePerHour] = useState(50);
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -185,6 +186,7 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
       avatarUrl: avatarUrl.trim() || defaultAvatar,
       pricePerHour: Number(pricePerHour),
       isAvailable: editingIns ? editingIns.isAvailable : true,
+      phoneNumber: phoneNumber.trim() || undefined,
     };
 
     try {
@@ -207,6 +209,7 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
       setAvatarUrl('');
       setLanguages('English, German');
       setPricePerHour(50);
+      setPhoneNumber('');
       setExperienceYears(5);
       setShowAddForm(false);
     } catch (err) {
@@ -225,6 +228,7 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
     setBio(ins.bio);
     setAvatarUrl(ins.avatarUrl);
     setPricePerHour(ins.pricePerHour);
+    setPhoneNumber(ins.phoneNumber || '');
     setShowAddForm(true);
   };
 
@@ -441,6 +445,18 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
                   value={pricePerHour}
                   onChange={(e) => setPricePerHour(Number(e.target.value))}
                   placeholder="75"
+                  className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] text-center rounded-none font-mono"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
+                  {t('phoneOptional')}
+                </label>
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="+7 ..."
                   className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] text-center rounded-none font-mono"
                 />
               </div>

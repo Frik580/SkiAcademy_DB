@@ -73,6 +73,7 @@ interface AppRoutesProps {
   theme: 'light' | 'dark';
   filtersEnabled: boolean;
   onboardingEnabled?: boolean;
+  notificationRetentionDays: number;
   designTheme: DesignTheme;
   skillConfig: SkillConfig;
   achievementsConfig: AchievementsConfig;
@@ -105,6 +106,7 @@ interface AppRoutesProps {
   // Actions
   onToggleFilters: (enabled: boolean) => Promise<void>;
   onToggleOnboarding?: (enabled: boolean) => Promise<void>;
+  onSetNotificationRetentionDays: (days: number) => Promise<void>;
   onSetDesignTheme: (theme: DesignTheme) => Promise<void>;
   onUpdateSkillConfig: (config: SkillConfig) => Promise<void>;
   onUpdateAchievementsConfig: (config: AchievementsConfig) => Promise<void>;
@@ -151,6 +153,12 @@ interface AppRoutesProps {
   onAddUser: (user: UserProfile) => Promise<void>;
   onUpdateUser: (user: UserProfile) => Promise<void>;
   onDeleteUser: (uid: string) => Promise<void>;
+  onClearStudentBookings: (
+    onProgress?: (deleted: number) => void
+  ) => Promise<import('../lib/clearStudentBookings').ClearStudentBookingsResult>;
+  onClearCancelledBookings?: (
+    onProgress?: (deleted: number) => void
+  ) => Promise<import('../lib/clearStudentBookings').ClearCancelledBookingsResult>;
   // Resort actions
   setIsFahrenheit: (value: boolean) => void;
   onRefreshResortStats: () => void;
@@ -419,11 +427,13 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
     deletedCompletedStats,
     filtersEnabled,
     onboardingEnabled,
+    notificationRetentionDays,
     designTheme,
     skillConfig,
     achievementsConfig,
     onToggleFilters,
     onToggleOnboarding,
+    onSetNotificationRetentionDays,
     onSetDesignTheme,
     onUpdateSkillConfig,
     onUpdateAchievementsConfig,
@@ -445,6 +455,8 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
     onAddCourse,
     onUpdateCourse,
     onDeleteCourse,
+    onClearStudentBookings,
+    onClearCancelledBookings,
   } = props;
 
   const { t } = useLanguage();
@@ -481,12 +493,16 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
           onToggleFilters={onToggleFilters}
           onboardingEnabled={onboardingEnabled}
           onToggleOnboarding={onToggleOnboarding}
+          notificationRetentionDays={notificationRetentionDays}
+          onSetNotificationRetentionDays={onSetNotificationRetentionDays}
           designTheme={designTheme}
           onSetDesignTheme={onSetDesignTheme}
           skillConfig={skillConfig}
           onUpdateSkillConfig={onUpdateSkillConfig}
           achievementsConfig={achievementsConfig}
           onUpdateAchievementsConfig={onUpdateAchievementsConfig}
+          onClearStudentBookings={onClearStudentBookings}
+          onClearCancelledBookings={onClearCancelledBookings}
         />
       </LazyLoad>
     </AdminRoute>

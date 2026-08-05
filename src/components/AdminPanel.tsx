@@ -79,6 +79,8 @@ interface AdminPanelProps {
   onToggleFilters?: (enabled: boolean) => Promise<void>;
   onboardingEnabled?: boolean;
   onToggleOnboarding?: (enabled: boolean) => Promise<void>;
+  notificationRetentionDays?: number;
+  onSetNotificationRetentionDays?: (days: number) => Promise<void>;
   designTheme?: DesignTheme;
   onSetDesignTheme?: (theme: DesignTheme) => Promise<void>;
   courses?: Course[];
@@ -89,6 +91,12 @@ interface AdminPanelProps {
   achievementsConfig?: AchievementsConfig;
   onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
   onUpdateAchievementsConfig?: (config: AchievementsConfig) => Promise<void>;
+  onClearStudentBookings?: (
+    onProgress?: (deleted: number) => void
+  ) => Promise<import('../lib/clearStudentBookings').ClearStudentBookingsResult>;
+  onClearCancelledBookings?: (
+    onProgress?: (deleted: number) => void
+  ) => Promise<import('../lib/clearStudentBookings').ClearCancelledBookingsResult>;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -120,12 +128,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onToggleFilters,
   onboardingEnabled = true,
   onToggleOnboarding,
+  notificationRetentionDays,
+  onSetNotificationRetentionDays,
   designTheme = 'classic',
   onSetDesignTheme,
   skillConfig,
   onUpdateSkillConfig,
   achievementsConfig,
   onUpdateAchievementsConfig,
+  onClearStudentBookings,
+  onClearCancelledBookings,
 }) => {
   const { t, language } = useLanguage();
 
@@ -181,6 +193,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           onToggleFilters={onToggleFilters}
           onboardingEnabled={onboardingEnabled}
           onToggleOnboarding={onToggleOnboarding}
+          notificationRetentionDays={notificationRetentionDays}
+          onSetNotificationRetentionDays={onSetNotificationRetentionDays}
           designTheme={designTheme}
           onSetDesignTheme={onSetDesignTheme}
           skillConfig={skillConfig}
@@ -190,6 +204,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           bookings={bookings}
           courses={courses}
           adminUid={currentUserProfile.uid}
+          onRequestConfirm={onRequestConfirm}
+          onClearStudentBookings={onClearStudentBookings}
+          onClearCancelledBookings={onClearCancelledBookings}
         />
       </Suspense>
 

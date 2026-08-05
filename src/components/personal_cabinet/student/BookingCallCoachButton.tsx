@@ -1,12 +1,13 @@
 import React from 'react';
 import { Phone } from 'lucide-react';
-import { Booking, Course, UserProfile } from '../../../types';
+import { Booking, Course, Instructor, UserProfile } from '../../../types';
 import { useLanguage } from '../../../lib/LanguageContext';
 import { normalizeTelHref, resolveBookingCoachPhone } from './coachUtils';
 
 interface BookingCallCoachButtonProps {
   booking: Booking;
   courses: Course[];
+  instructors?: Instructor[];
   usersList?: UserProfile[];
   variant?: 'text' | 'outline';
   className?: string;
@@ -15,12 +16,13 @@ interface BookingCallCoachButtonProps {
 export const BookingCallCoachButton: React.FC<BookingCallCoachButtonProps> = ({
   booking,
   courses,
+  instructors = [],
   usersList = [],
   variant = 'text',
   className = '',
 }) => {
   const { t } = useLanguage();
-  const phone = resolveBookingCoachPhone(booking, courses, usersList);
+  const phone = resolveBookingCoachPhone(booking, courses, usersList, instructors);
   if (!phone) return null;
 
   const baseClass =

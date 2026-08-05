@@ -820,11 +820,14 @@
     backdrop-filter: var(--nav-blur);
   }
 
-  /* ЛК: «Путь к мастерству» — высота от шапки до нижнего меню */
+  /* ЛК: «Путь к мастерству» — фиксированная высота: viewport минус header */
   .cabinet-journey-fill {
     display: flex;
     flex-direction: column;
-    min-height: calc(100svh - var(--app-navbar-height) - var(--app-student-tab-bar-stack));
+    min-height: calc(100vh - var(--app-navbar-height));
+    min-height: calc(100dvh - var(--app-navbar-height));
+    max-height: calc(100vh - var(--app-navbar-height));
+    max-height: calc(100dvh - var(--app-navbar-height));
   }
 
   @media (min-width: 640px) {

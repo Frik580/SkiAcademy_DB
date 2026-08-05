@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { UserProfile } from '../types';
 import { LogOut, Plus, Bell, Sun, Moon, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -45,8 +45,33 @@ export const Navbar: React.FC<NavbarProps> = ({
     ? `${t('newNotifications')} (${unreadNotificationCount})`
     : t('notifications');
 
+  const headerRef = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+
+    const syncNavbarHeight = () => {
+      document.documentElement.style.setProperty('--app-navbar-height', `${el.offsetHeight}px`);
+    };
+
+    syncNavbarHeight();
+
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(syncNavbarHeight) : null;
+    ro?.observe(el);
+    window.addEventListener('resize', syncNavbarHeight);
+
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', syncNavbarHeight);
+    };
+  }, [isMenuOpen]);
+
   return (
-    <header className="ui-navbar sticky top-0 z-40 px-4 sm:px-6 py-3 transition-colors duration-300">
+    <header
+      ref={headerRef}
+      className="ui-navbar sticky top-0 z-40 px-4 sm:px-6 py-3 transition-colors duration-300"
+    >
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
         <Link
           to={

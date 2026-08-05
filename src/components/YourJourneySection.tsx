@@ -1279,7 +1279,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           <div
             className={
               fillViewport
-                ? 'relative w-full flex-1 min-h-[7.5rem] max-h-[11rem] sm:max-h-[13rem] md:max-h-[15rem]'
+                ? 'relative w-full flex-1 min-h-[7.5rem]'
                 : 'relative w-full h-36 sm:h-44 md:h-52'
             }
           >

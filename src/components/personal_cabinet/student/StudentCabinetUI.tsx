@@ -50,6 +50,7 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
 
   return (
     <nav
+      data-student-tab-bar
       className="fixed inset-x-0 bottom-3 sm:bottom-5 z-40 px-3 sm:px-6 pointer-events-none flex justify-center"
       aria-label={t('scNavHome')}
     >

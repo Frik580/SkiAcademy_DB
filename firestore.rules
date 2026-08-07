@@ -210,7 +210,8 @@ service cloud.firestore {
           'completedTodayTaskIds',
           'completedTodayDate',
           'customTodayTasks',
-          'dismissedTodayTaskIds'
+          'dismissedTodayTaskIds',
+          'dismissedReviewIds'
         ])
       ) || (
         isOwner(userId) && validBalanceDecreaseOnly()

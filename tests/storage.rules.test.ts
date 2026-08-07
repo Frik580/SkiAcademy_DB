@@ -28,7 +28,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await testEnv.cleanup();
-});
+}, 30_000);
 
 describe('storage default deny', () => {
   it('rejects anonymous and authenticated uploads', async () => {

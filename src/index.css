@@ -730,6 +730,7 @@
     border: var(--ui-border-width, 1px) solid var(--ui-border-color, var(--border));
     border-radius: var(--ui-radius, 0px);
     box-shadow: var(--ui-shadow, none);
+    max-height: 80vh;
   }
 
   .theme-air .ui-modal {

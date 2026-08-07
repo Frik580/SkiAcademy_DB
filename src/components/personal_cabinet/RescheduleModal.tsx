@@ -39,7 +39,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
   return createPortal(
     <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
       <BodyScrollLock />
-      <div className="ui-modal shadow-2xl w-full max-w-sm overflow-hidden relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]">
+      <div className="ui-modal shadow-2xl w-full max-w-sm overflow-hidden relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] m-auto">
         <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5">
           <h4 className="font-serif text-sm font-light text-[var(--ink)]">
             {t('rescheduleCoaching')}

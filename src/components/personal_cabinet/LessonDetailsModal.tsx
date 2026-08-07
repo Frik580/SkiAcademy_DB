@@ -63,7 +63,7 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 8 }}
           transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="ui-modal relative w-full max-w-md max-h-[min(85svh,85dvh)] overflow-y-auto shadow-2xl z-10 rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] my-auto"
+          className="ui-modal relative w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl z-10 rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] my-auto"
           role="dialog"
           aria-modal="true"
         >

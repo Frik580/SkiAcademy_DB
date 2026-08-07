@@ -221,13 +221,33 @@ const LevelCardBody: React.FC<{
   onOpenDevelopment?: () => void;
   formatMeta: (skills: number, achievements: number) => string;
   compact?: boolean;
-}> = ({ level, isDark, earnedSkills, onOpenDevelopment, formatMeta, compact = false }) => {
+  scrollSkills?: boolean;
+}> = ({
+  level,
+  isDark,
+  earnedSkills,
+  onOpenDevelopment,
+  formatMeta,
+  compact = false,
+  scrollSkills = false,
+}) => {
   const { t } = useLanguage();
   const showEarned = earnedSkills != null;
+  const pinFooter = Boolean(onOpenDevelopment);
+  const stretchLayout = scrollSkills || pinFooter;
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
-      <div className="min-h-0 flex-1">
+    <div
+      className={`flex flex-col gap-3 ${
+        stretchLayout ? `h-full min-h-0 flex-1 ${scrollSkills ? 'overflow-hidden' : ''}` : ''
+      }`}
+    >
+      <div
+        className={`${stretchLayout ? 'min-h-0 flex-1' : ''} ${
+          scrollSkills ? 'overflow-y-auto overscroll-contain touch-pan-y' : ''
+        }`}
+        data-journey-skills-scroll={scrollSkills ? '' : undefined}
+      >
         {showEarned ? (
           earnedSkills.length > 0 ? (
             <ul className="space-y-1.5">
@@ -284,7 +304,7 @@ const LevelCardBody: React.FC<{
             e.stopPropagation();
             onOpenDevelopment();
           }}
-          className={`shrink-0 pt-1 border-t text-left text-[11px] sm:text-xs font-medium transition-colors inline-flex items-center gap-1 ${
+          className={`mt-auto w-full shrink-0 pt-1 border-t text-left text-[11px] sm:text-xs font-medium transition-colors inline-flex items-center gap-1 ${
             isDark
               ? 'border-white/10 text-[#7ec8ff] hover:text-white'
               : 'border-black/8 text-[var(--accent)] hover:text-[var(--ink)]'
@@ -327,13 +347,30 @@ function useBreakpoint(): Breakpoint {
   return bp;
 }
 
-/** Фиксирует высоту секции в ЛК в px — только mount/orientation, без scroll. */
-function useCabinetJourneyHeightLock(enabled: boolean) {
+const CABINET_JOURNEY_MIN_SKILLS_BLOCK_PX = 150;
+
+function measureElementHeightWithMargin(el: HTMLElement): number {
+  const style = getComputedStyle(el);
+  const marginTop = parseFloat(style.marginTop) || 0;
+  const marginBottom = parseFloat(style.marginBottom) || 0;
+  return el.offsetHeight + marginTop + marginBottom;
+}
+
+/** ЛК (desktop): fillViewport, пока блок навыков (с margin) ≥150px; иначе — как на лендинге. */
+function useCabinetJourneyLayout(fillViewport: boolean, remeasureKey: string) {
   const sectionRef = useRef<HTMLElement>(null);
+  const [effectiveFillViewport, setEffectiveFillViewport] = useState(fillViewport);
+  const lastWidthRef = useRef(typeof window === 'undefined' ? 0 : window.innerWidth);
+
+  useEffect(() => {
+    if (!fillViewport) {
+      setEffectiveFillViewport(false);
+    }
+  }, [fillViewport]);
 
   useLayoutEffect(() => {
     const section = sectionRef.current;
-    if (!enabled || !section) return;
+    if (!effectiveFillViewport || !section) return;
 
     let lastWidth = window.innerWidth;
 
@@ -371,9 +408,57 @@ function useCabinetJourneyHeightLock(enabled: boolean) {
       section.style.removeProperty('min-height');
       section.style.removeProperty('max-height');
     };
-  }, [enabled]);
+  }, [effectiveFillViewport]);
 
-  return sectionRef;
+  useLayoutEffect(() => {
+    if (!fillViewport) return;
+
+    const evaluate = () => {
+      const section = sectionRef.current;
+      if (!section) return;
+
+      const scrollEls = section.querySelectorAll('[data-journey-skills-scroll]');
+      if (scrollEls.length === 0) return;
+
+      let skillsBlockHeight = 0;
+      scrollEls.forEach((el) => {
+        if (!(el instanceof HTMLElement)) return;
+        const article = el.closest('article');
+        if (article instanceof HTMLElement && article.classList.contains('invisible')) return;
+        skillsBlockHeight = Math.max(skillsBlockHeight, measureElementHeightWithMargin(el));
+      });
+
+      if (skillsBlockHeight === 0) return;
+
+      setEffectiveFillViewport(skillsBlockHeight >= CABINET_JOURNEY_MIN_SKILLS_BLOCK_PX);
+    };
+
+    evaluate();
+    const raf = requestAnimationFrame(evaluate);
+    const retry = window.setTimeout(evaluate, 150);
+
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(evaluate) : null;
+    if (sectionRef.current) ro?.observe(sectionRef.current);
+
+    const onViewportChange = () => {
+      lastWidthRef.current = window.innerWidth;
+      setEffectiveFillViewport(true);
+      requestAnimationFrame(evaluate);
+    };
+
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('orientationchange', onViewportChange);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(retry);
+      ro?.disconnect();
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('orientationchange', onViewportChange);
+    };
+  }, [fillViewport, remeasureKey]);
+
+  return { sectionRef, effectiveFillViewport };
 }
 
 /**
@@ -847,6 +932,7 @@ const CompactLevelCards: React.FC<{
   onOpenDevelopment?: () => void;
   onActivate: (id: number) => void;
   onClearHover: () => void;
+  fillViewport?: boolean;
 }> = ({
   levels,
   activeLevelId,
@@ -857,6 +943,7 @@ const CompactLevelCards: React.FC<{
   onOpenDevelopment,
   onActivate,
   onClearHover,
+  fillViewport = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
@@ -873,7 +960,7 @@ const CompactLevelCards: React.FC<{
     const measure = () => {
       const cWidth = container.offsetWidth;
       const maxH = Math.max(0, ...cardRefs.current.map((el) => el?.offsetHeight ?? 0));
-      if (maxH > 0) {
+      if (maxH > 0 && !fillViewport) {
         setLockedHeight((prev) => Math.max(prev, maxH));
       }
       setLayoutState({
@@ -892,7 +979,7 @@ const CompactLevelCards: React.FC<{
       ro.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [levels.length, earnedSkillsByLevel]);
+  }, [levels.length, earnedSkillsByLevel, fillViewport]);
 
   const calculateLeftForIndex = (idx: number) => {
     const cWidth = layoutState.containerWidth || containerRef.current?.offsetWidth || 0;
@@ -924,8 +1011,16 @@ const CompactLevelCards: React.FC<{
     // grid + одна ячейка: row sizing берёт max среди детей
     <div
       ref={containerRef}
-      className="relative grid h-full w-full"
-      style={lockedHeight > 0 ? { minHeight: lockedHeight, height: lockedHeight } : undefined}
+      className={`relative w-full min-w-0 ${
+        fillViewport
+          ? 'grid h-full min-h-0 grid-rows-[minmax(0,1fr)] overflow-hidden'
+          : 'grid h-full'
+      }`}
+      style={
+        !fillViewport && lockedHeight > 0
+          ? { minHeight: lockedHeight, height: lockedHeight }
+          : undefined
+      }
     >
       {levels.map((level, index) => {
         const earnedSkills = onOpenDevelopment ? (earnedSkillsByLevel[level.id] ?? []) : null;
@@ -939,7 +1034,9 @@ const CompactLevelCards: React.FC<{
             ref={(el) => {
               cardRefs.current[index] = el;
             }}
-            className={`col-start-1 row-start-1 h-full w-max max-w-[min(100%,20rem)] justify-self-start rounded-2xl border px-3.5 py-4 flex flex-col transition-all duration-300 ${
+            className={`col-start-1 row-start-1 w-max max-w-[min(100%,20rem)] justify-self-start rounded-2xl border px-3.5 py-4 flex flex-col min-w-0 transition-all duration-300 ${
+              fillViewport ? 'h-full max-h-full min-h-0 overflow-hidden' : 'h-full'
+            } ${
               isEmpty
                 ? 'invisible opacity-0 pointer-events-none z-0'
                 : isActive
@@ -962,6 +1059,7 @@ const CompactLevelCards: React.FC<{
               onOpenDevelopment={onOpenDevelopment}
               formatMeta={formatMeta}
               compact
+              scrollSkills={fillViewport}
             />
           </article>
         );
@@ -992,7 +1090,6 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   const navigate = useNavigate();
   const isDark = theme === 'dark';
   const breakpoint = useBreakpoint();
-  const sectionRef = useCabinetJourneyHeightLock(fillViewport);
   const showAllCards = breakpoint === 'desktop';
   const isCompactJourneyLayout = !showAllCards;
   const showUserPosition = Boolean(userProfile && !userProfile.hideProgressTracking);
@@ -1079,6 +1176,11 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
     currentUserLevelId,
     earnedSkillsByLevel,
   ]);
+
+  const { sectionRef, effectiveFillViewport } = useCabinetJourneyLayout(
+    fillViewport && showAllCards,
+    `${breakpoint}-${activeLevelId ?? 'none'}`
+  );
 
   const markerYs = LEVEL_MARKER_Y[breakpoint];
   const pathBends = LEVEL_PATH_BEND[breakpoint];
@@ -1332,7 +1434,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
       id="your-journey"
       className={`journey-section relative overflow-hidden shrink-0 ${
         isDark ? 'bg-[#070b14]' : 'bg-[#eef1f5]'
-      } ${fillViewport ? 'cabinet-journey-fill' : ''}`}
+      } ${effectiveFillViewport ? 'cabinet-journey-fill' : ''}`}
     >
       <img
         src={bgUrl}
@@ -1352,7 +1454,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
 
       <div
         className={`relative z-10 max-w-5xl mx-auto px-5 sm:px-8 md:px-10 w-full ${
-          fillViewport
+          effectiveFillViewport
             ? 'flex-1 flex flex-col min-h-0 pt-6 sm:pt-8 md:pt-10 pb-22 sm:pb-22 md:pb-22 gap-6 sm:gap-8 md:gap-10'
             : 'py-14 md:py-20 space-y-10 md:space-y-12'
         }`}
@@ -1420,7 +1522,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
         <div
           ref={pathBlockRef}
           className={
-            fillViewport
+            effectiveFillViewport
               ? 'relative flex-1 flex flex-col min-h-0 space-y-3 sm:space-y-4'
               : isCompactJourneyLayout
                 ? 'relative flex flex-col space-y-3 sm:space-y-4'
@@ -1430,7 +1532,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           {/* Полоса пути: метки + волнистая линия */}
           <div
             className={
-              fillViewport
+              effectiveFillViewport
                 ? 'relative w-full flex-1 min-h-[7.5rem]'
                 : 'relative w-full h-36 sm:h-44 md:h-52 shrink-0'
             }
@@ -1577,7 +1679,13 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           </div>
 
           {showAllCards ? (
-            <div className="grid grid-cols-4 gap-3 sm:gap-4 items-stretch">
+            <div
+              className={`grid grid-cols-4 gap-3 sm:gap-4 items-stretch min-w-0 w-full ${
+                effectiveFillViewport
+                  ? 'flex-1 min-h-0 overflow-hidden grid-rows-[minmax(0,1fr)]'
+                  : ''
+              }`}
+            >
               {levelsWithXp.map((level) => {
                 const isActive = activeLevelId === level.id;
                 const isCurrent = currentUserLevelId === level.id;
@@ -1592,7 +1700,9 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
                     key={level.id}
                     onMouseEnter={() => !isEmpty && activateLevel(level.id)}
                     onMouseLeave={clearHover}
-                    className={`h-full w-full min-w-0 rounded-2xl border px-3.5 py-4 md:px-4 md:py-5 flex flex-col transition-all duration-500 transform ${
+                    className={`w-full min-w-0 rounded-2xl border px-3.5 py-4 md:px-4 md:py-5 flex flex-col transition-all duration-500 transform ${
+                      effectiveFillViewport ? 'h-full min-h-0 overflow-hidden' : 'h-full'
+                    } ${
                       isEmpty
                         ? 'invisible opacity-0 pointer-events-none'
                         : isRevealed
@@ -1618,6 +1728,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
                       earnedSkills={earnedSkills}
                       onOpenDevelopment={showUserPosition ? onOpenDevelopment : undefined}
                       formatMeta={formatMeta}
+                      scrollSkills={effectiveFillViewport}
                     />
                   </article>
                 );
@@ -1625,7 +1736,11 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
             </div>
           ) : (
             activeLevelId != null && (
-              <div className="relative shrink-0">
+              <div
+                className={`relative min-w-0 w-full ${
+                  effectiveFillViewport ? 'flex-1 min-h-0 overflow-hidden' : 'shrink-0'
+                }`}
+              >
                 <CompactLevelCards
                   levels={levelsWithXp}
                   activeLevelId={activeLevelId}
@@ -1636,6 +1751,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
                   onOpenDevelopment={showUserPosition ? onOpenDevelopment : undefined}
                   onActivate={activateLevel}
                   onClearHover={clearHover}
+                  fillViewport={effectiveFillViewport}
                 />
               </div>
             )

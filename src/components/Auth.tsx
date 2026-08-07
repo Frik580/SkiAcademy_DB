@@ -416,24 +416,26 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
           <>
             {isSignUp && (
               <>
-                <input
-                  type="text"
-                  required
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder={t('fullName')}
-                  aria-label={t('fullName')}
-                  className={fieldClass}
-                />
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 items-end">
+                  <input
+                    type="text"
+                    required
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder={t('fullName')}
+                    aria-label={t('fullName')}
+                    className={fieldClass}
+                  />
 
-                <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder={t('phoneOptional')}
-                  aria-label={t('phoneOptional')}
-                  className={fieldClass}
-                />
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder={t('phoneOptional')}
+                    aria-label={t('phoneOptional')}
+                    className={fieldClass}
+                  />
+                </div>
 
                 <div className="space-y-3 pt-2">
                   <div className="flex justify-between items-center">

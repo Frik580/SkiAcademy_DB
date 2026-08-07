@@ -55,7 +55,8 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+          className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs"
+          onClick={onClose}
         >
           <BodyScrollLock />
           <motion.div
@@ -63,7 +64,8 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="ui-modal shadow-2xl w-full max-w-xl overflow-hidden transition-colors duration-300 flex flex-col max-h-[85vh] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] relative"
+            className="ui-modal shadow-2xl w-full max-w-xl overflow-hidden transition-colors duration-300 flex flex-col max-h-[80vh] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] relative m-auto"
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">

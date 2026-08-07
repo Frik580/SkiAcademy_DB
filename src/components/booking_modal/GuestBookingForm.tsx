@@ -38,54 +38,67 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
     handleSubmitGuest,
   } = workspace;
 
+  const fieldClass =
+    'ui-field-plain focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]';
+
+  const labelStyle =
+    'text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 theme-air:font-sans theme-air:text-xs';
+
   return (
     <form onSubmit={handleSubmitGuest} className="space-y-4">
-      <div className="bg-amber-500/10 border border-amber-500/30 p-3 text-[11px] font-mono text-amber-700 dark:text-amber-300 leading-relaxed">
+      {/* Notice matching Auth style */}
+      <div className="p-3 bg-[var(--accent-muted)] border border-[var(--border)] text-xs text-[var(--ink)] leading-relaxed rounded-none theme-air:rounded-[var(--radius-md)]">
         💡 {t('guestBookingNotice')}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1">
-            <User className="w-3 h-3" /> {t('guestNameLabel')} *
-          </label>
-          <input
-            type="text"
-            required
-            value={guestName}
-            onChange={(e) => setGuestName(e.target.value)}
-            placeholder={t('guestNamePlaceholder')}
-            className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none font-sans"
-          />
+      {/* Contact Info Group */}
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 items-end">
+          <div className="flex flex-col justify-end">
+            <label className={`${labelStyle} min-h-[20px]`}>
+              <User className="w-3.5 h-3.5 shrink-0" />{' '}
+              <span className="truncate">{t('guestNameLabel')} *</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={guestName}
+              onChange={(e) => setGuestName(e.target.value)}
+              placeholder={t('guestNamePlaceholder')}
+              className={fieldClass}
+            />
+          </div>
+          <div className="flex flex-col justify-end">
+            <label className={`${labelStyle} min-h-[20px]`}>
+              <Phone className="w-3.5 h-3.5 shrink-0" />{' '}
+              <span className="truncate">{t('guestPhoneLabel')} *</span>
+            </label>
+            <input
+              type="tel"
+              required
+              value={guestPhone}
+              onChange={(e) => setGuestPhone(e.target.value)}
+              placeholder={t('guestPhonePlaceholder')}
+              className={fieldClass}
+            />
+          </div>
         </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1">
-            <Phone className="w-3 h-3" /> {t('guestPhoneLabel')} *
+
+        <div>
+          <label className={labelStyle}>
+            <Mail className="w-3.5 h-3.5" /> {t('guestEmailLabel')}
           </label>
           <input
-            type="tel"
-            required
-            value={guestPhone}
-            onChange={(e) => setGuestPhone(e.target.value)}
-            placeholder={t('guestPhonePlaceholder')}
-            className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none font-mono"
+            type="email"
+            value={guestEmail}
+            onChange={(e) => setGuestEmail(e.target.value)}
+            placeholder={t('guestEmailPlaceholder')}
+            className={fieldClass}
           />
         </div>
       </div>
 
-      <div className="space-y-1">
-        <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1">
-          <Mail className="w-3 h-3" /> {t('guestEmailLabel')}
-        </label>
-        <input
-          type="email"
-          value={guestEmail}
-          onChange={(e) => setGuestEmail(e.target.value)}
-          placeholder={t('guestEmailPlaceholder')}
-          className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none font-mono"
-        />
-      </div>
-
+      {/* Booking Selectors */}
       <BookingSelectors
         date={date}
         setDate={setDate}
@@ -104,29 +117,28 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
         gapClass="gap-3"
       />
 
-      <div className="space-y-1">
-        <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-          {t('personalGoalsNotes')}
-        </label>
+      {/* Notes */}
+      <div>
+        <label className={labelStyle}>{t('personalGoalsNotes')}</label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder={t('personalGoalsPlaceholder')}
-          className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition h-14 resize-none rounded-none"
+          className={`${fieldClass} h-16 resize-none`}
         />
       </div>
 
-      <div className="bg-black/10 rounded-none p-3 border border-[var(--border)] space-y-1.5">
-        <div className="flex justify-between items-baseline">
-          <span className="text-xs font-mono uppercase tracking-widest text-[var(--ink)]">
-            {t('totalLessonFee')}
-          </span>
-          <span className="text-lg font-extrabold text-sky-600 dark:text-sky-400 font-mono">
-            ${totalCost}
-          </span>
-        </div>
+      {/* Total Price Card */}
+      <div className="p-3.5 border border-[var(--border)] bg-black/5 dark:bg-white/5 rounded-none theme-air:rounded-[var(--radius-md)] flex items-center justify-between">
+        <span className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] theme-air:font-sans theme-air:normal-case theme-air:text-sm">
+          {t('totalLessonFee')}
+        </span>
+        <span className="text-lg font-extrabold text-[var(--accent)] font-mono theme-air:font-sans">
+          ${totalCost}
+        </span>
       </div>
 
+      {/* Primary Submit Button */}
       <button
         type="submit"
         disabled={isSubmitting || isTimeSlotOccupied || !targetInstructor?.isAvailable}

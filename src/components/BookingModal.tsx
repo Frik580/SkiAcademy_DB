@@ -32,7 +32,8 @@ export const BookingModal: React.FC<BookingModalProps> = (props) => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs"
+          onClick={workspace.onClose}
         >
           <BodyScrollLock />
           {!userProfile ? (
@@ -44,7 +45,8 @@ export const BookingModal: React.FC<BookingModalProps> = (props) => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="ui-modal shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
+              className="ui-modal shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 flex flex-col max-h-[80vh] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] m-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               <BookingModalHeader
                 targetInstructor={targetInstructor}

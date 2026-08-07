@@ -12,7 +12,6 @@ import {
   getAvailableCourses,
   getEnrolledCourses,
   getMyInstructors,
-  getRecommendedCourses,
   getRecommendedInstructors,
   StudentCabinetTab,
 } from './studentCabinetUtils';
@@ -149,7 +148,6 @@ export const StudentCoursesPanel: React.FC<
 }) => {
   const { t, language } = useLanguage();
   const myCourses = getEnrolledCourses(bookings, courses, userProfile.uid);
-  const recommendedCourses = getRecommendedCourses(userProfile, courses, bookings, 2);
   const availableCourses = sortVisibleCourses(
     getAvailableCourses(bookings, courses, userProfile.uid)
   );
@@ -184,20 +182,6 @@ export const StudentCoursesPanel: React.FC<
         </h1>
         <p className="text-sm text-[var(--ink-dim)] mt-2">{t('intensiveGroupCoursesSub')}</p>
       </div>
-
-      {recommendedCourses.length > 0 && myCourses.length === 0 && (
-        <section className="space-y-4">
-          <div className="space-y-1">
-            <ScSectionTitle>{t('scRecommendedCourses')}</ScSectionTitle>
-            <p className="text-sm text-[var(--ink-dim)]">{t('scRecommendedCoursesSub')}</p>
-          </div>
-          {renderCourseGrid(recommendedCourses)}
-        </section>
-      )}
-
-      {recommendedCourses.length > 0 && myCourses.length === 0 && availableCourses.length > 0 && (
-        <ScDivider />
-      )}
 
       {myCourses.length > 0 && (
         <section className="space-y-4">

@@ -116,7 +116,7 @@ export const StudentProfilePersonalSection: React.FC<StudentProfilePersonalSecti
 
       <section className="space-y-4">
         <ScSectionTitle>{t('editProfile')}</ScSectionTitle>
-        <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3 items-end">
           <label className="block space-y-1.5">
             <span className="text-xs text-[var(--ink-dim)]">{t('scDisplayNameLabel')}</span>
             <input

@@ -19,50 +19,52 @@ export const AuthModeSliderSwitch: React.FC<AuthModeSliderSwitchProps> = ({
   const isGuest = unauthTab === 'guest';
 
   return (
-    <div className={className}>
-      {/* Interactive Segmented Slider Switch */}
+    <div className={`w-full max-w-[380px] sm:max-w-[420px] mx-auto ${className}`}>
+      {/* Segmented Switch matching site style */}
       <div
-        onClick={() => onChange(isGuest ? 'auth' : 'guest')}
-        className="relative flex items-center bg-slate-200/90 dark:bg-slate-900/90 p-1.5 rounded-full border border-[var(--border)] cursor-pointer select-none shadow-inner group transition-all duration-200 hover:border-sky-500/50"
-        role="switch"
-        aria-checked={!isGuest}
-        aria-label="Переключатель режима бронирования"
+        className="relative flex items-center bg-black/5 dark:bg-white/5 p-1 rounded-none theme-air:rounded-full w-full border border-[var(--border)] overflow-hidden"
+        role="tablist"
+        aria-label="Режим записи"
       >
         {/* Animated Sliding Thumb */}
         <motion.div
-          className="absolute top-1 bottom-1 rounded-full bg-[var(--card-bg)] shadow-md border border-[var(--border)] ring-1 ring-black/5 dark:ring-white/10"
+          className="absolute top-1 bottom-1 rounded-none theme-air:rounded-full bg-[var(--card-bg)] shadow-xs border border-[var(--border)]"
           initial={false}
           animate={{
             left: isGuest ? '4px' : 'calc(50% + 2px)',
             width: 'calc(50% - 6px)',
           }}
-          transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+          transition={{ type: 'spring', stiffness: 450, damping: 35 }}
         />
 
-        {/* Option 1: Guest (Без регистрации) */}
+        {/* Option 1: Guest */}
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onChange('guest');
-          }}
-          className={`relative z-10 flex-1 py-2 px-3 text-center font-mono text-[11px] font-bold uppercase tracking-wider transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer rounded-full ${isGuest ? 'text-[var(--ink)]' : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'}`}
+          onClick={() => onChange('guest')}
+          className={`relative z-10 flex-1 min-w-0 py-1.5 px-2 text-center text-[10px] sm:text-xs font-mono uppercase tracking-wider theme-air:font-sans theme-air:normal-case theme-air:text-xs font-medium transition-colors duration-200 flex items-center justify-center cursor-pointer ${
+            isGuest
+              ? 'text-[var(--ink)] font-bold'
+              : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
+          }`}
+          role="tab"
+          aria-selected={isGuest}
         >
-          <span className="text-sm">📝</span>
-          <span className="truncate">{guestLabel}</span>
+          <span className="text-center block break-words leading-tight w-full">{guestLabel}</span>
         </button>
 
-        {/* Option 2: Auth (Войти / Зарегистрироваться) */}
+        {/* Option 2: Auth */}
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onChange('auth');
-          }}
-          className={`relative z-10 flex-1 py-2 px-3 text-center font-mono text-[11px] font-bold uppercase tracking-wider transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer rounded-full ${!isGuest ? 'text-[var(--ink)]' : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'}`}
+          onClick={() => onChange('auth')}
+          className={`relative z-10 flex-1 min-w-0 py-1.5 px-2 text-center text-[10px] sm:text-xs font-mono uppercase tracking-wider theme-air:font-sans theme-air:normal-case theme-air:text-xs font-medium transition-colors duration-200 flex items-center justify-center cursor-pointer ${
+            !isGuest
+              ? 'text-[var(--ink)] font-bold'
+              : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
+          }`}
+          role="tab"
+          aria-selected={!isGuest}
         >
-          <span className="text-sm">🔐</span>
-          <span className="truncate">{authLabel}</span>
+          <span className="text-center block break-words leading-tight w-full">{authLabel}</span>
         </button>
       </div>
     </div>

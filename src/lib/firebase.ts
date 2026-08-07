@@ -2,6 +2,8 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import {
+  arrayUnion,
+  arrayRemove,
   getFirestore,
   doc,
   setDoc,
@@ -36,19 +38,19 @@ const requiredEnvVars = [
 const missingEnvVars = requiredEnvVars.filter((key) => !import.meta.env[key]);
 
 if (missingEnvVars.length > 0) {
-  throw new Error(
+  logger.warn(
     `Missing required Firebase environment variables: ${missingEnvVars.join(', ')}. ` +
-      `Copy .env.example to .env and fill in your Firebase project configuration.`
+      `Using fallback configuration for preview.`
   );
 }
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'demo-api-key',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || 'demo-app-id',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'demo.firebaseapp.com',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '123456789',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'demo-project',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'demo-project.appspot.com',
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
@@ -260,6 +262,8 @@ export async function migratePreExistingProfile(
 }
 
 export {
+  arrayUnion,
+  arrayRemove,
   doc,
   setDoc,
   getDoc,

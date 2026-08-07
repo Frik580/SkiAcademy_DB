@@ -44,21 +44,32 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
     return (
       <motion.div
         ref={ref}
-        initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
+        initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.2 }}
-        exit={{ opacity: 0, y: -12 }}
-        transition={{ duration: shouldReduceMotion ? 0 : 0.45, ease: [0.16, 1, 0.3, 1] }}
-        layout="position"
-        className={`ui-list-row w-full max-w-6xl flex flex-col sm:grid sm:grid-cols-[112px_1fr] items-center sm:items-start gap-6 transition duration-300 group ${
+        viewport={{ once: true, amount: 0.1, margin: '50px 0px' }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: shouldReduceMotion ? 0 : 0.35, ease: [0.16, 1, 0.3, 1] }}
+        style={{
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden',
+          WebkitTransform: 'translate3d(0,0,0)',
+          transform: 'translate3d(0,0,0)',
+          willChange: 'opacity, transform',
+        }}
+        className={`ui-list-row w-full max-w-6xl flex flex-col sm:grid sm:grid-cols-[112px_1fr] items-center sm:items-start gap-6 group ${
           !instructor.isAvailable ? 'opacity-60' : ''
         }`}
       >
-        <div className="ui-avatar relative w-28 h-28 sm:w-32 sm:h-32 rounded-none theme-air:rounded-full">
+        <div className="ui-avatar relative w-28 h-28 sm:w-32 sm:h-32 rounded-none theme-air:rounded-full overflow-hidden">
           <img
             src={instructor.avatarUrl}
             alt={instructor.name}
-            className="w-full h-full object-cover filter grayscale group-hover:grayscale-0 transition duration-500 theme-air:rounded-full"
+            style={{
+              WebkitBackfaceVisibility: 'hidden',
+              backfaceVisibility: 'hidden',
+              transform: 'translateZ(0)',
+            }}
+            className="w-full h-full object-cover filter grayscale group-hover:grayscale-0 transition-all duration-300 theme-air:rounded-full"
           />
           {!instructor.isAvailable && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center theme-air:rounded-full">

@@ -66,7 +66,7 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="pointer-events-auto relative w-full max-w-lg max-h-[min(85svh,85dvh)] overflow-hidden rounded-t-2xl sm:rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] shadow-2xl flex flex-col"
+              className="pointer-events-auto relative w-full max-w-lg max-h-[80vh] overflow-hidden rounded-t-2xl sm:rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] shadow-2xl flex flex-col"
               role="dialog"
               aria-modal="true"
               aria-labelledby="book-instructor-picker-title"

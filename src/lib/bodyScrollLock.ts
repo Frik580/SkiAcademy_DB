@@ -26,7 +26,11 @@ function releaseBodyScrollLock() {
   document.body.style.left = '';
   document.body.style.right = '';
   document.body.style.width = '';
-  window.scrollTo(0, savedScrollY);
+  try {
+    window.scrollTo(0, savedScrollY);
+  } catch {
+    // jsdom and other minimal environments may not implement scroll restoration.
+  }
 }
 
 /** Locks page scroll; call the returned function to release. Supports nested modals. */

@@ -35,6 +35,8 @@ export interface UserProfile {
   customTodayTasks?: CustomTodayTask[];
   /** Today checklist items hidden by the user (recommendation task ids) */
   dismissedTodayTaskIds?: string[];
+  /** Booking IDs for which review notifications have been dismissed */
+  dismissedReviewIds?: string[];
 }
 
 export interface Instructor {

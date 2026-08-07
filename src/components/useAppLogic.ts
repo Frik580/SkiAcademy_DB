@@ -224,7 +224,10 @@ export const useAppLogic = (
     );
   }, [firebaseUser, userProfile?.instructorId, userProfile?.role]);
 
-  const { dismissedReviewIds, handleDismissReview } = useDismissedReviews(userProfile?.uid);
+  const { dismissedReviewIds, handleDismissReview } = useDismissedReviews(
+    userProfile?.uid,
+    userProfile
+  );
 
   const handlePaymentSuccess = async (amount: number) => {
     if (!userProfile || !firebaseUser) return;

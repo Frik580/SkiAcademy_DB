@@ -63,7 +63,6 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
   usersList = [],
   unreviewedCompletedBookings = [],
   showWorkoutCalendar = true,
-  onDismissReview,
   onWriteReview,
   onOpenLesson,
   onReschedule,
@@ -177,44 +176,6 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
 
   return (
     <>
-      {unreviewedCompletedBookings.length > 0 && onWriteReview && (
-        <div className="mb-4 rounded-lg border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 space-y-3">
-          <p className="text-sm font-medium text-[var(--ink)]">
-            {t('scUnreviewedBanner').replace('{n}', String(unreviewedCompletedBookings.length))}
-          </p>
-          <ul className="space-y-2">
-            {unreviewedCompletedBookings.slice(0, 3).map((booking) => (
-              <li
-                key={booking.id}
-                className="flex flex-wrap items-center justify-between gap-2 text-sm"
-              >
-                <span className="text-[var(--ink-dim)]">
-                  {booking.instructorName} · {booking.date}
-                </span>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => onWriteReview(booking)}
-                    className="text-sm font-medium text-[var(--accent)] hover:underline"
-                  >
-                    {t('writeReviewBtn')}
-                  </button>
-                  {onDismissReview && (
-                    <button
-                      type="button"
-                      onClick={() => onDismissReview(booking.id)}
-                      className="text-xs text-[var(--ink-dim)] hover:text-[var(--ink)]"
-                    >
-                      {t('scDismissReviewPrompt')}
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       {showWorkoutCalendar && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

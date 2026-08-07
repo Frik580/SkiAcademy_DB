@@ -51,11 +51,20 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
     'freestyle',
   ];
 
+  const selectClass =
+    'ui-select focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)] truncate';
+
+  const fieldClass =
+    'ui-field-plain focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)] truncate';
+
+  const labelStyle =
+    'text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 theme-air:font-sans theme-air:text-xs truncate';
+
   return (
     <div className={`grid grid-cols-2 ${gapClass}`}>
-      <div className="space-y-1">
-        <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5">
-          <Calendar className="w-3 h-3" /> {t('dateLabel')}
+      <div>
+        <label className={labelStyle}>
+          <Calendar className="w-3.5 h-3.5" /> {t('dateLabel')}
         </label>
         <input
           type="date"
@@ -63,19 +72,19 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
           min={minBookingDateStr}
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition cursor-pointer rounded-none"
+          className={fieldClass}
         />
       </div>
 
-      <div className="space-y-1">
-        <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5">
-          <Clock className="w-3 h-3" /> {t('timeSlot')}
+      <div>
+        <label className={labelStyle}>
+          <Clock className="w-3.5 h-3.5" /> {t('timeSlot')}
         </label>
         <select
           value={time}
           onChange={(e) => setTime(e.target.value)}
           disabled={isLoadingBookings || availableSlots.length === 0}
-          className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition cursor-pointer disabled:opacity-60 disabled:bg-black/10 rounded-none"
+          className={`${selectClass} disabled:opacity-50`}
         >
           {isLoadingBookings ? (
             <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
@@ -95,14 +104,14 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
         </select>
       </div>
 
-      <div className="space-y-1">
-        <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5">
-          <Clock className="w-3 h-3" /> {t('durationHours')}
+      <div>
+        <label className={labelStyle}>
+          <Clock className="w-3.5 h-3.5" /> {t('durationHours')}
         </label>
         <select
           value={duration}
           onChange={(e) => setDuration(Number(e.target.value))}
-          className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition cursor-pointer rounded-none"
+          className={selectClass}
         >
           {[1, 2, 3, 4, 6].map((hrs) => (
             <option key={hrs} value={hrs} className="bg-[var(--bg)] text-[var(--ink)]">
@@ -112,14 +121,14 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
         </select>
       </div>
 
-      <div className="space-y-1">
-        <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5">
-          <HelpCircle className="w-3 h-3" /> {t('lessonStage')}
+      <div>
+        <label className={labelStyle}>
+          <HelpCircle className="w-3.5 h-3.5" /> {t('lessonStage')}
         </label>
         <select
           value={difficulty}
           onChange={(e) => setDifficulty(e.target.value as LessonDifficulty)}
-          className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition cursor-pointer rounded-none"
+          className={selectClass}
         >
           {difficultyOptions.map((diff) => (
             <option key={diff} value={diff} className="bg-[var(--bg)] text-[var(--ink)]">

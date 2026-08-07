@@ -113,11 +113,12 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
 
         {/* Content Container */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="ui-modal relative shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 flex flex-col max-h-[90vh] z-10 rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
+          exit={{ opacity: 0, scale: 0.96, y: 12 }}
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          className="ui-modal relative shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 flex flex-col max-h-[80vh] z-10 rounded-none theme-air:rounded-[var(--radius)] bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] m-auto"
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
@@ -125,21 +126,21 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
               <h3 className="font-serif text-lg font-light text-[var(--ink)]">
                 {t('courseEnrollment')}
               </h3>
-              <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5">
+              <p className="text-xs text-[var(--ink-dim)] mt-0.5">
                 {getGroupCourseLabel(course.title, language)} • ${course.price}
               </p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
+              className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Navigation Slider Switch */}
-          <div className="p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
+          <div className="px-4 py-2 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
             <AuthModeSliderSwitch
               unauthTab={unauthTab}
               onChange={setUnauthTab}
@@ -149,14 +150,14 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
           </div>
 
           {/* Modal body */}
-          <div className="p-6 overflow-y-auto space-y-4">
+          <div className="p-5 md:p-6 overflow-y-auto space-y-4">
             {unauthTab === 'auth' ? (
               <div className="space-y-4">
-                <p className="text-[11px] font-mono text-[var(--ink-dim)] uppercase tracking-wider text-center leading-relaxed">
+                <p className="text-xs text-[var(--ink-dim)] text-center leading-relaxed">
                   {t('courseEnrollmentAuthPrompt')}
                 </p>
 
-                <div className="border border-[var(--border)] p-4 bg-black/5 dark:bg-white/5 rounded-xl">
+                <div className="border border-[var(--border)] p-4 bg-transparent rounded-none theme-air:rounded-[var(--radius-md)]">
                   <Auth
                     onSuccess={(profile) => {
                       onAuthSuccess(profile);
@@ -168,76 +169,78 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
               </div>
             ) : (
               <form onSubmit={handleSubmitGuest} className="space-y-4">
-                <div className="bg-amber-500/10 border border-amber-500/30 p-3 text-[11px] font-mono text-amber-700 dark:text-amber-300 leading-relaxed">
+                <div className="p-3 bg-[var(--accent-muted)] border border-[var(--border)] text-xs text-[var(--ink)] leading-relaxed rounded-none theme-air:rounded-[var(--radius-md)]">
                   💡 {t('guestBookingNotice')}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1">
-                      <User className="w-3 h-3" /> {t('guestNameLabel')} *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={guestName}
-                      onChange={(e) => setGuestName(e.target.value)}
-                      placeholder={t('guestNamePlaceholder')}
-                      className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none font-sans"
-                    />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3 items-end">
+                    <div className="flex flex-col justify-end">
+                      <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 theme-air:font-sans theme-air:text-xs min-h-[20px]">
+                        <User className="w-3.5 h-3.5 shrink-0" />{' '}
+                        <span className="truncate">{t('guestNameLabel')} *</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={guestName}
+                        onChange={(e) => setGuestName(e.target.value)}
+                        placeholder={t('guestNamePlaceholder')}
+                        className="ui-field-plain focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
+                      />
+                    </div>
+                    <div className="flex flex-col justify-end">
+                      <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 theme-air:font-sans theme-air:text-xs min-h-[20px]">
+                        <Phone className="w-3.5 h-3.5 shrink-0" />{' '}
+                        <span className="truncate">{t('guestPhoneLabel')} *</span>
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={guestPhone}
+                        onChange={(e) => setGuestPhone(e.target.value)}
+                        placeholder={t('guestPhonePlaceholder')}
+                        className="ui-field-plain focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1">
-                      <Phone className="w-3 h-3" /> {t('guestPhoneLabel')} *
+
+                  <div>
+                    <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 theme-air:font-sans theme-air:text-xs">
+                      <Mail className="w-3.5 h-3.5" /> {t('guestEmailLabel')}
                     </label>
                     <input
-                      type="tel"
-                      required
-                      value={guestPhone}
-                      onChange={(e) => setGuestPhone(e.target.value)}
-                      placeholder={t('guestPhonePlaceholder')}
-                      className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none font-mono"
+                      type="email"
+                      value={guestEmail}
+                      onChange={(e) => setGuestEmail(e.target.value)}
+                      placeholder={t('guestEmailPlaceholder')}
+                      className="ui-field-plain focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1">
-                    <Mail className="w-3 h-3" /> {t('guestEmailLabel')}
-                  </label>
-                  <input
-                    type="email"
-                    value={guestEmail}
-                    onChange={(e) => setGuestEmail(e.target.value)}
-                    placeholder={t('guestEmailPlaceholder')}
-                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                <div>
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 theme-air:font-sans theme-air:text-xs">
                     {t('personalGoalsNotes')}
                   </label>
                   <textarea
                     value={guestNotes}
                     onChange={(e) => setGuestNotes(e.target.value)}
                     placeholder={t('personalGoalsPlaceholder')}
-                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition h-14 resize-none rounded-none"
+                    className="ui-field-plain focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)] h-16 resize-none"
                   />
                 </div>
 
-                <div className="bg-black/10 rounded-none p-3 border border-[var(--border)] space-y-1">
+                <div className="p-3.5 border border-[var(--border)] bg-black/5 dark:bg-white/5 rounded-none theme-air:rounded-[var(--radius-md)] space-y-1">
                   <div className="flex justify-between items-baseline">
-                    <span className="text-xs font-mono uppercase tracking-widest text-[var(--ink)]">
+                    <span className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] theme-air:font-sans theme-air:normal-case theme-air:text-sm">
                       {t('courseTotalTuition')}
                     </span>
-                    <span className="text-lg font-extrabold text-sky-600 dark:text-sky-400 font-mono">
+                    <span className="text-lg font-extrabold text-[var(--accent)] font-mono theme-air:font-sans">
                       ${course.price}
                     </span>
                   </div>
-                  <div className="text-[10px] font-mono text-[var(--ink-dim)]">
-                    📅 {course.dates}
-                  </div>
+                  <div className="text-xs text-[var(--ink-dim)]">📅 {course.dates}</div>
                 </div>
 
                 <button

@@ -366,7 +366,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.98, y: 20 }}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="ui-modal relative shadow-2xl w-full max-w-4xl lg:max-w-5xl overflow-hidden transition-colors duration-300 flex flex-col my-8 z-50 max-h-[90vh] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
+          className="ui-modal relative shadow-2xl w-full max-w-4xl lg:max-w-5xl overflow-hidden transition-colors duration-300 flex flex-col m-auto z-50 max-h-[80vh] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
         >
           {/* Hero Section */}
           <div className="relative h-40 sm:h-50 shrink-0 border-b border-[var(--border)] bg-black">

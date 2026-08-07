@@ -260,7 +260,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.2 }}
-              className="lg:hidden absolute top-full left-0 w-full bg-[var(--bg)]/95 backdrop-blur-md border-b border-[var(--border-subtle)] p-6 sm:p-8 flex flex-col gap-5 sm:gap-6 shadow-xl z-50"
+              className="lg:hidden absolute top-full left-0 w-full bg-[var(--bg)]/95 backdrop-blur-md border-b border-[var(--border-subtle)] p-6 sm:p-8 flex flex-col gap-5 sm:gap-6 shadow-xl z-50 max-h-[calc(100dvh-var(--app-navbar-height,60px))] overflow-y-auto"
             >
               {userProfile && (
                 <>
@@ -371,7 +371,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onSignInClick();
                     setIsMenuOpen(false);
                   }}
-                  className="w-full mt-2 px-4 py-3 btn-primary text-sm text-center"
+                  className="w-full max-w-xs mx-auto mt-2 px-4 py-3 btn-primary text-sm text-center"
                 >
                   {t('signInBtn')}
                 </button>

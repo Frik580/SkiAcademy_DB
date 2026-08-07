@@ -7,6 +7,7 @@ import { cabinetPathForTab, parseCabinetTabParam } from '../../../lib/workspaceR
 import { StudentCabinetHome } from './StudentCabinetHome';
 import { StudentHistoryPanel } from './StudentHistoryPanel';
 import { StudentCoachPanel } from './StudentCoachPanel';
+import { BookInstructorPickerModal } from './BookInstructorPickerModal';
 import {
   StudentCalendarPanel,
   StudentCoursesPanel,
@@ -73,6 +74,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
   const { tab: tabParam } = useParams<{ tab?: string }>();
   const routeTab = parseCabinetTabParam(tabParam);
   const [tab, setTab] = useState<StudentCabinetTab>(routeTab);
+  const [instructorPickerOpen, setInstructorPickerOpen] = useState(false);
 
   useEffect(() => {
     if (props.syncTabWithRoute) {
@@ -226,7 +228,21 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       {activeTab === 'profile_videos' && <StudentProfileVideosPanel {...panelProps} />}
       {activeTab === 'profile_preferences' && <StudentProfilePreferencesPanel {...panelProps} />}
 
-      <StudentCabinetTabBar activeTab={activeTab} onSelect={goToTab} />
+      <StudentCabinetTabBar
+        activeTab={activeTab}
+        onSelect={goToTab}
+        onOpenBooking={() => setInstructorPickerOpen(true)}
+      />
+
+      <BookInstructorPickerModal
+        open={instructorPickerOpen}
+        onClose={() => setInstructorPickerOpen(false)}
+        userProfile={props.userProfile}
+        bookings={props.bookings}
+        instructors={props.instructors}
+        onSelectInstructor={props.onBookInstructor}
+        onBrowseCourses={() => goToTab('courses')}
+      />
     </div>
   );
 };

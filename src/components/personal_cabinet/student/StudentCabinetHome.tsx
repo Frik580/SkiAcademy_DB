@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Booking, Course, Instructor, Review, UserProfile, ActivityLog } from '../../../types';
 import { SkillConfig } from '../../../lib/skillData';
 import { AchievementsConfig } from '../../../lib/achievementConfig';
@@ -7,7 +7,6 @@ import { YourJourneySection } from '../../YourJourneySection';
 import {
   getFirstName,
   getGreeting,
-  getNextStepAction,
   getMiniCalendarDays,
   getNextSessionsNext7Days,
   getTodayTasks,
@@ -15,13 +14,10 @@ import {
   hasTrainingToday,
   StudentCabinetTab,
 } from './studentCabinetUtils';
-import { StudentBookNextFab } from './StudentBookNextFab';
-import { BookInstructorPickerModal } from './BookInstructorPickerModal';
 import { ScDivider, ScTextButton } from './StudentCabinetUI';
 import { StudentNeedsAttention } from './StudentNeedsAttention';
 import { StudentTodaySection } from './StudentTodaySection';
 import { SkillRadarChart } from './SkillRadarChart';
-import { StudentNextStepCard } from './StudentNextStepCard';
 import {
   StudentCabinetResortSnapshot,
   StudentCabinetWeatherSection,
@@ -86,17 +82,11 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     onToggleTodayTaskComplete,
     onAddCustomTodayTask,
     onRemoveTodayTask,
-    onBookInstructor,
     resortSnapshot,
     onToggleTemperatureUnit,
   } = props;
 
   const hideProgress = Boolean(userProfile.hideProgressTracking);
-
-  const nextStepAction = useMemo(
-    () => getNextStepAction(userProfile, bookings, skillConfig, lang),
-    [userProfile, bookings, skillConfig, lang]
-  );
 
   const nextSessions = useMemo(
     () => getNextSessionsNext7Days(bookings, courses, new Date(), userProfile.uid),
@@ -118,8 +108,6 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   const showWeather =
     Boolean(resortSnapshot) &&
     (currentSessions.length > 0 || hasTrainingToday(bookings, courses, userProfile.uid));
-
-  const [instructorPickerOpen, setInstructorPickerOpen] = useState(false);
 
   return (
     <div className="space-y-0 pb-24 w-full min-w-0">
@@ -160,6 +148,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             onGoToTab={onGoToTab}
             onContinueDevelopment={onContinueDevelopment}
             onToggleRecommendation={onToggleRecommendation}
+            onToggleSkillToday={onToggleSkillToday}
             onToggleTodayTaskComplete={onToggleTodayTaskComplete}
             onAddCustomTodayTask={onAddCustomTodayTask}
             onRemoveTodayTask={onRemoveTodayTask}
@@ -170,35 +159,14 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
               <p className="text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)] mb-2.5">
                 {t('scRadarTitle')}
               </p>
-              <div className="flex flex-col lg:flex-row lg:items-stretch gap-3 lg:gap-4">
-                {nextStepAction && (
-                  <div className="order-1 lg:order-2 min-w-0 flex-1 flex">
-                    <StudentNextStepCard
-                      className="flex-1 w-full"
-                      action={nextStepAction}
-                      onStartExercise={(exerciseId) => {
-                        const pinned = userProfile.todaySkillItemIds?.includes(exerciseId);
-                        if (!pinned) {
-                          void onToggleSkillToday?.(exerciseId, true);
-                        }
-                      }}
-                      onOpenRecommendation={(bookingId) => {
-                        const booking = bookings.find((b) => b.id === bookingId);
-                        if (booking) onOpenLesson(booking);
-                      }}
-                      onContinueDevelopment={onContinueDevelopment}
-                    />
-                  </div>
-                )}
-                <div className="order-2 lg:order-1 shrink-0 min-w-0 w-full lg:w-auto">
-                  <SkillRadarChart
-                    userProfile={userProfile}
-                    skillConfig={skillConfig}
-                    onToggleSkillToday={props.onToggleSkillToday}
-                    compact
-                    embed
-                  />
-                </div>
+              <div className="shrink-0 min-w-0 w-full">
+                <SkillRadarChart
+                  userProfile={userProfile}
+                  skillConfig={skillConfig}
+                  onToggleSkillToday={props.onToggleSkillToday}
+                  compact
+                  embed
+                />
               </div>
               <div className="pt-2">
                 <ScTextButton arrow onClick={onContinueDevelopment}>
@@ -239,17 +207,6 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           </>
         )}
       </div>
-
-      <StudentBookNextFab onClick={() => setInstructorPickerOpen(true)} />
-      <BookInstructorPickerModal
-        open={instructorPickerOpen}
-        onClose={() => setInstructorPickerOpen(false)}
-        userProfile={userProfile}
-        bookings={bookings}
-        instructors={instructors}
-        onSelectInstructor={onBookInstructor}
-        onBrowseCourses={() => onGoToTab('courses')}
-      />
     </div>
   );
 };

@@ -66,7 +66,7 @@ export const useAppLogic = (
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [filtersEnabled, setFiltersEnabled] = useState(true);
   const [onboardingEnabled, setOnboardingEnabled] = useState(true);
-  const [designTheme, setDesignTheme] = useState<DesignTheme>('classic');
+  const [designTheme, setDesignTheme] = useState<DesignTheme>('air');
   const [skillConfig, setSkillConfig] = useState<SkillConfig>(DEFAULT_SKILL_CONFIG);
   const [achievementsConfig, setAchievementsConfig] = useState<AchievementsConfig>(
     DEFAULT_ACHIEVEMENTS_CONFIG
@@ -105,10 +105,10 @@ export const useAppLogic = (
       try {
         const designSnapshot = await getDoc(doc(db, 'settings', 'design_theme'));
         setDesignTheme(
-          designSnapshot.exists() ? parseDesignTheme(designSnapshot.data().theme) : 'classic'
+          designSnapshot.exists() ? parseDesignTheme(designSnapshot.data().theme) : 'air'
         );
       } catch {
-        setDesignTheme('classic');
+        setDesignTheme('air');
       }
 
       try {
@@ -192,7 +192,7 @@ export const useAppLogic = (
         doc(db, 'settings', 'design_theme'),
         (snapshot) => {
           if (!snapshot.exists()) {
-            setDesignTheme('classic');
+            setDesignTheme('air');
             return;
           }
           setDesignTheme(parseDesignTheme(snapshot.data().theme));

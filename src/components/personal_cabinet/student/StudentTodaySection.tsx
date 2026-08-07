@@ -10,6 +10,7 @@ import {
   formatSessionDayLabel,
   formatSessionTimeRange,
   getDifficultyShort,
+  getNextStepAction,
   getRecentLessonInstructorLabel,
   getRecentLessonTitle,
   getTodaySessionCountdown,
@@ -23,6 +24,7 @@ import {
 import { ScDivider, ScSectionTitle, ScTextButton, ScTintCard } from './StudentCabinetUI';
 import { TodayChecklist } from './TodayChecklist';
 import { BookingCallCoachButton } from './BookingCallCoachButton';
+import { StudentNextStepCard } from './StudentNextStepCard';
 import { RecommendationIndicator } from '../RecommendationIndicator';
 import {
   hasBookingRecommendations,
@@ -50,6 +52,7 @@ interface StudentTodaySectionProps {
   onGoToTab: (tab: StudentCabinetTab) => void;
   onContinueDevelopment: () => void;
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
+  onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
   onAddCustomTodayTask?: (text: string) => void;
   onRemoveTodayTask?: (task: import('../../../lib/todayChecklist').TodayTaskRef) => void;
@@ -74,11 +77,13 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
   onGoToTab,
   onContinueDevelopment,
   onToggleRecommendation,
+  onToggleSkillToday,
   onToggleTodayTaskComplete,
   onAddCustomTodayTask,
   onRemoveTodayTask,
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
+  const lang = language === 'ru' ? 'ru' : 'en';
 
   const effectiveNextSessions = useMemo(() => {
     if (nextSessions) return nextSessions;
@@ -91,10 +96,16 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
     [bookings, courses]
   );
 
+  const nextStepAction = useMemo(() => {
+    if (!userProfile) return null;
+    return getNextStepAction(userProfile, bookings, skillConfig, lang);
+  }, [userProfile, bookings, skillConfig, lang]);
+
   return (
     <section className="py-5 space-y-0">
       <ScSectionTitle>{t('scTodaySection')}</ScSectionTitle>
 
+      {/* 1. Обратный отсчёт и текущие занятия */}
       {todayCountdown && (
         <SessionCountdownBlock
           countdown={todayCountdown}
@@ -115,6 +126,45 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
         />
       )}
 
+      {/* 2. Задачи на сегодня */}
+      <TodayTasksBlock
+        todayTasks={todayTasks}
+        bookings={bookings}
+        onToggleRecommendation={onToggleRecommendation}
+        onToggleTodayTaskComplete={onToggleTodayTaskComplete}
+        onAddCustomTodayTask={onAddCustomTodayTask}
+        onRemoveTodayTask={onRemoveTodayTask}
+        onOpenLesson={onOpenLesson}
+        onContinueDevelopment={onContinueDevelopment}
+      />
+
+      <ScDivider />
+
+      {/* 3. Следующий шаг */}
+      {nextStepAction && (
+        <>
+          <div className="py-5 space-y-2">
+            <p className={SUBSECTION_LABEL}>{t('scNextStepTitle')}</p>
+            <StudentNextStepCard
+              action={nextStepAction}
+              onStartExercise={(exerciseId) => {
+                const pinned = userProfile?.todaySkillItemIds?.includes(exerciseId);
+                if (!pinned) {
+                  void onToggleSkillToday?.(exerciseId, true);
+                }
+              }}
+              onOpenRecommendation={(bookingId) => {
+                const booking = bookings.find((b) => b.id === bookingId);
+                if (booking) onOpenLesson(booking);
+              }}
+              onContinueDevelopment={onContinueDevelopment}
+            />
+          </div>
+          <ScDivider />
+        </>
+      )}
+
+      {/* 4. Ближайшее занятие и мини-календарь */}
       <NextSessionBlock
         nextSessions={effectiveNextSessions}
         miniDays={miniDays}
@@ -126,25 +176,15 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
         onOpenSession={onOpenSession}
       />
 
+      <ScDivider />
+
+      {/* 5. Прогресс и достижения за сегодня */}
       <TodayProgressBlock
         userProfile={userProfile}
         activityLogs={activityLogs}
         achievementsConfig={achievementsConfig}
         skillConfig={skillConfig}
         todayTasks={todayTasks}
-      />
-
-      <ScDivider />
-
-      <TodayTasksBlock
-        todayTasks={todayTasks}
-        bookings={bookings}
-        onToggleRecommendation={onToggleRecommendation}
-        onToggleTodayTaskComplete={onToggleTodayTaskComplete}
-        onAddCustomTodayTask={onAddCustomTodayTask}
-        onRemoveTodayTask={onRemoveTodayTask}
-        onOpenLesson={onOpenLesson}
-        onContinueDevelopment={onContinueDevelopment}
       />
     </section>
   );

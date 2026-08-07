@@ -177,7 +177,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                   <div className="grid grid-cols-2 gap-2.5 sm:gap-3 items-end">
                     <div className="flex flex-col justify-end">
                       <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 theme-air:font-sans theme-air:text-xs min-h-[20px]">
-                        <User className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{t('guestNameLabel')} *</span>
+                        <User className="w-3.5 h-3.5 shrink-0" />{' '}
+                        <span className="truncate">{t('guestNameLabel')} *</span>
                       </label>
                       <input
                         type="text"
@@ -190,7 +191,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                     </div>
                     <div className="flex flex-col justify-end">
                       <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 theme-air:font-sans theme-air:text-xs min-h-[20px]">
-                        <Phone className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{t('guestPhoneLabel')} *</span>
+                        <Phone className="w-3.5 h-3.5 shrink-0" />{' '}
+                        <span className="truncate">{t('guestPhoneLabel')} *</span>
                       </label>
                       <input
                         type="tel"
@@ -238,9 +240,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       ${course.price}
                     </span>
                   </div>
-                  <div className="text-xs text-[var(--ink-dim)]">
-                    📅 {course.dates}
-                  </div>
+                  <div className="text-xs text-[var(--ink-dim)]">📅 {course.dates}</div>
                 </div>
 
                 <button

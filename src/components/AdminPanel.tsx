@@ -5,7 +5,6 @@ import { Shield, Calendar, Users, Clock, UserCheck, BookOpen, AlertTriangle } fr
 import { useLanguage, useTranslatedBookings } from '../lib/LanguageContext';
 import { SkillConfig } from '../lib/skillData';
 import { AchievementsConfig } from '../lib/achievementConfig';
-import { DesignTheme } from '../lib/designTheme';
 import { AdminCollapsibleSection } from './admin/AdminCollapsibleSection';
 import { TableSkeleton } from './ui/Skeleton';
 import { BodyScrollLock } from './ui/BodyScrollLock';
@@ -82,8 +81,6 @@ interface AdminPanelProps {
   onToggleOnboarding?: (enabled: boolean) => Promise<void>;
   notificationRetentionDays?: number;
   onSetNotificationRetentionDays?: (days: number) => Promise<void>;
-  designTheme?: DesignTheme;
-  onSetDesignTheme?: (theme: DesignTheme) => Promise<void>;
   courses?: Course[];
   onAddCourse?: (course: Course) => Promise<void>;
   onUpdateCourse?: (course: Course) => Promise<void>;
@@ -131,8 +128,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onToggleOnboarding,
   notificationRetentionDays,
   onSetNotificationRetentionDays,
-  designTheme = 'classic',
-  onSetDesignTheme,
   skillConfig,
   onUpdateSkillConfig,
   achievementsConfig,
@@ -196,8 +191,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           onToggleOnboarding={onToggleOnboarding}
           notificationRetentionDays={notificationRetentionDays}
           onSetNotificationRetentionDays={onSetNotificationRetentionDays}
-          designTheme={designTheme}
-          onSetDesignTheme={onSetDesignTheme}
           skillConfig={skillConfig}
           onUpdateSkillConfig={onUpdateSkillConfig}
           achievementsConfig={achievementsConfig}

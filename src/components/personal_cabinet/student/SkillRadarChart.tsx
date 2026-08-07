@@ -520,7 +520,9 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
   const fitnessLegend = ringCount > 0 && (
     <ul
       className={`flex flex-row flex-wrap justify-center gap-x-3 gap-y-2 shrink-0 items-center ${
-        sideLegend ? 'sm:flex-col sm:flex-nowrap sm:justify-center sm:gap-2.5 sm:items-start' : ''
+        sideLegend
+          ? 'sm:flex-1 sm:grid sm:grid-cols-2 md:grid-cols-3 sm:gap-x-4 sm:gap-y-2.5 sm:items-center'
+          : ''
       }`}
     >
       {chartDimensions.map((dim) => {
@@ -534,9 +536,9 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
             <button
               type="button"
               onClick={() => setSelectedDimensionKey(dim.key)}
-              className={`text-center rounded-lg px-0.5 py-0.5 transition ${
+              className={`text-center rounded-lg px-1.5 py-1 transition w-full ${
                 sideLegend ? 'sm:text-left' : ''
-              } ${active ? 'opacity-100' : hasAxisFocus ? 'opacity-45' : 'opacity-100'} hover:opacity-100`}
+              } ${active ? 'opacity-100 bg-black/5 dark:bg-white/5' : hasAxisFocus ? 'opacity-45' : 'opacity-100'} hover:opacity-100`}
             >
               <p
                 className={`font-semibold tracking-wide text-[var(--ink)] leading-tight ${
@@ -567,14 +569,10 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
   );
 
   const activityCard = (
-    <div
-      className={`rounded-[1.35rem] px-3.5 py-3.5 sm:px-4 sm:py-4 max-w-full bg-transparent border border-black/10 dark:border-transparent dark:bg-[#1C1C1E] ${
-        embed ? 'w-full lg:w-fit' : 'w-full'
-      }`}
-    >
+    <div className="w-full rounded-[1.35rem] px-3.5 py-3.5 sm:px-5 sm:py-4 max-w-full bg-transparent border border-black/10 dark:border-transparent dark:bg-[#1C1C1E]">
       <div
         className={`flex flex-col items-center gap-3 ${
-          sideLegend ? 'sm:flex-row sm:gap-3.5 sm:justify-center lg:justify-start' : ''
+          sideLegend ? 'sm:flex-row sm:gap-6 sm:items-center sm:justify-start' : ''
         }`}
       >
         <div className="shrink-0 flex items-center justify-center">{ringsSvg}</div>

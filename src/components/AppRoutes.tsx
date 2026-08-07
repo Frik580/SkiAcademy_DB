@@ -397,7 +397,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
                 </div>
               ) : (
                 <div className="flex flex-col">
-                  <AnimatePresence mode="popLayout">
+                  <AnimatePresence initial={false}>
                     {filteredInstructors.map((ins) => (
                       <InstructorCard
                         key={ins.id}
@@ -428,13 +428,11 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
     filtersEnabled,
     onboardingEnabled,
     notificationRetentionDays,
-    designTheme,
     skillConfig,
     achievementsConfig,
     onToggleFilters,
     onToggleOnboarding,
     onSetNotificationRetentionDays,
-    onSetDesignTheme,
     onUpdateSkillConfig,
     onUpdateAchievementsConfig,
     onUpdateUserRole,
@@ -495,8 +493,6 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
           onToggleOnboarding={onToggleOnboarding}
           notificationRetentionDays={notificationRetentionDays}
           onSetNotificationRetentionDays={onSetNotificationRetentionDays}
-          designTheme={designTheme}
-          onSetDesignTheme={onSetDesignTheme}
           skillConfig={skillConfig}
           onUpdateSkillConfig={onUpdateSkillConfig}
           achievementsConfig={achievementsConfig}

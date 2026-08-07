@@ -60,7 +60,7 @@ const resolveSlideBackground = (
 const buildBackgroundImage = (
   bgUrl: string,
   theme: Theme,
-  designTheme: DesignTheme = 'classic'
+  designTheme: DesignTheme = 'air'
 ): string => {
   const scrim = HERO_SCRIM[designTheme];
   if (designTheme === 'air') {
@@ -78,7 +78,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     slides: rawSlides,
     language,
     theme,
-    designTheme = 'classic',
+    designTheme = 'air',
     slideIntervalSeconds = 6,
     slidesRandomOrder = false,
   },

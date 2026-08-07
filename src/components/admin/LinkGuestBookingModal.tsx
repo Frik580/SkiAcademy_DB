@@ -78,7 +78,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
     <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-sans text-[var(--ink)]">
       <BodyScrollLock />
       <div
-        className="ui-modal relative w-full max-w-lg border border-[var(--border)] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl overflow-hidden"
+        className="ui-modal relative w-full max-w-lg border border-[var(--border)] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -122,7 +122,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
             )}
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          <form onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto flex-1">
             {/* Error Message */}
             {errorMessage && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-mono flex items-start gap-2">

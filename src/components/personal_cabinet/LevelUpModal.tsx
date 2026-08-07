@@ -33,7 +33,7 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({ level, theme, onClos
       `}</style>
 
       <div
-        className="ui-modal relative p-8 flex flex-col items-center text-center shadow-2xl max-w-sm w-full overflow-hidden cursor-default rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
+        className="ui-modal relative p-8 flex flex-col items-center text-center shadow-2xl max-w-sm w-full max-h-[80vh] overflow-y-auto cursor-default rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div

@@ -431,7 +431,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   return createPortal(
     <div className="ui-modal-overlay fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
       <BodyScrollLock />
-      <div className="ui-modal bg-[var(--card-bg)] border border-[var(--border)] text-[var(--ink)] rounded-2xl w-full max-w-md p-6 shadow-2xl relative space-y-4">
+      <div className="ui-modal bg-[var(--card-bg)] border border-[var(--border)] text-[var(--ink)] rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto p-6 shadow-2xl relative space-y-4">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"

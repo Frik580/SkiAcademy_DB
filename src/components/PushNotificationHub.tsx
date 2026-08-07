@@ -215,7 +215,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
   return (
     <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
       <BodyScrollLock />
-      <div className="ui-modal shadow-2xl w-full max-w-md overflow-hidden animate-scale-up">
+      <div className="ui-modal shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden animate-scale-up rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]">
         <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-black/10">
           <div className="flex items-center gap-2">
             <div className="relative">
@@ -241,7 +241,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
           </button>
         </div>
 
-        <div className="p-4 max-h-96 overflow-y-auto space-y-4">
+        <div className="p-4 overflow-y-auto flex-1 space-y-4">
           {/* Review Invitations Section */}
           {unreviewedCompletedBookings.length > 0 && (
             <div className="space-y-2 pb-3 border-b border-[var(--border)]">

@@ -43,7 +43,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
   if (!targetInstructor) return null;
 
   return (
-    <form onSubmit={handleSubmit} className="p-6 space-y-5">
+    <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
       <BookingSelectors
         date={date}
         setDate={setDate}

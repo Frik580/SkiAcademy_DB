@@ -32,7 +32,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="ui-modal shadow-2xl w-full max-w-md overflow-hidden relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] p-6 sm:p-8 m-auto"
+            className="ui-modal shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] p-6 sm:p-8 m-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <button

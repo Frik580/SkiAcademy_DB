@@ -249,7 +249,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         </div>
 
         {/* Browser stage fills the whole modal body */}
-        <div ref={stageRef} className="relative flex-1 min-h-0 bg-[var(--card-bg)] overflow-hidden">
+        <div ref={stageRef} className="relative flex-1 min-h-0 bg-[var(--card-bg)] overflow-y-auto">
           <div className="absolute top-0 inset-x-0 z-20 flex items-center gap-1.5 px-3 py-1.5 bg-black/55 border-b border-white/10 backdrop-blur-sm">
             <span className="w-2 h-2 rounded-full bg-rose-400/80" />
             <span className="w-2 h-2 rounded-full bg-amber-400/80" />

@@ -1,4 +1,4 @@
-import type { Booking, ChatMessage, Course, Instructor, UserProfile } from '../types';
+import type { ChatMessage, Course, Instructor, UserProfile } from '../types';
 import type { Language } from './i18n/translations';
 import { translateInstructor } from './i18n/contentTranslation';
 import { isCourseGroupBooking, type CourseChatBooking } from './resolveChatId';

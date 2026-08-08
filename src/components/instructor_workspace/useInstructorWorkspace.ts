@@ -511,6 +511,7 @@ export const useInstructorWorkspace = ({
     markBookingChatRead,
     userProfile,
     instructors,
+    courses,
     usersList,
     skillConfig,
   };

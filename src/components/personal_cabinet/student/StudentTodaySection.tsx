@@ -26,6 +26,7 @@ import { TodayChecklist } from './TodayChecklist';
 import { BookingCallCoachButton } from './BookingCallCoachButton';
 import { StudentNextStepCard } from './StudentNextStepCard';
 import { RecommendationIndicator } from '../RecommendationIndicator';
+import { ChatUnreadIndicator } from '../../chat/ChatUnreadIndicator';
 import {
   hasBookingRecommendations,
   hasPendingRecommendations,
@@ -56,6 +57,7 @@ interface StudentTodaySectionProps {
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
   onAddCustomTodayTask?: (text: string) => void;
   onRemoveTodayTask?: (task: import('../../../lib/todayChecklist').TodayTaskRef) => void;
+  hasUnreadChat?: (bookingId: string) => boolean;
 }
 
 export const StudentTodaySection = memo<StudentTodaySectionProps>(function StudentTodaySection({
@@ -81,6 +83,7 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
   onToggleTodayTaskComplete,
   onAddCustomTodayTask,
   onRemoveTodayTask,
+  hasUnreadChat,
 }) {
   const { language, t } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
@@ -123,6 +126,7 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
           usersList={usersList}
           onOpenLesson={onOpenLesson}
           onOpenSession={onOpenSession}
+          hasUnreadChat={hasUnreadChat}
         />
       )}
 
@@ -174,6 +178,7 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
         onGoToTab={onGoToTab}
         onOpenLesson={onOpenLesson}
         onOpenSession={onOpenSession}
+        hasUnreadChat={hasUnreadChat}
       />
 
       <ScDivider />
@@ -293,7 +298,16 @@ const SessionCard = memo<{
   usersList: UserProfile[];
   onOpenLesson: (booking: Booking) => void;
   onOpenSession: (booking: Booking) => void;
-}>(function SessionCard({ session, courses, instructors, usersList, onOpenLesson, onOpenSession }) {
+  hasUnreadChat?: (bookingId: string) => boolean;
+}>(function SessionCard({
+  session,
+  courses,
+  instructors,
+  usersList,
+  onOpenLesson,
+  onOpenSession,
+  hasUnreadChat,
+}) {
   const { language, t } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
   const isCourse = session.instructorId.startsWith('course_');
@@ -321,7 +335,13 @@ const SessionCard = memo<{
       </p>
       <div className="flex flex-wrap gap-4 pt-2">
         <ScTextButton onClick={() => onOpenLesson(session)}>{t('scMoreDetails')}</ScTextButton>
-        <ScTextButton onClick={() => onOpenSession(session)}>{t('chat')}</ScTextButton>
+        <ScTextButton
+          onClick={() => onOpenSession(session)}
+          title={hasUnreadChat?.(session.id) ? t('chatNewMessages') : t('chat')}
+        >
+          {t('chat')}
+          <ChatUnreadIndicator show={hasUnreadChat?.(session.id) ?? false} />
+        </ScTextButton>
         <BookingCallCoachButton
           booking={session}
           courses={courses}
@@ -340,6 +360,7 @@ const CurrentSessionsBlock = memo<{
   usersList: UserProfile[];
   onOpenLesson: (booking: Booking) => void;
   onOpenSession: (booking: Booking) => void;
+  hasUnreadChat?: (bookingId: string) => boolean;
 }>(function CurrentSessionsBlock({
   sessions,
   courses,
@@ -347,6 +368,7 @@ const CurrentSessionsBlock = memo<{
   usersList,
   onOpenLesson,
   onOpenSession,
+  hasUnreadChat,
 }) {
   const { t } = useLanguage();
 
@@ -364,6 +386,7 @@ const CurrentSessionsBlock = memo<{
               usersList={usersList}
               onOpenLesson={onOpenLesson}
               onOpenSession={onOpenSession}
+              hasUnreadChat={hasUnreadChat}
             />
           ))}
         </div>
@@ -382,6 +405,7 @@ const NextSessionBlock = memo<{
   onGoToTab: (tab: StudentCabinetTab) => void;
   onOpenLesson: (booking: Booking) => void;
   onOpenSession: (booking: Booking) => void;
+  hasUnreadChat?: (bookingId: string) => boolean;
 }>(function NextSessionBlock({
   nextSessions,
   miniDays,
@@ -391,6 +415,7 @@ const NextSessionBlock = memo<{
   onGoToTab,
   onOpenLesson,
   onOpenSession,
+  hasUnreadChat,
 }) {
   const { language, t } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
@@ -472,7 +497,13 @@ const NextSessionBlock = memo<{
                     <ScTextButton onClick={() => onOpenLesson(booking)}>
                       {t('scMoreDetails')}
                     </ScTextButton>
-                    <ScTextButton onClick={() => onOpenSession(booking)}>{t('chat')}</ScTextButton>
+                    <ScTextButton
+                      onClick={() => onOpenSession(booking)}
+                      title={hasUnreadChat?.(booking.id) ? t('chatNewMessages') : t('chat')}
+                    >
+                      {t('chat')}
+                      <ChatUnreadIndicator show={hasUnreadChat?.(booking.id) ?? false} />
+                    </ScTextButton>
                     <BookingCallCoachButton
                       booking={booking}
                       courses={courses}

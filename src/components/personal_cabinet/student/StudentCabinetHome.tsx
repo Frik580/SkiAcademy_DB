@@ -53,6 +53,7 @@ export interface StudentCabinetContext {
   onBookCourse: (courseId: string) => void;
   onBookInstructor: (instructor: Instructor) => void;
   onViewInstructorReviews: (instructor: Instructor) => void;
+  hasUnreadChat?: (bookingId: string) => boolean;
   resortSnapshot?: StudentCabinetResortSnapshot;
   onToggleTemperatureUnit?: () => void;
 }
@@ -152,6 +153,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             onToggleTodayTaskComplete={onToggleTodayTaskComplete}
             onAddCustomTodayTask={onAddCustomTodayTask}
             onRemoveTodayTask={onRemoveTodayTask}
+            hasUnreadChat={props.hasUnreadChat}
           />
 
           {!hideProgress && (

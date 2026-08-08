@@ -16,6 +16,8 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({ wo
     statusFilter,
     setStatusFilter,
     setSelectedChatBooking,
+    hasUnreadChat,
+    markBookingChatRead,
     handleUpdateStatus,
     handleUpdateStudentLevel,
     openEvalModal,
@@ -83,7 +85,11 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({ wo
               theme={theme}
               language={language}
               t={t}
-              onOpenChat={setSelectedChatBooking}
+              hasUnreadChat={hasUnreadChat}
+              onOpenChat={(booking) => {
+                markBookingChatRead(booking);
+                setSelectedChatBooking(booking);
+              }}
               onUpdateStatus={handleUpdateStatus}
               onUpdateStudentLevel={handleUpdateStudentLevel}
               onOpenEval={openEvalModal}

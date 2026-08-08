@@ -8,6 +8,7 @@ import { StudentAssessButton } from './StudentAssessButton';
 import { InstructorRecommendationsEditor } from './InstructorRecommendationsEditor';
 import { type TranslationKey, type Language } from '../../lib/LanguageContext';
 import { StatusBadge } from '../ui/StatusBadge';
+import { ChatUnreadIndicator } from '../chat/ChatUnreadIndicator';
 import { canInstructorEditRecommendations } from '../../lib/lessonRecommendations';
 import { LessonRecommendation } from '../../types';
 
@@ -18,6 +19,9 @@ interface InstructorBookingCardProps {
   language: Language;
   t: (key: TranslationKey) => string;
   onOpenChat: (booking: DisplayBooking) => void;
+  hasUnreadChat?: (
+    bookingOrId: string | import('../../lib/resolveChatId').CourseChatBooking
+  ) => boolean;
   onUpdateStatus: (bookingId: string, nextStatus: 'confirmed' | 'completed') => void;
   onUpdateStudentLevel: (studentUid: string, studentName: string, newLevel: number) => void;
   onOpenEval: (
@@ -37,6 +41,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
   language,
   t,
   onOpenChat,
+  hasUnreadChat,
   onUpdateStatus,
   onUpdateStudentLevel,
   onOpenEval,
@@ -292,6 +297,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
               <MessageSquare className="w-4 h-4 text-accent" />
             )}
             {isCourse ? t('instructorChatGroup') : t('instructorChatStudent')}
+            <ChatUnreadIndicator show={hasUnreadChat?.(b) ?? false} />
           </button>
 
           {b.status === 'pending' && (

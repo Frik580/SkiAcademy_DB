@@ -20,6 +20,7 @@ import {
   getInstructorHomeworkMessages,
   getInstructorLastLessonDate,
   getInstructorLessonCount,
+  getInstructorMessageThreadIds,
   getInstructorRecommendations,
   getInstructorSkillComments,
   getInstructorVideoMessages,
@@ -27,6 +28,7 @@ import {
   getStudentBookingsWithInstructor,
   resolveInstructorUserId,
   resolveMessageLessonDate,
+  resolveMessageCourseTitle,
 } from './coachUtils';
 import { useInstructorBookingMessages } from './useInstructorBookingMessages';
 import { LessonRecommendationsList } from '../LessonRecommendationsList';
@@ -122,10 +124,10 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
 
   const myInstructors = useMemo(
     () =>
-      getMyInstructors(bookings, instructors, userProfile.uid).map((ins) =>
+      getMyInstructors(bookings, instructors, userProfile.uid, courses).map((ins) =>
         translateInstructor(ins, lang)
       ),
-    [bookings, instructors, userProfile.uid, lang]
+    [bookings, instructors, userProfile.uid, courses, lang]
   );
 
   const myInstructorIds = useMemo(() => new Set(myInstructors.map((i) => i.id)), [myInstructors]);
@@ -145,17 +147,24 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
     return raw ? translateInstructor(raw, lang) : null;
   }, [instructors, selectedInstructorId, lang]);
 
+  const messageThreadIds = useMemo(
+    () =>
+      selectedInstructorId && view !== 'list'
+        ? getInstructorMessageThreadIds(bookings, courses, selectedInstructorId, userProfile.uid)
+        : [],
+    [bookings, courses, selectedInstructorId, userProfile.uid, view]
+  );
+
+  const { messages, loading: messagesLoading } = useInstructorBookingMessages(
+    view !== 'list' ? messageThreadIds : EMPTY_BOOKING_IDS
+  );
+
   const instructorBookings = useMemo(
     () =>
       selectedInstructorId && view !== 'list'
         ? getStudentBookingsWithInstructor(bookings, selectedInstructorId, userProfile.uid)
         : [],
     [bookings, selectedInstructorId, userProfile.uid, view]
-  );
-
-  const bookingIds = useMemo(() => instructorBookings.map((b) => b.id), [instructorBookings]);
-  const { messages, loading: messagesLoading } = useInstructorBookingMessages(
-    view !== 'list' ? bookingIds : EMPTY_BOOKING_IDS
   );
 
   const instructorUserId = selectedInstructor
@@ -176,7 +185,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
     ? getInstructorVideoMessages(messages, selectedInstructor, instructorUserId)
     : [];
   const homeworkMessages = selectedInstructor
-    ? getInstructorHomeworkMessages(messages, selectedInstructor, instructorUserId)
+    ? getInstructorHomeworkMessages(messages, selectedInstructor, instructorUserId, userProfile.uid)
     : [];
   const skillComments = selectedInstructor
     ? getInstructorSkillComments(
@@ -320,8 +329,14 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
             {[...videoMessages].reverse().map((msg) => (
               <ScTintCard key={msg.id} tint="purple" className="px-4 py-3.5 space-y-2">
                 <p className="text-xs text-[var(--ink-dim)]">
-                  {resolveMessageLessonDate(msg.bookingId, bookings, courses, lang)} ·{' '}
-                  {formatMessageTimestamp(msg.timestamp, lang)}
+                  {resolveMessageLessonDate(
+                    msg.bookingId,
+                    bookings,
+                    courses,
+                    lang,
+                    userProfile.uid
+                  )}{' '}
+                  · {formatMessageTimestamp(msg.timestamp, lang)}
                 </p>
                 {msg.text?.trim() && (
                   <p className="text-sm text-[var(--ink)] leading-relaxed">{msg.text}</p>
@@ -353,11 +368,18 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
           <p className="text-sm text-[var(--ink-dim)]">{t('scCoachNoComments')}</p>
         ) : (
           <div className="space-y-3">
-            {skillComments.map(({ skillId, title, comment }) => (
+            {skillComments.map(({ skillId, title, comment, score, maxPoints }) => (
               <ScTintCard key={skillId} tint="amber" className="px-4 py-3.5 space-y-1.5">
-                <p className="text-xs font-medium uppercase tracking-wide text-[var(--ink-dim)]">
-                  {title}
-                </p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--ink-dim)]">
+                    {title}
+                  </p>
+                  <p className="text-xs font-semibold text-amber-600 tabular-nums shrink-0">
+                    {t('scCoachSkillScore')
+                      .replace('{earned}', String(score))
+                      .replace('{max}', String(maxPoints))}
+                  </p>
+                </div>
                 <p className="text-sm text-[var(--ink)] leading-relaxed">&ldquo;{comment}&rdquo;</p>
               </ScTintCard>
             ))}
@@ -382,35 +404,82 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
           <p className="text-sm text-[var(--ink-dim)]">{t('scCoachNoHomework')}</p>
         ) : (
           <div className="space-y-3">
-            {[...homeworkMessages].reverse().map((msg) => (
-              <ScTintCard key={msg.id} tint="green" className="px-4 py-3.5 space-y-2">
-                <p className="text-xs text-[var(--ink-dim)]">
-                  {resolveMessageLessonDate(msg.bookingId, bookings, courses, lang)} ·{' '}
-                  {formatMessageTimestamp(msg.timestamp, lang)}
-                </p>
-                {msg.text?.trim() && (
-                  <p className="text-sm text-[var(--ink)] leading-relaxed">{msg.text}</p>
-                )}
-                {msg.attachmentType === 'image' && msg.attachmentUrl && (
-                  <img
-                    src={msg.attachmentUrl}
-                    alt={msg.attachmentName || ''}
-                    className="rounded-lg max-h-48 w-full object-cover"
-                  />
-                )}
-                {msg.attachmentType === 'link' && msg.attachmentUrl && (
-                  <a
-                    href={msg.attachmentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
-                  >
-                    {msg.attachmentName || msg.attachmentUrl}
-                    <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                  </a>
-                )}
-              </ScTintCard>
-            ))}
+            {[...homeworkMessages].reverse().map((msg) => {
+              const lessonDate = resolveMessageLessonDate(
+                msg.bookingId,
+                bookings,
+                courses,
+                lang,
+                userProfile.uid
+              );
+              const courseTitle = resolveMessageCourseTitle(
+                msg.bookingId,
+                bookings,
+                courses,
+                lang,
+                userProfile.uid
+              );
+              return (
+                <ScTintCard key={msg.id} tint="green" className="px-4 py-3.5 space-y-2">
+                  <div className="space-y-0.5">
+                    {courseTitle && (
+                      <p className="text-sm font-medium text-[var(--ink)]">{courseTitle}</p>
+                    )}
+                    <p className="text-xs text-[var(--ink-dim)]">
+                      {lessonDate && `${lessonDate} · `}
+                      {formatMessageTimestamp(msg.timestamp, lang)}
+                    </p>
+                  </div>
+                  {msg.text?.trim() && (
+                    <p className="text-sm text-[var(--ink)] leading-relaxed">{msg.text}</p>
+                  )}
+                  {msg.attachmentType === 'image' && msg.attachmentUrl && (
+                    <a
+                      href={msg.attachmentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block overflow-hidden border border-black/10 bg-black/5 max-w-full rounded-none"
+                      title={t('chatAttachedPhotoAlt')}
+                    >
+                      <img
+                        src={msg.attachmentUrl}
+                        alt={msg.attachmentName || t('chatAttachedPhotoAlt')}
+                        className="max-h-[220px] w-auto max-w-full object-contain mx-auto hover:scale-[1.02] transition-transform duration-300 cursor-zoom-in"
+                        referrerPolicy="no-referrer"
+                      />
+                      {(msg.attachmentName || msg.attachmentSize) && (
+                        <div className="p-1 px-2 text-[8px] font-mono text-[var(--ink-dim)] bg-black/15 flex items-center justify-between gap-2 border-t border-black/10">
+                          <span className="truncate max-w-[150px]">{msg.attachmentName}</span>
+                          {msg.attachmentSize && (
+                            <span>{(msg.attachmentSize / 1024).toFixed(1)} KB</span>
+                          )}
+                        </div>
+                      )}
+                    </a>
+                  )}
+                  {msg.attachmentType === 'video' && msg.attachmentUrl && (
+                    <video
+                      src={msg.attachmentUrl}
+                      controls
+                      playsInline
+                      className="w-full rounded-lg max-h-64 bg-black/20"
+                      preload="metadata"
+                    />
+                  )}
+                  {msg.attachmentType === 'link' && msg.attachmentUrl && (
+                    <a
+                      href={msg.attachmentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
+                    >
+                      {msg.attachmentName || msg.attachmentUrl}
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                    </a>
+                  )}
+                </ScTintCard>
+              );
+            })}
           </div>
         )}
       </CoachSectionShell>

@@ -1784,9 +1784,15 @@ export const getInstructorsForStudent = (bookings: Booking[], instructors: Instr
 export const getMyInstructors = (
   bookings: Booking[],
   instructors: Instructor[],
-  userId?: string
+  userId?: string,
+  courses?: Course[]
 ): Instructor[] => {
   const lastDateByInstructor = new Map<string, string>();
+
+  const bumpDate = (instructorId: string, date: string) => {
+    const prev = lastDateByInstructor.get(instructorId);
+    if (!prev || date > prev) lastDateByInstructor.set(instructorId, date);
+  };
 
   bookings
     .filter(
@@ -1796,10 +1802,23 @@ export const getMyInstructors = (
         b.status !== 'cancelled' &&
         !b.instructorId.startsWith('course_')
     )
-    .forEach((b) => {
-      const prev = lastDateByInstructor.get(b.instructorId);
-      if (!prev || b.date > prev) lastDateByInstructor.set(b.instructorId, b.date);
-    });
+    .forEach((b) => bumpDate(b.instructorId, b.date));
+
+  if (courses) {
+    bookings
+      .filter(
+        (b) =>
+          (!userId || b.userId === userId) &&
+          !b.isDeleted &&
+          b.status !== 'cancelled' &&
+          b.instructorId.startsWith('course_')
+      )
+      .forEach((b) => {
+        const courseId = b.instructorId.replace('course_', '');
+        const course = courses.find((c) => c.id === courseId);
+        course?.instructorIds?.forEach((instructorId) => bumpDate(instructorId, b.date));
+      });
+  }
 
   return instructors
     .filter((i) => lastDateByInstructor.has(i.id))

@@ -49,6 +49,80 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId == booking.instructorId;
     }
 
+    function isCourseGroupChatThread(threadId) {
+      return exists(/databases/$(database)/documents/courses/$(threadId));
+    }
+
+    function isEnrolledInCourse(courseId) {
+      return isAuthenticated() &&
+        exists(
+          /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
+        ) &&
+        get(
+          /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
+        ).data.userId == request.auth.uid &&
+        get(
+          /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
+        ).data.instructorId == 'course_' + courseId &&
+        get(
+          /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
+        ).data.status != 'cancelled' &&
+        (
+          !('isDeleted' in get(
+            /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
+          ).data) ||
+          get(
+            /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
+          ).data.isDeleted != true
+        );
+    }
+
+    function isInstructorForCourse(courseId) {
+      return isInstructor() &&
+        exists(/databases/$(database)/documents/courses/$(courseId)) &&
+        ('instructorIds' in get(/databases/$(database)/documents/courses/$(courseId)).data) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId in
+          get(/databases/$(database)/documents/courses/$(courseId)).data.instructorIds;
+    }
+
+    function isActiveCourseEnrollmentBooking(booking) {
+      return booking.instructorId.matches('^course_.*') &&
+        booking.status != 'cancelled' &&
+        (!('isDeleted' in booking) || booking.isDeleted != true);
+    }
+
+    function canAccessEnrollmentBookingChat(booking) {
+      return isActiveCourseEnrollmentBooking(booking) &&
+        (
+          isOwner(booking.userId) ||
+          (
+            ('courseId' in booking) &&
+            booking.courseId is string &&
+            isInstructorForCourse(booking.courseId)
+          )
+        );
+    }
+
+    function canAccessChatMessages(threadId) {
+      return isAdmin() ||
+        (
+          exists(/databases/$(database)/documents/bookings/$(threadId)) &&
+          (
+            get(/databases/$(database)/documents/bookings/$(threadId)).data.userId == request.auth.uid ||
+            isAssignedInstructor(
+              get(/databases/$(database)/documents/bookings/$(threadId)).data
+            ) ||
+            canAccessEnrollmentBookingChat(
+              get(/databases/$(database)/documents/bookings/$(threadId)).data
+            )
+          )
+        ) ||
+        (
+          isCourseGroupChatThread(threadId) &&
+          (isEnrolledInCourse(threadId) || isInstructorForCourse(threadId))
+        );
+    }
+
     function isOwnEmail(email) {
       return isAuthenticated() &&
         ('email' in request.auth.token) &&
@@ -366,23 +440,25 @@ service cloud.firestore {
 
       // Booking specific chat messages
       match /messages/{messageId} {
-        allow read: if isAuthenticated() && (
-          get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid ||
-          isAdmin() ||
-          isAssignedInstructor(
-            get(/databases/$(database)/documents/bookings/$(bookingId)).data
-          )
-        );
+        allow read: if isAuthenticated() && canAccessChatMessages(bookingId);
         allow create: if isAuthenticated() &&
           request.resource.data.senderId == request.auth.uid &&
+          canAccessChatMessages(bookingId);
+        allow update: if isAdmin() || (
+          isAuthenticated() &&
+          resource.data.senderId == request.auth.uid &&
+          canAccessChatMessages(bookingId) &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['isHomework', 'homeworkForUserIds']) &&
           (
-            get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid ||
-            isAdmin() ||
-            isAssignedInstructor(
-              get(/databases/$(database)/documents/bookings/$(bookingId)).data
-            )
-          );
-        allow update, delete: if isAdmin();
+            !('isHomework' in request.resource.data) ||
+            request.resource.data.isHomework is bool
+          ) &&
+          (
+            !('homeworkForUserIds' in request.resource.data) ||
+            request.resource.data.homeworkForUserIds is list
+          )
+        );
+        allow delete: if isAdmin();
       }
     }
 

@@ -25,6 +25,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
   const {
     userProfile,
     instructors,
+    courses,
     usersList,
     skillConfig,
     selectedChatBooking,
@@ -52,7 +53,9 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
           currentUserProfile={userProfile}
           onClose={closeChatModal}
           instructors={instructors}
+          courses={courses}
           usersList={usersList}
+          fromInstructorPanel
         />
       )}
 

@@ -31,6 +31,7 @@ import { LessonDetailsModal } from './personal_cabinet/LessonDetailsModal';
 import { ConfirmActionModal } from './personal_cabinet/ConfirmActionModal';
 import { LevelUpModal } from './personal_cabinet/LevelUpModal';
 import { logger } from '../lib/logger';
+import { useBookingChatUnread } from '../lib/useBookingChatUnread';
 import { LazyLoad } from './LazyLoad';
 
 const InstructorWorkspace = React.lazy(() =>
@@ -126,8 +127,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   const [isRescheduling, setIsRescheduling] = useState<boolean>(false);
   const [selectedChatBookingId, setSelectedChatBookingId] = useState<string | null>(null);
   const selectedChatBooking = useMemo(
-    () => rawBookings.find((b) => b.id === selectedChatBookingId) ?? null,
-    [rawBookings, selectedChatBookingId]
+    () => bookings.find((b) => b.id === selectedChatBookingId) ?? null,
+    [bookings, selectedChatBookingId]
   );
   const [rescheduleInstructorBookings, setRescheduleInstructorBookings] = useState<
     AvailabilitySlot[]
@@ -270,7 +271,23 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     onConfirm: (reason?: string) => void | Promise<void>;
   } | null>(null);
 
-  const userBookings = bookings.filter((b) => b.userId === userProfile.uid && !b.isDeleted);
+  const showInstructorTab = userProfile.role === 'admin' || !!userProfile.isInstructor;
+  const activeMode = forcedMode ?? 'client';
+
+  const userBookings = useMemo(
+    () => bookings.filter((b) => b.userId === userProfile.uid && !b.isDeleted),
+    [bookings, userProfile.uid]
+  );
+  const { hasUnreadChat, markBookingChatRead } = useBookingChatUnread(
+    activeMode === 'client' ? userProfile.uid : undefined,
+    activeMode === 'client' ? userBookings : []
+  );
+
+  useEffect(() => {
+    if (activeMode !== 'client' || !selectedChatBookingId) return;
+    const booking = bookings.find((b) => b.id === selectedChatBookingId);
+    if (booking) markBookingChatRead(booking);
+  }, [activeMode, selectedChatBookingId, markBookingChatRead, bookings]);
 
   const unreviewedCompletedBookings = useMemo(() => {
     return userBookings.filter((b) => {
@@ -468,9 +485,6 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
   const minBookingDateStr = toLocalDateStr();
 
-  const showInstructorTab = userProfile.role === 'admin' || !!userProfile.isInstructor;
-  const activeMode = forcedMode ?? 'client';
-
   return (
     <div className="w-full max-w-full min-w-0">
       {activeMode === 'instructor' ? (
@@ -550,7 +564,11 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               setNewTime(booking.time);
             }}
             onCancel={handleCancelClick}
-            onChat={(booking) => setSelectedChatBookingId(booking.id)}
+            onChat={(booking) => {
+              markBookingChatRead(booking);
+              setSelectedChatBookingId(booking.id);
+            }}
+            hasUnreadChat={hasUnreadChat}
             onOpenLesson={(booking) => setLessonDetailsId(booking.id)}
             onWriteReview={(booking) => {
               setReviewBooking(booking);
@@ -665,6 +683,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
                 currentUserProfile={userProfile}
                 onClose={() => setSelectedChatBookingId(null)}
                 instructors={instructors}
+                courses={courses}
                 usersList={usersList}
                 onToggleRecommendation={onToggleRecommendation}
               />

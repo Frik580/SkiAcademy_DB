@@ -32,6 +32,7 @@ export const buildCourseEnrollmentBooking = (
   return {
     id,
     userId,
+    courseId,
     instructorId: prodInstructorId(courseId),
     instructorName: 'BASE — Первые повороты (Групповой курс)',
     instructorAvatar: 'https://storage.yandexcloud.net/carve/courses/beginners.jpg',

@@ -26,6 +26,7 @@ import { StatusBadge } from '../ui/StatusBadge';
 import { ScTextButton } from './student/StudentCabinetUI';
 import { BookingListScope, filterBookingsByScope } from './student/studentCabinetUtils';
 import { RecommendationIndicator } from './RecommendationIndicator';
+import { ChatUnreadIndicator } from '../chat/ChatUnreadIndicator';
 import { ApplePagination } from '../common/ApplePagination';
 import {
   hasBookingRecommendations,
@@ -54,6 +55,7 @@ interface ClientBookingsListProps {
   onReschedule: (booking: Booking) => void;
   onCancel: (booking: Booking) => void;
   onChat: (booking: Booking) => void;
+  hasUnreadChat?: (bookingId: string) => boolean;
 }
 
 export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
@@ -68,6 +70,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
   onReschedule,
   onCancel,
   onChat,
+  hasUnreadChat,
 }) => {
   const { language, t } = useLanguage();
 
@@ -421,11 +424,14 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                         {b.status !== 'cancelled' && (
                           <button
                             onClick={() => onChat(b)}
-                            title={t('chatAboutLesson')}
+                            title={
+                              hasUnreadChat?.(b.id) ? t('chatNewMessages') : t('chatAboutLesson')
+                            }
                             className="px-3 py-1.5 text-xs font-medium border border-[var(--border-subtle)] rounded-lg text-[var(--ink)] hover:border-[var(--accent)] transition flex items-center gap-1.5"
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                             {t('chat')}
+                            <ChatUnreadIndicator show={hasUnreadChat?.(b.id) ?? false} />
                           </button>
                         )}
 

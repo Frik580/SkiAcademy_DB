@@ -44,6 +44,7 @@ export interface StudentCabinetShellProps {
   onReschedule: (booking: Booking) => void;
   onCancel: (booking: Booking) => void;
   onChat: (booking: Booking) => void;
+  hasUnreadChat?: (bookingId: string) => boolean;
   onOpenLesson: (booking: Booking) => void;
   onWriteReview: (booking: Booking) => void;
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
@@ -137,6 +138,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     resortSnapshot: props.resortSnapshot,
     onToggleTemperatureUnit: props.onToggleTemperatureUnit,
     usersList: props.usersList ?? [],
+    hasUnreadChat: props.hasUnreadChat,
   };
 
   const panelProps = {

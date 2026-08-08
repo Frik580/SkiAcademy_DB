@@ -55,6 +55,7 @@ export async function enrollInCourse(
     const newBooking: Booking = {
       id: bookingId,
       userId: userData.uid,
+      courseId,
       instructorId: `course_${courseId}`,
       instructorName: getGroupCourseLabel(localizedCourse.title, language),
       instructorAvatar: courseData.bgImageUrl ?? '',

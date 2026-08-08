@@ -16,14 +16,89 @@ service firebase.storage {
         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).role == 'admin';
     }
 
-    function isBookingParticipant(bookingId) {
+    function isAssignedInstructorForBooking(bookingId) {
       return isAuthenticated() &&
+        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instructorId is string &&
         firestore.exists(/databases/(default)/documents/bookings/$(bookingId)) &&
+        firestore.get(/databases/(default)/documents/bookings/$(bookingId)).data.instructorId ==
+          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instructorId;
+    }
+
+    function isCourseGroupChatThread(threadId) {
+      return firestore.exists(/databases/(default)/documents/courses/$(threadId));
+    }
+
+    function isEnrolledInCourse(courseId) {
+      return isAuthenticated() &&
+        firestore.exists(
+          /databases/(default)/documents/bookings/$(('booking_course_' + request.auth.uid + '_' + courseId))
+        ) &&
+        firestore.get(
+          /databases/(default)/documents/bookings/$(('booking_course_' + request.auth.uid + '_' + courseId))
+        ).data.userId == request.auth.uid &&
+        firestore.get(
+          /databases/(default)/documents/bookings/$(('booking_course_' + request.auth.uid + '_' + courseId))
+        ).data.instructorId == 'course_' + courseId &&
+        firestore.get(
+          /databases/(default)/documents/bookings/$(('booking_course_' + request.auth.uid + '_' + courseId))
+        ).data.status != 'cancelled' &&
         (
-          firestore.get(/databases/(default)/documents/bookings/$(bookingId)).userId == request.auth.uid ||
-          firestore.get(/databases/(default)/documents/bookings/$(bookingId)).instructorId == request.auth.uid ||
-          isAdmin()
+          !('isDeleted' in firestore.get(
+            /databases/(default)/documents/bookings/$(('booking_course_' + request.auth.uid + '_' + courseId))
+          ).data) ||
+          firestore.get(
+            /databases/(default)/documents/bookings/$(('booking_course_' + request.auth.uid + '_' + courseId))
+          ).data.isDeleted != true
         );
+    }
+
+    function isActiveCourseEnrollmentBooking(booking) {
+      return booking.instructorId.matches('^course_.*') &&
+        booking.status != 'cancelled' &&
+        (!('isDeleted' in booking) || booking.isDeleted != true);
+    }
+
+    function canAccessEnrollmentBookingChat(booking) {
+      return isActiveCourseEnrollmentBooking(booking) &&
+        (
+          booking.userId == request.auth.uid ||
+          (
+            ('courseId' in booking) &&
+            booking.courseId is string &&
+            isInstructorForCourse(booking.courseId)
+          )
+        );
+    }
+
+    function isInstructorForCourse(courseId) {
+      return isAuthenticated() &&
+        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instructorId is string &&
+        firestore.exists(/databases/(default)/documents/courses/$(courseId)) &&
+        ('instructorIds' in firestore.get(/databases/(default)/documents/courses/$(courseId)).data) &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.instructorId in
+          firestore.get(/databases/(default)/documents/courses/$(courseId)).data.instructorIds;
+    }
+
+    function isBookingParticipant(bookingId) {
+      return isAuthenticated() && (
+        isAdmin() ||
+        (
+          firestore.exists(/databases/(default)/documents/bookings/$(bookingId)) &&
+          (
+            firestore.get(/databases/(default)/documents/bookings/$(bookingId)).data.userId == request.auth.uid ||
+            isAssignedInstructorForBooking(bookingId) ||
+            canAccessEnrollmentBookingChat(
+              firestore.get(/databases/(default)/documents/bookings/$(bookingId)).data
+            )
+          )
+        ) ||
+        (
+          isCourseGroupChatThread(bookingId) &&
+          (isEnrolledInCourse(bookingId) || isInstructorForCourse(bookingId))
+        )
+      );
     }
 
     match /avatars/{uid} {

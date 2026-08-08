@@ -94,6 +94,8 @@ export interface Booking {
   guestName?: string;
   guestPhone?: string;
   guestEmail?: string;
+  /** Canonical course id for group course enrollments (`instructorId` is `course_{courseId}`). */
+  courseId?: string;
   /** Instructor-assigned recommendation checklist for this lesson */
   recommendations?: LessonRecommendation[];
   /** IDs of recommendations marked done by the client */
@@ -147,12 +149,19 @@ export interface ChatMessage {
   senderId: string;
   senderName: string;
   senderAvatar: string;
+  senderRole?: 'client' | 'instructor' | 'admin';
+  /** Instructor profile id when message is sent from the instructor panel. */
+  senderInstructorId?: string;
   text: string;
   timestamp: string;
   attachmentType?: 'image' | 'video' | 'link';
   attachmentUrl?: string;
   attachmentName?: string;
   attachmentSize?: number;
+  /** Instructor marked this message as homework for the student cabinet. */
+  isHomework?: boolean;
+  /** Course group chat: specific student uids. Empty / unset = all enrolled students. */
+  homeworkForUserIds?: string[];
 }
 
 export type ActivityLogType =
@@ -193,6 +202,8 @@ export interface ActivityLogMetadata {
   achievementLabelRu?: string;
   achievementLabelEn?: string;
   skillDeltas?: SkillDeltaMeta[];
+  /** Skill item ids that received coach comments in this evaluation. */
+  commentedSkillIds?: string[];
 }
 
 export interface ActivityLog {

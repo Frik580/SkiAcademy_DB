@@ -60,8 +60,14 @@ export const useInstructorBookingMessages = (bookingIds: string[]) => {
 
   const messages: InstructorMessage[] = useMemo(() => {
     const merged: InstructorMessage[] = [];
-    for (const [bookingId, list] of messagesByBooking) {
-      list.forEach((msg) => merged.push({ ...msg, bookingId }));
+    for (const [threadId, list] of messagesByBooking) {
+      list.forEach((msg) =>
+        merged.push({
+          ...msg,
+          bookingId: msg.bookingId || threadId,
+          threadId,
+        })
+      );
     }
     return merged.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
   }, [messagesByBooking]);

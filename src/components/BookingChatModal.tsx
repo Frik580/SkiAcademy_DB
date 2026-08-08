@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Send,
@@ -13,7 +13,7 @@ import {
   ExternalLink,
   Trash2,
 } from 'lucide-react';
-import { Booking, UserProfile, ChatMessage, OperationType, Instructor } from '../types';
+import { Booking, UserProfile, ChatMessage, OperationType, Instructor, Course } from '../types';
 import { Skeleton } from './ui/Skeleton';
 import { BodyScrollLock } from './ui/BodyScrollLock';
 import {
@@ -21,6 +21,8 @@ import {
   collection,
   doc,
   setDoc,
+  updateDoc,
+  deleteField,
   onSnapshot,
   handleFirestoreError,
   limit,
@@ -32,7 +34,13 @@ import { QUERY_LIMITS } from '../lib/queryLimits';
 import { useLanguage, type TranslationKey } from '../lib/LanguageContext';
 import { logger } from '../lib/logger';
 import { hasBookingRecommendations } from '../lib/lessonRecommendations';
+import { resolveChatId, getCourseChatThreadIds } from '../lib/resolveChatId';
+import { resolveChatSenderRole, resolveProfileSenderRole } from '../lib/chatSenderRole';
+import { buildHomeworkForUserIds } from '../lib/chatHomework';
 import { LessonRecommendationsList } from './personal_cabinet/LessonRecommendationsList';
+
+type CourseChatClient = { uid: string; name: string; bookingId: string };
+type ChatMessageRow = ChatMessage & { threadId?: string };
 
 class LocalizedCompressionError extends Error {
   i18nKey: TranslationKey;
@@ -55,11 +63,20 @@ function formatCompressionError(
 }
 
 interface BookingChatModalProps {
-  booking: Booking;
+  booking: Booking & {
+    chatId?: string;
+    participantBookingIds?: string[];
+    isCourse?: boolean;
+    courseId?: string;
+    clients?: CourseChatClient[];
+  };
   currentUserProfile: UserProfile;
   onClose: () => void;
   usersList?: UserProfile[];
   instructors?: Instructor[];
+  courses?: Course[];
+  /** Messages from the instructor workspace are always tagged as instructor. */
+  fromInstructorPanel?: boolean;
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
 }
 
@@ -260,13 +277,19 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   onClose,
   usersList = [],
   instructors = [],
+  courses = [],
+  fromInstructorPanel = false,
   onToggleRecommendation,
 }) => {
   const { language, t } = useLanguage();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessageRow[]>([]);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [sendAsHomework, setSendAsHomework] = useState(false);
+  const [homeworkAllStudents, setHomeworkAllStudents] = useState(true);
+  const [homeworkTargetUids, setHomeworkTargetUids] = useState<string[]>([]);
+  const [homeworkTogglingId, setHomeworkTogglingId] = useState<string | null>(null);
 
   // Attachments State
   const [attachmentType, setAttachmentType] = useState<'image' | 'video' | 'link' | null>(null);
@@ -282,34 +305,103 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
+  const courseParticipants = useMemo(() => {
+    if (!fromInstructorPanel) return [] as CourseChatClient[];
+    if (booking.clients?.length) {
+      return booking.clients.filter((c) => Boolean(c.uid));
+    }
+    if (booking.userId && !booking.instructorId.startsWith('course_')) {
+      return [
+        {
+          uid: booking.userId,
+          name: booking.guestName || booking.instructorName,
+          bookingId: booking.id,
+        },
+      ];
+    }
+    return [];
+  }, [booking, fromInstructorPanel]);
+
+  const showHomeworkTargetPicker =
+    fromInstructorPanel && sendAsHomework && courseParticipants.length > 1;
+
+  const courseParticipantUids = useMemo(
+    () => courseParticipants.map((p) => p.uid),
+    [courseParticipants]
+  );
+
+  const resetHomeworkTargets = () => {
+    setHomeworkAllStudents(true);
+    setHomeworkTargetUids([]);
+  };
+
+  const setHomeworkAll = (checked: boolean) => {
+    setHomeworkAllStudents(checked);
+    if (checked) setHomeworkTargetUids([]);
+  };
+
+  const toggleHomeworkTargetUid = (uid: string, checked: boolean) => {
+    setHomeworkAllStudents(false);
+    setHomeworkTargetUids((prev) => {
+      if (checked) return prev.includes(uid) ? prev : [...prev, uid];
+      return prev.filter((id) => id !== uid);
+    });
+  };
+
   // Listen to messages in real-time
   useEffect(() => {
-    const chatId = (booking as any).chatId || booking.id;
+    const chatId = resolveChatId(booking);
+    const chatIds = getCourseChatThreadIds(booking);
     const messagesPath = `bookings/${chatId}/messages`;
     setIsLoading(true);
 
-    const unsubscribe = onSnapshot(
-      query(
-        collection(db, 'bookings', chatId, 'messages'),
-        orderBy('timestamp', 'desc'),
-        limit(QUERY_LIMITS.chatMessages)
-      ),
-      (snapshot) => {
-        const list: ChatMessage[] = snapshot.docs.map(
-          (d) => ({ id: d.id, ...d.data() }) as ChatMessage
-        );
-        list.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-        setMessages(list);
-        setIsLoading(false);
-      },
-      (error) => {
-        setIsLoading(false);
-        handleFirestoreError(error, OperationType.GET, messagesPath);
-      }
+    const messageMap = new Map<string, ChatMessageRow>();
+    const loadedThreads = new Set<string>();
+
+    const unsubscribes = chatIds.map((threadId) =>
+      onSnapshot(
+        query(
+          collection(db, 'bookings', threadId, 'messages'),
+          orderBy('timestamp', 'desc'),
+          limit(QUERY_LIMITS.chatMessages)
+        ),
+        (snapshot) => {
+          const threadPrefix = `${threadId}:`;
+          for (const key of messageMap.keys()) {
+            if (key.startsWith(threadPrefix)) {
+              messageMap.delete(key);
+            }
+          }
+          snapshot.docs.forEach((d) => {
+            messageMap.set(`${threadId}:${d.id}`, {
+              id: d.id,
+              ...d.data(),
+              threadId,
+            } as ChatMessageRow);
+          });
+          loadedThreads.add(threadId);
+          const list = Array.from(messageMap.values());
+          list.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+          setMessages(list);
+          if (loadedThreads.size >= chatIds.length) setIsLoading(false);
+        },
+        (error) => {
+          loadedThreads.add(threadId);
+          if (loadedThreads.size >= chatIds.length) setIsLoading(false);
+          handleFirestoreError(error, OperationType.GET, messagesPath);
+        }
+      )
     );
 
-    return () => unsubscribe();
-  }, [booking.id, (booking as any).chatId]);
+    return () => unsubscribes.forEach((unsub) => unsub());
+  }, [
+    booking.id,
+    booking.instructorId,
+    booking.chatId,
+    booking.courseId,
+    booking.isCourse,
+    (booking.participantBookingIds ?? []).join(','),
+  ]);
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -324,7 +416,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     setCompressionProgress(t('chatOptimizingImage'));
     try {
       const result = await compressImage(file);
-      const chatId = (booking as any).chatId || booking.id;
+      const chatId = resolveChatId(booking);
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
       const path = `chat/${chatId}/${Date.now()}_${sanitizedName}`;
       const downloadUrl = await uploadImage(result.blob, path);
@@ -363,7 +455,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
         return;
       }
 
-      const chatId = (booking as any).chatId || booking.id;
+      const chatId = resolveChatId(booking);
       const sanitizedName = result.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
       const path = `chat/${chatId}/${Date.now()}_${sanitizedName}`;
       const downloadUrl = await uploadImage(result.blob, path);
@@ -406,20 +498,32 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     if ((!inputText.trim() && !attachmentUrl) || isSending || isCompressing) return;
 
     setIsSending(true);
-    const chatId = (booking as any).chatId || booking.id;
+    const chatId = resolveChatId(booking);
     const messagesPath = `bookings/${chatId}/messages`;
 
     try {
       const msgRef = doc(collection(db, 'bookings', chatId, 'messages'));
+      const outgoingRole = fromInstructorPanel
+        ? 'instructor'
+        : resolveProfileSenderRole(currentUserProfile);
+
       const newMessage: ChatMessage = {
         id: msgRef.id,
         bookingId: booking.id,
         senderId: currentUserProfile.uid,
         senderName: currentUserProfile.displayName || currentUserProfile.email,
         senderAvatar: currentUserProfile.avatarUrl || '',
+        senderRole: outgoingRole,
         text: inputText.trim(),
         timestamp: new Date().toISOString(),
       };
+
+      if (
+        currentUserProfile.instructorId &&
+        (fromInstructorPanel || outgoingRole === 'instructor')
+      ) {
+        newMessage.senderInstructorId = currentUserProfile.instructorId;
+      }
 
       if (attachmentUrl && attachmentType) {
         newMessage.attachmentType = attachmentType;
@@ -430,8 +534,22 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
         }
       }
 
+      if (sendAsHomework && fromInstructorPanel) {
+        newMessage.isHomework = true;
+        const targets = buildHomeworkForUserIds(
+          homeworkAllStudents ? null : homeworkTargetUids,
+          courseParticipants.length,
+          courseParticipantUids
+        );
+        if (targets) {
+          newMessage.homeworkForUserIds = targets;
+        }
+      }
+
       await setDoc(msgRef, newMessage);
       setInputText('');
+      setSendAsHomework(false);
+      resetHomeworkTargets();
       setAttachmentType(null);
       setAttachmentUrl('');
       setAttachmentName('');
@@ -440,6 +558,31 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
       handleFirestoreError(error, OperationType.WRITE, messagesPath);
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleToggleHomework = async (msg: ChatMessageRow, checked: boolean) => {
+    const threadId = msg.threadId ?? resolveChatId(booking);
+    const messagesPath = `bookings/${threadId}/messages/${msg.id}`;
+    setHomeworkTogglingId(msg.id);
+    try {
+      const msgRef = doc(db, 'bookings', threadId, 'messages', msg.id);
+      if (checked) {
+        const targets = buildHomeworkForUserIds(null, courseParticipants.length);
+        await updateDoc(msgRef, {
+          isHomework: true,
+          ...(targets ? { homeworkForUserIds: targets } : {}),
+        });
+      } else {
+        await updateDoc(msgRef, {
+          isHomework: false,
+          homeworkForUserIds: deleteField(),
+        });
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, messagesPath);
+    } finally {
+      setHomeworkTogglingId(null);
     }
   };
 
@@ -504,23 +647,24 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
           ) : (
             messages.map((msg) => {
               const isMe = msg.senderId === currentUserProfile.uid;
-
-              // Determine precise sender role
-              const isSenderAdmin =
-                msg.senderId === 'admin' ||
-                msg.senderId.includes('admin') ||
-                msg.senderName.toLowerCase().includes('admin') ||
-                (isMe && currentUserProfile.role === 'admin') ||
-                (usersList || []).some((u) => u.uid === msg.senderId && u.role === 'admin');
-
-              const isSenderInstructor =
-                (isMe && (currentUserProfile.isInstructor || !!currentUserProfile.instructorId)) ||
-                (usersList || []).some(
-                  (u) => u.uid === msg.senderId && (u.isInstructor || !!u.instructorId)
-                ) ||
-                (instructors || []).some((ins) => ins.name === msg.senderName);
-
-              const isSenderClient = !isSenderAdmin && !isSenderInstructor;
+              const senderRole = resolveChatSenderRole(
+                msg,
+                booking,
+                usersList,
+                instructors,
+                courses,
+                language
+              );
+              const isSenderAdmin = senderRole === 'admin';
+              const isSenderInstructor = senderRole === 'instructor';
+              const isSenderClient = senderRole === 'client';
+              const roleBadge = isMe
+                ? t('youBadge')
+                : isSenderAdmin
+                  ? t('administratorLabel')
+                  : isSenderInstructor
+                    ? t('chatTrainerBadge')
+                    : t('clientFallback');
 
               // Formatting time
               const dateObj = new Date(msg.timestamp);
@@ -562,19 +706,20 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
                       </span>
                       <span
                         className={`px-1 py-0.5 text-[7px] border rounded-none font-bold ${
-                          isSenderClient
+                          isMe || isSenderClient
                             ? 'border-accent text-accent bg-accent-muted'
                             : isSenderAdmin
                               ? 'border-amber-500/20 text-amber-400 bg-amber-950/20'
                               : 'border-emerald-500/20 text-emerald-400 bg-emerald-950/20'
                         }`}
                       >
-                        {isSenderClient
-                          ? t('clientFallback')
-                          : isSenderAdmin
-                            ? t('administratorLabel')
-                            : t('instructorColumn')}
+                        {roleBadge}
                       </span>
+                      {msg.isHomework && (
+                        <span className="px-1 py-0.5 text-[7px] border rounded-none font-bold border-emerald-500/30 text-emerald-500 bg-emerald-500/10">
+                          {t('chatHomeworkBadge')}
+                        </span>
+                      )}
                     </div>
 
                     {/* Chat Bubble text */}
@@ -654,6 +799,20 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
                       <Clock className="w-2.5 h-2.5" />
                       <span>{formattedTime}</span>
                     </div>
+                    {fromInstructorPanel && isMe && (
+                      <label
+                        className={`flex items-center gap-1.5 text-[8px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5 cursor-pointer ${isMe ? 'justify-end' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={msg.isHomework ?? false}
+                          disabled={homeworkTogglingId === msg.id}
+                          onChange={(e) => handleToggleHomework(msg, e.target.checked)}
+                          className="accent-[var(--accent)]"
+                        />
+                        <span>{t('chatMarkHomework')}</span>
+                      </label>
+                    )}
                   </div>
                 </div>
               );
@@ -803,6 +962,58 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
             >
               <Trash2 className="w-4 h-4" />
             </button>
+          </div>
+        )}
+
+        {fromInstructorPanel && (
+          <div className="px-4 py-2 border-t border-[var(--border)] bg-black/5 flex flex-col gap-2 shrink-0">
+            <label className="flex items-center gap-2 text-[9px] font-mono uppercase tracking-widest text-[var(--ink-dim)] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sendAsHomework}
+                onChange={(e) => {
+                  setSendAsHomework(e.target.checked);
+                  if (!e.target.checked) resetHomeworkTargets();
+                }}
+                disabled={isSending || isCompressing}
+                className="accent-[var(--accent)]"
+              />
+              {t('chatMarkHomework')}
+            </label>
+            {showHomeworkTargetPicker && (
+              <div className="space-y-1.5 pl-1">
+                <p className="text-[9px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
+                  {t('chatHomeworkSelectStudent')}
+                </p>
+                <label className="flex items-center gap-2 text-[10px] font-mono text-[var(--ink)] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={homeworkAllStudents}
+                    onChange={(e) => setHomeworkAll(e.target.checked)}
+                    disabled={isSending || isCompressing}
+                    className="accent-[var(--accent)]"
+                  />
+                  {t('chatHomeworkAllStudents')}
+                </label>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {courseParticipants.map((p) => (
+                    <label
+                      key={p.uid}
+                      className="flex items-center gap-2 text-[10px] font-mono text-[var(--ink)] cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!homeworkAllStudents && homeworkTargetUids.includes(p.uid)}
+                        disabled={isSending || isCompressing || homeworkAllStudents}
+                        onChange={(e) => toggleHomeworkTargetUid(p.uid, e.target.checked)}
+                        className="accent-[var(--accent)]"
+                      />
+                      <span className="truncate max-w-[140px]">{p.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

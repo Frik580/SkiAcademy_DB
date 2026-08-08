@@ -77,6 +77,7 @@ interface PanelProps extends StudentCabinetContext {
   onReschedule: (booking: Booking) => void;
   onCancel: (booking: Booking) => void;
   onChat: (booking: Booking) => void;
+  hasUnreadChat?: (bookingId: string) => boolean;
   onWriteReview: (booking: Booking) => void;
   onSignOut: () => void;
   onUpdateProfile?: (data: Partial<UserProfile>) => Promise<void>;
@@ -100,6 +101,7 @@ export const StudentCalendarPanel: React.FC<
   onReschedule,
   onCancel,
   onChat,
+  hasUnreadChat,
   onWriteReview,
   onOpenLesson,
   onGoToTab,
@@ -126,6 +128,7 @@ export const StudentCalendarPanel: React.FC<
         onReschedule={onReschedule}
         onCancel={onCancel}
         onChat={onChat}
+        hasUnreadChat={hasUnreadChat}
       />
     </div>
   );

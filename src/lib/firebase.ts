@@ -22,6 +22,7 @@ import {
   writeBatch,
   startAfter,
   documentId,
+  deleteField,
 } from 'firebase/firestore';
 import { OperationType } from '../types';
 import { logger } from './logger';
@@ -281,6 +282,7 @@ export {
   writeBatch,
   startAfter,
   documentId,
+  deleteField,
   GoogleAuthProvider,
   signInWithPopup,
   OperationType,

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { db, doc, updateDoc, writeBatch } from '../../lib/firebase';
 import { UserProfile, Instructor, Booking, Review, Course, LessonDifficulty } from '../../types';
 import {
@@ -18,6 +18,7 @@ import {
 } from '../../lib/availabilitySlots';
 import { LessonRecommendation } from '../../types';
 import { sanitizeRecommendations } from '../../lib/lessonRecommendations';
+import { useBookingChatUnread } from '../../lib/useBookingChatUnread';
 import {
   activityLogId,
   buildBookingCompletedMetadata,
@@ -44,6 +45,10 @@ export interface EnrichedBooking extends Booking {
 
 export interface EnrichedCourseBooking {
   id: string;
+  chatId: string;
+  courseId: string;
+  instructorId: string;
+  participantBookingIds: string[];
   isCourse: true;
   instructorName: string;
   instructorAvatar: string;
@@ -150,6 +155,10 @@ export const useInstructorWorkspace = ({
 
         groupedCourses.set(courseId, {
           id: courseId,
+          chatId: courseId,
+          courseId,
+          instructorId: `course_${courseId}`,
+          participantBookingIds: [],
           isCourse: true,
           instructorName: `${translated.title} (${t('instructorGroupSuffix')})`,
           instructorAvatar: translated.bgImageUrl || b.instructorAvatar,
@@ -164,6 +173,9 @@ export const useInstructorWorkspace = ({
       }
 
       const group = groupedCourses.get(courseId)!;
+      if (!group.participantBookingIds.includes(b.id)) {
+        group.participantBookingIds.push(b.id);
+      }
       const client = usersList.find((u) => u.uid === b.userId);
       if (client) {
         group.clients.push({
@@ -196,6 +208,11 @@ export const useInstructorWorkspace = ({
 
     return [...individualLessons, ...Array.from(groupedCourses.values())];
   }, [allBookings, userProfile.instructorId, courses, language, usersList, t]);
+
+  const { hasUnreadChat, markBookingChatRead } = useBookingChatUnread(
+    userProfile.uid,
+    instructorBookings
+  );
 
   const stats = useMemo(() => {
     const total = instructorBookings.length;
@@ -270,6 +287,7 @@ export const useInstructorWorkspace = ({
       const student = usersList.find((item) => item.uid === studentUid);
       const oldLevel = student?.level ?? 1;
       const oldScores = student?.skillScores ?? {};
+      const oldComments = student?.skillComments ?? {};
       const oldTotal = Object.values(oldScores).reduce((sum, value) => sum + value, 0);
       const newTotal = Object.values(updatedScores).reduce((sum, value) => sum + value, 0);
       const pointsDelta = newTotal - oldTotal;
@@ -318,19 +336,36 @@ export const useInstructorWorkspace = ({
         maxPoints?: number;
       }>;
 
+      const commentedSkillIds = Object.entries(mergedComments)
+        .filter(([itemId, comment]) => Boolean(comment?.trim()) && (updatedScores[itemId] ?? 0) > 0)
+        .map(([itemId]) => itemId);
+
+      const commentsChanged = Object.keys({ ...oldComments, ...updatedComments }).some(
+        (itemId) => (updatedComments[itemId]?.trim() ?? '') !== (oldComments[itemId]?.trim() ?? '')
+      );
+
       if (calculatedLevel > oldLevel) {
         await logActivityForUser(
           studentUid,
           userProfile.uid,
           'level_up',
-          { oldLevel, newLevel: calculatedLevel, skillDeltas, pointsDelta },
+          {
+            oldLevel,
+            newLevel: calculatedLevel,
+            skillDeltas,
+            pointsDelta,
+            instructorId: userProfile.instructorId,
+            commentedSkillIds,
+          },
           activityLogId.levelUp(studentUid, calculatedLevel)
         );
-      } else if (skillDeltas.length > 0) {
+      } else if (skillDeltas.length > 0 || commentsChanged) {
         await logActivityForUser(studentUid, userProfile.uid, 'skill_scores_updated', {
           pointsDelta,
           newLevel: calculatedLevel,
           skillDeltas,
+          instructorId: userProfile.instructorId,
+          commentedSkillIds,
         });
       }
 
@@ -445,6 +480,12 @@ export const useInstructorWorkspace = ({
 
   const closeChatModal = () => setSelectedChatBooking(null);
 
+  useEffect(() => {
+    if (selectedChatBooking) {
+      markBookingChatRead(selectedChatBooking);
+    }
+  }, [selectedChatBooking, markBookingChatRead]);
+
   return {
     theme,
     t,
@@ -466,6 +507,8 @@ export const useInstructorWorkspace = ({
     handleUpdateStudentLevel,
     handleUpdateStatus,
     handleSaveRecommendations,
+    hasUnreadChat,
+    markBookingChatRead,
     userProfile,
     instructors,
     usersList,

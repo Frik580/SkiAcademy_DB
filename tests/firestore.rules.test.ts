@@ -34,6 +34,7 @@ const OTHER_USER_ID = 'user-2';
 const ADMIN_ID = 'admin-1';
 const OWNER_ID = 'owner-1';
 const INSTRUCTOR_USER_ID = 'instructor-user-1';
+const INSTRUCTOR_USER_ID_2 = 'instructor-user-2';
 
 let testEnv: RulesTestEnvironment;
 
@@ -431,6 +432,185 @@ describe('booking chat messages', () => {
         id: 'message-2',
         senderId: OTHER_USER_ID,
       })
+    );
+  });
+
+  it('allows course group chat participants to read and create messages', async () => {
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'courses', 'course-group-1'), {
+        title: 'Group Course',
+        totalSeats: 10,
+        availableSeats: 9,
+        price: 100,
+        instructorIds: ['instructor-1'],
+      });
+      await setDoc(doc(db, 'bookings', `booking_course_${USER_ID}_course-group-1`), {
+        id: `booking_course_${USER_ID}_course-group-1`,
+        userId: USER_ID,
+        courseId: 'course-group-1',
+        instructorId: 'course_course-group-1',
+        date: '2026-12-01',
+        time: '09:00',
+        durationHours: 4,
+        totalPrice: 100,
+        status: 'confirmed',
+      });
+    });
+
+    const studentDb = testEnv
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
+    const instructorDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
+      .firestore();
+    const otherDb = testEnv
+      .authenticatedContext(OTHER_USER_ID, { email: 'other@example.com' })
+      .firestore();
+
+    const message = {
+      id: 'course-message-1',
+      bookingId: 'course-group-1',
+      senderId: USER_ID,
+      senderName: USER_ID,
+      senderAvatar: '',
+      text: 'Question about the course',
+      timestamp: '2026-12-01T09:00:00.000Z',
+    };
+
+    await assertSucceeds(
+      setDoc(doc(studentDb, 'bookings', 'course-group-1', 'messages', 'course-message-1'), message)
+    );
+    await assertSucceeds(
+      getDoc(doc(instructorDb, 'bookings', 'course-group-1', 'messages', 'course-message-1'))
+    );
+    await assertSucceeds(
+      setDoc(doc(instructorDb, 'bookings', 'course-group-1', 'messages', 'course-message-2'), {
+        ...message,
+        id: 'course-message-2',
+        senderId: INSTRUCTOR_USER_ID,
+        text: 'Welcome to the course',
+      })
+    );
+    await assertSucceeds(
+      getDoc(doc(studentDb, 'bookings', 'course-group-1', 'messages', 'course-message-2'))
+    );
+    await assertFails(
+      getDoc(doc(otherDb, 'bookings', 'course-group-1', 'messages', 'course-message-1'))
+    );
+  });
+
+  it('shares course chat between all enrolled students and assigned instructors', async () => {
+    const courseId = 'course-group-all';
+    const studentOneBookingId = `booking_course_${USER_ID}_${courseId}`;
+    const studentTwoBookingId = `booking_course_${OTHER_USER_ID}_${courseId}`;
+
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(
+        doc(db, 'users', OTHER_USER_ID),
+        userProfile(OTHER_USER_ID, 'other@example.com')
+      );
+      await setDoc(doc(db, 'users', INSTRUCTOR_USER_ID_2), {
+        ...userProfile(INSTRUCTOR_USER_ID_2, 'instructor2@example.com'),
+        instructorId: 'instructor-2',
+      });
+      await setDoc(doc(db, 'courses', courseId), {
+        title: 'Shared Group Course',
+        totalSeats: 10,
+        availableSeats: 8,
+        price: 100,
+        instructorIds: ['instructor-1', 'instructor-2'],
+      });
+      await setDoc(doc(db, 'bookings', studentOneBookingId), {
+        id: studentOneBookingId,
+        userId: USER_ID,
+        courseId,
+        instructorId: `course_${courseId}`,
+        date: '2026-12-01',
+        time: '09:00',
+        durationHours: 4,
+        totalPrice: 100,
+        status: 'confirmed',
+      });
+      await setDoc(doc(db, 'bookings', studentTwoBookingId), {
+        id: studentTwoBookingId,
+        userId: OTHER_USER_ID,
+        courseId,
+        instructorId: `course_${courseId}`,
+        date: '2026-12-01',
+        time: '09:00',
+        durationHours: 4,
+        totalPrice: 100,
+        status: 'confirmed',
+      });
+    });
+
+    const studentOneDb = testEnv
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
+    const studentTwoDb = testEnv
+      .authenticatedContext(OTHER_USER_ID, { email: 'other@example.com' })
+      .firestore();
+    const instructorOneDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
+      .firestore();
+    const instructorTwoDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID_2, { email: 'instructor2@example.com' })
+      .firestore();
+
+    const sharedMessage = {
+      id: 'shared-message-1',
+      bookingId: courseId,
+      senderId: USER_ID,
+      senderName: USER_ID,
+      senderAvatar: '',
+      text: 'Hello everyone',
+      timestamp: '2026-12-01T09:00:00.000Z',
+    };
+
+    await assertSucceeds(
+      setDoc(doc(studentOneDb, 'bookings', courseId, 'messages', 'shared-message-1'), sharedMessage)
+    );
+    await assertSucceeds(
+      getDoc(doc(studentTwoDb, 'bookings', courseId, 'messages', 'shared-message-1'))
+    );
+    await assertSucceeds(
+      getDoc(doc(instructorOneDb, 'bookings', courseId, 'messages', 'shared-message-1'))
+    );
+    await assertSucceeds(
+      setDoc(doc(instructorTwoDb, 'bookings', courseId, 'messages', 'shared-message-2'), {
+        ...sharedMessage,
+        id: 'shared-message-2',
+        senderId: INSTRUCTOR_USER_ID_2,
+        text: 'Reply from second instructor',
+      })
+    );
+    await assertSucceeds(
+      getDoc(doc(studentOneDb, 'bookings', courseId, 'messages', 'shared-message-2'))
+    );
+
+    const legacyMessage = {
+      id: 'legacy-message-1',
+      bookingId: studentOneBookingId,
+      senderId: USER_ID,
+      senderName: USER_ID,
+      senderAvatar: '',
+      text: 'Legacy path message',
+      timestamp: '2026-12-01T09:05:00.000Z',
+    };
+
+    await assertSucceeds(
+      setDoc(
+        doc(studentOneDb, 'bookings', studentOneBookingId, 'messages', 'legacy-message-1'),
+        legacyMessage
+      )
+    );
+    await assertSucceeds(
+      getDoc(doc(instructorOneDb, 'bookings', studentOneBookingId, 'messages', 'legacy-message-1'))
+    );
+    await assertSucceeds(
+      getDoc(doc(instructorTwoDb, 'bookings', studentOneBookingId, 'messages', 'legacy-message-1'))
     );
   });
 

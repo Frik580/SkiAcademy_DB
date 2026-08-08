@@ -4,6 +4,7 @@ import type { Language } from './i18n/translations';
 import { translateInstructorName, translateCourse } from './i18n/contentTranslation';
 import { parseDurationHours, splitCourseDates, getGroupScheduleLabel } from './i18n/courseDates';
 import { getGroupCourseEnrollmentNote, getGroupCourseLabel } from './i18n/bookingLabels';
+import { resolveChatId } from './resolveChatId';
 
 export type TranslatedBooking = Booking & { chatId: string };
 
@@ -32,7 +33,7 @@ export function useTranslatedBookings(
       let time = b.time;
       let totalPrice = b.totalPrice;
 
-      const chatId = isCourse ? b.instructorId.replace('course_', '') : b.id;
+      const chatId = resolveChatId(b);
 
       if (isCourse) {
         const courseId = b.instructorId.replace('course_', '');

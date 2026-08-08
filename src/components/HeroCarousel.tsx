@@ -88,6 +88,9 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   const shouldReduceMotion = useReducedMotion();
   const [currentSlide, setCurrentSlide] = useState(0);
 
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+
   const slides = useMemo(() => {
     const source = rawSlides && rawSlides.length > 0 ? rawSlides : FALLBACK_SLIDES;
     const visible = source.filter((s) => !s.hidden);
@@ -99,6 +102,37 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   }, [rawSlides, slidesRandomOrder]);
 
   const slideInterval = slideIntervalSeconds || 6;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      setTouchStartX(e.touches[0].clientX);
+      setTouchStartY(e.touches[0].clientY);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX === null || touchStartY === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+
+    const deltaX = touchEndX - touchStartX;
+    const deltaY = touchEndY - touchStartY;
+
+    const minSwipeDistance = 40;
+
+    if (Math.abs(deltaX) > minSwipeDistance && Math.abs(deltaX) > Math.abs(deltaY)) {
+      if (deltaX < 0) {
+        // Swipe left -> next slide
+        setCurrentSlide((prev) => (prev + 1) % slides.length);
+      } else {
+        // Swipe right -> previous slide
+        setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+      }
+    }
+
+    setTouchStartX(null);
+    setTouchStartY(null);
+  };
 
   useEffect(() => {
     if (currentSlide >= slides.length) {
@@ -129,7 +163,11 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   }, [slides]);
 
   return (
-    <section className="ui-hero relative w-full min-h-[calc(100svh-4.25rem)] overflow-hidden flex flex-col justify-end">
+    <section
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className="ui-hero relative w-full min-h-[calc(100svh-4.25rem)] overflow-hidden flex flex-col justify-end touch-pan-y"
+    >
       {/* Layered background crossfade */}
       <div className="absolute inset-0 z-0" aria-hidden="true">
         {slides.map((slide, idx) => {

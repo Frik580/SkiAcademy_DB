@@ -27,7 +27,7 @@ export const STUDENT_BOTTOM_TABS: {
 export const STUDENT_BOTTOM_LEFT_TABS = STUDENT_BOTTOM_TABS.slice(0, 2);
 export const STUDENT_BOTTOM_RIGHT_TABS = STUDENT_BOTTOM_TABS.slice(2);
 
-export const STUDENT_TAB_BAR_HEIGHT = '3.25rem';
+export const STUDENT_TAB_BAR_HEIGHT = '3.5rem';
 export const STUDENT_TAB_BAR_FOOTER_PADDING = '1.25rem';
 
 /** Высота футера ЛК: меню по центру + safe-area снизу */
@@ -82,7 +82,7 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
         type="button"
         onClick={() => onSelect(id)}
         aria-current={active ? 'page' : undefined}
-        className={`relative z-10 group flex min-w-[44px] sm:min-w-0 flex-1 shrink-0 flex-col items-center justify-center gap-0.5 px-2 py-2 sm:py-1.5 transition-all duration-200 ease-out active:scale-95 cursor-pointer ${
+        className={`relative z-10 group flex min-w-[44px] sm:min-w-0 flex-1 shrink-0 flex-col items-center justify-center gap-0.5 px-2 py-4 sm:py-1.5 transition-all duration-200 ease-out active:scale-95 cursor-pointer ${
           active ? 'text-[var(--accent)]' : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
         }`}
       >
@@ -122,31 +122,26 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
           minHeight: `calc(${STUDENT_TAB_BAR_HEIGHT} + 2 * ${STUDENT_TAB_BAR_FOOTER_PADDING})`,
         }}
       >
-        <div className="pointer-events-auto w-full max-w-2xl mx-auto rounded-full bg-[color-mix(in_srgb,var(--card-bg)_78%,transparent)] backdrop-blur-2xl backdrop-saturate-150 border border-[color-mix(in_srgb,var(--ink)_10%,transparent)] shadow-[0_12px_36px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.06),inset_0_1px_1px_rgba(255,255,255,0.3)] p-1.5 flex items-center justify-between relative gap-1">
-          {/* Left Tabs */}
+        <div className="pointer-events-auto w-full max-w-2xl mx-auto rounded-full bg-[color-mix(in_srgb,var(--card-bg)_78%,transparent)] backdrop-blur-2xl backdrop-saturate-150 border border-[color-mix(in_srgb,var(--ink)_10%,transparent)] shadow-[0_12px_36px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.06),inset_0_1px_1px_rgba(255,255,255,0.3)] p-2 sm:p-1.5 flex items-center justify-between relative gap-1">
+          {/* Navigation Tabs */}
           <div className="flex items-center justify-around flex-1 gap-1 min-w-0">
-            {STUDENT_BOTTOM_LEFT_TABS.map(renderTab)}
+            {STUDENT_BOTTOM_TABS.map(renderTab)}
           </div>
 
-          {/* Center Round Green Booking Icon Button */}
+          {/* Right Round Green Booking Icon Button */}
           {onOpenBooking && (
             <button
               type="button"
               onClick={onOpenBooking}
               aria-label={t('bookNow')}
               title={t('bookNow')}
-              className="relative z-20 group shrink-0 mx-4 sm:mx-8 flex items-center justify-center cursor-pointer transition-all duration-200 ease-out active:scale-90 hover:scale-105"
+              className="relative z-20 group shrink-0 ml-2 sm:ml-4 flex items-center justify-center cursor-pointer transition-all duration-200 ease-out active:scale-90 hover:scale-105"
             >
-              <div className="relative flex items-center justify-center w-11 sm:w-12 h-11 sm:h-12 rounded-full bg-gradient-to-b from-[#34C759] via-[#30D158] to-[#28CD41] dark:from-[#30D158] dark:via-[#28CD41] dark:to-[#24B248] text-white shadow-[0_6px_20px_rgba(48,209,88,0.45),0_2px_8px_rgba(0,0,0,0.18),inset_0_1.5px_1.5px_rgba(255,255,255,0.5)] border border-[#34C759]/60 hover:shadow-[0_8px_24px_rgba(48,209,88,0.6),0_4px_12px_rgba(0,0,0,0.22),inset_0_1.5px_1.5px_rgba(255,255,255,0.6)] transition-all">
+              <div className="relative flex items-center justify-center w-15 sm:w-12 h-15 sm:h-12 rounded-full bg-gradient-to-b from-[#34C759] via-[#30D158] to-[#28CD41] dark:from-[#30D158] dark:via-[#28CD41] dark:to-[#24B248] text-white shadow-[0_6px_20px_rgba(48,209,88,0.45),0_2px_8px_rgba(0,0,0,0.18),inset_0_1.5px_1.5px_rgba(255,255,255,0.5)] border border-[#34C759]/60 hover:shadow-[0_8px_24px_rgba(48,209,88,0.6),0_4px_12px_rgba(0,0,0,0.22),inset_0_1.5px_1.5px_rgba(255,255,255,0.6)] transition-all">
                 <CalendarPlus className="h-5.5 w-5.5 shrink-0 stroke-[2.2]" aria-hidden />
               </div>
             </button>
           )}
-
-          {/* Right Tabs */}
-          <div className="flex items-center justify-around flex-1 gap-1 min-w-0">
-            {STUDENT_BOTTOM_RIGHT_TABS.map(renderTab)}
-          </div>
         </div>
       </div>
     </nav>

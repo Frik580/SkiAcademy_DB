@@ -1456,7 +1456,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
         className={`relative z-10 max-w-5xl mx-auto px-5 sm:px-8 md:px-10 w-full ${
           effectiveFillViewport
             ? 'flex-1 flex flex-col min-h-0 pt-6 sm:pt-8 md:pt-10 pb-22 sm:pb-22 md:pb-22 gap-6 sm:gap-8 md:gap-10'
-            : 'py-14 md:py-20 space-y-10 md:space-y-12'
+            : 'py-8 sm:py-14 md:py-20 space-y-6 sm:space-y-10 md:space-y-12'
         }`}
       >
         <header className="text-center space-y-3 max-w-2xl mx-auto shrink-0">
@@ -1737,7 +1737,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           ) : (
             activeLevelId != null && (
               <div
-                className={`relative min-w-0 w-full ${
+                className={`relative min-w-0 w-full hidden sm:block ${
                   effectiveFillViewport ? 'flex-1 min-h-0 overflow-hidden' : 'shrink-0'
                 }`}
               >

@@ -74,7 +74,7 @@ export const useResortStats = () => {
         setResortConfig(snap.data() as ResortConfig);
       } else {
         // Initialize config with defaults if it doesn't exist
-        setDoc(configRef, DEFAULT_CONFIG).catch((err) =>
+        setDoc(configRef, DEFAULT_CONFIG, { merge: true }).catch((err) =>
           logger.error('Error setting default config:', err)
         );
         setResortConfig(DEFAULT_CONFIG);

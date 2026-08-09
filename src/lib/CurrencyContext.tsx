@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { db, doc, onSnapshot } from './firebase';
+import { db, doc, onSnapshot, setDoc } from './firebase';
+import { logger } from './logger';
 
 export type Currency = 'USD' | 'KZT';
 
@@ -42,6 +43,10 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setUsdToKztRateState(data.usdToKztRate);
             localStorage.setItem('alpine_glide_usd_kzt_rate', String(data.usdToKztRate));
           }
+          if (data && (data.currency === 'USD' || data.currency === 'KZT')) {
+            setCurrencyState(data.currency);
+            localStorage.setItem('alpine_glide_currency', data.currency);
+          }
         }
       });
       return () => unsub();
@@ -53,6 +58,11 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const setCurrency = (curr: Currency) => {
     setCurrencyState(curr);
     localStorage.setItem('alpine_glide_currency', curr);
+    setDoc(doc(db, 'resort_data', 'config'), { currency: curr }, { merge: true }).catch(
+      (err) => {
+        logger.error('Failed to update currency in Firestore:', err);
+      }
+    );
   };
 
   const setUsdToKztRate = (rate: number) => {

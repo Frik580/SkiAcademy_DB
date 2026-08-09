@@ -267,4 +267,5 @@ export interface ResortConfig {
   slideIntervalSeconds?: number;
   slidesRandomOrder?: boolean;
   usdToKztRate?: number;
+  currency?: 'USD' | 'KZT';
 }

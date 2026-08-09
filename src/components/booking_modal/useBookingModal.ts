@@ -28,7 +28,7 @@ export interface BookingModalInput {
   onClose: () => void;
   instructor: Instructor | null;
   userProfile: UserProfile | null;
-  onBookingSuccess: (booking: Booking, totalCost: number) => Promise<void>;
+  onBookingSuccess: (booking: Booking) => Promise<number>;
   onOpenTopUp: () => void;
   courses?: Course[];
   onAuthSuccess?: (profile: UserProfile) => void;
@@ -429,11 +429,11 @@ export const useBookingModal = ({
       };
 
       try {
-        await onBookingSuccess(newBooking, totalCost);
+        const chargedAmount = await onBookingSuccess(newBooking);
         addNotification(
           'success',
           t('lessonBooked'),
-          `${t('lessonBookedPrefix')} ${targetInstructor.name} ${t('lessonScheduledFor')} ${date} ${t('lessonRescheduledAdminAt')} ${time}. $${totalCost} ${t('debitedSuffix')}`
+          `${t('lessonBookedPrefix')} ${targetInstructor.name} ${t('lessonScheduledFor')} ${date} ${t('lessonRescheduledAdminAt')} ${time}. $${chargedAmount} ${t('debitedSuffix')}`
         );
         onClose();
       } catch (err) {

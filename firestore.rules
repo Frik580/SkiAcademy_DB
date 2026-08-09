@@ -200,6 +200,37 @@ service cloud.firestore {
       );
     }
 
+    function isSystemBlockBooking(booking) {
+      return booking.userId.matches('^system_block_.*');
+    }
+
+    function isCourseBookingData(booking) {
+      return booking.instructorId.matches('^course_.*');
+    }
+
+    function validBookingPrice(booking) {
+      return isSystemBlockBooking(booking)
+        ? booking.totalPrice == 0
+        : isCourseBookingData(booking)
+          ? (
+            ('courseId' in booking) &&
+            booking.courseId is string &&
+            exists(/databases/$(database)/documents/courses/$(booking.courseId)) &&
+            ('price' in get(/databases/$(database)/documents/courses/$(booking.courseId)).data) &&
+            get(/databases/$(database)/documents/courses/$(booking.courseId)).data.price is number &&
+            booking.totalPrice ==
+              get(/databases/$(database)/documents/courses/$(booking.courseId)).data.price
+          )
+          : (
+            exists(/databases/$(database)/documents/instructors/$(booking.instructorId)) &&
+            ('pricePerHour' in get(/databases/$(database)/documents/instructors/$(booking.instructorId)).data) &&
+            get(/databases/$(database)/documents/instructors/$(booking.instructorId)).data.pricePerHour is number &&
+            booking.totalPrice ==
+              get(/databases/$(database)/documents/instructors/$(booking.instructorId)).data.pricePerHour *
+              booking.durationHours
+          );
+    }
+
     function validCourseEnrollmentReactivation(bookingId, before, after) {
       return before.instructorId.matches('^course_.*') &&
         after.instructorId.matches('^course_.*') &&
@@ -212,8 +243,8 @@ service cloud.firestore {
           (('isDeleted' in before) && before.isDeleted == true)
         ) &&
         after.status == 'confirmed' &&
-        after.totalPrice >= 0 &&
-        after.durationHours > 0;
+        after.durationHours > 0 &&
+        validBookingPrice(after);
     }
 
     function isMigratableClientBooking(booking) {
@@ -381,8 +412,8 @@ service cloud.firestore {
         (isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin())) ||
         (request.resource.data.userId.matches('^guest_.*') && request.resource.data.status == 'pending')
       ) &&
-        request.resource.data.totalPrice >= 0 &&
         request.resource.data.durationHours > 0 &&
+        validBookingPrice(request.resource.data) &&
         (isAdmin() || availabilityIsSynchronized(bookingId, request.resource.data));
 
       allow update: if (

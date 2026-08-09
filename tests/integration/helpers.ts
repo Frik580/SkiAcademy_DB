@@ -79,6 +79,22 @@ export async function seedBookingUser(balanceUSD = 100) {
   });
 }
 
+export async function seedInstructor(pricePerHour = 50) {
+  await seedData(async (context) => {
+    await setDoc(doc(context.firestore(), 'instructors', INSTRUCTOR_ID), {
+      id: INSTRUCTOR_ID,
+      name: 'Instructor',
+      specialty: 'ski',
+      pricePerHour,
+      bio: 'Test instructor',
+      avatarUrl: '',
+      isAvailable: true,
+      rating: 5,
+      reviewsCount: 0,
+    });
+  });
+}
+
 export async function seedInstructorUser() {
   await seedData(async (context) => {
     await setDoc(doc(context.firestore(), 'users', INSTRUCTOR_USER_ID), {

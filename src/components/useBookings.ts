@@ -28,7 +28,9 @@ import {
 import {
   cancelBookingWithRefund,
   createBookingWithPayment,
+  addBookingWithPayment,
   InsufficientFundsError,
+  resolveBookingTotalPrice,
 } from '../lib/bookingTransactions';
 import {
   activityLogId,
@@ -204,13 +206,18 @@ export const useBookings = (
     return () => window.clearInterval(interval);
   }, [addNotification, bookings, firebaseUser, language, t]);
 
-  const handleBookingSuccess = async (booking: Booking, totalCost: number) => {
-    if (!userProfile || !firebaseUser) return;
+  const handleBookingSuccess = async (booking: Booking): Promise<number> => {
+    if (!userProfile || !firebaseUser) return 0;
 
     try {
-      const newBalance = await createBookingWithPayment(db, firebaseUser.uid, booking, totalCost);
+      const { newBalance, totalPrice } = await createBookingWithPayment(
+        db,
+        firebaseUser.uid,
+        booking
+      );
       setUserProfile({ ...userProfile, balanceUSD: newBalance });
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      return totalPrice;
     } catch (error) {
       if (error instanceof InsufficientFundsError) {
         throw new Error(t('insufficientFunds'));
@@ -344,31 +351,14 @@ export const useBookings = (
   };
 
   const handleAddBooking = async (booking: Booking) => {
-    const isSystemBlock = booking.userId.startsWith('system_block_');
-    const userRef = doc(db, 'users', booking.userId);
-
     try {
-      await runTransaction(db, async (transaction) => {
-        if (!isSystemBlock) {
-          const userSnap = await transaction.get(userRef);
-          if (userSnap.exists()) {
-            const userData = userSnap.data() as UserProfile;
-            transaction.update(userRef, {
-              balanceUSD: (userData.balanceUSD ?? 0) - booking.totalPrice,
-            });
-          }
-        }
-
-        transaction.set(doc(db, 'bookings', booking.id), booking);
-        if (blocksInstructorAvailability(booking)) {
-          transaction.set(
-            doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id),
-            toAvailabilitySlot(booking)
-          );
-        }
-      });
+      await addBookingWithPayment(db, booking);
     } catch (error) {
+      if (error instanceof InsufficientFundsError) {
+        throw new Error(t('insufficientFunds'));
+      }
       handleFirestoreError(error, OperationType.WRITE, `bookings/${booking.id}/add`);
+      throw error;
     }
   };
 
@@ -512,22 +502,12 @@ export const useBookings = (
     const oldUserId = booking.userId;
     const isConfirmed = booking.status === 'confirmed';
 
-    let lessonCost = booking.totalPrice || 0;
+    let lessonCost = 0;
     let updatedTargetBalance: number | null = null;
 
     // 1. Check client balance and update booking + user balance in an atomic transaction
     await runTransaction(db, async (transaction) => {
-      // If price was 0 on booking, attempt to lookup instructor rate
-      if (lessonCost === 0 && booking.instructorId) {
-        const instRef = doc(db, 'instructors', booking.instructorId);
-        const instSnap = await transaction.get(instRef);
-        if (instSnap.exists()) {
-          const instData = instSnap.data();
-          if (instData.pricePerHour) {
-            lessonCost = instData.pricePerHour * (booking.durationHours || 1);
-          }
-        }
-      }
+      lessonCost = await resolveBookingTotalPrice(transaction, db, booking);
 
       const targetUserRef = doc(db, 'users', targetUserId);
       const targetUserSnap = await transaction.get(targetUserRef);

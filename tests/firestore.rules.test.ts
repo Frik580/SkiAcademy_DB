@@ -86,6 +86,17 @@ describe('bookings', () => {
   beforeEach(async () => {
     await seedData(async (context) => {
       const db = context.firestore();
+      await setDoc(doc(db, 'instructors', 'instructor-1'), {
+        id: 'instructor-1',
+        name: 'Instructor',
+        specialty: 'ski',
+        pricePerHour: 50,
+        bio: 'Test instructor',
+        avatarUrl: '',
+        isAvailable: true,
+        rating: 5,
+        reviewsCount: 0,
+      });
       await setDoc(doc(db, 'bookings', 'booking-1'), {
         id: 'booking-1',
         userId: USER_ID,
@@ -180,6 +191,37 @@ describe('bookings', () => {
     cancelBatch.update(bookingRef, { status: 'cancelled' });
     cancelBatch.delete(slotRef);
     await assertSucceeds(cancelBatch.commit());
+  });
+
+  it('rejects lesson bookings with a manipulated totalPrice', async () => {
+    const db = testEnv.authenticatedContext(USER_ID).firestore();
+    const bookingRef = doc(db, 'bookings', 'booking-tampered');
+    const slotRef = doc(db, 'availability_slots', 'booking-tampered');
+    const booking = {
+      id: 'booking-tampered',
+      userId: USER_ID,
+      instructorId: 'instructor-1',
+      instructorName: 'Instructor',
+      instructorAvatar: '',
+      date: '2026-12-02',
+      time: '10:00',
+      durationHours: 2,
+      totalPrice: 0,
+      status: 'confirmed',
+      difficulty: 'beginner',
+    };
+
+    const createBatch = writeBatch(db);
+    createBatch.set(bookingRef, booking);
+    createBatch.set(slotRef, {
+      bookingId: 'booking-tampered',
+      instructorId: 'instructor-1',
+      date: '2026-12-02',
+      time: '10:00',
+      durationHours: 2,
+      slotType: 'lesson',
+    });
+    await assertFails(createBatch.commit());
   });
 });
 
@@ -685,6 +727,7 @@ describe('course enrollment transactions', () => {
         transaction.set(bookingRef, {
           id: bookingRef.id,
           userId: USER_ID,
+          courseId: 'course-1',
           instructorId: 'course_course-1',
           instructorName: 'Course',
           instructorAvatar: '',
@@ -810,6 +853,7 @@ describe('course enrollment transactions', () => {
         transaction.set(bookingRef, {
           id: bookingRef.id,
           userId: USER_ID,
+          courseId: 'course-no-total-seats',
           instructorId: 'course_course-no-total-seats',
           instructorName: 'Legacy Course',
           instructorAvatar: '',
@@ -870,6 +914,7 @@ describe('course enrollment transactions', () => {
       await setDoc(bookingRef, {
         id: bookingRef.id,
         userId: USER_ID,
+        courseId: 'course-1',
         instructorId: 'course_course-1',
         instructorName: 'Course',
         instructorAvatar: '',

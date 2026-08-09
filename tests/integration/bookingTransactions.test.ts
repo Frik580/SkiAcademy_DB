@@ -18,6 +18,7 @@ import {
   clearIntegrationFirestore,
   integrationTestEnv,
   seedBookingUser,
+  seedInstructor,
   seedData,
   seedOwnerAndMigrationFlag,
   setupIntegrationTestEnvironment,
@@ -49,6 +50,7 @@ describe('booking transactions', () => {
     await clearIntegrationFirestore();
     await seedOwnerAndMigrationFlag(true);
     await seedBookingUser(100);
+    await seedInstructor(50);
   });
 
   afterAll(async () => {
@@ -61,25 +63,41 @@ describe('booking transactions', () => {
       .firestore();
     const booking = lessonBooking();
 
-    const newBalance = await createBookingWithPayment(userDb, USER_ID, booking, 100);
+    const { newBalance, totalPrice } = await createBookingWithPayment(userDb, USER_ID, booking);
 
     const userDoc = await getDoc(doc(userDb, 'users', USER_ID));
     const bookingDoc = await getDoc(doc(userDb, 'bookings', booking.id));
     const slotDoc = await getDoc(doc(userDb, AVAILABILITY_SLOTS_COLLECTION, booking.id));
 
     expect(newBalance).toBe(0);
+    expect(totalPrice).toBe(100);
     expect(userDoc.data()?.balanceUSD).toBe(0);
     expect(bookingDoc.data()?.status).toBe('confirmed');
     expect(slotDoc.data()).toEqual(toAvailabilitySlot(booking));
+  });
+
+  it('charges the instructor rate even when the client sends a manipulated totalPrice', async () => {
+    const userDb = integrationTestEnv()
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
+    const booking = lessonBooking({ id: 'booking-price-tamper', totalPrice: 0 });
+
+    const { newBalance, totalPrice } = await createBookingWithPayment(userDb, USER_ID, booking);
+
+    const bookingDoc = await getDoc(doc(userDb, 'bookings', booking.id));
+
+    expect(totalPrice).toBe(100);
+    expect(newBalance).toBe(0);
+    expect(bookingDoc.data()?.totalPrice).toBe(100);
   });
 
   it('rejects booking creation when the user has insufficient balance', async () => {
     const userDb = integrationTestEnv()
       .authenticatedContext(USER_ID, { email: 'user@example.com' })
       .firestore();
-    const booking = lessonBooking({ id: 'booking-too-expensive', totalPrice: 150 });
+    const booking = lessonBooking({ id: 'booking-too-expensive', durationHours: 3 });
 
-    await expect(createBookingWithPayment(userDb, USER_ID, booking, 150)).rejects.toBeInstanceOf(
+    await expect(createBookingWithPayment(userDb, USER_ID, booking)).rejects.toBeInstanceOf(
       InsufficientFundsError
     );
 
@@ -97,7 +115,7 @@ describe('booking transactions', () => {
       .firestore();
     const booking = lessonBooking();
 
-    await createBookingWithPayment(userDb, USER_ID, booking, 100);
+    await createBookingWithPayment(userDb, USER_ID, booking);
     const { refunded } = await cancelBookingWithRefund(userDb, booking.id);
 
     const userDoc = await getDoc(doc(userDb, 'users', USER_ID));
@@ -250,7 +268,7 @@ describe('booking transactions', () => {
       .firestore();
     const booking = lessonBooking();
 
-    await createBookingWithPayment(userDb, USER_ID, booking, 100);
+    await createBookingWithPayment(userDb, USER_ID, booking);
 
     const rescheduledBooking = { ...booking, date: '2026-12-03', time: '11:00' };
     const batch = writeBatch(userDb);

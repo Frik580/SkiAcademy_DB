@@ -12,7 +12,7 @@ interface BookingModalProps {
   onClose: () => void;
   instructor: Instructor | null;
   userProfile: UserProfile | null;
-  onBookingSuccess: (booking: Booking, totalCost: number) => Promise<void>;
+  onBookingSuccess: (booking: Booking) => Promise<number>;
   onOpenTopUp: () => void;
   courses?: Course[];
   onAuthSuccess?: (profile: UserProfile) => void;

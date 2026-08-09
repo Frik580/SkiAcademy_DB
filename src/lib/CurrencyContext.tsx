@@ -60,11 +60,9 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const setCurrency = (curr: Currency) => {
     setCurrencyState(curr);
-    setDoc(doc(db, 'resort_data', 'config'), { currency: curr }, { merge: true }).catch(
-      (err) => {
-        logger.error('Failed to update currency in Firestore:', err);
-      }
-    );
+    setDoc(doc(db, 'resort_data', 'config'), { currency: curr }, { merge: true }).catch((err) => {
+      logger.error('Failed to update currency in Firestore:', err);
+    });
   };
 
   const setUsdToKztRate = (rate: number) => {

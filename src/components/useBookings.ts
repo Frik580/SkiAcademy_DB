@@ -19,10 +19,7 @@ import {
   where,
   writeBatch,
 } from '../lib/firebase';
-import {
-  AVAILABILITY_SLOTS_COLLECTION,
-  isCourseBooking,
-} from '../lib/availabilitySlots';
+import { AVAILABILITY_SLOTS_COLLECTION, isCourseBooking } from '../lib/availabilitySlots';
 import {
   cancelBookingWithRefund,
   createBookingWithPayment,

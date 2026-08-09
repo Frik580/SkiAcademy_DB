@@ -5,10 +5,7 @@ import {
   AVAILABILITY_MIGRATION_SETTING,
   AVAILABILITY_SLOTS_COLLECTION,
 } from '../../src/lib/availabilitySlots';
-import {
-  AVAILABILITY_HOUR_LOCKS_COLLECTION,
-  buildHourLockIds,
-} from '../../src/lib/slotOverlap';
+import { AVAILABILITY_HOUR_LOCKS_COLLECTION, buildHourLockIds } from '../../src/lib/slotOverlap';
 import type { Booking } from '../../src/types';
 import {
   INSTRUCTOR_ID,

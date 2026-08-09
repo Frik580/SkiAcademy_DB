@@ -19,19 +19,13 @@ const slot = (overrides: Partial<AvailabilitySlot> = {}): AvailabilitySlot => ({
 describe('slotsOverlap', () => {
   it('detects partial overlap', () => {
     expect(
-      slotsOverlap(
-        { time: '10:00', durationHours: 2 },
-        { time: '09:00', durationHours: 2 }
-      )
+      slotsOverlap({ time: '10:00', durationHours: 2 }, { time: '09:00', durationHours: 2 })
     ).toBe(true);
   });
 
   it('allows adjacent slots that touch at the boundary', () => {
     expect(
-      slotsOverlap(
-        { time: '10:00', durationHours: 1 },
-        { time: '09:00', durationHours: 1 }
-      )
+      slotsOverlap({ time: '10:00', durationHours: 1 }, { time: '09:00', durationHours: 1 })
     ).toBe(false);
   });
 });
@@ -39,10 +33,9 @@ describe('slotsOverlap', () => {
 describe('hasOverlappingAvailabilitySlot', () => {
   it('detects overlap with an existing availability slot', () => {
     expect(
-      hasOverlappingAvailabilitySlot(
-        { time: '10:00', durationHours: 2 },
-        [slot({ time: '09:00', durationHours: 2 })]
-      )
+      hasOverlappingAvailabilitySlot({ time: '10:00', durationHours: 2 }, [
+        slot({ time: '09:00', durationHours: 2 }),
+      ])
     ).toBe(true);
   });
 

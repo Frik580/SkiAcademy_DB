@@ -187,12 +187,8 @@ describe('bookings', () => {
     const rescheduleBatch = writeBatch(db);
     rescheduleBatch.update(bookingRef, { date: '2026-12-03' });
     rescheduleBatch.update(slotRef, { date: '2026-12-03' });
-    rescheduleBatch.delete(
-      doc(db, 'availability_hour_locks', 'instructor-1__2026-12-02__10:00')
-    );
-    rescheduleBatch.delete(
-      doc(db, 'availability_hour_locks', 'instructor-1__2026-12-02__11:00')
-    );
+    rescheduleBatch.delete(doc(db, 'availability_hour_locks', 'instructor-1__2026-12-02__10:00'));
+    rescheduleBatch.delete(doc(db, 'availability_hour_locks', 'instructor-1__2026-12-02__11:00'));
     rescheduleBatch.set(doc(db, 'availability_hour_locks', 'instructor-1__2026-12-03__10:00'), {
       instructorId: 'instructor-1',
       date: '2026-12-03',
@@ -321,6 +317,18 @@ describe('user profiles and roles', () => {
     await assertSucceeds(
       updateDoc(profileRef, {
         balanceUSD: 200,
+        pendingWalletCredit: 0,
+      })
+    );
+  });
+
+  it('allows atomic wallet credits in a single update', async () => {
+    const db = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const profileRef = doc(db, 'users', USER_ID);
+
+    await assertSucceeds(
+      updateDoc(profileRef, {
+        balanceUSD: 150,
         pendingWalletCredit: 0,
       })
     );

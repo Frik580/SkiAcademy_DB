@@ -282,6 +282,23 @@ service cloud.firestore {
         request.resource.data.balanceUSD < previousBalance;
     }
 
+    function validAtomicWalletCreditApply() {
+      let previousBalance =
+        ('balanceUSD' in resource.data) && resource.data.balanceUSD is number
+          ? resource.data.balanceUSD
+          : 0;
+      let previousPending =
+        ('pendingWalletCredit' in resource.data) && resource.data.pendingWalletCredit is number
+          ? resource.data.pendingWalletCredit
+          : 0;
+      let credit = request.resource.data.balanceUSD - (previousBalance + previousPending);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balanceUSD', 'pendingWalletCredit']) &&
+        request.resource.data.pendingWalletCredit == 0 &&
+        credit >= 1 &&
+        credit <= 10000 &&
+        request.resource.data.balanceUSD == previousBalance + previousPending + credit;
+    }
+
     function validPendingWalletCreditPrepare() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pendingWalletCredit']) &&
         request.resource.data.pendingWalletCredit is number &&
@@ -337,6 +354,8 @@ service cloud.firestore {
         isOwner(userId) && validPendingWalletCreditPrepare()
       ) || (
         isOwner(userId) && validPendingWalletCreditApply()
+      ) || (
+        isOwner(userId) && validAtomicWalletCreditApply()
       ) || (
         isInstructor() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([

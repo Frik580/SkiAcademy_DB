@@ -1,5 +1,5 @@
 import { doc, type Firestore, type WriteBatch } from 'firebase/firestore';
-import type { Booking } from '../types';
+import type { AvailabilitySlot, Booking } from '../types';
 import { timeStrToMinutes } from './availabilitySlots';
 
 export const AVAILABILITY_HOUR_LOCKS_COLLECTION = 'availability_hour_locks';

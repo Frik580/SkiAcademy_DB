@@ -267,5 +267,6 @@ export interface ResortConfig {
   slideIntervalSeconds?: number;
   slidesRandomOrder?: boolean;
   usdToKztRate?: number;
+  /** Global display currency for all clients (synced via Firestore). */
   currency?: 'USD' | 'KZT';
 }

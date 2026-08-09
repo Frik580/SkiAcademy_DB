@@ -17,36 +17,39 @@ interface CurrencyContextType {
   convertPrice: (usdAmount: number, kztAmount?: number) => number;
 }
 
+const DEFAULT_CURRENCY: Currency = 'USD';
 const DEFAULT_USD_TO_KZT_RATE = 500;
+const CURRENCY_STORAGE_KEY = 'alpine_glide_currency';
+const RATE_STORAGE_KEY = 'alpine_glide_usd_kzt_rate';
+
+const isCurrency = (value: unknown): value is Currency => value === 'USD' || value === 'KZT';
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
 
 export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currency, setCurrencyState] = useState<Currency>(() => {
-    const saved = localStorage.getItem('alpine_glide_currency');
-    return saved === 'KZT' || saved === 'USD' ? saved : 'USD';
-  });
+  const [currency, setCurrencyState] = useState<Currency>(DEFAULT_CURRENCY);
 
-  const [usdToKztRate, setUsdToKztRateState] = useState<number>(() => {
-    const savedRate = localStorage.getItem('alpine_glide_usd_kzt_rate');
-    const parsed = savedRate ? parseFloat(savedRate) : NaN;
-    return !isNaN(parsed) && parsed > 0 ? parsed : DEFAULT_USD_TO_KZT_RATE;
-  });
+  const [usdToKztRate, setUsdToKztRateState] = useState<number>(DEFAULT_USD_TO_KZT_RATE);
 
   useEffect(() => {
     try {
       const configRef = doc(db, 'resort_data', 'config');
       const unsub = onSnapshot(configRef, (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          if (data && typeof data.usdToKztRate === 'number' && data.usdToKztRate > 0) {
-            setUsdToKztRateState(data.usdToKztRate);
-            localStorage.setItem('alpine_glide_usd_kzt_rate', String(data.usdToKztRate));
-          }
-          if (data && (data.currency === 'USD' || data.currency === 'KZT')) {
-            setCurrencyState(data.currency);
-            localStorage.setItem('alpine_glide_currency', data.currency);
-          }
+        if (!snap.exists()) {
+          setCurrencyState(DEFAULT_CURRENCY);
+          localStorage.setItem(CURRENCY_STORAGE_KEY, DEFAULT_CURRENCY);
+          return;
+        }
+
+        const data = snap.data();
+
+        const serverCurrency = isCurrency(data?.currency) ? data.currency : DEFAULT_CURRENCY;
+        setCurrencyState(serverCurrency);
+        localStorage.setItem(CURRENCY_STORAGE_KEY, serverCurrency);
+
+        if (typeof data?.usdToKztRate === 'number' && data.usdToKztRate > 0) {
+          setUsdToKztRateState(data.usdToKztRate);
+          localStorage.setItem(RATE_STORAGE_KEY, String(data.usdToKztRate));
         }
       });
       return () => unsub();
@@ -57,7 +60,6 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const setCurrency = (curr: Currency) => {
     setCurrencyState(curr);
-    localStorage.setItem('alpine_glide_currency', curr);
     setDoc(doc(db, 'resort_data', 'config'), { currency: curr }, { merge: true }).catch(
       (err) => {
         logger.error('Failed to update currency in Firestore:', err);
@@ -68,7 +70,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const setUsdToKztRate = (rate: number) => {
     if (rate > 0) {
       setUsdToKztRateState(rate);
-      localStorage.setItem('alpine_glide_usd_kzt_rate', String(rate));
+      localStorage.setItem(RATE_STORAGE_KEY, String(rate));
     }
   };
 

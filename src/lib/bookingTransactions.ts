@@ -1,17 +1,27 @@
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
+  query,
   runTransaction,
+  where,
+  type DocumentReference,
   type Firestore,
   type Transaction,
 } from 'firebase/firestore';
-import { Booking, Course } from '../types';
+import { AvailabilitySlot, Booking, Course } from '../types';
 import {
   AVAILABILITY_SLOTS_COLLECTION,
   blocksInstructorAvailability,
   isCourseBooking,
   toAvailabilitySlot,
 } from './availabilitySlots';
+import {
+  AVAILABILITY_HOUR_LOCKS_COLLECTION,
+  buildHourLockIds,
+  hasOverlappingAvailabilitySlot,
+} from './slotOverlap';
 import { applyPendingWalletCredit } from './walletCredit';
 
 export class InsufficientFundsError extends Error {
@@ -21,9 +31,27 @@ export class InsufficientFundsError extends Error {
   }
 }
 
+export class BookingSlotOverlapError extends Error {
+  constructor() {
+    super('Instructor slot is no longer available');
+    this.name = 'BookingSlotOverlapError';
+  }
+}
+
 export interface BookingPaymentResult {
   newBalance: number;
   totalPrice: number;
+}
+
+function writeHourLocks(transaction: Transaction, firestore: Firestore, booking: Booking) {
+  for (const lockId of buildHourLockIds(booking)) {
+    transaction.set(doc(firestore, AVAILABILITY_HOUR_LOCKS_COLLECTION, lockId), {
+      instructorId: booking.instructorId,
+      date: booking.date,
+      time: booking.time,
+      bookingId: booking.id,
+    });
+  }
 }
 
 function writeBookingWithAvailability(
@@ -33,10 +61,61 @@ function writeBookingWithAvailability(
 ) {
   transaction.set(doc(firestore, 'bookings', booking.id), booking);
   if (blocksInstructorAvailability(booking)) {
+    writeHourLocks(transaction, firestore, booking);
     transaction.set(
       doc(firestore, AVAILABILITY_SLOTS_COLLECTION, booking.id),
       toAvailabilitySlot(booking)
     );
+  }
+}
+
+async function loadInstructorSlotRefs(
+  firestore: Firestore,
+  instructorId: string
+): Promise<DocumentReference[]> {
+  const slotsSnap = await getDocs(
+    query(
+      collection(firestore, AVAILABILITY_SLOTS_COLLECTION),
+      where('instructorId', '==', instructorId)
+    )
+  );
+  return slotsSnap.docs.map((slotDoc) => slotDoc.ref);
+}
+
+async function assertNoSlotOverlap(
+  transaction: Transaction,
+  firestore: Firestore,
+  booking: Pick<Booking, 'id' | 'instructorId' | 'date' | 'time' | 'durationHours' | 'status' | 'isDeleted'>,
+  existingSlotRefs: DocumentReference[],
+  excludeBookingId?: string
+): Promise<void> {
+  if (!blocksInstructorAvailability(booking)) return;
+
+  for (const lockId of buildHourLockIds(booking)) {
+    const lockRef = doc(firestore, AVAILABILITY_HOUR_LOCKS_COLLECTION, lockId);
+    const lockSnap = await transaction.get(lockRef);
+    if (lockSnap.exists() && lockSnap.data()?.bookingId !== excludeBookingId) {
+      throw new BookingSlotOverlapError();
+    }
+  }
+
+  const existingSlots: AvailabilitySlot[] = [];
+  for (const slotRef of existingSlotRefs) {
+    const slotSnap = await transaction.get(slotRef);
+    if (!slotSnap.exists()) continue;
+    const slot = slotSnap.data() as AvailabilitySlot;
+    if (slot.date !== booking.date) continue;
+    existingSlots.push(slot);
+  }
+
+  if (
+    hasOverlappingAvailabilitySlot(
+      { time: booking.time, durationHours: booking.durationHours },
+      existingSlots,
+      excludeBookingId
+    )
+  ) {
+    throw new BookingSlotOverlapError();
   }
 }
 
@@ -72,6 +151,8 @@ export async function createBookingWithPayment(
   userId: string,
   booking: Booking
 ): Promise<BookingPaymentResult> {
+  const existingSlotRefs = await loadInstructorSlotRefs(firestore, booking.instructorId);
+
   return runTransaction(firestore, async (transaction) => {
     const totalPrice = await resolveBookingTotalPrice(transaction, firestore, booking);
     const bookingToWrite = { ...booking, totalPrice };
@@ -83,6 +164,13 @@ export async function createBookingWithPayment(
     const currentBalance = userSnap.data().balanceUSD ?? 0;
     if (currentBalance < totalPrice) throw new InsufficientFundsError();
 
+    await assertNoSlotOverlap(
+      transaction,
+      firestore,
+      bookingToWrite,
+      existingSlotRefs,
+      booking.id
+    );
     writeBookingWithAvailability(transaction, firestore, bookingToWrite);
     transaction.update(userRef, { balanceUSD: currentBalance - totalPrice });
 
@@ -95,6 +183,7 @@ export async function addBookingWithPayment(
   booking: Booking
 ): Promise<BookingPaymentResult> {
   const isSystemBlock = booking.userId.startsWith('system_block_');
+  const existingSlotRefs = await loadInstructorSlotRefs(firestore, booking.instructorId);
 
   return runTransaction(firestore, async (transaction) => {
     const totalPrice = await resolveBookingTotalPrice(transaction, firestore, booking);
@@ -112,9 +201,37 @@ export async function addBookingWithPayment(
       transaction.update(userRef, { balanceUSD: newBalance });
     }
 
+    await assertNoSlotOverlap(
+      transaction,
+      firestore,
+      bookingToWrite,
+      existingSlotRefs,
+      booking.id
+    );
     writeBookingWithAvailability(transaction, firestore, bookingToWrite);
 
     return { newBalance, totalPrice };
+  });
+}
+
+export async function createGuestBooking(
+  firestore: Firestore,
+  booking: Booking
+): Promise<void> {
+  const existingSlotRefs = await loadInstructorSlotRefs(firestore, booking.instructorId);
+
+  return runTransaction(firestore, async (transaction) => {
+    const totalPrice = await resolveBookingTotalPrice(transaction, firestore, booking);
+    const bookingToWrite = { ...booking, totalPrice };
+
+    await assertNoSlotOverlap(
+      transaction,
+      firestore,
+      bookingToWrite,
+      existingSlotRefs,
+      booking.id
+    );
+    writeBookingWithAvailability(transaction, firestore, bookingToWrite);
   });
 }
 
@@ -148,12 +265,28 @@ export async function cancelBookingWithRefund(
     const refund =
       bookingData.status === 'completed' ? 0 : (refundAmount ?? bookingData.totalPrice ?? 0);
 
+    const hourLockRefs = !isCourseBooking(bookingData)
+      ? buildHourLockIds(bookingData).map((lockId) =>
+          doc(firestore, AVAILABILITY_HOUR_LOCKS_COLLECTION, lockId)
+        )
+      : [];
+    const existingHourLockRefs: typeof hourLockRefs = [];
+    for (const lockRef of hourLockRefs) {
+      const lockSnap = await transaction.get(lockRef);
+      if (lockSnap.exists()) {
+        existingHourLockRefs.push(lockRef);
+      }
+    }
+
     if (userRef && userSnap?.exists() && refund > 0) {
       transaction.update(userRef, { pendingWalletCredit: refund });
     }
 
     transaction.update(bookingRef, { status: 'cancelled' });
     if (!isCourseBooking(bookingData)) {
+      for (const lockRef of existingHourLockRefs) {
+        transaction.delete(lockRef);
+      }
       transaction.delete(doc(firestore, AVAILABILITY_SLOTS_COLLECTION, bookingId));
     }
 

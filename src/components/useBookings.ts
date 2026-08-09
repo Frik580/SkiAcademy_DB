@@ -29,6 +29,7 @@ import {
   cancelBookingWithRefund,
   createBookingWithPayment,
   addBookingWithPayment,
+  BookingSlotOverlapError,
   InsufficientFundsError,
   resolveBookingTotalPrice,
 } from '../lib/bookingTransactions';
@@ -222,6 +223,9 @@ export const useBookings = (
       if (error instanceof InsufficientFundsError) {
         throw new Error(t('insufficientFunds'));
       }
+      if (error instanceof BookingSlotOverlapError) {
+        throw new Error(t('slotUnavailable'));
+      }
       handleFirestoreError(error, OperationType.WRITE, `bookings/${booking.id} (transaction)`);
       throw error;
     }
@@ -356,6 +360,9 @@ export const useBookings = (
     } catch (error) {
       if (error instanceof InsufficientFundsError) {
         throw new Error(t('insufficientFunds'));
+      }
+      if (error instanceof BookingSlotOverlapError) {
+        throw new Error(t('slotUnavailable'));
       }
       handleFirestoreError(error, OperationType.WRITE, `bookings/${booking.id}/add`);
       throw error;

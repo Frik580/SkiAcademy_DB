@@ -11,7 +11,7 @@ import {
 import { useNotifications } from '../PushNotificationHub';
 import { useLanguage, parseCourseDates, getDifficultyLabel } from '../../lib/LanguageContext';
 import { logger } from '../../lib/logger';
-import { db, collection, query, getDocs, where, doc, writeBatch } from '../../lib/firebase';
+import { db, collection, query, getDocs, where } from '../../lib/firebase';
 import {
   AVAILABILITY_SLOTS_COLLECTION,
   blocksInstructorAvailability,
@@ -22,6 +22,7 @@ import {
   toAvailabilitySlot,
   toLocalDateStr,
 } from '../../lib/availabilitySlots';
+import { BookingSlotOverlapError, createGuestBooking } from '../../lib/bookingTransactions';
 
 export interface BookingModalInput {
   isOpen: boolean;
@@ -338,19 +339,19 @@ export const useBookingModal = ({
     };
 
     try {
-      const batch = writeBatch(db);
-      batch.set(doc(db, 'bookings', guestBooking.id), guestBooking);
-      if (blocksInstructorAvailability(guestBooking)) {
-        batch.set(
-          doc(db, AVAILABILITY_SLOTS_COLLECTION, guestBooking.id),
-          toAvailabilitySlot(guestBooking)
-        );
-      }
-      await batch.commit();
+      await createGuestBooking(db, guestBooking);
       addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       onClose();
     } catch (err) {
+      if (err instanceof BookingSlotOverlapError) {
+        addNotification(
+          'error',
+          t('slotUnavailable'),
+          `${targetInstructor.name} ${t('instructorAlreadyBooked')}`
+        );
+        return;
+      }
       logger.error('Error submitting guest booking to Firestore:', err);
       try {
         const existingStr = localStorage.getItem('alpine_glide_bookings_admin');

@@ -1,4 +1,4 @@
-import { doc, getDoc, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   AVAILABILITY_SLOTS_COLLECTION,
@@ -6,6 +6,7 @@ import {
   toAvailabilitySlot,
 } from '../../src/lib/availabilitySlots';
 import {
+  BookingSlotOverlapError,
   InsufficientFundsError,
   cancelBookingWithRefund,
   createBookingWithPayment,
@@ -14,6 +15,7 @@ import type { Booking } from '../../src/types';
 import {
   INSTRUCTOR_ID,
   OWNER_ID,
+  OTHER_USER_ID,
   USER_ID,
   clearIntegrationFirestore,
   integrationTestEnv,
@@ -89,6 +91,43 @@ describe('booking transactions', () => {
     expect(totalPrice).toBe(100);
     expect(newBalance).toBe(0);
     expect(bookingDoc.data()?.totalPrice).toBe(100);
+  });
+
+  it('rejects booking creation when the instructor slot already overlaps', async () => {
+    const userDb = integrationTestEnv()
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
+    const otherUserDb = integrationTestEnv()
+      .authenticatedContext(OTHER_USER_ID, { email: 'other@example.com' })
+      .firestore();
+
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'users', OTHER_USER_ID), {
+        ...userProfile(OTHER_USER_ID, 'other@example.com', 'user'),
+        balanceUSD: 100,
+      });
+    });
+
+    const firstBooking = lessonBooking({ id: 'booking-first' });
+    await createBookingWithPayment(userDb, USER_ID, firstBooking);
+
+    const overlappingBooking = lessonBooking({
+      id: 'booking-overlap',
+      userId: OTHER_USER_ID,
+      time: '11:00',
+      durationHours: 2,
+    });
+
+    await expect(
+      createBookingWithPayment(otherUserDb, OTHER_USER_ID, overlappingBooking)
+    ).rejects.toBeInstanceOf(BookingSlotOverlapError);
+
+    const overlapDoc = await getDoc(doc(otherUserDb, 'bookings', overlappingBooking.id));
+    const otherUserDoc = await getDoc(doc(otherUserDb, 'users', OTHER_USER_ID));
+
+    expect(overlapDoc.exists()).toBe(false);
+    expect(otherUserDoc.data()?.balanceUSD).toBe(100);
   });
 
   it('rejects booking creation when the user has insufficient balance', async () => {

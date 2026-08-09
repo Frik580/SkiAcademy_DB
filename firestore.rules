@@ -559,6 +559,37 @@ service cloud.firestore {
       );
     }
 
+    // Hour-level locks used to prevent double-booking the same instructor slot.
+    match /availability_hour_locks/{lockId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAdmin() || (
+        isAuthenticated() &&
+        request.resource.data.keys().hasAll(['instructorId', 'date', 'time', 'bookingId']) &&
+        existsAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        )
+      );
+
+      allow delete: if isAdmin() || (
+        isAuthenticated() &&
+        resource.data.bookingId is string &&
+        exists(/databases/$(database)/documents/bookings/$(resource.data.bookingId)) &&
+        (
+          isOwner(
+            get(
+              /databases/$(database)/documents/bookings/$(resource.data.bookingId)
+            ).data.userId
+          ) ||
+          isAssignedInstructor(
+            get(
+              /databases/$(database)/documents/bookings/$(resource.data.bookingId)
+            ).data
+          )
+        )
+      );
+    }
+
     // Settings
     match /settings/{settingId} {
       allow read: if true;

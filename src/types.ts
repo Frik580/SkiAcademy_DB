@@ -101,6 +101,8 @@ export interface Booking {
   recommendations?: LessonRecommendation[];
   /** IDs of recommendations marked done by the client */
   completedRecommendationIds?: string[];
+  /** UTC ISO timestamp when the lesson ends; used for server-side auto-completion. */
+  endsAt?: string;
 }
 
 export interface AvailabilitySlot {

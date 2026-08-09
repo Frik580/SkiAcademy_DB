@@ -20,6 +20,7 @@
     "test:firestore": "firebase emulators:exec --only firestore \"vitest run tests/firestore.rules.test.ts tests/integration --no-file-parallelism --environment node\"",
     "test:firestore-enrollment": "firebase emulators:exec --only firestore \"vitest run tests/firestore.rules.test.ts tests/integration/courseEnrollment.test.ts tests/integration/courseEnrollmentRegression.test.ts --no-file-parallelism --environment node\"",
     "deploy:rules": "firebase deploy --only firestore:rules",
+    "deploy:functions": "firebase deploy --only functions",
     "test:storage-rules": "firebase emulators:exec --only storage \"vitest run tests/storage.rules.test.ts --no-file-parallelism --environment node\"",
     "test:emulators": "firebase emulators:exec --only firestore,storage \"vitest run tests/firestore.rules.test.ts tests/integration tests/storage.rules.test.ts --no-file-parallelism --environment node\"",
     "test": "npm run test:unit && npm run test:emulators",

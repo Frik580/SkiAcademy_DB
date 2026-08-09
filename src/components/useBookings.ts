@@ -36,23 +36,22 @@ import {
 } from '../lib/activityLog';
 import { createNotificationForUser } from '../lib/notifications';
 import { buildNotification, translateKey } from '../lib/notificationText';
-import { parseCourseEndDateTime, useLanguage } from '../lib/LanguageContext';
+import { useLanguage } from '../lib/LanguageContext';
 import { Booking, Instructor, UserProfile } from '../types';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
 import { QUERY_LIMITS } from '../lib/queryLimits';
 import { logger } from '../lib/logger';
 import { toggleCompletedRecommendationIds } from '../lib/lessonRecommendations';
 import { clearStudentBookings, clearCancelledBookings } from '../lib/clearStudentBookings';
+import {
+  autoCompleteEligibleBookings,
+  queryOverdueBookings,
+} from '../lib/autoCompleteBookings';
+import { isBookingEligibleForAutoComplete } from '../lib/bookingEndsAt';
 
-type SetUserProfile = (profile: UserProfile | null) => void;
-
-export const useBookings = (
-  firebaseUser: User | null,
-  userProfile: UserProfile | null,
-  setUserProfile: SetUserProfile
-) => {
+export const useBookings = (firebaseUser: User | null, userProfile: UserProfile | null) => {
   const { addNotification } = useNotificationHub();
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bookingsLoaded, setBookingsLoaded] = useState(false);
   const [deletedCompletedStats, setDeletedCompletedStats] = useState({ revenue: 0, count: 0 });
@@ -125,94 +124,59 @@ export const useBookings = (
   }, [firebaseUser, userProfile?.instructorId, userProfile?.role]);
 
   const autoCompleteRunningRef = useRef(false);
+  const lastAutoCompleteAtRef = useRef(0);
 
   useEffect(() => {
-    if (!firebaseUser || bookings.length === 0) return;
+    if (!firebaseUser || !bookingsLoaded) return;
 
-    const checkAndCompleteLessons = async () => {
-      if (autoCompleteRunningRef.current) return;
-      autoCompleteRunningRef.current = true;
-
-      const now = new Date();
-      const candidateBookings = bookings.filter((booking) => {
-        if (booking.status !== 'confirmed' && booking.status !== 'pending_cancellation') {
-          return false;
-        }
-
-        let endsAt: Date | null = null;
-
-        if (isCourseBooking(booking)) {
-          // Group course booking: completion time is the end of the last day of the course
-          endsAt = parseCourseEndDateTime(booking.date);
-        } else {
-          // Individual lesson booking: date is YYYY-MM-DD
-          const parts = booking.date.split('-');
-          if (parts.length === 3) {
-            const [year, month, day] = parts.map(Number);
-            if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-              const [hour, minute] = (booking.time || '00:00').split(':').map(Number);
-              const startsAt = new Date(year, month - 1, day, hour || 0, minute || 0, 0);
-              if (!isNaN(startsAt.getTime())) {
-                endsAt = new Date(
-                  startsAt.getTime() + (booking.durationHours || 1) * 60 * 60 * 1000
-                );
-              }
-            }
-          }
-        }
-
-        if (!endsAt || isNaN(endsAt.getTime())) {
-          return false; // Cannot determine end date, do not auto-complete
-        }
-
-        return now >= endsAt;
-      });
-
-      for (const booking of candidateBookings) {
-        try {
-          const batch = writeBatch(db);
-          batch.update(doc(db, 'bookings', booking.id), { status: 'completed' });
-          if (!isCourseBooking(booking)) {
-            batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id));
-          }
-          await batch.commit();
-          if (firebaseUser) {
-            await logActivityForUser(
-              booking.userId,
-              firebaseUser.uid,
-              'booking_completed',
-              buildBookingCompletedMetadata(booking, []),
-              activityLogId.bookingCompleted(booking.id)
-            );
-          }
-          addNotification(
-            'success',
-            t('lessonAutoCompleted'),
-            `${t('lessonAutoCompletedDesc')} ${booking.instructorName} ${t('lessonAutoCompletedSuffix')}`
-          );
-        } catch (error) {
-          logger.error(`Failed to auto-complete booking ${booking.id}:`, error);
-        }
+    const runAutoComplete = async () => {
+      const now = Date.now();
+      if (autoCompleteRunningRef.current || now - lastAutoCompleteAtRef.current < 30_000) {
+        return;
       }
 
-      autoCompleteRunningRef.current = false;
+      autoCompleteRunningRef.current = true;
+      lastAutoCompleteAtRef.current = now;
+
+      try {
+        const candidates = new Map<string, Booking>();
+        for (const booking of bookings) {
+          if (isBookingEligibleForAutoComplete(booking)) {
+            candidates.set(booking.id, booking);
+          }
+        }
+
+        if (userProfile?.role === 'admin') {
+          const overdueBookings = await queryOverdueBookings(db);
+          for (const booking of overdueBookings) {
+            candidates.set(booking.id, booking);
+          }
+        }
+
+        await autoCompleteEligibleBookings(db, [...candidates.values()], firebaseUser.uid, {
+          onCompleted: (booking) => {
+            addNotification(
+              'success',
+              t('lessonAutoCompleted'),
+              `${t('lessonAutoCompletedDesc')} ${booking.instructorName} ${t('lessonAutoCompletedSuffix')}`
+            );
+          },
+        });
+      } catch (error) {
+        logger.error('Auto-complete sweep failed:', error);
+      } finally {
+        autoCompleteRunningRef.current = false;
+      }
     };
 
-    // Run once on mount and then every minute; auto-completion is not time-critical.
-    const interval = window.setInterval(checkAndCompleteLessons, 60000);
-    return () => window.clearInterval(interval);
-  }, [addNotification, bookings, firebaseUser, language, t]);
+    void runAutoComplete();
+  }, [addNotification, bookings, bookingsLoaded, firebaseUser, t, userProfile?.role]);
 
   const handleBookingSuccess = async (booking: Booking): Promise<number> => {
     if (!userProfile || !firebaseUser) return 0;
 
     try {
-      const { newBalance, totalPrice } = await createBookingWithPayment(
-        db,
-        firebaseUser.uid,
-        booking
-      );
-      setUserProfile({ ...userProfile, balanceUSD: newBalance });
+      const { totalPrice } = await createBookingWithPayment(db, firebaseUser.uid, booking);
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       return totalPrice;
     } catch (error) {
@@ -315,13 +279,9 @@ export const useBookings = (
     const isGuest = bookingOwnerId.startsWith('guest_');
 
     try {
-      const { refunded, alreadyCancelled } = await cancelBookingWithRefund(db, id, refundAmount);
+      const { alreadyCancelled } = await cancelBookingWithRefund(db, id, refundAmount);
 
       if (alreadyCancelled) return;
-
-      if (firebaseUser && bookingOwnerId === firebaseUser.uid && userProfile) {
-        setUserProfile({ ...userProfile, balanceUSD: userProfile.balanceUSD + refunded });
-      }
 
       if (userProfile?.role === 'admin') {
         if (!isSystemBlock && !isGuest) {
@@ -544,10 +504,6 @@ export const useBookings = (
         isGuest: false,
       });
     });
-
-    if (updatedTargetBalance !== null && userProfile && userProfile.uid === targetUserId) {
-      setUserProfile({ ...userProfile, balanceUSD: updatedTargetBalance });
-    }
 
     // 2. If guest had a profile record or skill scores, merge scores and reviews
     if (oldUserId && (oldUserId.startsWith('guest_') || booking.isGuest)) {

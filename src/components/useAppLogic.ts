@@ -76,8 +76,8 @@ export const useAppLogic = (
     DEFAULT_NOTIFICATION_RETENTION_DAYS
   );
 
-  const bookingLogic = useBookings(firebaseUser, userProfile, setUserProfile);
-  const courseLogic = useCourses(firebaseUser, userProfile, setUserProfile, bookingLogic.bookings);
+  const bookingLogic = useBookings(firebaseUser, userProfile);
+  const courseLogic = useCourses(firebaseUser, userProfile, bookingLogic.bookings);
   const notificationLogic = useDbNotifications(firebaseUser, notificationRetentionDays);
   const activityLogLogic = useActivityLog(firebaseUser);
 
@@ -232,8 +232,7 @@ export const useAppLogic = (
 
   const handlePaymentSuccess = async (amount: number) => {
     if (!userProfile || !firebaseUser) return;
-    const balanceUSD = await grantAndApplyWalletCredit(db, firebaseUser.uid, amount);
-    setUserProfile({ ...userProfile, balanceUSD });
+    await grantAndApplyWalletCredit(db, firebaseUser.uid, amount);
   };
 
   const handleAddReview = async (

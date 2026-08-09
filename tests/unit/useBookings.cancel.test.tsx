@@ -8,13 +8,11 @@ const {
   mockAddNotification,
   mockCreateNotificationForUser,
   mockHandleFirestoreError,
-  mockSetUserProfile,
 } = vi.hoisted(() => ({
   mockCancelBookingWithRefund: vi.fn(),
   mockAddNotification: vi.fn(),
   mockCreateNotificationForUser: vi.fn(),
   mockHandleFirestoreError: vi.fn(),
-  mockSetUserProfile: vi.fn(),
 }));
 
 const confirmedBooking: Booking = {
@@ -41,6 +39,11 @@ const adminProfile: UserProfile = {
 };
 
 const firebaseUser = { uid: 'admin-1', email: 'admin@example.com' } as any;
+
+vi.mock('../../src/lib/autoCompleteBookings', () => ({
+  autoCompleteEligibleBookings: vi.fn().mockResolvedValue(0),
+  queryOverdueBookings: vi.fn().mockResolvedValue([]),
+}));
 
 vi.mock('../../src/lib/bookingTransactions', () => ({
   cancelBookingWithRefund: (...args: any[]) => mockCancelBookingWithRefund(...args),
@@ -98,9 +101,7 @@ describe('useBookings.handleCancel', () => {
   });
 
   it('cancels a course booking as admin, notifies the client, and shows a success toast', async () => {
-    const { result } = renderHook(() =>
-      useBookings(firebaseUser, adminProfile, mockSetUserProfile)
-    );
+    const { result } = renderHook(() => useBookings(firebaseUser, adminProfile));
 
     await waitFor(() => {
       expect(result.current.bookings).toHaveLength(1);
@@ -126,10 +127,9 @@ describe('useBookings.handleCancel', () => {
       'lessonCancelled',
       expect.stringContaining('Freeride Camp')
     );
-    expect(mockSetUserProfile).not.toHaveBeenCalled();
   });
 
-  it('updates the local profile balance when the current user cancels their own booking', async () => {
+  it('does not update local profile balance when the current user cancels their own booking', async () => {
     const clientProfile: UserProfile = {
       ...adminProfile,
       uid: 'client-1',
@@ -138,7 +138,7 @@ describe('useBookings.handleCancel', () => {
     };
     const clientUser = { uid: 'client-1', email: 'client@example.com' } as any;
 
-    const { result } = renderHook(() => useBookings(clientUser, clientProfile, mockSetUserProfile));
+    const { result } = renderHook(() => useBookings(clientUser, clientProfile));
 
     await waitFor(() => {
       expect(result.current.bookings).toHaveLength(1);
@@ -148,10 +148,6 @@ describe('useBookings.handleCancel', () => {
       await result.current.handleCancel('booking-course-1');
     });
 
-    expect(mockSetUserProfile).toHaveBeenCalledWith({
-      ...clientProfile,
-      balanceUSD: 250,
-    });
     expect(mockCreateNotificationForUser).not.toHaveBeenCalled();
     expect(mockAddNotification).not.toHaveBeenCalled();
   });
@@ -159,9 +155,7 @@ describe('useBookings.handleCancel', () => {
   it('does nothing when the booking is already cancelled', async () => {
     mockCancelBookingWithRefund.mockResolvedValue({ refunded: 0, alreadyCancelled: true });
 
-    const { result } = renderHook(() =>
-      useBookings(firebaseUser, adminProfile, mockSetUserProfile)
-    );
+    const { result } = renderHook(() => useBookings(firebaseUser, adminProfile));
 
     await waitFor(() => {
       expect(result.current.bookings).toHaveLength(1);

@@ -23,6 +23,7 @@ import {
   hasOverlappingAvailabilitySlot,
 } from './slotOverlap';
 import { applyWalletCreditInTransaction } from './walletCredit';
+import { computeBookingEndsAtIso, withBookingEndsAt } from './bookingEndsAt';
 
 export class InsufficientFundsError extends Error {
   constructor() {
@@ -59,7 +60,7 @@ function writeBookingWithAvailability(
   firestore: Firestore,
   booking: Booking
 ) {
-  transaction.set(doc(firestore, 'bookings', booking.id), booking);
+  transaction.set(doc(firestore, 'bookings', booking.id), withBookingEndsAt(booking));
   if (blocksInstructorAvailability(booking)) {
     writeHourLocks(transaction, firestore, booking);
     transaction.set(
@@ -279,6 +280,10 @@ export async function rescheduleBooking(
     }
 
     if (Object.keys(bookingUpdate).length > 0) {
+      const endsAt = computeBookingEndsAtIso(nextBooking);
+      if (endsAt) {
+        bookingUpdate.endsAt = endsAt;
+      }
       transaction.update(bookingRef, bookingUpdate);
     }
 

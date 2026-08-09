@@ -1,9 +1,17 @@
 # Dependencies
-/node_modules
+node_modules/
 
 # Vite
 .vite/
 /dist/
+
+# Firebase
+.firebase/
+firebase-debug.log
+ui-debug.log
+
+# Cloud Functions build output
+functions/lib/
 
 # TypeScript
 *.tsbuildinfo

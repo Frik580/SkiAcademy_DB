@@ -455,6 +455,7 @@ service cloud.firestore {
           'status',
           'date',
           'time',
+          'endsAt',
           'cancellationReason',
           'completedRecommendationIds'
         ]) &&
@@ -469,6 +470,7 @@ service cloud.firestore {
           'status',
           'date',
           'time',
+          'endsAt',
           'cancellationReason',
           'recommendations'
         ]) &&
@@ -489,6 +491,7 @@ service cloud.firestore {
           'status',
           'date',
           'time',
+          'endsAt',
           'cancellationReason'
         ])
       ) || (

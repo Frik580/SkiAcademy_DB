@@ -26,12 +26,9 @@ import { Booking, Course, UserProfile } from '../types';
 import { useNotifications as useNotificationHub } from './PushNotificationHub';
 import { logger } from '../lib/logger';
 
-type SetUserProfile = (profile: UserProfile | null) => void;
-
 export const useCourses = (
   firebaseUser: User | null,
   userProfile: UserProfile | null,
-  setUserProfile: SetUserProfile,
   bookings: Booking[]
 ) => {
   const { addNotification } = useNotificationHub();
@@ -153,14 +150,12 @@ export const useCourses = (
     }
 
     try {
-      const { newBalance, courseTitle } = await enrollInCourse(
+      const { courseTitle } = await enrollInCourse(
         db,
         activeUser.uid,
         courseId,
         language
       );
-
-      setUserProfile({ ...activeProfile, balanceUSD: newBalance });
 
       addNotification(
         'success',

@@ -101,28 +101,38 @@ service firebase.storage {
       );
     }
 
+    function isValidImageUpload() {
+      return request.resource.contentType.matches('image/.*') &&
+        request.resource.size < 5 * 1024 * 1024;
+    }
+
+    function isValidVideoUpload() {
+      return request.resource.contentType.matches('video/.*') &&
+        request.resource.size < 50 * 1024 * 1024;
+    }
+
+    function isValidChatMediaUpload() {
+      return isValidImageUpload() || isValidVideoUpload();
+    }
+
     match /avatars/{uid} {
       allow read: if true;
-      allow write: if isOwner(uid) && request.resource.contentType.matches('image/.*');
+      allow write: if isOwner(uid) && isValidImageUpload();
     }
 
     match /courses/{courseId} {
       allow read: if true;
-      allow write: if isAdmin() && request.resource.contentType.matches('image/.*');
+      allow write: if isAdmin() && isValidImageUpload();
     }
 
     match /instructors/{instructorId} {
       allow read: if true;
-      allow write: if isAdmin() && request.resource.contentType.matches('image/.*');
+      allow write: if isAdmin() && isValidImageUpload();
     }
 
     match /chat/{bookingId}/{allPaths=**} {
       allow read: if isBookingParticipant(bookingId);
-      allow write: if isBookingParticipant(bookingId) &&
-        (
-          request.resource.contentType.matches('image/.*') ||
-          request.resource.contentType.matches('video/.*')
-        );
+      allow write: if isBookingParticipant(bookingId) && isValidChatMediaUpload();
     }
 
     match /{allPaths=**} {

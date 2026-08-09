@@ -4,8 +4,8 @@ import {
   initializeTestEnvironment,
   RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { getBytes, ref, uploadString } from 'firebase/storage';
-import { afterAll, beforeAll, describe, it } from 'vitest';
+import { getBytes, ref, uploadBytes, uploadString } from 'firebase/storage';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const PROJECT_ID = 'ski-academy-storage-rules-test';
 
@@ -43,5 +43,24 @@ describe('storage default deny', () => {
     const authenticatedStorage = testEnv.authenticatedContext('user-1').storage();
 
     await assertFails(getBytes(ref(authenticatedStorage, 'existing/image.txt')));
+  });
+});
+
+describe('storage upload size limits', () => {
+  const imageBytes = (size: number) => new Uint8Array(size);
+  const imageUpload = (storage: ReturnType<RulesTestEnvironment['authenticatedContext']>['storage'], size: number) =>
+    uploadBytes(ref(storage, 'avatars/user-1'), imageBytes(size), {
+      contentType: 'image/jpeg',
+    });
+
+  it('allows avatar images under 5 MB', async () => {
+    const storage = testEnv.authenticatedContext('user-1').storage();
+    await expect(imageUpload(storage, 5 * 1024 * 1024 - 1)).resolves.toBeDefined();
+  });
+
+  it('rejects avatar images at or above 5 MB', async () => {
+    const storage = testEnv.authenticatedContext('user-1').storage();
+    await assertFails(imageUpload(storage, 5 * 1024 * 1024));
+    await assertFails(imageUpload(storage, 5 * 1024 * 1024 + 1));
   });
 });

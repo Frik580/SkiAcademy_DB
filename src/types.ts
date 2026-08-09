@@ -50,6 +50,7 @@ export interface Instructor {
   bio: string;
   avatarUrl: string;
   pricePerHour: number;
+  pricePerHourKZT?: number;
   isAvailable: boolean;
   /** Public contact phone — used by students to call the coach during lessons. */
   phoneNumber?: string;
@@ -121,6 +122,7 @@ export interface Course {
   totalSeats: number;
   availableSeats: number;
   price: number;
+  priceKZT?: number;
   bgImageUrl: string;
   isHidden?: boolean;
   instructorIds?: string[];
@@ -264,4 +266,5 @@ export interface ResortConfig {
   slides?: CustomHeroSlide[];
   slideIntervalSeconds?: number;
   slidesRandomOrder?: boolean;
+  usdToKztRate?: number;
 }

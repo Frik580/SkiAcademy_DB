@@ -128,7 +128,14 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
           </div>
         )}
       </td>
-      <td className="px-4 py-2 text-[var(--ink)] font-bold">${course.price}</td>
+      <td className="px-4 py-2 text-[var(--ink)] font-bold">
+        <div>${course.price}</div>
+        {course.priceKZT ? (
+          <div className="text-[10px] text-[var(--ink-dim)] font-normal font-mono">
+            {course.priceKZT.toLocaleString()} ₸
+          </div>
+        ) : null}
+      </td>
       <td className="px-4 py-2 text-center">
         <div className="flex items-center justify-center gap-1">
           <button

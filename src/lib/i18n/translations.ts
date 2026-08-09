@@ -1583,6 +1583,11 @@ export const translations = {
     clientBalanceLabel: 'Balance:',
     insufficientBalanceBadge: 'Insufficient funds',
     costLabel: 'Cost:',
+    currencyLabel: 'Currency',
+    ratePerHourKztLabel: 'Rate (₸ KZT/hr)',
+    exchangeRateLabel: 'USD → KZT Exchange Rate (1 $ = ? ₸)',
+    exchangeRateDesc: 'Default conversion rate when a fixed KZT price is not specified.',
+    priceKztLabel: 'Price (₸ KZT)',
   },
   ru: {
     // Navbar
@@ -3163,6 +3168,12 @@ export const translations = {
     clientBalanceLabel: 'Баланс:',
     insufficientBalanceBadge: 'Недостаточно средств',
     costLabel: 'Стоимость:',
+    currencyLabel: 'Валюта',
+    ratePerHourKztLabel: 'Ставка (₸ KZT/ч)',
+    exchangeRateLabel: 'Курс конвертации USD → KZT (1 $ = ? ₸)',
+    exchangeRateDesc:
+      'Используется как курс по умолчанию при конвертации цен из USD в KZT, если фикс-цена в KZT не указана.',
+    priceKztLabel: 'Стоимость (₸ KZT)',
   },
 } as const;
 

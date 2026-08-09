@@ -9,6 +9,7 @@ import {
 } from '../lib/LanguageContext';
 import { Booking, Course, UserProfile } from '../types';
 import { courseLevelBadgeLabel, getCourseLevelCardBadgeClass } from '../lib/courseLevelStyles';
+import { useCurrency } from '../lib/CurrencyContext';
 import {
   getCourseEnrollmentBooking,
   hasBookingRecommendations,
@@ -50,6 +51,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   className = '',
 }) => {
   const { t } = useLanguage();
+  const { formatPrice } = useCurrency();
   const course = translateCourse(rawCourse, language);
   const isEnrolled = bookings.some(
     (b) =>
@@ -146,7 +148,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
         <div className="mt-3 space-y-4 pt-1">
           <div className="space-y-1">
             <p className="text-[1.75rem] sm:text-3xl font-serif font-light tracking-[-0.03em] text-[var(--ink)] leading-none">
-              ${course.price}
+              {formatPrice(rawCourse.price, rawCourse.priceKZT)}
             </p>
             <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--ink-dim)]/60 font-sans">
               {t('perCourse')}

@@ -3,12 +3,14 @@ import { Sparkles, ShieldAlert, Wallet, Loader2 } from 'lucide-react';
 import { useBookingModal } from './useBookingModal';
 import { BookingSelectors } from './BookingSelectors';
 import { BookingOverlapWarnings } from './BookingOverlapWarnings';
+import { useCurrency } from '../../lib/CurrencyContext';
 
 interface AuthBookingFormProps {
   workspace: ReturnType<typeof useBookingModal>;
 }
 
 export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) => {
+  const { formatPrice } = useCurrency();
   const {
     t,
     language,
@@ -86,7 +88,8 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
         <div className="flex justify-between text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider">
           <span>{t('hourlyRate')}:</span>
           <span className="font-bold text-[var(--ink)]">
-            ${targetInstructor.pricePerHour} / {t('hr')}
+            {formatPrice(targetInstructor.pricePerHour, targetInstructor.pricePerHourKZT)} /{' '}
+            {t('hr')}
           </span>
         </div>
         <div className="flex justify-between text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider">
@@ -99,7 +102,12 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
             {t('totalLessonFee')}
           </span>
           <span className="text-xl font-extrabold text-sky-600 dark:text-sky-400 font-mono">
-            ${totalCost}
+            {formatPrice(
+              totalCost,
+              targetInstructor.pricePerHourKZT
+                ? targetInstructor.pricePerHourKZT * duration
+                : undefined
+            )}
           </span>
         </div>
       </div>
@@ -114,7 +122,8 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
           <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] uppercase tracking-wider">
             <Wallet className="w-3.5 h-3.5" />
             <span>
-              {t('walletBalancePrefix')} <strong>${userBalance}</strong> {t('walletSufficient')}
+              {t('walletBalancePrefix')} <strong>{formatPrice(userBalance)}</strong>{' '}
+              {t('walletSufficient')}
             </span>
           </div>
         ) : (
@@ -122,7 +131,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
             <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-mono text-[10px] uppercase tracking-wider font-medium">
               <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
               <span>
-                {t('insufficientCreditsPrefix')} <strong>${userBalance}</strong>)
+                {t('insufficientCreditsPrefix')} <strong>{formatPrice(userBalance)}</strong>)
               </span>
             </div>
             <button

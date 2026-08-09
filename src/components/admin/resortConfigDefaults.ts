@@ -33,4 +33,16 @@ export const FALLBACK_SLIDES: CustomHeroSlide[] = [
     line3Ru: 'ЭКСПЕРТНЫЙ КОНТРОЛЬ: Раскройте легкость скольжения на любых склонах курорта.',
     backgroundImage: 'wall3',
   },
+  {
+    id: '4',
+    line1En: 'The art of carving',
+    line1Ru: 'Искусство карвинга',
+    line2En: 'Feel the real carving.',
+    line2Ru: 'Научим получать удовольствие от катания независимо от вашего уровня.',
+    line3En:
+      'Learn to corner on edges without slipping, with complete speed control and enjoyment from every descent. Private lessons for all skill levels.',
+    line3Ru:
+      'Научитесь проходить повороты на кантах без срыва, с полным контролем скорости и удовольствием от каждого спуска. Индивидуальные занятия для любого уровня подготовки.',
+    backgroundImage: 'https://storage.yandexcloud.net/carve/images/about.jpg',
+  },
 ];

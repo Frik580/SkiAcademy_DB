@@ -116,8 +116,8 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
         </select>
       </div>
 
-      {/* Grid for Seats & Price */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Grid for Seats & Price (USD / KZT) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="space-y-1.5">
           <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
             {t('totalSeats')}
@@ -134,7 +134,7 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
 
         <div className="space-y-1.5">
           <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
-            {t('priceUsd')}
+            {t('priceUsd')} ($ USD)
           </label>
           <input
             type="number"
@@ -142,6 +142,19 @@ export const CourseBasicInfoSection: React.FC<CourseBasicInfoSectionProps> = ({ 
             required
             value={coursePrice}
             onChange={(e) => setCoursePrice(Number(e.target.value))}
+            className="w-full px-3 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[10px] text-[var(--ink-dim)] uppercase block">
+            {t('priceKztLabel') || 'Стоимость (₸ KZT)'}
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={form.coursePriceKZT}
+            onChange={(e) => form.setCoursePriceKZT(e.target.value ? Number(e.target.value) : '')}
             className="w-full px-3 py-2 border border-[var(--border)] bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
           />
         </div>

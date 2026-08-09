@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CreditCard, X, Check, ArrowRight, Loader2 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage } from '../lib/LanguageContext';
+import { useCurrency } from '../lib/CurrencyContext';
 import { BodyScrollLock } from './ui/BodyScrollLock';
 
 interface PaymentGatewayProps {
@@ -19,6 +20,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
 }) => {
   const { addNotification } = useNotifications();
   const { t } = useLanguage();
+  const { formatPrice } = useCurrency();
   const [selectedAmount, setSelectedAmount] = useState<number>(100);
   const [cardNumber, setCardNumber] = useState<string>('');
   const [expiry, setExpiry] = useState<string>('');
@@ -125,11 +127,14 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
               <h4 className="font-serif text-lg font-light text-[var(--ink)]">{t('thankYou')}</h4>
               <p className="text-xs text-[var(--ink-dim)] mt-1 font-mono uppercase tracking-wide">
                 {t('refreshedWallet')}{' '}
-                <strong className="text-[var(--ink)] font-bold">${selectedAmount}</strong>.
+                <strong className="text-[var(--ink)] font-bold">
+                  {formatPrice(selectedAmount)}
+                </strong>
+                .
               </p>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/10 border border-[var(--border)] rounded-none text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] mt-4">
-                <CreditCard className="w-3.5 h-3.5 text-[var(--ink-dim)]" /> {t('newBalance')}: $
-                {currentBalance + selectedAmount}
+                <CreditCard className="w-3.5 h-3.5 text-[var(--ink-dim)]" /> {t('newBalance')}:{' '}
+                {formatPrice(currentBalance + selectedAmount)}
               </div>
             </div>
           </div>
@@ -141,7 +146,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
                 {t('currentBalance')}:
               </span>
               <span className="text-xl font-extrabold text-[var(--ink)] font-mono">
-                ${currentBalance}
+                {formatPrice(currentBalance)}
               </span>
             </div>
 
@@ -162,7 +167,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
                         : 'border-[var(--border)] hover:border-[var(--ink)] hover:bg-black/5 text-[var(--ink-dim)]'
                     }`}
                   >
-                    ${amt}
+                    {formatPrice(amt)}
                   </button>
                 ))}
               </div>
@@ -254,7 +259,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
                 </>
               ) : (
                 <>
-                  {t('authorizeTopUp')} ${selectedAmount}
+                  {t('authorizeTopUp')} {formatPrice(selectedAmount)}
                   <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}

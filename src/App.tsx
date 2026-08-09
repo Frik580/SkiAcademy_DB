@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { registerFirestoreErrorListener, db, doc, updateDoc } from './lib/firebase';
 import { Instructor, Course } from './types';
 import { LanguageProvider, useLanguage, translateCourse } from './lib/LanguageContext';
+import { CurrencyProvider } from './lib/CurrencyContext';
 
 import { useTheme } from './components/useTheme';
 import { useAuth } from './components/useAuth';
@@ -500,9 +501,11 @@ const AppContent: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <LanguageProvider>
-      <NotificationProvider>
-        <AppContent />
-      </NotificationProvider>
+      <CurrencyProvider>
+        <NotificationProvider>
+          <AppContent />
+        </NotificationProvider>
+      </CurrencyProvider>
     </LanguageProvider>
   );
 };

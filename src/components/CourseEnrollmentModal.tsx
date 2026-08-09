@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import { X, User, Phone, Mail, Send, Loader2 } from 'lucide-react';
 import { Course, UserProfile, Booking } from '../types';
 import { useLanguage, getGroupCourseLabel, getGroupScheduleLabel } from '../lib/LanguageContext';
+import { useCurrency } from '../lib/CurrencyContext';
 import { db, setDoc, doc } from '../lib/firebase';
 import { useNotifications } from './PushNotificationHub';
 import { Auth } from './Auth';
@@ -27,6 +28,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   onEnroll,
 }) => {
   const { t, language } = useLanguage();
+  const { formatPrice } = useCurrency();
   const { addNotification } = useNotifications();
 
   const [unauthTab, setUnauthTab] = useState<'guest' | 'auth'>('guest');
@@ -127,7 +129,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                 {t('courseEnrollment')}
               </h3>
               <p className="text-xs text-[var(--ink-dim)] mt-0.5">
-                {getGroupCourseLabel(course.title, language)} • ${course.price}
+                {getGroupCourseLabel(course.title, language)} •{' '}
+                {formatPrice(course.price, course.priceKZT)}
               </p>
             </div>
             <button
@@ -237,7 +240,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       {t('courseTotalTuition')}
                     </span>
                     <span className="text-lg font-extrabold text-[var(--accent)] font-mono theme-air:font-sans">
-                      ${course.price}
+                      {formatPrice(course.price, course.priceKZT)}
                     </span>
                   </div>
                   <div className="text-xs text-[var(--ink-dim)]">📅 {course.dates}</div>

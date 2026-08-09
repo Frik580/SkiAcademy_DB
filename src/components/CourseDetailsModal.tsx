@@ -23,6 +23,7 @@ import {
 import { Course, Instructor, UserProfile } from '../types';
 import { getCourseLevelModalClass } from '../lib/courseLevelStyles';
 import { useLanguage, translateInstructorName, splitCourseDates } from '../lib/LanguageContext';
+import { useCurrency } from '../lib/CurrencyContext';
 import { logger } from '../lib/logger';
 import { BodyScrollLock } from './ui/BodyScrollLock';
 
@@ -277,6 +278,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
   onEnroll,
 }) => {
   const { language, t } = useLanguage();
+  const { formatPrice } = useCurrency();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -839,7 +841,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                       </span>
                     </div>
                     <span className="text-3xl font-serif text-[var(--ink)] font-light">
-                      ${course.price}
+                      {formatPrice(course.price, course.priceKZT)}
                     </span>
                   </div>
 

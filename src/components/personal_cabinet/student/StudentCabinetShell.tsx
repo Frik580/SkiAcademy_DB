@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Booking, Course, Instructor, Review, UserProfile, ActivityLog } from '../../../types';
 import { SkillConfig, DEFAULT_SKILL_CONFIG, calculateSkillProgress } from '../../../lib/skillData';
@@ -26,8 +26,46 @@ import {
   StudentProfilePreferencesPanel,
 } from './StudentProfilePanels';
 import { StudentCabinetTabBar, studentCabinetFooterHeight } from './StudentCabinetUI';
-import { StudentCabinetTab } from './studentCabinetUtils';
+import { isProfileTab, resolveStudentBottomNavTab, StudentCabinetTab } from './studentCabinetUtils';
 import { StudentCabinetResortSnapshot } from './StudentHomeBottomSections';
+
+const getSwipeNeighborSequence = (
+  currentTab: StudentCabinetTab,
+  instructorPickerOpen: boolean
+): { prevTab: StudentCabinetTab | 'book' | null; nextTab: StudentCabinetTab | 'book' | null } => {
+  if (instructorPickerOpen) {
+    return { prevTab: 'settings', nextTab: null };
+  }
+
+  if (isProfileTab(currentTab) && currentTab !== 'settings') {
+    return { prevTab: 'settings', nextTab: null };
+  }
+  if (currentTab === 'history') {
+    return { prevTab: 'settings', nextTab: null };
+  }
+  if (currentTab === 'development' || currentTab === 'calendar' || currentTab === 'courses') {
+    return { prevTab: 'home', nextTab: 'coach' };
+  }
+  if (currentTab === 'instructors') {
+    return { prevTab: 'training', nextTab: 'settings' };
+  }
+
+  const bottomTab = resolveStudentBottomNavTab(currentTab);
+  const sequence: (StudentCabinetTab | 'book')[] = [
+    'home',
+    'training',
+    'coach',
+    'settings',
+    'book',
+  ];
+  const currentIndex = sequence.indexOf(bottomTab);
+  if (currentIndex === -1) return { prevTab: null, nextTab: null };
+
+  const prevTab = currentIndex > 0 ? sequence[currentIndex - 1] : null;
+  const nextTab = currentIndex < sequence.length - 1 ? sequence[currentIndex + 1] : null;
+
+  return { prevTab, nextTab };
+};
 
 export interface StudentCabinetShellProps {
   userProfile: UserProfile;
@@ -83,13 +121,16 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     }
   }, [props.syncTabWithRoute, routeTab]);
 
-  const goToTab = (next: StudentCabinetTab) => {
-    if (props.syncTabWithRoute) {
-      navigate(cabinetPathForTab(next));
-      return;
-    }
-    setTab(next);
-  };
+  const goToTab = useCallback(
+    (next: StudentCabinetTab) => {
+      if (props.syncTabWithRoute) {
+        navigate(cabinetPathForTab(next));
+        return;
+      }
+      setTab(next);
+    },
+    [props.syncTabWithRoute, navigate]
+  );
 
   const activeTab = props.syncTabWithRoute ? routeTab : tab;
 
@@ -160,6 +201,104 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     onUploadSuccess: props.onUploadSuccess,
     onUploadError: props.onUploadError,
   };
+
+  useEffect(() => {
+    let touchStart: { x: number; y: number; time: number; ignore: boolean } | null = null;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) {
+        touchStart = null;
+        return;
+      }
+
+      const touch = e.touches[0];
+      const target = touch.target as HTMLElement | null;
+
+      let ignore = false;
+
+      // Check if inside another modal overlay (not instructor picker)
+      const modalOverlay = target?.closest('.ui-modal-overlay, [role="dialog"], [data-modal-open]');
+      if (modalOverlay && !target?.closest('[data-instructor-picker-modal]')) {
+        ignore = true;
+      }
+
+      let curr: HTMLElement | null = target;
+      while (curr && curr !== document.body) {
+        const tagName = curr.tagName ? curr.tagName.toLowerCase() : '';
+        if (['input', 'textarea', 'select'].includes(tagName)) {
+          ignore = true;
+          break;
+        }
+        if (curr.getAttribute && curr.getAttribute('data-no-swipe') === 'true') {
+          ignore = true;
+          break;
+        }
+        if (
+          !curr.hasAttribute('data-student-tab-bar') &&
+          curr.scrollWidth > curr.clientWidth + 20
+        ) {
+          const style = window.getComputedStyle(curr);
+          if (style.overflowX === 'auto' || style.overflowX === 'scroll') {
+            ignore = true;
+            break;
+          }
+        }
+        curr = curr.parentElement;
+      }
+
+      touchStart = {
+        x: touch.clientX,
+        y: touch.clientY,
+        time: Date.now(),
+        ignore,
+      };
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (!touchStart || touchStart.ignore) {
+        touchStart = null;
+        return;
+      }
+
+      const touch = e.changedTouches[0];
+      if (!touch) {
+        touchStart = null;
+        return;
+      }
+
+      const deltaX = touch.clientX - touchStart.x;
+      const deltaY = touch.clientY - touchStart.y;
+      const duration = Date.now() - touchStart.time;
+      touchStart = null;
+
+      if (duration > 800) return;
+
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+
+      if (absX >= 35 && absX > absY * 1.1) {
+        const { prevTab, nextTab } = getSwipeNeighborSequence(activeTab, instructorPickerOpen);
+        const targetTab = deltaX < 0 ? prevTab : deltaX > 0 ? nextTab : null;
+
+        if (targetTab === 'book') {
+          setInstructorPickerOpen(true);
+        } else if (targetTab) {
+          if (instructorPickerOpen) {
+            setInstructorPickerOpen(false);
+          }
+          goToTab(targetTab);
+        }
+      }
+    };
+
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [activeTab, instructorPickerOpen, goToTab]);
 
   return (
     <div
@@ -232,8 +371,12 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
 
       <StudentCabinetTabBar
         activeTab={activeTab}
-        onSelect={goToTab}
+        onSelect={(tab) => {
+          setInstructorPickerOpen(false);
+          goToTab(tab);
+        }}
         onOpenBooking={() => setInstructorPickerOpen(true)}
+        instructorPickerOpen={instructorPickerOpen}
       />
 
       <BookInstructorPickerModal

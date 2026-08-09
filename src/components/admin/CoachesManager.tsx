@@ -109,6 +109,7 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
   const [bio, setBio] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [pricePerHour, setPricePerHour] = useState(50);
+  const [pricePerHourKZT, setPricePerHourKZT] = useState<number | ''>(25000);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -186,8 +187,14 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
       avatarUrl: avatarUrl.trim() || defaultAvatar,
       pricePerHour: Number(pricePerHour),
       isAvailable: editingIns ? editingIns.isAvailable : true,
-      phoneNumber: phoneNumber.trim() || undefined,
     };
+
+    if (pricePerHourKZT !== '' && pricePerHourKZT !== null && !isNaN(Number(pricePerHourKZT))) {
+      insData.pricePerHourKZT = Number(pricePerHourKZT);
+    }
+    if (phoneNumber.trim()) {
+      insData.phoneNumber = phoneNumber.trim();
+    }
 
     try {
       if (editingIns) {
@@ -209,6 +216,7 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
       setAvatarUrl('');
       setLanguages('English, German');
       setPricePerHour(50);
+      setPricePerHourKZT(25000);
       setPhoneNumber('');
       setExperienceYears(5);
       setShowAddForm(false);
@@ -228,6 +236,7 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
     setBio(ins.bio);
     setAvatarUrl(ins.avatarUrl);
     setPricePerHour(ins.pricePerHour);
+    setPricePerHourKZT(ins.pricePerHourKZT ?? '');
     setPhoneNumber(ins.phoneNumber || '');
     setShowAddForm(true);
   };
@@ -341,7 +350,12 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
                     </span>
                   </td>
                   <td className="py-3 px-2 text-xs font-mono text-[var(--ink)]">
-                    ${ins.pricePerHour}
+                    <div>${ins.pricePerHour}</div>
+                    {ins.pricePerHourKZT ? (
+                      <div className="text-[10px] text-[var(--ink-dim)]">
+                        {ins.pricePerHourKZT.toLocaleString()} ₸
+                      </div>
+                    ) : null}
                   </td>
                   <td className="py-3 px-2">
                     <div className="flex items-center justify-center">
@@ -435,18 +449,34 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
                   </option>
                 </select>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
-                  {t('ratePerHourLabel')}
-                </label>
-                <input
-                  type="number"
-                  required
-                  value={pricePerHour}
-                  onChange={(e) => setPricePerHour(Number(e.target.value))}
-                  placeholder="75"
-                  className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] text-center rounded-none font-mono"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
+                    {t('ratePerHourLabel')} ($ USD)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={pricePerHour}
+                    onChange={(e) => setPricePerHour(Number(e.target.value))}
+                    placeholder="75"
+                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] text-center rounded-none font-mono"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
+                    {t('ratePerHourKztLabel') || 'Ставка (₸ KZT/ч)'}
+                  </label>
+                  <input
+                    type="number"
+                    value={pricePerHourKZT}
+                    onChange={(e) =>
+                      setPricePerHourKZT(e.target.value ? Number(e.target.value) : '')
+                    }
+                    placeholder="37500"
+                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] text-center rounded-none font-mono"
+                  />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">

@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { Instructor } from '../types';
 import { Star, Globe } from 'lucide-react';
 import { useLanguage, type TranslationKey } from '../lib/LanguageContext';
+import { useCurrency } from '../lib/CurrencyContext';
 
 interface InstructorCardProps {
   instructor: Instructor;
@@ -14,6 +15,7 @@ interface InstructorCardProps {
 export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardProps>(
   ({ instructor, onBook, onViewReviews, bookLabel }, ref) => {
     const { t } = useLanguage();
+    const { formatPrice } = useCurrency();
     const shouldReduceMotion = useReducedMotion();
 
     const getSpecialtyLabel = (spec: Instructor['specialty']) => {
@@ -126,7 +128,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
 
             <div className="flex flex-col sm:flex-row items-center justify-center md:justify-end gap-3 w-full md:w-auto">
               <div className="text-2xl font-serif text-[var(--ink)] font-light theme-air:text-3xl">
-                ${instructor.pricePerHour}{' '}
+                {formatPrice(instructor.pricePerHour, instructor.pricePerHourKZT)}{' '}
                 <span className="text-[9px] font-mono tracking-wider text-[var(--ink-dim)] theme-air:text-xs theme-air:font-sans">
                   / {t('hr')}
                 </span>

@@ -4,6 +4,7 @@ import { LogOut, Plus, Bell, Sun, Moon, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../lib/LanguageContext';
+import { useCurrency } from '../lib/CurrencyContext';
 import { getUserLevelBadgeClass } from '../lib/courseLevelStyles';
 import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../lib/workspaceRoutes';
 import { Logo } from './Logo';
@@ -30,6 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   unreadNotificationCount = 0,
 }) => {
   const { t, language, setLanguage } = useLanguage();
+  const { formatPrice } = useCurrency();
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminView = location.pathname === '/admin';
@@ -100,7 +102,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="ui-icon-btn px-2.5 sm:px-3 font-mono text-[10px] theme-air:font-sans theme-air:text-xs xl:theme-air:text-sm theme-air:normal-case shrink-0"
             title={t('switchLanguage')}
           >
-            {language === 'en' ? 'RU' : 'EN'}
+            {language === 'en' ? 'EN' : 'RU'}
           </button>
 
           {!userProfile && onSignInClick && (
@@ -157,7 +159,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="text-[var(--ink-dim)] uppercase hidden xl:inline theme-air:normal-case">
                   {t('balance')}:
                 </span>
-                <span className="font-bold">${userProfile.balanceUSD.toFixed(2)}</span>
+                <span className="font-bold">{formatPrice(userProfile.balanceUSD)}</span>
                 <button
                   onClick={onOpenTopUp}
                   title={t('topUpSimulated')}
@@ -311,7 +313,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="flex items-center justify-between gap-2 text-sm text-[var(--ink)]">
                     <span className="text-[var(--ink-dim)]">{t('balance')}:</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold">${userProfile.balanceUSD.toFixed(2)}</span>
+                      <span className="font-bold">{formatPrice(userProfile.balanceUSD)}</span>
                       <button
                         onClick={() => {
                           onOpenTopUp();
@@ -362,7 +364,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onClick={() => setLanguage(language === 'en' ? 'ru' : 'en')}
                   className="ui-icon-btn px-3 text-xs"
                 >
-                  {language === 'en' ? 'RU' : 'EN'}
+                  {language === 'en' ? 'EN' : 'RU'}
                 </button>
               </div>
               {!userProfile && onSignInClick && (

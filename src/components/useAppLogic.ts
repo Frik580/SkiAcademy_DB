@@ -15,6 +15,7 @@ import {
   updateDoc,
   writeBatch,
 } from '../lib/firebase';
+import { stripUndefinedFields } from '../lib/courseClone';
 import { canManageAdminRoles } from '../lib/accessControl';
 import { useLanguage } from '../lib/LanguageContext';
 import { DEFAULT_SKILL_CONFIG, SkillConfig } from '../lib/skillData';
@@ -277,11 +278,13 @@ export const useAppLogic = (
   };
 
   const handleAddInstructor = async (instructor: Instructor) => {
-    await setDoc(doc(db, 'instructors', instructor.id), instructor);
+    const cleanData = stripUndefinedFields(instructor as unknown as Record<string, unknown>);
+    await setDoc(doc(db, 'instructors', instructor.id), cleanData);
   };
 
   const handleUpdateInstructor = async (instructor: Instructor) => {
-    await setDoc(doc(db, 'instructors', instructor.id), instructor);
+    const cleanData = stripUndefinedFields(instructor as unknown as Record<string, unknown>);
+    await setDoc(doc(db, 'instructors', instructor.id), cleanData);
     const affectedBookings = bookingLogic.bookings.filter(
       (booking) => booking.instructorId === instructor.id
     );

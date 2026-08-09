@@ -57,12 +57,14 @@ interface StudentCabinetTabBarProps {
   activeTab: StudentCabinetTab;
   onSelect: (tab: StudentCabinetTab) => void;
   onOpenBooking?: () => void;
+  instructorPickerOpen?: boolean;
 }
 
 export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
   activeTab,
   onSelect,
   onOpenBooking,
+  instructorPickerOpen = false,
 }) => {
   const { t } = useLanguage();
 
@@ -75,7 +77,7 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
     labelKey: TranslationKey;
     icon: LucideIcon;
   }) => {
-    const active = resolveStudentBottomNavTab(activeTab) === id;
+    const active = !instructorPickerOpen && resolveStudentBottomNavTab(activeTab) === id;
     return (
       <button
         key={id}
@@ -111,8 +113,8 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
 
   const bar = (
     <nav
-      data-student-tab-bar
-      className="fixed inset-x-0 bottom-0 z-30 pointer-events-none flex flex-col"
+      data-student-tab-bar="true"
+      className="fixed inset-x-0 bottom-0 z-30 pointer-events-none flex flex-col touch-pan-y"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       aria-label={t('scNavHome')}
     >
@@ -135,9 +137,17 @@ export const StudentCabinetTabBar: React.FC<StudentCabinetTabBarProps> = ({
               onClick={onOpenBooking}
               aria-label={t('bookNow')}
               title={t('bookNow')}
-              className="relative z-20 group shrink-0 ml-2 sm:ml-4 flex items-center justify-center cursor-pointer transition-all duration-200 ease-out active:scale-90 hover:scale-105"
+              className={`relative z-20 group shrink-0 ml-2 sm:ml-4 flex items-center justify-center cursor-pointer transition-all duration-200 ease-out active:scale-90 hover:scale-105 ${
+                instructorPickerOpen ? 'scale-105' : ''
+              }`}
             >
-              <div className="relative flex items-center justify-center w-15 sm:w-12 h-15 sm:h-12 rounded-full bg-gradient-to-b from-[#34C759] via-[#30D158] to-[#28CD41] dark:from-[#30D158] dark:via-[#28CD41] dark:to-[#24B248] text-white shadow-[0_6px_20px_rgba(48,209,88,0.45),0_2px_8px_rgba(0,0,0,0.18),inset_0_1.5px_1.5px_rgba(255,255,255,0.5)] border border-[#34C759]/60 hover:shadow-[0_8px_24px_rgba(48,209,88,0.6),0_4px_12px_rgba(0,0,0,0.22),inset_0_1.5px_1.5px_rgba(255,255,255,0.6)] transition-all">
+              <div
+                className={`relative flex items-center justify-center w-15 sm:w-12 h-15 sm:h-12 rounded-full bg-gradient-to-b from-[#34C759] via-[#30D158] to-[#28CD41] dark:from-[#30D158] dark:via-[#28CD41] dark:to-[#24B248] text-white transition-all ${
+                  instructorPickerOpen
+                    ? 'border-2 border-white ring-2 ring-[#30D158] ring-offset-2 ring-offset-black/20 shadow-[0_8px_28px_rgba(48,209,88,0.7)]'
+                    : 'border border-[#34C759]/60 shadow-[0_6px_20px_rgba(48,209,88,0.45),0_2px_8px_rgba(0,0,0,0.18),inset_0_1.5px_1.5px_rgba(255,255,255,0.5)] hover:shadow-[0_8px_24px_rgba(48,209,88,0.6),0_4px_12px_rgba(0,0,0,0.22),inset_0_1.5px_1.5px_rgba(255,255,255,0.6)]'
+                }`}
+              >
                 <CalendarPlus className="h-5.5 w-5.5 shrink-0 stroke-[2.2]" aria-hidden />
               </div>
             </button>

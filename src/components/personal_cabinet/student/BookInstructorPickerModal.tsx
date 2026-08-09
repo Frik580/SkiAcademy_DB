@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Star, X } from 'lucide-react';
 import { Booking, Instructor, UserProfile } from '../../../types';
 import { useLanguage, translateInstructor } from '../../../lib/LanguageContext';
+import { useCurrency } from '../../../lib/CurrencyContext';
 import { getInstructorPickerGroups } from './studentCabinetUtils';
 import { BodyScrollLock } from '../../ui/BodyScrollLock';
 
@@ -27,6 +28,7 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
   onBrowseCourses,
 }) => {
   const { language, t } = useLanguage();
+  const { formatPrice } = useCurrency();
   const lang = language === 'ru' ? 'ru' : 'en';
 
   const groups = useMemo(
@@ -47,6 +49,7 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
       {open && (
         <div
           key="book-instructor-picker"
+          data-instructor-picker-modal="true"
           className="fixed inset-0 z-[70] overflow-hidden"
           role="presentation"
         >
@@ -139,7 +142,11 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
                                     {instructor.rating.toFixed(1)}
                                   </span>
                                   <span>
-                                    ${instructor.pricePerHour}/{t('hr')}
+                                    {formatPrice(
+                                      instructor.pricePerHour,
+                                      instructor.pricePerHourKZT
+                                    )}
+                                    /{t('hr')}
                                   </span>
                                 </span>
                               </span>

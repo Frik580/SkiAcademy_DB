@@ -53,6 +53,7 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
   >('');
   const [courseTotalSeats, setCourseTotalSeats] = useState(10);
   const [coursePrice, setCoursePrice] = useState(199);
+  const [coursePriceKZT, setCoursePriceKZT] = useState<number | ''>(99500);
   const [courseBgImageUrl, setCourseBgImageUrl] = useState('');
   const [courseIsHidden, setCourseIsHidden] = useState(false);
   const [selectedCourseInstructors, setSelectedCourseInstructors] = useState<string[]>([]);
@@ -134,6 +135,7 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
         );
       }
       if (coursePrice) courseData.price = Number(coursePrice);
+      if (coursePriceKZT !== '') courseData.priceKZT = Number(coursePriceKZT);
       if (courseBgImageUrl.trim()) courseData.bgImageUrl = courseBgImageUrl.trim();
       courseData.isHidden = courseIsHidden;
       if (selectedCourseInstructors.length > 0)
@@ -166,6 +168,7 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
       courseData.totalSeats = Number(courseTotalSeats) || 5;
       courseData.availableSeats = Number(courseTotalSeats) || 5;
       courseData.price = Number(coursePrice) || 150;
+      if (coursePriceKZT !== '') courseData.priceKZT = Number(coursePriceKZT);
       courseData.bgImageUrl =
         courseBgImageUrl.trim() ||
         'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800';
@@ -256,6 +259,7 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
     setCourseLevel(course.level || '');
     setCourseTotalSeats(course.totalSeats);
     setCoursePrice(course.price);
+    setCoursePriceKZT(course.priceKZT ?? '');
     setCourseBgImageUrl(course.bgImageUrl);
     setCourseIsHidden(!!course.isHidden);
     setSelectedCourseInstructors(course.instructorIds || []);
@@ -317,6 +321,7 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
     setCourseLevel('');
     setCourseTotalSeats(10);
     setCoursePrice(199);
+    setCoursePriceKZT(99500);
     setCourseBgImageUrl('');
     setCourseIsHidden(false);
     setSelectedCourseInstructors([]);
@@ -388,6 +393,8 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
     setCourseTotalSeats,
     coursePrice,
     setCoursePrice,
+    coursePriceKZT,
+    setCoursePriceKZT,
     courseBgImageUrl,
     setCourseBgImageUrl,
     courseIsHidden,

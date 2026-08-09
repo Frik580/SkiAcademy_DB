@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Check, X, Link2 } from 'lucide-react';
 import { Booking, UserProfile, Instructor } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
+import { useCurrency } from '../../lib/CurrencyContext';
 import { StatusBadge } from '../ui/StatusBadge';
 import { LinkGuestBookingModal } from './LinkGuestBookingModal';
 import { ApplePagination } from '../common/ApplePagination';
@@ -28,6 +29,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
   onRequestConfirm,
 }) => {
   const { t, language } = useLanguage();
+  const { formatPrice } = useCurrency();
 
   const [linkingBooking, setLinkingBooking] = useState<Booking | null>(null);
   const [monitorSearch, setMonitorSearch] = useState('');
@@ -381,7 +383,9 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                         </div>
                       )}
                     </td>
-                    <td className="py-3 px-2 font-mono text-[var(--ink)]">${b.totalPrice}</td>
+                    <td className="py-3 px-2 font-mono text-[var(--ink)]">
+                      {formatPrice(b.totalPrice)}
+                    </td>
                     <td className="py-3 px-2">
                       <StatusBadge status={b.status} size="xs" />
                     </td>

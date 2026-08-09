@@ -4,6 +4,7 @@ import {
   blocksInstructorAvailability,
   toAvailabilitySlot,
 } from './availabilitySlots';
+import { addHourLocksToBatch } from './slotOverlap';
 import { doc, getDoc, setDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import { Booking } from '../types';
 import { db } from './firebase';
@@ -23,6 +24,7 @@ export const migrateAvailabilitySlots = async (
   for (let index = 0; index < activeBookings.length; index += chunkSize) {
     const batch = writeBatch(firestore);
     for (const booking of activeBookings.slice(index, index + chunkSize)) {
+      addHourLocksToBatch(batch, firestore, booking);
       batch.set(
         doc(firestore, AVAILABILITY_SLOTS_COLLECTION, booking.id),
         toAvailabilitySlot(booking)

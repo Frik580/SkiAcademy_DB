@@ -1,10 +1,14 @@
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { migrateAvailabilitySlots } from '../../src/lib/availabilityMigration';
 import {
   AVAILABILITY_MIGRATION_SETTING,
   AVAILABILITY_SLOTS_COLLECTION,
 } from '../../src/lib/availabilitySlots';
+import {
+  AVAILABILITY_HOUR_LOCKS_COLLECTION,
+  buildHourLockIds,
+} from '../../src/lib/slotOverlap';
 import type { Booking } from '../../src/types';
 import {
   INSTRUCTOR_ID,
@@ -33,6 +37,18 @@ const lessonBooking = (overrides: Partial<Booking> = {}): Booking => ({
   ...overrides,
 });
 
+async function seedBookings(bookings: Booking[]) {
+  await seedData(async (context) => {
+    const db = context.firestore();
+    for (const booking of bookings) {
+      await setDoc(doc(db, 'bookings', booking.id), {
+        ...booking,
+        totalPrice: booking.userId.startsWith('system_block_') ? 0 : booking.totalPrice,
+      });
+    }
+  });
+}
+
 describe('availability slot migration', () => {
   beforeAll(async () => {
     await setupIntegrationTestEnvironment();
@@ -57,9 +73,10 @@ describe('availability slot migration', () => {
         instructorId: 'course_course-1',
         status: 'confirmed',
       }),
-      lessonBooking({ id: 'booking-block', userId: 'system_block_maintenance' }),
+      lessonBooking({ id: 'booking-block', userId: 'system_block_maintenance', time: '14:00' }),
     ];
 
+    await seedBookings(bookings);
     await migrateAvailabilitySlots(bookings, adminDb);
 
     const activeSlot = await getDoc(doc(adminDb, AVAILABILITY_SLOTS_COLLECTION, 'booking-active'));
@@ -76,6 +93,10 @@ describe('availability slot migration', () => {
       instructorId: INSTRUCTOR_ID,
       slotType: 'lesson',
     });
+    const activeHourLock = await getDoc(
+      doc(adminDb, AVAILABILITY_HOUR_LOCKS_COLLECTION, buildHourLockIds(bookings[0])[0])
+    );
+    expect(activeHourLock.exists()).toBe(true);
     expect(blockSlot.data()?.slotType).toBe('block');
     expect(cancelledSlot.exists()).toBe(false);
     expect(courseSlot.exists()).toBe(false);
@@ -87,8 +108,10 @@ describe('availability slot migration', () => {
 
   it('skips migration when the settings flag is already complete', async () => {
     const adminDb = integrationTestEnv().authenticatedContext(OWNER_ID).firestore();
+    const firstBooking = lessonBooking({ id: 'booking-first' });
 
-    await migrateAvailabilitySlots([lessonBooking({ id: 'booking-first' })], adminDb);
+    await seedBookings([firstBooking]);
+    await migrateAvailabilitySlots([firstBooking], adminDb);
 
     const firstMigration = await getDoc(doc(adminDb, 'settings', AVAILABILITY_MIGRATION_SETTING));
     expect(firstMigration.data()?.migratedCount).toBe(1);

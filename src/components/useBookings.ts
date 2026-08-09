@@ -21,9 +21,7 @@ import {
 } from '../lib/firebase';
 import {
   AVAILABILITY_SLOTS_COLLECTION,
-  blocksInstructorAvailability,
   isCourseBooking,
-  toAvailabilitySlot,
 } from '../lib/availabilitySlots';
 import {
   cancelBookingWithRefund,
@@ -31,6 +29,7 @@ import {
   addBookingWithPayment,
   BookingSlotOverlapError,
   InsufficientFundsError,
+  rescheduleBooking,
   resolveBookingTotalPrice,
 } from '../lib/bookingTransactions';
 import {
@@ -235,15 +234,15 @@ export const useBookings = (
     const booking = bookings.find((item) => item.id === id);
     if (!booking) return;
 
-    const batch = writeBatch(db);
-    batch.update(doc(db, 'bookings', id), { date: newDate, time: newTime });
-    if (blocksInstructorAvailability(booking)) {
-      batch.set(
-        doc(db, AVAILABILITY_SLOTS_COLLECTION, id),
-        toAvailabilitySlot({ ...booking, date: newDate, time: newTime })
-      );
+    try {
+      await rescheduleBooking(db, id, { date: newDate, time: newTime });
+    } catch (error) {
+      if (error instanceof BookingSlotOverlapError) {
+        throw new Error(t('slotUnavailable'));
+      }
+      handleFirestoreError(error, OperationType.WRITE, `bookings/${id}/reschedule`);
+      throw error;
     }
-    await batch.commit();
 
     if (userProfile?.role === 'admin') {
       await createNotificationForUser(
@@ -278,18 +277,21 @@ export const useBookings = (
       time,
     };
 
-    const batch = writeBatch(db);
-    batch.update(doc(db, 'bookings', id), {
-      instructorId: updatedBooking.instructorId,
-      instructorName: updatedBooking.instructorName,
-      instructorAvatar: updatedBooking.instructorAvatar,
-      date,
-      time,
-    });
-    if (blocksInstructorAvailability(updatedBooking)) {
-      batch.set(doc(db, AVAILABILITY_SLOTS_COLLECTION, id), toAvailabilitySlot(updatedBooking));
+    try {
+      await rescheduleBooking(db, id, {
+        instructorId: updatedBooking.instructorId,
+        instructorName: updatedBooking.instructorName,
+        instructorAvatar: updatedBooking.instructorAvatar,
+        date,
+        time,
+      });
+    } catch (error) {
+      if (error instanceof BookingSlotOverlapError) {
+        throw new Error(t('slotUnavailable'));
+      }
+      handleFirestoreError(error, OperationType.WRITE, `bookings/${id}/reassign`);
+      throw error;
     }
-    await batch.commit();
 
     if (userProfile?.role === 'admin') {
       const isSystemBlock = booking.userId.startsWith('system_block_');

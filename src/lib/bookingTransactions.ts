@@ -235,6 +235,87 @@ export async function createGuestBooking(
   });
 }
 
+export type BookingScheduleUpdates = {
+  date?: string;
+  time?: string;
+  instructorId?: string;
+  instructorName?: string;
+  instructorAvatar?: string;
+};
+
+export async function rescheduleBooking(
+  firestore: Firestore,
+  bookingId: string,
+  updates: BookingScheduleUpdates
+): Promise<void> {
+  const bookingRef = doc(firestore, 'bookings', bookingId);
+  const bookingSnap = await getDoc(bookingRef);
+  if (!bookingSnap.exists()) throw new Error('Booking does not exist.');
+
+  const currentBooking = bookingSnap.data() as Booking;
+  if (isCourseBooking(currentBooking)) {
+    throw new Error('Course bookings cannot be rescheduled.');
+  }
+
+  const nextInstructorId = updates.instructorId ?? currentBooking.instructorId;
+  const existingSlotRefs = await loadInstructorSlotRefs(firestore, nextInstructorId);
+
+  return runTransaction(firestore, async (transaction) => {
+    const freshSnap = await transaction.get(bookingRef);
+    if (!freshSnap.exists()) throw new Error('Booking does not exist.');
+
+    const bookingData = freshSnap.data() as Booking;
+    const nextBooking: Booking = {
+      ...bookingData,
+      date: updates.date ?? bookingData.date,
+      time: updates.time ?? bookingData.time,
+      instructorId: updates.instructorId ?? bookingData.instructorId,
+      instructorName: updates.instructorName ?? bookingData.instructorName,
+      instructorAvatar: updates.instructorAvatar ?? bookingData.instructorAvatar,
+    };
+
+    const oldHourLockRefs = buildHourLockIds(bookingData).map((lockId) =>
+      doc(firestore, AVAILABILITY_HOUR_LOCKS_COLLECTION, lockId)
+    );
+    const existingOldHourLockRefs: DocumentReference[] = [];
+    for (const lockRef of oldHourLockRefs) {
+      const lockSnap = await transaction.get(lockRef);
+      if (lockSnap.exists()) {
+        existingOldHourLockRefs.push(lockRef);
+      }
+    }
+
+    await assertNoSlotOverlap(transaction, firestore, nextBooking, existingSlotRefs, bookingId);
+
+    const bookingUpdate: Record<string, string> = {};
+    if (updates.date !== undefined) bookingUpdate.date = nextBooking.date;
+    if (updates.time !== undefined) bookingUpdate.time = nextBooking.time;
+    if (updates.instructorId !== undefined) {
+      bookingUpdate.instructorId = nextBooking.instructorId;
+      bookingUpdate.instructorName = nextBooking.instructorName;
+      bookingUpdate.instructorAvatar = nextBooking.instructorAvatar;
+    }
+
+    if (Object.keys(bookingUpdate).length > 0) {
+      transaction.update(bookingRef, bookingUpdate);
+    }
+
+    for (const lockRef of existingOldHourLockRefs) {
+      transaction.delete(lockRef);
+    }
+
+    if (blocksInstructorAvailability(nextBooking)) {
+      writeHourLocks(transaction, firestore, nextBooking);
+      transaction.set(
+        doc(firestore, AVAILABILITY_SLOTS_COLLECTION, bookingId),
+        toAvailabilitySlot(nextBooking)
+      );
+    } else {
+      transaction.delete(doc(firestore, AVAILABILITY_SLOTS_COLLECTION, bookingId));
+    }
+  });
+}
+
 export async function cancelBookingWithRefund(
   firestore: Firestore,
   bookingId: string,

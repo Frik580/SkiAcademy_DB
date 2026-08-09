@@ -2,7 +2,6 @@ import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   AVAILABILITY_SLOTS_COLLECTION,
-  blocksInstructorAvailability,
   toAvailabilitySlot,
 } from '../../src/lib/availabilitySlots';
 import {
@@ -10,7 +9,9 @@ import {
   InsufficientFundsError,
   cancelBookingWithRefund,
   createBookingWithPayment,
+  rescheduleBooking,
 } from '../../src/lib/bookingTransactions';
+import { addHourLocksToBatch } from '../helpers/hourLockFixtures';
 import type { Booking } from '../../src/types';
 import {
   INSTRUCTOR_ID,
@@ -254,6 +255,7 @@ describe('booking transactions', () => {
         balanceUSD: 0,
       });
       batch.set(doc(db, 'bookings', booking.id), booking);
+      addHourLocksToBatch(batch, db, booking);
       batch.set(doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id), toAvailabilitySlot(booking));
       await batch.commit();
     });
@@ -284,6 +286,7 @@ describe('booking transactions', () => {
       const db = context.firestore();
       const batch = writeBatch(db);
       batch.set(doc(db, 'bookings', guestBooking.id), guestBooking);
+      addHourLocksToBatch(batch, db, guestBooking);
       batch.set(
         doc(db, AVAILABILITY_SLOTS_COLLECTION, guestBooking.id),
         toAvailabilitySlot(guestBooking)
@@ -309,19 +312,7 @@ describe('booking transactions', () => {
 
     await createBookingWithPayment(userDb, USER_ID, booking);
 
-    const rescheduledBooking = { ...booking, date: '2026-12-03', time: '11:00' };
-    const batch = writeBatch(userDb);
-    batch.update(doc(userDb, 'bookings', booking.id), {
-      date: rescheduledBooking.date,
-      time: rescheduledBooking.time,
-    });
-    if (blocksInstructorAvailability(rescheduledBooking)) {
-      batch.set(
-        doc(userDb, AVAILABILITY_SLOTS_COLLECTION, booking.id),
-        toAvailabilitySlot(rescheduledBooking)
-      );
-    }
-    await batch.commit();
+    await rescheduleBooking(userDb, booking.id, { date: '2026-12-03', time: '11:00' });
 
     const bookingDoc = await getDoc(doc(userDb, 'bookings', booking.id));
     const slotDoc = await getDoc(doc(userDb, AVAILABILITY_SLOTS_COLLECTION, booking.id));
@@ -330,6 +321,36 @@ describe('booking transactions', () => {
       date: '2026-12-03',
       time: '11:00',
     });
-    expect(slotDoc.data()).toEqual(toAvailabilitySlot(rescheduledBooking));
+    expect(slotDoc.data()).toEqual(
+      toAvailabilitySlot({ ...booking, date: '2026-12-03', time: '11:00' })
+    );
+  });
+
+  it('rejects reschedule when the new slot overlaps another booking', async () => {
+    const userDb = integrationTestEnv()
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
+
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'users', USER_ID), {
+        ...userProfile(USER_ID, 'user@example.com', 'user'),
+        balanceUSD: 300,
+      });
+    });
+
+    await createBookingWithPayment(userDb, USER_ID, lessonBooking({ id: 'booking-occupied' }));
+    const movable = lessonBooking({
+      id: 'booking-movable',
+      date: '2026-12-03',
+      time: '08:00',
+    });
+    await createBookingWithPayment(userDb, USER_ID, movable);
+
+    await expect(
+      rescheduleBooking(userDb, movable.id, { date: '2026-12-02', time: '11:00' })
+    ).rejects.toBeInstanceOf(BookingSlotOverlapError);
+
+    const bookingDoc = await getDoc(doc(userDb, 'bookings', movable.id));
+    expect(bookingDoc.data()).toMatchObject({ date: '2026-12-03', time: '08:00' });
   });
 });

@@ -27,6 +27,7 @@ import {
   buildProdCourseSeed,
   prodBookingId,
 } from './helpers/courseEnrollmentFixtures';
+import { addHourLocksToBatch } from './helpers/hourLockFixtures';
 
 const PROJECT_ID = 'ski-academy-rules-test';
 const USER_ID = 'user-1';
@@ -170,6 +171,7 @@ describe('bookings', () => {
 
     const createBatch = writeBatch(db);
     createBatch.set(bookingRef, booking);
+    addHourLocksToBatch(createBatch, db, booking);
     createBatch.set(slotRef, {
       bookingId: 'booking-2',
       instructorId: 'instructor-1',
@@ -185,6 +187,24 @@ describe('bookings', () => {
     const rescheduleBatch = writeBatch(db);
     rescheduleBatch.update(bookingRef, { date: '2026-12-03' });
     rescheduleBatch.update(slotRef, { date: '2026-12-03' });
+    rescheduleBatch.delete(
+      doc(db, 'availability_hour_locks', 'instructor-1__2026-12-02__10:00')
+    );
+    rescheduleBatch.delete(
+      doc(db, 'availability_hour_locks', 'instructor-1__2026-12-02__11:00')
+    );
+    rescheduleBatch.set(doc(db, 'availability_hour_locks', 'instructor-1__2026-12-03__10:00'), {
+      instructorId: 'instructor-1',
+      date: '2026-12-03',
+      time: '10:00',
+      bookingId: 'booking-2',
+    });
+    rescheduleBatch.set(doc(db, 'availability_hour_locks', 'instructor-1__2026-12-03__11:00'), {
+      instructorId: 'instructor-1',
+      date: '2026-12-03',
+      time: '10:00',
+      bookingId: 'booking-2',
+    });
     await assertSucceeds(rescheduleBatch.commit());
 
     const cancelBatch = writeBatch(db);
@@ -215,6 +235,37 @@ describe('bookings', () => {
     createBatch.set(bookingRef, booking);
     createBatch.set(slotRef, {
       bookingId: 'booking-tampered',
+      instructorId: 'instructor-1',
+      date: '2026-12-02',
+      time: '10:00',
+      durationHours: 2,
+      slotType: 'lesson',
+    });
+    await assertFails(createBatch.commit());
+  });
+
+  it('rejects availability slots without a matching hour lock', async () => {
+    const db = testEnv.authenticatedContext(USER_ID).firestore();
+    const bookingRef = doc(db, 'bookings', 'booking-no-lock');
+    const slotRef = doc(db, 'availability_slots', 'booking-no-lock');
+    const booking = {
+      id: 'booking-no-lock',
+      userId: USER_ID,
+      instructorId: 'instructor-1',
+      instructorName: 'Instructor',
+      instructorAvatar: '',
+      date: '2026-12-02',
+      time: '10:00',
+      durationHours: 2,
+      totalPrice: 100,
+      status: 'confirmed',
+      difficulty: 'beginner',
+    };
+
+    const createBatch = writeBatch(db);
+    createBatch.set(bookingRef, booking);
+    createBatch.set(slotRef, {
+      bookingId: 'booking-no-lock',
       instructorId: 'instructor-1',
       date: '2026-12-02',
       time: '10:00',

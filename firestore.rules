@@ -153,6 +153,19 @@ service cloud.firestore {
         );
     }
 
+    function hourLockDocId(instructorId, date, time) {
+      return instructorId + '__' + date + '__' + time;
+    }
+
+    function availabilitySlotHasMatchingHourLock(bookingId, slot) {
+      return existsAfter(
+        /databases/$(database)/documents/availability_hour_locks/$(hourLockDocId(slot.instructorId, slot.date, slot.time))
+      ) &&
+      getAfter(
+        /databases/$(database)/documents/availability_hour_locks/$(hourLockDocId(slot.instructorId, slot.date, slot.time))
+      ).data.bookingId == bookingId;
+    }
+
     function validAvailabilitySlot(slot, bookingId, booking) {
       return slot.keys().hasAll([
           'bookingId',
@@ -497,7 +510,7 @@ service cloud.firestore {
     match /availability_slots/{bookingId} {
       allow read: if true;
 
-      allow create, update: if isAdmin() || (
+      allow create, update: if (
         existsAfter(/databases/$(database)/documents/bookings/$(bookingId)) &&
         validAvailabilitySlot(
           request.resource.data,
@@ -506,7 +519,9 @@ service cloud.firestore {
             /databases/$(database)/documents/bookings/$(bookingId)
           ).data
         ) &&
+        availabilitySlotHasMatchingHourLock(bookingId, request.resource.data) &&
         (
+          isAdmin() ||
           (
             isAuthenticated() &&
             (

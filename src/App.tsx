@@ -1,14 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { registerFirestoreErrorListener, db, doc, updateDoc } from './lib/firebase';
-import { Instructor, Course } from './types';
 import { LanguageProvider, useLanguage, translateCourse } from './lib/LanguageContext';
 import { CurrencyProvider } from './lib/CurrencyContext';
 
 import { useTheme } from './components/useTheme';
-import { useAuth } from './components/useAuth';
 import { useResortStats } from './components/useResortStats';
-import { useAppLogic } from './components/useAppLogic';
 import { useInstructorFilters } from './components/useInstructorFilters';
 import { AppRoutes } from './components/AppRoutes';
 import { OnboardingModal } from './components/OnboardingModal';
@@ -26,6 +23,13 @@ import { LazyLoad } from './components/LazyLoad';
 import { AlertCircle } from 'lucide-react';
 import { AppInitSkeleton, ModalSkeleton } from './components/ui/Skeleton';
 import { BodyScrollLock } from './components/ui/BodyScrollLock';
+
+import { setStoreContext } from './store/storeContext';
+import { useAuthStore, selectUnreadNotificationCount } from './store/authStore';
+import { useBookingStore } from './store/bookingStore';
+import { useCourseStore } from './store/courseStore';
+import { useUiStore } from './store/uiStore';
+import { useStoreSync } from './store/useStoreSync';
 
 const BookingModal = React.lazy(() =>
   import('./components/BookingModal').then(({ BookingModal }) => ({ default: BookingModal }))
@@ -60,14 +64,58 @@ const AppContent: React.FC = () => {
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
 
+  useEffect(() => {
+    setStoreContext({
+      notify: (type, title, message) => addNotification(type as 'error' | 'success' | 'info' | 'warning', title, message),
+      t: (key) => t(key as Parameters<typeof t>[0]),
+      language: () => language,
+    });
+  }, [addNotification, t, language]);
+
+  useStoreSync();
+
   const { theme, toggleTheme } = useTheme();
-  const {
-    firebaseUser,
-    userProfile,
-    authLoading,
-    setUserProfile,
-    handleSignOut: signOutHandler,
-  } = useAuth();
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const authLoading = useAuthStore((s) => s.authLoading);
+  const handleSignOut = useAuthStore((s) => s.handleSignOut);
+  const setUserProfile = useAuthStore((s) => s.setUserProfile);
+  const dismissedReviewIds = useAuthStore((s) => s.dismissedReviewIds);
+  const dbNotifications = useAuthStore((s) => s.dbNotifications);
+  const handleDismissReview = useAuthStore((s) => s.handleDismissReview);
+  const handlePaymentSuccess = useAuthStore((s) => s.handlePaymentSuccess);
+  const handleClearNotifications = useAuthStore((s) => s.handleClearNotifications);
+  const handleDeleteNotification = useAuthStore((s) => s.handleDeleteNotification);
+  const handleMarkNotificationsAsRead = useAuthStore((s) => s.handleMarkNotificationsAsRead);
+  const unreadNotificationCount = useAuthStore(selectUnreadNotificationCount);
+
+  const bookings = useBookingStore((s) => s.bookings);
+  const reviews = useBookingStore((s) => s.reviews);
+  const instructors = useBookingStore((s) => s.instructors);
+  const handleBookingSuccess = useBookingStore((s) => s.handleBookingSuccess);
+  const courses = useCourseStore((s) => s.courses);
+  const handleBookCourse = useCourseStore((s) => s.handleBookCourse);
+
+  const designTheme = useUiStore((s) => s.designTheme);
+  const onboardingEnabled = useUiStore((s) => s.onboardingEnabled);
+  const dbStatusWarning = useUiStore((s) => s.dbStatusWarning);
+  const setDbStatusWarning = useUiStore((s) => s.setDbStatusWarning);
+  const isTopUpOpen = useUiStore((s) => s.isTopUpOpen);
+  const setIsTopUpOpen = useUiStore((s) => s.setIsTopUpOpen);
+  const isNotifHistoryOpen = useUiStore((s) => s.isNotifHistoryOpen);
+  const setIsNotifHistoryOpen = useUiStore((s) => s.setIsNotifHistoryOpen);
+  const isOnboardingOpen = useUiStore((s) => s.isOnboardingOpen);
+  const setIsOnboardingOpen = useUiStore((s) => s.setIsOnboardingOpen);
+  const isAuthModalOpen = useUiStore((s) => s.isAuthModalOpen);
+  const setIsAuthModalOpen = useUiStore((s) => s.setIsAuthModalOpen);
+  const selectedInstructor = useUiStore((s) => s.selectedInstructor);
+  const setSelectedInstructor = useUiStore((s) => s.setSelectedInstructor);
+  const selectedCourseForAuth = useUiStore((s) => s.selectedCourseForAuth);
+  const setSelectedCourseForAuth = useUiStore((s) => s.setSelectedCourseForAuth);
+  const selectedCourseForDetails = useUiStore((s) => s.selectedCourseForDetails);
+  const setSelectedCourseForDetails = useUiStore((s) => s.setSelectedCourseForDetails);
+  const reviewsInstructor = useUiStore((s) => s.reviewsInstructor);
+  const setReviewsInstructor = useUiStore((s) => s.setReviewsInstructor);
+
   const {
     resortConfig,
     tempC,
@@ -82,89 +130,18 @@ const AppContent: React.FC = () => {
     lastUpdated,
     handleRefreshResortStats,
   } = useResortStats();
-  const appLogic = useAppLogic(firebaseUser, userProfile, setUserProfile);
-  const {
-    instructors,
-    reviews,
-    bookings,
-    usersList,
-    courses,
-    dbNotifications,
-    deletedCompletedStats,
-    filtersEnabled,
-    onboardingEnabled,
-    notificationRetentionDays,
-    designTheme,
-    skillConfig,
-    achievementsConfig,
-    handleUpdateSkillConfig,
-    handleUpdateAchievementsConfig,
-    handleSetDesignTheme,
-    dismissedReviewIds,
-    handleDismissReview,
-    handlePaymentSuccess,
-    handleBookingSuccess,
-    handleReschedule,
-    handleReassignInstructor,
-    handleAddCourse,
-    handleUpdateCourse,
-    handleDeleteCourse,
-    handleBookCourse,
-    handleCancel,
-    handleRequestCancel,
-    handleAddReview,
-    handleAddInstructor,
-    handleUpdateInstructor,
-    handleDeleteInstructor,
-    handleAddBooking,
-    handleDeleteBooking,
-    handleClearStudentBookings,
-    handleClearCancelledBookings,
-    handleUpdateUserRole,
-    handleAddUser,
-    handleUpdateUser,
-    handleDeleteUser,
-    handleConfirmBooking,
-    handleCompleteBooking,
-    handleLinkGuestBooking,
-    handleToggleRecommendation,
-    handleToggleSkillToday,
-    handlePinSkillsToday,
-    handleToggleTodayTaskComplete,
-    handleAddCustomTodayTask,
-    handleRemoveTodayTask,
-    handleClearNotifications,
-    handleDeleteNotification,
-    handleMarkNotificationsAsRead,
-    unreadNotificationCount,
-    activityLogs,
-    handleUpdateProfile,
-    handleToggleFilters,
-    handleToggleOnboarding,
-    handleSetNotificationRetentionDays,
-  } = appLogic;
 
   useEffect(() => {
     applyDesignThemeToDOM(designTheme);
   }, [designTheme]);
 
-  const filterState = useInstructorFilters(instructors, language, filtersEnabled);
+  useInstructorFilters(language);
 
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminRoute = location.pathname === '/admin';
   const isPaddedWorkspaceRoute = isAdminRoute || location.pathname === '/instructor';
   const isHomeRoute = location.pathname === '/';
-
-  const [dbStatusWarning, setDbStatusWarning] = useState<string | null>(null);
-  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
-  const [isNotifHistoryOpen, setIsNotifHistoryOpen] = useState(false);
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [selectedInstructor, setSelectedInstructor] = useState<Instructor | null>(null);
-  const [selectedCourseForAuth, setSelectedCourseForAuth] = useState<Course | null>(null);
-  const [selectedCourseForDetails, setSelectedCourseForDetails] = useState<Course | null>(null);
-  const [reviewsInstructor, setReviewsInstructor] = useState<Instructor | null>(null);
 
   const unreviewedCompletedCount = useMemo(() => {
     if (!userProfile?.uid) return 0;
@@ -204,7 +181,7 @@ const AppContent: React.FC = () => {
         setIsOnboardingOpen(true);
       }
     }
-  }, [userProfile, onboardingEnabled]);
+  }, [userProfile, onboardingEnabled, setIsOnboardingOpen]);
 
   const handleCompleteOnboarding = async () => {
     setIsOnboardingOpen(false);
@@ -213,7 +190,7 @@ const AppContent: React.FC = () => {
         await updateDoc(doc(db, 'users', userProfile.uid), {
           hasCompletedOnboarding: true,
         });
-        setUserProfile((prev) => (prev ? { ...prev, hasCompletedOnboarding: true } : prev));
+        setUserProfile({ ...userProfile, hasCompletedOnboarding: true });
       } catch (err) {
         logger.warn('Failed to save onboarding completion', err);
       }
@@ -238,11 +215,11 @@ const AppContent: React.FC = () => {
         `${t('dbRestricted')} (${t('operationLabel')}: ${op}, ${t('pathLabel')}: ${path})`
       );
     });
-  }, [t]);
+  }, [t, setDbStatusWarning]);
 
-  const handleSignOut = async () => {
+  const onSignOut = async () => {
     try {
-      await signOutHandler();
+      await handleSignOut();
       navigate('/', { replace: true });
       addNotification('info', t('loggedOut'), t('loggedOutDesc'));
     } catch (err) {
@@ -261,7 +238,7 @@ const AppContent: React.FC = () => {
         onOpenTopUp={() => setIsTopUpOpen(true)}
         onOpenNotifications={handleOpenNotifications}
         unreadNotificationCount={notificationBadgeCount}
-        onSignOut={handleSignOut}
+        onSignOut={onSignOut}
         theme={theme}
         onToggleTheme={toggleTheme}
         onSignInClick={() => setIsAuthModalOpen(true)}
@@ -288,14 +265,6 @@ const AppContent: React.FC = () => {
         )}
 
         <AppRoutes
-          firebaseUser={firebaseUser}
-          userProfile={userProfile}
-          language={language}
-          theme={theme}
-          filtersEnabled={filtersEnabled}
-          designTheme={designTheme}
-          skillConfig={skillConfig}
-          achievementsConfig={achievementsConfig}
           resortData={{
             resortConfig,
             tempC,
@@ -308,73 +277,9 @@ const AppContent: React.FC = () => {
             isResortLoading,
             lastUpdated,
           }}
-          instructors={instructors}
-          translatedInstructors={filterState.translatedInstructors}
-          filteredInstructors={filterState.filteredInstructors}
-          courses={courses}
-          bookings={bookings}
-          reviews={reviews}
-          usersList={usersList}
-          activityLogs={activityLogs}
-          deletedCompletedStats={deletedCompletedStats}
-          dismissedReviewIds={dismissedReviewIds}
-          searchQuery={filterState.searchQuery}
-          setSearchQuery={filterState.setSearchQuery}
-          selectedSpecialty={filterState.selectedSpecialty}
-          setSelectedSpecialty={filterState.setSelectedSpecialty}
-          selectedLanguage={filterState.selectedLanguage}
-          setSelectedLanguage={filterState.setSelectedLanguage}
-          sortBy={filterState.sortBy}
-          setSortBy={filterState.setSortBy}
-          resetFilters={filterState.resetFilters}
-          setSelectedInstructor={setSelectedInstructor}
-          setSelectedCourseForAuth={setSelectedCourseForAuth}
-          setSelectedCourseForDetails={setSelectedCourseForDetails}
-          setReviewsInstructor={setReviewsInstructor}
-          onboardingEnabled={onboardingEnabled}
-          notificationRetentionDays={notificationRetentionDays}
-          onToggleFilters={handleToggleFilters}
-          onToggleOnboarding={handleToggleOnboarding}
-          onSetNotificationRetentionDays={handleSetNotificationRetentionDays}
-          onSetDesignTheme={handleSetDesignTheme}
-          onUpdateSkillConfig={handleUpdateSkillConfig}
-          onUpdateAchievementsConfig={handleUpdateAchievementsConfig}
-          onBookCourse={handleBookCourse}
-          onReschedule={handleReschedule}
-          onReassignInstructor={handleReassignInstructor}
-          onCancel={handleRequestCancel}
-          onCancelBooking={handleCancel}
-          onAddReview={handleAddReview}
-          onToggleRecommendation={handleToggleRecommendation}
-          onToggleSkillToday={handleToggleSkillToday}
-          onPinSkillsToday={handlePinSkillsToday}
-          onToggleTodayTaskComplete={handleToggleTodayTaskComplete}
-          onAddCustomTodayTask={handleAddCustomTodayTask}
-          onRemoveTodayTask={handleRemoveTodayTask}
-          onDismissReview={handleDismissReview}
-          onSignOut={handleSignOut}
-          onUpdateProfile={handleUpdateProfile}
-          setUserProfile={setUserProfile}
-          onConfirmBooking={handleConfirmBooking}
-          onCompleteBooking={handleCompleteBooking}
-          onLinkGuestBooking={handleLinkGuestBooking}
-          onDeleteBooking={handleDeleteBooking}
-          onAddBooking={handleAddBooking}
-          onAddCourse={handleAddCourse}
-          onUpdateCourse={handleUpdateCourse}
-          onDeleteCourse={handleDeleteCourse}
-          onAddInstructor={handleAddInstructor}
-          onUpdateInstructor={handleUpdateInstructor}
-          onDeleteInstructor={handleDeleteInstructor}
-          onUpdateUserRole={handleUpdateUserRole}
-          onAddUser={handleAddUser}
-          onUpdateUser={handleUpdateUser}
-          onDeleteUser={handleDeleteUser}
-          onClearStudentBookings={handleClearStudentBookings}
-          onClearCancelledBookings={handleClearCancelledBookings}
           setIsFahrenheit={setIsFahrenheit}
           onRefreshResortStats={handleRefreshResortStats}
-          onOpenOnboarding={() => setIsOnboardingOpen(true)}
+          onSignOut={onSignOut}
         />
       </main>
 

@@ -18,10 +18,8 @@ describe('notification deletion and auto-expiry', () => {
       join(process.cwd(), 'src/components/useNotifications.ts'),
       'utf8'
     );
-    const appLogicSource = readFileSync(
-      join(process.cwd(), 'src/components/useAppLogic.ts'),
-      'utf8'
-    );
+    const uiStoreSource = readFileSync(join(process.cwd(), 'src/store/uiStore.ts'), 'utf8');
+    const authStoreSource = readFileSync(join(process.cwd(), 'src/store/authStore.ts'), 'utf8');
     const appSource = readFileSync(join(process.cwd(), 'src/App.tsx'), 'utf8');
     const hubSource = readFileSync(
       join(process.cwd(), 'src/components/PushNotificationHub.tsx'),
@@ -38,13 +36,13 @@ describe('notification deletion and auto-expiry', () => {
     expect(notificationsSource).toContain('expiredNotifications');
     expect(notificationsSource).toContain("deleteDoc(doc(db, 'notifications', expired.id))");
 
-    // Retention setting is loaded and passed from app logic
-    expect(appLogicSource).toContain('notification_retention');
-    expect(appLogicSource).toContain('handleSetNotificationRetentionDays');
+    // Retention setting is loaded and passed from ui store
+    expect(uiStoreSource).toContain('notification_retention');
+    expect(uiStoreSource).toContain('handleSetNotificationRetentionDays');
 
-    // App.tsx passes handleDeleteNotification
+    // App.tsx passes handleDeleteNotification from auth store
     expect(appSource).toContain('handleDeleteNotification');
-    expect(appSource).toContain('onDeleteNotification={handleDeleteNotification}');
+    expect(authStoreSource).toContain('handleDeleteNotification');
 
     // PushNotificationHub renders delete button per item
     expect(hubSource).toContain('onDeleteNotification');

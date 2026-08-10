@@ -1,19 +1,24 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Instructor } from '../types';
 import { Language, translateInstructor } from '../lib/LanguageContext';
+import { useBookingStore } from '../store/bookingStore';
+import { useUiStore } from '../store/uiStore';
 
 export type InstructorSortBy = 'rating' | 'priceAsc' | 'priceDesc' | 'experience';
 export type InstructorSpecialty = 'all' | 'ski' | 'snowboard' | 'both';
 
-export const useInstructorFilters = (
-  instructors: Instructor[],
-  language: Language,
-  filtersEnabled: boolean
-) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSpecialty, setSelectedSpecialty] = useState<InstructorSpecialty>('all');
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<InstructorSortBy>('rating');
+export const useInstructorFilters = (language: Language) => {
+  const instructors = useBookingStore((s) => s.instructors);
+  const filtersEnabled = useUiStore((s) => s.filtersEnabled);
+  const searchQuery = useUiStore((s) => s.searchQuery);
+  const selectedSpecialty = useUiStore((s) => s.selectedSpecialty);
+  const selectedLanguage = useUiStore((s) => s.selectedLanguage);
+  const sortBy = useUiStore((s) => s.sortBy);
+  const setSearchQuery = useUiStore((s) => s.setSearchQuery);
+  const setSelectedSpecialty = useUiStore((s) => s.setSelectedSpecialty);
+  const setSelectedLanguage = useUiStore((s) => s.setSelectedLanguage);
+  const setSortBy = useUiStore((s) => s.setSortBy);
+  const resetFilters = useUiStore((s) => s.resetFilters);
 
   const translatedInstructors = useMemo<Instructor[]>(
     () => instructors.map((ins) => translateInstructor(ins, language)),
@@ -50,11 +55,7 @@ export const useInstructorFilters = (
     sortBy,
   ]);
 
-  const resetFilters = useCallback(() => {
-    setSearchQuery('');
-    setSelectedSpecialty('all');
-    setSelectedLanguage('all');
-  }, []);
+  const stableResetFilters = useCallback(() => resetFilters(), [resetFilters]);
 
   return {
     searchQuery,
@@ -67,6 +68,6 @@ export const useInstructorFilters = (
     setSortBy,
     translatedInstructors,
     filteredInstructors,
-    resetFilters,
+    resetFilters: stableResetFilters,
   };
 };

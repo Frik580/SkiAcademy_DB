@@ -1,7 +1,6 @@
 import React from 'react';
 import { AnimatePresence } from 'motion/react';
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
-import { User } from 'firebase/auth';
 import { Compass } from 'lucide-react';
 
 import { AdminRoute } from './AdminRoute';
@@ -13,24 +12,19 @@ import { HeroCarousel } from './HeroCarousel';
 import { InstructorCard } from './InstructorCard';
 import { LessonFilters } from './LessonFilters';
 import { ResortConditionsSidebar } from './ResortConditionsSidebar';
-import {
-  Instructor,
-  Course,
-  Booking,
-  Review,
-  UserProfile,
-  ResortConfig,
-  ActivityLog,
-} from '../types';
-import { Language } from '../lib/LanguageContext';
-import { SkillConfig } from '../lib/skillData';
-import { AchievementsConfig } from '../lib/achievementConfig';
+import { ResortConfig } from '../types';
 import { useLanguage } from '../lib/LanguageContext';
-import { DesignTheme } from '../lib/designTheme';
+import { useTheme } from './useTheme';
 import { CABINET_TABS, getDefaultWorkspacePath } from '../lib/workspaceRoutes';
-import { InstructorSpecialty, InstructorSortBy } from './useInstructorFilters';
+import { useInstructorFilters } from './useInstructorFilters';
 import { LazyLoad } from './LazyLoad';
 import { CardSkeleton, Skeleton } from './ui/Skeleton';
+
+import { useAuthStore } from '../store/authStore';
+import { useBookingStore } from '../store/bookingStore';
+import { useCourseStore } from '../store/courseStore';
+import { useUiStore } from '../store/uiStore';
+
 const AdminPanel = React.lazy(() =>
   import('./AdminPanel').then(({ AdminPanel }) => ({ default: AdminPanel }))
 );
@@ -61,147 +55,48 @@ interface ResortData {
   lastUpdated: string;
 }
 
-interface DeletedCompletedStats {
-  revenue: number;
-  count: number;
-}
-
 interface AppRoutesProps {
-  firebaseUser: User | null;
-  userProfile: UserProfile | null;
-  language: Language;
-  theme: 'light' | 'dark';
-  filtersEnabled: boolean;
-  onboardingEnabled?: boolean;
-  notificationRetentionDays: number;
-  designTheme: DesignTheme;
-  skillConfig: SkillConfig;
-  achievementsConfig: AchievementsConfig;
   resortData: ResortData;
-  instructors: Instructor[];
-  translatedInstructors: Instructor[];
-  filteredInstructors: Instructor[];
-  courses: Course[];
-  bookings: Booking[];
-  reviews: Review[];
-  usersList: UserProfile[];
-  activityLogs: ActivityLog[];
-  deletedCompletedStats: DeletedCompletedStats;
-  dismissedReviewIds: string[];
-  // Filter state
-  searchQuery: string;
-  setSearchQuery: (q: string) => void;
-  selectedSpecialty: InstructorSpecialty;
-  setSelectedSpecialty: (s: InstructorSpecialty) => void;
-  selectedLanguage: string;
-  setSelectedLanguage: (l: string) => void;
-  sortBy: InstructorSortBy;
-  setSortBy: (s: InstructorSortBy) => void;
-  resetFilters: () => void;
-  // Modal setters
-  setSelectedInstructor: (ins: Instructor | null) => void;
-  setSelectedCourseForAuth: (course: Course | null) => void;
-  setSelectedCourseForDetails: (course: Course | null) => void;
-  setReviewsInstructor: (ins: Instructor | null) => void;
-  // Actions
-  onToggleFilters: (enabled: boolean) => Promise<void>;
-  onToggleOnboarding?: (enabled: boolean) => Promise<void>;
-  onSetNotificationRetentionDays: (days: number) => Promise<void>;
-  onSetDesignTheme: (theme: DesignTheme) => Promise<void>;
-  onUpdateSkillConfig: (config: SkillConfig) => Promise<void>;
-  onUpdateAchievementsConfig: (config: AchievementsConfig) => Promise<void>;
-  onBookCourse: (courseId: string) => Promise<void>;
-  onReschedule: (id: string, newDate: string, newTime: string) => Promise<void>;
-  onReassignInstructor: (
-    id: string,
-    newInstructor: Instructor,
-    newDate?: string,
-    newTime?: string
-  ) => Promise<void>;
-  onCancel: (id: string, reason?: string) => Promise<void>;
-  onCancelBooking: (id: string) => Promise<void>;
-  onAddReview: (
-    review: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>
-  ) => Promise<void>;
-  onToggleRecommendation?: (
-    bookingId: string,
-    recommendationId: string,
-    checked: boolean
-  ) => Promise<void>;
-  onToggleSkillToday?: (skillItemId: string, pinned: boolean) => Promise<void>;
-  onPinSkillsToday?: (skillItemIds: string[]) => Promise<void>;
-  onToggleTodayTaskComplete?: (taskId: string, done: boolean) => Promise<void>;
-  onAddCustomTodayTask?: (text: string) => Promise<void>;
-  onRemoveTodayTask?: (task: import('../lib/todayChecklist').TodayTaskRef) => Promise<void>;
-  onDismissReview: (reviewId: string) => void;
-  onSignOut: () => void;
-  onUpdateProfile: (data: Partial<UserProfile>) => Promise<void>;
-  setUserProfile: (profile: UserProfile | null) => void;
-  // Admin actions
-  onConfirmBooking: (id: string) => Promise<void>;
-  onCompleteBooking: (id: string) => Promise<void>;
-  onLinkGuestBooking: (bookingId: string, targetUserId: string) => Promise<void>;
-  onDeleteBooking: (id: string) => Promise<void>;
-  onAddBooking: (booking: Booking) => Promise<void>;
-  onAddCourse: (course: Course) => Promise<void>;
-  onUpdateCourse: (course: Course) => Promise<void>;
-  onDeleteCourse: (courseId: string) => Promise<void>;
-  onAddInstructor: (instructor: Instructor) => Promise<void>;
-  onUpdateInstructor: (instructor: Instructor) => Promise<void>;
-  onDeleteInstructor: (instructorId: string) => Promise<void>;
-  onUpdateUserRole: (uid: string, role: 'admin' | 'user') => Promise<void>;
-  onAddUser: (user: UserProfile) => Promise<void>;
-  onUpdateUser: (user: UserProfile) => Promise<void>;
-  onDeleteUser: (uid: string) => Promise<void>;
-  onClearStudentBookings: (
-    onProgress?: (deleted: number) => void
-  ) => Promise<import('../lib/clearStudentBookings').ClearStudentBookingsResult>;
-  onClearCancelledBookings?: (
-    onProgress?: (deleted: number) => void
-  ) => Promise<import('../lib/clearStudentBookings').ClearCancelledBookingsResult>;
-  // Resort actions
   setIsFahrenheit: (value: boolean) => void;
   onRefreshResortStats: () => void;
-  onOpenOnboarding?: () => void;
+  onSignOut: () => void;
 }
 
-const PersonalCabinetPage: React.FC<AppRoutesProps & { forcedMode: 'client' | 'instructor' }> = (
-  props
-) => {
+const PersonalCabinetPage: React.FC<{
+  forcedMode: 'client' | 'instructor';
+  resortData: ResortData;
+  setIsFahrenheit: (value: boolean) => void;
+  onSignOut: () => void;
+}> = ({ forcedMode, resortData, setIsFahrenheit, onSignOut }) => {
   const { t } = useLanguage();
-  const {
-    userProfile,
-    bookings,
-    reviews,
-    dismissedReviewIds,
-    courses,
-    instructors,
-    usersList,
-    skillConfig,
-    achievementsConfig,
-    activityLogs,
-    onDismissReview,
-    onReschedule,
-    onCancel,
-    onAddReview,
-    onToggleRecommendation,
-    onToggleSkillToday,
-    onPinSkillsToday,
-    onToggleTodayTaskComplete,
-    onAddCustomTodayTask,
-    onRemoveTodayTask,
-    onSignOut,
-    onUpdateProfile,
-    onOpenOnboarding,
-    setSelectedCourseForDetails,
-    setSelectedCourseForAuth,
-    onBookCourse,
-    setSelectedInstructor,
-    setReviewsInstructor,
-    forcedMode,
-    resortData,
-    setIsFahrenheit,
-  } = props;
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const bookings = useBookingStore((s) => s.bookings);
+  const reviews = useBookingStore((s) => s.reviews);
+  const instructors = useBookingStore((s) => s.instructors);
+  const usersList = useAuthStore((s) => s.usersList);
+  const dismissedReviewIds = useAuthStore((s) => s.dismissedReviewIds);
+  const activityLogs = useAuthStore((s) => s.activityLogs);
+  const courses = useCourseStore((s) => s.courses);
+  const skillConfig = useUiStore((s) => s.skillConfig);
+  const achievementsConfig = useUiStore((s) => s.achievementsConfig);
+
+  const handleDismissReview = useAuthStore((s) => s.handleDismissReview);
+  const handleReschedule = useBookingStore((s) => s.handleReschedule);
+  const handleRequestCancel = useBookingStore((s) => s.handleRequestCancel);
+  const handleAddReview = useBookingStore((s) => s.handleAddReview);
+  const handleToggleRecommendation = useBookingStore((s) => s.handleToggleRecommendation);
+  const handleToggleSkillToday = useAuthStore((s) => s.handleToggleSkillToday);
+  const handlePinSkillsToday = useAuthStore((s) => s.handlePinSkillsToday);
+  const handleToggleTodayTaskComplete = useAuthStore((s) => s.handleToggleTodayTaskComplete);
+  const handleAddCustomTodayTask = useAuthStore((s) => s.handleAddCustomTodayTask);
+  const handleRemoveTodayTask = useAuthStore((s) => s.handleRemoveTodayTask);
+  const handleUpdateProfile = useAuthStore((s) => s.handleUpdateProfile);
+  const handleBookCourse = useCourseStore((s) => s.handleBookCourse);
+  const setSelectedCourseForDetails = useUiStore((s) => s.setSelectedCourseForDetails);
+  const setSelectedCourseForAuth = useUiStore((s) => s.setSelectedCourseForAuth);
+  const setSelectedInstructor = useUiStore((s) => s.setSelectedInstructor);
+  const setReviewsInstructor = useUiStore((s) => s.setReviewsInstructor);
+  const setIsOnboardingOpen = useUiStore((s) => s.setIsOnboardingOpen);
 
   if (!userProfile) return null;
 
@@ -212,28 +107,28 @@ const PersonalCabinetPage: React.FC<AppRoutesProps & { forcedMode: 'client' | 'i
         bookings={bookings}
         reviews={reviews}
         dismissedReviewIds={dismissedReviewIds}
-        onDismissReview={onDismissReview}
-        onReschedule={onReschedule}
-        onCancel={onCancel}
-        onAddReview={onAddReview}
-        onToggleRecommendation={onToggleRecommendation}
-        onToggleSkillToday={onToggleSkillToday}
-        onPinSkillsToday={onPinSkillsToday}
-        onToggleTodayTaskComplete={onToggleTodayTaskComplete}
-        onAddCustomTodayTask={onAddCustomTodayTask}
-        onRemoveTodayTask={onRemoveTodayTask}
+        onDismissReview={handleDismissReview}
+        onReschedule={handleReschedule}
+        onCancel={handleRequestCancel}
+        onAddReview={handleAddReview}
+        onToggleRecommendation={handleToggleRecommendation}
+        onToggleSkillToday={handleToggleSkillToday}
+        onPinSkillsToday={handlePinSkillsToday}
+        onToggleTodayTaskComplete={handleToggleTodayTaskComplete}
+        onAddCustomTodayTask={handleAddCustomTodayTask}
+        onRemoveTodayTask={handleRemoveTodayTask}
         onSignOut={onSignOut}
-        onUpdateProfile={onUpdateProfile}
+        onUpdateProfile={handleUpdateProfile}
         courses={courses}
         instructors={instructors}
         usersList={usersList}
         skillConfig={skillConfig}
         achievementsConfig={achievementsConfig}
         activityLogs={activityLogs}
-        onOpenOnboarding={onOpenOnboarding}
+        onOpenOnboarding={() => setIsOnboardingOpen(true)}
         onViewCourseDetails={setSelectedCourseForDetails}
         onRequireCourseAuth={setSelectedCourseForAuth}
-        onBookCourse={onBookCourse}
+        onBookCourse={handleBookCourse}
         onBookInstructor={setSelectedInstructor}
         onViewInstructorReviews={setReviewsInstructor}
         forcedMode={forcedMode}
@@ -253,38 +148,59 @@ const PersonalCabinetPage: React.FC<AppRoutesProps & { forcedMode: 'client' | 'i
 
 const CabinetRouteWrapper: React.FC<AppRoutesProps> = (props) => {
   const { tab } = useParams<{ tab?: string }>();
+  const userProfile = useAuthStore((s) => s.userProfile);
 
   if (tab && !CABINET_TABS.includes(tab as (typeof CABINET_TABS)[number])) {
     return <Navigate to="/cabinet" replace />;
   }
 
   return (
-    <AuthRoute userProfile={props.userProfile}>
+    <AuthRoute userProfile={userProfile}>
       <div className="w-full min-w-0">
-        <PersonalCabinetPage {...props} forcedMode="client" />
+        <PersonalCabinetPage
+          forcedMode="client"
+          resortData={props.resortData}
+          setIsFahrenheit={props.setIsFahrenheit}
+          onSignOut={props.onSignOut}
+        />
       </div>
     </AuthRoute>
   );
 };
 
-const InstructorRouteWrapper: React.FC<AppRoutesProps> = (props) => (
-  <InstructorRoute userProfile={props.userProfile}>
-    <div className="w-full max-w-7xl mx-auto min-w-0">
-      <PersonalCabinetPage {...props} forcedMode="instructor" />
-    </div>
-  </InstructorRoute>
-);
+const InstructorRouteWrapper: React.FC<AppRoutesProps> = (props) => {
+  const userProfile = useAuthStore((s) => s.userProfile);
 
-const HomeRoute: React.FC<AppRoutesProps> = (props) => {
-  const { t } = useLanguage();
+  return (
+    <InstructorRoute userProfile={userProfile}>
+      <div className="w-full max-w-7xl mx-auto min-w-0">
+        <PersonalCabinetPage
+          forcedMode="instructor"
+          resortData={props.resortData}
+          setIsFahrenheit={props.setIsFahrenheit}
+          onSignOut={props.onSignOut}
+        />
+      </div>
+    </InstructorRoute>
+  );
+};
+
+const HomeRoute: React.FC<AppRoutesProps> = ({ resortData, setIsFahrenheit }) => {
+  const { t, language } = useLanguage();
+  const { theme } = useTheme();
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const courses = useCourseStore((s) => s.courses);
+  const bookings = useBookingStore((s) => s.bookings);
+  const filtersEnabled = useUiStore((s) => s.filtersEnabled);
+  const designTheme = useUiStore((s) => s.designTheme);
+  const skillConfig = useUiStore((s) => s.skillConfig);
+  const handleBookCourse = useCourseStore((s) => s.handleBookCourse);
+  const setSelectedInstructor = useUiStore((s) => s.setSelectedInstructor);
+  const setSelectedCourseForAuth = useUiStore((s) => s.setSelectedCourseForAuth);
+  const setSelectedCourseForDetails = useUiStore((s) => s.setSelectedCourseForDetails);
+  const setReviewsInstructor = useUiStore((s) => s.setReviewsInstructor);
+
   const {
-    userProfile,
-    language,
-    theme,
-    filtersEnabled,
-    resortData,
-    courses,
-    bookings,
     filteredInstructors,
     searchQuery,
     setSearchQuery,
@@ -295,12 +211,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
     sortBy,
     setSortBy,
     resetFilters,
-    setSelectedInstructor,
-    setSelectedCourseForAuth,
-    setSelectedCourseForDetails,
-    setReviewsInstructor,
-    onBookCourse,
-  } = props;
+  } = useInstructorFilters(language);
 
   const handleScrollToSection = (id: string) => {
     const el = document.getElementById(id);
@@ -318,7 +229,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
           slides: resortData.resortConfig.slides,
           language,
           theme,
-          designTheme: props.designTheme,
+          designTheme,
           slideIntervalSeconds: resortData.resortConfig.slideIntervalSeconds,
           slidesRandomOrder: resortData.resortConfig.slidesRandomOrder,
           isAuthenticated: Boolean(userProfile),
@@ -326,7 +237,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
         actions={{ onScrollToSection: handleScrollToSection }}
       />
 
-      <YourJourneySection skillConfig={props.skillConfig} userProfile={null} />
+      <YourJourneySection skillConfig={skillConfig} userProfile={null} />
 
       <div className="flex flex-col lg:grid gap-0 lg:gap-12 theme-air:lg:gap-16 lg:grid-cols-[minmax(140px,200px)_1fr]">
         <ResortConditionsSidebar
@@ -340,7 +251,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
             isFahrenheit: resortData.isFahrenheit,
           }}
           actions={{
-            onToggleTemperatureUnit: () => props.setIsFahrenheit(!resortData.isFahrenheit),
+            onToggleTemperatureUnit: () => setIsFahrenheit(!resortData.isFahrenheit),
           }}
         />
 
@@ -359,7 +270,7 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
               actions={{
                 onViewDetails: setSelectedCourseForDetails,
                 onRequireAuth: setSelectedCourseForAuth,
-                onBookCourse: onBookCourse,
+                onBookCourse: handleBookCourse,
               }}
             />
 
@@ -417,47 +328,46 @@ const HomeRoute: React.FC<AppRoutesProps> = (props) => {
   );
 };
 
-const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
-  const {
-    userProfile,
-    translatedInstructors,
-    bookings,
-    usersList,
-    courses,
-    deletedCompletedStats,
-    filtersEnabled,
-    onboardingEnabled,
-    notificationRetentionDays,
-    skillConfig,
-    achievementsConfig,
-    onToggleFilters,
-    onToggleOnboarding,
-    onSetNotificationRetentionDays,
-    onUpdateSkillConfig,
-    onUpdateAchievementsConfig,
-    onUpdateUserRole,
-    onAddInstructor,
-    onUpdateInstructor,
-    onDeleteInstructor,
-    onConfirmBooking,
-    onCompleteBooking,
-    onLinkGuestBooking,
-    onCancelBooking,
-    onAddUser,
-    onUpdateUser,
-    onDeleteUser,
-    onReschedule,
-    onReassignInstructor,
-    onDeleteBooking,
-    onAddBooking,
-    onAddCourse,
-    onUpdateCourse,
-    onDeleteCourse,
-    onClearStudentBookings,
-    onClearCancelledBookings,
-  } = props;
+const AdminRouteWrapper: React.FC = () => {
+  const { t, language } = useLanguage();
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const bookings = useBookingStore((s) => s.bookings);
+  const usersList = useAuthStore((s) => s.usersList);
+  const courses = useCourseStore((s) => s.courses);
+  const deletedCompletedStats = useBookingStore((s) => s.deletedCompletedStats);
+  const filtersEnabled = useUiStore((s) => s.filtersEnabled);
+  const onboardingEnabled = useUiStore((s) => s.onboardingEnabled);
+  const notificationRetentionDays = useUiStore((s) => s.notificationRetentionDays);
+  const skillConfig = useUiStore((s) => s.skillConfig);
+  const achievementsConfig = useUiStore((s) => s.achievementsConfig);
 
-  const { t } = useLanguage();
+  const { translatedInstructors } = useInstructorFilters(language);
+
+  const handleToggleFilters = useUiStore((s) => s.handleToggleFilters);
+  const handleToggleOnboarding = useUiStore((s) => s.handleToggleOnboarding);
+  const handleSetNotificationRetentionDays = useUiStore((s) => s.handleSetNotificationRetentionDays);
+  const handleUpdateSkillConfig = useUiStore((s) => s.handleUpdateSkillConfig);
+  const handleUpdateAchievementsConfig = useUiStore((s) => s.handleUpdateAchievementsConfig);
+  const handleUpdateUserRole = useAuthStore((s) => s.handleUpdateUserRole);
+  const handleAddInstructor = useBookingStore((s) => s.handleAddInstructor);
+  const handleUpdateInstructor = useBookingStore((s) => s.handleUpdateInstructor);
+  const handleDeleteInstructor = useBookingStore((s) => s.handleDeleteInstructor);
+  const handleConfirmBooking = useBookingStore((s) => s.handleConfirmBooking);
+  const handleCompleteBooking = useBookingStore((s) => s.handleCompleteBooking);
+  const handleLinkGuestBooking = useBookingStore((s) => s.handleLinkGuestBooking);
+  const handleCancel = useBookingStore((s) => s.handleCancel);
+  const handleAddUser = useAuthStore((s) => s.handleAddUser);
+  const handleUpdateUser = useAuthStore((s) => s.handleUpdateUser);
+  const handleDeleteUser = useAuthStore((s) => s.handleDeleteUser);
+  const handleReschedule = useBookingStore((s) => s.handleReschedule);
+  const handleReassignInstructor = useBookingStore((s) => s.handleReassignInstructor);
+  const handleDeleteBooking = useBookingStore((s) => s.handleDeleteBooking);
+  const handleAddBooking = useBookingStore((s) => s.handleAddBooking);
+  const handleAddCourse = useCourseStore((s) => s.handleAddCourse);
+  const handleUpdateCourse = useCourseStore((s) => s.handleUpdateCourse);
+  const handleDeleteCourse = useCourseStore((s) => s.handleDeleteCourse);
+  const handleClearStudentBookings = useBookingStore((s) => s.handleClearStudentBookings);
+  const handleClearCancelledBookings = useBookingStore((s) => s.handleClearCancelledBookings);
 
   return (
     <AdminRoute userProfile={userProfile}>
@@ -469,36 +379,36 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
           courses={courses}
           deletedCompletedStats={deletedCompletedStats}
           currentUserProfile={userProfile!}
-          onUpdateUserRole={onUpdateUserRole}
-          onAddInstructor={onAddInstructor}
-          onUpdateInstructor={onUpdateInstructor}
-          onDeleteInstructor={onDeleteInstructor}
-          onConfirmBooking={onConfirmBooking}
-          onCompleteBooking={onCompleteBooking}
-          onLinkGuestBooking={onLinkGuestBooking}
-          onCancelBooking={onCancelBooking}
-          onAddUser={onAddUser}
-          onUpdateUser={onUpdateUser}
-          onDeleteUser={onDeleteUser}
-          onRescheduleBooking={onReschedule}
-          onReassignInstructor={onReassignInstructor}
-          onDeleteBooking={onDeleteBooking}
-          onAddBooking={onAddBooking}
-          onAddCourse={onAddCourse}
-          onUpdateCourse={onUpdateCourse}
-          onDeleteCourse={onDeleteCourse}
+          onUpdateUserRole={handleUpdateUserRole}
+          onAddInstructor={handleAddInstructor}
+          onUpdateInstructor={handleUpdateInstructor}
+          onDeleteInstructor={handleDeleteInstructor}
+          onConfirmBooking={handleConfirmBooking}
+          onCompleteBooking={handleCompleteBooking}
+          onLinkGuestBooking={handleLinkGuestBooking}
+          onCancelBooking={handleCancel}
+          onAddUser={handleAddUser}
+          onUpdateUser={handleUpdateUser}
+          onDeleteUser={handleDeleteUser}
+          onRescheduleBooking={handleReschedule}
+          onReassignInstructor={handleReassignInstructor}
+          onDeleteBooking={handleDeleteBooking}
+          onAddBooking={handleAddBooking}
+          onAddCourse={handleAddCourse}
+          onUpdateCourse={handleUpdateCourse}
+          onDeleteCourse={handleDeleteCourse}
           filtersEnabled={filtersEnabled}
-          onToggleFilters={onToggleFilters}
+          onToggleFilters={handleToggleFilters}
           onboardingEnabled={onboardingEnabled}
-          onToggleOnboarding={onToggleOnboarding}
+          onToggleOnboarding={handleToggleOnboarding}
           notificationRetentionDays={notificationRetentionDays}
-          onSetNotificationRetentionDays={onSetNotificationRetentionDays}
+          onSetNotificationRetentionDays={handleSetNotificationRetentionDays}
           skillConfig={skillConfig}
-          onUpdateSkillConfig={onUpdateSkillConfig}
+          onUpdateSkillConfig={handleUpdateSkillConfig}
           achievementsConfig={achievementsConfig}
-          onUpdateAchievementsConfig={onUpdateAchievementsConfig}
-          onClearStudentBookings={onClearStudentBookings}
-          onClearCancelledBookings={onClearCancelledBookings}
+          onUpdateAchievementsConfig={handleUpdateAchievementsConfig}
+          onClearStudentBookings={handleClearStudentBookings}
+          onClearCancelledBookings={handleClearCancelledBookings}
         />
       </LazyLoad>
     </AdminRoute>
@@ -508,7 +418,7 @@ const AdminRouteWrapper: React.FC<AppRoutesProps> = (props) => {
 export const AppRoutes: React.FC<AppRoutesProps> = (props) => {
   return (
     <Routes>
-      <Route path="/admin" element={<AdminRouteWrapper {...props} />} />
+      <Route path="/admin" element={<AdminRouteWrapper />} />
       <Route path="/cabinet" element={<CabinetRouteWrapper {...props} />} />
       <Route path="/cabinet/:tab" element={<CabinetRouteWrapper {...props} />} />
       <Route path="/instructor" element={<InstructorRouteWrapper {...props} />} />

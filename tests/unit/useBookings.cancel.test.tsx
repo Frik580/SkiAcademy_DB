@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Booking, UserProfile } from '../../src/types';
 
@@ -92,20 +92,30 @@ vi.mock('../../src/lib/firebase', () => ({
 }));
 
 import { useBookings } from '../../src/components/useBookings';
+import { useBookingStore } from '../../src/store/bookingStore';
+import { setStoreContext } from '../../src/store/storeContext';
 
 describe('useBookings.handleCancel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCancelBookingWithRefund.mockResolvedValue({ refunded: 200, alreadyCancelled: false });
     mockCreateNotificationForUser.mockResolvedValue(undefined);
+    setStoreContext({
+      notify: mockAddNotification,
+      t: (key: string) => key,
+      language: () => 'en',
+    });
+    useBookingStore.setState({
+      bookings: [confirmedBooking],
+      bookingsLoaded: true,
+      deletedCompletedStats: { revenue: 0, count: 0 },
+    });
   });
 
   it('cancels a course booking as admin, notifies the client, and shows a success toast', async () => {
     const { result } = renderHook(() => useBookings(firebaseUser, adminProfile));
 
-    await waitFor(() => {
-      expect(result.current.bookings).toHaveLength(1);
-    });
+    expect(result.current.bookings).toHaveLength(1);
 
     await act(async () => {
       await result.current.handleCancel('booking-course-1');
@@ -140,9 +150,7 @@ describe('useBookings.handleCancel', () => {
 
     const { result } = renderHook(() => useBookings(clientUser, clientProfile));
 
-    await waitFor(() => {
-      expect(result.current.bookings).toHaveLength(1);
-    });
+    expect(result.current.bookings).toHaveLength(1);
 
     await act(async () => {
       await result.current.handleCancel('booking-course-1');
@@ -157,9 +165,7 @@ describe('useBookings.handleCancel', () => {
 
     const { result } = renderHook(() => useBookings(firebaseUser, adminProfile));
 
-    await waitFor(() => {
-      expect(result.current.bookings).toHaveLength(1);
-    });
+    expect(result.current.bookings).toHaveLength(1);
 
     await act(async () => {
       await result.current.handleCancel('booking-course-1');

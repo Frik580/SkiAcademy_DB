@@ -4,7 +4,6 @@ import {
   auth,
   collection,
   db,
-  deleteDoc,
   doc,
   getDoc,
   handleFirestoreError,
@@ -21,7 +20,11 @@ import {
   DEFAULT_ACHIEVEMENTS_CONFIG,
   normalizeAchievementsConfig,
 } from '../lib/achievementConfig';
-import { DEFAULT_NOTIFICATION_RETENTION_DAYS, getNotificationRetentionMs } from '../lib/notificationConfig';
+import { DEFAULT_NOTIFICATION_RETENTION_DAYS } from '../lib/notificationConfig';
+import {
+  isNotificationExpired,
+  purgeExpiredNotificationsForUser,
+} from '../lib/notificationCleanup';
 import { parseDesignTheme } from '../lib/designTheme';
 import { QUERY_LIMITS } from '../lib/queryLimits';
 import { logger } from '../lib/logger';
@@ -343,6 +346,16 @@ export const useStoreSync = () => {
   const notificationRetentionDays = useUiStore((s) => s.notificationRetentionDays);
 
   useEffect(() => {
+    if (!firebaseUser) return;
+
+    void purgeExpiredNotificationsForUser(
+      db,
+      firebaseUser.uid,
+      notificationRetentionDays
+    ).catch((error) => logger.error('Notification retention cleanup error:', error));
+  }, [firebaseUser, notificationRetentionDays]);
+
+  useEffect(() => {
     if (!firebaseUser) {
       useAuthStore.getState().setDbNotifications([]);
       return;
@@ -358,35 +371,13 @@ export const useStoreSync = () => {
     return onSnapshot(
       notificationsQuery,
       (snapshot) => {
-        const now = Date.now();
-        const allNotifications = snapshot.docs.map(
-          (notificationDoc) =>
-            ({ id: notificationDoc.id, ...notificationDoc.data() }) as DbNotification
-        );
+        const validNotifications = snapshot.docs
+          .map(
+            (notificationDoc) =>
+              ({ id: notificationDoc.id, ...notificationDoc.data() }) as DbNotification
+          )
+          .filter((notification) => !isNotificationExpired(notification.timestamp, notificationRetentionDays));
 
-        const retentionMs = getNotificationRetentionMs(notificationRetentionDays);
-
-        const expiredNotifications = allNotifications.filter((n) => {
-          const time = new Date(n.timestamp).getTime();
-          return !isNaN(time) && now - time > retentionMs;
-        });
-
-        if (expiredNotifications.length > 0) {
-          expiredNotifications.forEach((expired) => {
-            deleteDoc(doc(db, 'notifications', expired.id)).catch((err) =>
-              logger.error('Failed to auto-delete expired notification:', err)
-            );
-          });
-        }
-
-        const validNotifications = allNotifications.filter((n) => {
-          const time = new Date(n.timestamp).getTime();
-          return isNaN(time) || now - time <= retentionMs;
-        });
-
-        validNotifications.sort(
-          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
         useAuthStore.getState().setDbNotifications(validNotifications);
 
         snapshot.docChanges().forEach((change) => {

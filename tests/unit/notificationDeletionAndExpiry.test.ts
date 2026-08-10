@@ -15,7 +15,7 @@ describe('notification deletion and auto-expiry', () => {
 
   it('wires single notification deletion and auto-cleanup of expired items', () => {
     const notificationsSource = readFileSync(
-      join(process.cwd(), 'src/components/useNotifications.ts'),
+      join(process.cwd(), 'src/store/useStoreSync.ts'),
       'utf8'
     );
     const uiStoreSource = readFileSync(join(process.cwd(), 'src/store/uiStore.ts'), 'utf8');
@@ -26,15 +26,15 @@ describe('notification deletion and auto-expiry', () => {
       'utf8'
     );
 
-    // Single notification deletion function
-    expect(notificationsSource).toContain('handleDeleteNotification');
-    expect(notificationsSource).toContain('deleteDoc');
+    const cleanupSource = readFileSync(
+      join(process.cwd(), 'src/lib/notificationCleanup.ts'),
+      'utf8'
+    );
 
-    // Auto-cleanup of expired notifications uses configurable retention
-    expect(notificationsSource).toContain('retentionDays');
-    expect(notificationsSource).toContain('getNotificationRetentionMs');
-    expect(notificationsSource).toContain('expiredNotifications');
-    expect(notificationsSource).toContain("deleteDoc(doc(db, 'notifications', expired.id))");
+    // Auto-cleanup of expired notifications uses dedicated retention query
+    expect(notificationsSource).toContain('purgeExpiredNotificationsForUser');
+    expect(notificationsSource).toContain('isNotificationExpired');
+    expect(cleanupSource).toContain('deleteDoc');
 
     // Retention setting is loaded and passed from ui store
     expect(uiStoreSource).toContain('notification_retention');

@@ -4,18 +4,18 @@ import { ResortConfig } from '../types';
 import { logger } from '../lib/logger';
 
 const DEFAULT_CONFIG: ResortConfig = {
-  nameEn: 'Chamonix-Mont-Blanc',
-  nameRu: 'Шамони-Монблан',
-  subNameEn: 'French Alps resort',
-  subNameRu: 'Курорт в Альпах',
-  latitude: 45.9237,
-  longitude: 6.8694,
-  showLifts: true,
+  nameEn: 'Shymbulak Mountain Resort',
+  nameRu: 'Shymbulak Mountain Resort',
+  subNameEn: 'Resort in Kazakhstan',
+  subNameRu: 'Курорт в Казахстане',
+  latitude: 43.1281,
+  longitude: 77.0808,
+  showLifts: false,
   openLifts: 13,
   totalLifts: 14,
   liftsStatusEn: 'OPEN',
   liftsStatusRu: 'ОТКРЫТО',
-  slideIntervalSeconds: 6,
+  slideIntervalSeconds: 8,
   slides: [
     {
       id: '1',
@@ -73,10 +73,8 @@ export const useResortStats = () => {
       if (snap.exists()) {
         setResortConfig(snap.data() as ResortConfig);
       } else {
-        // Initialize config with defaults if it doesn't exist
-        setDoc(configRef, DEFAULT_CONFIG, { merge: true }).catch((err) =>
-          logger.error('Error setting default config:', err)
-        );
+        // Use local defaults for display only — do not write to Firestore.
+        // Config is created/updated explicitly from the admin panel.
         setResortConfig(DEFAULT_CONFIG);
       }
     });

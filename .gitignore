@@ -41,8 +41,10 @@ lerna-debug.log*
 *.sln
 *.sw?
 
-# OS generated files
-.DS_Store
+# Playwright / E2E artifacts
+/test-results/
+/playwright-report/
+/e2e/.runtime-config.json
 .DS_Store?
 ._*
 .Spotlight-V100

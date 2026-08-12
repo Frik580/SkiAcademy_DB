@@ -17,6 +17,8 @@ export default tseslint.config(
       '.firebase',
       'coverage',
       'scripts/*.mjs',
+      'e2e/**',
+      'playwright.config.ts',
     ],
   },
   js.configs.recommended,

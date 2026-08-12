@@ -18,9 +18,9 @@ import {
 } from '../lib/firebase';
 import { AVAILABILITY_SLOTS_COLLECTION, isCourseBooking } from '../lib/availabilitySlots';
 import { finalizeBookingCompletion } from '../lib/completeBooking';
+import { createBookingViaCallable } from '../lib/createBookingCallable';
 import {
   cancelBookingWithRefund,
-  createBookingWithPayment,
   addBookingWithPayment,
   BookingSlotOverlapError,
   InsufficientFundsError,
@@ -39,8 +39,6 @@ import { Booking, Instructor, Review } from '../types';
 import { logger } from '../lib/logger';
 import { toggleCompletedRecommendationIds } from '../lib/lessonRecommendations';
 import { clearStudentBookings, clearCancelledBookings } from '../lib/clearStudentBookings';
-import { autoCompleteEligibleBookings, queryOverdueBookings } from '../lib/autoCompleteBookings';
-import { isBookingEligibleForAutoComplete } from '../lib/bookingEndsAt';
 import { notify, t } from './storeContext';
 import { useAuthStore } from './authStore';
 import { withOptimisticBalance } from './withOptimisticBalance';
@@ -95,7 +93,6 @@ interface BookingState {
   handleAddInstructor: (instructor: Instructor) => Promise<void>;
   handleUpdateInstructor: (instructor: Instructor) => Promise<void>;
   handleDeleteInstructor: (id: string) => Promise<void>;
-  runAutoComplete: () => Promise<void>;
 }
 
 export const useBookingStore = create<BookingState>((set, get) => ({
@@ -119,7 +116,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
     try {
       const { totalPrice } = await withOptimisticBalance(-estimatedPrice, () =>
-        createBookingWithPayment(db, firebaseUser.uid, booking)
+        createBookingViaCallable(booking)
       );
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       return totalPrice;
@@ -576,35 +573,5 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
   handleDeleteInstructor: async (id) => {
     await deleteDoc(doc(db, 'instructors', id));
-  },
-
-  runAutoComplete: async () => {
-    const { bookings, bookingsLoaded } = get();
-    const { firebaseUser, userProfile } = useAuthStore.getState();
-    if (!firebaseUser || !bookingsLoaded) return;
-
-    const candidates = new Map<string, Booking>();
-    for (const booking of bookings) {
-      if (isBookingEligibleForAutoComplete(booking)) {
-        candidates.set(booking.id, booking);
-      }
-    }
-
-    if (userProfile?.role === 'admin') {
-      const overdueBookings = await queryOverdueBookings(db);
-      for (const booking of overdueBookings) {
-        candidates.set(booking.id, booking);
-      }
-    }
-
-    await autoCompleteEligibleBookings(db, [...candidates.values()], firebaseUser.uid, {
-      onCompleted: (booking) => {
-        notify(
-          'success',
-          t('lessonAutoCompleted'),
-          `${t('lessonAutoCompletedDesc')} ${booking.instructorName} ${t('lessonAutoCompletedSuffix')}`
-        );
-      },
-    });
   },
 }));

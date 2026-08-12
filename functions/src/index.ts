@@ -1,7 +1,9 @@
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
-import { autoCompletePastBookings } from './autoCompleteBookings';
+import { autoCompletePastBookings } from './bookings/autoComplete';
+import { createCreateBookingHandler } from './bookings/createBooking';
 import { purgeExpiredNotifications } from './purgeExpiredNotifications';
 
 if (getApps().length === 0) {
@@ -9,6 +11,8 @@ if (getApps().length === 0) {
 }
 
 const db = getFirestore();
+
+export const createBooking = onCall({ region: 'us-central1' }, createCreateBookingHandler(db));
 
 export const scheduledAutoCompleteBookings = onSchedule(
   {

@@ -40,11 +40,6 @@ const adminProfile: UserProfile = {
 
 const firebaseUser = { uid: 'admin-1', email: 'admin@example.com' } as any;
 
-vi.mock('../../src/lib/autoCompleteBookings', () => ({
-  autoCompleteEligibleBookings: vi.fn().mockResolvedValue(0),
-  queryOverdueBookings: vi.fn().mockResolvedValue([]),
-}));
-
 vi.mock('../../src/lib/bookingTransactions', () => ({
   cancelBookingWithRefund: (...args: any[]) => mockCancelBookingWithRefund(...args),
 }));
@@ -62,8 +57,13 @@ vi.mock('../../src/lib/LanguageContext', () => ({
   parseCourseEndDateTime: () => new Date('2099-01-01'),
 }));
 
+vi.mock('../../src/lib/createBookingCallable', () => ({
+  createBookingViaCallable: vi.fn(),
+}));
+
 vi.mock('../../src/lib/firebase', () => ({
   db: {},
+  functions: {},
   auth: { currentUser: { uid: 'admin-1', email: 'admin@example.com' } },
   collection: vi.fn(),
   doc: vi.fn(),

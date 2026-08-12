@@ -47,7 +47,7 @@
 | Слой     | Технологии                                  |
 | -------- | ------------------------------------------- |
 | UI       | React 18, TypeScript, Vite                  |
-| Стили    | Tailwind CSS 4 (alpha), CSS variables       |
+| Стили    | Tailwind CSS 4, CSS variables               |
 | Анимации | Motion                                      |
 | Backend  | Firebase Auth, Firestore, Storage           |
 | i18n     | EN / RU (`src/lib/i18n/translations.ts`)    |
@@ -59,9 +59,17 @@
 
 ### Требования
 
-- Node.js 18+
+- Node.js **22** (как в CI; см. `.nvmrc` / `.node-version`)
 - npm
 - Проект Firebase
+
+С nvm-windows или fnm после клонирования:
+
+```bash
+nvm use          # или: fnm use
+```
+
+Firebase Functions (`functions/`) деплоятся с runtime **Node 20** — это задается в `functions/package.json`, не в версии Node на вашем ПК.
 
 ### Установка
 

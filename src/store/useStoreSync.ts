@@ -40,8 +40,6 @@ import { notify, getLanguage } from './storeContext';
 export const useStoreSync = () => {
   const { shouldSyncUsersList, shouldSyncActivityLogs, shouldSyncReviews } = useDataSyncScope();
   const profileUnsubscribeRef = useRef<(() => void) | null>(null);
-  const autoCompleteRunningRef = useRef(false);
-  const lastAutoCompleteAtRef = useRef(0);
   const migrationRunningRef = useRef(false);
 
   // Auth listener
@@ -429,34 +427,9 @@ export const useStoreSync = () => {
     );
   }, [firebaseUser, shouldSyncActivityLogs]);
 
-  // Auto-complete bookings
+  // Availability migration
   const bookingsLoaded = useBookingStore((s) => s.bookingsLoaded);
 
-  useEffect(() => {
-    if (!firebaseUser || !bookingsLoaded) return;
-
-    const runAutoComplete = async () => {
-      const now = Date.now();
-      if (autoCompleteRunningRef.current || now - lastAutoCompleteAtRef.current < 30_000) {
-        return;
-      }
-
-      autoCompleteRunningRef.current = true;
-      lastAutoCompleteAtRef.current = now;
-
-      try {
-        await useBookingStore.getState().runAutoComplete();
-      } catch (error) {
-        logger.error('Auto-complete sweep failed:', error);
-      } finally {
-        autoCompleteRunningRef.current = false;
-      }
-    };
-
-    void runAutoComplete();
-  }, [bookings, bookingsLoaded, firebaseUser, userProfile?.role]);
-
-  // Availability migration
   useEffect(() => {
     if (userProfile?.role !== 'admin' || !bookingsLoaded || migrationRunningRef.current) {
       return;

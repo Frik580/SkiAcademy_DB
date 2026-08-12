@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { getFunctions } from 'firebase/functions';
 import { getStorage } from 'firebase/storage';
 import {
   arrayUnion,
@@ -61,6 +62,10 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_DATABASE_ID || '(default)');
 export const auth = getAuth(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(
+  app,
+  import.meta.env.VITE_FIREBASE_FUNCTIONS_REGION || 'us-central1'
+);
 export const googleProvider = new GoogleAuthProvider();
 
 // Allow registering a global callback for database errors (e.g. to show custom error banners in UI)

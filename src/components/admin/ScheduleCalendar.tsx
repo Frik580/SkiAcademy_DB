@@ -1,7 +1,13 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { BookOpen, Calendar, Clock, Coffee, Lock, Plus, X } from 'lucide-react';
 import { Instructor, Booking, UserProfile, Course } from '../../types';
-import { useLanguage, translateCourse, parseCourseDates } from '../../lib/LanguageContext';
+import {
+  useLanguage,
+  translateCourse,
+  parseCourseDates,
+  getDifficultyLabel,
+} from '../../lib/LanguageContext';
+import { isCourseBooking } from '../../lib/availabilitySlots';
 import { useNotifications } from '../PushNotificationHub';
 import { formatDateLocalYMD, hourToMinutes, getWeekRange } from './scheduleUtils';
 import { SCHEDULE_TIME_SLOTS } from './scheduleOverlap';
@@ -198,10 +204,18 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
-        <div className={`text-[10px] font-mono flex items-center gap-1 mt-0.5 ${textTimeClasses}`}>
+        <div
+          className={`text-[10px] font-mono flex items-center gap-1 mt-0.5 min-w-0 ${textTimeClasses}`}
+        >
           <Clock className="w-3.5 h-3.5 shrink-0" />
-          <span>
+          <span className="truncate">
             {b.time} ({b.durationHours}h)
+            {!isCourseBooking(b) && (
+              <>
+                {' · '}
+                {getDifficultyLabel(b.difficulty, language, 'short')}
+              </>
+            )}
           </span>
         </div>
       </div>

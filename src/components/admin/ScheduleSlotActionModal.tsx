@@ -12,7 +12,8 @@ import {
   X,
 } from 'lucide-react';
 import type { Booking, Course, Instructor, UserProfile } from '../../types';
-import { useLanguage } from '../../lib/LanguageContext';
+import { useLanguage, getDifficultyLabel } from '../../lib/LanguageContext';
+import { isCourseBooking } from '../../lib/availabilitySlots';
 import { BodyScrollLock } from '../ui/BodyScrollLock';
 import { useNotifications } from '../PushNotificationHub';
 import { BookingChatModal } from '../BookingChatModal';
@@ -463,6 +464,14 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
                     ? t('dayOffLabel')
                     : `${t('lessonWithClientPrefix')} (${usersList.find((user) => user.uid === activeSlot.booking?.userId)?.displayName || activeSlot.booking?.guestName || (activeSlot.booking?.isGuest || activeSlot.booking?.userId?.startsWith('guest_') ? (activeSlot.booking?.guestName ? `${activeSlot.booking.guestName} (${t('guestBadge') || 'Гость'})` : t('guestBadge') || 'Гость') : t('clientFallback'))})`}
               </div>
+              {activeSlot.booking.userId !== 'system_block_break' &&
+                activeSlot.booking.userId !== 'system_block_day_off' &&
+                !isCourseBooking(activeSlot.booking) && (
+                  <div className="text-xs text-[var(--ink-dim)]">
+                    <strong>{t('trainingLevelLabel')}:</strong>{' '}
+                    {getDifficultyLabel(activeSlot.booking.difficulty, language, 'short')}
+                  </div>
+                )}
               {(activeSlot.booking.guestPhone || activeSlot.booking.guestEmail) && (
                 <div className="text-xs text-[var(--ink-dim)] space-y-0.5 font-mono">
                   {activeSlot.booking.guestPhone && (

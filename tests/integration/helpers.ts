@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
+import { RulesTestContext, RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import {
-  RulesTestContext,
-  RulesTestEnvironment,
-  initializeTestEnvironment,
-} from '@firebase/rules-unit-testing';
+  cleanupEmulatorTestEnvironment,
+  initializeEmulatorTestEnvironment,
+} from '../helpers/firebaseEmulatorTestEnv';
 import { doc, setDoc } from 'firebase/firestore';
 
 export const PROJECT_ID = 'ski-academy-integration-test';
@@ -31,7 +31,7 @@ export const userProfile = (
 });
 
 export async function setupIntegrationTestEnvironment() {
-  testEnv = await initializeTestEnvironment({
+  testEnv = await initializeEmulatorTestEnvironment({
     projectId: PROJECT_ID,
     firestore: {
       host: '127.0.0.1',
@@ -42,7 +42,7 @@ export async function setupIntegrationTestEnvironment() {
 }
 
 export async function teardownIntegrationTestEnvironment() {
-  await testEnv.cleanup();
+  await cleanupEmulatorTestEnvironment(testEnv);
 }
 
 export async function clearIntegrationFirestore() {

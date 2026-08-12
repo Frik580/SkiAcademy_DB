@@ -66,7 +66,8 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     setStoreContext({
-      notify: (type, title, message) => addNotification(type as 'error' | 'success' | 'info' | 'warning', title, message),
+      notify: (type, title, message) =>
+        addNotification(type as 'error' | 'success' | 'info' | 'warning', title, message),
       t: (key) => t(key as Parameters<typeof t>[0]),
       language: () => language,
     });

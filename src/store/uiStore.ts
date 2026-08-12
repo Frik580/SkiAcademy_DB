@@ -105,8 +105,7 @@ export const useUiStore = create<UiState>((set) => ({
   setSelectedSpecialty: (s) => set({ selectedSpecialty: s }),
   setSelectedLanguage: (l) => set({ selectedLanguage: l }),
   setSortBy: (s) => set({ sortBy: s }),
-  resetFilters: () =>
-    set({ searchQuery: '', selectedSpecialty: 'all', selectedLanguage: 'all' }),
+  resetFilters: () => set({ searchQuery: '', selectedSpecialty: 'all', selectedLanguage: 'all' }),
 
   setIsTopUpOpen: (open) => set({ isTopUpOpen: open }),
   setIsNotifHistoryOpen: (open) => set({ isNotifHistoryOpen: open }),

@@ -11,6 +11,7 @@ import { useNotifications } from '../PushNotificationHub';
 import { useTheme } from '../useTheme';
 import { logger } from '../../lib/logger';
 import { SkillConfig, DEFAULT_SKILL_ITEMS } from '../../lib/skillData';
+import { finalizeBookingCompletion } from '../../lib/completeBooking';
 import {
   AVAILABILITY_SLOTS_COLLECTION,
   blocksInstructorAvailability,
@@ -428,30 +429,34 @@ export const useInstructorWorkspace = ({
   const handleUpdateStatus = async (bookingId: string, nextStatus: 'confirmed' | 'completed') => {
     try {
       const booking = allBookings.find((item) => item.id === bookingId);
-      const batch = writeBatch(db);
-      batch.update(doc(db, 'bookings', bookingId), { status: nextStatus });
-      if (booking) {
-        const updatedBooking = { ...booking, status: nextStatus };
-        if (blocksInstructorAvailability(updatedBooking)) {
-          batch.set(
-            doc(db, AVAILABILITY_SLOTS_COLLECTION, bookingId),
-            toAvailabilitySlot(updatedBooking)
-          );
-        } else {
-          batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, bookingId));
-        }
-      }
-      await batch.commit();
+      if (!booking) return;
 
-      if (nextStatus === 'completed' && booking) {
+      if (nextStatus === 'completed') {
+        const completedBooking = await finalizeBookingCompletion(db, bookingId);
+        if (!completedBooking) return;
+
         await logActivityForUser(
-          booking.userId,
+          completedBooking.userId,
           userProfile.uid,
           'booking_completed',
-          buildBookingCompletedMetadata(booking, courses),
-          activityLogId.bookingCompleted(booking.id)
+          buildBookingCompletedMetadata(completedBooking, courses),
+          activityLogId.bookingCompleted(completedBooking.id)
         );
+        return;
       }
+
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'bookings', bookingId), { status: nextStatus });
+      const updatedBooking = { ...booking, status: nextStatus };
+      if (blocksInstructorAvailability(updatedBooking)) {
+        batch.set(
+          doc(db, AVAILABILITY_SLOTS_COLLECTION, bookingId),
+          toAvailabilitySlot(updatedBooking)
+        );
+      } else {
+        batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, bookingId));
+      }
+      await batch.commit();
     } catch (err) {
       logger.error('Error updating lesson status:', err);
     }

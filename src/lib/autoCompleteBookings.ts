@@ -1,20 +1,7 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  limit,
-  query,
-  where,
-  writeBatch,
-  type Firestore,
-} from 'firebase/firestore';
+import { collection, doc, getDocs, limit, query, where, type Firestore } from 'firebase/firestore';
 import { Booking } from '../types';
-import {
-  activityLogId,
-  buildBookingCompletedMetadata,
-  logActivityForUser,
-} from './activityLog';
-import { AVAILABILITY_SLOTS_COLLECTION, isCourseBooking } from './availabilitySlots';
+import { activityLogId, buildBookingCompletedMetadata, logActivityForUser } from './activityLog';
+import { finalizeBookingCompletion } from './completeBooking';
 import { isBookingEligibleForAutoComplete } from './bookingEndsAt';
 import { logger } from './logger';
 
@@ -25,19 +12,15 @@ export async function completeBooking(
   booking: Booking,
   actorId: string
 ): Promise<void> {
-  const batch = writeBatch(firestore);
-  batch.update(doc(firestore, 'bookings', booking.id), { status: 'completed' });
-  if (!isCourseBooking(booking)) {
-    batch.delete(doc(firestore, AVAILABILITY_SLOTS_COLLECTION, booking.id));
-  }
-  await batch.commit();
+  const completedBooking = await finalizeBookingCompletion(firestore, booking.id);
+  if (!completedBooking) return;
 
   await logActivityForUser(
-    booking.userId,
+    completedBooking.userId,
     actorId,
     'booking_completed',
-    buildBookingCompletedMetadata(booking, []),
-    activityLogId.bookingCompleted(booking.id)
+    buildBookingCompletedMetadata(completedBooking, []),
+    activityLogId.bookingCompleted(completedBooking.id)
   );
 }
 
@@ -47,11 +30,7 @@ export async function queryOverdueBookings(
 ): Promise<Booking[]> {
   const nowIso = new Date().toISOString();
   const snapshot = await getDocs(
-    query(
-      collection(firestore, 'bookings'),
-      where('endsAt', '<=', nowIso),
-      limit(maxResults)
-    )
+    query(collection(firestore, 'bookings'), where('endsAt', '<=', nowIso), limit(maxResults))
   );
 
   return snapshot.docs

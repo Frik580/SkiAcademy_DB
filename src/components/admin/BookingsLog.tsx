@@ -1,11 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Check, X, Link2 } from 'lucide-react';
 import { Booking, UserProfile, Instructor } from '../../types';
-import { useLanguage } from '../../lib/LanguageContext';
+import { useLanguage, getDifficultyLabel } from '../../lib/LanguageContext';
 import { useCurrency } from '../../lib/CurrencyContext';
+import { isCourseBooking } from '../../lib/availabilitySlots';
+import { formatBookingCreatedAt } from '../../lib/bookingCreatedAt';
 import { StatusBadge } from '../ui/StatusBadge';
 import { LinkGuestBookingModal } from './LinkGuestBookingModal';
 import { ApplePagination } from '../common/ApplePagination';
+
+const shortenBookingId = (id: string): string => (id.length > 12 ? `${id.slice(0, 10)}…` : id);
 
 interface BookingsLogProps {
   bookings: Booking[];
@@ -38,6 +42,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
   >('all');
   const [monitorInstructorFilter, setMonitorInstructorFilter] = useState('all');
   const [monitorClientFilter, setMonitorClientFilter] = useState('all');
+  const [monitorTypeFilter, setMonitorTypeFilter] = useState<'all' | 'courses' | 'lessons'>('all');
   const [monitorSortBy, setMonitorSortBy] = useState<
     'date_desc' | 'date_asc' | 'client_asc' | 'client_desc'
   >('date_desc');
@@ -50,6 +55,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
     monitorStatusFilter,
     monitorInstructorFilter,
     monitorClientFilter,
+    monitorTypeFilter,
     monitorSortBy,
   ]);
 
@@ -87,8 +93,15 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
               : monitorClientFilter === 'guests'
                 ? b.isGuest || b.userId?.startsWith('guest_')
                 : b.userId === monitorClientFilter;
+          const isCourse = isCourseBooking(b);
+          const matchesType =
+            monitorTypeFilter === 'all' ||
+            (monitorTypeFilter === 'courses' && isCourse) ||
+            (monitorTypeFilter === 'lessons' && !isCourse);
 
-          return matchesSearch && matchesStatus && matchesInstructor && matchesClient;
+          return (
+            matchesSearch && matchesStatus && matchesInstructor && matchesClient && matchesType
+          );
         })
         .sort((a, b) => {
           if (monitorSortBy === 'date_desc') {
@@ -117,6 +130,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
       monitorStatusFilter,
       monitorInstructorFilter,
       monitorClientFilter,
+      monitorTypeFilter,
       monitorSortBy,
       language,
     ]
@@ -133,7 +147,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
   return (
     <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
       {/* Filters and Search Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pb-1 font-mono">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 pb-1 font-mono">
         {/* Search Input */}
         <div className="relative">
           <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-[var(--ink-dim)]">
@@ -226,6 +240,25 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
           </select>
         </div>
 
+        {/* Booking type filter */}
+        <div>
+          <select
+            value={monitorTypeFilter}
+            onChange={(e) => setMonitorTypeFilter(e.target.value as 'all' | 'courses' | 'lessons')}
+            className="w-full px-3 py-2 border border-[var(--border)] bg-slate-50 dark:bg-slate-900 text-xs text-[var(--ink)] rounded-none focus:outline-none focus:border-[var(--ink)] transition cursor-pointer font-mono"
+          >
+            <option value="all" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
+              {t('allBookingTypesFilter')}
+            </option>
+            <option value="courses" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
+              {t('coursesBookingTypeFilter')}
+            </option>
+            <option value="lessons" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
+              {t('lessonsBookingTypeFilter')}
+            </option>
+          </select>
+        </div>
+
         {/* Sort Dropdown */}
         <div>
           <select
@@ -254,6 +287,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
         monitorStatusFilter !== 'all' ||
         monitorInstructorFilter !== 'all' ||
         monitorClientFilter !== 'all' ||
+        monitorTypeFilter !== 'all' ||
         monitorSortBy !== 'date_desc') && (
         <div className="flex items-center justify-between bg-black/5 dark:bg-white/5 px-3 py-1.5 rounded-none border border-[var(--border)] font-mono">
           <span className="text-[10px] text-[var(--ink-dim)]">
@@ -265,6 +299,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
               setMonitorStatusFilter('all');
               setMonitorInstructorFilter('all');
               setMonitorClientFilter('all');
+              setMonitorTypeFilter('all');
               setMonitorSortBy('date_desc');
             }}
             className="text-[10px] text-[var(--ink)] hover:underline font-bold transition cursor-pointer"
@@ -278,9 +313,11 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-[var(--border)] text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
-              <th className="py-3 px-2">{t('bookingId')}</th>
+              <th className="py-3 px-1 w-[4.5rem] max-w-[4.5rem]">{t('bookingId')}</th>
+              <th className="py-3 px-2 whitespace-nowrap">{t('bookingDateColumn')}</th>
               <th className="py-3 px-2">{t('skierLabel')}</th>
               <th className="py-3 px-2">{t('coachLabel')}</th>
+              <th className="py-3 px-2 whitespace-nowrap">{t('trainingLevelLabel')}</th>
               <th className="py-3 px-2">{t('dateTimeColumn')}</th>
               <th className="py-3 px-2">{t('feeColumn')}</th>
               <th className="py-3 px-2">{t('statusLabel')}</th>
@@ -291,7 +328,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
             {bookings.filter((b) => !b.userId?.startsWith('system_block_')).length === 0 ? (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={9}
                   className="text-center py-6 text-xs text-[var(--ink-dim)] font-mono"
                 >
                   {t('noScheduledSessions')}
@@ -300,7 +337,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
             ) : filteredBookings.length === 0 ? (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={9}
                   className="text-center py-6 text-xs text-[var(--ink-dim)] font-mono"
                 >
                   {t('noBookingsMatchFilter')}
@@ -315,8 +352,14 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                     key={b.id}
                     className="border-b border-[var(--border)]/40 text-xs hover:bg-black/5 dark:hover:bg-white/5 transition"
                   >
-                    <td className="py-3 px-2 font-mono text-[10px] text-[var(--ink-dim)]">
-                      {b.id}
+                    <td
+                      className="py-3 px-1 w-[4.5rem] max-w-[4.5rem] font-mono text-[9px] text-[var(--ink-dim)] truncate"
+                      title={b.id}
+                    >
+                      {shortenBookingId(b.id)}
+                    </td>
+                    <td className="py-3 px-2 font-mono text-[11px] text-[var(--ink-dim)] whitespace-nowrap">
+                      {formatBookingCreatedAt(b, language) ?? t('bookingCreatedAtUnknown')}
                     </td>
                     <td className="py-3 px-2">
                       {b.isGuest || b.userId?.startsWith('guest_') ? (
@@ -367,6 +410,11 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                       )}
                     </td>
                     <td className="py-3 px-2 font-bold text-[var(--ink)]">{instructorName}</td>
+                    <td className="py-3 px-2 font-mono text-[10px] text-[var(--ink-dim)] whitespace-nowrap">
+                      {isCourseBooking(b)
+                        ? '—'
+                        : getDifficultyLabel(b.difficulty, language, 'short')}
+                    </td>
                     <td className="py-3 px-2 font-mono text-[11px] text-[var(--ink-dim)]">
                       <div>
                         {b.date} @ {b.time} ({b.durationHours}h)

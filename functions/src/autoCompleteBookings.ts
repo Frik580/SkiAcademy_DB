@@ -2,6 +2,7 @@ import { Firestore } from 'firebase-admin/firestore';
 
 const BOOKINGS_COLLECTION = 'bookings';
 const AVAILABILITY_SLOTS_COLLECTION = 'availability_slots';
+const COURSES_COLLECTION = 'courses';
 const ACTIVITY_LOGS_COLLECTION = 'activity_logs';
 export const SYSTEM_AUTO_COMPLETE_ACTOR_ID = 'system_auto_complete';
 
@@ -15,7 +16,25 @@ type BookingRecord = {
   durationHours?: number;
   endsAt?: string;
   difficulty?: string;
+  courseId?: string;
+  isDeleted?: boolean;
 };
+
+function isActiveCourseEnrollment(booking: BookingRecord): boolean {
+  return (
+    booking.instructorId.startsWith('course_') &&
+    booking.isDeleted !== true &&
+    (booking.status === 'pending' ||
+      booking.status === 'confirmed' ||
+      booking.status === 'pending_cancellation')
+  );
+}
+
+function resolveCourseId(booking: BookingRecord): string | null {
+  if (booking.courseId) return booking.courseId;
+  if (!booking.instructorId.startsWith('course_')) return null;
+  return booking.instructorId.slice('course_'.length);
+}
 
 function isCourseBooking(booking: Pick<BookingRecord, 'instructorId'>): boolean {
   return booking.instructorId.startsWith('course_');
@@ -39,11 +58,30 @@ async function completeBooking(
   bookingId: string,
   booking: BookingRecord
 ): Promise<void> {
+  if (booking.status === 'completed') {
+    return;
+  }
+
+  const shouldReleaseCourseSeat = isActiveCourseEnrollment(booking);
   const batch = db.batch();
   batch.update(db.collection(BOOKINGS_COLLECTION).doc(bookingId), { status: 'completed' });
 
   if (!isCourseBooking(booking)) {
     batch.delete(db.collection(AVAILABILITY_SLOTS_COLLECTION).doc(bookingId));
+  } else if (shouldReleaseCourseSeat) {
+    const courseId = resolveCourseId(booking);
+    if (courseId) {
+      const courseRef = db.collection(COURSES_COLLECTION).doc(courseId);
+      const courseSnap = await courseRef.get();
+      if (courseSnap.exists) {
+        const courseData = courseSnap.data() as { availableSeats?: number; totalSeats?: number };
+        const availableSeats = courseData.availableSeats ?? 0;
+        const totalSeats = courseData.totalSeats ?? availableSeats;
+        if (availableSeats < totalSeats) {
+          batch.update(courseRef, { availableSeats: availableSeats + 1 });
+        }
+      }
+    }
   }
 
   await batch.commit();

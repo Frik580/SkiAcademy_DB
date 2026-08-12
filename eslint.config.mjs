@@ -10,7 +10,14 @@ import prettierPlugin from 'eslint-plugin-prettier';
 
 export default tseslint.config(
   {
-    ignores: ['dist', 'node_modules', '.firebase', 'coverage', 'scripts/*.mjs'],
+    ignores: [
+      'dist',
+      'functions/lib',
+      'node_modules',
+      '.firebase',
+      'coverage',
+      'scripts/*.mjs',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

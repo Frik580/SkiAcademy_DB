@@ -6,6 +6,7 @@ import { Course, UserProfile, Booking } from '../types';
 import { useLanguage, getGroupCourseLabel, getGroupScheduleLabel } from '../lib/LanguageContext';
 import { useCurrency } from '../lib/CurrencyContext';
 import { db, setDoc, doc } from '../lib/firebase';
+import { withBookingCreatedAt } from '../lib/bookingCreatedAt';
 import { useNotifications } from './PushNotificationHub';
 import { Auth } from './Auth';
 import { AuthModeSliderSwitch } from './booking_modal/AuthModeSliderSwitch';
@@ -59,6 +60,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     const guestBooking: Booking = {
       id: `guest_course_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       userId: `guest_${Date.now()}`,
+      courseId: course.id,
       instructorId: `course_${course.id}`,
       instructorName: `${t('guestCourseRequestPrefix')} ${localizedTitle}`,
       instructorAvatar: course.bgImageUrl || '',
@@ -78,7 +80,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     };
 
     try {
-      await setDoc(doc(db, 'bookings', guestBooking.id), guestBooking);
+      await setDoc(doc(db, 'bookings', guestBooking.id), withBookingCreatedAt(guestBooking));
       addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       onClose();

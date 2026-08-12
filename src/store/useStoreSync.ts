@@ -16,10 +16,7 @@ import {
 } from '../lib/firebase';
 import { UserProfile, Instructor, Review, Booking } from '../types';
 import { DEFAULT_SKILL_CONFIG } from '../lib/skillData';
-import {
-  DEFAULT_ACHIEVEMENTS_CONFIG,
-  normalizeAchievementsConfig,
-} from '../lib/achievementConfig';
+import { DEFAULT_ACHIEVEMENTS_CONFIG, normalizeAchievementsConfig } from '../lib/achievementConfig';
 import { DEFAULT_NOTIFICATION_RETENTION_DAYS } from '../lib/notificationConfig';
 import {
   isNotificationExpired,
@@ -156,12 +153,13 @@ export const useStoreSync = () => {
       onSnapshot(
         query(collection(db, 'instructors'), limit(QUERY_LIMITS.instructors)),
         (snapshot) => {
-          useBookingStore.getState().setInstructors(
-            snapshot.docs.map(
-              (instructorDoc) =>
-                ({ id: instructorDoc.id, ...instructorDoc.data() }) as Instructor
-            )
-          );
+          useBookingStore
+            .getState()
+            .setInstructors(
+              snapshot.docs.map(
+                (instructorDoc) => ({ id: instructorDoc.id, ...instructorDoc.data() }) as Instructor
+              )
+            );
         },
         (error) => handleFirestoreError(error, OperationType.LIST, 'instructors')
       ),
@@ -169,11 +167,13 @@ export const useStoreSync = () => {
       onSnapshot(
         query(collection(db, 'reviews'), limit(QUERY_LIMITS.reviews)),
         (snapshot) => {
-          useBookingStore.getState().setReviews(
-            snapshot.docs.map(
-              (reviewDoc) => ({ id: reviewDoc.id, ...reviewDoc.data() }) as Review
-            )
-          );
+          useBookingStore
+            .getState()
+            .setReviews(
+              snapshot.docs.map(
+                (reviewDoc) => ({ id: reviewDoc.id, ...reviewDoc.data() }) as Review
+              )
+            );
         },
         (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
       ),
@@ -201,9 +201,7 @@ export const useStoreSync = () => {
             useUiStore.getState().setAchievementsConfig(DEFAULT_ACHIEVEMENTS_CONFIG);
             return;
           }
-          useUiStore
-            .getState()
-            .setAchievementsConfig(normalizeAchievementsConfig(snapshot.data()));
+          useUiStore.getState().setAchievementsConfig(normalizeAchievementsConfig(snapshot.data()));
         },
         (error) => logger.error('Achievements config listener error:', error)
       ),
@@ -238,11 +236,13 @@ export const useStoreSync = () => {
     return onSnapshot(
       query(collection(db, 'users'), limit(QUERY_LIMITS.users)),
       (snapshot) => {
-        useAuthStore.getState().setUsersList(
-          snapshot.docs
-            .filter((userDoc) => userDoc.id !== 'school_global_stats')
-            .map((userDoc) => userDoc.data() as UserProfile)
-        );
+        useAuthStore
+          .getState()
+          .setUsersList(
+            snapshot.docs
+              .filter((userDoc) => userDoc.id !== 'school_global_stats')
+              .map((userDoc) => userDoc.data() as UserProfile)
+          );
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'users')
     );
@@ -319,11 +319,11 @@ export const useStoreSync = () => {
     return onSnapshot(
       coursesQuery,
       (snapshot) => {
-        useCourseStore.getState().setCourses(
-          snapshot.docs.map(
-            (courseDoc) => ({ id: courseDoc.id, ...courseDoc.data() }) as Course
-          )
-        );
+        useCourseStore
+          .getState()
+          .setCourses(
+            snapshot.docs.map((courseDoc) => ({ id: courseDoc.id, ...courseDoc.data() }) as Course)
+          );
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'courses')
     );
@@ -335,7 +335,6 @@ export const useStoreSync = () => {
 
   useEffect(() => {
     void useCourseStore.getState().syncCourseSeats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     bookings.map((b) => `${b.id}:${b.status}:${b.isDeleted}`).join(','),
     courses.map((c) => `${c.id}:${c.totalSeats}:${c.availableSeats}`).join(','),
@@ -348,11 +347,9 @@ export const useStoreSync = () => {
   useEffect(() => {
     if (!firebaseUser) return;
 
-    void purgeExpiredNotificationsForUser(
-      db,
-      firebaseUser.uid,
-      notificationRetentionDays
-    ).catch((error) => logger.error('Notification retention cleanup error:', error));
+    void purgeExpiredNotificationsForUser(db, firebaseUser.uid, notificationRetentionDays).catch(
+      (error) => logger.error('Notification retention cleanup error:', error)
+    );
   }, [firebaseUser, notificationRetentionDays]);
 
   useEffect(() => {
@@ -376,7 +373,10 @@ export const useStoreSync = () => {
             (notificationDoc) =>
               ({ id: notificationDoc.id, ...notificationDoc.data() }) as DbNotification
           )
-          .filter((notification) => !isNotificationExpired(notification.timestamp, notificationRetentionDays));
+          .filter(
+            (notification) =>
+              !isNotificationExpired(notification.timestamp, notificationRetentionDays)
+          );
 
         useAuthStore.getState().setDbNotifications(validNotifications);
 

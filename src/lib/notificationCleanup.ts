@@ -34,7 +34,11 @@ export function getNotificationTimestampMs(timestamp: unknown): number | null {
   return null;
 }
 
-export function isNotificationExpired(timestamp: unknown, retentionDays: number, now = Date.now()): boolean {
+export function isNotificationExpired(
+  timestamp: unknown,
+  retentionDays: number,
+  now = Date.now()
+): boolean {
   const time = getNotificationTimestampMs(timestamp);
   if (time == null) return false;
   return now - time > getNotificationRetentionMs(retentionDays);

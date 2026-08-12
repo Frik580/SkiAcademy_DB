@@ -2,10 +2,13 @@ import { readFileSync } from 'node:fs';
 import {
   assertFails,
   assertSucceeds,
-  initializeTestEnvironment,
   RulesTestContext,
   RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
+import {
+  cleanupEmulatorTestEnvironment,
+  initializeEmulatorTestEnvironment,
+} from './helpers/firebaseEmulatorTestEnv';
 import {
   collection,
   deleteDoc,
@@ -59,7 +62,7 @@ async function seedData(callback: (context: RulesTestContext) => Promise<void>) 
 }
 
 beforeAll(async () => {
-  testEnv = await initializeTestEnvironment({
+  testEnv = await initializeEmulatorTestEnvironment({
     projectId: PROJECT_ID,
     firestore: {
       host: '127.0.0.1',
@@ -67,7 +70,7 @@ beforeAll(async () => {
       rules: readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8'),
     },
   });
-});
+}, 30_000);
 
 beforeEach(async () => {
   await testEnv.clearFirestore();
@@ -80,8 +83,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await testEnv.cleanup();
-});
+  await cleanupEmulatorTestEnvironment(testEnv);
+}, 30_000);
 
 describe('bookings', () => {
   beforeEach(async () => {
@@ -147,6 +150,88 @@ describe('bookings', () => {
     );
     await assertSucceeds(getDocs(collection(adminDb, 'bookings')));
     await assertSucceeds(getDoc(doc(anonymousDb, 'availability_slots', 'booking-1')));
+    await assertSucceeds(
+      getDoc(doc(anonymousDb, 'availability_hour_locks', 'instructor-1__2026-12-01__09:00'))
+    );
+  });
+
+  it('allows anonymous guests to create pending lesson bookings atomically', async () => {
+    const anonymousDb = testEnv.unauthenticatedContext().firestore();
+    const bookingRef = doc(anonymousDb, 'bookings', 'guest_book_test_1');
+    const slotRef = doc(anonymousDb, 'availability_slots', 'guest_book_test_1');
+    const guestBooking = {
+      id: 'guest_book_test_1',
+      userId: 'guest_1234567890',
+      instructorId: 'instructor-1',
+      instructorName: 'Instructor',
+      instructorAvatar: '',
+      date: '2026-12-02',
+      time: '14:00',
+      durationHours: 2,
+      totalPrice: 100,
+      status: 'pending',
+      difficulty: 'beginner',
+      isGuest: true,
+      guestName: 'Walk-in Guest',
+      guestPhone: '+1234567890',
+      guestEmail: 'guest@example.com',
+    };
+
+    const createBatch = writeBatch(anonymousDb);
+    createBatch.set(bookingRef, guestBooking);
+    addHourLocksToBatch(createBatch, anonymousDb, guestBooking);
+    createBatch.set(slotRef, {
+      bookingId: 'guest_book_test_1',
+      instructorId: 'instructor-1',
+      date: '2026-12-02',
+      time: '14:00',
+      durationHours: 2,
+      slotType: 'lesson',
+    });
+
+    await assertSucceeds(createBatch.commit());
+  });
+
+  it('allows anonymous guests to create pending course enrollment requests', async () => {
+    const anonymousDb = testEnv.unauthenticatedContext().firestore();
+
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'courses', 'course-guest-1'), {
+        id: 'course-guest-1',
+        title: 'Guest Course',
+        duration: '5 days',
+        description: 'Test course',
+        dates: '01.12.2026',
+        totalSeats: 10,
+        availableSeats: 5,
+        price: 250,
+        bgImageUrl: '',
+      });
+    });
+
+    const guestCourseBooking = {
+      id: 'guest_course_test_1',
+      userId: 'guest_1234567890',
+      courseId: 'course-guest-1',
+      instructorId: 'course_course-guest-1',
+      instructorName: 'Group Course Request',
+      instructorAvatar: '',
+      date: '01.12.2026',
+      time: 'Group schedule',
+      durationHours: 10,
+      totalPrice: 250,
+      status: 'pending',
+      difficulty: 'intermediate',
+      isGuest: true,
+      guestName: 'Walk-in Guest',
+      guestPhone: '+1234567890',
+      guestEmail: 'guest@example.com',
+      notes: 'Guest course request',
+    };
+
+    await assertSucceeds(
+      setDoc(doc(anonymousDb, 'bookings', guestCourseBooking.id), guestCourseBooking)
+    );
   });
 
   it('requires lesson bookings and availability slots to change atomically', async () => {

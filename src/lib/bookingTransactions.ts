@@ -24,6 +24,7 @@ import {
 } from './slotOverlap';
 import { applyWalletCreditInTransaction } from './walletCredit';
 import { computeBookingEndsAtIso, withBookingEndsAt } from './bookingEndsAt';
+import { withBookingCreatedAt } from './bookingCreatedAt';
 
 export class InsufficientFundsError extends Error {
   constructor() {
@@ -60,7 +61,10 @@ function writeBookingWithAvailability(
   firestore: Firestore,
   booking: Booking
 ) {
-  transaction.set(doc(firestore, 'bookings', booking.id), withBookingEndsAt(booking));
+  transaction.set(
+    doc(firestore, 'bookings', booking.id),
+    withBookingEndsAt(withBookingCreatedAt(booking))
+  );
   if (blocksInstructorAvailability(booking)) {
     writeHourLocks(transaction, firestore, booking);
     transaction.set(

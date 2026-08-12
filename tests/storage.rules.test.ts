@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
+import { assertFails, RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import {
-  assertFails,
-  initializeTestEnvironment,
-  RulesTestEnvironment,
-} from '@firebase/rules-unit-testing';
+  cleanupEmulatorTestEnvironment,
+  initializeEmulatorTestEnvironment,
+} from './helpers/firebaseEmulatorTestEnv';
 import { getBytes, ref, uploadBytes, uploadString } from 'firebase/storage';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -12,7 +12,7 @@ const PROJECT_ID = 'ski-academy-storage-rules-test';
 let testEnv: RulesTestEnvironment;
 
 beforeAll(async () => {
-  testEnv = await initializeTestEnvironment({
+  testEnv = await initializeEmulatorTestEnvironment({
     projectId: PROJECT_ID,
     storage: {
       host: '127.0.0.1',
@@ -24,10 +24,10 @@ beforeAll(async () => {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await uploadString(ref(context.storage(), 'existing/image.txt'), 'private');
   });
-});
+}, 30_000);
 
 afterAll(async () => {
-  await testEnv.cleanup();
+  await cleanupEmulatorTestEnvironment(testEnv);
 }, 30_000);
 
 describe('storage default deny', () => {
@@ -48,7 +48,10 @@ describe('storage default deny', () => {
 
 describe('storage upload size limits', () => {
   const imageBytes = (size: number) => new Uint8Array(size);
-  const imageUpload = (storage: ReturnType<RulesTestEnvironment['authenticatedContext']>['storage'], size: number) =>
+  const imageUpload = (
+    storage: ReturnType<RulesTestEnvironment['authenticatedContext']>['storage'],
+    size: number
+  ) =>
     uploadBytes(ref(storage, 'avatars/user-1'), imageBytes(size), {
       contentType: 'image/jpeg',
     });

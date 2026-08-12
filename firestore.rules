@@ -598,13 +598,25 @@ service cloud.firestore {
 
     // Hour-level locks used to prevent double-booking the same instructor slot.
     match /availability_hour_locks/{lockId} {
-      allow read: if isAuthenticated();
+      // Public read: lock docs contain only instructor/date/time/bookingId (no client PII).
+      // Required for overlap checks during anonymous guest booking transactions.
+      allow read: if true;
 
       allow create: if isAdmin() || (
-        isAuthenticated() &&
         request.resource.data.keys().hasAll(['instructorId', 'date', 'time', 'bookingId']) &&
         existsAfter(
           /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ) &&
+        (
+          isAuthenticated() ||
+          (
+            getAfter(
+              /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+            ).data.userId.matches('^guest_.*') &&
+            getAfter(
+              /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+            ).data.status == 'pending'
+          )
         )
       );
 

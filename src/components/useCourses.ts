@@ -17,7 +17,7 @@ import {
   writeBatch,
 } from '../lib/firebase';
 import { useLanguage } from '../lib/LanguageContext';
-import { enrollInCourse } from '../lib/courseTransactions';
+import { enrollInCourse, isActiveCourseEnrollment } from '../lib/courseTransactions';
 import { stripUndefinedFields } from '../lib/courseClone';
 import { createNotificationForUser } from '../lib/notifications';
 import { buildNotification, translateKey } from '../lib/notificationText';
@@ -71,9 +71,7 @@ export const useCourses = (
       for (const course of courses) {
         const activeBookingsCount = bookings.filter(
           (booking) =>
-            booking.instructorId === `course_${course.id}` &&
-            booking.status !== 'cancelled' &&
-            !booking.isDeleted
+            booking.instructorId === `course_${course.id}` && isActiveCourseEnrollment(booking)
         ).length;
         const availableSeats = Math.max(0, course.totalSeats - activeBookingsCount);
         if (course.availableSeats === availableSeats) continue;
@@ -150,12 +148,7 @@ export const useCourses = (
     }
 
     try {
-      const { courseTitle } = await enrollInCourse(
-        db,
-        activeUser.uid,
-        courseId,
-        language
-      );
+      const { courseTitle } = await enrollInCourse(db, activeUser.uid, courseId, language);
 
       addNotification(
         'success',

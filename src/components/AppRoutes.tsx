@@ -345,7 +345,9 @@ const AdminRouteWrapper: React.FC = () => {
 
   const handleToggleFilters = useUiStore((s) => s.handleToggleFilters);
   const handleToggleOnboarding = useUiStore((s) => s.handleToggleOnboarding);
-  const handleSetNotificationRetentionDays = useUiStore((s) => s.handleSetNotificationRetentionDays);
+  const handleSetNotificationRetentionDays = useUiStore(
+    (s) => s.handleSetNotificationRetentionDays
+  );
   const handleUpdateSkillConfig = useUiStore((s) => s.handleUpdateSkillConfig);
   const handleUpdateAchievementsConfig = useUiStore((s) => s.handleUpdateAchievementsConfig);
   const handleUpdateUserRole = useAuthStore((s) => s.handleUpdateUserRole);

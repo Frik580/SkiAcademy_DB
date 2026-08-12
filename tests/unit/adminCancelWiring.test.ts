@@ -5,7 +5,10 @@ import { describe, expect, it } from 'vitest';
 describe('admin cancel wiring', () => {
   it('keeps client request cancel and admin immediate cancel handlers separate', () => {
     const routesSource = readFileSync(join(process.cwd(), 'src/components/AppRoutes.tsx'), 'utf8');
-    const bookingStoreSource = readFileSync(join(process.cwd(), 'src/store/bookingStore.ts'), 'utf8');
+    const bookingStoreSource = readFileSync(
+      join(process.cwd(), 'src/store/bookingStore.ts'),
+      'utf8'
+    );
 
     expect(routesSource).toContain('onCancel={handleRequestCancel}');
     expect(routesSource).toContain('onCancelBooking={handleCancel}');

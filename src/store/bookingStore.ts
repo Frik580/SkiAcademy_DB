@@ -16,7 +16,7 @@ import {
   where,
   writeBatch,
 } from '../lib/firebase';
-import { AVAILABILITY_SLOTS_COLLECTION, isCourseBooking } from '../lib/availabilitySlots';
+import { finalizeBookingCompletion } from '../lib/completeBooking';
 import {
   cancelBookingWithRefund,
   createBookingWithPayment,
@@ -38,10 +38,7 @@ import { Booking, Instructor, Review } from '../types';
 import { logger } from '../lib/logger';
 import { toggleCompletedRecommendationIds } from '../lib/lessonRecommendations';
 import { clearStudentBookings, clearCancelledBookings } from '../lib/clearStudentBookings';
-import {
-  autoCompleteEligibleBookings,
-  queryOverdueBookings,
-} from '../lib/autoCompleteBookings';
+import { autoCompleteEligibleBookings, queryOverdueBookings } from '../lib/autoCompleteBookings';
 import { isBookingEligibleForAutoComplete } from '../lib/bookingEndsAt';
 import { notify, t } from './storeContext';
 import { useAuthStore } from './authStore';
@@ -310,17 +307,11 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   },
 
   handleCompleteBooking: async (id) => {
-    const { bookings } = get();
     const { firebaseUser } = useAuthStore.getState();
-    const booking = bookings.find((item) => item.id === id);
-    const batch = writeBatch(db);
-    batch.update(doc(db, 'bookings', id), { status: 'completed' });
-    if (booking && !isCourseBooking(booking)) {
-      batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, id));
-    }
-    await batch.commit();
+    const booking = await finalizeBookingCompletion(db, id);
+    if (!booking || booking.status !== 'completed') return;
 
-    if (booking && firebaseUser) {
+    if (firebaseUser) {
       await logActivityForUser(
         booking.userId,
         firebaseUser.uid,

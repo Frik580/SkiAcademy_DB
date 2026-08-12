@@ -1,4 +1,4 @@
-import { doc, runTransaction, type Firestore } from 'firebase/firestore';
+import { doc, runTransaction, type Firestore, type Transaction } from 'firebase/firestore';
 import {
   getGroupCourseEnrollmentNote,
   getGroupCourseLabel,
@@ -8,12 +8,49 @@ import {
   translateCourse,
   type Language,
 } from './LanguageContext';
+import { withBookingCreatedAt } from './bookingCreatedAt';
+import { isCourseBooking } from './availabilitySlots';
 import { Booking, Course, UserProfile } from '../types';
 
 export class CourseEnrollmentError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'CourseEnrollmentError';
+  }
+}
+
+export const isActiveCourseEnrollment = (
+  booking: Pick<Booking, 'instructorId' | 'status' | 'isDeleted'>
+): boolean =>
+  isCourseBooking(booking) &&
+  !booking.isDeleted &&
+  (booking.status === 'pending' ||
+    booking.status === 'confirmed' ||
+    booking.status === 'pending_cancellation');
+
+export const resolveCourseIdFromBooking = (
+  booking: Pick<Booking, 'courseId' | 'instructorId'>
+): string | null => {
+  if (booking.courseId) return booking.courseId;
+  if (!isCourseBooking(booking)) return null;
+  return booking.instructorId.slice('course_'.length);
+};
+
+export async function releaseCourseSeatInTransaction(
+  transaction: Transaction,
+  firestore: Firestore,
+  booking: Pick<Booking, 'courseId' | 'instructorId'>
+): Promise<void> {
+  const courseId = resolveCourseIdFromBooking(booking);
+  if (!courseId) return;
+
+  const courseRef = doc(firestore, 'courses', courseId);
+  const courseSnap = await transaction.get(courseRef);
+  if (!courseSnap.exists()) return;
+
+  const courseData = courseSnap.data() as Course;
+  if (courseData.availableSeats < courseData.totalSeats) {
+    transaction.update(courseRef, { availableSeats: courseData.availableSeats + 1 });
   }
 }
 
@@ -71,7 +108,7 @@ export async function enrollInCourse(
     const newBalance = userBalance - courseData.price;
 
     transaction.update(userDocRef, { balanceUSD: newBalance });
-    transaction.set(bookingDocRef, newBooking);
+    transaction.set(bookingDocRef, withBookingCreatedAt(newBooking));
     transaction.update(courseDocRef, { availableSeats: courseData.availableSeats - 1 });
 
     return { newBalance, bookingId, courseTitle: localizedCourse.title };

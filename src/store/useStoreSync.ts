@@ -34,9 +34,11 @@ import { useAuthStore } from './authStore';
 import { useBookingStore } from './bookingStore';
 import { useCourseStore } from './courseStore';
 import { useUiStore } from './uiStore';
+import { useDataSyncScope } from './useDataSyncScope';
 import { notify, getLanguage } from './storeContext';
 
 export const useStoreSync = () => {
+  const { shouldSyncUsersList, shouldSyncActivityLogs, shouldSyncReviews } = useDataSyncScope();
   const profileUnsubscribeRef = useRef<(() => void) | null>(null);
   const autoCompleteRunningRef = useRef(false);
   const lastAutoCompleteAtRef = useRef(0);
@@ -147,7 +149,7 @@ export const useStoreSync = () => {
     loadSettings();
   }, []);
 
-  // Instructors, reviews, skill/achievements/design theme listeners
+  // Instructors + settings listeners (always on)
   useEffect(() => {
     const unsubscribers = [
       onSnapshot(
@@ -162,20 +164,6 @@ export const useStoreSync = () => {
             );
         },
         (error) => handleFirestoreError(error, OperationType.LIST, 'instructors')
-      ),
-
-      onSnapshot(
-        query(collection(db, 'reviews'), limit(QUERY_LIMITS.reviews)),
-        (snapshot) => {
-          useBookingStore
-            .getState()
-            .setReviews(
-              snapshot.docs.map(
-                (reviewDoc) => ({ id: reviewDoc.id, ...reviewDoc.data() }) as Review
-              )
-            );
-        },
-        (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
       ),
 
       onSnapshot(
@@ -222,12 +210,33 @@ export const useStoreSync = () => {
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
   }, []);
 
-  // Users list (admin/instructor)
+  // Reviews — cabinet, instructor workspace, or instructor reviews modal
+  useEffect(() => {
+    if (!shouldSyncReviews) {
+      useBookingStore.getState().setReviews([]);
+      return;
+    }
+
+    return onSnapshot(
+      query(collection(db, 'reviews'), limit(QUERY_LIMITS.reviews)),
+      (snapshot) => {
+        useBookingStore
+          .getState()
+          .setReviews(
+            snapshot.docs.map((reviewDoc) => ({ id: reviewDoc.id, ...reviewDoc.data() }) as Review)
+          );
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
+    );
+  }, [shouldSyncReviews]);
+
+  // Users list (admin/instructor routes only)
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const userProfile = useAuthStore((s) => s.userProfile);
 
   useEffect(() => {
-    const canReadUsers = userProfile?.role === 'admin' || Boolean(userProfile?.instructorId);
+    const canReadUsers =
+      (userProfile?.role === 'admin' || Boolean(userProfile?.instructorId)) && shouldSyncUsersList;
     if (!firebaseUser || !canReadUsers) {
       useAuthStore.getState().setUsersList([]);
       return;
@@ -246,7 +255,7 @@ export const useStoreSync = () => {
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'users')
     );
-  }, [firebaseUser, userProfile?.instructorId, userProfile?.role]);
+  }, [firebaseUser, userProfile?.instructorId, userProfile?.role, shouldSyncUsersList]);
 
   // Bookings listener
   useEffect(() => {
@@ -393,9 +402,9 @@ export const useStoreSync = () => {
     );
   }, [firebaseUser, notificationRetentionDays]);
 
-  // Activity logs listener
+  // Activity logs — lazy: admin, instructor workspace, or student cabinet
   useEffect(() => {
-    if (!firebaseUser) {
+    if (!firebaseUser || !shouldSyncActivityLogs) {
       useAuthStore.getState().setActivityLogs([]);
       return;
     }
@@ -418,7 +427,7 @@ export const useStoreSync = () => {
       },
       (error) => logger.error('Activity log sync error:', error)
     );
-  }, [firebaseUser]);
+  }, [firebaseUser, shouldSyncActivityLogs]);
 
   // Auto-complete bookings
   const bookingsLoaded = useBookingStore((s) => s.bookingsLoaded);
@@ -477,6 +486,7 @@ export const useStoreSync = () => {
   useEffect(() => {
     if (!firebaseUser || !userProfile || userProfile.role !== 'user') return;
     if (!bookingsLoaded) return;
+    if (!shouldSyncReviews) return;
 
     syncAchievementActivityLogs(firebaseUser.uid, {
       userProfile,
@@ -497,5 +507,6 @@ export const useStoreSync = () => {
     skillConfig,
     achievementsConfig,
     activityLogs,
+    shouldSyncReviews,
   ]);
 };

@@ -16,6 +16,7 @@ import {
   where,
   writeBatch,
 } from '../lib/firebase';
+import { AVAILABILITY_SLOTS_COLLECTION, isCourseBooking } from '../lib/availabilitySlots';
 import { finalizeBookingCompletion } from '../lib/completeBooking';
 import {
   cancelBookingWithRefund,

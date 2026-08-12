@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, limit, query, where, type Firestore } from 'firebase/firestore';
+import { collection, getDocs, limit, query, where, type Firestore } from 'firebase/firestore';
 import { Booking } from '../types';
 import { activityLogId, buildBookingCompletedMetadata, logActivityForUser } from './activityLog';
 import { finalizeBookingCompletion } from './completeBooking';

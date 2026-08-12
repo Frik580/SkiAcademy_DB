@@ -6,6 +6,7 @@ import { optimizeProfileImage } from '../profileImage';
 import { uploadImage } from '../../../lib/storage';
 import { logger } from '../../../lib/logger';
 import { ScSectionTitle } from './StudentCabinetUI';
+import { useAuthStore, selectEffectiveBalance } from '../../../store/authStore';
 
 interface StudentProfilePersonalSectionProps {
   userProfile: UserProfile;
@@ -23,6 +24,7 @@ export const StudentProfilePersonalSection: React.FC<StudentProfilePersonalSecti
   onUploadError,
 }) => {
   const { t } = useLanguage();
+  const effectiveBalance = useAuthStore(selectEffectiveBalance);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [displayName, setDisplayName] = useState(userProfile.displayName);
@@ -155,9 +157,7 @@ export const StudentProfilePersonalSection: React.FC<StudentProfilePersonalSecti
         <Wallet className="w-5 h-5 text-[var(--ink-dim)]" />
         <div>
           <p className="text-xs text-[var(--ink-dim)]">{t('walletBalance')}</p>
-          <p className="text-xl font-serif text-[var(--ink)]">
-            ${userProfile.balanceUSD.toFixed(2)}
-          </p>
+          <p className="text-xl font-serif text-[var(--ink)]">${effectiveBalance.toFixed(2)}</p>
         </div>
       </div>
     </div>

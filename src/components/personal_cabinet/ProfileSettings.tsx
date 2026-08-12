@@ -6,6 +6,7 @@ import { useTheme } from '../useTheme';
 import { optimizeProfileImage } from './profileImage';
 import { uploadImage } from '../../lib/storage';
 import { logger } from '../../lib/logger';
+import { useAuthStore, selectEffectiveBalance } from '../../store/authStore';
 
 interface SkillProgressSummary {
   control: { percentage: number };
@@ -36,6 +37,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
 }) => {
   const { t } = useLanguage();
   const { theme } = useTheme();
+  const effectiveBalance = useAuthStore(selectEffectiveBalance);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
@@ -202,7 +204,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
                 {t('walletBalance')}
               </span>
               <span className="text-xl font-serif font-light text-[var(--ink)]">
-                ${userProfile.balanceUSD}
+                ${effectiveBalance}
               </span>
             </div>
           </div>

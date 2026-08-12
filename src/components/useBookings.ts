@@ -1,16 +1,7 @@
-import { useEffect } from 'react';
-import { User } from 'firebase/auth';
-import { UserProfile } from '../types';
-import { useAuthStore } from '../store/authStore';
 import { useBookingStore } from '../store/bookingStore';
 
 /** @deprecated Use useBookingStore directly. Kept for unit test compatibility. */
-export const useBookings = (firebaseUser: User | null, userProfile: UserProfile | null) => {
-  useEffect(() => {
-    useAuthStore.getState().setFirebaseUser(firebaseUser);
-    useAuthStore.getState().setUserProfile(userProfile);
-  }, [firebaseUser, userProfile]);
-
+export const useBookings = () => {
   const bookings = useBookingStore((s) => s.bookings);
   const bookingsLoaded = useBookingStore((s) => s.bookingsLoaded);
   const deletedCompletedStats = useBookingStore((s) => s.deletedCompletedStats);

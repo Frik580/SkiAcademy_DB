@@ -8,6 +8,7 @@ import { useCurrency } from '../lib/CurrencyContext';
 import { getUserLevelBadgeClass } from '../lib/courseLevelStyles';
 import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../lib/workspaceRoutes';
 import { Logo } from './Logo';
+import { useAuthStore, selectEffectiveBalance } from '../store/authStore';
 
 interface NavbarProps {
   userProfile: UserProfile | null;
@@ -32,6 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const { formatPrice } = useCurrency();
+  const effectiveBalance = useAuthStore(selectEffectiveBalance);
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminView = location.pathname === '/admin';
@@ -159,7 +161,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="text-[var(--ink-dim)] uppercase hidden xl:inline theme-air:normal-case">
                   {t('balance')}:
                 </span>
-                <span className="font-bold">{formatPrice(userProfile.balanceUSD)}</span>
+                <span className="font-bold">{formatPrice(effectiveBalance)}</span>
                 <button
                   onClick={onOpenTopUp}
                   title={t('topUpSimulated')}
@@ -313,7 +315,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="flex items-center justify-between gap-2 text-sm text-[var(--ink)]">
                     <span className="text-[var(--ink-dim)]">{t('balance')}:</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold">{formatPrice(userProfile.balanceUSD)}</span>
+                      <span className="font-bold">{formatPrice(effectiveBalance)}</span>
                       <button
                         onClick={() => {
                           onOpenTopUp();

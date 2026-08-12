@@ -57,7 +57,7 @@ export const useStoreSync = () => {
           (userSnap) => {
             if (userSnap.exists()) {
               const data = userSnap.data() as UserProfile;
-              useAuthStore.getState().setUserProfile(data);
+              useAuthStore.getState().syncUserProfileFromSnapshot(data);
 
               if (data.dismissedReviewIds && Array.isArray(data.dismissedReviewIds)) {
                 useAuthStore.getState().setDismissedReviewIds(data.dismissedReviewIds);
@@ -70,7 +70,7 @@ export const useStoreSync = () => {
                 useAuthStore.getState().setDismissedReviewIds(saved ? JSON.parse(saved) : []);
               }
             } else {
-              useAuthStore.getState().setUserProfile(null);
+              useAuthStore.getState().syncUserProfileFromSnapshot(null);
             }
             useAuthStore.getState().setAuthLoading(false);
           },
@@ -80,7 +80,7 @@ export const useStoreSync = () => {
           }
         );
       } else {
-        useAuthStore.getState().setUserProfile(null);
+        useAuthStore.getState().syncUserProfileFromSnapshot(null);
         useAuthStore.getState().setFirebaseUser(null);
         useAuthStore.getState().setDismissedReviewIds([]);
         useAuthStore.getState().setAuthLoading(false);

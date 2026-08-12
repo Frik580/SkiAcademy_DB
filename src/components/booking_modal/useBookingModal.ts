@@ -23,6 +23,7 @@ import {
   toLocalDateStr,
 } from '../../lib/availabilitySlots';
 import { BookingSlotOverlapError, createGuestBooking } from '../../lib/bookingTransactions';
+import { useAuthStore, selectEffectiveBalance } from '../../store/authStore';
 
 export interface BookingModalInput {
   isOpen: boolean;
@@ -47,6 +48,7 @@ export const useBookingModal = ({
 }: BookingModalInput) => {
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
+  const effectiveBalance = useAuthStore(selectEffectiveBalance);
 
   const [activeInstructor, setActiveInstructor] = useState<Instructor | null>(instructor);
   const targetInstructor = activeInstructor || instructor;
@@ -283,7 +285,7 @@ export const useBookingModal = ({
     !!overlappingCourse;
 
   const totalCost = targetInstructor ? targetInstructor.pricePerHour * duration : 0;
-  const userBalance = userProfile?.balanceUSD || 0;
+  const userBalance = effectiveBalance;
   const hasSufficientFunds = userBalance >= totalCost;
 
   const handleSubmitGuest = async (e: React.FormEvent) => {

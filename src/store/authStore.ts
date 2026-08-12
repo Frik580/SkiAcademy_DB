@@ -30,8 +30,13 @@ import {
 } from '../lib/todayChecklist';
 import { notify, t } from './storeContext';
 import { useUiStore } from './uiStore';
+import {
+  balanceOptimisticMiddleware,
+  type BalanceOptimisticState,
+} from './balanceOptimisticMiddleware';
+import { withOptimisticBalance } from './withOptimisticBalance';
 
-interface AuthState {
+interface AuthState extends BalanceOptimisticState {
   firebaseUser: User | null;
   userProfile: UserProfile | null;
   authLoading: boolean;
@@ -41,7 +46,7 @@ interface AuthState {
   activityLogs: ActivityLog[];
 
   setFirebaseUser: (user: User | null) => void;
-  setUserProfile: (profile: UserProfile | null) => void;
+  syncUserProfileFromSnapshot: (profile: UserProfile | null) => void;
   setAuthLoading: (loading: boolean) => void;
   setUsersList: (users: UserProfile[]) => void;
   setDismissedReviewIds: (ids: string[]) => void;
@@ -66,194 +71,204 @@ interface AuthState {
   handleRemoveTodayTask: (task: TodayTaskRef) => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
-  firebaseUser: null,
-  userProfile: null,
-  authLoading: true,
-  usersList: [],
-  dismissedReviewIds: [],
-  dbNotifications: [],
-  activityLogs: [],
+export const useAuthStore = create<AuthState>()(
+  balanceOptimisticMiddleware((set, get) => ({
+    firebaseUser: null,
+    userProfile: null,
+    authLoading: true,
+    usersList: [],
+    dismissedReviewIds: [],
+    dbNotifications: [],
+    activityLogs: [],
 
-  setFirebaseUser: (user) => set({ firebaseUser: user }),
-  setUserProfile: (profile) => set({ userProfile: profile }),
-  setAuthLoading: (loading) => set({ authLoading: loading }),
-  setUsersList: (users) => set({ usersList: users }),
-  setDismissedReviewIds: (ids) => set({ dismissedReviewIds: ids }),
-  setDbNotifications: (notifications) => set({ dbNotifications: notifications }),
-  setActivityLogs: (logs) => set({ activityLogs: logs }),
+    optimisticBalanceDelta: 0,
+    adjustOptimisticBalance: () => undefined,
+    resetOptimisticBalance: () => undefined,
 
-  handleSignOut: async () => {
-    try {
-      await signOut(auth);
-      set({ userProfile: null, firebaseUser: null });
-    } catch (err) {
-      logger.error(err);
-      throw err;
-    }
-  },
+    setFirebaseUser: (user) => set({ firebaseUser: user }),
+    syncUserProfileFromSnapshot: (profile) =>
+      set({ userProfile: profile, optimisticBalanceDelta: 0 }),
+    setAuthLoading: (loading) => set({ authLoading: loading }),
+    setUsersList: (users) => set({ usersList: users }),
+    setDismissedReviewIds: (ids) => set({ dismissedReviewIds: ids }),
+    setDbNotifications: (notifications) => set({ dbNotifications: notifications }),
+    setActivityLogs: (logs) => set({ activityLogs: logs }),
 
-  handleUpdateProfile: async (updatedData) => {
-    const { firebaseUser, userProfile } = get();
-    if (!firebaseUser || !userProfile) return;
-    try {
-      await updateDoc(doc(db, 'users', firebaseUser.uid), updatedData);
-      set({ userProfile: { ...userProfile, ...updatedData } });
-
-      if (
-        userProfile.instructorId &&
-        Object.prototype.hasOwnProperty.call(updatedData, 'phoneNumber')
-      ) {
-        const phoneNumber = (updatedData.phoneNumber || '').trim();
-        await updateDoc(doc(db, 'instructors', userProfile.instructorId), { phoneNumber });
+    handleSignOut: async () => {
+      try {
+        await signOut(auth);
+        set({ userProfile: null, firebaseUser: null, optimisticBalanceDelta: 0 });
+      } catch (err) {
+        logger.error(err);
+        throw err;
       }
-    } catch (err) {
-      logger.error('Profile update failed:', err);
-      throw err;
-    }
-  },
+    },
 
-  handleUpdateUserRole: async (targetUid, newRole) => {
-    const { userProfile } = get();
-    if (!canManageAdminRoles(userProfile)) {
-      notify('error', t('accessDenied'), t('accessDeniedDesc'));
-      return;
-    }
-    await updateDoc(doc(db, 'users', targetUid), { role: newRole });
-    notify('success', t('roleUpdated'), `${t('roleUpdatedDescPrefix')} ${newRole}.`);
-  },
+    handleUpdateProfile: async (updatedData) => {
+      const { firebaseUser, userProfile } = get();
+      if (!firebaseUser || !userProfile) return;
+      try {
+        await updateDoc(doc(db, 'users', firebaseUser.uid), updatedData);
 
-  handleAddUser: async (newUser) => {
-    await setDoc(doc(db, 'users', newUser.uid), newUser);
-  },
-
-  handleUpdateUser: async (updatedUser) => {
-    await updateDoc(doc(db, 'users', updatedUser.uid), { ...updatedUser });
-  },
-
-  handleDeleteUser: async (targetUid) => {
-    await deleteDoc(doc(db, 'users', targetUid));
-  },
-
-  handlePaymentSuccess: async (amount) => {
-    const { firebaseUser } = get();
-    if (!firebaseUser) return;
-    await grantAndApplyWalletCredit(db, firebaseUser.uid, amount);
-  },
-
-  handleDismissReview: async (bookingId) => {
-    const { firebaseUser, dismissedReviewIds } = get();
-    const userId = firebaseUser?.uid;
-    if (!userId) return;
-
-    const updated = Array.from(new Set([...dismissedReviewIds, bookingId]));
-    set({ dismissedReviewIds: updated });
-    localStorage.setItem(`alpine_glide_dismissed_reviews_${userId}`, JSON.stringify(updated));
-
-    try {
-      await updateDoc(doc(db, 'users', userId), {
-        dismissedReviewIds: arrayUnion(bookingId),
-      });
-    } catch (err) {
-      logger.error('Failed to update dismissedReviewIds in Firestore:', err);
-    }
-
-    try {
-      const notifQuery = query(collection(db, 'notifications'), where('userId', '==', userId));
-      const snapshot = await getDocs(notifQuery);
-      snapshot.docs.forEach((d) => {
-        const data = d.data();
         if (
-          data.bookingId === bookingId ||
-          (data.messageEn && data.messageEn.includes(bookingId)) ||
-          (data.messageRu && data.messageRu.includes(bookingId))
+          userProfile.instructorId &&
+          Object.prototype.hasOwnProperty.call(updatedData, 'phoneNumber')
         ) {
-          deleteDoc(doc(db, 'notifications', d.id)).catch((err) =>
-            logger.error('Failed to delete review notification from DB:', err)
-          );
+          const phoneNumber = (updatedData.phoneNumber || '').trim();
+          await updateDoc(doc(db, 'instructors', userProfile.instructorId), { phoneNumber });
         }
+      } catch (err) {
+        logger.error('Profile update failed:', err);
+        throw err;
+      }
+    },
+
+    handleUpdateUserRole: async (targetUid, newRole) => {
+      const { userProfile } = get();
+      if (!canManageAdminRoles(userProfile)) {
+        notify('error', t('accessDenied'), t('accessDeniedDesc'));
+        return;
+      }
+      await updateDoc(doc(db, 'users', targetUid), { role: newRole });
+      notify('success', t('roleUpdated'), `${t('roleUpdatedDescPrefix')} ${newRole}.`);
+    },
+
+    handleAddUser: async (newUser) => {
+      await setDoc(doc(db, 'users', newUser.uid), newUser);
+    },
+
+    handleUpdateUser: async (updatedUser) => {
+      await updateDoc(doc(db, 'users', updatedUser.uid), { ...updatedUser });
+    },
+
+    handleDeleteUser: async (targetUid) => {
+      await deleteDoc(doc(db, 'users', targetUid));
+    },
+
+    handlePaymentSuccess: async (amount) => {
+      const { firebaseUser } = get();
+      if (!firebaseUser) return;
+      await withOptimisticBalance(amount, () =>
+        grantAndApplyWalletCredit(db, firebaseUser.uid, amount)
+      );
+    },
+
+    handleDismissReview: async (bookingId) => {
+      const { firebaseUser, dismissedReviewIds } = get();
+      const userId = firebaseUser?.uid;
+      if (!userId) return;
+
+      const updated = Array.from(new Set([...dismissedReviewIds, bookingId]));
+      set({ dismissedReviewIds: updated });
+      localStorage.setItem(`alpine_glide_dismissed_reviews_${userId}`, JSON.stringify(updated));
+
+      try {
+        await updateDoc(doc(db, 'users', userId), {
+          dismissedReviewIds: arrayUnion(bookingId),
+        });
+      } catch (err) {
+        logger.error('Failed to update dismissedReviewIds in Firestore:', err);
+      }
+
+      try {
+        const notifQuery = query(collection(db, 'notifications'), where('userId', '==', userId));
+        const snapshot = await getDocs(notifQuery);
+        snapshot.docs.forEach((d) => {
+          const data = d.data();
+          if (
+            data.bookingId === bookingId ||
+            (data.messageEn && data.messageEn.includes(bookingId)) ||
+            (data.messageRu && data.messageRu.includes(bookingId))
+          ) {
+            deleteDoc(doc(db, 'notifications', d.id)).catch((err) =>
+              logger.error('Failed to delete review notification from DB:', err)
+            );
+          }
+        });
+      } catch (err) {
+        logger.error('Error removing review notification from notifications collection:', err);
+      }
+    },
+
+    handleDeleteNotification: async (id) => {
+      const { firebaseUser } = get();
+      if (!firebaseUser) return;
+      try {
+        await deleteDoc(doc(db, 'notifications', id));
+      } catch (error) {
+        logger.error('Failed to delete notification:', error);
+      }
+    },
+
+    handleClearNotifications: async () => {
+      const { firebaseUser, dbNotifications } = get();
+      if (!firebaseUser || dbNotifications.length === 0) return;
+      await Promise.all(
+        dbNotifications.map((notification) => deleteDoc(doc(db, 'notifications', notification.id)))
+      );
+    },
+
+    handleMarkNotificationsAsRead: async () => {
+      const { firebaseUser, dbNotifications } = get();
+      if (!firebaseUser) return;
+
+      const unreadNotifications = dbNotifications.filter((notification) => !notification.isRead);
+      if (unreadNotifications.length === 0) return;
+
+      const batch = writeBatch(db);
+      unreadNotifications.forEach((notification) => {
+        batch.update(doc(db, 'notifications', notification.id), { isRead: true });
       });
-    } catch (err) {
-      logger.error('Error removing review notification from notifications collection:', err);
-    }
-  },
+      await batch.commit();
+    },
 
-  handleDeleteNotification: async (id) => {
-    const { firebaseUser } = get();
-    if (!firebaseUser) return;
-    try {
-      await deleteDoc(doc(db, 'notifications', id));
-    } catch (error) {
-      logger.error('Failed to delete notification:', error);
-    }
-  },
+    handleToggleSkillToday: async (skillItemId, pinned) => {
+      const { userProfile } = get();
+      if (!userProfile) return;
+      const updated = buildToggleSkillTodayUpdate(userProfile, skillItemId, pinned);
+      await get().handleUpdateProfile(updated);
+    },
 
-  handleClearNotifications: async () => {
-    const { firebaseUser, dbNotifications } = get();
-    if (!firebaseUser || dbNotifications.length === 0) return;
-    await Promise.all(
-      dbNotifications.map((notification) => deleteDoc(doc(db, 'notifications', notification.id)))
-    );
-  },
+    handlePinSkillsToday: async (skillItemIds) => {
+      const { userProfile } = get();
+      if (!userProfile || skillItemIds.length === 0) return;
+      const skillConfig = useUiStore.getState().skillConfig;
+      const addedTitles = getNewlyPinnedSkillTitles(userProfile, skillItemIds, skillConfig.items);
+      const updated = buildPinSkillsTodayUpdate(userProfile, skillItemIds);
+      await get().handleUpdateProfile(updated);
+      if (addedTitles.length === 0) return;
+      notify(
+        'success',
+        t('scRadarTasksAddedTitle'),
+        addedTitles.map((title) => `• ${title}`).join('\n')
+      );
+    },
 
-  handleMarkNotificationsAsRead: async () => {
-    const { firebaseUser, dbNotifications } = get();
-    if (!firebaseUser) return;
+    handleToggleTodayTaskComplete: async (taskId, done) => {
+      const { userProfile } = get();
+      if (!userProfile) return;
+      const updated = buildToggleTodayCompleteUpdate(userProfile, taskId, done);
+      await get().handleUpdateProfile(updated);
+    },
 
-    const unreadNotifications = dbNotifications.filter((notification) => !notification.isRead);
-    if (unreadNotifications.length === 0) return;
+    handleAddCustomTodayTask: async (text) => {
+      const { userProfile } = get();
+      if (!userProfile) return;
+      const updated = buildAddCustomTodayTaskUpdate(userProfile, text);
+      if (!updated) return;
+      await get().handleUpdateProfile(updated);
+    },
 
-    const batch = writeBatch(db);
-    unreadNotifications.forEach((notification) => {
-      batch.update(doc(db, 'notifications', notification.id), { isRead: true });
-    });
-    await batch.commit();
-  },
+    handleRemoveTodayTask: async (task) => {
+      const { userProfile } = get();
+      if (!userProfile) return;
+      const updated = buildRemoveTodayTaskUpdate(userProfile, task);
+      await get().handleUpdateProfile(updated);
+    },
+  }))
+);
 
-  handleToggleSkillToday: async (skillItemId, pinned) => {
-    const { userProfile } = get();
-    if (!userProfile) return;
-    const updated = buildToggleSkillTodayUpdate(userProfile, skillItemId, pinned);
-    await get().handleUpdateProfile(updated);
-  },
-
-  handlePinSkillsToday: async (skillItemIds) => {
-    const { userProfile } = get();
-    if (!userProfile || skillItemIds.length === 0) return;
-    const skillConfig = useUiStore.getState().skillConfig;
-    const addedTitles = getNewlyPinnedSkillTitles(userProfile, skillItemIds, skillConfig.items);
-    const updated = buildPinSkillsTodayUpdate(userProfile, skillItemIds);
-    await get().handleUpdateProfile(updated);
-    if (addedTitles.length === 0) return;
-    notify(
-      'success',
-      t('scRadarTasksAddedTitle'),
-      addedTitles.map((title) => `• ${title}`).join('\n')
-    );
-  },
-
-  handleToggleTodayTaskComplete: async (taskId, done) => {
-    const { userProfile } = get();
-    if (!userProfile) return;
-    const updated = buildToggleTodayCompleteUpdate(userProfile, taskId, done);
-    await get().handleUpdateProfile(updated);
-  },
-
-  handleAddCustomTodayTask: async (text) => {
-    const { userProfile } = get();
-    if (!userProfile) return;
-    const updated = buildAddCustomTodayTaskUpdate(userProfile, text);
-    if (!updated) return;
-    await get().handleUpdateProfile(updated);
-  },
-
-  handleRemoveTodayTask: async (task) => {
-    const { userProfile } = get();
-    if (!userProfile) return;
-    const updated = buildRemoveTodayTaskUpdate(userProfile, task);
-    await get().handleUpdateProfile(updated);
-  },
-}));
+export { selectEffectiveBalance } from './balanceOptimisticMiddleware';
 
 export const selectUnreadNotificationCount = (state: AuthState) =>
   state.dbNotifications.filter((n) => !n.isRead).length;

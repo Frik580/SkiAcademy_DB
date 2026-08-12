@@ -43,6 +43,7 @@ import { autoCompleteEligibleBookings, queryOverdueBookings } from '../lib/autoC
 import { isBookingEligibleForAutoComplete } from '../lib/bookingEndsAt';
 import { notify, t } from './storeContext';
 import { useAuthStore } from './authStore';
+import { withOptimisticBalance } from './withOptimisticBalance';
 
 interface DeletedCompletedStats {
   revenue: number;
@@ -114,8 +115,12 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     const { firebaseUser, userProfile } = useAuthStore.getState();
     if (!userProfile || !firebaseUser) return 0;
 
+    const estimatedPrice = booking.totalPrice ?? 0;
+
     try {
-      const { totalPrice } = await createBookingWithPayment(db, firebaseUser.uid, booking);
+      const { totalPrice } = await withOptimisticBalance(-estimatedPrice, () =>
+        createBookingWithPayment(db, firebaseUser.uid, booking)
+      );
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       return totalPrice;
     } catch (error) {
@@ -202,16 +207,21 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
   handleCancel: async (id, refundAmount) => {
     const { bookings } = get();
-    const { userProfile } = useAuthStore.getState();
+    const { userProfile, firebaseUser } = useAuthStore.getState();
     const booking = bookings.find((item) => item.id === id);
     if (!booking) return;
 
     const bookingOwnerId = booking.userId;
     const isSystemBlock = bookingOwnerId.startsWith('system_block_');
     const isGuest = bookingOwnerId.startsWith('guest_');
+    const isSelfCancellation = bookingOwnerId === firebaseUser?.uid;
+    const estimatedRefund = refundAmount ?? booking.totalPrice ?? 0;
 
     try {
-      const { alreadyCancelled } = await cancelBookingWithRefund(db, id, refundAmount);
+      const { alreadyCancelled } = await withOptimisticBalance(
+        isSelfCancellation ? estimatedRefund : 0,
+        () => cancelBookingWithRefund(db, id, refundAmount)
+      );
       if (alreadyCancelled) return;
 
       if (userProfile?.role === 'admin') {
@@ -245,8 +255,14 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   },
 
   handleAddBooking: async (booking) => {
+    const { firebaseUser } = useAuthStore.getState();
+    const isCurrentUserBooking = booking.userId === firebaseUser?.uid;
+    const estimatedPrice = booking.totalPrice ?? 0;
+
     try {
-      await addBookingWithPayment(db, booking);
+      await withOptimisticBalance(isCurrentUserBooking ? -estimatedPrice : 0, () =>
+        addBookingWithPayment(db, booking)
+      );
     } catch (error) {
       if (error instanceof InsufficientFundsError) {
         throw new Error(t('insufficientFunds'));

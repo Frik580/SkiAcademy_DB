@@ -20,6 +20,7 @@ import { logger } from '../lib/logger';
 import { notify, t, getLanguage } from './storeContext';
 import { useAuthStore } from './authStore';
 import { useBookingStore } from './bookingStore';
+import { withOptimisticBalance } from './withOptimisticBalance';
 
 interface CourseState {
   courses: Course[];
@@ -96,7 +97,14 @@ export const useCourseStore = create<CourseState>((set, get) => ({
     }
 
     try {
-      const { courseTitle } = await enrollInCourse(db, activeUser.uid, courseId, getLanguage());
+      const course = get().courses.find((item) => item.id === courseId);
+      const isSelfEnrollment = activeUser.uid === activeProfile.uid && !customProfile;
+      const estimatedPrice = course?.price ?? 0;
+
+      const { courseTitle } = await withOptimisticBalance(
+        isSelfEnrollment ? -estimatedPrice : 0,
+        () => enrollInCourse(db, activeUser.uid, courseId, getLanguage())
+      );
 
       notify(
         'success',

@@ -92,6 +92,7 @@ vi.mock('../../src/lib/firebase', () => ({
 }));
 
 import { useBookings } from '../../src/components/useBookings';
+import { useAuthStore } from '../../src/store/authStore';
 import { useBookingStore } from '../../src/store/bookingStore';
 import { setStoreContext } from '../../src/store/storeContext';
 
@@ -110,10 +111,15 @@ describe('useBookings.handleCancel', () => {
       bookingsLoaded: true,
       deletedCompletedStats: { revenue: 0, count: 0 },
     });
+    useAuthStore.setState({
+      firebaseUser,
+      userProfile: adminProfile,
+      optimisticBalanceDelta: 0,
+    });
   });
 
   it('cancels a course booking as admin, notifies the client, and shows a success toast', async () => {
-    const { result } = renderHook(() => useBookings(firebaseUser, adminProfile));
+    const { result } = renderHook(() => useBookings());
 
     expect(result.current.bookings).toHaveLength(1);
 
@@ -148,7 +154,13 @@ describe('useBookings.handleCancel', () => {
     };
     const clientUser = { uid: 'client-1', email: 'client@example.com' } as any;
 
-    const { result } = renderHook(() => useBookings(clientUser, clientProfile));
+    useAuthStore.setState({
+      firebaseUser: clientUser,
+      userProfile: clientProfile,
+      optimisticBalanceDelta: 0,
+    });
+
+    const { result } = renderHook(() => useBookings());
 
     expect(result.current.bookings).toHaveLength(1);
 
@@ -163,7 +175,7 @@ describe('useBookings.handleCancel', () => {
   it('does nothing when the booking is already cancelled', async () => {
     mockCancelBookingWithRefund.mockResolvedValue({ refunded: 0, alreadyCancelled: true });
 
-    const { result } = renderHook(() => useBookings(firebaseUser, adminProfile));
+    const { result } = renderHook(() => useBookings());
 
     expect(result.current.bookings).toHaveLength(1);
 

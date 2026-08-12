@@ -17,7 +17,7 @@ interface CourseEnrollmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   course: Course | null;
-  onAuthSuccess: (profile: UserProfile) => void;
+  onAuthSuccess?: (profile: UserProfile) => void;
   onEnroll: (courseId: string, customProfile?: UserProfile) => void;
 }
 
@@ -165,7 +165,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                 <div className="border border-[var(--border)] p-4 bg-transparent rounded-none theme-air:rounded-[var(--radius-md)]">
                   <Auth
                     onSuccess={(profile) => {
-                      onAuthSuccess(profile);
+                      onAuthSuccess?.(profile);
                       onEnroll(course.id, profile);
                       onClose();
                     }}

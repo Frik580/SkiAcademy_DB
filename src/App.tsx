@@ -25,7 +25,11 @@ import { AppInitSkeleton, ModalSkeleton } from './components/ui/Skeleton';
 import { BodyScrollLock } from './components/ui/BodyScrollLock';
 
 import { setStoreContext } from './store/storeContext';
-import { useAuthStore, selectUnreadNotificationCount } from './store/authStore';
+import {
+  useAuthStore,
+  selectUnreadNotificationCount,
+  selectEffectiveBalance,
+} from './store/authStore';
 import { useBookingStore } from './store/bookingStore';
 import { useCourseStore } from './store/courseStore';
 import { useUiStore } from './store/uiStore';
@@ -77,9 +81,9 @@ const AppContent: React.FC = () => {
 
   const { theme, toggleTheme } = useTheme();
   const userProfile = useAuthStore((s) => s.userProfile);
+  const effectiveBalance = useAuthStore(selectEffectiveBalance);
   const authLoading = useAuthStore((s) => s.authLoading);
   const handleSignOut = useAuthStore((s) => s.handleSignOut);
-  const setUserProfile = useAuthStore((s) => s.setUserProfile);
   const dismissedReviewIds = useAuthStore((s) => s.dismissedReviewIds);
   const dbNotifications = useAuthStore((s) => s.dbNotifications);
   const handleDismissReview = useAuthStore((s) => s.handleDismissReview);
@@ -191,7 +195,6 @@ const AppContent: React.FC = () => {
         await updateDoc(doc(db, 'users', userProfile.uid), {
           hasCompletedOnboarding: true,
         });
-        setUserProfile({ ...userProfile, hasCompletedOnboarding: true });
       } catch (err) {
         logger.warn('Failed to save onboarding completion', err);
       }
@@ -300,7 +303,6 @@ const AppContent: React.FC = () => {
             onBookingSuccess={handleBookingSuccess}
             onOpenTopUp={() => setIsTopUpOpen(true)}
             courses={courses}
-            onAuthSuccess={setUserProfile}
           />
         </LazyLoad>
       )}
@@ -311,7 +313,6 @@ const AppContent: React.FC = () => {
             isOpen
             onClose={() => setSelectedCourseForAuth(null)}
             course={translateCourse(selectedCourseForAuth, language)}
-            onAuthSuccess={setUserProfile}
             onEnroll={handleBookCourse}
           />
         </LazyLoad>
@@ -359,7 +360,7 @@ const AppContent: React.FC = () => {
           <PaymentGateway
             isOpen
             onClose={() => setIsTopUpOpen(false)}
-            currentBalance={userProfile?.balanceUSD || 0}
+            currentBalance={effectiveBalance}
             onPaymentSuccess={handlePaymentSuccess}
           />
         </LazyLoad>
@@ -378,11 +379,7 @@ const AppContent: React.FC = () => {
         onDeleteNotification={handleDeleteNotification}
       />
 
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={setUserProfile}
-      />
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
 
       <footer
         className={`ui-footer ui-site-footer border-t border-[var(--border-subtle)] px-6 shrink-0 bg-[var(--profile-bg)]/40 ${

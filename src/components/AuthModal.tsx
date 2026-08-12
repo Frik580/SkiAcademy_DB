@@ -9,7 +9,7 @@ import { BodyScrollLock } from './ui/BodyScrollLock';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (profile: UserProfile) => void;
+  onSuccess?: (profile: UserProfile) => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
@@ -48,7 +48,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               <Auth
                 variant="default"
                 onSuccess={(profile) => {
-                  onSuccess(profile);
+                  onSuccess?.(profile);
                   onClose();
                 }}
               />

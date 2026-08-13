@@ -10,6 +10,7 @@ import {
   User,
   Video,
   CalendarRange,
+  Wallet,
 } from 'lucide-react';
 import { useLanguage, type TranslationKey } from '../../../lib/LanguageContext';
 import { DEFAULT_SKILL_CONFIG } from '../../../lib/skillData';
@@ -28,10 +29,12 @@ import {
 } from './studentCabinetUtils';
 import { calculateSkillProgress } from '../../../lib/skillData';
 import { StudentHistoryList } from './StudentHistoryList';
+import { StudentWalletHistoryList } from './StudentWalletHistoryList';
 
 type ProfileHubTab = Extract<
   StudentCabinetTab,
   | 'profile_personal'
+  | 'profile_wallet'
   | 'profile_journey'
   | 'profile_skills'
   | 'profile_certificates'
@@ -52,6 +55,12 @@ const PROFILE_HUB_ITEMS: {
     labelKey: 'scProfilePersonal',
     descKey: 'scProfilePersonalSub',
     icon: User,
+  },
+  {
+    tab: 'profile_wallet',
+    labelKey: 'scProfileWalletHistory',
+    descKey: 'scProfileWalletHistorySub',
+    icon: Wallet,
   },
   {
     tab: 'profile_journey',
@@ -172,6 +181,7 @@ interface ProfileSubPanelProps extends StudentCabinetContext {
   achievementsConfig?: AchievementsConfig;
   skillProgress: ReturnType<typeof calculateSkillProgress>;
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
+  walletLedgerEntries?: import('../../../types').WalletLedgerEntry[];
 }
 
 export const StudentProfilePersonalPanel: React.FC<ProfileSubPanelProps> = ({
@@ -189,6 +199,23 @@ export const StudentProfilePersonalPanel: React.FC<ProfileSubPanelProps> = ({
       onInvalidFile={onInvalidFile}
       onUploadSuccess={onUploadSuccess}
       onUploadError={onUploadError}
+    />
+  </ProfilePanelShell>
+);
+
+export const StudentProfileWalletPanel: React.FC<ProfileSubPanelProps> = ({
+  onGoToTab,
+  userProfile,
+  bookings,
+  courses,
+  walletLedgerEntries = [],
+}) => (
+  <ProfilePanelShell titleKey="scProfileWalletHistory" onGoToTab={onGoToTab}>
+    <StudentWalletHistoryList
+      userId={userProfile.uid}
+      bookings={bookings}
+      courses={courses}
+      ledgerEntries={walletLedgerEntries}
     />
   </ProfilePanelShell>
 );

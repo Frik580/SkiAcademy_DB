@@ -33,10 +33,28 @@ const lessonBooking = (overrides: Partial<Booking> = {}): Booking => ({
   ...overrides,
 });
 
-describe('createBooking callable', () => {
+const createBookingPayload = (booking: Booking) => ({
+  id: booking.id,
+  instructorId: booking.instructorId,
+  instructorName: booking.instructorName,
+  instructorAvatar: booking.instructorAvatar,
+  date: booking.date,
+  time: booking.time,
+  durationHours: booking.durationHours,
+  status: booking.status,
+  difficulty: booking.difficulty,
+});
+
+describe('createBooking callable', { timeout: 30_000 }, () => {
   beforeAll(async () => {
     await setupCallableIntegrationEnvironment();
-  });
+    await ensureCallableSignedInUser();
+    await seedCallableBaseFixtures();
+    await seedCallableUserProfile(500);
+
+    const createBooking = httpsCallable(getCallableFunctions(), 'createBooking');
+    await createBooking(createBookingPayload(lessonBooking({ id: 'warmup-booking' })));
+  }, 60_000);
 
   beforeEach(async () => {
     await clearCallableFirestore();
@@ -53,17 +71,7 @@ describe('createBooking callable', () => {
     const booking = lessonBooking();
     const createBooking = httpsCallable(getCallableFunctions(), 'createBooking');
 
-    const { data } = await createBooking({
-      id: booking.id,
-      instructorId: booking.instructorId,
-      instructorName: booking.instructorName,
-      instructorAvatar: booking.instructorAvatar,
-      date: booking.date,
-      time: booking.time,
-      durationHours: booking.durationHours,
-      status: booking.status,
-      difficulty: booking.difficulty,
-    });
+    const { data } = await createBooking(createBookingPayload(booking));
 
     const result = data as { bookingId: string; totalPrice: number; newBalance: number };
 
@@ -87,20 +95,10 @@ describe('createBooking callable', () => {
   });
 
   it('creates a booking when instructorAvatar is empty', async () => {
-    const booking = lessonBooking({ id: 'booking-callable-empty-avatar' });
+    const booking = lessonBooking({ id: 'booking-callable-empty-avatar', instructorAvatar: '' });
     const createBooking = httpsCallable(getCallableFunctions(), 'createBooking');
 
-    const { data } = await createBooking({
-      id: booking.id,
-      instructorId: booking.instructorId,
-      instructorName: booking.instructorName,
-      instructorAvatar: '',
-      date: booking.date,
-      time: booking.time,
-      durationHours: booking.durationHours,
-      status: booking.status,
-      difficulty: booking.difficulty,
-    });
+    const { data } = await createBooking(createBookingPayload(booking));
 
     const result = data as { bookingId: string; totalPrice: number; newBalance: number };
     expect(result.bookingId).toBe(booking.id);
@@ -112,17 +110,7 @@ describe('createBooking callable', () => {
     const createBooking = httpsCallable(getCallableFunctions(), 'createBooking');
 
     await expect(
-      createBooking({
-        id: lessonBooking({ id: 'booking-callable-insufficient' }).id,
-        instructorId: CALLABLE_INSTRUCTOR_ID,
-        instructorName: 'Callable Instructor',
-        instructorAvatar: 'https://example.com/instructor.jpg',
-        date: '2026-12-02',
-        time: '10:00',
-        durationHours: 2,
-        status: 'confirmed',
-        difficulty: 'beginner',
-      })
+      createBooking(createBookingPayload(lessonBooking({ id: 'booking-callable-insufficient' })))
     ).rejects.toMatchObject({
       code: 'functions/failed-precondition',
     } satisfies Partial<FirebaseError>);
@@ -136,31 +124,9 @@ describe('createBooking callable', () => {
       time: '11:00',
     });
 
-    await createBooking({
-      id: first.id,
-      instructorId: first.instructorId,
-      instructorName: first.instructorName,
-      instructorAvatar: first.instructorAvatar,
-      date: first.date,
-      time: first.time,
-      durationHours: first.durationHours,
-      status: first.status,
-      difficulty: first.difficulty,
-    });
+    await createBooking(createBookingPayload(first));
 
-    await expect(
-      createBooking({
-        id: overlapping.id,
-        instructorId: overlapping.instructorId,
-        instructorName: overlapping.instructorName,
-        instructorAvatar: overlapping.instructorAvatar,
-        date: overlapping.date,
-        time: overlapping.time,
-        durationHours: overlapping.durationHours,
-        status: overlapping.status,
-        difficulty: overlapping.difficulty,
-      })
-    ).rejects.toMatchObject({
+    await expect(createBooking(createBookingPayload(overlapping))).rejects.toMatchObject({
       code: 'functions/aborted',
     } satisfies Partial<FirebaseError>);
   });

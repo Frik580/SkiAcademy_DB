@@ -23,6 +23,7 @@ import {
   hasOverlappingAvailabilitySlot,
 } from './slotOverlap';
 import { applyWalletCreditInTransaction } from './walletCredit';
+import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId, walletLedgerBookingEntryId } from './walletLedger';
 import { computeBookingEndsAtIso, withBookingEndsAt } from './bookingEndsAt';
 import { withBookingCreatedAt } from './bookingCreatedAt';
 
@@ -174,9 +175,25 @@ export async function createBookingWithPayment(
 
     await assertNoSlotOverlap(transaction, firestore, bookingToWrite, existingSlotRefs, booking.id);
     writeBookingWithAvailability(transaction, firestore, bookingToWrite);
-    transaction.update(userRef, { balanceUSD: currentBalance - totalPrice });
+    const newBalance = currentBalance - totalPrice;
+    transaction.update(userRef, { balanceUSD: newBalance });
+    if (totalPrice > 0) {
+      recordWalletLedgerEntryInTransaction(transaction, firestore, {
+        userId,
+        amount: -totalPrice,
+        balanceAfter: newBalance,
+        type: isCourseBooking(bookingToWrite) ? 'course_payment' : 'lesson_payment',
+        subjectName: bookingToWrite.instructorName,
+        bookingId: bookingToWrite.id,
+        courseId: bookingToWrite.courseId,
+        entryId: walletLedgerEntryId(
+          isCourseBooking(bookingToWrite) ? 'course_payment' : 'lesson_payment',
+          bookingToWrite.id
+        ),
+      });
+    }
 
-    return { newBalance: currentBalance - totalPrice, totalPrice };
+    return { newBalance, totalPrice };
   });
 }
 
@@ -201,6 +218,21 @@ export async function addBookingWithPayment(
       if (currentBalance < totalPrice) throw new InsufficientFundsError();
       newBalance = currentBalance - totalPrice;
       transaction.update(userRef, { balanceUSD: newBalance });
+      if (totalPrice > 0) {
+        recordWalletLedgerEntryInTransaction(transaction, firestore, {
+          userId: booking.userId,
+          amount: -totalPrice,
+          balanceAfter: newBalance,
+          type: isCourseBooking(bookingToWrite) ? 'course_payment' : 'lesson_payment',
+          subjectName: bookingToWrite.instructorName,
+          bookingId: bookingToWrite.id,
+          courseId: bookingToWrite.courseId,
+          entryId: walletLedgerEntryId(
+            isCourseBooking(bookingToWrite) ? 'course_payment' : 'lesson_payment',
+            bookingToWrite.id
+          ),
+        });
+      }
     }
 
     await assertNoSlotOverlap(transaction, firestore, bookingToWrite, existingSlotRefs, booking.id);
@@ -351,7 +383,18 @@ export async function cancelBookingWithRefund(
     }
 
     if (userRef && userSnap?.exists() && refund > 0) {
-      applyWalletCreditInTransaction(transaction, userRef, userSnap.data(), refund);
+      applyWalletCreditInTransaction(
+        transaction,
+        firestore,
+        userRef,
+        bookingOwnerId,
+        userSnap.data(),
+        refund,
+        'refund',
+        bookingData.instructorName,
+        bookingId,
+        walletLedgerBookingEntryId('refund', bookingData)
+      );
     }
 
     transaction.update(bookingRef, { status: 'cancelled' });

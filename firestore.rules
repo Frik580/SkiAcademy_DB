@@ -314,6 +314,17 @@ service cloud.firestore {
         request.resource.data.pendingWalletCredit == 0;
     }
 
+    function validWalletLedgerEntryFields(entryId) {
+      return request.resource.data.id == entryId &&
+        request.resource.data.userId is string &&
+        request.resource.data.amount is number &&
+        request.resource.data.amount != 0 &&
+        request.resource.data.balanceAfter is number &&
+        request.resource.data.balanceAfter >= 0 &&
+        request.resource.data.type is string &&
+        request.resource.data.createdAt is string;
+    }
+
     // User Profiles
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin() || isInstructor();
@@ -705,6 +716,15 @@ service cloud.firestore {
         request.resource.data.timestamp is string &&
         (request.resource.data.userId == request.auth.uid || isAdmin() || isInstructor());
       allow delete: if false;
+    }
+
+    // Wallet ledger (append-only operation history)
+    match /wallet_ledger/{entryId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() &&
+        validWalletLedgerEntryFields(entryId) &&
+        (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update, delete: if false;
     }
 
     // Error Logs

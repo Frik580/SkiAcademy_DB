@@ -3,6 +3,7 @@ import { Calendar, Clock, HelpCircle } from 'lucide-react';
 import { LessonDifficulty } from '../../types';
 import { type TranslationKey, type Language } from '../../lib/LanguageContext';
 import { type DifficultyLabelVariant } from '../../lib/i18n/bookingLabels';
+import { formatDurationLabel } from '../../lib/i18n/duration';
 
 interface BookingSelectorsProps {
   date: string;
@@ -115,7 +116,7 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
         >
           {[1, 2, 3, 4, 6].map((hrs) => (
             <option key={hrs} value={hrs} className="bg-[var(--bg)] text-[var(--ink)]">
-              {hrs} {hrs === 1 ? t('hourSingular') : t('hoursPlural')}
+              {formatDurationLabel(hrs, language === 'ru' ? 'ru' : 'en')}
             </option>
           ))}
         </select>

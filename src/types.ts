@@ -39,6 +39,22 @@ export interface UserProfile {
   dismissedReviewIds?: string[];
 }
 
+export type WalletLedgerType =
+  'top_up' | 'starter_credit' | 'lesson_payment' | 'course_payment' | 'refund' | 'admin_adjustment';
+
+export interface WalletLedgerEntry {
+  id: string;
+  userId: string;
+  /** Positive for credits, negative for debits. */
+  amount: number;
+  balanceAfter: number;
+  type: WalletLedgerType;
+  subjectName?: string;
+  bookingId?: string;
+  courseId?: string;
+  createdAt: string;
+}
+
 export interface Instructor {
   id: string;
   name: string;

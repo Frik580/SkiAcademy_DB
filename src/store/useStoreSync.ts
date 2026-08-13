@@ -427,6 +427,34 @@ export const useStoreSync = () => {
     );
   }, [firebaseUser, shouldSyncActivityLogs]);
 
+  // Wallet ledger — student cabinet profile history
+  useEffect(() => {
+    if (!firebaseUser || !shouldSyncActivityLogs) {
+      useAuthStore.getState().setWalletLedgerEntries([]);
+      return;
+    }
+
+    const ledgerQuery = query(
+      collection(db, 'wallet_ledger'),
+      where('userId', '==', firebaseUser.uid)
+    );
+
+    return onSnapshot(
+      ledgerQuery,
+      (snapshot) => {
+        const entries = snapshot.docs
+          .map(
+            (ledgerDoc) =>
+              ({ id: ledgerDoc.id, ...ledgerDoc.data() }) as import('../types').WalletLedgerEntry
+          )
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, QUERY_LIMITS.walletLedger);
+        useAuthStore.getState().setWalletLedgerEntries(entries);
+      },
+      (error) => logger.error('Wallet ledger sync error:', error)
+    );
+  }, [firebaseUser, shouldSyncActivityLogs]);
+
   // Availability migration
   const bookingsLoaded = useBookingStore((s) => s.bookingsLoaded);
 

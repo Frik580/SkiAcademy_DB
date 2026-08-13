@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { Booking, Course, Instructor, UserProfile } from '../../types';
 import { useLanguage, getDifficultyLabel } from '../../lib/LanguageContext';
+import { formatDurationLabel } from '../../lib/i18n/duration';
 import { isCourseBooking } from '../../lib/availabilitySlots';
 import { BodyScrollLock } from '../ui/BodyScrollLock';
 import { useNotifications } from '../PushNotificationHub';
@@ -700,7 +701,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
                           value={duration}
                           className="bg-[var(--bg)] text-[var(--ink)]"
                         >
-                          {duration} {duration === 1 ? t('hourSingular') : t('hoursPlural')}
+                          {formatDurationLabel(duration, language === 'ru' ? 'ru' : 'en')}
                         </option>
                       ))
                     )}
@@ -790,7 +791,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
                             value={duration}
                             className="bg-[var(--bg)] text-[var(--ink)]"
                           >
-                            {duration} {duration === 1 ? t('hourSingular') : t('hoursPlural')}
+                            {formatDurationLabel(duration, language === 'ru' ? 'ru' : 'en')}
                           </option>
                         ))
                       )}

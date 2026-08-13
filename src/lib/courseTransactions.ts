@@ -10,6 +10,7 @@ import {
 } from './LanguageContext';
 import { withBookingCreatedAt } from './bookingCreatedAt';
 import { isCourseBooking } from './availabilitySlots';
+import { recordWalletLedgerEntryInTransaction, walletLedgerBookingEntryId } from './walletLedger';
 import { Booking, Course, UserProfile } from '../types';
 
 export class CourseEnrollmentError extends Error {
@@ -104,12 +105,23 @@ export async function enrollInCourse(
       difficulty: 'intermediate',
       notes: getGroupCourseEnrollmentNote(localizedCourse.description, language),
     };
+    const bookingToWrite = withBookingCreatedAt(newBooking);
 
     const newBalance = userBalance - courseData.price;
 
     transaction.update(userDocRef, { balanceUSD: newBalance });
-    transaction.set(bookingDocRef, withBookingCreatedAt(newBooking));
+    transaction.set(bookingDocRef, bookingToWrite);
     transaction.update(courseDocRef, { availableSeats: courseData.availableSeats - 1 });
+    recordWalletLedgerEntryInTransaction(transaction, firestore, {
+      userId,
+      amount: -courseData.price,
+      balanceAfter: newBalance,
+      type: 'course_payment',
+      subjectName: localizedCourse.title,
+      bookingId,
+      courseId,
+      entryId: walletLedgerBookingEntryId('course_payment', bookingToWrite),
+    });
 
     return { newBalance, bookingId, courseTitle: localizedCourse.title };
   });

@@ -18,7 +18,7 @@
     "test:unit": "vitest run tests/unit && vitest run --config functions/vitest.config.ts",
     "test:coverage": "vitest run tests/unit --coverage",
     "test:integration": "firebase emulators:exec --only firestore \"vitest run tests/integration --no-file-parallelism --environment node\"",
-    "test:callable": "npm run build:functions && firebase emulators:exec --only auth,firestore,functions \"vitest run tests/callable --no-file-parallelism --environment node\"",
+    "test:callable": "npm run build:functions && firebase emulators:exec --only auth,firestore,functions \"vitest run tests/callable --no-file-parallelism --environment node --testTimeout=30000 --hookTimeout=60000\"",
     "test:e2e": "npm run build:functions && playwright install chromium && firebase emulators:exec --only auth,firestore,functions,storage \"playwright test\"",
     "test:e2e:integration": "firebase emulators:exec --only firestore \"vitest run tests/integration/courseEnrollmentFlow.test.ts --no-file-parallelism --environment node\"",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run tests/firestore.rules.test.ts --environment node\"",

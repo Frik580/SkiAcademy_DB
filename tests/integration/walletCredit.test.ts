@@ -1,7 +1,12 @@
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { grantAndApplyWalletCredit, MAX_WALLET_CREDIT_USD } from '../../src/lib/walletCredit';
 import {
+  grantAndApplyWalletCredit,
+  MAX_WALLET_CREDIT_USD,
+  updateUserWithAdminBalanceLedger,
+} from '../../src/lib/walletCredit';
+import {
+  OWNER_ID,
   USER_ID,
   clearIntegrationFirestore,
   integrationTestEnv,
@@ -9,6 +14,7 @@ import {
   seedOwnerAndMigrationFlag,
   setupIntegrationTestEnvironment,
   teardownIntegrationTestEnvironment,
+  userProfile,
 } from './helpers';
 
 describe('wallet credit', () => {
@@ -60,5 +66,34 @@ describe('wallet credit', () => {
     await expect(
       grantAndApplyWalletCredit(userDb, USER_ID, MAX_WALLET_CREDIT_USD + 1)
     ).rejects.toThrow(/limit/i);
+  });
+
+  it('records admin balance edits in wallet_ledger', async () => {
+    const adminDb = integrationTestEnv()
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
+
+    await updateUserWithAdminBalanceLedger(adminDb, {
+      ...userProfile(USER_ID, 'user@example.com', 'user'),
+      balanceUSD: 250,
+    });
+
+    const userDoc = await getDoc(doc(adminDb, 'users', USER_ID));
+    expect(userDoc.data()?.balanceUSD).toBe(250);
+
+    const ledgerSnap = await getDocs(
+      query(
+        collection(adminDb, 'wallet_ledger'),
+        where('userId', '==', USER_ID),
+        where('type', '==', 'admin_adjustment')
+      )
+    );
+
+    expect(ledgerSnap.size).toBe(1);
+    expect(ledgerSnap.docs[0].data()).toMatchObject({
+      amount: 150,
+      balanceAfter: 250,
+      type: 'admin_adjustment',
+    });
   });
 });

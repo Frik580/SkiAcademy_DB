@@ -1,4 +1,5 @@
 import { Firestore, QueryDocumentSnapshot, Transaction } from 'firebase-admin/firestore';
+import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId } from '../walletLedger';
 
 const BOOKINGS_COLLECTION = 'bookings';
 const AVAILABILITY_SLOTS_COLLECTION = 'availability_slots';
@@ -278,11 +279,23 @@ export async function createBookingWithPayment(
 
     await assertNoSlotOverlap(transaction, db, bookingToWrite, existingSlotDocs, booking.id);
     writeBookingWithAvailability(transaction, db, bookingToWrite);
-    transaction.update(userRef, { balanceUSD: currentBalance - totalPrice });
+    const newBalance = currentBalance - totalPrice;
+    transaction.update(userRef, { balanceUSD: newBalance });
+    if (totalPrice > 0) {
+      recordWalletLedgerEntryInTransaction(transaction, db, {
+        userId,
+        amount: -totalPrice,
+        balanceAfter: newBalance,
+        type: 'lesson_payment',
+        subjectName: bookingToWrite.instructorName,
+        bookingId: bookingToWrite.id,
+        entryId: walletLedgerEntryId('lesson_payment', bookingToWrite.id),
+      });
+    }
 
     return {
       bookingId: booking.id,
-      newBalance: currentBalance - totalPrice,
+      newBalance,
       totalPrice,
     };
   });

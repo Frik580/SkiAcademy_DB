@@ -48,4 +48,11 @@ describe('firestore.rules guardrails', () => {
       /allow delete: if isAdmin\(\) \|\| \([\s\S]*isCancelledCourseBooking/
     );
   });
+
+  it('allows admins to append wallet ledger entries for other users', () => {
+    expect(rulesSource).toContain('function validWalletLedgerEntryFields');
+    expect(rulesSource).toMatch(
+      /request\.resource\.data\.userId == request\.auth\.uid \|\| isAdmin\(\)/
+    );
+  });
 });

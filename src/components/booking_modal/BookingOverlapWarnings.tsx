@@ -1,7 +1,8 @@
 import React from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { AvailabilitySlot, Course, Instructor } from '../../types';
-import { type TranslationKey } from '../../lib/LanguageContext';
+import { type TranslationKey, type Language } from '../../lib/LanguageContext';
+import { formatDurationLabel } from '../../lib/i18n/duration';
 
 interface BookingOverlapWarningsProps {
   isTimeSlotOccupied: boolean;
@@ -9,6 +10,7 @@ interface BookingOverlapWarningsProps {
   overlappingCourse: Course | null;
   targetInstructor: Instructor | null;
   t: (key: TranslationKey) => string;
+  language: Language;
 }
 
 export const BookingOverlapWarnings: React.FC<BookingOverlapWarningsProps> = ({
@@ -17,7 +19,9 @@ export const BookingOverlapWarnings: React.FC<BookingOverlapWarningsProps> = ({
   overlappingCourse,
   targetInstructor,
   t,
+  language,
 }) => {
+  const lang = language === 'ru' ? 'ru' : 'en';
   if (!targetInstructor) return null;
   return (
     <>
@@ -29,7 +33,7 @@ export const BookingOverlapWarnings: React.FC<BookingOverlapWarningsProps> = ({
               {t('timeSlotOccupied')}
             </p>
             <p className="text-[11px] leading-relaxed opacity-90">
-              {`${targetInstructor.name} ${t('bookingConflictFrom')} ${overlappingBooking.time} ${t('bookingConflictFor')} ${overlappingBooking.durationHours} ${overlappingBooking.durationHours === 1 ? t('hourSingular') : t('hoursPlural')}. ${t('chooseAnotherSlot')}`}
+              {`${targetInstructor.name} ${t('bookingConflictFrom')} ${overlappingBooking.time} ${t('bookingConflictFor')} ${formatDurationLabel(overlappingBooking.durationHours, lang)}. ${t('chooseAnotherSlot')}`}
             </p>
           </div>
         </div>

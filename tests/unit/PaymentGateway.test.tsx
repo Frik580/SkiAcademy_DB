@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PaymentGateway } from '../../src/components/PaymentGateway';
@@ -83,25 +83,40 @@ describe('PaymentGateway', () => {
   });
 
   it('calls onPaymentSuccess with selected amount after successful simulated payment', async () => {
-    render(
-      <PaymentGateway
-        isOpen={true}
-        onClose={onClose}
-        currentBalance={0}
-        onPaymentSuccess={onPaymentSuccess}
-      />
-    );
+    vi.useFakeTimers();
 
-    await userEvent.type(screen.getByPlaceholderText('e.g. Alex Carter'), 'Alex Carter');
-    await userEvent.type(screen.getByPlaceholderText('4000 1234 5678 9010'), '4000 1234 5678 9010');
-    await userEvent.type(screen.getByPlaceholderText('MM/YY'), '12/30');
-    await userEvent.type(screen.getByPlaceholderText('***'), '123');
+    try {
+      render(
+        <PaymentGateway
+          isOpen={true}
+          onClose={onClose}
+          currentBalance={0}
+          onPaymentSuccess={onPaymentSuccess}
+        />
+      );
 
-    const payButton = screen.getByRole('button', { name: /authorizeTopUp/i });
-    await userEvent.click(payButton);
+      fireEvent.change(screen.getByPlaceholderText('e.g. Alex Carter'), {
+        target: { value: 'Alex Carter' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('4000 1234 5678 9010'), {
+        target: { value: '4000123456789010' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('MM/YY'), {
+        target: { value: '1230' },
+      });
+      fireEvent.change(screen.getByPlaceholderText('***'), {
+        target: { value: '123' },
+      });
 
-    await waitFor(() => expect(onPaymentSuccess).toHaveBeenCalledWith(100), {
-      timeout: 5000,
-    });
+      fireEvent.click(screen.getByRole('button', { name: /authorizeTopUp/i }));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1800);
+      });
+
+      expect(onPaymentSuccess).toHaveBeenCalledWith(100);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -70,6 +70,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
         overlappingCourse={overlappingCourse}
         targetInstructor={targetInstructor}
         t={t}
+        language={language}
       />
 
       <div className="space-y-1">

@@ -1,10 +1,5 @@
-import {
-  doc,
-  runTransaction,
-  type DocumentReference,
-  type Firestore,
-  type Transaction,
-} from 'firebase/firestore';
+import { doc, runTransaction, type Firestore, type Transaction } from 'firebase/firestore';
+import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId } from './walletLedger';
 
 /** Max single credit applied through the wallet credit flow (top-ups and refunds). */
 export const MAX_WALLET_CREDIT_USD = 10_000;
@@ -23,7 +18,9 @@ function assertValidCreditAmount(amount: number): void {
 
 export function flushPendingWalletCreditInTransaction(
   transaction: Transaction,
-  userRef: DocumentReference,
+  firestore: Firestore,
+  userRef: ReturnType<typeof doc>,
+  userId: string,
   userData: { balanceUSD?: number; pendingWalletCredit?: number }
 ): number {
   const pending = userData.pendingWalletCredit ?? 0;
@@ -34,15 +31,28 @@ export function flushPendingWalletCreditInTransaction(
     balanceUSD: newBalance,
     pendingWalletCredit: 0,
   });
+  recordWalletLedgerEntryInTransaction(transaction, firestore, {
+    userId,
+    amount: pending,
+    balanceAfter: newBalance,
+    type: 'top_up',
+    entryId: walletLedgerEntryId('top_up', `pending_${Date.now()}`),
+  });
 
   return newBalance;
 }
 
 export function applyWalletCreditInTransaction(
   transaction: Transaction,
-  userRef: DocumentReference,
+  firestore: Firestore,
+  userRef: ReturnType<typeof doc>,
+  userId: string,
   userData: { balanceUSD?: number; pendingWalletCredit?: number },
-  creditAmount: number
+  creditAmount: number,
+  ledgerType: 'top_up' | 'refund' | 'starter_credit' | 'admin_adjustment' = 'top_up',
+  subjectName?: string,
+  bookingId?: string,
+  ledgerEntryId?: string
 ): number {
   assertValidCreditAmount(creditAmount);
 
@@ -54,8 +64,68 @@ export function applyWalletCreditInTransaction(
     balanceUSD: newBalance,
     pendingWalletCredit: 0,
   });
+  recordWalletLedgerEntryInTransaction(transaction, firestore, {
+    userId,
+    amount: creditAmount,
+    balanceAfter: newBalance,
+    type: ledgerType,
+    subjectName,
+    bookingId,
+    entryId: ledgerEntryId ?? walletLedgerEntryId(ledgerType, bookingId ?? `credit_${Date.now()}_${creditAmount}`),
+  });
 
   return newBalance;
+}
+
+export function adminBalanceAdjustmentDelta(
+  previousBalance: number,
+  newBalance: number
+): number | null {
+  if (previousBalance === newBalance) return null;
+  return newBalance - previousBalance;
+}
+
+export function recordAdminBalanceAdjustmentInTransaction(
+  transaction: Transaction,
+  firestore: Firestore,
+  userId: string,
+  previousBalance: number,
+  newBalance: number
+): void {
+  const delta = adminBalanceAdjustmentDelta(previousBalance, newBalance);
+  if (delta == null) return;
+
+  recordWalletLedgerEntryInTransaction(transaction, firestore, {
+    userId,
+    amount: delta,
+    balanceAfter: newBalance,
+    type: 'admin_adjustment',
+    entryId: walletLedgerEntryId('admin_adjustment', `${userId}_${Date.now()}_${delta}`),
+  });
+}
+
+export async function updateUserWithAdminBalanceLedger(
+  firestore: Firestore,
+  updatedUser: { uid: string; balanceUSD?: number; [key: string]: unknown }
+): Promise<void> {
+  const userRef = doc(firestore, 'users', updatedUser.uid);
+
+  await runTransaction(firestore, async (transaction) => {
+    const userSnap = await transaction.get(userRef);
+    if (!userSnap.exists()) throw new Error('User profile does not exist.');
+
+    const previousBalance = userSnap.data()?.balanceUSD ?? 0;
+    const newBalance = updatedUser.balanceUSD ?? 0;
+
+    transaction.update(userRef, { ...updatedUser });
+    recordAdminBalanceAdjustmentInTransaction(
+      transaction,
+      firestore,
+      updatedUser.uid,
+      previousBalance,
+      newBalance
+    );
+  });
 }
 
 export async function applyPendingWalletCredit(
@@ -71,7 +141,13 @@ export async function applyPendingWalletCredit(
     const pending = userSnap.data().pendingWalletCredit ?? 0;
     if (pending <= 0) return userSnap.data().balanceUSD ?? 0;
 
-    return flushPendingWalletCreditInTransaction(transaction, userRef, userSnap.data());
+    return flushPendingWalletCreditInTransaction(
+      transaction,
+      firestore,
+      userRef,
+      userId,
+      userSnap.data()
+    );
   });
 }
 
@@ -86,6 +162,13 @@ export async function grantAndApplyWalletCredit(
     const userSnap = await transaction.get(userRef);
     if (!userSnap.exists()) throw new Error('User profile does not exist.');
 
-    return applyWalletCreditInTransaction(transaction, userRef, userSnap.data(), amount);
+    return applyWalletCreditInTransaction(
+      transaction,
+      firestore,
+      userRef,
+      userId,
+      userSnap.data(),
+      amount
+    );
   });
 }

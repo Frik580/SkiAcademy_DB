@@ -25,6 +25,7 @@ import {
   resolveCompletedTodayTaskIds,
   skillTodayTaskId,
 } from '../../../lib/todayChecklist';
+import { formatDurationLabel } from '../../../lib/i18n/duration';
 import {
   evaluateEarnedAchievements,
   formatAchievementLabel,
@@ -42,6 +43,7 @@ export type StudentCabinetTab =
   | 'instructors'
   | 'settings'
   | 'profile_personal'
+  | 'profile_wallet'
   | 'profile_journey'
   | 'profile_skills'
   | 'profile_certificates'
@@ -54,6 +56,7 @@ export type StudentCabinetTab =
 export const PROFILE_TABS: StudentCabinetTab[] = [
   'settings',
   'profile_personal',
+  'profile_wallet',
   'profile_journey',
   'profile_skills',
   'profile_certificates',
@@ -415,20 +418,7 @@ export const addMinutesToTime = (time: string, hours: number) => {
   return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
 };
 
-/** Private lessons: "09:00–11:00". Course bookings already store a range: "09:00–13:00". */
-export const formatDurationLabel = (hours: number, lang: 'en' | 'ru'): string => {
-  if (lang === 'en') {
-    return hours === 1 ? '1 hour' : `${hours} hours`;
-  }
-  if (hours === 1) return '1 час';
-  if (hours % 1 !== 0) return `${hours} часа`;
-  const lastDigit = hours % 10;
-  const lastTwo = hours % 100;
-  if (lastTwo >= 11 && lastTwo <= 19) return `${hours} часов`;
-  if (lastDigit === 1) return `${hours} час`;
-  if (lastDigit >= 2 && lastDigit <= 4) return `${hours} часа`;
-  return `${hours} часов`;
-};
+export { formatDurationLabel } from '../../../lib/i18n/duration';
 
 export const formatSessionTimeRange = (booking: Pick<Booking, 'time' | 'durationHours'>) => {
   const rangeMatch = booking.time.match(BOOKING_TIME_RANGE_RE);

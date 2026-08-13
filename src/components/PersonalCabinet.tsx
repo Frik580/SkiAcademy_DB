@@ -1,5 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Booking, UserProfile, Review, Course, Instructor, ActivityLog } from '../types';
+import {
+  Booking,
+  UserProfile,
+  Review,
+  Course,
+  Instructor,
+  ActivityLog,
+  WalletLedgerEntry,
+} from '../types';
 import { Lock, Sparkles } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage, useTranslatedBookings } from '../lib/LanguageContext';
@@ -47,6 +55,7 @@ interface PersonalCabinetProps {
   skillConfig?: SkillConfig;
   achievementsConfig?: AchievementsConfig;
   activityLogs?: ActivityLog[];
+  walletLedgerEntries?: WalletLedgerEntry[];
   onOpenOnboarding?: () => void;
   onViewCourseDetails?: (course: Course) => void;
   onRequireCourseAuth?: (course: Course) => void;
@@ -81,6 +90,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   skillConfig,
   achievementsConfig,
   activityLogs = [],
+  walletLedgerEntries = [],
   onOpenOnboarding,
   onViewCourseDetails,
   onRequireCourseAuth,
@@ -287,6 +297,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             instructors={instructors}
             reviews={reviews}
             activityLogs={activityLogs}
+            walletLedgerEntries={walletLedgerEntries}
             dismissedReviewIds={dismissedReviewIds}
             skillConfig={skillConfig}
             achievementsConfig={achievementsConfig}

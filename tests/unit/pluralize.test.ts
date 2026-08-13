@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { formatDurationLabel } from '../../src/lib/i18n/duration';
 import { formatPointsCount, formatPointsGain, russianPlural } from '../../src/lib/i18n/pluralize';
 
 describe('russianPlural', () => {
@@ -34,5 +35,22 @@ describe('formatPointsGain', () => {
     expect(formatPointsGain(5, 'ru')).toBe('+5 XP');
     expect(formatPointsGain(1, 'en')).toBe('+1 XP');
     expect(formatPointsGain(2, 'en')).toBe('+2 XP');
+  });
+});
+
+describe('formatDurationLabel', () => {
+  it('pluralizes Russian lesson hours correctly', () => {
+    expect(formatDurationLabel(1, 'ru')).toBe('1 час');
+    expect(formatDurationLabel(2, 'ru')).toBe('2 часа');
+    expect(formatDurationLabel(4, 'ru')).toBe('4 часа');
+    expect(formatDurationLabel(5, 'ru')).toBe('5 часов');
+    expect(formatDurationLabel(6, 'ru')).toBe('6 часов');
+    expect(formatDurationLabel(11, 'ru')).toBe('11 часов');
+    expect(formatDurationLabel(21, 'ru')).toBe('21 час');
+  });
+
+  it('formats English lesson hours', () => {
+    expect(formatDurationLabel(1, 'en')).toBe('1 hour');
+    expect(formatDurationLabel(6, 'en')).toBe('6 hours');
   });
 });

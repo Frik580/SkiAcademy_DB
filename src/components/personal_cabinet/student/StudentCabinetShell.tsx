@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Booking, Course, Instructor, Review, UserProfile, ActivityLog } from '../../../types';
+import {
+  Booking,
+  Course,
+  Instructor,
+  Review,
+  UserProfile,
+  ActivityLog,
+  WalletLedgerEntry,
+} from '../../../types';
 import { SkillConfig, DEFAULT_SKILL_CONFIG, calculateSkillProgress } from '../../../lib/skillData';
 import { AchievementsConfig } from '../../../lib/achievementConfig';
 import { cabinetPathForTab, parseCabinetTabParam } from '../../../lib/workspaceRoutes';
@@ -17,6 +25,7 @@ import {
 import {
   StudentProfileHubPanel,
   StudentProfilePersonalPanel,
+  StudentProfileWalletPanel,
   StudentProfileJourneyPanel,
   StudentProfileSkillsPanel,
   StudentProfileCertificatesPanel,
@@ -74,6 +83,7 @@ export interface StudentCabinetShellProps {
   instructors: Instructor[];
   reviews: Review[];
   activityLogs?: ActivityLog[];
+  walletLedgerEntries?: WalletLedgerEntry[];
   skillConfig?: SkillConfig;
   achievementsConfig?: AchievementsConfig;
   dismissedReviewIds?: string[];
@@ -200,6 +210,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     onInvalidFile: props.onInvalidFile,
     onUploadSuccess: props.onUploadSuccess,
     onUploadError: props.onUploadError,
+    walletLedgerEntries: props.walletLedgerEntries ?? [],
   };
 
   useEffect(() => {
@@ -361,6 +372,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       )}
       {activeTab === 'settings' && <StudentProfileHubPanel onGoToTab={goToTab} />}
       {activeTab === 'profile_personal' && <StudentProfilePersonalPanel {...panelProps} />}
+      {activeTab === 'profile_wallet' && <StudentProfileWalletPanel {...panelProps} />}
       {activeTab === 'profile_journey' && <StudentProfileJourneyPanel {...panelProps} />}
       {activeTab === 'profile_skills' && <StudentProfileSkillsPanel {...panelProps} />}
       {activeTab === 'profile_certificates' && <StudentProfileCertificatesPanel {...panelProps} />}

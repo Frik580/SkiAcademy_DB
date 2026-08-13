@@ -419,6 +419,40 @@ describe('user profiles and roles', () => {
     );
   });
 
+  it('allows admins to append wallet ledger entries for other users', async () => {
+    const ownerDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
+
+    await assertSucceeds(
+      setDoc(doc(ownerDb, 'wallet_ledger', 'wl_refund_booking-1'), {
+        id: 'wl_refund_booking-1',
+        userId: USER_ID,
+        amount: 100,
+        balanceAfter: 200,
+        type: 'refund',
+        createdAt: '2026-12-01T10:00:00.000Z',
+        bookingId: 'booking-1',
+        subjectName: 'Coach A',
+      })
+    );
+  });
+
+  it('blocks users from appending wallet ledger entries for other users', async () => {
+    const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+
+    await assertFails(
+      setDoc(doc(userDb, 'wallet_ledger', 'wl_refund_booking-1'), {
+        id: 'wl_refund_booking-1',
+        userId: OTHER_USER_ID,
+        amount: 100,
+        balanceAfter: 200,
+        type: 'refund',
+        createdAt: '2026-12-01T10:00:00.000Z',
+      })
+    );
+  });
+
   it('allows only the system owner to change another user role', async () => {
     const adminDb = testEnv
       .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })

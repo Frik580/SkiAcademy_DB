@@ -14,10 +14,10 @@ import {
   where,
   writeBatch,
 } from '../lib/firebase';
-import { UserProfile, ActivityLog } from '../types';
+import { UserProfile, ActivityLog, WalletLedgerEntry } from '../types';
 import { logger } from '../lib/logger';
 import { canManageAdminRoles } from '../lib/accessControl';
-import { grantAndApplyWalletCredit } from '../lib/walletCredit';
+import { grantAndApplyWalletCredit, updateUserWithAdminBalanceLedger } from '../lib/walletCredit';
 import { type DbNotification } from '../lib/notificationText';
 import {
   buildAddCustomTodayTaskUpdate,
@@ -44,6 +44,7 @@ interface AuthState extends BalanceOptimisticState {
   dismissedReviewIds: string[];
   dbNotifications: DbNotification[];
   activityLogs: ActivityLog[];
+  walletLedgerEntries: WalletLedgerEntry[];
 
   setFirebaseUser: (user: User | null) => void;
   syncUserProfileFromSnapshot: (profile: UserProfile | null) => void;
@@ -52,6 +53,7 @@ interface AuthState extends BalanceOptimisticState {
   setDismissedReviewIds: (ids: string[]) => void;
   setDbNotifications: (notifications: DbNotification[]) => void;
   setActivityLogs: (logs: ActivityLog[]) => void;
+  setWalletLedgerEntries: (entries: WalletLedgerEntry[]) => void;
 
   handleSignOut: () => Promise<void>;
   handleUpdateProfile: (updatedData: Partial<UserProfile>) => Promise<void>;
@@ -80,6 +82,7 @@ export const useAuthStore = create<AuthState>()(
     dismissedReviewIds: [],
     dbNotifications: [],
     activityLogs: [],
+    walletLedgerEntries: [],
 
     optimisticBalanceDelta: 0,
     adjustOptimisticBalance: () => undefined,
@@ -93,11 +96,17 @@ export const useAuthStore = create<AuthState>()(
     setDismissedReviewIds: (ids) => set({ dismissedReviewIds: ids }),
     setDbNotifications: (notifications) => set({ dbNotifications: notifications }),
     setActivityLogs: (logs) => set({ activityLogs: logs }),
+    setWalletLedgerEntries: (entries) => set({ walletLedgerEntries: entries }),
 
     handleSignOut: async () => {
       try {
         await signOut(auth);
-        set({ userProfile: null, firebaseUser: null, optimisticBalanceDelta: 0 });
+        set({
+          userProfile: null,
+          firebaseUser: null,
+          optimisticBalanceDelta: 0,
+          walletLedgerEntries: [],
+        });
       } catch (err) {
         logger.error(err);
         throw err;
@@ -138,7 +147,7 @@ export const useAuthStore = create<AuthState>()(
     },
 
     handleUpdateUser: async (updatedUser) => {
-      await updateDoc(doc(db, 'users', updatedUser.uid), { ...updatedUser });
+      await updateUserWithAdminBalanceLedger(db, updatedUser);
     },
 
     handleDeleteUser: async (targetUid) => {

@@ -76,6 +76,7 @@ const PersonalCabinetPage: React.FC<{
   const usersList = useAuthStore((s) => s.usersList);
   const dismissedReviewIds = useAuthStore((s) => s.dismissedReviewIds);
   const activityLogs = useAuthStore((s) => s.activityLogs);
+  const walletLedgerEntries = useAuthStore((s) => s.walletLedgerEntries);
   const courses = useCourseStore((s) => s.courses);
   const skillConfig = useUiStore((s) => s.skillConfig);
   const achievementsConfig = useUiStore((s) => s.achievementsConfig);
@@ -125,6 +126,7 @@ const PersonalCabinetPage: React.FC<{
         skillConfig={skillConfig}
         achievementsConfig={achievementsConfig}
         activityLogs={activityLogs}
+        walletLedgerEntries={walletLedgerEntries}
         onOpenOnboarding={() => setIsOnboardingOpen(true)}
         onViewCourseDetails={setSelectedCourseForDetails}
         onRequireCourseAuth={setSelectedCourseForAuth}

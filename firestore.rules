@@ -282,57 +282,6 @@ service cloud.firestore {
         request.resource.data.balanceUSD < previousBalance;
     }
 
-    function validAtomicWalletCreditApply() {
-      let previousBalance =
-        ('balanceUSD' in resource.data) && resource.data.balanceUSD is number
-          ? resource.data.balanceUSD
-          : 0;
-      let previousPending =
-        ('pendingWalletCredit' in resource.data) && resource.data.pendingWalletCredit is number
-          ? resource.data.pendingWalletCredit
-          : 0;
-      let credit = request.resource.data.balanceUSD - (previousBalance + previousPending);
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balanceUSD', 'pendingWalletCredit']) &&
-        request.resource.data.pendingWalletCredit == 0 &&
-        credit >= 1 &&
-        credit <= 10000 &&
-        request.resource.data.balanceUSD == previousBalance + previousPending + credit;
-    }
-
-    function validPendingWalletCreditPrepare() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pendingWalletCredit']) &&
-        request.resource.data.pendingWalletCredit is number &&
-        request.resource.data.pendingWalletCredit >= 1 &&
-        request.resource.data.pendingWalletCredit <= 10000;
-    }
-
-    function validPendingWalletCreditApply() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balanceUSD', 'pendingWalletCredit']) &&
-        resource.data.pendingWalletCredit is number &&
-        resource.data.pendingWalletCredit >= 1 &&
-        request.resource.data.balanceUSD == resource.data.balanceUSD + resource.data.pendingWalletCredit &&
-        request.resource.data.pendingWalletCredit == 0;
-    }
-
-    // Temporary client-side simulation flow. Production top-ups must be applied by a
-    // verified payment-provider webhook running with the Admin SDK.
-    function validKztWalletCredit() {
-      let previousWallets =
-        ('walletBalances' in resource.data) && resource.data.walletBalances is map
-          ? resource.data.walletBalances
-          : {};
-      let previousKzt =
-        ('KZT' in previousWallets) && previousWallets.KZT is number
-          ? previousWallets.KZT
-          : 0;
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['walletBalances']) &&
-        request.resource.data.walletBalances is map &&
-        request.resource.data.walletBalances.diff(previousWallets).affectedKeys().hasOnly(['KZT']) &&
-        request.resource.data.walletBalances.KZT is number &&
-        request.resource.data.walletBalances.KZT > previousKzt &&
-        request.resource.data.walletBalances.KZT - previousKzt <= 10000000;
-    }
-
     function validRefundBalanceCreditApply(profileUserId) {
       let previousBalance =
         ('balanceUSD' in resource.data) && resource.data.balanceUSD is number

@@ -23,7 +23,11 @@ import {
   hasOverlappingAvailabilitySlot,
 } from './slotOverlap';
 import { applyWalletCreditInTransaction } from './walletCredit';
-import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId, walletLedgerBookingEntryId } from './walletLedger';
+import {
+  recordWalletLedgerEntryInTransaction,
+  walletLedgerEntryId,
+  walletLedgerBookingEntryId,
+} from './walletLedger';
 import { computeBookingEndsAtIso, withBookingEndsAt } from './bookingEndsAt';
 import { withBookingCreatedAt } from './bookingCreatedAt';
 

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildWalletOperationHistory, walletLedgerBookingEntryId } from '../../src/lib/walletLedger';
+import {
+  buildWalletOperationHistory,
+  walletLedgerBookingEntryId,
+} from '../../src/lib/walletLedger';
 import type { Booking, Course, WalletLedgerEntry } from '../../src/types';
 
 const course: Course = {

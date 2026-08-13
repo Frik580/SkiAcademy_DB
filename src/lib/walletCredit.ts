@@ -1,4 +1,5 @@
 import { doc, runTransaction, type Firestore, type Transaction } from 'firebase/firestore';
+import type { UserProfile } from '../types';
 import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId } from './walletLedger';
 
 /** Max single credit applied through the wallet credit flow (top-ups and refunds). */
@@ -71,7 +72,9 @@ export function applyWalletCreditInTransaction(
     type: ledgerType,
     subjectName,
     bookingId,
-    entryId: ledgerEntryId ?? walletLedgerEntryId(ledgerType, bookingId ?? `credit_${Date.now()}_${creditAmount}`),
+    entryId:
+      ledgerEntryId ??
+      walletLedgerEntryId(ledgerType, bookingId ?? `credit_${Date.now()}_${creditAmount}`),
   });
 
   return newBalance;
@@ -106,7 +109,7 @@ export function recordAdminBalanceAdjustmentInTransaction(
 
 export async function updateUserWithAdminBalanceLedger(
   firestore: Firestore,
-  updatedUser: { uid: string; balanceUSD?: number; [key: string]: unknown }
+  updatedUser: UserProfile
 ): Promise<void> {
   const userRef = doc(firestore, 'users', updatedUser.uid);
 

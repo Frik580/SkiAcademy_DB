@@ -5,7 +5,6 @@ import { translateCourse } from './i18n/contentTranslation';
 import { parseCourseDates } from './i18n/courseDates';
 import { formatDurationLabel } from './i18n/duration';
 import type { TranslationKey } from './i18n/translations';
-import { resolveBookingCreatedAt } from './bookingCreatedAt';
 import type { Booking, Course, WalletLedgerEntry, WalletLedgerType } from '../types';
 
 export const WALLET_LEDGER_COLLECTION = 'wallet_ledger';

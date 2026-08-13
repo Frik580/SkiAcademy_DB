@@ -11,5 +11,6 @@ export const QUERY_LIMITS = {
   courses: 200,
   instructors: 100,
   walletLedger: 100,
+  chatMessages: 100,
   recentDaysForAutoComplete: 7,
 } as const;

@@ -740,7 +740,7 @@ export const translations = {
     walletSufficient: 'is sufficient.',
     insufficientCreditsPrefix: 'Insufficient credits (Wallet Balance:',
     instantTopUp: 'Instantly Top Up',
-    payConfirmLesson: 'Pay & Confirm Lesson Booking',
+    payConfirmLesson: 'Confirm — deduct {amount} from balance',
 
     // Payment Gateway
     simulatedTopUp: 'Simulated Payment Gateway',
@@ -2327,7 +2327,7 @@ export const translations = {
     walletSufficient: 'достаточен.',
     insufficientCreditsPrefix: 'Недостаточно средств (баланс кошелька:',
     instantTopUp: 'Пополнить баланс на',
-    payConfirmLesson: 'Оплатить и подтвердить бронирование',
+    payConfirmLesson: 'Подтвердить — списать {amount} с баланса',
 
     // Payment Gateway
     simulatedTopUp: 'Имитация платежного шлюза',

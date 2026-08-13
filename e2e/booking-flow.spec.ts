@@ -34,7 +34,7 @@ test.describe('booking flow', () => {
       .click();
 
     await fillBookingSelectors(page, 2);
-    await page.getByRole('button', { name: 'Pay & Confirm Lesson Booking' }).click();
+    await page.getByRole('button', { name: /Confirm — deduct .+ from balance/ }).click();
 
     await expect(page.getByText('Lesson Booked!')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/Coaching with E2E Test Coach/)).toBeVisible();

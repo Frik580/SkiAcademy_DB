@@ -73,7 +73,9 @@ describe('createBooking callable', () => {
     expect(await readCallableUserBalance()).toBe(400);
 
     const bookingDoc = await getDoc(doc(getCallableFirestore(), 'bookings', booking.id));
-    const slotDoc = await getDoc(doc(getCallableFirestore(), AVAILABILITY_SLOTS_COLLECTION, booking.id));
+    const slotDoc = await getDoc(
+      doc(getCallableFirestore(), AVAILABILITY_SLOTS_COLLECTION, booking.id)
+    );
 
     expect(bookingDoc.data()).toMatchObject({
       userId: getCallableUserId(),
@@ -82,6 +84,27 @@ describe('createBooking callable', () => {
       totalPrice: 100,
     });
     expect(slotDoc.exists()).toBe(true);
+  });
+
+  it('creates a booking when instructorAvatar is empty', async () => {
+    const booking = lessonBooking({ id: 'booking-callable-empty-avatar' });
+    const createBooking = httpsCallable(getCallableFunctions(), 'createBooking');
+
+    const { data } = await createBooking({
+      id: booking.id,
+      instructorId: booking.instructorId,
+      instructorName: booking.instructorName,
+      instructorAvatar: '',
+      date: booking.date,
+      time: booking.time,
+      durationHours: booking.durationHours,
+      status: booking.status,
+      difficulty: booking.difficulty,
+    });
+
+    const result = data as { bookingId: string; totalPrice: number; newBalance: number };
+    expect(result.bookingId).toBe(booking.id);
+    expect(result.totalPrice).toBe(100);
   });
 
   it('maps insufficient funds to failed-precondition', async () => {

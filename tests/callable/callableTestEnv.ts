@@ -109,10 +109,7 @@ export async function seedCallableBaseFixtures() {
 export async function seedCallableUserProfile(balanceUSD = 500) {
   const uid = getCallableUserId();
   await rulesTestEnv.withSecurityRulesDisabled(async (context) => {
-    await setDoc(
-      doc(context.firestore(), 'users', uid),
-      callableUserProfile(uid, balanceUSD)
-    );
+    await setDoc(doc(context.firestore(), 'users', uid), callableUserProfile(uid, balanceUSD));
   });
 }
 

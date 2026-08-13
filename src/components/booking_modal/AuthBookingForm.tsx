@@ -172,7 +172,15 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
         ) : (
           <>
             <Sparkles className="w-3.5 h-3.5" />
-            {t('payConfirmLesson')}
+            {t('payConfirmLesson').replace(
+              '{amount}',
+              formatPrice(
+                totalCost,
+                targetInstructor.pricePerHourKZT
+                  ? targetInstructor.pricePerHourKZT * duration
+                  : undefined
+              )
+            )}
           </>
         )}
       </button>

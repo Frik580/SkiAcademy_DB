@@ -47,7 +47,9 @@ export const uploadVideo = (
 
 export async function seedStorageFirestore(
   testEnv: RulesTestEnvironment,
-  callback: (db: ReturnType<RulesTestEnvironment['authenticatedContext']>['firestore']) => Promise<void>
+  callback: (
+    db: ReturnType<RulesTestEnvironment['authenticatedContext']>['firestore']
+  ) => Promise<void>
 ) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await callback(context.firestore());
@@ -56,11 +58,17 @@ export async function seedStorageFirestore(
 
 export async function seedBookingChatFixtures(testEnv: RulesTestEnvironment) {
   await seedStorageFirestore(testEnv, async (db) => {
-    await setDoc(doc(db, 'users', STORAGE_USER_ID), userProfile(STORAGE_USER_ID, 'user@example.com'));
+    await setDoc(
+      doc(db, 'users', STORAGE_USER_ID),
+      userProfile(STORAGE_USER_ID, 'user@example.com')
+    );
     await setDoc(doc(db, 'users', STORAGE_OTHER_USER_ID), {
       ...userProfile(STORAGE_OTHER_USER_ID, 'other@example.com'),
     });
-    await setDoc(doc(db, 'users', STORAGE_ADMIN_ID), userProfile(STORAGE_ADMIN_ID, 'admin@example.com', 'admin'));
+    await setDoc(
+      doc(db, 'users', STORAGE_ADMIN_ID),
+      userProfile(STORAGE_ADMIN_ID, 'admin@example.com', 'admin')
+    );
     await setDoc(doc(db, 'users', STORAGE_INSTRUCTOR_USER_ID), {
       ...userProfile(STORAGE_INSTRUCTOR_USER_ID, 'instructor@example.com'),
       instructorId: 'instructor-1',

@@ -46,6 +46,14 @@ function requireString(value: unknown, field: string): string {
   return value.trim();
 }
 
+function optionalString(value: unknown, fallback = ''): string {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value !== 'string') {
+    throw new HttpsError('invalid-argument', 'Expected a string value.');
+  }
+  return value.trim();
+}
+
 function requirePositiveNumber(value: unknown, field: string): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
     throw new HttpsError('invalid-argument', `${field} must be a positive number.`);
@@ -74,7 +82,7 @@ function parseCreateBookingInput(data: unknown): CreateBookingInput {
     id: requireString(payload.id, 'id'),
     instructorId: requireString(payload.instructorId, 'instructorId'),
     instructorName: requireString(payload.instructorName, 'instructorName'),
-    instructorAvatar: requireString(payload.instructorAvatar, 'instructorAvatar'),
+    instructorAvatar: optionalString(payload.instructorAvatar),
     date: requireString(payload.date, 'date'),
     time: requireString(payload.time, 'time'),
     durationHours: requirePositiveNumber(payload.durationHours, 'durationHours'),
@@ -125,6 +133,9 @@ async function handleCreateBooking(
     if (error instanceof BookingSlotOverlapError) {
       throw new HttpsError('aborted', 'Instructor slot is no longer available.');
     }
+    if (error instanceof HttpsError) {
+      throw error;
+    }
     if (error instanceof Error) {
       if (error.message === 'Instructor does not exist.') {
         throw new HttpsError('not-found', error.message);
@@ -136,7 +147,10 @@ async function handleCreateBooking(
         throw new HttpsError('invalid-argument', error.message);
       }
     }
-    throw error;
+    console.error('createBooking failed:', error);
+    const message =
+      error instanceof Error ? error.message : 'Booking creation failed unexpectedly.';
+    throw new HttpsError('internal', message);
   }
 }
 

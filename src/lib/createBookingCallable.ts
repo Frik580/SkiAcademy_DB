@@ -32,12 +32,22 @@ const createBookingFn = httpsCallable<CreateBookingCallableInput, CreateBookingC
   'createBooking'
 );
 
+export function isCreateBookingCallableInfrastructureError(error: unknown): boolean {
+  if (!(error instanceof FirebaseError)) return false;
+  return [
+    'functions/internal',
+    'functions/unavailable',
+    'functions/deadline-exceeded',
+    'functions/not-found',
+  ].includes(error.code);
+}
+
 function toCallableInput(booking: Booking): CreateBookingCallableInput {
   return {
     id: booking.id,
     instructorId: booking.instructorId,
     instructorName: booking.instructorName,
-    instructorAvatar: booking.instructorAvatar,
+    instructorAvatar: booking.instructorAvatar || '',
     date: booking.date,
     time: booking.time,
     durationHours: booking.durationHours,
@@ -54,6 +64,12 @@ function mapCallableError(error: unknown): never {
     }
     if (error.code === 'functions/aborted') {
       throw new BookingSlotOverlapError();
+    }
+    if (error.code === 'functions/not-found') {
+      throw new Error('Instructor does not exist.');
+    }
+    if (error.code === 'functions/invalid-argument' && error.message) {
+      throw new Error(error.message);
     }
   }
   throw error;

@@ -76,7 +76,10 @@ describe('storage default deny', () => {
 describe('storage avatars', () => {
   it('allows public reads and owner uploads under 5 MB', async () => {
     await seedStorageFirestore(testEnv, async (db) => {
-      await setDoc(doc(db, 'users', STORAGE_USER_ID), userProfile(STORAGE_USER_ID, 'user@example.com'));
+      await setDoc(
+        doc(db, 'users', STORAGE_USER_ID),
+        userProfile(STORAGE_USER_ID, 'user@example.com')
+      );
     });
 
     const ownerStorage = testEnv.authenticatedContext(STORAGE_USER_ID).storage();
@@ -100,8 +103,14 @@ describe('storage avatars', () => {
 describe('storage courses and instructors', () => {
   beforeEach(async () => {
     await seedStorageFirestore(testEnv, async (db) => {
-      await setDoc(doc(db, 'users', STORAGE_ADMIN_ID), userProfile(STORAGE_ADMIN_ID, 'admin@example.com', 'admin'));
-      await setDoc(doc(db, 'users', STORAGE_USER_ID), userProfile(STORAGE_USER_ID, 'user@example.com'));
+      await setDoc(
+        doc(db, 'users', STORAGE_ADMIN_ID),
+        userProfile(STORAGE_ADMIN_ID, 'admin@example.com', 'admin')
+      );
+      await setDoc(
+        doc(db, 'users', STORAGE_USER_ID),
+        userProfile(STORAGE_USER_ID, 'user@example.com')
+      );
     });
     await testEnv.withSecurityRulesDisabled(async (context) => {
       const storage = context.storage();
@@ -156,7 +165,9 @@ describe('storage booking chat media', () => {
     await assertSucceeds(getBytes(ref(adminStorage, videoPath)));
     await assertFails(uploadImage(otherStorage, 'chat/booking-chat-1/other.jpg'));
     await assertFails(getBytes(ref(otherStorage, imagePath)));
-    await assertFails(uploadVideo(studentStorage, 'chat/booking-chat-1/too-large.mp4', 50 * 1024 * 1024));
+    await assertFails(
+      uploadVideo(studentStorage, 'chat/booking-chat-1/too-large.mp4', 50 * 1024 * 1024)
+    );
     await assertFails(
       uploadBytes(ref(studentStorage, 'chat/booking-chat-1/file.txt'), imageBytes(32), {
         contentType: 'text/plain',

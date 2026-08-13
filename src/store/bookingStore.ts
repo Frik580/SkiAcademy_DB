@@ -18,14 +18,19 @@ import {
 } from '../lib/firebase';
 import { AVAILABILITY_SLOTS_COLLECTION, isCourseBooking } from '../lib/availabilitySlots';
 import { finalizeBookingCompletion } from '../lib/completeBooking';
-import { createBookingViaCallable } from '../lib/createBookingCallable';
+import {
+  createBookingViaCallable,
+  isCreateBookingCallableInfrastructureError,
+} from '../lib/createBookingCallable';
 import {
   cancelBookingWithRefund,
   addBookingWithPayment,
   BookingSlotOverlapError,
+  createBookingWithPayment,
   InsufficientFundsError,
   rescheduleBooking,
   resolveBookingTotalPrice,
+  type BookingPaymentResult,
 } from '../lib/bookingTransactions';
 import {
   activityLogId,
@@ -95,6 +100,21 @@ interface BookingState {
   handleDeleteInstructor: (id: string) => Promise<void>;
 }
 
+async function createBookingForCurrentUser(
+  userId: string,
+  booking: Booking
+): Promise<BookingPaymentResult> {
+  try {
+    return await createBookingViaCallable(booking);
+  } catch (error) {
+    if (!isCreateBookingCallableInfrastructureError(error)) {
+      throw error;
+    }
+    logger.warn('createBooking callable unavailable, using direct Firestore transaction', error);
+    return createBookingWithPayment(db, userId, booking);
+  }
+}
+
 export const useBookingStore = create<BookingState>((set, get) => ({
   bookings: [],
   bookingsLoaded: false,
@@ -116,7 +136,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
     try {
       const { totalPrice } = await withOptimisticBalance(-estimatedPrice, () =>
-        createBookingViaCallable(booking)
+        createBookingForCurrentUser(firebaseUser.uid, booking)
       );
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       return totalPrice;

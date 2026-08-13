@@ -421,7 +421,7 @@ export const useBookingModal = ({
         userId: userProfile.uid,
         instructorId: targetInstructor.id,
         instructorName: targetInstructor.name,
-        instructorAvatar: targetInstructor.avatarUrl,
+        instructorAvatar: targetInstructor.avatarUrl || '',
         date,
         time,
         durationHours: duration,

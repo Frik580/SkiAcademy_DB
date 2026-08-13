@@ -24,7 +24,6 @@ import {
   addBookingWithPayment,
   BookingSlotOverlapError,
   InsufficientFundsError,
-  createBookingWithPayment,
   rescheduleBooking,
   resolveBookingTotalPrice,
 } from '../lib/bookingTransactions';
@@ -116,12 +115,9 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     const estimatedPrice = booking.totalPrice ?? 0;
 
     try {
-      const createBooking =
-        import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true'
-          ? () => createBookingWithPayment(db, firebaseUser.uid, booking)
-          : () => createBookingViaCallable(booking);
-
-      const { totalPrice } = await withOptimisticBalance(-estimatedPrice, createBooking);
+      const { totalPrice } = await withOptimisticBalance(-estimatedPrice, () =>
+        createBookingViaCallable(booking)
+      );
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       return totalPrice;
     } catch (error) {

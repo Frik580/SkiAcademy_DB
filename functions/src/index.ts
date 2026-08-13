@@ -1,18 +1,13 @@
-import { getApps, initializeApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
 import { onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { getAdminFirestore } from './adminFirestore';
 import { autoCompletePastBookings } from './bookings/autoComplete';
 import { createCreateBookingHandler } from './bookings/createBooking';
 import { purgeExpiredNotifications } from './purgeExpiredNotifications';
 
-if (getApps().length === 0) {
-  initializeApp();
-}
-
-const db = getFirestore();
-
-export const createBooking = onCall({ region: 'us-central1' }, createCreateBookingHandler(db));
+export const createBooking = onCall({ region: 'us-central1' }, async (request) =>
+  createCreateBookingHandler(getAdminFirestore())(request)
+);
 
 export const scheduledAutoCompleteBookings = onSchedule(
   {
@@ -20,7 +15,7 @@ export const scheduledAutoCompleteBookings = onSchedule(
     timeZone: 'Asia/Almaty',
   },
   async () => {
-    const completedCount = await autoCompletePastBookings(db);
+    const completedCount = await autoCompletePastBookings(getAdminFirestore());
     console.log(`Auto-completed ${completedCount} booking(s).`);
   }
 );
@@ -31,7 +26,7 @@ export const scheduledPurgeExpiredNotifications = onSchedule(
     timeZone: 'Asia/Almaty',
   },
   async () => {
-    const deletedCount = await purgeExpiredNotifications(db);
+    const deletedCount = await purgeExpiredNotifications(getAdminFirestore());
     console.log(`Purged ${deletedCount} expired notification(s).`);
   }
 );

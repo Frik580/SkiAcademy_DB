@@ -88,7 +88,7 @@ export default async function globalSetup(): Promise<void> {
       specialty: 'ski',
       pricePerHour: 50,
       bio: 'Playwright end-to-end instructor fixture.',
-      avatarUrl: '',
+      avatarUrl: 'https://example.com/e2e-instructor.jpg',
       isAvailable: true,
       rating: 5,
       reviewsCount: 0,

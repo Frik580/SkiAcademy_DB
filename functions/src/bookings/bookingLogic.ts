@@ -8,11 +8,7 @@ const AVAILABILITY_HOUR_LOCKS_COLLECTION = 'availability_hour_locks';
 export type LessonDifficulty = 'beginner' | 'intermediate' | 'advanced';
 
 export type BookingStatus =
-  | 'pending'
-  | 'confirmed'
-  | 'cancelled'
-  | 'completed'
-  | 'pending_cancellation';
+  'pending' | 'confirmed' | 'cancelled' | 'completed' | 'pending_cancellation';
 
 export interface BookingRecord {
   id: string;

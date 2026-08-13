@@ -1,24 +1,15 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  Calendar,
-  Check,
-  Clock,
-  Link2,
-  Loader2,
-  MessageSquare,
-  Shield,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { Clock, Shield, X } from 'lucide-react';
 import type { Booking, Course, Instructor, UserProfile } from '../../types';
-import { useLanguage, getDifficultyLabel } from '../../lib/LanguageContext';
-import { formatDurationLabel } from '../../lib/i18n/duration';
-import { isCourseBooking } from '../../lib/availabilitySlots';
+import { useLanguage } from '../../lib/LanguageContext';
 import { BodyScrollLock } from '../ui/BodyScrollLock';
 import { useNotifications } from '../PushNotificationHub';
 import { BookingChatModal } from '../BookingChatModal';
 import { LinkGuestBookingModal } from './LinkGuestBookingModal';
+import { ActiveSlotDetails } from './schedule_slot_modal/ActiveSlotDetails';
+import { ActiveSlotMoveForm } from './schedule_slot_modal/ActiveSlotMoveForm';
+import { ActiveSlotCreateForm } from './schedule_slot_modal/ActiveSlotCreateForm';
 import {
   getAvailableMoveTimeSlots,
   getAvailableScheduleDurations,
@@ -105,7 +96,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   onLinkGuestBooking,
 }) => {
   const { addNotification } = useNotifications();
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const [modalTab, setModalTab] = useState<'break' | 'day_off' | 'booking'>('break');
   const [blockDuration, setBlockDuration] = useState(1);
   const [blockNotes, setBlockNotes] = useState('');
@@ -452,428 +443,58 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
         </div>
 
         {activeSlot.booking ? (
-          <form onSubmit={handleSlotMoveSubmit} className="space-y-4">
-            <div className="bg-black/5 dark:bg-white/5 p-3.5 rounded-xl border border-[var(--border)] space-y-1.5">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink)]">
-                {t('currentDetails')}
-              </div>
-              <div className="text-xs text-[var(--ink-dim)]">
-                <strong>{t('typeLabel')}:</strong>{' '}
-                {activeSlot.booking.userId === 'system_block_break'
-                  ? t('breakLabel')
-                  : activeSlot.booking.userId === 'system_block_day_off'
-                    ? t('dayOffLabel')
-                    : `${t('lessonWithClientPrefix')} (${usersList.find((user) => user.uid === activeSlot.booking?.userId)?.displayName || activeSlot.booking?.guestName || (activeSlot.booking?.isGuest || activeSlot.booking?.userId?.startsWith('guest_') ? (activeSlot.booking?.guestName ? `${activeSlot.booking.guestName} (${t('guestBadge') || 'Гость'})` : t('guestBadge') || 'Гость') : t('clientFallback'))})`}
-              </div>
-              {activeSlot.booking.userId !== 'system_block_break' &&
-                activeSlot.booking.userId !== 'system_block_day_off' &&
-                !isCourseBooking(activeSlot.booking) && (
-                  <div className="text-xs text-[var(--ink-dim)]">
-                    <strong>{t('trainingLevelLabel')}:</strong>{' '}
-                    {getDifficultyLabel(activeSlot.booking.difficulty, language, 'short')}
-                  </div>
-                )}
-              {(activeSlot.booking.guestPhone || activeSlot.booking.guestEmail) && (
-                <div className="text-xs text-[var(--ink-dim)] space-y-0.5 font-mono">
-                  {activeSlot.booking.guestPhone && (
-                    <div>
-                      <strong>{t('phone') || (language === 'ru' ? 'Тел' : 'Phone')}:</strong>{' '}
-                      <a
-                        href={`tel:${activeSlot.booking.guestPhone}`}
-                        className="text-sky-600 dark:text-sky-400 hover:underline"
-                      >
-                        {activeSlot.booking.guestPhone}
-                      </a>
-                    </div>
-                  )}
-                  {activeSlot.booking.guestEmail && (
-                    <div>
-                      <strong>Email:</strong>{' '}
-                      <a
-                        href={`mailto:${activeSlot.booking.guestEmail}`}
-                        className="text-sky-600 dark:text-sky-400 hover:underline"
-                      >
-                        {activeSlot.booking.guestEmail}
-                      </a>
-                    </div>
-                  )}
-                </div>
-              )}
-              {activeSlot.booking.notes && (
-                <div className="text-xs text-[var(--ink-dim)] italic">
-                  {'"'}
-                  {activeSlot.booking.notes}
-                  {'"'}
-                </div>
-              )}
-              {activeSlot.booking.status === 'pending_cancellation' &&
-                activeSlot.booking.cancellationReason && (
-                  <div className="text-xs text-rose-400 font-mono bg-rose-955/20 px-2.5 py-1.5 border border-rose-900/40 mt-1 rounded-none">
-                    <strong>{t('cancelReasonRequired')}:</strong>{' '}
-                    {activeSlot.booking.cancellationReason}
-                  </div>
-                )}
-
-              {activeSlot.booking.userId !== 'system_block_break' &&
-                activeSlot.booking.userId !== 'system_block_day_off' && (
-                  <>
-                    {(activeSlot.booking.isGuest ||
-                      activeSlot.booking.userId?.startsWith('guest_')) && (
-                      <button
-                        type="button"
-                        onClick={() => setIsLinkModalOpen(true)}
-                        className="w-full mt-2.5 py-2 px-3 border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-none text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2 transition cursor-pointer"
-                      >
-                        <Link2 className="w-4 h-4" />
-                        {t('linkToClientBtn')}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => onOpenChat(activeSlot.booking!)}
-                      className="w-full mt-2.5 py-2.5 px-3 border border-accent-soft bg-accent-muted hover:bg-accent-muted hover:border-accent text-accent rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      {t('openChatDiscussion')}
-                    </button>
-                  </>
-                )}
-            </div>
-
-            <div className="space-y-3">
-              <h5 className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                {t('rescheduleMove')}
-              </h5>
-
-              {canReassignInstructor && (
-                <div className="space-y-1">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
-                    {t('reassignInstructor')}
-                  </label>
-                  <select
-                    value={newInstructorId}
-                    onChange={(event) => setNewInstructorId(event.target.value)}
-                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer font-mono"
-                  >
-                    {availableInstructors.map((instructor) => (
-                      <option
-                        key={instructor.id}
-                        value={instructor.id}
-                        className="bg-[var(--bg)] text-[var(--ink)]"
-                      >
-                        {instructor.name}
-                        {!instructor.isAvailable ? ` (${t('unavailableLabel')})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
-                    {t('selectDate')}
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={newMoveDate}
-                    onChange={(event) => setNewMoveDate(event.target.value)}
-                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
-                    {t('newStartTime')}
-                  </label>
-                  <select
-                    required
-                    value={newMoveTime}
-                    onChange={(event) => setNewMoveTime(event.target.value)}
-                    disabled={availableMoveTimeSlots.length === 0}
-                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer font-mono disabled:opacity-60"
-                  >
-                    {availableMoveTimeSlots.length === 0 ? (
-                      <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
-                        {t('noSlotsAvailable')}
-                      </option>
-                    ) : (
-                      availableMoveTimeSlots.map((time: string) => (
-                        <option
-                          key={time}
-                          value={time}
-                          className="bg-[var(--bg)] text-[var(--ink)]"
-                        >
-                          {time}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {activeSlot.booking.status === 'confirmed' && (
-              <button
-                type="button"
-                onClick={async () => {
-                  if (onCompleteBooking) {
-                    setIsSlotActionSubmitting(true);
-                    await onCompleteBooking(activeSlot.booking!.id);
-                    setIsSlotActionSubmitting(false);
-                    onClose();
-                  }
-                }}
-                disabled={isSlotActionSubmitting}
-                className="w-full py-2.5 border border-emerald-900/40 bg-emerald-950/20 hover:bg-emerald-955/40 hover:border-emerald-500 text-emerald-400 rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer mb-2"
-              >
-                <Check className="w-4 h-4" />
-                {t('markLessonCompleted')}
-              </button>
-            )}
-
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => onDeleteRequest(activeSlot.booking!.id)}
-                className="flex-1 py-2.5 border border-rose-900/40 bg-rose-955/20 hover:bg-rose-955/40 hover:border-rose-500 text-rose-400 rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
-                {t('deleteCancelBlock')}
-              </button>
-
-              <button
-                type="submit"
-                disabled={isSlotActionSubmitting}
-                className="flex-1 py-2 px-3 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
-              >
-                {isSlotActionSubmitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Check className="w-4 h-4" />
-                )}
-                {t('applyMove')}
-              </button>
-            </div>
-          </form>
+          <>
+            <ActiveSlotDetails
+              booking={activeSlot.booking}
+              usersList={usersList}
+              onOpenChat={onOpenChat}
+              onOpenLinkModal={() => setIsLinkModalOpen(true)}
+            />
+            <ActiveSlotMoveForm
+              booking={activeSlot.booking}
+              canReassignInstructor={canReassignInstructor}
+              newInstructorId={newInstructorId}
+              setNewInstructorId={setNewInstructorId}
+              availableInstructors={availableInstructors}
+              newMoveDate={newMoveDate}
+              setNewMoveDate={setNewMoveDate}
+              newMoveTime={newMoveTime}
+              setNewMoveTime={setNewMoveTime}
+              availableMoveTimeSlots={availableMoveTimeSlots}
+              isSlotActionSubmitting={isSlotActionSubmitting}
+              onCompleteBooking={onCompleteBooking}
+              onDeleteRequest={onDeleteRequest}
+              onSubmit={handleSlotMoveSubmit}
+              onClose={onClose}
+            />
+          </>
         ) : (
-          <form onSubmit={handleSlotActionSubmit} className="space-y-4">
-            <div className="flex bg-black/10 p-1 border border-[var(--border)] rounded-none">
-              {(['break', 'day_off', 'booking'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setModalTab(tab)}
-                  className={`flex-1 py-1.5 text-center text-[10px] font-mono uppercase tracking-wider transition-all cursor-pointer rounded-none ${
-                    modalTab === tab
-                      ? 'bg-[var(--ink)] text-[var(--bg)] font-bold'
-                      : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
-                  }`}
-                >
-                  {tab === 'break' && t('breakLabel')}
-                  {tab === 'day_off' && t('dayOffLabel')}
-                  {tab === 'booking' && t('lessonTab')}
-                </button>
-              ))}
-            </div>
-
-            {modalTab === 'break' && (
-              <div className="space-y-3 animate-fade-in">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
-                    {t('breakDuration')}
-                  </label>
-                  <select
-                    value={blockDuration}
-                    onChange={(event) => setBlockDuration(Number(event.target.value))}
-                    disabled={availableBreakDurations.length === 0}
-                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer font-mono disabled:opacity-60"
-                  >
-                    {availableBreakDurations.length === 0 ? (
-                      <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
-                        {t('noHoursAvailable')}
-                      </option>
-                    ) : (
-                      availableBreakDurations.map((duration: number) => (
-                        <option
-                          key={duration}
-                          value={duration}
-                          className="bg-[var(--bg)] text-[var(--ink)]"
-                        >
-                          {formatDurationLabel(duration, language === 'ru' ? 'ru' : 'en')}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
-                    {t('notesTitle')}
-                  </label>
-                  <input
-                    type="text"
-                    value={blockNotes}
-                    onChange={(event) => setBlockNotes(event.target.value)}
-                    placeholder={t('lunchBreakPlaceholder')}
-                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
-                  />
-                </div>
-              </div>
-            )}
-
-            {modalTab === 'day_off' && (
-              <div className="p-3 bg-black/10 border border-[var(--border)] text-xs text-[var(--ink-dim)] leading-relaxed animate-fade-in space-y-2 rounded-none">
-                <div className="font-serif text-xs font-light text-[var(--ink)] flex items-center gap-1">
-                  <Calendar className="w-4 h-4 text-[var(--ink-dim)]" />
-                  {t('fullDayOff')}
-                </div>
-                <p>{t('fullDayOffDesc')}</p>
-              </div>
-            )}
-
-            {modalTab === 'booking' && (
-              <div className="space-y-3 animate-fade-in">
-                {!activeSlot.instructor.isAvailable && (
-                  <div className="bg-rose-955/20 border border-rose-900/40 p-3 text-xs text-rose-400 rounded-none font-mono">
-                    <p className="font-bold">⚠️ {t('instructorUnavailableTitle')}</p>
-                    <p className="text-[11px] opacity-90 mt-0.5">
-                      {`${activeSlot.instructor.name} ${t('instructorUnavailableSlotDesc')}`}
-                    </p>
-                  </div>
-                )}
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
-                    {t('selectClient')}
-                  </label>
-                  <select
-                    required
-                    value={selectedClientUid}
-                    onChange={(event) => setSelectedClientUid(event.target.value)}
-                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer"
-                  >
-                    <option value="" disabled className="bg-[var(--bg)] text-[var(--ink)]">
-                      {t('chooseRegisteredClient')}
-                    </option>
-                    {usersList.map((client) => (
-                      <option
-                        key={client.uid}
-                        value={client.uid}
-                        className="bg-[var(--bg)] text-[var(--ink)] font-mono"
-                      >
-                        {client.displayName} ({client.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
-                      {t('hoursLabel')}
-                    </label>
-                    <select
-                      value={bookingDuration}
-                      onChange={(event) => setBookingDuration(Number(event.target.value))}
-                      disabled={availableBookingDurations.length === 0}
-                      className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer font-mono disabled:opacity-60"
-                    >
-                      {availableBookingDurations.length === 0 ? (
-                        <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
-                          {t('noHoursAvailable')}
-                        </option>
-                      ) : (
-                        availableBookingDurations.map((duration: number) => (
-                          <option
-                            key={duration}
-                            value={duration}
-                            className="bg-[var(--bg)] text-[var(--ink)]"
-                          >
-                            {formatDurationLabel(duration, language === 'ru' ? 'ru' : 'en')}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
-                      {t('skillLevel')}
-                    </label>
-                    <select
-                      value={bookingDifficulty}
-                      onChange={(event) =>
-                        setBookingDifficulty(event.target.value as typeof bookingDifficulty)
-                      }
-                      className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer"
-                    >
-                      <option value="beginner" className="bg-[var(--card-bg)] text-[var(--ink)]">
-                        {t('difficultyBeginner')}
-                      </option>
-                      <option
-                        value="intermediate"
-                        className="bg-[var(--card-bg)] text-[var(--ink)]"
-                      >
-                        {t('difficultyIntermediate')}
-                      </option>
-                      <option value="advanced" className="bg-[var(--card-bg)] text-[var(--ink)]">
-                        {t('difficultyAdvanced')}
-                      </option>
-                      <option value="freeride" className="bg-[var(--card-bg)] text-[var(--ink)]">
-                        {t('difficultyFreeride')}
-                      </option>
-                      <option value="freestyle" className="bg-[var(--card-bg)] text-[var(--ink)]">
-                        {t('difficultyFreestyle')}
-                      </option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
-                    {t('bookingNotesAdmin')}
-                  </label>
-                  <input
-                    type="text"
-                    value={bookingNotes}
-                    onChange={(event) => setBookingNotes(event.target.value)}
-                    placeholder={t('bookingNotesPlaceholder')}
-                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-2.5 pt-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 py-2 px-4 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer text-center"
-              >
-                {t('cancel')}
-              </button>
-
-              <button
-                type="submit"
-                disabled={
-                  isSlotActionSubmitting ||
-                  (modalTab === 'booking' && !activeSlot.instructor.isAvailable)
-                }
-                className="flex-1 py-2 px-4 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer text-center"
-              >
-                {isSlotActionSubmitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Check className="w-4 h-4" />
-                )}
-                {t('saveSchedule')}
-              </button>
-            </div>
-          </form>
+          <ActiveSlotCreateForm
+            instructor={activeSlot.instructor}
+            modalTab={modalTab}
+            setModalTab={setModalTab}
+            blockDuration={blockDuration}
+            setBlockDuration={setBlockDuration}
+            availableBreakDurations={availableBreakDurations}
+            blockNotes={blockNotes}
+            setBlockNotes={setBlockNotes}
+            selectedClientUid={selectedClientUid}
+            setSelectedClientUid={setSelectedClientUid}
+            usersList={usersList}
+            bookingDuration={bookingDuration}
+            setBookingDuration={setBookingDuration}
+            availableBookingDurations={availableBookingDurations}
+            bookingDifficulty={bookingDifficulty}
+            setBookingDifficulty={setBookingDifficulty}
+            bookingNotes={bookingNotes}
+            setBookingNotes={setBookingNotes}
+            isSlotActionSubmitting={isSlotActionSubmitting}
+            onSubmit={handleSlotActionSubmit}
+            onClose={onClose}
+          />
         )}
       </div>
+
       {activeSlot.booking && (
         <LinkGuestBookingModal
           isOpen={isLinkModalOpen}

@@ -123,5 +123,8 @@ export default async function globalSetup(): Promise<void> {
     instructorName: E2E_INSTRUCTOR_NAME,
   };
 
-  writeFileSync(join(rootDir, 'e2e', '.runtime-config.json'), JSON.stringify(runtimeConfig, null, 2));
+  writeFileSync(
+    join(rootDir, 'e2e', '.runtime-config.json'),
+    JSON.stringify(runtimeConfig, null, 2)
+  );
 }

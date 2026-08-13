@@ -14,10 +14,15 @@ describe('admin reassign instructor wiring', () => {
       'utf8'
     );
 
+    const moveFormSource = readFileSync(
+      join(process.cwd(), 'src/components/admin/schedule_slot_modal/ActiveSlotMoveForm.tsx'),
+      'utf8'
+    );
+
     expect(bookingStoreSource).toContain('handleReassignInstructor');
     expect(bookingStoreSource).toContain('instructorId: newInstructor.id');
     expect(routesSource).toContain('onReassignInstructor={handleReassignInstructor}');
     expect(modalSource).toContain('onReassignInstructor');
-    expect(modalSource).toContain('reassignInstructor');
+    expect(moveFormSource).toContain('reassignInstructor');
   });
 });

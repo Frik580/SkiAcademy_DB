@@ -3,12 +3,7 @@ import { Firestore, Transaction } from 'firebase-admin/firestore';
 export const WALLET_LEDGER_COLLECTION = 'wallet_ledger';
 
 export type WalletLedgerType =
-  | 'top_up'
-  | 'starter_credit'
-  | 'lesson_payment'
-  | 'course_payment'
-  | 'refund'
-  | 'admin_adjustment';
+  'top_up' | 'starter_credit' | 'lesson_payment' | 'course_payment' | 'refund' | 'admin_adjustment';
 
 export interface WalletLedgerEntry {
   id: string;

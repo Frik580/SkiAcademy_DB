@@ -22,13 +22,17 @@ export async function signInStudent(page: Page, config = loadRuntimeConfig()): P
 
 export async function openGuestBookingModal(page: Page, instructorName: string): Promise<void> {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: instructorName })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('heading', { name: instructorName })).toBeVisible({
+    timeout: 20_000,
+  });
   await page
     .locator('.ui-list-row')
     .filter({ has: page.getByRole('heading', { name: instructorName }) })
     .getByRole('button', { name: 'Book Lesson' })
     .click();
-  await expect(page.getByRole('heading', { name: instructorName, exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: instructorName, exact: true }).first()
+  ).toBeVisible();
 }
 
 export async function fillBookingSelectors(page: Page, dayOffset = 1): Promise<void> {

@@ -1,0 +1,32 @@
+export interface Course {
+  id: string;
+  title: string;
+  titleRu?: string;
+  duration: string;
+  description: string;
+  dates: string;
+  totalSeats: number;
+  availableSeats: number;
+  price: number;
+  priceKZT?: number;
+  bgImageUrl: string;
+  isHidden?: boolean;
+  instructorIds?: string[];
+  order?: number;
+  shortDescription?: string;
+  shortDescriptionRu?: string;
+  detailedDescription?: string;
+  detailedDescriptionRu?: string;
+  badge?: string;
+  badgeRu?: string;
+  level?: 'beginner' | 'intermediate' | 'advanced' | 'expert' | '';
+  levelLabel?: string;
+  videoUrl?: string;
+  benefits?: string[];
+  benefitsRu?: string[];
+  program?: { day: string; title: string; desc: string }[];
+  programRu?: { day: string; title: string; desc: string }[];
+  faq?: { q: string; a: string }[];
+  faqRu?: { q: string; a: string }[];
+  galleryPhotos?: string[];
+}

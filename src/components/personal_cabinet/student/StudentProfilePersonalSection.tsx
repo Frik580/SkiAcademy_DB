@@ -119,19 +119,31 @@ export const StudentProfilePersonalSection: React.FC<StudentProfilePersonalSecti
       <section className="space-y-4">
         <ScSectionTitle>{t('editProfile')}</ScSectionTitle>
         <div className="grid grid-cols-2 gap-3 items-end">
-          <label className="block space-y-1.5">
-            <span className="text-xs text-[var(--ink-dim)]">{t('scDisplayNameLabel')}</span>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="student-display-name-input"
+              className="text-xs text-[var(--ink-dim)] block"
+            >
+              {t('scDisplayNameLabel')}
+            </label>
             <input
+              id="student-display-name-input"
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               className={inputClassName}
               disabled={!onUpdateProfile}
             />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-xs text-[var(--ink-dim)]">{t('phone')}</span>
+          </div>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="student-phone-number-input"
+              className="text-xs text-[var(--ink-dim)] block"
+            >
+              {t('phone')}
+            </label>
             <input
+              id="student-phone-number-input"
               type="tel"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
@@ -139,7 +151,7 @@ export const StudentProfilePersonalSection: React.FC<StudentProfilePersonalSecti
               className={inputClassName}
               disabled={!onUpdateProfile}
             />
-          </label>
+          </div>
           {onUpdateProfile && (
             <button
               type="button"

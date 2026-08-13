@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage, type Language } from '../lib/LanguageContext';
-import type { Theme } from './useTheme';
+import type { Theme } from '../hooks/useTheme';
 import type { DesignTheme } from '../lib/designTheme';
 import { CustomHeroSlide } from '../types';
 import { FALLBACK_SLIDES } from './admin/resortConfigDefaults';

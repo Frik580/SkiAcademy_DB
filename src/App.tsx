@@ -4,9 +4,9 @@ import { registerFirestoreErrorListener, db, doc, updateDoc } from './lib/fireba
 import { LanguageProvider, useLanguage, translateCourse } from './lib/LanguageContext';
 import { CurrencyProvider } from './lib/CurrencyContext';
 
-import { useTheme } from './components/useTheme';
-import { useResortStats } from './components/useResortStats';
-import { useInstructorFilters } from './components/useInstructorFilters';
+import { useTheme } from './hooks/useTheme';
+import { useResortStats } from './hooks/useResortStats';
+import { useInstructorFilters } from './hooks/useInstructorFilters';
 import { AppRoutes } from './components/AppRoutes';
 import { OnboardingModal } from './components/OnboardingModal';
 import { AuthModal } from './components/AuthModal';

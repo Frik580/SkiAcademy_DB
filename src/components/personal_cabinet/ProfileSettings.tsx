@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Camera, Loader2, Wallet } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
-import { useTheme } from '../useTheme';
+import { useTheme } from '../../hooks/useTheme';
 import { optimizeProfileImage } from './profileImage';
 import { uploadImage } from '../../lib/storage';
 import { logger } from '../../lib/logger';

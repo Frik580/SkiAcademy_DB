@@ -14,9 +14,9 @@ import { LessonFilters } from './LessonFilters';
 import { ResortConditionsSidebar } from './ResortConditionsSidebar';
 import { ResortConfig } from '../types';
 import { useLanguage } from '../lib/LanguageContext';
-import { useTheme } from './useTheme';
+import { useTheme } from '../hooks/useTheme';
 import { CABINET_TABS, getDefaultWorkspacePath } from '../lib/workspaceRoutes';
-import { useInstructorFilters } from './useInstructorFilters';
+import { useInstructorFilters } from '../hooks/useInstructorFilters';
 import { LazyLoad } from './LazyLoad';
 import { CardSkeleton, Skeleton } from './ui/Skeleton';
 

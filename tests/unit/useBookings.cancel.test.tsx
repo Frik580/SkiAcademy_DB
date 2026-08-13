@@ -91,7 +91,7 @@ vi.mock('../../src/lib/firebase', () => ({
   runTransaction: vi.fn(),
 }));
 
-import { useBookings } from '../../src/components/useBookings';
+import { useBookings } from '../../src/hooks/useBookings';
 import { useAuthStore } from '../../src/store/authStore';
 import { useBookingStore } from '../../src/store/bookingStore';
 import { setStoreContext } from '../../src/store/storeContext';

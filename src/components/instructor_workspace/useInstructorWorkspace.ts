@@ -8,7 +8,7 @@ import {
   parseDurationHours,
 } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
-import { useTheme } from '../useTheme';
+import { useTheme } from '../../hooks/useTheme';
 import { logger } from '../../lib/logger';
 import { SkillConfig, DEFAULT_SKILL_ITEMS } from '../../lib/skillData';
 import { finalizeBookingCompletion } from '../../lib/completeBooking';

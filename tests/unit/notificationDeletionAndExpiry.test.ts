@@ -5,7 +5,7 @@ import {
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   getNotificationRetentionMs,
 } from '../../src/lib/notificationConfig';
-import { TWO_WEEKS_MS } from '../../src/components/useNotifications';
+import { TWO_WEEKS_MS } from '../../src/hooks/useNotifications';
 
 describe('notification deletion and auto-expiry', () => {
   it('defines default 14-day expiry constant', () => {
@@ -15,7 +15,7 @@ describe('notification deletion and auto-expiry', () => {
 
   it('wires single notification deletion and auto-cleanup of expired items', () => {
     const notificationsSource = readFileSync(
-      join(process.cwd(), 'src/store/useStoreSync.ts'),
+      join(process.cwd(), 'src/store/sync/useNotificationsSync.ts'),
       'utf8'
     );
     const uiStoreSource = readFileSync(join(process.cwd(), 'src/store/uiStore.ts'), 'utf8');

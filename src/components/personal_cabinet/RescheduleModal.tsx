@@ -53,10 +53,14 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
         </div>
         <form onSubmit={onSubmit} className="p-5 space-y-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+            <label
+              htmlFor="reschedule-date-input"
+              className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block"
+            >
               {t('newDate').toUpperCase()}
             </label>
             <input
+              id="reschedule-date-input"
               type="date"
               required
               min={minDate}
@@ -66,7 +70,10 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+            <label
+              htmlFor="reschedule-time-select"
+              className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block"
+            >
               {t('newTime').toUpperCase()}
             </label>
             {isLoadingSlots ? (
@@ -77,6 +84,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
               </div>
             ) : (
               <select
+                id="reschedule-time-select"
                 value={newTime}
                 onChange={(e) => setNewTime(e.target.value)}
                 className="w-full px-3 py-2 rounded-none border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition cursor-pointer"

@@ -71,10 +71,14 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+            <label
+              htmlFor="review-comment-textarea"
+              className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block"
+            >
               {t('yourFeedback')}
             </label>
             <textarea
+              id="review-comment-textarea"
               required
               rows={3}
               value={comment}

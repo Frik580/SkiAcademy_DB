@@ -13,7 +13,7 @@ import {
   MIN_NOTIFICATION_RETENTION_DAYS,
 } from '../lib/notificationConfig';
 import { db, doc, setDoc } from '../lib/firebase';
-import { InstructorSortBy, InstructorSpecialty } from '../components/useInstructorFilters';
+import { InstructorSortBy, InstructorSpecialty } from '../hooks/useInstructorFilters';
 import { notify, t } from './storeContext';
 
 interface UiState {

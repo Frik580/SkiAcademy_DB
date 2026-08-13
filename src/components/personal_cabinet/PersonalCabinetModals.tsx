@@ -1,7 +1,7 @@
 import React from 'react';
 import { Booking, Course, Instructor, Review, UserProfile } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
-import { useTheme } from '../useTheme';
+import { useTheme } from '../../hooks/useTheme';
 import { LazyLoad } from '../LazyLoad';
 import { RescheduleModal } from './RescheduleModal';
 import { ReviewModal } from './ReviewModal';

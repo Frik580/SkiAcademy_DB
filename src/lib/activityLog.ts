@@ -1,5 +1,5 @@
 import { ActivityLogMetadata, ActivityLogType, Booking, Course } from '../types';
-import { db, doc, setDoc } from './firebase';
+import { db, doc, setDoc, updateDoc } from './firebase';
 import { logger } from './logger';
 
 export const ACTIVITY_LOGS_COLLECTION = 'activity_logs';
@@ -64,5 +64,16 @@ export const logActivityForUser = async (
     await setDoc(doc(db, ACTIVITY_LOGS_COLLECTION, id), entry);
   } catch (error) {
     logger.error('Failed to create activity log:', error);
+  }
+};
+
+export const updateActivityLogTimestamp = async (
+  logId: string,
+  timestamp: string
+): Promise<void> => {
+  try {
+    await updateDoc(doc(db, ACTIVITY_LOGS_COLLECTION, logId), { timestamp });
+  } catch (error) {
+    logger.error('Failed to update activity log timestamp:', error);
   }
 };

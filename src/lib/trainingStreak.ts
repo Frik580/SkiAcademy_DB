@@ -1,6 +1,6 @@
 import { ActivityLog, Booking } from '../types';
 
-const toIsoWeekKey = (input: string | Date): string | null => {
+export const toIsoWeekKey = (input: string | Date): string | null => {
   const d =
     input instanceof Date
       ? new Date(input)
@@ -52,4 +52,63 @@ export const getTrainingStreakWeeks = (
     break;
   }
   return streak;
+};
+
+const collectTrainingWeekTimestamps = (
+  bookings: Booking[],
+  activityLogs: ActivityLog[] = []
+): Map<string, string> => {
+  const weekTimestamps = new Map<string, string>();
+
+  const remember = (weekKey: string | null, timestamp: string) => {
+    if (!weekKey) return;
+    const existing = weekTimestamps.get(weekKey);
+    if (!existing || timestamp < existing) {
+      weekTimestamps.set(weekKey, timestamp);
+    }
+  };
+
+  bookings
+    .filter((booking) => booking.status === 'completed' && !booking.isDeleted)
+    .forEach((booking) => {
+      remember(toIsoWeekKey(booking.date), `${booking.date}T12:00:00.000Z`);
+    });
+
+  activityLogs
+    .filter((log) => log.type === 'booking_completed')
+    .forEach((log) => {
+      remember(toIsoWeekKey(log.timestamp), log.timestamp);
+    });
+
+  return weekTimestamps;
+};
+
+export const findStreakWeeksTimestamp = (
+  bookings: Booking[],
+  activityLogs: ActivityLog[] = [],
+  requiredWeeks = 1,
+  anchor = new Date()
+): string | undefined => {
+  const weekTimestamps = collectTrainingWeekTimestamps(bookings, activityLogs);
+  if (weekTimestamps.size === 0) return undefined;
+
+  let streak = 0;
+  let latestWeekKeyInStreak: string | null = null;
+  for (let offset = 0; offset < 104; offset++) {
+    const check = new Date(anchor);
+    check.setDate(anchor.getDate() - offset * 7);
+    const key = toIsoWeekKey(check);
+    if (!key) break;
+    if (weekTimestamps.has(key)) {
+      if (streak === 0) latestWeekKeyInStreak = key;
+      streak++;
+      if (streak === requiredWeeks) {
+        return latestWeekKeyInStreak ? weekTimestamps.get(latestWeekKeyInStreak) : undefined;
+      }
+      continue;
+    }
+    if (offset === 0) continue;
+    break;
+  }
+  return undefined;
 };

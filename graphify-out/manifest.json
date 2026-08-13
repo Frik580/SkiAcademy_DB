@@ -715,8 +715,8 @@
     "semantic_hash": ""
   },
   "src/components/personal_cabinet/student/StudentCabinetHome.tsx": {
-    "mtime": 1786180934.6621711,
-    "ast_hash": "1c1614adf32d8af518fa6309899d5338",
+    "mtime": 1786639649.5879068,
+    "ast_hash": "7c3393d860f10cf70de06ddbbd3b42aa",
     "semantic_hash": ""
   },
   "src/components/personal_cabinet/student/StudentCabinetPanels.tsx": {
@@ -790,8 +790,8 @@
     "semantic_hash": ""
   },
   "src/components/personal_cabinet/student/StudentTodaySection.tsx": {
-    "mtime": 1786181025.8082268,
-    "ast_hash": "b8aa6ab585eba917f4dcd2b7fb522853",
+    "mtime": 1786639649.575229,
+    "ast_hash": "210b0b2d543d6f4b5f647f82ab5a1b6b",
     "semantic_hash": ""
   },
   "src/components/personal_cabinet/student/StudentWalletHistoryList.tsx": {
@@ -810,8 +810,8 @@
     "semantic_hash": ""
   },
   "src/components/personal_cabinet/student/studentCabinetUtils.ts": {
-    "mtime": 1786634592.0280352,
-    "ast_hash": "84787a581c1e68bc5dddd07d99110282",
+    "mtime": 1786639638.9696078,
+    "ast_hash": "7c82bf5ea3092ba24d37731816c14b29",
     "semantic_hash": ""
   },
   "src/components/personal_cabinet/student/useInstructorBookingMessages.ts": {
@@ -960,18 +960,18 @@
     "semantic_hash": ""
   },
   "src/lib/achievementConfig.ts": {
-    "mtime": 1785576924.9767067,
-    "ast_hash": "925af87051a8e8a9d348601728b4f4ba",
+    "mtime": 1786639620.5877597,
+    "ast_hash": "891bb6a91d8a36adaca5737ae526ae5e",
     "semantic_hash": ""
   },
   "src/lib/achievements.ts": {
-    "mtime": 1785498456.7156255,
-    "ast_hash": "52643d2e150d9d21a15f8361657cff5b",
+    "mtime": 1786639627.4383826,
+    "ast_hash": "f4704f59eebf1717e7e829e0a42f3b96",
     "semantic_hash": ""
   },
   "src/lib/activityLog.ts": {
-    "mtime": 1785828120.7933664,
-    "ast_hash": "a820b21fb43983933ce0034211e8bcf2",
+    "mtime": 1786639623.537848,
+    "ast_hash": "fc41131fd1fba1f0a810356a16873d12",
     "semantic_hash": ""
   },
   "src/lib/availabilityMigration.ts": {
@@ -1005,8 +1005,8 @@
     "semantic_hash": ""
   },
   "src/lib/bookingTransactions.ts": {
-    "mtime": 1786636520.5585248,
-    "ast_hash": "eca313de614ca06bc2b0c2ab085119ef",
+    "mtime": 1786638680.12801,
+    "ast_hash": "bbd40caf95a893184f490bf5ad2745ea",
     "semantic_hash": ""
   },
   "src/lib/chatHomework.ts": {
@@ -1130,8 +1130,8 @@
     "semantic_hash": ""
   },
   "src/lib/queryLimits.ts": {
-    "mtime": 1786635347.198463,
-    "ast_hash": "5d3e9cd490829065b591fc5831c10edc",
+    "mtime": 1786638449.886645,
+    "ast_hash": "f684256097481818dfeeb1367bf37dad",
     "semantic_hash": ""
   },
   "src/lib/resolveChatId.ts": {
@@ -1160,8 +1160,8 @@
     "semantic_hash": ""
   },
   "src/lib/trainingStreak.ts": {
-    "mtime": 1785576924.9767067,
-    "ast_hash": "96f37dfa4975b48218666d2f68a74396",
+    "mtime": 1786639830.580028,
+    "ast_hash": "0585584f6c41fda02acc46067dc3435b",
     "semantic_hash": ""
   },
   "src/lib/useBodyScrollLock.ts": {
@@ -1180,13 +1180,13 @@
     "semantic_hash": ""
   },
   "src/lib/walletCredit.ts": {
-    "mtime": 1786637706.167188,
-    "ast_hash": "8fd72ac96c1fcb5d06813d41d89cb36e",
+    "mtime": 1786638680.12801,
+    "ast_hash": "4e3258bfaec89f0c3910f81da69419a8",
     "semantic_hash": ""
   },
   "src/lib/walletLedger.ts": {
-    "mtime": 1786636506.6966493,
-    "ast_hash": "2ee7e6cb5e0a3d0bac5a52711770b247",
+    "mtime": 1786638449.886645,
+    "ast_hash": "0bb3fe2fcb5255a17ead9a8c1a4a0a89",
     "semantic_hash": ""
   },
   "src/lib/weatherCondition.ts": {
@@ -1355,8 +1355,8 @@
     "semantic_hash": ""
   },
   "tests/unit/achievements.test.ts": {
-    "mtime": 1785506300.1163902,
-    "ast_hash": "772b14e5b687c9e507fe85fa47e31158",
+    "mtime": 1786639844.5785503,
+    "ast_hash": "e92c88f38f636e597b11c0a8fc92acb2",
     "semantic_hash": ""
   },
   "tests/unit/activityLogHistory.test.ts": {
@@ -1565,8 +1565,8 @@
     "semantic_hash": ""
   },
   "tests/unit/walletLedger.test.ts": {
-    "mtime": 1786636527.2064955,
-    "ast_hash": "b22b7053f85af0fe10a40719ed05b984",
+    "mtime": 1786638680.127036,
+    "ast_hash": "09f02913e2862d74de3233c9c115e835",
     "semantic_hash": ""
   },
   "tsconfig.json": {

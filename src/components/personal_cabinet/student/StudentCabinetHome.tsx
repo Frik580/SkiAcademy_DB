@@ -140,6 +140,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             usersList={usersList}
             todayTasks={todayTasks}
             bookings={bookings}
+            reviews={reviews}
             userProfile={userProfile}
             activityLogs={props.activityLogs}
             achievementsConfig={props.achievementsConfig}

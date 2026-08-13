@@ -1,6 +1,14 @@
 import { parseCourseDates } from './LanguageContext';
-import { getTrainingStreakWeeks } from './trainingStreak';
-import { ActivityLog, ActivityLogMetadata, Booking, Course, Review, UserProfile } from '../types';
+import { findStreakWeeksTimestamp, getTrainingStreakWeeks } from './trainingStreak';
+import {
+  ActivityLog,
+  ActivityLogMetadata,
+  Booking,
+  Course,
+  Review,
+  SkillDeltaMeta,
+  UserProfile,
+} from '../types';
 import { DEFAULT_SKILL_CONFIG, SkillConfig, SkillItem } from './skillData';
 
 export type AchievementRuleType =
@@ -396,8 +404,72 @@ const findCourseGraduateTimestamp = (ctx: AchievementEvaluationContext, now = ne
 
 const latestSkillScoresTimestamp = (activityLogs: ActivityLog[]) =>
   activityLogs
-    .filter((log) => log.type === 'skill_scores_updated')
+    .filter((log) => log.type === 'skill_scores_updated' || log.type === 'level_up')
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0]?.timestamp;
+
+const getSkillScoreLogs = (activityLogs: ActivityLog[]) =>
+  activityLogs
+    .filter(
+      (log) =>
+        (log.type === 'skill_scores_updated' || log.type === 'level_up') &&
+        Array.isArray(log.metadata?.skillDeltas)
+    )
+    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+const applySkillDeltas = (scores: Record<string, number>, deltas: SkillDeltaMeta[]) => {
+  for (const item of deltas) {
+    if (!item.itemId) continue;
+    scores[item.itemId] =
+      typeof item.newScore === 'number'
+        ? item.newScore
+        : (scores[item.itemId] ?? 0) + (item.delta ?? 0);
+  }
+};
+
+const findExercisesMasteredTimestamp = (
+  ctx: AchievementEvaluationContext,
+  requiredCount: number
+): string | undefined => {
+  const skillItems = ctx.skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
+  const scores: Record<string, number> = {};
+
+  for (const log of getSkillScoreLogs(ctx.activityLogs)) {
+    applySkillDeltas(scores, log.metadata!.skillDeltas!);
+    if (countExercisesMastered(scores, skillItems) >= requiredCount) {
+      return log.timestamp;
+    }
+  }
+
+  if (countExercisesMastered(ctx.userProfile.skillScores || {}, skillItems) >= requiredCount) {
+    return latestSkillScoresTimestamp(ctx.activityLogs);
+  }
+
+  return undefined;
+};
+
+const findSkillItemsMaxTimestamp = (
+  ctx: AchievementEvaluationContext,
+  requiredIds: string[]
+): string | undefined => {
+  const skillItems = ctx.skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
+  const requiredItems = resolveSkillItems(requiredIds, skillItems);
+  if (requiredItems.length === 0) return undefined;
+
+  const scores: Record<string, number> = {};
+  for (const log of getSkillScoreLogs(ctx.activityLogs)) {
+    applySkillDeltas(scores, log.metadata!.skillDeltas!);
+    if (requiredItems.every((item) => isExerciseMastered(scores, item))) {
+      return log.timestamp;
+    }
+  }
+
+  const currentScores = ctx.userProfile.skillScores || {};
+  if (requiredItems.every((item) => isExerciseMastered(currentScores, item))) {
+    return latestSkillScoresTimestamp(ctx.activityLogs);
+  }
+
+  return undefined;
+};
 
 export const isAchievementRuleMet = (
   definition: AchievementDefinition,
@@ -446,8 +518,7 @@ export const isAchievementRuleMet = (
 
 const inferEarnedAt = (
   definition: AchievementDefinition,
-  ctx: AchievementEvaluationContext,
-  skillLogTimestamp?: string
+  ctx: AchievementEvaluationContext
 ): string | undefined => {
   const completed = getCompletedBookings(ctx.bookings);
   const completedLogs = ctx.activityLogs
@@ -465,10 +536,11 @@ const inferEarnedAt = (
     case 'hours_completed':
       return findTwentyHoursTimestamp(completed, ctx.courses);
     case 'streak_weeks':
-      return new Date().toISOString();
+      return findStreakWeeksTimestamp(ctx.bookings, ctx.activityLogs, definition.rule.count ?? 1);
     case 'exercises_mastered':
+      return findExercisesMasteredTimestamp(ctx, definition.rule.count ?? 1);
     case 'skill_items_max':
-      return skillLogTimestamp;
+      return findSkillItemsMaxTimestamp(ctx, definition.rule.skillItemIds ?? []);
     case 'level_up':
       return findLevelUpTimestamp(ctx);
     case 'feedback_given':
@@ -486,8 +558,6 @@ export const evaluateEarnedAchievements = (
   ctx: AchievementEvaluationContext,
   config: AchievementsConfig = DEFAULT_ACHIEVEMENTS_CONFIG
 ): EvaluatedAchievement[] => {
-  const skillLogTimestamp = latestSkillScoresTimestamp(ctx.activityLogs);
-
   return config.items
     .filter((definition) => isAchievementRuleMet(definition, ctx))
     .map((definition) => ({
@@ -495,7 +565,7 @@ export const evaluateEarnedAchievements = (
       icon: definition.icon,
       labelRu: definition.labelRu,
       labelEn: definition.labelEn,
-      earnedAt: inferEarnedAt(definition, ctx, skillLogTimestamp),
+      earnedAt: inferEarnedAt(definition, ctx),
       order: definition.order,
     }))
     .sort((a, b) => a.order - b.order);

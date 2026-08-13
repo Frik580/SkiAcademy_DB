@@ -1,8 +1,8 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Award, Sparkles, Trophy, Zap } from 'lucide-react';
-import { ActivityLog, Booking, Course, Instructor, UserProfile } from '../../../types';
+import { ActivityLog, Booking, Course, Instructor, Review, UserProfile } from '../../../types';
 import { useLanguage } from '../../../lib/LanguageContext';
-import { AchievementsConfig, getAchievementLabel } from '../../../lib/achievementConfig';
+import { AchievementsConfig } from '../../../lib/achievementConfig';
 import { DEFAULT_SKILL_CONFIG, SkillConfig, getSkillItemTitle } from '../../../lib/skillData';
 import {
   formatCountdownRemaining,
@@ -13,7 +13,9 @@ import {
   getNextStepAction,
   getRecentLessonInstructorLabel,
   getRecentLessonTitle,
+  getTodayAchievements,
   getTodaySessionCountdown,
+  isTimestampOnLocalDate,
   MiniCalendarDay,
   resolveBookingStartDate,
   StudentCabinetTab,
@@ -44,6 +46,7 @@ interface StudentTodaySectionProps {
   usersList?: UserProfile[];
   todayTasks: TodayTask[];
   bookings: Booking[];
+  reviews?: Review[];
   userProfile?: UserProfile;
   activityLogs?: ActivityLog[];
   achievementsConfig?: AchievementsConfig;
@@ -70,6 +73,7 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
   usersList = [],
   todayTasks,
   bookings,
+  reviews = [],
   userProfile,
   activityLogs = [],
   achievementsConfig,
@@ -186,6 +190,9 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
       {/* 5. Прогресс и достижения за сегодня */}
       <TodayProgressBlock
         userProfile={userProfile}
+        bookings={bookings}
+        courses={courses}
+        reviews={reviews}
         activityLogs={activityLogs}
         achievementsConfig={achievementsConfig}
         skillConfig={skillConfig}
@@ -565,12 +572,18 @@ const TodayTasksBlock = memo<{
 
 const TodayProgressBlock = memo<{
   userProfile?: UserProfile;
+  bookings: Booking[];
+  courses: Course[];
+  reviews: Review[];
   activityLogs?: ActivityLog[];
   achievementsConfig?: AchievementsConfig;
   skillConfig?: SkillConfig;
   todayTasks: TodayTask[];
 }>(function TodayProgressBlock({
   userProfile,
+  bookings,
+  courses,
+  reviews,
   activityLogs = [],
   achievementsConfig,
   skillConfig,
@@ -578,22 +591,15 @@ const TodayProgressBlock = memo<{
   const { language } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
 
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
-
   const todayLogs = useMemo(() => {
-    const logs = activityLogs.filter((log) => {
-      if (!log.timestamp) return false;
-      const datePart = log.timestamp.slice(0, 10);
-      return (
-        datePart === todayStr ||
-        new Date(log.timestamp).toDateString() === new Date().toDateString()
-      );
-    });
+    const logs = activityLogs.filter(
+      (log) => log.timestamp && isTimestampOnLocalDate(log.timestamp)
+    );
     // Sort oldest first so logs replay in chronological order
     return [...logs].sort(
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
-  }, [activityLogs, todayStr]);
+  }, [activityLogs]);
 
   const todayExerciseItems = useMemo(() => {
     const exerciseMap = new Map<
@@ -681,13 +687,27 @@ const TodayProgressBlock = memo<{
   }, [todayLogs]);
 
   const todayAchievements = useMemo(() => {
-    const achLogs = todayLogs.filter((l) => l.type === 'achievement_earned');
-    return achLogs.map((log) => {
-      const achId = log.metadata?.achievementId ?? '';
-      const label = getAchievementLabel(achId, lang, achievementsConfig, log.metadata);
-      return { id: achId, label };
-    });
-  }, [todayLogs, lang, achievementsConfig]);
+    if (!userProfile) return [];
+    return getTodayAchievements(
+      userProfile,
+      bookings,
+      skillConfig,
+      lang,
+      activityLogs,
+      reviews,
+      courses,
+      achievementsConfig
+    ).map((item) => ({ id: item.id, label: item.label }));
+  }, [
+    userProfile,
+    bookings,
+    skillConfig,
+    lang,
+    activityLogs,
+    reviews,
+    courses,
+    achievementsConfig,
+  ]);
 
   const motivationalPhrase = useMemo(() => {
     if (lang === 'en') {

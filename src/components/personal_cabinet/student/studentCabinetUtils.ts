@@ -30,6 +30,7 @@ import {
   evaluateEarnedAchievements,
   formatAchievementLabel,
   normalizeAchievementsConfig,
+  pickAchievementTimestamp,
   type AchievementsConfig,
 } from '../../../lib/achievements';
 
@@ -218,6 +219,12 @@ export const toYMD = (d: Date) => {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 };
+
+export const parseActivityTimestamp = (timestamp: string) =>
+  new Date(timestamp.includes('T') ? timestamp : `${timestamp}T12:00:00`);
+
+export const isTimestampOnLocalDate = (timestamp: string, date: Date = new Date()) =>
+  toYMD(parseActivityTimestamp(timestamp)) === toYMD(date);
 
 const BOOKING_TIME_RANGE_RE = /(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/;
 const BOOKING_START_TIME_RE = /^(\d{2}):(\d{2})$/;
@@ -949,7 +956,7 @@ export const getAchievements = (
 
   return earned
     .map((item) => {
-      const timestamp = logTimestamps.get(item.id) ?? item.earnedAt;
+      const timestamp = pickAchievementTimestamp(logTimestamps.get(item.id), item.earnedAt);
       const storedLabels = logLabels.get(item.id);
       return {
         id: item.id,
@@ -964,6 +971,28 @@ export const getAchievements = (
     })
     .sort((a, b) => (b.earnedAt ?? '').localeCompare(a.earnedAt ?? ''));
 };
+
+export const getTodayAchievements = (
+  userProfile: UserProfile,
+  bookings: Booking[],
+  skillConfig: SkillConfig | undefined,
+  language: 'en' | 'ru',
+  activityLogs: ActivityLog[] = [],
+  reviews: Review[] = [],
+  courses: Course[] = [],
+  achievementsConfig?: AchievementsConfig,
+  onDate: Date = new Date()
+): Achievement[] =>
+  getAchievements(
+    userProfile,
+    bookings,
+    skillConfig,
+    language,
+    activityLogs,
+    reviews,
+    courses,
+    achievementsConfig
+  ).filter((item) => item.earnedAt && isTimestampOnLocalDate(item.earnedAt, onDate));
 
 const USER_LEVEL_TO_COURSE_LEVEL: Record<number, NonNullable<Course['level']>> = {
   1: 'beginner',

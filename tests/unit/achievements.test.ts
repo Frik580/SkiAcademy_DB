@@ -6,8 +6,14 @@ import {
   isAchievementRuleMet,
   normalizeAchievementsConfig,
 } from '../../src/lib/achievementConfig';
+import { pickAchievementTimestamp } from '../../src/lib/achievements';
+import { findStreakWeeksTimestamp } from '../../src/lib/trainingStreak';
 import { ActivityLog, Booking, Course, Review, UserProfile } from '../../src/types';
 import { DEFAULT_SKILL_CONFIG } from '../../src/lib/skillData';
+import {
+  getTodayAchievements,
+  isTimestampOnLocalDate,
+} from '../../src/components/personal_cabinet/student/studentCabinetUtils';
 
 const userProfile: UserProfile = {
   uid: 'user-1',
@@ -135,5 +141,120 @@ describe('achievement config', () => {
     });
     expect(normalized.items[0]?.rule).toEqual({ type: 'level_up' });
     expect(JSON.stringify(normalized)).not.toContain('undefined');
+  });
+
+  it('infers streak achievement date from training weeks, not today', () => {
+    const anchor = new Date('2026-08-13T12:00:00');
+    const bookings = [
+      completedBooking('b1', '2026-07-23'),
+      completedBooking('b2', '2026-07-30'),
+      completedBooking('b3', '2026-08-06'),
+    ];
+
+    const earnedAt = findStreakWeeksTimestamp(bookings, [], 3, anchor);
+    expect(earnedAt).toBe('2026-08-06T12:00:00.000Z');
+    expect(earnedAt?.slice(0, 10)).not.toBe('2026-08-13');
+  });
+
+  it('infers exercises mastered date from the log that reached the threshold', () => {
+    const masteredIds = ['l1_1', 'l1_2', 'l1_3', 'l1_4', 'l1_5'];
+    const activityLogs: ActivityLog[] = [
+      {
+        id: 'log-1',
+        userId: 'user-1',
+        actorId: 'coach-1',
+        type: 'skill_scores_updated',
+        timestamp: '2026-05-10T10:00:00.000Z',
+        metadata: {
+          skillDeltas: masteredIds.slice(0, 4).map((itemId) => ({
+            itemId,
+            delta: 20,
+            newScore: 20,
+            maxPoints: 20,
+          })),
+        },
+      },
+      {
+        id: 'log-2',
+        userId: 'user-1',
+        actorId: 'coach-1',
+        type: 'skill_scores_updated',
+        timestamp: '2026-05-20T10:00:00.000Z',
+        metadata: {
+          skillDeltas: [
+            {
+              itemId: masteredIds[4],
+              delta: 20,
+              newScore: 20,
+              maxPoints: 20,
+            },
+          ],
+        },
+      },
+    ];
+
+    const earned = evaluateEarnedAchievements({
+      userProfile: { ...userProfile, skillScores: scoresForIds(masteredIds) },
+      bookings: [],
+      courses: [],
+      reviews: [],
+      skillConfig: DEFAULT_SKILL_CONFIG,
+      activityLogs,
+    });
+
+    const fiveExercises = earned.find((item) => item.id === 'five_exercises');
+    expect(fiveExercises?.earnedAt).toBe('2026-05-20T10:00:00.000Z');
+  });
+
+  it('prefers inferred earnedAt when activity log was backfilled later', () => {
+    expect(pickAchievementTimestamp('2026-08-13T09:00:00.000Z', '2026-05-20T10:00:00.000Z')).toBe(
+      '2026-05-20T10:00:00.000Z'
+    );
+  });
+
+  it('shows only achievements earned on the local day in today section', () => {
+    const masteredIds = ['l1_1', 'l1_2', 'l1_3', 'l1_4', 'l1_5'];
+    const activityLogs: ActivityLog[] = [
+      {
+        id: 'ach-old',
+        userId: 'user-1',
+        actorId: 'user-1',
+        type: 'achievement_earned',
+        timestamp: '2026-08-13T09:00:00.000Z',
+        metadata: { achievementId: 'five_exercises' },
+      },
+      {
+        id: 'log-old',
+        userId: 'user-1',
+        actorId: 'coach-1',
+        type: 'skill_scores_updated',
+        timestamp: '2026-05-20T10:00:00.000Z',
+        metadata: {
+          skillDeltas: masteredIds.map((itemId) => ({
+            itemId,
+            delta: 20,
+            newScore: 20,
+            maxPoints: 20,
+          })),
+        },
+      },
+    ];
+
+    const today = getTodayAchievements(
+      { ...userProfile, skillScores: scoresForIds(masteredIds) },
+      [],
+      DEFAULT_SKILL_CONFIG,
+      'ru',
+      activityLogs,
+      [],
+      [],
+      DEFAULT_ACHIEVEMENTS_CONFIG,
+      new Date('2026-08-13T12:00:00')
+    );
+
+    expect(today.some((item) => item.id === 'five_exercises')).toBe(false);
+    expect(
+      isTimestampOnLocalDate('2026-05-20T10:00:00.000Z', new Date('2026-08-13T12:00:00'))
+    ).toBe(false);
   });
 });

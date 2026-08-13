@@ -38,8 +38,6 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
     targetInstructor,
     userProfile,
     handleSubmit,
-    onClose,
-    onOpenTopUp,
   } = workspace;
 
   if (!targetInstructor) return null;
@@ -135,16 +133,9 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
                 {t('insufficientCreditsPrefix')} <strong>{formatPrice(userBalance)}</strong>)
               </span>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onOpenTopUp();
-              }}
-              className="w-full mt-1.5 py-2 border border-rose-900/40 bg-rose-950/10 hover:bg-rose-950/20 text-rose-500 rounded-none text-center transition cursor-pointer font-mono text-[10px] uppercase tracking-widest"
-            >
-              💡 {t('instantTopUp')} ${totalCost - userBalance}+
-            </button>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-rose-600/90 dark:text-rose-400/90">
+              {t('contactAdminForTopUp')}
+            </p>
           </div>
         )}
       </div>

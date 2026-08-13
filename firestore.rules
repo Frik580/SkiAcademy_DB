@@ -193,7 +193,7 @@ service cloud.firestore {
     }
 
     function availabilityIsSynchronized(bookingId, booking) {
-      return booking.instructorId.matches('^course_.*') || (
+      return booking.status == 'cancelled' || booking.instructorId.matches('^course_.*') || (
         bookingBlocksAvailability(booking)
           ? (
             existsAfter(
@@ -314,6 +314,114 @@ service cloud.firestore {
         request.resource.data.pendingWalletCredit == 0;
     }
 
+    // Temporary client-side simulation flow. Production top-ups must be applied by a
+    // verified payment-provider webhook running with the Admin SDK.
+    function validKztWalletCredit() {
+      let previousWallets =
+        ('walletBalances' in resource.data) && resource.data.walletBalances is map
+          ? resource.data.walletBalances
+          : {};
+      let previousKzt =
+        ('KZT' in previousWallets) && previousWallets.KZT is number
+          ? previousWallets.KZT
+          : 0;
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['walletBalances']) &&
+        request.resource.data.walletBalances is map &&
+        request.resource.data.walletBalances.diff(previousWallets).affectedKeys().hasOnly(['KZT']) &&
+        request.resource.data.walletBalances.KZT is number &&
+        request.resource.data.walletBalances.KZT > previousKzt &&
+        request.resource.data.walletBalances.KZT - previousKzt <= 10000000;
+    }
+
+    function validRefundBalanceCreditApply(profileUserId) {
+      let previousBalance =
+        ('balanceUSD' in resource.data) && resource.data.balanceUSD is number
+          ? resource.data.balanceUSD
+          : 0;
+      let previousPending =
+        ('pendingWalletCredit' in resource.data) && resource.data.pendingWalletCredit is number
+          ? resource.data.pendingWalletCredit
+          : 0;
+      let credit =
+        ('balanceUSD' in request.resource.data) && request.resource.data.balanceUSD is number
+          ? request.resource.data.balanceUSD - (previousBalance + previousPending)
+          : 0;
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'balanceUSD',
+          'pendingWalletCredit',
+          'lastRefundBookingId'
+        ]) &&
+        (!('pendingWalletCredit' in request.resource.data) ||
+          request.resource.data.pendingWalletCredit == 0) &&
+        ('lastRefundBookingId' in request.resource.data) &&
+        request.resource.data.lastRefundBookingId is string &&
+        credit >= 1 &&
+        credit <= 10000 &&
+        request.resource.data.balanceUSD == previousBalance + previousPending + credit &&
+        exists(
+          /databases/$(database)/documents/bookings/$(request.resource.data.lastRefundBookingId)
+        ) &&
+        get(
+          /databases/$(database)/documents/bookings/$(request.resource.data.lastRefundBookingId)
+        ).data.userId == profileUserId &&
+        get(
+          /databases/$(database)/documents/bookings/$(request.resource.data.lastRefundBookingId)
+        ).data.status == 'cancelled' &&
+        ('totalPrice' in get(
+          /databases/$(database)/documents/bookings/$(request.resource.data.lastRefundBookingId)
+        ).data) &&
+        get(
+          /databases/$(database)/documents/bookings/$(request.resource.data.lastRefundBookingId)
+        ).data.totalPrice is number &&
+        credit <= get(
+          /databases/$(database)/documents/bookings/$(request.resource.data.lastRefundBookingId)
+        ).data.totalPrice;
+    }
+
+    function validRefundLedgerCreate(entryId) {
+      return request.resource.data.type == 'refund' &&
+        ('bookingId' in request.resource.data) &&
+        request.resource.data.bookingId is string &&
+        request.resource.data.amount > 0 &&
+        request.resource.data.amount <= 10000 &&
+        request.resource.data.userId == request.auth.uid &&
+        !exists(/databases/$(database)/documents/wallet_ledger/$(entryId)) &&
+        exists(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ) &&
+        get(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ).data.userId == request.auth.uid &&
+        get(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ).data.status == 'cancelled' &&
+        ('totalPrice' in get(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ).data) &&
+        get(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ).data.totalPrice is number &&
+        request.resource.data.amount <= get(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ).data.totalPrice;
+    }
+
+    function validPaymentLedgerCreate(entryId) {
+      return (
+        request.resource.data.type == 'lesson_payment' ||
+        request.resource.data.type == 'course_payment'
+      ) &&
+        ('bookingId' in request.resource.data) &&
+        request.resource.data.bookingId is string &&
+        request.resource.data.amount < 0 &&
+        request.resource.data.amount >= -10000 &&
+        request.resource.data.userId == request.auth.uid &&
+        !exists(/databases/$(database)/documents/wallet_ledger/$(entryId)) &&
+        existsAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)) &&
+        getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.userId == request.auth.uid &&
+        getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.totalPrice == -(request.resource.data.amount);
+    }
+
     function validWalletLedgerEntryFields(entryId) {
       return request.resource.data.id == entryId &&
         request.resource.data.userId is string &&
@@ -362,11 +470,7 @@ service cloud.firestore {
       ) || (
         isOwner(userId) && validBalanceDecreaseOnly()
       ) || (
-        isOwner(userId) && validPendingWalletCreditPrepare()
-      ) || (
-        isOwner(userId) && validPendingWalletCreditApply()
-      ) || (
-        isOwner(userId) && validAtomicWalletCreditApply()
+        isOwner(userId) && validRefundBalanceCreditApply(userId)
       ) || (
         isInstructor() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -443,12 +547,10 @@ service cloud.firestore {
     // Bookings
     match /bookings/{bookingId} {
       allow read: if isAdmin() ||
-        resource == null ||
-        (resource != null && (
-          isOwner(resource.data.userId) ||
-          isAssignedInstructor(resource.data) ||
-          isMigratableClientBooking(resource.data)
-        )) ||
+        !exists(/databases/$(database)/documents/bookings/$(bookingId)) ||
+        isOwner(resource.data.userId) ||
+        isAssignedInstructor(resource.data) ||
+        isMigratableClientBooking(resource.data) ||
         (isAuthenticated() && !availabilityMigrationComplete());
 
       allow create: if (
@@ -460,6 +562,11 @@ service cloud.firestore {
         (isAdmin() || availabilityIsSynchronized(bookingId, request.resource.data));
 
       allow update: if (
+        isOwner(resource.data.userId) &&
+        request.resource.data.userId == resource.data.userId &&
+        resource.data.status != 'cancelled' &&
+        request.resource.data.status == 'cancelled'
+      ) || (
         isOwner(resource.data.userId) &&
         request.resource.data.userId == resource.data.userId &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -680,7 +787,7 @@ service cloud.firestore {
             ).data.userId == request.auth.uid
           ) || (
             request.resource.data.availableSeats == resource.data.availableSeats + 1 &&
-            exists(
+            existsAfter(
               /databases/$(database)/documents/bookings/$('booking_course_' + request.auth.uid + '_' + courseId)
             ) &&
             getAfter(
@@ -723,7 +830,24 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isAuthenticated() &&
         validWalletLedgerEntryFields(entryId) &&
-        (request.resource.data.userId == request.auth.uid || isAdmin());
+        (
+          isAdmin() ||
+          (
+            request.resource.data.userId == request.auth.uid &&
+            (
+              (
+                request.resource.data.type == 'refund' &&
+                validRefundLedgerCreate(entryId)
+              ) || (
+                (
+                  request.resource.data.type == 'lesson_payment' ||
+                  request.resource.data.type == 'course_payment'
+                ) &&
+                validPaymentLedgerCreate(entryId)
+              )
+            )
+          )
+        );
       allow update, delete: if false;
     }
 

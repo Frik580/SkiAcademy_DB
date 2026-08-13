@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { ApplePagination } from '../../common/ApplePagination';
-import { useCurrency } from '../../../lib/CurrencyContext';
 import { useLanguage } from '../../../lib/LanguageContext';
 import { buildWalletOperationHistory, formatWalletOperationLabel } from '../../../lib/walletLedger';
 import type { Booking, Course, WalletLedgerEntry } from '../../../types';
@@ -22,10 +21,13 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryListProps> =
   ledgerEntries,
 }) => {
   const { language, t } = useLanguage();
-  const { formatPrice } = useCurrency();
   const lang = language === 'ru' ? 'ru' : 'en';
 
   const [currentPage, setCurrentPage] = useState(1);
+  const formatWalletAmount = (amount: number, currency = 'USD') =>
+    currency === 'KZT'
+      ? `${amount.toLocaleString('ru-RU')} ₸`
+      : `$${amount.toLocaleString('en-US')}`;
 
   const operations = useMemo(
     () => buildWalletOperationHistory(userId, bookings, courses, ledgerEntries, lang),
@@ -87,7 +89,8 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryListProps> =
                 <p className="text-xs text-[var(--ink-dim)] mt-1">{formattedDate}</p>
                 {operation.balanceAfter != null && (
                   <p className="text-[11px] text-[var(--ink-dim)] mt-1">
-                    {t('scProfileWalletBalanceAfter')}: {formatPrice(operation.balanceAfter)}
+                    {t('scProfileWalletBalanceAfter')}:{' '}
+                    {formatWalletAmount(operation.balanceAfter, operation.currency)}
                   </p>
                 )}
               </div>
@@ -100,7 +103,7 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryListProps> =
                   }`}
                 >
                   {isCredit ? '+' : '−'}
-                  {formatPrice(Math.abs(operation.amount))}
+                  {formatWalletAmount(Math.abs(operation.amount), operation.currency)}
                 </p>
               </div>
             </div>

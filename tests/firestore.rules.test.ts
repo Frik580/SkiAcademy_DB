@@ -394,12 +394,12 @@ describe('user profiles and roles', () => {
     await assertSucceeds(updateDoc(profileRef, { balanceUSD: 50 }));
   });
 
-  it('allows wallet credits through pendingWalletCredit staging', async () => {
+  it('blocks client wallet self-credits through pendingWalletCredit staging', async () => {
     const db = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
     const profileRef = doc(db, 'users', USER_ID);
 
-    await assertSucceeds(updateDoc(profileRef, { pendingWalletCredit: 100 }));
-    await assertSucceeds(
+    await assertFails(updateDoc(profileRef, { pendingWalletCredit: 100 }));
+    await assertFails(
       updateDoc(profileRef, {
         balanceUSD: 200,
         pendingWalletCredit: 0,
@@ -407,16 +407,24 @@ describe('user profiles and roles', () => {
     );
   });
 
-  it('allows atomic wallet credits in a single update', async () => {
+  it('blocks atomic client wallet credits', async () => {
     const db = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
     const profileRef = doc(db, 'users', USER_ID);
 
-    await assertSucceeds(
+    await assertFails(
       updateDoc(profileRef, {
         balanceUSD: 150,
         pendingWalletCredit: 0,
       })
     );
+  });
+
+  it('allows admins to increase a client balance', async () => {
+    const ownerDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
+
+    await assertSucceeds(updateDoc(doc(ownerDb, 'users', OTHER_USER_ID), { balanceUSD: 200 }));
   });
 
   it('allows admins to append wallet ledger entries for other users', async () => {
@@ -449,6 +457,63 @@ describe('user profiles and roles', () => {
         balanceAfter: 200,
         type: 'refund',
         createdAt: '2026-12-01T10:00:00.000Z',
+      })
+    );
+  });
+
+  it('blocks client wallet top-up ledger entries', async () => {
+    const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+
+    await assertFails(
+      setDoc(doc(userDb, 'wallet_ledger', 'wl_top_up_manual'), {
+        id: 'wl_top_up_manual',
+        userId: USER_ID,
+        amount: 100,
+        balanceAfter: 200,
+        type: 'top_up',
+        createdAt: '2026-12-01T10:00:00.000Z',
+      })
+    );
+  });
+
+  it('allows payment ledger entries tied to a booking transaction', async () => {
+    const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const bookingId = `booking_course_${USER_ID}_course-ledger`;
+
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'courses', 'course-ledger'), {
+        title: 'Course',
+        totalSeats: 5,
+        availableSeats: 5,
+        price: 100,
+      });
+    });
+
+    await assertSucceeds(
+      runTransaction(userDb, async (transaction) => {
+        transaction.set(doc(userDb, 'bookings', bookingId), {
+          id: bookingId,
+          userId: USER_ID,
+          courseId: 'course-ledger',
+          instructorId: 'course_course-ledger',
+          instructorName: 'Course',
+          instructorAvatar: '',
+          date: '2026-12-02',
+          time: '10:00',
+          durationHours: 2,
+          totalPrice: 100,
+          status: 'confirmed',
+          difficulty: 'intermediate',
+        });
+        transaction.set(doc(userDb, 'wallet_ledger', `wl_course_payment_${bookingId}`), {
+          id: `wl_course_payment_${bookingId}`,
+          userId: USER_ID,
+          amount: -100,
+          balanceAfter: 0,
+          type: 'course_payment',
+          bookingId,
+          createdAt: '2026-12-01T10:00:00.000Z',
+        });
       })
     );
   });

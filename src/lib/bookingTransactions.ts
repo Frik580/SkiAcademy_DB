@@ -348,21 +348,15 @@ export async function cancelBookingWithRefund(
   bookingId: string,
   refundAmount?: number
 ): Promise<{ refunded: number; alreadyCancelled: boolean }> {
-  const result = await runTransaction(firestore, async (transaction) => {
+  const cancelResult = await runTransaction(firestore, async (transaction) => {
     const bookingRef = doc(firestore, 'bookings', bookingId);
     const bookingSnap = await transaction.get(bookingRef);
     if (!bookingSnap.exists()) throw new Error('Booking does not exist.');
 
     const bookingData = bookingSnap.data() as Booking;
     if (bookingData.status === 'cancelled') {
-      return { refunded: 0, alreadyCancelled: true };
+      return { refunded: 0, alreadyCancelled: true, bookingData: null };
     }
-
-    const bookingOwnerId = bookingData.userId;
-    const isGuestOrSystemBlock =
-      bookingOwnerId.startsWith('guest_') || bookingOwnerId.startsWith('system_block_');
-    const userRef = isGuestOrSystemBlock ? null : doc(firestore, 'users', bookingOwnerId);
-    const userSnap = userRef ? await transaction.get(userRef) : null;
 
     const courseId = isCourseBooking(bookingData)
       ? bookingData.instructorId.substring('course_'.length)
@@ -386,21 +380,6 @@ export async function cancelBookingWithRefund(
       }
     }
 
-    if (userRef && userSnap?.exists() && refund > 0) {
-      applyWalletCreditInTransaction(
-        transaction,
-        firestore,
-        userRef,
-        bookingOwnerId,
-        userSnap.data(),
-        refund,
-        'refund',
-        bookingData.instructorName,
-        bookingId,
-        walletLedgerBookingEntryId('refund', bookingData)
-      );
-    }
-
     transaction.update(bookingRef, { status: 'cancelled' });
     if (!isCourseBooking(bookingData)) {
       for (const lockRef of existingHourLockRefs) {
@@ -418,8 +397,38 @@ export async function cancelBookingWithRefund(
       }
     }
 
-    return { refunded: refund, alreadyCancelled: false };
+    return { refunded: refund, alreadyCancelled: false, bookingData };
   });
 
-  return result;
+  if (cancelResult.alreadyCancelled || !cancelResult.bookingData) {
+    return { refunded: 0, alreadyCancelled: cancelResult.alreadyCancelled };
+  }
+
+  const { refunded, bookingData } = cancelResult;
+  const bookingOwnerId = bookingData.userId;
+  const isGuestOrSystemBlock =
+    bookingOwnerId.startsWith('guest_') || bookingOwnerId.startsWith('system_block_');
+
+  if (!isGuestOrSystemBlock && refunded > 0) {
+    await runTransaction(firestore, async (transaction) => {
+      const userRef = doc(firestore, 'users', bookingOwnerId);
+      const userSnap = await transaction.get(userRef);
+      if (!userSnap.exists()) throw new Error('User profile does not exist.');
+
+      applyWalletCreditInTransaction(
+        transaction,
+        firestore,
+        userRef,
+        bookingOwnerId,
+        userSnap.data(),
+        refunded,
+        'refund',
+        bookingData.instructorName,
+        bookingId,
+        walletLedgerBookingEntryId('refund', bookingData)
+      );
+    });
+  }
+
+  return { refunded, alreadyCancelled: false };
 }

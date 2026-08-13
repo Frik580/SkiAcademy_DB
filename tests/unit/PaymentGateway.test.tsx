@@ -114,7 +114,7 @@ describe('PaymentGateway', () => {
         await vi.advanceTimersByTimeAsync(1800);
       });
 
-      expect(onPaymentSuccess).toHaveBeenCalledWith(100);
+      expect(onPaymentSuccess).toHaveBeenCalledWith(100, 'USD');
     } finally {
       vi.useRealTimers();
     }

@@ -5,7 +5,13 @@ import { translateCourse } from './i18n/contentTranslation';
 import { parseCourseDates } from './i18n/courseDates';
 import { formatDurationLabel } from './i18n/duration';
 import type { TranslationKey } from './i18n/translations';
-import type { Booking, Course, WalletLedgerEntry, WalletLedgerType } from '../types';
+import type {
+  Booking,
+  Course,
+  WalletCurrency,
+  WalletLedgerEntry,
+  WalletLedgerType,
+} from '../types';
 
 export const WALLET_LEDGER_COLLECTION = 'wallet_ledger';
 
@@ -27,6 +33,7 @@ export interface RecordWalletLedgerInput {
   userId: string;
   amount: number;
   balanceAfter: number;
+  currency?: WalletCurrency;
   type: WalletLedgerType;
   subjectName?: string;
   bookingId?: string;
@@ -47,6 +54,7 @@ export function recordWalletLedgerEntryInTransaction(
     userId: input.userId,
     amount: input.amount,
     balanceAfter: input.balanceAfter,
+    ...(input.currency ? { currency: input.currency } : {}),
     type: input.type,
     createdAt: input.createdAt ?? new Date().toISOString(),
     ...(input.subjectName ? { subjectName: input.subjectName } : {}),
@@ -65,6 +73,7 @@ export interface WalletOperationView {
   id: string;
   amount: number;
   balanceAfter?: number;
+  currency?: WalletCurrency;
   createdAt: string;
   labelKey: TranslationKey;
   subjectName?: string;
@@ -262,6 +271,7 @@ export function ledgerEntryToView(entry: WalletLedgerEntry): WalletOperationView
     id: entry.id,
     amount: entry.amount,
     balanceAfter: entry.balanceAfter,
+    currency: entry.currency ?? 'USD',
     createdAt: entry.createdAt,
     labelKey: labelKeyMap[entry.type],
     subjectName: entry.subjectName,

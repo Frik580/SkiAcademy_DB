@@ -30,7 +30,6 @@ interface UiState {
   selectedLanguage: string;
   sortBy: InstructorSortBy;
 
-  isTopUpOpen: boolean;
   isNotifHistoryOpen: boolean;
   isOnboardingOpen: boolean;
   isAuthModalOpen: boolean;
@@ -53,7 +52,6 @@ interface UiState {
   setSortBy: (s: InstructorSortBy) => void;
   resetFilters: () => void;
 
-  setIsTopUpOpen: (open: boolean) => void;
   setIsNotifHistoryOpen: (open: boolean) => void;
   setIsOnboardingOpen: (open: boolean) => void;
   setIsAuthModalOpen: (open: boolean) => void;
@@ -84,7 +82,6 @@ export const useUiStore = create<UiState>((set) => ({
   selectedLanguage: 'all',
   sortBy: 'rating',
 
-  isTopUpOpen: false,
   isNotifHistoryOpen: false,
   isOnboardingOpen: false,
   isAuthModalOpen: false,
@@ -107,7 +104,6 @@ export const useUiStore = create<UiState>((set) => ({
   setSortBy: (s) => set({ sortBy: s }),
   resetFilters: () => set({ searchQuery: '', selectedSpecialty: 'all', selectedLanguage: 'all' }),
 
-  setIsTopUpOpen: (open) => set({ isTopUpOpen: open }),
   setIsNotifHistoryOpen: (open) => set({ isNotifHistoryOpen: open }),
   setIsOnboardingOpen: (open) => set({ isOnboardingOpen: open }),
   setIsAuthModalOpen: (open) => set({ isAuthModalOpen: open }),

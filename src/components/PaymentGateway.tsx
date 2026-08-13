@@ -2,26 +2,28 @@ import React, { useState } from 'react';
 import { CreditCard, X, Check, ArrowRight, Loader2 } from 'lucide-react';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage } from '../lib/LanguageContext';
-import { useCurrency } from '../lib/CurrencyContext';
 import { BodyScrollLock } from './ui/BodyScrollLock';
+import type { WalletCurrency } from '../types';
 
 interface PaymentGatewayProps {
   isOpen: boolean;
   onClose: () => void;
   currentBalance: number;
-  onPaymentSuccess: (amount: number) => Promise<void>;
+  balances?: Partial<Record<WalletCurrency, number>>;
+  onPaymentSuccess: (amount: number, currency: WalletCurrency) => Promise<void>;
 }
 
 export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
   isOpen,
   onClose,
   currentBalance,
+  balances,
   onPaymentSuccess,
 }) => {
   const { addNotification } = useNotifications();
   const { t } = useLanguage();
-  const { formatPrice } = useCurrency();
   const [selectedAmount, setSelectedAmount] = useState<number>(100);
+  const [selectedCurrency, setSelectedCurrency] = useState<WalletCurrency>('USD');
   const [cardNumber, setCardNumber] = useState<string>('');
   const [expiry, setExpiry] = useState<string>('');
   const [cvv, setCvv] = useState<string>('');
@@ -30,6 +32,20 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
 
   if (!isOpen) return null;
+
+  const walletBalance =
+    balances?.[selectedCurrency] ?? (selectedCurrency === 'USD' ? currentBalance : 0);
+  const topUpAmounts =
+    selectedCurrency === 'USD' ? [50, 100, 200, 500] : [10_000, 25_000, 50_000, 100_000];
+  const formatWalletAmount = (amount: number, currency = selectedCurrency) =>
+    currency === 'USD'
+      ? `$${amount.toLocaleString('en-US')}`
+      : `${amount.toLocaleString('ru-RU')} ₸`;
+
+  const selectCurrency = (currency: WalletCurrency) => {
+    setSelectedCurrency(currency);
+    setSelectedAmount(currency === 'USD' ? 100 : 25_000);
+  };
 
   // Format Card Number (space every 4 digits)
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,13 +87,13 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
     // Simulate network delay
     setTimeout(async () => {
       try {
-        await onPaymentSuccess(selectedAmount);
+        await onPaymentSuccess(selectedAmount, selectedCurrency);
         setIsPaying(false);
         setIsSuccess(true);
         addNotification(
           'success',
           t('simulatedPaymentCompleted'),
-          `${t('refreshedWallet')} $${selectedAmount}.`
+          `${t('refreshedWallet')} ${formatWalletAmount(selectedAmount)}.`
         );
 
         // Reset and close after a short display
@@ -128,13 +144,13 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
               <p className="text-xs text-[var(--ink-dim)] mt-1 font-mono uppercase tracking-wide">
                 {t('refreshedWallet')}{' '}
                 <strong className="text-[var(--ink)] font-bold">
-                  {formatPrice(selectedAmount)}
+                  {formatWalletAmount(selectedAmount)}
                 </strong>
                 .
               </p>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/10 border border-[var(--border)] rounded-none text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] mt-4">
                 <CreditCard className="w-3.5 h-3.5 text-[var(--ink-dim)]" /> {t('newBalance')}:{' '}
-                {formatPrice(currentBalance + selectedAmount)}
+                {formatWalletAmount(walletBalance + selectedAmount)}
               </div>
             </div>
           </div>
@@ -146,8 +162,30 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
                 {t('currentBalance')}:
               </span>
               <span className="text-xl font-extrabold text-[var(--ink)] font-mono">
-                {formatPrice(currentBalance)}
+                {formatWalletAmount(walletBalance)}
               </span>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+                Currency
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['USD', 'KZT'] as WalletCurrency[]).map((currency) => (
+                  <button
+                    key={currency}
+                    type="button"
+                    onClick={() => selectCurrency(currency)}
+                    className={`py-2 border text-xs font-mono transition-all cursor-pointer rounded-none ${
+                      selectedCurrency === currency
+                        ? 'border-[var(--ink)] bg-black/15 text-[var(--ink)] font-bold'
+                        : 'border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink-dim)]'
+                    }`}
+                  >
+                    {currency}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Select Top-up Amount */}
@@ -156,7 +194,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
                 {t('selectTopUpAmount')}
               </label>
               <div className="grid grid-cols-4 gap-2">
-                {[50, 100, 200, 500].map((amt) => (
+                {topUpAmounts.map((amt) => (
                   <button
                     key={amt}
                     type="button"
@@ -167,7 +205,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
                         : 'border-[var(--border)] hover:border-[var(--ink)] hover:bg-black/5 text-[var(--ink-dim)]'
                     }`}
                   >
-                    {formatPrice(amt)}
+                    {formatWalletAmount(amt)}
                   </button>
                 ))}
               </div>
@@ -259,7 +297,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
                 </>
               ) : (
                 <>
-                  {t('authorizeTopUp')} {formatPrice(selectedAmount)}
+                  {t('authorizeTopUp')} {formatWalletAmount(selectedAmount)}
                   <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}

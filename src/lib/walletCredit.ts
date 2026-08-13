@@ -1,5 +1,5 @@
 import { doc, runTransaction, type Firestore, type Transaction } from 'firebase/firestore';
-import type { UserProfile } from '../types';
+import type { UserProfile, WalletCurrency } from '../types';
 import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId } from './walletLedger';
 
 /** Max single credit applied through the wallet credit flow (top-ups and refunds). */
@@ -7,13 +7,14 @@ export const MAX_WALLET_CREDIT_USD = 10_000;
 
 /** Max amount selectable in the simulated payment gateway UI. */
 export const MAX_WALLET_TOPUP_USD = 5_000;
+export const MAX_WALLET_TOPUP_KZT = 10_000_000;
 
-function assertValidCreditAmount(amount: number): void {
+function assertValidCreditAmount(amount: number, maxAmount = MAX_WALLET_CREDIT_USD): void {
   if (amount <= 0) {
     throw new Error('Credit amount must be positive.');
   }
-  if (amount > MAX_WALLET_CREDIT_USD) {
-    throw new Error(`Credit amount exceeds the $${MAX_WALLET_CREDIT_USD} limit.`);
+  if (amount > maxAmount) {
+    throw new Error(`Credit amount exceeds the ${maxAmount} limit.`);
   }
 }
 
@@ -61,10 +62,19 @@ export function applyWalletCreditInTransaction(
   const existingPending = userData.pendingWalletCredit ?? 0;
   const newBalance = currentBalance + existingPending + creditAmount;
 
-  transaction.update(userRef, {
+  const userUpdate: {
+    balanceUSD: number;
+    pendingWalletCredit: number;
+    lastRefundBookingId?: string;
+  } = {
     balanceUSD: newBalance,
     pendingWalletCredit: 0,
-  });
+  };
+  if (ledgerType === 'refund' && bookingId) {
+    userUpdate.lastRefundBookingId = bookingId;
+  }
+
+  transaction.update(userRef, userUpdate);
   recordWalletLedgerEntryInTransaction(transaction, firestore, {
     userId,
     amount: creditAmount,
@@ -157,7 +167,8 @@ export async function applyPendingWalletCredit(
 export async function grantAndApplyWalletCredit(
   firestore: Firestore,
   userId: string,
-  amount: number
+  amount: number,
+  currency: WalletCurrency = 'USD'
 ): Promise<number> {
   const userRef = doc(firestore, 'users', userId);
 
@@ -165,13 +176,32 @@ export async function grantAndApplyWalletCredit(
     const userSnap = await transaction.get(userRef);
     if (!userSnap.exists()) throw new Error('User profile does not exist.');
 
-    return applyWalletCreditInTransaction(
-      transaction,
-      firestore,
-      userRef,
+    if (currency === 'USD') {
+      return applyWalletCreditInTransaction(
+        transaction,
+        firestore,
+        userRef,
+        userId,
+        userSnap.data(),
+        amount
+      );
+    }
+
+    assertValidCreditAmount(amount, MAX_WALLET_TOPUP_KZT);
+    const walletBalances = userSnap.data().walletBalances ?? {};
+    const currentBalance = walletBalances[currency] ?? 0;
+    const newBalance = currentBalance + amount;
+    transaction.update(userRef, {
+      walletBalances: { ...walletBalances, [currency]: newBalance },
+    });
+    recordWalletLedgerEntryInTransaction(transaction, firestore, {
       userId,
-      userSnap.data(),
-      amount
-    );
+      amount,
+      balanceAfter: newBalance,
+      currency,
+      type: 'top_up',
+      entryId: walletLedgerEntryId('top_up', `${currency}_${Date.now()}_${amount}`),
+    });
+    return newBalance;
   });
 }

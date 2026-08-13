@@ -31,7 +31,6 @@ export interface BookingModalInput {
   instructor: Instructor | null;
   userProfile: UserProfile | null;
   onBookingSuccess: (booking: Booking) => Promise<number>;
-  onOpenTopUp: () => void;
   courses?: Course[];
   onAuthSuccess?: (profile: UserProfile) => void;
 }
@@ -42,7 +41,6 @@ export const useBookingModal = ({
   instructor,
   userProfile,
   onBookingSuccess,
-  onOpenTopUp,
   courses = [],
   onAuthSuccess,
 }: BookingModalInput) => {
@@ -485,7 +483,6 @@ export const useBookingModal = ({
     minBookingDateStr,
     handleSubmitGuest,
     handleSubmit,
-    onOpenTopUp,
     getDifficultyLabel,
   };
 };

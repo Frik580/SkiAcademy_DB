@@ -14,8 +14,12 @@ export interface UserProfile {
   systemRole?: 'owner';
   avatarUrl: string;
   balanceUSD: number;
+  /** Separate wallet balances. balanceUSD is retained for backwards compatibility and USD bookings. */
+  walletBalances?: Partial<Record<WalletCurrency, number>>;
   /** Staging field for secure wallet credits (top-ups / refunds) before apply. */
   pendingWalletCredit?: number;
+  /** Set during booking-refund transactions; used by Firestore rules to authorize balance credits. */
+  lastRefundBookingId?: string;
   instructorId?: string;
   isInstructor?: boolean;
   isClientActive?: boolean;
@@ -39,6 +43,8 @@ export interface UserProfile {
   dismissedReviewIds?: string[];
 }
 
+export type WalletCurrency = 'USD' | 'KZT';
+
 export type WalletLedgerType =
   'top_up' | 'starter_credit' | 'lesson_payment' | 'course_payment' | 'refund' | 'admin_adjustment';
 
@@ -48,6 +54,8 @@ export interface WalletLedgerEntry {
   /** Positive for credits, negative for debits. */
   amount: number;
   balanceAfter: number;
+  /** Currency of amount and balanceAfter. Legacy entries are USD. */
+  currency?: WalletCurrency;
   type: WalletLedgerType;
   subjectName?: string;
   bookingId?: string;

@@ -13,7 +13,6 @@ interface BookingModalProps {
   instructor: Instructor | null;
   userProfile: UserProfile | null;
   onBookingSuccess: (booking: Booking) => Promise<number>;
-  onOpenTopUp: () => void;
   courses?: Course[];
   onAuthSuccess?: (profile: UserProfile) => void;
 }

@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { UserProfile } from '../types';
-import { LogOut, Plus, Bell, Sun, Moon, Menu, X } from 'lucide-react';
+import { LogOut, Bell, Sun, Moon, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../lib/LanguageContext';
@@ -12,7 +12,6 @@ import { useAuthStore, selectEffectiveBalance } from '../store/authStore';
 
 interface NavbarProps {
   userProfile: UserProfile | null;
-  onOpenTopUp: () => void;
   onOpenNotifications: () => void;
   onSignOut: () => void;
   theme: 'light' | 'dark';
@@ -23,7 +22,6 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({
   userProfile,
-  onOpenTopUp,
   onOpenNotifications,
   onSignOut,
   theme,
@@ -162,13 +160,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {t('balance')}:
                 </span>
                 <span className="font-bold">{formatPrice(effectiveBalance)}</span>
-                <button
-                  onClick={onOpenTopUp}
-                  title={t('topUpSimulated')}
-                  className="ui-icon-btn p-1 shrink-0"
-                >
-                  <Plus className="w-3.5 h-3.5 stroke-[2]" />
-                </button>
               </div>
 
               <button
@@ -314,18 +305,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                   <div className="flex items-center justify-between gap-2 text-sm text-[var(--ink)]">
                     <span className="text-[var(--ink-dim)]">{t('balance')}:</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold">{formatPrice(effectiveBalance)}</span>
-                      <button
-                        onClick={() => {
-                          onOpenTopUp();
-                          setIsMenuOpen(false);
-                        }}
-                        className="ui-icon-btn"
-                      >
-                        <Plus className="w-4 h-4 stroke-[2]" />
-                      </button>
-                    </div>
+                    <span className="font-bold">{formatPrice(effectiveBalance)}</span>
                   </div>
 
                   <button

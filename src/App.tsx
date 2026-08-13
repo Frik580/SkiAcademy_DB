@@ -25,11 +25,7 @@ import { AppInitSkeleton, ModalSkeleton } from './components/ui/Skeleton';
 import { BodyScrollLock } from './components/ui/BodyScrollLock';
 
 import { setStoreContext } from './store/storeContext';
-import {
-  useAuthStore,
-  selectUnreadNotificationCount,
-  selectEffectiveBalance,
-} from './store/authStore';
+import { useAuthStore, selectUnreadNotificationCount } from './store/authStore';
 import { useBookingStore } from './store/bookingStore';
 import { useCourseStore } from './store/courseStore';
 import { useUiStore } from './store/uiStore';
@@ -52,9 +48,6 @@ const InstructorReviewsModal = React.lazy(() =>
   import('./components/InstructorReviewsModal').then(({ InstructorReviewsModal }) => ({
     default: InstructorReviewsModal,
   }))
-);
-const PaymentGateway = React.lazy(() =>
-  import('./components/PaymentGateway').then(({ PaymentGateway }) => ({ default: PaymentGateway }))
 );
 
 const ModalLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
@@ -81,13 +74,11 @@ const AppContent: React.FC = () => {
 
   const { theme, toggleTheme } = useTheme();
   const userProfile = useAuthStore((s) => s.userProfile);
-  const effectiveBalance = useAuthStore(selectEffectiveBalance);
   const authLoading = useAuthStore((s) => s.authLoading);
   const handleSignOut = useAuthStore((s) => s.handleSignOut);
   const dismissedReviewIds = useAuthStore((s) => s.dismissedReviewIds);
   const dbNotifications = useAuthStore((s) => s.dbNotifications);
   const handleDismissReview = useAuthStore((s) => s.handleDismissReview);
-  const handlePaymentSuccess = useAuthStore((s) => s.handlePaymentSuccess);
   const handleClearNotifications = useAuthStore((s) => s.handleClearNotifications);
   const handleDeleteNotification = useAuthStore((s) => s.handleDeleteNotification);
   const handleMarkNotificationsAsRead = useAuthStore((s) => s.handleMarkNotificationsAsRead);
@@ -104,8 +95,6 @@ const AppContent: React.FC = () => {
   const onboardingEnabled = useUiStore((s) => s.onboardingEnabled);
   const dbStatusWarning = useUiStore((s) => s.dbStatusWarning);
   const setDbStatusWarning = useUiStore((s) => s.setDbStatusWarning);
-  const isTopUpOpen = useUiStore((s) => s.isTopUpOpen);
-  const setIsTopUpOpen = useUiStore((s) => s.setIsTopUpOpen);
   const isNotifHistoryOpen = useUiStore((s) => s.isNotifHistoryOpen);
   const setIsNotifHistoryOpen = useUiStore((s) => s.setIsNotifHistoryOpen);
   const isOnboardingOpen = useUiStore((s) => s.isOnboardingOpen);
@@ -239,7 +228,6 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)] transition-colors duration-300">
       <Navbar
         userProfile={userProfile}
-        onOpenTopUp={() => setIsTopUpOpen(true)}
         onOpenNotifications={handleOpenNotifications}
         unreadNotificationCount={notificationBadgeCount}
         onSignOut={onSignOut}
@@ -301,7 +289,6 @@ const AppContent: React.FC = () => {
             instructor={selectedInstructor}
             userProfile={userProfile}
             onBookingSuccess={handleBookingSuccess}
-            onOpenTopUp={() => setIsTopUpOpen(true)}
             courses={courses}
           />
         </LazyLoad>
@@ -351,17 +338,6 @@ const AppContent: React.FC = () => {
             onClose={() => setReviewsInstructor(null)}
             instructor={reviewsInstructor}
             reviews={reviews}
-          />
-        </LazyLoad>
-      )}
-
-      {isTopUpOpen && (
-        <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
-          <PaymentGateway
-            isOpen
-            onClose={() => setIsTopUpOpen(false)}
-            currentBalance={effectiveBalance}
-            onPaymentSuccess={handlePaymentSuccess}
           />
         </LazyLoad>
       )}

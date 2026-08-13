@@ -705,16 +705,16 @@ export const translations = {
     totalPrice: 'Total price',
     confirmBooking: 'Confirm & Book',
     insufficientFunds: 'Insufficient Funds',
-    addCreditsFirst: 'Please top up your wallet in the payment gateway to finalize this booking.',
+    addCreditsFirst: 'Contact the resort admin to top up your balance before booking.',
+    contactAdminForTopUp: 'Contact the resort admin to top up your balance.',
     safetyAssurance: 'Safety & Gear Assurance',
     safetyDesc:
       'Standard ski helmet and resort lift passes are included inside every booking reservation at no auxiliary cost.',
     processing: 'Processing...',
-    bookingSignInDesc:
-      'Sign in to schedule elite instructors, manage wallets, and track training sessions.',
+    bookingSignInDesc: 'Sign in to schedule elite instructors and track training sessions.',
     bookingSuspendedDesc: 'Your student account is suspended. You cannot book training sessions.',
     bookingSelectValidDate: 'Please select a valid coaching date.',
-    bookingBalanceTooLow: 'Your account balance is too low for this session.',
+    bookingBalanceTooLow: 'Your account balance is too low. Contact the resort admin to top up.',
     instructorUnavailable: 'Instructor Unavailable',
     instructorNotAccepting: 'is currently not accepting new bookings.',
     slotUnavailable: 'Slot Unavailable',
@@ -2302,16 +2302,17 @@ export const translations = {
     confirmBooking: 'Подтвердить и забронировать',
     insufficientFunds: 'Недостаточно средств',
     addCreditsFirst:
-      'Пожалуйста, пополните баланс в платежном шлюзе, чтобы завершить бронирование.',
+      'Для завершения бронирования обратитесь к администратору курорта для пополнения баланса.',
+    contactAdminForTopUp: 'Для пополнения баланса обратитесь к администратору курорта.',
     safetyAssurance: 'Безопасность и экипировка включены',
     safetyDesc:
       'Стандартный лыжный шлем и ски-пасс курорта включены в каждое бронирование без дополнительной платы.',
     processing: 'Оформление...',
-    bookingSignInDesc:
-      'Войдите, чтобы бронировать инструкторов, пополнять кошелёк и видеть расписание.',
+    bookingSignInDesc: 'Войдите, чтобы бронировать инструкторов и видеть расписание.',
     bookingSuspendedDesc: 'Ваш аккаунт ученика приостановлен. Вы не можете бронировать занятия.',
     bookingSelectValidDate: 'Пожалуйста, выберите дату занятия.',
-    bookingBalanceTooLow: 'Недостаточно средств для оплаты урока.',
+    bookingBalanceTooLow:
+      'Недостаточно средств. Обратитесь к администратору курорта для пополнения баланса.',
     instructorUnavailable: 'Инструктор недоступен',
     instructorNotAccepting: 'временно не принимает записи на новые занятия.',
     slotUnavailable: 'Время недоступно',

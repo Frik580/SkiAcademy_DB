@@ -17,7 +17,7 @@ import {
 import { UserProfile, ActivityLog, WalletLedgerEntry } from '../types';
 import { logger } from '../lib/logger';
 import { canManageAdminRoles } from '../lib/accessControl';
-import { grantAndApplyWalletCredit, updateUserWithAdminBalanceLedger } from '../lib/walletCredit';
+import { updateUserWithAdminBalanceLedger } from '../lib/walletCredit';
 import { type DbNotification } from '../lib/notificationText';
 import {
   buildAddCustomTodayTaskUpdate,
@@ -34,7 +34,6 @@ import {
   balanceOptimisticMiddleware,
   type BalanceOptimisticState,
 } from './balanceOptimisticMiddleware';
-import { withOptimisticBalance } from './withOptimisticBalance';
 
 interface AuthState extends BalanceOptimisticState {
   firebaseUser: User | null;
@@ -61,7 +60,6 @@ interface AuthState extends BalanceOptimisticState {
   handleAddUser: (newUser: UserProfile) => Promise<void>;
   handleUpdateUser: (updatedUser: UserProfile) => Promise<void>;
   handleDeleteUser: (targetUid: string) => Promise<void>;
-  handlePaymentSuccess: (amount: number) => Promise<void>;
   handleDismissReview: (bookingId: string) => Promise<void>;
   handleDeleteNotification: (id: string) => Promise<void>;
   handleClearNotifications: () => Promise<void>;
@@ -152,14 +150,6 @@ export const useAuthStore = create<AuthState>()(
 
     handleDeleteUser: async (targetUid) => {
       await deleteDoc(doc(db, 'users', targetUid));
-    },
-
-    handlePaymentSuccess: async (amount) => {
-      const { firebaseUser } = get();
-      if (!firebaseUser) return;
-      await withOptimisticBalance(amount, () =>
-        grantAndApplyWalletCredit(db, firebaseUser.uid, amount)
-      );
     },
 
     handleDismissReview: async (bookingId) => {

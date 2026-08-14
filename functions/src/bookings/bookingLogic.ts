@@ -5,7 +5,7 @@ const BOOKINGS_COLLECTION = 'bookings';
 const AVAILABILITY_SLOTS_COLLECTION = 'availability_slots';
 const AVAILABILITY_HOUR_LOCKS_COLLECTION = 'availability_hour_locks';
 
-export type LessonDifficulty = 'beginner' | 'intermediate' | 'advanced';
+export type LessonDifficulty = 'beginner' | 'intermediate' | 'advanced' | 'freeride' | 'freestyle';
 
 export type BookingStatus =
   'pending' | 'confirmed' | 'cancelled' | 'completed' | 'pending_cancellation';

@@ -413,7 +413,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                     <td className="py-3 px-2 font-mono text-[10px] text-[var(--ink-dim)] whitespace-nowrap">
                       {isCourseBooking(b)
                         ? '—'
-                        : getDifficultyLabel(b.difficulty, language, 'short')}
+                        : getDifficultyLabel(b.difficulty as any, language, 'short')}
                     </td>
                     <td className="py-3 px-2 font-mono text-[11px] text-[var(--ink-dim)]">
                       <div>

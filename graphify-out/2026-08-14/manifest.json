@@ -1005,8 +1005,8 @@
     "semantic_hash": ""
   },
   "src/lib/bookingTransactions.ts": {
-    "mtime": 1786650130.87573,
-    "ast_hash": "a205448601a528c8cbe98d5d720f6ed0",
+    "mtime": 1786652386.2181141,
+    "ast_hash": "760b708cbb5e0356860f633d6bda80d8",
     "semantic_hash": ""
   },
   "src/lib/chatHomework.ts": {
@@ -1265,8 +1265,8 @@
     "semantic_hash": ""
   },
   "tests/firestore.rules.test.ts": {
-    "mtime": 1786650137.928055,
-    "ast_hash": "7fdfd575c0062a52183ce91199f99ec8",
+    "mtime": 1786650676.1135416,
+    "ast_hash": "f612b1be3cbaa359ad0fa7e8f596e015",
     "semantic_hash": ""
   },
   "tests/helpers/courseEnrollmentFixtures.ts": {

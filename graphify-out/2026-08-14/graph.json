@@ -1980,6 +1980,19 @@
       "norm_label": "bookinglistscope"
     },
     {
+      "label": "BookingSchedule",
+      "file_type": "code",
+      "source_file": "src/lib/bookingEndsAt.ts",
+      "source_location": "L5",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "id": "src_lib_bookingendsat_bookingschedule",
+      "community": 25,
+      "community_name": "bookingTransactions.ts",
+      "norm_label": "bookingschedule"
+    },
+    {
       "label": "BookingScheduleUpdates",
       "file_type": "code",
       "source_file": "src/lib/bookingTransactions.ts",
@@ -3605,19 +3618,6 @@
       "norm_label": "createbookingcallableresult"
     },
     {
-      "label": "BookingSchedule",
-      "file_type": "code",
-      "source_file": "src/lib/bookingEndsAt.ts",
-      "source_location": "L5",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "id": "src_lib_bookingendsat_bookingschedule",
-      "community": 58,
-      "community_name": "bookingEndsAt.ts",
-      "norm_label": "bookingschedule"
-    },
-    {
       "label": "WatchPlan",
       "file_type": "code",
       "source_file": "src/lib/useBookingChatUnread.ts",
@@ -5199,42 +5199,6 @@
       "community": 105,
       "community_name": "skillData.ts",
       "norm_label": "inferradardimensionfromtext()"
-    },
-    {
-      "label": "formatBookingCreatedAt()",
-      "file_type": "code",
-      "source_file": "src/lib/bookingCreatedAt.ts",
-      "source_location": "L40",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "src_lib_bookingcreatedat_formatbookingcreatedat",
-      "community": 106,
-      "community_name": "bookingCreatedAt.ts",
-      "norm_label": "formatbookingcreatedat()"
-    },
-    {
-      "label": "inferBookingCreatedAtFromId()",
-      "file_type": "code",
-      "source_file": "src/lib/bookingCreatedAt.ts",
-      "source_location": "L6",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "src_lib_bookingcreatedat_inferbookingcreatedatfromid",
-      "community": 106,
-      "community_name": "bookingCreatedAt.ts",
-      "norm_label": "inferbookingcreatedatfromid()"
-    },
-    {
-      "label": "resolveBookingCreatedAt()",
-      "file_type": "code",
-      "source_file": "src/lib/bookingCreatedAt.ts",
-      "source_location": "L22",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "src_lib_bookingcreatedat_resolvebookingcreatedat",
-      "community": 106,
-      "community_name": "bookingCreatedAt.ts",
-      "norm_label": "resolvebookingcreatedat()"
     },
     {
       "label": "LessonFilters()",
@@ -8189,6 +8153,54 @@
       "norm_label": "iscoursebooking()"
     },
     {
+      "label": "computeBookingEndsAt()",
+      "file_type": "code",
+      "source_file": "src/lib/bookingEndsAt.ts",
+      "source_location": "L7",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "src_lib_bookingendsat_computebookingendsat",
+      "community": 25,
+      "community_name": "bookingTransactions.ts",
+      "norm_label": "computebookingendsat()"
+    },
+    {
+      "label": "computeBookingEndsAtIso()",
+      "file_type": "code",
+      "source_file": "src/lib/bookingEndsAt.ts",
+      "source_location": "L25",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "src_lib_bookingendsat_computebookingendsatiso",
+      "community": 25,
+      "community_name": "bookingTransactions.ts",
+      "norm_label": "computebookingendsatiso()"
+    },
+    {
+      "label": "isBookingEligibleForAutoComplete()",
+      "file_type": "code",
+      "source_file": "src/lib/bookingEndsAt.ts",
+      "source_location": "L36",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "src_lib_bookingendsat_isbookingeligibleforautocomplete",
+      "community": 25,
+      "community_name": "bookingTransactions.ts",
+      "norm_label": "isbookingeligibleforautocomplete()"
+    },
+    {
+      "label": "withBookingEndsAt()",
+      "file_type": "code",
+      "source_file": "src/lib/bookingEndsAt.ts",
+      "source_location": "L31",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "src_lib_bookingendsat_withbookingendsat",
+      "community": 25,
+      "community_name": "bookingTransactions.ts",
+      "norm_label": "withbookingendsat()"
+    },
+    {
       "label": "addBookingWithPayment()",
       "file_type": "code",
       "source_file": "src/lib/bookingTransactions.ts",
@@ -8211,18 +8223,6 @@
       "community": 25,
       "community_name": "bookingTransactions.ts",
       "norm_label": "assertnoslotoverlap()"
-    },
-    {
-      "label": "cancelBookingWithRefund()",
-      "file_type": "code",
-      "source_file": "src/lib/bookingTransactions.ts",
-      "source_location": "L346",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "src_lib_bookingtransactions_cancelbookingwithrefund",
-      "community": 25,
-      "community_name": "bookingTransactions.ts",
-      "norm_label": "cancelbookingwithrefund()"
     },
     {
       "label": "createBookingWithPayment()",
@@ -8309,16 +8309,16 @@
       "norm_label": "writehourlocks()"
     },
     {
-      "label": "walletLedgerBookingEntryId()",
+      "label": "parseCourseEndDateTime()",
       "file_type": "code",
-      "source_file": "src/lib/walletLedger.ts",
-      "source_location": "L17",
+      "source_file": "src/lib/i18n/courseDates.ts",
+      "source_location": "L136",
       "_callable": true,
       "_origin": "ast",
-      "id": "src_lib_walletledger_walletledgerbookingentryid",
+      "id": "src_lib_i18n_coursedates_parsecourseenddatetime",
       "community": 25,
       "community_name": "bookingTransactions.ts",
-      "norm_label": "walletledgerbookingentryid()"
+      "norm_label": "parsecourseenddatetime()"
     },
     {
       "label": "optimizeProfileImage()",
@@ -9605,6 +9605,54 @@
       "norm_label": "studentwallethistorylist()"
     },
     {
+      "label": "formatBookingCreatedAt()",
+      "file_type": "code",
+      "source_file": "src/lib/bookingCreatedAt.ts",
+      "source_location": "L40",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "src_lib_bookingcreatedat_formatbookingcreatedat",
+      "community": 33,
+      "community_name": "lib/walletLedger.ts",
+      "norm_label": "formatbookingcreatedat()"
+    },
+    {
+      "label": "inferBookingCreatedAtFromId()",
+      "file_type": "code",
+      "source_file": "src/lib/bookingCreatedAt.ts",
+      "source_location": "L6",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "src_lib_bookingcreatedat_inferbookingcreatedatfromid",
+      "community": 33,
+      "community_name": "lib/walletLedger.ts",
+      "norm_label": "inferbookingcreatedatfromid()"
+    },
+    {
+      "label": "resolveBookingCreatedAt()",
+      "file_type": "code",
+      "source_file": "src/lib/bookingCreatedAt.ts",
+      "source_location": "L22",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "src_lib_bookingcreatedat_resolvebookingcreatedat",
+      "community": 33,
+      "community_name": "lib/walletLedger.ts",
+      "norm_label": "resolvebookingcreatedat()"
+    },
+    {
+      "label": "cancelBookingWithRefund()",
+      "file_type": "code",
+      "source_file": "src/lib/bookingTransactions.ts",
+      "source_location": "L346",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "src_lib_bookingtransactions_cancelbookingwithrefund",
+      "community": 33,
+      "community_name": "lib/walletLedger.ts",
+      "norm_label": "cancelbookingwithrefund()"
+    },
+    {
       "label": "buildSyntheticWalletOperations()",
       "file_type": "code",
       "source_file": "src/lib/walletLedger.ts",
@@ -9723,6 +9771,18 @@
       "community": 33,
       "community_name": "lib/walletLedger.ts",
       "norm_label": "resolvecoursetitle()"
+    },
+    {
+      "label": "walletLedgerBookingEntryId()",
+      "file_type": "code",
+      "source_file": "src/lib/walletLedger.ts",
+      "source_location": "L17",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "src_lib_walletledger_walletledgerbookingentryid",
+      "community": 33,
+      "community_name": "lib/walletLedger.ts",
+      "norm_label": "walletledgerbookingentryid()"
     },
     {
       "label": "walletLedgerRef()",
@@ -11235,66 +11295,6 @@
       "community": 55,
       "community_name": "createBookingCallable.ts",
       "norm_label": "createbookingforcurrentuser()"
-    },
-    {
-      "label": "computeBookingEndsAt()",
-      "file_type": "code",
-      "source_file": "src/lib/bookingEndsAt.ts",
-      "source_location": "L7",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "src_lib_bookingendsat_computebookingendsat",
-      "community": 58,
-      "community_name": "bookingEndsAt.ts",
-      "norm_label": "computebookingendsat()"
-    },
-    {
-      "label": "computeBookingEndsAtIso()",
-      "file_type": "code",
-      "source_file": "src/lib/bookingEndsAt.ts",
-      "source_location": "L25",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "src_lib_bookingendsat_computebookingendsatiso",
-      "community": 58,
-      "community_name": "bookingEndsAt.ts",
-      "norm_label": "computebookingendsatiso()"
-    },
-    {
-      "label": "isBookingEligibleForAutoComplete()",
-      "file_type": "code",
-      "source_file": "src/lib/bookingEndsAt.ts",
-      "source_location": "L36",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "src_lib_bookingendsat_isbookingeligibleforautocomplete",
-      "community": 58,
-      "community_name": "bookingEndsAt.ts",
-      "norm_label": "isbookingeligibleforautocomplete()"
-    },
-    {
-      "label": "withBookingEndsAt()",
-      "file_type": "code",
-      "source_file": "src/lib/bookingEndsAt.ts",
-      "source_location": "L31",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "src_lib_bookingendsat_withbookingendsat",
-      "community": 58,
-      "community_name": "bookingEndsAt.ts",
-      "norm_label": "withbookingendsat()"
-    },
-    {
-      "label": "parseCourseEndDateTime()",
-      "file_type": "code",
-      "source_file": "src/lib/i18n/courseDates.ts",
-      "source_location": "L136",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "src_lib_i18n_coursedates_parsecourseenddatetime",
-      "community": 58,
-      "community_name": "bookingEndsAt.ts",
-      "norm_label": "parsecourseenddatetime()"
     },
     {
       "label": "getChatLastReadAt()",
@@ -13177,28 +13177,6 @@
       "norm_label": "baseprofile"
     },
     {
-      "label": "bookingCreatedAt.ts",
-      "file_type": "code",
-      "source_file": "src/lib/bookingCreatedAt.ts",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "src_lib_bookingcreatedat",
-      "community": 106,
-      "community_name": "bookingCreatedAt.ts",
-      "norm_label": "bookingcreatedat.ts"
-    },
-    {
-      "label": "bookingCreatedAt.test.ts",
-      "file_type": "code",
-      "source_file": "tests/unit/bookingCreatedAt.test.ts",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "tests_unit_bookingcreatedat_test",
-      "community": 106,
-      "community_name": "bookingCreatedAt.ts",
-      "norm_label": "bookingcreatedat.test.ts"
-    },
-    {
       "label": "LessonFilters.tsx",
       "file_type": "code",
       "source_file": "src/components/LessonFilters.tsx",
@@ -13219,28 +13197,6 @@
       "community": 108,
       "community_name": "BookingSelectors.tsx",
       "norm_label": "bookingselectors.tsx"
-    },
-    {
-      "label": "eslint",
-      "file_type": "code",
-      "source_file": "package.json",
-      "source_location": "L60",
-      "_origin": "ast",
-      "id": "package_devdependencies_eslint",
-      "community": 109,
-      "community_name": "eslint",
-      "norm_label": "eslint"
-    },
-    {
-      "label": "eslint",
-      "file_type": "concept",
-      "source_file": "package.json",
-      "source_location": "L60",
-      "_origin": "ast",
-      "id": "eslint",
-      "community": 109,
-      "community_name": "eslint",
-      "norm_label": "eslint"
     },
     {
       "label": "FinancialOverview.tsx",
@@ -15399,6 +15355,17 @@
       "norm_label": "weekdays_ru"
     },
     {
+      "label": "bookingEndsAt.ts",
+      "file_type": "code",
+      "source_file": "src/lib/bookingEndsAt.ts",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "src_lib_bookingendsat",
+      "community": 25,
+      "community_name": "bookingTransactions.ts",
+      "norm_label": "bookingendsat.ts"
+    },
+    {
       "label": "bookingTransactions.ts",
       "file_type": "code",
       "source_file": "src/lib/bookingTransactions.ts",
@@ -15408,6 +15375,28 @@
       "community": 25,
       "community_name": "bookingTransactions.ts",
       "norm_label": "bookingtransactions.ts"
+    },
+    {
+      "label": "bookingEndsAt.test.ts",
+      "file_type": "code",
+      "source_file": "tests/unit/bookingEndsAt.test.ts",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "tests_unit_bookingendsat_test",
+      "community": 25,
+      "community_name": "bookingTransactions.ts",
+      "norm_label": "bookingendsat.test.ts"
+    },
+    {
+      "label": "baseLesson",
+      "file_type": "code",
+      "source_file": "tests/unit/bookingEndsAt.test.ts",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "tests_unit_bookingendsat_test_baselesson",
+      "community": 25,
+      "community_name": "bookingTransactions.ts",
+      "norm_label": "baselesson"
     },
     {
       "label": "profileImage.ts",
@@ -16312,6 +16301,17 @@
       "norm_label": "studentwallethistorylist.tsx"
     },
     {
+      "label": "bookingCreatedAt.ts",
+      "file_type": "code",
+      "source_file": "src/lib/bookingCreatedAt.ts",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "src_lib_bookingcreatedat",
+      "community": 33,
+      "community_name": "lib/walletLedger.ts",
+      "norm_label": "bookingcreatedat.ts"
+    },
+    {
       "label": "lib/walletLedger.ts",
       "file_type": "code",
       "source_file": "src/lib/walletLedger.ts",
@@ -16343,6 +16343,17 @@
       "community": 33,
       "community_name": "lib/walletLedger.ts",
       "norm_label": "wallet_ledger_collection"
+    },
+    {
+      "label": "bookingCreatedAt.test.ts",
+      "file_type": "code",
+      "source_file": "tests/unit/bookingCreatedAt.test.ts",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "tests_unit_bookingcreatedat_test",
+      "community": 33,
+      "community_name": "lib/walletLedger.ts",
+      "norm_label": "bookingcreatedat.test.ts"
     },
     {
       "label": "adminFirestore.ts",
@@ -18919,15 +18930,15 @@
       "norm_label": "devdependencies"
     },
     {
-      "label": "eslint-config-prettier",
+      "label": "eslint",
       "file_type": "code",
       "source_file": "package.json",
-      "source_location": "L61",
+      "source_location": "L60",
       "_origin": "ast",
-      "id": "package_devdependencies_eslint_config_prettier",
+      "id": "package_devdependencies_eslint",
       "community": 56,
       "community_name": "devDependencies",
-      "norm_label": "eslint-config-prettier"
+      "norm_label": "eslint"
     },
     {
       "label": "tailwindcss",
@@ -18963,15 +18974,15 @@
       "norm_label": "@types/canvas-confetti"
     },
     {
-      "label": "eslint-config-prettier",
+      "label": "eslint",
       "file_type": "concept",
       "source_file": "package.json",
-      "source_location": "L61",
+      "source_location": "L60",
       "_origin": "ast",
-      "id": "eslint_config_prettier",
+      "id": "eslint",
       "community": 56,
       "community_name": "devDependencies",
-      "norm_label": "eslint-config-prettier"
+      "norm_label": "eslint"
     },
     {
       "label": "tailwindcss",
@@ -19106,37 +19117,26 @@
       "norm_label": "version"
     },
     {
-      "label": "bookingEndsAt.ts",
+      "label": "eslint-config-prettier",
       "file_type": "code",
-      "source_file": "src/lib/bookingEndsAt.ts",
-      "source_location": "L1",
+      "source_file": "package.json",
+      "source_location": "L61",
       "_origin": "ast",
-      "id": "src_lib_bookingendsat",
+      "id": "package_devdependencies_eslint_config_prettier",
       "community": 58,
-      "community_name": "bookingEndsAt.ts",
-      "norm_label": "bookingendsat.ts"
+      "community_name": "eslint-config-prettier",
+      "norm_label": "eslint-config-prettier"
     },
     {
-      "label": "bookingEndsAt.test.ts",
-      "file_type": "code",
-      "source_file": "tests/unit/bookingEndsAt.test.ts",
-      "source_location": "L1",
+      "label": "eslint-config-prettier",
+      "file_type": "concept",
+      "source_file": "package.json",
+      "source_location": "L61",
       "_origin": "ast",
-      "id": "tests_unit_bookingendsat_test",
+      "id": "eslint_config_prettier",
       "community": 58,
-      "community_name": "bookingEndsAt.ts",
-      "norm_label": "bookingendsat.test.ts"
-    },
-    {
-      "label": "baseLesson",
-      "file_type": "code",
-      "source_file": "tests/unit/bookingEndsAt.test.ts",
-      "source_location": "L9",
-      "_origin": "ast",
-      "id": "tests_unit_bookingendsat_test_baselesson",
-      "community": 58,
-      "community_name": "bookingEndsAt.ts",
-      "norm_label": "baselesson"
+      "community_name": "eslint-config-prettier",
+      "norm_label": "eslint-config-prettier"
     },
     {
       "label": "Auth.test.tsx",
@@ -30105,7 +30105,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/lib/bookingTransactions.ts",
-      "source_location": "L367",
+      "source_location": "L361",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_bookingtransactions_cancelbookingwithrefund",
@@ -30117,7 +30117,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/lib/bookingTransactions.ts",
-      "source_location": "L377",
+      "source_location": "L371",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_bookingtransactions_cancelbookingwithrefund",
@@ -30129,7 +30129,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/lib/bookingTransactions.ts",
-      "source_location": "L407",
+      "source_location": "L418",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_bookingtransactions_cancelbookingwithrefund",
@@ -30141,7 +30141,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/lib/bookingTransactions.ts",
-      "source_location": "L417",
+      "source_location": "L428",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_bookingtransactions_cancelbookingwithrefund",

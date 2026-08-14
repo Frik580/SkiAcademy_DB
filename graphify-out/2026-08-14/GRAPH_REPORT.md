@@ -2,12 +2,12 @@
 
 ## Corpus Check
 
-- 323 files · ~193,919 words
+- 323 files · ~194,054 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
 
-- 1774 nodes · 5775 edges · 113 communities (83 shown, 30 thin omitted)
+- 1774 nodes · 5775 edges · 111 communities (81 shown, 30 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 22 edges (avg confidence: 0.7)
 - Token cost: 0 input · 0 output
 
@@ -77,7 +77,7 @@
 - createBookingCallable.ts
 - devDependencies
 - package.json
-- bookingEndsAt.ts
+- eslint-config-prettier
 - Auth.test.tsx
 - formatDurationLabel
 - BookingsLog.tsx
@@ -117,10 +117,8 @@
 - @vitest/coverage-v8
 - vitest.config.ts
 - skillData.ts
-- bookingCreatedAt.ts
 - LessonFilters.tsx
 - BookingSelectors.tsx
-- eslint
 - useLanguage
 - eslint-plugin-react
 - eslint-plugin-jsx-a11y
@@ -155,7 +153,7 @@
 
 - None detected.
 
-## Communities (113 total, 30 thin omitted)
+## Communities (111 total, 30 thin omitted)
 
 ### Community 0 - "courseLevelStyles.ts"
 
@@ -284,8 +282,8 @@ Nodes (10): LIST_SCOPE_FILTERS, LIST_SCOPE_LABEL_KEYS, BookingListScope, STATUS_
 
 ### Community 25 - "bookingTransactions.ts"
 
-Cohesion: 0.38
-Nodes (14): blocksInstructorAvailability(), isCourseBooking(), addBookingWithPayment(), assertNoSlotOverlap(), BookingScheduleUpdates, cancelBookingWithRefund(), createBookingWithPayment(), createGuestBooking() (+6 more)
+Cohesion: 0.25
+Nodes (19): blocksInstructorAvailability(), isCourseBooking(), BookingSchedule, computeBookingEndsAt(), computeBookingEndsAtIso(), isBookingEligibleForAutoComplete(), withBookingEndsAt(), addBookingWithPayment() (+11 more)
 
 ### Community 26 - "authStore.ts"
 
@@ -324,8 +322,8 @@ Nodes (18): TodayTask, groupRecommendationTasks(), TodayChecklist(), TodayCheckl
 
 ### Community 33 - "lib/walletLedger.ts"
 
-Cohesion: 0.17
-Nodes (18): PaymentGatewayProps, StudentWalletHistoryList(), buildSyntheticWalletOperations(), buildWalletOperationHistory(), enrichWalletOperationWithBooking(), formatWalletOperationLabel(), formatWalletSessionDate(), formatWalletSessionDuration() (+10 more)
+Cohesion: 0.13
+Nodes (23): PaymentGatewayProps, StudentWalletHistoryList(), formatBookingCreatedAt(), inferBookingCreatedAtFromId(), resolveBookingCreatedAt(), cancelBookingWithRefund(), buildSyntheticWalletOperations(), buildWalletOperationHistory() (+15 more)
 
 ### Community 34 - "index.ts"
 
@@ -440,17 +438,12 @@ Nodes (11): BookingPaymentResult, BookingSlotOverlapError, InsufficientFundsErro
 ### Community 56 - "devDependencies"
 
 Cohesion: 0.22
-Nodes (9): eslint-config-prettier, devDependencies, eslint-config-prettier, tailwindcss, @tailwindcss/vite, @types/canvas-confetti, tailwindcss, @tailwindcss/vite (+1 more)
+Nodes (9): eslint, devDependencies, eslint, tailwindcss, @tailwindcss/vite, @types/canvas-confetti, tailwindcss, @tailwindcss/vite (+1 more)
 
 ### Community 57 - "package.json"
 
 Cohesion: 0.22
 Nodes (8): engines, node, name, overrides, universal-analytics, private, type, version
-
-### Community 58 - "bookingEndsAt.ts"
-
-Cohesion: 0.42
-Nodes (7): BookingSchedule, computeBookingEndsAt(), computeBookingEndsAtIso(), isBookingEligibleForAutoComplete(), withBookingEndsAt(), parseCourseEndDateTime(), baseLesson
 
 ### Community 59 - "Auth.test.tsx"
 
@@ -517,11 +510,6 @@ Nodes (4): ADMIN_FIRESTORE_PATH, mockGetApp, mockGetFirestore, mockInitializeApp
 Cohesion: 0.10
 Nodes (38): ClientSkillProgressView(), APPLE, DIMENSION_CONFIGS, easeOutCubic(), RadarDimension, RadarDimensionFilter, SkillRadarChart(), getLevelLabel() (+30 more)
 
-### Community 106 - "bookingCreatedAt.ts"
-
-Cohesion: 0.90
-Nodes (3): formatBookingCreatedAt(), inferBookingCreatedAtFromId(), resolveBookingCreatedAt()
-
 ### Community 108 - "BookingSelectors.tsx"
 
 Cohesion: 0.60
@@ -544,7 +532,7 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `useLanguage()` connect `useLanguage` to `courseLevelStyles.ts`, `your_journey/YourJourneySection.tsx`, `studentCabinetUtils.ts`, `StudentTodaySection.tsx`, `uiStore.ts`, `useCourses.ts`, `firebase.ts`, `achievementConfig.ts`, `chatSenderRole.ts`, `StudentCabinetShell.tsx`, `StudentCoachPanel.tsx`, `ScheduleCalendar.tsx`, `UserProfile`, `AdminPanel.tsx`, `useBookingModal.ts`, `Booking`, `ClientBookingsList.tsx`, `authStore.ts`, `bookingStore.ts`, `App.tsx`, `coachPhone.test.ts`, `BookingChatModal.tsx`, `todayChecklist.ts`, `lib/walletLedger.ts`, `InstructorWorkspace.tsx`, `TranslationKey`, `CourseDetailsModal.tsx`, `src/types.ts`, `InstructorBookingCard.tsx`, `StudentCabinetUI.tsx`, `courseTransactions.ts`, `LanguageContext.tsx`, `ResortConditionsSidebar.tsx`, `useNotifications`, `formatDurationLabel`, `BookingsLog.tsx`, `parseCourseDates`, `skillData.ts`, `LessonFilters.tsx`?**
   _High betweenness centrality (0.107) - this node is a cross-community bridge._
-- **Why does `Booking` connect `Booking` to `studentCabinetUtils.ts`, `Course`, `useBookingChatUnread.ts`, `StudentTodaySection.tsx`, `useCourses.ts`, `bookingTransactions.test.ts`, `firebase.ts`, `achievementConfig.ts`, `chatSenderRole.ts`, `StudentCabinetShell.tsx`, `StudentCoachPanel.tsx`, `ScheduleCalendar.tsx`, `UserProfile`, `AdminPanel.tsx`, `useBookingModal.ts`, `ClientBookingsList.tsx`, `bookingTransactions.ts`, `bookingStore.ts`, `coachPhone.test.ts`, `BookingChatModal.tsx`, `todayChecklist.ts`, `lib/walletLedger.ts`, `lessonRecommendations.ts`, `InstructorWorkspace.tsx`, `TranslationKey`, `src/types.ts`, `InstructorBookingCard.tsx`, `StudentCabinetUI.tsx`, `courseTransactions.ts`, `useNotifications`, `createBookingCallable.ts`, `bookingEndsAt.ts`, `BookingsLog.tsx`, `activityLogHistory.test.ts`, `slotOverlap.ts`, `parseCourseDates`, `bookingCreatedAt.ts`, `useLanguage`?**
+- **Why does `Booking` connect `Booking` to `studentCabinetUtils.ts`, `Course`, `useBookingChatUnread.ts`, `StudentTodaySection.tsx`, `useCourses.ts`, `bookingTransactions.test.ts`, `firebase.ts`, `achievementConfig.ts`, `chatSenderRole.ts`, `StudentCabinetShell.tsx`, `StudentCoachPanel.tsx`, `ScheduleCalendar.tsx`, `UserProfile`, `AdminPanel.tsx`, `useBookingModal.ts`, `ClientBookingsList.tsx`, `bookingTransactions.ts`, `bookingStore.ts`, `coachPhone.test.ts`, `BookingChatModal.tsx`, `todayChecklist.ts`, `lib/walletLedger.ts`, `lessonRecommendations.ts`, `InstructorWorkspace.tsx`, `TranslationKey`, `src/types.ts`, `InstructorBookingCard.tsx`, `StudentCabinetUI.tsx`, `courseTransactions.ts`, `useNotifications`, `createBookingCallable.ts`, `BookingsLog.tsx`, `activityLogHistory.test.ts`, `slotOverlap.ts`, `parseCourseDates`, `useLanguage`?**
   _High betweenness centrality (0.061) - this node is a cross-community bridge._
 - **Why does `UserProfile` connect `UserProfile` to `your_journey/YourJourneySection.tsx`, `studentCabinetUtils.ts`, `Course`, `StudentTodaySection.tsx`, `useCourses.ts`, `firebase.ts`, `achievementConfig.ts`, `chatSenderRole.ts`, `StudentCabinetShell.tsx`, `StudentCoachPanel.tsx`, `ScheduleCalendar.tsx`, `AdminPanel.tsx`, `walletCredit.ts`, `useBookingModal.ts`, `Booking`, `ClientBookingsList.tsx`, `authStore.ts`, `bookingStore.ts`, `App.tsx`, `coachPhone.test.ts`, `BookingChatModal.tsx`, `todayChecklist.ts`, `InstructorWorkspace.tsx`, `TranslationKey`, `CourseDetailsModal.tsx`, `src/types.ts`, `InstructorBookingCard.tsx`, `StudentCabinetUI.tsx`, `courseTransactions.ts`, `useNotifications`, `BookingsLog.tsx`, `activityLogHistory.test.ts`, `skillData.ts`, `useLanguage`?**
   _High betweenness centrality (0.031) - this node is a cross-community bridge._

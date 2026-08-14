@@ -17,7 +17,13 @@ const VALID_STATUSES: BookingStatus[] = [
   'pending_cancellation',
 ];
 
-const VALID_DIFFICULTIES: LessonDifficulty[] = ['beginner', 'intermediate', 'advanced'];
+const VALID_DIFFICULTIES: LessonDifficulty[] = [
+  'beginner',
+  'intermediate',
+  'advanced',
+  'freeride',
+  'freestyle',
+];
 
 export interface CreateBookingInput {
   id: string;

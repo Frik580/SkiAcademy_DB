@@ -15,11 +15,14 @@ describe('notification deletion and auto-expiry', () => {
 
   it('wires single notification deletion and auto-cleanup of expired items', () => {
     const notificationsSource = readFileSync(
-      join(process.cwd(), 'src/store/sync/useNotificationsSync.ts'),
+      join(process.cwd(), 'src/features/notifications/sync/useNotificationsSync.ts'),
       'utf8'
     );
     const uiStoreSource = readFileSync(join(process.cwd(), 'src/store/uiStore.ts'), 'utf8');
-    const authStoreSource = readFileSync(join(process.cwd(), 'src/store/authStore.ts'), 'utf8');
+    const notificationsStoreSource = readFileSync(
+      join(process.cwd(), 'src/features/notifications/notificationsStore.ts'),
+      'utf8'
+    );
     const appSource = readFileSync(join(process.cwd(), 'src/App.tsx'), 'utf8');
     const hubSource = readFileSync(
       join(process.cwd(), 'src/components/PushNotificationHub.tsx'),
@@ -40,9 +43,9 @@ describe('notification deletion and auto-expiry', () => {
     expect(uiStoreSource).toContain('notification_retention');
     expect(uiStoreSource).toContain('handleSetNotificationRetentionDays');
 
-    // App.tsx passes handleDeleteNotification from auth store
+    // App.tsx passes handleDeleteNotification from notifications store
     expect(appSource).toContain('handleDeleteNotification');
-    expect(authStoreSource).toContain('handleDeleteNotification');
+    expect(notificationsStoreSource).toContain('handleDeleteNotification');
 
     // PushNotificationHub renders delete button per item
     expect(hubSource).toContain('onDeleteNotification');

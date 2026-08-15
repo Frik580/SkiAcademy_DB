@@ -23,7 +23,7 @@ import {
   toLocalDateStr,
 } from '../../lib/availabilitySlots';
 import { BookingSlotOverlapError, createGuestBooking } from '../../lib/bookingTransactions';
-import { useAuthStore, selectEffectiveBalance } from '../../store/authStore';
+import { useEffectiveBalance } from '../../features/wallet/walletSelectors';
 
 export interface BookingModalInput {
   isOpen: boolean;
@@ -46,7 +46,7 @@ export const useBookingModal = ({
 }: BookingModalInput) => {
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
-  const effectiveBalance = useAuthStore(selectEffectiveBalance);
+  const effectiveBalance = useEffectiveBalance();
 
   const [activeInstructor, setActiveInstructor] = useState<Instructor | null>(instructor);
   const targetInstructor = activeInstructor || instructor;

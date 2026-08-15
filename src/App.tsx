@@ -25,7 +25,9 @@ import { AppInitSkeleton, ModalSkeleton } from './components/ui/Skeleton';
 import { BodyScrollLock } from './components/ui/BodyScrollLock';
 
 import { setStoreContext } from './store/storeContext';
-import { useAuthStore, selectUnreadNotificationCount } from './store/authStore';
+import { useAuthStore } from './store/authStore';
+import { useNotificationsStore } from './features/notifications/notificationsStore';
+import { useUnreadNotificationCount } from './features/notifications/notificationsSelectors';
 import { useBookingStore } from './store/bookingStore';
 import { useCourseStore } from './store/courseStore';
 import { useUiStore } from './store/uiStore';
@@ -77,12 +79,14 @@ const AppContent: React.FC = () => {
   const authLoading = useAuthStore((s) => s.authLoading);
   const handleSignOut = useAuthStore((s) => s.handleSignOut);
   const dismissedReviewIds = useAuthStore((s) => s.dismissedReviewIds);
-  const dbNotifications = useAuthStore((s) => s.dbNotifications);
+  const dbNotifications = useNotificationsStore((s) => s.dbNotifications);
   const handleDismissReview = useAuthStore((s) => s.handleDismissReview);
-  const handleClearNotifications = useAuthStore((s) => s.handleClearNotifications);
-  const handleDeleteNotification = useAuthStore((s) => s.handleDeleteNotification);
-  const handleMarkNotificationsAsRead = useAuthStore((s) => s.handleMarkNotificationsAsRead);
-  const unreadNotificationCount = useAuthStore(selectUnreadNotificationCount);
+  const handleClearNotifications = useNotificationsStore((s) => s.handleClearNotifications);
+  const handleDeleteNotification = useNotificationsStore((s) => s.handleDeleteNotification);
+  const handleMarkNotificationsAsRead = useNotificationsStore(
+    (s) => s.handleMarkNotificationsAsRead
+  );
+  const unreadNotificationCount = useUnreadNotificationCount();
 
   const bookings = useBookingStore((s) => s.bookings);
   const reviews = useBookingStore((s) => s.reviews);

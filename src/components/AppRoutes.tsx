@@ -23,6 +23,7 @@ import { CardSkeleton, Skeleton } from './ui/Skeleton';
 import { useAuthStore } from '../store/authStore';
 import { useBookingStore } from '../store/bookingStore';
 import { useCourseStore } from '../store/courseStore';
+import { useWalletStore } from '../features/wallet/walletStore';
 import { useUiStore } from '../store/uiStore';
 
 const AdminPanel = React.lazy(() =>
@@ -76,7 +77,7 @@ const PersonalCabinetPage: React.FC<{
   const usersList = useAuthStore((s) => s.usersList);
   const dismissedReviewIds = useAuthStore((s) => s.dismissedReviewIds);
   const activityLogs = useAuthStore((s) => s.activityLogs);
-  const walletLedgerEntries = useAuthStore((s) => s.walletLedgerEntries);
+  const walletLedgerEntries = useWalletStore((s) => s.walletLedgerEntries);
   const courses = useCourseStore((s) => s.courses);
   const skillConfig = useUiStore((s) => s.skillConfig);
   const achievementsConfig = useUiStore((s) => s.achievementsConfig);

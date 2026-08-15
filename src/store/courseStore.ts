@@ -20,7 +20,7 @@ import { logger } from '../lib/logger';
 import { notify, t, getLanguage } from './storeContext';
 import { useAuthStore } from './authStore';
 import { useBookingStore } from './bookingStore';
-import { withOptimisticBalance } from './withOptimisticBalance';
+import { withOptimisticBalance } from '../features/wallet/walletService';
 
 interface CourseState {
   courses: Course[];

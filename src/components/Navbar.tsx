@@ -8,7 +8,7 @@ import { useCurrency } from '../lib/CurrencyContext';
 import { getUserLevelBadgeClass } from '../lib/courseLevelStyles';
 import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../lib/workspaceRoutes';
 import { Logo } from './Logo';
-import { useAuthStore, selectEffectiveBalance } from '../store/authStore';
+import { useEffectiveBalance } from '../features/wallet/walletSelectors';
 
 interface NavbarProps {
   userProfile: UserProfile | null;
@@ -31,7 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const { formatPrice } = useCurrency();
-  const effectiveBalance = useAuthStore(selectEffectiveBalance);
+  const effectiveBalance = useEffectiveBalance();
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminView = location.pathname === '/admin';

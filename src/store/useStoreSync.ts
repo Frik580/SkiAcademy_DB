@@ -2,8 +2,9 @@ import { useAuthSync } from './sync/useAuthSync';
 import { useSettingsSync } from './sync/useSettingsSync';
 import { useBookingsSync } from './sync/useBookingsSync';
 import { useCoursesSync } from './sync/useCoursesSync';
-import { useNotificationsSync } from './sync/useNotificationsSync';
+import { useNotificationsSync } from '../features/notifications/sync/useNotificationsSync';
 import { useActivityAndWalletSync } from './sync/useActivityAndWalletSync';
+import { useWalletSync } from '../features/wallet/sync/useWalletSync';
 
 export const useStoreSync = () => {
   useAuthSync();
@@ -11,5 +12,6 @@ export const useStoreSync = () => {
   useBookingsSync();
   useCoursesSync();
   useNotificationsSync();
+  useWalletSync();
   useActivityAndWalletSync();
 };

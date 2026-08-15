@@ -1,20 +1,27 @@
 import { useEffect } from 'react';
-import { collection, db, limit, onSnapshot, orderBy, query, where } from '../../lib/firebase';
-import { QUERY_LIMITS } from '../../lib/queryLimits';
-import { logger } from '../../lib/logger';
+import { collection, db, limit, onSnapshot, orderBy, query, where } from '../../../lib/firebase';
+import { QUERY_LIMITS } from '../../../lib/queryLimits';
+import { logger } from '../../../lib/logger';
 import {
   isNotificationExpired,
   purgeExpiredNotificationsForUser,
-} from '../../lib/notificationCleanup';
-import { resolveNotificationText, type DbNotification } from '../../lib/notificationText';
-import { useAuthStore } from '../authStore';
-import { useUiStore } from '../uiStore';
-import { notify, getLanguage } from '../storeContext';
+} from '../../../lib/notificationCleanup';
+import { resolveNotificationText, type DbNotification } from '../../../lib/notificationText';
+import { useAuthStore } from '../../../store/authStore';
+import { useUiStore } from '../../../store/uiStore';
+import { notify, getLanguage } from '../../../store/storeContext';
+import { useNotificationsStore } from '../notificationsStore';
 
+/**
+ * Synchronizes notifications from Firestore collection.
+ * This hook subscribes to the notifications collection for the current user
+ * and handles cleanup of expired notifications.
+ */
 export const useNotificationsSync = () => {
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const notificationRetentionDays = useUiStore((s) => s.notificationRetentionDays);
 
+  // Cleanup expired notifications periodically
   useEffect(() => {
     if (!firebaseUser) return;
 
@@ -23,9 +30,10 @@ export const useNotificationsSync = () => {
     );
   }, [firebaseUser, notificationRetentionDays]);
 
+  // Subscribe to notifications collection
   useEffect(() => {
     if (!firebaseUser) {
-      useAuthStore.getState().setDbNotifications([]);
+      useNotificationsStore.getState().setDbNotifications([]);
       return;
     }
 
@@ -49,8 +57,9 @@ export const useNotificationsSync = () => {
               !isNotificationExpired(notification.timestamp, notificationRetentionDays)
           );
 
-        useAuthStore.getState().setDbNotifications(validNotifications);
+        useNotificationsStore.getState().setDbNotifications(validNotifications);
 
+        // Show toast for newly added notifications
         snapshot.docChanges().forEach((change) => {
           if (change.type !== 'added') return;
           const notification = change.doc.data() as Omit<DbNotification, 'id'>;

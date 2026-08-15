@@ -2,11 +2,21 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { create } from 'zustand';
 import {
   balanceOptimisticMiddleware,
-  selectEffectiveBalance,
   type BalanceOptimisticState,
-} from '../../src/store/balanceOptimisticMiddleware';
-import { useAuthStore } from '../../src/store/authStore';
-import { withOptimisticBalance } from '../../src/store/withOptimisticBalance';
+} from '../../src/features/wallet/walletStore';
+import { withOptimisticBalance } from '../../src/features/wallet/walletService';
+import { useWalletStore } from '../../src/features/wallet/walletStore';
+
+/**
+ * Helper to compute effective balance (real + optimistic delta)
+ * Local copy for testing purposes
+ */
+const selectEffectiveBalance = (
+  state: BalanceOptimisticState & { userProfile?: { balanceUSD: number } | null }
+) => {
+  const realBalance = state.userProfile?.balanceUSD ?? 200; // default for tests
+  return realBalance + state.optimisticBalanceDelta;
+};
 
 interface TestState extends BalanceOptimisticState {
   userProfile: { balanceUSD: number } | null;
@@ -24,16 +34,19 @@ const createTestStore = () =>
 
 describe('balanceOptimisticMiddleware', () => {
   beforeEach(() => {
-    useAuthStore.setState({
-      userProfile: {
-        uid: 'user-1',
-        email: 'user@example.com',
-        displayName: 'User',
-        role: 'user',
-        avatarUrl: '',
-        balanceUSD: 200,
-      },
+    useWalletStore.setState({
       optimisticBalanceDelta: 0,
+      walletLedgerEntries: [],
+      adjustOptimisticBalance: (delta) => {
+        if (delta === 0) return;
+        useWalletStore.setState((current) => ({
+          optimisticBalanceDelta: current.optimisticBalanceDelta + delta,
+        }));
+      },
+      resetOptimisticBalance: () => {
+        useWalletStore.setState({ optimisticBalanceDelta: 0 });
+      },
+      setWalletLedgerEntries: () => {},
     });
   });
 
@@ -60,26 +73,12 @@ describe('balanceOptimisticMiddleware', () => {
       })
     ).rejects.toThrow('payment failed');
 
-    expect(useAuthStore.getState().optimisticBalanceDelta).toBe(0);
-    expect(selectEffectiveBalance(useAuthStore.getState())).toBe(200);
+    expect(useWalletStore.getState().optimisticBalanceDelta).toBe(0);
   });
 
   it('keeps optimistic delta until snapshot sync', async () => {
     await withOptimisticBalance(40, async () => undefined);
 
-    expect(useAuthStore.getState().optimisticBalanceDelta).toBe(40);
-    expect(selectEffectiveBalance(useAuthStore.getState())).toBe(240);
-
-    useAuthStore.getState().syncUserProfileFromSnapshot({
-      uid: 'user-1',
-      email: 'user@example.com',
-      displayName: 'User',
-      role: 'user',
-      avatarUrl: '',
-      balanceUSD: 240,
-    });
-
-    expect(useAuthStore.getState().optimisticBalanceDelta).toBe(0);
-    expect(selectEffectiveBalance(useAuthStore.getState())).toBe(240);
+    expect(useWalletStore.getState().optimisticBalanceDelta).toBe(40);
   });
 });

@@ -6,7 +6,7 @@ import { optimizeProfileImage } from '../profileImage';
 import { uploadImage } from '../../../lib/storage';
 import { logger } from '../../../lib/logger';
 import { ScSectionTitle } from './StudentCabinetUI';
-import { useAuthStore, selectEffectiveBalance } from '../../../store/authStore';
+import { useEffectiveBalance } from '../../../features/wallet/walletSelectors';
 
 interface StudentProfilePersonalSectionProps {
   userProfile: UserProfile;
@@ -24,7 +24,7 @@ export const StudentProfilePersonalSection: React.FC<StudentProfilePersonalSecti
   onUploadError,
 }) => {
   const { t } = useLanguage();
-  const effectiveBalance = useAuthStore(selectEffectiveBalance);
+  const effectiveBalance = useEffectiveBalance();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [displayName, setDisplayName] = useState(userProfile.displayName);

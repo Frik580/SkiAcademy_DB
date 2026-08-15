@@ -46,7 +46,7 @@ import { toggleCompletedRecommendationIds } from '../lib/lessonRecommendations';
 import { clearStudentBookings, clearCancelledBookings } from '../lib/clearStudentBookings';
 import { notify, t } from './storeContext';
 import { useAuthStore } from './authStore';
-import { withOptimisticBalance } from './withOptimisticBalance';
+import { withOptimisticBalance } from '../features/wallet/walletService';
 
 interface DeletedCompletedStats {
   revenue: number;

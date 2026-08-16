@@ -3,6 +3,8 @@ import { enrollInCourse, isActiveCourseEnrollment } from '../../lib/courseTransa
 import { stripUndefinedFields } from '../../lib/courseClone';
 import { Course, Booking } from '../../types';
 import { logger } from '../../lib/logger';
+import { createNotificationForUser } from '../../lib/notifications';
+import { buildNotification, translateKey } from '../../lib/notificationText';
 
 export async function addCourseService(course: Course): Promise<void> {
   await setDoc(
@@ -25,6 +27,31 @@ export async function enrollInCourseService(
   language: 'en' | 'ru'
 ): Promise<{ courseTitle: string }> {
   return enrollInCourse(db, userId, courseId, language);
+}
+
+export async function notifyCourseModifiedService(
+  course: Course,
+  oldCourse: Course | undefined,
+  courseBookings: Booking[]
+): Promise<void> {
+  const buildCourseModifiedMessage = (lang: 'en' | 'ru') => {
+    let changeDetails = '';
+    if (oldCourse?.title !== course.title) {
+      changeDetails += `${translateKey('courseModifiedTitleLine', lang)} "${course.title}".\n`;
+    }
+    if (oldCourse?.dates !== course.dates) {
+      changeDetails += `${translateKey('courseModifiedDatesLine', lang)} ${course.dates}.\n`;
+    }
+    return `${translateKey('courseModifiedHeader', lang)} "${course.title}":\n${changeDetails || translateKey('courseModifiedDefault', lang)}`;
+  };
+
+  for (const booking of courseBookings) {
+    await createNotificationForUser(
+      booking.userId,
+      buildNotification('courseModified', buildCourseModifiedMessage),
+      'warning'
+    );
+  }
 }
 
 export async function syncCourseSeatsService(

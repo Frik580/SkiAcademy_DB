@@ -1,5 +1,4 @@
-import { useCourseStore } from '../../store/courseStore';
+import type { CoursesState } from './coursesStore';
 import { Course } from '../../types';
 
-export const selectCourses = (state: ReturnType<typeof useCourseStore.getState>): Course[] =>
-  state.courses;
+export const selectCourses = (state: CoursesState): Course[] => state.courses;

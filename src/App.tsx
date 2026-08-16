@@ -8,7 +8,7 @@ import { useTheme } from './hooks/useTheme';
 import { useResortStats } from './hooks/useResortStats';
 import { useInstructorFilters } from './hooks/useInstructorFilters';
 import { AppRoutes } from './components/AppRoutes';
-import { ModalHost } from './components/ModalHost';
+import { ModalHost } from './features/ui/ModalHost';
 
 import { logger } from './lib/logger';
 import { applyDesignThemeToDOM } from './lib/designTheme';
@@ -23,7 +23,7 @@ import { useProfileStore } from './features/profile/profileStore';
 import { useNotificationsStore } from './features/notifications/notificationsStore';
 import { useUnreadNotificationCount } from './features/notifications/notificationsSelectors';
 import { useBookingStore } from './store/bookingStore';
-import { useUiStore } from './store/uiStore';
+import { useUiStore } from './features/ui/uiStore';
 import { useStoreSync } from './store/useStoreSync';
 
 const AppContent: React.FC = () => {

@@ -25,6 +25,7 @@ import { useBookingStore } from '../store/bookingStore';
 import { useCourseStore } from '../store/courseStore';
 import { useWalletStore } from '../features/wallet/walletStore';
 import { useUiStore } from '../store/uiStore';
+import { useAdminStore } from '../features/admin/adminStore';
 
 const AdminPanel = React.lazy(() =>
   import('./AdminPanel').then(({ AdminPanel }) => ({ default: AdminPanel }))
@@ -362,33 +363,33 @@ const AdminRouteWrapper: React.FC = () => {
 
   const { translatedInstructors } = useInstructorFilters(language);
 
-  const handleToggleFilters = useUiStore((s) => s.handleToggleFilters);
-  const handleToggleOnboarding = useUiStore((s) => s.handleToggleOnboarding);
-  const handleSetNotificationRetentionDays = useUiStore(
+  const handleToggleFilters = useAdminStore((s) => s.handleToggleFilters);
+  const handleToggleOnboarding = useAdminStore((s) => s.handleToggleOnboarding);
+  const handleSetNotificationRetentionDays = useAdminStore(
     (s) => s.handleSetNotificationRetentionDays
   );
-  const handleUpdateSkillConfig = useUiStore((s) => s.handleUpdateSkillConfig);
-  const handleUpdateAchievementsConfig = useUiStore((s) => s.handleUpdateAchievementsConfig);
-  const handleUpdateUserRole = useProfileStore((s) => s.handleUpdateUserRole);
-  const handleAddInstructor = useBookingStore((s) => s.handleAddInstructor);
-  const handleUpdateInstructor = useBookingStore((s) => s.handleUpdateInstructor);
-  const handleDeleteInstructor = useBookingStore((s) => s.handleDeleteInstructor);
-  const handleConfirmBooking = useBookingStore((s) => s.handleConfirmBooking);
-  const handleCompleteBooking = useBookingStore((s) => s.handleCompleteBooking);
-  const handleLinkGuestBooking = useBookingStore((s) => s.handleLinkGuestBooking);
-  const handleCancel = useBookingStore((s) => s.handleCancel);
-  const handleAddUser = useProfileStore((s) => s.handleAddUser);
-  const handleUpdateUser = useProfileStore((s) => s.handleUpdateUser);
-  const handleDeleteUser = useProfileStore((s) => s.handleDeleteUser);
-  const handleReschedule = useBookingStore((s) => s.handleReschedule);
-  const handleReassignInstructor = useBookingStore((s) => s.handleReassignInstructor);
-  const handleDeleteBooking = useBookingStore((s) => s.handleDeleteBooking);
-  const handleAddBooking = useBookingStore((s) => s.handleAddBooking);
-  const handleAddCourse = useCourseStore((s) => s.handleAddCourse);
-  const handleUpdateCourse = useCourseStore((s) => s.handleUpdateCourse);
-  const handleDeleteCourse = useCourseStore((s) => s.handleDeleteCourse);
-  const handleClearStudentBookings = useBookingStore((s) => s.handleClearStudentBookings);
-  const handleClearCancelledBookings = useBookingStore((s) => s.handleClearCancelledBookings);
+  const handleUpdateSkillConfig = useAdminStore((s) => s.handleUpdateSkillConfig);
+  const handleUpdateAchievementsConfig = useAdminStore((s) => s.handleUpdateAchievementsConfig);
+  const handleUpdateUserRole = useAdminStore((s) => s.handleUpdateUserRole);
+  const handleAddInstructor = useAdminStore((s) => s.handleAddInstructor);
+  const handleUpdateInstructor = useAdminStore((s) => s.handleUpdateInstructor);
+  const handleDeleteInstructor = useAdminStore((s) => s.handleDeleteInstructor);
+  const handleConfirmBooking = useAdminStore((s) => s.handleConfirmBooking);
+  const handleCompleteBooking = useAdminStore((s) => s.handleCompleteBooking);
+  const handleLinkGuestBooking = useAdminStore((s) => s.handleLinkGuestBooking);
+  const handleCancel = useAdminStore((s) => s.handleCancelBooking);
+  const handleAddUser = useAdminStore((s) => s.handleAddUser);
+  const handleUpdateUser = useAdminStore((s) => s.handleUpdateUser);
+  const handleDeleteUser = useAdminStore((s) => s.handleDeleteUser);
+  const handleReschedule = useAdminStore((s) => s.handleRescheduleBooking);
+  const handleReassignInstructor = useAdminStore((s) => s.handleReassignInstructor);
+  const handleDeleteBooking = useAdminStore((s) => s.handleDeleteBooking);
+  const handleAddBooking = useAdminStore((s) => s.handleAddBooking);
+  const handleAddCourse = useAdminStore((s) => s.handleAddCourse);
+  const handleUpdateCourse = useAdminStore((s) => s.handleUpdateCourse);
+  const handleDeleteCourse = useAdminStore((s) => s.handleDeleteCourse);
+  const handleClearStudentBookings = useAdminStore((s) => s.handleClearStudentBookings);
+  const handleClearCancelledBookings = useAdminStore((s) => s.handleClearCancelledBookings);
 
   return (
     <AdminRoute userProfile={userProfile}>

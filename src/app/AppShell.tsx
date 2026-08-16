@@ -16,7 +16,7 @@ import { useAuthStore } from '../features/auth/authStore';
 import { useProfileStore } from '../features/profile/profileStore';
 import { useNotificationsStore } from '../features/notifications/notificationsStore';
 import { useUnreadNotificationCount } from '../features/notifications/notificationsSelectors';
-import { useBookingStore } from '../store/bookingStore';
+import { useBookingsStore } from '../features/bookings/bookingsStore';
 import { useUiStore } from '../features/ui/uiStore';
 
 export const AppShell: React.FC = () => {
@@ -30,8 +30,8 @@ export const AppShell: React.FC = () => {
   const dismissedReviewIds = useProfileStore((s) => s.dismissedReviewIds);
   const handleSignOut = useAuthStore((s) => s.handleSignOut);
 
-  const bookings = useBookingStore((s) => s.bookings);
-  const reviews = useBookingStore((s) => s.reviews);
+  const bookings = useBookingsStore((s) => s.bookings);
+  const reviews = useBookingsStore((s) => s.reviews);
 
   const unreadNotificationCount = useUnreadNotificationCount();
   const handleMarkNotificationsAsRead = useNotificationsStore(

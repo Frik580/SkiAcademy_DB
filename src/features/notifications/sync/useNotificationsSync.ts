@@ -8,7 +8,7 @@ import {
 } from '../../../lib/notificationCleanup';
 import { resolveNotificationText, type DbNotification } from '../../../lib/notificationText';
 import { useAuthStore } from '../../auth/authStore';
-import { useUiStore } from '../../../store/uiStore';
+import { useSettingsStore } from '../../settings/settingsStore';
 import { notify, getLanguage } from '../../../store/storeContext';
 import { useNotificationsStore } from '../notificationsStore';
 
@@ -19,7 +19,7 @@ import { useNotificationsStore } from '../notificationsStore';
  */
 export const useNotificationsSync = () => {
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
-  const notificationRetentionDays = useUiStore((s) => s.notificationRetentionDays);
+  const notificationRetentionDays = useSettingsStore((s) => s.notificationRetentionDays);
 
   // Cleanup expired notifications periodically
   useEffect(() => {

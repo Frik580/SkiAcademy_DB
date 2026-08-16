@@ -1,3 +1,4 @@
+/** @deprecated Import from features/courses/coursesStore. */
 export {
   useCoursesStore,
   useCourseStore,

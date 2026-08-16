@@ -8,6 +8,7 @@ import { registerFirestoreErrorListener } from '../lib/firebase';
 import { logger } from '../lib/logger';
 import { useAuthStore } from '../features/auth/authStore';
 import { useProfileStore } from '../features/profile/profileStore';
+import { useSettingsStore } from '../features/settings/settingsStore';
 import { useUiStore } from '../features/ui/uiStore';
 import { AppInitSkeleton } from '../components/ui/Skeleton';
 
@@ -34,8 +35,8 @@ export const AppBootstrap: React.FC<AppBootstrapProps> = ({ children }) => {
 
   const authLoading = useAuthStore((s) => s.authLoading);
   const userProfile = useProfileStore((s) => s.userProfile);
-  const designTheme = useUiStore((s) => s.designTheme);
-  const onboardingEnabled = useUiStore((s) => s.onboardingEnabled);
+  const designTheme = useSettingsStore((s) => s.designTheme);
+  const onboardingEnabled = useSettingsStore((s) => s.onboardingEnabled);
   const setIsOnboardingOpen = useUiStore((s) => s.setIsOnboardingOpen);
   const setDbStatusWarning = useUiStore((s) => s.setDbStatusWarning);
 

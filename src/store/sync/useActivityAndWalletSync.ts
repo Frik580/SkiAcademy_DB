@@ -7,9 +7,9 @@ import { syncAchievementActivityLogs } from '../../lib/achievements';
 import { migrateAvailabilitySlots } from '../../lib/availabilityMigration';
 import { useAuthStore } from '../../features/auth/authStore';
 import { useProfileStore } from '../../features/profile/profileStore';
-import { useBookingStore } from '../bookingStore';
-import { useCourseStore } from '../courseStore';
-import { useUiStore } from '../uiStore';
+import { useBookingsStore as useBookingStore } from '../../features/bookings/bookingsStore';
+import { useCoursesStore as useCourseStore } from '../../features/courses/coursesStore';
+import { useSettingsStore } from '../../features/settings/settingsStore';
 import { useDataSyncScope } from '../useDataSyncScope';
 
 export const useActivityAndWalletSync = () => {
@@ -21,8 +21,8 @@ export const useActivityAndWalletSync = () => {
   const bookingsLoaded = useBookingStore((s) => s.bookingsLoaded);
   const reviews = useBookingStore((s) => s.reviews);
   const courses = useCourseStore((s) => s.courses);
-  const skillConfig = useUiStore((s) => s.skillConfig);
-  const achievementsConfig = useUiStore((s) => s.achievementsConfig);
+  const skillConfig = useSettingsStore((s) => s.skillConfig);
+  const achievementsConfig = useSettingsStore((s) => s.achievementsConfig);
   const migrationRunningRef = useRef(false);
 
   // Activity logs — lazy: admin, instructor workspace, or student cabinet

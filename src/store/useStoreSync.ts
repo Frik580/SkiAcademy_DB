@@ -1,5 +1,5 @@
 import { useAuthSync } from './sync/useAuthSync';
-import { useSettingsSync } from './sync/useSettingsSync';
+import { useSettingsSync } from '../features/settings/sync/useSettingsSync';
 import { useBookingsSync } from '../features/bookings/sync/useBookingsSync';
 import { useCoursesSync } from '../features/courses/sync/useCoursesSync';
 import { useNotificationsSync } from '../features/notifications/sync/useNotificationsSync';

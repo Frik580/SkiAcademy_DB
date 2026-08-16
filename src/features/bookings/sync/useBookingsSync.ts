@@ -12,7 +12,7 @@ import {
   query,
   where,
 } from '../../../lib/firebase';
-import { Booking, Review, UserProfile } from '../../../types';
+import { Booking, Instructor, Review, UserProfile } from '../../../types';
 import { QUERY_LIMITS } from '../../../lib/queryLimits';
 import { logger } from '../../../lib/logger';
 import { useAuthStore } from '../../auth/authStore';
@@ -24,6 +24,25 @@ export const useBookingsSync = () => {
   const { shouldSyncUsersList, shouldSyncReviews } = useDataSyncScope();
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const userProfile = useProfileStore((s) => s.userProfile);
+
+  // Instructors are read alongside bookings because they are booking catalogue data.
+  useEffect(() => {
+    const instructorsQuery = query(collection(db, 'instructors'), limit(QUERY_LIMITS.instructors));
+
+    return onSnapshot(
+      instructorsQuery,
+      (snapshot) => {
+        useBookingsStore
+          .getState()
+          .setInstructors(
+            snapshot.docs.map(
+              (instructorDoc) => ({ id: instructorDoc.id, ...instructorDoc.data() }) as Instructor
+            )
+          );
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'instructors')
+    );
+  }, []);
 
   // Reviews listener
   useEffect(() => {

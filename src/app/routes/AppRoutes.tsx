@@ -19,8 +19,9 @@ import { LazyLoad } from '../../components/LazyLoad';
 import { CardSkeleton, Skeleton } from '../../components/ui/Skeleton';
 
 import { useProfileStore } from '../../features/profile/profileStore';
-import { useBookingStore } from '../../store/bookingStore';
-import { useCourseStore } from '../../store/courseStore';
+import { useBookingsStore as useBookingStore } from '../../features/bookings/bookingsStore';
+import { useCoursesStore as useCourseStore } from '../../features/courses/coursesStore';
+import { useSettingsStore } from '../../features/settings/settingsStore';
 import { useWalletStore } from '../../features/wallet/walletStore';
 import { useUiStore } from '../../features/ui/uiStore';
 import { useAdminStore } from '../../features/admin/adminStore';
@@ -86,8 +87,8 @@ const PersonalCabinetPage: React.FC<{
   const activityLogs = useProfileStore((s) => s.activityLogs);
   const walletLedgerEntries = useWalletStore((s) => s.walletLedgerEntries);
   const courses = useCourseStore((s) => s.courses);
-  const skillConfig = useUiStore((s) => s.skillConfig);
-  const achievementsConfig = useUiStore((s) => s.achievementsConfig);
+  const skillConfig = useSettingsStore((s) => s.skillConfig);
+  const achievementsConfig = useSettingsStore((s) => s.achievementsConfig);
 
   const handleDismissReview = useProfileStore((s) => s.handleDismissReview);
   const handleReschedule = useBookingStore((s) => s.handleReschedule);
@@ -184,7 +185,7 @@ const InstructorRouteWrapper: React.FC<AppRoutesProps> = () => {
   const reviews = useBookingStore((s) => s.reviews);
   const courses = useCourseStore((s) => s.courses);
   const usersList = useProfileStore((s) => s.usersList);
-  const skillConfig = useUiStore((s) => s.skillConfig);
+  const skillConfig = useSettingsStore((s) => s.skillConfig);
 
   return (
     <InstructorRoute userProfile={userProfile}>
@@ -213,9 +214,9 @@ const HomeRoute: React.FC<AppRoutesProps> = ({ resortData, setIsFahrenheit }) =>
   const userProfile = useProfileStore((s) => s.userProfile);
   const courses = useCourseStore((s) => s.courses);
   const bookings = useBookingStore((s) => s.bookings);
-  const filtersEnabled = useUiStore((s) => s.filtersEnabled);
-  const designTheme = useUiStore((s) => s.designTheme);
-  const skillConfig = useUiStore((s) => s.skillConfig);
+  const filtersEnabled = useSettingsStore((s) => s.filtersEnabled);
+  const designTheme = useSettingsStore((s) => s.designTheme);
+  const skillConfig = useSettingsStore((s) => s.skillConfig);
   const handleBookCourse = useCourseStore((s) => s.handleBookCourse);
   const setSelectedInstructor = useUiStore((s) => s.setSelectedInstructor);
   const setSelectedCourseForAuth = useUiStore((s) => s.setSelectedCourseForAuth);
@@ -357,11 +358,11 @@ const AdminRouteWrapper: React.FC = () => {
   const usersList = useProfileStore((s) => s.usersList);
   const courses = useCourseStore((s) => s.courses);
   const deletedCompletedStats = useBookingStore((s) => s.deletedCompletedStats);
-  const filtersEnabled = useUiStore((s) => s.filtersEnabled);
-  const onboardingEnabled = useUiStore((s) => s.onboardingEnabled);
-  const notificationRetentionDays = useUiStore((s) => s.notificationRetentionDays);
-  const skillConfig = useUiStore((s) => s.skillConfig);
-  const achievementsConfig = useUiStore((s) => s.achievementsConfig);
+  const filtersEnabled = useSettingsStore((s) => s.filtersEnabled);
+  const onboardingEnabled = useSettingsStore((s) => s.onboardingEnabled);
+  const notificationRetentionDays = useSettingsStore((s) => s.notificationRetentionDays);
+  const skillConfig = useSettingsStore((s) => s.skillConfig);
+  const achievementsConfig = useSettingsStore((s) => s.achievementsConfig);
 
   const { translatedInstructors } = useInstructorFilters(language);
 

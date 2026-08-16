@@ -12,7 +12,7 @@ import {
   type TodayTaskRef,
 } from '../../lib/todayChecklist';
 import { notify, t } from '../../store/storeContext';
-import { useUiStore } from '../../store/uiStore';
+import { useSettingsStore } from '../settings/settingsStore';
 import {
   updateUserProfileService,
   updateUserRoleService,
@@ -122,7 +122,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   handlePinSkillsToday: async (skillItemIds) => {
     const { userProfile } = get();
     if (!userProfile || skillItemIds.length === 0) return;
-    const skillConfig = useUiStore.getState().skillConfig;
+    const skillConfig = useSettingsStore.getState().skillConfig;
     const addedTitles = getNewlyPinnedSkillTitles(userProfile, skillItemIds, skillConfig.items);
     const updated = buildPinSkillsTodayUpdate(userProfile, skillItemIds);
     await get().handleUpdateProfile(updated);

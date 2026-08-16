@@ -11,7 +11,7 @@ import { useAuthStore } from '../auth/authStore';
 import { useProfileStore } from '../profile/profileStore';
 import { useBookingsStore } from '../bookings/bookingsStore';
 import { useCoursesStore } from '../courses/coursesStore';
-import { useUiStore } from '../../store/uiStore';
+import { useSettingsStore } from '../settings/settingsStore';
 import { withOptimisticBalance } from '../wallet/walletService';
 import {
   updateUserRoleService,
@@ -341,22 +341,22 @@ export const useAdminStore = create<AdminState>(() => ({
   },
 
   handleToggleFilters: async (enabled) => {
-    await useUiStore.getState().handleToggleFilters(enabled);
+    await useSettingsStore.getState().handleToggleFilters(enabled);
   },
 
   handleToggleOnboarding: async (enabled) => {
-    await useUiStore.getState().handleToggleOnboarding(enabled);
+    await useSettingsStore.getState().handleToggleOnboarding(enabled);
   },
 
   handleSetNotificationRetentionDays: async (days) => {
-    await useUiStore.getState().handleSetNotificationRetentionDays(days);
+    await useSettingsStore.getState().handleSetNotificationRetentionDays(days);
   },
 
   handleUpdateSkillConfig: async (config) => {
-    await useUiStore.getState().handleUpdateSkillConfig(config);
+    await useSettingsStore.getState().handleUpdateSkillConfig(config);
   },
 
   handleUpdateAchievementsConfig: async (config) => {
-    await useUiStore.getState().handleUpdateAchievementsConfig(config);
+    await useSettingsStore.getState().handleUpdateAchievementsConfig(config);
   },
 }));

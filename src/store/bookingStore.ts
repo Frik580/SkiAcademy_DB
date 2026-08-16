@@ -1,3 +1,4 @@
+/** @deprecated Import from features/bookings/bookingsStore. */
 export {
   useBookingsStore,
   useBookingStore,

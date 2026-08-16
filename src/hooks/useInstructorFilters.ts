@@ -1,15 +1,16 @@
 import { useCallback, useMemo } from 'react';
 import { Instructor } from '../types';
 import { Language, translateInstructor } from '../lib/LanguageContext';
-import { useBookingStore } from '../store/bookingStore';
-import { useUiStore } from '../store/uiStore';
+import { useBookingsStore } from '../features/bookings/bookingsStore';
+import { useSettingsStore } from '../features/settings/settingsStore';
+import { useUiStore } from '../features/ui/uiStore';
 
 export type InstructorSortBy = 'rating' | 'priceAsc' | 'priceDesc' | 'experience';
 export type InstructorSpecialty = 'all' | 'ski' | 'snowboard' | 'both';
 
 export const useInstructorFilters = (language: Language) => {
-  const instructors = useBookingStore((s) => s.instructors);
-  const filtersEnabled = useUiStore((s) => s.filtersEnabled);
+  const instructors = useBookingsStore((s) => s.instructors);
+  const filtersEnabled = useSettingsStore((s) => s.filtersEnabled);
   const searchQuery = useUiStore((s) => s.searchQuery);
   const selectedSpecialty = useUiStore((s) => s.selectedSpecialty);
   const selectedLanguage = useUiStore((s) => s.selectedLanguage);

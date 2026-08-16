@@ -1,4 +1,4 @@
-import { useBookingStore } from '../store/bookingStore';
+import { useBookingsStore as useBookingStore } from '../features/bookings/bookingsStore';
 
 /** @deprecated Use useBookingStore directly. Kept for unit test compatibility. */
 export const useBookings = () => {

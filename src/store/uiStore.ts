@@ -1,6 +1,7 @@
+/**
+ * @deprecated Import UI state from features/ui/uiStore and server settings from
+ * features/settings/settingsStore. Settings such as `notification_retention`
+ * and `handleSetNotificationRetentionDays` now belong to the settings domain.
+ */
 export * from '../features/ui/uiStore';
-import type { UiState } from '../features/ui/uiStore';
-
-// Retention keys and handler signature references for backwards compatibility and static analysis
-export const NOTIFICATION_RETENTION_SETTING_KEY = 'notification_retention';
-export type HandleSetNotificationRetentionDays = UiState['handleSetNotificationRetentionDays'];
+export { useSettingsStore } from '../features/settings/settingsStore';

@@ -6,11 +6,9 @@ import { useBookingsStore } from '../bookings/bookingsStore';
 import { useBookingActions } from '../bookings/useBookingActions';
 import { useCoursesStore } from '../courses/coursesStore';
 import { useCourseActions } from '../courses/useCourseActions';
-import { useNotificationsStore } from '../notifications/notificationsStore';
-import { useNotificationActions } from '../notifications/useNotificationActions';
-import { OnboardingModal } from '../../components/OnboardingModal';
+import { NotificationsPanel } from '../notifications/NotificationsPanel';
+import { OnboardingFlow } from '../profile/OnboardingFlow';
 import { AuthModal } from '../../components/AuthModal';
-import { NotificationHubModal } from '../../components/PushNotificationHub';
 import { LazyLoad } from '../../components/LazyLoad';
 import { ModalSkeleton } from '../../components/ui/Skeleton';
 import { BodyScrollLock } from '../../components/ui/BodyScrollLock';
@@ -49,9 +47,6 @@ export const ModalHost: React.FC<ModalRegistryProps> = ({
   const { t, language } = useLanguage();
 
   const userProfile = useProfileStore((s) => s.userProfile);
-  const dismissedReviewIds = useProfileStore((s) => s.dismissedReviewIds);
-  const handleDismissReview = useProfileStore((s) => s.handleDismissReview);
-
   const bookings = useBookingsStore((s) => s.bookings);
   const reviews = useBookingsStore((s) => s.reviews);
   const instructors = useBookingsStore((s) => s.instructors);
@@ -60,14 +55,8 @@ export const ModalHost: React.FC<ModalRegistryProps> = ({
   const courses = useCoursesStore((s) => s.courses);
   const { handleBookCourse } = useCourseActions();
 
-  const dbNotifications = useNotificationsStore((s) => s.dbNotifications);
-  const { handleClearNotifications, handleDeleteNotification } = useNotificationActions();
-
-  const isOnboardingOpen = useUiStore((s) => s.isOnboardingOpen);
   const isAuthModalOpen = useUiStore((s) => s.isAuthModalOpen);
   const setIsAuthModalOpen = useUiStore((s) => s.setIsAuthModalOpen);
-  const isNotifHistoryOpen = useUiStore((s) => s.isNotifHistoryOpen);
-  const setIsNotifHistoryOpen = useUiStore((s) => s.setIsNotifHistoryOpen);
   const selectedInstructor = useUiStore((s) => s.selectedInstructor);
   const setSelectedInstructor = useUiStore((s) => s.setSelectedInstructor);
   const selectedCourseForAuth = useUiStore((s) => s.selectedCourseForAuth);
@@ -79,9 +68,8 @@ export const ModalHost: React.FC<ModalRegistryProps> = ({
 
   return (
     <>
-      <OnboardingModal
-        isOpen={isOnboardingOpen}
-        onClose={onCompleteOnboarding}
+      <OnboardingFlow
+        onComplete={onCompleteOnboarding}
         onScheduleFirstLesson={onScheduleFirstLessonFromOnboarding}
       />
 
@@ -146,18 +134,7 @@ export const ModalHost: React.FC<ModalRegistryProps> = ({
         </LazyLoad>
       )}
 
-      <NotificationHubModal
-        isOpen={isNotifHistoryOpen}
-        onClose={() => setIsNotifHistoryOpen(false)}
-        bookings={bookings}
-        reviews={reviews}
-        userProfile={userProfile}
-        dismissedReviewIds={dismissedReviewIds}
-        onDismissReview={handleDismissReview}
-        dbNotifications={dbNotifications}
-        onClearNotifications={handleClearNotifications}
-        onDeleteNotification={handleDeleteNotification}
-      />
+      <NotificationsPanel />
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </>

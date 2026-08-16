@@ -5,6 +5,7 @@ import { buildStudentHistory, HistoryFilter } from './studentCabinetUtils';
 import { ScSectionTitle, StudentPanelBackLink } from './StudentCabinetUI';
 import { StudentHistoryList } from './StudentHistoryList';
 import { useProfileStore } from '../../../features/profile/profileStore';
+import { ActionButton } from '../../ui/ActionButton';
 
 interface StudentHistoryPanelProps {
   userProfile: UserProfile;
@@ -81,13 +82,9 @@ export const StudentHistoryPanel: React.FC<StudentHistoryPanelProps> = ({
         />
         {activityLogsHasMore && (
           <div className="flex justify-center pt-3">
-            <button
-              type="button"
-              onClick={loadMoreActivityLogs}
-              className="border border-[var(--border)] px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink)]"
-            >
+            <ActionButton onClick={loadMoreActivityLogs} size="sm">
               Load more history
-            </button>
+            </ActionButton>
           </div>
         )}
       </section>

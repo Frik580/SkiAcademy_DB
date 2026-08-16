@@ -4,6 +4,8 @@ import { ErrorLog } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
 import { TableSkeleton } from '../ui/Skeleton';
+import { ActionButton } from '../ui/ActionButton';
+import { StateCard } from '../ui/StateCard';
 import { logger } from '../../lib/logger';
 import { QUERY_LIMITS } from '../../lib/queryLimits';
 import {
@@ -87,25 +89,21 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
     <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
       {errorLogs.length > 0 && (
         <div className="flex items-center justify-end border-b border-[var(--border)] pb-3">
-          <button
-            onClick={handleClearAllLogs}
-            className="py-1.5 px-3 border border-rose-900/40 hover:border-rose-500 text-rose-500 hover:bg-rose-950/10 rounded-none text-xs flex items-center gap-1.5 transition cursor-pointer font-mono"
-          >
+          <ActionButton onClick={handleClearAllLogs} variant="danger" size="sm">
             <Trash2 className="w-3.5 h-3.5" />
             {t('clearAllLogs')}
-          </button>
+          </ActionButton>
         </div>
       )}
 
       {hasMoreLogs && (
         <div className="flex justify-end">
-          <button
-            type="button"
+          <ActionButton
             onClick={() => setPageSize((current) => current + QUERY_LIMITS.errorLogs)}
-            className="border border-[var(--border)] px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink)] transition hover:border-[var(--ink)]"
+            size="sm"
           >
             Load more logs
-          </button>
+          </ActionButton>
         </div>
       )}
 
@@ -143,9 +141,7 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
       {errorLogsLoading ? (
         <TableSkeleton rows={5} cols={4} />
       ) : filteredLogs.length === 0 ? (
-        <div className="border border-[var(--border)] border-dashed p-12 text-center text-xs text-[var(--ink-dim)] font-mono">
-          {t('noErrorLogsMatch')}
-        </div>
+        <StateCard title={t('noErrorLogsMatch')} />
       ) : (
         <div className="border border-[var(--border)] divide-y divide-[var(--border)] max-h-[500px] overflow-y-auto w-full">
           {filteredLogs.map((log) => (

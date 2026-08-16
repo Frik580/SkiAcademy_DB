@@ -23,6 +23,7 @@ import {
 } from '../../lib/LanguageContext';
 import { ToggleSwitch } from '../ToggleSwitch';
 import { StatusBadge } from '../ui/StatusBadge';
+import { StateCard } from '../ui/StateCard';
 import { ScTextButton } from './student/StudentCabinetUI';
 import { BookingListScope, filterBookingsByScope } from './student/studentCabinetUtils';
 import { RecommendationIndicator } from './RecommendationIndicator';
@@ -326,26 +327,23 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
           )}
 
           {userBookings.length === 0 ? (
-            <div className="py-12 text-center space-y-2">
-              <Calendar className="w-8 h-8 text-[var(--ink-dim)] mx-auto" />
-              <p className="text-sm text-[var(--ink-dim)]">{t('noSessionsScheduledYet')}</p>
-              <p className="text-xs text-[var(--ink-dim)]">{t('browseInstructorsHint')}</p>
-            </div>
+            <StateCard
+              title={t('noSessionsScheduledYet')}
+              description={t('browseInstructorsHint')}
+              className="py-12"
+            />
           ) : displayedBookings.length === 0 ? (
-            <div className="py-10 text-center rounded-lg border border-dashed border-[var(--border-subtle)]">
-              <p className="text-sm text-[var(--ink-dim)]">
-                {selectedDateFilter ? t('noSessionsOnDate') : t('allSessionsHidden')}
-              </p>
+            <StateCard title={selectedDateFilter ? t('noSessionsOnDate') : t('allSessionsHidden')}>
               {selectedDateFilter ? (
-                <ScTextButton onClick={() => handleSelectDateFilter(null)} className="mt-2">
+                <ScTextButton onClick={() => handleSelectDateFilter(null)}>
                   {t('clearFilter')}
                 </ScTextButton>
               ) : (
-                <ScTextButton onClick={() => handleToggleHideCancelled(false)} className="mt-2">
+                <ScTextButton onClick={() => handleToggleHideCancelled(false)}>
                   {t('showCancelledSessions')}
                 </ScTextButton>
               )}
-            </div>
+            </StateCard>
           ) : (
             <div className="space-y-3">
               {paginatedBookings.map((b) => {

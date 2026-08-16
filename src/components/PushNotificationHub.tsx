@@ -4,7 +4,9 @@ import { useLanguage } from '../lib/LanguageContext';
 import { resolveNotificationText, type DbNotification } from '../lib/notificationText';
 import { useNotificationsStore } from '../features/notifications/notificationsStore';
 import { Booking, Review, UserProfile } from '../types';
+import { ActionButton } from './ui/ActionButton';
 import { BodyScrollLock } from './ui/BodyScrollLock';
+import { StateCard } from './ui/StateCard';
 
 export interface Notification {
   id: string;
@@ -273,12 +275,13 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button
+                      <ActionButton
                         onClick={() => handleTriggerReview(b.id)}
-                        className="shrink-0 text-[10px] font-mono uppercase tracking-wider border border-[var(--border)] bg-black/10 hover:border-[var(--ink)] hover:bg-black/20 text-[var(--ink)] px-2.5 py-1.5 transition cursor-pointer rounded-none"
+                        size="sm"
+                        className="shrink-0"
                       >
                         {t('reviewAction')}
-                      </button>
+                      </ActionButton>
                       {onDismissReview && (
                         <button
                           onClick={() => onDismissReview(b.id)}
@@ -304,12 +307,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
             )}
 
             {notificationsToShow.length === 0 && unreviewedCompletedBookings.length === 0 ? (
-              <div className="text-center py-8">
-                <Bell className="w-12 h-12 text-[var(--border)] mx-auto mb-2" />
-                <p className="text-sm text-[var(--ink-dim)] font-mono">
-                  {t('noActiveNotifications')}
-                </p>
-              </div>
+              <StateCard title={t('noActiveNotifications')} />
             ) : (
               notificationsToShow.map((n) => (
                 <div
@@ -358,25 +356,18 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
           </div>
           {notificationsHasMore && (
             <div className="flex justify-center pt-3">
-              <button
-                type="button"
-                onClick={loadMoreNotifications}
-                className="border border-[var(--border)] px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink)]"
-              >
+              <ActionButton onClick={loadMoreNotifications} size="sm">
                 Load more notifications
-              </button>
+              </ActionButton>
             </div>
           )}
         </div>
 
         {notificationsToShow.length > 0 && (
           <div className="p-4 border-t border-[var(--border)] flex justify-end bg-black/15">
-            <button
-              onClick={handleClearAll}
-              className="text-[10px] font-mono uppercase tracking-wider text-rose-500 hover:text-rose-600 transition cursor-pointer bg-transparent border border-rose-950/40 hover:border-rose-500 px-3 py-1.5 rounded-none"
-            >
+            <ActionButton onClick={handleClearAll} variant="danger" size="sm">
               {t('clearHistory')}
-            </button>
+            </ActionButton>
           </div>
         )}
       </div>

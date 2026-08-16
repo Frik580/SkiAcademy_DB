@@ -5,6 +5,8 @@ import { useLanguage } from '../../../lib/LanguageContext';
 import { buildWalletOperationHistory, formatWalletOperationLabel } from '../../../lib/walletLedger';
 import type { Booking, Course, WalletLedgerEntry } from '../../../types';
 import { useWalletStore } from '../../../features/wallet/walletStore';
+import { ActionButton } from '../../ui/ActionButton';
+import { StateCard } from '../../ui/StateCard';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -51,7 +53,7 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryListProps> =
   }, [operations, currentPage]);
 
   if (operations.length === 0) {
-    return <p className="text-sm text-[var(--ink-dim)]">{t('scProfileWalletHistoryEmpty')}</p>;
+    return <StateCard title={t('scProfileWalletHistoryEmpty')} />;
   }
 
   return (
@@ -124,13 +126,9 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryListProps> =
       />
       {walletLedgerHasMore && (
         <div className="flex justify-center pt-3">
-          <button
-            type="button"
-            onClick={loadMoreWalletLedger}
-            className="border border-[var(--border)] px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink)]"
-          >
+          <ActionButton onClick={loadMoreWalletLedger} size="sm">
             Load more transactions
-          </button>
+          </ActionButton>
         </div>
       )}
     </div>

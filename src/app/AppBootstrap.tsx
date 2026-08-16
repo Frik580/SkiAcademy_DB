@@ -7,7 +7,6 @@ import { applyDesignThemeToDOM } from '../lib/designTheme';
 import { registerFirestoreErrorListener } from '../lib/firebase';
 import { logger } from '../lib/logger';
 import { useAuthStore } from '../features/auth/authStore';
-import { useProfileStore } from '../features/profile/profileStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
 import { useUiStore } from '../features/ui/uiStore';
 import { useAchievementsSync } from '../features/profile/sync/useAchievementsSync';
@@ -36,10 +35,7 @@ export const AppBootstrap: React.FC<AppBootstrapProps> = ({ children }) => {
   useAchievementsSync();
 
   const authLoading = useAuthStore((s) => s.authLoading);
-  const userProfile = useProfileStore((s) => s.userProfile);
   const designTheme = useSettingsStore((s) => s.designTheme);
-  const onboardingEnabled = useSettingsStore((s) => s.onboardingEnabled);
-  const setIsOnboardingOpen = useUiStore((s) => s.setIsOnboardingOpen);
   const setDbStatusWarning = useUiStore((s) => s.setDbStatusWarning);
 
   // Apply visual theme to DOM
@@ -56,17 +52,6 @@ export const AppBootstrap: React.FC<AppBootstrapProps> = ({ children }) => {
       );
     });
   }, [t, setDbStatusWarning]);
-
-  // First-time onboarding trigger
-  useEffect(() => {
-    if (onboardingEnabled && userProfile && userProfile.hasCompletedOnboarding === false) {
-      const sessionKey = `onboarding_shown_${userProfile.uid}`;
-      if (!sessionStorage.getItem(sessionKey)) {
-        sessionStorage.setItem(sessionKey, 'true');
-        setIsOnboardingOpen(true);
-      }
-    }
-  }, [userProfile, onboardingEnabled, setIsOnboardingOpen]);
 
   if (authLoading) {
     return <AppInitSkeleton label={t('checkingCredentials')} />;

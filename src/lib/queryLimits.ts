@@ -4,6 +4,7 @@
  */
 export const QUERY_LIMITS = {
   bookings: 200,
+  bookingsPageIncrement: 200,
   notifications: 50,
   activityLogs: 100,
   reviews: 200,
@@ -11,6 +12,7 @@ export const QUERY_LIMITS = {
   courses: 200,
   instructors: 100,
   walletLedger: 100,
+  errorLogs: 100,
   chatMessages: 100,
   recentDaysForAutoComplete: 7,
 } as const;

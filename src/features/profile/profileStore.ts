@@ -13,6 +13,7 @@ import {
 } from '../../lib/todayChecklist';
 import type { SkillItem } from '../../lib/skillData';
 import { notify, t } from '../../store/storeContext';
+import { QUERY_LIMITS } from '../../lib/queryLimits';
 import {
   updateUserProfileService,
   updateUserRoleService,
@@ -27,12 +28,22 @@ export interface ProfileState {
   usersList: UserProfile[];
   dismissedReviewIds: string[];
   activityLogs: ActivityLog[];
+  usersPageSize: number;
+  usersHasMore: boolean;
+  activityLogsPageSize: number;
+  activityLogsHasMore: boolean;
 
   setUserProfile: (profile: UserProfile | null) => void;
   syncUserProfileFromSnapshot: (profile: UserProfile | null) => void;
   setUsersList: (users: UserProfile[]) => void;
   setDismissedReviewIds: (ids: string[]) => void;
   setActivityLogs: (logs: ActivityLog[]) => void;
+  setUsersHasMore: (hasMore: boolean) => void;
+  setActivityLogsHasMore: (hasMore: boolean) => void;
+  loadMoreUsers: () => void;
+  loadMoreActivityLogs: () => void;
+  resetUsersPagination: () => void;
+  resetActivityLogsPagination: () => void;
   resetProfileState: () => void;
 
   handleUpdateProfile: (updatedData: Partial<UserProfile>) => Promise<void>;
@@ -54,12 +65,24 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   usersList: [],
   dismissedReviewIds: [],
   activityLogs: [],
+  usersPageSize: QUERY_LIMITS.users,
+  usersHasMore: false,
+  activityLogsPageSize: QUERY_LIMITS.activityLogs,
+  activityLogsHasMore: false,
 
   setUserProfile: (profile) => set({ userProfile: profile }),
   syncUserProfileFromSnapshot: (profile) => set({ userProfile: profile }),
   setUsersList: (users) => set({ usersList: users }),
   setDismissedReviewIds: (ids) => set({ dismissedReviewIds: ids }),
   setActivityLogs: (logs) => set({ activityLogs: logs }),
+  setUsersHasMore: (usersHasMore) => set({ usersHasMore }),
+  setActivityLogsHasMore: (activityLogsHasMore) => set({ activityLogsHasMore }),
+  loadMoreUsers: () => set((s) => ({ usersPageSize: s.usersPageSize + QUERY_LIMITS.users })),
+  loadMoreActivityLogs: () =>
+    set((s) => ({ activityLogsPageSize: s.activityLogsPageSize + QUERY_LIMITS.activityLogs })),
+  resetUsersPagination: () => set({ usersPageSize: QUERY_LIMITS.users, usersHasMore: false }),
+  resetActivityLogsPagination: () =>
+    set({ activityLogsPageSize: QUERY_LIMITS.activityLogs, activityLogsHasMore: false }),
   resetProfileState: () =>
     set({
       userProfile: null,

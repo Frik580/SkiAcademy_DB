@@ -1,26 +1,18 @@
 import React, { useState } from 'react';
 import { FirebaseError } from 'firebase/app';
-import {
-  auth,
-  db,
-  googleProvider,
-  signInWithPopup,
-  doc,
-  setDoc,
-  getDoc,
-  handleFirestoreError,
-  OperationType,
-  migratePreExistingProfile,
-} from '../lib/firebase';
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-} from 'firebase/auth';
 import { UserProfile } from '../types';
 import { useNotifications } from './PushNotificationHub';
 import { useLanguage } from '../lib/LanguageContext';
 import { logger } from '../lib/logger';
+import {
+  getUserProfileService,
+  migrateExistingProfileService,
+  requestPasswordResetService,
+  saveUserProfileService,
+  signInWithEmailService,
+  signInWithGoogleService,
+  signUpWithEmailService,
+} from '../features/auth/authService';
 
 interface AuthProps {
   onSuccess: (profile: UserProfile) => void;
@@ -73,12 +65,11 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
         }
 
         // Register new user
-        const credentials = await createUserWithEmailAndPassword(auth, email, password);
-        const user = credentials.user;
+        const user = await signUpWithEmailService(email, password);
 
         let finalProfile: UserProfile | null = null;
         try {
-          finalProfile = await migratePreExistingProfile(user.uid, email, displayName);
+          finalProfile = await migrateExistingProfileService(user.uid, email, displayName);
         } catch (err) {
           logger.warn('Could not check/migrate pre-existing profile', err);
         }
@@ -99,12 +90,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
             finalProfile.phoneNumber = phoneNumber;
           }
 
-          const userPath = `users/${user.uid}`;
-          try {
-            await setDoc(doc(db, 'users', user.uid), finalProfile);
-          } catch (dbErr) {
-            handleFirestoreError(dbErr, OperationType.WRITE, userPath);
-          }
+          await saveUserProfileService(finalProfile);
           addNotification('success', t('authWelcomeAcademy'), t('authRegisteredCredits'));
         } else {
           addNotification(
@@ -117,13 +103,12 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
         onSuccess(finalProfile);
       } else {
         // Sign in existing user
-        const credentials = await signInWithEmailAndPassword(auth, email, password);
-        const user = credentials.user;
+        const user = await signInWithEmailService(email, password);
 
         // Check for and migrate pre-existing profile first to support self-healing
         let finalProfile: UserProfile | null = null;
         try {
-          finalProfile = await migratePreExistingProfile(user.uid, user.email || email);
+          finalProfile = await migrateExistingProfileService(user.uid, user.email || email);
         } catch (mErr) {
           logger.warn('Could not check/migrate pre-existing profile during sign-in', mErr);
         }
@@ -136,16 +121,8 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
           );
           onSuccess(finalProfile);
         } else {
-          const userRef = doc(db, 'users', user.uid);
-          let userSnap;
-          try {
-            userSnap = await getDoc(userRef);
-          } catch (dbErr) {
-            handleFirestoreError(dbErr, OperationType.GET, `users/${user.uid}`);
-          }
-
-          if (userSnap && userSnap.exists()) {
-            const profile = userSnap.data() as UserProfile;
+          const profile = await getUserProfileService(user.uid);
+          if (profile) {
             addNotification(
               'success',
               t('authLoggedIn'),
@@ -166,11 +143,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
               isClientActive: true,
               level: 1,
             };
-            try {
-              await setDoc(doc(db, 'users', user.uid), fallbackProfile);
-            } catch (dbErr) {
-              handleFirestoreError(dbErr, OperationType.WRITE, `users/${user.uid}`);
-            }
+            await saveUserProfileService(fallbackProfile);
             addNotification('info', t('authProfileSetup'), t('authProfileCreated'));
             onSuccess(fallbackProfile);
           }
@@ -227,19 +200,10 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
     setError('');
     setIsLoading(true);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+      const user = await signInWithGoogleService();
 
-      const userRef = doc(db, 'users', user.uid);
-      let userSnap;
-      try {
-        userSnap = await getDoc(userRef);
-      } catch (dbErr) {
-        handleFirestoreError(dbErr, OperationType.GET, `users/${user.uid}`);
-      }
-
-      if (userSnap && userSnap.exists()) {
-        const profile = userSnap.data() as UserProfile;
+      const profile = await getUserProfileService(user.uid);
+      if (profile) {
         addNotification(
           'success',
           t('authLoggedIn'),
@@ -249,7 +213,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
       } else {
         let finalProfile: UserProfile | null = null;
         try {
-          finalProfile = await migratePreExistingProfile(
+          finalProfile = await migrateExistingProfileService(
             user.uid,
             user.email || '',
             user.displayName || undefined
@@ -274,11 +238,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
             hasCompletedOnboarding: false,
           };
 
-          try {
-            await setDoc(doc(db, 'users', user.uid), finalProfile);
-          } catch (dbErr) {
-            handleFirestoreError(dbErr, OperationType.WRITE, `users/${user.uid}`);
-          }
+          await saveUserProfileService(finalProfile);
           addNotification('success', t('authWelcomeAcademy'), t('authGoogleLinkedCredits'));
         } else {
           const actualName = user.displayName || finalProfile.displayName;
@@ -290,19 +250,21 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
         }
         onSuccess(finalProfile);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error(err);
-      if (err.code === 'auth/popup-blocked') {
+      const errorCode = err instanceof FirebaseError ? err.code : '';
+      const errorMessage = err instanceof Error ? err.message : t('authGoogleInterrupted');
+      if (errorCode === 'auth/popup-blocked') {
         const popupMsg = t('authPopupBlockedDesc');
         setError(popupMsg);
         addNotification('error', t('authPopupBlocked'), popupMsg);
-      } else if (err.code === 'auth/network-request-failed') {
+      } else if (errorCode === 'auth/network-request-failed') {
         const netMsg = t('authNetworkError');
         setError(netMsg);
         addNotification('error', t('authNetworkErrorTitle'), netMsg);
-      } else if (err.code !== 'auth/popup-closed-by-user') {
+      } else if (errorCode !== 'auth/popup-closed-by-user') {
         setError(t('authGoogleInterrupted'));
-        addNotification('error', t('authGoogleInterruptedTitle'), err.message);
+        addNotification('error', t('authGoogleInterruptedTitle'), errorMessage);
       }
     } finally {
       setIsLoading(false);
@@ -320,19 +282,21 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
 
     setIsLoading(true);
     try {
-      await sendPasswordResetEmail(auth, email);
+      await requestPasswordResetService(email);
       addNotification(
         'success',
         t('authResetEmailSent'),
         `${t('authResetEmailPrefix')} ${email}, ${t('authResetEmailSuffix')}`
       );
       setIsForgotPassword(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Password reset error:', err);
+      const errorCode = err instanceof FirebaseError ? err.code : '';
+      const errorMessage = err instanceof Error ? err.message : '';
       const errorMsg =
-        err.code === 'auth/user-not-found'
+        errorCode === 'auth/user-not-found'
           ? t('authUserNotFound')
-          : `${t('authErrorLabel')} ${err.message}`;
+          : `${t('authErrorLabel')} ${errorMessage}`;
       setError(errorMsg);
     } finally {
       setIsLoading(false);

@@ -8,7 +8,6 @@ import {
   OperationType,
   query,
 } from '../../../lib/firebase';
-import { QUERY_LIMITS } from '../../../lib/queryLimits';
 import { toUserProfile } from '../../../lib/firestoreMappers';
 import { useAuthStore } from '../../auth/authStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
@@ -19,6 +18,11 @@ export const useUsersSync = () => {
   const { shouldSyncUsersList } = useDataSyncScope();
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const userProfile = useProfileStore((s) => s.userProfile);
+  const usersPageSize = useProfileStore((s) => s.usersPageSize);
+
+  useEffect(() => {
+    useProfileStore.getState().resetUsersPagination();
+  }, [firebaseUser?.uid, shouldSyncUsersList, userProfile?.instructorId, userProfile?.role]);
 
   useEffect(() => {
     const canReadUsers =
@@ -29,14 +33,22 @@ export const useUsersSync = () => {
     }
 
     return onSnapshot(
-      query(collection(db, 'users'), limit(QUERY_LIMITS.users)),
+      query(collection(db, 'users'), limit(usersPageSize + 1)),
       (snapshot) => {
         const users = snapshot.docs
+          .slice(0, usersPageSize)
           .filter((userDoc) => userDoc.id !== 'school_global_stats')
           .map((userDoc) => toUserProfile(userDoc.data()));
         useProfileStore.getState().setUsersList(users);
+        useProfileStore.getState().setUsersHasMore(snapshot.docs.length > usersPageSize);
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'users')
     );
-  }, [firebaseUser, userProfile?.instructorId, userProfile?.role, shouldSyncUsersList]);
+  }, [
+    firebaseUser,
+    userProfile?.instructorId,
+    userProfile?.role,
+    shouldSyncUsersList,
+    usersPageSize,
+  ]);
 };

@@ -11,9 +11,7 @@ import {
 import { useNotifications } from '../PushNotificationHub';
 import { useLanguage, parseCourseDates, getDifficultyLabel } from '../../lib/LanguageContext';
 import { logger } from '../../lib/logger';
-import { db, collection, query, getDocs, where } from '../../lib/firebase';
 import {
-  AVAILABILITY_SLOTS_COLLECTION,
   blocksInstructorAvailability,
   DEFAULT_LESSON_TIME_SLOTS,
   isBookingSlotInPast,
@@ -22,7 +20,11 @@ import {
   toAvailabilitySlot,
   toLocalDateStr,
 } from '../../lib/availabilitySlots';
-import { BookingSlotOverlapError, createGuestBooking } from '../../lib/bookingTransactions';
+import {
+  BookingSlotOverlapError,
+  createGuestBookingService,
+  getInstructorAvailabilitySlots,
+} from '../../features/bookings/bookingService';
 import { useEffectiveBalance } from '../../features/wallet/walletSelectors';
 
 export interface BookingModalInput {
@@ -115,14 +117,9 @@ export const useBookingModal = ({
         const isSandbox = userProfile?.uid?.startsWith('local_') || false;
         if (!isSandbox) {
           const slotsMap = new Map<string, AvailabilitySlot>();
-          const qSlots = query(
-            collection(db, AVAILABILITY_SLOTS_COLLECTION),
-            where('instructorId', '==', targetInstructor.id)
-          );
-          const snapSlots = await getDocs(qSlots);
-          if (snapSlots && !snapSlots.empty) {
-            snapSlots.forEach((docSnap) => {
-              const slot = docSnap.data() as AvailabilitySlot;
+          const remoteSlots = await getInstructorAvailabilitySlots(targetInstructor.id);
+          if (remoteSlots.length > 0) {
+            remoteSlots.forEach((slot) => {
               if (slot && (slot.bookingId || slot.instructorId)) {
                 const key = slot.bookingId || `${slot.instructorId}_${slot.date}_${slot.time}`;
                 slotsMap.set(key, slot);
@@ -339,7 +336,7 @@ export const useBookingModal = ({
     };
 
     try {
-      await createGuestBooking(db, guestBooking);
+      await createGuestBookingService(guestBooking);
       addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       onClose();

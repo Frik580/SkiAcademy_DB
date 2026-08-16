@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from 'react';
-import { db, doc, updateDoc, writeBatch } from '../../lib/firebase';
 import { UserProfile, Instructor, Booking, Review, Course, LessonDifficulty } from '../../types';
 import {
   useLanguage,
@@ -11,20 +10,22 @@ import { useNotifications } from '../PushNotificationHub';
 import { useTheme } from '../../hooks/useTheme';
 import { logger } from '../../lib/logger';
 import { SkillConfig, DEFAULT_SKILL_ITEMS } from '../../lib/skillData';
-import { finalizeBookingCompletion } from '../../lib/completeBooking';
-import {
-  AVAILABILITY_SLOTS_COLLECTION,
-  blocksInstructorAvailability,
-  toAvailabilitySlot,
-} from '../../lib/availabilitySlots';
 import { LessonRecommendation } from '../../types';
-import { sanitizeRecommendations } from '../../lib/lessonRecommendations';
 import { useBookingChatUnread } from '../../lib/useBookingChatUnread';
 import {
   activityLogId,
   buildBookingCompletedMetadata,
   logActivityForUser,
 } from '../../lib/activityLog';
+import {
+  completeBookingService,
+  saveBookingRecommendationsService,
+  updateBookingStatusService,
+} from '../../features/bookings/bookingService';
+import {
+  updateStudentLevelService,
+  updateStudentSkillsService,
+} from '../../features/profile/profileService';
 
 export interface InstructorWorkspaceInput {
   userProfile: UserProfile;
@@ -305,11 +306,7 @@ export const useInstructorWorkspace = ({
         }
       }
 
-      await updateDoc(doc(db, 'users', studentUid), {
-        skillScores: updatedScores,
-        skillComments: mergedComments,
-        level: calculatedLevel,
-      });
+      await updateStudentSkillsService(studentUid, updatedScores, mergedComments, calculatedLevel);
 
       const skillItems = skillConfig?.items || DEFAULT_SKILL_ITEMS;
 
@@ -389,7 +386,7 @@ export const useInstructorWorkspace = ({
       const student = usersList.find((item) => item.uid === studentUid);
       const oldLevel = student?.level ?? 1;
 
-      await updateDoc(doc(db, 'users', studentUid), { level: newLevel });
+      await updateStudentLevelService(studentUid, newLevel);
 
       if (newLevel > oldLevel) {
         await logActivityForUser(
@@ -413,8 +410,7 @@ export const useInstructorWorkspace = ({
 
   const handleSaveRecommendations = async (bookingId: string, items: LessonRecommendation[]) => {
     try {
-      const cleaned = sanitizeRecommendations(items);
-      await updateDoc(doc(db, 'bookings', bookingId), { recommendations: cleaned });
+      await saveBookingRecommendationsService(bookingId, items);
       addNotification(
         'success',
         t('instructorRecommendationsSaved'),
@@ -432,7 +428,7 @@ export const useInstructorWorkspace = ({
       if (!booking) return;
 
       if (nextStatus === 'completed') {
-        const completedBooking = await finalizeBookingCompletion(db, bookingId);
+        const completedBooking = await completeBookingService(bookingId);
         if (!completedBooking) return;
 
         await logActivityForUser(
@@ -445,18 +441,7 @@ export const useInstructorWorkspace = ({
         return;
       }
 
-      const batch = writeBatch(db);
-      batch.update(doc(db, 'bookings', bookingId), { status: nextStatus });
-      const updatedBooking = { ...booking, status: nextStatus };
-      if (blocksInstructorAvailability(updatedBooking)) {
-        batch.set(
-          doc(db, AVAILABILITY_SLOTS_COLLECTION, bookingId),
-          toAvailabilitySlot(updatedBooking)
-        );
-      } else {
-        batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, bookingId));
-      }
-      await batch.commit();
+      await updateBookingStatusService(booking, nextStatus);
     } catch (err) {
       logger.error('Error updating lesson status:', err);
     }

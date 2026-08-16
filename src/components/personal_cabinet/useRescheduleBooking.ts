@@ -2,9 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { AvailabilitySlot, Booking, Course } from '../../types';
 import { useNotifications } from '../PushNotificationHub';
 import { parseCourseDates, useLanguage } from '../../lib/LanguageContext';
-import { db, collection, query, getDocs, where } from '../../lib/firebase';
 import {
-  AVAILABILITY_SLOTS_COLLECTION,
   DEFAULT_LESSON_TIME_SLOTS,
   fitsLessonDaySchedule,
   isBookingSlotInPast,
@@ -12,6 +10,7 @@ import {
   toLocalDateStr,
 } from '../../lib/availabilitySlots';
 import { logger } from '../../lib/logger';
+import { getInstructorAvailabilitySlots } from '../../features/bookings/bookingService';
 
 interface UseRescheduleBookingOptions {
   bookings: Booking[];
@@ -57,14 +56,9 @@ export function useRescheduleBooking({
       try {
         const slotsMap = new Map<string, AvailabilitySlot>();
 
-        const q = query(
-          collection(db, AVAILABILITY_SLOTS_COLLECTION),
-          where('instructorId', '==', currentBooking.instructorId)
-        );
-        const snap = await getDocs(q);
-        if (snap && !snap.empty) {
-          snap.forEach((doc) => {
-            const b = doc.data() as AvailabilitySlot;
+        const remoteSlots = await getInstructorAvailabilitySlots(currentBooking.instructorId);
+        if (remoteSlots.length > 0) {
+          remoteSlots.forEach((b) => {
             if (b.bookingId !== rescheduleId) {
               const key = b.bookingId || `${b.instructorId}_${b.date}_${b.time}`;
               slotsMap.set(key, b);
@@ -175,21 +169,9 @@ export function useRescheduleBooking({
         return null;
       };
 
-      const q = query(
-        collection(db, AVAILABILITY_SLOTS_COLLECTION),
-        where('instructorId', '==', currentBooking.instructorId),
-        where('date', '==', newDate)
-      );
-      const snap = await getDocs(q);
-      const activeBookings: AvailabilitySlot[] = [];
-      if (snap && !snap.empty) {
-        snap.forEach((doc) => {
-          const b = doc.data() as AvailabilitySlot;
-          if (b.bookingId !== rescheduleId) {
-            activeBookings.push(b);
-          }
-        });
-      }
+      const activeBookings = (
+        await getInstructorAvailabilitySlots(currentBooking.instructorId, newDate)
+      ).filter((booking) => booking.bookingId !== rescheduleId);
       const conflictBooking = checkOverlap(
         newDate,
         newTime,

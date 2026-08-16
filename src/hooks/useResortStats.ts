@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { db, doc, getDoc, setDoc, onSnapshot } from '../lib/firebase';
+import {
+  subscribeResortConfig,
+  getResortWeatherCache,
+  saveResortWeatherCache,
+} from '../features/settings/resortService';
 import { ResortConfig } from '../types';
 import { logger } from '../lib/logger';
 
@@ -68,25 +72,17 @@ export const useResortStats = () => {
 
   // Real-time listener for resort configuration
   useEffect(() => {
-    const configRef = doc(db, 'resort_data', 'config');
-    const unsub = onSnapshot(configRef, (snap) => {
-      if (snap.exists()) {
-        setResortConfig(snap.data() as ResortConfig);
-      } else {
-        setResortConfig(DEFAULT_CONFIG);
-      }
-    });
-    return () => unsub();
+    return subscribeResortConfig(
+      (config) => setResortConfig(config ?? DEFAULT_CONFIG),
+      (error) => logger.error('Resort config sync error:', error)
+    );
   }, []);
 
   const fetchResortStats = useCallback(async (config: ResortConfig) => {
     setIsResortLoading(true);
-    const cacheRef = doc(db, 'resort_data', 'cache');
-
     try {
-      const cacheSnap = await getDoc(cacheRef);
-      if (cacheSnap.exists()) {
-        const data = cacheSnap.data();
+      const data = await getResortWeatherCache();
+      if (data) {
         const now = new Date().getTime();
         const lastUpdatedTime = data.lastUpdatedTimestamp || 0;
 
@@ -173,7 +169,7 @@ export const useResortStats = () => {
       };
 
       try {
-        await setDoc(cacheRef, dataToCache);
+        await saveResortWeatherCache(dataToCache);
         logger.debug('Weather data cached to Firestore.');
       } catch (cacheError) {
         logger.warn('Weather cache update skipped:', cacheError);

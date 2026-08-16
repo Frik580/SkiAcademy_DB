@@ -1,17 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChatMessage, OperationType } from '../types';
-import {
-  collection,
-  db,
-  handleFirestoreError,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-} from './firebase';
-import { QUERY_LIMITS } from './queryLimits';
+import { ChatMessage } from '../types';
 import { getChatLastReadAt, markChatReadAt, seedChatReadAt } from './chatReadState';
 import { getCourseChatThreadIds, resolveChatId, type CourseChatBooking } from './resolveChatId';
+import { subscribeToChatMessages } from '../features/chat/chatService';
 
 type WatchPlan = {
   bookingId: string;
@@ -116,22 +107,16 @@ export function useBookingChatUnread(
     const localMap = new Map<string, ChatMessage[]>();
 
     const unsubscribes = threadIds.map((threadId) => {
-      const messagesPath = `bookings/${threadId}/messages`;
-      return onSnapshot(
-        query(
-          collection(db, 'bookings', threadId, 'messages'),
-          orderBy('timestamp', 'desc'),
-          limit(QUERY_LIMITS.chatMessages)
-        ),
-        (snapshot) => {
-          const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as ChatMessage);
+      return subscribeToChatMessages(
+        threadId,
+        (messages) => {
+          const list = messages;
           localMap.set(threadId, list);
           loadedThreadsRef.current.add(threadId);
           setMessagesByThread(new Map(localMap));
         },
-        (error) => {
+        () => {
           loadedThreadsRef.current.add(threadId);
-          handleFirestoreError(error, OperationType.GET, messagesPath);
         }
       );
     });

@@ -19,8 +19,10 @@ export const toBooking = (id: string, fields: unknown): Booking =>
   toDocumentModel<Booking>(id, fields);
 export const toInstructor = (id: string, fields: unknown): Instructor =>
   toDocumentModel<Instructor>(id, fields);
-export const toReview = (id: string, fields: unknown): Review => toDocumentModel<Review>(id, fields);
-export const toCourse = (id: string, fields: unknown): Course => toDocumentModel<Course>(id, fields);
+export const toReview = (id: string, fields: unknown): Review =>
+  toDocumentModel<Review>(id, fields);
+export const toCourse = (id: string, fields: unknown): Course =>
+  toDocumentModel<Course>(id, fields);
 export const toNotification = (id: string, fields: unknown): DbNotification =>
   toDocumentModel<DbNotification>(id, fields);
 export const toWalletLedgerEntry = (id: string, fields: unknown): WalletLedgerEntry =>

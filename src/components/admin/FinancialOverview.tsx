@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { BookOpen, BookOpenCheck, DollarSign, Users } from 'lucide-react';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useCurrency } from '../../lib/CurrencyContext';
-import { db, doc, setDoc } from '../../lib/firebase';
 import { logger } from '../../lib/logger';
+import { saveUsdToKztRate } from '../../features/admin/adminService';
 
 interface FinancialOverviewProps {
   totalRevenue: number;
@@ -31,11 +31,9 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
     const num = parseFloat(val);
     if (!isNaN(num) && num > 0) {
       setUsdToKztRate(num);
-      setDoc(doc(db, 'resort_data', 'config'), { usdToKztRate: num }, { merge: true }).catch(
-        (err) => {
-          logger.error('Failed to update exchange rate in Firestore:', err);
-        }
-      );
+      saveUsdToKztRate(num).catch((err) => {
+        logger.error('Failed to update exchange rate in Firestore:', err);
+      });
     }
   };
 

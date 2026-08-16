@@ -1,4 +1,12 @@
-import { db, deleteDoc, doc, setDoc, updateDoc } from '../../lib/firebase';
+import {
+  db,
+  deleteDoc,
+  doc,
+  handleFirestoreError,
+  OperationType,
+  setDoc,
+  updateDoc,
+} from '../../lib/firebase';
 import { enrollInCourseViaCallable } from '../../lib/enrollInCourseCallable';
 import { stripUndefinedFields } from '../../lib/courseClone';
 import { Course, Booking } from '../../types';
@@ -24,7 +32,15 @@ export async function enrollInCourseService(
   courseId: string,
   language: 'en' | 'ru'
 ): Promise<{ courseTitle: string }> {
-  return enrollInCourseViaCallable(courseId, language);
+  try {
+    return await enrollInCourseViaCallable(courseId, language);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (!['ALREADY_ENROLLED', 'COURSE_FULL', 'INSUFFICIENT_FUNDS'].includes(message)) {
+      handleFirestoreError(error, OperationType.WRITE, `courses/${courseId}/enroll`);
+    }
+    throw error;
+  }
 }
 
 export async function notifyCourseModifiedService(

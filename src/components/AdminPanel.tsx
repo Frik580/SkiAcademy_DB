@@ -95,6 +95,8 @@ interface AdminPanelProps {
   onClearCancelledBookings?: (
     onProgress?: (deleted: number) => void
   ) => Promise<import('../lib/clearStudentBookings').ClearCancelledBookingsResult>;
+  bookingsHasMore?: boolean;
+  onLoadMoreBookings?: () => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -134,6 +136,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateAchievementsConfig,
   onClearStudentBookings,
   onClearCancelledBookings,
+  bookingsHasMore = false,
+  onLoadMoreBookings,
 }) => {
   const { t, language } = useLanguage();
 
@@ -260,6 +264,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         >
           <BookingsLog
             bookings={bookings}
+            hasMoreBookings={bookingsHasMore}
+            onLoadMoreBookings={onLoadMoreBookings}
             usersList={usersList}
             instructors={instructors}
             onConfirmBooking={onConfirmBooking}

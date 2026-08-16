@@ -54,8 +54,15 @@ export default tseslint.config(
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off', // TypeScript handles static prop type checking
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      // Legacy UI still has explicit any usages; new feature and app code is stricter below.
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': 'off',
+    },
+  },
+  {
+    files: ['src/app/**/*.{ts,tsx}', 'src/features/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
     },
   },
   prettier

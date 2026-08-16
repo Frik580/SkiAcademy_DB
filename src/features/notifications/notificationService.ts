@@ -14,7 +14,9 @@ export async function deleteNotificationService(id: string): Promise<void> {
 export async function clearNotificationsService(notifications: DbNotification[]): Promise<void> {
   if (notifications.length === 0) return;
   try {
-    await Promise.all(notifications.map((notification) => deleteNotificationService(notification.id)));
+    await Promise.all(
+      notifications.map((notification) => deleteNotificationService(notification.id))
+    );
   } catch (error) {
     logger.error('Error clearing notifications:', error);
     throw error;

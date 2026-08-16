@@ -91,11 +91,11 @@ vi.mock('../../src/lib/firebase', () => ({
   runTransaction: vi.fn(),
 }));
 
-import { useBookings } from '../../src/hooks/useBookings';
+import { useBookingActions } from '../../src/features/bookings/useBookingActions';
 import { useAuthStore } from '../../src/features/auth/authStore';
 import { useProfileStore } from '../../src/features/profile/profileStore';
 import { useWalletStore } from '../../src/features/wallet/walletStore';
-import { useBookingStore } from '../../src/store/bookingStore';
+import { useBookingsStore } from '../../src/features/bookings/bookingsStore';
 import { setStoreContext } from '../../src/store/storeContext';
 
 describe('useBookings.handleCancel', () => {
@@ -108,7 +108,7 @@ describe('useBookings.handleCancel', () => {
       t: (key: string) => key,
       language: () => 'en',
     });
-    useBookingStore.setState({
+    useBookingsStore.setState({
       bookings: [confirmedBooking],
       bookingsLoaded: true,
       deletedCompletedStats: { revenue: 0, count: 0 },
@@ -125,9 +125,9 @@ describe('useBookings.handleCancel', () => {
   });
 
   it('cancels a course booking as admin, notifies the client, and shows a success toast', async () => {
-    const { result } = renderHook(() => useBookings());
+    const { result } = renderHook(() => useBookingActions());
 
-    expect(result.current.bookings).toHaveLength(1);
+    expect(useBookingsStore.getState().bookings).toHaveLength(1);
 
     await act(async () => {
       await result.current.handleCancel('booking-course-1');
@@ -170,9 +170,9 @@ describe('useBookings.handleCancel', () => {
       optimisticBalanceDelta: 0,
     });
 
-    const { result } = renderHook(() => useBookings());
+    const { result } = renderHook(() => useBookingActions());
 
-    expect(result.current.bookings).toHaveLength(1);
+    expect(useBookingsStore.getState().bookings).toHaveLength(1);
 
     await act(async () => {
       await result.current.handleCancel('booking-course-1');
@@ -185,9 +185,9 @@ describe('useBookings.handleCancel', () => {
   it('does nothing when the booking is already cancelled', async () => {
     mockCancelBookingWithRefund.mockResolvedValue({ refunded: 0, alreadyCancelled: true });
 
-    const { result } = renderHook(() => useBookings());
+    const { result } = renderHook(() => useBookingActions());
 
-    expect(result.current.bookings).toHaveLength(1);
+    expect(useBookingsStore.getState().bookings).toHaveLength(1);
 
     await act(async () => {
       await result.current.handleCancel('booking-course-1');

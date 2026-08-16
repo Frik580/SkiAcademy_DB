@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { collection, db, limit, onSnapshot, orderBy, query, where } from '../../../lib/firebase';
 import { toActivityLog } from '../../../lib/firestoreMappers';
-import { QUERY_LIMITS } from '../../../lib/queryLimits';
 import { logger } from '../../../lib/logger';
 import { useAuthStore } from '../../auth/authStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
@@ -11,6 +10,11 @@ import { useProfileStore } from '../profileStore';
 export const useProfileActivitySync = () => {
   const { shouldSyncActivityLogs } = useDataSyncScope();
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
+  const activityLogsPageSize = useProfileStore((s) => s.activityLogsPageSize);
+
+  useEffect(() => {
+    useProfileStore.getState().resetActivityLogsPagination();
+  }, [firebaseUser?.uid, shouldSyncActivityLogs]);
 
   useEffect(() => {
     if (!firebaseUser || !shouldSyncActivityLogs) {
@@ -22,18 +26,22 @@ export const useProfileActivitySync = () => {
       collection(db, 'activity_logs'),
       where('userId', '==', firebaseUser.uid),
       orderBy('timestamp', 'desc'),
-      limit(QUERY_LIMITS.activityLogs)
+      limit(activityLogsPageSize + 1)
     );
 
     return onSnapshot(
       activityQuery,
       (snapshot) => {
         const activityLogs = snapshot.docs
+          .slice(0, activityLogsPageSize)
           .map((activityDoc) => toActivityLog(activityDoc.id, activityDoc.data()))
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         useProfileStore.getState().setActivityLogs(activityLogs);
+        useProfileStore
+          .getState()
+          .setActivityLogsHasMore(snapshot.docs.length > activityLogsPageSize);
       },
       (error) => logger.error('Activity log sync error:', error)
     );
-  }, [firebaseUser, shouldSyncActivityLogs]);
+  }, [activityLogsPageSize, firebaseUser, shouldSyncActivityLogs]);
 };

@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { collection, db, limit, onSnapshot, orderBy, query, where } from '../../../lib/firebase';
-import { QUERY_LIMITS } from '../../../lib/queryLimits';
 import { logger } from '../../../lib/logger';
 import {
   isNotificationExpired,
@@ -21,6 +20,11 @@ import { useNotificationsStore } from '../notificationsStore';
 export const useNotificationsSync = () => {
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const notificationRetentionDays = useSettingsStore((s) => s.notificationRetentionDays);
+  const notificationsPageSize = useNotificationsStore((s) => s.notificationsPageSize);
+
+  useEffect(() => {
+    useNotificationsStore.getState().resetNotificationsPagination();
+  }, [firebaseUser?.uid]);
 
   // Cleanup expired notifications periodically
   useEffect(() => {
@@ -42,22 +46,24 @@ export const useNotificationsSync = () => {
       collection(db, 'notifications'),
       where('userId', '==', firebaseUser.uid),
       orderBy('timestamp', 'desc'),
-      limit(QUERY_LIMITS.notifications)
+      limit(notificationsPageSize + 1)
     );
 
     return onSnapshot(
       notificationsQuery,
       (snapshot) => {
         const validNotifications = snapshot.docs
-          .map(
-            (notificationDoc) => toNotification(notificationDoc.id, notificationDoc.data())
-          )
+          .slice(0, notificationsPageSize)
+          .map((notificationDoc) => toNotification(notificationDoc.id, notificationDoc.data()))
           .filter(
             (notification) =>
               !isNotificationExpired(notification.timestamp, notificationRetentionDays)
           );
 
         useNotificationsStore.getState().setDbNotifications(validNotifications);
+        useNotificationsStore
+          .getState()
+          .setNotificationsHasMore(snapshot.docs.length > notificationsPageSize);
 
         // Show toast for newly added notifications
         snapshot.docChanges().forEach((change) => {
@@ -71,5 +77,5 @@ export const useNotificationsSync = () => {
       },
       (error) => logger.error('Notifications sync error:', error)
     );
-  }, [firebaseUser, notificationRetentionDays]);
+  }, [firebaseUser, notificationRetentionDays, notificationsPageSize]);
 };

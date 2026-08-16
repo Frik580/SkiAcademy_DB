@@ -10,6 +10,7 @@ import { useAuthStore } from '../features/auth/authStore';
 import { useProfileStore } from '../features/profile/profileStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
 import { useUiStore } from '../features/ui/uiStore';
+import { useAchievementsSync } from '../features/profile/sync/useAchievementsSync';
 import { AppInitSkeleton } from '../components/ui/Skeleton';
 
 export interface AppBootstrapProps {
@@ -32,6 +33,7 @@ export const AppBootstrap: React.FC<AppBootstrapProps> = ({ children }) => {
 
   // Synchronize all Zustand stores with Firebase Firestore realtime listeners
   useStoreSync();
+  useAchievementsSync();
 
   const authLoading = useAuthStore((s) => s.authLoading);
   const userProfile = useProfileStore((s) => s.userProfile);

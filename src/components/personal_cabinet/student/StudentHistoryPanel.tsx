@@ -4,6 +4,7 @@ import { ActivityLog, Booking, Course, Review, UserProfile } from '../../../type
 import { buildStudentHistory, HistoryFilter } from './studentCabinetUtils';
 import { ScSectionTitle, StudentPanelBackLink } from './StudentCabinetUI';
 import { StudentHistoryList } from './StudentHistoryList';
+import { useProfileStore } from '../../../features/profile/profileStore';
 
 interface StudentHistoryPanelProps {
   userProfile: UserProfile;
@@ -35,6 +36,8 @@ export const StudentHistoryPanel: React.FC<StudentHistoryPanelProps> = ({
   const { language, t } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
   const [filter, setFilter] = useState<HistoryFilter>('all');
+  const activityLogsHasMore = useProfileStore((state) => state.activityLogsHasMore);
+  const loadMoreActivityLogs = useProfileStore((state) => state.loadMoreActivityLogs);
 
   const history = useMemo(
     () =>
@@ -76,6 +79,17 @@ export const StudentHistoryPanel: React.FC<StudentHistoryPanelProps> = ({
           onOpenDevelopment={onOpenDevelopment}
           onToggleRecommendation={onToggleRecommendation}
         />
+        {activityLogsHasMore && (
+          <div className="flex justify-center pt-3">
+            <button
+              type="button"
+              onClick={loadMoreActivityLogs}
+              className="border border-[var(--border)] px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink)]"
+            >
+              Load more history
+            </button>
+          </div>
+        )}
       </section>
     </div>
   );

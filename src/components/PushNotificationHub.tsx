@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import { X, Bell, CheckCircle, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 import { useLanguage } from '../lib/LanguageContext';
 import { resolveNotificationText, type DbNotification } from '../lib/notificationText';
+import { useNotificationsStore } from '../features/notifications/notificationsStore';
 import { Booking, Review, UserProfile } from '../types';
 import { BodyScrollLock } from './ui/BodyScrollLock';
 
@@ -146,6 +147,8 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
     removeNotification: removeLocalNotification,
   } = useNotifications();
   const { t, language } = useLanguage();
+  const notificationsHasMore = useNotificationsStore((state) => state.notificationsHasMore);
+  const loadMoreNotifications = useNotificationsStore((state) => state.loadMoreNotifications);
 
   if (!isOpen) return null;
 
@@ -353,6 +356,17 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
               ))
             )}
           </div>
+          {notificationsHasMore && (
+            <div className="flex justify-center pt-3">
+              <button
+                type="button"
+                onClick={loadMoreNotifications}
+                className="border border-[var(--border)] px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink)]"
+              >
+                Load more notifications
+              </button>
+            </div>
+          )}
         </div>
 
         {notificationsToShow.length > 0 && (

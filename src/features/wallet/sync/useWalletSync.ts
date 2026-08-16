@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { collection, db, limit, onSnapshot, query, where } from '../../../lib/firebase';
 import { toWalletLedgerEntry } from '../../../lib/firestoreMappers';
-import { QUERY_LIMITS } from '../../../lib/queryLimits';
 import { logger } from '../../../lib/logger';
 import { useAuthStore } from '../../auth/authStore';
 import { useWalletStore } from '../walletStore';
@@ -14,6 +13,11 @@ import { useDataSyncScope } from '../../../store/useDataSyncScope';
 export const useWalletSync = () => {
   const { shouldSyncActivityLogs } = useDataSyncScope();
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
+  const walletLedgerPageSize = useWalletStore((s) => s.walletLedgerPageSize);
+
+  useEffect(() => {
+    useWalletStore.getState().resetWalletLedgerPagination();
+  }, [firebaseUser?.uid, shouldSyncActivityLogs]);
 
   // Wallet ledger synchronization
   useEffect(() => {
@@ -25,18 +29,22 @@ export const useWalletSync = () => {
     const ledgerQuery = query(
       collection(db, 'wallet_ledger'),
       where('userId', '==', firebaseUser.uid),
-      limit(QUERY_LIMITS.walletLedger)
+      limit(walletLedgerPageSize + 1)
     );
 
     return onSnapshot(
       ledgerQuery,
       (snapshot) => {
         const entries = snapshot.docs
+          .slice(0, walletLedgerPageSize)
           .map((ledgerDoc) => toWalletLedgerEntry(ledgerDoc.id, ledgerDoc.data()))
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         useWalletStore.getState().setWalletLedgerEntries(entries);
+        useWalletStore
+          .getState()
+          .setWalletLedgerHasMore(snapshot.docs.length > walletLedgerPageSize);
       },
       (error) => logger.error('Wallet ledger sync error:', error)
     );
-  }, [firebaseUser, shouldSyncActivityLogs]);
+  }, [firebaseUser, shouldSyncActivityLogs, walletLedgerPageSize]);
 };

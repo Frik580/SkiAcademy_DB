@@ -4,6 +4,7 @@ import { ApplePagination } from '../../common/ApplePagination';
 import { useLanguage } from '../../../lib/LanguageContext';
 import { buildWalletOperationHistory, formatWalletOperationLabel } from '../../../lib/walletLedger';
 import type { Booking, Course, WalletLedgerEntry } from '../../../types';
+import { useWalletStore } from '../../../features/wallet/walletStore';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -24,6 +25,8 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryListProps> =
   const lang = language === 'ru' ? 'ru' : 'en';
 
   const [currentPage, setCurrentPage] = useState(1);
+  const walletLedgerHasMore = useWalletStore((state) => state.walletLedgerHasMore);
+  const loadMoreWalletLedger = useWalletStore((state) => state.loadMoreWalletLedger);
   const formatWalletAmount = (amount: number, currency = 'USD') =>
     currency === 'KZT'
       ? `${amount.toLocaleString('ru-RU')} ₸`
@@ -119,6 +122,17 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryListProps> =
         onPageChange={setCurrentPage}
         itemLabel={lang === 'ru' ? 'операций' : 'transactions'}
       />
+      {walletLedgerHasMore && (
+        <div className="flex justify-center pt-3">
+          <button
+            type="button"
+            onClick={loadMoreWalletLedger}
+            className="border border-[var(--border)] px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink)]"
+          >
+            Load more transactions
+          </button>
+        </div>
+      )}
     </div>
   );
 };

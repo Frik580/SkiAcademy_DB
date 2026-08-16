@@ -34,6 +34,19 @@ export async function updateUserRoleService(
   await updateDoc(doc(db, 'users', targetUid), { role: newRole });
 }
 
+export async function updateStudentSkillsService(
+  studentUid: string,
+  skillScores: Record<string, number>,
+  skillComments: Record<string, string>,
+  level: number
+): Promise<void> {
+  await updateDoc(doc(db, 'users', studentUid), { skillScores, skillComments, level });
+}
+
+export async function updateStudentLevelService(studentUid: string, level: number): Promise<void> {
+  await updateDoc(doc(db, 'users', studentUid), { level });
+}
+
 export async function addUserService(newUser: UserProfile): Promise<void> {
   await setDoc(doc(db, 'users', newUser.uid), newUser);
 }

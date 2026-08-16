@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2, Save } from 'lucide-react';
-import { ResortConfig } from '../../../types';
-import { db, doc, onSnapshot, setDoc } from '../../../lib/firebase';
 import { useLanguage } from '../../../lib/LanguageContext';
 import { useNotifications } from '../../PushNotificationHub';
 import { logger } from '../../../lib/logger';
 import { ToggleSwitch } from '../../ToggleSwitch';
 import { FormSkeleton } from '../../ui/Skeleton';
+import { saveResortConfig, subscribeResortConfig } from '../../../features/settings/resortService';
 
 export const ResortDataSection: React.FC = () => {
   const { t, language } = useLanguage();
@@ -27,12 +26,9 @@ export const ResortDataSection: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const configRef = doc(db, 'resort_data', 'config');
-    const unsub = onSnapshot(
-      configRef,
-      (snap) => {
-        if (snap.exists()) {
-          const data = snap.data() as ResortConfig;
+    const unsub = subscribeResortConfig(
+      (data) => {
+        if (data) {
           setResortNameEn(data.nameEn || 'Chamonix-Mont-Blanc');
           setResortNameRu(data.nameRu || 'Шамони-Монблан');
           setResortSubEn(data.subNameEn || 'French Alps resort');
@@ -59,24 +55,19 @@ export const ResortDataSection: React.FC = () => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const configRef = doc(db, 'resort_data', 'config');
-      await setDoc(
-        configRef,
-        {
-          nameEn: resortNameEn,
-          nameRu: resortNameRu,
-          subNameEn: resortSubEn,
-          subNameRu: resortSubRu,
-          latitude: Number(resortLat),
-          longitude: Number(resortLon),
-          showLifts: resortShowLifts,
-          openLifts: Number(resortOpenLifts),
-          totalLifts: Number(resortTotalLifts),
-          liftsStatusEn: resortLiftsStatusEn,
-          liftsStatusRu: resortLiftsStatusRu,
-        },
-        { merge: true }
-      );
+      await saveResortConfig({
+        nameEn: resortNameEn,
+        nameRu: resortNameRu,
+        subNameEn: resortSubEn,
+        subNameRu: resortSubRu,
+        latitude: Number(resortLat),
+        longitude: Number(resortLon),
+        showLifts: resortShowLifts,
+        openLifts: Number(resortOpenLifts),
+        totalLifts: Number(resortTotalLifts),
+        liftsStatusEn: resortLiftsStatusEn,
+        liftsStatusRu: resortLiftsStatusRu,
+      });
       addNotification('success', t('configUpdated'), t('configUpdatedDesc'));
     } catch (err) {
       logger.error('Error saving resort data:', err);

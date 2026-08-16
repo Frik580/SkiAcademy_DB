@@ -31,6 +31,8 @@ export const AdminRouteContainer: React.FC = () => {
   const userProfile = useProfileStore((state) => state.userProfile);
   const usersList = useProfileStore((state) => state.usersList);
   const bookings = useBookingsStore((state) => state.bookings);
+  const bookingsHasMore = useBookingsStore((state) => state.bookingsHasMore);
+  const loadMoreBookings = useBookingsStore((state) => state.loadMoreBookings);
   const deletedCompletedStats = useBookingsStore((state) => state.deletedCompletedStats);
   const courses = useCoursesStore((state) => state.courses);
   const filtersEnabled = useSettingsStore((state) => state.filtersEnabled);
@@ -75,6 +77,8 @@ export const AdminRouteContainer: React.FC = () => {
         <AdminPanel
           instructors={translatedInstructors}
           bookings={bookings}
+          bookingsHasMore={bookingsHasMore}
+          onLoadMoreBookings={loadMoreBookings}
           usersList={usersList}
           courses={courses}
           deletedCompletedStats={deletedCompletedStats}

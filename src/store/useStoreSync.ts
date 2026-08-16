@@ -5,10 +5,8 @@ import { useCoursesSync } from '../features/courses/sync/useCoursesSync';
 import { useNotificationsSync } from '../features/notifications/sync/useNotificationsSync';
 import { useWalletSync } from '../features/wallet/sync/useWalletSync';
 import { useProfileActivitySync } from '../features/profile/sync/useProfileActivitySync';
-import { useAchievementsSync } from '../features/profile/sync/useAchievementsSync';
 import { useCurrentUserProfileSync } from '../features/profile/sync/useCurrentUserProfileSync';
 import { useUsersSync } from '../features/profile/sync/useUsersSync';
-import { useAvailabilityMigrationSync } from '../features/admin/sync/useAvailabilityMigrationSync';
 
 export const useStoreSync = () => {
   useSessionSync();
@@ -20,6 +18,4 @@ export const useStoreSync = () => {
   useNotificationsSync();
   useWalletSync();
   useProfileActivitySync();
-  useAchievementsSync();
-  useAvailabilityMigrationSync();
 };

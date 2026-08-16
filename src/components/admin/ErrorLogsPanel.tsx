@@ -1,20 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Trash2, Search } from 'lucide-react';
-import { ErrorLog, OperationType } from '../../types';
-import {
-  db,
-  doc,
-  deleteDoc,
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-  handleFirestoreError,
-} from '../../lib/firebase';
+import { ErrorLog } from '../../types';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useNotifications } from '../PushNotificationHub';
 import { TableSkeleton } from '../ui/Skeleton';
 import { logger } from '../../lib/logger';
+import { QUERY_LIMITS } from '../../lib/queryLimits';
+import {
+  deleteErrorLog,
+  deleteErrorLogs,
+  subscribeErrorLogs,
+} from '../../features/admin/adminService';
 
 interface ErrorLogsPanelProps {
   onRequestConfirm: (message: string, onConfirm: () => void | Promise<void>) => void;
@@ -29,35 +25,33 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
   const [logSearch, setLogSearch] = useState('');
   const [logSourceFilter, setLogSourceFilter] = useState<string>('all');
   const [selectedLog, setSelectedLog] = useState<ErrorLog | null>(null);
+  const [pageSize, setPageSize] = useState<number>(QUERY_LIMITS.errorLogs);
+  const [hasMoreLogs, setHasMoreLogs] = useState(false);
 
   useEffect(() => {
     setErrorLogsLoading(true);
-    const q = query(collection(db, 'error_logs'), orderBy('timestamp', 'desc'));
-    const unsub = onSnapshot(
-      q,
-      (snapshot) => {
-        const logs: ErrorLog[] = [];
-        snapshot.forEach((docSnap) => {
-          logs.push(docSnap.data() as ErrorLog);
-        });
+    const unsub = subscribeErrorLogs(
+      (logs, hasMore) => {
         setErrorLogs(logs);
+        setHasMoreLogs(hasMore);
         setErrorLogsLoading(false);
       },
       (error) => {
         logger.error('Error fetching logs:', error);
         setErrorLogsLoading(false);
-      }
+      },
+      pageSize
     );
 
     return () => unsub();
-  }, []);
+  }, [pageSize]);
 
   const handleDeleteLog = async (logId: string) => {
     try {
-      await deleteDoc(doc(db, 'error_logs', logId));
+      await deleteErrorLog(logId);
       addNotification('success', t('logDeleted'), t('logDeletedDesc'));
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `error_logs/${logId}`);
+      logger.error('Failed to delete error log:', error);
     }
   };
 
@@ -65,11 +59,10 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
     const confirmMsg = t('clearLogsConfirm');
     onRequestConfirm(confirmMsg, async () => {
       try {
-        const deletePromises = errorLogs.map((log) => deleteDoc(doc(db, 'error_logs', log.id)));
-        await Promise.all(deletePromises);
+        await deleteErrorLogs(errorLogs.map((log) => log.id));
         addNotification('success', t('logsCleared'), t('logsClearedDesc'));
       } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, 'error_logs');
+        logger.error('Failed to clear error logs:', error);
       }
     });
   };
@@ -100,6 +93,18 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
           >
             <Trash2 className="w-3.5 h-3.5" />
             {t('clearAllLogs')}
+          </button>
+        </div>
+      )}
+
+      {hasMoreLogs && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setPageSize((current) => current + QUERY_LIMITS.errorLogs)}
+            className="border border-[var(--border)] px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink)] transition hover:border-[var(--ink)]"
+          >
+            Load more logs
           </button>
         </div>
       )}

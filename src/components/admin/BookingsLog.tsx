@@ -20,6 +20,8 @@ interface BookingsLogProps {
   onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
   onCancelBooking: (id: string) => Promise<void>;
   onRequestConfirm: (message: string, onConfirm: () => void | Promise<void>) => void;
+  hasMoreBookings?: boolean;
+  onLoadMoreBookings?: () => void;
 }
 
 export const BookingsLog: React.FC<BookingsLogProps> = ({
@@ -31,6 +33,8 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
   onLinkGuestBooking,
   onCancelBooking,
   onRequestConfirm,
+  hasMoreBookings = false,
+  onLoadMoreBookings,
 }) => {
   const { t, language } = useLanguage();
   const { formatPrice } = useCurrency();
@@ -526,6 +530,17 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
         onPageChange={setMonitorPage}
         itemLabel={t('totalSuffix') || 'items'}
       />
+      {hasMoreBookings && onLoadMoreBookings && (
+        <div className="flex justify-center pt-3">
+          <button
+            type="button"
+            onClick={onLoadMoreBookings}
+            className="border border-[var(--border)] px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink)] transition hover:border-[var(--ink)]"
+          >
+            Load more bookings
+          </button>
+        </div>
+      )}
 
       <LinkGuestBookingModal
         isOpen={!!linkingBooking}

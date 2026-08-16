@@ -6,6 +6,7 @@ import { useNotifications } from '../PushNotificationHub';
 import { isSystemOwner } from '../../lib/accessControl';
 import { ToggleSwitch } from '../ToggleSwitch';
 import { ApplePagination } from '../common/ApplePagination';
+import { useProfileStore } from '../../features/profile/profileStore';
 
 interface ClientsManagerProps {
   usersList: UserProfile[];
@@ -51,6 +52,8 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
   const [clientIsActive, setClientIsActive] = useState(true);
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
   const canAssignAdminRole = isSystemOwner(currentUserProfile);
+  const usersHasMore = useProfileStore((state) => state.usersHasMore);
+  const loadMoreUsers = useProfileStore((state) => state.loadMoreUsers);
 
   const handleClientSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -386,6 +389,15 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
                   onPageChange={setClientPage}
                   itemLabel={language === 'ru' ? 'клиентов' : 'clients'}
                 />
+                {usersHasMore && (
+                  <button
+                    type="button"
+                    onClick={loadMoreUsers}
+                    className="mt-3 border border-[var(--border)] px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink)]"
+                  >
+                    Load more users
+                  </button>
+                )}
               </>
             );
           })()}

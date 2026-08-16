@@ -5,7 +5,11 @@ import { describe, expect, it } from 'vitest';
 describe('notification unread badge wiring', () => {
   it('tracks unread notifications and shows badge count in navbar', () => {
     const notificationsSource = readFileSync(
-      join(process.cwd(), 'src/hooks/useNotifications.ts'),
+      join(process.cwd(), 'src/features/notifications/sync/useNotificationsSync.ts'),
+      'utf8'
+    );
+    const notificationServiceSource = readFileSync(
+      join(process.cwd(), 'src/features/notifications/notificationService.ts'),
       'utf8'
     );
     const appSource = readFileSync(join(process.cwd(), 'src/App.tsx'), 'utf8');
@@ -15,9 +19,9 @@ describe('notification unread badge wiring', () => {
       'utf8'
     );
 
-    expect(notificationsSource).toContain('unreadNotificationCount');
-    expect(notificationsSource).toContain('handleMarkNotificationsAsRead');
-    expect(notificationsSource).toContain('isRead: true');
+    expect(notificationsSource).toContain('setDbNotifications');
+    expect(notificationServiceSource).toContain('markNotificationsAsReadService');
+    expect(notificationServiceSource).toContain('isRead: true');
     expect(appSource).toContain('unreadNotificationCount={notificationBadgeCount}');
     expect(appSource).toContain('handleMarkNotificationsAsRead');
     expect(navbarSource).toContain('unreadNotificationCount');

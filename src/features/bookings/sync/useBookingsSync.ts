@@ -24,6 +24,11 @@ export const useBookingsSync = () => {
   const { shouldSyncReviews } = useDataSyncScope();
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const userProfile = useProfileStore((s) => s.userProfile);
+  const bookingsPageSize = useBookingsStore((s) => s.bookingsPageSize);
+
+  useEffect(() => {
+    useBookingsStore.getState().resetBookingsPagination();
+  }, [firebaseUser?.uid, userProfile?.instructorId, userProfile?.role]);
 
   // Instructors are read alongside bookings because they are booking catalogue data.
   useEffect(() => {
@@ -35,8 +40,8 @@ export const useBookingsSync = () => {
         useBookingsStore
           .getState()
           .setInstructors(
-            snapshot.docs.map(
-              (instructorDoc) => toInstructor(instructorDoc.id, instructorDoc.data())
+            snapshot.docs.map((instructorDoc) =>
+              toInstructor(instructorDoc.id, instructorDoc.data())
             )
           );
       },
@@ -56,9 +61,7 @@ export const useBookingsSync = () => {
       (snapshot) => {
         useBookingsStore
           .getState()
-          .setReviews(
-            snapshot.docs.map((reviewDoc) => toReview(reviewDoc.id, reviewDoc.data()))
-          );
+          .setReviews(snapshot.docs.map((reviewDoc) => toReview(reviewDoc.id, reviewDoc.data())));
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
     );
@@ -69,6 +72,7 @@ export const useBookingsSync = () => {
     if (!firebaseUser) {
       useBookingsStore.getState().setBookings([]);
       useBookingsStore.getState().setBookingsLoaded(false);
+      useBookingsStore.getState().setBookingsHasMore(false);
       return;
     }
 
@@ -76,33 +80,35 @@ export const useBookingsSync = () => {
     const bookingsBase = collection(db, 'bookings');
     const bookingsQuery =
       userProfile?.role === 'admin'
-        ? query(bookingsBase, orderBy('date', 'desc'), limit(QUERY_LIMITS.bookings))
+        ? query(bookingsBase, orderBy('date', 'desc'), limit(bookingsPageSize + 1))
         : userProfile?.instructorId
           ? query(
               bookingsBase,
               where('instructorId', '==', userProfile.instructorId),
               orderBy('date', 'desc'),
-              limit(QUERY_LIMITS.bookings)
+              limit(bookingsPageSize + 1)
             )
           : query(
               bookingsBase,
               where('userId', '==', firebaseUser.uid),
               orderBy('date', 'desc'),
-              limit(QUERY_LIMITS.bookings)
+              limit(bookingsPageSize + 1)
             );
 
     return onSnapshot(
       bookingsQuery,
       (snapshot) => {
-        const list = snapshot.docs.map(
-          (bookingDoc) => toBooking(bookingDoc.id, bookingDoc.data())
-        );
+        const hasMore = snapshot.docs.length > bookingsPageSize;
+        const list = snapshot.docs
+          .slice(0, bookingsPageSize)
+          .map((bookingDoc) => toBooking(bookingDoc.id, bookingDoc.data()));
         useBookingsStore.getState().setBookings(list.sort((a, b) => b.date.localeCompare(a.date)));
+        useBookingsStore.getState().setBookingsHasMore(hasMore);
         useBookingsStore.getState().setBookingsLoaded(true);
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'bookings')
     );
-  }, [firebaseUser, userProfile?.instructorId, userProfile?.role]);
+  }, [bookingsPageSize, firebaseUser, userProfile?.instructorId, userProfile?.role]);
 
   // Deleted completed stats (admin)
   useEffect(() => {

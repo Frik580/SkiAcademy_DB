@@ -10,14 +10,14 @@ import {
   Save,
   Trash2,
 } from 'lucide-react';
-import { CustomHeroSlide, ResortConfig } from '../../../types';
-import { db, doc, onSnapshot, setDoc } from '../../../lib/firebase';
+import { CustomHeroSlide } from '../../../types';
 import { useLanguage } from '../../../lib/LanguageContext';
 import { useNotifications } from '../../PushNotificationHub';
 import { FALLBACK_SLIDES } from '../resortConfigDefaults';
 import { logger } from '../../../lib/logger';
 import { ToggleSwitch } from '../../ToggleSwitch';
 import { FormSkeleton } from '../../ui/Skeleton';
+import { saveResortConfig, subscribeResortConfig } from '../../../features/settings/resortService';
 
 export const ResortSliderSection: React.FC = () => {
   const { t } = useLanguage();
@@ -30,12 +30,9 @@ export const ResortSliderSection: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const configRef = doc(db, 'resort_data', 'config');
-    const unsub = onSnapshot(
-      configRef,
-      (snap) => {
-        if (snap.exists()) {
-          const data = snap.data() as ResortConfig;
+    const unsub = subscribeResortConfig(
+      (data) => {
+        if (data) {
           setResortSlides(data.slides && data.slides.length > 0 ? data.slides : FALLBACK_SLIDES);
           setResortSlideInterval(data.slideIntervalSeconds || 6);
           setSlidesRandomOrder(data.slidesRandomOrder === true);
@@ -88,16 +85,11 @@ export const ResortSliderSection: React.FC = () => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const configRef = doc(db, 'resort_data', 'config');
-      await setDoc(
-        configRef,
-        {
-          slides: resortSlides,
-          slideIntervalSeconds: Number(resortSlideInterval),
-          slidesRandomOrder,
-        },
-        { merge: true }
-      );
+      await saveResortConfig({
+        slides: resortSlides,
+        slideIntervalSeconds: Number(resortSlideInterval),
+        slidesRandomOrder,
+      });
       addNotification('success', t('configUpdated'), t('configUpdatedDesc'));
     } catch (err) {
       logger.error('Error saving slider config:', err);

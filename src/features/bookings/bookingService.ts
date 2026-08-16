@@ -14,7 +14,12 @@ import {
   writeBatch,
   handleFirestoreError,
 } from '../../lib/firebase';
-import { AVAILABILITY_SLOTS_COLLECTION, isCourseBooking } from '../../lib/availabilitySlots';
+import {
+  AVAILABILITY_SLOTS_COLLECTION,
+  blocksInstructorAvailability,
+  isCourseBooking,
+  toAvailabilitySlot,
+} from '../../lib/availabilitySlots';
 import { finalizeBookingCompletion } from '../../lib/completeBooking';
 import {
   createBookingViaCallable,
@@ -25,6 +30,7 @@ import {
   addBookingWithPayment,
   BookingSlotOverlapError,
   createBookingWithPayment,
+  createGuestBooking,
   InsufficientFundsError,
   rescheduleBooking,
   resolveBookingTotalPrice,
@@ -36,10 +42,26 @@ import {
   logActivityForUser,
 } from '../../lib/activityLog';
 import { stripUndefinedFields } from '../../lib/courseClone';
-import { Booking, Instructor, Review, UserProfile } from '../../types';
+import { Booking, Instructor, LessonRecommendation, Review, UserProfile } from '../../types';
+import type { AvailabilitySlot } from '../../types';
 import { toUserProfile } from '../../lib/firestoreMappers';
+
+export async function getInstructorAvailabilitySlots(
+  instructorId: string,
+  date?: string
+): Promise<AvailabilitySlot[]> {
+  const constraints = [where('instructorId', '==', instructorId)];
+  if (date) constraints.push(where('date', '==', date));
+  const snapshot = await getDocs(
+    query(collection(db, AVAILABILITY_SLOTS_COLLECTION), ...constraints)
+  );
+  return snapshot.docs.map((slotDoc) => slotDoc.data() as AvailabilitySlot);
+}
 import { logger } from '../../lib/logger';
-import { toggleCompletedRecommendationIds } from '../../lib/lessonRecommendations';
+import {
+  sanitizeRecommendations,
+  toggleCompletedRecommendationIds,
+} from '../../lib/lessonRecommendations';
 
 export { BookingSlotOverlapError, InsufficientFundsError };
 export type { BookingPaymentResult };
@@ -57,6 +79,10 @@ export async function createBookingForUser(
     logger.warn('createBooking callable unavailable, using direct Firestore transaction', error);
     return createBookingWithPayment(db, userId, booking);
   }
+}
+
+export async function createGuestBookingService(booking: Booking): Promise<void> {
+  await createGuestBooking(db, booking);
 }
 
 export async function rescheduleBookingService(
@@ -158,6 +184,34 @@ export async function deleteBookingService(
 
 export async function confirmBookingService(id: string): Promise<void> {
   await updateDoc(doc(db, 'bookings', id), { status: 'confirmed' });
+}
+
+export async function updateBookingStatusService(
+  booking: Booking,
+  status: 'confirmed'
+): Promise<void> {
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'bookings', booking.id), { status });
+
+  const updatedBooking = { ...booking, status };
+  if (blocksInstructorAvailability(updatedBooking)) {
+    batch.set(
+      doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id),
+      toAvailabilitySlot(updatedBooking)
+    );
+  } else {
+    batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id));
+  }
+  await batch.commit();
+}
+
+export async function saveBookingRecommendationsService(
+  bookingId: string,
+  recommendations: LessonRecommendation[]
+): Promise<void> {
+  await updateDoc(doc(db, 'bookings', bookingId), {
+    recommendations: sanitizeRecommendations(recommendations),
+  });
 }
 
 export async function completeBookingService(

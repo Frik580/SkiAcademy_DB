@@ -21,10 +21,7 @@ import { useUiStore } from '../../features/ui/uiStore';
 import type { AppRoutesProps } from './routeTypes';
 
 /** Connects the public home screen to catalogue data and UI actions. */
-export const HomeRouteContainer: React.FC<AppRoutesProps> = ({
-  resortData,
-  setIsFahrenheit,
-}) => {
+export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIsFahrenheit }) => {
   const { t, language } = useLanguage();
   const { theme } = useTheme();
   const userProfile = useProfileStore((state) => state.userProfile);

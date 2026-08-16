@@ -5,12 +5,12 @@ import {
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   getNotificationRetentionMs,
 } from '../../src/lib/notificationConfig';
-import { TWO_WEEKS_MS } from '../../src/hooks/useNotifications';
 
 describe('notification deletion and auto-expiry', () => {
   it('defines default 14-day expiry constant', () => {
-    expect(TWO_WEEKS_MS).toBe(getNotificationRetentionMs(DEFAULT_NOTIFICATION_RETENTION_DAYS));
-    expect(TWO_WEEKS_MS).toBe(14 * 24 * 60 * 60 * 1000);
+    expect(getNotificationRetentionMs(DEFAULT_NOTIFICATION_RETENTION_DAYS)).toBe(
+      14 * 24 * 60 * 60 * 1000
+    );
   });
 
   it('wires single notification deletion and auto-cleanup of expired items', () => {
@@ -18,7 +18,10 @@ describe('notification deletion and auto-expiry', () => {
       join(process.cwd(), 'src/features/notifications/sync/useNotificationsSync.ts'),
       'utf8'
     );
-    const uiStoreSource = readFileSync(join(process.cwd(), 'src/store/uiStore.ts'), 'utf8');
+    const settingsServiceSource = readFileSync(
+      join(process.cwd(), 'src/features/settings/settingsService.ts'),
+      'utf8'
+    );
     const notificationActionsSource = readFileSync(
       join(process.cwd(), 'src/features/notifications/useNotificationActions.ts'),
       'utf8'
@@ -42,9 +45,9 @@ describe('notification deletion and auto-expiry', () => {
     expect(notificationsSource).toContain('isNotificationExpired');
     expect(cleanupSource).toContain('deleteDoc');
 
-    // Retention setting is loaded and passed from ui store
-    expect(uiStoreSource).toContain('notification_retention');
-    expect(uiStoreSource).toContain('handleSetNotificationRetentionDays');
+    // Retention setting belongs to the settings domain.
+    expect(settingsServiceSource).toContain('notification_retention');
+    expect(settingsServiceSource).toContain('saveNotificationRetentionDays');
 
     // ModalHost passes deletion through the notification feature action layer.
     expect(modalHostSource).toContain('handleDeleteNotification');

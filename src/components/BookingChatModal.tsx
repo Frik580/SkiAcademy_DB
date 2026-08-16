@@ -1,26 +1,17 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Booking, UserProfile, ChatMessage, OperationType, Instructor, Course } from '../types';
-import {
-  db,
-  collection,
-  doc,
-  setDoc,
-  updateDoc,
-  deleteField,
-  onSnapshot,
-  handleFirestoreError,
-  limit,
-  orderBy,
-  query,
-} from '../lib/firebase';
+import { Booking, UserProfile, ChatMessage, Instructor, Course } from '../types';
 import { uploadImage } from '../lib/storage';
-import { QUERY_LIMITS } from '../lib/queryLimits';
 import { useLanguage } from '../lib/LanguageContext';
 import { logger } from '../lib/logger';
 import { resolveChatId, getCourseChatThreadIds } from '../lib/resolveChatId';
 import { resolveProfileSenderRole } from '../lib/chatSenderRole';
 import { buildHomeworkForUserIds } from '../lib/chatHomework';
+import {
+  createChatMessage,
+  setChatMessageHomework,
+  subscribeToChatMessages,
+} from '../features/chat/chatService';
 import { ChatWindow } from './booking_chat/ChatWindow';
 import { ChatMessageList, type ChatMessageRow } from './booking_chat/ChatMessageList';
 import { MediaUploader } from './booking_chat/MediaUploader';
@@ -126,32 +117,25 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   };
 
   useEffect(() => {
-    const chatId = resolveChatId(booking);
     const chatIds = getCourseChatThreadIds(booking);
-    const messagesPath = `bookings/${chatId}/messages`;
     setIsLoading(true);
 
     const messageMap = new Map<string, ChatMessageRow>();
     const loadedThreads = new Set<string>();
 
     const unsubscribes = chatIds.map((threadId) =>
-      onSnapshot(
-        query(
-          collection(db, 'bookings', threadId, 'messages'),
-          orderBy('timestamp', 'desc'),
-          limit(QUERY_LIMITS.chatMessages)
-        ),
-        (snapshot) => {
+      subscribeToChatMessages(
+        threadId,
+        (threadMessages) => {
           const threadPrefix = `${threadId}:`;
           for (const key of messageMap.keys()) {
             if (key.startsWith(threadPrefix)) {
               messageMap.delete(key);
             }
           }
-          snapshot.docs.forEach((d) => {
-            messageMap.set(`${threadId}:${d.id}`, {
-              id: d.id,
-              ...d.data(),
+          threadMessages.forEach((message) => {
+            messageMap.set(`${threadId}:${message.id}`, {
+              ...message,
               threadId,
             } as ChatMessageRow);
           });
@@ -161,10 +145,9 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
           setMessages(list);
           if (loadedThreads.size >= chatIds.length) setIsLoading(false);
         },
-        (error) => {
+        () => {
           loadedThreads.add(threadId);
           if (loadedThreads.size >= chatIds.length) setIsLoading(false);
-          handleFirestoreError(error, OperationType.GET, messagesPath);
         }
       )
     );
@@ -277,16 +260,12 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
 
     setIsSending(true);
     const chatId = resolveChatId(booking);
-    const messagesPath = `bookings/${chatId}/messages`;
-
     try {
-      const msgRef = doc(collection(db, 'bookings', chatId, 'messages'));
       const outgoingRole = fromInstructorPanel
         ? 'instructor'
         : resolveProfileSenderRole(currentUserProfile);
 
-      const newMessage: ChatMessage = {
-        id: msgRef.id,
+      const newMessage: Omit<ChatMessage, 'id'> = {
         bookingId: booking.id,
         senderId: currentUserProfile.uid,
         senderName: currentUserProfile.displayName || currentUserProfile.email,
@@ -324,13 +303,11 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
         }
       }
 
-      await setDoc(msgRef, newMessage);
+      await createChatMessage(chatId, newMessage);
       setInputText('');
       setSendAsHomework(false);
       resetHomeworkTargets();
       setAttachment(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, messagesPath);
     } finally {
       setIsSending(false);
     }
@@ -338,24 +315,14 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
 
   const handleToggleHomework = async (msg: ChatMessageRow, checked: boolean) => {
     const threadId = msg.threadId ?? resolveChatId(booking);
-    const messagesPath = `bookings/${threadId}/messages/${msg.id}`;
     setHomeworkTogglingId(msg.id);
     try {
-      const msgRef = doc(db, 'bookings', threadId, 'messages', msg.id);
       if (checked) {
         const targets = buildHomeworkForUserIds(null, courseParticipants.length);
-        await updateDoc(msgRef, {
-          isHomework: true,
-          ...(targets ? { homeworkForUserIds: targets } : {}),
-        });
+        await setChatMessageHomework(threadId, msg.id, true, targets);
       } else {
-        await updateDoc(msgRef, {
-          isHomework: false,
-          homeworkForUserIds: deleteField(),
-        });
+        await setChatMessageHomework(threadId, msg.id, false);
       }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, messagesPath);
     } finally {
       setHomeworkTogglingId(null);
     }

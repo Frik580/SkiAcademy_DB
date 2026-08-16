@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 import confetti from 'canvas-confetti';
-import { auth, handleFirestoreError, OperationType } from '../../lib/firebase';
 import { Course, UserProfile } from '../../types';
 import { notify, t, getLanguage } from '../../store/storeContext';
 import { useAuthStore } from '../auth/authStore';
+import { getCurrentAuthenticatedUser } from '../auth/authService';
 import { useProfileStore } from '../profile/profileStore';
 import { useBookingsStore } from '../bookings/bookingsStore';
 import { withOptimisticBalance } from '../wallet/walletService';
@@ -53,7 +53,7 @@ export function useCourseActions() {
   const handleBookCourse = useCallback(
     async (courseId: string, customProfile?: UserProfile) => {
       const activeProfile = customProfile || userProfile;
-      const activeUser = firebaseUser || auth.currentUser;
+      const activeUser = firebaseUser || getCurrentAuthenticatedUser();
 
       if (!activeProfile || !activeUser) {
         notify('warning', t('signInRequired'), t('signInRequiredDesc'));
@@ -86,8 +86,6 @@ export function useCourseActions() {
           notify('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
         } else if (message === 'COURSE_FULL' || message === 'INSUFFICIENT_FUNDS') {
           notify('error', t('bookingFailed'), t('bookingFailedDesc'));
-        } else {
-          handleFirestoreError(error, OperationType.WRITE, `courses/${courseId}/enroll`);
         }
       }
     },

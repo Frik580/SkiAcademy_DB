@@ -1,9 +1,9 @@
 import React from 'react';
 import { Booking, Course, WalletLedgerEntry } from '../../../types';
-import { StudentWalletHistoryList } from '../../../components/personal_cabinet/student/StudentWalletHistoryList';
-import { StudentPanelBackLink } from '../../../components/personal_cabinet/student/StudentCabinetUI';
+import { StudentWalletHistoryList } from '../../../features/profile/components/personal_cabinet/student/StudentWalletHistoryList';
+import { StudentPanelBackLink } from '../../../features/profile/components/personal_cabinet/student/StudentCabinetUI';
 import { useLanguage } from '../../../lib/LanguageContext';
-import { StudentCabinetTab } from '../../../components/personal_cabinet/student/studentCabinetUtils';
+import { StudentCabinetTab } from '../../../features/profile/components/personal_cabinet/student/studentCabinetUtils';
 
 export interface WalletPanelProps {
   userId: string;

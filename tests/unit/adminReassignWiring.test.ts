@@ -17,12 +17,15 @@ describe('admin reassign instructor wiring', () => {
       'utf8'
     );
     const modalSource = readFileSync(
-      join(process.cwd(), 'src/components/admin/ScheduleSlotActionModal.tsx'),
+      join(process.cwd(), 'src/features/admin/components/admin/ScheduleSlotActionModal.tsx'),
       'utf8'
     );
 
     const moveFormSource = readFileSync(
-      join(process.cwd(), 'src/components/admin/schedule_slot_modal/ActiveSlotMoveForm.tsx'),
+      join(
+        process.cwd(),
+        'src/features/admin/components/admin/schedule_slot_modal/ActiveSlotMoveForm.tsx'
+      ),
       'utf8'
     );
 

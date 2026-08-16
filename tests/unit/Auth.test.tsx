@@ -2,7 +2,7 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Auth } from '../../src/components/Auth';
+import { Auth } from '../../src/features/auth';
 
 const mockCreateUserWithEmailAndPassword = vi.fn();
 const mockSignInWithEmailAndPassword = vi.fn();

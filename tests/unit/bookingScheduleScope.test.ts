@@ -9,7 +9,7 @@ import {
   isBookingPastBySchedule,
   resolveBookingEndDateTime,
   resolveBookingStartDateTime,
-} from '../../src/components/personal_cabinet/student/studentCabinetUtils';
+} from '../../src/features/profile/components/personal_cabinet/student/studentCabinetUtils';
 import { Booking, Course } from '../../src/types';
 
 const lesson = (overrides: Partial<Booking>): Booking => ({

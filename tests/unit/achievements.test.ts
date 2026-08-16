@@ -13,7 +13,7 @@ import { DEFAULT_SKILL_CONFIG } from '../../src/lib/skillData';
 import {
   getTodayAchievements,
   isTimestampOnLocalDate,
-} from '../../src/components/personal_cabinet/student/studentCabinetUtils';
+} from '../../src/features/profile/components/personal_cabinet/student/studentCabinetUtils';
 
 const userProfile: UserProfile = {
   uid: 'user-1',

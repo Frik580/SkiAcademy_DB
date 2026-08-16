@@ -16,7 +16,7 @@ import { useUiStore } from '../../features/ui/uiStore';
 import type { AppRoutesProps } from './routeTypes';
 
 const PersonalCabinet = React.lazy(() =>
-  import('../../components/PersonalCabinet').then(({ PersonalCabinet }) => ({
+  import('../../features/profile').then(({ PersonalCabinet }) => ({
     default: PersonalCabinet,
   }))
 );

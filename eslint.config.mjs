@@ -65,5 +65,28 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
     },
   },
+  {
+    // Migrated UI retains legacy warnings while feature services and app code stay strict.
+    files: ['src/features/**/components/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'warn',
+    },
+  },
+  {
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/features/**'],
+              message: 'Shared UI must stay feature-agnostic; pass data and callbacks through props instead.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettier
 );

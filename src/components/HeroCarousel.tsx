@@ -5,7 +5,7 @@ import { useLanguage, type Language } from '../lib/LanguageContext';
 import type { Theme } from '../hooks/useTheme';
 import type { DesignTheme } from '../lib/designTheme';
 import { CustomHeroSlide } from '../types';
-import { FALLBACK_SLIDES } from './admin/resortConfigDefaults';
+import { FALLBACK_SLIDES } from '../features/admin/components/admin/resortConfigDefaults';
 
 interface HeroCarouselProps {
   data: {

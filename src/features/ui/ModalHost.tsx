@@ -8,27 +8,27 @@ import { useCoursesStore } from '../courses/coursesStore';
 import { useCourseActions } from '../courses/useCourseActions';
 import { NotificationsPanel } from '../notifications/NotificationsPanel';
 import { OnboardingFlow } from '../profile/OnboardingFlow';
-import { AuthModal } from '../../components/AuthModal';
+import { AuthModal } from '../../features/auth';
 import { LazyLoad } from '../../components/LazyLoad';
 import { ModalSkeleton } from '../../components/ui/Skeleton';
 import { BodyScrollLock } from '../../components/ui/BodyScrollLock';
 import { ModalRegistryProps } from './modalRegistry';
 
 const BookingModal = React.lazy(() =>
-  import('../../components/BookingModal').then(({ BookingModal }) => ({ default: BookingModal }))
+  import('../../features/bookings').then(({ BookingModal }) => ({ default: BookingModal }))
 );
 const CourseEnrollmentModal = React.lazy(() =>
-  import('../../components/CourseEnrollmentModal').then(({ CourseEnrollmentModal }) => ({
+  import('../../features/courses').then(({ CourseEnrollmentModal }) => ({
     default: CourseEnrollmentModal,
   }))
 );
 const CourseDetailsModal = React.lazy(() =>
-  import('../../components/CourseDetailsModal').then(({ CourseDetailsModal }) => ({
+  import('../../features/courses').then(({ CourseDetailsModal }) => ({
     default: CourseDetailsModal,
   }))
 );
 const InstructorReviewsModal = React.lazy(() =>
-  import('../../components/InstructorReviewsModal').then(({ InstructorReviewsModal }) => ({
+  import('../../features/profile').then(({ InstructorReviewsModal }) => ({
     default: InstructorReviewsModal,
   }))
 );

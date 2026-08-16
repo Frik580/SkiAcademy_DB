@@ -4,7 +4,7 @@ import {
   formatSessionTimeRange,
   getNextSessionsNext7Days,
   parseBookingStartTime,
-} from '../../src/components/personal_cabinet/student/studentCabinetUtils';
+} from '../../src/features/profile/components/personal_cabinet/student/studentCabinetUtils';
 import { Booking } from '../../src/types';
 
 describe('student cabinet time helpers', () => {

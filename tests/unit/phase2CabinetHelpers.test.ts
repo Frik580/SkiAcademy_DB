@@ -3,7 +3,7 @@ import {
   getAvailableCourses,
   getEnrolledCourses,
   getMyInstructors,
-} from '../../src/components/personal_cabinet/student/studentCabinetUtils';
+} from '../../src/features/profile/components/personal_cabinet/student/studentCabinetUtils';
 import { Booking, Course, Instructor } from '../../src/types';
 
 const userId = 'user-1';

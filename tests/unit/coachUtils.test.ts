@@ -3,7 +3,7 @@ import {
   getInstructorSkillComments,
   isMessageFromInstructor,
   resolveMessageCourseTitle,
-} from '../../src/components/personal_cabinet/student/coachUtils';
+} from '../../src/features/profile/components/personal_cabinet/student/coachUtils';
 import {
   ActivityLog,
   Booking,

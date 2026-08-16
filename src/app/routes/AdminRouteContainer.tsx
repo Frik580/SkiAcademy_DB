@@ -12,7 +12,7 @@ import { useSettingsStore } from '../../features/settings/settingsStore';
 import { useAdminActions } from '../../features/admin/useAdminActions';
 
 const AdminPanel = React.lazy(() =>
-  import('../../components/AdminPanel').then(({ AdminPanel }) => ({ default: AdminPanel }))
+  import('../../features/admin').then(({ AdminPanel }) => ({ default: AdminPanel }))
 );
 
 const AdminLoadingFallback: React.FC<{ label: string }> = ({ label }) => (

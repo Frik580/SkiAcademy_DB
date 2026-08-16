@@ -4,7 +4,7 @@ import {
   getPrioritySkillItems,
   getSkillItemRingCategory,
   matchesSkillRingFilter,
-} from '../../src/components/personal_cabinet/student/studentCabinetUtils';
+} from '../../src/features/profile/components/personal_cabinet/student/studentCabinetUtils';
 import { DEFAULT_SKILL_CONFIG } from '../../src/lib/skillData';
 import { UserProfile } from '../../src/types';
 

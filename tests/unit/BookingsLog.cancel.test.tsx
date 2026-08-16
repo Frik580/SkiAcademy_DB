@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { BookingsLog } from '../../src/components/admin/BookingsLog';
+import { BookingsLog } from '../../src/features/admin/components/admin/BookingsLog';
 import type { Booking, Instructor, UserProfile } from '../../src/types';
 
 vi.mock('../../src/lib/LanguageContext', () => ({

@@ -1,5 +1,5 @@
 import { UserProfile } from '../types';
-import { StudentCabinetTab } from '../components/personal_cabinet/student/studentCabinetUtils';
+import { StudentCabinetTab } from '../features/profile/components/personal_cabinet/student/studentCabinetUtils';
 
 export const CABINET_TABS: StudentCabinetTab[] = [
   'home',

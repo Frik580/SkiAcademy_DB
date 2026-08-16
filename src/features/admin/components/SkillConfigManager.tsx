@@ -1,0 +1,369 @@
+import React, { useState, useEffect } from 'react';
+import {
+  SkillConfig,
+  SkillItem,
+  DEFAULT_SKILL_CONFIG,
+  RADAR_DIMENSION_KEYS,
+  classifySkillItemToRadarDimension,
+  RadarDimensionKey,
+  getSkillItemTitle,
+  getSkillItemSection,
+  getRadarDimensionLabel,
+} from '../../../lib/skillData';
+import { useLanguage } from '../../../lib/LanguageContext';
+import { Plus, Trash2, Edit2, Save, RotateCcw, Check } from 'lucide-react';
+
+interface SkillConfigManagerProps {
+  config?: SkillConfig;
+  onSaveConfig: (config: SkillConfig) => Promise<void>;
+}
+
+export const SkillConfigManager: React.FC<SkillConfigManagerProps> = ({
+  config = DEFAULT_SKILL_CONFIG,
+  onSaveConfig,
+}) => {
+  const { t, language } = useLanguage();
+  const [items, setItems] = useState<SkillItem[]>(config.items || DEFAULT_SKILL_CONFIG.items);
+  const [passPercentage, setPassPercentage] = useState<number>(config.passPercentage ?? 80);
+  const [selectedLevelTransition, setSelectedLevelTransition] = useState<number>(1); // 1 = Lvl1->2, 2 = Lvl2->3, 3 = Lvl3->4
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+
+  // Sync state if props change
+  useEffect(() => {
+    if (config?.items) {
+      setItems(config.items);
+      setPassPercentage(config.passPercentage ?? 80);
+    }
+  }, [config]);
+
+  // Filter items by level transition
+  const filteredItems = items.filter((item) => item.levelTarget === selectedLevelTransition);
+
+  // Totals for current transition
+  const transitionMaxPoints = filteredItems.reduce((sum, item) => sum + item.maxPoints, 0);
+
+  const handleUpdateItemField = (id: string, field: keyof SkillItem, value: any) => {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          return { ...item, [field]: value };
+        }
+        return item;
+      })
+    );
+  };
+
+  const handleAddItem = () => {
+    const defaultSection =
+      selectedLevelTransition === 1
+        ? language === 'en'
+          ? 'Balance'
+          : 'Баланс'
+        : selectedLevelTransition === 2
+          ? language === 'en'
+            ? 'Technique'
+            : 'Техника'
+          : language === 'en'
+            ? 'High Speed'
+            : 'Высокая скорость';
+
+    const newItem: SkillItem = {
+      id: `item_${Date.now()}`,
+      levelTarget: selectedLevelTransition,
+      section: defaultSection,
+      sectionEn: language === 'en' ? defaultSection : undefined,
+      num: String(filteredItems.length + 1),
+      title: language === 'en' ? 'New exercise' : 'Новое упражнение',
+      titleEn: language === 'en' ? 'New exercise' : undefined,
+      maxPoints: 5,
+      controlPoints: 0,
+      speedPoints: 0,
+      techniquePoints: 0,
+      radarDimension: 'technique',
+    };
+    setItems((prev) => [...prev, newItem]);
+    setEditingItemId(newItem.id);
+  };
+
+  const handleDeleteItem = (id: string) => {
+    setItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleResetToDefault = () => {
+    if (window.confirm(t('resetSkillTableConfirm'))) {
+      setItems(DEFAULT_SKILL_CONFIG.items);
+      setPassPercentage(80);
+    }
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSaveConfig({
+        passPercentage,
+        items,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
+      <div className="flex items-center justify-end gap-2 border-b border-[var(--border)] pb-3">
+        <button
+          onClick={handleResetToDefault}
+          className="px-3 py-1.5 border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 text-[10px] font-mono uppercase tracking-wider transition flex items-center gap-1.5 cursor-pointer"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          {t('reset')}
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="px-4 py-1.5 btn-primary flex items-center gap-1.5 shadow-md disabled:opacity-50"
+        >
+          <Save className="w-3.5 h-3.5" />
+          {isSaving ? t('saving') : t('saveChanges')}
+        </button>
+      </div>
+
+      {/* Passing score setting */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-black/20 p-4 border border-[var(--border)]/60">
+        <div>
+          <label className="block text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mb-1">
+            {t('advancementThreshold')}
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={50}
+              max={100}
+              value={passPercentage}
+              onChange={(e) => setPassPercentage(Number(e.target.value))}
+              className="w-24 bg-[var(--bg)] border border-[var(--border)] px-3 py-1.5 text-xs font-mono text-[var(--ink)] focus:outline-none focus:border-accent"
+            />
+            <span className="text-xs font-mono font-bold text-accent">%</span>
+          </div>
+          <span className="text-[9px] text-[var(--ink-dim)] mt-1 block">
+            {t('minimumAdvancementThresholdPrefix')} {passPercentage}%{' '}
+            {t('minimumAdvancementThresholdSuffix')}
+          </span>
+        </div>
+
+        <div>
+          <span className="block text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mb-1">
+            {t('totalSkillItems')}
+          </span>
+          <span className="text-lg font-serif font-bold text-[var(--ink)]">{items.length}</span>
+        </div>
+
+        <div>
+          <span className="block text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mb-1">
+            {t('currentTransitionMaxPoints')}
+          </span>
+          <span className="text-lg font-serif font-bold text-emerald-400">
+            {transitionMaxPoints} {t('points')}
+            <span className="text-xs font-mono text-[var(--ink-dim)] ml-2">
+              ({t('requiredPrefix')}: {Math.ceil(transitionMaxPoints * (passPercentage / 100))})
+            </span>
+          </span>
+        </div>
+      </div>
+
+      {/* Level Transition Tabs */}
+      <div className="flex flex-wrap gap-2 border-b border-[var(--border)] pb-2">
+        <button
+          onClick={() => setSelectedLevelTransition(1)}
+          className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider border transition cursor-pointer ${
+            selectedLevelTransition === 1
+              ? 'border-accent bg-accent-muted text-accent font-bold'
+              : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
+          }`}
+        >
+          Beginner → Carve ({t('levelStage')} 1 → 2)
+        </button>
+        <button
+          onClick={() => setSelectedLevelTransition(2)}
+          className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider border transition cursor-pointer ${
+            selectedLevelTransition === 2
+              ? 'border-accent bg-accent-muted text-accent font-bold'
+              : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
+          }`}
+        >
+          Carve → Performance ({t('levelStage')} 2 → 3)
+        </button>
+        <button
+          onClick={() => setSelectedLevelTransition(3)}
+          className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider border transition cursor-pointer ${
+            selectedLevelTransition === 3
+              ? 'border-accent bg-accent-muted text-accent font-bold'
+              : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
+          }`}
+        >
+          Performance → Expert ({t('levelStage')} 3 → 4)
+        </button>
+      </div>
+
+      {/* Action header */}
+      <div className="flex justify-between items-center">
+        <span className="text-xs font-mono text-[var(--ink)] font-bold">
+          {t('exercisesForStage')} ({filteredItems.length} {t('items')})
+        </span>
+        <button
+          onClick={handleAddItem}
+          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-mono uppercase tracking-wider transition flex items-center gap-1 cursor-pointer"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          {t('addItem')}
+        </button>
+      </div>
+
+      {/* Table of Skill Items */}
+      <div className="overflow-x-auto border border-[var(--border)]">
+        <table className="w-full text-left border-collapse min-w-[560px]">
+          <thead>
+            <tr className="bg-black/30 text-[9px] font-mono uppercase text-[var(--ink-dim)] tracking-wider border-b border-[var(--border)]">
+              <th className="p-2 border-r border-[var(--border)]/40 w-12">{t('numberCol')}</th>
+              <th className="p-2 border-r border-[var(--border)]/40">{t('categoryCol')}</th>
+              <th className="p-2 border-r border-[var(--border)]/40">{t('exerciseTitleCol')}</th>
+              <th className="p-2 border-r border-[var(--border)]/40 w-20 text-center">
+                {t('maxPointsCol')}
+              </th>
+              <th className="p-2 border-r border-[var(--border)]/40 w-28 text-center">
+                {t('radarAxisCol')}
+              </th>
+              <th className="p-2 w-20 text-center">{t('actionsCol')}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--border)]/40 text-xs font-mono text-[var(--ink)]">
+            {filteredItems.map((item, idx) => {
+              const isEditing = editingItemId === item.id;
+              const displaySection = getSkillItemSection(item, language);
+              const displayTitle = getSkillItemTitle(item, language);
+
+              return (
+                <tr key={item.id} className="hover:bg-black/10 transition-colors">
+                  <td className="p-2 border-r border-[var(--border)]/40 text-center text-[var(--ink-dim)]">
+                    {idx + 1}
+                  </td>
+
+                  {/* Category */}
+                  <td className="p-2 border-r border-[var(--border)]/40">
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={language === 'en' ? item.sectionEn || displaySection : item.section}
+                        onChange={(e) => {
+                          if (language === 'en') {
+                            handleUpdateItemField(item.id, 'sectionEn', e.target.value);
+                          }
+                          handleUpdateItemField(item.id, 'section', e.target.value);
+                        }}
+                        className="w-full bg-[var(--bg)] border border-[var(--border)] px-1.5 py-0.5 text-xs text-[var(--ink)]"
+                      />
+                    ) : (
+                      <span className="font-semibold text-accent">{displaySection}</span>
+                    )}
+                  </td>
+
+                  {/* Title */}
+                  <td className="p-2 border-r border-[var(--border)]/40">
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={language === 'en' ? item.titleEn || displayTitle : item.title}
+                        onChange={(e) => {
+                          if (language === 'en') {
+                            handleUpdateItemField(item.id, 'titleEn', e.target.value);
+                          }
+                          handleUpdateItemField(item.id, 'title', e.target.value);
+                        }}
+                        className="w-full bg-[var(--bg)] border border-[var(--border)] px-1.5 py-0.5 text-xs text-[var(--ink)]"
+                      />
+                    ) : (
+                      <span>{displayTitle}</span>
+                    )}
+                  </td>
+
+                  {/* Max Points */}
+                  <td className="p-2 border-r border-[var(--border)]/40 text-center">
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        min={1}
+                        value={item.maxPoints}
+                        onChange={(e) =>
+                          handleUpdateItemField(item.id, 'maxPoints', Number(e.target.value))
+                        }
+                        className="w-14 bg-[var(--bg)] border border-[var(--border)] text-center px-1 py-0.5 text-xs text-[var(--ink)]"
+                      />
+                    ) : (
+                      <span className="font-bold text-amber-400">{item.maxPoints}</span>
+                    )}
+                  </td>
+
+                  {/* Radar dimension */}
+                  <td className="p-2 border-r border-[var(--border)]/40 text-center">
+                    {isEditing ? (
+                      <select
+                        value={item.radarDimension ?? classifySkillItemToRadarDimension(item)}
+                        onChange={(e) =>
+                          handleUpdateItemField(
+                            item.id,
+                            'radarDimension',
+                            e.target.value as RadarDimensionKey
+                          )
+                        }
+                        className="w-full max-w-[7.5rem] bg-[var(--bg)] border border-[var(--border)] px-1 py-0.5 text-[10px] text-[var(--ink)]"
+                      >
+                        {RADAR_DIMENSION_KEYS.map((key) => (
+                          <option key={key} value={key}>
+                            {getRadarDimensionLabel(key, language)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-[10px] text-[var(--ink-dim)]">
+                        {getRadarDimensionLabel(classifySkillItemToRadarDimension(item), language)}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Actions */}
+                  <td className="p-2 text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        onClick={() => setEditingItemId(isEditing ? null : item.id)}
+                        className={`p-1 border transition cursor-pointer ${
+                          isEditing
+                            ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
+                            : 'border-[var(--border)] text-[var(--ink-dim)] hover:text-[var(--ink)]'
+                        }`}
+                        title={isEditing ? t('done') : t('edit')}
+                      >
+                        {isEditing ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <Edit2 className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteItem(item.id)}
+                        className="p-1 border border-[var(--border)] text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
+                        title={t('delete')}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};

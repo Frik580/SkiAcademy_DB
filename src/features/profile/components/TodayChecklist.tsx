@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { Booking } from '../../../types';
 import { useLanguage } from '../../../lib/LanguageContext';
 import { TodayTaskRef } from '../../../lib/todayChecklist';
-import { TodayTask } from '../../../components/personal_cabinet/student/studentCabinetUtils';
+import { TodayTask } from '../../../features/profile/components/personal_cabinet/student/studentCabinetUtils';
 
 export interface TodayChecklistProps {
   tasks: TodayTask[];

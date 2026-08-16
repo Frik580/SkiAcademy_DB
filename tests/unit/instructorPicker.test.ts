@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getInstructorPickerGroups } from '../../src/components/personal_cabinet/student/studentCabinetUtils';
+import { getInstructorPickerGroups } from '../../src/features/profile/components/personal_cabinet/student/studentCabinetUtils';
 import { Booking, Instructor, UserProfile } from '../../src/types';
 
 const userProfile: UserProfile = {

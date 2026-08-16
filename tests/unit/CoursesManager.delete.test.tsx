@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CoursesManager } from '../../src/components/admin/CoursesManager';
+import { CoursesManager } from '../../src/features/admin/components/admin/CoursesManager';
 import type { Course } from '../../src/types';
 
 const mockAddNotification = vi.fn();
@@ -16,7 +16,7 @@ vi.mock('../../src/components/PushNotificationHub', () => ({
   useNotifications: () => ({ addNotification: mockAddNotification }),
 }));
 
-vi.mock('../../src/components/admin/courses_manager/useCourseForm', () => ({
+vi.mock('../../src/features/admin/components/admin/courses_manager/useCourseForm', () => ({
   useCourseForm: () => ({
     showCourseForm: false,
     editingCourse: null,

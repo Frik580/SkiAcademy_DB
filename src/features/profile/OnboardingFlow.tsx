@@ -1,5 +1,5 @@
 import React from 'react';
-import { OnboardingModal } from '../../components/OnboardingModal';
+import { OnboardingModal } from '../../features/profile';
 import { useUiStore } from '../ui/uiStore';
 
 interface OnboardingFlowProps {

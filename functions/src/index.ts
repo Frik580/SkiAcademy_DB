@@ -3,10 +3,15 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getAdminFirestore } from './adminFirestore';
 import { autoCompletePastBookings } from './bookings/autoComplete';
 import { createCreateBookingHandler } from './bookings/createBooking';
+import { createGuestCourseEnrollmentHandler } from './courses/createGuestCourseEnrollment';
 import { purgeExpiredNotifications } from './purgeExpiredNotifications';
 
 export const createBooking = onCall({ region: 'us-central1' }, async (request) =>
   createCreateBookingHandler(getAdminFirestore())(request)
+);
+
+export const createGuestCourseEnrollment = onCall({ region: 'us-central1' }, async (request) =>
+  createGuestCourseEnrollmentHandler(getAdminFirestore())(request)
 );
 
 export const scheduledAutoCompleteBookings = onSchedule(

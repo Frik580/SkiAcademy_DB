@@ -106,6 +106,19 @@ export async function seedCallableBaseFixtures() {
   });
 }
 
+export async function seedCallableCourse(courseId: string, availableSeats = 1) {
+  await rulesTestEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'courses', courseId), {
+      id: courseId,
+      title: 'Guest Course',
+      dates: '2026-12-10',
+      price: 200,
+      totalSeats: availableSeats,
+      availableSeats,
+    });
+  });
+}
+
 export async function seedCallableUserProfile(balanceUSD = 500) {
   const uid = getCallableUserId();
   await rulesTestEnv.withSecurityRulesDisabled(async (context) => {
@@ -135,6 +148,10 @@ export function getCallableUserId(): string {
     throw new Error('Callable auth user has not been initialized.');
   }
   return callableUserId;
+}
+
+export function getRulesTestEnv(): RulesTestEnvironment {
+  return rulesTestEnv;
 }
 
 export function getCallableClientApp(): FirebaseApp {

@@ -2,16 +2,14 @@ import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { X, User, Phone, Mail, Send, Loader2 } from 'lucide-react';
-import { Course, UserProfile, Booking } from '../types';
-import { useLanguage, getGroupCourseLabel, getGroupScheduleLabel } from '../lib/LanguageContext';
+import { Course, UserProfile } from '../types';
+import { useLanguage, getGroupCourseLabel } from '../lib/LanguageContext';
 import { useCurrency } from '../lib/CurrencyContext';
-import { db, setDoc, doc } from '../lib/firebase';
-import { withBookingCreatedAt } from '../lib/bookingCreatedAt';
 import { useNotifications } from './PushNotificationHub';
 import { Auth } from './Auth';
 import { AuthModeSliderSwitch } from './booking_modal/AuthModeSliderSwitch';
-import { logger } from '../lib/logger';
 import { BodyScrollLock } from './ui/BodyScrollLock';
+import { createGuestCourseEnrollmentViaCallable } from '../lib/createGuestCourseEnrollmentCallable';
 
 interface CourseEnrollmentModalProps {
   isOpen: boolean;
@@ -53,50 +51,20 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     }
 
     setIsSubmitting(true);
-    const localizedTitle = getGroupCourseLabel(course.title, language);
-    const datePart = course.dates.split('•')[0]?.trim() || course.dates;
-    const schedulePart = getGroupScheduleLabel(language);
-
-    const guestBooking: Booking = {
-      id: `guest_course_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      userId: `guest_${Date.now()}`,
-      courseId: course.id,
-      instructorId: `course_${course.id}`,
-      instructorName: `${t('guestCourseRequestPrefix')} ${localizedTitle}`,
-      instructorAvatar: course.bgImageUrl || '',
-      date: datePart,
-      time: schedulePart,
-      durationHours: 10,
-      totalPrice: course.price,
-      status: 'pending',
-      difficulty: 'intermediate',
-      notes: guestNotes.trim()
-        ? `Заявка на курс "${localizedTitle}". Пожелания: ${guestNotes.trim()}`
-        : `Заявка на курс "${localizedTitle}"`,
-      isGuest: true,
-      guestName: guestName.trim(),
-      guestPhone: guestPhone.trim(),
-      guestEmail: guestEmail.trim(),
-    };
-
     try {
-      await setDoc(doc(db, 'bookings', guestBooking.id), withBookingCreatedAt(guestBooking));
+      await createGuestCourseEnrollmentViaCallable({
+        courseId: course.id,
+        guestName: guestName.trim(),
+        guestPhone: guestPhone.trim(),
+        guestEmail: guestEmail.trim(),
+        guestNotes: guestNotes.trim(),
+        language,
+      });
       addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       onClose();
     } catch (err) {
-      logger.error('Error submitting guest course booking:', err);
-      try {
-        const existingStr = localStorage.getItem('alpine_glide_bookings_admin');
-        const existing: Booking[] = existingStr ? JSON.parse(existingStr) : [];
-        existing.push(guestBooking);
-        localStorage.setItem('alpine_glide_bookings_admin', JSON.stringify(existing));
-        addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-        onClose();
-      } catch {
-        addNotification('error', t('bookingError'), t('bookingRecordFailed'));
-      }
+      addNotification('error', t('bookingError'), t('bookingRecordFailed'));
     } finally {
       setIsSubmitting(false);
     }

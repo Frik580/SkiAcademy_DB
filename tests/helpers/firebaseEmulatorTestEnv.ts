@@ -34,3 +34,5 @@ export async function cleanupEmulatorTestEnvironment(
     await testEnv.cleanup();
   }
 }
+
+export { RulesTestEnvironment };

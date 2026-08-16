@@ -1,8 +1,7 @@
-import { db, deleteDoc, doc, setDoc, updateDoc, writeBatch } from '../../lib/firebase';
-import { enrollInCourse, isActiveCourseEnrollment } from '../../lib/courseTransactions';
+import { db, deleteDoc, doc, setDoc, updateDoc } from '../../lib/firebase';
+import { enrollInCourse } from '../../lib/courseTransactions';
 import { stripUndefinedFields } from '../../lib/courseClone';
 import { Course, Booking } from '../../types';
-import { logger } from '../../lib/logger';
 import { createNotificationForUser } from '../../lib/notifications';
 import { buildNotification, translateKey } from '../../lib/notificationText';
 
@@ -51,37 +50,5 @@ export async function notifyCourseModifiedService(
       buildNotification('courseModified', buildCourseModifiedMessage),
       'warning'
     );
-  }
-}
-
-export async function syncCourseSeatsService(
-  courses: Course[],
-  bookings: Booking[]
-): Promise<number> {
-  if (courses.length === 0) return 0;
-
-  const batch = writeBatch(db);
-  let pendingWrites = 0;
-
-  for (const course of courses) {
-    const activeBookingsCount = bookings.filter(
-      (booking) =>
-        booking.instructorId === `course_${course.id}` && isActiveCourseEnrollment(booking)
-    ).length;
-    const availableSeats = Math.max(0, course.totalSeats - activeBookingsCount);
-    if (course.availableSeats === availableSeats) continue;
-
-    batch.update(doc(db, 'courses', course.id), { availableSeats });
-    pendingWrites++;
-  }
-
-  if (pendingWrites === 0) return 0;
-
-  try {
-    await batch.commit();
-    return pendingWrites;
-  } catch (error) {
-    logger.error(`Failed to auto-sync seats for ${pendingWrites} course(s):`, error);
-    throw error;
   }
 }

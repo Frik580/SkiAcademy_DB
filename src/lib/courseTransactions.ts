@@ -55,6 +55,30 @@ export async function releaseCourseSeatInTransaction(
   }
 }
 
+/**
+ * Reserves a course seat in the same transaction that creates the booking.
+ * This is the write-side invariant; listeners must never repair seat counts.
+ */
+export async function reserveCourseSeatInTransaction(
+  transaction: Transaction,
+  firestore: Firestore,
+  booking: Pick<Booking, 'courseId' | 'instructorId' | 'status' | 'isDeleted'>
+): Promise<void> {
+  if (!isActiveCourseEnrollment(booking)) return;
+
+  const courseId = resolveCourseIdFromBooking(booking);
+  if (!courseId) return;
+
+  const courseRef = doc(firestore, 'courses', courseId);
+  const courseSnap = await transaction.get(courseRef);
+  if (!courseSnap.exists()) throw new CourseEnrollmentError('Course does not exist.');
+
+  const courseData = courseSnap.data() as Course;
+  if (courseData.availableSeats <= 0) throw new CourseEnrollmentError('COURSE_FULL');
+
+  transaction.update(courseRef, { availableSeats: courseData.availableSeats - 1 });
+}
+
 export async function enrollInCourse(
   firestore: Firestore,
   userId: string,

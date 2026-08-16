@@ -30,6 +30,11 @@ import {
 } from './walletLedger';
 import { computeBookingEndsAtIso, withBookingEndsAt } from './bookingEndsAt';
 import { withBookingCreatedAt } from './bookingCreatedAt';
+import {
+  isActiveCourseEnrollment,
+  releaseCourseSeatInTransaction,
+  reserveCourseSeatInTransaction,
+} from './courseTransactions';
 
 export class InsufficientFundsError extends Error {
   constructor() {
@@ -178,6 +183,7 @@ export async function createBookingWithPayment(
     if (currentBalance < totalPrice) throw new InsufficientFundsError();
 
     await assertNoSlotOverlap(transaction, firestore, bookingToWrite, existingSlotRefs, booking.id);
+    await reserveCourseSeatInTransaction(transaction, firestore, bookingToWrite);
     writeBookingWithAvailability(transaction, firestore, bookingToWrite);
     const newBalance = currentBalance - totalPrice;
     transaction.update(userRef, { balanceUSD: newBalance });
@@ -240,6 +246,7 @@ export async function addBookingWithPayment(
     }
 
     await assertNoSlotOverlap(transaction, firestore, bookingToWrite, existingSlotRefs, booking.id);
+    await reserveCourseSeatInTransaction(transaction, firestore, bookingToWrite);
     writeBookingWithAvailability(transaction, firestore, bookingToWrite);
 
     return { newBalance, totalPrice };
@@ -254,6 +261,7 @@ export async function createGuestBooking(firestore: Firestore, booking: Booking)
     const bookingToWrite = { ...booking, totalPrice };
 
     await assertNoSlotOverlap(transaction, firestore, bookingToWrite, existingSlotRefs, booking.id);
+    await reserveCourseSeatInTransaction(transaction, firestore, bookingToWrite);
     writeBookingWithAvailability(transaction, firestore, bookingToWrite);
   });
 }
@@ -358,12 +366,6 @@ export async function cancelBookingWithRefund(
       return { refunded: 0, alreadyCancelled: true, bookingData: null };
     }
 
-    const courseId = isCourseBooking(bookingData)
-      ? bookingData.instructorId.substring('course_'.length)
-      : null;
-    const courseRef = courseId ? doc(firestore, 'courses', courseId) : null;
-    const courseSnap = courseRef ? await transaction.get(courseRef) : null;
-
     const refund =
       bookingData.status === 'completed' ? 0 : (refundAmount ?? bookingData.totalPrice ?? 0);
 
@@ -380,21 +382,16 @@ export async function cancelBookingWithRefund(
       }
     }
 
+    if (isActiveCourseEnrollment(bookingData)) {
+      await releaseCourseSeatInTransaction(transaction, firestore, bookingData);
+    }
+
     transaction.update(bookingRef, { status: 'cancelled' });
     if (!isCourseBooking(bookingData)) {
       for (const lockRef of existingHourLockRefs) {
         transaction.delete(lockRef);
       }
       transaction.delete(doc(firestore, AVAILABILITY_SLOTS_COLLECTION, bookingId));
-    }
-
-    if (courseRef && courseSnap?.exists()) {
-      const courseData = courseSnap.data() as Course;
-      if (courseData.availableSeats < courseData.totalSeats) {
-        transaction.update(courseRef, {
-          availableSeats: courseData.availableSeats + 1,
-        });
-      }
     }
 
     return { refunded: refund, alreadyCancelled: false, bookingData };

@@ -12,7 +12,6 @@ import {
   updateCourseService,
   deleteCourseService,
   enrollInCourseService,
-  syncCourseSeatsService,
   notifyCourseModifiedService,
 } from './courseService';
 
@@ -24,7 +23,6 @@ export interface CoursesState {
   handleUpdateCourse: (course: Course) => Promise<void>;
   handleDeleteCourse: (courseId: string) => Promise<void>;
   handleBookCourse: (courseId: string, customProfile?: UserProfile) => Promise<void>;
-  syncCourseSeats: () => Promise<void>;
 }
 
 export const useCoursesStore = create<CoursesState>((set, get) => ({
@@ -96,16 +94,6 @@ export const useCoursesStore = create<CoursesState>((set, get) => ({
         handleFirestoreError(error, OperationType.WRITE, `courses/${courseId}/enroll`);
       }
     }
-  },
-
-  syncCourseSeats: async () => {
-    const { courses } = get();
-    const { userProfile } = useProfileStore.getState();
-    const { bookings } = useBookingsStore.getState();
-
-    if (userProfile?.role !== 'admin' || courses.length === 0) return;
-
-    await syncCourseSeatsService(courses, bookings);
   },
 }));
 

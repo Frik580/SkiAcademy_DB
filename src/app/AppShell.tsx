@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
-import { db, doc, updateDoc } from '../lib/firebase';
 import { useLanguage } from '../lib/LanguageContext';
 import { useNotifications } from '../components/PushNotificationHub';
 import { useTheme } from '../hooks/useTheme';
@@ -28,6 +27,7 @@ export const AppShell: React.FC = () => {
 
   const userProfile = useProfileStore((s) => s.userProfile);
   const dismissedReviewIds = useProfileStore((s) => s.dismissedReviewIds);
+  const handleCompleteOnboardingForProfile = useProfileStore((s) => s.handleCompleteOnboarding);
   const handleSignOut = useAuthStore((s) => s.handleSignOut);
 
   const bookings = useBookingsStore((s) => s.bookings);
@@ -97,14 +97,10 @@ export const AppShell: React.FC = () => {
 
   const handleCompleteOnboarding = async () => {
     setIsOnboardingOpen(false);
-    if (userProfile) {
-      try {
-        await updateDoc(doc(db, 'users', userProfile.uid), {
-          hasCompletedOnboarding: true,
-        });
-      } catch (err) {
-        logger.warn('Failed to save onboarding completion', err);
-      }
+    try {
+      await handleCompleteOnboardingForProfile();
+    } catch (err) {
+      logger.warn('Failed to save onboarding completion', err);
     }
   };
 

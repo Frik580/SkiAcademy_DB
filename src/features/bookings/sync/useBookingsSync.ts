@@ -12,7 +12,7 @@ import {
   query,
   where,
 } from '../../../lib/firebase';
-import { Booking, Instructor, Review, UserProfile } from '../../../types';
+import { Booking, Instructor, Review } from '../../../types';
 import { QUERY_LIMITS } from '../../../lib/queryLimits';
 import { logger } from '../../../lib/logger';
 import { useAuthStore } from '../../auth/authStore';
@@ -21,7 +21,7 @@ import { useBookingsStore } from '../bookingsStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
 
 export const useBookingsSync = () => {
-  const { shouldSyncUsersList, shouldSyncReviews } = useDataSyncScope();
+  const { shouldSyncReviews } = useDataSyncScope();
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const userProfile = useProfileStore((s) => s.userProfile);
 
@@ -63,30 +63,6 @@ export const useBookingsSync = () => {
       (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
     );
   }, [shouldSyncReviews]);
-
-  // Users list listener (admin/instructor routes only)
-  useEffect(() => {
-    const canReadUsers =
-      (userProfile?.role === 'admin' || Boolean(userProfile?.instructorId)) && shouldSyncUsersList;
-    if (!firebaseUser || !canReadUsers) {
-      useProfileStore.getState().setUsersList([]);
-      return;
-    }
-
-    return onSnapshot(
-      query(collection(db, 'users'), limit(QUERY_LIMITS.users)),
-      (snapshot) => {
-        useProfileStore
-          .getState()
-          .setUsersList(
-            snapshot.docs
-              .filter((userDoc) => userDoc.id !== 'school_global_stats')
-              .map((userDoc) => userDoc.data() as UserProfile)
-          );
-      },
-      (error) => handleFirestoreError(error, OperationType.LIST, 'users')
-    );
-  }, [firebaseUser, userProfile?.instructorId, userProfile?.role, shouldSyncUsersList]);
 
   // Bookings listener
   useEffect(() => {

@@ -1,23 +1,14 @@
 import { create } from 'zustand';
 import { isCourseBooking } from '../../lib/availabilitySlots';
-import { canManageAdminRoles } from '../../lib/accessControl';
 import { createNotificationForUser } from '../../lib/notifications';
 import { buildNotification, translateKey } from '../../lib/notificationText';
-import { Booking, Instructor, Course, UserProfile } from '../../types';
-import { SkillConfig } from '../../lib/skillData';
-import { AchievementsConfig } from '../../lib/achievementConfig';
+import { Booking, Instructor } from '../../types';
 import { notify, t } from '../../store/storeContext';
 import { useAuthStore } from '../auth/authStore';
 import { useProfileStore } from '../profile/profileStore';
 import { useBookingsStore } from '../bookings/bookingsStore';
-import { useCoursesStore } from '../courses/coursesStore';
-import { useSettingsStore } from '../settings/settingsStore';
 import { withOptimisticBalance } from '../wallet/walletService';
 import {
-  updateUserRoleService,
-  addUserService,
-  updateUserDataWithLedgerService,
-  deleteUserService,
   confirmBookingService,
   completeBookingService,
   linkGuestBookingService,
@@ -29,10 +20,6 @@ import {
   addInstructorService,
   updateInstructorService,
   deleteInstructorService,
-  addCourseService,
-  updateCourseService,
-  deleteCourseService,
-  notifyCourseModifiedService,
   clearStudentBookings,
   clearCancelledBookings,
   ClearStudentBookingsResult,
@@ -42,11 +29,6 @@ import {
 } from './adminService';
 
 export interface AdminState {
-  handleUpdateUserRole: (targetUid: string, newRole: 'admin' | 'user') => Promise<void>;
-  handleAddUser: (newUser: UserProfile) => Promise<void>;
-  handleUpdateUser: (updatedUser: UserProfile) => Promise<void>;
-  handleDeleteUser: (targetUid: string) => Promise<void>;
-
   handleAddInstructor: (instructor: Instructor) => Promise<void>;
   handleUpdateInstructor: (instructor: Instructor) => Promise<void>;
   handleDeleteInstructor: (id: string) => Promise<void>;
@@ -65,47 +47,15 @@ export interface AdminState {
   handleDeleteBooking: (id: string) => Promise<void>;
   handleAddBooking: (booking: Booking) => Promise<void>;
 
-  handleAddCourse: (course: Course) => Promise<void>;
-  handleUpdateCourse: (course: Course) => Promise<void>;
-  handleDeleteCourse: (courseId: string) => Promise<void>;
-
   handleClearStudentBookings: (
     onProgress?: (deleted: number) => void
   ) => Promise<ClearStudentBookingsResult>;
   handleClearCancelledBookings: (
     onProgress?: (deleted: number) => void
   ) => Promise<ClearCancelledBookingsResult>;
-
-  handleToggleFilters: (enabled: boolean) => Promise<void>;
-  handleToggleOnboarding: (enabled: boolean) => Promise<void>;
-  handleSetNotificationRetentionDays: (days: number) => Promise<void>;
-  handleUpdateSkillConfig: (config: SkillConfig) => Promise<void>;
-  handleUpdateAchievementsConfig: (config: AchievementsConfig) => Promise<void>;
 }
 
 export const useAdminStore = create<AdminState>(() => ({
-  handleUpdateUserRole: async (targetUid, newRole) => {
-    const { userProfile } = useProfileStore.getState();
-    if (!canManageAdminRoles(userProfile)) {
-      notify('error', t('accessDenied'), t('accessDeniedDesc'));
-      return;
-    }
-    await updateUserRoleService(targetUid, newRole);
-    notify('success', t('roleUpdated'), `${t('roleUpdatedDescPrefix')} ${newRole}.`);
-  },
-
-  handleAddUser: async (newUser) => {
-    await addUserService(newUser);
-  },
-
-  handleUpdateUser: async (updatedUser) => {
-    await updateUserDataWithLedgerService(updatedUser);
-  },
-
-  handleDeleteUser: async (targetUid) => {
-    await deleteUserService(targetUid);
-  },
-
   handleAddInstructor: async (instructor) => {
     await addInstructorService(instructor);
   },
@@ -306,30 +256,6 @@ export const useAdminStore = create<AdminState>(() => ({
     }
   },
 
-  handleAddCourse: async (course) => {
-    await addCourseService(course);
-  },
-
-  handleUpdateCourse: async (course) => {
-    const { courses } = useCoursesStore.getState();
-    const { userProfile } = useProfileStore.getState();
-    const { bookings } = useBookingsStore.getState();
-
-    await updateCourseService(course);
-    if (userProfile?.role !== 'admin') return;
-
-    const oldCourse = courses.find((item) => item.id === course.id);
-    const courseBookings = bookings.filter(
-      (booking) => booking.instructorId === `course_${course.id}` && booking.status !== 'cancelled'
-    );
-
-    await notifyCourseModifiedService(course, oldCourse, courseBookings);
-  },
-
-  handleDeleteCourse: async (courseId) => {
-    await deleteCourseService(courseId);
-  },
-
   handleClearStudentBookings: async (onProgress) => {
     const result = await clearStudentBookings(onProgress);
     useBookingsStore.getState().setDeletedCompletedStats({ revenue: 0, count: 0 });
@@ -338,25 +264,5 @@ export const useAdminStore = create<AdminState>(() => ({
 
   handleClearCancelledBookings: async (onProgress) => {
     return await clearCancelledBookings(onProgress);
-  },
-
-  handleToggleFilters: async (enabled) => {
-    await useSettingsStore.getState().handleToggleFilters(enabled);
-  },
-
-  handleToggleOnboarding: async (enabled) => {
-    await useSettingsStore.getState().handleToggleOnboarding(enabled);
-  },
-
-  handleSetNotificationRetentionDays: async (days) => {
-    await useSettingsStore.getState().handleSetNotificationRetentionDays(days);
-  },
-
-  handleUpdateSkillConfig: async (config) => {
-    await useSettingsStore.getState().handleUpdateSkillConfig(config);
-  },
-
-  handleUpdateAchievementsConfig: async (config) => {
-    await useSettingsStore.getState().handleUpdateAchievementsConfig(config);
   },
 }));

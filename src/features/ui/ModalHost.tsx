@@ -3,7 +3,9 @@ import { useLanguage, translateCourse } from '../../lib/LanguageContext';
 import { useUiStore } from './uiStore';
 import { useProfileStore } from '../profile/profileStore';
 import { useBookingsStore } from '../bookings/bookingsStore';
+import { useBookingActions } from '../bookings/useBookingActions';
 import { useCoursesStore } from '../courses/coursesStore';
+import { useCourseActions } from '../courses/useCourseActions';
 import { useNotificationsStore } from '../notifications/notificationsStore';
 import { OnboardingModal } from '../../components/OnboardingModal';
 import { AuthModal } from '../../components/AuthModal';
@@ -52,10 +54,10 @@ export const ModalHost: React.FC<ModalRegistryProps> = ({
   const bookings = useBookingsStore((s) => s.bookings);
   const reviews = useBookingsStore((s) => s.reviews);
   const instructors = useBookingsStore((s) => s.instructors);
-  const handleBookingSuccess = useBookingsStore((s) => s.handleBookingSuccess);
+  const { handleBookingSuccess } = useBookingActions();
 
   const courses = useCoursesStore((s) => s.courses);
-  const handleBookCourse = useCoursesStore((s) => s.handleBookCourse);
+  const { handleBookCourse } = useCourseActions();
 
   const dbNotifications = useNotificationsStore((s) => s.dbNotifications);
   const handleClearNotifications = useNotificationsStore((s) => s.handleClearNotifications);

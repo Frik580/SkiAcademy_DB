@@ -31,12 +31,6 @@ import {
   BookingSlotOverlapError,
   InsufficientFundsError,
 } from '../bookings/bookingService';
-import {
-  addCourseService,
-  updateCourseService,
-  deleteCourseService,
-  notifyCourseModifiedService,
-} from '../courses/courseService';
 
 export {
   BookingSlotOverlapError,
@@ -52,10 +46,6 @@ export {
   addInstructorService,
   updateInstructorService,
   deleteInstructorService,
-  addCourseService,
-  updateCourseService,
-  deleteCourseService,
-  notifyCourseModifiedService,
   clearStudentBookings,
   clearCancelledBookings,
 };

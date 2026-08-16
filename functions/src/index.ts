@@ -4,6 +4,7 @@ import { getAdminFirestore } from './adminFirestore';
 import { autoCompletePastBookings } from './bookings/autoComplete';
 import { createCreateBookingHandler } from './bookings/createBooking';
 import { createGuestCourseEnrollmentHandler } from './courses/createGuestCourseEnrollment';
+import { enrollInCourseHandler } from './courses/enrollInCourse';
 import { purgeExpiredNotifications } from './purgeExpiredNotifications';
 
 export const createBooking = onCall({ region: 'us-central1' }, async (request) =>
@@ -12,6 +13,10 @@ export const createBooking = onCall({ region: 'us-central1' }, async (request) =
 
 export const createGuestCourseEnrollment = onCall({ region: 'us-central1' }, async (request) =>
   createGuestCourseEnrollmentHandler(getAdminFirestore())(request)
+);
+
+export const enrollInCourse = onCall({ region: 'us-central1' }, async (request) =>
+  enrollInCourseHandler(getAdminFirestore())(request)
 );
 
 export const scheduledAutoCompleteBookings = onSchedule(

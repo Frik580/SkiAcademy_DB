@@ -4,12 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 describe('admin reassign instructor wiring', () => {
   it('wires handleReassignInstructor from bookings through admin schedule modal', () => {
-    const bookingStoreSource = readFileSync(
-      join(process.cwd(), 'src/store/bookingStore.ts'),
-      'utf8'
-    );
-    const bookingsStoreSource = readFileSync(
-      join(process.cwd(), 'src/features/bookings/bookingsStore.ts'),
+    const bookingActionsSource = readFileSync(
+      join(process.cwd(), 'src/features/bookings/useBookingActions.ts'),
       'utf8'
     );
     const bookingServiceSource = readFileSync(
@@ -27,10 +23,8 @@ describe('admin reassign instructor wiring', () => {
       'utf8'
     );
 
-    expect(bookingStoreSource + bookingsStoreSource).toContain('handleReassignInstructor');
-    expect(bookingServiceSource + bookingStoreSource + bookingsStoreSource).toContain(
-      'instructorId: newInstructor.id'
-    );
+    expect(bookingActionsSource).toContain('handleReassignInstructor');
+    expect(bookingServiceSource + bookingActionsSource).toContain('instructorId: newInstructor.id');
     expect(routesSource).toContain('onReassignInstructor={handleReassignInstructor}');
     expect(modalSource).toContain('onReassignInstructor');
     expect(moveFormSource).toContain('reassignInstructor');

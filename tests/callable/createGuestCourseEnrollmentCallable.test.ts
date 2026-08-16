@@ -3,10 +3,12 @@ import { doc, getDoc } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   clearCallableFirestore,
+  ensureCallableSignedInUser,
   getCallableFunctions,
   getCallableFirestore,
   seedCallableBaseFixtures,
   seedCallableCourse,
+  seedCallableUserProfile,
   setupCallableIntegrationEnvironment,
   getRulesTestEnv,
   teardownCallableIntegrationEnvironment,
@@ -21,6 +23,7 @@ describe('createGuestCourseEnrollment callable', { timeout: 30_000 }, () => {
 
   beforeEach(async () => {
     await clearCallableFirestore();
+    await ensureCallableSignedInUser();
     await seedCallableBaseFixtures();
     await seedCallableCourse(COURSE_ID);
   });
@@ -55,6 +58,30 @@ describe('createGuestCourseEnrollment callable', { timeout: 30_000 }, () => {
         isGuest: true,
         guestName: 'Guest Skier',
       });
+    });
+  });
+
+  it('enrolls an authenticated user with an atomic seat, balance, booking, and ledger update', async () => {
+    await seedCallableUserProfile(500);
+    const enroll = httpsCallable(getCallableFunctions(), 'enrollInCourse');
+
+    const { data } = await enroll({ courseId: COURSE_ID, language: 'en' });
+    const result = data as {
+      bookingId: string;
+      newBalance: number;
+      availableSeats: number;
+    };
+
+    expect(result.newBalance).toBe(300);
+    expect(result.availableSeats).toBe(0);
+    expect(
+      (await getDoc(doc(getCallableFirestore(), 'courses', COURSE_ID))).data()?.availableSeats
+    ).toBe(0);
+    expect(
+      (await getDoc(doc(getCallableFirestore(), 'bookings', result.bookingId))).data()
+    ).toMatchObject({
+      courseId: COURSE_ID,
+      status: 'confirmed',
     });
   });
 });

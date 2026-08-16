@@ -1,5 +1,5 @@
 import { db, deleteDoc, doc, setDoc, updateDoc } from '../../lib/firebase';
-import { enrollInCourse } from '../../lib/courseTransactions';
+import { enrollInCourseViaCallable } from '../../lib/enrollInCourseCallable';
 import { stripUndefinedFields } from '../../lib/courseClone';
 import { Course, Booking } from '../../types';
 import { createNotificationForUser } from '../../lib/notifications';
@@ -21,11 +21,10 @@ export async function deleteCourseService(courseId: string): Promise<void> {
 }
 
 export async function enrollInCourseService(
-  userId: string,
   courseId: string,
   language: 'en' | 'ru'
 ): Promise<{ courseTitle: string }> {
-  return enrollInCourse(db, userId, courseId, language);
+  return enrollInCourseViaCallable(courseId, language);
 }
 
 export async function notifyCourseModifiedService(

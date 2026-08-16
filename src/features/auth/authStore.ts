@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { User } from 'firebase/auth';
 import { logger } from '../../lib/logger';
 import { signOutService } from './authService';
-import { useProfileStore } from '../profile/profileStore';
 
 export interface AuthState {
   firebaseUser: User | null;
@@ -24,7 +23,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await signOutService();
       set({ firebaseUser: null });
-      useProfileStore.getState().resetProfileState();
     } catch (err) {
       logger.error('Auth sign out failed:', err);
       throw err;

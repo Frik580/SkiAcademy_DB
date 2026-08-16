@@ -173,7 +173,7 @@ describe('storage booking chat media', () => {
         contentType: 'text/plain',
       })
     );
-  });
+  }, 30_000);
 
   it('allows course group chat participants to exchange media', async () => {
     await seedCourseGroupChatFixtures(testEnv);

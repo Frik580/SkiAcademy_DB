@@ -11,8 +11,8 @@ import {
   getNewlyPinnedSkillTitles,
   type TodayTaskRef,
 } from '../../lib/todayChecklist';
+import type { SkillItem } from '../../lib/skillData';
 import { notify, t } from '../../store/storeContext';
-import { useSettingsStore } from '../settings/settingsStore';
 import {
   updateUserProfileService,
   updateUserRoleService,
@@ -40,9 +40,10 @@ export interface ProfileState {
   handleAddUser: (newUser: UserProfile) => Promise<void>;
   handleUpdateUser: (updatedUser: UserProfile) => Promise<void>;
   handleDeleteUser: (targetUid: string) => Promise<void>;
+  handleCompleteOnboarding: () => Promise<void>;
   handleDismissReview: (bookingId: string) => Promise<void>;
   handleToggleSkillToday: (skillItemId: string, pinned: boolean) => Promise<void>;
-  handlePinSkillsToday: (skillItemIds: string[]) => Promise<void>;
+  handlePinSkillsToday: (skillItemIds: string[], skillItems: SkillItem[]) => Promise<void>;
   handleToggleTodayTaskComplete: (taskId: string, done: boolean) => Promise<void>;
   handleAddCustomTodayTask: (text: string) => Promise<void>;
   handleRemoveTodayTask: (task: TodayTaskRef) => Promise<void>;
@@ -100,6 +101,12 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     await deleteUserService(targetUid);
   },
 
+  handleCompleteOnboarding: async () => {
+    const { userProfile } = get();
+    if (!userProfile) return;
+    await updateUserProfileService(userProfile.uid, { hasCompletedOnboarding: true });
+  },
+
   handleDismissReview: async (bookingId) => {
     const { userProfile, dismissedReviewIds } = get();
     const userId = userProfile?.uid;
@@ -119,11 +126,10 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     await get().handleUpdateProfile(updated);
   },
 
-  handlePinSkillsToday: async (skillItemIds) => {
+  handlePinSkillsToday: async (skillItemIds, skillItems) => {
     const { userProfile } = get();
     if (!userProfile || skillItemIds.length === 0) return;
-    const skillConfig = useSettingsStore.getState().skillConfig;
-    const addedTitles = getNewlyPinnedSkillTitles(userProfile, skillItemIds, skillConfig.items);
+    const addedTitles = getNewlyPinnedSkillTitles(userProfile, skillItemIds, skillItems);
     const updated = buildPinSkillsTodayUpdate(userProfile, skillItemIds);
     await get().handleUpdateProfile(updated);
     if (addedTitles.length === 0) return;

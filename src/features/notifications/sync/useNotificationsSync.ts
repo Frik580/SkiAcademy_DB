@@ -7,6 +7,7 @@ import {
   purgeExpiredNotificationsForUser,
 } from '../../../lib/notificationCleanup';
 import { resolveNotificationText, type DbNotification } from '../../../lib/notificationText';
+import { toNotification } from '../../../lib/firestoreMappers';
 import { useAuthStore } from '../../auth/authStore';
 import { useSettingsStore } from '../../settings/settingsStore';
 import { notify, getLanguage } from '../../../store/storeContext';
@@ -49,8 +50,7 @@ export const useNotificationsSync = () => {
       (snapshot) => {
         const validNotifications = snapshot.docs
           .map(
-            (notificationDoc) =>
-              ({ id: notificationDoc.id, ...notificationDoc.data() }) as DbNotification
+            (notificationDoc) => toNotification(notificationDoc.id, notificationDoc.data())
           )
           .filter(
             (notification) =>

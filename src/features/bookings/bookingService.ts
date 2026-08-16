@@ -37,6 +37,7 @@ import {
 } from '../../lib/activityLog';
 import { stripUndefinedFields } from '../../lib/courseClone';
 import { Booking, Instructor, Review, UserProfile } from '../../types';
+import { toUserProfile } from '../../lib/firestoreMappers';
 import { logger } from '../../lib/logger';
 import { toggleCompletedRecommendationIds } from '../../lib/lessonRecommendations';
 
@@ -249,7 +250,7 @@ export async function linkGuestBookingService(
 
     let currentBalance = 0;
     if (targetUserSnap.exists()) {
-      const userData = targetUserSnap.data() as UserProfile;
+      const userData = toUserProfile(targetUserSnap.data());
       currentBalance = userData.balanceUSD ?? 0;
     }
 

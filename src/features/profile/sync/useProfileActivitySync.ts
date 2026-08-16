@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { collection, db, limit, onSnapshot, orderBy, query, where } from '../../../lib/firebase';
-import { ActivityLog } from '../../../types';
+import { toActivityLog } from '../../../lib/firestoreMappers';
 import { QUERY_LIMITS } from '../../../lib/queryLimits';
 import { logger } from '../../../lib/logger';
 import { useAuthStore } from '../../auth/authStore';
@@ -29,7 +29,7 @@ export const useProfileActivitySync = () => {
       activityQuery,
       (snapshot) => {
         const activityLogs = snapshot.docs
-          .map((activityDoc) => ({ id: activityDoc.id, ...activityDoc.data() }) as ActivityLog)
+          .map((activityDoc) => toActivityLog(activityDoc.id, activityDoc.data()))
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         useProfileStore.getState().setActivityLogs(activityLogs);
       },

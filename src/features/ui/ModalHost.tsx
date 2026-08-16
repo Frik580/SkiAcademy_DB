@@ -7,6 +7,7 @@ import { useBookingActions } from '../bookings/useBookingActions';
 import { useCoursesStore } from '../courses/coursesStore';
 import { useCourseActions } from '../courses/useCourseActions';
 import { useNotificationsStore } from '../notifications/notificationsStore';
+import { useNotificationActions } from '../notifications/useNotificationActions';
 import { OnboardingModal } from '../../components/OnboardingModal';
 import { AuthModal } from '../../components/AuthModal';
 import { NotificationHubModal } from '../../components/PushNotificationHub';
@@ -60,8 +61,7 @@ export const ModalHost: React.FC<ModalRegistryProps> = ({
   const { handleBookCourse } = useCourseActions();
 
   const dbNotifications = useNotificationsStore((s) => s.dbNotifications);
-  const handleClearNotifications = useNotificationsStore((s) => s.handleClearNotifications);
-  const handleDeleteNotification = useNotificationsStore((s) => s.handleDeleteNotification);
+  const { handleClearNotifications, handleDeleteNotification } = useNotificationActions();
 
   const isOnboardingOpen = useUiStore((s) => s.isOnboardingOpen);
   const isAuthModalOpen = useUiStore((s) => s.isAuthModalOpen);

@@ -12,7 +12,7 @@ import {
   query,
   where,
 } from '../../../lib/firebase';
-import { Booking, Instructor, Review } from '../../../types';
+import { toBooking, toInstructor, toReview } from '../../../lib/firestoreMappers';
 import { QUERY_LIMITS } from '../../../lib/queryLimits';
 import { logger } from '../../../lib/logger';
 import { useAuthStore } from '../../auth/authStore';
@@ -36,7 +36,7 @@ export const useBookingsSync = () => {
           .getState()
           .setInstructors(
             snapshot.docs.map(
-              (instructorDoc) => ({ id: instructorDoc.id, ...instructorDoc.data() }) as Instructor
+              (instructorDoc) => toInstructor(instructorDoc.id, instructorDoc.data())
             )
           );
       },
@@ -57,7 +57,7 @@ export const useBookingsSync = () => {
         useBookingsStore
           .getState()
           .setReviews(
-            snapshot.docs.map((reviewDoc) => ({ id: reviewDoc.id, ...reviewDoc.data() }) as Review)
+            snapshot.docs.map((reviewDoc) => toReview(reviewDoc.id, reviewDoc.data()))
           );
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
@@ -95,7 +95,7 @@ export const useBookingsSync = () => {
       bookingsQuery,
       (snapshot) => {
         const list = snapshot.docs.map(
-          (bookingDoc) => ({ id: bookingDoc.id, ...bookingDoc.data() }) as Booking
+          (bookingDoc) => toBooking(bookingDoc.id, bookingDoc.data())
         );
         useBookingsStore.getState().setBookings(list.sort((a, b) => b.date.localeCompare(a.date)));
         useBookingsStore.getState().setBookingsLoaded(true);

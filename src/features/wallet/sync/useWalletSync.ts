@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { collection, db, limit, onSnapshot, query, where } from '../../../lib/firebase';
-import { WalletLedgerEntry } from '../types';
+import { toWalletLedgerEntry } from '../../../lib/firestoreMappers';
 import { QUERY_LIMITS } from '../../../lib/queryLimits';
 import { logger } from '../../../lib/logger';
 import { useAuthStore } from '../../auth/authStore';
@@ -32,7 +32,7 @@ export const useWalletSync = () => {
       ledgerQuery,
       (snapshot) => {
         const entries = snapshot.docs
-          .map((ledgerDoc) => ({ id: ledgerDoc.id, ...ledgerDoc.data() }) as WalletLedgerEntry)
+          .map((ledgerDoc) => toWalletLedgerEntry(ledgerDoc.id, ledgerDoc.data()))
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         useWalletStore.getState().setWalletLedgerEntries(entries);
       },

@@ -19,8 +19,8 @@ describe('notification deletion and auto-expiry', () => {
       'utf8'
     );
     const uiStoreSource = readFileSync(join(process.cwd(), 'src/store/uiStore.ts'), 'utf8');
-    const notificationsStoreSource = readFileSync(
-      join(process.cwd(), 'src/features/notifications/notificationsStore.ts'),
+    const notificationActionsSource = readFileSync(
+      join(process.cwd(), 'src/features/notifications/useNotificationActions.ts'),
       'utf8'
     );
     const modalHostSource = readFileSync(
@@ -46,9 +46,9 @@ describe('notification deletion and auto-expiry', () => {
     expect(uiStoreSource).toContain('notification_retention');
     expect(uiStoreSource).toContain('handleSetNotificationRetentionDays');
 
-    // ModalHost.tsx passes handleDeleteNotification from notifications store
+    // ModalHost passes deletion through the notification feature action layer.
     expect(modalHostSource).toContain('handleDeleteNotification');
-    expect(notificationsStoreSource).toContain('handleDeleteNotification');
+    expect(notificationActionsSource).toContain('handleDeleteNotification');
 
     // PushNotificationHub renders delete button per item
     expect(hubSource).toContain('onDeleteNotification');

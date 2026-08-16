@@ -9,7 +9,7 @@ import {
   query,
 } from '../../../lib/firebase';
 import { QUERY_LIMITS } from '../../../lib/queryLimits';
-import { UserProfile } from '../../../types';
+import { toUserProfile } from '../../../lib/firestoreMappers';
 import { useAuthStore } from '../../auth/authStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
 import { useProfileStore } from '../profileStore';
@@ -33,7 +33,7 @@ export const useUsersSync = () => {
       (snapshot) => {
         const users = snapshot.docs
           .filter((userDoc) => userDoc.id !== 'school_global_stats')
-          .map((userDoc) => userDoc.data() as UserProfile);
+          .map((userDoc) => toUserProfile(userDoc.data()));
         useProfileStore.getState().setUsersList(users);
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'users')

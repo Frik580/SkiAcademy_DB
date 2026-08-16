@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { db, doc, onSnapshot } from '../../../lib/firebase';
 import { logger } from '../../../lib/logger';
-import { UserProfile } from '../../../types';
+import { toUserProfile } from '../../../lib/firestoreMappers';
 import { useAuthStore } from '../../auth/authStore';
 import { useProfileStore } from '../profileStore';
 
@@ -24,7 +24,7 @@ export const useCurrentUserProfileSync = () => {
           return;
         }
 
-        const profile = userSnap.data() as UserProfile;
+        const profile = toUserProfile(userSnap.data());
         useProfileStore.getState().syncUserProfileFromSnapshot(profile);
         if (Array.isArray(profile.dismissedReviewIds)) {
           useProfileStore.getState().setDismissedReviewIds(profile.dismissedReviewIds);

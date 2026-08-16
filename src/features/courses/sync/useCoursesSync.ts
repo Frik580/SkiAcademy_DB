@@ -8,7 +8,7 @@ import {
   OperationType,
   query,
 } from '../../../lib/firebase';
-import { Course } from '../../../types';
+import { toCourse } from '../../../lib/firestoreMappers';
 import { QUERY_LIMITS } from '../../../lib/queryLimits';
 import { useCoursesStore } from '../coursesStore';
 
@@ -22,7 +22,7 @@ export const useCoursesSync = () => {
         useCoursesStore
           .getState()
           .setCourses(
-            snapshot.docs.map((courseDoc) => ({ id: courseDoc.id, ...courseDoc.data() }) as Course)
+            snapshot.docs.map((courseDoc) => toCourse(courseDoc.id, courseDoc.data()))
           );
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'courses')

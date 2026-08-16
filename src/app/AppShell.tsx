@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle } from 'lucide-react';
 import { useLanguage } from '../lib/LanguageContext';
 import { useNotifications } from '../components/PushNotificationHub';
 import { useTheme } from '../hooks/useTheme';
@@ -9,11 +8,12 @@ import { useInstructorFilters } from '../hooks/useInstructorFilters';
 import { Navbar } from '../components/Navbar';
 import { ModalHost } from '../features/ui/ModalHost';
 import { AppRoutes } from './routes/AppRoutes';
+import { FeaturePageShell } from './FeaturePageShell';
 import { logger } from '../lib/logger';
 
 import { useAuthStore } from '../features/auth/authStore';
 import { useProfileStore } from '../features/profile/profileStore';
-import { useNotificationsStore } from '../features/notifications/notificationsStore';
+import { useNotificationActions } from '../features/notifications/useNotificationActions';
 import { useUnreadNotificationCount } from '../features/notifications/notificationsSelectors';
 import { useBookingsStore } from '../features/bookings/bookingsStore';
 import { useUiStore } from '../features/ui/uiStore';
@@ -34,9 +34,7 @@ export const AppShell: React.FC = () => {
   const reviews = useBookingsStore((s) => s.reviews);
 
   const unreadNotificationCount = useUnreadNotificationCount();
-  const handleMarkNotificationsAsRead = useNotificationsStore(
-    (s) => s.handleMarkNotificationsAsRead
-  );
+  const { handleMarkNotificationsAsRead } = useNotificationActions();
 
   const dbStatusWarning = useUiStore((s) => s.dbStatusWarning);
   const setDbStatusWarning = useUiStore((s) => s.setDbStatusWarning);
@@ -137,26 +135,13 @@ export const AppShell: React.FC = () => {
         onSignInClick={() => setIsAuthModalOpen(true)}
       />
 
-      <main
-        className={`flex-1 w-full mx-auto ${
-          isPaddedWorkspaceRoute && userProfile ? 'p-6 overflow-y-auto' : 'flex flex-col'
-        }`}
+      <FeaturePageShell
+        isPaddedWorkspace={isPaddedWorkspaceRoute}
+        isHomeRoute={isHomeRoute}
+        isAuthenticated={Boolean(userProfile)}
+        dbStatusWarning={dbStatusWarning}
+        onDismissDbWarning={() => setDbStatusWarning(null)}
       >
-        {dbStatusWarning && (
-          <div className="lg:col-span-3 bg-amber-950/40 border border-amber-900/60 text-amber-200 p-4 rounded-none text-xs font-semibold flex items-center justify-between gap-3 animate-fade-in shrink-0 m-4">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-              <span>{dbStatusWarning}</span>
-            </div>
-            <button
-              onClick={() => setDbStatusWarning(null)}
-              className="text-amber-500 hover:text-amber-200 font-black text-sm"
-            >
-              ×
-            </button>
-          </div>
-        )}
-
         <AppRoutes
           resortData={{
             resortConfig,
@@ -174,29 +159,12 @@ export const AppShell: React.FC = () => {
           onRefreshResortStats={handleRefreshResortStats}
           onSignOut={onSignOut}
         />
-      </main>
+      </FeaturePageShell>
 
       <ModalHost
         onCompleteOnboarding={handleCompleteOnboarding}
         onScheduleFirstLessonFromOnboarding={handleScheduleFirstLessonFromOnboarding}
       />
-
-      <footer
-        className={`ui-footer ui-site-footer border-t border-[var(--border-subtle)] px-6 shrink-0 bg-[var(--profile-bg)]/40 ${
-          isHomeRoute ? '' : 'max-[1199px]:hidden'
-        }`}
-      >
-        <div className="max-w-7xl mx-auto w-full">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[var(--ink-dim)] font-mono">
-            <div>© {new Date().getFullYear()} Carve Academy</div>
-            <div className="flex items-center gap-4 text-[11px]">
-              <span className="hover:text-[var(--ink)] transition-colors cursor-default">
-                Ski & Snowboard Instruction
-              </span>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

@@ -1295,13 +1295,13 @@
     "semantic_hash": "1a0f7a213bc47ef866efc16d002c24ae"
   },
   "tests/unit/adminCancelWiring.test.ts": {
-    "mtime": 1786907365.4763427,
-    "ast_hash": "66f9352afa99da491f9a47ff292d036f",
+    "mtime": 1786902959.6316102,
+    "ast_hash": "e34926cc86dc1337be1b2924a4266360",
     "semantic_hash": ""
   },
   "tests/unit/adminReassignWiring.test.ts": {
-    "mtime": 1786906789.1302311,
-    "ast_hash": "fbc0f04f35c2cdbafb919172b214ce74",
+    "mtime": 1786903323.6002545,
+    "ast_hash": "a78cf326dc9598c38bd84eeafd83d372",
     "semantic_hash": ""
   },
   "tests/unit/availabilitySlots.test.ts": {
@@ -1405,8 +1405,8 @@
     "semantic_hash": "b8cfc96b74c00e7eb9bcac7ef0a6c438"
   },
   "tests/unit/notificationDeletionAndExpiry.test.ts": {
-    "mtime": 1786906231.116209,
-    "ast_hash": "1543d512f7d17e75b1f669c721a35477",
+    "mtime": 1786870487.827004,
+    "ast_hash": "17d804c149c148ddbd6c34d63858d064",
     "semantic_hash": ""
   },
   "tests/unit/notificationText.test.ts": {
@@ -1685,13 +1685,13 @@
     "semantic_hash": ""
   },
   "src/app/AppShell.tsx": {
-    "mtime": 1786906456.0366757,
-    "ast_hash": "5b429a6a3519bff6c69997a5fccb9a26",
+    "mtime": 1786901862.81557,
+    "ast_hash": "38e8c446d9eeb3e9f801445a6e33b6af",
     "semantic_hash": ""
   },
   "src/app/routes/AppRoutes.tsx": {
-    "mtime": 1786908144.3021204,
-    "ast_hash": "4af27b3dd9333017c589d0d94c58353c",
+    "mtime": 1786904283.7616172,
+    "ast_hash": "7c3c29be5d494cc971022b7bb4640ebb",
     "semantic_hash": ""
   },
   "src/components/ModalHost.tsx": {
@@ -1750,8 +1750,8 @@
     "semantic_hash": ""
   },
   "src/features/bookings/bookingService.ts": {
-    "mtime": 1786908484.7591438,
-    "ast_hash": "83bc8ae498b7a9675b148d0b62d94a7c",
+    "mtime": 1786809036.3650358,
+    "ast_hash": "79b65e33b0e42b0ac65f985d015d5591",
     "semantic_hash": ""
   },
   "src/features/bookings/bookingsStore.ts": {
@@ -1760,8 +1760,8 @@
     "semantic_hash": ""
   },
   "src/features/bookings/sync/useBookingsSync.ts": {
-    "mtime": 1786908405.90026,
-    "ast_hash": "8232332a8a41a532aa49b7d57b2b66ec",
+    "mtime": 1786901224.6455636,
+    "ast_hash": "351f1433b46a0cd39b54106c78f13175",
     "semantic_hash": ""
   },
   "src/features/bookings/types.ts": {
@@ -1790,8 +1790,8 @@
     "semantic_hash": ""
   },
   "src/features/courses/sync/useCoursesSync.ts": {
-    "mtime": 1786908408.7833364,
-    "ast_hash": "723de815ecd67839f308ea2043c9d5fb",
+    "mtime": 1786886851.5297248,
+    "ast_hash": "e3096897c5a5c56dca9eac5d8d9eefc6",
     "semantic_hash": ""
   },
   "src/features/courses/types.ts": {
@@ -1810,8 +1810,8 @@
     "semantic_hash": ""
   },
   "src/features/notifications/notificationsStore.ts": {
-    "mtime": 1786906152.470938,
-    "ast_hash": "3abb33d967752de42cdf61f57c67b070",
+    "mtime": 1786804721.5907004,
+    "ast_hash": "d50c8a7f84748fccda12aad38f328b1c",
     "semantic_hash": ""
   },
   "src/features/notifications/service.ts": {
@@ -1820,13 +1820,13 @@
     "semantic_hash": ""
   },
   "src/features/notifications/sync/useNotificationsSync.ts": {
-    "mtime": 1786908412.018294,
-    "ast_hash": "a8a4e55df68e16c1c511402355b96b08",
+    "mtime": 1786885140.4558933,
+    "ast_hash": "7e96f1f6ad8ef8b5a99e7ca399b9a2f2",
     "semantic_hash": ""
   },
   "src/features/notifications/types.ts": {
-    "mtime": 1786906148.0458355,
-    "ast_hash": "58ed4b71d937b79478d15cc36b91aaba",
+    "mtime": 1786804721.5907004,
+    "ast_hash": "b333624879277333610772c188d06477",
     "semantic_hash": ""
   },
   "src/features/profile/components/BookingsPanel.tsx": {
@@ -1885,18 +1885,18 @@
     "semantic_hash": ""
   },
   "src/features/profile/sync/useCurrentUserProfileSync.ts": {
-    "mtime": 1786908425.9463778,
-    "ast_hash": "d6a7ef442fc1c732b6f66e676d9687de",
+    "mtime": 1786901220.2106636,
+    "ast_hash": "0efe468744d227bda2fc3b1684f04931",
     "semantic_hash": ""
   },
   "src/features/profile/sync/useProfileActivitySync.ts": {
-    "mtime": 1786908418.787197,
-    "ast_hash": "afd63c170c395bbf167687a2f3ed9723",
+    "mtime": 1786900585.0978088,
+    "ast_hash": "63c1eb9806f4cd99f9fba41fa0e92cbe",
     "semantic_hash": ""
   },
   "src/features/profile/sync/useUsersSync.ts": {
-    "mtime": 1786908422.285588,
-    "ast_hash": "779779bd0113994ca6b59707f9fc3cec",
+    "mtime": 1786901221.7063556,
+    "ast_hash": "172606decbce3e05e7a51c301a27cd3e",
     "semantic_hash": ""
   },
   "src/features/profile/types.ts": {
@@ -1920,8 +1920,8 @@
     "semantic_hash": ""
   },
   "src/features/ui/ModalHost.tsx": {
-    "mtime": 1786906170.4010212,
-    "ast_hash": "45e5d32b4f4ec483efc8ad8e83e8515e",
+    "mtime": 1786902894.346883,
+    "ast_hash": "5b2c3c897c8a59db74c5969cb99ea5e1",
     "semantic_hash": ""
   },
   "src/features/ui/RouteGate.tsx": {
@@ -1950,8 +1950,8 @@
     "semantic_hash": ""
   },
   "src/features/wallet/sync/useWalletSync.ts": {
-    "mtime": 1786908415.4497087,
-    "ast_hash": "0971c7710fe33b27601779fa6ceb91dd",
+    "mtime": 1786871467.2761846,
+    "ast_hash": "2c7d15f78d1bf41d5bddc04e48f67cd7",
     "semantic_hash": ""
   },
   "src/features/wallet/types.ts": {
@@ -1997,56 +1997,6 @@
   "test-output.txt": {
     "mtime": 1786800898.9721353,
     "ast_hash": "1ad84fe7e008ad7b15121914d22b2804",
-    "semantic_hash": ""
-  },
-  "src/app/FeaturePageShell.tsx": {
-    "mtime": 1786906456.029673,
-    "ast_hash": "81da763eb9f31d8b75bbefb24355b8f9",
-    "semantic_hash": ""
-  },
-  "src/app/routes/AdminRouteContainer.tsx": {
-    "mtime": 1786906667.5609233,
-    "ast_hash": "429b892f18644d9ec10d2c37ae2688bf",
-    "semantic_hash": ""
-  },
-  "src/features/notifications/notificationService.ts": {
-    "mtime": 1786906140.273306,
-    "ast_hash": "7892493bbb1f933a0f5a09447a220f6f",
-    "semantic_hash": ""
-  },
-  "src/features/notifications/useNotificationActions.ts": {
-    "mtime": 1786906143.7351103,
-    "ast_hash": "06dc6fea44f9dff0db239effef16646d",
-    "semantic_hash": ""
-  },
-  "src/app/routes/CabinetRouteContainer.tsx": {
-    "mtime": 1786907230.9438841,
-    "ast_hash": "979fccfc0511ae88f2559ed0bd0b45bc",
-    "semantic_hash": ""
-  },
-  "src/app/routes/routeTypes.ts": {
-    "mtime": 1786907227.1960232,
-    "ast_hash": "50faeb47d0c86ef02c931b07c5bee2d6",
-    "semantic_hash": ""
-  },
-  "src/app/routes/HomeRouteContainer.tsx": {
-    "mtime": 1786908119.680166,
-    "ast_hash": "25893e5975ddfa064a2c11dbd73409e4",
-    "semantic_hash": ""
-  },
-  "src/app/routes/InstructorRouteContainer.tsx": {
-    "mtime": 1786908016.7452896,
-    "ast_hash": "7ad4fea55827f0316d506daeb1302d23",
-    "semantic_hash": ""
-  },
-  "src/lib/firestoreMappers.ts": {
-    "mtime": 1786908375.636742,
-    "ast_hash": "d51f9ec4d63ad027188a4a82f39fe5a6",
-    "semantic_hash": ""
-  },
-  "tests/unit/firestoreMappers.test.ts": {
-    "mtime": 1786908499.4860218,
-    "ast_hash": "ef11e1ca841bcf451bdaa3b1fdfdbdd8",
     "semantic_hash": ""
   }
 }

@@ -8,6 +8,14 @@ describe('admin reassign instructor wiring', () => {
       join(process.cwd(), 'src/store/bookingStore.ts'),
       'utf8'
     );
+    const bookingsStoreSource = readFileSync(
+      join(process.cwd(), 'src/features/bookings/bookingsStore.ts'),
+      'utf8'
+    );
+    const bookingServiceSource = readFileSync(
+      join(process.cwd(), 'src/features/bookings/bookingService.ts'),
+      'utf8'
+    );
     const routesSource = readFileSync(join(process.cwd(), 'src/components/AppRoutes.tsx'), 'utf8');
     const modalSource = readFileSync(
       join(process.cwd(), 'src/components/admin/ScheduleSlotActionModal.tsx'),
@@ -19,8 +27,10 @@ describe('admin reassign instructor wiring', () => {
       'utf8'
     );
 
-    expect(bookingStoreSource).toContain('handleReassignInstructor');
-    expect(bookingStoreSource).toContain('instructorId: newInstructor.id');
+    expect(bookingStoreSource + bookingsStoreSource).toContain('handleReassignInstructor');
+    expect(bookingServiceSource + bookingStoreSource + bookingsStoreSource).toContain(
+      'instructorId: newInstructor.id'
+    );
     expect(routesSource).toContain('onReassignInstructor={handleReassignInstructor}');
     expect(modalSource).toContain('onReassignInstructor');
     expect(moveFormSource).toContain('reassignInstructor');

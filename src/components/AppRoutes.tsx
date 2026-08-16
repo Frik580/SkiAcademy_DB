@@ -20,7 +20,7 @@ import { useInstructorFilters } from '../hooks/useInstructorFilters';
 import { LazyLoad } from './LazyLoad';
 import { CardSkeleton, Skeleton } from './ui/Skeleton';
 
-import { useAuthStore } from '../store/authStore';
+import { useProfileStore } from '../features/profile/profileStore';
 import { useBookingStore } from '../store/bookingStore';
 import { useCourseStore } from '../store/courseStore';
 import { useWalletStore } from '../features/wallet/walletStore';
@@ -31,6 +31,11 @@ const AdminPanel = React.lazy(() =>
 );
 const PersonalCabinet = React.lazy(() =>
   import('./PersonalCabinet').then(({ PersonalCabinet }) => ({ default: PersonalCabinet }))
+);
+const InstructorWorkspace = React.lazy(() =>
+  import('./InstructorWorkspace').then(({ InstructorWorkspace }) => ({
+    default: InstructorWorkspace,
+  }))
 );
 
 const SectionLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
@@ -64,35 +69,34 @@ interface AppRoutesProps {
 }
 
 const PersonalCabinetPage: React.FC<{
-  forcedMode: 'client' | 'instructor';
   resortData: ResortData;
   setIsFahrenheit: (value: boolean) => void;
   onSignOut: () => void;
-}> = ({ forcedMode, resortData, setIsFahrenheit, onSignOut }) => {
+}> = ({ resortData, setIsFahrenheit, onSignOut }) => {
   const { t } = useLanguage();
-  const userProfile = useAuthStore((s) => s.userProfile);
+  const userProfile = useProfileStore((s) => s.userProfile);
   const bookings = useBookingStore((s) => s.bookings);
   const reviews = useBookingStore((s) => s.reviews);
   const instructors = useBookingStore((s) => s.instructors);
-  const usersList = useAuthStore((s) => s.usersList);
-  const dismissedReviewIds = useAuthStore((s) => s.dismissedReviewIds);
-  const activityLogs = useAuthStore((s) => s.activityLogs);
+  const usersList = useProfileStore((s) => s.usersList);
+  const dismissedReviewIds = useProfileStore((s) => s.dismissedReviewIds);
+  const activityLogs = useProfileStore((s) => s.activityLogs);
   const walletLedgerEntries = useWalletStore((s) => s.walletLedgerEntries);
   const courses = useCourseStore((s) => s.courses);
   const skillConfig = useUiStore((s) => s.skillConfig);
   const achievementsConfig = useUiStore((s) => s.achievementsConfig);
 
-  const handleDismissReview = useAuthStore((s) => s.handleDismissReview);
+  const handleDismissReview = useProfileStore((s) => s.handleDismissReview);
   const handleReschedule = useBookingStore((s) => s.handleReschedule);
   const handleRequestCancel = useBookingStore((s) => s.handleRequestCancel);
   const handleAddReview = useBookingStore((s) => s.handleAddReview);
   const handleToggleRecommendation = useBookingStore((s) => s.handleToggleRecommendation);
-  const handleToggleSkillToday = useAuthStore((s) => s.handleToggleSkillToday);
-  const handlePinSkillsToday = useAuthStore((s) => s.handlePinSkillsToday);
-  const handleToggleTodayTaskComplete = useAuthStore((s) => s.handleToggleTodayTaskComplete);
-  const handleAddCustomTodayTask = useAuthStore((s) => s.handleAddCustomTodayTask);
-  const handleRemoveTodayTask = useAuthStore((s) => s.handleRemoveTodayTask);
-  const handleUpdateProfile = useAuthStore((s) => s.handleUpdateProfile);
+  const handleToggleSkillToday = useProfileStore((s) => s.handleToggleSkillToday);
+  const handlePinSkillsToday = useProfileStore((s) => s.handlePinSkillsToday);
+  const handleToggleTodayTaskComplete = useProfileStore((s) => s.handleToggleTodayTaskComplete);
+  const handleAddCustomTodayTask = useProfileStore((s) => s.handleAddCustomTodayTask);
+  const handleRemoveTodayTask = useProfileStore((s) => s.handleRemoveTodayTask);
+  const handleUpdateProfile = useProfileStore((s) => s.handleUpdateProfile);
   const handleBookCourse = useCourseStore((s) => s.handleBookCourse);
   const setSelectedCourseForDetails = useUiStore((s) => s.setSelectedCourseForDetails);
   const setSelectedCourseForAuth = useUiStore((s) => s.setSelectedCourseForAuth);
@@ -134,7 +138,6 @@ const PersonalCabinetPage: React.FC<{
         onBookCourse={handleBookCourse}
         onBookInstructor={setSelectedInstructor}
         onViewInstructorReviews={setReviewsInstructor}
-        forcedMode={forcedMode}
         resortSnapshot={{
           resortConfig: resortData.resortConfig,
           tempC: resortData.tempC,
@@ -151,7 +154,7 @@ const PersonalCabinetPage: React.FC<{
 
 const CabinetRouteWrapper: React.FC<AppRoutesProps> = (props) => {
   const { tab } = useParams<{ tab?: string }>();
-  const userProfile = useAuthStore((s) => s.userProfile);
+  const userProfile = useProfileStore((s) => s.userProfile);
 
   if (tab && !CABINET_TABS.includes(tab as (typeof CABINET_TABS)[number])) {
     return <Navigate to="/cabinet" replace />;
@@ -161,7 +164,6 @@ const CabinetRouteWrapper: React.FC<AppRoutesProps> = (props) => {
     <AuthRoute userProfile={userProfile}>
       <div className="w-full min-w-0">
         <PersonalCabinetPage
-          forcedMode="client"
           resortData={props.resortData}
           setIsFahrenheit={props.setIsFahrenheit}
           onSignOut={props.onSignOut}
@@ -171,18 +173,32 @@ const CabinetRouteWrapper: React.FC<AppRoutesProps> = (props) => {
   );
 };
 
-const InstructorRouteWrapper: React.FC<AppRoutesProps> = (props) => {
-  const userProfile = useAuthStore((s) => s.userProfile);
+const InstructorRouteWrapper: React.FC<AppRoutesProps> = () => {
+  const { t } = useLanguage();
+  const userProfile = useProfileStore((s) => s.userProfile);
+  const instructors = useBookingStore((s) => s.instructors);
+  const allBookings = useBookingStore((s) => s.bookings);
+  const reviews = useBookingStore((s) => s.reviews);
+  const courses = useCourseStore((s) => s.courses);
+  const usersList = useProfileStore((s) => s.usersList);
+  const skillConfig = useUiStore((s) => s.skillConfig);
 
   return (
     <InstructorRoute userProfile={userProfile}>
       <div className="w-full max-w-7xl mx-auto min-w-0">
-        <PersonalCabinetPage
-          forcedMode="instructor"
-          resortData={props.resortData}
-          setIsFahrenheit={props.setIsFahrenheit}
-          onSignOut={props.onSignOut}
-        />
+        {userProfile ? (
+          <LazyLoad fallback={<SectionLoadingFallback label={t('loading')} />}>
+            <InstructorWorkspace
+              userProfile={userProfile}
+              instructors={instructors}
+              allBookings={allBookings}
+              reviews={reviews}
+              courses={courses}
+              usersList={usersList}
+              skillConfig={skillConfig}
+            />
+          </LazyLoad>
+        ) : null}
       </div>
     </InstructorRoute>
   );
@@ -191,7 +207,7 @@ const InstructorRouteWrapper: React.FC<AppRoutesProps> = (props) => {
 const HomeRoute: React.FC<AppRoutesProps> = ({ resortData, setIsFahrenheit }) => {
   const { t, language } = useLanguage();
   const { theme } = useTheme();
-  const userProfile = useAuthStore((s) => s.userProfile);
+  const userProfile = useProfileStore((s) => s.userProfile);
   const courses = useCourseStore((s) => s.courses);
   const bookings = useBookingStore((s) => s.bookings);
   const filtersEnabled = useUiStore((s) => s.filtersEnabled);
@@ -333,9 +349,9 @@ const HomeRoute: React.FC<AppRoutesProps> = ({ resortData, setIsFahrenheit }) =>
 
 const AdminRouteWrapper: React.FC = () => {
   const { t, language } = useLanguage();
-  const userProfile = useAuthStore((s) => s.userProfile);
+  const userProfile = useProfileStore((s) => s.userProfile);
   const bookings = useBookingStore((s) => s.bookings);
-  const usersList = useAuthStore((s) => s.usersList);
+  const usersList = useProfileStore((s) => s.usersList);
   const courses = useCourseStore((s) => s.courses);
   const deletedCompletedStats = useBookingStore((s) => s.deletedCompletedStats);
   const filtersEnabled = useUiStore((s) => s.filtersEnabled);
@@ -353,7 +369,7 @@ const AdminRouteWrapper: React.FC = () => {
   );
   const handleUpdateSkillConfig = useUiStore((s) => s.handleUpdateSkillConfig);
   const handleUpdateAchievementsConfig = useUiStore((s) => s.handleUpdateAchievementsConfig);
-  const handleUpdateUserRole = useAuthStore((s) => s.handleUpdateUserRole);
+  const handleUpdateUserRole = useProfileStore((s) => s.handleUpdateUserRole);
   const handleAddInstructor = useBookingStore((s) => s.handleAddInstructor);
   const handleUpdateInstructor = useBookingStore((s) => s.handleUpdateInstructor);
   const handleDeleteInstructor = useBookingStore((s) => s.handleDeleteInstructor);
@@ -361,9 +377,9 @@ const AdminRouteWrapper: React.FC = () => {
   const handleCompleteBooking = useBookingStore((s) => s.handleCompleteBooking);
   const handleLinkGuestBooking = useBookingStore((s) => s.handleLinkGuestBooking);
   const handleCancel = useBookingStore((s) => s.handleCancel);
-  const handleAddUser = useAuthStore((s) => s.handleAddUser);
-  const handleUpdateUser = useAuthStore((s) => s.handleUpdateUser);
-  const handleDeleteUser = useAuthStore((s) => s.handleDeleteUser);
+  const handleAddUser = useProfileStore((s) => s.handleAddUser);
+  const handleUpdateUser = useProfileStore((s) => s.handleUpdateUser);
+  const handleDeleteUser = useProfileStore((s) => s.handleDeleteUser);
   const handleReschedule = useBookingStore((s) => s.handleReschedule);
   const handleReassignInstructor = useBookingStore((s) => s.handleReassignInstructor);
   const handleDeleteBooking = useBookingStore((s) => s.handleDeleteBooking);

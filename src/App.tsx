@@ -1,63 +1,30 @@
 import React, { useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { registerFirestoreErrorListener, db, doc, updateDoc } from './lib/firebase';
-import { LanguageProvider, useLanguage, translateCourse } from './lib/LanguageContext';
+import { LanguageProvider, useLanguage } from './lib/LanguageContext';
 import { CurrencyProvider } from './lib/CurrencyContext';
 
 import { useTheme } from './hooks/useTheme';
 import { useResortStats } from './hooks/useResortStats';
 import { useInstructorFilters } from './hooks/useInstructorFilters';
 import { AppRoutes } from './components/AppRoutes';
-import { OnboardingModal } from './components/OnboardingModal';
-import { AuthModal } from './components/AuthModal';
+import { ModalHost } from './components/ModalHost';
 
 import { logger } from './lib/logger';
 import { applyDesignThemeToDOM } from './lib/designTheme';
-import {
-  NotificationProvider,
-  useNotifications,
-  NotificationHubModal,
-} from './components/PushNotificationHub';
+import { NotificationProvider, useNotifications } from './components/PushNotificationHub';
 import { Navbar } from './components/Navbar';
-import { LazyLoad } from './components/LazyLoad';
 import { AlertCircle } from 'lucide-react';
-import { AppInitSkeleton, ModalSkeleton } from './components/ui/Skeleton';
-import { BodyScrollLock } from './components/ui/BodyScrollLock';
+import { AppInitSkeleton } from './components/ui/Skeleton';
 
 import { setStoreContext } from './store/storeContext';
-import { useAuthStore } from './store/authStore';
+import { useAuthStore } from './features/auth/authStore';
+import { useProfileStore } from './features/profile/profileStore';
 import { useNotificationsStore } from './features/notifications/notificationsStore';
 import { useUnreadNotificationCount } from './features/notifications/notificationsSelectors';
 import { useBookingStore } from './store/bookingStore';
-import { useCourseStore } from './store/courseStore';
 import { useUiStore } from './store/uiStore';
 import { useStoreSync } from './store/useStoreSync';
-
-const BookingModal = React.lazy(() =>
-  import('./components/BookingModal').then(({ BookingModal }) => ({ default: BookingModal }))
-);
-const CourseEnrollmentModal = React.lazy(() =>
-  import('./components/CourseEnrollmentModal').then(({ CourseEnrollmentModal }) => ({
-    default: CourseEnrollmentModal,
-  }))
-);
-const CourseDetailsModal = React.lazy(() =>
-  import('./components/CourseDetailsModal').then(({ CourseDetailsModal }) => ({
-    default: CourseDetailsModal,
-  }))
-);
-const InstructorReviewsModal = React.lazy(() =>
-  import('./components/InstructorReviewsModal').then(({ InstructorReviewsModal }) => ({
-    default: InstructorReviewsModal,
-  }))
-);
-
-const ModalLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
-  <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-    <BodyScrollLock />
-    <ModalSkeleton title={label} />
-  </div>
-);
 
 const AppContent: React.FC = () => {
   const { addNotification } = useNotifications();
@@ -75,14 +42,10 @@ const AppContent: React.FC = () => {
   useStoreSync();
 
   const { theme, toggleTheme } = useTheme();
-  const userProfile = useAuthStore((s) => s.userProfile);
+  const userProfile = useProfileStore((s) => s.userProfile);
   const authLoading = useAuthStore((s) => s.authLoading);
   const handleSignOut = useAuthStore((s) => s.handleSignOut);
-  const dismissedReviewIds = useAuthStore((s) => s.dismissedReviewIds);
-  const dbNotifications = useNotificationsStore((s) => s.dbNotifications);
-  const handleDismissReview = useAuthStore((s) => s.handleDismissReview);
-  const handleClearNotifications = useNotificationsStore((s) => s.handleClearNotifications);
-  const handleDeleteNotification = useNotificationsStore((s) => s.handleDeleteNotification);
+  const dismissedReviewIds = useProfileStore((s) => s.dismissedReviewIds);
   const handleMarkNotificationsAsRead = useNotificationsStore(
     (s) => s.handleMarkNotificationsAsRead
   );
@@ -90,29 +53,14 @@ const AppContent: React.FC = () => {
 
   const bookings = useBookingStore((s) => s.bookings);
   const reviews = useBookingStore((s) => s.reviews);
-  const instructors = useBookingStore((s) => s.instructors);
-  const handleBookingSuccess = useBookingStore((s) => s.handleBookingSuccess);
-  const courses = useCourseStore((s) => s.courses);
-  const handleBookCourse = useCourseStore((s) => s.handleBookCourse);
 
   const designTheme = useUiStore((s) => s.designTheme);
   const onboardingEnabled = useUiStore((s) => s.onboardingEnabled);
   const dbStatusWarning = useUiStore((s) => s.dbStatusWarning);
   const setDbStatusWarning = useUiStore((s) => s.setDbStatusWarning);
-  const isNotifHistoryOpen = useUiStore((s) => s.isNotifHistoryOpen);
   const setIsNotifHistoryOpen = useUiStore((s) => s.setIsNotifHistoryOpen);
-  const isOnboardingOpen = useUiStore((s) => s.isOnboardingOpen);
   const setIsOnboardingOpen = useUiStore((s) => s.setIsOnboardingOpen);
-  const isAuthModalOpen = useUiStore((s) => s.isAuthModalOpen);
   const setIsAuthModalOpen = useUiStore((s) => s.setIsAuthModalOpen);
-  const selectedInstructor = useUiStore((s) => s.selectedInstructor);
-  const setSelectedInstructor = useUiStore((s) => s.setSelectedInstructor);
-  const selectedCourseForAuth = useUiStore((s) => s.selectedCourseForAuth);
-  const setSelectedCourseForAuth = useUiStore((s) => s.setSelectedCourseForAuth);
-  const selectedCourseForDetails = useUiStore((s) => s.selectedCourseForDetails);
-  const setSelectedCourseForDetails = useUiStore((s) => s.setSelectedCourseForDetails);
-  const reviewsInstructor = useUiStore((s) => s.reviewsInstructor);
-  const setReviewsInstructor = useUiStore((s) => s.setReviewsInstructor);
 
   const {
     resortConfig,
@@ -279,87 +227,10 @@ const AppContent: React.FC = () => {
         />
       </main>
 
-      <OnboardingModal
-        isOpen={isOnboardingOpen}
-        onClose={handleCompleteOnboarding}
-        onScheduleFirstLesson={handleScheduleFirstLessonFromOnboarding}
+      <ModalHost
+        onCompleteOnboarding={handleCompleteOnboarding}
+        onScheduleFirstLessonFromOnboarding={handleScheduleFirstLessonFromOnboarding}
       />
-
-      {selectedInstructor && (
-        <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
-          <BookingModal
-            isOpen
-            onClose={() => setSelectedInstructor(null)}
-            instructor={selectedInstructor}
-            userProfile={userProfile}
-            onBookingSuccess={handleBookingSuccess}
-            courses={courses}
-          />
-        </LazyLoad>
-      )}
-
-      {selectedCourseForAuth && (
-        <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
-          <CourseEnrollmentModal
-            isOpen
-            onClose={() => setSelectedCourseForAuth(null)}
-            course={translateCourse(selectedCourseForAuth, language)}
-            onEnroll={handleBookCourse}
-          />
-        </LazyLoad>
-      )}
-
-      {selectedCourseForDetails && (
-        <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
-          <CourseDetailsModal
-            isOpen
-            onClose={() => setSelectedCourseForDetails(null)}
-            rawCourse={selectedCourseForDetails}
-            course={translateCourse(selectedCourseForDetails, language)}
-            instructors={instructors}
-            userProfile={userProfile}
-            isEnrolled={bookings.some(
-              (b) =>
-                b.userId === userProfile?.uid &&
-                b.instructorId === `course_${selectedCourseForDetails.id}` &&
-                b.status !== 'cancelled'
-            )}
-            onEnroll={(courseId) => {
-              if (!userProfile) {
-                setSelectedCourseForAuth(selectedCourseForDetails);
-              } else {
-                handleBookCourse(courseId);
-              }
-            }}
-          />
-        </LazyLoad>
-      )}
-
-      {reviewsInstructor && (
-        <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
-          <InstructorReviewsModal
-            isOpen
-            onClose={() => setReviewsInstructor(null)}
-            instructor={reviewsInstructor}
-            reviews={reviews}
-          />
-        </LazyLoad>
-      )}
-
-      <NotificationHubModal
-        isOpen={isNotifHistoryOpen}
-        onClose={() => setIsNotifHistoryOpen(false)}
-        bookings={bookings}
-        reviews={reviews}
-        userProfile={userProfile}
-        dismissedReviewIds={dismissedReviewIds}
-        onDismissReview={handleDismissReview}
-        dbNotifications={dbNotifications}
-        onClearNotifications={handleClearNotifications}
-        onDeleteNotification={handleDeleteNotification}
-      />
-
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
 
       <footer
         className={`ui-footer ui-site-footer border-t border-[var(--border-subtle)] px-6 shrink-0 bg-[var(--profile-bg)]/40 ${

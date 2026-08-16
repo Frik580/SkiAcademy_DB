@@ -3,7 +3,7 @@ import { collection, db, limit, onSnapshot, query, where } from '../../../lib/fi
 import { WalletLedgerEntry } from '../types';
 import { QUERY_LIMITS } from '../../../lib/queryLimits';
 import { logger } from '../../../lib/logger';
-import { useAuthStore } from '../../../store/authStore';
+import { useAuthStore } from '../../auth/authStore';
 import { useWalletStore } from '../walletStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
 
@@ -13,7 +13,7 @@ import { useDataSyncScope } from '../../../store/useDataSyncScope';
  */
 export const useWalletSync = () => {
   const { shouldSyncActivityLogs } = useDataSyncScope();
-  const firebaseUser = useAuthStore((s: any) => s.firebaseUser);
+  const firebaseUser = useAuthStore((s) => s.firebaseUser);
 
   // Wallet ledger synchronization
   useEffect(() => {

@@ -92,7 +92,9 @@ vi.mock('../../src/lib/firebase', () => ({
 }));
 
 import { useBookings } from '../../src/hooks/useBookings';
-import { useAuthStore } from '../../src/store/authStore';
+import { useAuthStore } from '../../src/features/auth/authStore';
+import { useProfileStore } from '../../src/features/profile/profileStore';
+import { useWalletStore } from '../../src/features/wallet/walletStore';
 import { useBookingStore } from '../../src/store/bookingStore';
 import { setStoreContext } from '../../src/store/storeContext';
 
@@ -113,7 +115,11 @@ describe('useBookings.handleCancel', () => {
     });
     useAuthStore.setState({
       firebaseUser,
+    });
+    useProfileStore.setState({
       userProfile: adminProfile,
+    });
+    useWalletStore.setState({
       optimisticBalanceDelta: 0,
     });
   });
@@ -156,7 +162,11 @@ describe('useBookings.handleCancel', () => {
 
     useAuthStore.setState({
       firebaseUser: clientUser,
+    });
+    useProfileStore.setState({
       userProfile: clientProfile,
+    });
+    useWalletStore.setState({
       optimisticBalanceDelta: 0,
     });
 

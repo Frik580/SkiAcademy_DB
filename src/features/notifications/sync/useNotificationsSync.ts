@@ -7,7 +7,7 @@ import {
   purgeExpiredNotificationsForUser,
 } from '../../../lib/notificationCleanup';
 import { resolveNotificationText, type DbNotification } from '../../../lib/notificationText';
-import { useAuthStore } from '../../../store/authStore';
+import { useAuthStore } from '../../auth/authStore';
 import { useUiStore } from '../../../store/uiStore';
 import { notify, getLanguage } from '../../../store/storeContext';
 import { useNotificationsStore } from '../notificationsStore';

@@ -10,12 +10,12 @@ import {
 } from '../../lib/firebase';
 import { Course } from '../../types';
 import { QUERY_LIMITS } from '../../lib/queryLimits';
-import { useAuthStore } from '../authStore';
+import { useProfileStore } from '../../features/profile/profileStore';
 import { useBookingStore } from '../bookingStore';
 import { useCourseStore } from '../courseStore';
 
 export const useCoursesSync = () => {
-  const userProfile = useAuthStore((s) => s.userProfile);
+  const userProfile = useProfileStore((s) => s.userProfile);
   const bookings = useBookingStore((s) => s.bookings);
   const courses = useCourseStore((s) => s.courses);
 

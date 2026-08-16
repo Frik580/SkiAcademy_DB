@@ -5,7 +5,8 @@ import { QUERY_LIMITS } from '../../lib/queryLimits';
 import { logger } from '../../lib/logger';
 import { syncAchievementActivityLogs } from '../../lib/achievements';
 import { migrateAvailabilitySlots } from '../../lib/availabilityMigration';
-import { useAuthStore } from '../authStore';
+import { useAuthStore } from '../../features/auth/authStore';
+import { useProfileStore } from '../../features/profile/profileStore';
 import { useBookingStore } from '../bookingStore';
 import { useCourseStore } from '../courseStore';
 import { useUiStore } from '../uiStore';
@@ -14,8 +15,8 @@ import { useDataSyncScope } from '../useDataSyncScope';
 export const useActivityAndWalletSync = () => {
   const { shouldSyncActivityLogs, shouldSyncReviews } = useDataSyncScope();
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
-  const userProfile = useAuthStore((s) => s.userProfile);
-  const activityLogs = useAuthStore((s) => s.activityLogs);
+  const userProfile = useProfileStore((s) => s.userProfile);
+  const activityLogs = useProfileStore((s) => s.activityLogs);
   const bookings = useBookingStore((s) => s.bookings);
   const bookingsLoaded = useBookingStore((s) => s.bookingsLoaded);
   const reviews = useBookingStore((s) => s.reviews);
@@ -27,7 +28,7 @@ export const useActivityAndWalletSync = () => {
   // Activity logs — lazy: admin, instructor workspace, or student cabinet
   useEffect(() => {
     if (!firebaseUser || !shouldSyncActivityLogs) {
-      useAuthStore.getState().setActivityLogs([]);
+      useProfileStore.getState().setActivityLogs([]);
       return;
     }
 
@@ -45,7 +46,7 @@ export const useActivityAndWalletSync = () => {
           (activityDoc) => ({ id: activityDoc.id, ...activityDoc.data() }) as ActivityLog
         );
         logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        useAuthStore.getState().setActivityLogs(logs);
+        useProfileStore.getState().setActivityLogs(logs);
       },
       (error) => logger.error('Activity log sync error:', error)
     );

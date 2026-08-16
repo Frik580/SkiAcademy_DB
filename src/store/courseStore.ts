@@ -1,26 +1,21 @@
 import { create } from 'zustand';
 import confetti from 'canvas-confetti';
-import {
-  auth,
-  db,
-  deleteDoc,
-  doc,
-  handleFirestoreError,
-  OperationType,
-  setDoc,
-  updateDoc,
-  writeBatch,
-} from '../lib/firebase';
-import { enrollInCourse, isActiveCourseEnrollment } from '../lib/courseTransactions';
-import { stripUndefinedFields } from '../lib/courseClone';
+import { auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { createNotificationForUser } from '../lib/notifications';
 import { buildNotification, translateKey } from '../lib/notificationText';
 import { Course, UserProfile } from '../types';
-import { logger } from '../lib/logger';
 import { notify, t, getLanguage } from './storeContext';
-import { useAuthStore } from './authStore';
+import { useAuthStore } from '../features/auth/authStore';
+import { useProfileStore } from '../features/profile/profileStore';
 import { useBookingStore } from './bookingStore';
 import { withOptimisticBalance } from '../features/wallet/walletService';
+import {
+  addCourseService,
+  updateCourseService,
+  deleteCourseService,
+  enrollInCourseService,
+  syncCourseSeatsService,
+} from '../features/courses/courseService';
 
 interface CourseState {
   courses: Course[];
@@ -39,18 +34,15 @@ export const useCourseStore = create<CourseState>((set, get) => ({
   setCourses: (courses) => set({ courses }),
 
   handleAddCourse: async (course) => {
-    await setDoc(
-      doc(db, 'courses', course.id),
-      stripUndefinedFields(course as unknown as Record<string, unknown>)
-    );
+    await addCourseService(course);
   },
 
   handleUpdateCourse: async (course) => {
     const { courses } = get();
-    const { userProfile } = useAuthStore.getState();
+    const { userProfile } = useProfileStore.getState();
     const { bookings } = useBookingStore.getState();
 
-    await updateDoc(doc(db, 'courses', course.id), course as unknown as Record<string, unknown>);
+    await updateCourseService(course);
     if (userProfile?.role !== 'admin') return;
 
     const oldCourse = courses.find((item) => item.id === course.id);
@@ -79,11 +71,11 @@ export const useCourseStore = create<CourseState>((set, get) => ({
   },
 
   handleDeleteCourse: async (courseId) => {
-    await deleteDoc(doc(db, 'courses', courseId));
+    await deleteCourseService(courseId);
   },
 
   handleBookCourse: async (courseId, customProfile) => {
-    const { userProfile } = useAuthStore.getState();
+    const { userProfile } = useProfileStore.getState();
     const activeProfile = customProfile || userProfile;
     const activeUser = useAuthStore.getState().firebaseUser || auth.currentUser;
 
@@ -103,7 +95,7 @@ export const useCourseStore = create<CourseState>((set, get) => ({
 
       const { courseTitle } = await withOptimisticBalance(
         isSelfEnrollment ? -estimatedPrice : 0,
-        () => enrollInCourse(db, activeUser.uid, courseId, getLanguage())
+        () => enrollInCourseService(activeUser.uid, courseId, getLanguage())
       );
 
       notify(
@@ -126,32 +118,11 @@ export const useCourseStore = create<CourseState>((set, get) => ({
 
   syncCourseSeats: async () => {
     const { courses } = get();
-    const { userProfile } = useAuthStore.getState();
+    const { userProfile } = useProfileStore.getState();
     const { bookings } = useBookingStore.getState();
 
     if (userProfile?.role !== 'admin' || courses.length === 0) return;
 
-    const batch = writeBatch(db);
-    let pendingWrites = 0;
-
-    for (const course of courses) {
-      const activeBookingsCount = bookings.filter(
-        (booking) =>
-          booking.instructorId === `course_${course.id}` && isActiveCourseEnrollment(booking)
-      ).length;
-      const availableSeats = Math.max(0, course.totalSeats - activeBookingsCount);
-      if (course.availableSeats === availableSeats) continue;
-
-      batch.update(doc(db, 'courses', course.id), { availableSeats });
-      pendingWrites++;
-    }
-
-    if (pendingWrites === 0) return;
-
-    try {
-      await batch.commit();
-    } catch (error) {
-      logger.error(`Failed to auto-sync seats for ${pendingWrites} course(s):`, error);
-    }
+    await syncCourseSeatsService(courses, bookings);
   },
 }));

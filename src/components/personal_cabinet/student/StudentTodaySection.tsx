@@ -24,7 +24,7 @@ import {
   type TodaySessionCountdown,
 } from './studentCabinetUtils';
 import { ScDivider, ScSectionTitle, ScTextButton, ScTintCard } from './StudentCabinetUI';
-import { TodayChecklist } from './TodayChecklist';
+import { TodayChecklist } from '../../../features/profile/components/TodayChecklist';
 import { BookingCallCoachButton } from './BookingCallCoachButton';
 import { StudentNextStepCard } from './StudentNextStepCard';
 import { RecommendationIndicator } from '../RecommendationIndicator';

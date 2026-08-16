@@ -29,7 +29,7 @@ import {
 } from './studentCabinetUtils';
 import { calculateSkillProgress } from '../../../lib/skillData';
 import { StudentHistoryList } from './StudentHistoryList';
-import { StudentWalletHistoryList } from './StudentWalletHistoryList';
+import { WalletPanel } from '../../../features/profile/components/WalletPanel';
 
 type ProfileHubTab = Extract<
   StudentCabinetTab,
@@ -210,14 +210,14 @@ export const StudentProfileWalletPanel: React.FC<ProfileSubPanelProps> = ({
   courses,
   walletLedgerEntries = [],
 }) => (
-  <ProfilePanelShell titleKey="scProfileWalletHistory" onGoToTab={onGoToTab}>
-    <StudentWalletHistoryList
-      userId={userProfile.uid}
-      bookings={bookings}
-      courses={courses}
-      ledgerEntries={walletLedgerEntries}
-    />
-  </ProfilePanelShell>
+  <WalletPanel
+    userId={userProfile.uid}
+    bookings={bookings}
+    courses={courses}
+    walletLedgerEntries={walletLedgerEntries}
+    onGoToTab={onGoToTab}
+    showBackLink
+  />
 );
 
 export const StudentProfileJourneyPanel: React.FC<ProfileSubPanelProps> = ({

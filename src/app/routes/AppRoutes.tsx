@@ -3,40 +3,42 @@ import { AnimatePresence } from 'motion/react';
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { Compass } from 'lucide-react';
 
-import { AdminRoute } from './AdminRoute';
-import { AuthRoute } from './AuthRoute';
-import { InstructorRoute } from './InstructorRoute';
-import { YourJourneySection } from './YourJourneySection';
-import { GroupCoursesSection } from './GroupCoursesSection';
-import { HeroCarousel } from './HeroCarousel';
-import { InstructorCard } from './InstructorCard';
-import { LessonFilters } from './LessonFilters';
-import { ResortConditionsSidebar } from './ResortConditionsSidebar';
-import { ResortConfig } from '../types';
-import { useLanguage } from '../lib/LanguageContext';
-import { useTheme } from '../hooks/useTheme';
-import { CABINET_TABS, getDefaultWorkspacePath } from '../lib/workspaceRoutes';
-import { useInstructorFilters } from '../hooks/useInstructorFilters';
-import { LazyLoad } from './LazyLoad';
-import { CardSkeleton, Skeleton } from './ui/Skeleton';
+import { AdminRoute, AuthRoute, InstructorRoute } from '../../features/ui/RouteGate';
+import { YourJourneySection } from '../../components/YourJourneySection';
+import { GroupCoursesSection } from '../../components/GroupCoursesSection';
+import { HeroCarousel } from '../../components/HeroCarousel';
+import { InstructorCard } from '../../components/InstructorCard';
+import { LessonFilters } from '../../components/LessonFilters';
+import { ResortConditionsSidebar } from '../../components/ResortConditionsSidebar';
+import { ResortConfig } from '../../types';
+import { useLanguage } from '../../lib/LanguageContext';
+import { useTheme } from '../../hooks/useTheme';
+import { CABINET_TABS, getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
+import { useInstructorFilters } from '../../hooks/useInstructorFilters';
+import { LazyLoad } from '../../components/LazyLoad';
+import { CardSkeleton, Skeleton } from '../../components/ui/Skeleton';
 
-import { useProfileStore } from '../features/profile/profileStore';
-import { useBookingStore } from '../store/bookingStore';
-import { useCourseStore } from '../store/courseStore';
-import { useWalletStore } from '../features/wallet/walletStore';
-import { useUiStore } from '../store/uiStore';
-import { useAdminStore } from '../features/admin/adminStore';
+import { useProfileStore } from '../../features/profile/profileStore';
+import { useBookingStore } from '../../store/bookingStore';
+import { useCourseStore } from '../../store/courseStore';
+import { useWalletStore } from '../../features/wallet/walletStore';
+import { useUiStore } from '../../features/ui/uiStore';
+import { useAdminStore } from '../../features/admin/adminStore';
 
 const AdminPanel = React.lazy(() =>
-  import('./AdminPanel').then(({ AdminPanel }) => ({ default: AdminPanel }))
+  import('../../components/AdminPanel').then(({ AdminPanel }) => ({ default: AdminPanel }))
 );
 const PersonalCabinet = React.lazy(() =>
-  import('./PersonalCabinet').then(({ PersonalCabinet }) => ({ default: PersonalCabinet }))
+  import('../../components/PersonalCabinet').then(({ PersonalCabinet }) => ({
+    default: PersonalCabinet,
+  }))
 );
 const InstructorWorkspace = React.lazy(() =>
-  import('./InstructorWorkspace').then(({ InstructorWorkspace }) => ({
-    default: InstructorWorkspace,
-  }))
+  import('../../features/profile/components/InstructorWorkspace').then(
+    ({ InstructorWorkspace }) => ({
+      default: InstructorWorkspace,
+    })
+  )
 );
 
 const SectionLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
@@ -49,7 +51,7 @@ const SectionLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
   </div>
 );
 
-interface ResortData {
+export interface ResortData {
   resortConfig: ResortConfig;
   tempC: number;
   snowDepthCm: number;
@@ -62,7 +64,7 @@ interface ResortData {
   lastUpdated: string;
 }
 
-interface AppRoutesProps {
+export interface AppRoutesProps {
   resortData: ResortData;
   setIsFahrenheit: (value: boolean) => void;
   onRefreshResortStats: () => void;

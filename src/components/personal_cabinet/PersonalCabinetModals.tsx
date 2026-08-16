@@ -4,7 +4,7 @@ import { useLanguage } from '../../lib/LanguageContext';
 import { useTheme } from '../../hooks/useTheme';
 import { LazyLoad } from '../LazyLoad';
 import { RescheduleModal } from './RescheduleModal';
-import { ReviewModal } from './ReviewModal';
+import { ReviewFlow } from '../../features/profile/components/ReviewFlow';
 import { LessonDetailsModal } from './LessonDetailsModal';
 import { ConfirmActionModal } from './ConfirmActionModal';
 import { LevelUpModal } from './LevelUpModal';
@@ -134,15 +134,15 @@ export const PersonalCabinetModals: React.FC<PersonalCabinetModalsProps> = ({
         }
       />
 
-      <ReviewModal
-        booking={reviewBooking}
-        rating={reviewRating}
-        setRating={setReviewRating}
-        comment={reviewComment}
-        setComment={setReviewComment}
-        isSubmitting={isSubmittingReview}
-        onClose={onCloseReview}
-        onSubmit={onSubmitReview}
+      <ReviewFlow
+        reviewBooking={reviewBooking}
+        reviewRating={reviewRating}
+        setReviewRating={setReviewRating}
+        reviewComment={reviewComment}
+        setReviewComment={setReviewComment}
+        isSubmittingReview={isSubmittingReview}
+        onCloseReview={onCloseReview}
+        onSubmitReview={onSubmitReview}
       />
 
       {confirmModal && (

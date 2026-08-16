@@ -16,7 +16,7 @@ describe('admin reassign instructor wiring', () => {
       join(process.cwd(), 'src/features/bookings/bookingService.ts'),
       'utf8'
     );
-    const routesSource = readFileSync(join(process.cwd(), 'src/components/AppRoutes.tsx'), 'utf8');
+    const routesSource = readFileSync(join(process.cwd(), 'src/app/routes/AppRoutes.tsx'), 'utf8');
     const modalSource = readFileSync(
       join(process.cwd(), 'src/components/admin/ScheduleSlotActionModal.tsx'),
       'utf8'

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 describe('admin cancel wiring', () => {
   it('keeps client request cancel and admin immediate cancel handlers separate', () => {
-    const routesSource = readFileSync(join(process.cwd(), 'src/components/AppRoutes.tsx'), 'utf8');
+    const routesSource = readFileSync(join(process.cwd(), 'src/app/routes/AppRoutes.tsx'), 'utf8');
     const bookingsStoreSource = readFileSync(
       join(process.cwd(), 'src/features/bookings/bookingsStore.ts'),
       'utf8'

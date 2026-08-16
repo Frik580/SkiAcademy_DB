@@ -13,20 +13,14 @@ import { useNotifications } from './PushNotificationHub';
 import { useLanguage, useTranslatedBookings } from '../lib/LanguageContext';
 import { SkillConfig } from '../lib/skillData';
 import { AchievementsConfig } from '../lib/achievementConfig';
-import { StudentCabinetShell } from './personal_cabinet/student/StudentCabinetShell';
+import { StudentCabinet } from '../features/profile/components/StudentCabinet';
+import { useReviewFlow } from '../features/profile/components/ReviewFlow';
 import { StudentCabinetResortSnapshot } from './personal_cabinet/student/StudentHomeBottomSections';
 import { PersonalCabinetModals } from './personal_cabinet/PersonalCabinetModals';
 import { useRescheduleBooking } from './personal_cabinet/useRescheduleBooking';
 import { useBookingChatUnread } from '../lib/useBookingChatUnread';
-import { LazyLoad } from './LazyLoad';
 
-const InstructorWorkspace = React.lazy(() =>
-  import('./InstructorWorkspace').then(({ InstructorWorkspace }) => ({
-    default: InstructorWorkspace,
-  }))
-);
-
-interface PersonalCabinetProps {
+export interface PersonalCabinetProps {
   userProfile: UserProfile;
   bookings: Booking[];
   reviews: Review[];
@@ -62,7 +56,6 @@ interface PersonalCabinetProps {
   onBookCourse?: (courseId: string) => Promise<void>;
   onBookInstructor?: (instructor: Instructor) => void;
   onViewInstructorReviews?: (instructor: Instructor) => void;
-  forcedMode?: 'client' | 'instructor';
   resortSnapshot?: StudentCabinetResortSnapshot;
   onToggleTemperatureUnit?: () => void;
 }
@@ -97,7 +90,6 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   onBookCourse,
   onBookInstructor,
   onViewInstructorReviews,
-  forcedMode,
   resortSnapshot,
   onToggleTemperatureUnit,
 }) => {
@@ -106,6 +98,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
   const bookings = useTranslatedBookings(rawBookings, courses, language);
   const reschedule = useRescheduleBooking({ bookings, courses, onReschedule });
+  const reviewFlow = useReviewFlow({ onAddReview });
 
   const [selectedChatBookingId, setSelectedChatBookingId] = useState<string | null>(null);
   const selectedChatBooking = useMemo(
@@ -133,11 +126,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     }
   }, [levelUpModal]);
 
-  const [reviewBooking, setReviewBooking] = useState<Booking | null>(null);
   const [lessonDetailsId, setLessonDetailsId] = useState<string | null>(null);
-  const [reviewRating, setReviewRating] = useState<number>(5);
-  const [reviewComment, setReviewComment] = useState<string>('');
-  const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
   const [cancelReason, setCancelReason] = useState<string>('');
 
   const [confirmModal, setConfirmModal] = useState<{
@@ -147,22 +136,21 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   } | null>(null);
 
   const showInstructorTab = userProfile.role === 'admin' || !!userProfile.isInstructor;
-  const activeMode = forcedMode ?? 'client';
 
   const userBookings = useMemo(
     () => bookings.filter((b) => b.userId === userProfile.uid && !b.isDeleted),
     [bookings, userProfile.uid]
   );
   const { hasUnreadChat, markBookingChatRead } = useBookingChatUnread(
-    activeMode === 'client' ? userProfile.uid : undefined,
-    activeMode === 'client' ? userBookings : []
+    userProfile.uid,
+    userBookings
   );
 
   useEffect(() => {
-    if (activeMode !== 'client' || !selectedChatBookingId) return;
+    if (!selectedChatBookingId) return;
     const booking = bookings.find((b) => b.id === selectedChatBookingId);
     if (booking) markBookingChatRead(booking);
-  }, [activeMode, selectedChatBookingId, markBookingChatRead, bookings]);
+  }, [selectedChatBookingId, markBookingChatRead, bookings]);
 
   const unreviewedCompletedBookings = useMemo(() => {
     return userBookings.filter((b) => {
@@ -195,61 +183,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     });
   };
 
-  const handleReviewSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reviewBooking) return;
-
-    if (!reviewComment.trim()) {
-      addNotification('warning', t('reviewEmpty'), t('reviewEmptyDesc'));
-      return;
-    }
-
-    setIsSubmittingReview(true);
-    try {
-      await onAddReview({
-        instructorId: reviewBooking.instructorId,
-        rating: reviewRating,
-        comment: reviewComment.trim(),
-        bookingId: reviewBooking.id,
-      });
-      addNotification('success', t('reviewShared'), t('reviewSharedDesc'));
-      setReviewBooking(null);
-      setReviewComment('');
-      setReviewRating(5);
-    } catch {
-      addNotification('error', t('reviewFailed'), t('reviewFailedDesc'));
-    } finally {
-      setIsSubmittingReview(false);
-    }
-  };
-
-  const openReview = (booking: Booking) => {
-    setReviewBooking(booking);
-    setReviewComment('');
-    setReviewRating(5);
-  };
-
   return (
     <div className="w-full max-w-full min-w-0">
-      {activeMode === 'instructor' ? (
-        <LazyLoad
-          fallback={
-            <div className="ui-empty-state flex min-h-40 items-center justify-center">
-              <span className="ui-section-eyebrow">{t('loading')}</span>
-            </div>
-          }
-        >
-          <InstructorWorkspace
-            userProfile={userProfile}
-            instructors={instructors}
-            allBookings={rawBookings}
-            reviews={reviews}
-            courses={courses}
-            usersList={usersList}
-            skillConfig={skillConfig}
-          />
-        </LazyLoad>
-      ) : userProfile.isClientActive === false ? (
+      {userProfile.isClientActive === false ? (
         <div className="ui-card p-8 lg:p-10 space-y-6 animate-fade-in text-center max-w-xl mx-auto my-12 theme-air:shadow-soft">
           <div className="w-16 h-16 ui-avatar rounded-full flex items-center justify-center mx-auto text-rose-400 bg-rose-500/10 theme-air:border-none">
             <Lock className="w-8 h-8" />
@@ -290,7 +226,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             </div>
           )}
 
-          <StudentCabinetShell
+          <StudentCabinet
             userProfile={userProfile}
             bookings={userBookings}
             courses={courses}
@@ -311,7 +247,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             }}
             hasUnreadChat={hasUnreadChat}
             onOpenLesson={(booking) => setLessonDetailsId(booking.id)}
-            onWriteReview={openReview}
+            onWriteReview={reviewFlow.openReview}
             onToggleRecommendation={onToggleRecommendation}
             onToggleSkillToday={onToggleSkillToday}
             onPinSkillsToday={onPinSkillsToday}
@@ -326,14 +262,12 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
               addNotification('success', t('profilePhotoChanged'), t('profilePhotoChangedDesc'))
             }
             onUploadError={() => addNotification('error', t('uploadFailed'), t('uploadFailedDesc'))}
-            onViewCourseDetails={onViewCourseDetails ?? (() => {})}
-            onRequireCourseAuth={onRequireCourseAuth ?? (() => {})}
-            onBookCourse={(courseId) => {
-              void onBookCourse?.(courseId);
-            }}
-            onBookInstructor={onBookInstructor ?? (() => {})}
-            onViewInstructorReviews={onViewInstructorReviews ?? (() => {})}
-            syncTabWithRoute={forcedMode === 'client'}
+            onViewCourseDetails={onViewCourseDetails}
+            onRequireCourseAuth={onRequireCourseAuth}
+            onBookCourse={onBookCourse}
+            onBookInstructor={onBookInstructor}
+            onViewInstructorReviews={onViewInstructorReviews}
+            syncTabWithRoute={true}
             resortSnapshot={resortSnapshot}
             onToggleTemperatureUnit={onToggleTemperatureUnit}
             usersList={usersList}
@@ -363,17 +297,17 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             onCloseLessonDetails={() => setLessonDetailsId(null)}
             onWriteReviewFromLesson={(booking) => {
               setLessonDetailsId(null);
-              openReview(booking);
+              reviewFlow.openReview(booking);
             }}
             onToggleRecommendation={onToggleRecommendation}
-            reviewBooking={reviewBooking}
-            reviewRating={reviewRating}
-            setReviewRating={setReviewRating}
-            reviewComment={reviewComment}
-            setReviewComment={setReviewComment}
-            isSubmittingReview={isSubmittingReview}
-            onCloseReview={() => setReviewBooking(null)}
-            onSubmitReview={handleReviewSubmit}
+            reviewBooking={reviewFlow.reviewBooking}
+            reviewRating={reviewFlow.reviewRating}
+            setReviewRating={reviewFlow.setReviewRating}
+            reviewComment={reviewFlow.reviewComment}
+            setReviewComment={reviewFlow.setReviewComment}
+            isSubmittingReview={reviewFlow.isSubmittingReview}
+            onCloseReview={reviewFlow.closeReview}
+            onSubmitReview={reviewFlow.handleSubmitReview}
             confirmModal={confirmModal}
             cancelReason={cancelReason}
             setCancelReason={setCancelReason}

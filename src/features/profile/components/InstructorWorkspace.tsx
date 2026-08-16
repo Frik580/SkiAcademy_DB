@@ -1,16 +1,16 @@
 import React from 'react';
-import { UserProfile, Instructor, Booking, Review, Course } from '../types';
-import { SkillConfig } from '../lib/skillData';
-import { BookingChatModal } from './BookingChatModal';
-import { StudentSkillEvaluationModal } from './StudentSkillEvaluationModal';
-import { useInstructorWorkspace } from './instructor_workspace/useInstructorWorkspace';
-import { InstructorNotLinked } from './instructor_workspace/InstructorNotLinked';
-import { InstructorDashboardHeader } from './instructor_workspace/InstructorDashboardHeader';
-import { InstructorBookingList } from './instructor_workspace/InstructorBookingList';
-import { InstructorStudents } from './instructor_workspace/InstructorStudents';
-import { InstructorReviews } from './instructor_workspace/InstructorReviews';
+import { UserProfile, Instructor, Booking, Review, Course } from '../../../types';
+import { SkillConfig } from '../../../lib/skillData';
+import { BookingChatModal } from '../../../components/BookingChatModal';
+import { StudentSkillEvaluationModal } from '../../../components/StudentSkillEvaluationModal';
+import { useInstructorWorkspace } from '../../../components/instructor_workspace/useInstructorWorkspace';
+import { InstructorNotLinked } from '../../../components/instructor_workspace/InstructorNotLinked';
+import { InstructorDashboardHeader } from '../../../components/instructor_workspace/InstructorDashboardHeader';
+import { InstructorBookingList } from '../../../components/instructor_workspace/InstructorBookingList';
+import { InstructorStudents } from '../../../components/instructor_workspace/InstructorStudents';
+import { InstructorReviews } from '../../../components/instructor_workspace/InstructorReviews';
 
-interface InstructorWorkspaceProps {
+export interface InstructorWorkspaceProps {
   userProfile: UserProfile;
   instructors: Instructor[];
   allBookings: Booking[];

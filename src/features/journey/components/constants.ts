@@ -1,5 +1,5 @@
 import { Award, Crosshair, Mountain, Play, type LucideIcon } from 'lucide-react';
-import type { TranslationKey } from '../../../../lib/LanguageContext';
+import type { TranslationKey } from '../../../lib/LanguageContext';
 import type { Breakpoint, JourneyLevel, PathBend } from './types';
 
 /**

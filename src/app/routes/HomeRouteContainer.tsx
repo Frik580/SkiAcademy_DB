@@ -2,7 +2,7 @@ import React from 'react';
 import { AnimatePresence } from 'motion/react';
 import { Navigate } from 'react-router-dom';
 import { Compass } from 'lucide-react';
-import { YourJourneySection } from '../../features/profile';
+import { YourJourneySection } from '../../features/journey';
 import { GroupCoursesSection } from '../../features/courses';
 import { HeroCarousel } from '../../app/components/HeroCarousel';
 import { InstructorCard } from '../../features/profile';

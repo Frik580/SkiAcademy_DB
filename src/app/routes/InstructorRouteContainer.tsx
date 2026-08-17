@@ -9,7 +9,7 @@ import { useCoursesStore } from '../../features/courses';
 import { useSettingsStore } from '../../features/settings';
 
 const InstructorWorkspace = React.lazy(() =>
-  import('../../features/profile').then(({ InstructorWorkspace }) => ({
+  import('../../features/instructor-workspace').then(({ InstructorWorkspace }) => ({
     default: InstructorWorkspace,
   }))
 );

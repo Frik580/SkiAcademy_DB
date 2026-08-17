@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Trash2, Save } from 'lucide-react';
-import { LessonRecommendation } from '../../../../types';
+import { LessonRecommendation } from '../../../types';
 import {
   createRecommendationId,
   sanitizeRecommendations,
-} from '../../../../lib/lessonRecommendations';
-import { type TranslationKey } from '../../../../lib/LanguageContext';
+} from '../../../lib/lessonRecommendations';
+import { type TranslationKey } from '../../../lib/LanguageContext';
 
 interface InstructorRecommendationsEditorProps {
   bookingId: string;

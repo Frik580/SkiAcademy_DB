@@ -10,7 +10,7 @@ import {
 import { SkillConfig } from '../../../../../lib/skillData';
 import { AchievementsConfig } from '../../../../../lib/achievementConfig';
 import { useLanguage } from '../../../../../lib/LanguageContext';
-import { YourJourneySection } from '../../../../../features/profile';
+import { YourJourneySection } from '../../../../../features/journey';
 import {
   getFirstName,
   getGreeting,

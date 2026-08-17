@@ -5,11 +5,12 @@ export { OnboardingModal } from './components/OnboardingModal';
 export { PersonalCabinet } from './components/PersonalCabinet';
 export type { PersonalCabinetProps } from './components/PersonalCabinet';
 export { StudentSkillEvaluationModal } from './components/StudentSkillEvaluationModal';
-export { YourJourneySection } from './components/your_journey/YourJourneySection';
-export { LEVEL_MARKER_Y, LEVEL_PATH_BEND } from './components/your_journey/constants';
-export type { PathBend } from './components/your_journey/types';
+// Backward-compatible exports. New consumers should import from features/journey.
+export { YourJourneySection, LEVEL_MARKER_Y, LEVEL_PATH_BEND } from '../journey';
+export type { PathBend } from '../journey';
 export { useProfileStore } from './profileStore';
 export { useAchievementsSync } from './sync/useAchievementsSync';
-export { InstructorWorkspace } from './components/InstructorWorkspace';
+// Backward-compatible export. New consumers should import from features/instructor-workspace.
+export { InstructorWorkspace } from '../instructor-workspace';
 export { LessonRecommendationsList } from './components/personal_cabinet/LessonRecommendationsList';
 export { RecommendationIndicator } from './components/personal_cabinet/RecommendationIndicator';

@@ -1,6 +1,6 @@
-import type { TranslationKey } from '../../../../lib/LanguageContext';
-import type { SkillConfig } from '../../../../lib/skillData';
-import type { UserProfile } from '../../../../types';
+import type { TranslationKey } from '../../../lib/LanguageContext';
+import type { SkillConfig } from '../../../lib/skillData';
+import type { UserProfile } from '../../../types';
 
 export type LevelShape = 'circle' | 'diamond' | 'hexagon' | 'triangle';
 export type Breakpoint = 'mobile' | 'tablet' | 'desktop';

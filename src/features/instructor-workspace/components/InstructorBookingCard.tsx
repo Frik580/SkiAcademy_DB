@@ -1,16 +1,16 @@
 import React from 'react';
 import { Calendar, Clock, MessageSquare, CheckCircle, Users } from 'lucide-react';
-import { getDifficultyLabel } from '../../../../lib/LanguageContext';
-import { UserProfile } from '../../../../types';
+import { getDifficultyLabel } from '../../../lib/LanguageContext';
+import { UserProfile } from '../../../types';
 import { DisplayBooking, EnrichedCourseBooking, EnrichedBooking } from './useInstructorWorkspace';
 import { StudentLevelControls } from './StudentLevelControls';
 import { StudentAssessButton } from './StudentAssessButton';
 import { InstructorRecommendationsEditor } from './InstructorRecommendationsEditor';
-import { type TranslationKey, type Language } from '../../../../lib/LanguageContext';
-import { StatusBadge } from '../../../../ui/StatusBadge';
-import { ChatUnreadIndicator } from '../../../chat/components/chat/ChatUnreadIndicator';
-import { canInstructorEditRecommendations } from '../../../../lib/lessonRecommendations';
-import { LessonRecommendation } from '../../../../types';
+import { type TranslationKey, type Language } from '../../../lib/LanguageContext';
+import { StatusBadge } from '../../../ui/StatusBadge';
+import { ChatUnreadIndicator } from '../../chat/components/chat/ChatUnreadIndicator';
+import { canInstructorEditRecommendations } from '../../../lib/lessonRecommendations';
+import { LessonRecommendation } from '../../../types';
 
 interface InstructorBookingCardProps {
   booking: DisplayBooking;
@@ -20,7 +20,7 @@ interface InstructorBookingCardProps {
   t: (key: TranslationKey) => string;
   onOpenChat: (booking: DisplayBooking) => void;
   hasUnreadChat?: (
-    bookingOrId: string | import('../../../../lib/resolveChatId').CourseChatBooking
+    bookingOrId: string | import('../../../lib/resolveChatId').CourseChatBooking
   ) => boolean;
   onUpdateStatus: (bookingId: string, nextStatus: 'confirmed' | 'completed') => void;
   onUpdateStudentLevel: (studentUid: string, studentName: string, newLevel: number) => void;

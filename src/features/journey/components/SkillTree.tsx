@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../lib/LanguageContext';
 import type { JourneyEarnedSkill, JourneyLevel } from './types';
 
 export const LevelCardBody: React.FC<{

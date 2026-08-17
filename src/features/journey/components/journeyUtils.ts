@@ -3,9 +3,9 @@ import {
   getSkillItemTitle,
   type SkillConfig,
   type SkillItem,
-} from '../../../../lib/skillData';
-import type { Language } from '../../../../lib/i18n/translations';
-import type { UserProfile } from '../../../../types';
+} from '../../../lib/skillData';
+import type { Language } from '../../../lib/i18n/translations';
+import type { UserProfile } from '../../../types';
 import { EQUAL_MARKER_STOPS, JOURNEY_LEVELS } from './constants';
 import type { JourneyEarnedSkill, PathBend } from './types';
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Lock } from 'lucide-react';
-import { type TranslationKey } from '../../../../lib/LanguageContext';
+import { type TranslationKey } from '../../../lib/LanguageContext';
 
 interface InstructorNotLinkedProps {
   t: (key: TranslationKey) => string;

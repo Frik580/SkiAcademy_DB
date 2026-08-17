@@ -1,14 +1,14 @@
 import React from 'react';
-import { UserProfile, Instructor, Booking, Review, Course } from '../../../types';
-import { SkillConfig } from '../../../lib/skillData';
-import { BookingChatModal } from '../../../features/bookings';
-import { StudentSkillEvaluationModal } from '../../../features/profile';
-import { useInstructorWorkspace } from './instructor_workspace/useInstructorWorkspace';
-import { InstructorNotLinked } from './instructor_workspace/InstructorNotLinked';
-import { InstructorDashboardHeader } from './instructor_workspace/InstructorDashboardHeader';
-import { InstructorBookingList } from './instructor_workspace/InstructorBookingList';
-import { InstructorStudents } from './instructor_workspace/InstructorStudents';
-import { InstructorReviews } from './instructor_workspace/InstructorReviews';
+import { UserProfile, Instructor, Booking, Review, Course } from '../../types';
+import { SkillConfig } from '../../lib/skillData';
+import { BookingChatModal } from '../bookings';
+import { StudentSkillEvaluationModal } from '../profile';
+import { useInstructorWorkspace } from './components/useInstructorWorkspace';
+import { InstructorNotLinked } from './components/InstructorNotLinked';
+import { InstructorDashboardHeader } from './components/InstructorDashboardHeader';
+import { InstructorBookingList } from './components/InstructorBookingList';
+import { InstructorStudents } from './components/InstructorStudents';
+import { InstructorReviews } from './components/InstructorReviews';
 
 export interface InstructorWorkspaceProps {
   userProfile: UserProfile;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Award } from 'lucide-react';
-import { type TranslationKey } from '../../../../lib/LanguageContext';
+import { type TranslationKey } from '../../../lib/LanguageContext';
 
 interface StudentAssessButtonProps {
   t: (key: TranslationKey) => string;

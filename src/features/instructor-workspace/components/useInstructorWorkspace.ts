@@ -6,30 +6,30 @@ import {
   Review,
   Course,
   LessonDifficulty,
-} from '../../../../types';
+} from '../../../types';
 import {
   useLanguage,
   translateCourse,
   splitCourseDates,
   parseDurationHours,
-} from '../../../../lib/LanguageContext';
-import { useNotifications } from '../../../../features/notifications';
-import { useTheme } from '../../../../hooks/useTheme';
-import { logger } from '../../../../lib/logger';
-import { SkillConfig, DEFAULT_SKILL_ITEMS } from '../../../../lib/skillData';
-import { LessonRecommendation } from '../../../../types';
-import { useBookingChatUnread } from '../../../../lib/useBookingChatUnread';
+} from '../../../lib/LanguageContext';
+import { useNotifications } from '../../../features/notifications';
+import { useTheme } from '../../../hooks/useTheme';
+import { logger } from '../../../lib/logger';
+import { SkillConfig, DEFAULT_SKILL_ITEMS } from '../../../lib/skillData';
+import { LessonRecommendation } from '../../../types';
+import { useBookingChatUnread } from '../../../lib/useBookingChatUnread';
 import {
   activityLogId,
   buildBookingCompletedMetadata,
   logActivityForUser,
-} from '../../../../lib/activityLog';
+} from '../../../lib/activityLog';
 import {
   completeBookingService,
   saveBookingRecommendationsService,
   updateBookingStatusService,
-} from '../../../bookings/bookingService';
-import { updateStudentLevelService, updateStudentSkillsService } from '../../profileService';
+} from '../../bookings/bookingService';
+import { updateStudentLevelService, updateStudentSkillsService } from '../../profile/profileService';
 
 export interface InstructorWorkspaceInput {
   userProfile: UserProfile;

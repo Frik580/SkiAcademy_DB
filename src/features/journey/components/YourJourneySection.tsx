@@ -4,9 +4,9 @@ import {
   calculateSkillProgress,
   calculateStudentLevel,
   getJourneyLevelXpThresholds,
-} from '../../../../lib/skillData';
-import { useLanguage } from '../../../../lib/LanguageContext';
-import { useTheme } from '../../../../hooks/useTheme';
+} from '../../../lib/skillData';
+import { useLanguage } from '../../../lib/LanguageContext';
+import { useTheme } from '../../../hooks/useTheme';
 import { AchievementGrid } from './AchievementGrid';
 import {
   EQUAL_MARKER_STOPS,

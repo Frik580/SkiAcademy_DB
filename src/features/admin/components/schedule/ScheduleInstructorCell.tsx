@@ -1,7 +1,7 @@
 import React from 'react';
 import { Lock } from 'lucide-react';
 import type { Instructor } from '../../../../types';
-import type { Language, TranslationKey } from '../../../../lib/LanguageContext';
+import type { Language, TranslationKey } from '../../../../app/providers/LanguageContext';
 import { getSpecialtyLabel } from './scheduleUtils';
 
 interface ScheduleInstructorCellProps {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { AdminRoute } from '../../features/shell';
-import { useLanguage } from '../../lib/LanguageContext';
+import { useLanguage } from '../../app/providers/LanguageContext';
 import { useInstructorFilters } from '../../hooks/useInstructorFilters';
 import { LazyLoad } from '../../ui/LazyLoad';
 import { CardSkeleton, Skeleton } from '../../ui/Skeleton';

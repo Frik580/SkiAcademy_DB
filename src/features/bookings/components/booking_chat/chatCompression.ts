@@ -1,4 +1,4 @@
-import type { TranslationKey } from '../../../../lib/LanguageContext';
+import type { TranslationKey } from '../../../../app/providers/LanguageContext';
 
 export class LocalizedCompressionError extends Error {
   i18nKey: TranslationKey;

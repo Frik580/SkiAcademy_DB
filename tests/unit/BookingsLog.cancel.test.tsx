@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BookingsLog } from '../../src/features/admin';
 import type { Booking, Instructor, UserProfile } from '../../src/types';
 
-vi.mock('../../src/lib/LanguageContext', () => ({
+vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ t: (key: string) => key, language: 'en' }),
   getBookingStatusLabel: (status: string) => status,
 }));

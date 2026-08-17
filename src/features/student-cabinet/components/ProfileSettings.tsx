@@ -1,10 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { Camera, Loader2, Wallet } from 'lucide-react';
 import { UserProfile } from '../../../types';
-import { useLanguage } from '../../../lib/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useTheme } from '../../../hooks/useTheme';
 import { optimizeProfileImage } from './profileImage';
-import { uploadImage } from '../../../lib/storage';
+import { uploadImage } from '../../../infrastructure/firebase/storage';
 import { logger } from '../../../lib/logger';
 import { useEffectiveBalance } from '../../../features/wallet';
 

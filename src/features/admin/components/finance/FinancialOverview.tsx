@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, BookOpenCheck, DollarSign, Users } from 'lucide-react';
-import { useLanguage } from '../../../../lib/LanguageContext';
-import { useCurrency } from '../../../../lib/CurrencyContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
+import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import { logger } from '../../../../lib/logger';
 import { saveUsdToKztRate } from '../../../../features/admin/adminService';
 

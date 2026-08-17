@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Course } from '../../../../../types';
-import { useLanguage } from '../../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../../features/notifications';
 import { useCourseDateRange } from '../useCourseDateRange';
 

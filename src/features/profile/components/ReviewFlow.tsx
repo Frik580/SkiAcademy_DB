@@ -2,7 +2,7 @@ import React from 'react';
 import { Booking, Review } from '../../../types';
 import { ReviewModal } from '../../../features/student-cabinet/components/ReviewModal';
 import { useNotifications } from '../../../features/notifications';
-import { useLanguage } from '../../../lib/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 
 export interface ReviewFlowProps {
   reviewBooking: Booking | null;

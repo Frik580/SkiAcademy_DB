@@ -20,7 +20,7 @@ import {
   WEEKDAYS_EN,
   WEEKDAYS_RU,
   getDifficultyLabel,
-} from '../../../lib/LanguageContext';
+} from '../../../app/providers/LanguageContext';
 import { ToggleSwitch } from '../../../ui/ToggleSwitch';
 import { StatusBadge } from '../../../ui/StatusBadge';
 import { StateCard } from '../../../ui/StateCard';

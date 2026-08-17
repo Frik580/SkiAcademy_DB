@@ -1,6 +1,6 @@
 import React from 'react';
 import { Search, SlidersHorizontal } from 'lucide-react';
-import { useLanguage, type TranslationKey } from '../../../lib/LanguageContext';
+import { useLanguage, type TranslationKey } from '../../../app/providers/LanguageContext';
 
 interface LessonFiltersProps {
   searchQuery: string;

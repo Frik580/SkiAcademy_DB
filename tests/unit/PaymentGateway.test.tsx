@@ -7,7 +7,7 @@ vi.mock('../../src/features/notifications', () => ({
   useNotifications: () => ({ addNotification: vi.fn() }),
 }));
 
-vi.mock('../../src/lib/LanguageContext', () => ({
+vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ t: (key: string) => key, language: 'en' }),
 }));
 

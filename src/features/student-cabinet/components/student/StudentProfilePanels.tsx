@@ -12,7 +12,7 @@ import {
   CalendarRange,
   Wallet,
 } from 'lucide-react';
-import { useLanguage, type TranslationKey } from '../../../../lib/LanguageContext';
+import { useLanguage, type TranslationKey } from '../../../../app/providers/LanguageContext';
 import { DEFAULT_SKILL_CONFIG } from '../../../../lib/skillData';
 import { AchievementsConfig } from '../../../../lib/achievementConfig';
 import { StudentCabinetContext } from './StudentCabinetHome';

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Star } from 'lucide-react';
 import { Booking } from '../../../types';
-import { useLanguage, formatShortBookingDate } from '../../../lib/LanguageContext';
+import { useLanguage, formatShortBookingDate } from '../../../app/providers/LanguageContext';
 import {
   getDifficultyShort,
   formatBookingDayMonth,

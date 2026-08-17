@@ -11,8 +11,8 @@ import {
   orderBy,
   query,
   where,
-} from '../../../lib/firebase';
-import { toBooking, toInstructor, toReview } from '../../../lib/firestoreMappers';
+} from '../../../infrastructure/firebase/firebase';
+import { toBooking, toInstructor, toReview } from '../../../infrastructure/firebase/firestoreMappers';
 import { QUERY_LIMITS } from '../../../lib/queryLimits';
 import { logger } from '../../../lib/logger';
 import { useAuthStore } from '../../auth/authStore';

@@ -10,7 +10,7 @@ import {
   query,
   setDoc,
   updateDoc,
-} from '../../lib/firebase';
+} from '../../infrastructure/firebase/firebase';
 import { QUERY_LIMITS } from '../../lib/queryLimits';
 import { ChatMessage, OperationType } from '../../types';
 

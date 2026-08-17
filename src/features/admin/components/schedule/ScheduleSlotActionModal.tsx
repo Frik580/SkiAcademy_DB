@@ -2,7 +2,7 @@ import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useState } 
 import { createPortal } from 'react-dom';
 import { Clock, Shield, X } from 'lucide-react';
 import type { Booking, Course, Instructor, UserProfile } from '../../../../types';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 import { useNotifications } from '../../../../features/notifications';
 import { BookingChatModal } from '../../../../features/bookings';

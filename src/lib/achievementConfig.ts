@@ -1,4 +1,4 @@
-import { parseCourseDates } from './LanguageContext';
+import { parseCourseDates } from '../app/providers/LanguageContext';
 import { findStreakWeeksTimestamp, getTrainingStreakWeeks } from './trainingStreak';
 import {
   ActivityLog,

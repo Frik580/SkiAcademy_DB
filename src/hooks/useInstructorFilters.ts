@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { Instructor } from '../types';
-import { Language, translateInstructor } from '../lib/LanguageContext';
+import { Language, translateInstructor } from '../app/providers/LanguageContext';
 import { useBookingsStore } from '../features/bookings/bookingsStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
 import { useUiStore } from '../features/shell';

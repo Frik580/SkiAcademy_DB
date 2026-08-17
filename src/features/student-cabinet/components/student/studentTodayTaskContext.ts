@@ -1,5 +1,5 @@
 import { Booking, Course } from '../../../../types';
-import { getDifficultyLabel } from '../../../../lib/LanguageContext';
+import { getDifficultyLabel } from '../../../../app/providers/LanguageContext';
 import { translateInstructorName } from '../../../../lib/i18n/contentTranslation';
 import { formatRecentLessonDateLabel, getRecentLessonTitle } from './studentLessonPresentation';
 

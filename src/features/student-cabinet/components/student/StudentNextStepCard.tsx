@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { formatPointsGain } from '../../../../lib/i18n/pluralize';
 import { NextStepAction } from './studentCabinetUtils';
 

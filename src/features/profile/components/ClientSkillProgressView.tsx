@@ -6,7 +6,7 @@ import {
   calculateSkillProgress,
   getSkillItemTitle,
 } from '../../../lib/skillData';
-import { useLanguage } from '../../../lib/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 import {
   matchesSkillRingFilter,
   SkillRingFilter,

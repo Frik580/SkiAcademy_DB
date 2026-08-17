@@ -12,7 +12,7 @@ import {
   translateCourse,
   splitCourseDates,
   parseDurationHours,
-} from '../../../lib/LanguageContext';
+} from '../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../features/notifications';
 import { useTheme } from '../../../hooks/useTheme';
 import { logger } from '../../../lib/logger';

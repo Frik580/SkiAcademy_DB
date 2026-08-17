@@ -1,6 +1,6 @@
 import React from 'react';
 import { Booking, Course, Instructor, UserProfile } from '../../../../../types';
-import { type TranslationKey, type Language } from '../../../../../lib/LanguageContext';
+import { type TranslationKey, type Language } from '../../../../../app/providers/LanguageContext';
 import { CourseTableRow } from './CourseTableRow';
 
 interface CoursesTableProps {

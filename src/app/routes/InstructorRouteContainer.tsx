@@ -1,6 +1,6 @@
 import React from 'react';
 import { InstructorRoute } from '../../features/shell';
-import { useLanguage } from '../../lib/LanguageContext';
+import { useLanguage } from '../../app/providers/LanguageContext';
 import { LazyLoad } from '../../ui/LazyLoad';
 import { CardSkeleton, Skeleton } from '../../ui/Skeleton';
 import { useProfileStore } from '../../features/profile';

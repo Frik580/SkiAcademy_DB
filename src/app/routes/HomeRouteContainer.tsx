@@ -8,7 +8,7 @@ import { HeroCarousel } from '../../app/components/HeroCarousel';
 import { InstructorCard } from '../../features/profile';
 import { LessonFilters } from '../../features/courses';
 import { ResortConditionsSidebar } from '../../app/components/ResortConditionsSidebar';
-import { useLanguage } from '../../lib/LanguageContext';
+import { useLanguage } from '../../app/providers/LanguageContext';
 import { useTheme } from '../../hooks/useTheme';
 import { getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { useInstructorFilters } from '../../hooks/useInstructorFilters';

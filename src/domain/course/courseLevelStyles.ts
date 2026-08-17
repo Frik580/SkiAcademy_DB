@@ -1,4 +1,4 @@
-import type { Course } from '../types';
+import type { Course } from '../../types';
 
 export type CourseLevel = Exclude<NonNullable<Course['level']>, ''>;
 

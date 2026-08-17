@@ -2,8 +2,8 @@ import React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Instructor } from '../../../types';
 import { Star, Globe } from 'lucide-react';
-import { useLanguage, type TranslationKey } from '../../../lib/LanguageContext';
-import { useCurrency } from '../../../lib/CurrencyContext';
+import { useLanguage, type TranslationKey } from '../../../app/providers/LanguageContext';
+import { useCurrency } from '../../../app/providers/CurrencyContext';
 
 interface InstructorCardProps {
   instructor: Instructor;

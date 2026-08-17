@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CreditCard, X, Check, ArrowRight, Loader2 } from 'lucide-react';
 import { useNotifications } from '../../../features/notifications';
-import { useLanguage } from '../../../lib/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import type { WalletCurrency } from '../../../types';
 

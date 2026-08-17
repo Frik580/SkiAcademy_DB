@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, Video, Link as LinkIcon, Loader2, Trash2 } from 'lucide-react';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import type { PendingAttachment } from './chatCompression';
 
 interface MediaUploaderProps {

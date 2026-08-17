@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, X } from 'lucide-react';
-import { type TranslationKey } from '../../../../../lib/LanguageContext';
+import { type TranslationKey } from '../../../../../app/providers/LanguageContext';
 
 interface CoursesManagerToolbarProps {
   t: (key: TranslationKey) => string;

@@ -6,7 +6,7 @@ import {
   BookingPaymentResult,
   InsufficientFundsError,
 } from './bookingTransactions';
-import { functions } from './firebase';
+import { functions } from '../infrastructure/firebase/firebase';
 
 export interface CreateBookingCallableInput {
   id: string;

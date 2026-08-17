@@ -1,6 +1,6 @@
 import React from 'react';
 import { Send, Loader2 } from 'lucide-react';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 
 interface ChatInputProps {
   inputText: string;

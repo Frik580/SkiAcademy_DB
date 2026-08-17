@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Film, Image as ImageIcon, Play, Pause, Volume2, VolumeX } from 'lucide-react';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { logger } from '../../../../lib/logger';
 
 interface CourseGalleryProps {

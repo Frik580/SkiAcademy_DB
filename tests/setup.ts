@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 
-vi.mock('../src/lib/CurrencyContext', () => ({
+vi.mock('../src/app/providers/CurrencyContext', () => ({
   useCurrency: () => ({
     currency: 'USD' as const,
     setCurrency: vi.fn(),

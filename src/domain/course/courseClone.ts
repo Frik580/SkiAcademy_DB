@@ -1,4 +1,4 @@
-import { Course } from '../types';
+import { Course } from '../../types';
 
 /** Firestore rejects documents containing undefined field values. */
 export function stripUndefinedFields<T extends Record<string, unknown>>(data: T): T {

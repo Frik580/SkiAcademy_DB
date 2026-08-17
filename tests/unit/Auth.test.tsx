@@ -13,7 +13,7 @@ const mockGetDoc = vi.fn();
 const mockMigratePreExistingProfile = vi.fn();
 const mockAddNotification = vi.fn();
 
-vi.mock('../../src/lib/firebase', () => ({
+vi.mock('../../src/infrastructure/firebase/firebase', () => ({
   auth: {},
   db: {},
   googleProvider: {},
@@ -36,7 +36,7 @@ vi.mock('../../src/features/notifications', () => ({
   useNotifications: () => ({ addNotification: mockAddNotification }),
 }));
 
-vi.mock('../../src/lib/LanguageContext', () => ({
+vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ t: (key: string) => key, language: 'en' }),
 }));
 

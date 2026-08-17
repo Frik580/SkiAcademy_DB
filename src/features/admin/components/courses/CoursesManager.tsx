@@ -1,7 +1,7 @@
 import React from 'react';
 import { Booking, Course, Instructor, UserProfile } from '../../../../types';
-import { useLanguage, translateCourse } from '../../../../lib/LanguageContext';
-import { buildClonedCourse } from '../../../../lib/courseClone';
+import { useLanguage, translateCourse } from '../../../../app/providers/LanguageContext';
+import { buildClonedCourse } from '../../../../domain/course/courseClone';
 import { logger } from '../../../../lib/logger';
 import { useNotifications } from '../../../../features/notifications';
 import { useCourseForm } from './form/useCourseForm';

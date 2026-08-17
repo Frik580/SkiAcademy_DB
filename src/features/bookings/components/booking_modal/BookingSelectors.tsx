@@ -1,7 +1,7 @@
 import React from 'react';
 import { Calendar, Clock, HelpCircle } from 'lucide-react';
 import { LessonDifficulty } from '../../../../types';
-import { type TranslationKey, type Language } from '../../../../lib/LanguageContext';
+import { type TranslationKey, type Language } from '../../../../app/providers/LanguageContext';
 import { type DifficultyLabelVariant } from '../../../../lib/i18n/bookingLabels';
 import { formatDurationLabel } from '../../../../lib/i18n/duration';
 

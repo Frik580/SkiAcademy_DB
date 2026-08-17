@@ -4,7 +4,7 @@ import {
   inferBookingCreatedAtFromId,
   resolveBookingCreatedAt,
   withBookingCreatedAt,
-} from '../../src/lib/bookingCreatedAt';
+} from '../../src/domain/booking/bookingCreatedAt';
 
 describe('bookingCreatedAt', () => {
   it('infers createdAt from guest booking ids', () => {

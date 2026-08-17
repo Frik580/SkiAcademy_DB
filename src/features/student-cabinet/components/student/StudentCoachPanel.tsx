@@ -5,7 +5,7 @@ import {
   useLanguage,
   translateInstructor,
   type TranslationKey,
-} from '../../../../lib/LanguageContext';
+} from '../../../../app/providers/LanguageContext';
 import { InstructorCard } from '../../../../features/profile';
 import {
   ScDivider,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Phone } from 'lucide-react';
 import { Booking, Course, Instructor, UserProfile } from '../../../../types';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { normalizeTelHref, resolveBookingCoachPhone } from './coachUtils';
 
 interface BookingCallCoachButtonProps {

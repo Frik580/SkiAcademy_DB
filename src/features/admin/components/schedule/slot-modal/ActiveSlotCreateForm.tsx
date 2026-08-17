@@ -1,7 +1,7 @@
 import React from 'react';
 import { Calendar, Check, Loader2 } from 'lucide-react';
 import type { Instructor, LessonDifficulty, UserProfile } from '../../../../../types';
-import { useLanguage } from '../../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../../app/providers/LanguageContext';
 import { formatDurationLabel } from '../../../../../lib/i18n/duration';
 
 interface ActiveSlotCreateFormProps {

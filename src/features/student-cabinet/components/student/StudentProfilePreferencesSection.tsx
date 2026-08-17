@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { LogOut } from 'lucide-react';
 import { UserProfile } from '../../../../types';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { logger } from '../../../../lib/logger';
 import { ToggleSwitch } from '../../../../ui/ToggleSwitch';
 

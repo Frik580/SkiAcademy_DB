@@ -1,17 +1,17 @@
 import { doc, type Firestore, type Transaction } from 'firebase/firestore';
-import { isCourseBooking } from './availabilitySlots';
-import { resolveBookingCreatedAt } from './bookingCreatedAt';
-import { translateCourse } from './i18n/contentTranslation';
-import { parseCourseDates } from './i18n/courseDates';
-import { formatDurationLabel } from './i18n/duration';
-import type { TranslationKey } from './i18n/translations';
+import { isCourseBooking } from '../../lib/availabilitySlots';
+import { resolveBookingCreatedAt } from '../booking/bookingCreatedAt';
+import { translateCourse } from '../../lib/i18n/contentTranslation';
+import { parseCourseDates } from '../../lib/i18n/courseDates';
+import { formatDurationLabel } from '../../lib/i18n/duration';
+import type { TranslationKey } from '../../lib/i18n/translations';
 import type {
   Booking,
   Course,
   WalletCurrency,
   WalletLedgerEntry,
   WalletLedgerType,
-} from '../types';
+} from '../../types';
 
 export const WALLET_LEDGER_COLLECTION = 'wallet_ledger';
 

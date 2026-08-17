@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronDown, HelpCircle } from 'lucide-react';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import type { CourseFaqItem } from './courseEnrichedData';
 
 interface CourseFAQProps {

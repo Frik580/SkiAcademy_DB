@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { db, doc, onSnapshot } from '../../../lib/firebase';
+import { db, doc, onSnapshot } from '../../../infrastructure/firebase/firebase';
 import {
   DEFAULT_ACHIEVEMENTS_CONFIG,
   normalizeAchievementsConfig,

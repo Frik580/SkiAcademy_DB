@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Loader2, Wallet } from 'lucide-react';
 import { UserProfile } from '../../../../types';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { optimizeProfileImage } from '../profileImage';
-import { uploadImage } from '../../../../lib/storage';
+import { uploadImage } from '../../../../infrastructure/firebase/storage';
 import { logger } from '../../../../lib/logger';
 import { ScSectionTitle } from './StudentCabinetUI';
 import { useEffectiveBalance } from '../../../../features/wallet';

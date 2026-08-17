@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { useLanguage, type Language } from '../../../lib/LanguageContext';
+import { useLanguage, type Language } from '../../../app/providers/LanguageContext';
 import { Booking, Course, UserProfile } from '../../../types';
 import { GroupCourseCard, sortVisibleCourses } from './GroupCourseCard';
 

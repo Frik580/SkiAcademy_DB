@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useLanguage } from '../lib/LanguageContext';
+import { useLanguage } from '../app/providers/LanguageContext';
 import { useNotifications } from '../features/notifications';
 import { useTheme } from '../hooks/useTheme';
 import { useResortStats } from '../hooks/useResortStats';

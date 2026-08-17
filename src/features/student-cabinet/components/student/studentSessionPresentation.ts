@@ -1,5 +1,5 @@
 import { Booking } from '../../../../types';
-import { type TranslationKey } from '../../../../lib/LanguageContext';
+import { type TranslationKey } from '../../../../app/providers/LanguageContext';
 import { parseBookingStartTime } from './studentBookingSchedule';
 import { toYMD } from './studentCabinetPresentation';
 

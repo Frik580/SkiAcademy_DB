@@ -6,7 +6,7 @@ import {
   formatShortBookingDate,
   getDifficultyLabel,
   getHourSuffix,
-} from '../../../lib/LanguageContext';
+} from '../../../app/providers/LanguageContext';
 import { StatusBadge } from '../../../ui/StatusBadge';
 
 interface UpcomingSessionsStripProps {

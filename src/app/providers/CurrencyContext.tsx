@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { db, doc, onSnapshot, setDoc } from './firebase';
-import { logger } from './logger';
+import { db, doc, onSnapshot, setDoc } from '../../infrastructure/firebase/firebase';
+import { logger } from '../../lib/logger';
 
 export type Currency = 'USD' | 'KZT';
 

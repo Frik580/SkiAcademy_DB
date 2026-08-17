@@ -1,4 +1,4 @@
-import { db, doc, setDoc } from '../../lib/firebase';
+import { db, doc, setDoc } from '../../infrastructure/firebase/firebase';
 import { AchievementsConfig, normalizeAchievementsConfig } from '../../lib/achievementConfig';
 import { DesignTheme } from '../../lib/designTheme';
 import {

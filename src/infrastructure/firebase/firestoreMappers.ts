@@ -1,6 +1,6 @@
-import type { ActivityLog, Booking, Course, Instructor, Review, UserProfile } from '../types';
-import type { DbNotification } from './notificationText';
-import type { WalletLedgerEntry } from '../features/wallet/types';
+import type { ActivityLog, Booking, Course, Instructor, Review, UserProfile } from '../../types';
+import type { DbNotification } from '../../lib/notificationText';
+import type { WalletLedgerEntry } from '../../features/wallet/types';
 
 /** Raw Firestore shape: document fields without the Firestore document id. */
 export type FirestoreModel<T extends { id: string }> = Omit<T, 'id'>;

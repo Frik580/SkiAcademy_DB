@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { CalendarPlus } from 'lucide-react';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { STUDENT_TAB_BAR_HEIGHT } from './StudentCabinetUI';
 
 interface StudentBookNextFabProps {

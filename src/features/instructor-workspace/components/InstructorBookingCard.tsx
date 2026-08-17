@@ -1,12 +1,12 @@
 import React from 'react';
 import { Calendar, Clock, MessageSquare, CheckCircle, Users } from 'lucide-react';
-import { getDifficultyLabel } from '../../../lib/LanguageContext';
+import { getDifficultyLabel } from '../../../app/providers/LanguageContext';
 import { UserProfile } from '../../../types';
 import { DisplayBooking, EnrichedCourseBooking, EnrichedBooking } from './useInstructorWorkspace';
 import { StudentLevelControls } from './StudentLevelControls';
 import { StudentAssessButton } from './StudentAssessButton';
 import { InstructorRecommendationsEditor } from './InstructorRecommendationsEditor';
-import { type TranslationKey, type Language } from '../../../lib/LanguageContext';
+import { type TranslationKey, type Language } from '../../../app/providers/LanguageContext';
 import { StatusBadge } from '../../../ui/StatusBadge';
 import { ChatUnreadIndicator } from '../../chat/components/chat/ChatUnreadIndicator';
 import { canInstructorEditRecommendations } from '../../../lib/lessonRecommendations';

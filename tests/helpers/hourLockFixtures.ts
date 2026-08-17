@@ -1,1 +1,1 @@
-export { addHourLocksToBatch } from '../../src/lib/slotOverlap';
+export { addHourLocksToBatch } from '../../src/domain/booking/slotOverlap';

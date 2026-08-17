@@ -4,10 +4,10 @@ import {
   blocksInstructorAvailability,
   toAvailabilitySlot,
 } from './availabilitySlots';
-import { addHourLocksToBatch } from './slotOverlap';
+import { addHourLocksToBatch } from '../domain/booking/slotOverlap';
 import { doc, getDoc, setDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import { Booking } from '../types';
-import { db } from './firebase';
+import { db } from '../infrastructure/firebase/firebase';
 import { logger } from './logger';
 
 export const migrateAvailabilitySlots = async (

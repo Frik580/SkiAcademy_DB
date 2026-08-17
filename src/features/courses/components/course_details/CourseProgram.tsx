@@ -1,7 +1,7 @@
 import React from 'react';
 import { Award, BookOpen, Layers } from 'lucide-react';
 import { Course } from '../../../../types';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import type { CourseProgramStep } from './courseEnrichedData';
 
 interface CourseProgramProps {

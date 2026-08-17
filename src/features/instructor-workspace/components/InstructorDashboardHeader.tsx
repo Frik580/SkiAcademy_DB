@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, Star } from 'lucide-react';
-import { translateInstructorName } from '../../../lib/LanguageContext';
+import { translateInstructorName } from '../../../app/providers/LanguageContext';
 import { useInstructorWorkspace } from './useInstructorWorkspace';
 
 interface InstructorDashboardHeaderProps {

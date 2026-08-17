@@ -7,8 +7,8 @@ import {
   onSnapshot,
   OperationType,
   query,
-} from '../../../lib/firebase';
-import { toCourse } from '../../../lib/firestoreMappers';
+} from '../../../infrastructure/firebase/firebase';
+import { toCourse } from '../../../infrastructure/firebase/firestoreMappers';
 import { QUERY_LIMITS } from '../../../lib/queryLimits';
 import { useCoursesStore } from '../coursesStore';
 

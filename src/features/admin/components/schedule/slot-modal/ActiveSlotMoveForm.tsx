@@ -1,7 +1,7 @@
 import React from 'react';
 import { Check, Loader2, Trash2 } from 'lucide-react';
 import type { Booking, Instructor } from '../../../../../types';
-import { useLanguage } from '../../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../../app/providers/LanguageContext';
 
 interface ActiveSlotMoveFormProps {
   booking: Booking;

@@ -21,15 +21,15 @@ import {
   AVAILABILITY_HOUR_LOCKS_COLLECTION,
   buildHourLockIds,
   hasOverlappingAvailabilitySlot,
-} from './slotOverlap';
-import { applyWalletCreditInTransaction } from './walletCredit';
+} from '../domain/booking/slotOverlap';
+import { applyWalletCreditInTransaction } from '../domain/wallet/walletCredit';
 import {
   recordWalletLedgerEntryInTransaction,
   walletLedgerEntryId,
   walletLedgerBookingEntryId,
-} from './walletLedger';
-import { computeBookingEndsAtIso, withBookingEndsAt } from './bookingEndsAt';
-import { withBookingCreatedAt } from './bookingCreatedAt';
+} from '../domain/wallet/walletLedger';
+import { computeBookingEndsAtIso, withBookingEndsAt } from '../domain/booking/bookingEndsAt';
+import { withBookingCreatedAt } from '../domain/booking/bookingCreatedAt';
 import {
   isActiveCourseEnrollment,
   releaseCourseSeatInTransaction,

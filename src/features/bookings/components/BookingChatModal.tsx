@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Booking, UserProfile, ChatMessage, Instructor, Course } from '../../../types';
-import { uploadImage } from '../../../lib/storage';
-import { useLanguage } from '../../../lib/LanguageContext';
+import { uploadImage } from '../../../infrastructure/firebase/storage';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 import { logger } from '../../../lib/logger';
 import { resolveChatId, getCourseChatThreadIds } from '../../../lib/resolveChatId';
 import { resolveProfileSenderRole } from '../../../lib/chatSenderRole';

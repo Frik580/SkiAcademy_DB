@@ -1,7 +1,7 @@
 import React from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { AvailabilitySlot, Course, Instructor } from '../../../../types';
-import { type TranslationKey, type Language } from '../../../../lib/LanguageContext';
+import { type TranslationKey, type Language } from '../../../../app/providers/LanguageContext';
 import { formatDurationLabel } from '../../../../lib/i18n/duration';
 
 interface BookingOverlapWarningsProps {

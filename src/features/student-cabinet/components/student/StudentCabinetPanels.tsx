@@ -1,7 +1,7 @@
 import React from 'react';
 import { Booking, Course, Instructor, UserProfile } from '../../../../types';
 import { calculateSkillProgress } from '../../../../lib/skillData';
-import { useLanguage, translateInstructor } from '../../../../lib/LanguageContext';
+import { useLanguage, translateInstructor } from '../../../../app/providers/LanguageContext';
 import { BookingsPanel } from '../../../../features/profile/components/BookingsPanel';
 import { GroupCourseCard, sortVisibleCourses } from '../../../../features/courses';
 import { InstructorCard } from '../../../../features/profile';

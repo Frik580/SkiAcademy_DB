@@ -10,7 +10,7 @@ import {
 } from '../../../types';
 import { Lock, Sparkles } from 'lucide-react';
 import { useNotifications } from '../../../features/notifications';
-import { useLanguage, useTranslatedBookings } from '../../../lib/LanguageContext';
+import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../lib/skillData';
 import { AchievementsConfig } from '../../../lib/achievementConfig';
 import { StudentCabinet } from '../../../features/profile/components/StudentCabinet';

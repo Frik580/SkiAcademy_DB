@@ -9,7 +9,7 @@ import {
   orderBy,
   query,
   setDoc,
-} from '../../lib/firebase';
+} from '../../infrastructure/firebase/firebase';
 import { OperationType, type ErrorLog } from '../../types';
 import { QUERY_LIMITS } from '../../lib/queryLimits';
 

@@ -1,4 +1,4 @@
-import type { TranslationKey } from '../../../lib/LanguageContext';
+import type { TranslationKey } from '../../../app/providers/LanguageContext';
 import type { SkillConfig } from '../../../lib/skillData';
 import type { UserProfile } from '../../../types';
 

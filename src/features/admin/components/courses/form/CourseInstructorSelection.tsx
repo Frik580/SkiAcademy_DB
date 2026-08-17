@@ -1,6 +1,6 @@
 import React from 'react';
 import { Instructor } from '../../../../../types';
-import { useLanguage, translateInstructorName } from '../../../../../lib/LanguageContext';
+import { useLanguage, translateInstructorName } from '../../../../../app/providers/LanguageContext';
 import { getSpecialtyLabel } from '../../schedule/scheduleUtils';
 import { useCourseForm } from './useCourseForm';
 

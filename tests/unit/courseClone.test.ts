@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildClonedCourse } from '../../src/lib/courseClone';
+import { buildClonedCourse } from '../../src/domain/course/courseClone';
 import type { Course } from '../../src/types';
 
 const baseCourse = (): Course => ({

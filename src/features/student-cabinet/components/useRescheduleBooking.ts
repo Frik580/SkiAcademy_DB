@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { AvailabilitySlot, Booking, Course } from '../../../types';
 import { useNotifications } from '../../../features/notifications';
-import { parseCourseDates, useLanguage } from '../../../lib/LanguageContext';
+import { parseCourseDates, useLanguage } from '../../../app/providers/LanguageContext';
 import {
   DEFAULT_LESSON_TIME_SLOTS,
   fitsLessonDaySchedule,

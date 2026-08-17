@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Star, X } from 'lucide-react';
 import { Booking, Instructor, UserProfile } from '../../../../types';
-import { useLanguage, translateInstructor } from '../../../../lib/LanguageContext';
-import { useCurrency } from '../../../../lib/CurrencyContext';
+import { useLanguage, translateInstructor } from '../../../../app/providers/LanguageContext';
+import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import { getInstructorPickerGroups } from './studentCabinetUtils';
 import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 

@@ -12,7 +12,7 @@ import {
   startAfter,
   where,
   writeBatch,
-} from './firebase';
+} from '../infrastructure/firebase/firebase';
 import { AVAILABILITY_SLOTS_COLLECTION, isCourseBooking } from './availabilitySlots';
 import { Booking, Course } from '../types';
 

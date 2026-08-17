@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Booking, Review } from '../../../../types';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { getNeedsAttentionBookings, isBookingReviewed } from './studentCabinetUtils';
 import { ScDivider, ScSectionTitle, ScTextButton } from './StudentCabinetUI';
 import { RecommendationIndicator } from '../RecommendationIndicator';

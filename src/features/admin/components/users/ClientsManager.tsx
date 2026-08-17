@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Plus, X, Edit2, Trash2, DollarSign, Check, Loader2 } from 'lucide-react';
 import { UserProfile, Instructor } from '../../../../types';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { isSystemOwner } from '../../../../lib/accessControl';
 import { ToggleSwitch } from '../../../../ui/ToggleSwitch';

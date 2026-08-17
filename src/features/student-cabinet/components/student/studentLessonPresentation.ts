@@ -1,5 +1,5 @@
 import { Booking, Course } from '../../../../types';
-import { getDifficultyLabel, parseCourseDates } from '../../../../lib/LanguageContext';
+import { getDifficultyLabel, parseCourseDates } from '../../../../app/providers/LanguageContext';
 import {
   translateCourse,
   translateInstructorName,

@@ -1,4 +1,4 @@
-import { db, deleteDoc, doc, writeBatch } from '../../lib/firebase';
+import { db, deleteDoc, doc, writeBatch } from '../../infrastructure/firebase/firebase';
 import { logger } from '../../lib/logger';
 import type { DbNotification } from '../../lib/notificationText';
 

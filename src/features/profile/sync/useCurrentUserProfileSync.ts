@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { db, doc, onSnapshot } from '../../../lib/firebase';
+import { db, doc, onSnapshot } from '../../../infrastructure/firebase/firebase';
 import { logger } from '../../../lib/logger';
-import { toUserProfile } from '../../../lib/firestoreMappers';
+import { toUserProfile } from '../../../infrastructure/firebase/firestoreMappers';
 import { useAuthStore } from '../../auth/authStore';
 import { useProfileStore } from '../profileStore';
 

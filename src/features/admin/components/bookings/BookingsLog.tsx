@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Check, X, Link2 } from 'lucide-react';
 import { Booking, UserProfile, Instructor } from '../../../../types';
-import { useLanguage, getDifficultyLabel } from '../../../../lib/LanguageContext';
-import { useCurrency } from '../../../../lib/CurrencyContext';
+import { useLanguage, getDifficultyLabel } from '../../../../app/providers/LanguageContext';
+import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import { isCourseBooking } from '../../../../lib/availabilitySlots';
-import { formatBookingCreatedAt } from '../../../../lib/bookingCreatedAt';
+import { formatBookingCreatedAt } from '../../../../domain/booking/bookingCreatedAt';
 import { StatusBadge } from '../../../../ui/StatusBadge';
 import { LinkGuestBookingModal } from './LinkGuestBookingModal';
 import { ApplePagination } from '../../../../ui/ApplePagination';

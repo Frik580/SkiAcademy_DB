@@ -9,7 +9,7 @@ import {
 } from '../../../../types';
 import { SkillConfig } from '../../../../lib/skillData';
 import { AchievementsConfig } from '../../../../lib/achievementConfig';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { YourJourneySection } from '../../../../features/journey';
 import {
   getFirstName,

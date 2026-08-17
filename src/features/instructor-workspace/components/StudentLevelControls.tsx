@@ -1,6 +1,6 @@
 import React from 'react';
 import { UserProfile } from '../../../types';
-import { type TranslationKey } from '../../../lib/LanguageContext';
+import { type TranslationKey } from '../../../app/providers/LanguageContext';
 
 interface StudentLevelControlsProps {
   studentUid: string;

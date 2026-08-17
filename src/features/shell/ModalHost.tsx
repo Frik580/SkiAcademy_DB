@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLanguage, translateCourse } from '../../lib/LanguageContext';
+import { useLanguage, translateCourse } from '../../app/providers/LanguageContext';
 import { useUiStore } from './uiStore';
 import { useProfileStore } from '../profile/profileStore';
 import { useBookingsStore } from '../bookings/bookingsStore';

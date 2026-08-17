@@ -5,7 +5,7 @@ import {
   calculateStudentLevel,
   getJourneyLevelXpThresholds,
 } from '../../../lib/skillData';
-import { useLanguage } from '../../../lib/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useTheme } from '../../../hooks/useTheme';
 import { AchievementGrid } from './AchievementGrid';
 import {

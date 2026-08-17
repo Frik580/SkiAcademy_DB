@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Booking, Course, Review } from '../../../../types';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import {
   filterHistoryEvents,
   getHistoryEventPrefix,

@@ -52,7 +52,7 @@ vi.mock('../../src/features/notifications', () => ({
   useNotifications: () => ({ addNotification: mockAddNotification }),
 }));
 
-vi.mock('../../src/lib/LanguageContext', () => ({
+vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ t: (key: string) => key, language: 'en' }),
   parseCourseEndDateTime: () => new Date('2099-01-01'),
 }));
@@ -61,7 +61,7 @@ vi.mock('../../src/lib/createBookingCallable', () => ({
   createBookingViaCallable: vi.fn(),
 }));
 
-vi.mock('../../src/lib/firebase', () => ({
+vi.mock('../../src/infrastructure/firebase/firebase', () => ({
   db: {},
   functions: {},
   auth: { currentUser: { uid: 'admin-1', email: 'admin@example.com' } },

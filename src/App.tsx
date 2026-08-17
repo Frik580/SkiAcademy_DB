@@ -1,6 +1,6 @@
 import React from 'react';
-import { LanguageProvider } from './lib/LanguageContext';
-import { CurrencyProvider } from './lib/CurrencyContext';
+import { LanguageProvider } from './app/providers/LanguageContext';
+import { CurrencyProvider } from './app/providers/CurrencyContext';
 import { NotificationProvider } from './features/notifications';
 import { AppBootstrap } from './app/AppBootstrap';
 import { AppShell } from './app/AppShell';

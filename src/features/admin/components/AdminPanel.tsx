@@ -2,7 +2,7 @@ import React, { useState, Suspense, lazy } from 'react';
 import { createPortal } from 'react-dom';
 import { Instructor, Booking, UserProfile, Course } from '../../../types';
 import { Shield, Calendar, Users, Clock, UserCheck, BookOpen, AlertTriangle } from 'lucide-react';
-import { useLanguage, useTranslatedBookings } from '../../../lib/LanguageContext';
+import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../lib/skillData';
 import { AchievementsConfig } from '../../../lib/achievementConfig';
 import { AdminCollapsibleSection } from '../../../features/admin/components/settings';

@@ -1,4 +1,4 @@
-import { db, doc, setDoc } from './firebase';
+import { db, doc, setDoc } from '../infrastructure/firebase/firebase';
 import { logger } from './logger';
 import type { BilingualNotificationContent } from './notificationText';
 

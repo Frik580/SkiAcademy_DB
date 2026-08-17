@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { collection, db, limit, onSnapshot, query, where } from '../../../lib/firebase';
-import { toWalletLedgerEntry } from '../../../lib/firestoreMappers';
+import { collection, db, limit, onSnapshot, query, where } from '../../../infrastructure/firebase/firebase';
+import { toWalletLedgerEntry } from '../../../infrastructure/firebase/firestoreMappers';
 import { logger } from '../../../lib/logger';
 import { useAuthStore } from '../../auth/authStore';
 import { useWalletStore } from '../walletStore';

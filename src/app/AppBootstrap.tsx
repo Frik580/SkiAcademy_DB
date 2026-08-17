@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
-import { useLanguage } from '../lib/LanguageContext';
+import { useLanguage } from '../app/providers/LanguageContext';
 import { useNotifications } from '../features/notifications';
 import { setStoreContext } from '../store/storeContext';
 import { useStoreSync } from '../store/useStoreSync';
 import { applyDesignThemeToDOM } from '../lib/designTheme';
-import { registerFirestoreErrorListener } from '../lib/firebase';
+import { registerFirestoreErrorListener } from '../infrastructure/firebase/firebase';
 import { logger } from '../lib/logger';
 import { useAuthStore } from '../features/auth';
 import { useSettingsStore } from '../features/settings';

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Trash2, Search } from 'lucide-react';
 import { ErrorLog } from '../../../../types';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { TableSkeleton } from '../../../../ui/Skeleton';
 import { ActionButton } from '../../../../ui/ActionButton';

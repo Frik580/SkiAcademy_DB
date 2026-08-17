@@ -2,7 +2,7 @@ import React from 'react';
 import { Booking, Course, Instructor, UserProfile } from '../../../types';
 import { ClientBookingsList } from '../../../features/student-cabinet/components/ClientBookingsList';
 import { StudentPanelBackLink } from '../../../features/student-cabinet/components/student/StudentCabinetUI';
-import { useLanguage } from '../../../lib/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 import { StudentCabinetTab } from '../../../features/student-cabinet/components/student/studentCabinetUtils';
 
 export interface BookingsPanelProps {

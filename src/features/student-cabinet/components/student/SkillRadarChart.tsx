@@ -9,7 +9,7 @@ import {
   RadarDimensionKey,
   getSkillItemTitle,
 } from '../../../../lib/skillData';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { ScSectionTitle } from './StudentCabinetUI';
 import { getLevelLabel } from './studentCabinetUtils';
 import {

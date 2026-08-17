@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { X, Bell, CheckCircle, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
-import { useLanguage } from '../../lib/LanguageContext';
+import { useLanguage } from '../../app/providers/LanguageContext';
 import { resolveNotificationText, type DbNotification } from '../../lib/notificationText';
 import { useNotificationsStore } from './notificationsStore';
 import { Booking, Review, UserProfile } from '../../types';

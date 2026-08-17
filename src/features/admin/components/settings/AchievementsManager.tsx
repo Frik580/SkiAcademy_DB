@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
-import { useLanguage, type TranslationKey } from '../../../../lib/LanguageContext';
+import { useLanguage, type TranslationKey } from '../../../../app/providers/LanguageContext';
 import {
   AchievementDefinition,
   AchievementRuleType,

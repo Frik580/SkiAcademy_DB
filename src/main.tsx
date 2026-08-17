@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App.tsx';
 import { registerChunkLoadRecovery } from './lib/chunkLoadRecovery';
-import './lib/connectFirebaseEmulators';
+import './infrastructure/firebase/connectFirebaseEmulators';
 import './index.css';
 
 registerChunkLoadRecovery();

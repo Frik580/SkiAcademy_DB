@@ -1,6 +1,6 @@
 import React from 'react';
 import { ClipboardList } from 'lucide-react';
-import { useLanguage } from '../../../lib/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 
 interface RecommendationIndicatorProps {
   pending?: boolean;

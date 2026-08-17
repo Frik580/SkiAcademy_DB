@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Instructor, Review } from '../../../types';
 import { X, Star, MessageSquare, Calendar, User } from 'lucide-react';
-import { useLanguage } from '../../../lib/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 
 interface InstructorReviewsModalProps {

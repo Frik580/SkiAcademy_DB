@@ -9,10 +9,10 @@ import {
   setDoc,
   updateDoc,
   where,
-} from '../../lib/firebase';
+} from '../../infrastructure/firebase/firebase';
 import { UserProfile } from '../../types';
 import { logger } from '../../lib/logger';
-import { updateUserWithAdminBalanceLedger } from '../../lib/walletCredit';
+import { updateUserWithAdminBalanceLedger } from '../../domain/wallet/walletCredit';
 
 export async function updateUserProfileService(
   userId: string,

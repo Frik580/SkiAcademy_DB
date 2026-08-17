@@ -13,7 +13,7 @@ import {
   where,
   writeBatch,
   handleFirestoreError,
-} from '../../lib/firebase';
+} from '../../infrastructure/firebase/firebase';
 import {
   AVAILABILITY_SLOTS_COLLECTION,
   blocksInstructorAvailability,
@@ -41,10 +41,10 @@ import {
   buildBookingCompletedMetadata,
   logActivityForUser,
 } from '../../lib/activityLog';
-import { stripUndefinedFields } from '../../lib/courseClone';
+import { stripUndefinedFields } from '../../domain/course/courseClone';
 import { Booking, Instructor, LessonRecommendation, Review, UserProfile } from '../../types';
 import type { AvailabilitySlot } from '../../types';
-import { toUserProfile } from '../../lib/firestoreMappers';
+import { toUserProfile } from '../../infrastructure/firebase/firestoreMappers';
 
 export async function getInstructorAvailabilitySlots(
   instructorId: string,

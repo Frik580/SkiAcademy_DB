@@ -1,4 +1,4 @@
-import { Booking } from '../types';
+import { Booking } from '../../types';
 
 const GUEST_BOOKING_ID_PATTERN = /^guest_book_(\d+)_/;
 const GUEST_COURSE_ID_PATTERN = /^guest_course_(\d+)_/;

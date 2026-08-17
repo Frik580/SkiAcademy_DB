@@ -6,13 +6,13 @@ import {
   formatCourseCardDuration,
   useLanguage,
   type Language,
-} from '../../../lib/LanguageContext';
+} from '../../../app/providers/LanguageContext';
 import { Booking, Course, UserProfile } from '../../../types';
 import {
   courseLevelBadgeLabel,
   getCourseLevelCardBadgeClass,
-} from '../../../lib/courseLevelStyles';
-import { useCurrency } from '../../../lib/CurrencyContext';
+} from '../../../domain/course/courseLevelStyles';
+import { useCurrency } from '../../../app/providers/CurrencyContext';
 import {
   getCourseEnrollmentBooking,
   hasBookingRecommendations,

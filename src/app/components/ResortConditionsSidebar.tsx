@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLanguage, type Language } from '../../lib/LanguageContext';
+import { useLanguage, type Language } from '../../app/providers/LanguageContext';
 import { getWeatherConditionKey } from '../../lib/weatherCondition';
 import { ResortConfig } from '../../types';
 import { AnimatedNumber } from '../../ui/AnimatedNumber';

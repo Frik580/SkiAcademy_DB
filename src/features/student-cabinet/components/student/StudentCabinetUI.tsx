@@ -10,7 +10,7 @@ import {
   LucideIcon,
   MessagesSquare,
 } from 'lucide-react';
-import { useLanguage, type TranslationKey } from '../../../../lib/LanguageContext';
+import { useLanguage, type TranslationKey } from '../../../../app/providers/LanguageContext';
 import { resolveStudentBottomNavTab, StudentCabinetTab } from './studentCabinetUtils';
 
 export const STUDENT_BOTTOM_TABS: {

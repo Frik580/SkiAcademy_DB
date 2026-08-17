@@ -1,5 +1,5 @@
 import type { Booking, Course } from '../../../../types';
-import { parseCourseDates } from '../../../../lib/LanguageContext';
+import { parseCourseDates } from '../../../../app/providers/LanguageContext';
 import { formatDateLocalYMD, hourToMinutes } from './scheduleUtils';
 
 export const SCHEDULE_TIME_SLOTS = [

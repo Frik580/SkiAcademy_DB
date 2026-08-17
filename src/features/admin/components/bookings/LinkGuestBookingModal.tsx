@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Search, UserCheck, Link2, Check, User, AlertCircle } from 'lucide-react';
 import { Booking, UserProfile } from '../../../../types';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { StatusBadge } from '../../../../ui/StatusBadge';
 import { logger } from '../../../../lib/logger';
 import { BodyScrollLock } from '../../../../ui/BodyScrollLock';

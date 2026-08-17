@@ -1,5 +1,5 @@
 import { Booking, Course } from '../../../../types';
-import { parseCourseDates } from '../../../../lib/LanguageContext';
+import { parseCourseDates } from '../../../../app/providers/LanguageContext';
 import { toYMD } from './studentCabinetPresentation';
 
 export interface BookingTime {

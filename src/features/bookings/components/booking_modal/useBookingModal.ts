@@ -9,7 +9,7 @@ import {
   Course,
 } from '../../../../types';
 import { useNotifications } from '../../../../features/notifications';
-import { useLanguage, parseCourseDates, getDifficultyLabel } from '../../../../lib/LanguageContext';
+import { useLanguage, parseCourseDates, getDifficultyLabel } from '../../../../app/providers/LanguageContext';
 import { logger } from '../../../../lib/logger';
 import {
   blocksInstructorAvailability,

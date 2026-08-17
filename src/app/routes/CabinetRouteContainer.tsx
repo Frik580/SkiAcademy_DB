@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { AuthRoute } from '../../features/shell';
-import { useLanguage } from '../../lib/LanguageContext';
+import { useLanguage } from '../../app/providers/LanguageContext';
 import { CABINET_TABS } from '../../lib/workspaceRoutes';
 import { LazyLoad } from '../../ui/LazyLoad';
 import { CardSkeleton, Skeleton } from '../../ui/Skeleton';

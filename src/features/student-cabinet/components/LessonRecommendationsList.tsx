@@ -1,6 +1,6 @@
 import React from 'react';
 import { Booking } from '../../../types';
-import { useLanguage } from '../../../lib/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 
 interface LessonRecommendationsListProps {
   booking: Booking;

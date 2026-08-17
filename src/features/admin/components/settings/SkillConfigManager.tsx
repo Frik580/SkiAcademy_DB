@@ -10,7 +10,7 @@ import {
   getSkillItemSection,
   getRadarDimensionLabel,
 } from '../../../../lib/skillData';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { Plus, Trash2, Edit2, Save, RotateCcw, Check } from 'lucide-react';
 
 interface SkillConfigManagerProps {

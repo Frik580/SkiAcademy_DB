@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import type { Language, TranslationKey } from '../../../../lib/LanguageContext';
+import type { Language, TranslationKey } from '../../../../app/providers/LanguageContext';
 
 export type ScheduleViewMode = 'day' | 'week';
 

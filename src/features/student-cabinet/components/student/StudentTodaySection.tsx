@@ -8,7 +8,7 @@ import {
   Review,
   UserProfile,
 } from '../../../../types';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { AchievementsConfig } from '../../../../lib/achievementConfig';
 import { DEFAULT_SKILL_CONFIG, SkillConfig, getSkillItemTitle } from '../../../../lib/skillData';
 import {

@@ -3,7 +3,7 @@ import { Sparkles, ShieldAlert, Wallet, Loader2 } from 'lucide-react';
 import { useBookingModal } from './useBookingModal';
 import { BookingSelectors } from './BookingSelectors';
 import { BookingOverlapWarnings } from './BookingOverlapWarnings';
-import { useCurrency } from '../../../../lib/CurrencyContext';
+import { useCurrency } from '../../../../app/providers/CurrencyContext';
 
 interface AuthBookingFormProps {
   workspace: ReturnType<typeof useBookingModal>;

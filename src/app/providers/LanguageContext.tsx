@@ -6,15 +6,15 @@ import {
   isUiLanguage,
   resolveUiLanguage,
   UI_LANGUAGES,
-} from './i18n/translations';
+} from '../../lib/i18n/translations';
 
 export type { Language, TranslationKey };
 export { translations, isUiLanguage, resolveUiLanguage, UI_LANGUAGES };
-export * from './i18n/courseDates';
-export * from './i18n/contentTranslation';
-export * from './i18n/bookingLabels';
-export { useTranslatedBookings } from './useTranslatedBookings';
-export type { TranslatedBooking, UseTranslatedBookingsOptions } from './useTranslatedBookings';
+export * from '../../lib/i18n/courseDates';
+export * from '../../lib/i18n/contentTranslation';
+export * from '../../lib/i18n/bookingLabels';
+export { useTranslatedBookings } from '../../lib/useTranslatedBookings';
+export type { TranslatedBooking, UseTranslatedBookingsOptions } from '../../lib/useTranslatedBookings';
 
 interface LanguageContextType {
   language: Language;

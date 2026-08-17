@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { ActivityLog, Booking, Course, Review, UserProfile } from '../../../../types';
 import { buildStudentHistory, HistoryFilter } from './studentCabinetUtils';
 import { ScSectionTitle, StudentPanelBackLink } from './StudentCabinetUI';

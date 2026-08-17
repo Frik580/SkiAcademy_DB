@@ -1,5 +1,5 @@
 import { doc, runTransaction, type Firestore, type Transaction } from 'firebase/firestore';
-import type { UserProfile, WalletCurrency } from '../types';
+import type { UserProfile, WalletCurrency } from '../../types';
 import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId } from './walletLedger';
 
 /** Max single credit applied through the wallet credit flow (top-ups and refunds). */

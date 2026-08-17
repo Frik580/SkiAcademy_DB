@@ -2,7 +2,7 @@ import React from 'react';
 import { Clock, User, MessageSquare, ExternalLink } from 'lucide-react';
 import { Booking, ChatMessage, Course, Instructor, UserProfile } from '../../../../types';
 import { Skeleton } from '../../../../ui/Skeleton';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { resolveChatSenderRole } from '../../../../lib/chatSenderRole';
 
 export type ChatMessageRow = ChatMessage & { threadId?: string };

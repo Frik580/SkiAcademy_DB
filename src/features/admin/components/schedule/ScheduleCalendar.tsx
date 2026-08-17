@@ -6,7 +6,7 @@ import {
   translateCourse,
   parseCourseDates,
   getDifficultyLabel,
-} from '../../../../lib/LanguageContext';
+} from '../../../../app/providers/LanguageContext';
 import { isCourseBooking } from '../../../../lib/availabilitySlots';
 import { useNotifications } from '../../../../features/notifications';
 import { formatDateLocalYMD, hourToMinutes, getWeekRange } from './scheduleUtils';

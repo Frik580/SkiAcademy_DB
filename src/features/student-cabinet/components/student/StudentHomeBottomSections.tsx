@@ -1,6 +1,6 @@
 import React from 'react';
 import { Booking, Course, ResortConfig } from '../../../../types';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { getLatestCoachRecommendation } from '../../../../lib/lessonRecommendations';
 import { getWeatherConditionKey } from '../../../../lib/weatherCondition';
 import { formatBookingDayMonth } from './studentCabinetUtils';

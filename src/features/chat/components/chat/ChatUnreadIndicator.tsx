@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 
 interface ChatUnreadIndicatorProps {
   show: boolean;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 
 type CourseChatClient = { uid: string; name: string; bookingId: string };
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { MessageSquare, X } from 'lucide-react';
 import { Booking } from '../../../../types';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 import { hasBookingRecommendations } from '../../../../lib/lessonRecommendations';
 import { LessonRecommendationsList } from '../../../../features/profile';

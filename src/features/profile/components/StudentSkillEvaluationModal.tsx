@@ -10,7 +10,7 @@ import {
   getSkillItemSection,
   getRadarDimensionLabel,
 } from '../../../lib/skillData';
-import { useLanguage } from '../../../lib/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 import { X, Save, Award, CheckCircle2, AlertCircle } from 'lucide-react';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 

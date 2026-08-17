@@ -6,7 +6,7 @@ import {
   useLanguage,
   translateInstructorName,
   splitCourseDates,
-} from '../../../lib/LanguageContext';
+} from '../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import { getCourseEnrichedData } from '../../../features/courses/components/course_details/courseEnrichedData';
 import { CourseHeader } from '../../../features/courses/components/course_details/CourseHeader';

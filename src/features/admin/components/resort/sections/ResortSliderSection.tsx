@@ -11,7 +11,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { CustomHeroSlide } from '../../../../../types';
-import { useLanguage } from '../../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../../features/notifications';
 import { FALLBACK_SLIDES } from '../resortConfigDefaults';
 import { logger } from '../../../../../lib/logger';

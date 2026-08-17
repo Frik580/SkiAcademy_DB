@@ -7,7 +7,7 @@ import type { Course } from '../../src/types';
 const mockAddNotification = vi.fn();
 const mockDeleteCourse = vi.fn().mockResolvedValue(undefined);
 
-vi.mock('../../src/lib/LanguageContext', () => ({
+vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ t: (key: string) => key, language: 'en' }),
   translateCourse: (course: Course) => course,
 }));

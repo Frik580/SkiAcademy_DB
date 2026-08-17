@@ -1,7 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { Instructor } from '../../../../types';
-import { type TranslationKey } from '../../../../lib/LanguageContext';
+import { type TranslationKey } from '../../../../app/providers/LanguageContext';
 
 interface BookingModalHeaderProps {
   targetInstructor: Instructor;

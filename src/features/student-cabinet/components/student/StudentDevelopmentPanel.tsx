@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { formatPointsCount } from '../../../../lib/i18n/pluralize';
 import { StudentCabinetContext } from './StudentCabinetHome';
 import {

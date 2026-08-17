@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLanguage } from '../../../lib/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 import { getDefaultWorkspacePath } from '../../../lib/workspaceRoutes';
 import type { UserProfile } from '../../../types';
 import { EQUAL_MARKER_STOPS, LEVEL_MARKER_X } from './constants';

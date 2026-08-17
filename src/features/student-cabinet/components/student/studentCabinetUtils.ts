@@ -16,12 +16,12 @@ import {
   getSkillItemSection,
 } from '../../../../lib/skillData';
 import { Language } from '../../../../lib/i18n/translations';
-import { type TranslationKey } from '../../../../lib/LanguageContext';
+import { type TranslationKey } from '../../../../app/providers/LanguageContext';
 import {
   getRecommendationTasks,
   hasPendingRecommendations,
 } from '../../../../lib/lessonRecommendations';
-import { getCourseTrackLabel as getTrackLabelForLevel } from '../../../../lib/courseLevelStyles';
+import { getCourseTrackLabel as getTrackLabelForLevel } from '../../../../domain/course/courseLevelStyles';
 import {
   customTodayTaskId,
   resolveCompletedTodayTaskIds,

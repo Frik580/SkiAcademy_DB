@@ -1,6 +1,6 @@
-import { Booking } from '../types';
-import { isCourseBooking } from './availabilitySlots';
-import { parseCourseEndDateTime } from './i18n/courseDates';
+import { Booking } from '../../types';
+import { isCourseBooking } from '../../lib/availabilitySlots';
+import { parseCourseEndDateTime } from '../../lib/i18n/courseDates';
 
 type BookingSchedule = Pick<Booking, 'date' | 'time' | 'durationHours' | 'instructorId'>;
 

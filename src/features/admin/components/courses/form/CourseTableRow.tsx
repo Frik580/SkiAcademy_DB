@@ -6,8 +6,8 @@ import {
   translateInstructorName,
   type TranslationKey,
   type Language,
-} from '../../../../../lib/LanguageContext';
-import { getCourseLevelBadgeClass } from '../../../../../lib/courseLevelStyles';
+} from '../../../../../app/providers/LanguageContext';
+import { getCourseLevelBadgeClass } from '../../../../../domain/course/courseLevelStyles';
 
 interface CourseTableRowProps {
   course: Course;

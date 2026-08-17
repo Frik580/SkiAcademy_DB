@@ -1,8 +1,8 @@
 import React from 'react';
 import { Calendar, Clock, ShieldCheck } from 'lucide-react';
 import { Course, UserProfile } from '../../../../types';
-import { useLanguage } from '../../../../lib/LanguageContext';
-import { useCurrency } from '../../../../lib/CurrencyContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
+import { useCurrency } from '../../../../app/providers/CurrencyContext';
 
 interface CourseEnrollActionProps {
   course: Course;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { formatDateLocalYMD } from '../schedule/scheduleUtils';
 import type { CourseDateRangeState } from '../courses/useCourseDateRange';
 

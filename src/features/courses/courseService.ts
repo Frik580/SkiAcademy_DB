@@ -6,9 +6,9 @@ import {
   OperationType,
   setDoc,
   updateDoc,
-} from '../../lib/firebase';
+} from '../../infrastructure/firebase/firebase';
 import { enrollInCourseViaCallable } from '../../lib/enrollInCourseCallable';
-import { stripUndefinedFields } from '../../lib/courseClone';
+import { stripUndefinedFields } from '../../domain/course/courseClone';
 import { Course, Booking } from '../../types';
 import { createNotificationForUser } from '../../lib/notifications';
 import { buildNotification, translateKey } from '../../lib/notificationText';

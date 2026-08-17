@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Settings, Award, Mountain, Sliders, History, Trophy, Bell, Trash2 } from 'lucide-react';
-import { useLanguage } from '../../../../lib/LanguageContext';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../../lib/skillData';
 import { AchievementsConfig } from '../../../../lib/achievementConfig';
 import { Booking, Course } from '../../../../types';

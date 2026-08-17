@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CoursesManager } from '../../src/features/admin/components/courses/CoursesManager';
+import { CoursesManager } from '../../src/features/admin';
 import type { Course } from '../../src/types';
 
 const mockAddNotification = vi.fn();

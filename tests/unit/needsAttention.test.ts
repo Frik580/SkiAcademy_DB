@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getNeedsAttentionBookings } from '../../src/features/profile/components/personal_cabinet/student/studentCabinetUtils';
+import { getNeedsAttentionBookings } from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
 import { Booking, Review } from '../../src/types';
 
 const userId = 'user-1';

@@ -15,9 +15,9 @@ import { SkillConfig } from '../../../lib/skillData';
 import { AchievementsConfig } from '../../../lib/achievementConfig';
 import { StudentCabinet } from '../../../features/profile/components/StudentCabinet';
 import { useReviewFlow } from '../../../features/profile/components/ReviewFlow';
-import { StudentCabinetResortSnapshot } from '../../../features/profile/components/personal_cabinet/student/StudentHomeBottomSections';
-import { PersonalCabinetModals } from '../../../features/profile/components/personal_cabinet/PersonalCabinetModals';
-import { useRescheduleBooking } from '../../../features/profile/components/personal_cabinet/useRescheduleBooking';
+import { StudentCabinetResortSnapshot } from '../../../features/student-cabinet/components/student/StudentHomeBottomSections';
+import { PersonalCabinetModals } from '../../../features/student-cabinet/components/PersonalCabinetModals';
+import { useRescheduleBooking } from '../../../features/student-cabinet/components/useRescheduleBooking';
 import { useBookingChatUnread } from '../../../lib/useBookingChatUnread';
 
 export interface PersonalCabinetProps {

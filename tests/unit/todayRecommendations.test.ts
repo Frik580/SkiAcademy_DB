@@ -3,7 +3,7 @@ import {
   getLessonAgeDays,
   isBookingInTodayRecommendationWindow,
   RECOMMENDATION_TODAY_WINDOW_DAYS,
-} from '../../src/features/profile/components/personal_cabinet/student/studentCabinetUtils';
+} from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
 import { Booking } from '../../src/types';
 
 const booking = (date: string): Booking => ({

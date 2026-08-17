@@ -4,7 +4,7 @@ import {
   filterHistoryEvents,
   getHistoryEvents,
   groupHistoryByMonth,
-} from '../../src/features/profile/components/personal_cabinet/student/studentCabinetUtils';
+} from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
 import { ActivityLog, Booking, Course, UserProfile } from '../../src/types';
 
 const t = (key: string) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveNextLessonBookingTarget } from '../../src/features/profile/components/personal_cabinet/student/studentCabinetUtils';
+import { resolveNextLessonBookingTarget } from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
 import { Booking, Course, Instructor, UserProfile } from '../../src/types';
 
 const userProfile: UserProfile = {

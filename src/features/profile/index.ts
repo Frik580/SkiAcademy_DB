@@ -12,5 +12,5 @@ export { useProfileStore } from './profileStore';
 export { useAchievementsSync } from './sync/useAchievementsSync';
 // Backward-compatible export. New consumers should import from features/instructor-workspace.
 export { InstructorWorkspace } from '../instructor-workspace';
-export { LessonRecommendationsList } from './components/personal_cabinet/LessonRecommendationsList';
-export { RecommendationIndicator } from './components/personal_cabinet/RecommendationIndicator';
+// Backward-compatible exports. New consumers should import from features/student-cabinet.
+export { LessonRecommendationsList, RecommendationIndicator } from '../student-cabinet';

@@ -3,7 +3,7 @@ import {
   normalizeTelHref,
   resolveBookingCoachPhone,
   resolveInstructorPhone,
-} from '../../src/features/profile/components/personal_cabinet/student/coachUtils';
+} from '../../src/features/student-cabinet/components/student/coachUtils';
 import { Booking, Course, UserProfile } from '../../src/types';
 
 const usersList: UserProfile[] = [

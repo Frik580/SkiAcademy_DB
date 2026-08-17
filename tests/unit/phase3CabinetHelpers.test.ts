@@ -4,7 +4,7 @@ import {
   getRecommendedCourses,
   getRecommendedInstructors,
   getTrainingStreakWeeks,
-} from '../../src/features/profile/components/personal_cabinet/student/studentCabinetUtils';
+} from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
 import { ActivityLog, Booking, Course, Instructor, UserProfile } from '../../src/types';
 
 const userProfile: UserProfile = {

@@ -10,8 +10,8 @@ import {
 } from '../../../types';
 import { SkillConfig } from '../../../lib/skillData';
 import { AchievementsConfig } from '../../../lib/achievementConfig';
-import { StudentCabinetShell } from '../../../features/profile/components/personal_cabinet/student/StudentCabinetShell';
-import { StudentCabinetResortSnapshot } from '../../../features/profile/components/personal_cabinet/student/StudentHomeBottomSections';
+import { StudentCabinetShell } from '../../../features/student-cabinet/components/student/StudentCabinetShell';
+import { StudentCabinetResortSnapshot } from '../../../features/student-cabinet/components/student/StudentHomeBottomSections';
 
 export interface StudentCabinetProps {
   userProfile: UserProfile;

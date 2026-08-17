@@ -10,7 +10,7 @@ import { useLanguage } from '../../../lib/LanguageContext';
 import {
   matchesSkillRingFilter,
   SkillRingFilter,
-} from '../../../features/profile/components/personal_cabinet/student/studentCabinetUtils';
+} from '../../../features/student-cabinet/components/student/studentCabinetUtils';
 
 interface ClientSkillProgressViewProps {
   userProfile: UserProfile;

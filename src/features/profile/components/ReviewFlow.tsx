@@ -1,6 +1,6 @@
 import React from 'react';
 import { Booking, Review } from '../../../types';
-import { ReviewModal } from '../../../features/profile/components/personal_cabinet/ReviewModal';
+import { ReviewModal } from '../../../features/student-cabinet/components/ReviewModal';
 import { useNotifications } from '../../../features/notifications';
 import { useLanguage } from '../../../lib/LanguageContext';
 

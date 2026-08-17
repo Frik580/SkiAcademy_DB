@@ -1,4 +1,5 @@
-export { AdminPanel } from './components/AdminPanel';
+export const loadAdminPanel = () =>
+  import('./components/AdminPanel').then(({ AdminPanel }) => ({ default: AdminPanel }));
 export { SkillConfigManager } from './components/settings/SkillConfigManager';
 export { useAdminActions } from './useAdminActions';
 export { CoursesManager } from './components/courses';

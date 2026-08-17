@@ -99,7 +99,10 @@ const featureBoundaryPlugin = {
               return;
 
             for (const specifier of node.specifiers) {
-              if (specifier.type === 'ImportSpecifier' && specifier.imported.name === 'useLanguage') {
+              if (
+                specifier.type === 'ImportSpecifier' &&
+                specifier.imported.name === 'useLanguage'
+              ) {
                 context.report({ node: specifier, messageId: 'directLanguageHook' });
               }
             }
@@ -126,7 +129,9 @@ const featureBoundaryPlugin = {
         const checkImport = (node, source) => {
           if (typeof source.value !== 'string') return;
 
-          const targetFeature = source.value.match(/(?:^|\/)features\/([^/]+)\/components(?:\/|$)/)?.[1];
+          const targetFeature = source.value.match(
+            /(?:^|\/)features\/([^/]+)\/components(?:\/|$)/
+          )?.[1];
           if (!targetFeature || targetFeature === sourceFeature) return;
 
           context.report({
@@ -237,6 +242,14 @@ export default tseslint.config(
     },
   },
   {
+    // Route containers are application composition roots: they resolve state and actions
+    // before handing narrow props to feature UI. Direct imports avoid Rollup barrel cycles.
+    files: ['src/app/routes/*RouteContainer.tsx'],
+    rules: {
+      'no-restricted-imports': 'off',
+    },
+  },
+  {
     files: ['src/features/**/*.{ts,tsx}', 'src/lib/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
@@ -265,7 +278,9 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ['**/features/{admin,auth,chat,notifications,profile,settings,shell,wallet}/**'],
+              group: [
+                '**/features/{admin,auth,chat,notifications,profile,settings,shell,wallet}/**',
+              ],
               message: 'Import other feature capabilities from their public API.',
             },
             {
@@ -308,7 +323,11 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/features/admin/**/*.{ts,tsx}', 'src/features/profile/**/*.{ts,tsx}', 'src/features/notifications/**/*.{ts,tsx}'],
+    files: [
+      'src/features/admin/**/*.{ts,tsx}',
+      'src/features/profile/**/*.{ts,tsx}',
+      'src/features/notifications/**/*.{ts,tsx}',
+    ],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -336,14 +355,21 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/features/auth/**/*.{ts,tsx}', 'src/features/chat/**/*.{ts,tsx}', 'src/features/settings/**/*.{ts,tsx}', 'src/features/wallet/**/*.{ts,tsx}'],
+    files: [
+      'src/features/auth/**/*.{ts,tsx}',
+      'src/features/chat/**/*.{ts,tsx}',
+      'src/features/settings/**/*.{ts,tsx}',
+      'src/features/wallet/**/*.{ts,tsx}',
+    ],
     rules: {
       'no-restricted-imports': [
         'error',
         {
           patterns: [
             {
-              group: ['**/features/{admin,bookings,chat,courses,errors,notifications,profile,settings,shell,wallet}/**'],
+              group: [
+                '**/features/{admin,bookings,chat,courses,errors,notifications,profile,settings,shell,wallet}/**',
+              ],
               message: 'Import other feature capabilities from their public API.',
             },
             {
@@ -368,7 +394,9 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ['**/features/{admin,auth,bookings,chat,courses,errors,notifications,profile,settings,wallet}/**'],
+              group: [
+                '**/features/{admin,auth,bookings,chat,courses,errors,notifications,profile,settings,wallet}/**',
+              ],
               message: 'Import feature capabilities from their public API.',
             },
             {
@@ -434,7 +462,8 @@ export default tseslint.config(
           patterns: [
             {
               group: ['**/features/**'],
-              message: 'Shared UI must stay feature-agnostic; pass data and callbacks through props instead.',
+              message:
+                'Shared UI must stay feature-agnostic; pass data and callbacks through props instead.',
             },
           ],
         },

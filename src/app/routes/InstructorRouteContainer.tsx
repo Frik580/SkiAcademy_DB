@@ -3,16 +3,13 @@ import { InstructorRoute } from '../../features/shell';
 import { useLanguage } from '../../app/providers/LanguageContext';
 import { LazyLoad } from '../../ui/LazyLoad';
 import { CardSkeleton, Skeleton } from '../../ui/Skeleton';
-import { useProfileStore } from '../../features/profile';
-import { useBookingsStore } from '../../features/bookings';
-import { useCoursesStore } from '../../features/courses';
-import { useSettingsStore } from '../../features/settings';
+import { useProfileStore } from '../../features/profile/profileStore';
+import { useBookingsStore } from '../../features/bookings/bookingsStore';
+import { useCoursesStore } from '../../features/courses/coursesStore';
+import { useSettingsStore } from '../../features/settings/settingsStore';
+import { loadInstructorWorkspace } from '../../features/instructor-workspace';
 
-const InstructorWorkspace = React.lazy(() =>
-  import('../../features/instructor-workspace').then(({ InstructorWorkspace }) => ({
-    default: InstructorWorkspace,
-  }))
-);
+const InstructorWorkspace = React.lazy(loadInstructorWorkspace);
 
 const InstructorLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
   <div className="max-w-7xl mx-auto p-6 space-y-6">

@@ -5,21 +5,18 @@ import { useLanguage } from '../../app/providers/LanguageContext';
 import { CABINET_TABS } from '../../lib/workspaceRoutes';
 import { LazyLoad } from '../../ui/LazyLoad';
 import { CardSkeleton, Skeleton } from '../../ui/Skeleton';
-import { useProfileStore } from '../../features/profile';
-import { useBookingsStore } from '../../features/bookings';
-import { useBookingActions } from '../../features/bookings';
-import { useCoursesStore } from '../../features/courses';
-import { useCourseActions } from '../../features/courses';
-import { useSettingsStore } from '../../features/settings';
-import { useWalletStore } from '../../features/wallet';
-import { useUiStore } from '../../features/shell';
+import { loadPersonalCabinet } from '../../features/profile';
+import { useProfileStore } from '../../features/profile/profileStore';
+import { useBookingActions } from '../../features/bookings/useBookingActions';
+import { useBookingsStore } from '../../features/bookings/bookingsStore';
+import { useCourseActions } from '../../features/courses/useCourseActions';
+import { useCoursesStore } from '../../features/courses/coursesStore';
+import { useSettingsStore } from '../../features/settings/settingsStore';
+import { useWalletStore } from '../../features/wallet/walletStore';
+import { useUiStore } from '../../features/shell/uiStore';
 import type { AppRoutesProps } from './routeTypes';
 
-const PersonalCabinet = React.lazy(() =>
-  import('../../features/profile').then(({ PersonalCabinet }) => ({
-    default: PersonalCabinet,
-  }))
-);
+const PersonalCabinet = React.lazy(loadPersonalCabinet);
 
 const CabinetLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
   <div className="max-w-7xl mx-auto p-6 space-y-6">

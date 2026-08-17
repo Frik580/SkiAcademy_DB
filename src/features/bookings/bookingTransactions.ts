@@ -22,6 +22,12 @@ import {
   buildHourLockIds,
   hasOverlappingAvailabilitySlot,
 } from '../../domain/booking';
+import {
+  BookingIdConflictError as SharedBookingIdConflictError,
+  BookingSlotOverlapError as SharedBookingSlotOverlapError,
+  calculateBookingTotalPrice,
+  matchesExistingBookingRequest,
+} from '@ski-academy/shared-domain';
 import { applyWalletCreditInTransaction } from '../../domain/wallet';
 import {
   recordWalletLedgerEntryInTransaction,
@@ -43,37 +49,12 @@ export class InsufficientFundsError extends Error {
   }
 }
 
-export class BookingSlotOverlapError extends Error {
-  constructor() {
-    super('Instructor slot is no longer available');
-    this.name = 'BookingSlotOverlapError';
-  }
-}
-
-export class BookingIdConflictError extends Error {
-  constructor() {
-    super('Booking ID is already in use for a different request.');
-    this.name = 'BookingIdConflictError';
-  }
-}
+export { SharedBookingIdConflictError as BookingIdConflictError };
+export { SharedBookingSlotOverlapError as BookingSlotOverlapError };
 
 export interface BookingPaymentResult {
   newBalance: number;
   totalPrice: number;
-}
-
-function matchesExistingBookingRequest(existing: Booking, booking: Booking): boolean {
-  return (
-    existing.userId === booking.userId &&
-    existing.instructorId === booking.instructorId &&
-    existing.instructorName === booking.instructorName &&
-    existing.instructorAvatar === booking.instructorAvatar &&
-    existing.date === booking.date &&
-    existing.time === booking.time &&
-    existing.durationHours === booking.durationHours &&
-    existing.difficulty === booking.difficulty &&
-    (existing.notes ?? '') === (booking.notes ?? '')
-  );
 }
 
 function writeHourLocks(transaction: Transaction, firestore: Firestore, booking: Booking) {
@@ -134,7 +115,7 @@ async function assertNoSlotOverlap(
     const lockRef = doc(firestore, AVAILABILITY_HOUR_LOCKS_COLLECTION, lockId);
     const lockSnap = await transaction.get(lockRef);
     if (lockSnap.exists() && lockSnap.data()?.bookingId !== excludeBookingId) {
-      throw new BookingSlotOverlapError();
+      throw new SharedBookingSlotOverlapError();
     }
   }
 
@@ -154,7 +135,7 @@ async function assertNoSlotOverlap(
       excludeBookingId
     )
   ) {
-    throw new BookingSlotOverlapError();
+    throw new SharedBookingSlotOverlapError();
   }
 }
 
@@ -163,26 +144,20 @@ export async function resolveBookingTotalPrice(
   firestore: Firestore,
   booking: Booking
 ): Promise<number> {
-  if (booking.userId.startsWith('system_block_')) {
-    return 0;
-  }
+  if (booking.userId.startsWith('system_block_')) return calculateBookingTotalPrice(booking);
 
   if (isCourseBooking(booking)) {
     const courseId = booking.courseId ?? booking.instructorId.slice('course_'.length);
     const courseSnap = await transaction.get(doc(firestore, 'courses', courseId));
     if (!courseSnap.exists()) throw new Error('Course does not exist.');
     const courseData = courseSnap.data() as Course;
-    if (typeof courseData.price !== 'number') throw new Error('Invalid course price.');
-    return courseData.price;
+    return calculateBookingTotalPrice({ ...booking, coursePrice: courseData.price });
   }
 
   const instructorSnap = await transaction.get(doc(firestore, 'instructors', booking.instructorId));
   if (!instructorSnap.exists()) throw new Error('Instructor does not exist.');
   const pricePerHour = instructorSnap.data().pricePerHour;
-  if (typeof pricePerHour !== 'number' || pricePerHour < 0) {
-    throw new Error('Invalid instructor price.');
-  }
-  return pricePerHour * booking.durationHours;
+  return calculateBookingTotalPrice({ ...booking, instructorPricePerHour: pricePerHour });
 }
 
 export async function createBookingWithPayment(
@@ -213,7 +188,7 @@ export async function createBookingWithPayment(
           totalPrice: existingData.totalPrice ?? 0,
         };
       }
-      throw new BookingIdConflictError();
+      throw new SharedBookingIdConflictError();
     }
 
     const totalPrice = await resolveBookingTotalPrice(transaction, firestore, booking);

@@ -1,19 +1,19 @@
 import { AvailabilitySlot, Booking } from '../../types';
+import {
+  blocksInstructorAvailability as sharedBlocksInstructorAvailability,
+  isCourseBooking as sharedIsCourseBooking,
+  timeStrToMinutes as sharedTimeStrToMinutes,
+} from '@ski-academy/shared-domain';
 
 export const AVAILABILITY_SLOTS_COLLECTION = 'availability_slots';
 export const AVAILABILITY_MIGRATION_SETTING = 'availability_slots_migration';
 
 export const isCourseBooking = (booking: Pick<Booking, 'instructorId'>): boolean =>
-  booking.instructorId.startsWith('course_');
+  sharedIsCourseBooking(booking);
 
 export const blocksInstructorAvailability = (
   booking: Pick<Booking, 'instructorId' | 'status' | 'isDeleted'>
-): boolean =>
-  !isCourseBooking(booking) &&
-  !booking.isDeleted &&
-  (booking.status === 'pending' ||
-    booking.status === 'confirmed' ||
-    booking.status === 'pending_cancellation');
+): boolean => sharedBlocksInstructorAvailability(booking);
 
 export const toAvailabilitySlot = (
   booking: Pick<Booking, 'id' | 'userId' | 'instructorId' | 'date' | 'time' | 'durationHours'>
@@ -33,10 +33,7 @@ export const toLocalDateStr = (fromDate = new Date()): string => {
   return `${y}-${m}-${day}`;
 };
 
-export const timeStrToMinutes = (time: string): number => {
-  const [h, m] = time.split(':').map(Number);
-  return h * 60 + (m || 0);
-};
+export const timeStrToMinutes = sharedTimeStrToMinutes;
 
 export const LESSON_DAY_END_MINUTES = 19 * 60;
 

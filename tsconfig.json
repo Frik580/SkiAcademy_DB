@@ -4,6 +4,10 @@
     "useDefineForClassFields": true,
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "module": "ESNext",
+    "baseUrl": ".",
+    "paths": {
+      "@ski-academy/shared-domain": ["packages/shared-domain/src/index.ts"]
+    },
     "skipLibCheck": true,
 
     /* Bundler mode */

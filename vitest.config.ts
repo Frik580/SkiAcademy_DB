@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath, URL } from 'node:url';
 import react from '@vitejs/plugin-react';
 
 /** Files exercised by integration / Firestore rules tests, not unit coverage. */
@@ -33,6 +34,13 @@ const COVERAGE_EXCLUDE = [
 ];
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@ski-academy/shared-domain': fileURLToPath(
+        new URL('./packages/shared-domain/src/index.ts', import.meta.url)
+      ),
+    },
+  },
   plugins: [react()],
   test: {
     environment: 'jsdom',

@@ -1,14 +1,28 @@
 import { Firestore, QueryDocumentSnapshot, Transaction } from 'firebase-admin/firestore';
+import {
+  AVAILABILITY_HOUR_LOCKS_COLLECTION,
+  BookingIdConflictError,
+  BookingSlotOverlapError,
+  blocksInstructorAvailability,
+  buildHourLockIds,
+  calculateBookingTotalPrice,
+  computeLessonEndsAtIso,
+  hasOverlappingAvailabilitySlot,
+  isCourseBooking,
+  matchesExistingBookingRequest,
+} from '@ski-academy/shared-domain';
+import type {
+  AvailabilitySlotLike,
+  BookingStatus,
+  LessonDifficulty,
+} from '@ski-academy/shared-domain';
 import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId } from '../walletLedger';
+
+export { BookingIdConflictError, BookingSlotOverlapError } from '@ski-academy/shared-domain';
 
 const BOOKINGS_COLLECTION = 'bookings';
 const AVAILABILITY_SLOTS_COLLECTION = 'availability_slots';
-const AVAILABILITY_HOUR_LOCKS_COLLECTION = 'availability_hour_locks';
-
-export type LessonDifficulty = 'beginner' | 'intermediate' | 'advanced' | 'freeride' | 'freestyle';
-
-export type BookingStatus =
-  'pending' | 'confirmed' | 'cancelled' | 'completed' | 'pending_cancellation';
+export type { BookingStatus, LessonDifficulty } from '@ski-academy/shared-domain';
 
 export interface BookingRecord {
   id: string;
@@ -28,14 +42,7 @@ export interface BookingRecord {
   endsAt?: string;
 }
 
-export interface AvailabilitySlot {
-  bookingId: string;
-  instructorId: string;
-  date: string;
-  time: string;
-  durationHours: number;
-  slotType: 'lesson' | 'block';
-}
+export type AvailabilitySlot = AvailabilitySlotLike;
 
 export interface BookingPaymentResult {
   bookingId: string;
@@ -48,54 +55,6 @@ export class InsufficientFundsError extends Error {
     super('Insufficient funds');
     this.name = 'InsufficientFundsError';
   }
-}
-
-export class BookingSlotOverlapError extends Error {
-  constructor() {
-    super('Instructor slot is no longer available');
-    this.name = 'BookingSlotOverlapError';
-  }
-}
-
-export class BookingIdConflictError extends Error {
-  constructor() {
-    super('Booking ID is already in use for a different request.');
-    this.name = 'BookingIdConflictError';
-  }
-}
-
-function matchesExistingBookingRequest(existing: BookingRecord, booking: BookingRecord): boolean {
-  return (
-    existing.userId === booking.userId &&
-    existing.instructorId === booking.instructorId &&
-    existing.instructorName === booking.instructorName &&
-    existing.instructorAvatar === booking.instructorAvatar &&
-    existing.date === booking.date &&
-    existing.time === booking.time &&
-    existing.durationHours === booking.durationHours &&
-    existing.difficulty === booking.difficulty &&
-    (existing.notes ?? '') === (booking.notes ?? '')
-  );
-}
-
-function timeStrToMinutes(time: string): number {
-  const [h, m] = time.split(':').map(Number);
-  return h * 60 + (m || 0);
-}
-
-function isCourseBooking(booking: Pick<BookingRecord, 'instructorId'>): boolean {
-  return booking.instructorId.startsWith('course_');
-}
-
-function blocksInstructorAvailability(
-  booking: Pick<BookingRecord, 'instructorId' | 'status'>
-): boolean {
-  return (
-    !isCourseBooking(booking) &&
-    (booking.status === 'pending' ||
-      booking.status === 'confirmed' ||
-      booking.status === 'pending_cancellation')
-  );
 }
 
 function toAvailabilitySlot(
@@ -111,67 +70,9 @@ function toAvailabilitySlot(
   };
 }
 
-function buildHourLockId(instructorId: string, date: string, time: string): string {
-  return `${instructorId}__${date}__${time}`;
-}
-
-function buildHourLockIds(
-  booking: Pick<BookingRecord, 'instructorId' | 'date' | 'time' | 'durationHours'>
-): string[] {
-  const startMinutes = timeStrToMinutes(booking.time);
-  const lockIds: string[] = [];
-
-  for (let hour = 0; hour < booking.durationHours; hour++) {
-    const minutes = startMinutes + hour * 60;
-    const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
-    const mm = String(minutes % 60).padStart(2, '0');
-    lockIds.push(buildHourLockId(booking.instructorId, booking.date, `${hh}:${mm}`));
-  }
-
-  return lockIds;
-}
-
-function slotsOverlap(
-  a: Pick<BookingRecord, 'time' | 'durationHours'>,
-  b: Pick<AvailabilitySlot, 'time' | 'durationHours'>
-): boolean {
-  const aStart = timeStrToMinutes(a.time);
-  const aEnd = aStart + a.durationHours * 60;
-  const bStart = timeStrToMinutes(b.time);
-  const bEnd = bStart + b.durationHours * 60;
-  return aStart < bEnd && aEnd > bStart;
-}
-
-function hasOverlappingAvailabilitySlot(
-  candidate: Pick<BookingRecord, 'time' | 'durationHours'>,
-  existingSlots: AvailabilitySlot[],
-  excludeBookingId?: string
-): boolean {
-  return existingSlots.some((slot) => {
-    if (excludeBookingId && slot.bookingId === excludeBookingId) return false;
-    return slotsOverlap(candidate, slot);
-  });
-}
-
-function computeBookingEndsAtIso(
-  booking: Pick<BookingRecord, 'date' | 'time' | 'durationHours'>
-): string | null {
-  const parts = booking.date.split('-');
-  if (parts.length !== 3) return null;
-
-  const [year, month, day] = parts.map(Number);
-  if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
-
-  const [hour, minute] = (booking.time || '00:00').split(':').map(Number);
-  const startsAt = new Date(year, month - 1, day, hour || 0, minute || 0, 0);
-  if (isNaN(startsAt.getTime())) return null;
-
-  return new Date(startsAt.getTime() + (booking.durationHours || 1) * 60 * 60 * 1000).toISOString();
-}
-
 function withBookingTimestamps(booking: BookingRecord): BookingRecord {
   const createdAt = booking.createdAt ?? new Date().toISOString();
-  const endsAt = booking.endsAt ?? computeBookingEndsAtIso(booking) ?? undefined;
+  const endsAt = booking.endsAt ?? computeLessonEndsAtIso(booking) ?? undefined;
   return { ...booking, createdAt, ...(endsAt ? { endsAt } : {}) };
 }
 
@@ -180,17 +81,14 @@ async function resolveBookingTotalPrice(
   db: Firestore,
   booking: BookingRecord
 ): Promise<number> {
-  if (booking.userId.startsWith('system_block_')) {
-    return 0;
-  }
+  if (booking.userId.startsWith('system_block_')) return calculateBookingTotalPrice(booking);
 
   if (isCourseBooking(booking)) {
     const courseId = booking.courseId ?? booking.instructorId.slice('course_'.length);
     const courseSnap = await transaction.get(db.collection('courses').doc(courseId));
     if (!courseSnap.exists) throw new Error('Course does not exist.');
     const courseData = courseSnap.data();
-    if (typeof courseData?.price !== 'number') throw new Error('Invalid course price.');
-    return courseData.price;
+    return calculateBookingTotalPrice({ ...booking, coursePrice: courseData?.price });
   }
 
   const instructorSnap = await transaction.get(
@@ -198,10 +96,7 @@ async function resolveBookingTotalPrice(
   );
   if (!instructorSnap.exists) throw new Error('Instructor does not exist.');
   const pricePerHour = instructorSnap.data()?.pricePerHour;
-  if (typeof pricePerHour !== 'number' || pricePerHour < 0) {
-    throw new Error('Invalid instructor price.');
-  }
-  return pricePerHour * booking.durationHours;
+  return calculateBookingTotalPrice({ ...booking, instructorPricePerHour: pricePerHour });
 }
 
 async function assertNoSlotOverlap(

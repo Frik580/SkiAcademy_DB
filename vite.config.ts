@@ -1,10 +1,18 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
+import { fileURLToPath, URL } from 'node:url';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@ski-academy/shared-domain': fileURLToPath(
+        new URL('./packages/shared-domain/src/index.ts', import.meta.url)
+      ),
+    },
+  },
   plugins: [react(), tailwindcss()],
   server: {
     port: 3000,

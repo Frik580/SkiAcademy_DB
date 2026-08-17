@@ -153,6 +153,7 @@ export default tseslint.config(
   {
     ignores: [
       'dist',
+      'packages/*/dist',
       'functions/lib',
       'node_modules',
       '.firebase',

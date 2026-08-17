@@ -6,10 +6,12 @@
     "node": "20"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "npm --prefix ../packages/shared-domain run build && tsc",
     "deploy": "firebase deploy --only functions"
   },
   "dependencies": {
+    "@ski-academy/shared-domain": "file:../packages/shared-domain",
+    "alpine-glide-bookings": "file:..",
     "firebase-admin": "^12.7.0",
     "firebase-functions": "^5.1.1"
   },

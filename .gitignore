@@ -4,6 +4,7 @@ node_modules/
 # Vite
 .vite/
 /dist/
+/packages/*/dist/
 
 # Generated reports and local project analysis
 /coverage/

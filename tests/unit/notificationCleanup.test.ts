@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  getNotificationTimestampMs,
-  isNotificationExpired,
-} from '../../src/domain/notifications';
+import { getNotificationTimestampMs, isNotificationExpired } from '../../src/domain/notifications';
 
 describe('notificationCleanup', () => {
   it('parses ISO timestamps', () => {

@@ -1,5 +1,13 @@
 import { useEffect } from 'react';
-import { collection, db, limit, onSnapshot, orderBy, query, where } from '../../../infrastructure/firebase';
+import {
+  collection,
+  db,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+} from '../../../infrastructure/firebase';
 import { toActivityLog } from '../../../infrastructure/firebase';
 import { logger } from '../../../shared';
 import { useAuthStore } from '../../auth/authStore';

@@ -422,12 +422,20 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   };
 
   return createPortal(
-    <div className="ui-modal-overlay fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-end bg-black/60 p-0 backdrop-blur-xs sm:items-center sm:justify-center sm:p-4">
       <BodyScrollLock />
-      <div className="ui-modal bg-[var(--card-bg)] border border-[var(--border)] text-[var(--ink)] rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto p-6 shadow-2xl relative space-y-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="ui-modal relative max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-[var(--border)] bg-[var(--card-bg)] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-[var(--ink)] shadow-2xl space-y-4 sm:max-h-[80vh] sm:max-w-md sm:rounded-2xl sm:p-6"
+      >
+        <div
+          className="mx-auto -mt-2 mb-1 h-1 w-10 rounded-full bg-[var(--border)] sm:hidden"
+          aria-hidden="true"
+        />
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
+          className="absolute right-3 top-3 z-10 rounded-full p-2 text-[var(--ink-dim)] transition-colors hover:bg-[var(--profile-bg)] hover:text-[var(--ink)] cursor-pointer sm:right-4 sm:top-4"
         >
           <X className="w-5 h-5" />
         </button>

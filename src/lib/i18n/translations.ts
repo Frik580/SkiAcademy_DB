@@ -104,25 +104,6 @@ export const translations = {
     authForgotPassword: 'Forgot password?',
     authBackToLogin: 'Back to Login',
 
-    // Onboarding Modal
-    onboardingTitle: 'Progression System Guide',
-    onboardingSkip: 'Skip',
-    onboardingStepPrefix: 'Step',
-    onboardingStepOf: 'of',
-    onboardingNext: 'Next',
-    onboardingBack: 'Back',
-    onboardingS1Title: 'Your Path: Level 1 → 4',
-    onboardingS1Desc:
-      'Grow from Beginner to Expert. Each crystal is a real academy level unlocked through training and skill progress.',
-    onboardingS2Title: 'Track Your Progress',
-    onboardingS2Desc:
-      'In your personal cabinet you see Control, Speed and Technique scores, a level ring, and skill exercises with live bars.',
-    onboardingS3Title: 'Calendar & Schedule',
-    onboardingS3Desc:
-      'Manage lessons in the interactive calendar: pick a day, chat with your coach, reschedule or cancel — then book your first session.',
-    onboardingS3PrimaryBtn: 'Schedule First Workout',
-    onboardingS3LaterBtn: 'Maybe later',
-
     // Hero / Welcome
     freshPowder: 'Fresh Powder Alert',
     heroTitle: 'Excel Your Stance with Carve Academy',
@@ -741,6 +722,7 @@ export const translations = {
     instructorUnavailableChoice:
       'is currently not accepting new bookings. Please select another guide.',
     personalGoalsNotes: 'Personal Goals & Equipment Notes',
+    guestCourseNotes: 'Notes',
     personalGoalsPlaceholder:
       'e.g. Bringing own snowboard. First time in deep snow. Want to focus on parallel turns.',
     hoursBooked: 'Hours booked:',
@@ -804,9 +786,6 @@ export const translations = {
     instructorFilters: 'Instructor Filters',
     instructorFiltersDesc:
       'Enable or disable the filtering panel (Search, Specialty, Languages, Sorting) for clients on the main page.',
-    onboardingToggleLabel: 'New Client Onboarding',
-    onboardingToggleDesc:
-      'Enable or disable the interactive 6-screen onboarding tour for newly registered students.',
     notificationRetentionTitle: 'Notification Retention',
     notificationRetentionSub:
       'Automatically delete stored notifications from the database after the specified number of days.',
@@ -1695,25 +1674,6 @@ export const translations = {
     authForgotPassword: 'Забыли пароль?',
     authBackToLogin: 'Назад к входу',
 
-    // Onboarding Modal
-    onboardingTitle: 'Система развития',
-    onboardingSkip: 'Пропустить',
-    onboardingStepPrefix: 'Шаг',
-    onboardingStepOf: 'из',
-    onboardingNext: 'Далее',
-    onboardingBack: 'Назад',
-    onboardingS1Title: 'Ваш путь: Level 1 → 4',
-    onboardingS1Desc:
-      'Рост от Beginner до Expert. Каждый кристалл — реальный уровень академии, который открывается через тренировки и навыки.',
-    onboardingS2Title: 'Наглядный прогресс',
-    onboardingS2Desc:
-      'В личном кабинете видны оценки Control, Speed и Technique, кольцо уровня и упражнения с живыми шкалами прогресса.',
-    onboardingS3Title: 'Календарь и расписание',
-    onboardingS3Desc:
-      'Управляйте занятиями в интерактивном календаре: выбирайте день, пишите тренеру, переносите или отменяйте — и запишитесь на первую тренировку.',
-    onboardingS3PrimaryBtn: 'Запланировать первую тренировку',
-    onboardingS3LaterBtn: 'Позже',
-
     // Hero / Welcome
     freshPowder: 'Внимание: Свежий пухляк!',
     heroTitle: 'Оттачивайте технику в Академии карвинга Carve Academy',
@@ -2339,6 +2299,7 @@ export const translations = {
     instructorUnavailableChoice:
       'временно не принимает записи на занятия. Выберите другого инструктора.',
     personalGoalsNotes: 'Цели тренировки и примечания к экипировке',
+    guestCourseNotes: 'Примечания',
     personalGoalsPlaceholder:
       'Например: своя доска, первый раз в глубоком снегу, хочу улучшить параллельные повороты.',
     hoursBooked: 'Часов забронировано:',
@@ -2403,9 +2364,6 @@ export const translations = {
     instructorFilters: 'Фильтры инструкторов',
     instructorFiltersDesc:
       'Включение или отключение панели фильтров (Поиск, Специализация, Языки, Сортировка) для клиентов на главной странице.',
-    onboardingToggleLabel: 'Онбординг новых клиентов',
-    onboardingToggleDesc:
-      'Включение или отключение интерактивного тура из 6 экранов для вновь зарегистрированных учеников.',
     notificationRetentionTitle: 'Хранение уведомлений',
     notificationRetentionSub:
       'Автоматическое удаление сохранённых уведомлений из базы данных через заданное количество дней.',

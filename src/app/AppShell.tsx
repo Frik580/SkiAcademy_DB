@@ -27,7 +27,6 @@ export const AppShell: React.FC = () => {
 
   const userProfile = useProfileStore((s) => s.userProfile);
   const dismissedReviewIds = useProfileStore((s) => s.dismissedReviewIds);
-  const handleCompleteOnboardingForProfile = useProfileStore((s) => s.handleCompleteOnboarding);
   const handleSignOut = useAuthStore((s) => s.handleSignOut);
 
   const bookings = useBookingsStore((s) => s.bookings);
@@ -39,7 +38,6 @@ export const AppShell: React.FC = () => {
   const dbStatusWarning = useUiStore((s) => s.dbStatusWarning);
   const setDbStatusWarning = useUiStore((s) => s.setDbStatusWarning);
   const setIsNotifHistoryOpen = useUiStore((s) => s.setIsNotifHistoryOpen);
-  const setIsOnboardingOpen = useUiStore((s) => s.setIsOnboardingOpen);
   const setIsAuthModalOpen = useUiStore((s) => s.setIsAuthModalOpen);
 
   const {
@@ -93,26 +91,6 @@ export const AppShell: React.FC = () => {
     void handleMarkNotificationsAsRead();
   };
 
-  const handleCompleteOnboarding = async () => {
-    setIsOnboardingOpen(false);
-    try {
-      await handleCompleteOnboardingForProfile();
-    } catch (err) {
-      logger.warn('Failed to save onboarding completion', err);
-    }
-  };
-
-  const handleScheduleFirstLessonFromOnboarding = () => {
-    handleCompleteOnboarding();
-    setTimeout(() => {
-      const el =
-        document.getElementById('coaches-grid') || document.getElementById('group-courses-section');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
-  };
-
   const onSignOut = async () => {
     try {
       await handleSignOut();
@@ -161,10 +139,7 @@ export const AppShell: React.FC = () => {
         />
       </FeaturePageShell>
 
-      <ModalHost
-        onCompleteOnboarding={handleCompleteOnboarding}
-        onScheduleFirstLessonFromOnboarding={handleScheduleFirstLessonFromOnboarding}
-      />
+      <ModalHost />
     </div>
   );
 };

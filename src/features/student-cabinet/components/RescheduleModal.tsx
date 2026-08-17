@@ -37,11 +37,23 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-end bg-black/60 p-0 backdrop-blur-xs sm:items-center sm:justify-center sm:p-4">
       <BodyScrollLock />
-      <div className="ui-modal shadow-2xl w-full max-w-sm max-h-[80vh] overflow-y-auto relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] m-auto">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reschedule-modal-title"
+        className="ui-modal relative max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-[var(--border)] bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl sm:m-auto sm:max-h-[80vh] sm:max-w-sm sm:rounded-2xl"
+      >
+        <div
+          className="mx-auto mt-2 h-1 w-10 rounded-full bg-[var(--border)] sm:hidden"
+          aria-hidden="true"
+        />
         <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5">
-          <h4 className="font-serif text-sm font-light text-[var(--ink)]">
+          <h4
+            id="reschedule-modal-title"
+            className="font-serif text-sm font-light text-[var(--ink)]"
+          >
             {t('rescheduleCoaching')}
           </h4>
           <button

@@ -10,9 +10,6 @@ import { SkillConfig } from '../../domain/achievements';
 export const saveFiltersEnabled = (enabled: boolean): Promise<void> =>
   setDoc(doc(db, 'settings', 'instructor_filters'), { enabled });
 
-export const saveOnboardingEnabled = (enabled: boolean): Promise<void> =>
-  setDoc(doc(db, 'settings', 'onboarding'), { enabled });
-
 export const saveDesignTheme = (theme: DesignTheme): Promise<void> =>
   setDoc(doc(db, 'settings', 'design_theme'), { theme });
 

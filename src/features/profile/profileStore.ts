@@ -51,7 +51,6 @@ export interface ProfileState {
   handleAddUser: (newUser: UserProfile) => Promise<void>;
   handleUpdateUser: (updatedUser: UserProfile) => Promise<void>;
   handleDeleteUser: (targetUid: string) => Promise<void>;
-  handleCompleteOnboarding: () => Promise<void>;
   handleDismissReview: (bookingId: string) => Promise<void>;
   handleToggleSkillToday: (skillItemId: string, pinned: boolean) => Promise<void>;
   handlePinSkillsToday: (skillItemIds: string[], skillItems: SkillItem[]) => Promise<void>;
@@ -122,12 +121,6 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
   handleDeleteUser: async (targetUid) => {
     await deleteUserService(targetUid);
-  },
-
-  handleCompleteOnboarding: async () => {
-    const { userProfile } = get();
-    if (!userProfile) return;
-    await updateUserProfileService(userProfile.uid, { hasCompletedOnboarding: true });
   },
 
   handleDismissReview: async (bookingId) => {

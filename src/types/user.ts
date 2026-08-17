@@ -46,7 +46,6 @@ export interface UserProfile {
   /** Instructor comments per skill exercise id */
   skillComments?: Record<string, string>;
   hideProgressTracking?: boolean;
-  hasCompletedOnboarding?: boolean;
   /** Skill exercise ids pinned to the Today checklist */
   todaySkillItemIds?: string[];
   /** Completed Today task ids (skill:*, custom:*) */

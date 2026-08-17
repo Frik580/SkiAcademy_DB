@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Instructor, UserProfile, Booking, Course } from '../../../types';
 import { useBookingModal } from './booking_modal/useBookingModal';
@@ -21,43 +22,58 @@ export const BookingModal: React.FC<BookingModalProps> = (props) => {
   const workspace = useBookingModal(props);
   const { isOpen, targetInstructor, userProfile } = workspace;
 
-  if (!targetInstructor) return null;
+  if (!targetInstructor || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && targetInstructor && (
         <motion.div
+          key="booking-modal"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs"
-          onClick={workspace.onClose}
+          className="fixed inset-0 z-[70] overflow-hidden"
+          role="presentation"
         >
           <BodyScrollLock />
-          {!userProfile ? (
-            <BookingAuthShell workspace={workspace} />
-          ) : (
-            <motion.div
-              key="booking-form-modal"
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="ui-modal shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 flex flex-col max-h-[80vh] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] m-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <BookingModalHeader
-                targetInstructor={targetInstructor}
-                t={workspace.t}
-                onClose={workspace.onClose}
-              />
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={workspace.onClose}
+            className="ui-modal-overlay fixed inset-0 h-[100dvh] w-screen max-w-none !rounded-none border-0"
+            aria-hidden="true"
+          />
 
-              <AuthBookingForm workspace={workspace} />
-            </motion.div>
-          )}
+          <div className="pointer-events-none fixed inset-0 z-10 flex items-end justify-center p-0 sm:items-center sm:p-6">
+            {!userProfile ? (
+              <BookingAuthShell workspace={workspace} />
+            ) : (
+              <motion.div
+                key="booking-form-modal"
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 24 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="ui-modal pointer-events-auto relative flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[var(--border)] bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl transition-colors duration-300 theme-air:rounded-t-[var(--radius)] theme-air:rounded-b-none sm:rounded-2xl sm:theme-air:rounded-[var(--radius)]"
+                role="dialog"
+                aria-modal="true"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <BookingModalHeader
+                  targetInstructor={targetInstructor}
+                  t={workspace.t}
+                  onClose={workspace.onClose}
+                />
+
+                <AuthBookingForm workspace={workspace} />
+              </motion.div>
+            )}
+          </div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };

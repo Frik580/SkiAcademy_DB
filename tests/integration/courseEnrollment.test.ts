@@ -1,7 +1,10 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { cancelBookingWithRefund } from '../../src/features/bookings/bookingTransactions';
-import { CourseEnrollmentError, enrollInCourse } from '../../src/features/courses/courseTransactions';
+import {
+  CourseEnrollmentError,
+  enrollInCourse,
+} from '../../src/features/courses/courseTransactions';
 import {
   OWNER_ID,
   USER_ID,

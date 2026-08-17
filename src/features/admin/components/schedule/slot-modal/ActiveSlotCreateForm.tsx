@@ -55,13 +55,18 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <div className="flex bg-black/10 p-1 border border-[var(--border)] rounded-none">
+      <div
+        className="flex gap-1 overflow-x-auto border border-[var(--border)] bg-black/10 p-1 [scrollbar-width:none]"
+        role="tablist"
+      >
         {(['break', 'day_off', 'booking'] as const).map((tab) => (
           <button
             key={tab}
             type="button"
+            role="tab"
+            aria-selected={modalTab === tab}
             onClick={() => setModalTab(tab)}
-            className={`flex-1 py-1.5 text-center text-[10px] font-mono uppercase tracking-wider transition-all cursor-pointer rounded-none ${
+            className={`min-w-24 flex-1 py-2 text-center text-[10px] font-mono uppercase tracking-wider transition-all cursor-pointer rounded-none ${
               modalTab === tab
                 ? 'bg-[var(--ink)] text-[var(--bg)] font-bold'
                 : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'

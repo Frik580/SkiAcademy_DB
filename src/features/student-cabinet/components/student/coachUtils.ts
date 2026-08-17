@@ -6,7 +6,11 @@ import {
   Instructor,
   UserProfile,
 } from '../../../../types';
-import { SkillConfig, DEFAULT_SKILL_CONFIG, getSkillItemTitle } from '../../../../domain/achievements';
+import {
+  SkillConfig,
+  DEFAULT_SKILL_CONFIG,
+  getSkillItemTitle,
+} from '../../../../domain/achievements';
 import { formatBookingDayMonth, getRecentLessonTitle } from './studentCabinetUtils';
 import { resolveChatId } from '../../../../domain/chat';
 import { isHomeworkVisibleToStudent } from '../../../../domain/chat';

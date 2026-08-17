@@ -66,7 +66,6 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   const setSelectedCourseForAuth = useUiStore((state) => state.setSelectedCourseForAuth);
   const setSelectedInstructor = useUiStore((state) => state.setSelectedInstructor);
   const setReviewsInstructor = useUiStore((state) => state.setReviewsInstructor);
-  const setIsOnboardingOpen = useUiStore((state) => state.setIsOnboardingOpen);
 
   if (tab && !CABINET_TABS.includes(tab as (typeof CABINET_TABS)[number])) {
     return <Navigate to="/cabinet" replace />;
@@ -103,7 +102,6 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
               achievementsConfig={achievementsConfig}
               activityLogs={activityLogs}
               walletLedgerEntries={walletLedgerEntries}
-              onOpenOnboarding={() => setIsOnboardingOpen(true)}
               onViewCourseDetails={setSelectedCourseForDetails}
               onRequireCourseAuth={setSelectedCourseForAuth}
               onBookCourse={handleBookCourse}

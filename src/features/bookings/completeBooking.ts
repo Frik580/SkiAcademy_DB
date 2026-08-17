@@ -1,7 +1,10 @@
 import { doc, runTransaction, type Firestore } from 'firebase/firestore';
 import { Booking } from '../../types';
 import { AVAILABILITY_SLOTS_COLLECTION, isCourseBooking } from '../../domain/availability';
-import { isActiveCourseEnrollment, releaseCourseSeatInTransaction } from '../courses/courseTransactions';
+import {
+  isActiveCourseEnrollment,
+  releaseCourseSeatInTransaction,
+} from '../courses/courseTransactions';
 
 export async function finalizeBookingCompletion(
   firestore: Firestore,

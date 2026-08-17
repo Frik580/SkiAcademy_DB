@@ -96,8 +96,9 @@ export const hasTrainingToday = (
 
 const countPendingRecommendations = (booking: Booking) => {
   const completed = new Set(booking.completedRecommendationIds ?? []);
-  return (booking.recommendations ?? []).filter((recommendation) => !completed.has(recommendation.id))
-    .length;
+  return (booking.recommendations ?? []).filter(
+    (recommendation) => !completed.has(recommendation.id)
+  ).length;
 };
 
 export const getNeedsAttentionBookings = (

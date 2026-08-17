@@ -13,10 +13,7 @@ import {
   subscribeToChatMessages,
 } from '../../../features/chat';
 import { ChatWindow } from './booking_chat/ChatWindow';
-import {
-  ChatMessageList,
-  type ChatMessageRow,
-} from './booking_chat/ChatMessageList';
+import { ChatMessageList, type ChatMessageRow } from './booking_chat/ChatMessageList';
 import { MediaUploader } from './booking_chat/MediaUploader';
 import { HomeworkPanel } from './booking_chat/HomeworkPanel';
 import { ChatInput } from './booking_chat/ChatInput';

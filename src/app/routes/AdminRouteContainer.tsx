@@ -36,7 +36,6 @@ export const AdminRouteContainer: React.FC = () => {
   const deletedCompletedStats = useBookingsStore((state) => state.deletedCompletedStats);
   const courses = useCoursesStore((state) => state.courses);
   const filtersEnabled = useSettingsStore((state) => state.filtersEnabled);
-  const onboardingEnabled = useSettingsStore((state) => state.onboardingEnabled);
   const notificationRetentionDays = useSettingsStore((state) => state.notificationRetentionDays);
   const skillConfig = useSettingsStore((state) => state.skillConfig);
   const achievementsConfig = useSettingsStore((state) => state.achievementsConfig);
@@ -58,7 +57,6 @@ export const AdminRouteContainer: React.FC = () => {
     handleClearCancelledBookings,
   } = useAdminActions();
   const handleToggleFilters = useSettingsStore((state) => state.handleToggleFilters);
-  const handleToggleOnboarding = useSettingsStore((state) => state.handleToggleOnboarding);
   const handleSetNotificationRetentionDays = useSettingsStore(
     (state) => state.handleSetNotificationRetentionDays
   );
@@ -103,8 +101,6 @@ export const AdminRouteContainer: React.FC = () => {
           onDeleteCourse={handleDeleteCourse}
           filtersEnabled={filtersEnabled}
           onToggleFilters={handleToggleFilters}
-          onboardingEnabled={onboardingEnabled}
-          onToggleOnboarding={handleToggleOnboarding}
           notificationRetentionDays={notificationRetentionDays}
           onSetNotificationRetentionDays={handleSetNotificationRetentionDays}
           skillConfig={skillConfig}

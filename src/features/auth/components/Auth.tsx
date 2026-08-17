@@ -84,7 +84,6 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
             balanceUSD: 250, // Starter credits
             isClientActive: true,
             level: 1,
-            hasCompletedOnboarding: false,
           };
           if (phoneNumber) {
             finalProfile.phoneNumber = phoneNumber;
@@ -235,7 +234,6 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
             balanceUSD: 250,
             isClientActive: true,
             level: 1,
-            hasCompletedOnboarding: false,
           };
 
           await saveUserProfileService(finalProfile);

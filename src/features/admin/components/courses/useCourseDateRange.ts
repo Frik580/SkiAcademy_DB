@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { formatCourseDates, parseCourseDates, useLanguage } from '../../../../app/providers/LanguageContext';
+import {
+  formatCourseDates,
+  parseCourseDates,
+  useLanguage,
+} from '../../../../app/providers/LanguageContext';
 import { formatDateLocalYMD } from '../schedule/scheduleUtils';
 import { getDaysInMonth } from '../schedule/courseCalendarUtils';
 

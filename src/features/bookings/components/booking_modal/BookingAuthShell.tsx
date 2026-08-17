@@ -18,11 +18,14 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
   return (
     <motion.div
       key="signin-modal"
-      initial={{ opacity: 0, scale: 0.96, y: 12 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.96, y: 12 }}
-      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-      className="ui-modal shadow-2xl w-full max-w-lg overflow-hidden transition-colors duration-300 flex flex-col max-h-[80vh] rounded-none theme-air:rounded-[var(--radius)] bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] m-auto"
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 24 }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+      className="ui-modal pointer-events-auto relative flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[var(--border)] bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl transition-colors duration-300 theme-air:rounded-t-[var(--radius)] theme-air:rounded-b-none sm:rounded-2xl sm:theme-air:rounded-[var(--radius)]"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('bookLessonWith')}
       onClick={(e) => e.stopPropagation()}
     >
       <BookingModalHeader targetInstructor={targetInstructor} t={t} onClose={onClose} />

@@ -8,7 +8,10 @@ export {
   resolveStudentBottomNavTab,
   type StudentCabinetTab,
 } from './studentCabinetNavigation';
-export { getTodayTaskBookingContext, type TodayTaskBookingContext } from './studentTodayTaskContext';
+export {
+  getTodayTaskBookingContext,
+  type TodayTaskBookingContext,
+} from './studentTodayTaskContext';
 export {
   getFirstName,
   getGreeting,

@@ -14,7 +14,10 @@ export * from '../../lib/i18n/courseDates';
 export * from '../../lib/i18n/contentTranslation';
 export * from '../../lib/i18n/bookingLabels';
 export { useTranslatedBookings } from '../../lib/useTranslatedBookings';
-export type { TranslatedBooking, UseTranslatedBookingsOptions } from '../../lib/useTranslatedBookings';
+export type {
+  TranslatedBooking,
+  UseTranslatedBookingsOptions,
+} from '../../lib/useTranslatedBookings';
 
 interface LanguageContextType {
   language: Language;

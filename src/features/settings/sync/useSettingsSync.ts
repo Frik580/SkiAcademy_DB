@@ -20,14 +20,6 @@ export const useSettingsSync = () => {
           .setFiltersEnabled(snapshot.exists() ? (snapshot.data().enabled ?? true) : true),
       (error) => logger.error('Instructor filters settings sync error:', error)
     );
-    const unsubscribeOnboarding = onSnapshot(
-      doc(db, 'settings', 'onboarding'),
-      (snapshot) =>
-        useSettingsStore
-          .getState()
-          .setOnboardingEnabled(snapshot.exists() ? (snapshot.data().enabled ?? true) : true),
-      (error) => logger.error('Onboarding settings sync error:', error)
-    );
     const unsubscribeTheme = onSnapshot(
       doc(db, 'settings', 'design_theme'),
       (snapshot) =>
@@ -79,7 +71,6 @@ export const useSettingsSync = () => {
 
     return () => {
       unsubscribeFilters();
-      unsubscribeOnboarding();
       unsubscribeTheme();
       unsubscribeRetention();
       unsubscribeSkills();

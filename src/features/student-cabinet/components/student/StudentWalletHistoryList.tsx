@@ -2,10 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { ApplePagination } from '../../../../ui/ApplePagination';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
-import {
-  buildWalletOperationHistory,
-  formatWalletOperationLabel,
-} from '../../../../domain/wallet';
+import { buildWalletOperationHistory, formatWalletOperationLabel } from '../../../../domain/wallet';
 import type { Booking, Course, WalletLedgerEntry } from '../../../../types';
 import { useWalletStore } from '../../../../features/wallet';
 import { ActionButton } from '../../../../ui/ActionButton';

@@ -7,12 +7,10 @@ import { useBookingActions } from '../bookings/useBookingActions';
 import { useCoursesStore } from '../courses/coursesStore';
 import { useCourseActions } from '../courses/useCourseActions';
 import { NotificationsPanel } from '../notifications/NotificationsPanel';
-import { OnboardingFlow } from '../profile/OnboardingFlow';
 import { AuthModal } from '../../features/auth';
 import { LazyLoad } from '../../ui/LazyLoad';
 import { ModalSkeleton } from '../../ui/Skeleton';
 import { BodyScrollLock } from '../../ui/BodyScrollLock';
-import { ModalRegistryProps } from './modalRegistry';
 
 const BookingModal = React.lazy(() =>
   import('../../features/bookings').then(({ BookingModal }) => ({ default: BookingModal }))
@@ -40,10 +38,7 @@ const ModalLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
   </div>
 );
 
-export const ModalHost: React.FC<ModalRegistryProps> = ({
-  onCompleteOnboarding,
-  onScheduleFirstLessonFromOnboarding,
-}) => {
+export const ModalHost: React.FC = () => {
   const { t, language } = useLanguage();
 
   const userProfile = useProfileStore((s) => s.userProfile);
@@ -68,11 +63,6 @@ export const ModalHost: React.FC<ModalRegistryProps> = ({
 
   return (
     <>
-      <OnboardingFlow
-        onComplete={onCompleteOnboarding}
-        onScheduleFirstLesson={onScheduleFirstLessonFromOnboarding}
-      />
-
       {selectedInstructor && (
         <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
           <BookingModal

@@ -1,8 +1,8 @@
 import React from 'react';
 import { UserProfile, Instructor, Booking, Review, Course } from '../../types';
 import { SkillConfig } from '../../domain/achievements';
-import { BookingChatModal } from '../bookings';
-import { StudentSkillEvaluationModal } from '../profile';
+import { BookingChatModal } from '../bookings/components/BookingChatModal';
+import { StudentSkillEvaluationModal } from '../profile/components/StudentSkillEvaluationModal';
 import { useInstructorWorkspace } from './components/useInstructorWorkspace';
 import { InstructorNotLinked } from './components/InstructorNotLinked';
 import { InstructorDashboardHeader } from './components/InstructorDashboardHeader';

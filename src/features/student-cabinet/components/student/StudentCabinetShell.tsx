@@ -104,7 +104,9 @@ export interface StudentCabinetShellProps {
   onPinSkillsToday?: (skillItemIds: string[]) => void | Promise<void>;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
   onAddCustomTodayTask?: (text: string) => void;
-  onRemoveTodayTask?: (task: import('../../../../features/student-cabinet/todayChecklist').TodayTaskRef) => void;
+  onRemoveTodayTask?: (
+    task: import('../../../../features/student-cabinet/todayChecklist').TodayTaskRef
+  ) => void;
   onSignOut: () => void;
   onUpdateProfile?: (data: Partial<UserProfile>) => Promise<void>;
   onLevelBadgeClick: () => void;

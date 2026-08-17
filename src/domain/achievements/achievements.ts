@@ -1,4 +1,8 @@
-import { logActivityForUser, activityLogId, updateActivityLogTimestamp } from '../../domain/activity';
+import {
+  logActivityForUser,
+  activityLogId,
+  updateActivityLogTimestamp,
+} from '../../domain/activity';
 import {
   AchievementDefinition,
   AchievementEvaluationContext,

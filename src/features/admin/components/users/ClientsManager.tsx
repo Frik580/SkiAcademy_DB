@@ -6,7 +6,7 @@ import { useNotifications } from '../../../../features/notifications';
 import { isSystemOwner } from '../../../../lib/accessControl';
 import { ToggleSwitch } from '../../../../ui/ToggleSwitch';
 import { ApplePagination } from '../../../../ui/ApplePagination';
-import { useProfileStore } from '../../../../features/profile';
+import { useProfileStore } from '../../../profile/profileStore';
 
 interface ClientsManagerProps {
   usersList: UserProfile[];

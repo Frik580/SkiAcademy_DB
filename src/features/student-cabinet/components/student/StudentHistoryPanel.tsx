@@ -4,7 +4,7 @@ import { ActivityLog, Booking, Course, Review, UserProfile } from '../../../../t
 import { buildStudentHistory, HistoryFilter } from './studentCabinetUtils';
 import { ScSectionTitle, StudentPanelBackLink } from './StudentCabinetUI';
 import { StudentHistoryList } from './StudentHistoryList';
-import { useProfileStore } from '../../../../features/profile';
+import { useProfileStore } from '../../../profile/profileStore';
 import { ActionButton } from '../../../../ui/ActionButton';
 
 interface StudentHistoryPanelProps {

@@ -1,9 +1,6 @@
 import { Booking, Course } from '../../../../types';
 import { getDifficultyLabel, parseCourseDates } from '../../../../app/providers/LanguageContext';
-import {
-  translateCourse,
-  translateInstructorName,
-} from '../../../../lib/i18n/contentTranslation';
+import { translateCourse, translateInstructorName } from '../../../../lib/i18n/contentTranslation';
 import { toYMD } from './studentCabinetPresentation';
 
 const getCourse = (booking: Booking, courses: Course[]) => {

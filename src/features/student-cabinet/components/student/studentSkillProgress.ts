@@ -9,7 +9,11 @@ import {
 } from '../../../../domain/achievements';
 import type { Language } from '../../../../lib/i18n/translations';
 import { getRecommendationTasks } from '../../lessonRecommendations';
-import { customTodayTaskId, resolveCompletedTodayTaskIds, skillTodayTaskId } from '../../todayChecklist';
+import {
+  customTodayTaskId,
+  resolveCompletedTodayTaskIds,
+  skillTodayTaskId,
+} from '../../todayChecklist';
 import { isBookingInTodayRecommendationWindow } from './studentLessonPresentation';
 import { getTodayTaskBookingContext } from './studentTodayTaskContext';
 import type { SectionProgress, TodayTask } from './studentCabinetUtils';

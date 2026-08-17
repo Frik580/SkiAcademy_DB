@@ -11,7 +11,6 @@ export interface UiState {
   sortBy: InstructorSortBy;
 
   isNotifHistoryOpen: boolean;
-  isOnboardingOpen: boolean;
   isAuthModalOpen: boolean;
   selectedInstructor: Instructor | null;
   selectedCourseForAuth: Course | null;
@@ -27,7 +26,6 @@ export interface UiState {
   resetFilters: () => void;
 
   setIsNotifHistoryOpen: (open: boolean) => void;
-  setIsOnboardingOpen: (open: boolean) => void;
   setIsAuthModalOpen: (open: boolean) => void;
   setSelectedInstructor: (ins: Instructor | null) => void;
   setSelectedCourseForAuth: (course: Course | null) => void;
@@ -46,7 +44,6 @@ export const useUiStore = create<UiState>((set) => ({
   sortBy: 'rating',
 
   isNotifHistoryOpen: false,
-  isOnboardingOpen: false,
   isAuthModalOpen: false,
   selectedInstructor: null,
   selectedCourseForAuth: null,
@@ -62,7 +59,6 @@ export const useUiStore = create<UiState>((set) => ({
   resetFilters: () => set({ searchQuery: '', selectedSpecialty: 'all', selectedLanguage: 'all' }),
 
   setIsNotifHistoryOpen: (open) => set({ isNotifHistoryOpen: open }),
-  setIsOnboardingOpen: (open) => set({ isOnboardingOpen: open }),
   setIsAuthModalOpen: (open) => set({ isAuthModalOpen: open }),
   setSelectedInstructor: (ins) => set({ selectedInstructor: ins }),
   setSelectedCourseForAuth: (course) => set({ selectedCourseForAuth: course }),
@@ -72,7 +68,6 @@ export const useUiStore = create<UiState>((set) => ({
   closeAllModals: () =>
     set({
       isNotifHistoryOpen: false,
-      isOnboardingOpen: false,
       isAuthModalOpen: false,
       selectedInstructor: null,
       selectedCourseForAuth: null,

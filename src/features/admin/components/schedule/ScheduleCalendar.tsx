@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { BookOpen, Clock } from 'lucide-react';
+import { BookOpen, Clock, Lock, Plus } from 'lucide-react';
 import { Instructor, Booking, UserProfile, Course } from '../../../../types';
 import { translateCourse, parseCourseDates } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
@@ -101,6 +101,159 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     (_, i) => new Date(new Date(weekStart).setDate(weekStart.getDate() + i))
   );
 
+  /**
+   * The desktop calendar is intentionally a dense grid. On phones we expose
+   * the same day as a sequence of coach cards, so actions remain reachable
+   * without horizontal panning or pinch-to-zoom.
+   */
+  const mobileSchedule = (
+    <div className="space-y-3 sm:hidden">
+      {viewMode === 'week' && (
+        <div
+          className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]"
+          role="tablist"
+          aria-label={t('scheduleWeek')}
+        >
+          {weekDays.map((day) => {
+            const dayValue = formatDateLocalYMD(day);
+            const isSelected = dayValue === selectedDate;
+            return (
+              <button
+                key={dayValue}
+                type="button"
+                role="tab"
+                aria-selected={isSelected}
+                onClick={() => setCurrentDate(day)}
+                className={`min-w-16 shrink-0 border px-2 py-2 text-center text-[10px] font-mono uppercase tracking-wide transition ${
+                  isSelected
+                    ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]'
+                    : 'border-[var(--border)] bg-[var(--card-bg)] text-[var(--ink-dim)]'
+                }`}
+              >
+                <span className="block">
+                  {day.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
+                    weekday: 'short',
+                  })}
+                </span>
+                <span className="mt-0.5 block text-sm font-bold">{day.getDate()}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {instructors.length === 0 ? (
+        <div className="border border-[var(--border)] p-6 text-center text-sm text-slate-400">
+          {t('noInstructorsAvailable')}
+        </div>
+      ) : (
+        instructors.map((instructor) => {
+          const dayBookings = bookings.filter(
+            (booking) =>
+              booking.instructorId === instructor.id &&
+              booking.date === selectedDate &&
+              booking.status !== 'cancelled' &&
+              !booking.isDeleted
+          );
+
+          return (
+            <section
+              key={instructor.id}
+              className={`border border-[var(--border)] bg-[var(--card-bg)] p-3 ${
+                !instructor.isAvailable ? 'opacity-75' : ''
+              }`}
+            >
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  {instructor.avatarUrl ? (
+                    <img
+                      src={instructor.avatarUrl}
+                      alt=""
+                      className="h-8 w-8 shrink-0 rounded-full object-cover"
+                    />
+                  ) : null}
+                  <span className="truncate text-sm font-semibold text-[var(--ink)]">
+                    {instructor.name}
+                  </span>
+                </div>
+                {!instructor.isAvailable && <Lock className="h-4 w-4 text-[var(--ink-dim)]" />}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {SCHEDULE_TIME_SLOTS.map((time) => {
+                  const booking = dayBookings.find((item) => item.time === time);
+                  if (booking) {
+                    return (
+                      <ScheduleBookingCell
+                        key={time}
+                        booking={booking}
+                        instructor={instructor}
+                        usersList={usersList}
+                        onOpen={handleOpenSlotAction}
+                        onDelete={handleSlotDeleteClick}
+                      />
+                    );
+                  }
+
+                  const course = courses.find((item) => {
+                    if (!item.instructorIds?.includes(instructor.id)) return false;
+                    const { start, end, startTime, endTime } = parseCourseDates(item.dates);
+                    const courseStart = formatDateLocalYMD(start);
+                    const courseEnd = formatDateLocalYMD(end);
+                    const slotHour = Number(time.slice(0, 2));
+                    return (
+                      selectedDate >= courseStart &&
+                      selectedDate <= courseEnd &&
+                      slotHour >= Number(startTime.slice(0, 2)) &&
+                      slotHour < Number(endTime.slice(0, 2))
+                    );
+                  });
+
+                  if (course) {
+                    return (
+                      <div
+                        key={time}
+                        className="flex min-h-12 items-center gap-2 border border-violet-200/50 bg-violet-50/60 px-3 text-xs text-violet-800 dark:border-violet-900/40 dark:bg-violet-950/20 dark:text-violet-200"
+                      >
+                        <BookOpen className="h-3.5 w-3.5 shrink-0" />
+                        <span className="min-w-0 truncate">
+                          {translateCourse(course, language).title}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  const isOccupied = dayBookings.some((item) => {
+                    const start = Number(item.time.slice(0, 2));
+                    const slot = Number(time.slice(0, 2));
+                    return slot > start && slot < start + item.durationHours;
+                  });
+
+                  return (
+                    <button
+                      key={time}
+                      type="button"
+                      disabled={!instructor.isAvailable || isOccupied}
+                      onClick={() => handleOpenSlotAction(instructor, time)}
+                      className="flex min-h-12 items-center justify-between border border-dashed border-[var(--border)] px-3 text-left text-xs font-mono text-[var(--ink-dim)] transition enabled:hover:border-accent enabled:hover:bg-accent-muted disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      <span>{time}</span>
+                      {instructor.isAvailable && !isOccupied ? (
+                        <Plus className="h-4 w-4" />
+                      ) : (
+                        <Lock className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })
+      )}
+    </div>
+  );
+
   return (
     <>
       <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
@@ -119,9 +272,11 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           />
         </div>
 
-        {/* Timetable Grid with horizontal scroll */}
+        {mobileSchedule}
+
+        {/* Dense timetable remains available on tablet and desktop. */}
         {viewMode === 'day' ? (
-          <div className="overflow-x-auto rounded-none border border-[var(--border)]">
+          <div className="hidden overflow-x-auto rounded-none border border-[var(--border)] sm:block">
             <table className="w-full min-w-[1100px] border-collapse table-fixed">
               <thead>
                 <tr className="bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-200/50 dark:border-slate-800/40 text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">
@@ -168,7 +323,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             </table>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-none border border-[var(--border)]">
+          <div className="hidden overflow-x-auto rounded-none border border-[var(--border)] sm:block">
             <table className="w-full min-w-[1100px] border-collapse table-fixed">
               <thead>
                 <tr className="bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-200/50 dark:border-slate-800/40 text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">

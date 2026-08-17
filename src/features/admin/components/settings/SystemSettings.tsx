@@ -23,8 +23,6 @@ import {
 interface SystemSettingsProps {
   filtersEnabled?: boolean;
   onToggleFilters?: (enabled: boolean) => Promise<void>;
-  onboardingEnabled?: boolean;
-  onToggleOnboarding?: (enabled: boolean) => Promise<void>;
   notificationRetentionDays?: number;
   onSetNotificationRetentionDays?: (days: number) => Promise<void>;
   skillConfig?: SkillConfig;
@@ -46,8 +44,6 @@ interface SystemSettingsProps {
 export const SystemSettings: React.FC<SystemSettingsProps> = ({
   filtersEnabled = true,
   onToggleFilters,
-  onboardingEnabled = true,
-  onToggleOnboarding,
   notificationRetentionDays = DEFAULT_NOTIFICATION_RETENTION_DAYS,
   onSetNotificationRetentionDays,
   skillConfig,
@@ -183,14 +179,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             onChange={(checked) => onToggleFilters?.(checked)}
             label={t('instructorFilters')}
             description={t('instructorFiltersDesc')}
-          />
-          <ToggleSwitch
-            checked={onboardingEnabled}
-            onChange={(checked) => onToggleOnboarding?.(checked)}
-            label={t('onboardingToggleLabel') || 'Онбординг клиентов'}
-            description={
-              t('onboardingToggleDesc') || 'Показывать обучающий тур 6 шагов новым ученикам'
-            }
           />
         </div>
       </div>

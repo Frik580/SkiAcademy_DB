@@ -2,7 +2,6 @@ export { ClientSkillProgressView } from './components/ClientSkillProgressView';
 export { BookingsPanel } from './components/BookingsPanel';
 export { InstructorCard } from './components/InstructorCard';
 export { InstructorReviewsModal } from './components/InstructorReviewsModal';
-export { OnboardingModal } from './components/OnboardingModal';
 export { PersonalCabinet } from './components/PersonalCabinet';
 export type { PersonalCabinetProps } from './components/PersonalCabinet';
 export { ReviewFlow, useReviewFlow } from './components/ReviewFlow';

@@ -15,8 +15,6 @@ export const selectReviewsInstructor = (state: UiState): Instructor | null =>
 
 export const selectIsAuthModalOpen = (state: UiState): boolean => state.isAuthModalOpen;
 
-export const selectIsOnboardingOpen = (state: UiState): boolean => state.isOnboardingOpen;
-
 export const selectIsNotifHistoryOpen = (state: UiState): boolean => state.isNotifHistoryOpen;
 
 export const selectDbStatusWarning = (state: UiState): string | null => state.dbStatusWarning;

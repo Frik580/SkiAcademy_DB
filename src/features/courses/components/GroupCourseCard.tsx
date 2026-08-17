@@ -8,10 +8,7 @@ import {
   type Language,
 } from '../../../app/providers/LanguageContext';
 import { Booking, Course, UserProfile } from '../../../types';
-import {
-  courseLevelBadgeLabel,
-  getCourseLevelCardBadgeClass,
-} from '../../../domain/course';
+import { courseLevelBadgeLabel, getCourseLevelCardBadgeClass } from '../../../domain/course';
 import { useCurrency } from '../../../app/providers/CurrencyContext';
 import {
   getCourseEnrollmentBooking,

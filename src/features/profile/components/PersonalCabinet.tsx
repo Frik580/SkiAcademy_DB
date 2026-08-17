@@ -8,19 +8,17 @@ import {
   ActivityLog,
   WalletLedgerEntry,
 } from '../../../types';
-import { Lock, Sparkles } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { useNotifications } from '../../../features/notifications';
 import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../domain/achievements';
 import { AchievementsConfig } from '../../../domain/achievements';
 import { StudentCabinet } from './StudentCabinet';
-import { useReviewFlow } from '../../../features/profile';
-import {
-  type StudentCabinetResortSnapshot,
-  type TodayTaskRef,
-} from '../../../features/student-cabinet';
-import { PersonalCabinetModals } from '../../../features/student-cabinet';
-import { useRescheduleBooking } from '../../../features/student-cabinet';
+import { useReviewFlow } from './ReviewFlow';
+import type { StudentCabinetResortSnapshot } from '../../student-cabinet/components/student/StudentHomeBottomSections';
+import type { TodayTaskRef } from '../../student-cabinet/todayChecklist';
+import { PersonalCabinetModals } from '../../student-cabinet/components/PersonalCabinetModals';
+import { useRescheduleBooking } from '../../student-cabinet/components/useRescheduleBooking';
 import { useBookingChatUnread } from '../../../features/student-cabinet/useBookingChatUnread';
 
 export interface PersonalCabinetProps {
@@ -53,7 +51,6 @@ export interface PersonalCabinetProps {
   achievementsConfig?: AchievementsConfig;
   activityLogs?: ActivityLog[];
   walletLedgerEntries?: WalletLedgerEntry[];
-  onOpenOnboarding?: () => void;
   onViewCourseDetails?: (course: Course) => void;
   onRequireCourseAuth?: (course: Course) => void;
   onBookCourse?: (courseId: string) => Promise<void>;
@@ -87,7 +84,6 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   achievementsConfig,
   activityLogs = [],
   walletLedgerEntries = [],
-  onOpenOnboarding,
   onViewCourseDetails,
   onRequireCourseAuth,
   onBookCourse,
@@ -209,26 +205,6 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
         </div>
       ) : (
         <div className="animate-fade-in w-full max-w-full min-w-0">
-          {onOpenOnboarding && !userProfile.hasCompletedOnboarding && (
-            <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-3 text-left max-w-2xl mx-auto">
-              <div className="flex items-center gap-3">
-                <Sparkles className="w-5 h-5 text-[var(--accent)] shrink-0" />
-                <div>
-                  <h4 className="text-sm font-medium text-[var(--ink)]">
-                    {t('onboardingS1Title')}
-                  </h4>
-                  <p className="text-xs text-[var(--ink-dim)]">{t('onboardingS1Desc')}</p>
-                </div>
-              </div>
-              <button
-                onClick={onOpenOnboarding}
-                className="btn-primary px-4 py-2 text-sm whitespace-nowrap shrink-0"
-              >
-                {t('onboardingTitle')} →
-              </button>
-            </div>
-          )}
-
           <StudentCabinet
             userProfile={userProfile}
             bookings={userBookings}

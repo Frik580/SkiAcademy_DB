@@ -59,7 +59,7 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="ui-modal-overlay fixed inset-0 h-[100dvh] w-screen max-w-none rounded-none border-0"
+            className="ui-modal-overlay fixed inset-0 h-[100dvh] w-screen max-w-none !rounded-none border-0"
             aria-hidden
           />
 

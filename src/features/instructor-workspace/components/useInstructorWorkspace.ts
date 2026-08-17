@@ -1,12 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import {
-  UserProfile,
-  Instructor,
-  Booking,
-  Review,
-  Course,
-  LessonDifficulty,
-} from '../../../types';
+import { UserProfile, Instructor, Booking, Review, Course, LessonDifficulty } from '../../../types';
 import {
   useLanguage,
   translateCourse,
@@ -29,7 +22,10 @@ import {
   saveBookingRecommendationsService,
   updateBookingStatusService,
 } from '../../bookings/bookingService';
-import { updateStudentLevelService, updateStudentSkillsService } from '../../profile/profileService';
+import {
+  updateStudentLevelService,
+  updateStudentSkillsService,
+} from '../../profile/profileService';
 
 export interface InstructorWorkspaceInput {
   userProfile: UserProfile;

@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import {
   collection,
   db,
@@ -19,12 +20,19 @@ import { useAuthStore } from '../../auth/authStore';
 import { useProfileStore } from '../../profile/profileStore';
 import { useBookingsStore } from '../bookingsStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
+import { getBookingHistoryPage, type BookingHistoryScope } from '../bookingHistoryService';
 
 export const useBookingsSync = () => {
-  const { shouldSyncReviews } = useDataSyncScope();
+  const { shouldSyncReviews, shouldLoadBookingHistory } = useDataSyncScope();
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const userProfile = useProfileStore((s) => s.userProfile);
-  const bookingsPageSize = useBookingsStore((s) => s.bookingsPageSize);
+  const firebaseUserId = firebaseUser?.uid;
+  const userRole = userProfile?.role;
+  const instructorId = userProfile?.instructorId;
+  const bookingHistoryRequest = useBookingsStore((s) => s.bookingHistoryRequest);
+  const historyCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const historyBookingsRef = useRef([] as import('../../../types').Booking[]);
+  const hotBookingsRef = useRef([] as import('../../../types').Booking[]);
 
   useEffect(() => {
     useBookingsStore.getState().resetBookingsPagination();
@@ -67,7 +75,57 @@ export const useBookingsSync = () => {
     );
   }, [shouldSyncReviews]);
 
-  // Bookings listener
+  const historyScope = useMemo<BookingHistoryScope | null>(() => {
+    if (!firebaseUserId || !userRole) return null;
+    if (userRole === 'admin') return { kind: 'admin' };
+    if (instructorId) {
+      return { kind: 'instructor', instructorId };
+    }
+    return { kind: 'student', userId: firebaseUserId };
+  }, [firebaseUserId, instructorId, userRole]);
+
+  // Reset the cursor when the identity changes. Historical pages are intentionally fetched via getDocs.
+  useEffect(() => {
+    historyCursorRef.current = null;
+    historyBookingsRef.current = [];
+    hotBookingsRef.current = [];
+  }, [historyScope]);
+
+  useEffect(() => {
+    if (!shouldLoadBookingHistory || !historyScope) return;
+    let cancelled = false;
+    useBookingsStore.getState().setBookingHistoryLoading(true);
+
+    void getBookingHistoryPage(historyScope, historyCursorRef.current)
+      .then((page) => {
+        if (cancelled) return;
+        historyCursorRef.current = page.cursor;
+        const mergedHistory = [...historyBookingsRef.current, ...page.bookings].filter(
+          (booking, index, all) => all.findIndex((item) => item.id === booking.id) === index
+        );
+        historyBookingsRef.current = mergedHistory;
+        const hotIds = new Set(hotBookingsRef.current.map((booking) => booking.id));
+        useBookingsStore
+          .getState()
+          .setBookings(
+            [
+              ...hotBookingsRef.current,
+              ...mergedHistory.filter((booking) => !hotIds.has(booking.id)),
+            ].sort((a, b) => b.date.localeCompare(a.date))
+          );
+        useBookingsStore.getState().setBookingsHasMore(page.hasMore);
+      })
+      .catch((error) => logger.error('Booking history query error:', error))
+      .finally(() => {
+        if (!cancelled) useBookingsStore.getState().setBookingHistoryLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bookingHistoryRequest, historyScope, shouldLoadBookingHistory]);
+
+  // Hot bookings only: actionable reservations from the previous seven days onward.
   useEffect(() => {
     if (!firebaseUser) {
       useBookingsStore.getState().setBookings([]);
@@ -78,37 +136,46 @@ export const useBookingsSync = () => {
 
     useBookingsStore.getState().setBookingsLoaded(false);
     const bookingsBase = collection(db, 'bookings');
+    const realtimeStartDate = new Date();
+    realtimeStartDate.setDate(
+      realtimeStartDate.getDate() - QUERY_LIMITS.recentDaysForRealtimeBookings
+    );
+    const cutoff = realtimeStartDate.toISOString().slice(0, 10);
+    const hotConstraints = [
+      where('status', 'in', ['pending', 'confirmed']),
+      where('date', '>=', cutoff),
+      orderBy('date', 'desc'),
+    ];
     const bookingsQuery =
       userProfile?.role === 'admin'
-        ? query(bookingsBase, orderBy('date', 'desc'), limit(bookingsPageSize + 1))
+        ? query(bookingsBase, ...hotConstraints)
         : userProfile?.instructorId
           ? query(
               bookingsBase,
               where('instructorId', '==', userProfile.instructorId),
-              orderBy('date', 'desc'),
-              limit(bookingsPageSize + 1)
+              ...hotConstraints
             )
-          : query(
-              bookingsBase,
-              where('userId', '==', firebaseUser.uid),
-              orderBy('date', 'desc'),
-              limit(bookingsPageSize + 1)
-            );
+          : query(bookingsBase, where('userId', '==', firebaseUser.uid), ...hotConstraints);
 
     return onSnapshot(
       bookingsQuery,
       (snapshot) => {
-        const hasMore = snapshot.docs.length > bookingsPageSize;
-        const list = snapshot.docs
-          .slice(0, bookingsPageSize)
-          .map((bookingDoc) => toBooking(bookingDoc.id, bookingDoc.data()));
-        useBookingsStore.getState().setBookings(list.sort((a, b) => b.date.localeCompare(a.date)));
-        useBookingsStore.getState().setBookingsHasMore(hasMore);
+        const list = snapshot.docs.map((bookingDoc) => toBooking(bookingDoc.id, bookingDoc.data()));
+        hotBookingsRef.current = list;
+        const hotIds = new Set(list.map((booking) => booking.id));
+        useBookingsStore
+          .getState()
+          .setBookings(
+            [
+              ...list,
+              ...historyBookingsRef.current.filter((booking) => !hotIds.has(booking.id)),
+            ].sort((a, b) => b.date.localeCompare(a.date))
+          );
         useBookingsStore.getState().setBookingsLoaded(true);
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'bookings')
     );
-  }, [bookingsPageSize, firebaseUser, userProfile?.instructorId, userProfile?.role]);
+  }, [firebaseUser, userProfile?.instructorId, userProfile?.role]);
 
   // Deleted completed stats (admin)
   useEffect(() => {

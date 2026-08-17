@@ -7,6 +7,7 @@ describe('resolveDataSyncScope', () => {
       shouldSyncUsersList: false,
       shouldSyncActivityLogs: false,
       shouldSyncReviews: false,
+      shouldLoadBookingHistory: false,
     });
   });
 
@@ -15,6 +16,7 @@ describe('resolveDataSyncScope', () => {
       shouldSyncUsersList: true,
       shouldSyncActivityLogs: true,
       shouldSyncReviews: false,
+      shouldLoadBookingHistory: true,
     });
   });
 
@@ -23,6 +25,7 @@ describe('resolveDataSyncScope', () => {
       shouldSyncUsersList: true,
       shouldSyncActivityLogs: true,
       shouldSyncReviews: true,
+      shouldLoadBookingHistory: true,
     });
   });
 
@@ -31,12 +34,14 @@ describe('resolveDataSyncScope', () => {
       shouldSyncUsersList: false,
       shouldSyncActivityLogs: true,
       shouldSyncReviews: true,
+      shouldLoadBookingHistory: true,
     });
 
     expect(resolveDataSyncScope('/cabinet/history', false)).toEqual({
       shouldSyncUsersList: false,
       shouldSyncActivityLogs: true,
       shouldSyncReviews: true,
+      shouldLoadBookingHistory: true,
     });
   });
 
@@ -45,6 +50,7 @@ describe('resolveDataSyncScope', () => {
       shouldSyncUsersList: false,
       shouldSyncActivityLogs: false,
       shouldSyncReviews: true,
+      shouldLoadBookingHistory: false,
     });
   });
 });

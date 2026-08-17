@@ -10,6 +10,8 @@ export function resolveDataSyncScope(pathname: string, hasReviewsInstructor: boo
     shouldSyncUsersList: isAdminRoute || isInstructorRoute,
     shouldSyncActivityLogs: isAdminRoute || isInstructorRoute || isCabinetRoute,
     shouldSyncReviews: isCabinetRoute || isInstructorRoute || hasReviewsInstructor,
+    // History is read only in workspaces that render it; the home screen only needs hot data.
+    shouldLoadBookingHistory: isAdminRoute || isInstructorRoute || isCabinetRoute,
   };
 }
 

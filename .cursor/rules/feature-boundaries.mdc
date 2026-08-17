@@ -1,0 +1,18 @@
+---
+description: Enforce feature boundaries in UI components
+globs:
+  - "src/features/**/*.ts"
+  - "src/features/**/*.tsx"
+alwaysApply: false
+---
+
+## Feature boundaries
+
+- Keep full domain models (`Booking`, `UserProfile`, `Course`, etc.) in containers, services, and domain workflows.
+- Presentational components (cards, rows, cells, sections, dialogs) must receive a feature-specific `*Input` contract or prepared view model.
+- Do not use `Pick<...>` from a broad context directly in a component declaration. Define the focused type in the feature’s contracts module instead.
+- Pass IDs and narrow callbacks for open, delete, move, or select actions; resolve full entities in the container.
+- Import domain models in feature contracts modules, not in new presentational child components.
+- Use feature translation hooks such as `useStudentCabinetTranslations` or `useScheduleTranslations`; do not import `useLanguage()` directly in new child UI components.
+- Keep calculations, sorting, filtering, and formatting out of JSX.
+- Refactor legacy code only when touching that area or when coupling causes a concrete maintenance issue.

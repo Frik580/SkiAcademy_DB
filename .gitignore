@@ -5,6 +5,11 @@ node_modules/
 .vite/
 /dist/
 
+# Generated reports and local project analysis
+/coverage/
+/graphify-out/
+/test-output.txt
+
 # Firebase
 .firebase/
 firebase-debug.log

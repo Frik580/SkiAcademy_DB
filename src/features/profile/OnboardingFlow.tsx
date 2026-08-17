@@ -1,6 +1,6 @@
 import React from 'react';
 import { OnboardingModal } from '../../features/profile';
-import { useUiStore } from '../ui/uiStore';
+import { useUiStore } from '../shell/uiStore';
 
 interface OnboardingFlowProps {
   onComplete: () => void;

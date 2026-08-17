@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FirebaseError } from 'firebase/app';
 import { UserProfile } from '../../../types';
-import { useNotifications } from '../../../components/PushNotificationHub';
+import { useNotifications } from '../../../features/notifications';
 import { useLanguage } from '../../../lib/LanguageContext';
 import { logger } from '../../../lib/logger';
 import {

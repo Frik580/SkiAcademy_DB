@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChatMessage } from '../../../../../types';
 import { InstructorMessage } from './coachUtils';
-import { subscribeToChatMessages } from '../../../../../features/chat/chatService';
+import { subscribeToChatMessages } from '../../../../../features/chat';
 
 export const useInstructorBookingMessages = (bookingIds: string[]) => {
   const [messagesByBooking, setMessagesByBooking] = useState<Map<string, ChatMessage[]>>(new Map());

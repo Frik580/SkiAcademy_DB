@@ -5,7 +5,7 @@ import { useBookingModal } from '../../../features/bookings/components/booking_m
 import { BookingAuthShell } from '../../../features/bookings/components/booking_modal/BookingAuthShell';
 import { AuthBookingForm } from '../../../features/bookings/components/booking_modal/AuthBookingForm';
 import { BookingModalHeader } from '../../../features/bookings/components/booking_modal/BookingModalHeader';
-import { BodyScrollLock } from '../../../components/ui/BodyScrollLock';
+import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 
 interface BookingModalProps {
   isOpen: boolean;

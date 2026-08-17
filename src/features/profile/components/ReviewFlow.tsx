@@ -1,7 +1,7 @@
 import React from 'react';
 import { Booking, Review } from '../../../types';
 import { ReviewModal } from '../../../features/profile/components/personal_cabinet/ReviewModal';
-import { useNotifications } from '../../../components/PushNotificationHub';
+import { useNotifications } from '../../../features/notifications';
 import { useLanguage } from '../../../lib/LanguageContext';
 
 export interface ReviewFlowProps {

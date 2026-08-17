@@ -18,7 +18,7 @@ import {
   hasBookingRecommendations,
   hasPendingRecommendations,
 } from '../../../lib/lessonRecommendations';
-import { RecommendationIndicator } from '../../../features/profile/components/personal_cabinet/RecommendationIndicator';
+import { RecommendationIndicator } from '../../../features/profile';
 
 const formatCourseCardDate = (datePart: string) =>
   datePart

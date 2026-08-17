@@ -3,7 +3,7 @@ import { Booking, Course, Instructor, UserProfile } from '../../../../types';
 import { useLanguage, translateCourse } from '../../../../lib/LanguageContext';
 import { buildClonedCourse } from '../../../../lib/courseClone';
 import { logger } from '../../../../lib/logger';
-import { useNotifications } from '../../../../components/PushNotificationHub';
+import { useNotifications } from '../../../../features/notifications';
 import { useCourseForm } from './courses_manager/useCourseForm';
 import { CoursesManagerToolbar } from './courses_manager/CoursesManagerToolbar';
 import { CoursesTable } from './courses_manager/CoursesTable';

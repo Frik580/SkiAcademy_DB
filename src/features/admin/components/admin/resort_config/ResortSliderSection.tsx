@@ -12,15 +12,12 @@ import {
 } from 'lucide-react';
 import { CustomHeroSlide } from '../../../../../types';
 import { useLanguage } from '../../../../../lib/LanguageContext';
-import { useNotifications } from '../../../../../components/PushNotificationHub';
+import { useNotifications } from '../../../../../features/notifications';
 import { FALLBACK_SLIDES } from '../resortConfigDefaults';
 import { logger } from '../../../../../lib/logger';
-import { ToggleSwitch } from '../../../../../components/ToggleSwitch';
-import { FormSkeleton } from '../../../../../components/ui/Skeleton';
-import {
-  saveResortConfig,
-  subscribeResortConfig,
-} from '../../../../../features/settings/resortService';
+import { ToggleSwitch } from '../../../../../ui/ToggleSwitch';
+import { FormSkeleton } from '../../../../../ui/Skeleton';
+import { saveResortConfig, subscribeResortConfig } from '../../../../../features/settings';
 
 export const ResortSliderSection: React.FC = () => {
   const { t } = useLanguage();

@@ -8,7 +8,7 @@ import {
   LessonDifficulty,
   Course,
 } from '../../../../types';
-import { useNotifications } from '../../../../components/PushNotificationHub';
+import { useNotifications } from '../../../../features/notifications';
 import { useLanguage, parseCourseDates, getDifficultyLabel } from '../../../../lib/LanguageContext';
 import { logger } from '../../../../lib/logger';
 import {

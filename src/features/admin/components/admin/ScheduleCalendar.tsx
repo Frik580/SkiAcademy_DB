@@ -8,7 +8,7 @@ import {
   getDifficultyLabel,
 } from '../../../../lib/LanguageContext';
 import { isCourseBooking } from '../../../../lib/availabilitySlots';
-import { useNotifications } from '../../../../components/PushNotificationHub';
+import { useNotifications } from '../../../../features/notifications';
 import { formatDateLocalYMD, hourToMinutes, getWeekRange } from './scheduleUtils';
 import { SCHEDULE_TIME_SLOTS } from './scheduleOverlap';
 import { ScheduleInstructorCell } from './ScheduleInstructorCell';

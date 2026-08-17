@@ -1,17 +1,17 @@
 import React from 'react';
-import { InstructorRoute } from '../../features/ui/RouteGate';
+import { InstructorRoute } from '../../features/shell';
 import { useLanguage } from '../../lib/LanguageContext';
-import { LazyLoad } from '../../components/LazyLoad';
-import { CardSkeleton, Skeleton } from '../../components/ui/Skeleton';
-import { useProfileStore } from '../../features/profile/profileStore';
-import { useBookingsStore } from '../../features/bookings/bookingsStore';
-import { useCoursesStore } from '../../features/courses/coursesStore';
-import { useSettingsStore } from '../../features/settings/settingsStore';
+import { LazyLoad } from '../../ui/LazyLoad';
+import { CardSkeleton, Skeleton } from '../../ui/Skeleton';
+import { useProfileStore } from '../../features/profile';
+import { useBookingsStore } from '../../features/bookings';
+import { useCoursesStore } from '../../features/courses';
+import { useSettingsStore } from '../../features/settings';
 
 const InstructorWorkspace = React.lazy(() =>
-  import('../../features/profile/components/InstructorWorkspace').then(
-    ({ InstructorWorkspace }) => ({ default: InstructorWorkspace })
-  )
+  import('../../features/profile').then(({ InstructorWorkspace }) => ({
+    default: InstructorWorkspace,
+  }))
 );
 
 const InstructorLoadingFallback: React.FC<{ label: string }> = ({ label }) => (

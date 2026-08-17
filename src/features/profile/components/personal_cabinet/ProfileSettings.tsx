@@ -6,7 +6,7 @@ import { useTheme } from '../../../../hooks/useTheme';
 import { optimizeProfileImage } from './profileImage';
 import { uploadImage } from '../../../../lib/storage';
 import { logger } from '../../../../lib/logger';
-import { useEffectiveBalance } from '../../../../features/wallet/walletSelectors';
+import { useEffectiveBalance } from '../../../../features/wallet';
 
 interface SkillProgressSummary {
   control: { percentage: number };

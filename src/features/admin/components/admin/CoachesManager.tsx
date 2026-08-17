@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { Booking, Instructor } from '../../../../types';
 import { useLanguage } from '../../../../lib/LanguageContext';
-import { useNotifications } from '../../../../components/PushNotificationHub';
+import { useNotifications } from '../../../../features/notifications';
 import { getSpecialtyLabel } from './scheduleUtils';
 import { uploadImage } from '../../../../lib/storage';
 import { logger } from '../../../../lib/logger';

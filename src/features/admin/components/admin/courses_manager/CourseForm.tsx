@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, Check, Loader2 } from 'lucide-react';
 import { Instructor } from '../../../../../types';
-import { ToggleSwitch } from '../../../../../components/ToggleSwitch';
+import { ToggleSwitch } from '../../../../../ui/ToggleSwitch';
 import { useCourseForm } from './useCourseForm';
 import { CourseBasicInfoSection } from './CourseBasicInfoSection';
 import { CourseTranslationsSection } from './CourseTranslationsSection';

@@ -1,15 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react';
-import { ApplePagination } from '../../../../../components/ui/ApplePagination';
+import { ApplePagination } from '../../../../../ui/ApplePagination';
 import { useLanguage } from '../../../../../lib/LanguageContext';
 import {
   buildWalletOperationHistory,
   formatWalletOperationLabel,
 } from '../../../../../lib/walletLedger';
 import type { Booking, Course, WalletLedgerEntry } from '../../../../../types';
-import { useWalletStore } from '../../../../../features/wallet/walletStore';
-import { ActionButton } from '../../../../../components/ui/ActionButton';
-import { StateCard } from '../../../../../components/ui/StateCard';
+import { useWalletStore } from '../../../../../features/wallet';
+import { ActionButton } from '../../../../../ui/ActionButton';
+import { StateCard } from '../../../../../ui/StateCard';
 
 const ITEMS_PER_PAGE = 15;
 

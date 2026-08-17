@@ -1,22 +1,22 @@
 import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../lib/LanguageContext';
-import { useNotifications } from '../components/PushNotificationHub';
+import { useNotifications } from '../features/notifications';
 import { useTheme } from '../hooks/useTheme';
 import { useResortStats } from '../hooks/useResortStats';
 import { useInstructorFilters } from '../hooks/useInstructorFilters';
-import { Navbar } from '../components/Navbar';
-import { ModalHost } from '../features/ui/ModalHost';
+import { Navbar } from '../app/components/Navbar';
+import { ModalHost } from '../features/shell';
 import { AppRoutes } from './routes/AppRoutes';
 import { FeaturePageShell } from './FeaturePageShell';
 import { logger } from '../lib/logger';
 
-import { useAuthStore } from '../features/auth/authStore';
-import { useProfileStore } from '../features/profile/profileStore';
-import { useNotificationActions } from '../features/notifications/useNotificationActions';
-import { useUnreadNotificationCount } from '../features/notifications/notificationsSelectors';
-import { useBookingsStore } from '../features/bookings/bookingsStore';
-import { useUiStore } from '../features/ui/uiStore';
+import { useAuthStore } from '../features/auth';
+import { useProfileStore } from '../features/profile';
+import { useNotificationActions } from '../features/notifications';
+import { useUnreadNotificationCount } from '../features/notifications';
+import { useBookingsStore } from '../features/bookings';
+import { useUiStore } from '../features/shell';
 
 export const AppShell: React.FC = () => {
   const { addNotification } = useNotifications();

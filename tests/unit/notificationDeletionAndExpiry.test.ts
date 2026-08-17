@@ -31,7 +31,7 @@ describe('notification deletion and auto-expiry', () => {
       'utf8'
     );
     const hubSource = readFileSync(
-      join(process.cwd(), 'src/components/PushNotificationHub.tsx'),
+      join(process.cwd(), 'src/features/notifications/PushNotificationHub.tsx'),
       'utf8'
     );
 

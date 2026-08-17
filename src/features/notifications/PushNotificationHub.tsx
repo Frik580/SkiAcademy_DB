@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { X, Bell, CheckCircle, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
-import { useLanguage } from '../lib/LanguageContext';
-import { resolveNotificationText, type DbNotification } from '../lib/notificationText';
-import { useNotificationsStore } from '../features/notifications/notificationsStore';
-import { Booking, Review, UserProfile } from '../types';
-import { ActionButton } from './ui/ActionButton';
-import { BodyScrollLock } from './ui/BodyScrollLock';
-import { StateCard } from './ui/StateCard';
+import { useLanguage } from '../../lib/LanguageContext';
+import { resolveNotificationText, type DbNotification } from '../../lib/notificationText';
+import { useNotificationsStore } from './notificationsStore';
+import { Booking, Review, UserProfile } from '../../types';
+import { ActionButton } from '../../ui/ActionButton';
+import { BodyScrollLock } from '../../ui/BodyScrollLock';
+import { StateCard } from '../../ui/StateCard';
 
 export interface Notification {
   id: string;

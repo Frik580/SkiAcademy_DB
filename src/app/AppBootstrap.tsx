@@ -1,16 +1,16 @@
 import React, { useEffect } from 'react';
 import { useLanguage } from '../lib/LanguageContext';
-import { useNotifications } from '../components/PushNotificationHub';
+import { useNotifications } from '../features/notifications';
 import { setStoreContext } from '../store/storeContext';
 import { useStoreSync } from '../store/useStoreSync';
 import { applyDesignThemeToDOM } from '../lib/designTheme';
 import { registerFirestoreErrorListener } from '../lib/firebase';
 import { logger } from '../lib/logger';
-import { useAuthStore } from '../features/auth/authStore';
-import { useSettingsStore } from '../features/settings/settingsStore';
-import { useUiStore } from '../features/ui/uiStore';
-import { useAchievementsSync } from '../features/profile/sync/useAchievementsSync';
-import { AppInitSkeleton } from '../components/ui/Skeleton';
+import { useAuthStore } from '../features/auth';
+import { useSettingsStore } from '../features/settings';
+import { useUiStore } from '../features/shell';
+import { useAchievementsSync } from '../features/profile';
+import { AppInitSkeleton } from '../ui/Skeleton';
 
 export interface AppBootstrapProps {
   children: React.ReactNode;

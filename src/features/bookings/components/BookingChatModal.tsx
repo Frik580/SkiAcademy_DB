@@ -11,7 +11,7 @@ import {
   createChatMessage,
   setChatMessageHomework,
   subscribeToChatMessages,
-} from '../../../features/chat/chatService';
+} from '../../../features/chat';
 import { ChatWindow } from '../../../features/bookings/components/booking_chat/ChatWindow';
 import {
   ChatMessageList,

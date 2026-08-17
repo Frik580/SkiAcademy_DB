@@ -48,7 +48,7 @@ vi.mock('../../src/lib/notifications', () => ({
   createNotificationForUser: (...args: any[]) => mockCreateNotificationForUser(...args),
 }));
 
-vi.mock('../../src/components/PushNotificationHub', () => ({
+vi.mock('../../src/features/notifications', () => ({
   useNotifications: () => ({ addNotification: mockAddNotification }),
 }));
 

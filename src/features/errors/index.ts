@@ -1,0 +1,1 @@
+export { logErrorBoundaryFailure } from './errorLogService';

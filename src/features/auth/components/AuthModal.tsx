@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 import { Auth } from '../../../features/auth';
 import { UserProfile } from '../../../types';
 import { useLanguage } from '../../../lib/LanguageContext';
-import { BodyScrollLock } from '../../../components/ui/BodyScrollLock';
+import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 
 interface AuthModalProps {
   isOpen: boolean;

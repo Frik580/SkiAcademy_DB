@@ -1,6 +1,6 @@
 import React from 'react';
-import { NotificationHubModal } from '../../components/PushNotificationHub';
-import { useUiStore } from '../ui/uiStore';
+import { NotificationHubModal } from '../../features/notifications';
+import { useUiStore } from '../shell/uiStore';
 import { useProfileStore } from '../profile/profileStore';
 import { useBookingsStore } from '../bookings/bookingsStore';
 import { useNotificationsStore } from './notificationsStore';

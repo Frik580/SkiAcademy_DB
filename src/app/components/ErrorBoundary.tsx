@@ -1,7 +1,7 @@
 import React, { Component, ReactNode } from 'react';
 import PropTypes from 'prop-types';
-import { isChunkLoadError, reloadForStaleChunk } from '../lib/chunkLoadRecovery';
-import { logErrorBoundaryFailure } from '../features/errors/errorLogService';
+import { isChunkLoadError, reloadForStaleChunk } from '../../lib/chunkLoadRecovery';
+import { logErrorBoundaryFailure } from '../../features/errors';
 
 interface ErrorBoundaryProps {
   children: ReactNode;

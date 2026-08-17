@@ -21,14 +21,14 @@ import {
   WEEKDAYS_RU,
   getDifficultyLabel,
 } from '../../../../lib/LanguageContext';
-import { ToggleSwitch } from '../../../../components/ToggleSwitch';
-import { StatusBadge } from '../../../../components/ui/StatusBadge';
-import { StateCard } from '../../../../components/ui/StateCard';
+import { ToggleSwitch } from '../../../../ui/ToggleSwitch';
+import { StatusBadge } from '../../../../ui/StatusBadge';
+import { StateCard } from '../../../../ui/StateCard';
 import { ScTextButton } from './student/StudentCabinetUI';
 import { BookingListScope, filterBookingsByScope } from './student/studentCabinetUtils';
 import { RecommendationIndicator } from './RecommendationIndicator';
-import { ChatUnreadIndicator } from '../../../../features/chat/components/chat/ChatUnreadIndicator';
-import { ApplePagination } from '../../../../components/ui/ApplePagination';
+import { ChatUnreadIndicator } from '../../../../features/chat';
+import { ApplePagination } from '../../../../ui/ApplePagination';
 import {
   hasBookingRecommendations,
   hasPendingRecommendations,

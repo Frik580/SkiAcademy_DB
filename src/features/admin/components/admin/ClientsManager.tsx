@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { Search, Plus, X, Edit2, Trash2, DollarSign, Check, Loader2 } from 'lucide-react';
 import { UserProfile, Instructor } from '../../../../types';
 import { useLanguage } from '../../../../lib/LanguageContext';
-import { useNotifications } from '../../../../components/PushNotificationHub';
+import { useNotifications } from '../../../../features/notifications';
 import { isSystemOwner } from '../../../../lib/accessControl';
-import { ToggleSwitch } from '../../../../components/ToggleSwitch';
-import { ApplePagination } from '../../../../components/ui/ApplePagination';
-import { useProfileStore } from '../../../../features/profile/profileStore';
+import { ToggleSwitch } from '../../../../ui/ToggleSwitch';
+import { ApplePagination } from '../../../../ui/ApplePagination';
+import { useProfileStore } from '../../../../features/profile';
 
 interface ClientsManagerProps {
   usersList: UserProfile[];

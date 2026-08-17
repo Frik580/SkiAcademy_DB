@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom';
 import { X, Search, UserCheck, Link2, Check, User, AlertCircle } from 'lucide-react';
 import { Booking, UserProfile } from '../../../../types';
 import { useLanguage } from '../../../../lib/LanguageContext';
-import { StatusBadge } from '../../../../components/ui/StatusBadge';
+import { StatusBadge } from '../../../../ui/StatusBadge';
 import { logger } from '../../../../lib/logger';
-import { BodyScrollLock } from '../../../../components/ui/BodyScrollLock';
+import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 
 interface LinkGuestBookingModalProps {
   isOpen: boolean;

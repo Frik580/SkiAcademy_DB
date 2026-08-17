@@ -2,10 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Trash2, Search } from 'lucide-react';
 import { ErrorLog } from '../../../../types';
 import { useLanguage } from '../../../../lib/LanguageContext';
-import { useNotifications } from '../../../../components/PushNotificationHub';
-import { TableSkeleton } from '../../../../components/ui/Skeleton';
-import { ActionButton } from '../../../../components/ui/ActionButton';
-import { StateCard } from '../../../../components/ui/StateCard';
+import { useNotifications } from '../../../../features/notifications';
+import { TableSkeleton } from '../../../../ui/Skeleton';
+import { ActionButton } from '../../../../ui/ActionButton';
+import { StateCard } from '../../../../ui/StateCard';
 import { logger } from '../../../../lib/logger';
 import { QUERY_LIMITS } from '../../../../lib/queryLimits';
 import {

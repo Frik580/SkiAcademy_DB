@@ -7,7 +7,7 @@ import {
   getDifficultyLabel,
   getHourSuffix,
 } from '../../../../lib/LanguageContext';
-import { StatusBadge } from '../../../../components/ui/StatusBadge';
+import { StatusBadge } from '../../../../ui/StatusBadge';
 
 interface UpcomingSessionsStripProps {
   userBookings: Booking[];

@@ -9,7 +9,7 @@ import {
   WalletLedgerEntry,
 } from '../../../types';
 import { Lock, Sparkles } from 'lucide-react';
-import { useNotifications } from '../../../components/PushNotificationHub';
+import { useNotifications } from '../../../features/notifications';
 import { useLanguage, useTranslatedBookings } from '../../../lib/LanguageContext';
 import { SkillConfig } from '../../../lib/skillData';
 import { AchievementsConfig } from '../../../lib/achievementConfig';

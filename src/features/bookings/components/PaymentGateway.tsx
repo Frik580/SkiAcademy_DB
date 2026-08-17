@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { CreditCard, X, Check, ArrowRight, Loader2 } from 'lucide-react';
-import { useNotifications } from '../../../components/PushNotificationHub';
+import { useNotifications } from '../../../features/notifications';
 import { useLanguage } from '../../../lib/LanguageContext';
-import { BodyScrollLock } from '../../../components/ui/BodyScrollLock';
+import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import type { WalletCurrency } from '../../../types';
 
 interface PaymentGatewayProps {

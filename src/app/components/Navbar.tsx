@@ -1,14 +1,14 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile } from '../../types';
 import { LogOut, Bell, Sun, Moon, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useLanguage } from '../lib/LanguageContext';
-import { useCurrency } from '../lib/CurrencyContext';
-import { getUserLevelBadgeClass } from '../lib/courseLevelStyles';
-import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../lib/workspaceRoutes';
+import { useLanguage } from '../../lib/LanguageContext';
+import { useCurrency } from '../../lib/CurrencyContext';
+import { getUserLevelBadgeClass } from '../../lib/courseLevelStyles';
+import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { Logo } from './Logo';
-import { useEffectiveBalance } from '../features/wallet/walletSelectors';
+import { useEffectiveBalance } from '../../features/wallet';
 
 interface NavbarProps {
   userProfile: UserProfile | null;

@@ -5,9 +5,9 @@ import { useLanguage, getDifficultyLabel } from '../../../../lib/LanguageContext
 import { useCurrency } from '../../../../lib/CurrencyContext';
 import { isCourseBooking } from '../../../../lib/availabilitySlots';
 import { formatBookingCreatedAt } from '../../../../lib/bookingCreatedAt';
-import { StatusBadge } from '../../../../components/ui/StatusBadge';
+import { StatusBadge } from '../../../../ui/StatusBadge';
 import { LinkGuestBookingModal } from './LinkGuestBookingModal';
-import { ApplePagination } from '../../../../components/ui/ApplePagination';
+import { ApplePagination } from '../../../../ui/ApplePagination';
 
 const shortenBookingId = (id: string): string => (id.length > 12 ? `${id.slice(0, 10)}…` : id);
 

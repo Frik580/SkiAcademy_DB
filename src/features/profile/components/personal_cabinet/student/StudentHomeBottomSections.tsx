@@ -5,7 +5,7 @@ import { getLatestCoachRecommendation } from '../../../../../lib/lessonRecommend
 import { getWeatherConditionKey } from '../../../../../lib/weatherCondition';
 import { formatBookingDayMonth } from './studentCabinetUtils';
 import { ScSectionTitle, ScTextButton, ScTintCard } from './StudentCabinetUI';
-import { AnimatedNumber } from '../../../../../components/AnimatedNumber';
+import { AnimatedNumber } from '../../../../../ui/AnimatedNumber';
 import { RecommendationIndicator } from '../RecommendationIndicator';
 
 export interface StudentCabinetResortSnapshot {

@@ -12,7 +12,7 @@ vi.mock('../../src/lib/LanguageContext', () => ({
   translateCourse: (course: Course) => course,
 }));
 
-vi.mock('../../src/components/PushNotificationHub', () => ({
+vi.mock('../../src/features/notifications', () => ({
   useNotifications: () => ({ addNotification: mockAddNotification }),
 }));
 

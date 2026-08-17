@@ -1,8 +1,8 @@
 import React from 'react';
-import { useLanguage, type Language } from '../lib/LanguageContext';
-import { getWeatherConditionKey } from '../lib/weatherCondition';
-import { ResortConfig } from '../types';
-import { AnimatedNumber } from './AnimatedNumber';
+import { useLanguage, type Language } from '../../lib/LanguageContext';
+import { getWeatherConditionKey } from '../../lib/weatherCondition';
+import { ResortConfig } from '../../types';
+import { AnimatedNumber } from '../../ui/AnimatedNumber';
 
 interface ResortConditionsSidebarProps {
   data: {

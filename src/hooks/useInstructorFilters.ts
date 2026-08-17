@@ -3,7 +3,7 @@ import { Instructor } from '../types';
 import { Language, translateInstructor } from '../lib/LanguageContext';
 import { useBookingsStore } from '../features/bookings/bookingsStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
-import { useUiStore } from '../features/ui/uiStore';
+import { useUiStore } from '../features/shell';
 
 export type InstructorSortBy = 'rating' | 'priceAsc' | 'priceDesc' | 'experience';
 export type InstructorSpecialty = 'all' | 'ski' | 'snowboard' | 'both';

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Camera, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../../../lib/LanguageContext';
-import { useNotifications } from '../../../../components/PushNotificationHub';
+import { useNotifications } from '../../../../features/notifications';
 import { optimizeCourseImage } from './courseImage';
 import { uploadImage } from '../../../../lib/storage';
 import { logger } from '../../../../lib/logger';

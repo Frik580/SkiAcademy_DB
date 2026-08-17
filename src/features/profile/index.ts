@@ -8,3 +8,8 @@ export { StudentSkillEvaluationModal } from './components/StudentSkillEvaluation
 export { YourJourneySection } from './components/your_journey/YourJourneySection';
 export { LEVEL_MARKER_Y, LEVEL_PATH_BEND } from './components/your_journey/constants';
 export type { PathBend } from './components/your_journey/types';
+export { useProfileStore } from './profileStore';
+export { useAchievementsSync } from './sync/useAchievementsSync';
+export { InstructorWorkspace } from './components/InstructorWorkspace';
+export { LessonRecommendationsList } from './components/personal_cabinet/LessonRecommendationsList';
+export { RecommendationIndicator } from './components/personal_cabinet/RecommendationIndicator';

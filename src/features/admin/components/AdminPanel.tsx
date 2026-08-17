@@ -6,8 +6,8 @@ import { useLanguage, useTranslatedBookings } from '../../../lib/LanguageContext
 import { SkillConfig } from '../../../lib/skillData';
 import { AchievementsConfig } from '../../../lib/achievementConfig';
 import { AdminCollapsibleSection } from '../../../features/admin/components/admin/AdminCollapsibleSection';
-import { TableSkeleton } from '../../../components/ui/Skeleton';
-import { BodyScrollLock } from '../../../components/ui/BodyScrollLock';
+import { TableSkeleton } from '../../../ui/Skeleton';
+import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 
 // Lazy loading heavy admin tab modules
 const FinancialOverview = lazy(() =>

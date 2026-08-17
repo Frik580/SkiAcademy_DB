@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ChevronRight, ChevronLeft, X } from 'lucide-react';
 import { useLanguage } from '../../../lib/LanguageContext';
 import confetti from 'canvas-confetti';
-import { BodyScrollLock } from '../../../components/ui/BodyScrollLock';
+import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 
 interface OnboardingModalProps {
   isOpen: boolean;

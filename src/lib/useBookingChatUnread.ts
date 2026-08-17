@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChatMessage } from '../types';
 import { getChatLastReadAt, markChatReadAt, seedChatReadAt } from './chatReadState';
 import { getCourseChatThreadIds, resolveChatId, type CourseChatBooking } from './resolveChatId';
-import { subscribeToChatMessages } from '../features/chat/chatService';
+import { subscribeToChatMessages } from '../features/chat';
 
 type WatchPlan = {
   bookingId: string;

@@ -2,7 +2,7 @@ import React from 'react';
 import { Booking, Course, Instructor, Review, UserProfile } from '../../../../types';
 import { useLanguage } from '../../../../lib/LanguageContext';
 import { useTheme } from '../../../../hooks/useTheme';
-import { LazyLoad } from '../../../../components/LazyLoad';
+import { LazyLoad } from '../../../../ui/LazyLoad';
 import { RescheduleModal } from './RescheduleModal';
 import { ReviewFlow } from '../../../../features/profile/components/ReviewFlow';
 import { LessonDetailsModal } from './LessonDetailsModal';

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Shield, Search, UserPlus, UserMinus, Loader2 } from 'lucide-react';
 import { UserProfile } from '../../../../types';
 import { useLanguage } from '../../../../lib/LanguageContext';
-import { useNotifications } from '../../../../components/PushNotificationHub';
+import { useNotifications } from '../../../../features/notifications';
 import { canManageAdminRoles } from '../../../../lib/accessControl';
 
 interface AdminRoleManagerProps {

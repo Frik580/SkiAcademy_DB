@@ -3,7 +3,7 @@ import { LogOut } from 'lucide-react';
 import { UserProfile } from '../../../../../types';
 import { useLanguage } from '../../../../../lib/LanguageContext';
 import { logger } from '../../../../../lib/logger';
-import { ToggleSwitch } from '../../../../../components/ToggleSwitch';
+import { ToggleSwitch } from '../../../../../ui/ToggleSwitch';
 
 interface StudentProfilePreferencesSectionProps {
   userProfile: UserProfile;

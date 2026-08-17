@@ -1,7 +1,7 @@
 import React from 'react';
-import { BookingStatus } from '../../types';
-import { useLanguage } from '../../lib/LanguageContext';
-import { getBookingStatusLabel } from '../../lib/i18n/bookingLabels';
+import { BookingStatus } from '../types';
+import { useLanguage } from '../lib/LanguageContext';
+import { getBookingStatusLabel } from '../lib/i18n/bookingLabels';
 
 export type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'accent' | 'neutral';
 

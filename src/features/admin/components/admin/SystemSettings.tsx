@@ -14,7 +14,7 @@ import { SkillConfigManager } from '../../../../features/admin';
 import { AchievementsManager } from './AchievementsManager';
 import { ResortDataSection, ResortSliderSection } from './ResortConfigForm';
 import { AdminCollapsibleSection } from './AdminCollapsibleSection';
-import { ToggleSwitch } from '../../../../components/ToggleSwitch';
+import { ToggleSwitch } from '../../../../ui/ToggleSwitch';
 import {
   ClearStudentBookingsResult,
   ClearCancelledBookingsResult,

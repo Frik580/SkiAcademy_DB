@@ -1,15 +1,15 @@
 import React from 'react';
-import { AdminRoute } from '../../features/ui/RouteGate';
+import { AdminRoute } from '../../features/shell';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useInstructorFilters } from '../../hooks/useInstructorFilters';
-import { LazyLoad } from '../../components/LazyLoad';
-import { CardSkeleton, Skeleton } from '../../components/ui/Skeleton';
-import { useProfileStore } from '../../features/profile/profileStore';
-import { useBookingsStore } from '../../features/bookings/bookingsStore';
-import { useCoursesStore } from '../../features/courses/coursesStore';
-import { useCourseActions } from '../../features/courses/useCourseActions';
-import { useSettingsStore } from '../../features/settings/settingsStore';
-import { useAdminActions } from '../../features/admin/useAdminActions';
+import { LazyLoad } from '../../ui/LazyLoad';
+import { CardSkeleton, Skeleton } from '../../ui/Skeleton';
+import { useProfileStore } from '../../features/profile';
+import { useBookingsStore } from '../../features/bookings';
+import { useCoursesStore } from '../../features/courses';
+import { useCourseActions } from '../../features/courses';
+import { useSettingsStore } from '../../features/settings';
+import { useAdminActions } from '../../features/admin';
 
 const AdminPanel = React.lazy(() =>
   import('../../features/admin').then(({ AdminPanel }) => ({ default: AdminPanel }))

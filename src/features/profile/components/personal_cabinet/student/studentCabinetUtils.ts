@@ -43,49 +43,12 @@ import {
   pickAchievementTimestamp,
   type AchievementsConfig,
 } from '../../../../../lib/achievements';
-
-export type StudentCabinetTab =
-  | 'home'
-  | 'training'
-  | 'coach'
-  | 'development'
-  | 'calendar'
-  | 'courses'
-  | 'instructors'
-  | 'settings'
-  | 'profile_personal'
-  | 'profile_wallet'
-  | 'profile_journey'
-  | 'profile_skills'
-  | 'profile_certificates'
-  | 'profile_achievements'
-  | 'profile_season'
-  | 'profile_videos'
-  | 'profile_preferences'
-  | 'history';
-
-export const PROFILE_TABS: StudentCabinetTab[] = [
-  'settings',
-  'profile_personal',
-  'profile_wallet',
-  'profile_journey',
-  'profile_skills',
-  'profile_certificates',
-  'profile_achievements',
-  'profile_season',
-  'profile_videos',
-  'profile_preferences',
-];
-
-export const isProfileTab = (tab: StudentCabinetTab) => PROFILE_TABS.includes(tab);
-
-/** Maps deep-link tabs to the bottom navigation item that should appear active. */
-export const resolveStudentBottomNavTab = (tab: StudentCabinetTab): StudentCabinetTab => {
-  if (tab === 'development' || tab === 'calendar' || tab === 'courses') return 'training';
-  if (tab === 'instructors') return 'coach';
-  if (isProfileTab(tab)) return 'settings';
-  return tab;
-};
+export {
+  isProfileTab,
+  PROFILE_TABS,
+  resolveStudentBottomNavTab,
+  type StudentCabinetTab,
+} from './studentCabinetNavigation';
 
 export interface SectionProgress {
   id: string;
@@ -178,63 +141,17 @@ export interface StudentStats {
   points: number;
 }
 
-const LEVEL_NAMES_EN: Record<number, string> = {
-  1: 'BEGINNER',
-  2: 'CARVE',
-  3: 'PERFORMANCE',
-  4: 'EXPERT',
-};
+import { isTimestampOnLocalDate, toYMD } from './studentCabinetPresentation';
 
-const LEVEL_NAMES_RU: Record<number, string> = {
-  1: 'НАЧИНАЮЩИЙ',
-  2: 'CARVE',
-  3: 'PERFORMANCE',
-  4: 'ЭКСПЕРТ',
-};
-
-const LEVEL_LABEL_EN: Record<number, string> = {
-  1: 'Beginner',
-  2: 'Carve',
-  3: 'Performance',
-  4: 'Expert',
-};
-
-const LEVEL_LABEL_RU: Record<number, string> = {
-  1: 'Начинающий',
-  2: 'Carve',
-  3: 'Performance',
-  4: 'Эксперт',
-};
-
-export const getLevelName = (level: number, language: 'en' | 'ru') =>
-  (language === 'ru' ? LEVEL_NAMES_RU : LEVEL_NAMES_EN)[level] || LEVEL_NAMES_EN[1];
-
-export const getLevelLabel = (level: number, language: 'en' | 'ru') =>
-  (language === 'ru' ? LEVEL_LABEL_RU : LEVEL_LABEL_EN)[level] || LEVEL_LABEL_EN[1];
-
-export const getGreeting = (language: 'en' | 'ru', firstName: string) => {
-  const hour = new Date().getHours();
-  let prefix: string;
-  if (hour < 12) prefix = language === 'ru' ? 'Доброе утро' : 'Good morning';
-  else if (hour < 18) prefix = language === 'ru' ? 'Добрый день' : 'Good afternoon';
-  else prefix = language === 'ru' ? 'Добрый вечер' : 'Good evening';
-  return `${prefix}, ${firstName} 👋`;
-};
-
-export const getFirstName = (displayName: string) => displayName.split(' ')[0] || displayName;
-
-export const toYMD = (d: Date) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
-
-export const parseActivityTimestamp = (timestamp: string) =>
-  new Date(timestamp.includes('T') ? timestamp : `${timestamp}T12:00:00`);
-
-export const isTimestampOnLocalDate = (timestamp: string, date: Date = new Date()) =>
-  toYMD(parseActivityTimestamp(timestamp)) === toYMD(date);
+export {
+  getFirstName,
+  getGreeting,
+  getLevelLabel,
+  getLevelName,
+  isTimestampOnLocalDate,
+  parseActivityTimestamp,
+  toYMD,
+} from './studentCabinetPresentation';
 
 const BOOKING_TIME_RANGE_RE = /(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/;
 const BOOKING_START_TIME_RE = /^(\d{2}):(\d{2})$/;

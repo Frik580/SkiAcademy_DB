@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Loader2, Star, X } from 'lucide-react';
 import { Booking } from '../../../../types';
 import { useLanguage } from '../../../../lib/LanguageContext';
-import { BodyScrollLock } from '../../../../components/ui/BodyScrollLock';
+import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 
 interface ReviewModalProps {
   booking: Booking | null;

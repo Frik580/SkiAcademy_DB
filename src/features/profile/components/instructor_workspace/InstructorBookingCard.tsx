@@ -7,7 +7,7 @@ import { StudentLevelControls } from './StudentLevelControls';
 import { StudentAssessButton } from './StudentAssessButton';
 import { InstructorRecommendationsEditor } from './InstructorRecommendationsEditor';
 import { type TranslationKey, type Language } from '../../../../lib/LanguageContext';
-import { StatusBadge } from '../../../../components/ui/StatusBadge';
+import { StatusBadge } from '../../../../ui/StatusBadge';
 import { ChatUnreadIndicator } from '../../../chat/components/chat/ChatUnreadIndicator';
 import { canInstructorEditRecommendations } from '../../../../lib/lessonRecommendations';
 import { LessonRecommendation } from '../../../../types';

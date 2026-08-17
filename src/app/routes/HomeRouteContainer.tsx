@@ -4,20 +4,20 @@ import { Navigate } from 'react-router-dom';
 import { Compass } from 'lucide-react';
 import { YourJourneySection } from '../../features/profile';
 import { GroupCoursesSection } from '../../features/courses';
-import { HeroCarousel } from '../../components/HeroCarousel';
+import { HeroCarousel } from '../../app/components/HeroCarousel';
 import { InstructorCard } from '../../features/profile';
 import { LessonFilters } from '../../features/courses';
-import { ResortConditionsSidebar } from '../../components/ResortConditionsSidebar';
+import { ResortConditionsSidebar } from '../../app/components/ResortConditionsSidebar';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useTheme } from '../../hooks/useTheme';
 import { getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { useInstructorFilters } from '../../hooks/useInstructorFilters';
-import { useProfileStore } from '../../features/profile/profileStore';
-import { useBookingsStore } from '../../features/bookings/bookingsStore';
-import { useCoursesStore } from '../../features/courses/coursesStore';
-import { useCourseActions } from '../../features/courses/useCourseActions';
-import { useSettingsStore } from '../../features/settings/settingsStore';
-import { useUiStore } from '../../features/ui/uiStore';
+import { useProfileStore } from '../../features/profile';
+import { useBookingsStore } from '../../features/bookings';
+import { useCoursesStore } from '../../features/courses';
+import { useCourseActions } from '../../features/courses';
+import { useSettingsStore } from '../../features/settings';
+import { useUiStore } from '../../features/shell';
 import type { AppRoutesProps } from './routeTypes';
 
 /** Connects the public home screen to catalogue data and UI actions. */

@@ -1,18 +1,18 @@
 import React from 'react';
 import { Navigate, useParams } from 'react-router-dom';
-import { AuthRoute } from '../../features/ui/RouteGate';
+import { AuthRoute } from '../../features/shell';
 import { useLanguage } from '../../lib/LanguageContext';
 import { CABINET_TABS } from '../../lib/workspaceRoutes';
-import { LazyLoad } from '../../components/LazyLoad';
-import { CardSkeleton, Skeleton } from '../../components/ui/Skeleton';
-import { useProfileStore } from '../../features/profile/profileStore';
-import { useBookingsStore } from '../../features/bookings/bookingsStore';
-import { useBookingActions } from '../../features/bookings/useBookingActions';
-import { useCoursesStore } from '../../features/courses/coursesStore';
-import { useCourseActions } from '../../features/courses/useCourseActions';
-import { useSettingsStore } from '../../features/settings/settingsStore';
-import { useWalletStore } from '../../features/wallet/walletStore';
-import { useUiStore } from '../../features/ui/uiStore';
+import { LazyLoad } from '../../ui/LazyLoad';
+import { CardSkeleton, Skeleton } from '../../ui/Skeleton';
+import { useProfileStore } from '../../features/profile';
+import { useBookingsStore } from '../../features/bookings';
+import { useBookingActions } from '../../features/bookings';
+import { useCoursesStore } from '../../features/courses';
+import { useCourseActions } from '../../features/courses';
+import { useSettingsStore } from '../../features/settings';
+import { useWalletStore } from '../../features/wallet';
+import { useUiStore } from '../../features/shell';
 import type { AppRoutesProps } from './routeTypes';
 
 const PersonalCabinet = React.lazy(() =>

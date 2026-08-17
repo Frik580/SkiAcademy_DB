@@ -13,9 +13,9 @@ describe('notification unread badge wiring', () => {
       'utf8'
     );
     const appSource = readFileSync(join(process.cwd(), 'src/App.tsx'), 'utf8');
-    const navbarSource = readFileSync(join(process.cwd(), 'src/components/Navbar.tsx'), 'utf8');
+    const navbarSource = readFileSync(join(process.cwd(), 'src/app/components/Navbar.tsx'), 'utf8');
     const hubSource = readFileSync(
-      join(process.cwd(), 'src/components/PushNotificationHub.tsx'),
+      join(process.cwd(), 'src/features/notifications/PushNotificationHub.tsx'),
       'utf8'
     );
 

@@ -35,7 +35,7 @@ import { TodayChecklist } from '../../../../../features/profile/components/Today
 import { BookingCallCoachButton } from './BookingCallCoachButton';
 import { StudentNextStepCard } from './StudentNextStepCard';
 import { RecommendationIndicator } from '../RecommendationIndicator';
-import { ChatUnreadIndicator } from '../../../../../features/chat/components/chat/ChatUnreadIndicator';
+import { ChatUnreadIndicator } from '../../../../../features/chat';
 import {
   hasBookingRecommendations,
   hasPendingRecommendations,

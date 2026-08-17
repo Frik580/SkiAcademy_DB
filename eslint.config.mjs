@@ -66,6 +66,90 @@ export default tseslint.config(
     },
   },
   {
+    files: ['src/app/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/features/*/**'],
+              message: 'Import feature capabilities from its public API (features/<domain>).',
+            },
+            {
+              group: ['**/features/shell/**'],
+              message: 'Import shell capabilities from features/shell public API.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/features/bookings/**/*.{ts,tsx}', 'src/features/courses/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/features/{admin,auth,chat,notifications,profile,settings,shell,wallet}/**'],
+              message: 'Import other feature capabilities from their public API.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/features/admin/**/*.{ts,tsx}', 'src/features/profile/**/*.{ts,tsx}', 'src/features/notifications/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/features/{auth,bookings,chat,courses,notifications,settings,shell,wallet}/**'],
+              message: 'Import other feature capabilities from their public API.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/features/auth/**/*.{ts,tsx}', 'src/features/chat/**/*.{ts,tsx}', 'src/features/settings/**/*.{ts,tsx}', 'src/features/wallet/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/features/{admin,bookings,chat,courses,errors,notifications,profile,settings,shell,wallet}/**'],
+              message: 'Import other feature capabilities from their public API.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/features/shell/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/features/{admin,auth,bookings,chat,courses,errors,notifications,profile,settings,wallet}/**'],
+              message: 'Import feature capabilities from their public API.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Migrated UI retains legacy warnings while feature services and app code stay strict.
     files: ['src/features/**/components/**/*.{ts,tsx}'],
     rules: {
@@ -73,7 +157,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/components/ui/**/*.{ts,tsx}'],
+    files: ['src/ui/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',

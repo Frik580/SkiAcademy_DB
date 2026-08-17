@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Course } from '../../../../../types';
 import { useLanguage } from '../../../../../lib/LanguageContext';
-import { useNotifications } from '../../../../../components/PushNotificationHub';
+import { useNotifications } from '../../../../../features/notifications';
 import { useCourseDateRange } from '../useCourseDateRange';
 
 export interface UseCourseFormInput {

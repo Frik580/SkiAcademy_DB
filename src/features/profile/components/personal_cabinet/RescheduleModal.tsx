@@ -2,8 +2,8 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Loader2, X } from 'lucide-react';
 import { useLanguage } from '../../../../lib/LanguageContext';
-import { Skeleton } from '../../../../components/ui/Skeleton';
-import { BodyScrollLock } from '../../../../components/ui/BodyScrollLock';
+import { Skeleton } from '../../../../ui/Skeleton';
+import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 
 interface RescheduleModalProps {
   isOpen: boolean;

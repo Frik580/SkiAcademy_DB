@@ -11,7 +11,7 @@ import {
 } from './student/studentCabinetUtils';
 import { LessonRecommendationsList } from './LessonRecommendationsList';
 import { Course } from '../../../../types';
-import { BodyScrollLock } from '../../../../components/ui/BodyScrollLock';
+import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 
 interface LessonDetailsModalProps {
   booking: Booking | null;

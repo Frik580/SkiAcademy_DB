@@ -1,10 +1,10 @@
 import React from 'react';
 // import logoLight from '../assets/images/logo6.png';
 // import logoDark from '../assets/images/logo4.png';
-import logoW from '../assets/images/logo_w.png';
-import sW from '../assets/images/s_logo_w.png';
-import logoB from '../assets/images/logo_b.png';
-import sB from '../assets/images/s_logo_b.png';
+import logoW from '../../assets/images/logo_w.png';
+import sW from '../../assets/images/s_logo_w.png';
+import logoB from '../../assets/images/logo_b.png';
+import sB from '../../assets/images/s_logo_b.png';
 
 interface LogoProps {
   theme: 'light' | 'dark';

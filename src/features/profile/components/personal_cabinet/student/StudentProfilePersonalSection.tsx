@@ -6,7 +6,7 @@ import { optimizeProfileImage } from '../profileImage';
 import { uploadImage } from '../../../../../lib/storage';
 import { logger } from '../../../../../lib/logger';
 import { ScSectionTitle } from './StudentCabinetUI';
-import { useEffectiveBalance } from '../../../../../features/wallet/walletSelectors';
+import { useEffectiveBalance } from '../../../../../features/wallet';
 
 interface StudentProfilePersonalSectionProps {
   userProfile: UserProfile;

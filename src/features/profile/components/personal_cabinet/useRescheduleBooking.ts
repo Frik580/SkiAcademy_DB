@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { AvailabilitySlot, Booking, Course } from '../../../../types';
-import { useNotifications } from '../../../../components/PushNotificationHub';
+import { useNotifications } from '../../../../features/notifications';
 import { parseCourseDates, useLanguage } from '../../../../lib/LanguageContext';
 import {
   DEFAULT_LESSON_TIME_SLOTS,
@@ -10,7 +10,7 @@ import {
   toLocalDateStr,
 } from '../../../../lib/availabilitySlots';
 import { logger } from '../../../../lib/logger';
-import { getInstructorAvailabilitySlots } from '../../../../features/bookings/bookingService';
+import { getInstructorAvailabilitySlots } from '../../../../features/bookings';
 
 interface UseRescheduleBookingOptions {
   bookings: Booking[];

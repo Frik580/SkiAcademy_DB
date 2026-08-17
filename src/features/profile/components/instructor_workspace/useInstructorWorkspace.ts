@@ -13,7 +13,7 @@ import {
   splitCourseDates,
   parseDurationHours,
 } from '../../../../lib/LanguageContext';
-import { useNotifications } from '../../../../components/PushNotificationHub';
+import { useNotifications } from '../../../../features/notifications';
 import { useTheme } from '../../../../hooks/useTheme';
 import { logger } from '../../../../lib/logger';
 import { SkillConfig, DEFAULT_SKILL_ITEMS } from '../../../../lib/skillData';

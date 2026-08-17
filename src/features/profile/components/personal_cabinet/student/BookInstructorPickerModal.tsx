@@ -6,7 +6,7 @@ import { Booking, Instructor, UserProfile } from '../../../../../types';
 import { useLanguage, translateInstructor } from '../../../../../lib/LanguageContext';
 import { useCurrency } from '../../../../../lib/CurrencyContext';
 import { getInstructorPickerGroups } from './studentCabinetUtils';
-import { BodyScrollLock } from '../../../../../components/ui/BodyScrollLock';
+import { BodyScrollLock } from '../../../../../ui/BodyScrollLock';
 
 interface BookInstructorPickerModalProps {
   open: boolean;

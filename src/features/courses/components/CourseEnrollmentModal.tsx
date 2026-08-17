@@ -5,10 +5,10 @@ import { X, User, Phone, Mail, Send, Loader2 } from 'lucide-react';
 import { Course, UserProfile } from '../../../types';
 import { useLanguage, getGroupCourseLabel } from '../../../lib/LanguageContext';
 import { useCurrency } from '../../../lib/CurrencyContext';
-import { useNotifications } from '../../../components/PushNotificationHub';
+import { useNotifications } from '../../../features/notifications';
 import { Auth } from '../../../features/auth';
-import { AuthModeSliderSwitch } from '../../../features/bookings/components/booking_modal/AuthModeSliderSwitch';
-import { BodyScrollLock } from '../../../components/ui/BodyScrollLock';
+import { AuthModeSliderSwitch } from '../../../features/bookings';
+import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import { createGuestCourseEnrollmentViaCallable } from '../../../lib/createGuestCourseEnrollmentCallable';
 
 interface CourseEnrollmentModalProps {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
-import { useLanguage } from '../../lib/LanguageContext';
+import { useLanguage } from '../lib/LanguageContext';
 
 export interface ApplePaginationProps {
   currentPage: number;

@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom';
-import { useUiStore } from '../features/ui/uiStore';
+import { useUiStore } from '../features/shell';
 
 export function resolveDataSyncScope(pathname: string, hasReviewsInstructor: boolean) {
   const isAdminRoute = pathname === '/admin';

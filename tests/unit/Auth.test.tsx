@@ -32,7 +32,7 @@ vi.mock('firebase/auth', () => ({
   sendPasswordResetEmail: (...args: any[]) => mockSendPasswordResetEmail(...args),
 }));
 
-vi.mock('../../src/components/PushNotificationHub', () => ({
+vi.mock('../../src/features/notifications', () => ({
   useNotifications: () => ({ addNotification: mockAddNotification }),
 }));
 

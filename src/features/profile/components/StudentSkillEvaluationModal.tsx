@@ -12,7 +12,7 @@ import {
 } from '../../../lib/skillData';
 import { useLanguage } from '../../../lib/LanguageContext';
 import { X, Save, Award, CheckCircle2, AlertCircle } from 'lucide-react';
-import { BodyScrollLock } from '../../../components/ui/BodyScrollLock';
+import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 
 interface StudentSkillEvaluationModalProps {
   isOpen: boolean;

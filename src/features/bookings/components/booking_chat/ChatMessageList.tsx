@@ -1,7 +1,7 @@
 import React from 'react';
 import { Clock, User, MessageSquare, ExternalLink } from 'lucide-react';
 import { Booking, ChatMessage, Course, Instructor, UserProfile } from '../../../../types';
-import { Skeleton } from '../../../../components/ui/Skeleton';
+import { Skeleton } from '../../../../ui/Skeleton';
 import { useLanguage } from '../../../../lib/LanguageContext';
 import { resolveChatSenderRole } from '../../../../lib/chatSenderRole';
 

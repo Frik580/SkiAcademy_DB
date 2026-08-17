@@ -9,9 +9,9 @@ import { useCourseActions } from '../courses/useCourseActions';
 import { NotificationsPanel } from '../notifications/NotificationsPanel';
 import { OnboardingFlow } from '../profile/OnboardingFlow';
 import { AuthModal } from '../../features/auth';
-import { LazyLoad } from '../../components/LazyLoad';
-import { ModalSkeleton } from '../../components/ui/Skeleton';
-import { BodyScrollLock } from '../../components/ui/BodyScrollLock';
+import { LazyLoad } from '../../ui/LazyLoad';
+import { ModalSkeleton } from '../../ui/Skeleton';
+import { BodyScrollLock } from '../../ui/BodyScrollLock';
 import { ModalRegistryProps } from './modalRegistry';
 
 const BookingModal = React.lazy(() =>

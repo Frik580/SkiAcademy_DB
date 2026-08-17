@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PaymentGateway } from '../../src/features/bookings';
 
-vi.mock('../../src/components/PushNotificationHub', () => ({
+vi.mock('../../src/features/notifications', () => ({
   useNotifications: () => ({ addNotification: vi.fn() }),
 }));
 

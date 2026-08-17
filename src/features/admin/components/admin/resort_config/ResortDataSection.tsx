@@ -1,14 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2, Save } from 'lucide-react';
 import { useLanguage } from '../../../../../lib/LanguageContext';
-import { useNotifications } from '../../../../../components/PushNotificationHub';
+import { useNotifications } from '../../../../../features/notifications';
 import { logger } from '../../../../../lib/logger';
-import { ToggleSwitch } from '../../../../../components/ToggleSwitch';
-import { FormSkeleton } from '../../../../../components/ui/Skeleton';
-import {
-  saveResortConfig,
-  subscribeResortConfig,
-} from '../../../../../features/settings/resortService';
+import { ToggleSwitch } from '../../../../../ui/ToggleSwitch';
+import { FormSkeleton } from '../../../../../ui/Skeleton';
+import { saveResortConfig, subscribeResortConfig } from '../../../../../features/settings';
 
 export const ResortDataSection: React.FC = () => {
   const { t, language } = useLanguage();

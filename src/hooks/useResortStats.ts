@@ -3,7 +3,7 @@ import {
   subscribeResortConfig,
   getResortWeatherCache,
   saveResortWeatherCache,
-} from '../features/settings/resortService';
+} from '../features/settings';
 import { ResortConfig } from '../types';
 import { logger } from '../lib/logger';
 

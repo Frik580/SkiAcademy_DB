@@ -16,15 +16,7 @@ import {
   getSkillItemSection,
 } from '../../../../../lib/skillData';
 import { Language } from '../../../../../lib/i18n/translations';
-import {
-  translateCourse,
-  translateInstructorName,
-} from '../../../../../lib/i18n/contentTranslation';
-import {
-  parseCourseDates,
-  type TranslationKey,
-  getDifficultyLabel,
-} from '../../../../../lib/LanguageContext';
+import { type TranslationKey } from '../../../../../lib/LanguageContext';
 import {
   getRecommendationTasks,
   hasPendingRecommendations,
@@ -56,12 +48,15 @@ export interface SectionProgress {
   percent: number;
 }
 
-export interface TodayTaskBookingContext {
-  bookingId: string;
-  title: string;
-  dateLabel: string;
-  isCourse: boolean;
-}
+import {
+  getTodayTaskBookingContext,
+  type TodayTaskBookingContext,
+} from './studentTodayTaskContext';
+
+export {
+  getTodayTaskBookingContext,
+  type TodayTaskBookingContext,
+} from './studentTodayTaskContext';
 
 export interface TodayTask {
   id: string;
@@ -153,430 +148,71 @@ export {
   toYMD,
 } from './studentCabinetPresentation';
 
-const BOOKING_TIME_RANGE_RE = /(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/;
-const BOOKING_START_TIME_RE = /^(\d{2}):(\d{2})$/;
+import {
+  isBookingCurrentBySchedule,
+  isBookingOnDate,
+  isBookingPastBySchedule,
+  isBookingUpcomingBySchedule,
+} from './studentBookingSchedule';
 
-export const parseBookingStartTime = (time: string): { h: number; m: number } | null => {
-  const rangeMatch = time.match(BOOKING_TIME_RANGE_RE);
-  if (rangeMatch) {
-    const [h, m] = rangeMatch[1].split(':').map(Number);
-    return { h, m };
-  }
-  const startMatch = time.match(BOOKING_START_TIME_RE);
-  if (startMatch) {
-    return { h: Number(startMatch[1]), m: Number(startMatch[2]) };
-  }
-  return null;
-};
+export {
+  isBookingCurrentBySchedule,
+  isBookingOnDate,
+  isBookingPastBySchedule,
+  isBookingUpcomingBySchedule,
+  parseBookingEndTime,
+  parseBookingStartTime,
+  resolveBookingEndDateTime,
+  resolveBookingStartDateTime,
+} from './studentBookingSchedule';
 
-export const parseBookingEndTime = (
-  time: string,
-  durationHours: number
-): { h: number; m: number } | null => {
-  const rangeMatch = time.match(BOOKING_TIME_RANGE_RE);
-  if (rangeMatch) {
-    const [h, m] = rangeMatch[2].split(':').map(Number);
-    return { h, m };
-  }
-  const start = parseBookingStartTime(time);
-  if (!start) return null;
-  const total = start.h * 60 + start.m + Math.round(durationHours * 60);
-  return { h: Math.floor(total / 60) % 24, m: total % 60 };
-};
+import { getNextSession } from './studentSessionSchedule';
 
-const buildLocalDateTime = (dateStr: string, h: number, m: number): Date => {
-  const [y, mo, d] = dateStr.split('-').map(Number);
-  return new Date(y, mo - 1, d, h, m, 0, 0);
-};
+export {
+  getCurrentSessions,
+  getNextSession,
+  getNextSessionsNext7Days,
+  getTodaySessionCountdown,
+  isBookingInProgressNow,
+  type NextSessionItem,
+  type TodaySessionCountdown,
+} from './studentSessionSchedule';
 
-const getBookingDailyTimeWindow = (
-  booking: Booking,
-  courses: Course[],
-  dateStr: string
-): { start: Date; end: Date } | null => {
-  if (booking.instructorId.startsWith('course_')) {
-    const courseId = booking.instructorId.substring('course_'.length);
-    const course = courses.find((c) => c.id === courseId);
-    const parsed = parseCourseDates(course ? course.dates : booking.date);
-    const [sh, sm] = parsed.startTime.split(':').map(Number);
-    const [eh, em] = parsed.endTime.split(':').map(Number);
-    return {
-      start: buildLocalDateTime(dateStr, sh, sm),
-      end: buildLocalDateTime(dateStr, eh, em),
-    };
-  }
-  const startParsed = parseBookingStartTime(booking.time);
-  const endParsed = parseBookingEndTime(booking.time, booking.durationHours);
-  if (!startParsed || !endParsed) return null;
-  return {
-    start: buildLocalDateTime(dateStr, startParsed.h, startParsed.m),
-    end: buildLocalDateTime(dateStr, endParsed.h, endParsed.m),
-  };
-};
+import { formatSessionTimeRange, getDifficultyShort } from './studentSessionPresentation';
 
-/** First day + start hour of the booking or course. */
-export const resolveBookingStartDateTime = (booking: Booking, courses: Course[]): Date | null => {
-  if (booking.instructorId.startsWith('course_')) {
-    const courseId = booking.instructorId.substring('course_'.length);
-    const course = courses.find((c) => c.id === courseId);
-    const parsed = parseCourseDates(course ? course.dates : booking.date);
-    const [h, m] = parsed.startTime.split(':').map(Number);
-    return buildLocalDateTime(toYMD(parsed.start), h, m);
-  }
-  const startTime = parseBookingStartTime(booking.time);
-  if (!startTime) return buildLocalDateTime(booking.date, 0, 0);
-  return buildLocalDateTime(booking.date, startTime.h, startTime.m);
-};
-
-/** Last day + end hour of the booking or course. */
-export const resolveBookingEndDateTime = (booking: Booking, courses: Course[]): Date | null => {
-  if (booking.instructorId.startsWith('course_')) {
-    const courseId = booking.instructorId.substring('course_'.length);
-    const course = courses.find((c) => c.id === courseId);
-    const parsed = parseCourseDates(course ? course.dates : booking.date);
-    const [h, m] = parsed.endTime.split(':').map(Number);
-    return buildLocalDateTime(toYMD(parsed.end), h, m);
-  }
-  const endTime = parseBookingEndTime(booking.time, booking.durationHours);
-  if (!endTime) return null;
-  return buildLocalDateTime(booking.date, endTime.h, endTime.m);
-};
-
-export const isBookingPastBySchedule = (
-  booking: Booking,
-  courses: Course[],
-  now = new Date()
-): boolean => {
-  if (booking.isDeleted) return true;
-  if (booking.status === 'cancelled' || booking.status === 'completed') return true;
-  const end = resolveBookingEndDateTime(booking, courses);
-  return end ? now >= end : false;
-};
-
-export const isBookingUpcomingBySchedule = (
-  booking: Booking,
-  courses: Course[],
-  now = new Date()
-): boolean => {
-  if (booking.isDeleted || booking.status === 'cancelled' || booking.status === 'completed') {
-    return false;
-  }
-  const start = resolveBookingStartDateTime(booking, courses);
-  return start ? now < start : false;
-};
-
-/** Started but last day/end hour not reached yet (multi-day courses included). */
-export const isBookingCurrentBySchedule = (
-  booking: Booking,
-  courses: Course[],
-  now = new Date()
-): boolean => {
-  if (booking.isDeleted || booking.status === 'cancelled' || booking.status === 'completed') {
-    return false;
-  }
-  return (
-    !isBookingPastBySchedule(booking, courses, now) &&
-    !isBookingUpcomingBySchedule(booking, courses, now)
-  );
-};
-
-/** In session right now (today's time slot). */
-export const isBookingInProgressNow = (
-  booking: Booking,
-  courses: Course[],
-  now = new Date()
-): boolean => {
-  if (!isActiveBooking(booking)) return false;
-  const todayStr = toYMD(now);
-  if (!isBookingOnDate(booking, todayStr, courses)) return false;
-  const window = getBookingDailyTimeWindow(booking, courses, todayStr);
-  if (!window) return false;
-  return now >= window.start && now < window.end;
-};
-
-export const getCurrentSessions = (
-  bookings: Booking[],
-  courses: Course[],
-  now = new Date(),
-  userId?: string
-): Booking[] =>
-  bookings
-    .filter((b) => (!userId || b.userId === userId) && isBookingInProgressNow(b, courses, now))
-    .sort((a, b) => a.time.localeCompare(b.time));
-
-export interface TodaySessionCountdown {
-  booking: Booking;
-  startsAt: Date;
-}
-
-/** Nearest session or course on today that has not started yet. */
-export const getTodaySessionCountdown = (
-  bookings: Booking[],
-  courses: Course[],
-  now = new Date()
-): TodaySessionCountdown | null => {
-  const todayStr = toYMD(now);
-  const candidates: TodaySessionCountdown[] = [];
-
-  for (const booking of bookings.filter(isActiveBooking)) {
-    if (!isBookingOnDate(booking, todayStr, courses)) continue;
-    const window = getBookingDailyTimeWindow(booking, courses, todayStr);
-    if (!window || now >= window.start) continue;
-    candidates.push({ booking, startsAt: window.start });
-  }
-
-  candidates.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
-  return candidates[0] ?? null;
-};
-
-export const formatCountdownRemaining = (ms: number, language: 'en' | 'ru') => {
-  const totalSec = Math.max(0, Math.floor(ms / 1000));
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  if (language === 'ru') {
-    if (h > 0) return `${h}ч ${pad(m)}м ${pad(s)}с`;
-    return `${m}м ${pad(s)}с`;
-  }
-  if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
-  return `${pad(m)}:${pad(s)}`;
-};
-
-export const addMinutesToTime = (time: string, hours: number) => {
-  const parsed = parseBookingStartTime(time);
-  if (!parsed || !Number.isFinite(hours)) return '';
-  const total = parsed.h * 60 + parsed.m + Math.round(hours * 60);
-  const nh = Math.floor(total / 60) % 24;
-  const nm = total % 60;
-  return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
-};
+export {
+  addMinutesToTime,
+  formatCountdownRemaining,
+  formatSessionDayLabel,
+  formatSessionTimeRange,
+  getDifficultyShort,
+} from './studentSessionPresentation';
 
 export { formatDurationLabel } from '../../../../../lib/i18n/duration';
-
-export const formatSessionTimeRange = (booking: Pick<Booking, 'time' | 'durationHours'>) => {
-  const rangeMatch = booking.time.match(BOOKING_TIME_RANGE_RE);
-  if (rangeMatch) {
-    return `${rangeMatch[1]}–${rangeMatch[2]}`;
-  }
-  const endTime = addMinutesToTime(booking.time, booking.durationHours);
-  if (!endTime) return booking.time;
-  return `${booking.time}–${endTime}`;
-};
-
-export const formatSessionDayLabel = (
-  dateStr: string,
-  language: 'en' | 'ru',
-  t: (key: TranslationKey) => string
-) => {
-  const today = toYMD(new Date());
-  const tomorrow = toYMD(new Date(Date.now() + 86400000));
-  if (dateStr === today) return t('scToday');
-  if (dateStr === tomorrow) return t('scTomorrow');
-  const d = new Date(`${dateStr}T12:00:00`);
-  return d.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
-    day: 'numeric',
-    month: 'long',
-  });
-};
-
-export const getDifficultyShort = (difficulty: Booking['difficulty']) => {
-  const map: Record<string, string> = {
-    beginner: 'BASE',
-    intermediate: 'CARVE',
-    advanced: 'PRO',
-    freeride: 'FREERIDE',
-    freestyle: 'PARK',
-  };
-  return map[difficulty] || 'BASE';
-};
 
 const isActiveBooking = (b: Booking) =>
   !b.isDeleted && (b.status === 'confirmed' || b.status === 'pending');
 
-export const resolveBookingStartDate = (booking: Booking, courses: Course[]) => {
-  if (booking.instructorId.startsWith('course_')) {
-    const courseId = booking.instructorId.substring('course_'.length);
-    const course = courses.find((c) => c.id === courseId);
-    const parsed = parseCourseDates(course ? course.dates : booking.date);
-    return toYMD(parsed.start);
-  }
-  return booking.date;
-};
+import {
+  formatBookingDayMonth,
+  formatRecentLessonDateLabel,
+  getRecentLessonInstructorLabel,
+  getRecentLessonTitle,
+  isBookingInTodayRecommendationWindow,
+  resolveBookingStartDate,
+} from './studentLessonPresentation';
 
-/** Instructor homework stays in «Today» only for recent lessons (days since lesson date). */
-export const RECOMMENDATION_TODAY_WINDOW_DAYS = 14;
-
-export const getLessonAgeDays = (
-  booking: Booking,
-  courses: Course[],
-  fromDate = new Date()
-): number | null => {
-  const dateStr = resolveBookingStartDate(booking, courses);
-  const lessonDate = new Date(`${dateStr}T12:00:00`);
-  if (Number.isNaN(lessonDate.getTime())) return null;
-  const today = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
-  const lessonDay = new Date(lessonDate.getFullYear(), lessonDate.getMonth(), lessonDate.getDate());
-  return Math.floor((today.getTime() - lessonDay.getTime()) / 86_400_000);
-};
-
-export const isBookingInTodayRecommendationWindow = (
-  booking: Booking,
-  courses: Course[],
-  maxDays = RECOMMENDATION_TODAY_WINDOW_DAYS,
-  fromDate = new Date()
-) => {
-  const ageDays = getLessonAgeDays(booking, courses, fromDate);
-  if (ageDays === null) return true;
-  return ageDays >= 0 && ageDays <= maxDays;
-};
-
-export const formatBookingDayMonth = (
-  booking: Booking,
-  courses: Course[],
-  language: 'en' | 'ru'
-) => {
-  const dateStr = resolveBookingStartDate(booking, courses);
-  const d = new Date(`${dateStr}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
-    day: 'numeric',
-    month: 'long',
-  });
-};
-
-export const formatCourseDateRangeLabel = (
-  booking: Booking,
-  courses: Course[],
-  language: 'en' | 'ru'
-) => {
-  const courseId = booking.instructorId.substring('course_'.length);
-  const course = courses.find((c) => c.id === courseId);
-  const parsed = parseCourseDates(course ? course.dates : booking.date);
-  const locale = language === 'ru' ? 'ru-RU' : 'en-US';
-  const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long' };
-  const start = parsed.start.toLocaleDateString(locale, opts);
-  const end = parsed.end.toLocaleDateString(locale, opts);
-  if (start === end) return start;
-  return `${start} — ${end}`;
-};
-
-export const formatRecentLessonDateLabel = (
-  booking: Booking,
-  courses: Course[],
-  language: 'en' | 'ru'
-) =>
-  booking.instructorId.startsWith('course_')
-    ? formatCourseDateRangeLabel(booking, courses, language)
-    : formatBookingDayMonth(booking, courses, language);
-
-export const getRecentLessonTitle = (
-  booking: Booking,
-  courses: Course[],
-  language: 'en' | 'ru'
-) => {
-  if (booking.instructorId.startsWith('course_')) {
-    const courseId = booking.instructorId.substring('course_'.length);
-    const course = courses.find((c) => c.id === courseId);
-    if (course) {
-      return translateCourse(course, language).title;
-    }
-    const cleanName = booking.instructorName
-      .replace(/\s*\((Групповой курс|Group Course)\)\s*$/i, '')
-      .trim();
-    return translateInstructorName(cleanName, language);
-  }
-  return getDifficultyLabel(booking.difficulty, language, 'short');
-};
-
-export const getRecentLessonInstructorLabel = (booking: Booking, language: 'en' | 'ru') => {
-  if (booking.instructorId.startsWith('course_')) {
-    return language === 'ru' ? 'Групповой курс' : 'Group course';
-  }
-  return translateInstructorName(booking.instructorName, language);
-};
-
-export const getTodayTaskBookingContext = (
-  booking: Booking,
-  courses: Course[],
-  language: 'en' | 'ru'
-): TodayTaskBookingContext => {
-  const isCourse = booking.instructorId.startsWith('course_');
-  const instructorName = translateInstructorName(booking.instructorName, language);
-  return {
-    bookingId: booking.id,
-    title: isCourse
-      ? getRecentLessonTitle(booking, courses, language)
-      : `${getDifficultyLabel(booking.difficulty, language, 'short')} — ${instructorName}`,
-    dateLabel: formatRecentLessonDateLabel(booking, courses, language),
-    isCourse,
-  };
-};
-
-export interface NextSessionItem {
-  booking: Booking;
-  dateStr: string;
-}
-
-export const getNextSessionsNext7Days = (
-  bookings: Booking[],
-  courses: Course[],
-  fromDate = new Date(),
-  userId?: string
-): NextSessionItem[] => {
-  const todayStr = toYMD(fromDate);
-
-  const weekDateStrs: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(fromDate);
-    d.setHours(12, 0, 0, 0);
-    d.setDate(d.getDate() + i);
-    weekDateStrs.push(toYMD(d));
-  }
-
-  const activeBookings = bookings.filter(
-    (b) => (!userId || b.userId === userId) && isActiveBooking(b)
-  );
-  const items: NextSessionItem[] = [];
-
-  for (const b of activeBookings) {
-    for (const dateStr of weekDateStrs) {
-      if (isBookingOnDate(b, dateStr, courses)) {
-        if (dateStr === todayStr) {
-          const startTime = parseBookingStartTime(b.time);
-          if (startTime) {
-            const sessionStart = new Date(fromDate);
-            sessionStart.setHours(startTime.h, startTime.m, 0, 0);
-            const durationMs = (b.durationHours || 1) * 3600 * 1000;
-            const sessionEnd = new Date(sessionStart.getTime() + durationMs);
-            if (sessionEnd < fromDate) continue;
-          }
-        }
-        items.push({ booking: b, dateStr });
-      }
-    }
-  }
-
-  const compareTimes = (timeA: string, timeB: string) => {
-    const startA = parseBookingStartTime(timeA);
-    const startB = parseBookingStartTime(timeB);
-    if (startA && startB) {
-      if (startA.h !== startB.h) return startA.h - startB.h;
-      return startA.m - startB.m;
-    }
-    return timeA.localeCompare(timeB);
-  };
-
-  return items.sort((a, b) => {
-    if (a.dateStr !== b.dateStr) return a.dateStr.localeCompare(b.dateStr);
-    return compareTimes(a.booking.time, b.booking.time);
-  });
-};
-
-export const getNextSession = (bookings: Booking[], courses: Course[]): Booking | null => {
-  const upcoming = getNextSessionsNext7Days(bookings, courses);
-  return upcoming[0]?.booking ?? null;
-};
+export {
+  RECOMMENDATION_TODAY_WINDOW_DAYS,
+  formatBookingDayMonth,
+  formatCourseDateRangeLabel,
+  formatRecentLessonDateLabel,
+  getLessonAgeDays,
+  getRecentLessonInstructorLabel,
+  getRecentLessonTitle,
+  isBookingInTodayRecommendationWindow,
+  resolveBookingStartDate,
+} from './studentLessonPresentation';
 
 export const getLevelProgressPercent = (userProfile: UserProfile, skillConfig?: SkillConfig) => {
   const level = userProfile.level || 1;
@@ -1608,45 +1244,6 @@ export const getRecentLessons = (
           pendingRecommendationsCount > 0 ? pendingRecommendationsCount : undefined,
       };
     });
-};
-
-/** True if booking has a session on dateStr (private lesson or multi-day course). */
-export const isBookingOnDate = (booking: Booking, dateStr: string, courses: Course[]) => {
-  if (!booking || booking.isDeleted || booking.status === 'cancelled') return false;
-  if (booking.userId?.startsWith('system_block_')) return false;
-
-  // 1. Direct YYYY-MM-DD match
-  if (booking.date === dateStr) return true;
-
-  // 2. Direct DD.MM.YYYY match
-  if (booking.date) {
-    const parts = booking.date.split('.');
-    if (parts.length === 3) {
-      const ymd = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-      if (ymd === dateStr) return true;
-    }
-  }
-
-  // 3. Course date range check
-  let datesToParse = '';
-  if (booking.instructorId.startsWith('course_')) {
-    const courseId = booking.instructorId.substring('course_'.length);
-    const course = courses.find((c) => c.id === courseId);
-    if (course && course.dates) {
-      datesToParse = course.dates;
-    }
-  }
-
-  if (datesToParse) {
-    const parsed = parseCourseDates(datesToParse);
-    if (parsed && parsed.isValid) {
-      const startStr = toYMD(parsed.start);
-      const endStr = toYMD(parsed.end);
-      return dateStr >= startStr && dateStr <= endStr;
-    }
-  }
-
-  return false;
 };
 
 export type MiniCalendarDay = {

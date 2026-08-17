@@ -1,134 +1,146 @@
 # Graph Report - SkiAcademy_DB  (2026-08-17)
 
 ## Corpus Check
-- 413 files · ~201,910 words
+- 418 files · ~201,969 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2060 nodes · 7088 edges · 122 communities (101 shown, 21 thin omitted)
+- 2070 nodes · 7185 edges · 133 communities (110 shown, 23 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 11 edges (avg confidence: 0.58)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `5e419c81`
+- Built from commit: `aba23286`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- useBookingActions.ts
+- bookingService.ts
 - bookingTransactions.test.ts
-- useBookingsStore
-- bookingTransactions.ts
-- Booking
-- CoursesManager.tsx
+- src/types.ts
+- firestoreMappers.ts
+- bookingSelectors.ts
+- studentCabinetUtils.ts
 - YourJourneySection.tsx
-- useBookingModal.ts
-- achievementConfig.ts
-- ScheduleCalendar.tsx
+- useNotifications
+- studentCabinetPresentation.ts
+- studentLessonPresentation.ts
 - ResortSliderSection.tsx
-- profile/index.ts
-- CourseDetailsModal.tsx
+- useProfileStore
+- settingsStore.ts
 - StudentCoachPanel.tsx
-- handleFirestoreError
+- ErrorLogsPanel.tsx
 - useBookingChatUnread.ts
-- firebase.ts
-- StudentHistoryList.tsx
+- callableTestEnv.ts
+- journeyUtils.ts
 - scripts
 - useLanguage
-- studentCabinetUtils.ts
-- useNotifications
-- achievements.test.ts
-- firestoreMappers.ts
-- useProfileStore
-- StudentCabinetHome.tsx
-- ResortConditionsSidebar.tsx
-- ChatMessage
-- shell/index.ts
-- courseLevelStyles.ts
 - parseCourseDates
+- skillData.ts
+- GroupCourseCard.tsx
+- StudentHistoryList.tsx
+- todayChecklist.ts
+- StudentTodaySection.tsx
+- StudentProfilePersonalSection.tsx
+- ChatMessage
+- firestore.rules.test.ts
+- ScheduleCalendar.tsx
+- pluralize.ts
 - compilerOptions
-- authService.ts
-- notificationService.ts
+- firebase.ts
+- LanguageContext.tsx
+- InstructorBookingCard.tsx
+- notifications/index.ts
 - useInstructorWorkspace.ts
-- slotOverlap.ts
-- trainingStreak.ts
-- PushNotificationHub.tsx
+- notificationsStore.ts
 - extract-coaches-manager.mjs
 - Auth.test.tsx
 - global-setup.ts
 - bookingLogic.ts
-- Instructor
+- phase2CabinetHelpers.test.ts
 - coachPhone.test.ts
+- CourseDetailsModal.tsx
+- useCourseActions.ts
+- StudentCabinetHome.tsx
 - dependencies
 - createBooking.ts
 - compilerOptions
-- StudentProfilePersonalSection.tsx
+- course.ts
+- ModalHost.tsx
 - ErrorBoundary.tsx
 - devDependencies
 - eslint
-- useAuthStore
+- profileStore.ts
 - courseTransactions.ts
-- LanguageContext.tsx
+- OnboardingModal.tsx
+- booking.ts
+- HeroCarousel.tsx
 - BookingChatModal.tsx
 - extract-courses-manager.mjs
-- UserProfile
+- profile/index.ts
 - src/index.ts
 - createBookingWithPayment
 - extract-admin-sections.mjs
-- AppBootstrap.tsx
+- lib/walletLedger.ts
+- chatService.ts
 - README.md
 - chatSenderRole.ts
 - functions/package.json
 - autoComplete.ts
 - package.json
-- useCourseActions.ts
-- skillData.ts
-- lib/walletLedger.ts
+- Navbar.tsx
+- SkillRadarChart.tsx
+- bookings/index.ts
 - createGuestCourseEnrollment.ts
+- createBookingCallable.ts
 - walletCredit.ts
 - patch-admin-return.mjs
-- StudentTodaySection.tsx
-- bookingsStore.ts
-- HeroCarousel.tsx
+- TodayChecklist.tsx
+- achievementConfig.ts
+- uiSelectors.ts
 - adminFirestore.test.ts
 - balanceOptimisticMiddleware.ts
 - eslint-plugin-react-hooks
 - declarations.d.ts
-- OnboardingModal.tsx
+- adminSelectors.ts
 - firestoreRulesGuard.test.ts
 - check-translations.mjs
 - localize-admin-remaining.mjs
 - localize-courses-manager.mjs
 - rebuild-admin-panel.mjs
-- bookingService.ts
+- cancelBookingWithRefund
+- ResortConditionsSidebar.tsx
+- CourseEnrollmentModal.tsx
 - @firebase/rules-unit-testing
+- bookingEndsAt.ts
 - jsdom
 - @playwright/test
 - prettier
-- SystemSettings.tsx
+- bookingTransactions.ts
 - @testing-library/jest-dom
 - @testing-library/react
+- Booking
 - StudentActivityRings.tsx
 - typescript-eslint
-- AdminPanel.tsx
+- CoachesManager.tsx
 - @vitejs/plugin-react
 - vitest
-- src/types.ts
+- notificationService.ts
 - vitest.config.ts
-- useCurrency
+- achievements.test.ts
 - eslint-plugin-react-refresh
 - AGENTS.md
 - tailwindcss
-- logger.ts
+- CurrencyContext.tsx
 
 ## God Nodes (most connected - your core abstractions)
 1. `useLanguage()` - 236 edges
-2. `Booking` - 166 edges
+2. `Booking` - 171 edges
 3. `UserProfile` - 135 edges
-4. `Course` - 129 edges
+4. `Course` - 133 edges
 5. `Instructor` - 101 edges
 6. `useProfileStore` - 57 edges
-7. `TranslationKey` - 49 edges
+7. `TranslationKey` - 50 edges
 8. `useNotifications()` - 46 edges
 9. `logger` - 42 edges
 10. `Review` - 42 edges
@@ -142,173 +154,169 @@
   src/features/admin/components/SkillConfigManager.tsx → src/lib/skillData.ts
 - `AdminRoleManagerProps` --references--> `UserProfile`  [EXTRACTED]
   src/features/admin/components/admin/AdminRoleManager.tsx → src/types/user.ts
-- `CoursesManagerToolbarProps` --references--> `TranslationKey`  [EXTRACTED]
-  src/features/admin/components/admin/courses_manager/CoursesManagerToolbar.tsx → src/lib/i18n/translations.ts
+- `UseCourseFormInput` --references--> `Course`  [EXTRACTED]
+  src/features/admin/components/admin/courses_manager/useCourseForm.ts → src/types/course.ts
 
 ## Import Cycles
 - 3-file cycle: `src/features/shell/index.ts -> src/features/shell/uiStore.ts -> src/hooks/useInstructorFilters.ts -> src/features/shell/index.ts`
 - 4-file cycle: `src/features/shell/ModalHost.tsx -> src/features/shell/uiStore.ts -> src/hooks/useInstructorFilters.ts -> src/features/shell/index.ts -> src/features/shell/ModalHost.tsx`
-- 5-file cycle: `src/features/bookings/components/BookingChatModal.tsx -> src/features/bookings/components/booking_chat/ChatWindow.tsx -> src/features/profile/index.ts -> src/features/profile/components/InstructorWorkspace.tsx -> src/features/bookings/index.ts -> src/features/bookings/components/BookingChatModal.tsx`
-- 5-file cycle: `src/features/profile/components/PersonalCabinet.tsx -> src/features/profile/components/StudentCabinet.tsx -> src/features/profile/components/personal_cabinet/student/StudentCabinetShell.tsx -> src/features/profile/components/personal_cabinet/student/StudentCabinetHome.tsx -> src/features/profile/index.ts -> src/features/profile/components/PersonalCabinet.tsx`
-- 5-file cycle: `src/features/profile/components/PersonalCabinet.tsx -> src/features/profile/components/StudentCabinet.tsx -> src/features/profile/components/personal_cabinet/student/StudentCabinetShell.tsx -> src/features/profile/components/personal_cabinet/student/StudentCabinetPanels.tsx -> src/features/profile/index.ts -> src/features/profile/components/PersonalCabinet.tsx`
-- 5-file cycle: `src/features/profile/components/PersonalCabinet.tsx -> src/features/profile/components/StudentCabinet.tsx -> src/features/profile/components/personal_cabinet/student/StudentCabinetShell.tsx -> src/features/profile/components/personal_cabinet/student/StudentCoachPanel.tsx -> src/features/profile/index.ts -> src/features/profile/components/PersonalCabinet.tsx`
-- 5-file cycle: `src/features/profile/components/PersonalCabinet.tsx -> src/features/profile/components/StudentCabinet.tsx -> src/features/profile/components/personal_cabinet/student/StudentCabinetShell.tsx -> src/features/profile/components/personal_cabinet/student/StudentHistoryPanel.tsx -> src/features/profile/index.ts -> src/features/profile/components/PersonalCabinet.tsx`
 - 5-file cycle: `src/features/notifications/NotificationsPanel.tsx -> src/features/shell/uiStore.ts -> src/hooks/useInstructorFilters.ts -> src/features/shell/index.ts -> src/features/shell/ModalHost.tsx -> src/features/notifications/NotificationsPanel.tsx`
 - 5-file cycle: `src/features/profile/OnboardingFlow.tsx -> src/features/shell/uiStore.ts -> src/hooks/useInstructorFilters.ts -> src/features/shell/index.ts -> src/features/shell/ModalHost.tsx -> src/features/profile/OnboardingFlow.tsx`
+- 5-file cycle: `src/features/profile/components/PersonalCabinet.tsx -> src/features/profile/components/StudentCabinet.tsx -> src/features/profile/components/personal_cabinet/student/StudentCabinetShell.tsx -> src/features/profile/components/personal_cabinet/student/StudentCabinetPanels.tsx -> src/features/profile/index.ts -> src/features/profile/components/PersonalCabinet.tsx`
+- 5-file cycle: `src/features/bookings/components/BookingChatModal.tsx -> src/features/bookings/components/booking_chat/ChatWindow.tsx -> src/features/profile/index.ts -> src/features/profile/components/InstructorWorkspace.tsx -> src/features/bookings/index.ts -> src/features/bookings/components/BookingChatModal.tsx`
+- 5-file cycle: `src/features/profile/components/PersonalCabinet.tsx -> src/features/profile/components/StudentCabinet.tsx -> src/features/profile/components/personal_cabinet/student/StudentCabinetShell.tsx -> src/features/profile/components/personal_cabinet/student/StudentCabinetHome.tsx -> src/features/profile/index.ts -> src/features/profile/components/PersonalCabinet.tsx`
+- 5-file cycle: `src/features/profile/components/PersonalCabinet.tsx -> src/features/profile/components/StudentCabinet.tsx -> src/features/profile/components/personal_cabinet/student/StudentCabinetShell.tsx -> src/features/profile/components/personal_cabinet/student/StudentCoachPanel.tsx -> src/features/profile/index.ts -> src/features/profile/components/PersonalCabinet.tsx`
+- 5-file cycle: `src/features/profile/components/PersonalCabinet.tsx -> src/features/profile/components/StudentCabinet.tsx -> src/features/profile/components/personal_cabinet/student/StudentCabinetShell.tsx -> src/features/profile/components/personal_cabinet/student/StudentHistoryPanel.tsx -> src/features/profile/index.ts -> src/features/profile/components/PersonalCabinet.tsx`
 
-## Communities (122 total, 21 thin omitted)
+## Communities (133 total, 23 thin omitted)
 
-### Community 0 - "useBookingActions.ts"
-Cohesion: 0.16
-Nodes (32): useAdminActions(), addBookingDirect(), addInstructorService(), addReviewService(), cancelBookingService(), completeBookingService(), confirmBookingService(), deleteBookingService() (+24 more)
+### Community 0 - "bookingService.ts"
+Cohesion: 0.12
+Nodes (40): SystemSettings(), useAdminActions(), addBookingDirect(), addInstructorService(), addReviewService(), cancelBookingService(), completeBookingService(), confirmBookingService() (+32 more)
 
 ### Community 1 - "bookingTransactions.test.ts"
-Cohesion: 0.06
-Nodes (69): AVAILABILITY_MIGRATION_SETTING, addHourLocksToBatch(), CALLABLE_INSTRUCTOR_ID, CALLABLE_PROJECT_ID, CALLABLE_USER_EMAIL, CALLABLE_USER_PASSWORD, callableUserProfile(), clearCallableFirestore() (+61 more)
+Cohesion: 0.18
+Nodes (24): CourseEnrollmentError, seedBookings(), seedCourse(), seedCourse(), bookingId, seedLegacyCancelledBooking(), seedProdCourse(), seedProdUser() (+16 more)
 
-### Community 2 - "useBookingsStore"
-Cohesion: 0.22
-Nodes (19): AppShell(), FeaturePageShell(), FeaturePageShellProps, AdminRouteContainer(), AppRoutes(), CabinetRouteContainer(), HomeRouteContainer(), InstructorRouteContainer() (+11 more)
+### Community 2 - "src/types.ts"
+Cohesion: 0.11
+Nodes (22): CourseBasicInfoSection(), CourseBasicInfoSectionProps, CourseForm(), CourseFormProps, CourseInstructorSelection(), CourseInstructorSelectionProps, CourseRichDetailsSection(), CourseRichDetailsSectionProps (+14 more)
 
-### Community 3 - "bookingTransactions.ts"
-Cohesion: 0.19
-Nodes (27): AVAILABILITY_SLOTS_COLLECTION, blocksInstructorAvailability(), isCourseBooking(), BookingSchedule, computeBookingEndsAt(), computeBookingEndsAtIso(), isBookingEligibleForAutoComplete(), withBookingEndsAt() (+19 more)
-
-### Community 4 - "Booking"
-Cohesion: 0.12
-Nodes (44): AchievementsManagerProps, SystemSettingsProps, AdminPanelProps, BookingsState, ChatMessageListProps, BookingModalInput, BookingChatModalProps, NotificationHubModalProps (+36 more)
-
-### Community 5 - "CoursesManager.tsx"
+### Community 3 - "firestoreMappers.ts"
 Cohesion: 0.17
-Nodes (10): CoursesManagerToolbar(), CoursesManagerToolbarProps, CoursesTable(), CoursesManager(), CoursesManagerProps, CoursesManager, buildClonedCourse(), mockAddNotification (+2 more)
+Nodes (16): useBookingStore, useBookingsSync(), useCoursesSync(), DomainModel, FirestoreModel, toActivityLog(), toBooking(), toCourse() (+8 more)
+
+### Community 5 - "studentCabinetUtils.ts"
+Cohesion: 0.10
+Nodes (23): isProfileTab(), PROFILE_TABS, resolveStudentBottomNavTab(), getSwipeNeighborSequence(), Achievement, BookingListScope, formatActivityTimestamp(), getMiniCalendarDays() (+15 more)
 
 ### Community 6 - "YourJourneySection.tsx"
-Cohesion: 0.07
-Nodes (50): AchievementGrid(), CABINET_JOURNEY_MIN_SKILLS_BLOCK_PX, EQUAL_MARKER_STOPS, JOURNEY_BG, JOURNEY_LEVELS, LEVEL_MARKER_X, LEVEL_MARKER_Y, LEVEL_PATH_BEND (+42 more)
+Cohesion: 0.14
+Nodes (22): AchievementGrid(), EQUAL_MARKER_STOPS, JOURNEY_BG, JOURNEY_LEVELS, LEVEL_MARKER_X, LEVEL_MARKER_Y, LEVEL_PATH_BEND, SUMMARY_STATS (+14 more)
 
-### Community 7 - "useBookingModal.ts"
+### Community 7 - "useNotifications"
+Cohesion: 0.15
+Nodes (25): useAvailabilityMigrationSync(), createGuestBookingService(), getInstructorAvailabilitySlots(), BookingAuthShell(), BookingAuthShellProps, BookingModalHeader(), GuestBookingForm(), GuestBookingFormProps (+17 more)
+
+### Community 8 - "studentCabinetPresentation.ts"
 Cohesion: 0.18
-Nodes (20): createGuestBookingService(), getInstructorAvailabilitySlots(), AuthBookingFormProps, AuthModeSliderSwitch(), AuthModeSliderSwitchProps, BookingAuthShell(), BookingAuthShellProps, GuestBookingForm() (+12 more)
+Nodes (13): StudentCabinetHome(), getFirstName(), getGreeting(), getLevelName(), isTimestampOnLocalDate(), LEVEL_LABEL_EN, LEVEL_LABEL_RU, LEVEL_NAMES_EN (+5 more)
 
-### Community 8 - "achievementConfig.ts"
-Cohesion: 0.20
-Nodes (23): applySkillDeltas(), bookingTimestamp(), countExercisesMastered(), evaluateEarnedAchievements(), findCourseGraduateTimestamp(), findExercisesMasteredTimestamp(), findFeedbackTimestamp(), findHomeworkDoneTimestamp() (+15 more)
-
-### Community 9 - "ScheduleCalendar.tsx"
-Cohesion: 0.11
-Nodes (25): CoachesManager(), CoachesManagerProps, ScheduleCalendarProps, ScheduleInstructorCell(), AvailableDurationsOptions, AvailableMoveTimesOptions, getAvailableMoveTimeSlots(), getAvailableScheduleDurations() (+17 more)
+### Community 9 - "studentLessonPresentation.ts"
+Cohesion: 0.23
+Nodes (15): BookingSelectors(), LessonDetailsModal(), getHistoryEvents(), getLegacyHistoryEvents(), formatBookingDayMonth(), formatCourseDateRangeLabel(), formatRecentLessonDateLabel(), getCourse() (+7 more)
 
 ### Community 10 - "ResortSliderSection.tsx"
 Cohesion: 0.20
 Nodes (14): ResortDataSection(), ResortSliderSection(), getResortWeatherCache(), resortCacheRef, resortConfigRef, ResortWeatherCache, saveResortConfig(), saveResortWeatherCache() (+6 more)
 
-### Community 11 - "profile/index.ts"
-Cohesion: 0.08
-Nodes (25): AdminPanel, PersonalCabinet, InstructorWorkspace, AdminPanel(), AuthModal(), PaymentGateway(), GroupCoursesSection(), LessonFilters() (+17 more)
-
-### Community 12 - "CourseDetailsModal.tsx"
+### Community 11 - "useProfileStore"
 Cohesion: 0.22
-Nodes (9): CourseProgramStep, CourseEnrollAction(), CourseEnrollActionProps, CourseHeader(), CourseHeaderProps, CourseProgram(), CourseProgramProps, CourseDetailsModalProps (+1 more)
+Nodes (22): AppShell(), FeaturePageShell(), FeaturePageShellProps, AdminRouteContainer(), AppRoutes(), CabinetRouteContainer(), HomeRouteContainer(), InstructorRouteContainer() (+14 more)
+
+### Community 12 - "settingsStore.ts"
+Cohesion: 0.13
+Nodes (22): useNotificationsSync(), saveAchievementsConfig(), saveDesignTheme(), saveFiltersEnabled(), saveNotificationRetentionDays(), saveOnboardingEnabled(), saveSkillConfig(), useSettingsSync() (+14 more)
 
 ### Community 13 - "StudentCoachPanel.tsx"
-Cohesion: 0.11
-Nodes (36): BookInstructorPickerModal(), findBookingForMessage(), formatMessageTimestamp(), getInstructorEvaluatedSkillIds(), getInstructorHomeworkMessages(), getInstructorLastLessonDate(), getInstructorLessonCount(), getInstructorMessageThreadIds() (+28 more)
+Cohesion: 0.15
+Nodes (27): findBookingForMessage(), formatMessageTimestamp(), getInstructorEvaluatedSkillIds(), getInstructorHomeworkMessages(), getInstructorLastLessonDate(), getInstructorLessonCount(), getInstructorMessageThreadIds(), getInstructorRecommendations() (+19 more)
 
-### Community 14 - "handleFirestoreError"
-Cohesion: 0.18
-Nodes (14): deleteErrorLog(), deleteErrorLogs(), subscribeErrorLogs(), ErrorLogsPanel(), ErrorLogsPanelProps, useCoursesSync(), handleFirestoreError(), QUERY_LIMITS (+6 more)
+### Community 14 - "ErrorLogsPanel.tsx"
+Cohesion: 0.27
+Nodes (10): deleteErrorLog(), deleteErrorLogs(), subscribeErrorLogs(), ErrorLogsPanel(), ErrorLogsPanelProps, ErrorLogsPanel, ErrorLog, ActionButton() (+2 more)
 
 ### Community 15 - "useBookingChatUnread.ts"
-Cohesion: 0.24
-Nodes (14): getChatLastReadAt(), markChatReadAt(), seedChatReadAt(), CourseChatBooking, getCourseChatThreadIds(), resolveChatId(), buildWatchPlanKey(), collectMessagesForPlan() (+6 more)
+Cohesion: 0.25
+Nodes (13): getChatLastReadAt(), markChatReadAt(), seedChatReadAt(), getCourseChatThreadIds(), resolveChatId(), buildWatchPlanKey(), collectMessagesForPlan(), hasUnreadMessages() (+5 more)
 
-### Community 16 - "firebase.ts"
-Cohesion: 0.15
-Nodes (14): CourseEnrollmentModal(), createGuestCourseEnrollment, createGuestCourseEnrollmentViaCallable(), GuestCourseEnrollmentInput, GuestCourseEnrollmentResult, app, auth, ErrorListener (+6 more)
+### Community 16 - "callableTestEnv.ts"
+Cohesion: 0.10
+Nodes (37): CALLABLE_INSTRUCTOR_ID, CALLABLE_PROJECT_ID, CALLABLE_USER_EMAIL, CALLABLE_USER_PASSWORD, callableUserProfile(), clearCallableFirestore(), ensureCallableSignedInUser(), getCallableAuth() (+29 more)
 
-### Community 17 - "StudentHistoryList.tsx"
-Cohesion: 0.27
-Nodes (10): filterHistoryEvents(), getHistoryEventPrefix, groupHistoryByMonth(), HistoryEvent, HistoryEventAction, HistoryFilter, FILTER_LABEL_KEYS, HISTORY_FILTERS (+2 more)
+### Community 17 - "journeyUtils.ts"
+Cohesion: 0.21
+Nodes (18): CABINET_JOURNEY_MIN_SKILLS_BLOCK_PX, JourneyPath(), buildWavyPath(), createPathSampler(), getFirstUnlockedJourneyLevelId(), getJourneyLevelUpZones(), getJourneyPathProgress(), getLevelUpZoneStartRatio() (+10 more)
 
 ### Community 18 - "scripts"
 Cohesion: 0.07
 Nodes (27): scripts, build, build:functions, deploy:functions, deploy:rules, dev, emulators:firestore, format (+19 more)
 
 ### Community 19 - "useLanguage"
-Cohesion: 0.09
-Nodes (37): ChatUnreadIndicator(), ChatUnreadIndicatorProps, StudentBookNextFab(), StudentBookNextFabProps, isProfileTab(), PROFILE_TABS, resolveStudentBottomNavTab(), StudentCalendarPanel() (+29 more)
-
-### Community 20 - "studentCabinetUtils.ts"
 Cohesion: 0.07
-Nodes (56): StudentCabinetHome(), StudentCoursesPanel(), getFirstName(), getGreeting(), getLevelName(), LEVEL_LABEL_EN, LEVEL_LABEL_RU, LEVEL_NAMES_EN (+48 more)
+Nodes (54): BookingsPanel(), InstructorReviewsModal(), StudentBookNextFab(), StudentBookNextFabProps, StudentCabinetTab, StudentCalendarPanel(), StudentCoursesPanel(), StudentTrainingPanel() (+46 more)
 
-### Community 21 - "useNotifications"
-Cohesion: 0.23
-Nodes (10): App(), AdminRoleManager(), AdminRoleManagerProps, ClientsManager(), NotificationProvider(), useNotifications(), PersonalCabinet(), useReviewFlow() (+2 more)
-
-### Community 22 - "achievements.test.ts"
-Cohesion: 0.13
-Nodes (17): AchievementsManager(), createEmptyAchievement(), RULE_TYPE_OPTIONS, AchievementDefinition, AchievementRule, AchievementRuleType, DEFAULT_ACHIEVEMENTS_CONFIG, describeAchievementRule() (+9 more)
-
-### Community 23 - "firestoreMappers.ts"
-Cohesion: 0.27
-Nodes (12): useBookingsSync(), DomainModel, FirestoreModel, toActivityLog(), toBooking(), toCourse(), toDocumentModel(), toInstructor() (+4 more)
-
-### Community 24 - "useProfileStore"
+### Community 20 - "parseCourseDates"
 Cohesion: 0.20
-Nodes (21): NotificationsPanel(), addUserService(), deleteUserService(), dismissReviewService(), updateUserDataWithLedgerService(), updateUserProfileService(), updateUserRoleService(), ProfileState (+13 more)
+Nodes (24): BookingTime, buildLocalDateTime(), getCourseSchedule(), isBookingCurrentBySchedule(), isBookingOnDate(), isBookingPastBySchedule(), isBookingUpcomingBySchedule(), parseBookingEndTime() (+16 more)
 
-### Community 25 - "StudentCabinetHome.tsx"
-Cohesion: 0.10
-Nodes (34): ChatWindow(), ChatWindowProps, ClientBookingsList(), LIST_SCOPE_FILTERS, LIST_SCOPE_LABEL_KEYS, RecommendationIndicator(), RecommendationIndicatorProps, HistoryLessonCard() (+26 more)
+### Community 21 - "skillData.ts"
+Cohesion: 0.15
+Nodes (21): SkillConfigManager(), SkillConfigManagerProps, RadarDimension, getSectionProgress(), StudentSkillEvaluationModal(), StudentSkillEvaluationModalProps, calculateStudentLevel(), classifySkillItemToRadarDimension() (+13 more)
 
-### Community 26 - "ResortConditionsSidebar.tsx"
-Cohesion: 0.29
-Nodes (6): ResortConditionsSidebar(), ResortConditionsSidebarProps, getWeatherConditionKey(), ResortConfig, AnimatedNumber(), AnimatedNumberProps
+### Community 22 - "GroupCourseCard.tsx"
+Cohesion: 0.11
+Nodes (24): CoursesTable(), CourseTableRow(), CourseHeader(), CourseHeaderProps, formatCourseCardDate(), GroupCourseCard(), adminBadgeClass, cardTextClass (+16 more)
+
+### Community 23 - "StudentHistoryList.tsx"
+Cohesion: 0.19
+Nodes (12): filterHistoryEvents(), getHistoryEventPrefix, groupHistoryByMonth(), HistoryEvent, HistoryFilter, FILTER_LABEL_KEYS, HISTORY_FILTERS, StudentHistoryList() (+4 more)
+
+### Community 24 - "todayChecklist.ts"
+Cohesion: 0.21
+Nodes (15): getTodayTasks(), buildAddCustomTodayTaskUpdate(), buildPinSkillsTodayUpdate(), buildRemoveTodayTaskUpdate(), buildToggleSkillTodayUpdate(), buildToggleTodayCompleteUpdate(), createCustomTodayTaskId(), customTodayTaskId() (+7 more)
+
+### Community 25 - "StudentTodaySection.tsx"
+Cohesion: 0.13
+Nodes (33): ClientBookingsList(), LIST_SCOPE_FILTERS, LIST_SCOPE_LABEL_KEYS, RecommendationIndicator(), RecommendationIndicatorProps, HistoryLessonCard(), ScDivider(), ScTextButton() (+25 more)
+
+### Community 26 - "StudentProfilePersonalSection.tsx"
+Cohesion: 0.09
+Nodes (22): CoachesManager(), CourseBackgroundImageField(), CourseBackgroundImageFieldProps, optimizeCourseImage(), optimizeProfileImage(), ProfileSettings(), ProfileSettingsProps, SkillProgressSummary (+14 more)
 
 ### Community 27 - "ChatMessage"
 Cohesion: 0.43
 Nodes (4): buildHomeworkForUserIds(), isHomeworkVisibleToStudent(), ChatMessage, GROUP_UIDS
 
-### Community 28 - "shell/index.ts"
-Cohesion: 0.20
-Nodes (13): Navbar(), StudentCabinetShell(), AdminRoute(), AuthRoute(), InstructorRoute(), RouteGate(), RouteGateProps, RouteGateRole (+5 more)
+### Community 28 - "firestore.rules.test.ts"
+Cohesion: 0.26
+Nodes (8): addHourLocksToBatch(), buildCourseEnrollmentBooking(), buildProdCourseSeed(), PROD_COURSE_ID, PROD_USER_ID, prodBookingId(), prodInstructorId(), RulesBookingSeed
 
-### Community 29 - "courseLevelStyles.ts"
-Cohesion: 0.07
-Nodes (38): Logo(), LogoProps, NavbarProps, CalendarDayCell, getDaysInMonth(), CourseDateRangePicker(), CourseDateRangePickerProps, CourseBasicInfoSection() (+30 more)
+### Community 29 - "ScheduleCalendar.tsx"
+Cohesion: 0.14
+Nodes (21): ActiveSlotCreateForm(), ActiveSlotDetails(), ActiveSlotMoveForm(), ScheduleCalendar(), getAvailableMoveTimeSlots(), getAvailableScheduleDurations(), hasScheduleOverlap(), SCHEDULE_CLOSING_TIME_MINUTES (+13 more)
 
-### Community 30 - "parseCourseDates"
-Cohesion: 0.13
-Nodes (28): ActiveSlotDetails(), ScheduleCalendar(), LessonDetailsModal(), LessonRecommendationsList(), LessonRecommendationsListProps, countPendingRecommendations(), formatActivityTimestamp(), formatBookingDayMonth() (+20 more)
+### Community 30 - "pluralize.ts"
+Cohesion: 0.31
+Nodes (8): NextStepAction, StudentNextStepCard(), StudentNextStepCardProps, TrainingStreak(), formatPointsCount(), formatPointsGain(), pointsWord(), russianPlural()
 
 ### Community 31 - "compilerOptions"
 Cohesion: 0.09
 Nodes (21): DOM, DOM.Iterable, ES2022, compilerOptions, allowImportingTsExtensions, isolatedModules, jsx, lib (+13 more)
 
-### Community 32 - "authService.ts"
-Cohesion: 0.35
-Nodes (11): getUserProfileService(), migrateExistingProfileService(), requestPasswordResetService(), saveUserProfileService(), signInWithEmailService(), signInWithGoogleService(), signUpWithEmailService(), Auth() (+3 more)
+### Community 32 - "firebase.ts"
+Cohesion: 0.14
+Nodes (23): getUserProfileService(), migrateExistingProfileService(), requestPasswordResetService(), saveUserProfileService(), signInWithEmailService(), signInWithGoogleService(), signOutService(), signUpWithEmailService() (+15 more)
 
-### Community 33 - "notificationService.ts"
-Cohesion: 0.80
-Nodes (4): clearNotificationsService(), deleteNotificationService(), markNotificationsAsReadService(), useNotificationActions()
+### Community 33 - "LanguageContext.tsx"
+Cohesion: 0.14
+Nodes (21): CoursesManagerToolbar(), CoursesManagerToolbarProps, ScheduleInstructorCellProps, ScheduleToolbarProps, LocalizedCompressionError, BookingModalHeaderProps, BookingOverlapWarningsProps, BookingSelectorsProps (+13 more)
 
-### Community 34 - "useInstructorWorkspace.ts"
-Cohesion: 0.06
-Nodes (46): saveBookingRecommendationsService(), CourseEnrichedData, CourseFaqItem, CourseReview, getCourseEnrichedData(), CourseFAQ(), CourseFAQProps, CourseDetailsModal() (+38 more)
+### Community 34 - "InstructorBookingCard.tsx"
+Cohesion: 0.13
+Nodes (18): ChatUnreadIndicator(), ChatUnreadIndicatorProps, InstructorBookingCard(), InstructorBookingCardProps, InstructorRecommendationsEditor(), InstructorRecommendationsEditorProps, StudentAssessButton(), StudentAssessButtonProps (+10 more)
 
-### Community 35 - "slotOverlap.ts"
-Cohesion: 0.36
-Nodes (5): AVAILABILITY_HOUR_LOCKS_COLLECTION, buildHourLockId(), hasOverlappingAvailabilitySlot(), SlotInterval, slotsOverlap()
+### Community 35 - "notifications/index.ts"
+Cohesion: 0.22
+Nodes (8): App(), Notification, NotificationContext, NotificationContextType, NotificationHubModal(), NotificationProvider(), StateCard(), StateCardProps
 
-### Community 36 - "trainingStreak.ts"
-Cohesion: 0.80
-Nodes (4): collectTrainingWeekTimestamps(), findStreakWeeksTimestamp(), getTrainingStreakWeeks(), toIsoWeekKey()
-
-### Community 37 - "PushNotificationHub.tsx"
+### Community 36 - "useInstructorWorkspace.ts"
 Cohesion: 0.15
-Nodes (17): useDbNotifications(), useUnreadNotificationCount(), useNotificationsStore, Notification, NotificationContext, NotificationContextType, NotificationHubModal(), useNotificationsSync() (+9 more)
+Nodes (19): ActiveSlotCreateFormProps, saveBookingRecommendationsService(), updateBookingStatusService(), InstructorBookingList(), InstructorBookingListProps, InstructorDashboardHeader(), InstructorDashboardHeaderProps, InstructorReviews() (+11 more)
+
+### Community 37 - "notificationsStore.ts"
+Cohesion: 0.26
+Nodes (6): useDbNotifications(), useUnreadNotificationCount(), useNotificationsStore, NotificationsState, DbNotification, StoredNotificationFields
 
 ### Community 38 - "extract-coaches-manager.mjs"
 Cohesion: 0.11
@@ -326,13 +334,25 @@ Nodes (15): fillBookingSelectors(), loadRuntimeConfig(), openGuestBookingModal()
 Cohesion: 0.21
 Nodes (17): assertNoSlotOverlap(), AvailabilitySlot, blocksInstructorAvailability(), BookingPaymentResult, BookingRecord, buildHourLockId(), buildHourLockIds(), computeBookingEndsAtIso() (+9 more)
 
-### Community 42 - "Instructor"
-Cohesion: 0.11
-Nodes (13): ClientsManagerProps, ActiveSlotMoveForm(), ActiveSlotMoveFormProps, BookingModalHeader(), BookingModalHeaderProps, BookingModalProps, BookingCallCoachButtonProps, ModalState (+5 more)
+### Community 42 - "phase2CabinetHelpers.test.ts"
+Cohesion: 0.21
+Nodes (11): BookInstructorPickerModal(), StudentInstructorsPanel(), getInstructorPickerGroups(), getInstructorsForStudent(), getMyInstructors(), getRecommendedCourses(), getRecommendedInstructors(), resolveNextLessonBookingTarget() (+3 more)
 
 ### Community 43 - "coachPhone.test.ts"
-Cohesion: 0.40
-Nodes (4): normalizeTelHref(), resolveBookingCoachPhone(), resolveInstructorPhone(), usersList
+Cohesion: 0.38
+Nodes (5): BookingCallCoachButton(), normalizeTelHref(), resolveBookingCoachPhone(), resolveInstructorPhone(), usersList
+
+### Community 44 - "CourseDetailsModal.tsx"
+Cohesion: 0.23
+Nodes (11): CourseEnrichedData, CourseFaqItem, CourseProgramStep, CourseReview, getCourseEnrichedData(), CourseFAQ(), CourseFAQProps, CourseGallery() (+3 more)
+
+### Community 45 - "useCourseActions.ts"
+Cohesion: 0.15
+Nodes (16): getCurrentAuthenticatedUser(), addCourseService(), deleteCourseService(), enrollInCourseService(), notifyCourseModifiedService(), updateCourseService(), buildClonedCourse(), stripUndefinedFields() (+8 more)
+
+### Community 46 - "StudentCabinetHome.tsx"
+Cohesion: 0.15
+Nodes (29): AchievementsManagerProps, SystemSettingsProps, InstructorReviewsModalProps, SkillRadarChartProps, StudentCabinetContext, StudentCabinetHomeProps, StudentCabinetShellProps, ScTintCard() (+21 more)
 
 ### Community 47 - "dependencies"
 Cohesion: 0.12
@@ -346,9 +366,13 @@ Nodes (14): BookingSlotOverlapError, BookingStatus, InsufficientFundsError, Less
 Cohesion: 0.12
 Nodes (16): compileOnSave, compilerOptions, esModuleInterop, module, noImplicitReturns, noUnusedLocals, outDir, rootDir (+8 more)
 
-### Community 51 - "StudentProfilePersonalSection.tsx"
-Cohesion: 0.07
-Nodes (28): CourseBackgroundImageField(), CourseBackgroundImageFieldProps, optimizeCourseImage(), PersonalCabinetModals(), optimizeProfileImage(), ProfileSettings(), ProfileSettingsProps, SkillProgressSummary (+20 more)
+### Community 50 - "course.ts"
+Cohesion: 0.12
+Nodes (16): AdminCollapsibleSection(), AdminCollapsibleSectionProps, AdminRoleManager(), AdminRoleManagerProps, ClientsManager(), AdminRoleManager, ClientsManager, SystemSettings (+8 more)
+
+### Community 51 - "ModalHost.tsx"
+Cohesion: 0.14
+Nodes (12): sortVisibleCourses(), GroupCoursesSection(), LessonFilters(), LessonFiltersProps, CoursesState, useCourseStore, OnboardingFlow(), OnboardingFlowProps (+4 more)
 
 ### Community 52 - "ErrorBoundary.tsx"
 Cohesion: 0.20
@@ -358,29 +382,37 @@ Nodes (8): ErrorBoundary, ErrorBoundaryProps, ErrorBoundaryState, logErrorBounda
 Cohesion: 0.06
 Nodes (31): eslint-config-prettier, @eslint/js, eslint-plugin-jsx-a11y, eslint-plugin-prettier, eslint-plugin-react, firebase-tools, globals, devDependencies (+23 more)
 
-### Community 55 - "useAuthStore"
-Cohesion: 0.18
-Nodes (15): signOutService(), AuthState, useAuthStore, useSessionSync(), useCurrentUserProfileSync(), useProfileActivitySync(), useUsersSync(), useSettingsSync() (+7 more)
+### Community 55 - "profileStore.ts"
+Cohesion: 0.10
+Nodes (31): AppBootstrap(), AppBootstrapProps, AuthState, useAuthStore, useSessionSync(), CourseGalleryProps, addUserService(), deleteUserService() (+23 more)
 
 ### Community 56 - "courseTransactions.ts"
-Cohesion: 0.15
-Nodes (24): formatCourseCardDate(), GroupCourseCard(), CourseEnrollmentError, enrollInCourse(), getGroupCourseEnrollmentNote(), getGroupCourseLabel(), getHourSuffix(), STATUS_LABELS (+16 more)
+Cohesion: 0.23
+Nodes (17): enrollInCourse(), getGroupCourseEnrollmentNote(), getGroupCourseLabel(), STATUS_LABELS, getGroupScheduleLabel(), MONTHS_EN, MONTHS_RU, MONTHS_SHORT_EN (+9 more)
 
-### Community 58 - "LanguageContext.tsx"
-Cohesion: 0.10
-Nodes (23): AuthModalProps, CourseEnrollmentModalProps, InstructorReviewsModal(), InstructorReviewsModalProps, ConfirmActionModal(), ConfirmActionModalProps, LevelUpModal(), LevelUpModalProps (+15 more)
+### Community 57 - "OnboardingModal.tsx"
+Cohesion: 0.18
+Nodes (11): BAR_ROWS, BAR_TRACK, Camera, cameraToStyle(), getLevelSrc(), IMG, LEVEL_BADGE, OnboardingModal() (+3 more)
+
+### Community 58 - "booking.ts"
+Cohesion: 0.08
+Nodes (27): AuthModal(), AuthModalProps, ChatWindow(), ChatWindowProps, ConfirmActionModal(), ConfirmActionModalProps, LessonRecommendationsList(), LessonRecommendationsListProps (+19 more)
+
+### Community 59 - "HeroCarousel.tsx"
+Cohesion: 0.20
+Nodes (12): buildBackgroundImage(), HERO_SCRIM, HeroCarousel(), HeroCarouselProps, resolveSlideBackground(), shuffleSlides(), AdminPanel, FALLBACK_SLIDES (+4 more)
 
 ### Community 60 - "BookingChatModal.tsx"
-Cohesion: 0.14
-Nodes (21): AttachmentType, compressImage(), compressVideo(), formatCompressionError(), PendingAttachment, ChatInput(), ChatInputProps, ChatMessageRow (+13 more)
+Cohesion: 0.16
+Nodes (16): AttachmentType, compressImage(), compressVideo(), formatCompressionError(), PendingAttachment, ChatInput(), ChatInputProps, ChatMessageRow (+8 more)
 
 ### Community 61 - "extract-courses-manager.mjs"
 Cohesion: 0.17
 Nodes (11): adminLines, clientsEnd, handlers, helpers, indentedBody, indentedJsx, insertAt, jsx (+3 more)
 
-### Community 62 - "UserProfile"
-Cohesion: 0.14
-Nodes (20): CoursesTableProps, CourseTableRow(), CourseTableRowProps, ActiveSlotDetailsProps, ScheduleInstructorCellProps, ScheduleToolbar(), ScheduleToolbarProps, ScheduleViewMode (+12 more)
+### Community 62 - "profile/index.ts"
+Cohesion: 0.19
+Nodes (9): PersonalCabinet, InstructorWorkspace, InstructorCard, InstructorReviewsModal, LazyLoad(), LazyLoadProps, CardSkeleton(), Skeleton() (+1 more)
 
 ### Community 63 - "src/index.ts"
 Cohesion: 0.35
@@ -394,17 +426,21 @@ Nodes (9): createBookingWithPayment(), EnrollCourseInput, enrollInCourseHandler(
 Cohesion: 0.18
 Nodes (9): bookingsJsx, bookingsLogic, clientsJsx, clientsState, lines, newAdmin, partAfterClients, partBeforeBookings (+1 more)
 
-### Community 66 - "AppBootstrap.tsx"
-Cohesion: 0.11
-Nodes (17): AppBootstrap(), AppBootstrapProps, useAchievementsSync(), TODO: реализовать применение кредита в Firestore, useWalletStore, syncAchievementActivityLogs(), applyDesignThemeToDOM(), registerFirestoreErrorListener() (+9 more)
+### Community 66 - "lib/walletLedger.ts"
+Cohesion: 0.08
+Nodes (34): BookingsLog(), shortenBookingId(), LinkGuestBookingModal(), BookingsLog, PaymentGatewayProps, formatBookingCreatedAt(), inferBookingCreatedAtFromId(), resolveBookingCreatedAt() (+26 more)
+
+### Community 67 - "chatService.ts"
+Cohesion: 0.44
+Nodes (6): createChatMessage(), messagesPath(), setChatMessageHomework(), subscribeToChatMessages(), InstructorMessage, useInstructorBookingMessages()
 
 ### Community 68 - "README.md"
 Cohesion: 0.13
 Nodes (14): CI, Безопасность кошелька, Быстрый старт, Демо-аккаунты, Для администраторов, Для инструкторов, Для клиентов, Ключевые возможности (+6 more)
 
 ### Community 69 - "chatSenderRole.ts"
-Cohesion: 0.19
-Nodes (13): ChatMessageList(), ChatSenderRole, getCourseInstructorIds(), getLessonInstructorId(), matchesInstructorProfiles(), namesMatch(), normalizeName(), resolveChatSenderRole() (+5 more)
+Cohesion: 0.17
+Nodes (15): ChatMessageList(), ChatSenderRole, getCourseInstructorIds(), getLessonInstructorId(), matchesInstructorProfiles(), namesMatch(), normalizeName(), resolveChatSenderRole() (+7 more)
 
 ### Community 70 - "functions/package.json"
 Cohesion: 0.12
@@ -418,21 +454,25 @@ Nodes (8): autoCompletePastBookings(), BookingRecord, completeBooking(), isActiv
 Cohesion: 0.22
 Nodes (8): engines, node, name, overrides, universal-analytics, private, type, version
 
-### Community 73 - "useCourseActions.ts"
-Cohesion: 0.29
-Nodes (12): getCurrentAuthenticatedUser(), addCourseService(), deleteCourseService(), enrollInCourseService(), notifyCourseModifiedService(), updateCourseService(), useCourseActions(), stripUndefinedFields() (+4 more)
+### Community 73 - "Navbar.tsx"
+Cohesion: 0.16
+Nodes (16): Logo(), LogoProps, Navbar(), NavbarProps, StudentCabinetShell(), AdminRoute(), AuthRoute(), InstructorRoute() (+8 more)
 
-### Community 74 - "skillData.ts"
-Cohesion: 0.09
-Nodes (43): SkillConfigManager(), SkillConfigManagerProps, ClientSkillProgressView(), ClientSkillProgressViewProps, APPLE, DIMENSION_CONFIGS, easeOutCubic(), RadarDimension (+35 more)
+### Community 74 - "SkillRadarChart.tsx"
+Cohesion: 0.16
+Nodes (18): ClientSkillProgressView(), ClientSkillProgressViewProps, APPLE, DIMENSION_CONFIGS, easeOutCubic(), RadarDimensionFilter, SkillRadarChart(), getLevelLabel() (+10 more)
 
-### Community 75 - "lib/walletLedger.ts"
-Cohesion: 0.14
-Nodes (21): PaymentGatewayProps, formatBookingCreatedAt(), inferBookingCreatedAtFromId(), resolveBookingCreatedAt(), withBookingCreatedAt(), buildSyntheticWalletOperations(), buildWalletOperationHistory(), enrichWalletOperationWithBooking() (+13 more)
+### Community 75 - "bookings/index.ts"
+Cohesion: 0.32
+Nodes (5): AuthModeSliderSwitch(), AuthModeSliderSwitchProps, PaymentGateway(), BookingChatModal, BookingModal
 
 ### Community 76 - "createGuestCourseEnrollment.ts"
 Cohesion: 0.43
 Nodes (6): CourseRecord, createGuestCourseEnrollmentHandler(), GuestCourseEnrollmentInput, optionalText(), parseInput(), requireText()
+
+### Community 77 - "createBookingCallable.ts"
+Cohesion: 0.36
+Nodes (7): BookingPaymentResult, CreateBookingCallableInput, CreateBookingCallableResult, createBookingFn, createBookingViaCallable(), mapCallableError(), toCallableInput()
 
 ### Community 78 - "walletCredit.ts"
 Cohesion: 0.30
@@ -442,13 +482,17 @@ Nodes (13): adminBalanceAdjustmentDelta(), applyPendingWalletCredit(), applyWall
 Cohesion: 0.33
 Nodes (5): coursesStart, instructorsSection, lines, newLines, start
 
-### Community 80 - "StudentTodaySection.tsx"
-Cohesion: 0.13
-Nodes (20): BookingCallCoachButton(), isTimestampOnLocalDate(), parseActivityTimestamp(), formatCountdownRemaining(), getTodayAchievements(), MiniCalendarDay, NextSessionItem, NextStepAction (+12 more)
+### Community 80 - "TodayChecklist.tsx"
+Cohesion: 0.39
+Nodes (7): TodayTask, TodayTaskBookingContext, groupRecommendationTasks(), TodayChecklist(), TodayChecklistProps, toTaskRef(), TodayTaskRef
 
-### Community 82 - "HeroCarousel.tsx"
-Cohesion: 0.29
-Nodes (9): buildBackgroundImage(), HERO_SCRIM, HeroCarousel(), HeroCarouselProps, resolveSlideBackground(), shuffleSlides(), FALLBACK_SLIDES, Theme (+1 more)
+### Community 81 - "achievementConfig.ts"
+Cohesion: 0.09
+Nodes (47): AchievementsManager(), createEmptyAchievement(), RULE_TYPE_OPTIONS, getAchievements(), AchievementDefinition, AchievementRule, AchievementRuleType, applySkillDeltas() (+39 more)
+
+### Community 82 - "uiSelectors.ts"
+Cohesion: 0.19
+Nodes (3): UiState, InstructorSortBy, InstructorSpecialty
 
 ### Community 83 - "adminFirestore.test.ts"
 Cohesion: 0.40
@@ -458,61 +502,69 @@ Nodes (4): ADMIN_FIRESTORE_PATH, mockGetApp, mockGetFirestore, mockInitializeApp
 Cohesion: 0.50
 Nodes (3): *.jpg, *.png, *.svg
 
-### Community 87 - "OnboardingModal.tsx"
-Cohesion: 0.18
-Nodes (11): BAR_ROWS, BAR_TRACK, Camera, cameraToStyle(), getLevelSrc(), IMG, LEVEL_BADGE, OnboardingModal() (+3 more)
-
 ### Community 88 - "firestoreRulesGuard.test.ts"
 Cohesion: 0.50
 Nodes (3): RULES_PATH, rulesSource, UNSUPPORTED_RULES_PATTERNS
 
-### Community 96 - "bookingService.ts"
-Cohesion: 0.22
-Nodes (12): createBookingForUser(), updateBookingStatusService(), BookingPaymentResult, BookingSlotOverlapError, CreateBookingCallableInput, CreateBookingCallableResult, createBookingFn, createBookingViaCallable() (+4 more)
+### Community 93 - "cancelBookingWithRefund"
+Cohesion: 0.39
+Nodes (5): cancelBookingWithRefund(), finalizeBookingCompletion(), isActiveCourseEnrollment(), releaseCourseSeatInTransaction(), resolveCourseIdFromBooking()
 
-### Community 103 - "SystemSettings.tsx"
-Cohesion: 0.17
-Nodes (16): AdminCollapsibleSection(), AdminCollapsibleSectionProps, SystemSettings(), saveAchievementsConfig(), saveDesignTheme(), saveFiltersEnabled(), saveNotificationRetentionDays(), saveOnboardingEnabled() (+8 more)
+### Community 95 - "ResortConditionsSidebar.tsx"
+Cohesion: 0.33
+Nodes (6): ResortConditionsSidebar(), ResortConditionsSidebarProps, getWeatherConditionKey(), ResortConfig, AnimatedNumber(), AnimatedNumberProps
+
+### Community 96 - "CourseEnrollmentModal.tsx"
+Cohesion: 0.43
+Nodes (5): CourseEnrollmentModal(), createGuestCourseEnrollment, createGuestCourseEnrollmentViaCallable(), GuestCourseEnrollmentInput, GuestCourseEnrollmentResult
+
+### Community 99 - "bookingEndsAt.ts"
+Cohesion: 0.42
+Nodes (7): BookingSchedule, computeBookingEndsAt(), computeBookingEndsAtIso(), isBookingEligibleForAutoComplete(), withBookingEndsAt(), parseCourseEndDateTime(), baseLesson
+
+### Community 103 - "bookingTransactions.ts"
+Cohesion: 0.23
+Nodes (18): addBookingWithPayment(), assertNoSlotOverlap(), BookingScheduleUpdates, createBookingWithPayment(), createGuestBooking(), loadInstructorSlotRefs(), rescheduleBooking(), resolveBookingTotalPrice() (+10 more)
+
+### Community 106 - "Booking"
+Cohesion: 0.10
+Nodes (50): BookingsLogProps, ClientsManagerProps, CoachesManagerProps, CoursesTableProps, CourseTableRowProps, CoursesManagerProps, LinkGuestBookingModalProps, ActiveSlotDetailsProps (+42 more)
 
 ### Community 107 - "StudentActivityRings.tsx"
 Cohesion: 0.40
 Nodes (5): ActivityRingMetric, clamp(), RingSpec, StudentActivityRings(), StudentActivityRingsProps
 
-### Community 109 - "AdminPanel.tsx"
-Cohesion: 0.13
-Nodes (14): BookingsLog(), BookingsLogProps, shortenBookingId(), LinkGuestBookingModal(), LinkGuestBookingModalProps, AdminRoleManager, BookingsLog, ClientsManager (+6 more)
+### Community 109 - "CoachesManager.tsx"
+Cohesion: 0.21
+Nodes (11): CalendarDayCell, getDaysInMonth(), CourseDateRangePicker(), CourseDateRangePickerProps, ScheduleInstructorCell(), formatDateLocalYMD(), getSpecialtyLabel(), CourseDateRangeState (+3 more)
 
-### Community 112 - "src/types.ts"
-Cohesion: 0.10
-Nodes (16): CoursesState, BookingsPanel(), PanelProps, TRAINING_HUB_ITEMS, StudentPanelBackLink(), StudentWalletHistoryList(), formatWalletOperationLabel(), bookings (+8 more)
+### Community 112 - "notificationService.ts"
+Cohesion: 0.80
+Nodes (4): clearNotificationsService(), deleteNotificationService(), markNotificationsAsReadService(), useNotificationActions()
 
-### Community 123 - "useCurrency"
-Cohesion: 0.15
-Nodes (16): ActiveSlotCreateForm(), ActiveSlotCreateFormProps, AuthBookingForm(), BookingOverlapWarnings(), BookingOverlapWarningsProps, BookingSelectors(), BookingSelectorsProps, InstructorCard (+8 more)
-
-### Community 136 - "logger.ts"
-Cohesion: 0.13
-Nodes (16): saveUsdToKztRate(), FinancialOverview(), FinancialOverviewProps, FinancialOverview, useAvailabilityMigrationSync(), CourseGallery(), CourseGalleryProps, ACTIVITY_LOGS_COLLECTION (+8 more)
+### Community 136 - "CurrencyContext.tsx"
+Cohesion: 0.16
+Nodes (14): saveUsdToKztRate(), FinancialOverview(), FinancialOverviewProps, FinancialOverview, AuthBookingForm(), AuthBookingFormProps, BookingOverlapWarnings(), CourseEnrollAction() (+6 more)
 
 ## Knowledge Gaps
 - **408 isolated node(s):** `runtimeConfigPath`, `E2E_PROJECT_ID`, `AUTH_EMULATOR_HOST`, `E2E_STUDENT_EMAIL`, `E2E_STUDENT_PASSWORD` (+403 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **21 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **23 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `useLanguage()` connect `useLanguage` to `useBookingsStore`, `Booking`, `CoursesManager.tsx`, `YourJourneySection.tsx`, `useBookingModal.ts`, `logger.ts`, `ScheduleCalendar.tsx`, `ResortSliderSection.tsx`, `profile/index.ts`, `CourseDetailsModal.tsx`, `StudentCoachPanel.tsx`, `handleFirestoreError`, `firebase.ts`, `StudentHistoryList.tsx`, `studentCabinetUtils.ts`, `useNotifications`, `achievements.test.ts`, `StudentCabinetHome.tsx`, `ResortConditionsSidebar.tsx`, `shell/index.ts`, `courseLevelStyles.ts`, `parseCourseDates`, `authService.ts`, `useInstructorWorkspace.ts`, `PushNotificationHub.tsx`, `Instructor`, `StudentProfilePersonalSection.tsx`, `courseTransactions.ts`, `LanguageContext.tsx`, `BookingChatModal.tsx`, `UserProfile`, `AppBootstrap.tsx`, `chatSenderRole.ts`, `skillData.ts`, `lib/walletLedger.ts`, `StudentTodaySection.tsx`, `HeroCarousel.tsx`, `OnboardingModal.tsx`, `SystemSettings.tsx`, `AdminPanel.tsx`, `src/types.ts`, `useCurrency`?**
-  _High betweenness centrality (0.111) - this node is a cross-community bridge._
-- **Why does `Booking` connect `Booking` to `useBookingActions.ts`, `bookingTransactions.test.ts`, `bookingTransactions.ts`, `CoursesManager.tsx`, `useBookingModal.ts`, `achievementConfig.ts`, `ScheduleCalendar.tsx`, `logger.ts`, `StudentCoachPanel.tsx`, `useBookingChatUnread.ts`, `StudentHistoryList.tsx`, `useLanguage`, `studentCabinetUtils.ts`, `achievements.test.ts`, `firestoreMappers.ts`, `StudentCabinetHome.tsx`, `parseCourseDates`, `useInstructorWorkspace.ts`, `slotOverlap.ts`, `trainingStreak.ts`, `PushNotificationHub.tsx`, `Instructor`, `coachPhone.test.ts`, `courseTransactions.ts`, `LanguageContext.tsx`, `BookingChatModal.tsx`, `UserProfile`, `AppBootstrap.tsx`, `chatSenderRole.ts`, `useCourseActions.ts`, `lib/walletLedger.ts`, `StudentTodaySection.tsx`, `bookingsStore.ts`, `bookingService.ts`, `SystemSettings.tsx`, `AdminPanel.tsx`, `src/types.ts`?**
-  _High betweenness centrality (0.053) - this node is a cross-community bridge._
-- **Why does `Course` connect `Booking` to `useBookingActions.ts`, `useBookingsStore`, `bookingTransactions.ts`, `CoursesManager.tsx`, `uiSelectors.ts`, `useBookingModal.ts`, `achievementConfig.ts`, `ScheduleCalendar.tsx`, `logger.ts`, `profile/index.ts`, `CourseDetailsModal.tsx`, `StudentCoachPanel.tsx`, `StudentHistoryList.tsx`, `useLanguage`, `studentCabinetUtils.ts`, `achievements.test.ts`, `firestoreMappers.ts`, `StudentCabinetHome.tsx`, `courseLevelStyles.ts`, `parseCourseDates`, `useInstructorWorkspace.ts`, `Instructor`, `coachPhone.test.ts`, `courseTransactions.ts`, `LanguageContext.tsx`, `BookingChatModal.tsx`, `UserProfile`, `chatSenderRole.ts`, `useCourseActions.ts`, `lib/walletLedger.ts`, `StudentTodaySection.tsx`, `bookingsStore.ts`, `SystemSettings.tsx`, `AdminPanel.tsx`, `src/types.ts`, `useCurrency`?**
-  _High betweenness centrality (0.030) - this node is a cross-community bridge._
+- **Why does `useLanguage()` connect `useLanguage` to `bookingService.ts`, `src/types.ts`, `YourJourneySection.tsx`, `useNotifications`, `CurrencyContext.tsx`, `studentLessonPresentation.ts`, `ResortSliderSection.tsx`, `useProfileStore`, `studentCabinetPresentation.ts`, `StudentCoachPanel.tsx`, `ErrorLogsPanel.tsx`, `journeyUtils.ts`, `skillData.ts`, `GroupCourseCard.tsx`, `StudentHistoryList.tsx`, `StudentTodaySection.tsx`, `StudentProfilePersonalSection.tsx`, `ScheduleCalendar.tsx`, `pluralize.ts`, `firebase.ts`, `LanguageContext.tsx`, `InstructorBookingCard.tsx`, `notifications/index.ts`, `useInstructorWorkspace.ts`, `phase2CabinetHelpers.test.ts`, `coachPhone.test.ts`, `CourseDetailsModal.tsx`, `StudentCabinetHome.tsx`, `course.ts`, `ModalHost.tsx`, `profileStore.ts`, `OnboardingModal.tsx`, `booking.ts`, `HeroCarousel.tsx`, `BookingChatModal.tsx`, `profile/index.ts`, `lib/walletLedger.ts`, `chatSenderRole.ts`, `Navbar.tsx`, `SkillRadarChart.tsx`, `bookings/index.ts`, `TodayChecklist.tsx`, `achievementConfig.ts`, `ResortConditionsSidebar.tsx`, `CourseEnrollmentModal.tsx`, `Booking`, `CoachesManager.tsx`?**
+  _High betweenness centrality (0.114) - this node is a cross-community bridge._
+- **Why does `Booking` connect `Booking` to `bookingService.ts`, `bookingTransactions.test.ts`, `src/types.ts`, `firestoreMappers.ts`, `bookingSelectors.ts`, `studentCabinetUtils.ts`, `useNotifications`, `studentLessonPresentation.ts`, `StudentCoachPanel.tsx`, `useBookingChatUnread.ts`, `callableTestEnv.ts`, `useLanguage`, `parseCourseDates`, `GroupCourseCard.tsx`, `StudentHistoryList.tsx`, `StudentTodaySection.tsx`, `ScheduleCalendar.tsx`, `InstructorBookingCard.tsx`, `notifications/index.ts`, `useInstructorWorkspace.ts`, `phase2CabinetHelpers.test.ts`, `coachPhone.test.ts`, `useCourseActions.ts`, `StudentCabinetHome.tsx`, `course.ts`, `profileStore.ts`, `courseTransactions.ts`, `booking.ts`, `BookingChatModal.tsx`, `lib/walletLedger.ts`, `chatSenderRole.ts`, `createBookingCallable.ts`, `TodayChecklist.tsx`, `achievementConfig.ts`, `adminSelectors.ts`, `cancelBookingWithRefund`, `bookingEndsAt.ts`, `bookingTransactions.ts`, `CoachesManager.tsx`, `achievements.test.ts`?**
+  _High betweenness centrality (0.054) - this node is a cross-community bridge._
+- **Why does `Course` connect `Booking` to `bookingService.ts`, `src/types.ts`, `firestoreMappers.ts`, `studentCabinetUtils.ts`, `useNotifications`, `studentLessonPresentation.ts`, `StudentCoachPanel.tsx`, `useLanguage`, `parseCourseDates`, `GroupCourseCard.tsx`, `StudentHistoryList.tsx`, `StudentTodaySection.tsx`, `ScheduleCalendar.tsx`, `LanguageContext.tsx`, `useInstructorWorkspace.ts`, `phase2CabinetHelpers.test.ts`, `coachPhone.test.ts`, `CourseDetailsModal.tsx`, `useCourseActions.ts`, `StudentCabinetHome.tsx`, `course.ts`, `ModalHost.tsx`, `courseTransactions.ts`, `booking.ts`, `BookingChatModal.tsx`, `lib/walletLedger.ts`, `chatSenderRole.ts`, `achievementConfig.ts`, `uiSelectors.ts`, `adminSelectors.ts`, `CourseEnrollmentModal.tsx`, `bookingTransactions.ts`, `achievements.test.ts`?**
+  _High betweenness centrality (0.033) - this node is a cross-community bridge._
 - **What connects `runtimeConfigPath`, `E2E_PROJECT_ID`, `AUTH_EMULATOR_HOST` to the rest of the system?**
   _408 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `bookingTransactions.test.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.05967540574282147 - nodes in this community are weakly interconnected._
-- **Should `Booking` be split into smaller, more focused modules?**
-  _Cohesion score 0.12081632653061225 - nodes in this community are weakly interconnected._
-- **Should `YourJourneySection.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.07374890254609306 - nodes in this community are weakly interconnected._
+- **Should `bookingService.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.12470588235294118 - nodes in this community are weakly interconnected._
+- **Should `src/types.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.11260504201680673 - nodes in this community are weakly interconnected._
+- **Should `studentCabinetUtils.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.09523809523809523 - nodes in this community are weakly interconnected._

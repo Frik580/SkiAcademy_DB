@@ -35,7 +35,7 @@ import {
   rescheduleBooking,
   resolveBookingTotalPrice,
   type BookingPaymentResult,
-} from '../../lib/bookingTransactions';
+} from '../../features/bookings/bookingTransactions';
 import {
   activityLogId,
   buildBookingCompletedMetadata,

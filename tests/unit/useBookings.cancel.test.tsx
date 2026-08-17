@@ -40,7 +40,7 @@ const adminProfile: UserProfile = {
 
 const firebaseUser = { uid: 'admin-1', email: 'admin@example.com' } as any;
 
-vi.mock('../../src/lib/bookingTransactions', () => ({
+vi.mock('../../src/features/bookings/bookingTransactions', () => ({
   cancelBookingWithRefund: (...args: any[]) => mockCancelBookingWithRefund(...args),
 }));
 

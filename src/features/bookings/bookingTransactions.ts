@@ -10,31 +10,31 @@ import {
   type Firestore,
   type Transaction,
 } from 'firebase/firestore';
-import { AvailabilitySlot, Booking, Course } from '../types';
+import { AvailabilitySlot, Booking, Course } from '../../types';
 import {
   AVAILABILITY_SLOTS_COLLECTION,
   blocksInstructorAvailability,
   isCourseBooking,
   toAvailabilitySlot,
-} from './availabilitySlots';
+} from '../../lib/availabilitySlots';
 import {
   AVAILABILITY_HOUR_LOCKS_COLLECTION,
   buildHourLockIds,
   hasOverlappingAvailabilitySlot,
-} from '../domain/booking/slotOverlap';
-import { applyWalletCreditInTransaction } from '../domain/wallet/walletCredit';
+} from '../../domain/booking/slotOverlap';
+import { applyWalletCreditInTransaction } from '../../domain/wallet/walletCredit';
 import {
   recordWalletLedgerEntryInTransaction,
   walletLedgerEntryId,
   walletLedgerBookingEntryId,
-} from '../domain/wallet/walletLedger';
-import { computeBookingEndsAtIso, withBookingEndsAt } from '../domain/booking/bookingEndsAt';
-import { withBookingCreatedAt } from '../domain/booking/bookingCreatedAt';
+} from '../../domain/wallet/walletLedger';
+import { computeBookingEndsAtIso, withBookingEndsAt } from '../../domain/booking/bookingEndsAt';
+import { withBookingCreatedAt } from '../../domain/booking/bookingCreatedAt';
 import {
   isActiveCourseEnrollment,
   releaseCourseSeatInTransaction,
   reserveCourseSeatInTransaction,
-} from './courseTransactions';
+} from '../../lib/courseTransactions';
 
 export class InsufficientFundsError extends Error {
   constructor() {

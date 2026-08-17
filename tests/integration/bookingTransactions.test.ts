@@ -7,7 +7,7 @@ import {
   cancelBookingWithRefund,
   createBookingWithPayment,
   rescheduleBooking,
-} from '../../src/lib/bookingTransactions';
+} from '../../src/features/bookings/bookingTransactions';
 import { addHourLocksToBatch } from '../helpers/hourLockFixtures';
 import type { Booking } from '../../src/types';
 import {

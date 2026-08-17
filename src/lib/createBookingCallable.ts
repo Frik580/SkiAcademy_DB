@@ -5,7 +5,7 @@ import {
   BookingSlotOverlapError,
   BookingPaymentResult,
   InsufficientFundsError,
-} from './bookingTransactions';
+} from '../features/bookings/bookingTransactions';
 import { functions } from '../infrastructure/firebase/firebase';
 
 export interface CreateBookingCallableInput {

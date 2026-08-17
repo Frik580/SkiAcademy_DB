@@ -6,10 +6,10 @@ import { useLanguage } from '../../../../lib/LanguageContext';
 import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 import { useNotifications } from '../../../../features/notifications';
 import { BookingChatModal } from '../../../../features/bookings';
-import { LinkGuestBookingModal } from './LinkGuestBookingModal';
-import { ActiveSlotDetails } from './schedule_slot_modal/ActiveSlotDetails';
-import { ActiveSlotMoveForm } from './schedule_slot_modal/ActiveSlotMoveForm';
-import { ActiveSlotCreateForm } from './schedule_slot_modal/ActiveSlotCreateForm';
+import { LinkGuestBookingModal } from '../bookings/LinkGuestBookingModal';
+import { ActiveSlotDetails } from './../schedule/slot-modal/ActiveSlotDetails';
+import { ActiveSlotMoveForm } from './../schedule/slot-modal/ActiveSlotMoveForm';
+import { ActiveSlotCreateForm } from './../schedule/slot-modal/ActiveSlotCreateForm';
 import {
   getAvailableMoveTimeSlots,
   getAvailableScheduleDurations,

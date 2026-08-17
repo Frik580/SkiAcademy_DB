@@ -12,7 +12,7 @@ import {
 } from '../../../../lib/notificationConfig';
 import { SkillConfigManager } from '../../../../features/admin';
 import { AchievementsManager } from './AchievementsManager';
-import { ResortDataSection, ResortSliderSection } from './ResortConfigForm';
+import { ResortDataSection, ResortSliderSection } from '../resort/ResortConfigForm';
 import { AdminCollapsibleSection } from './AdminCollapsibleSection';
 import { ToggleSwitch } from '../../../../ui/ToggleSwitch';
 import {

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { useLanguage } from '../../../../lib/LanguageContext';
-import { formatDateLocalYMD } from './scheduleUtils';
-import type { CourseDateRangeState } from './useCourseDateRange';
+import { formatDateLocalYMD } from '../schedule/scheduleUtils';
+import type { CourseDateRangeState } from '../courses/useCourseDateRange';
 
 interface CourseDateRangePickerProps {
   dateRange: CourseDateRangeState;

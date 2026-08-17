@@ -1,7 +1,7 @@
 import React from 'react';
 import { Instructor } from '../../../../../types';
 import { useLanguage, translateInstructorName } from '../../../../../lib/LanguageContext';
-import { getSpecialtyLabel } from '../scheduleUtils';
+import { getSpecialtyLabel } from '../../schedule/scheduleUtils';
 import { useCourseForm } from './useCourseForm';
 
 interface CourseInstructorSelectionProps {

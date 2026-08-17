@@ -12,7 +12,7 @@ import {
 import { Booking, Instructor } from '../../../../types';
 import { useLanguage } from '../../../../lib/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
-import { getSpecialtyLabel } from './scheduleUtils';
+import { getSpecialtyLabel } from '../schedule/scheduleUtils';
 import { uploadImage } from '../../../../lib/storage';
 import { logger } from '../../../../lib/logger';
 

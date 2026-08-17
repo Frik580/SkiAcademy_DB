@@ -5,7 +5,7 @@ import {
   hasScheduleOverlap,
   SCHEDULE_CLOSING_TIME_MINUTES,
   SCHEDULE_TIME_SLOTS,
-} from '../../src/features/admin/components/admin/scheduleOverlap';
+} from '../../src/features/admin/components/schedule/scheduleOverlap';
 import type { Booking, Course } from '../../src/types';
 
 const INSTRUCTOR_ID = 'instructor-1';

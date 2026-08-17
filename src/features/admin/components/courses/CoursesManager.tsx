@@ -4,10 +4,10 @@ import { useLanguage, translateCourse } from '../../../../lib/LanguageContext';
 import { buildClonedCourse } from '../../../../lib/courseClone';
 import { logger } from '../../../../lib/logger';
 import { useNotifications } from '../../../../features/notifications';
-import { useCourseForm } from './courses_manager/useCourseForm';
-import { CoursesManagerToolbar } from './courses_manager/CoursesManagerToolbar';
-import { CoursesTable } from './courses_manager/CoursesTable';
-import { CourseForm } from './courses_manager/CourseForm';
+import { useCourseForm } from './form/useCourseForm';
+import { CoursesManagerToolbar } from './form/CoursesManagerToolbar';
+import { CoursesTable } from './form/CoursesTable';
+import { CourseForm } from './form/CourseForm';
 
 interface CoursesManagerProps {
   courses: Course[];

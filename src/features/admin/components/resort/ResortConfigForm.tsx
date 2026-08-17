@@ -1,6 +1,6 @@
 import React from 'react';
-import { ResortDataSection } from './resort_config/ResortDataSection';
-import { ResortSliderSection } from './resort_config/ResortSliderSection';
+import { ResortDataSection } from './sections/ResortDataSection';
+import { ResortSliderSection } from './sections/ResortSliderSection';
 
 export { ResortDataSection, ResortSliderSection };
 

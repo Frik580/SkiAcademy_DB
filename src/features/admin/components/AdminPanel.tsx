@@ -5,53 +5,53 @@ import { Shield, Calendar, Users, Clock, UserCheck, BookOpen, AlertTriangle } fr
 import { useLanguage, useTranslatedBookings } from '../../../lib/LanguageContext';
 import { SkillConfig } from '../../../lib/skillData';
 import { AchievementsConfig } from '../../../lib/achievementConfig';
-import { AdminCollapsibleSection } from '../../../features/admin/components/admin/AdminCollapsibleSection';
+import { AdminCollapsibleSection } from '../../../features/admin/components/settings/AdminCollapsibleSection';
 import { TableSkeleton } from '../../../ui/Skeleton';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 
 // Lazy loading heavy admin tab modules
 const FinancialOverview = lazy(() =>
-  import('../../../features/admin/components/admin/FinancialOverview').then((m) => ({
+  import('../../../features/admin/components/finance/FinancialOverview').then((m) => ({
     default: m.FinancialOverview,
   }))
 );
 const SystemSettings = lazy(() =>
-  import('../../../features/admin/components/admin/SystemSettings').then((m) => ({
+  import('../../../features/admin/components/settings/SystemSettings').then((m) => ({
     default: m.SystemSettings,
   }))
 );
 const ScheduleCalendar = lazy(() =>
-  import('../../../features/admin/components/admin/ScheduleCalendar').then((m) => ({
+  import('../../../features/admin/components/schedule/ScheduleCalendar').then((m) => ({
     default: m.ScheduleCalendar,
   }))
 );
 const BookingsLog = lazy(() =>
-  import('../../../features/admin/components/admin/BookingsLog').then((m) => ({
+  import('../../../features/admin/components/bookings/BookingsLog').then((m) => ({
     default: m.BookingsLog,
   }))
 );
 const ClientsManager = lazy(() =>
-  import('../../../features/admin/components/admin/ClientsManager').then((m) => ({
+  import('../../../features/admin/components/users/ClientsManager').then((m) => ({
     default: m.ClientsManager,
   }))
 );
 const CoachesManager = lazy(() =>
-  import('../../../features/admin/components/admin/CoachesManager').then((m) => ({
+  import('../../../features/admin/components/users/CoachesManager').then((m) => ({
     default: m.CoachesManager,
   }))
 );
 const CoursesManager = lazy(() =>
-  import('../../../features/admin/components/admin/CoursesManager').then((m) => ({
+  import('../../../features/admin/components/courses/CoursesManager').then((m) => ({
     default: m.CoursesManager,
   }))
 );
 const AdminRoleManager = lazy(() =>
-  import('../../../features/admin/components/admin/AdminRoleManager').then((m) => ({
+  import('../../../features/admin/components/users/AdminRoleManager').then((m) => ({
     default: m.AdminRoleManager,
   }))
 );
 const ErrorLogsPanel = lazy(() =>
-  import('../../../features/admin/components/admin/ErrorLogsPanel').then((m) => ({
+  import('../../../features/admin/components/settings/ErrorLogsPanel').then((m) => ({
     default: m.ErrorLogsPanel,
   }))
 );

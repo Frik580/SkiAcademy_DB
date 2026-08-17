@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatCourseDates, parseCourseDates, useLanguage } from '../../../../lib/LanguageContext';
-import { formatDateLocalYMD } from './scheduleUtils';
-import { getDaysInMonth } from './courseCalendarUtils';
+import { formatDateLocalYMD } from '../schedule/scheduleUtils';
+import { getDaysInMonth } from '../schedule/courseCalendarUtils';
 
 export function useCourseDateRange() {
   const { language } = useLanguage();

@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AVAILABILITY_SLOTS_COLLECTION, toAvailabilitySlot } from '../../src/domain/availability';
 import {
   BookingSlotOverlapError,
+  BookingIdConflictError,
   InsufficientFundsError,
   cancelBookingWithRefund,
   createBookingWithPayment,
@@ -74,6 +75,39 @@ describe('booking transactions', () => {
     expect(userDoc.data()?.balanceUSD).toBe(0);
     expect(bookingDoc.data()?.status).toBe('confirmed');
     expect(slotDoc.data()).toEqual(toAvailabilitySlot(booking));
+  });
+
+  it('handles duplicate booking submission idempotently without double deduction', async () => {
+    const userDb = integrationTestEnv()
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
+    const booking = lessonBooking({ id: 'booking-idempotent-1' });
+
+    // First call
+    const firstResult = await createBookingWithPayment(userDb, USER_ID, booking);
+    expect(firstResult.newBalance).toBe(0);
+    expect(firstResult.totalPrice).toBe(100);
+
+    // Second call with same booking ID
+    const secondResult = await createBookingWithPayment(userDb, USER_ID, booking);
+    expect(secondResult.newBalance).toBe(0);
+    expect(secondResult.totalPrice).toBe(100);
+
+    const userDoc = await getDoc(doc(userDb, 'users', USER_ID));
+    expect(userDoc.data()?.balanceUSD).toBe(0);
+  });
+
+  it('rejects a reused booking ID with a different request payload', async () => {
+    const userDb = integrationTestEnv()
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
+    const original = lessonBooking({ id: 'booking-id-conflict' });
+
+    await createBookingWithPayment(userDb, USER_ID, original);
+
+    await expect(
+      createBookingWithPayment(userDb, USER_ID, { ...original, time: '14:00' })
+    ).rejects.toBeInstanceOf(BookingIdConflictError);
   });
 
   it('charges the instructor rate even when the client sends a manipulated totalPrice', async () => {

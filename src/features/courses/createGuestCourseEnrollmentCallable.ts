@@ -8,6 +8,7 @@ export interface GuestCourseEnrollmentInput {
   guestEmail?: string;
   guestNotes?: string;
   language: 'en' | 'ru';
+  idempotencyKey?: string;
 }
 
 export interface GuestCourseEnrollmentResult {

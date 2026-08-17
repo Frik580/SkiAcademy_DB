@@ -21,15 +21,11 @@ import {
   toAvailabilitySlot,
 } from '../../domain/availability';
 import { finalizeBookingCompletion } from '../../features/bookings/completeBooking';
-import {
-  createBookingViaCallable,
-  isCreateBookingCallableInfrastructureError,
-} from '../../features/bookings/createBookingCallable';
+import { createBookingViaCallable } from '../../features/bookings/createBookingCallable';
 import {
   cancelBookingWithRefund,
   addBookingWithPayment,
   BookingSlotOverlapError,
-  createBookingWithPayment,
   createGuestBooking,
   InsufficientFundsError,
   rescheduleBooking,
@@ -66,19 +62,8 @@ import {
 export { BookingSlotOverlapError, InsufficientFundsError };
 export type { BookingPaymentResult };
 
-export async function createBookingForUser(
-  userId: string,
-  booking: Booking
-): Promise<BookingPaymentResult> {
-  try {
-    return await createBookingViaCallable(booking);
-  } catch (error) {
-    if (!isCreateBookingCallableInfrastructureError(error)) {
-      throw error;
-    }
-    logger.warn('createBooking callable unavailable, using direct Firestore transaction', error);
-    return createBookingWithPayment(db, userId, booking);
-  }
+export async function createBookingForUser(booking: Booking): Promise<BookingPaymentResult> {
+  return createBookingViaCallable(booking);
 }
 
 export async function createGuestBookingService(booking: Booking): Promise<void> {

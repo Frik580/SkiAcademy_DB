@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import confetti from 'canvas-confetti';
@@ -37,11 +37,18 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const [guestEmail, setGuestEmail] = useState('');
   const [guestNotes, setGuestNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const guestEnrollmentAttemptKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    guestEnrollmentAttemptKeyRef.current = null;
+  }, [course?.id, isOpen]);
 
   if (!course || typeof document === 'undefined') return null;
 
   const handleSubmitGuest = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingRef.current || isSubmitting) return;
     if (!guestName.trim()) {
       addNotification('warning', t('missingDetails'), t('guestNameLabel'));
       return;
@@ -51,7 +58,11 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       return;
     }
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
+    const idempotencyKey = guestEnrollmentAttemptKeyRef.current ?? crypto.randomUUID();
+    guestEnrollmentAttemptKeyRef.current = idempotencyKey;
+
     try {
       await createGuestCourseEnrollmentViaCallable({
         courseId: course.id,
@@ -60,6 +71,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         guestEmail: guestEmail.trim(),
         guestNotes: guestNotes.trim(),
         language,
+        idempotencyKey,
       });
       addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
@@ -67,6 +79,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     } catch (err) {
       addNotification('error', t('bookingError'), t('bookingRecordFailed'));
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };

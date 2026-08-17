@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { Course, UserProfile } from '../../types';
 import { notify, t, getLanguage } from '../../store/storeContext';
@@ -25,6 +25,7 @@ export function useCourseActions() {
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const userProfile = useProfileStore((state) => state.userProfile);
   const bookings = useBookingsStore((state) => state.bookings);
+  const inFlightEnrollmentsRef = useRef<Set<string>>(new Set());
 
   const handleAddCourse = useCallback(async (course: Course) => {
     await addCourseService(course);
@@ -52,6 +53,10 @@ export function useCourseActions() {
 
   const handleBookCourse = useCallback(
     async (courseId: string, customProfile?: UserProfile) => {
+      if (inFlightEnrollmentsRef.current.has(courseId)) {
+        return;
+      }
+
       const activeProfile = customProfile || userProfile;
       const activeUser = firebaseUser || getCurrentAuthenticatedUser();
 
@@ -64,6 +69,7 @@ export function useCourseActions() {
         return;
       }
 
+      inFlightEnrollmentsRef.current.add(courseId);
       try {
         const course = courses.find((item) => item.id === courseId);
         const isSelfEnrollment = activeUser.uid === activeProfile.uid && !customProfile;
@@ -87,6 +93,8 @@ export function useCourseActions() {
         } else if (message === 'COURSE_FULL' || message === 'INSUFFICIENT_FUNDS') {
           notify('error', t('bookingFailed'), t('bookingFailedDesc'));
         }
+      } finally {
+        inFlightEnrollmentsRef.current.delete(courseId);
       }
     },
     [courses, firebaseUser, userProfile]

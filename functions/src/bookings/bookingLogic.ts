@@ -57,6 +57,27 @@ export class BookingSlotOverlapError extends Error {
   }
 }
 
+export class BookingIdConflictError extends Error {
+  constructor() {
+    super('Booking ID is already in use for a different request.');
+    this.name = 'BookingIdConflictError';
+  }
+}
+
+function matchesExistingBookingRequest(existing: BookingRecord, booking: BookingRecord): boolean {
+  return (
+    existing.userId === booking.userId &&
+    existing.instructorId === booking.instructorId &&
+    existing.instructorName === booking.instructorName &&
+    existing.instructorAvatar === booking.instructorAvatar &&
+    existing.date === booking.date &&
+    existing.time === booking.time &&
+    existing.durationHours === booking.durationHours &&
+    existing.difficulty === booking.difficulty &&
+    (existing.notes ?? '') === (booking.notes ?? '')
+  );
+}
+
 function timeStrToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + (m || 0);
@@ -263,14 +284,33 @@ export async function createBookingWithPayment(
   ).docs;
 
   return db.runTransaction(async (transaction) => {
+    const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(booking.id);
+    const userRef = db.collection('users').doc(userId);
+
+    const [bookingSnap, userSnap] = await Promise.all([
+      transaction.get(bookingRef),
+      transaction.get(userRef),
+    ]);
+
+    if (!userSnap.exists) throw new Error('User profile does not exist.');
+    const currentBalance = userSnap.data()?.balanceUSD ?? 0;
+
+    // A repeated request may return the original result; a reused ID must never overwrite another booking.
+    if (bookingSnap.exists) {
+      const existingBooking = bookingSnap.data() as BookingRecord;
+      if (matchesExistingBookingRequest(existingBooking, booking)) {
+        return {
+          bookingId: booking.id,
+          newBalance: currentBalance,
+          totalPrice: existingBooking.totalPrice ?? 0,
+        };
+      }
+      throw new BookingIdConflictError();
+    }
+
     const totalPrice = await resolveBookingTotalPrice(transaction, db, booking);
     const bookingToWrite: BookingRecord = { ...booking, totalPrice };
 
-    const userRef = db.collection('users').doc(userId);
-    const userSnap = await transaction.get(userRef);
-    if (!userSnap.exists) throw new Error('User profile does not exist.');
-
-    const currentBalance = userSnap.data()?.balanceUSD ?? 0;
     if (currentBalance < totalPrice) throw new InsufficientFundsError();
 
     await assertNoSlotOverlap(transaction, db, bookingToWrite, existingSlotDocs, booking.id);

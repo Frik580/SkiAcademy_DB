@@ -9,6 +9,7 @@ type GuestCourseEnrollmentInput = {
   guestEmail?: string;
   guestNotes?: string;
   language?: 'en' | 'ru';
+  idempotencyKey?: string;
 };
 
 type CourseRecord = {
@@ -41,12 +42,18 @@ function parseInput(data: unknown): GuestCourseEnrollmentInput {
 
   const payload = data as Record<string, unknown>;
   const language = payload.language === 'ru' ? 'ru' : 'en';
+  const idempotencyKey = optionalText(payload.idempotencyKey, 'idempotencyKey') || undefined;
+  if (idempotencyKey && !/^[A-Za-z0-9_-]{1,128}$/.test(idempotencyKey)) {
+    throw new HttpsError('invalid-argument', 'idempotencyKey has an invalid format.');
+  }
+
   return {
     courseId: requireText(payload.courseId, 'courseId'),
     guestName: requireText(payload.guestName, 'guestName'),
     guestPhone: requireText(payload.guestPhone, 'guestPhone'),
     guestEmail: optionalText(payload.guestEmail, 'guestEmail'),
     guestNotes: optionalText(payload.guestNotes, 'guestNotes'),
+    idempotencyKey,
     language,
   };
 }
@@ -54,18 +61,31 @@ function parseInput(data: unknown): GuestCourseEnrollmentInput {
 export function createGuestCourseEnrollmentHandler(db: Firestore) {
   return async (request: CallableRequest<unknown>) => {
     const input = parseInput(request.data);
-    const bookingId = `guest_course_${input.courseId}_${randomUUID()}`;
+    const bookingId = input.idempotencyKey
+      ? `guest_course_${input.courseId}_${input.idempotencyKey}`
+      : `guest_course_${input.courseId}_${randomUUID()}`;
     const guestId = `guest_${randomUUID()}`;
     const courseRef = db.collection('courses').doc(input.courseId);
+    const bookingRef = db.collection('bookings').doc(bookingId);
 
     return db.runTransaction(async (transaction) => {
-      const courseSnap = await transaction.get(courseRef);
+      const [courseSnap, bookingSnap] = await Promise.all([
+        transaction.get(courseRef),
+        transaction.get(bookingRef),
+      ]);
+
       if (!courseSnap.exists) throw new HttpsError('not-found', 'Course does not exist.');
 
       const course = courseSnap.data() as CourseRecord;
       if (typeof course.price !== 'number' || typeof course.availableSeats !== 'number') {
         throw new HttpsError('failed-precondition', 'Course has invalid seat or price data.');
       }
+
+      // If already created under this idempotencyKey, return existing state safely
+      if (bookingSnap.exists) {
+        return { bookingId, availableSeats: course.availableSeats };
+      }
+
       if (course.availableSeats <= 0) {
         throw new HttpsError('failed-precondition', 'COURSE_FULL');
       }
@@ -76,7 +96,7 @@ export function createGuestCourseEnrollmentHandler(db: Firestore) {
         : `${localizedPrefix} "${course.title ?? input.courseId}"`;
       const createdAt = new Date().toISOString();
 
-      transaction.set(db.collection('bookings').doc(bookingId), {
+      transaction.set(bookingRef, {
         id: bookingId,
         userId: guestId,
         courseId: input.courseId,

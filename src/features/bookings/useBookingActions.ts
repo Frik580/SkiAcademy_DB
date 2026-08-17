@@ -54,7 +54,7 @@ export function useBookingActions() {
 
       try {
         const { totalPrice } = await withOptimisticBalance(-estimatedPrice, () =>
-          createBookingForUser(firebaseUser.uid, booking)
+          createBookingForUser(booking)
         );
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
         return totalPrice;

@@ -2,6 +2,7 @@ import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
 import { Firestore } from 'firebase-admin/firestore';
 import {
   BookingRecord,
+  BookingIdConflictError,
   BookingSlotOverlapError,
   BookingStatus,
   createBookingWithPayment,
@@ -138,6 +139,9 @@ async function handleCreateBooking(
     }
     if (error instanceof BookingSlotOverlapError) {
       throw new HttpsError('aborted', 'Instructor slot is no longer available.');
+    }
+    if (error instanceof BookingIdConflictError) {
+      throw new HttpsError('already-exists', error.message);
     }
     if (error instanceof HttpsError) {
       throw error;

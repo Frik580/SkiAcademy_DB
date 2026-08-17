@@ -94,6 +94,43 @@ describe('createBooking callable', { timeout: 30_000 }, () => {
     expect(slotDoc.exists()).toBe(true);
   });
 
+  it('handles duplicate callable booking requests idempotently without double charge', async () => {
+    const booking = lessonBooking({ id: 'booking-callable-idempotent' });
+    const createBooking = httpsCallable(getCallableFunctions(), 'createBooking');
+
+    // First call
+    const firstResponse = await createBooking(createBookingPayload(booking));
+    const firstResult = firstResponse.data as {
+      bookingId: string;
+      totalPrice: number;
+      newBalance: number;
+    };
+    expect(firstResult.newBalance).toBe(400);
+
+    // Duplicate call with same ID
+    const secondResponse = await createBooking(createBookingPayload(booking));
+    const secondResult = secondResponse.data as {
+      bookingId: string;
+      totalPrice: number;
+      newBalance: number;
+    };
+    expect(secondResult.bookingId).toBe(booking.id);
+    expect(secondResult.newBalance).toBe(400);
+    expect(await readCallableUserBalance()).toBe(400);
+  });
+
+  it('rejects a reused booking ID with a different payload', async () => {
+    const createBooking = httpsCallable(getCallableFunctions(), 'createBooking');
+    const original = lessonBooking({ id: 'booking-callable-conflict' });
+
+    await createBooking(createBookingPayload(original));
+
+    await expect(
+      createBooking(createBookingPayload({ ...original, time: '14:00' }))
+    ).rejects.toMatchObject({ code: 'functions/already-exists' } satisfies Partial<FirebaseError>);
+    expect(await readCallableUserBalance()).toBe(400);
+  });
+
   it('creates a booking when instructorAvatar is empty', async () => {
     const booking = lessonBooking({ id: 'booking-callable-empty-avatar', instructorAvatar: '' });
     const createBooking = httpsCallable(getCallableFunctions(), 'createBooking');

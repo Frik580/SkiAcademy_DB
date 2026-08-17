@@ -50,9 +50,30 @@ export class BookingSlotOverlapError extends Error {
   }
 }
 
+export class BookingIdConflictError extends Error {
+  constructor() {
+    super('Booking ID is already in use for a different request.');
+    this.name = 'BookingIdConflictError';
+  }
+}
+
 export interface BookingPaymentResult {
   newBalance: number;
   totalPrice: number;
+}
+
+function matchesExistingBookingRequest(existing: Booking, booking: Booking): boolean {
+  return (
+    existing.userId === booking.userId &&
+    existing.instructorId === booking.instructorId &&
+    existing.instructorName === booking.instructorName &&
+    existing.instructorAvatar === booking.instructorAvatar &&
+    existing.date === booking.date &&
+    existing.time === booking.time &&
+    existing.durationHours === booking.durationHours &&
+    existing.difficulty === booking.difficulty &&
+    (existing.notes ?? '') === (booking.notes ?? '')
+  );
 }
 
 function writeHourLocks(transaction: Transaction, firestore: Firestore, booking: Booking) {
@@ -172,14 +193,32 @@ export async function createBookingWithPayment(
   const existingSlotRefs = await loadInstructorSlotRefs(firestore, booking.instructorId);
 
   return runTransaction(firestore, async (transaction) => {
+    const bookingRef = doc(firestore, 'bookings', booking.id);
+    const userRef = doc(firestore, 'users', userId);
+
+    const [bookingSnap, userSnap] = await Promise.all([
+      transaction.get(bookingRef),
+      transaction.get(userRef),
+    ]);
+
+    if (!userSnap.exists()) throw new Error('User profile does not exist.');
+    const currentBalance = userSnap.data().balanceUSD ?? 0;
+
+    // A repeated request may return the original result; a reused ID must never overwrite another booking.
+    if (bookingSnap.exists()) {
+      const existingData = bookingSnap.data() as Booking;
+      if (matchesExistingBookingRequest(existingData, booking)) {
+        return {
+          newBalance: currentBalance,
+          totalPrice: existingData.totalPrice ?? 0,
+        };
+      }
+      throw new BookingIdConflictError();
+    }
+
     const totalPrice = await resolveBookingTotalPrice(transaction, firestore, booking);
     const bookingToWrite = { ...booking, totalPrice };
 
-    const userRef = doc(firestore, 'users', userId);
-    const userSnap = await transaction.get(userRef);
-    if (!userSnap.exists()) throw new Error('User profile does not exist.');
-
-    const currentBalance = userSnap.data().balanceUSD ?? 0;
     if (currentBalance < totalPrice) throw new InsufficientFundsError();
 
     await assertNoSlotOverlap(transaction, firestore, bookingToWrite, existingSlotRefs, booking.id);
@@ -215,8 +254,8 @@ export async function addBookingWithPayment(
   const existingSlotRefs = await loadInstructorSlotRefs(firestore, booking.instructorId);
 
   return runTransaction(firestore, async (transaction) => {
-    const totalPrice = await resolveBookingTotalPrice(transaction, firestore, booking);
-    const bookingToWrite = { ...booking, totalPrice };
+    const bookingRef = doc(firestore, 'bookings', booking.id);
+    const bookingSnap = await transaction.get(bookingRef);
 
     let newBalance = 0;
     if (!isSystemBlock) {
@@ -225,6 +264,21 @@ export async function addBookingWithPayment(
       if (!userSnap.exists()) throw new Error('User profile does not exist.');
 
       const currentBalance = userSnap.data().balanceUSD ?? 0;
+
+      // Idempotency check: if this booking already exists, return current balance
+      if (bookingSnap.exists()) {
+        const existingData = bookingSnap.data() as Booking;
+        if (existingData.userId === booking.userId && existingData.status !== 'cancelled') {
+          return {
+            newBalance: currentBalance,
+            totalPrice: existingData.totalPrice ?? 0,
+          };
+        }
+      }
+
+      const totalPrice = await resolveBookingTotalPrice(transaction, firestore, booking);
+      const bookingToWrite = { ...booking, totalPrice };
+
       if (currentBalance < totalPrice) throw new InsufficientFundsError();
       newBalance = currentBalance - totalPrice;
       transaction.update(userRef, { balanceUSD: newBalance });
@@ -243,13 +297,32 @@ export async function addBookingWithPayment(
           ),
         });
       }
+
+      await assertNoSlotOverlap(
+        transaction,
+        firestore,
+        bookingToWrite,
+        existingSlotRefs,
+        booking.id
+      );
+      await reserveCourseSeatInTransaction(transaction, firestore, bookingToWrite);
+      writeBookingWithAvailability(transaction, firestore, bookingToWrite);
+
+      return { newBalance, totalPrice };
     }
+
+    if (bookingSnap.exists()) {
+      return { newBalance: 0, totalPrice: 0 };
+    }
+
+    const totalPrice = await resolveBookingTotalPrice(transaction, firestore, booking);
+    const bookingToWrite = { ...booking, totalPrice };
 
     await assertNoSlotOverlap(transaction, firestore, bookingToWrite, existingSlotRefs, booking.id);
     await reserveCourseSeatInTransaction(transaction, firestore, bookingToWrite);
     writeBookingWithAvailability(transaction, firestore, bookingToWrite);
 
-    return { newBalance, totalPrice };
+    return { newBalance: 0, totalPrice };
   });
 }
 

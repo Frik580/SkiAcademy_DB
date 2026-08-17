@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Instructor,
@@ -69,6 +69,23 @@ export const useBookingModal = ({
   const [difficulty, setDifficulty] = useState<LessonDifficulty>('beginner');
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const isSubmittingRef = useRef<boolean>(false);
+  const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bookingAttemptIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      bookingAttemptIdRef.current = null;
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (submitTimerRef.current) {
+        clearTimeout(submitTimerRef.current);
+      }
+    };
+  }, []);
 
   const [unauthTab, setUnauthTab] = useState<'guest' | 'auth'>('guest');
   const [guestName, setGuestName] = useState<string>('');
@@ -289,6 +306,7 @@ export const useBookingModal = ({
 
   const handleSubmitGuest = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingRef.current || isSubmitting) return;
     if (!targetInstructor) return;
     if (!guestName.trim()) {
       addNotification('warning', t('missingDetails'), t('guestNameLabel'));
@@ -319,6 +337,7 @@ export const useBookingModal = ({
       return;
     }
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     const guestBooking: Booking = {
       id: `guest_book_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -366,12 +385,14 @@ export const useBookingModal = ({
         addNotification('error', t('bookingError'), t('bookingRecordFailed'));
       }
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingRef.current || isSubmitting) return;
     if (!userProfile) {
       addNotification('error', t('signInRequired'), t('bookingSignInDesc'));
       return;
@@ -412,11 +433,19 @@ export const useBookingModal = ({
       return;
     }
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
-    setTimeout(async () => {
+    if (submitTimerRef.current) {
+      clearTimeout(submitTimerRef.current);
+    }
+
+    submitTimerRef.current = setTimeout(async () => {
+      const bookingId = bookingAttemptIdRef.current ?? `book_${crypto.randomUUID()}`;
+      bookingAttemptIdRef.current = bookingId;
+
       const newBooking: Booking = {
-        id: `book_${Math.random().toString(36).substring(2, 9)}`,
+        id: bookingId,
         userId: userProfile.uid,
         instructorId: targetInstructor.id,
         instructorName: targetInstructor.name,
@@ -441,6 +470,7 @@ export const useBookingModal = ({
       } catch (err) {
         addNotification('error', t('bookingError'), t('bookingRecordFailed'));
       } finally {
+        isSubmittingRef.current = false;
         setIsSubmitting(false);
       }
     }, 1500);

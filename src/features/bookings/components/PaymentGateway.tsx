@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { CreditCard, X, Check, ArrowRight, Loader2 } from 'lucide-react';
 import { useNotifications } from '../../../features/notifications';
 import { useLanguage } from '../../../app/providers/LanguageContext';
@@ -30,6 +30,16 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
   const [cardholderName, setCardholderName] = useState<string>('');
   const [isPaying, setIsPaying] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
+  const isPayingRef = useRef<boolean>(false);
+  const payTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (payTimerRef.current) clearTimeout(payTimerRef.current);
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -77,15 +87,17 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isPayingRef.current || isPaying || isSuccess) return;
     if (!cardNumber || !expiry || !cvv || !cardholderName) {
       addNotification('warning', t('incompletePaymentDetails'), t('completeSimulatedCardFields'));
       return;
     }
 
+    isPayingRef.current = true;
     setIsPaying(true);
 
-    // Simulate network delay
-    setTimeout(async () => {
+    if (payTimerRef.current) clearTimeout(payTimerRef.current);
+    payTimerRef.current = setTimeout(async () => {
       try {
         await onPaymentSuccess(selectedAmount, selectedCurrency);
         setIsPaying(false);
@@ -96,8 +108,9 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
           `${t('refreshedWallet')} ${formatWalletAmount(selectedAmount)}.`
         );
 
-        // Reset and close after a short display
-        setTimeout(() => {
+        if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = setTimeout(() => {
+          isPayingRef.current = false;
           setIsSuccess(false);
           setCardNumber('');
           setExpiry('');
@@ -106,6 +119,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
           onClose();
         }, 1500);
       } catch (err) {
+        isPayingRef.current = false;
         setIsPaying(false);
         addNotification('error', t('paymentFailed'), t('balanceSyncFailed'));
       }

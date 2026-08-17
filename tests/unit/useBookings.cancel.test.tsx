@@ -44,7 +44,7 @@ vi.mock('../../src/lib/bookingTransactions', () => ({
   cancelBookingWithRefund: (...args: any[]) => mockCancelBookingWithRefund(...args),
 }));
 
-vi.mock('../../src/lib/notifications', () => ({
+vi.mock('../../src/domain/notifications/notifications', () => ({
   createNotificationForUser: (...args: any[]) => mockCreateNotificationForUser(...args),
 }));
 

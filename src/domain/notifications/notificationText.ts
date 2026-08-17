@@ -1,4 +1,4 @@
-import { translations, type Language, type TranslationKey } from './i18n/translations';
+import { translations, type Language, type TranslationKey } from '../../lib/i18n/translations';
 
 export interface BilingualNotificationContent {
   titleEn: string;

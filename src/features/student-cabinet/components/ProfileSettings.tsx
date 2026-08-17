@@ -5,7 +5,7 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useTheme } from '../../../hooks/useTheme';
 import { optimizeProfileImage } from './profileImage';
 import { uploadImage } from '../../../infrastructure/firebase/storage';
-import { logger } from '../../../lib/logger';
+import { logger } from '../../../shared/logger';
 import { useEffectiveBalance } from '../../../features/wallet';
 
 interface SkillProgressSummary {

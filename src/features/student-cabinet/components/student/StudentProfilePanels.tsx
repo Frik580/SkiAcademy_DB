@@ -13,8 +13,8 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useLanguage, type TranslationKey } from '../../../../app/providers/LanguageContext';
-import { DEFAULT_SKILL_CONFIG } from '../../../../lib/skillData';
-import { AchievementsConfig } from '../../../../lib/achievementConfig';
+import { DEFAULT_SKILL_CONFIG } from '../../../../domain/achievements/skillData';
+import { AchievementsConfig } from '../../../../domain/achievements/achievementConfig';
 import { StudentCabinetContext } from './StudentCabinetHome';
 import { StudentProfilePersonalSection } from './StudentProfilePersonalSection';
 import { StudentProfilePreferencesSection } from './StudentProfilePreferencesSection';
@@ -27,7 +27,7 @@ import {
   getStudentStats,
   StudentCabinetTab,
 } from './studentCabinetUtils';
-import { calculateSkillProgress } from '../../../../lib/skillData';
+import { calculateSkillProgress } from '../../../../domain/achievements/skillData';
 import { StudentHistoryList } from './StudentHistoryList';
 import { WalletPanel } from '../../../../features/profile/components/WalletPanel';
 

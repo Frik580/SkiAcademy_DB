@@ -1,11 +1,11 @@
 import { db, doc, setDoc } from '../../infrastructure/firebase/firebase';
-import { AchievementsConfig, normalizeAchievementsConfig } from '../../lib/achievementConfig';
-import { DesignTheme } from '../../lib/designTheme';
+import { AchievementsConfig, normalizeAchievementsConfig } from '../../domain/achievements/achievementConfig';
+import { DesignTheme } from '../../shared/designTheme';
 import {
   MAX_NOTIFICATION_RETENTION_DAYS,
   MIN_NOTIFICATION_RETENTION_DAYS,
-} from '../../lib/notificationConfig';
-import { SkillConfig } from '../../lib/skillData';
+} from '../../domain/notifications/notificationConfig';
+import { SkillConfig } from '../../domain/achievements/skillData';
 
 export const saveFiltersEnabled = (enabled: boolean): Promise<void> =>
   setDoc(doc(db, 'settings', 'instructor_filters'), { enabled });

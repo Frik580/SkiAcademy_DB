@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { isCourseBooking } from '../../lib/availabilitySlots';
-import { createNotificationForUser } from '../../lib/notifications';
-import { buildNotification, translateKey } from '../../lib/notificationText';
+import { createNotificationForUser } from '../../domain/notifications/notifications';
+import { buildNotification, translateKey } from '../../domain/notifications/notificationText';
 import { Booking, Instructor, Review } from '../../types';
 import {
   clearStudentBookings,

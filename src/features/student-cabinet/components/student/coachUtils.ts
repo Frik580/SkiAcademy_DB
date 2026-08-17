@@ -6,10 +6,10 @@ import {
   Instructor,
   UserProfile,
 } from '../../../../types';
-import { SkillConfig, DEFAULT_SKILL_CONFIG, getSkillItemTitle } from '../../../../lib/skillData';
+import { SkillConfig, DEFAULT_SKILL_CONFIG, getSkillItemTitle } from '../../../../domain/achievements/skillData';
 import { formatBookingDayMonth, getRecentLessonTitle } from './studentCabinetUtils';
-import { resolveChatId } from '../../../../lib/resolveChatId';
-import { isHomeworkVisibleToStudent } from '../../../../lib/chatHomework';
+import { resolveChatId } from '../../../../domain/chat/resolveChatId';
+import { isHomeworkVisibleToStudent } from '../../../../domain/chat/chatHomework';
 import { translateCourse } from '../../../../lib/i18n/contentTranslation';
 
 export type InstructorMessage = ChatMessage & { bookingId: string; threadId?: string };

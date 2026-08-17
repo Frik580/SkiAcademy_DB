@@ -11,7 +11,7 @@ import {
   setDoc,
 } from '../../infrastructure/firebase/firebase';
 import { OperationType, type ErrorLog } from '../../types';
-import { QUERY_LIMITS } from '../../lib/queryLimits';
+import { QUERY_LIMITS } from '../../shared/queryLimits';
 
 const RESORT_CONFIG_COLLECTION = 'resort_data';
 const RESORT_CONFIG_ID = 'config';

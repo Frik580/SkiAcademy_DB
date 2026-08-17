@@ -5,7 +5,7 @@ import {
   DEFAULT_SKILL_CONFIG,
   calculateSkillProgress,
   getSkillItemTitle,
-} from '../../../lib/skillData';
+} from '../../../domain/achievements/skillData';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import {
   matchesSkillRingFilter,

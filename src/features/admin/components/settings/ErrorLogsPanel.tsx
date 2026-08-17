@@ -6,8 +6,8 @@ import { useNotifications } from '../../../../features/notifications';
 import { TableSkeleton } from '../../../../ui/Skeleton';
 import { ActionButton } from '../../../../ui/ActionButton';
 import { StateCard } from '../../../../ui/StateCard';
-import { logger } from '../../../../lib/logger';
-import { QUERY_LIMITS } from '../../../../lib/queryLimits';
+import { logger } from '../../../../shared/logger';
+import { QUERY_LIMITS } from '../../../../shared/queryLimits';
 import {
   deleteErrorLog,
   deleteErrorLogs,

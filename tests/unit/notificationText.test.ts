@@ -3,7 +3,7 @@ import {
   buildNotification,
   resolveNotificationText,
   translateKey,
-} from '../../src/lib/notificationText';
+} from '../../src/domain/notifications/notificationText';
 
 describe('notificationText', () => {
   it('buildNotification creates bilingual title and message', () => {

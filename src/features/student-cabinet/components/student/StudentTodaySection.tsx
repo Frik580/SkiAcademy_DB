@@ -9,8 +9,8 @@ import {
   UserProfile,
 } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
-import { AchievementsConfig } from '../../../../lib/achievementConfig';
-import { DEFAULT_SKILL_CONFIG, SkillConfig, getSkillItemTitle } from '../../../../lib/skillData';
+import { AchievementsConfig } from '../../../../domain/achievements/achievementConfig';
+import { DEFAULT_SKILL_CONFIG, SkillConfig, getSkillItemTitle } from '../../../../domain/achievements/skillData';
 import {
   formatCountdownRemaining,
   formatCourseDateRangeLabel,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getCourseChatThreadIds, resolveChatId } from '../../src/lib/resolveChatId';
+import { getCourseChatThreadIds, resolveChatId } from '../../src/domain/chat/resolveChatId';
 import { Booking } from '../../src/types';
 
 const courseBooking = (overrides: Partial<Booking> = {}): Booking => ({

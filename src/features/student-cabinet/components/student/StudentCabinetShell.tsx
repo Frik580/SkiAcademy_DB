@@ -13,8 +13,8 @@ import {
   SkillConfig,
   DEFAULT_SKILL_CONFIG,
   calculateSkillProgress,
-} from '../../../../lib/skillData';
-import { AchievementsConfig } from '../../../../lib/achievementConfig';
+} from '../../../../domain/achievements/skillData';
+import { AchievementsConfig } from '../../../../domain/achievements/achievementConfig';
 import { cabinetPathForTab, parseCabinetTabParam } from '../../../../lib/workspaceRoutes';
 import { StudentCabinetHome } from './StudentCabinetHome';
 import { StudentHistoryPanel } from './StudentHistoryPanel';

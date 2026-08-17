@@ -1,5 +1,5 @@
 import type { TranslationKey } from '../../../app/providers/LanguageContext';
-import type { SkillConfig } from '../../../lib/skillData';
+import type { SkillConfig } from '../../../domain/achievements/skillData';
 import type { UserProfile } from '../../../types';
 
 export type LevelShape = 'circle' | 'diamond' | 'hexagon' | 'triangle';

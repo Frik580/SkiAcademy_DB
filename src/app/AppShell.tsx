@@ -9,7 +9,7 @@ import { Navbar } from '../app/components/Navbar';
 import { ModalHost } from '../features/shell';
 import { AppRoutes } from './routes/AppRoutes';
 import { FeaturePageShell } from './FeaturePageShell';
-import { logger } from '../lib/logger';
+import { logger } from '../shared/logger';
 
 import { useAuthStore } from '../features/auth';
 import { useProfileStore } from '../features/profile';

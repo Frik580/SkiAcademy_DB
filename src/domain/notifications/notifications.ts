@@ -1,5 +1,5 @@
-import { db, doc, setDoc } from '../infrastructure/firebase/firebase';
-import { logger } from './logger';
+import { db, doc, setDoc } from '../../infrastructure/firebase/firebase';
+import { logger } from '../../shared/logger';
 import type { BilingualNotificationContent } from './notificationText';
 
 export type NotificationType = 'info' | 'warning' | 'success';

@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 import { collection, db, limit, onSnapshot, orderBy, query, where } from '../../../infrastructure/firebase/firebase';
-import { logger } from '../../../lib/logger';
+import { logger } from '../../../shared/logger';
 import {
   isNotificationExpired,
   purgeExpiredNotificationsForUser,
-} from '../../../lib/notificationCleanup';
-import { resolveNotificationText, type DbNotification } from '../../../lib/notificationText';
+} from '../../../domain/notifications/notificationCleanup';
+import { resolveNotificationText, type DbNotification } from '../../../domain/notifications/notificationText';
 import { toNotification } from '../../../infrastructure/firebase/firestoreMappers';
 import { useAuthStore } from '../../auth/authStore';
 import { useSettingsStore } from '../../settings/settingsStore';

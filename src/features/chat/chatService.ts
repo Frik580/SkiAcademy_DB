@@ -11,7 +11,7 @@ import {
   setDoc,
   updateDoc,
 } from '../../infrastructure/firebase/firebase';
-import { QUERY_LIMITS } from '../../lib/queryLimits';
+import { QUERY_LIMITS } from '../../shared/queryLimits';
 import { ChatMessage, OperationType } from '../../types';
 
 function messagesPath(threadId: string): string {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { UserProfile, Instructor, Booking, Review, Course } from '../../types';
-import { SkillConfig } from '../../lib/skillData';
+import { SkillConfig } from '../../domain/achievements/skillData';
 import { BookingChatModal } from '../bookings';
 import { StudentSkillEvaluationModal } from '../profile';
 import { useInstructorWorkspace } from './components/useInstructorWorkspace';

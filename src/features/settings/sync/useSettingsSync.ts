@@ -3,11 +3,11 @@ import { db, doc, onSnapshot } from '../../../infrastructure/firebase/firebase';
 import {
   DEFAULT_ACHIEVEMENTS_CONFIG,
   normalizeAchievementsConfig,
-} from '../../../lib/achievementConfig';
-import { parseDesignTheme } from '../../../lib/designTheme';
-import { DEFAULT_NOTIFICATION_RETENTION_DAYS } from '../../../lib/notificationConfig';
-import { DEFAULT_SKILL_CONFIG } from '../../../lib/skillData';
-import { logger } from '../../../lib/logger';
+} from '../../../domain/achievements/achievementConfig';
+import { parseDesignTheme } from '../../../shared/designTheme';
+import { DEFAULT_NOTIFICATION_RETENTION_DAYS } from '../../../domain/notifications/notificationConfig';
+import { DEFAULT_SKILL_CONFIG } from '../../../domain/achievements/skillData';
+import { logger } from '../../../shared/logger';
 import { useSettingsStore } from '../settingsStore';
 
 export const useSettingsSync = () => {

@@ -1,6 +1,6 @@
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from './firebase';
-import { logger } from '../../lib/logger';
+import { logger } from '../../shared/logger';
 
 export async function uploadImage(blob: Blob, path: string): Promise<string> {
   const storageRef = ref(storage, path);

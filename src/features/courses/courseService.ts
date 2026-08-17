@@ -10,8 +10,8 @@ import {
 import { enrollInCourseViaCallable } from '../../lib/enrollInCourseCallable';
 import { stripUndefinedFields } from '../../domain/course/courseClone';
 import { Course, Booking } from '../../types';
-import { createNotificationForUser } from '../../lib/notifications';
-import { buildNotification, translateKey } from '../../lib/notificationText';
+import { createNotificationForUser } from '../../domain/notifications/notifications';
+import { buildNotification, translateKey } from '../../domain/notifications/notificationText';
 
 export async function addCourseService(course: Course): Promise<void> {
   await setDoc(

@@ -3,7 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage, type Language } from '../../app/providers/LanguageContext';
 import type { Theme } from '../../hooks/useTheme';
-import type { DesignTheme } from '../../lib/designTheme';
+import type { DesignTheme } from '../../shared/designTheme';
 import { CustomHeroSlide } from '../../types';
 import { FALLBACK_SLIDES } from '../../features/admin';
 

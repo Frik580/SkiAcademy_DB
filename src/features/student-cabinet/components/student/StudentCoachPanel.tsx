@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ActivityLog, Booking, Course, Instructor, UserProfile } from '../../../../types';
-import { SkillConfig } from '../../../../lib/skillData';
+import { SkillConfig } from '../../../../domain/achievements/skillData';
 import {
   useLanguage,
   translateInstructor,

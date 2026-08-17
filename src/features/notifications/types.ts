@@ -1,4 +1,4 @@
-import type { DbNotification } from '../../lib/notificationText';
+import type { DbNotification } from '../../domain/notifications/notificationText';
 
 export interface NotificationsState {
   dbNotifications: DbNotification[];

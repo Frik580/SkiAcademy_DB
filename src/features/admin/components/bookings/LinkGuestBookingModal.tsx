@@ -4,7 +4,7 @@ import { X, Search, UserCheck, Link2, Check, User, AlertCircle } from 'lucide-re
 import { Booking, UserProfile } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { StatusBadge } from '../../../../ui/StatusBadge';
-import { logger } from '../../../../lib/logger';
+import { logger } from '../../../../shared/logger';
 import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 
 interface LinkGuestBookingModalProps {

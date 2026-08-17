@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   getNotificationRetentionMs,
-} from '../../src/lib/notificationConfig';
+} from '../../src/domain/notifications/notificationConfig';
 
 describe('notification deletion and auto-expiry', () => {
   it('defines default 14-day expiry constant', () => {
@@ -36,7 +36,7 @@ describe('notification deletion and auto-expiry', () => {
     );
 
     const cleanupSource = readFileSync(
-      join(process.cwd(), 'src/lib/notificationCleanup.ts'),
+      join(process.cwd(), 'src/domain/notifications/notificationCleanup.ts'),
       'utf8'
     );
 

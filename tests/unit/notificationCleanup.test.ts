@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getNotificationTimestampMs,
   isNotificationExpired,
-} from '../../src/lib/notificationCleanup';
+} from '../../src/domain/notifications/notificationCleanup';
 
 describe('notificationCleanup', () => {
   it('parses ISO timestamps', () => {

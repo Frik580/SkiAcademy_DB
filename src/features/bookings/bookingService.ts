@@ -57,7 +57,7 @@ export async function getInstructorAvailabilitySlots(
   );
   return snapshot.docs.map((slotDoc) => slotDoc.data() as AvailabilitySlot);
 }
-import { logger } from '../../lib/logger';
+import { logger } from '../../shared/logger';
 import {
   sanitizeRecommendations,
   toggleCompletedRecommendationIds,

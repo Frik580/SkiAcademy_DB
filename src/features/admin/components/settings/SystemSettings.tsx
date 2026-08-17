@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { Settings, Award, Mountain, Sliders, History, Trophy, Bell, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
-import { SkillConfig } from '../../../../lib/skillData';
-import { AchievementsConfig } from '../../../../lib/achievementConfig';
+import { SkillConfig } from '../../../../domain/achievements/skillData';
+import { AchievementsConfig } from '../../../../domain/achievements/achievementConfig';
 import { Booking, Course } from '../../../../types';
 import { backfillCompletedBookingActivityLogs } from '../../../../lib/backfillActivityLog';
 import {
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   MAX_NOTIFICATION_RETENTION_DAYS,
   MIN_NOTIFICATION_RETENTION_DAYS,
-} from '../../../../lib/notificationConfig';
+} from '../../../../domain/notifications/notificationConfig';
 import { SkillConfigManager } from '../../../../features/admin';
 import { AchievementsManager } from './AchievementsManager';
 import { ResortDataSection, ResortSliderSection } from '../resort/ResortConfigForm';

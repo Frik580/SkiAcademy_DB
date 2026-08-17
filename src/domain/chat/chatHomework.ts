@@ -1,4 +1,4 @@
-import { ChatMessage } from '../types';
+import { ChatMessage } from '../../types';
 
 /** Homework with no `homeworkForUserIds` (or empty) is visible to all course participants. */
 export function isHomeworkVisibleToStudent(

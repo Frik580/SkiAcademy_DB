@@ -1,4 +1,4 @@
-import { ActivityLog, Booking } from '../types';
+import { ActivityLog, Booking } from '../../types';
 
 export const toIsoWeekKey = (input: string | Date): string | null => {
   const d =

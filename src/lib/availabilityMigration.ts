@@ -8,7 +8,7 @@ import { addHourLocksToBatch } from '../domain/booking/slotOverlap';
 import { doc, getDoc, setDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import { Booking } from '../types';
 import { db } from '../infrastructure/firebase/firebase';
-import { logger } from './logger';
+import { logger } from '../shared/logger';
 
 export const migrateAvailabilitySlots = async (
   bookings: Booking[],

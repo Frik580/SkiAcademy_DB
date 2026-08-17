@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { LogOut } from 'lucide-react';
 import { UserProfile } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
-import { logger } from '../../../../lib/logger';
+import { logger } from '../../../../shared/logger';
 import { ToggleSwitch } from '../../../../ui/ToggleSwitch';
 
 interface StudentProfilePreferencesSectionProps {

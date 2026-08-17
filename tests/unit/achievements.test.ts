@@ -5,11 +5,11 @@ import {
   getAchievementLabel,
   isAchievementRuleMet,
   normalizeAchievementsConfig,
-} from '../../src/lib/achievementConfig';
-import { pickAchievementTimestamp } from '../../src/lib/achievements';
-import { findStreakWeeksTimestamp } from '../../src/lib/trainingStreak';
+} from '../../src/domain/achievements/achievementConfig';
+import { pickAchievementTimestamp } from '../../src/domain/achievements/achievements';
+import { findStreakWeeksTimestamp } from '../../src/domain/achievements/trainingStreak';
 import { ActivityLog, Booking, Course, Review, UserProfile } from '../../src/types';
-import { DEFAULT_SKILL_CONFIG } from '../../src/lib/skillData';
+import { DEFAULT_SKILL_CONFIG } from '../../src/domain/achievements/skillData';
 import {
   getTodayAchievements,
   isTimestampOnLocalDate,

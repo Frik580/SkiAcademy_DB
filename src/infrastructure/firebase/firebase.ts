@@ -26,7 +26,7 @@ import {
   deleteField,
 } from 'firebase/firestore';
 import { OperationType } from '../../types';
-import { logger } from '../../lib/logger';
+import { logger } from '../../shared/logger';
 
 const requiredEnvVars = [
   'VITE_FIREBASE_API_KEY',

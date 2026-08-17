@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { syncAchievementActivityLogs } from '../../../lib/achievements';
-import { logger } from '../../../lib/logger';
+import { syncAchievementActivityLogs } from '../../../domain/achievements/achievements';
+import { logger } from '../../../shared/logger';
 import { useAuthStore } from '../../auth/authStore';
 import { useBookingsStore } from '../../bookings/bookingsStore';
 import { useCoursesStore } from '../../courses/coursesStore';

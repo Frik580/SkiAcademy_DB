@@ -1,4 +1,4 @@
-import type { Booking } from '../types';
+import type { Booking } from '../../types';
 
 /** Minimal booking shape for chat thread resolution (individual lessons and course groups). */
 export type CourseChatBooking = {

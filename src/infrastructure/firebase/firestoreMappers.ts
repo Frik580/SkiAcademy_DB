@@ -1,5 +1,5 @@
 import type { ActivityLog, Booking, Course, Instructor, Review, UserProfile } from '../../types';
-import type { DbNotification } from '../../lib/notificationText';
+import type { DbNotification } from '../../domain/notifications/notificationText';
 import type { WalletLedgerEntry } from '../../features/wallet/types';
 
 /** Raw Firestore shape: document fields without the Firestore document id. */

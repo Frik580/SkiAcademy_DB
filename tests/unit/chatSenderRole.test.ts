@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveChatSenderRole, resolveProfileSenderRole } from '../../src/lib/chatSenderRole';
+import { resolveChatSenderRole, resolveProfileSenderRole } from '../../src/domain/chat/chatSenderRole';
 import { Booking, ChatMessage, Instructor, UserProfile } from '../../src/types';
 
 const instructorProfile: UserProfile = {

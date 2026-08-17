@@ -1,4 +1,4 @@
-import { logActivityForUser, activityLogId, updateActivityLogTimestamp } from './activityLog';
+import { logActivityForUser, activityLogId, updateActivityLogTimestamp } from '../../lib/activityLog';
 import {
   AchievementDefinition,
   AchievementEvaluationContext,

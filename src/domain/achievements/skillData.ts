@@ -1,4 +1,4 @@
-import { Language } from './i18n/translations';
+import { Language } from '../../lib/i18n/translations';
 
 export type RadarDimensionKey =
   'technique' | 'control' | 'speed' | 'balance' | 'coordination' | 'terrain';

@@ -5,7 +5,7 @@ import {
   saveResortWeatherCache,
 } from '../features/settings';
 import { ResortConfig } from '../types';
-import { logger } from '../lib/logger';
+import { logger } from '../shared/logger';
 
 const DEFAULT_CONFIG: ResortConfig = {
   nameEn: 'Shymbulak Mountain Resort',

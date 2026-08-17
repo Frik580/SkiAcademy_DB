@@ -14,7 +14,7 @@ import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { getSpecialtyLabel } from '../schedule/scheduleUtils';
 import { uploadImage } from '../../../../infrastructure/firebase/storage';
-import { logger } from '../../../../lib/logger';
+import { logger } from '../../../../shared/logger';
 
 interface CoachesManagerProps {
   instructors: Instructor[];

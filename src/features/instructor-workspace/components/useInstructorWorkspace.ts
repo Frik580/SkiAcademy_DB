@@ -15,8 +15,8 @@ import {
 } from '../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../features/notifications';
 import { useTheme } from '../../../hooks/useTheme';
-import { logger } from '../../../lib/logger';
-import { SkillConfig, DEFAULT_SKILL_ITEMS } from '../../../lib/skillData';
+import { logger } from '../../../shared/logger';
+import { SkillConfig, DEFAULT_SKILL_ITEMS } from '../../../domain/achievements/skillData';
 import { LessonRecommendation } from '../../../types';
 import { useBookingChatUnread } from '../../../lib/useBookingChatUnread';
 import {

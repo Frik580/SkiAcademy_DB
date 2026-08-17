@@ -7,8 +7,8 @@ import {
   UserProfile,
   ActivityLog,
 } from '../../../../types';
-import { SkillConfig } from '../../../../lib/skillData';
-import { AchievementsConfig } from '../../../../lib/achievementConfig';
+import { SkillConfig } from '../../../../domain/achievements/skillData';
+import { AchievementsConfig } from '../../../../domain/achievements/achievementConfig';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { YourJourneySection } from '../../../../features/journey';
 import {

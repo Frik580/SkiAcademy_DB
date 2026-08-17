@@ -3,7 +3,7 @@ import { FirebaseError } from 'firebase/app';
 import { UserProfile } from '../../../types';
 import { useNotifications } from '../../../features/notifications';
 import { useLanguage } from '../../../app/providers/LanguageContext';
-import { logger } from '../../../lib/logger';
+import { logger } from '../../../shared/logger';
 import {
   getUserProfileService,
   migrateExistingProfileService,

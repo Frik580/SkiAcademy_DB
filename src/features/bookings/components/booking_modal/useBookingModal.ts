@@ -10,7 +10,7 @@ import {
 } from '../../../../types';
 import { useNotifications } from '../../../../features/notifications';
 import { useLanguage, parseCourseDates, getDifficultyLabel } from '../../../../app/providers/LanguageContext';
-import { logger } from '../../../../lib/logger';
+import { logger } from '../../../../shared/logger';
 import {
   blocksInstructorAvailability,
   DEFAULT_LESSON_TIME_SLOTS,

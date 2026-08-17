@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildHomeworkForUserIds, isHomeworkVisibleToStudent } from '../../src/lib/chatHomework';
+import { buildHomeworkForUserIds, isHomeworkVisibleToStudent } from '../../src/domain/chat/chatHomework';
 import { ChatMessage } from '../../src/types';
 
 const homeworkMsg = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({

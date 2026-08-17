@@ -4,7 +4,7 @@ import {
   calculateSkillProgress,
   calculateStudentLevel,
   getJourneyLevelXpThresholds,
-} from '../../../lib/skillData';
+} from '../../../domain/achievements/skillData';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useTheme } from '../../../hooks/useTheme';
 import { AchievementGrid } from './AchievementGrid';

@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import { AchievementsConfig, DEFAULT_ACHIEVEMENTS_CONFIG } from '../../lib/achievementConfig';
-import { DesignTheme } from '../../lib/designTheme';
-import { DEFAULT_NOTIFICATION_RETENTION_DAYS } from '../../lib/notificationConfig';
-import { DEFAULT_SKILL_CONFIG, SkillConfig } from '../../lib/skillData';
+import { AchievementsConfig, DEFAULT_ACHIEVEMENTS_CONFIG } from '../../domain/achievements/achievementConfig';
+import { DesignTheme } from '../../shared/designTheme';
+import { DEFAULT_NOTIFICATION_RETENTION_DAYS } from '../../domain/notifications/notificationConfig';
+import { DEFAULT_SKILL_CONFIG, SkillConfig } from '../../domain/achievements/skillData';
 import { notify, t } from '../../store/storeContext';
 import {
   saveAchievementsConfig,

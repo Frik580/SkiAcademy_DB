@@ -4,7 +4,7 @@ import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { optimizeCourseImage } from './courseImage';
 import { uploadImage } from '../../../../infrastructure/firebase/storage';
-import { logger } from '../../../../lib/logger';
+import { logger } from '../../../../shared/logger';
 
 interface CourseBackgroundImageFieldProps {
   value: string;

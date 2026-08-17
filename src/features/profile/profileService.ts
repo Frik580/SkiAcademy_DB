@@ -11,7 +11,7 @@ import {
   where,
 } from '../../infrastructure/firebase/firebase';
 import { UserProfile } from '../../types';
-import { logger } from '../../lib/logger';
+import { logger } from '../../shared/logger';
 import { updateUserWithAdminBalanceLedger } from '../../domain/wallet/walletCredit';
 
 export async function updateUserProfileService(

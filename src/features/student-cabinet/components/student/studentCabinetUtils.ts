@@ -14,7 +14,7 @@ import {
   calculateSkillProgress,
   getSkillItemTitle,
   getSkillItemSection,
-} from '../../../../lib/skillData';
+} from '../../../../domain/achievements/skillData';
 import { Language } from '../../../../lib/i18n/translations';
 import { type TranslationKey } from '../../../../app/providers/LanguageContext';
 import {
@@ -34,7 +34,7 @@ import {
   normalizeAchievementsConfig,
   pickAchievementTimestamp,
   type AchievementsConfig,
-} from '../../../../lib/achievements';
+} from '../../../../domain/achievements/achievements';
 export {
   isProfileTab,
   PROFILE_TABS,
@@ -474,7 +474,7 @@ export const getTodayTasks = (
   });
 };
 
-export { getTrainingStreakWeeks } from '../../../../lib/trainingStreak';
+export { getTrainingStreakWeeks } from '../../../../domain/achievements/trainingStreak';
 
 export const getAchievements = (
   userProfile: UserProfile,

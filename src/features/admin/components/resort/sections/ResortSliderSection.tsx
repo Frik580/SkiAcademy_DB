@@ -14,7 +14,7 @@ import { CustomHeroSlide } from '../../../../../types';
 import { useLanguage } from '../../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../../features/notifications';
 import { FALLBACK_SLIDES } from '../resortConfigDefaults';
-import { logger } from '../../../../../lib/logger';
+import { logger } from '../../../../../shared/logger';
 import { ToggleSwitch } from '../../../../../ui/ToggleSwitch';
 import { FormSkeleton } from '../../../../../ui/Skeleton';
 import { saveResortConfig, subscribeResortConfig } from '../../../../../features/settings';

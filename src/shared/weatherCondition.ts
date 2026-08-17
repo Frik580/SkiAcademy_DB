@@ -1,4 +1,4 @@
-import type { TranslationKey } from './i18n/translations';
+import type { TranslationKey } from '../lib/i18n/translations';
 
 /** Maps Open-Meteo WMO weather codes to a short human label. */
 export function getWeatherConditionKey(code: number): TranslationKey {

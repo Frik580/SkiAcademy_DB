@@ -20,7 +20,7 @@ interface InstructorBookingCardProps {
   t: (key: TranslationKey) => string;
   onOpenChat: (booking: DisplayBooking) => void;
   hasUnreadChat?: (
-    bookingOrId: string | import('../../../lib/resolveChatId').CourseChatBooking
+    bookingOrId: string | import('../../../domain/chat/resolveChatId').CourseChatBooking
   ) => boolean;
   onUpdateStatus: (bookingId: string, nextStatus: 'confirmed' | 'completed') => void;
   onUpdateStudentLevel: (studentUid: string, studentName: string, newLevel: number) => void;

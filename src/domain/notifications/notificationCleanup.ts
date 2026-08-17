@@ -10,7 +10,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { getNotificationRetentionMs } from './notificationConfig';
-import { logger } from './logger';
+import { logger } from '../../shared/logger';
 
 const CLEANUP_BATCH_SIZE = 200;
 

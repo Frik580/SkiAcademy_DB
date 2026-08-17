@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChatMessage } from '../types';
-import { getChatLastReadAt, markChatReadAt, seedChatReadAt } from './chatReadState';
-import { getCourseChatThreadIds, resolveChatId, type CourseChatBooking } from './resolveChatId';
+import { getChatLastReadAt, markChatReadAt, seedChatReadAt } from '../domain/chat/chatReadState';
+import { getCourseChatThreadIds, resolveChatId, type CourseChatBooking } from '../domain/chat/resolveChatId';
 import { subscribeToChatMessages } from '../features/chat';
 
 type WatchPlan = {

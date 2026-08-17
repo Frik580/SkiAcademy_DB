@@ -3,10 +3,10 @@ import { createPortal } from 'react-dom';
 import { Booking, UserProfile, ChatMessage, Instructor, Course } from '../../../types';
 import { uploadImage } from '../../../infrastructure/firebase/storage';
 import { useLanguage } from '../../../app/providers/LanguageContext';
-import { logger } from '../../../lib/logger';
-import { resolveChatId, getCourseChatThreadIds } from '../../../lib/resolveChatId';
-import { resolveProfileSenderRole } from '../../../lib/chatSenderRole';
-import { buildHomeworkForUserIds } from '../../../lib/chatHomework';
+import { logger } from '../../../shared/logger';
+import { resolveChatId, getCourseChatThreadIds } from '../../../domain/chat/resolveChatId';
+import { resolveProfileSenderRole } from '../../../domain/chat/chatSenderRole';
+import { buildHomeworkForUserIds } from '../../../domain/chat/chatHomework';
 import {
   createChatMessage,
   setChatMessageHomework,

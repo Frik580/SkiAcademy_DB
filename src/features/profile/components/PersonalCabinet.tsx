@@ -11,8 +11,8 @@ import {
 import { Lock, Sparkles } from 'lucide-react';
 import { useNotifications } from '../../../features/notifications';
 import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
-import { SkillConfig } from '../../../lib/skillData';
-import { AchievementsConfig } from '../../../lib/achievementConfig';
+import { SkillConfig } from '../../../domain/achievements/skillData';
+import { AchievementsConfig } from '../../../domain/achievements/achievementConfig';
 import { StudentCabinet } from '../../../features/profile/components/StudentCabinet';
 import { useReviewFlow } from '../../../features/profile/components/ReviewFlow';
 import { StudentCabinetResortSnapshot } from '../../../features/student-cabinet/components/student/StudentHomeBottomSections';

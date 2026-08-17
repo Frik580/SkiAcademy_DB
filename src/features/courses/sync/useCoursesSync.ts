@@ -9,7 +9,7 @@ import {
   query,
 } from '../../../infrastructure/firebase/firebase';
 import { toCourse } from '../../../infrastructure/firebase/firestoreMappers';
-import { QUERY_LIMITS } from '../../../lib/queryLimits';
+import { QUERY_LIMITS } from '../../../shared/queryLimits';
 import { useCoursesStore } from '../coursesStore';
 
 export const useCoursesSync = () => {

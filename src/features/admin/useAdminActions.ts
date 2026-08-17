@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { isCourseBooking } from '../../lib/availabilitySlots';
-import { createNotificationForUser } from '../../lib/notifications';
-import { buildNotification, translateKey } from '../../lib/notificationText';
+import { createNotificationForUser } from '../../domain/notifications/notifications';
+import { buildNotification, translateKey } from '../../domain/notifications/notificationText';
 import { Booking, Instructor } from '../../types';
 import {
   clearStudentBookings,

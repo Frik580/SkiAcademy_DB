@@ -4,7 +4,7 @@ import { UserProfile } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { optimizeProfileImage } from '../profileImage';
 import { uploadImage } from '../../../../infrastructure/firebase/storage';
-import { logger } from '../../../../lib/logger';
+import { logger } from '../../../../shared/logger';
 import { ScSectionTitle } from './StudentCabinetUI';
 import { useEffectiveBalance } from '../../../../features/wallet';
 

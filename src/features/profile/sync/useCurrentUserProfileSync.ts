@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { db, doc, onSnapshot } from '../../../infrastructure/firebase/firebase';
-import { logger } from '../../../lib/logger';
+import { logger } from '../../../shared/logger';
 import { toUserProfile } from '../../../infrastructure/firebase/firestoreMappers';
 import { useAuthStore } from '../../auth/authStore';
 import { useProfileStore } from '../profileStore';

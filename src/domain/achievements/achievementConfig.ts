@@ -1,4 +1,4 @@
-import { parseCourseDates } from '../app/providers/LanguageContext';
+import { parseCourseDates } from '../../app/providers/LanguageContext';
 import { findStreakWeeksTimestamp, getTrainingStreakWeeks } from './trainingStreak';
 import {
   ActivityLog,
@@ -8,7 +8,7 @@ import {
   Review,
   SkillDeltaMeta,
   UserProfile,
-} from '../types';
+} from '../../types';
 import { DEFAULT_SKILL_CONFIG, SkillConfig, SkillItem } from './skillData';
 
 export type AchievementRuleType =

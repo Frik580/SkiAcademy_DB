@@ -8,8 +8,8 @@ import {
   ActivityLog,
   WalletLedgerEntry,
 } from '../../../types';
-import { SkillConfig } from '../../../lib/skillData';
-import { AchievementsConfig } from '../../../lib/achievementConfig';
+import { SkillConfig } from '../../../domain/achievements/skillData';
+import { AchievementsConfig } from '../../../domain/achievements/achievementConfig';
 import { StudentCabinetShell } from '../../../features/student-cabinet/components/student/StudentCabinetShell';
 import { StudentCabinetResortSnapshot } from '../../../features/student-cabinet/components/student/StudentHomeBottomSections';
 

@@ -1,6 +1,6 @@
-import type { ChatMessage, Course, Instructor, UserProfile } from '../types';
-import type { Language } from './i18n/translations';
-import { translateInstructor } from './i18n/contentTranslation';
+import type { ChatMessage, Course, Instructor, UserProfile } from '../../types';
+import type { Language } from '../../lib/i18n/translations';
+import { translateInstructor } from '../../lib/i18n/contentTranslation';
 import { isCourseGroupBooking, type CourseChatBooking } from './resolveChatId';
 
 export type ChatSenderRole = 'client' | 'instructor' | 'admin';

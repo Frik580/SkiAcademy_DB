@@ -9,7 +9,7 @@ import {
   timeStrToMinutes,
   toLocalDateStr,
 } from '../../../lib/availabilitySlots';
-import { logger } from '../../../lib/logger';
+import { logger } from '../../../shared/logger';
 import { getInstructorAvailabilitySlots } from '../../../features/bookings';
 
 interface UseRescheduleBookingOptions {

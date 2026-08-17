@@ -1,17 +1,9 @@
 import { memo, useMemo } from 'react';
-import type { ActivityLog, Booking, Course, Instructor, Review, UserProfile } from '../../../../types';
-import { useLanguage } from '../../../../app/providers/LanguageContext';
-import type { AchievementsConfig, SkillConfig } from '../../../../domain/achievements';
 import {
   getNextStepAction,
   getTodaySessionCountdown,
   resolveBookingStartDate,
-  type MiniCalendarDay,
-  type NextSessionItem,
-  type StudentCabinetTab,
-  type TodayTask,
 } from './studentCabinetUtils';
-import type { TodayTaskRef } from '../..';
 import { ScDivider, ScSectionTitle } from './StudentCabinetUI';
 import { StudentNextStepCard } from './StudentNextStepCard';
 import {
@@ -21,37 +13,12 @@ import {
 } from './StudentTodaySessionBlocks';
 import { TodayTasksBlock } from './StudentTodayTasksBlock';
 import { TodayProgressBlock } from './StudentTodayProgressBlock';
+import type { StudentTodaySectionInput } from './studentCabinetContracts';
+import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
 const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
 
-interface StudentTodaySectionProps {
-  currentSessions: Booking[];
-  nextSession?: Booking | null;
-  nextSessions?: NextSessionItem[];
-  miniDays: MiniCalendarDay[];
-  courses: Course[];
-  instructors?: Instructor[];
-  usersList?: UserProfile[];
-  todayTasks: TodayTask[];
-  bookings: Booking[];
-  reviews?: Review[];
-  userProfile?: UserProfile;
-  activityLogs?: ActivityLog[];
-  achievementsConfig?: AchievementsConfig;
-  skillConfig?: SkillConfig;
-  onOpenSession: (booking: Booking) => void;
-  onOpenLesson: (booking: Booking) => void;
-  onGoToTab: (tab: StudentCabinetTab) => void;
-  onContinueDevelopment: () => void;
-  onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
-  onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
-  onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
-  onAddCustomTodayTask?: (text: string) => void;
-  onRemoveTodayTask?: (task: TodayTaskRef) => void;
-  hasUnreadChat?: (bookingId: string) => boolean;
-}
-
-export const StudentTodaySection = memo<StudentTodaySectionProps>(function StudentTodaySection({
+export const StudentTodaySection = memo<StudentTodaySectionInput>(function StudentTodaySection({
   currentSessions,
   nextSession = null,
   nextSessions,
@@ -77,8 +44,7 @@ export const StudentTodaySection = memo<StudentTodaySectionProps>(function Stude
   onRemoveTodayTask,
   hasUnreadChat,
 }) {
-  const { language, t } = useLanguage();
-  const lang = language === 'ru' ? 'ru' : 'en';
+  const { t, lang } = useStudentCabinetTranslations();
 
   const effectiveNextSessions = useMemo(() => {
     if (nextSessions) return nextSessions;

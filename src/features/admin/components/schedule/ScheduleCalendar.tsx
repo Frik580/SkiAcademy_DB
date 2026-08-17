@@ -1,17 +1,15 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { BookOpen, Clock } from 'lucide-react';
 import { Instructor, Booking, UserProfile, Course } from '../../../../types';
-import {
-  useLanguage,
-  translateCourse,
-  parseCourseDates,
-} from '../../../../app/providers/LanguageContext';
+import { translateCourse, parseCourseDates } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { formatDateLocalYMD, getWeekRange } from './scheduleUtils';
 import { SCHEDULE_TIME_SLOTS } from './scheduleOverlap';
 import { ScheduleBookingCell } from './ScheduleBookingCell';
 import { ScheduleInstructorCell } from './ScheduleInstructorCell';
 import { ScheduleTimetableCells } from './ScheduleTimetableCells';
+import type { ScheduleBooking, ScheduleInstructor } from './scheduleContracts';
+import { useScheduleTranslations } from './useScheduleTranslations';
 import { ScheduleToolbar, type ScheduleViewMode } from './ScheduleToolbar';
 import {
   ScheduleSlotActionModal,
@@ -54,7 +52,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   onLinkGuestBooking,
 }) => {
   const { addNotification } = useNotifications();
-  const { t, language } = useLanguage();
+  const { t, language } = useScheduleTranslations();
 
   const [viewMode, setViewMode] = useState<ScheduleViewMode>('day');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -75,11 +73,22 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     });
   };
 
-  const handleOpenSlotAction = (ins: Instructor, slotTime: string, existingB?: Booking) => {
+  const handleOpenSlotAction = (
+    instructor: ScheduleInstructor,
+    slotTime: string,
+    existingBooking?: ScheduleBooking
+  ) => {
+    const fullInstructor = instructors.find((item) => item.id === instructor.id);
+    const fullBooking = existingBooking
+      ? bookings.find((item) => item.id === existingBooking.id)
+      : undefined;
+
+    if (!fullInstructor || (existingBooking && !fullBooking)) return;
+
     setActiveSlotModal({
-      instructor: ins,
+      instructor: fullInstructor,
       time: slotTime,
-      booking: existingB,
+      booking: fullBooking,
     });
   };
 

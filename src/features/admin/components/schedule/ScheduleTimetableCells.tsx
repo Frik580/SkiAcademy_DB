@@ -1,24 +1,27 @@
 import React from 'react';
 import { BookOpen, Clock, Lock, Plus } from 'lucide-react';
-import type { Booking, Course, Instructor, UserProfile } from '../../../../types';
-import {
-  useLanguage,
-  translateCourse,
-  parseCourseDates,
-} from '../../../../app/providers/LanguageContext';
+import { parseCourseDates } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { formatDateLocalYMD, hourToMinutes } from './scheduleUtils';
 import { SCHEDULE_TIME_SLOTS } from './scheduleOverlap';
 import { ScheduleBookingCell } from './ScheduleBookingCell';
+import type {
+  ScheduleBooking,
+  ScheduleClient,
+  ScheduleCourse,
+  ScheduleInstructor,
+} from './scheduleContracts';
+import { useScheduleTranslations } from './useScheduleTranslations';
+import { getScheduleCourseTitle } from './scheduleCoursePresentation';
 
 export interface ScheduleTimetableCellsProps {
-  instructor: Instructor;
+  instructor: ScheduleInstructor;
   selectedDate: string;
-  instructors: Instructor[];
-  bookings: Booking[];
-  courses: Course[];
-  usersList: UserProfile[];
-  onOpenSlot: (instructor: Instructor, time: string, booking?: Booking) => void;
+  instructors: ScheduleInstructor[];
+  bookings: ScheduleBooking[];
+  courses: ScheduleCourse[];
+  usersList: ScheduleClient[];
+  onOpenSlot: (instructor: ScheduleInstructor, time: string, booking?: ScheduleBooking) => void;
   onDeleteSlot: (id: string) => void;
 }
 
@@ -33,7 +36,7 @@ export const ScheduleTimetableCells: React.FC<ScheduleTimetableCellsProps> = ({
   onDeleteSlot,
 }) => {
   const { addNotification } = useNotifications();
-  const { t, language } = useLanguage();
+  const { t, language } = useScheduleTranslations();
   const cells = [];
   let skipCount = 0;
 
@@ -151,7 +154,7 @@ export const ScheduleTimetableCells: React.FC<ScheduleTimetableCellsProps> = ({
             <div className="flex items-center justify-between gap-1.5 min-w-0">
               <div className="font-bold truncate text-violet-900 dark:text-violet-200 flex items-center gap-1">
                 <BookOpen className="w-3 h-3 text-violet-500 shrink-0" />
-                <span className="truncate">{translateCourse(courseOverlap, language).title}</span>
+                <span className="truncate">{getScheduleCourseTitle(courseOverlap, language)}</span>
                 <span className="text-[8px] bg-violet-100 dark:bg-violet-900/40 border border-violet-250/45 dark:border-violet-800 text-violet-700 dark:text-violet-300 px-1 py-0.2 font-mono uppercase tracking-wider font-extrabold shrink-0">
                   {t('courseLabelShort')}
                 </span>

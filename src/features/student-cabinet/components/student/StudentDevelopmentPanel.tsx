@@ -1,7 +1,5 @@
 import React, { useMemo } from 'react';
-import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { formatPointsCount } from '../../../../lib/i18n/pluralize';
-import { StudentCabinetContext } from './StudentCabinetHome';
 import {
   getLevelLabel,
   getLevelProgressPercent,
@@ -10,12 +8,10 @@ import {
 import { ScDivider, ScProgressBar, ScSectionTitle, StudentPanelBackLink } from './StudentCabinetUI';
 import { SkillRadarChart } from './SkillRadarChart';
 import { getSkillItemTitle } from '../../../../domain/achievements';
+import type { StudentDevelopmentPanelInput } from './studentCabinetContracts';
+import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
-interface StudentDevelopmentPanelProps extends StudentCabinetContext {
-  onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
-}
-
-export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelProps> = ({
+export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = ({
   userProfile,
   skillConfig,
   activityLogs = [],
@@ -23,8 +19,7 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelProps> = (
   onPinSkillsToday,
   onGoToTab,
 }) => {
-  const { language, t } = useLanguage();
-  const lang = language === 'ru' ? 'ru' : 'en';
+  const { language, t, lang } = useStudentCabinetTranslations();
   const level = userProfile.level || 1;
   const hideProgress = Boolean(userProfile.hideProgressTracking);
 

@@ -1,28 +1,14 @@
 import { memo, useMemo } from 'react';
 import { Award, Sparkles, Trophy, Zap } from 'lucide-react';
-import type { ActivityLog, Booking, Course, Review, UserProfile } from '../../../../types';
-import { useLanguage } from '../../../../app/providers/LanguageContext';
-import {
-  type AchievementsConfig,
-  DEFAULT_SKILL_CONFIG,
-  type SkillConfig,
-  getSkillItemTitle,
-} from '../../../../domain/achievements';
-import { getTodayAchievements, isTimestampOnLocalDate, type TodayTask } from './studentCabinetUtils';
+import { DEFAULT_SKILL_CONFIG, getSkillItemTitle } from '../../../../domain/achievements';
+import { getTodayAchievements, isTimestampOnLocalDate } from './studentCabinetUtils';
 import { ScTintCard } from './StudentCabinetUI';
+import type { TodayProgressBlockInput } from './studentCabinetContracts';
+import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
 const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
 
-export const TodayProgressBlock = memo<{
-  userProfile?: UserProfile;
-  bookings: Booking[];
-  courses: Course[];
-  reviews: Review[];
-  activityLogs?: ActivityLog[];
-  achievementsConfig?: AchievementsConfig;
-  skillConfig?: SkillConfig;
-  todayTasks: TodayTask[];
-}>(function TodayProgressBlock({
+export const TodayProgressBlock = memo<TodayProgressBlockInput>(function TodayProgressBlock({
   userProfile,
   bookings,
   courses,
@@ -31,8 +17,7 @@ export const TodayProgressBlock = memo<{
   achievementsConfig,
   skillConfig,
 }) {
-  const { language } = useLanguage();
-  const lang = language === 'ru' ? 'ru' : 'en';
+  const { lang } = useStudentCabinetTranslations();
 
   const todayLogs = useMemo(() => {
     const logs = activityLogs.filter(

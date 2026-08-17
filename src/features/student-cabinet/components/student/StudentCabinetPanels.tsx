@@ -1,11 +1,9 @@
 import React from 'react';
-import { Booking, Course, Instructor, UserProfile } from '../../../../types';
-import { calculateSkillProgress } from '../../../../domain/achievements';
-import { useLanguage, translateInstructor } from '../../../../app/providers/LanguageContext';
+import { Booking, Course, Instructor } from '../../../../types';
+import { translateInstructor } from '../../../../app/providers/LanguageContext';
 import { BookingsPanel } from '../../../../features/profile';
 import { GroupCourseCard, sortVisibleCourses } from '../../../../features/courses';
 import { InstructorCard } from '../../../../features/profile';
-import { StudentCabinetContext } from './StudentCabinetHome';
 import { StudentDevelopmentPanel } from './StudentDevelopmentPanel';
 import { ScDivider, ScSectionTitle, StudentPanelBackLink } from './StudentCabinetUI';
 import {
@@ -16,6 +14,11 @@ import {
   StudentCabinetTab,
 } from './studentCabinetUtils';
 import { Calendar, ChevronRight, LayoutGrid, TrendingUp } from 'lucide-react';
+import type {
+  StudentCabinetPanelInput,
+  StudentTrainingPanelInput,
+} from './studentCabinetContracts';
+import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
 export { StudentDevelopmentPanel };
 
@@ -35,10 +38,8 @@ const TRAINING_HUB_ITEMS: {
   { tab: 'courses', labelKey: 'scNavCourses', descKey: 'scCourses', icon: LayoutGrid },
 ];
 
-export const StudentTrainingPanel: React.FC<Pick<StudentCabinetContext, 'onGoToTab'>> = ({
-  onGoToTab,
-}) => {
-  const { t } = useLanguage();
+export const StudentTrainingPanel: React.FC<StudentTrainingPanelInput> = ({ onGoToTab }) => {
+  const { t } = useStudentCabinetTranslations();
 
   return (
     <div className="space-y-6 pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
@@ -73,20 +74,7 @@ export const StudentTrainingPanel: React.FC<Pick<StudentCabinetContext, 'onGoToT
   );
 };
 
-interface PanelProps extends StudentCabinetContext {
-  onReschedule: (booking: Booking) => void;
-  onCancel: (booking: Booking) => void;
-  onChat: (booking: Booking) => void;
-  hasUnreadChat?: (bookingId: string) => boolean;
-  onWriteReview: (booking: Booking) => void;
-  onSignOut: () => void;
-  onUpdateProfile?: (data: Partial<UserProfile>) => Promise<void>;
-  onLevelBadgeClick: () => void;
-  skillProgress: ReturnType<typeof calculateSkillProgress>;
-  onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
-  onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
-  onAddCustomTodayTask?: (text: string) => void;
-}
+type PanelProps = StudentCabinetPanelInput;
 
 export const StudentCalendarPanel: React.FC<
   PanelProps & { unreviewedCompletedBookings: Booking[]; onDismissReview?: (id: string) => void }
@@ -143,7 +131,7 @@ export const StudentCoursesPanel: React.FC<
   onBookCourse,
   onGoToTab,
 }) => {
-  const { t, language } = useLanguage();
+  const { t, language } = useStudentCabinetTranslations();
   const myCourses = getEnrolledCourses(bookings, courses, userProfile.uid);
   const availableCourses = sortVisibleCourses(
     getAvailableCourses(bookings, courses, userProfile.uid)
@@ -226,7 +214,7 @@ export const StudentInstructorsPanel: React.FC<
   onViewInstructorReviews,
   onGoToTab,
 }) => {
-  const { t, language } = useLanguage();
+  const { t, language } = useStudentCabinetTranslations();
   const lang = language === 'ru' ? 'ru' : 'en';
   const myInstructors = getMyInstructors(bookings, instructors, userProfile.uid).map((ins) =>
     translateInstructor(ins, lang)

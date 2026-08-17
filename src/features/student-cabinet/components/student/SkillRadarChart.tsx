@@ -1,12 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { UserProfile } from '../../../../types';
 import {
-  SkillConfig,
   DEFAULT_SKILL_CONFIG,
   calculateSkillProgress,
   getSkillItemTitle,
 } from '../../../../domain/achievements';
-import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { ScSectionTitle } from './StudentCabinetUI';
 import { getLevelLabel } from './studentCabinetUtils';
 import { Check, Plus, RotateCcw, ChevronRight, ChevronDown } from 'lucide-react';
@@ -26,23 +23,14 @@ import {
   type RadarDimensionFilter,
   type RadarDimensionKey,
 } from './studentSkillRadarData';
+import type { SkillRadarChartInput } from './studentCabinetContracts';
+import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
 export type {
   RadarDimension,
   RadarDimensionFilter,
   RadarDimensionKey,
 } from './studentSkillRadarData';
-
-interface SkillRadarChartProps {
-  userProfile: UserProfile;
-  skillConfig?: SkillConfig;
-  onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
-  onPinSkillsToday?: (skillItemIds: string[]) => void | Promise<void>;
-  compact?: boolean;
-  /** Tighter hero embed: responsive chart */
-  embed?: boolean;
-  className?: string;
-}
 
 function SegmentedControl<T extends string>({
   value,
@@ -180,7 +168,7 @@ function ActivityRing({
   );
 }
 
-export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
+export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
   userProfile,
   skillConfig = DEFAULT_SKILL_CONFIG,
   onToggleSkillToday,
@@ -189,7 +177,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
   embed = false,
   className = '',
 }) => {
-  const { t, language } = useLanguage();
+  const { t, language } = useStudentCabinetTranslations();
   const lang = language === 'ru' ? 'ru' : 'en';
   const currentLevel = userProfile.level || 1;
   const items = skillConfig?.items || DEFAULT_SKILL_CONFIG.items;

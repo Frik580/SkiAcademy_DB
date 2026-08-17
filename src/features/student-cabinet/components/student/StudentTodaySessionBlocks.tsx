@@ -1,6 +1,4 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import type { Booking, Course, Instructor, UserProfile } from '../../../../types';
-import { useLanguage } from '../../../../app/providers/LanguageContext';
 import {
   formatCountdownRemaining,
   formatCourseDateRangeLabel,
@@ -9,16 +7,18 @@ import {
   getDifficultyShort,
   getRecentLessonInstructorLabel,
   getRecentLessonTitle,
-  type MiniCalendarDay,
-  type NextSessionItem,
-  type StudentCabinetTab,
-  type TodaySessionCountdown,
 } from './studentCabinetUtils';
 import { ScDivider, ScTextButton, ScTintCard } from './StudentCabinetUI';
 import { BookingCallCoachButton } from './BookingCallCoachButton';
 import { RecommendationIndicator } from '../RecommendationIndicator';
 import { ChatUnreadIndicator } from '../../../../features/chat';
 import { hasBookingRecommendations, hasPendingRecommendations } from '../../lessonRecommendations';
+import type {
+  CurrentSessionsBlockInput,
+  NextSessionBlockInput,
+  SessionCountdownBlockInput,
+} from './studentCabinetContracts';
+import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
 const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
 
@@ -66,67 +66,59 @@ const CountdownDigits = memo<{
   );
 });
 
-export const SessionCountdownBlock = memo<{
-  countdown: TodaySessionCountdown;
-  courses: Course[];
-  instructors: Instructor[];
-  usersList: UserProfile[];
-}>(function SessionCountdownBlock({ countdown, courses, instructors, usersList }) {
-  const { language, t } = useLanguage();
-  const lang = language === 'ru' ? 'ru' : 'en';
-  const [visible, setVisible] = useState(() => countdown.startsAt.getTime() > Date.now());
+export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
+  function SessionCountdownBlock({ countdown, courses, instructors, usersList }) {
+    const { t, lang } = useStudentCabinetTranslations();
+    const [visible, setVisible] = useState(() => countdown.startsAt.getTime() > Date.now());
 
-  if (!visible) return null;
+    if (!visible) return null;
 
-  const { booking } = countdown;
-  const isCourse = booking.instructorId.startsWith('course_');
+    const { booking } = countdown;
+    const isCourse = booking.instructorId.startsWith('course_');
 
-  return (
-    <>
-      <div className="pt-5 pb-5 space-y-2">
-        <p className={SUBSECTION_LABEL}>{t('scCountdownToSession')}</p>
-        <ScTintCard tint="accent" className="px-4 py-4 space-y-2">
-          <CountdownDigits
-            startsAtMs={countdown.startsAt.getTime()}
-            lang={lang}
-            onExpire={() => setVisible(false)}
-          />
-          <p className="text-base font-medium text-[var(--ink)]">
-            {isCourse
-              ? getRecentLessonTitle(booking, courses, lang)
-              : getDifficultyShort(booking.difficulty)}
-          </p>
-          <p className="text-sm text-[var(--ink-dim)]">
-            {formatSessionTimeRange(booking)}
-            {' · '}
-            {isCourse
-              ? formatCourseDateRangeLabel(booking, courses, lang)
-              : getRecentLessonInstructorLabel(booking, lang)}
-          </p>
-          <div className="flex flex-wrap gap-4 pt-1">
-            <BookingCallCoachButton
-              booking={booking}
-              courses={courses}
-              instructors={instructors}
-              usersList={usersList}
+    return (
+      <>
+        <div className="pt-5 pb-5 space-y-2">
+          <p className={SUBSECTION_LABEL}>{t('scCountdownToSession')}</p>
+          <ScTintCard tint="accent" className="px-4 py-4 space-y-2">
+            <CountdownDigits
+              startsAtMs={countdown.startsAt.getTime()}
+              lang={lang}
+              onExpire={() => setVisible(false)}
             />
-          </div>
-        </ScTintCard>
-      </div>
-      <ScDivider />
-    </>
-  );
-});
+            <p className="text-base font-medium text-[var(--ink)]">
+              {isCourse
+                ? getRecentLessonTitle(booking, courses, lang)
+                : getDifficultyShort(booking.difficulty)}
+            </p>
+            <p className="text-sm text-[var(--ink-dim)]">
+              {formatSessionTimeRange(booking)}
+              {' · '}
+              {isCourse
+                ? formatCourseDateRangeLabel(booking, courses, lang)
+                : getRecentLessonInstructorLabel(booking, lang)}
+            </p>
+            <div className="flex flex-wrap gap-4 pt-1">
+              <BookingCallCoachButton
+                booking={booking}
+                courses={courses}
+                instructors={instructors}
+                usersList={usersList}
+              />
+            </div>
+          </ScTintCard>
+        </div>
+        <ScDivider />
+      </>
+    );
+  }
+);
 
-const SessionCard = memo<{
-  session: Booking;
-  courses: Course[];
-  instructors: Instructor[];
-  usersList: UserProfile[];
-  onOpenLesson: (booking: Booking) => void;
-  onOpenSession: (booking: Booking) => void;
-  hasUnreadChat?: (bookingId: string) => boolean;
-}>(function SessionCard({
+const SessionCard = memo<
+  Omit<CurrentSessionsBlockInput, 'sessions'> & {
+    session: import('./studentCabinetContracts').StudentBooking;
+  }
+>(function SessionCard({
   session,
   courses,
   instructors,
@@ -135,8 +127,7 @@ const SessionCard = memo<{
   onOpenSession,
   hasUnreadChat,
 }) {
-  const { language, t } = useLanguage();
-  const lang = language === 'ru' ? 'ru' : 'en';
+  const { t, lang } = useStudentCabinetTranslations();
   const isCourse = session.instructorId.startsWith('course_');
 
   return (
@@ -180,15 +171,7 @@ const SessionCard = memo<{
   );
 });
 
-export const CurrentSessionsBlock = memo<{
-  sessions: Booking[];
-  courses: Course[];
-  instructors: Instructor[];
-  usersList: UserProfile[];
-  onOpenLesson: (booking: Booking) => void;
-  onOpenSession: (booking: Booking) => void;
-  hasUnreadChat?: (bookingId: string) => boolean;
-}>(function CurrentSessionsBlock({
+export const CurrentSessionsBlock = memo<CurrentSessionsBlockInput>(function CurrentSessionsBlock({
   sessions,
   courses,
   instructors,
@@ -197,7 +180,7 @@ export const CurrentSessionsBlock = memo<{
   onOpenSession,
   hasUnreadChat,
 }) {
-  const { t } = useLanguage();
+  const { t } = useStudentCabinetTranslations();
 
   return (
     <>
@@ -223,17 +206,7 @@ export const CurrentSessionsBlock = memo<{
   );
 });
 
-export const NextSessionBlock = memo<{
-  nextSessions: NextSessionItem[];
-  miniDays: MiniCalendarDay[];
-  courses: Course[];
-  instructors: Instructor[];
-  usersList: UserProfile[];
-  onGoToTab: (tab: StudentCabinetTab) => void;
-  onOpenLesson: (booking: Booking) => void;
-  onOpenSession: (booking: Booking) => void;
-  hasUnreadChat?: (bookingId: string) => boolean;
-}>(function NextSessionBlock({
+export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSessionBlock({
   nextSessions,
   miniDays,
   courses,
@@ -244,8 +217,7 @@ export const NextSessionBlock = memo<{
   onOpenSession,
   hasUnreadChat,
 }) {
-  const { language, t } = useLanguage();
-  const lang = language === 'ru' ? 'ru' : 'en';
+  const { t, lang } = useStudentCabinetTranslations();
 
   const upcomingDatesSet = useMemo(
     () => new Set(nextSessions.map((s) => s.dateStr)),

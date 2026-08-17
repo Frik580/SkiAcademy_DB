@@ -1,14 +1,15 @@
 import React from 'react';
 import { Calendar, Clock, Coffee, X } from 'lucide-react';
-import type { Booking, Instructor, UserProfile } from '../../../../types';
-import { useLanguage, getDifficultyLabel } from '../../../../app/providers/LanguageContext';
+import { getDifficultyLabel } from '../../../../app/providers/LanguageContext';
 import { isCourseBooking } from '../../../../domain/availability';
+import type { ScheduleBooking, ScheduleClient, ScheduleInstructor } from './scheduleContracts';
+import { useScheduleTranslations } from './useScheduleTranslations';
 
 interface ScheduleBookingCellProps {
-  booking: Booking;
-  instructor: Instructor;
-  usersList: UserProfile[];
-  onOpen: (instructor: Instructor, time: string, booking: Booking) => void;
+  booking: ScheduleBooking;
+  instructor: ScheduleInstructor;
+  usersList: ScheduleClient[];
+  onOpen: (instructor: ScheduleInstructor, time: string, booking: ScheduleBooking) => void;
   onDelete: (id: string) => void;
 }
 
@@ -19,7 +20,7 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
   onOpen,
   onDelete,
 }) => {
-  const { t, language } = useLanguage();
+  const { t, language } = useScheduleTranslations();
   const client = usersList.find((user) => user.uid === booking.userId);
 
   if (booking.userId === 'system_block_day_off') {

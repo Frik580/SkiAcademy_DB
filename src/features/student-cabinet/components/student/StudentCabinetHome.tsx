@@ -1,15 +1,4 @@
 import React, { useMemo } from 'react';
-import {
-  Booking,
-  Course,
-  Instructor,
-  Review,
-  UserProfile,
-  ActivityLog,
-} from '../../../../types';
-import { SkillConfig } from '../../../../domain/achievements';
-import { AchievementsConfig } from '../../../../domain/achievements';
-import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { YourJourneySection } from '../../../../features/journey';
 import {
   getFirstName,
@@ -19,57 +8,24 @@ import {
   getTodayTasks,
   getCurrentSessions,
   hasTrainingToday,
-  StudentCabinetTab,
 } from './studentCabinetUtils';
 import { ScDivider, ScTextButton } from './StudentCabinetUI';
 import { StudentNeedsAttention } from './StudentNeedsAttention';
 import { StudentTodaySection } from './StudentTodaySection';
 import { SkillRadarChart } from './SkillRadarChart';
 import {
-  StudentCabinetResortSnapshot,
   StudentCabinetWeatherSection,
   StudentLatestRecommendationSection,
 } from './StudentHomeBottomSections';
+import type { StudentCabinetHomeContext } from './studentCabinetContracts';
+import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
-export interface StudentCabinetContext {
-  userProfile: UserProfile;
-  bookings: Booking[];
-  courses: Course[];
-  instructors: Instructor[];
-  usersList?: UserProfile[];
-  reviews: Review[];
-  activityLogs?: ActivityLog[];
-  dismissedReviewIds?: string[];
-  skillConfig?: SkillConfig;
-  achievementsConfig?: AchievementsConfig;
-  onOpenSession: (booking: Booking) => void;
-  onOpenLesson: (booking: Booking) => void;
-  onWriteReview: (booking: Booking) => void;
-  onDismissReview?: (bookingId: string) => void;
-  onGoToTab: (tab: StudentCabinetTab) => void;
-  onOpenDevelopmentSection: (sectionId: string) => void;
-  onContinueDevelopment: () => void;
-  onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
-  onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
-  onPinSkillsToday?: (skillItemIds: string[]) => void | Promise<void>;
-  onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
-  onAddCustomTodayTask?: (text: string) => void;
-  onRemoveTodayTask?: (task: import('../../../../features/student-cabinet/todayChecklist').TodayTaskRef) => void;
-  onViewCourseDetails: (course: Course) => void;
-  onRequireCourseAuth: (course: Course) => void;
-  onBookCourse: (courseId: string) => void;
-  onBookInstructor: (instructor: Instructor) => void;
-  onViewInstructorReviews: (instructor: Instructor) => void;
-  hasUnreadChat?: (bookingId: string) => boolean;
-  resortSnapshot?: StudentCabinetResortSnapshot;
-  onToggleTemperatureUnit?: () => void;
-}
+export type { StudentCabinetHomeContext as StudentCabinetContext } from './studentCabinetContracts';
 
-type StudentCabinetHomeProps = StudentCabinetContext;
+type StudentCabinetHomeProps = StudentCabinetHomeContext;
 
 export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => {
-  const { language, t } = useLanguage();
-  const lang = language === 'ru' ? 'ru' : 'en';
+  const { t, lang } = useStudentCabinetTranslations();
   const {
     userProfile,
     bookings,

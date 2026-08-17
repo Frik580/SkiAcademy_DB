@@ -12,10 +12,8 @@ import {
   CalendarRange,
   Wallet,
 } from 'lucide-react';
-import { useLanguage, type TranslationKey } from '../../../../app/providers/LanguageContext';
+import { type TranslationKey } from '../../../../app/providers/LanguageContext';
 import { DEFAULT_SKILL_CONFIG } from '../../../../domain/achievements';
-import { AchievementsConfig } from '../../../../domain/achievements';
-import { StudentCabinetContext } from './StudentCabinetHome';
 import { StudentProfilePersonalSection } from './StudentProfilePersonalSection';
 import { StudentProfilePreferencesSection } from './StudentProfilePreferencesSection';
 import { SkillRadarChart } from './SkillRadarChart';
@@ -27,9 +25,10 @@ import {
   getStudentStats,
   StudentCabinetTab,
 } from './studentCabinetUtils';
-import { calculateSkillProgress } from '../../../../domain/achievements';
 import { StudentHistoryList } from './StudentHistoryList';
 import { WalletPanel } from '../../../../features/profile';
+import type { StudentProfileHubInput, StudentProfilePanelProps } from './studentCabinetContracts';
+import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
 type ProfileHubTab = Extract<
   StudentCabinetTab,
@@ -119,7 +118,7 @@ const ProfilePanelShell: React.FC<ProfilePanelShellProps> = ({
   children,
   wide = false,
 }) => {
-  const { t } = useLanguage();
+  const { t } = useStudentCabinetTranslations();
 
   return (
     <div
@@ -134,10 +133,8 @@ const ProfilePanelShell: React.FC<ProfilePanelShellProps> = ({
   );
 };
 
-export const StudentProfileHubPanel: React.FC<Pick<StudentCabinetContext, 'onGoToTab'>> = ({
-  onGoToTab,
-}) => {
-  const { t } = useLanguage();
+export const StudentProfileHubPanel: React.FC<StudentProfileHubInput> = ({ onGoToTab }) => {
+  const { t } = useStudentCabinetTranslations();
 
   return (
     <div className="space-y-6 pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
@@ -172,17 +169,7 @@ export const StudentProfileHubPanel: React.FC<Pick<StudentCabinetContext, 'onGoT
   );
 };
 
-interface ProfileSubPanelProps extends StudentCabinetContext {
-  onSignOut: () => void;
-  onUpdateProfile?: (data: Partial<import('../../../../types').UserProfile>) => Promise<void>;
-  onInvalidFile: () => void;
-  onUploadSuccess: () => void;
-  onUploadError: () => void;
-  achievementsConfig?: AchievementsConfig;
-  skillProgress: ReturnType<typeof calculateSkillProgress>;
-  onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
-  walletLedgerEntries?: import('../../../../types').WalletLedgerEntry[];
-}
+type ProfileSubPanelProps = StudentProfilePanelProps;
 
 export const StudentProfilePersonalPanel: React.FC<ProfileSubPanelProps> = ({
   onGoToTab,
@@ -233,7 +220,7 @@ export const StudentProfileJourneyPanel: React.FC<ProfileSubPanelProps> = ({
   onContinueDevelopment,
   onToggleRecommendation,
 }) => {
-  const { language, t } = useLanguage();
+  const { language, t } = useStudentCabinetTranslations();
   const lang = language === 'ru' ? 'ru' : 'en';
 
   const history = useMemo(
@@ -281,7 +268,7 @@ export const StudentProfileSkillsPanel: React.FC<ProfileSubPanelProps> = ({
   skillConfig,
   onToggleSkillToday,
 }) => {
-  const { t } = useLanguage();
+  const { t } = useStudentCabinetTranslations();
 
   return (
     <ProfilePanelShell titleKey="scProfileSkills" onGoToTab={onGoToTab}>
@@ -299,7 +286,7 @@ export const StudentProfileSkillsPanel: React.FC<ProfileSubPanelProps> = ({
 };
 
 export const StudentProfileCertificatesPanel: React.FC<ProfileSubPanelProps> = ({ onGoToTab }) => {
-  const { t } = useLanguage();
+  const { t } = useStudentCabinetTranslations();
 
   return (
     <ProfilePanelShell titleKey="scProfileCertificates" onGoToTab={onGoToTab}>
@@ -318,7 +305,7 @@ export const StudentProfileAchievementsPanel: React.FC<ProfileSubPanelProps> = (
   skillConfig,
   achievementsConfig,
 }) => {
-  const { language, t } = useLanguage();
+  const { language, t } = useStudentCabinetTranslations();
   const lang = language === 'ru' ? 'ru' : 'en';
 
   const achievements = useMemo(
@@ -368,7 +355,7 @@ export const StudentProfileSeasonPanel: React.FC<ProfileSubPanelProps> = ({
   bookings,
   skillConfig,
 }) => {
-  const { t } = useLanguage();
+  const { t } = useStudentCabinetTranslations();
   const seasonYear = new Date().getFullYear();
   const skillItems = skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
   const seasonBookings = useMemo(
@@ -398,7 +385,7 @@ export const StudentProfileSeasonPanel: React.FC<ProfileSubPanelProps> = ({
 };
 
 export const StudentProfileVideosPanel: React.FC<ProfileSubPanelProps> = ({ onGoToTab }) => {
-  const { t } = useLanguage();
+  const { t } = useStudentCabinetTranslations();
 
   return (
     <ProfilePanelShell titleKey="scProfileVideos" onGoToTab={onGoToTab}>

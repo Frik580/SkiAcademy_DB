@@ -7,8 +7,8 @@ import {
   UserProfile,
   ActivityLog,
 } from '../../../../types';
-import { SkillConfig } from '../../../../domain/achievements/skillData';
-import { AchievementsConfig } from '../../../../domain/achievements/achievementConfig';
+import { SkillConfig } from '../../../../domain/achievements';
+import { AchievementsConfig } from '../../../../domain/achievements';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { YourJourneySection } from '../../../../features/journey';
 import {
@@ -54,7 +54,7 @@ export interface StudentCabinetContext {
   onPinSkillsToday?: (skillItemIds: string[]) => void | Promise<void>;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
   onAddCustomTodayTask?: (text: string) => void;
-  onRemoveTodayTask?: (task: import('../../../../lib/todayChecklist').TodayTaskRef) => void;
+  onRemoveTodayTask?: (task: import('../../../../features/student-cabinet/todayChecklist').TodayTaskRef) => void;
   onViewCourseDetails: (course: Course) => void;
   onRequireCourseAuth: (course: Course) => void;
   onBookCourse: (courseId: string) => void;

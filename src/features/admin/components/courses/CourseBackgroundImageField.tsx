@@ -3,8 +3,8 @@ import { Camera, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { optimizeCourseImage } from './courseImage';
-import { uploadImage } from '../../../../infrastructure/firebase/storage';
-import { logger } from '../../../../shared/logger';
+import { uploadImage } from '../../../../infrastructure/firebase';
+import { logger } from '../../../../shared';
 
 interface CourseBackgroundImageFieldProps {
   value: string;

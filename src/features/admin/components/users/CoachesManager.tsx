@@ -13,8 +13,8 @@ import { Booking, Instructor } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { getSpecialtyLabel } from '../schedule/scheduleUtils';
-import { uploadImage } from '../../../../infrastructure/firebase/storage';
-import { logger } from '../../../../shared/logger';
+import { uploadImage } from '../../../../infrastructure/firebase';
+import { logger } from '../../../../shared';
 
 interface CoachesManagerProps {
   instructors: Instructor[];

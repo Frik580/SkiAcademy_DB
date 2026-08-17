@@ -9,7 +9,7 @@ import {
 } from './studentCabinetUtils';
 import { ScDivider, ScProgressBar, ScSectionTitle, StudentPanelBackLink } from './StudentCabinetUI';
 import { SkillRadarChart } from './SkillRadarChart';
-import { getSkillItemTitle } from '../../../../domain/achievements/skillData';
+import { getSkillItemTitle } from '../../../../domain/achievements';
 
 interface StudentDevelopmentPanelProps extends StudentCabinetContext {
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;

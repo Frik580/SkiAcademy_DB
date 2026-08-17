@@ -44,7 +44,8 @@ vi.mock('../../src/features/bookings/bookingTransactions', () => ({
   cancelBookingWithRefund: (...args: any[]) => mockCancelBookingWithRefund(...args),
 }));
 
-vi.mock('../../src/domain/notifications/notifications', () => ({
+vi.mock('../../src/domain/notifications', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/domain/notifications')>()),
   createNotificationForUser: (...args: any[]) => mockCreateNotificationForUser(...args),
 }));
 
@@ -57,11 +58,11 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
   parseCourseEndDateTime: () => new Date('2099-01-01'),
 }));
 
-vi.mock('../../src/lib/createBookingCallable', () => ({
+vi.mock('../../src/features/bookings/createBookingCallable', () => ({
   createBookingViaCallable: vi.fn(),
 }));
 
-vi.mock('../../src/infrastructure/firebase/firebase', () => ({
+vi.mock('../../src/infrastructure/firebase', () => ({
   db: {},
   functions: {},
   auth: { currentUser: { uid: 'admin-1', email: 'admin@example.com' } },

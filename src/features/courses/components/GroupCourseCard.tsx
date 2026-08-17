@@ -11,13 +11,13 @@ import { Booking, Course, UserProfile } from '../../../types';
 import {
   courseLevelBadgeLabel,
   getCourseLevelCardBadgeClass,
-} from '../../../domain/course/courseLevelStyles';
+} from '../../../domain/course';
 import { useCurrency } from '../../../app/providers/CurrencyContext';
 import {
   getCourseEnrollmentBooking,
   hasBookingRecommendations,
   hasPendingRecommendations,
-} from '../../../lib/lessonRecommendations';
+} from '../../../features/student-cabinet/lessonRecommendations';
 import { RecommendationIndicator } from '../../../features/profile';
 
 const formatCourseCardDate = (datePart: string) =>

@@ -3,7 +3,7 @@ import {
   buildHourLockIds,
   hasOverlappingAvailabilitySlot,
   slotsOverlap,
-} from '../../src/domain/booking/slotOverlap';
+} from '../../src/domain/booking';
 import type { AvailabilitySlot } from '../../src/types';
 
 const slot = (overrides: Partial<AvailabilitySlot> = {}): AvailabilitySlot => ({

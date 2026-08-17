@@ -9,7 +9,7 @@ import {
   getSkillItemTitle,
   getSkillItemSection,
   getRadarDimensionLabel,
-} from '../../../domain/achievements/skillData';
+} from '../../../domain/achievements';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { X, Save, Award, CheckCircle2, AlertCircle } from 'lucide-react';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';

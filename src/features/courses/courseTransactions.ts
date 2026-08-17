@@ -7,11 +7,11 @@ import {
   splitCourseDates,
   translateCourse,
   type Language,
-} from '../app/providers/LanguageContext';
-import { withBookingCreatedAt } from '../domain/booking/bookingCreatedAt';
-import { isCourseBooking } from './availabilitySlots';
-import { recordWalletLedgerEntryInTransaction, walletLedgerBookingEntryId } from '../domain/wallet/walletLedger';
-import { Booking, Course, UserProfile } from '../types';
+} from '../../app/providers/LanguageContext';
+import { withBookingCreatedAt } from '../../domain/booking';
+import { isCourseBooking } from '../../domain/availability';
+import { recordWalletLedgerEntryInTransaction, walletLedgerBookingEntryId } from '../../domain/wallet';
+import { Booking, Course, UserProfile } from '../../types';
 
 export class CourseEnrollmentError extends Error {
   constructor(message: string) {

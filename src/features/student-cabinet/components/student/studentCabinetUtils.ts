@@ -14,19 +14,19 @@ import {
   calculateSkillProgress,
   getSkillItemTitle,
   getSkillItemSection,
-} from '../../../../domain/achievements/skillData';
+} from '../../../../domain/achievements';
 import { Language } from '../../../../lib/i18n/translations';
 import { type TranslationKey } from '../../../../app/providers/LanguageContext';
 import {
   getRecommendationTasks,
   hasPendingRecommendations,
-} from '../../../../lib/lessonRecommendations';
-import { getCourseTrackLabel as getTrackLabelForLevel } from '../../../../domain/course/courseLevelStyles';
+} from '../../../../features/student-cabinet/lessonRecommendations';
+import { getCourseTrackLabel as getTrackLabelForLevel } from '../../../../domain/course';
 import {
   customTodayTaskId,
   resolveCompletedTodayTaskIds,
   skillTodayTaskId,
-} from '../../../../lib/todayChecklist';
+} from '../../../../features/student-cabinet/todayChecklist';
 import { formatDurationLabel } from '../../../../lib/i18n/duration';
 import {
   evaluateEarnedAchievements,
@@ -34,7 +34,7 @@ import {
   normalizeAchievementsConfig,
   pickAchievementTimestamp,
   type AchievementsConfig,
-} from '../../../../domain/achievements/achievements';
+} from '../../../../domain/achievements';
 export {
   isProfileTab,
   PROFILE_TABS,
@@ -474,7 +474,7 @@ export const getTodayTasks = (
   });
 };
 
-export { getTrainingStreakWeeks } from '../../../../domain/achievements/trainingStreak';
+export { getTrainingStreakWeeks } from '../../../../domain/achievements';
 
 export const getAchievements = (
   userProfile: UserProfile,

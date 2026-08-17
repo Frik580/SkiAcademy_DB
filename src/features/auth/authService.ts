@@ -16,9 +16,9 @@ import {
   OperationType,
   setDoc,
   googleProvider,
-} from '../../infrastructure/firebase/firebase';
+} from '../../infrastructure/firebase';
 import type { UserProfile } from '../../types';
-import { toUserProfile } from '../../infrastructure/firebase/firestoreMappers';
+import { toUserProfile } from '../../infrastructure/firebase';
 
 export async function signOutService(): Promise<void> {
   await fbSignOut(auth);

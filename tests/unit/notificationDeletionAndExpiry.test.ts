@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   getNotificationRetentionMs,
-} from '../../src/domain/notifications/notificationConfig';
+} from '../../src/domain/notifications';
 
 describe('notification deletion and auto-expiry', () => {
   it('defines default 14-day expiry constant', () => {

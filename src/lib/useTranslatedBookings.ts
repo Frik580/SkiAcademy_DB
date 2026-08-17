@@ -4,7 +4,7 @@ import type { Language } from './i18n/translations';
 import { translateInstructorName, translateCourse } from './i18n/contentTranslation';
 import { parseDurationHours, splitCourseDates, getGroupScheduleLabel } from './i18n/courseDates';
 import { getGroupCourseEnrollmentNote, getGroupCourseLabel } from './i18n/bookingLabels';
-import { resolveChatId } from '../domain/chat/resolveChatId';
+import { resolveChatId } from '../domain/chat';
 
 export type TranslatedBooking = Booking & { chatId: string };
 

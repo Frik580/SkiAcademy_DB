@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { migrateAvailabilitySlots } from '../../../lib/availabilityMigration';
-import { logger } from '../../../shared/logger';
+import { migrateAvailabilitySlots } from '../../../domain/availability';
+import { logger } from '../../../shared';
 import { useBookingsStore } from '../../bookings/bookingsStore';
 import { useProfileStore } from '../../profile/profileStore';
 

@@ -1,6 +1,6 @@
-import { db, deleteDoc, doc, writeBatch } from '../../infrastructure/firebase/firebase';
-import { logger } from '../../shared/logger';
-import type { DbNotification } from '../../domain/notifications/notificationText';
+import { db, deleteDoc, doc, writeBatch } from '../../infrastructure/firebase';
+import { logger } from '../../shared';
+import type { DbNotification } from '../../domain/notifications';
 
 export async function deleteNotificationService(id: string): Promise<void> {
   try {

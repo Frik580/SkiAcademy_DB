@@ -1,5 +1,5 @@
 import { doc, type Firestore, type Transaction } from 'firebase/firestore';
-import { isCourseBooking } from '../../lib/availabilitySlots';
+import { isCourseBooking } from '../../domain/availability';
 import { resolveBookingCreatedAt } from '../booking/bookingCreatedAt';
 import { translateCourse } from '../../lib/i18n/contentTranslation';
 import { parseCourseDates } from '../../lib/i18n/courseDates';

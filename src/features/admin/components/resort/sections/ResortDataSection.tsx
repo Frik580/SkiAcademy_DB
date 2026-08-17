@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Loader2, Save } from 'lucide-react';
 import { useLanguage } from '../../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../../features/notifications';
-import { logger } from '../../../../../shared/logger';
+import { logger } from '../../../../../shared';
 import { ToggleSwitch } from '../../../../../ui/ToggleSwitch';
 import { FormSkeleton } from '../../../../../ui/Skeleton';
 import { saveResortConfig, subscribeResortConfig } from '../../../../../features/settings';

@@ -11,14 +11,14 @@ import {
 import { Lock, Sparkles } from 'lucide-react';
 import { useNotifications } from '../../../features/notifications';
 import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
-import { SkillConfig } from '../../../domain/achievements/skillData';
-import { AchievementsConfig } from '../../../domain/achievements/achievementConfig';
-import { StudentCabinet } from '../../../features/profile/components/StudentCabinet';
-import { useReviewFlow } from '../../../features/profile/components/ReviewFlow';
-import { StudentCabinetResortSnapshot } from '../../../features/student-cabinet/components/student/StudentHomeBottomSections';
-import { PersonalCabinetModals } from '../../../features/student-cabinet/components/PersonalCabinetModals';
-import { useRescheduleBooking } from '../../../features/student-cabinet/components/useRescheduleBooking';
-import { useBookingChatUnread } from '../../../lib/useBookingChatUnread';
+import { SkillConfig } from '../../../domain/achievements';
+import { AchievementsConfig } from '../../../domain/achievements';
+import { StudentCabinet } from './StudentCabinet';
+import { useReviewFlow } from '../../../features/profile';
+import { StudentCabinetResortSnapshot } from '../../../features/student-cabinet';
+import { PersonalCabinetModals } from '../../../features/student-cabinet';
+import { useRescheduleBooking } from '../../../features/student-cabinet';
+import { useBookingChatUnread } from '../../../features/student-cabinet/useBookingChatUnread';
 
 export interface PersonalCabinetProps {
   userProfile: UserProfile;
@@ -40,7 +40,7 @@ export interface PersonalCabinetProps {
   onPinSkillsToday?: (skillItemIds: string[]) => Promise<void>;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => Promise<void>;
   onAddCustomTodayTask?: (text: string) => Promise<void>;
-  onRemoveTodayTask?: (task: import('../../../lib/todayChecklist').TodayTaskRef) => Promise<void>;
+  onRemoveTodayTask?: (task: import('../../../features/student-cabinet/todayChecklist').TodayTaskRef) => Promise<void>;
   onSignOut: () => void;
   onUpdateProfile?: (updatedProfile: Partial<UserProfile>) => Promise<void>;
   courses?: Course[];

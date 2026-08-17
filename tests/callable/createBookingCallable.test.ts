@@ -2,7 +2,7 @@ import { FirebaseError } from 'firebase/app';
 import { httpsCallable } from 'firebase/functions';
 import { doc, getDoc } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { AVAILABILITY_SLOTS_COLLECTION } from '../../src/lib/availabilitySlots';
+import { AVAILABILITY_SLOTS_COLLECTION } from '../../src/domain/availability';
 import type { Booking } from '../../src/types';
 import {
   CALLABLE_INSTRUCTOR_ID,

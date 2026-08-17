@@ -9,9 +9,9 @@ import {
   orderBy,
   query,
   setDoc,
-} from '../../infrastructure/firebase/firebase';
+} from '../../infrastructure/firebase';
 import { OperationType, type ErrorLog } from '../../types';
-import { QUERY_LIMITS } from '../../shared/queryLimits';
+import { QUERY_LIMITS } from '../../shared';
 
 const RESORT_CONFIG_COLLECTION = 'resort_data';
 const RESORT_CONFIG_ID = 'config';

@@ -9,8 +9,8 @@ import {
   UserProfile,
 } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
-import { AchievementsConfig } from '../../../../domain/achievements/achievementConfig';
-import { DEFAULT_SKILL_CONFIG, SkillConfig, getSkillItemTitle } from '../../../../domain/achievements/skillData';
+import { AchievementsConfig } from '../../../../domain/achievements';
+import { DEFAULT_SKILL_CONFIG, SkillConfig, getSkillItemTitle } from '../../../../domain/achievements';
 import {
   formatCountdownRemaining,
   formatCourseDateRangeLabel,
@@ -31,7 +31,7 @@ import {
   type TodaySessionCountdown,
 } from './studentCabinetUtils';
 import { ScDivider, ScSectionTitle, ScTextButton, ScTintCard } from './StudentCabinetUI';
-import { TodayChecklist } from '../../../../features/profile/components/TodayChecklist';
+import { TodayChecklist } from '../../../../features/profile';
 import { BookingCallCoachButton } from './BookingCallCoachButton';
 import { StudentNextStepCard } from './StudentNextStepCard';
 import { RecommendationIndicator } from '../RecommendationIndicator';
@@ -39,7 +39,7 @@ import { ChatUnreadIndicator } from '../../../../features/chat';
 import {
   hasBookingRecommendations,
   hasPendingRecommendations,
-} from '../../../../lib/lessonRecommendations';
+} from '../../../../features/student-cabinet/lessonRecommendations';
 
 const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
 
@@ -66,7 +66,7 @@ interface StudentTodaySectionProps {
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
   onAddCustomTodayTask?: (text: string) => void;
-  onRemoveTodayTask?: (task: import('../../../../lib/todayChecklist').TodayTaskRef) => void;
+  onRemoveTodayTask?: (task: import('../../../../features/student-cabinet/todayChecklist').TodayTaskRef) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
 }
 
@@ -545,7 +545,7 @@ const TodayTasksBlock = memo<{
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
   onAddCustomTodayTask?: (text: string) => void;
-  onRemoveTodayTask?: (task: import('../../../../lib/todayChecklist').TodayTaskRef) => void;
+  onRemoveTodayTask?: (task: import('../../../../features/student-cabinet/todayChecklist').TodayTaskRef) => void;
   onOpenLesson: (booking: Booking) => void;
   onContinueDevelopment: () => void;
 }>(function TodayTasksBlock({

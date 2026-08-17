@@ -8,7 +8,7 @@ import {
   classifySkillItemToRadarDimension,
   RadarDimensionKey,
   getSkillItemTitle,
-} from '../../../../domain/achievements/skillData';
+} from '../../../../domain/achievements';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { ScSectionTitle } from './StudentCabinetUI';
 import { getLevelLabel } from './studentCabinetUtils';
@@ -26,7 +26,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 
-export type { RadarDimensionKey } from '../../../../domain/achievements/skillData';
+export type { RadarDimensionKey } from '../../../../domain/achievements';
 
 type RadarDimensionFilter = 'all' | RadarDimensionKey;
 

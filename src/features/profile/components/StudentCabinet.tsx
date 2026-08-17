@@ -8,10 +8,10 @@ import {
   ActivityLog,
   WalletLedgerEntry,
 } from '../../../types';
-import { SkillConfig } from '../../../domain/achievements/skillData';
-import { AchievementsConfig } from '../../../domain/achievements/achievementConfig';
-import { StudentCabinetShell } from '../../../features/student-cabinet/components/student/StudentCabinetShell';
-import { StudentCabinetResortSnapshot } from '../../../features/student-cabinet/components/student/StudentHomeBottomSections';
+import { SkillConfig } from '../../../domain/achievements';
+import { AchievementsConfig } from '../../../domain/achievements';
+import { StudentCabinetShell } from '../../../features/student-cabinet';
+import { StudentCabinetResortSnapshot } from '../../../features/student-cabinet';
 
 export interface StudentCabinetProps {
   userProfile: UserProfile;
@@ -37,7 +37,7 @@ export interface StudentCabinetProps {
   onPinSkillsToday?: (skillItemIds: string[]) => void | Promise<void>;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
   onAddCustomTodayTask?: (text: string) => void;
-  onRemoveTodayTask?: (task: import('../../../lib/todayChecklist').TodayTaskRef) => void;
+  onRemoveTodayTask?: (task: import('../../../features/student-cabinet/todayChecklist').TodayTaskRef) => void;
   onSignOut: () => void;
   onUpdateProfile?: (data: Partial<UserProfile>) => Promise<void>;
   onLevelBadgeClick: () => void;

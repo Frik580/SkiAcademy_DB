@@ -5,7 +5,7 @@ import { useLanguage } from '../../../../app/providers/LanguageContext';
 import {
   buildWalletOperationHistory,
   formatWalletOperationLabel,
-} from '../../../../domain/wallet/walletLedger';
+} from '../../../../domain/wallet';
 import type { Booking, Course, WalletLedgerEntry } from '../../../../types';
 import { useWalletStore } from '../../../../features/wallet';
 import { ActionButton } from '../../../../ui/ActionButton';

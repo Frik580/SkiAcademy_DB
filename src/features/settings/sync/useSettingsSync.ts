@@ -1,13 +1,13 @@
 import { useEffect } from 'react';
-import { db, doc, onSnapshot } from '../../../infrastructure/firebase/firebase';
+import { db, doc, onSnapshot } from '../../../infrastructure/firebase';
 import {
   DEFAULT_ACHIEVEMENTS_CONFIG,
   normalizeAchievementsConfig,
-} from '../../../domain/achievements/achievementConfig';
-import { parseDesignTheme } from '../../../shared/designTheme';
-import { DEFAULT_NOTIFICATION_RETENTION_DAYS } from '../../../domain/notifications/notificationConfig';
-import { DEFAULT_SKILL_CONFIG } from '../../../domain/achievements/skillData';
-import { logger } from '../../../shared/logger';
+} from '../../../domain/achievements';
+import { parseDesignTheme } from '../../../shared';
+import { DEFAULT_NOTIFICATION_RETENTION_DAYS } from '../../../domain/notifications';
+import { DEFAULT_SKILL_CONFIG } from '../../../domain/achievements';
+import { logger } from '../../../shared';
 import { useSettingsStore } from '../settingsStore';
 
 export const useSettingsSync = () => {

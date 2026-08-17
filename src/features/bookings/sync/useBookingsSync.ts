@@ -11,10 +11,10 @@ import {
   orderBy,
   query,
   where,
-} from '../../../infrastructure/firebase/firebase';
-import { toBooking, toInstructor, toReview } from '../../../infrastructure/firebase/firestoreMappers';
-import { QUERY_LIMITS } from '../../../shared/queryLimits';
-import { logger } from '../../../shared/logger';
+} from '../../../infrastructure/firebase';
+import { toBooking, toInstructor, toReview } from '../../../infrastructure/firebase';
+import { QUERY_LIMITS } from '../../../shared';
+import { logger } from '../../../shared';
 import { useAuthStore } from '../../auth/authStore';
 import { useProfileStore } from '../../profile/profileStore';
 import { useBookingsStore } from '../bookingsStore';

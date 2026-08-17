@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeChatTimestamp } from '../../src/lib/useBookingChatUnread';
+import { normalizeChatTimestamp } from '../../src/features/student-cabinet/useBookingChatUnread';
 
 describe('normalizeChatTimestamp', () => {
   it('returns ISO strings unchanged', () => {

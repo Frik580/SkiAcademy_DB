@@ -15,15 +15,15 @@ import {
 } from '../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../features/notifications';
 import { useTheme } from '../../../hooks/useTheme';
-import { logger } from '../../../shared/logger';
-import { SkillConfig, DEFAULT_SKILL_ITEMS } from '../../../domain/achievements/skillData';
+import { logger } from '../../../shared';
+import { SkillConfig, DEFAULT_SKILL_ITEMS } from '../../../domain/achievements';
 import { LessonRecommendation } from '../../../types';
-import { useBookingChatUnread } from '../../../lib/useBookingChatUnread';
+import { useBookingChatUnread } from '../../../features/student-cabinet/useBookingChatUnread';
 import {
   activityLogId,
   buildBookingCompletedMetadata,
   logActivityForUser,
-} from '../../../lib/activityLog';
+} from '../../../domain/activity';
 import {
   completeBookingService,
   saveBookingRecommendationsService,

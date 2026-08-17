@@ -13,7 +13,7 @@ const mockGetDoc = vi.fn();
 const mockMigratePreExistingProfile = vi.fn();
 const mockAddNotification = vi.fn();
 
-vi.mock('../../src/infrastructure/firebase/firebase', () => ({
+vi.mock('../../src/infrastructure/firebase', () => ({
   auth: {},
   db: {},
   googleProvider: {},
@@ -24,6 +24,7 @@ vi.mock('../../src/infrastructure/firebase/firebase', () => ({
   handleFirestoreError: () => {},
   OperationType: { GET: 'get', WRITE: 'write' },
   migratePreExistingProfile: (...args: any[]) => mockMigratePreExistingProfile(...args),
+  toUserProfile: (data: any) => data,
 }));
 
 vi.mock('firebase/auth', () => ({

@@ -2,7 +2,7 @@ import React from 'react';
 import { useCourseForm } from './useCourseForm';
 import { CourseBackgroundImageField } from '../CourseBackgroundImageField';
 import { CourseDateRangePicker } from '../CourseDateRangePicker';
-import { getCourseLevelCardClass } from '../../../../../domain/course/courseLevelStyles';
+import { getCourseLevelCardClass } from '../../../../../domain/course';
 
 interface CourseBasicInfoSectionProps {
   form: ReturnType<typeof useCourseForm>;

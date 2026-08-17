@@ -1,6 +1,6 @@
-import { ActivityLogMetadata, ActivityLogType, Booking, Course } from '../types';
-import { db, doc, setDoc, updateDoc } from '../infrastructure/firebase/firebase';
-import { logger } from '../shared/logger';
+import { ActivityLogMetadata, ActivityLogType, Booking, Course } from '../../types';
+import { db, doc, setDoc, updateDoc } from '../../infrastructure/firebase';
+import { logger } from '../../shared';
 
 export const ACTIVITY_LOGS_COLLECTION = 'activity_logs';
 

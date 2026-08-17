@@ -5,7 +5,7 @@ import {
   getNewlyPinnedSkillTitles,
   resolveCompletedTodayTaskIds,
   toTodayDateStr,
-} from '../../src/lib/todayChecklist';
+} from '../../src/features/student-cabinet/todayChecklist';
 import { UserProfile } from '../../src/types';
 
 const baseProfile: UserProfile = {

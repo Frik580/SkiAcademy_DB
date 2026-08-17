@@ -12,9 +12,9 @@ import {
   startAfter,
   where,
   writeBatch,
-} from '../infrastructure/firebase/firebase';
-import { AVAILABILITY_SLOTS_COLLECTION, isCourseBooking } from './availabilitySlots';
-import { Booking, Course } from '../types';
+} from '../../infrastructure/firebase';
+import { AVAILABILITY_SLOTS_COLLECTION, isCourseBooking } from '../../domain/availability';
+import { Booking, Course } from '../../types';
 
 export type ClearStudentBookingsResult = {
   bookingsDeleted: number;

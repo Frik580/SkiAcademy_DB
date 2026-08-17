@@ -32,7 +32,7 @@ import { ApplePagination } from '../../../ui/ApplePagination';
 import {
   hasBookingRecommendations,
   hasPendingRecommendations,
-} from '../../../lib/lessonRecommendations';
+} from '../../../features/student-cabinet/lessonRecommendations';
 
 const LIST_SCOPE_FILTERS: BookingListScope[] = ['upcoming', 'current', 'past', 'all'];
 

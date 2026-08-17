@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildWalletOperationHistory,
   walletLedgerBookingEntryId,
-} from '../../src/domain/wallet/walletLedger';
+} from '../../src/domain/wallet';
 import type { Booking, Course, WalletLedgerEntry } from '../../src/types';
 
 const course: Course = {

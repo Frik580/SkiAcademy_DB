@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User } from 'firebase/auth';
-import { logger } from '../../shared/logger';
+import { logger } from '../../shared';
 import { signOutService } from './authService';
 
 export interface AuthState {

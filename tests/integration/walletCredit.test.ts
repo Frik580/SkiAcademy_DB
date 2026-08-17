@@ -4,7 +4,7 @@ import {
   grantAndApplyWalletCredit,
   MAX_WALLET_CREDIT_USD,
   updateUserWithAdminBalanceLedger,
-} from '../../src/domain/wallet/walletCredit';
+} from '../../src/domain/wallet';
 import {
   OWNER_ID,
   USER_ID,

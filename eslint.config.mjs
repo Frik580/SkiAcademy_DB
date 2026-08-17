@@ -80,6 +80,36 @@ export default tseslint.config(
               group: ['**/features/shell/**'],
               message: 'Import shell capabilities from features/shell public API.',
             },
+            {
+              group: ['**/domain/*/*'],
+              message: 'Import domain capabilities from their public API (domain/<domain>).',
+            },
+            {
+              group: ['**/infrastructure/*/*'],
+              message:
+                'Import infrastructure capabilities from their public API (infrastructure/<provider>).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/features/**/*.{ts,tsx}', 'src/lib/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/domain/*/*'],
+              message: 'Import domain capabilities from their public API (domain/<domain>).',
+            },
+            {
+              group: ['**/infrastructure/*/*'],
+              message:
+                'Import infrastructure capabilities from their public API (infrastructure/<provider>).',
+            },
           ],
         },
       ],
@@ -96,6 +126,40 @@ export default tseslint.config(
               group: ['**/features/{admin,auth,chat,notifications,profile,settings,shell,wallet}/**'],
               message: 'Import other feature capabilities from their public API.',
             },
+            {
+              group: ['**/domain/*/*'],
+              message: 'Import domain capabilities from their public API (domain/<domain>).',
+            },
+            {
+              group: ['**/infrastructure/*/*'],
+              message:
+                'Import infrastructure capabilities from their public API (infrastructure/<provider>).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/features/student-cabinet/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/domain/*/*'],
+              message: 'Import domain capabilities from their public API (domain/<domain>).',
+            },
+            {
+              group: ['**/infrastructure/*/*'],
+              message:
+                'Import infrastructure capabilities from their public API (infrastructure/<provider>).',
+            },
+            {
+              group: ['**/features/profile/components/**'],
+              message: 'Import profile capabilities from features/profile public API.',
+            },
           ],
         },
       ],
@@ -109,8 +173,20 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ['**/features/{auth,bookings,chat,courses,notifications,settings,shell,wallet}/**'],
+              group: [
+                '**/features/{auth,bookings,chat,courses,notifications,settings,shell,wallet}/**',
+                '**/features/student-cabinet/components/**',
+              ],
               message: 'Import other feature capabilities from their public API.',
+            },
+            {
+              group: ['**/domain/*/*'],
+              message: 'Import domain capabilities from their public API (domain/<domain>).',
+            },
+            {
+              group: ['**/infrastructure/*/*'],
+              message:
+                'Import infrastructure capabilities from their public API (infrastructure/<provider>).',
             },
           ],
         },
@@ -128,6 +204,15 @@ export default tseslint.config(
               group: ['**/features/{admin,bookings,chat,courses,errors,notifications,profile,settings,shell,wallet}/**'],
               message: 'Import other feature capabilities from their public API.',
             },
+            {
+              group: ['**/domain/*/*'],
+              message: 'Import domain capabilities from their public API (domain/<domain>).',
+            },
+            {
+              group: ['**/infrastructure/*/*'],
+              message:
+                'Import infrastructure capabilities from their public API (infrastructure/<provider>).',
+            },
           ],
         },
       ],
@@ -143,6 +228,15 @@ export default tseslint.config(
             {
               group: ['**/features/{admin,auth,bookings,chat,courses,errors,notifications,profile,settings,wallet}/**'],
               message: 'Import feature capabilities from their public API.',
+            },
+            {
+              group: ['**/domain/*/*'],
+              message: 'Import domain capabilities from their public API (domain/<domain>).',
+            },
+            {
+              group: ['**/infrastructure/*/*'],
+              message:
+                'Import infrastructure capabilities from their public API (infrastructure/<provider>).',
             },
           ],
         },

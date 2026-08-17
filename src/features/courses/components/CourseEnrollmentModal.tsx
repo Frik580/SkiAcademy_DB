@@ -9,7 +9,7 @@ import { useNotifications } from '../../../features/notifications';
 import { Auth } from '../../../features/auth';
 import { AuthModeSliderSwitch } from '../../../features/bookings';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
-import { createGuestCourseEnrollmentViaCallable } from '../../../lib/createGuestCourseEnrollmentCallable';
+import { createGuestCourseEnrollmentViaCallable } from '../../../features/courses/createGuestCourseEnrollmentCallable';
 
 interface CourseEnrollmentModalProps {
   isOpen: boolean;

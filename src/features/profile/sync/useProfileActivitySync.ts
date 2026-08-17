@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { collection, db, limit, onSnapshot, orderBy, query, where } from '../../../infrastructure/firebase/firebase';
-import { toActivityLog } from '../../../infrastructure/firebase/firestoreMappers';
-import { logger } from '../../../shared/logger';
+import { collection, db, limit, onSnapshot, orderBy, query, where } from '../../../infrastructure/firebase';
+import { toActivityLog } from '../../../infrastructure/firebase';
+import { logger } from '../../../shared';
 import { useAuthStore } from '../../auth/authStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
 import { useProfileStore } from '../profileStore';

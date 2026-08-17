@@ -1,4 +1,4 @@
-import { Booking, Course } from '../types';
+import { Booking, Course } from '../../types';
 import { activityLogId, buildBookingCompletedMetadata, logActivityForUser } from './activityLog';
 
 export const backfillCompletedBookingActivityLogs = async (

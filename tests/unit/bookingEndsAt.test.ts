@@ -3,7 +3,7 @@ import {
   computeBookingEndsAtIso,
   isBookingEligibleForAutoComplete,
   withBookingEndsAt,
-} from '../../src/domain/booking/bookingEndsAt';
+} from '../../src/domain/booking';
 import { Booking } from '../../src/types';
 
 const baseLesson: Booking = {

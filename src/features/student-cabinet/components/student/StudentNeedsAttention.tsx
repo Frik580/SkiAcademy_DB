@@ -4,7 +4,7 @@ import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { getNeedsAttentionBookings, isBookingReviewed } from './studentCabinetUtils';
 import { ScDivider, ScSectionTitle, ScTextButton } from './StudentCabinetUI';
 import { RecommendationIndicator } from '../RecommendationIndicator';
-import { hasPendingRecommendations } from '../../../../lib/lessonRecommendations';
+import { hasPendingRecommendations } from '../../../../features/student-cabinet/lessonRecommendations';
 
 interface StudentNeedsAttentionProps {
   bookings: Booking[];

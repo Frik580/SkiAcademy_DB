@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import type { DbNotification } from '../../domain/notifications/notificationText';
+import type { DbNotification } from '../../domain/notifications';
 import type { NotificationsState } from './types';
-import { QUERY_LIMITS } from '../../shared/queryLimits';
+import { QUERY_LIMITS } from '../../shared';
 
 export const useNotificationsStore = create<NotificationsState>((set) => ({
   dbNotifications: [],

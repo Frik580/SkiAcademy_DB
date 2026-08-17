@@ -7,9 +7,9 @@ import {
   onSnapshot,
   OperationType,
   query,
-} from '../../../infrastructure/firebase/firebase';
-import { toCourse } from '../../../infrastructure/firebase/firestoreMappers';
-import { QUERY_LIMITS } from '../../../shared/queryLimits';
+} from '../../../infrastructure/firebase';
+import { toCourse } from '../../../infrastructure/firebase';
+import { QUERY_LIMITS } from '../../../shared';
 import { useCoursesStore } from '../coursesStore';
 
 export const useCoursesSync = () => {

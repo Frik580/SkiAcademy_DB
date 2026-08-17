@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { Instructor, Booking, UserProfile, Course } from '../../../types';
 import { Shield, Calendar, Users, Clock, UserCheck, BookOpen, AlertTriangle } from 'lucide-react';
 import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
-import { SkillConfig } from '../../../domain/achievements/skillData';
-import { AchievementsConfig } from '../../../domain/achievements/achievementConfig';
+import { SkillConfig } from '../../../domain/achievements';
+import { AchievementsConfig } from '../../../domain/achievements';
 import { AdminCollapsibleSection } from '../../../features/admin/components/settings';
 import { TableSkeleton } from '../../../ui/Skeleton';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
@@ -109,10 +109,10 @@ interface AdminPanelProps {
   onUpdateAchievementsConfig?: (config: AchievementsConfig) => Promise<void>;
   onClearStudentBookings?: (
     onProgress?: (deleted: number) => void
-  ) => Promise<import('../../../lib/clearStudentBookings').ClearStudentBookingsResult>;
+  ) => Promise<import('../../../features/admin/clearStudentBookings').ClearStudentBookingsResult>;
   onClearCancelledBookings?: (
     onProgress?: (deleted: number) => void
-  ) => Promise<import('../../../lib/clearStudentBookings').ClearCancelledBookingsResult>;
+  ) => Promise<import('../../../features/admin/clearStudentBookings').ClearCancelledBookingsResult>;
   bookingsHasMore?: boolean;
   onLoadMoreBookings?: () => void;
 }

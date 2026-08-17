@@ -9,7 +9,7 @@ import { InstructorRecommendationsEditor } from './InstructorRecommendationsEdit
 import { type TranslationKey, type Language } from '../../../app/providers/LanguageContext';
 import { StatusBadge } from '../../../ui/StatusBadge';
 import { ChatUnreadIndicator } from '../../chat/components/chat/ChatUnreadIndicator';
-import { canInstructorEditRecommendations } from '../../../lib/lessonRecommendations';
+import { canInstructorEditRecommendations } from '../../../features/student-cabinet/lessonRecommendations';
 import { LessonRecommendation } from '../../../types';
 
 interface InstructorBookingCardProps {
@@ -20,7 +20,7 @@ interface InstructorBookingCardProps {
   t: (key: TranslationKey) => string;
   onOpenChat: (booking: DisplayBooking) => void;
   hasUnreadChat?: (
-    bookingOrId: string | import('../../../domain/chat/resolveChatId').CourseChatBooking
+    bookingOrId: string | import('../../../domain/chat').CourseChatBooking
   ) => boolean;
   onUpdateStatus: (bookingId: string, nextStatus: 'confirmed' | 'completed') => void;
   onUpdateStudentLevel: (studentUid: string, studentName: string, newLevel: number) => void;

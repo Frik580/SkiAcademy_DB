@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toBooking, toCourse, toNotification } from '../../src/infrastructure/firebase/firestoreMappers';
+import { toBooking, toCourse, toNotification } from '../../src/infrastructure/firebase';
 
 describe('Firestore mappers', () => {
   it('attaches the Firestore document id to booking and course domain models', () => {

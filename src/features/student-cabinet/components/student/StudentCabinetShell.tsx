@@ -13,8 +13,8 @@ import {
   SkillConfig,
   DEFAULT_SKILL_CONFIG,
   calculateSkillProgress,
-} from '../../../../domain/achievements/skillData';
-import { AchievementsConfig } from '../../../../domain/achievements/achievementConfig';
+} from '../../../../domain/achievements';
+import { AchievementsConfig } from '../../../../domain/achievements';
 import { cabinetPathForTab, parseCabinetTabParam } from '../../../../lib/workspaceRoutes';
 import { StudentCabinetHome } from './StudentCabinetHome';
 import { StudentHistoryPanel } from './StudentHistoryPanel';
@@ -104,7 +104,7 @@ export interface StudentCabinetShellProps {
   onPinSkillsToday?: (skillItemIds: string[]) => void | Promise<void>;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
   onAddCustomTodayTask?: (text: string) => void;
-  onRemoveTodayTask?: (task: import('../../../../lib/todayChecklist').TodayTaskRef) => void;
+  onRemoveTodayTask?: (task: import('../../../../features/student-cabinet/todayChecklist').TodayTaskRef) => void;
   onSignOut: () => void;
   onUpdateProfile?: (data: Partial<UserProfile>) => Promise<void>;
   onLevelBadgeClick: () => void;

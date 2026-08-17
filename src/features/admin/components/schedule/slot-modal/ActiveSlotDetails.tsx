@@ -2,7 +2,7 @@ import React from 'react';
 import { Link2, MessageSquare } from 'lucide-react';
 import type { Booking, UserProfile } from '../../../../../types';
 import { useLanguage, getDifficultyLabel } from '../../../../../app/providers/LanguageContext';
-import { isCourseBooking } from '../../../../../lib/availabilitySlots';
+import { isCourseBooking } from '../../../../../domain/availability';
 
 interface ActiveSlotDetailsProps {
   booking: Booking;

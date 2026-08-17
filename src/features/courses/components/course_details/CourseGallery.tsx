@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Film, Image as ImageIcon, Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
-import { logger } from '../../../../shared/logger';
+import { logger } from '../../../../shared';
 
 interface CourseGalleryProps {
   photos: string[];

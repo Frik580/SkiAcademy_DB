@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { AVAILABILITY_SLOTS_COLLECTION, toAvailabilitySlot } from '../../src/lib/availabilitySlots';
+import { AVAILABILITY_SLOTS_COLLECTION, toAvailabilitySlot } from '../../src/domain/availability';
 import {
   BookingSlotOverlapError,
   InsufficientFundsError,

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../../../infrastructure/firebase/firebase';
+import { auth } from '../../../infrastructure/firebase';
 import { useAuthStore } from '../authStore';
 
 /** Owns Firebase Auth session state only. Profile data is synchronized separately. */

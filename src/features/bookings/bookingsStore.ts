@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Booking, Instructor, Review } from '../../types';
-import { QUERY_LIMITS } from '../../shared/queryLimits';
+import { QUERY_LIMITS } from '../../shared';
 
 export interface DeletedCompletedStats {
   revenue: number;

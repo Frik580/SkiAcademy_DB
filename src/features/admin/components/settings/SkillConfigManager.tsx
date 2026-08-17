@@ -9,7 +9,7 @@ import {
   getSkillItemTitle,
   getSkillItemSection,
   getRadarDimensionLabel,
-} from '../../../../domain/achievements/skillData';
+} from '../../../../domain/achievements';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { Plus, Trash2, Edit2, Save, RotateCcw, Check } from 'lucide-react';
 

@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { enrollInCourse } from '../../src/lib/courseTransactions';
+import { enrollInCourse } from '../../src/features/courses/courseTransactions';
 import {
   PROD_COURSE_ID,
   PROD_USER_ID,

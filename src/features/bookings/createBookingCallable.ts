@@ -1,12 +1,12 @@
 import { FirebaseError } from 'firebase/app';
 import { httpsCallable } from 'firebase/functions';
-import { Booking } from '../types';
+import { Booking } from '../../types';
 import {
   BookingSlotOverlapError,
   BookingPaymentResult,
   InsufficientFundsError,
-} from '../features/bookings/bookingTransactions';
-import { functions } from '../infrastructure/firebase/firebase';
+} from './bookingTransactions';
+import { functions } from '../../infrastructure/firebase';
 
 export interface CreateBookingCallableInput {
   id: string;

@@ -1,6 +1,6 @@
 import { FirebaseError } from 'firebase/app';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../infrastructure/firebase/firebase';
+import { functions } from '../../infrastructure/firebase';
 
 export interface EnrollInCourseResult {
   bookingId: string;

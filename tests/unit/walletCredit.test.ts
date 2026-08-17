@@ -3,7 +3,7 @@ import {
   MAX_WALLET_CREDIT_USD,
   MAX_WALLET_TOPUP_USD,
   adminBalanceAdjustmentDelta,
-} from '../../src/domain/wallet/walletCredit';
+} from '../../src/domain/wallet';
 
 describe('walletCredit constants', () => {
   it('caps demo top-ups below the Firestore credit limit', () => {

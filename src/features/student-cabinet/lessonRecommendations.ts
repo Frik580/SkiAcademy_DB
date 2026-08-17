@@ -1,4 +1,4 @@
-import { Booking, LessonRecommendation } from '../types';
+import { Booking, LessonRecommendation } from '../../types';
 
 export const createRecommendationId = () =>
   `rec_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;

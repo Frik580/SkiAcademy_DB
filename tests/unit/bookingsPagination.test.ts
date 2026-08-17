@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { QUERY_LIMITS } from '../../src/shared/queryLimits';
+import { QUERY_LIMITS } from '../../src/shared';
 import { useBookingsStore } from '../../src/features/bookings/bookingsStore';
 
 describe('bookings sync pagination', () => {

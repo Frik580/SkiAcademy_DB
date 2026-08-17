@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
-import { collection, db, limit, onSnapshot, orderBy, query, where } from '../../../infrastructure/firebase/firebase';
-import { logger } from '../../../shared/logger';
+import { collection, db, limit, onSnapshot, orderBy, query, where } from '../../../infrastructure/firebase';
+import { logger } from '../../../shared';
 import {
   isNotificationExpired,
   purgeExpiredNotificationsForUser,
-} from '../../../domain/notifications/notificationCleanup';
-import { resolveNotificationText, type DbNotification } from '../../../domain/notifications/notificationText';
-import { toNotification } from '../../../infrastructure/firebase/firestoreMappers';
+} from '../../../domain/notifications';
+import { resolveNotificationText, type DbNotification } from '../../../domain/notifications';
+import { toNotification } from '../../../infrastructure/firebase';
 import { useAuthStore } from '../../auth/authStore';
 import { useSettingsStore } from '../../settings/settingsStore';
 import { notify, getLanguage } from '../../../store/storeContext';

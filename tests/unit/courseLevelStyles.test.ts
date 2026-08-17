@@ -5,7 +5,7 @@ import {
   getCourseLevelBadgeClass,
   getCourseLevelCardClass,
   getCourseLevelModalClass,
-} from '../../src/domain/course/courseLevelStyles';
+} from '../../src/domain/course';
 
 const courseLevels: CourseLevel[] = ['beginner', 'intermediate', 'advanced', 'expert'];
 

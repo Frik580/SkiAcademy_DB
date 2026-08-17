@@ -1,7 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { Course } from '../../../../types';
-import { getCourseLevelModalClass } from '../../../../domain/course/courseLevelStyles';
+import { getCourseLevelModalClass } from '../../../../domain/course';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 
 interface CourseHeaderProps {

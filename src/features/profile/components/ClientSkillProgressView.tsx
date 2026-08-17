@@ -5,12 +5,12 @@ import {
   DEFAULT_SKILL_CONFIG,
   calculateSkillProgress,
   getSkillItemTitle,
-} from '../../../domain/achievements/skillData';
+} from '../../../domain/achievements';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import {
   matchesSkillRingFilter,
   SkillRingFilter,
-} from '../../../features/student-cabinet/components/student/studentCabinetUtils';
+} from '../../../features/student-cabinet';
 
 interface ClientSkillProgressViewProps {
   userProfile: UserProfile;

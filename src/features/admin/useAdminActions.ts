@@ -1,14 +1,14 @@
 import { useCallback } from 'react';
-import { isCourseBooking } from '../../lib/availabilitySlots';
-import { createNotificationForUser } from '../../domain/notifications/notifications';
-import { buildNotification, translateKey } from '../../domain/notifications/notificationText';
+import { isCourseBooking } from '../../domain/availability';
+import { createNotificationForUser } from '../../domain/notifications';
+import { buildNotification, translateKey } from '../../domain/notifications';
 import { Booking, Instructor } from '../../types';
 import {
   clearStudentBookings,
   clearCancelledBookings,
   type ClearStudentBookingsResult,
   type ClearCancelledBookingsResult,
-} from '../../lib/clearStudentBookings';
+} from '../../features/admin/clearStudentBookings';
 import { notify, t } from '../../store/storeContext';
 import { useAuthStore } from '../auth/authStore';
 import { useProfileStore } from '../profile/profileStore';

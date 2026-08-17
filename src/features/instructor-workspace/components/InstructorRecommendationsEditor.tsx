@@ -4,7 +4,7 @@ import { LessonRecommendation } from '../../../types';
 import {
   createRecommendationId,
   sanitizeRecommendations,
-} from '../../../lib/lessonRecommendations';
+} from '../../../features/student-cabinet/lessonRecommendations';
 import { type TranslationKey } from '../../../app/providers/LanguageContext';
 
 interface InstructorRecommendationsEditorProps {

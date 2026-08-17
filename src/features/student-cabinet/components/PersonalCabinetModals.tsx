@@ -4,7 +4,7 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useTheme } from '../../../hooks/useTheme';
 import { LazyLoad } from '../../../ui/LazyLoad';
 import { RescheduleModal } from './RescheduleModal';
-import { ReviewFlow } from '../../../features/profile/components/ReviewFlow';
+import { ReviewFlow } from '../../../features/profile';
 import { LessonDetailsModal } from './LessonDetailsModal';
 import { ConfirmActionModal } from './ConfirmActionModal';
 import { LevelUpModal } from './LevelUpModal';

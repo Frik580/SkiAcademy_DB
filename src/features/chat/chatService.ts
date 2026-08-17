@@ -10,8 +10,8 @@ import {
   query,
   setDoc,
   updateDoc,
-} from '../../infrastructure/firebase/firebase';
-import { QUERY_LIMITS } from '../../shared/queryLimits';
+} from '../../infrastructure/firebase';
+import { QUERY_LIMITS } from '../../shared';
 import { ChatMessage, OperationType } from '../../types';
 
 function messagesPath(threadId: string): string {

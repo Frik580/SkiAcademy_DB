@@ -7,8 +7,8 @@ import {
   onSnapshot,
   OperationType,
   query,
-} from '../../../infrastructure/firebase/firebase';
-import { toUserProfile } from '../../../infrastructure/firebase/firestoreMappers';
+} from '../../../infrastructure/firebase';
+import { toUserProfile } from '../../../infrastructure/firebase';
 import { useAuthStore } from '../../auth/authStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
 import { useProfileStore } from '../profileStore';

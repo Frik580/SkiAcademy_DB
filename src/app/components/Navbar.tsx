@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../app/providers/LanguageContext';
 import { useCurrency } from '../../app/providers/CurrencyContext';
-import { getUserLevelBadgeClass } from '../../domain/course/courseLevelStyles';
+import { getUserLevelBadgeClass } from '../../domain/course';
 import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { Logo } from './Logo';
 import { useEffectiveBalance } from '../../features/wallet';

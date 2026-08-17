@@ -2,8 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { Booking } from '../../../types';
 import { useLanguage } from '../../../app/providers/LanguageContext';
-import { TodayTaskRef } from '../../../lib/todayChecklist';
-import { TodayTask } from '../../../features/student-cabinet/components/student/studentCabinetUtils';
+import { TodayTaskRef } from '../../../features/student-cabinet/todayChecklist';
+import { TodayTask } from '../../../features/student-cabinet';
 
 export interface TodayChecklistProps {
   tasks: TodayTask[];

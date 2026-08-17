@@ -6,7 +6,7 @@ import {
   isCourseBooking,
   toAvailabilitySlot,
   toLocalDateStr,
-} from '../../src/lib/availabilitySlots';
+} from '../../src/domain/availability';
 import type { Booking } from '../../src/types';
 
 const baseBooking = (overrides: Partial<Booking> = {}): Booking => ({

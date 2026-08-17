@@ -1,11 +1,11 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { migrateAvailabilitySlots } from '../../src/lib/availabilityMigration';
+import { migrateAvailabilitySlots } from '../../src/domain/availability';
 import {
   AVAILABILITY_MIGRATION_SETTING,
   AVAILABILITY_SLOTS_COLLECTION,
-} from '../../src/lib/availabilitySlots';
-import { AVAILABILITY_HOUR_LOCKS_COLLECTION, buildHourLockIds } from '../../src/domain/booking/slotOverlap';
+} from '../../src/domain/availability';
+import { AVAILABILITY_HOUR_LOCKS_COLLECTION, buildHourLockIds } from '../../src/domain/booking';
 import type { Booking } from '../../src/types';
 import {
   INSTRUCTOR_ID,

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Booking, UserProfile, ChatMessage, Instructor, Course } from '../../../types';
-import { uploadImage } from '../../../infrastructure/firebase/storage';
+import { uploadImage } from '../../../infrastructure/firebase';
 import { useLanguage } from '../../../app/providers/LanguageContext';
-import { logger } from '../../../shared/logger';
-import { resolveChatId, getCourseChatThreadIds } from '../../../domain/chat/resolveChatId';
-import { resolveProfileSenderRole } from '../../../domain/chat/chatSenderRole';
-import { buildHomeworkForUserIds } from '../../../domain/chat/chatHomework';
+import { logger } from '../../../shared';
+import { resolveChatId, getCourseChatThreadIds } from '../../../domain/chat';
+import { resolveProfileSenderRole } from '../../../domain/chat';
+import { buildHomeworkForUserIds } from '../../../domain/chat';
 import {
   createChatMessage,
   setChatMessageHomework,

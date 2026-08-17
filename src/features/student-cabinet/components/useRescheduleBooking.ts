@@ -8,8 +8,8 @@ import {
   isBookingSlotInPast,
   timeStrToMinutes,
   toLocalDateStr,
-} from '../../../lib/availabilitySlots';
-import { logger } from '../../../shared/logger';
+} from '../../../domain/availability';
+import { logger } from '../../../shared';
 import { getInstructorAvailabilitySlots } from '../../../features/bookings';
 
 interface UseRescheduleBookingOptions {

@@ -7,7 +7,7 @@ import {
   parseCourseDates,
   getDifficultyLabel,
 } from '../../../../app/providers/LanguageContext';
-import { isCourseBooking } from '../../../../lib/availabilitySlots';
+import { isCourseBooking } from '../../../../domain/availability';
 import { useNotifications } from '../../../../features/notifications';
 import { formatDateLocalYMD, hourToMinutes, getWeekRange } from './scheduleUtils';
 import { SCHEDULE_TIME_SLOTS } from './scheduleOverlap';

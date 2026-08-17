@@ -1,4 +1,4 @@
-import { AvailabilitySlot, Booking } from '../types';
+import { AvailabilitySlot, Booking } from '../../types';
 
 export const AVAILABILITY_SLOTS_COLLECTION = 'availability_slots';
 export const AVAILABILITY_MIGRATION_SETTING = 'availability_slots_migration';

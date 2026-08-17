@@ -1,5 +1,5 @@
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../infrastructure/firebase/firebase';
+import { functions } from '../../infrastructure/firebase';
 
 export interface GuestCourseEnrollmentInput {
   courseId: string;

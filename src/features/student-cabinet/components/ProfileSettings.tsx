@@ -4,8 +4,8 @@ import { UserProfile } from '../../../types';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useTheme } from '../../../hooks/useTheme';
 import { optimizeProfileImage } from './profileImage';
-import { uploadImage } from '../../../infrastructure/firebase/storage';
-import { logger } from '../../../shared/logger';
+import { uploadImage } from '../../../infrastructure/firebase';
+import { logger } from '../../../shared';
 import { useEffectiveBalance } from '../../../features/wallet';
 
 interface SkillProgressSummary {

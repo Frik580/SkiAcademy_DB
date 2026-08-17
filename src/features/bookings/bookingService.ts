@@ -13,18 +13,18 @@ import {
   where,
   writeBatch,
   handleFirestoreError,
-} from '../../infrastructure/firebase/firebase';
+} from '../../infrastructure/firebase';
 import {
   AVAILABILITY_SLOTS_COLLECTION,
   blocksInstructorAvailability,
   isCourseBooking,
   toAvailabilitySlot,
-} from '../../lib/availabilitySlots';
-import { finalizeBookingCompletion } from '../../lib/completeBooking';
+} from '../../domain/availability';
+import { finalizeBookingCompletion } from '../../features/bookings/completeBooking';
 import {
   createBookingViaCallable,
   isCreateBookingCallableInfrastructureError,
-} from '../../lib/createBookingCallable';
+} from '../../features/bookings/createBookingCallable';
 import {
   cancelBookingWithRefund,
   addBookingWithPayment,
@@ -40,11 +40,11 @@ import {
   activityLogId,
   buildBookingCompletedMetadata,
   logActivityForUser,
-} from '../../lib/activityLog';
-import { stripUndefinedFields } from '../../domain/course/courseClone';
+} from '../../domain/activity';
+import { stripUndefinedFields } from '../../domain/course';
 import { Booking, Instructor, LessonRecommendation, Review, UserProfile } from '../../types';
 import type { AvailabilitySlot } from '../../types';
-import { toUserProfile } from '../../infrastructure/firebase/firestoreMappers';
+import { toUserProfile } from '../../infrastructure/firebase';
 
 export async function getInstructorAvailabilitySlots(
   instructorId: string,
@@ -57,11 +57,11 @@ export async function getInstructorAvailabilitySlots(
   );
   return snapshot.docs.map((slotDoc) => slotDoc.data() as AvailabilitySlot);
 }
-import { logger } from '../../shared/logger';
+import { logger } from '../../shared';
 import {
   sanitizeRecommendations,
   toggleCompletedRecommendationIds,
-} from '../../lib/lessonRecommendations';
+} from '../../features/student-cabinet/lessonRecommendations';
 
 export { BookingSlotOverlapError, InsufficientFundsError };
 export type { BookingPaymentResult };

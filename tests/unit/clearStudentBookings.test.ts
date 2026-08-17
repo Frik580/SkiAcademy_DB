@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isStudentBooking, clearCancelledBookings } from '../../src/lib/clearStudentBookings';
+import { isStudentBooking, clearCancelledBookings } from '../../src/features/admin/clearStudentBookings';
 
 describe('clearStudentBookings helpers', () => {
   it('includes student lessons, guest bookings, and course enrollments', () => {

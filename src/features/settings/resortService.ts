@@ -1,4 +1,4 @@
-import { db, doc, getDoc, onSnapshot, setDoc } from '../../infrastructure/firebase/firebase';
+import { db, doc, getDoc, onSnapshot, setDoc } from '../../infrastructure/firebase';
 import type { ResortConfig } from '../../types';
 
 const resortConfigRef = doc(db, 'resort_data', 'config');

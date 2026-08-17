@@ -8,8 +8,8 @@ import {
   DEFAULT_ACHIEVEMENTS_CONFIG,
   describeAchievementRule,
   normalizeAchievementsConfig,
-} from '../../../../domain/achievements/achievementConfig';
-import { DEFAULT_SKILL_CONFIG, SkillConfig } from '../../../../domain/achievements/skillData';
+} from '../../../../domain/achievements';
+import { DEFAULT_SKILL_CONFIG, SkillConfig } from '../../../../domain/achievements';
 
 interface AchievementsManagerProps {
   config?: AchievementsConfig;

@@ -3,7 +3,7 @@ import {
   getSkillItemTitle,
   type SkillConfig,
   type SkillItem,
-} from '../../../domain/achievements/skillData';
+} from '../../../domain/achievements';
 import type { Language } from '../../../lib/i18n/translations';
 import type { UserProfile } from '../../../types';
 import { EQUAL_MARKER_STOPS, JOURNEY_LEVELS } from './constants';

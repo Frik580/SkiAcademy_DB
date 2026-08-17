@@ -1,5 +1,5 @@
 import type { Language } from './translations';
-import { logger } from '../../shared/logger';
+import { logger } from '../../shared';
 
 export function parseCourseDates(datesStr: string) {
   const today = new Date();

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { UserProfile, ActivityLog } from '../../types';
-import { logger } from '../../shared/logger';
+import { logger } from '../../shared';
 import { canManageAdminRoles } from '../../lib/accessControl';
 import {
   buildAddCustomTodayTaskUpdate,
@@ -10,10 +10,10 @@ import {
   buildToggleTodayCompleteUpdate,
   getNewlyPinnedSkillTitles,
   type TodayTaskRef,
-} from '../../lib/todayChecklist';
-import type { SkillItem } from '../../domain/achievements/skillData';
+} from '../../features/student-cabinet/todayChecklist';
+import type { SkillItem } from '../../domain/achievements';
 import { notify, t } from '../../store/storeContext';
-import { QUERY_LIMITS } from '../../shared/queryLimits';
+import { QUERY_LIMITS } from '../../shared';
 import {
   updateUserProfileService,
   updateUserRoleService,

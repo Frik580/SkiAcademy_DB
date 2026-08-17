@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { Settings, Award, Mountain, Sliders, History, Trophy, Bell, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
-import { SkillConfig } from '../../../../domain/achievements/skillData';
-import { AchievementsConfig } from '../../../../domain/achievements/achievementConfig';
+import { SkillConfig } from '../../../../domain/achievements';
+import { AchievementsConfig } from '../../../../domain/achievements';
 import { Booking, Course } from '../../../../types';
-import { backfillCompletedBookingActivityLogs } from '../../../../lib/backfillActivityLog';
+import { backfillCompletedBookingActivityLogs } from '../../../../domain/activity';
 import {
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   MAX_NOTIFICATION_RETENTION_DAYS,
   MIN_NOTIFICATION_RETENTION_DAYS,
-} from '../../../../domain/notifications/notificationConfig';
+} from '../../../../domain/notifications';
 import { SkillConfigManager } from '../../../../features/admin';
 import { AchievementsManager } from './AchievementsManager';
 import { ResortDataSection, ResortSliderSection } from '../resort/ResortConfigForm';
@@ -18,7 +18,7 @@ import { ToggleSwitch } from '../../../../ui/ToggleSwitch';
 import {
   ClearStudentBookingsResult,
   ClearCancelledBookingsResult,
-} from '../../../../lib/clearStudentBookings';
+} from '../../../../features/admin/clearStudentBookings';
 
 interface SystemSettingsProps {
   filtersEnabled?: boolean;

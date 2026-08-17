@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { StateCreator } from 'zustand';
 import { WalletLedgerEntry } from './types';
-import { QUERY_LIMITS } from '../../shared/queryLimits';
+import { QUERY_LIMITS } from '../../shared';
 
 export interface BalanceOptimisticState {
   optimisticBalanceDelta: number;

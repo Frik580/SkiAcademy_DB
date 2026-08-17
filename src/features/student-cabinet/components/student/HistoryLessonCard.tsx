@@ -16,7 +16,7 @@ import { RecommendationIndicator } from '../RecommendationIndicator';
 import {
   hasBookingRecommendations,
   hasPendingRecommendations,
-} from '../../../../lib/lessonRecommendations';
+} from '../../../../features/student-cabinet/lessonRecommendations';
 
 interface HistoryLessonCardProps {
   booking: Booking;

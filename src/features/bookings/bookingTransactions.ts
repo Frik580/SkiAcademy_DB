@@ -16,25 +16,25 @@ import {
   blocksInstructorAvailability,
   isCourseBooking,
   toAvailabilitySlot,
-} from '../../lib/availabilitySlots';
+} from '../../domain/availability';
 import {
   AVAILABILITY_HOUR_LOCKS_COLLECTION,
   buildHourLockIds,
   hasOverlappingAvailabilitySlot,
-} from '../../domain/booking/slotOverlap';
-import { applyWalletCreditInTransaction } from '../../domain/wallet/walletCredit';
+} from '../../domain/booking';
+import { applyWalletCreditInTransaction } from '../../domain/wallet';
 import {
   recordWalletLedgerEntryInTransaction,
   walletLedgerEntryId,
   walletLedgerBookingEntryId,
-} from '../../domain/wallet/walletLedger';
-import { computeBookingEndsAtIso, withBookingEndsAt } from '../../domain/booking/bookingEndsAt';
-import { withBookingCreatedAt } from '../../domain/booking/bookingCreatedAt';
+} from '../../domain/wallet';
+import { computeBookingEndsAtIso, withBookingEndsAt } from '../../domain/booking';
+import { withBookingCreatedAt } from '../../domain/booking';
 import {
   isActiveCourseEnrollment,
   releaseCourseSeatInTransaction,
   reserveCourseSeatInTransaction,
-} from '../../lib/courseTransactions';
+} from '../../features/courses/courseTransactions';
 
 export class InsufficientFundsError extends Error {
   constructor() {

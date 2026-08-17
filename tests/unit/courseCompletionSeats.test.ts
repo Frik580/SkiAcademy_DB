@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isActiveCourseEnrollment,
   resolveCourseIdFromBooking,
-} from '../../src/lib/courseTransactions';
+} from '../../src/features/courses/courseTransactions';
 import type { Booking } from '../../src/types';
 
 const courseBooking = (overrides: Partial<Booking> = {}): Booking => ({

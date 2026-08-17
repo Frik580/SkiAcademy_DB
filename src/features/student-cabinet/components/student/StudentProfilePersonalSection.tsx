@@ -3,8 +3,8 @@ import { Camera, Loader2, Wallet } from 'lucide-react';
 import { UserProfile } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { optimizeProfileImage } from '../profileImage';
-import { uploadImage } from '../../../../infrastructure/firebase/storage';
-import { logger } from '../../../../shared/logger';
+import { uploadImage } from '../../../../infrastructure/firebase';
+import { logger } from '../../../../shared';
 import { ScSectionTitle } from './StudentCabinetUI';
 import { useEffectiveBalance } from '../../../../features/wallet';
 

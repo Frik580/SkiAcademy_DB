@@ -1,4 +1,4 @@
-import { CustomTodayTask, UserProfile } from '../types';
+import { CustomTodayTask, UserProfile } from '../../types';
 
 export const skillTodayTaskId = (skillItemId: string) => `skill:${skillItemId}`;
 export const customTodayTaskId = (customId: string) => `custom:${customId}`;

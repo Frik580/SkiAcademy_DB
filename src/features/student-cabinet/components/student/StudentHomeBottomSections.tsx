@@ -1,8 +1,8 @@
 import React from 'react';
 import { Booking, Course, ResortConfig } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
-import { getLatestCoachRecommendation } from '../../../../lib/lessonRecommendations';
-import { getWeatherConditionKey } from '../../../../shared/weatherCondition';
+import { getLatestCoachRecommendation } from '../../../../features/student-cabinet/lessonRecommendations';
+import { getWeatherConditionKey } from '../../../../shared';
 import { formatBookingDayMonth } from './studentCabinetUtils';
 import { ScSectionTitle, ScTextButton, ScTintCard } from './StudentCabinetUI';
 import { AnimatedNumber } from '../../../../ui/AnimatedNumber';

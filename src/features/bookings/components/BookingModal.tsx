@@ -1,10 +1,10 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Instructor, UserProfile, Booking, Course } from '../../../types';
-import { useBookingModal } from '../../../features/bookings/components/booking_modal/useBookingModal';
-import { BookingAuthShell } from '../../../features/bookings/components/booking_modal/BookingAuthShell';
-import { AuthBookingForm } from '../../../features/bookings/components/booking_modal/AuthBookingForm';
-import { BookingModalHeader } from '../../../features/bookings/components/booking_modal/BookingModalHeader';
+import { useBookingModal } from './booking_modal/useBookingModal';
+import { BookingAuthShell } from './booking_modal/BookingAuthShell';
+import { AuthBookingForm } from './booking_modal/AuthBookingForm';
+import { BookingModalHeader } from './booking_modal/BookingModalHeader';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 
 interface BookingModalProps {

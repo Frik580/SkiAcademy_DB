@@ -8,6 +8,50 @@ import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 import prettierPlugin from 'eslint-plugin-prettier';
 
+const featureBoundaryPlugin = {
+  rules: {
+    'no-feature-component-internals': {
+      meta: {
+        type: 'problem',
+        docs: {
+          description: 'Disallow imports into another feature module’s component internals.',
+        },
+        schema: [],
+        messages: {
+          featureComponentInternal:
+            'Import {{feature}} capabilities from its public API (features/{{feature}}).',
+        },
+      },
+      create(context) {
+        const sourceFilename = context.filename.replaceAll('\\', '/');
+        const sourceFeature = sourceFilename.match(/\/src\/features\/([^/]+)\//)?.[1];
+
+        const checkImport = (node, source) => {
+          if (typeof source.value !== 'string') return;
+
+          const targetFeature = source.value.match(/(?:^|\/)features\/([^/]+)\/components(?:\/|$)/)?.[1];
+          if (!targetFeature || targetFeature === sourceFeature) return;
+
+          context.report({
+            node,
+            messageId: 'featureComponentInternal',
+            data: { feature: targetFeature },
+          });
+        };
+
+        return {
+          ImportDeclaration(node) {
+            checkImport(node, node.source);
+          },
+          ImportExpression(node) {
+            checkImport(node, node.source);
+          },
+        };
+      },
+    },
+  },
+};
+
 export default tseslint.config(
   {
     ignores: [
@@ -248,6 +292,15 @@ export default tseslint.config(
     files: ['src/features/**/components/**/*.{ts,tsx}'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'warn',
+    },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    plugins: {
+      'feature-boundaries': featureBoundaryPlugin,
+    },
+    rules: {
+      'feature-boundaries/no-feature-component-internals': 'error',
     },
   },
   {

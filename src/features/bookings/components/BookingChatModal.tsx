@@ -12,20 +12,20 @@ import {
   setChatMessageHomework,
   subscribeToChatMessages,
 } from '../../../features/chat';
-import { ChatWindow } from '../../../features/bookings/components/booking_chat/ChatWindow';
+import { ChatWindow } from './booking_chat/ChatWindow';
 import {
   ChatMessageList,
   type ChatMessageRow,
-} from '../../../features/bookings/components/booking_chat/ChatMessageList';
-import { MediaUploader } from '../../../features/bookings/components/booking_chat/MediaUploader';
-import { HomeworkPanel } from '../../../features/bookings/components/booking_chat/HomeworkPanel';
-import { ChatInput } from '../../../features/bookings/components/booking_chat/ChatInput';
+} from './booking_chat/ChatMessageList';
+import { MediaUploader } from './booking_chat/MediaUploader';
+import { HomeworkPanel } from './booking_chat/HomeworkPanel';
+import { ChatInput } from './booking_chat/ChatInput';
 import {
   compressImage,
   compressVideo,
   formatCompressionError,
   type PendingAttachment,
-} from '../../../features/bookings/components/booking_chat/chatCompression';
+} from './booking_chat/chatCompression';
 
 type CourseChatClient = { uid: string; name: string; bookingId: string };
 

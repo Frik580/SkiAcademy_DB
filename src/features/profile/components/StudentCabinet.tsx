@@ -10,8 +10,11 @@ import {
 } from '../../../types';
 import { SkillConfig } from '../../../domain/achievements';
 import { AchievementsConfig } from '../../../domain/achievements';
-import { StudentCabinetShell } from '../../../features/student-cabinet';
-import { StudentCabinetResortSnapshot } from '../../../features/student-cabinet';
+import {
+  StudentCabinetShell,
+  type StudentCabinetResortSnapshot,
+  type TodayTaskRef,
+} from '../../../features/student-cabinet';
 
 export interface StudentCabinetProps {
   userProfile: UserProfile;
@@ -37,7 +40,7 @@ export interface StudentCabinetProps {
   onPinSkillsToday?: (skillItemIds: string[]) => void | Promise<void>;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
   onAddCustomTodayTask?: (text: string) => void;
-  onRemoveTodayTask?: (task: import('../../../features/student-cabinet/todayChecklist').TodayTaskRef) => void;
+  onRemoveTodayTask?: (task: TodayTaskRef) => void;
   onSignOut: () => void;
   onUpdateProfile?: (data: Partial<UserProfile>) => Promise<void>;
   onLevelBadgeClick: () => void;

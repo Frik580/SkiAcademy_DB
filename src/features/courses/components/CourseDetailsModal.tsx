@@ -8,12 +8,12 @@ import {
   splitCourseDates,
 } from '../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
-import { getCourseEnrichedData } from '../../../features/courses/components/course_details/courseEnrichedData';
-import { CourseHeader } from '../../../features/courses/components/course_details/CourseHeader';
-import { CourseProgram } from '../../../features/courses/components/course_details/CourseProgram';
-import { CourseGallery } from '../../../features/courses/components/course_details/CourseGallery';
-import { CourseFAQ } from '../../../features/courses/components/course_details/CourseFAQ';
-import { CourseEnrollAction } from '../../../features/courses/components/course_details/CourseEnrollAction';
+import { getCourseEnrichedData } from './course_details/courseEnrichedData';
+import { CourseHeader } from './course_details/CourseHeader';
+import { CourseProgram } from './course_details/CourseProgram';
+import { CourseGallery } from './course_details/CourseGallery';
+import { CourseFAQ } from './course_details/CourseFAQ';
+import { CourseEnrollAction } from './course_details/CourseEnrollAction';
 
 interface CourseDetailsModalProps {
   isOpen: boolean;

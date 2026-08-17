@@ -15,7 +15,10 @@ import { SkillConfig } from '../../../domain/achievements';
 import { AchievementsConfig } from '../../../domain/achievements';
 import { StudentCabinet } from './StudentCabinet';
 import { useReviewFlow } from '../../../features/profile';
-import { StudentCabinetResortSnapshot } from '../../../features/student-cabinet';
+import {
+  type StudentCabinetResortSnapshot,
+  type TodayTaskRef,
+} from '../../../features/student-cabinet';
 import { PersonalCabinetModals } from '../../../features/student-cabinet';
 import { useRescheduleBooking } from '../../../features/student-cabinet';
 import { useBookingChatUnread } from '../../../features/student-cabinet/useBookingChatUnread';
@@ -40,7 +43,7 @@ export interface PersonalCabinetProps {
   onPinSkillsToday?: (skillItemIds: string[]) => Promise<void>;
   onToggleTodayTaskComplete?: (taskId: string, done: boolean) => Promise<void>;
   onAddCustomTodayTask?: (text: string) => Promise<void>;
-  onRemoveTodayTask?: (task: import('../../../features/student-cabinet/todayChecklist').TodayTaskRef) => Promise<void>;
+  onRemoveTodayTask?: (task: TodayTaskRef) => Promise<void>;
   onSignOut: () => void;
   onUpdateProfile?: (updatedProfile: Partial<UserProfile>) => Promise<void>;
   courses?: Course[];

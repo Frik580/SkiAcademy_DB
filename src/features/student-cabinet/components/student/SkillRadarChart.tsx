@@ -3,50 +3,35 @@ import { UserProfile } from '../../../../types';
 import {
   SkillConfig,
   DEFAULT_SKILL_CONFIG,
-  SkillItem,
   calculateSkillProgress,
-  classifySkillItemToRadarDimension,
-  RadarDimensionKey,
   getSkillItemTitle,
 } from '../../../../domain/achievements';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { ScSectionTitle } from './StudentCabinetUI';
 import { getLevelLabel } from './studentCabinetUtils';
+import { Check, Plus, RotateCcw, ChevronRight, ChevronDown } from 'lucide-react';
 import {
-  Compass,
-  Zap,
-  ShieldCheck,
-  Award,
-  Check,
-  Plus,
-  RotateCcw,
-  Activity,
-  Layers,
-  ChevronRight,
-  ChevronDown,
-} from 'lucide-react';
+  APPLE,
+  RADAR_DRAW_MS,
+  buildRadarDimensions,
+  buildSimulatedSkillScores,
+  createEmptyRadarSimulation,
+  easeOutCubic,
+  getChartDimensions,
+  getRadarGeometry,
+  getSelectedRadarDimension,
+  getSimulatedSkillIdsToPin,
+  getVisibleRadarExercises,
+  groupRadarExercisesByLevel,
+  type RadarDimensionFilter,
+  type RadarDimensionKey,
+} from './studentSkillRadarData';
 
-export type { RadarDimensionKey } from '../../../../domain/achievements';
-
-type RadarDimensionFilter = 'all' | RadarDimensionKey;
-
-export interface RadarDimension {
-  key: RadarDimensionKey;
-  titleKey: string;
-  defaultTitle: string;
-  icon: React.FC<{ className?: string }>;
-  color: string;
-  earned: number;
-  max: number;
-  percent: number;
-  exercises: {
-    item: SkillItem;
-    earned: number;
-    maxPoints: number;
-    pinned: boolean;
-    isMaxScore: boolean;
-  }[];
-}
+export type {
+  RadarDimension,
+  RadarDimensionFilter,
+  RadarDimensionKey,
+} from './studentSkillRadarData';
 
 interface SkillRadarChartProps {
   userProfile: UserProfile;
@@ -57,75 +42,6 @@ interface SkillRadarChartProps {
   /** Tighter hero embed: responsive chart */
   embed?: boolean;
   className?: string;
-}
-
-/** Apple Fitness Activity Rings palette */
-const APPLE = {
-  ringMove: '#FA114F',
-  ringExercise: '#A8E10C',
-  ringStand: '#00D4FF',
-  indigo: '#5E5CE6',
-  green: '#30D158',
-  orange: '#FF9F0A',
-  purple: '#BF5AF2',
-  simulation: '#FF9F0A',
-} as const;
-
-const DIMENSION_CONFIGS: {
-  key: RadarDimensionKey;
-  titleKey: string;
-  defaultTitle: string;
-  icon: React.FC<{ className?: string }>;
-  color: string;
-}[] = [
-  {
-    key: 'technique',
-    titleKey: 'scRadarAxisTechnique',
-    defaultTitle: 'Техника',
-    icon: Compass,
-    color: APPLE.ringMove,
-  },
-  {
-    key: 'control',
-    titleKey: 'scRadarAxisControl',
-    defaultTitle: 'Контроль',
-    icon: ShieldCheck,
-    color: APPLE.ringExercise,
-  },
-  {
-    key: 'speed',
-    titleKey: 'scRadarAxisSpeed',
-    defaultTitle: 'Скорость',
-    icon: Zap,
-    color: APPLE.ringStand,
-  },
-  {
-    key: 'balance',
-    titleKey: 'scRadarAxisBalance',
-    defaultTitle: 'Баланс',
-    icon: Activity,
-    color: APPLE.purple,
-  },
-  {
-    key: 'coordination',
-    titleKey: 'scRadarAxisCoordination',
-    defaultTitle: 'Координация',
-    icon: Layers,
-    color: APPLE.indigo,
-  },
-  {
-    key: 'terrain',
-    titleKey: 'scRadarAxisTerrain',
-    defaultTitle: 'Сложный склон',
-    icon: Award,
-    color: APPLE.orange,
-  },
-];
-
-const RADAR_DRAW_MS = 900;
-
-function easeOutCubic(t: number): number {
-  return 1 - (1 - t) ** 3;
 }
 
 function SegmentedControl<T extends string>({
@@ -278,18 +194,16 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
   const currentLevel = userProfile.level || 1;
   const items = skillConfig?.items || DEFAULT_SKILL_CONFIG.items;
   const passPercentage = skillConfig?.passPercentage ?? 80;
-  const pinnedIds = new Set(userProfile.todaySkillItemIds ?? []);
+  const pinnedIds = useMemo(
+    () => new Set(userProfile.todaySkillItemIds ?? []),
+    [userProfile.todaySkillItemIds]
+  );
 
   const [activeTab, setActiveTab] = useState<'radar' | 'simulator'>('radar');
   const [selectedDimensionKey, setSelectedDimensionKey] = useState<RadarDimensionFilter>('all');
-  const [simulatedValues, setSimulatedValues] = useState<Record<RadarDimensionKey, number>>({
-    technique: 0,
-    control: 0,
-    speed: 0,
-    balance: 0,
-    coordination: 0,
-    terrain: 0,
-  });
+  const [simulatedValues, setSimulatedValues] = useState<Record<RadarDimensionKey, number>>(
+    createEmptyRadarSimulation
+  );
   const [drawProgress, setDrawProgress] = useState(0);
   const [collapsedLevelTargets, setCollapsedLevelTargets] = useState<Set<number>>(() => new Set());
 
@@ -324,52 +238,18 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
 
   const targetStage = Math.min(currentLevel, 3);
 
-  const dimensionData = useMemo(() => {
-    const scores = userProfile.skillScores || {};
-    const displayItems = items.filter((i) => i.levelTarget <= targetStage);
-
-    const map: Record<
-      RadarDimensionKey,
-      { earned: number; max: number; exercises: RadarDimension['exercises'] }
-    > = {
-      technique: { earned: 0, max: 0, exercises: [] },
-      control: { earned: 0, max: 0, exercises: [] },
-      speed: { earned: 0, max: 0, exercises: [] },
-      balance: { earned: 0, max: 0, exercises: [] },
-      coordination: { earned: 0, max: 0, exercises: [] },
-      terrain: { earned: 0, max: 0, exercises: [] },
-    };
-
-    displayItems.forEach((item) => {
-      const dimKey = classifySkillItemToRadarDimension(item);
-      const earned = scores[item.id] ?? 0;
-      const isMaxScore = item.maxPoints > 0 && earned >= item.maxPoints;
-      const pinned = pinnedIds.has(item.id);
-
-      map[dimKey].earned += earned;
-      map[dimKey].max += item.maxPoints;
-      map[dimKey].exercises.push({ item, earned, maxPoints: item.maxPoints, pinned, isMaxScore });
-    });
-
-    return DIMENSION_CONFIGS.map((cfg) => {
-      const data = map[cfg.key];
-      const max = data.max;
-      const percent = max > 0 ? Math.min(100, Math.round((data.earned / max) * 100)) : 0;
-
-      return {
-        ...cfg,
-        earned: data.earned,
-        max: data.max,
-        percent,
-        exercises: data.exercises,
-      } as RadarDimension;
-    });
-  }, [items, userProfile.skillScores, targetStage, pinnedIds]);
-
-  const chartDimensions = useMemo(
-    () => dimensionData.filter((d) => d.exercises.length > 0),
-    [dimensionData]
+  const dimensionData = useMemo(
+    () =>
+      buildRadarDimensions({
+        items,
+        scores: userProfile.skillScores || {},
+        targetStage,
+        pinnedIds,
+      }),
+    [items, userProfile.skillScores, targetStage, pinnedIds]
   );
+
+  const chartDimensions = useMemo(() => getChartDimensions(dimensionData), [dimensionData]);
 
   useEffect(() => {
     if (chartDimensions.length === 0) return;
@@ -381,87 +261,53 @@ export const SkillRadarChart: React.FC<SkillRadarChartProps> = ({
     }
   }, [chartDimensions, selectedDimensionKey]);
 
-  const selectedDimension = useMemo(() => {
-    if (selectedDimensionKey === 'all') return null;
-    return chartDimensions.find((d) => d.key === selectedDimensionKey) ?? null;
-  }, [chartDimensions, selectedDimensionKey]);
+  const selectedDimension = useMemo(
+    () => getSelectedRadarDimension(chartDimensions, selectedDimensionKey),
+    [chartDimensions, selectedDimensionKey]
+  );
 
-  const visibleExercises = useMemo(() => {
-    if (selectedDimensionKey === 'all') {
-      return chartDimensions.flatMap((d) => d.exercises);
-    }
-    return selectedDimension?.exercises ?? [];
-  }, [selectedDimensionKey, chartDimensions, selectedDimension]);
+  const visibleExercises = useMemo(
+    () => getVisibleRadarExercises(chartDimensions, selectedDimension, selectedDimensionKey),
+    [chartDimensions, selectedDimension, selectedDimensionKey]
+  );
 
-  const exercisesByLevel = useMemo(() => {
-    const map = new Map<number, (typeof visibleExercises)[number][]>();
-    visibleExercises.forEach((exercise) => {
-      const levelNum = exercise.item.levelTarget;
-      const list = map.get(levelNum) ?? [];
-      list.push(exercise);
-      map.set(levelNum, list);
-    });
-    return Array.from(map.entries()).sort(([a], [b]) => a - b);
-  }, [visibleExercises]);
+  const exercisesByLevel = useMemo(
+    () => groupRadarExercisesByLevel(visibleExercises),
+    [visibleExercises]
+  );
 
   const progressSummary = useMemo(
     () => calculateSkillProgress(userProfile.skillScores || {}, items, targetStage, passPercentage),
     [userProfile.skillScores, items, targetStage, passPercentage]
   );
 
-  const simulatedSummary = useMemo(() => {
-    const simScores = { ...(userProfile.skillScores || {}) };
-
-    dimensionData.forEach((dim) => {
-      if (dim.exercises.length === 0) return;
-      const targetPercent = Math.max(dim.percent, simulatedValues[dim.key]);
-      if (targetPercent > dim.percent) {
-        dim.exercises.forEach(({ item }) => {
-          const currentEarned = simScores[item.id] ?? 0;
-          const simEarned = Math.round((targetPercent / 100) * item.maxPoints);
-          simScores[item.id] = Math.max(currentEarned, simEarned);
-        });
-      }
-    });
-
-    return calculateSkillProgress(simScores, items, targetStage, passPercentage);
-  }, [userProfile.skillScores, dimensionData, simulatedValues, items, targetStage, passPercentage]);
+  const simulatedSummary = useMemo(
+    () =>
+      calculateSkillProgress(
+        buildSimulatedSkillScores({
+          scores: userProfile.skillScores || {},
+          dimensions: dimensionData,
+          simulatedValues,
+        }),
+        items,
+        targetStage,
+        passPercentage
+      ),
+    [userProfile.skillScores, dimensionData, simulatedValues, items, targetStage, passPercentage]
+  );
 
   const ringCount = Math.max(1, chartDimensions.length);
-  const size = 230;
-  const ringGap = 3;
-  const maxStroke = 15;
-  const strokeWidth = Math.max(
-    9,
-    Math.min(maxStroke, Math.floor((size / 2 - 10) / ringCount) - ringGap)
-  );
-  const outerRadius = size / 2 - strokeWidth / 2 - 4;
-  const center = size / 2;
+  const { size, ringGap, strokeWidth, outerRadius, center } = getRadarGeometry(ringCount);
   const hasAxisFocus = selectedDimensionKey !== 'all';
 
   const isSimulating = chartDimensions.some((d) => simulatedValues[d.key] > d.percent);
 
   const handleResetSimulation = () => {
-    setSimulatedValues({
-      technique: 0,
-      control: 0,
-      speed: 0,
-      balance: 0,
-      coordination: 0,
-      terrain: 0,
-    });
+    setSimulatedValues(createEmptyRadarSimulation());
   };
 
   const handleApplySimulatedTasks = () => {
-    const toPin: string[] = [];
-    dimensionData.forEach((dim) => {
-      if (dim.exercises.length === 0) return;
-      if (simulatedValues[dim.key] > dim.percent) {
-        dim.exercises.forEach(({ item, isMaxScore, pinned }) => {
-          if (!isMaxScore && !pinned) toPin.push(item.id);
-        });
-      }
-    });
+    const toPin = getSimulatedSkillIdsToPin(dimensionData, simulatedValues);
     if (toPin.length === 0) return;
     if (onPinSkillsToday) {
       void onPinSkillsToday(toPin);

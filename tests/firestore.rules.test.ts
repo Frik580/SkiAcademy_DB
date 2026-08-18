@@ -291,7 +291,7 @@ describe('bookings', () => {
     const cancelBatch = writeBatch(db);
     cancelBatch.update(bookingRef, { status: 'cancelled' });
     cancelBatch.delete(slotRef);
-    await assertSucceeds(cancelBatch.commit());
+    await assertFails(cancelBatch.commit());
   });
 
   it('rejects lesson bookings with a manipulated totalPrice', async () => {
@@ -1145,7 +1145,7 @@ describe('course enrollment transactions', () => {
     await assertFails(updateDoc(userRef, { balanceUSD: 50 }));
   });
 
-  it('allows an admin to restore a course seat when cancelling another user booking', async () => {
+  it('rejects direct admin cancellation because cancellation belongs to the Callable transaction', async () => {
     const adminDb = testEnv.authenticatedContext(OWNER_ID).firestore();
     const courseRef = doc(adminDb, 'courses', 'course-1');
     const bookingRef = doc(adminDb, 'bookings', `booking_course_${USER_ID}_course-1`);
@@ -1177,7 +1177,7 @@ describe('course enrollment transactions', () => {
       });
     });
 
-    await assertSucceeds(
+    await assertFails(
       runTransaction(adminDb, async (transaction) => {
         transaction.update(bookingRef, { status: 'cancelled' });
         transaction.update(userRef, { balanceUSD: 200 });

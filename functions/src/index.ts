@@ -2,6 +2,7 @@ import { onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getAdminFirestore } from './adminFirestore';
 import { autoCompletePastBookings } from './bookings/autoComplete';
+import { cancelBookingHandler } from './bookings/cancelBooking';
 import { createCreateBookingHandler } from './bookings/createBooking';
 import { createGuestCourseEnrollmentHandler } from './courses/createGuestCourseEnrollment';
 import { enrollInCourseHandler } from './courses/enrollInCourse';
@@ -9,6 +10,10 @@ import { purgeExpiredNotifications } from './purgeExpiredNotifications';
 
 export const createBooking = onCall({ region: 'us-central1' }, async (request) =>
   createCreateBookingHandler(getAdminFirestore())(request)
+);
+
+export const cancelBooking = onCall({ region: 'us-central1' }, async (request) =>
+  cancelBookingHandler(getAdminFirestore())(request)
 );
 
 export const createGuestCourseEnrollment = onCall({ region: 'us-central1' }, async (request) =>

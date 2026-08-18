@@ -5,6 +5,7 @@ import {
   type RadarDimensionKey,
   type SkillItem,
 } from '../../../../domain/achievements';
+import type { TranslationKey } from '../../../../lib/i18n/translations';
 
 export type { RadarDimensionKey } from '../../../../domain/achievements';
 
@@ -20,7 +21,7 @@ export interface RadarExercise {
 
 export interface RadarDimension {
   key: RadarDimensionKey;
-  titleKey: string;
+  titleKey: TranslationKey;
   defaultTitle: string;
   icon: LucideIcon;
   color: string;

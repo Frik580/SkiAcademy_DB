@@ -5,6 +5,7 @@ import {
   hasOverlappingAvailabilitySlot,
   matchesExistingBookingRequest,
 } from '@ski-academy/shared-domain';
+import { BookingDocumentSchema, createBookingDraft } from '@ski-academy/shared-domain/entities';
 
 const booking = {
   id: 'booking-1',
@@ -62,5 +63,20 @@ describe('shared booking domain', () => {
     expect(
       hasOverlappingAvailabilitySlot({ time: '11:00', durationHours: 1 }, existing, booking.id)
     ).toBe(false);
+  });
+
+  it('shares a validated booking contract and safe initial booking state', () => {
+    const draft = createBookingDraft({
+      userId: 'user-1',
+      instructorId: 'instructor-1',
+      instructorName: 'Coach',
+      date: '2026-12-02',
+      time: '10:00',
+      durationHours: 1,
+    });
+
+    expect(draft).toMatchObject({ status: 'pending', difficulty: 'beginner', totalPrice: 0 });
+    expect(BookingDocumentSchema.safeParse(draft).success).toBe(true);
+    expect(BookingDocumentSchema.safeParse({ ...draft, durationHours: 0 }).success).toBe(false);
   });
 });

@@ -360,7 +360,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
       }`}
     >
       {chartDimensions.map((dim) => {
-        const titleText = t(dim.titleKey as any) || dim.defaultTitle;
+        const titleText = t(dim.titleKey) || dim.defaultTitle;
         const active = dim.key === selectedDimensionKey;
         const simVal = Math.max(dim.percent, simulatedValues[dim.key]);
         const showSim = isSimulating && simVal > dim.percent;
@@ -432,7 +432,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
       )}
       {chartDimensions.map((dim) => {
         const active = dim.key === selectedDimensionKey;
-        const titleText = t(dim.titleKey as any) || dim.defaultTitle;
+        const titleText = t(dim.titleKey) || dim.defaultTitle;
         return (
           <button
             key={`pill-${dim.key}`}
@@ -498,7 +498,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
                       <selectedDimension.icon className="h-4 w-4" />
                     </span>
                     <p className="text-sm font-medium text-[var(--ink)]">
-                      {t(selectedDimension.titleKey as any) || selectedDimension.defaultTitle}
+                      {t(selectedDimension.titleKey) || selectedDimension.defaultTitle}
                     </p>
                   </div>
                 </div>
@@ -512,7 +512,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
                       : t('scRadarSelectedAxisExercises').replace(
                           '{axis}',
                           selectedDimension
-                            ? t(selectedDimension.titleKey as any) || selectedDimension.defaultTitle
+                            ? t(selectedDimension.titleKey) || selectedDimension.defaultTitle
                             : ''
                         )}
                   </ScSectionTitle>
@@ -639,7 +639,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
               <div className="space-y-3">
                 {chartDimensions.map((dim) => {
                   const currentSimVal = Math.max(dim.percent, simulatedValues[dim.key]);
-                  const titleText = t(dim.titleKey as any) || dim.defaultTitle;
+                  const titleText = t(dim.titleKey) || dim.defaultTitle;
 
                   return (
                     <div

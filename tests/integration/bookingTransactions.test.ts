@@ -187,7 +187,9 @@ describe('booking transactions', () => {
     const booking = lessonBooking();
 
     await createBookingWithPayment(userDb, USER_ID, booking);
-    const { refunded } = await cancelBookingWithRefund(userDb, booking.id);
+    const { refunded } = await seedData((context) =>
+      cancelBookingWithRefund(context.firestore(), booking.id)
+    );
 
     const userDoc = await getDoc(doc(userDb, 'users', USER_ID));
     const bookingDoc = await getDoc(doc(userDb, 'bookings', booking.id));
@@ -224,7 +226,7 @@ describe('booking transactions', () => {
       await batch.commit();
     });
 
-    await cancelBookingWithRefund(userDb, courseBookingId);
+    await seedData((context) => cancelBookingWithRefund(context.firestore(), courseBookingId));
 
     const courseDoc = await getDoc(doc(userDb, 'courses', 'course-1'));
     const bookingDoc = await getDoc(doc(userDb, 'bookings', courseBookingId));
@@ -262,7 +264,9 @@ describe('booking transactions', () => {
       await batch.commit();
     });
 
-    const { refunded } = await cancelBookingWithRefund(adminDb, courseBookingId);
+    const { refunded } = await seedData((context) =>
+      cancelBookingWithRefund(context.firestore(), courseBookingId)
+    );
 
     const userDoc = await getDoc(doc(adminDb, 'users', USER_ID));
     const courseDoc = await getDoc(doc(adminDb, 'courses', 'course-1'));
@@ -291,7 +295,9 @@ describe('booking transactions', () => {
       await batch.commit();
     });
 
-    const { refunded } = await cancelBookingWithRefund(adminDb, booking.id);
+    const { refunded } = await seedData((context) =>
+      cancelBookingWithRefund(context.firestore(), booking.id)
+    );
 
     const userDoc = await getDoc(doc(adminDb, 'users', USER_ID));
     const bookingDoc = await getDoc(doc(adminDb, 'bookings', booking.id));
@@ -325,7 +331,9 @@ describe('booking transactions', () => {
       await batch.commit();
     });
 
-    const { refunded } = await cancelBookingWithRefund(adminDb, guestBooking.id);
+    const { refunded } = await seedData((context) =>
+      cancelBookingWithRefund(context.firestore(), guestBooking.id)
+    );
 
     const bookingDoc = await getDoc(doc(adminDb, 'bookings', guestBooking.id));
     const slotDoc = await getDoc(doc(adminDb, AVAILABILITY_SLOTS_COLLECTION, guestBooking.id));

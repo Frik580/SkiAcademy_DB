@@ -6,7 +6,6 @@ import {
   enrollInCourse,
 } from '../../src/features/courses/courseTransactions';
 import {
-  OWNER_ID,
   USER_ID,
   clearIntegrationFirestore,
   integrationTestEnv,
@@ -106,10 +105,8 @@ describe('course enrollment transactions', () => {
     const userDb = integrationTestEnv()
       .authenticatedContext(USER_ID, { email: 'user@example.com' })
       .firestore();
-    const adminDb = integrationTestEnv().authenticatedContext(OWNER_ID).firestore();
-
     await enrollInCourse(userDb, USER_ID, courseId, 'en');
-    await cancelBookingWithRefund(adminDb, bookingId);
+    await seedData((context) => cancelBookingWithRefund(context.firestore(), bookingId));
 
     const { newBalance } = await enrollInCourse(userDb, USER_ID, courseId, 'en');
 

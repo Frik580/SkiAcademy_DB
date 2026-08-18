@@ -78,7 +78,9 @@ describe('course enrollment end-to-end flow', () => {
       totalPrice: 200,
     });
 
-    const { refunded } = await cancelBookingWithRefund(adminDb, bookingId);
+    const { refunded } = await seedData((context) =>
+      cancelBookingWithRefund(context.firestore(), bookingId)
+    );
 
     const refundedUserDoc = await getDoc(doc(adminDb, 'users', USER_ID));
     const restoredCourseDoc = await getDoc(doc(adminDb, 'courses', courseId));

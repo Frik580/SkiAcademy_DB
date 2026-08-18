@@ -11,6 +11,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@ski-academy/shared-domain/entities': fileURLToPath(
+        new URL('./packages/shared-domain/src/entities.ts', import.meta.url)
+      ),
       '@ski-academy/shared-domain': fileURLToPath(
         new URL('./packages/shared-domain/src/index.ts', import.meta.url)
       ),

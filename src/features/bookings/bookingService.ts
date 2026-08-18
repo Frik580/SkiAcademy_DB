@@ -22,8 +22,8 @@ import {
 } from '../../domain/availability';
 import { finalizeBookingCompletion } from '../../features/bookings/completeBooking';
 import { createBookingViaCallable } from '../../features/bookings/createBookingCallable';
+import { cancelBookingViaCallable } from '../../features/bookings/cancelBookingCallable';
 import {
-  cancelBookingWithRefund,
   addBookingWithPayment,
   BookingSlotOverlapError,
   createGuestBooking,
@@ -112,7 +112,7 @@ export async function cancelBookingService(
   refundAmount?: number
 ): Promise<{ alreadyCancelled: boolean }> {
   try {
-    return await cancelBookingWithRefund(db, id, refundAmount);
+    return await cancelBookingViaCallable(id, refundAmount);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `bookings/${id}/cancel`);
     throw error;

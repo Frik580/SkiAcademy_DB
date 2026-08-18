@@ -4,12 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Booking, UserProfile } from '../../src/types';
 
 const {
-  mockCancelBookingWithRefund,
+  mockCancelBookingViaCallable,
   mockAddNotification,
   mockCreateNotificationForUser,
   mockHandleFirestoreError,
 } = vi.hoisted(() => ({
-  mockCancelBookingWithRefund: vi.fn(),
+  mockCancelBookingViaCallable: vi.fn(),
   mockAddNotification: vi.fn(),
   mockCreateNotificationForUser: vi.fn(),
   mockHandleFirestoreError: vi.fn(),
@@ -40,8 +40,8 @@ const adminProfile: UserProfile = {
 
 const firebaseUser = { uid: 'admin-1', email: 'admin@example.com' } as any;
 
-vi.mock('../../src/features/bookings/bookingTransactions', () => ({
-  cancelBookingWithRefund: (...args: any[]) => mockCancelBookingWithRefund(...args),
+vi.mock('../../src/features/bookings/cancelBookingCallable', () => ({
+  cancelBookingViaCallable: (...args: any[]) => mockCancelBookingViaCallable(...args),
 }));
 
 vi.mock('../../src/domain/notifications', async (importOriginal) => ({
@@ -102,7 +102,7 @@ import { setStoreContext } from '../../src/store/storeContext';
 describe('useBookings.handleCancel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCancelBookingWithRefund.mockResolvedValue({ refunded: 200, alreadyCancelled: false });
+    mockCancelBookingViaCallable.mockResolvedValue({ refunded: 200, alreadyCancelled: false });
     mockCreateNotificationForUser.mockResolvedValue(undefined);
     setStoreContext({
       notify: mockAddNotification,
@@ -134,7 +134,7 @@ describe('useBookings.handleCancel', () => {
       await result.current.handleCancel('booking-course-1');
     });
 
-    expect(mockCancelBookingWithRefund).toHaveBeenCalledWith({}, 'booking-course-1', undefined);
+    expect(mockCancelBookingViaCallable).toHaveBeenCalledWith('booking-course-1', undefined);
     expect(mockCreateNotificationForUser).toHaveBeenCalledWith(
       'client-1',
       expect.objectContaining({
@@ -184,7 +184,7 @@ describe('useBookings.handleCancel', () => {
   });
 
   it('does nothing when the booking is already cancelled', async () => {
-    mockCancelBookingWithRefund.mockResolvedValue({ refunded: 0, alreadyCancelled: true });
+    mockCancelBookingViaCallable.mockResolvedValue({ refunded: 0, alreadyCancelled: true });
 
     const { result } = renderHook(() => useBookingActions());
 

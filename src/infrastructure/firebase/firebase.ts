@@ -72,40 +72,131 @@ export const googleProvider = new GoogleAuthProvider();
 type ErrorListener = (error: any, operation: OperationType, path: string) => void;
 let errorListener: ErrorListener | null = null;
 
+type ErrorLogPayload = {
+  id: string;
+  message: string;
+  stack: string;
+  timestamp: string;
+  userId: string;
+  userEmail: string;
+  url: string;
+  userAgent: string;
+  source: string;
+  operation: string;
+  path: string;
+};
+
+const ERROR_LOG_THROTTLE_MS = 5_000;
+const ERROR_LOG_SESSION_LIMIT = 50;
+const ERROR_LOG_BATCH_SIZE = 10;
+const ERROR_LOG_STORAGE_KEY = 'ski-academy:error-log-buffer:v1';
+let errorLogQueue: ErrorLogPayload[] = loadBufferedErrorLogs();
+let errorLogsQueuedThisSession = 0;
+let errorLogFlushTimer: ReturnType<typeof setTimeout> | undefined;
+let errorLogFlushInFlight = false;
+let lastErrorLogFlushAt = 0;
+
+function loadBufferedErrorLogs(): ErrorLogPayload[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(ERROR_LOG_STORAGE_KEY) ?? '[]');
+    return Array.isArray(parsed)
+      ? (parsed.slice(-ERROR_LOG_SESSION_LIMIT) as ErrorLogPayload[])
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistBufferedErrorLogs(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (errorLogQueue.length === 0) window.localStorage.removeItem(ERROR_LOG_STORAGE_KEY);
+    else window.localStorage.setItem(ERROR_LOG_STORAGE_KEY, JSON.stringify(errorLogQueue));
+  } catch {
+    // Logging must never make the application fail when browser storage is unavailable.
+  }
+}
+
+function scheduleErrorLogFlush(): void {
+  if (errorLogFlushTimer || errorLogQueue.length === 0) return;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    persistBufferedErrorLogs();
+    return;
+  }
+  const delay = Math.max(0, lastErrorLogFlushAt + ERROR_LOG_THROTTLE_MS - Date.now());
+  errorLogFlushTimer = setTimeout(() => {
+    errorLogFlushTimer = undefined;
+    void flushErrorLogs();
+  }, delay);
+}
+
+async function flushErrorLogs(): Promise<void> {
+  if (errorLogFlushInFlight || errorLogQueue.length === 0) return;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    persistBufferedErrorLogs();
+    return;
+  }
+
+  errorLogFlushInFlight = true;
+  lastErrorLogFlushAt = Date.now();
+  const batchEntries = errorLogQueue.splice(0, ERROR_LOG_BATCH_SIZE);
+  persistBufferedErrorLogs();
+
+  try {
+    const batch = writeBatch(db);
+    for (const entry of batchEntries) {
+      batch.set(doc(db, 'error_logs', entry.id), entry);
+    }
+    await batch.commit();
+  } catch (error) {
+    errorLogQueue = [...batchEntries, ...errorLogQueue].slice(-ERROR_LOG_SESSION_LIMIT);
+    persistBufferedErrorLogs();
+    logger.warn('Failed to flush buffered Firestore error logs:', error);
+  } finally {
+    errorLogFlushInFlight = false;
+    scheduleErrorLogFlush();
+  }
+}
+
 export function registerFirestoreErrorListener(listener: ErrorListener) {
   errorListener = listener;
 }
 
-export async function logErrorToFirestore(
+export function logErrorToFirestore(
   message: string,
   stack?: string,
   source: string = 'custom',
   operation?: string,
   path?: string
 ) {
-  try {
-    const id = `err_${Math.random().toString(36).substring(2, 9)}_${Date.now()}`;
-    const logData = {
-      id,
-      message: message || 'Unknown error',
-      stack: stack || '',
-      timestamp: new Date().toISOString(),
-      userId: auth.currentUser?.uid || 'anonymous',
-      userEmail: auth.currentUser?.email || 'anonymous',
-      url: typeof window !== 'undefined' ? window.location.href : '',
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-      source,
-      operation: operation || '',
-      path: path || '',
-    };
-    await setDoc(doc(db, 'error_logs', id), logData);
-  } catch (e) {
-    logger.warn('Failed to log error to Firestore:', e);
-  }
+  const user = auth.currentUser;
+  // Firestore rules intentionally reject anonymous error logs, so do not retain them forever.
+  if (!user) return;
+  if (errorLogsQueuedThisSession >= ERROR_LOG_SESSION_LIMIT) return;
+
+  errorLogsQueuedThisSession += 1;
+  errorLogQueue.push({
+    id: `err_${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}_${Date.now()}`,
+    message: (message || 'Unknown error').slice(0, 5_000),
+    stack: (stack || '').slice(0, 20_000),
+    timestamp: new Date().toISOString(),
+    userId: user.uid,
+    userEmail: user.email || '',
+    url: typeof window !== 'undefined' ? window.location.href : '',
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+    source,
+    operation: operation || '',
+    path: path || '',
+  });
+  errorLogQueue = errorLogQueue.slice(-ERROR_LOG_SESSION_LIMIT);
+  persistBufferedErrorLogs();
+  scheduleErrorLogFlush();
 }
 
 // Auto-register global window error listeners
 if (typeof window !== 'undefined') {
+  window.addEventListener('online', scheduleErrorLogFlush);
   window.addEventListener('error', (event) => {
     // Filter out benign ResizeObserver/HMR/websocket warnings
     const msg = event.message || (event.error && event.error.message) || '';

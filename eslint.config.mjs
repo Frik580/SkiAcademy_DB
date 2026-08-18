@@ -160,6 +160,7 @@ export default tseslint.config(
       'dist',
       'packages/*/dist',
       'functions/lib',
+      'functions/shared-domain',
       'node_modules',
       '.firebase',
       'coverage',
@@ -174,6 +175,16 @@ export default tseslint.config(
   reactHooks.configs['recommended-latest'],
   reactRefresh.configs.recommended,
   jsxA11y.flatConfigs.recommended,
+  {
+    files: ['functions/scripts/**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: globals.node,
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
   {
     settings: {
       react: {

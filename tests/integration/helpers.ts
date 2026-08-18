@@ -49,8 +49,12 @@ export async function clearIntegrationFirestore() {
   await testEnv.clearFirestore();
 }
 
-export async function seedData(callback: (context: RulesTestContext) => Promise<void>) {
-  await testEnv.withSecurityRulesDisabled(callback);
+export async function seedData<T>(callback: (context: RulesTestContext) => Promise<T>): Promise<T> {
+  let result: T | undefined;
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    result = await callback(context);
+  });
+  return result as T;
 }
 
 export function integrationTestEnv() {

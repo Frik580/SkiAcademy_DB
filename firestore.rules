@@ -419,8 +419,6 @@ service cloud.firestore {
       ) || (
         isOwner(userId) && validBalanceDecreaseOnly()
       ) || (
-        isOwner(userId) && validRefundBalanceCreditApply(userId)
-      ) || (
         isInstructor() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'level',
@@ -510,14 +508,12 @@ service cloud.firestore {
         validBookingPrice(request.resource.data) &&
         (isAdmin() || availabilityIsSynchronized(bookingId, request.resource.data));
 
+      // Cancellation and its wallet refund are a single server-side Callable transaction.
+      // Direct clients can still request cancellation, but cannot set a cancelled status.
       allow update: if (
         isOwner(resource.data.userId) &&
         request.resource.data.userId == resource.data.userId &&
-        resource.data.status != 'cancelled' &&
-        request.resource.data.status == 'cancelled'
-      ) || (
-        isOwner(resource.data.userId) &&
-        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.status != 'cancelled' &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status',
           'date',
@@ -533,6 +529,7 @@ service cloud.firestore {
       ) || (
         isAssignedInstructor(resource.data) &&
         request.resource.data.userId == resource.data.userId &&
+        request.resource.data.status != 'cancelled' &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status',
           'date',
@@ -554,6 +551,7 @@ service cloud.firestore {
         )
       ) || (
         (resource.data.userId.matches('^client_.*') || resource.data.userId.matches('^guest_.*')) &&
+        request.resource.data.status != 'cancelled' &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status',
           'date',
@@ -564,7 +562,7 @@ service cloud.firestore {
       ) || (
         isOwner(resource.data.userId) &&
         validCourseEnrollmentReactivation(bookingId, resource.data, request.resource.data)
-      ) || isAdmin();
+      ) || (isAdmin() && request.resource.data.status != 'cancelled');
 
       allow delete: if isAdmin() || (
         isOwner(resource.data.userId) &&
@@ -785,15 +783,9 @@ service cloud.firestore {
             request.resource.data.userId == request.auth.uid &&
             (
               (
-                request.resource.data.type == 'refund' &&
-                validRefundLedgerCreate(entryId)
-              ) || (
-                (
-                  request.resource.data.type == 'lesson_payment' ||
-                  request.resource.data.type == 'course_payment'
-                ) &&
-                validPaymentLedgerCreate(entryId)
-              )
+                request.resource.data.type == 'lesson_payment' ||
+                request.resource.data.type == 'course_payment'
+              ) && validPaymentLedgerCreate(entryId)
             )
           )
         );

@@ -24,6 +24,8 @@ const booking = (
   id,
   userId: USER_ID,
   instructorId: INSTRUCTOR_ID,
+  instructorName: 'Instructor A',
+  instructorAvatar: '',
   status: 'pending',
   date: '2026-01-02',
   time: '10:00',

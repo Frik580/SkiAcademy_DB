@@ -39,9 +39,12 @@ export const useCoursesSync = () => {
     return onSnapshot(
       coursesQuery,
       (snapshot) => {
-        useCoursesStore
-          .getState()
-          .setCourses(snapshot.docs.map((courseDoc) => toCourse(courseDoc.id, courseDoc.data())));
+        useCoursesStore.getState().setCourses(
+          snapshot.docs.flatMap((courseDoc) => {
+            const course = toCourse(courseDoc.id, courseDoc.data());
+            return course ? [course] : [];
+          })
+        );
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'courses')
     );

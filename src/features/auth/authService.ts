@@ -47,7 +47,7 @@ export async function requestPasswordResetService(email: string): Promise<void> 
 export async function getUserProfileService(userId: string): Promise<UserProfile | null> {
   try {
     const userSnap = await getDoc(doc(db, 'users', userId));
-    return userSnap.exists() ? toUserProfile(userSnap.data()) : null;
+    return userSnap.exists() ? toUserProfile(userSnap.data(), userSnap.id) : null;
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, `users/${userId}`);
     return null;

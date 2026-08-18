@@ -47,7 +47,10 @@ export const useUsersSync = () => {
           const users = snapshot.docs
             .slice(0, usersPageSize)
             .filter((userDoc) => userDoc.id !== 'school_global_stats')
-            .map((userDoc) => toUserProfile(userDoc.data()));
+            .flatMap((userDoc) => {
+              const profile = toUserProfile(userDoc.data(), userDoc.id);
+              return profile ? [profile] : [];
+            });
           useProfileStore.getState().setUsersList(users);
           useProfileStore.getState().setUsersHasMore(snapshot.docs.length > usersPageSize);
         },
@@ -79,7 +82,10 @@ export const useUsersSync = () => {
         (snapshot) => {
           snapshots.set(
             String(index),
-            snapshot.docs.map((userDoc) => toUserProfile(userDoc.data()))
+            snapshot.docs.flatMap((userDoc) => {
+              const profile = toUserProfile(userDoc.data(), userDoc.id);
+              return profile ? [profile] : [];
+            })
           );
           publish();
         },

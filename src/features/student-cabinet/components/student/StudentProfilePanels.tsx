@@ -16,7 +16,7 @@ import { type TranslationKey } from '../../../../app/providers/LanguageContext';
 import { DEFAULT_SKILL_CONFIG } from '../../../../domain/achievements';
 import { StudentProfilePersonalSection } from './StudentProfilePersonalSection';
 import { StudentProfilePreferencesSection } from './StudentProfilePreferencesSection';
-import { SkillRadarChart } from './SkillRadarChart';
+import { LazySkillRadarChart } from './LazySkillRadarChart';
 import { ScStatGrid, ScTextButton, StudentPanelBackLink } from './StudentCabinetUI';
 import {
   buildStudentHistory,
@@ -272,7 +272,7 @@ export const StudentProfileSkillsPanel: React.FC<ProfileSubPanelProps> = ({
 
   return (
     <ProfilePanelShell titleKey="scProfileSkills" onGoToTab={onGoToTab}>
-      <SkillRadarChart
+      <LazySkillRadarChart
         userProfile={userProfile}
         skillConfig={skillConfig}
         onToggleSkillToday={onToggleSkillToday}

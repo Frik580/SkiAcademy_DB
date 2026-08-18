@@ -12,7 +12,7 @@ import {
 import { ScDivider, ScTextButton } from './StudentCabinetUI';
 import { StudentNeedsAttention } from './StudentNeedsAttention';
 import { StudentTodaySection } from './StudentTodaySection';
-import { SkillRadarChart } from './SkillRadarChart';
+import { LazySkillRadarChart } from './LazySkillRadarChart';
 import {
   StudentCabinetWeatherSection,
   StudentLatestRecommendationSection,
@@ -126,7 +126,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
                 {t('scRadarTitle')}
               </p>
               <div className="shrink-0 min-w-0 w-full">
-                <SkillRadarChart
+                <LazySkillRadarChart
                   userProfile={userProfile}
                   skillConfig={skillConfig}
                   onToggleSkillToday={props.onToggleSkillToday}

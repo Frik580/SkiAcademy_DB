@@ -289,7 +289,8 @@ export async function linkGuestBookingService(
 
     let currentBalance = 0;
     if (targetUserSnap.exists()) {
-      const userData = toUserProfile(targetUserSnap.data());
+      const userData = toUserProfile(targetUserSnap.data(), targetUserSnap.id);
+      if (!userData) throw new Error('Target user profile is invalid.');
       currentBalance = userData.balanceUSD ?? 0;
     }
 

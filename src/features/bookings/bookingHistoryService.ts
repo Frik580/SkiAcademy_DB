@@ -50,7 +50,10 @@ export async function getBookingHistoryPage(
   const pageDocs = snapshot.docs.slice(0, QUERY_LIMITS.bookingsHistory);
 
   return {
-    bookings: pageDocs.map((bookingDoc) => toBooking(bookingDoc.id, bookingDoc.data())),
+    bookings: pageDocs.flatMap((bookingDoc) => {
+      const booking = toBooking(bookingDoc.id, bookingDoc.data());
+      return booking ? [booking] : [];
+    }),
     cursor: pageDocs.at(-1) ?? null,
     hasMore: snapshot.docs.length > QUERY_LIMITS.bookingsHistory,
   };

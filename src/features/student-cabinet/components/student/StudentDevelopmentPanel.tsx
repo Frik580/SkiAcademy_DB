@@ -6,7 +6,7 @@ import {
   getPrioritySkillItems,
 } from './studentCabinetUtils';
 import { ScDivider, ScProgressBar, ScSectionTitle, StudentPanelBackLink } from './StudentCabinetUI';
-import { SkillRadarChart } from './SkillRadarChart';
+import { LazySkillRadarChart } from './LazySkillRadarChart';
 import { getSkillItemTitle } from '../../../../domain/achievements';
 import type { StudentDevelopmentPanelInput } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
@@ -73,7 +73,7 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = (
               <ScSectionTitle>{t('scRadarTitle')}</ScSectionTitle>
               <p className="text-sm text-[var(--ink-dim)]">{t('scRadarSubtitle')}</p>
             </div>
-            <SkillRadarChart
+            <LazySkillRadarChart
               userProfile={userProfile}
               skillConfig={skillConfig}
               onToggleSkillToday={onToggleSkillToday}

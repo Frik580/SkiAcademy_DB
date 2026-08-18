@@ -24,7 +24,11 @@ export const useCurrentUserProfileSync = () => {
           return;
         }
 
-        const profile = toUserProfile(userSnap.data());
+        const profile = toUserProfile(userSnap.data(), userSnap.id);
+        if (!profile) {
+          useProfileStore.getState().resetProfileState();
+          return;
+        }
         useProfileStore.getState().syncUserProfileFromSnapshot(profile);
         if (Array.isArray(profile.dismissedReviewIds)) {
           useProfileStore.getState().setDismissedReviewIds(profile.dismissedReviewIds);

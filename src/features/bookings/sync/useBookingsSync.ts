@@ -200,7 +200,10 @@ export const useBookingsSync = () => {
     return onSnapshot(
       bookingsQuery,
       (snapshot) => {
-        const list = snapshot.docs.map((bookingDoc) => toBooking(bookingDoc.id, bookingDoc.data()));
+        const list = snapshot.docs.flatMap((bookingDoc) => {
+          const booking = toBooking(bookingDoc.id, bookingDoc.data());
+          return booking ? [booking] : [];
+        });
         hotBookingsRef.current = list;
         const hotIds = new Set(list.map((booking) => booking.id));
         useBookingsStore

@@ -92,6 +92,8 @@ export function useCourseActions() {
           notify('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
         } else if (message === 'COURSE_FULL' || message === 'INSUFFICIENT_FUNDS') {
           notify('error', t('bookingFailed'), t('bookingFailedDesc'));
+        } else {
+          notify('error', t('bookingError'), t('bookingRecordFailed'));
         }
       } finally {
         inFlightEnrollmentsRef.current.delete(courseId);

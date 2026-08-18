@@ -61,7 +61,7 @@ describe('createGuestCourseEnrollment callable', { timeout: 30_000 }, () => {
     });
   });
 
-  it('handles duplicate guest enrollment requests with idempotencyKey idempotently', async () => {
+  it('returns the original result when a guest retry arrives after a lost response', async () => {
     const enroll = httpsCallable(getCallableFunctions(), 'createGuestCourseEnrollment');
 
     const firstResponse = await enroll({
@@ -75,7 +75,7 @@ describe('createGuestCourseEnrollment callable', { timeout: 30_000 }, () => {
     const firstResult = firstResponse.data as { bookingId: string; availableSeats: number };
     expect(firstResult.availableSeats).toBe(0);
 
-    // Duplicate call with same idempotencyKey
+    // The server has already completed the first request; the client retries with the same key.
     const secondResponse = await enroll({
       courseId: COURSE_ID,
       guestName: 'Guest Skier',
@@ -85,8 +85,53 @@ describe('createGuestCourseEnrollment callable', { timeout: 30_000 }, () => {
       idempotencyKey: 'test-idempotency-key-1',
     });
     const secondResult = secondResponse.data as { bookingId: string; availableSeats: number };
-    expect(secondResult.bookingId).toBe(firstResult.bookingId);
-    expect(secondResult.availableSeats).toBe(0);
+    expect(secondResult).toEqual(firstResult);
+  });
+
+  it('rejects a reused guest idempotency key with a different payload', async () => {
+    const enroll = httpsCallable(getCallableFunctions(), 'createGuestCourseEnrollment');
+    const idempotencyKey = 'test-idempotency-key-conflict';
+
+    await enroll({
+      courseId: COURSE_ID,
+      guestName: 'Guest Skier',
+      guestPhone: '+77000000000',
+      language: 'en',
+      idempotencyKey,
+    });
+
+    await expect(
+      enroll({
+        courseId: 'another-course',
+        guestName: 'Guest Skier',
+        guestPhone: '+77000000000',
+        language: 'en',
+        idempotencyKey,
+      })
+    ).rejects.toMatchObject({
+      code: 'functions/already-exists',
+      message: expect.stringContaining('IDEMPOTENCY_KEY_CONFLICT'),
+    });
+  });
+
+  it('handles concurrent guest requests with the same idempotency key atomically', async () => {
+    const enroll = httpsCallable(getCallableFunctions(), 'createGuestCourseEnrollment');
+    const input = {
+      courseId: COURSE_ID,
+      guestName: 'Guest Skier',
+      guestPhone: '+77000000000',
+      language: 'en' as const,
+      idempotencyKey: 'test-idempotency-key-concurrent',
+    };
+
+    const [firstResponse, secondResponse] = await Promise.all([enroll(input), enroll(input)]);
+    const firstResult = firstResponse.data as { bookingId: string; availableSeats: number };
+    const secondResult = secondResponse.data as typeof firstResult;
+
+    expect(secondResult).toEqual(firstResult);
+    expect(
+      (await getDoc(doc(getCallableFirestore(), 'courses', COURSE_ID))).data()?.availableSeats
+    ).toBe(0);
   });
 
   it('enrolls an authenticated user with an atomic seat, balance, booking, and ledger update', async () => {
@@ -111,5 +156,21 @@ describe('createGuestCourseEnrollment callable', { timeout: 30_000 }, () => {
       courseId: COURSE_ID,
       status: 'confirmed',
     });
+  });
+
+  it('returns the original enrollment result when an authenticated retry arrives after success', async () => {
+    await seedCallableUserProfile(500);
+    const enroll = httpsCallable(getCallableFunctions(), 'enrollInCourse');
+
+    const firstResponse = await enroll({ courseId: COURSE_ID, language: 'en' });
+    const firstResult = firstResponse.data as {
+      bookingId: string;
+      newBalance: number;
+      availableSeats: number;
+    };
+    const secondResponse = await enroll({ courseId: COURSE_ID, language: 'en' });
+    const secondResult = secondResponse.data as typeof firstResult;
+
+    expect(secondResult).toEqual(firstResult);
   });
 });

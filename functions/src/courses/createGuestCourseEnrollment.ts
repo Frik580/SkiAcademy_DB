@@ -20,6 +20,23 @@ type CourseRecord = {
   availableSeats?: number;
 };
 
+type GuestCourseEnrollmentIdempotencyRecord = {
+  requestSignature: string;
+  bookingId: string;
+  availableSeats: number;
+};
+
+function getRequestSignature(input: GuestCourseEnrollmentInput): string {
+  return JSON.stringify({
+    courseId: input.courseId,
+    guestName: input.guestName,
+    guestPhone: input.guestPhone,
+    guestEmail: input.guestEmail ?? '',
+    guestNotes: input.guestNotes ?? '',
+    language: input.language ?? 'en',
+  });
+}
+
 function requireText(value: unknown, field: string): string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new HttpsError('invalid-argument', `${field} is required.`);
@@ -67,8 +84,26 @@ export function createGuestCourseEnrollmentHandler(db: Firestore) {
     const guestId = `guest_${randomUUID()}`;
     const courseRef = db.collection('courses').doc(input.courseId);
     const bookingRef = db.collection('bookings').doc(bookingId);
+    const idempotencyRef = input.idempotencyKey
+      ? db.collection('function_idempotency').doc(`guest_course_enrollment_${input.idempotencyKey}`)
+      : null;
+    const requestSignature = getRequestSignature(input);
 
     return db.runTransaction(async (transaction) => {
+      if (idempotencyRef) {
+        const idempotencySnap = await transaction.get(idempotencyRef);
+        if (idempotencySnap.exists) {
+          const previous = idempotencySnap.data() as GuestCourseEnrollmentIdempotencyRecord;
+          if (previous.requestSignature !== requestSignature) {
+            throw new HttpsError('already-exists', 'IDEMPOTENCY_KEY_CONFLICT');
+          }
+          return {
+            bookingId: previous.bookingId,
+            availableSeats: previous.availableSeats,
+          };
+        }
+      }
+
       const [courseSnap, bookingSnap] = await Promise.all([
         transaction.get(courseRef),
         transaction.get(bookingRef),
@@ -118,7 +153,12 @@ export function createGuestCourseEnrollmentHandler(db: Firestore) {
       });
       transaction.update(courseRef, { availableSeats: course.availableSeats - 1 });
 
-      return { bookingId, availableSeats: course.availableSeats - 1 };
+      const result = { bookingId, availableSeats: course.availableSeats - 1 };
+      if (idempotencyRef) {
+        transaction.set(idempotencyRef, { requestSignature, ...result });
+      }
+
+      return result;
     });
   };
 }

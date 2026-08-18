@@ -1,12 +1,10 @@
-import { FirebaseError } from 'firebase/app';
-import { httpsCallable } from 'firebase/functions';
 import { Booking } from '../../types';
 import {
   BookingSlotOverlapError,
   BookingPaymentResult,
   InsufficientFundsError,
 } from './bookingTransactions';
-import { functions } from '../../infrastructure/firebase';
+import { callFunction, toFunctionsClientError } from '../../lib/functions/functionsClient';
 
 export interface CreateBookingCallableInput {
   id: string;
@@ -27,21 +25,6 @@ export interface CreateBookingCallableResult {
   newBalance: number;
 }
 
-const createBookingFn = httpsCallable<CreateBookingCallableInput, CreateBookingCallableResult>(
-  functions,
-  'createBooking'
-);
-
-export function isCreateBookingCallableInfrastructureError(error: unknown): boolean {
-  if (!(error instanceof FirebaseError)) return false;
-  return [
-    'functions/internal',
-    'functions/unavailable',
-    'functions/deadline-exceeded',
-    'functions/not-found',
-  ].includes(error.code);
-}
-
 function toCallableInput(booking: Booking): CreateBookingCallableInput {
   return {
     id: booking.id,
@@ -58,26 +41,29 @@ function toCallableInput(booking: Booking): CreateBookingCallableInput {
 }
 
 function mapCallableError(error: unknown): never {
-  if (error instanceof FirebaseError) {
-    if (error.code === 'functions/failed-precondition') {
-      throw new InsufficientFundsError();
-    }
-    if (error.code === 'functions/aborted') {
-      throw new BookingSlotOverlapError();
-    }
-    if (error.code === 'functions/not-found') {
-      throw new Error('Instructor does not exist.');
-    }
-    if (error.code === 'functions/invalid-argument' && error.message) {
-      throw new Error(error.message);
-    }
+  const normalizedError = toFunctionsClientError(error);
+  if (normalizedError.code === 'functions/failed-precondition') {
+    throw new InsufficientFundsError();
   }
-  throw error;
+  if (normalizedError.code === 'functions/aborted') {
+    throw new BookingSlotOverlapError();
+  }
+  if (normalizedError.code === 'functions/not-found') {
+    throw new Error('Instructor does not exist.');
+  }
+  if (normalizedError.code === 'functions/invalid-argument' && normalizedError.message) {
+    throw new Error(normalizedError.message);
+  }
+  throw normalizedError;
 }
 
 export async function createBookingViaCallable(booking: Booking): Promise<BookingPaymentResult> {
   try {
-    const { data } = await createBookingFn(toCallableInput(booking));
+    const data = await callFunction<CreateBookingCallableInput, CreateBookingCallableResult>(
+      'createBooking',
+      toCallableInput(booking),
+      { idempotencyKey: booking.id }
+    );
     return {
       totalPrice: data.totalPrice,
       newBalance: data.newBalance,

@@ -1,5 +1,4 @@
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../../infrastructure/firebase';
+import { callFunction } from '../../lib/functions/functionsClient';
 
 export interface GuestCourseEnrollmentInput {
   courseId: string;
@@ -16,14 +15,15 @@ export interface GuestCourseEnrollmentResult {
   availableSeats: number;
 }
 
-const createGuestCourseEnrollment = httpsCallable<
-  GuestCourseEnrollmentInput,
-  GuestCourseEnrollmentResult
->(functions, 'createGuestCourseEnrollment');
-
 export async function createGuestCourseEnrollmentViaCallable(
   input: GuestCourseEnrollmentInput
 ): Promise<GuestCourseEnrollmentResult> {
-  const { data } = await createGuestCourseEnrollment(input);
-  return data;
+  if (!input.idempotencyKey) {
+    throw new Error('Guest course enrollment requires an idempotency key.');
+  }
+  return callFunction<GuestCourseEnrollmentInput, GuestCourseEnrollmentResult>(
+    'createGuestCourseEnrollment',
+    input,
+    { idempotencyKey: input.idempotencyKey }
+  );
 }

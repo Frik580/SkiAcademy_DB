@@ -9,7 +9,6 @@ import {
   limit,
   onSnapshot,
   OperationType,
-  orderBy,
   query,
   where,
 } from '../../../infrastructure/firebase';
@@ -18,17 +17,20 @@ import { QUERY_LIMITS } from '../../../shared';
 import { logger } from '../../../shared';
 import { useAuthStore } from '../../auth/authStore';
 import { useProfileStore } from '../../profile/profileStore';
+import { useUiStore } from '../../shell/uiStore';
 import { useBookingsStore } from '../bookingsStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
 import { getBookingHistoryPage, type BookingHistoryScope } from '../bookingHistoryService';
+import { getRealtimeBookingsQuery, type RealtimeBookingsScope } from '../bookingRealtimeService';
 
 export const useBookingsSync = () => {
-  const { shouldSyncReviews, shouldLoadBookingHistory } = useDataSyncScope();
+  const { catalogueScope, shouldSyncReviews, shouldLoadBookingHistory } = useDataSyncScope();
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const userProfile = useProfileStore((s) => s.userProfile);
   const firebaseUserId = firebaseUser?.uid;
   const userRole = userProfile?.role;
   const instructorId = userProfile?.instructorId;
+  const reviewsInstructorId = useUiStore((s) => s.reviewsInstructor?.id);
   const bookingHistoryRequest = useBookingsStore((s) => s.bookingHistoryRequest);
   const historyCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const historyBookingsRef = useRef([] as import('../../../types').Booking[]);
@@ -38,8 +40,26 @@ export const useBookingsSync = () => {
     useBookingsStore.getState().resetBookingsPagination();
   }, [firebaseUser?.uid, userProfile?.instructorId, userProfile?.role]);
 
-  // Instructors are read alongside bookings because they are booking catalogue data.
+  // The booking catalogue needs all instructors outside the instructor workspace. There, only the
+  // linked instructor profile is rendered, so subscribe to that one document.
   useEffect(() => {
+    if (catalogueScope === 'instructor' && !instructorId) {
+      useBookingsStore.getState().setInstructors([]);
+      return;
+    }
+
+    if (catalogueScope === 'instructor') {
+      return onSnapshot(
+        doc(db, 'instructors', instructorId!),
+        (snapshot) => {
+          useBookingsStore
+            .getState()
+            .setInstructors(snapshot.exists() ? [toInstructor(snapshot.id, snapshot.data())] : []);
+        },
+        (error) => handleFirestoreError(error, OperationType.GET, 'instructors')
+      );
+    }
+
     const instructorsQuery = query(collection(db, 'instructors'), limit(QUERY_LIMITS.instructors));
 
     return onSnapshot(
@@ -55,25 +75,59 @@ export const useBookingsSync = () => {
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'instructors')
     );
-  }, []);
+  }, [catalogueScope, instructorId]);
 
-  // Reviews listener
+  // Keep review listeners scoped to the screen and the entity being viewed. A global reviews
+  // collection listener grows with every review, while the cabinet and instructor workspace only
+  // need reviews written by / for the current person.
   useEffect(() => {
-    if (!shouldSyncReviews) {
+    const reviewScopes = [
+      ...(shouldSyncReviews && firebaseUserId && userRole === 'user'
+        ? [{ key: `user:${firebaseUserId}`, field: 'userId', value: firebaseUserId }]
+        : []),
+      ...(shouldSyncReviews && instructorId && !reviewsInstructorId
+        ? [{ key: `instructor:${instructorId}`, field: 'instructorId', value: instructorId }]
+        : []),
+      ...(reviewsInstructorId
+        ? [
+            {
+              key: `instructor:${reviewsInstructorId}`,
+              field: 'instructorId',
+              value: reviewsInstructorId,
+            },
+          ]
+        : []),
+    ];
+
+    if (reviewScopes.length === 0) {
       useBookingsStore.getState().setReviews([]);
       return;
     }
 
-    return onSnapshot(
-      query(collection(db, 'reviews'), limit(QUERY_LIMITS.reviews)),
-      (snapshot) => {
-        useBookingsStore
-          .getState()
-          .setReviews(snapshot.docs.map((reviewDoc) => toReview(reviewDoc.id, reviewDoc.data())));
-      },
-      (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
+    const snapshots = new Map<string, import('../../../types').Review[]>();
+    const publish = () => {
+      const reviews = [
+        ...new Map([...snapshots.values()].flat().map((review) => [review.id, review])).values(),
+      ];
+      useBookingsStore.getState().setReviews(reviews);
+    };
+
+    const unsubscribers = reviewScopes.map(({ key, field, value }) =>
+      onSnapshot(
+        query(collection(db, 'reviews'), where(field, '==', value), limit(QUERY_LIMITS.reviews)),
+        (snapshot) => {
+          snapshots.set(
+            key,
+            snapshot.docs.map((reviewDoc) => toReview(reviewDoc.id, reviewDoc.data()))
+          );
+          publish();
+        },
+        (error) => handleFirestoreError(error, OperationType.LIST, 'reviews')
+      )
     );
-  }, [shouldSyncReviews]);
+
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, [firebaseUserId, instructorId, reviewsInstructorId, shouldSyncReviews, userRole]);
 
   const historyScope = useMemo<BookingHistoryScope | null>(() => {
     if (!firebaseUserId || !userRole) return null;
@@ -135,27 +189,13 @@ export const useBookingsSync = () => {
     }
 
     useBookingsStore.getState().setBookingsLoaded(false);
-    const bookingsBase = collection(db, 'bookings');
-    const realtimeStartDate = new Date();
-    realtimeStartDate.setDate(
-      realtimeStartDate.getDate() - QUERY_LIMITS.recentDaysForRealtimeBookings
-    );
-    const cutoff = realtimeStartDate.toISOString().slice(0, 10);
-    const hotConstraints = [
-      where('status', 'in', ['pending', 'confirmed']),
-      where('date', '>=', cutoff),
-      orderBy('date', 'desc'),
-    ];
-    const bookingsQuery =
+    const realtimeScope: RealtimeBookingsScope =
       userProfile?.role === 'admin'
-        ? query(bookingsBase, ...hotConstraints)
+        ? { kind: 'admin' }
         : userProfile?.instructorId
-          ? query(
-              bookingsBase,
-              where('instructorId', '==', userProfile.instructorId),
-              ...hotConstraints
-            )
-          : query(bookingsBase, where('userId', '==', firebaseUser.uid), ...hotConstraints);
+          ? { kind: 'instructor', instructorId: userProfile.instructorId }
+          : { kind: 'student', userId: firebaseUser.uid };
+    const bookingsQuery = getRealtimeBookingsQuery(db, realtimeScope);
 
     return onSnapshot(
       bookingsQuery,

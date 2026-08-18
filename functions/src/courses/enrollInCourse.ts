@@ -48,18 +48,24 @@ export function enrollInCourseHandler(db: Firestore) {
       if (typeof availableSeats !== 'number' || typeof price !== 'number') {
         throw new HttpsError('failed-precondition', 'Course has invalid seat or price data.');
       }
+      const balance = typeof user.balanceUSD === 'number' ? user.balanceUSD : 0;
+      const courseTitle = typeof course.title === 'string' ? course.title : courseId;
       if (bookingSnap.exists) {
         const previous = bookingSnap.data() as Record<string, unknown>;
         if (previous.status !== 'cancelled' && previous.isDeleted !== true) {
-          throw new HttpsError('already-exists', 'ALREADY_ENROLLED');
+          return {
+            bookingId,
+            newBalance: balance,
+            courseTitle:
+              typeof previous.instructorName === 'string' ? previous.instructorName : courseTitle,
+            availableSeats,
+          };
         }
       }
       if (availableSeats <= 0) throw new HttpsError('failed-precondition', 'COURSE_FULL');
 
-      const balance = typeof user.balanceUSD === 'number' ? user.balanceUSD : 0;
       if (balance < price) throw new HttpsError('failed-precondition', 'INSUFFICIENT_FUNDS');
 
-      const courseTitle = typeof course.title === 'string' ? course.title : courseId;
       const createdAt = new Date().toISOString();
       const newBalance = balance - price;
       const courseDates = typeof course.dates === 'string' ? course.dates : '';

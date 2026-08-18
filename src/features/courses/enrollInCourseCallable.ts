@@ -1,6 +1,4 @@
-import { FirebaseError } from 'firebase/app';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../../infrastructure/firebase';
+import { callFunction, toFunctionsClientError } from '../../lib/functions/functionsClient';
 
 export interface EnrollInCourseResult {
   bookingId: string;
@@ -9,26 +7,24 @@ export interface EnrollInCourseResult {
   availableSeats: number;
 }
 
-const enrollInCourse = httpsCallable<
-  { courseId: string; language: 'en' | 'ru' },
-  EnrollInCourseResult
->(functions, 'enrollInCourse');
-
 export async function enrollInCourseViaCallable(
   courseId: string,
   language: 'en' | 'ru'
 ): Promise<EnrollInCourseResult> {
   try {
-    const { data } = await enrollInCourse({ courseId, language });
-    return data;
+    return await callFunction<{ courseId: string; language: 'en' | 'ru' }, EnrollInCourseResult>(
+      'enrollInCourse',
+      { courseId, language },
+      { idempotencyKey: `course_${courseId}` }
+    );
   } catch (error) {
-    if (error instanceof FirebaseError) {
-      if (error.code === 'functions/already-exists') throw new Error('ALREADY_ENROLLED');
-      if (error.code === 'functions/failed-precondition') {
-        if (error.message.includes('COURSE_FULL')) throw new Error('COURSE_FULL');
-        if (error.message.includes('INSUFFICIENT_FUNDS')) throw new Error('INSUFFICIENT_FUNDS');
-      }
+    const normalizedError = toFunctionsClientError(error);
+    if (normalizedError.code === 'functions/already-exists') throw new Error('ALREADY_ENROLLED');
+    if (normalizedError.code === 'functions/failed-precondition') {
+      if (normalizedError.message.includes('COURSE_FULL')) throw new Error('COURSE_FULL');
+      if (normalizedError.message.includes('INSUFFICIENT_FUNDS'))
+        throw new Error('INSUFFICIENT_FUNDS');
     }
-    throw error;
+    throw normalizedError;
   }
 }

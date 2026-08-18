@@ -7,6 +7,7 @@ export function resolveDataSyncScope(pathname: string, hasReviewsInstructor: boo
   const isCabinetRoute = pathname.startsWith('/cabinet');
 
   return {
+    catalogueScope: isInstructorRoute ? 'instructor' : 'full',
     shouldSyncUsersList: isAdminRoute || isInstructorRoute,
     shouldSyncActivityLogs: isAdminRoute || isInstructorRoute || isCabinetRoute,
     shouldSyncReviews: isCabinetRoute || isInstructorRoute || hasReviewsInstructor,

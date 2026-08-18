@@ -38,7 +38,7 @@
   "dependencies": {
     "@ski-academy/shared-domain": "file:packages/shared-domain",
     "canvas-confetti": "^1.9.3",
-    "firebase": "^12.17.1",
+    "firebase": "12.16.0",
     "lucide-react": "^1.24.0",
     "motion": "^12.42.2",
     "react": "^18.3.1",

@@ -1,4 +1,4 @@
-import { Firestore, QueryDocumentSnapshot, Transaction } from 'firebase-admin/firestore';
+import { DocumentReference, Firestore, QueryDocumentSnapshot, Transaction } from 'firebase-admin/firestore';
 import {
   AVAILABILITY_HOUR_LOCKS_COLLECTION,
   BookingIdConflictError,
@@ -40,7 +40,9 @@ export interface BookingRecord {
   courseId?: string;
   createdAt?: string;
   endsAt?: string;
+  isDeleted?: boolean;
 }
+
 
 export type AvailabilitySlot = AvailabilitySlotLike;
 
@@ -229,5 +231,191 @@ export async function createBookingWithPayment(
       newBalance,
       totalPrice,
     };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// createGuestBookingRecord
+// Server-side equivalent of the client-side createGuestBooking transaction.
+// Reserves a slot and writes the booking without charging any user balance.
+// ---------------------------------------------------------------------------
+
+export async function createGuestBookingRecord(
+  db: Firestore,
+  booking: BookingRecord
+): Promise<void> {
+  const existingSlotDocs = (
+    await db
+      .collection(AVAILABILITY_SLOTS_COLLECTION)
+      .where('instructorId', '==', booking.instructorId)
+      .get()
+  ).docs;
+
+  return db.runTransaction(async (transaction) => {
+    const totalPrice = await resolveBookingTotalPrice(transaction, db, booking);
+    const bookingToWrite: BookingRecord = { ...booking, totalPrice };
+
+    await assertNoSlotOverlap(transaction, db, bookingToWrite, existingSlotDocs, booking.id);
+    writeBookingWithAvailability(transaction, db, bookingToWrite);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// BookingScheduleUpdates / rescheduleBookingRecord
+// Server-side equivalent of the client-side rescheduleBooking transaction.
+// Atomically swaps hour_locks and availability_slot when date, time, or
+// instructor changes. Works for both reschedule and instructor reassignment.
+// ---------------------------------------------------------------------------
+
+export type BookingScheduleUpdates = {
+  date?: string;
+  time?: string;
+  instructorId?: string;
+  instructorName?: string;
+  instructorAvatar?: string;
+};
+
+export async function rescheduleBookingRecord(
+  db: Firestore,
+  bookingId: string,
+  updates: BookingScheduleUpdates
+): Promise<void> {
+  const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(bookingId);
+  const bookingSnap = await bookingRef.get();
+  if (!bookingSnap.exists) throw new Error('Booking does not exist.');
+
+  const currentBooking = bookingSnap.data() as BookingRecord;
+  if (isCourseBooking(currentBooking)) {
+    throw new Error('Course bookings cannot be rescheduled.');
+  }
+
+  const nextInstructorId = updates.instructorId ?? currentBooking.instructorId;
+  const existingSlotDocs = (
+    await db
+      .collection(AVAILABILITY_SLOTS_COLLECTION)
+      .where('instructorId', '==', nextInstructorId)
+      .get()
+  ).docs;
+
+  return db.runTransaction(async (transaction) => {
+    const freshSnap = await transaction.get(bookingRef);
+    if (!freshSnap.exists) throw new Error('Booking does not exist.');
+
+    const bookingData = freshSnap.data() as BookingRecord;
+    const nextBooking: BookingRecord = {
+      ...bookingData,
+      date: updates.date ?? bookingData.date,
+      time: updates.time ?? bookingData.time,
+      instructorId: updates.instructorId ?? bookingData.instructorId,
+      instructorName: updates.instructorName ?? bookingData.instructorName,
+      instructorAvatar: updates.instructorAvatar ?? bookingData.instructorAvatar,
+    };
+
+    // Read old locks inside the transaction to know which ones actually exist.
+    const existingOldLockRefs: DocumentReference[] = [];
+    for (const lockId of buildHourLockIds(bookingData)) {
+      const lockRef = db.collection(AVAILABILITY_HOUR_LOCKS_COLLECTION).doc(lockId);
+      const lockSnap = await transaction.get(lockRef);
+      if (lockSnap.exists) {
+        existingOldLockRefs.push(lockRef);
+      }
+    }
+
+    await assertNoSlotOverlap(transaction, db, nextBooking, existingSlotDocs, bookingId);
+
+    // Build the partial update for the booking document.
+    const bookingUpdate: Record<string, string> = {};
+    if (updates.date !== undefined) bookingUpdate.date = nextBooking.date;
+    if (updates.time !== undefined) bookingUpdate.time = nextBooking.time;
+    if (updates.instructorId !== undefined) {
+      bookingUpdate.instructorId = nextBooking.instructorId;
+      bookingUpdate.instructorName = nextBooking.instructorName;
+      bookingUpdate.instructorAvatar = nextBooking.instructorAvatar;
+    }
+
+    if (Object.keys(bookingUpdate).length > 0) {
+      const endsAt = computeLessonEndsAtIso(nextBooking) ?? undefined;
+      if (endsAt) bookingUpdate.endsAt = endsAt;
+      transaction.update(bookingRef, bookingUpdate);
+    }
+
+    // Delete stale locks, then write new ones.
+    for (const lockRef of existingOldLockRefs) {
+      transaction.delete(lockRef);
+    }
+
+    if (blocksInstructorAvailability(nextBooking)) {
+      writeHourLocks(transaction, db, nextBooking);
+      transaction.set(
+        db.collection(AVAILABILITY_SLOTS_COLLECTION).doc(bookingId),
+        toAvailabilitySlot(nextBooking)
+      );
+    } else {
+      transaction.delete(db.collection(AVAILABILITY_SLOTS_COLLECTION).doc(bookingId));
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// finalizeBookingCompletionRecord
+// Server-side equivalent of the client-side finalizeBookingCompletion
+// transaction. Marks the booking as completed, releases the availability slot
+// for individual lessons, and increments availableSeats for active course
+// enrollments — all within a single Firestore transaction.
+// ---------------------------------------------------------------------------
+
+export type BookingCompletionResult = { bookingId: string; status: 'completed' };
+
+export async function finalizeBookingCompletionRecord(
+  db: Firestore,
+  bookingId: string
+): Promise<BookingCompletionResult | null> {
+  return db.runTransaction(async (transaction) => {
+    const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(bookingId);
+    const bookingSnap = await transaction.get(bookingRef);
+    if (!bookingSnap.exists) return null;
+
+    const booking = bookingSnap.data() as BookingRecord;
+    if (booking.status === 'completed') return { bookingId, status: 'completed' };
+
+    const isCourse = isCourseBooking(booking);
+    const isActiveEnrollment =
+      isCourse &&
+      booking.isDeleted !== true &&
+      (booking.status === 'pending' ||
+        booking.status === 'confirmed' ||
+        booking.status === 'pending_cancellation');
+
+    // All reads must happen before any writes in a Firestore transaction.
+    let courseRef: FirebaseFirestore.DocumentReference | null = null;
+    let availableSeats: number | null = null;
+    let totalSeats: number | null = null;
+
+    if (isActiveEnrollment) {
+      const courseId = booking.courseId ?? booking.instructorId.slice('course_'.length);
+      courseRef = db.collection('courses').doc(courseId);
+      const courseSnap = await transaction.get(courseRef);
+      if (courseSnap.exists) {
+        const course = courseSnap.data() as { availableSeats?: number; totalSeats?: number };
+        availableSeats = course.availableSeats ?? 0;
+        totalSeats = course.totalSeats ?? availableSeats;
+      }
+    }
+
+    // Writes.
+    transaction.update(bookingRef, { status: 'completed' });
+
+    if (!isCourse) {
+      transaction.delete(db.collection(AVAILABILITY_SLOTS_COLLECTION).doc(bookingId));
+    } else if (
+      courseRef !== null &&
+      availableSeats !== null &&
+      totalSeats !== null &&
+      availableSeats < totalSeats
+    ) {
+      transaction.update(courseRef, { availableSeats: availableSeats + 1 });
+    }
+
+    return { bookingId, status: 'completed' };
   });
 }

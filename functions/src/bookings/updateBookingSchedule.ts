@@ -1,14 +1,9 @@
 import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
 import { isCourseBooking } from '@ski-academy/shared-domain';
-import {
-  BookingRecord,
-  BookingScheduleUpdates,
-  BookingSlotOverlapError,
-  InsufficientFundsError,
-  rescheduleBookingRecord,
-} from './bookingLogic';
+import { BookingRecord, BookingScheduleUpdates, rescheduleBookingRecord } from './bookingLogic';
 import { idempotencySpecFromRequest } from '../idempotency';
+import { rethrowAsHttpsError } from './mapBookingHttpsError';
 
 export interface UpdateBookingScheduleInput {
   bookingId: string;
@@ -120,32 +115,10 @@ export function updateBookingScheduleHandler(db: Firestore) {
         })
       );
     } catch (error) {
-      if (error instanceof BookingSlotOverlapError) {
-        throw new HttpsError(
-          'aborted',
-          'The requested time slot overlaps with an existing booking.'
-        );
-      }
-      if (error instanceof InsufficientFundsError) {
-        throw new HttpsError(
-          'failed-precondition',
-          'Insufficient funds to reassign this booking.'
-        );
-      }
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-      if (error instanceof Error && error.message === 'Booking does not exist.') {
-        throw new HttpsError('not-found', 'Booking does not exist.');
-      }
-      if (
-        error instanceof Error &&
-        (error.message === 'Course bookings cannot be rescheduled.' ||
-          error.message === 'Cancelled or completed bookings cannot be rescheduled.')
-      ) {
-        throw new HttpsError('failed-precondition', error.message);
-      }
-      throw new HttpsError('internal', 'Failed to update booking schedule.');
+      rethrowAsHttpsError(error, 'Failed to update booking schedule.', {
+        insufficientFundsMessage: 'Insufficient funds to reassign this booking.',
+        overlapMessage: 'The requested time slot overlaps with an existing booking.',
+      });
     }
   };
 }

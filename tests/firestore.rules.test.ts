@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import {
   assertFails,
   assertSucceeds,
@@ -31,6 +30,7 @@ import {
   prodBookingId,
 } from './helpers/courseEnrollmentFixtures';
 import { addHourLocksToBatch } from './helpers/hourLockFixtures';
+import { readRepoFile } from './helpers/readRepoFile';
 
 const PROJECT_ID = 'ski-academy-rules-test';
 const USER_ID = 'user-1';
@@ -67,7 +67,7 @@ beforeAll(async () => {
     firestore: {
       host: '127.0.0.1',
       port: 8080,
-      rules: readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8'),
+      rules: readRepoFile('firestore.rules'),
     },
   });
 }, 30_000);

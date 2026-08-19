@@ -1,9 +1,9 @@
-import { readFileSync } from 'node:fs';
 import { RulesTestContext, RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import {
   cleanupEmulatorTestEnvironment,
   initializeEmulatorTestEnvironment,
 } from '../helpers/firebaseEmulatorTestEnv';
+import { readRepoFile } from '../helpers/readRepoFile';
 import { doc, setDoc } from 'firebase/firestore';
 
 export const PROJECT_ID = 'ski-academy-integration-test';
@@ -36,7 +36,7 @@ export async function setupIntegrationTestEnvironment() {
     firestore: {
       host: '127.0.0.1',
       port: 8080,
-      rules: readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8'),
+      rules: readRepoFile('firestore.rules'),
     },
   });
 }

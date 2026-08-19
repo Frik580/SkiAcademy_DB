@@ -2,6 +2,7 @@ import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
 import { BookingRecord, confirmBookingRecord } from './bookingLogic';
 import { idempotencySpecFromRequest } from '../idempotency';
+import { rethrowAsHttpsError } from './mapBookingHttpsError';
 
 export interface ConfirmBookingInput {
   bookingId: string;
@@ -71,19 +72,7 @@ export function confirmBookingHandler(db: Firestore) {
         idempotencySpecFromRequest(request.data, `confirmBooking_${request.auth.uid}`, { bookingId })
       );
     } catch (error) {
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-      if (error instanceof Error && error.message === 'Booking does not exist.') {
-        throw new HttpsError('not-found', 'Booking does not exist.');
-      }
-      if (
-        error instanceof Error &&
-        error.message === 'Cancelled or completed bookings cannot be confirmed.'
-      ) {
-        throw new HttpsError('failed-precondition', error.message);
-      }
-      throw new HttpsError('internal', 'Failed to confirm booking.');
+      rethrowAsHttpsError(error, 'Failed to confirm booking.');
     }
   };
 }

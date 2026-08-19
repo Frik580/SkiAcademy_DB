@@ -2,6 +2,7 @@ import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
 import { BookingRecord, requestBookingCancellationRecord } from './bookingLogic';
 import { idempotencySpecFromRequest } from '../idempotency';
+import { rethrowAsHttpsError } from './mapBookingHttpsError';
 
 export interface RequestBookingCancellationInput {
   bookingId: string;
@@ -87,19 +88,7 @@ export function requestBookingCancellationHandler(db: Firestore) {
         })
       );
     } catch (error) {
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-      if (error instanceof Error && error.message === 'Booking does not exist.') {
-        throw new HttpsError('not-found', 'Booking does not exist.');
-      }
-      if (
-        error instanceof Error &&
-        error.message === 'Only pending or confirmed bookings can request cancellation.'
-      ) {
-        throw new HttpsError('failed-precondition', error.message);
-      }
-      throw new HttpsError('internal', 'Failed to request booking cancellation.');
+      rethrowAsHttpsError(error, 'Failed to request booking cancellation.');
     }
   };
 }

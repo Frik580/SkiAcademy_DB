@@ -1,5 +1,5 @@
 import { FirebaseError } from 'firebase/app';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AVAILABILITY_SLOTS_COLLECTION } from '../../src/domain/availability';
@@ -10,8 +10,7 @@ import {
   ensureCallableSignedInUser,
   getCallableFirestore,
   getCallableFunctions,
-  getCallableUserId,
-  getRulesTestEnv,
+  promoteCallableUserToAdmin,
   seedCallableBaseFixtures,
   seedCallableUserProfile,
   setupCallableIntegrationEnvironment,
@@ -19,24 +18,6 @@ import {
 } from './callableTestEnv';
 
 const BOOKING_ID = 'booking-callable-lifecycle';
-
-async function promoteCallableUserToAdmin() {
-  const uid = getCallableUserId();
-  await getRulesTestEnv().withSecurityRulesDisabled(async (context) => {
-    await setDoc(
-      doc(context.firestore(), 'users', uid),
-      {
-        uid,
-        email: 'callable-user@example.com',
-        displayName: 'Callable Admin',
-        role: 'admin',
-        avatarUrl: '',
-        balanceUSD: 500,
-      },
-      { merge: true }
-    );
-  });
-}
 
 describe('booking lifecycle callables', { timeout: 30_000 }, () => {
   beforeAll(async () => {

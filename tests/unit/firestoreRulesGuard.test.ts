@@ -1,10 +1,7 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { readRepoFile } from '../helpers/readRepoFile';
 
-const RULES_PATH = join(dirname(fileURLToPath(import.meta.url)), '../../firestore.rules');
-const rulesSource = readFileSync(RULES_PATH, 'utf8');
+const rulesSource = readRepoFile('firestore.rules');
 
 /** Firestore security rules do not support JavaScript string helpers. */
 const UNSUPPORTED_RULES_PATTERNS: { pattern: RegExp; reason: string }[] = [

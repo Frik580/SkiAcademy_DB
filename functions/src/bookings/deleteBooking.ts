@@ -2,6 +2,7 @@ import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
 import { deleteBookingRecord, DeleteBookingResult } from './bookingLogic';
 import { idempotencySpecFromRequest } from '../idempotency';
+import { rethrowAsHttpsError } from './mapBookingHttpsError';
 
 export interface DeleteBookingInput {
   bookingId: string;
@@ -46,13 +47,7 @@ export function deleteBookingHandler(db: Firestore) {
         idempotencySpecFromRequest(request.data, `deleteBooking_${request.auth.uid}`, { bookingId })
       );
     } catch (error) {
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-      if (error instanceof Error && error.message === 'Booking does not exist.') {
-        throw new HttpsError('not-found', 'Booking does not exist.');
-      }
-      throw new HttpsError('internal', 'Failed to delete booking.');
+      rethrowAsHttpsError(error, 'Failed to delete booking.');
     }
   };
 }

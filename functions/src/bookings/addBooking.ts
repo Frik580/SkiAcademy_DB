@@ -1,15 +1,13 @@
 import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
 import {
-  BookingIdConflictError,
   BookingRecord,
-  BookingSlotOverlapError,
   BookingStatus,
   createBookingWithPayment,
-  InsufficientFundsError,
   LessonDifficulty,
 } from './bookingLogic';
 import { idempotencySpecFromRequest } from '../idempotency';
+import { rethrowAsHttpsError } from './mapBookingHttpsError';
 
 const VALID_STATUSES: BookingStatus[] = [
   'pending',
@@ -174,23 +172,10 @@ export function addBookingHandler(db: Firestore) {
         newBalance: result.newBalance,
       };
     } catch (error) {
-      if (error instanceof InsufficientFundsError) {
-        throw new HttpsError('failed-precondition', 'Insufficient funds on target user account.');
-      }
-      if (error instanceof BookingSlotOverlapError) {
-        throw new HttpsError(
-          'aborted',
-          'The requested time slot overlaps with an existing booking.'
-        );
-      }
-      if (error instanceof BookingIdConflictError) {
-        throw new HttpsError('already-exists', 'A booking with this ID already exists.');
-      }
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-      const message = error instanceof Error ? error.message : 'Failed to create booking.';
-      throw new HttpsError('internal', message);
+      rethrowAsHttpsError(error, 'Failed to create booking.', {
+        insufficientFundsMessage: 'Insufficient funds on target user account.',
+        overlapMessage: 'The requested time slot overlaps with an existing booking.',
+      });
     }
   };
 }

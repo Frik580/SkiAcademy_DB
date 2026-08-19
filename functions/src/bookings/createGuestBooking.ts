@@ -1,14 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
-import {
-  BookingIdConflictError,
-  BookingRecord,
-  BookingSlotOverlapError,
-  createGuestBookingRecord,
-  LessonDifficulty,
-} from './bookingLogic';
+import { BookingRecord, createGuestBookingRecord, LessonDifficulty } from './bookingLogic';
 import { idempotencySpecFromRequest, parseIdempotencyKey } from '../idempotency';
+import { rethrowAsHttpsError } from './mapBookingHttpsError';
 
 const VALID_DIFFICULTIES: LessonDifficulty[] = [
   'beginner',
@@ -143,20 +138,9 @@ export function createGuestBookingHandler(db: Firestore) {
       );
       return result;
     } catch (error) {
-      if (error instanceof BookingSlotOverlapError) {
-        throw new HttpsError(
-          'aborted',
-          'The requested time slot overlaps with an existing booking.'
-        );
-      }
-      if (error instanceof BookingIdConflictError) {
-        throw new HttpsError('already-exists', 'A booking with this ID already exists.');
-      }
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-      const message = error instanceof Error ? error.message : 'Failed to create guest booking.';
-      throw new HttpsError('internal', message);
+      rethrowAsHttpsError(error, 'Failed to create guest booking.', {
+        overlapMessage: 'The requested time slot overlaps with an existing booking.',
+      });
     }
   };
 }

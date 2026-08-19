@@ -47,6 +47,12 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'jsdom',
+    environmentMatchGlobs: [
+      ['tests/callable/**', 'node'],
+      ['tests/integration/**', 'node'],
+      ['tests/firestore.rules.test.ts', 'node'],
+      ['tests/storage.rules.test.ts', 'node'],
+    ],
     globals: true,
     setupFiles: ['./tests/setup.ts'],
     coverage: {

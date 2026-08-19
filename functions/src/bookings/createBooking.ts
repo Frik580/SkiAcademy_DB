@@ -2,14 +2,12 @@ import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
 import { Firestore } from 'firebase-admin/firestore';
 import {
   BookingRecord,
-  BookingIdConflictError,
-  BookingSlotOverlapError,
   BookingStatus,
   createBookingWithPayment,
-  InsufficientFundsError,
   LessonDifficulty,
 } from './bookingLogic';
 import { idempotencySpecFromRequest } from '../idempotency';
+import { rethrowAsHttpsError } from './mapBookingHttpsError';
 
 const VALID_STATUSES: BookingStatus[] = [
   'pending',
@@ -143,33 +141,7 @@ async function handleCreateBooking(
       })
     );
   } catch (error) {
-    if (error instanceof InsufficientFundsError) {
-      throw new HttpsError('failed-precondition', 'Insufficient funds.');
-    }
-    if (error instanceof BookingSlotOverlapError) {
-      throw new HttpsError('aborted', 'Instructor slot is no longer available.');
-    }
-    if (error instanceof BookingIdConflictError) {
-      throw new HttpsError('already-exists', error.message);
-    }
-    if (error instanceof HttpsError) {
-      throw error;
-    }
-    if (error instanceof Error) {
-      if (error.message === 'Instructor does not exist.') {
-        throw new HttpsError('not-found', error.message);
-      }
-      if (error.message === 'User profile does not exist.') {
-        throw new HttpsError('not-found', error.message);
-      }
-      if (error.message.includes('Invalid') || error.message.includes('does not exist')) {
-        throw new HttpsError('invalid-argument', error.message);
-      }
-    }
-    console.error('createBooking failed:', error);
-    const message =
-      error instanceof Error ? error.message : 'Booking creation failed unexpectedly.';
-    throw new HttpsError('internal', message);
+    rethrowAsHttpsError(error, 'Booking creation failed unexpectedly.');
   }
 }
 

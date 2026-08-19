@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
 import { assertFails, assertSucceeds, RulesTestEnvironment } from '@firebase/rules-unit-testing';
+import { readRepoFile } from './readRepoFile';
 import { doc, setDoc } from 'firebase/firestore';
 import { getBytes, ref, uploadBytes } from 'firebase/storage';
 
@@ -112,11 +112,11 @@ export async function seedCourseGroupChatFixtures(testEnv: RulesTestEnvironment)
 }
 
 export function loadStorageRules(): string {
-  return readFileSync(new URL('../../storage.rules', import.meta.url), 'utf8');
+  return readRepoFile('storage.rules');
 }
 
 export function loadFirestoreRules(): string {
-  return readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8');
+  return readRepoFile('firestore.rules');
 }
 
 export { assertFails, assertSucceeds };

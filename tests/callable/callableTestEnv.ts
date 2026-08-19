@@ -15,12 +15,12 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { connectFunctionsEmulator, Functions, getFunctions } from 'firebase/functions';
-import { readFileSync } from 'node:fs';
 import {
   cleanupEmulatorTestEnvironment,
   initializeEmulatorTestEnvironment,
   type RulesTestEnvironment,
 } from '../helpers/firebaseEmulatorTestEnv';
+import { readRepoFile } from '../helpers/readRepoFile';
 
 export const CALLABLE_PROJECT_ID = 'ski-school-8f3ca';
 export const CALLABLE_USER_EMAIL = 'callable-user@example.com';
@@ -45,7 +45,9 @@ export async function setupCallableIntegrationEnvironment() {
     {
       projectId: CALLABLE_PROJECT_ID,
       firestore: {
-        rules: readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8'),
+        host: '127.0.0.1',
+        port: 8080,
+        rules: readRepoFile('firestore.rules'),
       },
     },
     { preserveEmulatorHub: true }
@@ -123,6 +125,21 @@ export async function seedCallableUserProfile(balanceUSD = 500) {
   const uid = getCallableUserId();
   await rulesTestEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), 'users', uid), callableUserProfile(uid, balanceUSD));
+  });
+}
+
+export async function promoteCallableUserToAdmin(balanceUSD = 500) {
+  const uid = getCallableUserId();
+  await rulesTestEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), 'users', uid),
+      {
+        ...callableUserProfile(uid, balanceUSD),
+        role: 'admin',
+        displayName: 'Callable Admin',
+      },
+      { merge: true }
+    );
   });
 }
 

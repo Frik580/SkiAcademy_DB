@@ -8,6 +8,7 @@ import {
   InsufficientFundsError,
   rescheduleBookingRecord,
 } from './bookingLogic';
+import { idempotencySpecFromRequest } from '../idempotency';
 
 export interface UpdateBookingScheduleInput {
   bookingId: string;
@@ -107,8 +108,17 @@ export function updateBookingScheduleHandler(db: Firestore) {
     };
 
     try {
-      await rescheduleBookingRecord(db, input.bookingId, updates);
-      return { success: true, bookingId: input.bookingId };
+      return await rescheduleBookingRecord(
+        db,
+        input.bookingId,
+        updates,
+        idempotencySpecFromRequest(request.data, `updateBookingSchedule_${request.auth.uid}`, {
+          bookingId: input.bookingId,
+          date: input.date ?? null,
+          time: input.time ?? null,
+          instructorId: input.instructorId ?? null,
+        })
+      );
     } catch (error) {
       if (error instanceof BookingSlotOverlapError) {
         throw new HttpsError(

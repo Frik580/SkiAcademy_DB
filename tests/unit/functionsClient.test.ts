@@ -19,6 +19,10 @@ describe('functionsClient', () => {
     ).resolves.toEqual({ bookingId: 'booking-1' });
 
     expect(invoke).toHaveBeenCalledTimes(2);
+    expect(invoke).toHaveBeenCalledWith('createBooking', {
+      id: 'booking-1',
+      idempotencyKey: 'booking-1',
+    });
     expect(wait).toHaveBeenCalledWith(250);
     expect(logFailure).not.toHaveBeenCalled();
   });

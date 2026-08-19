@@ -1,6 +1,7 @@
 import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
 import { BookingRecord, confirmBookingRecord } from './bookingLogic';
+import { idempotencySpecFromRequest } from '../idempotency';
 
 export interface ConfirmBookingInput {
   bookingId: string;
@@ -64,8 +65,11 @@ export function confirmBookingHandler(db: Firestore) {
     }
 
     try {
-      await confirmBookingRecord(db, bookingId);
-      return { bookingId, status: 'confirmed' };
+      return await confirmBookingRecord(
+        db,
+        bookingId,
+        idempotencySpecFromRequest(request.data, `confirmBooking_${request.auth.uid}`, { bookingId })
+      );
     } catch (error) {
       if (error instanceof HttpsError) {
         throw error;

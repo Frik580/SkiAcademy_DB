@@ -16,7 +16,10 @@ import type {
   BookingStatus,
   LessonDifficulty,
 } from '@ski-academy/shared-domain';
+import { withOptionalIdempotency, type IdempotencySpec } from '../idempotency';
 import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId } from '../walletLedger';
+
+export type { IdempotencySpec };
 
 export { BookingIdConflictError, BookingSlotOverlapError } from '@ski-academy/shared-domain';
 
@@ -225,7 +228,8 @@ function writeBookingWithAvailability(
 export async function createBookingWithPayment(
   db: Firestore,
   userId: string,
-  booking: BookingRecord
+  booking: BookingRecord,
+  idempotency?: IdempotencySpec
 ): Promise<BookingPaymentResult> {
   const existingSlotDocs = (
     await db
@@ -234,7 +238,7 @@ export async function createBookingWithPayment(
       .get()
   ).docs;
 
-  return db.runTransaction(async (transaction) => {
+  return withOptionalIdempotency(db, idempotency, async (transaction, commit) => {
     const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(booking.id);
     const userRef = db.collection('users').doc(userId);
 
@@ -250,11 +254,13 @@ export async function createBookingWithPayment(
     if (bookingSnap.exists) {
       const existingBooking = bookingSnap.data() as BookingRecord;
       if (matchesExistingBookingRequest(existingBooking, booking)) {
-        return {
+        const result = {
           bookingId: booking.id,
           newBalance: currentBalance,
           totalPrice: existingBooking.totalPrice ?? 0,
         };
+        commit(result);
+        return result;
       }
       throw new BookingIdConflictError();
     }
@@ -280,11 +286,13 @@ export async function createBookingWithPayment(
       });
     }
 
-    return {
+    const result = {
       bookingId: booking.id,
       newBalance,
       totalPrice,
     };
+    commit(result);
+    return result;
   });
 }
 
@@ -296,8 +304,9 @@ export async function createBookingWithPayment(
 
 export async function createGuestBookingRecord(
   db: Firestore,
-  booking: BookingRecord
-): Promise<void> {
+  booking: BookingRecord,
+  idempotency?: IdempotencySpec
+): Promise<{ bookingId: string }> {
   if (!booking.userId.startsWith('guest_')) {
     throw new Error('Guest bookings must use a guest user id.');
   }
@@ -309,7 +318,7 @@ export async function createGuestBookingRecord(
       .get()
   ).docs;
 
-  return db.runTransaction(async (transaction) => {
+  return withOptionalIdempotency(db, idempotency, async (transaction, commit) => {
     const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(booking.id);
     const bookingSnap = await transaction.get(bookingRef);
 
@@ -320,7 +329,9 @@ export async function createGuestBookingRecord(
         existingBooking.isGuest === true &&
         matchesExistingBookingRequest(existingBooking, booking)
       ) {
-        return;
+        const result = { bookingId: booking.id };
+        commit(result);
+        return result;
       }
       throw new BookingIdConflictError();
     }
@@ -335,6 +346,9 @@ export async function createGuestBookingRecord(
 
     await assertNoSlotOverlap(transaction, db, bookingToWrite, existingSlotDocs, booking.id);
     writeBookingWithAvailability(transaction, db, bookingToWrite);
+    const result = { bookingId: booking.id };
+    commit(result);
+    return result;
   });
 }
 
@@ -356,8 +370,9 @@ export type BookingScheduleUpdates = {
 export async function rescheduleBookingRecord(
   db: Firestore,
   bookingId: string,
-  updates: BookingScheduleUpdates
-): Promise<void> {
+  updates: BookingScheduleUpdates,
+  idempotency?: IdempotencySpec
+): Promise<{ success: true; bookingId: string }> {
   const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(bookingId);
   const bookingSnap = await bookingRef.get();
   if (!bookingSnap.exists) throw new Error('Booking does not exist.');
@@ -375,7 +390,7 @@ export async function rescheduleBookingRecord(
       .get()
   ).docs;
 
-  return db.runTransaction(async (transaction) => {
+  return withOptionalIdempotency(db, idempotency, async (transaction, commit) => {
     const freshSnap = await transaction.get(bookingRef);
     if (!freshSnap.exists) throw new Error('Booking does not exist.');
 
@@ -423,7 +438,9 @@ export async function rescheduleBookingRecord(
       nextBooking.time === bookingData.time &&
       nextBooking.instructorId === bookingData.instructorId;
     if (scheduleUnchanged) {
-      return;
+      const result = { success: true as const, bookingId };
+      commit(result);
+      return result;
     }
 
     const existingOldLockRefs = await collectExistingHourLockRefs(transaction, db, bookingData);
@@ -496,6 +513,10 @@ export async function rescheduleBookingRecord(
     } else {
       transaction.delete(db.collection(AVAILABILITY_SLOTS_COLLECTION).doc(bookingId));
     }
+
+    const result = { success: true as const, bookingId };
+    commit(result);
+    return result;
   });
 }
 
@@ -511,15 +532,20 @@ export type BookingCompletionResult = { bookingId: string; status: 'completed' }
 
 export async function finalizeBookingCompletionRecord(
   db: Firestore,
-  bookingId: string
+  bookingId: string,
+  idempotency?: IdempotencySpec
 ): Promise<BookingCompletionResult | null> {
-  return db.runTransaction(async (transaction) => {
+  return withOptionalIdempotency(db, idempotency, async (transaction, commit) => {
     const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(bookingId);
     const bookingSnap = await transaction.get(bookingRef);
     if (!bookingSnap.exists) return null;
 
     const booking = bookingSnap.data() as BookingRecord;
-    if (booking.status === 'completed') return { bookingId, status: 'completed' };
+    if (booking.status === 'completed') {
+      const result = { bookingId, status: 'completed' as const };
+      commit(result);
+      return result;
+    }
 
     const isCourse = isCourseBooking(booking);
 
@@ -558,12 +584,18 @@ export async function finalizeBookingCompletionRecord(
       transaction.update(courseRef, { availableSeats: availableSeats + 1 });
     }
 
-    return { bookingId, status: 'completed' };
+    const result = { bookingId, status: 'completed' as const };
+    commit(result);
+    return result;
   });
 }
 
-export async function confirmBookingRecord(db: Firestore, bookingId: string): Promise<void> {
-  return db.runTransaction(async (transaction) => {
+export async function confirmBookingRecord(
+  db: Firestore,
+  bookingId: string,
+  idempotency?: IdempotencySpec
+): Promise<{ bookingId: string; status: 'confirmed' }> {
+  return withOptionalIdempotency(db, idempotency, async (transaction, commit) => {
     const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(bookingId);
     const bookingSnap = await transaction.get(bookingRef);
     if (!bookingSnap.exists) {
@@ -587,15 +619,20 @@ export async function confirmBookingRecord(db: Firestore, bookingId: string): Pr
         toAvailabilitySlot(nextBooking)
       );
     }
+
+    const result = { bookingId, status: 'confirmed' as const };
+    commit(result);
+    return result;
   });
 }
 
 export async function requestBookingCancellationRecord(
   db: Firestore,
   bookingId: string,
-  reason: string
-): Promise<void> {
-  return db.runTransaction(async (transaction) => {
+  reason: string,
+  idempotency?: IdempotencySpec
+): Promise<{ bookingId: string; status: 'pending_cancellation' }> {
+  return withOptionalIdempotency(db, idempotency, async (transaction, commit) => {
     const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(bookingId);
     const bookingSnap = await transaction.get(bookingRef);
     if (!bookingSnap.exists) {
@@ -604,7 +641,9 @@ export async function requestBookingCancellationRecord(
 
     const booking = bookingSnap.data() as BookingRecord;
     if (booking.status === 'pending_cancellation') {
-      return;
+      const result = { bookingId, status: 'pending_cancellation' as const };
+      commit(result);
+      return result;
     }
     if (booking.status !== 'pending' && booking.status !== 'confirmed') {
       throw new Error('Only pending or confirmed bookings can request cancellation.');
@@ -614,6 +653,9 @@ export async function requestBookingCancellationRecord(
       status: 'pending_cancellation',
       cancellationReason: reason,
     });
+    const result = { bookingId, status: 'pending_cancellation' as const };
+    commit(result);
+    return result;
   });
 }
 
@@ -625,9 +667,10 @@ export type DeleteBookingResult = {
 
 export async function deleteBookingRecord(
   db: Firestore,
-  bookingId: string
+  bookingId: string,
+  idempotency?: IdempotencySpec
 ): Promise<DeleteBookingResult> {
-  return db.runTransaction(async (transaction) => {
+  return withOptionalIdempotency(db, idempotency, async (transaction, commit) => {
     const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(bookingId);
     const statsRef = db.collection('users').doc('school_global_stats');
     const bookingSnap = await transaction.get(bookingRef);
@@ -655,7 +698,9 @@ export async function deleteBookingRecord(
 
     if (booking.status === 'completed') {
       if (booking.isDeleted === true) {
-        return { bookingId, isDeletedDoc: false, newStats: currentStats };
+        const result = { bookingId, isDeletedDoc: false, newStats: currentStats };
+        commit(result);
+        return result;
       }
 
       const newStats = {
@@ -671,7 +716,9 @@ export async function deleteBookingRecord(
         { merge: true }
       );
       transaction.update(bookingRef, { isDeleted: true });
-      return { bookingId, isDeletedDoc: false, newStats };
+      const result = { bookingId, isDeletedDoc: false, newStats };
+      commit(result);
+      return result;
     }
 
     if (isActiveCourseEnrollment(booking)) {
@@ -703,6 +750,8 @@ export async function deleteBookingRecord(
     }
 
     transaction.delete(bookingRef);
-    return { bookingId, isDeletedDoc: true };
+    const result = { bookingId, isDeletedDoc: true };
+    commit(result);
+    return result;
   });
 }

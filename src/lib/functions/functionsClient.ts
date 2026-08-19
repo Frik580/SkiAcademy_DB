@@ -97,7 +97,10 @@ export function createFunctionsClient({
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
-        return await invoke<Input, Output>(functionName, input);
+        return await invoke<Input, Output>(functionName, {
+          ...input,
+          idempotencyKey,
+        } as Input);
       } catch (error) {
         const normalizedError = toFunctionsClientError(error);
         const canRetry = attempt < maxAttempts && isRetryableFunctionsError(normalizedError);

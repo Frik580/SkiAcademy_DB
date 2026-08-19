@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
+import {
+  idempotencySpecFromRequest,
+  loadIdempotencyReplay,
+  parseIdempotencyKey,
+  writeIdempotentResult,
+} from '../idempotency';
 
 type GuestCourseEnrollmentInput = {
   courseId: string;
@@ -20,22 +26,10 @@ type CourseRecord = {
   availableSeats?: number;
 };
 
-type GuestCourseEnrollmentIdempotencyRecord = {
-  requestSignature: string;
+type GuestCourseEnrollmentResult = {
   bookingId: string;
   availableSeats: number;
 };
-
-function getRequestSignature(input: GuestCourseEnrollmentInput): string {
-  return JSON.stringify({
-    courseId: input.courseId,
-    guestName: input.guestName,
-    guestPhone: input.guestPhone,
-    guestEmail: input.guestEmail ?? '',
-    guestNotes: input.guestNotes ?? '',
-    language: input.language ?? 'en',
-  });
-}
 
 function requireText(value: unknown, field: string): string {
   if (typeof value !== 'string' || value.trim().length === 0) {
@@ -59,10 +53,6 @@ function parseInput(data: unknown): GuestCourseEnrollmentInput {
 
   const payload = data as Record<string, unknown>;
   const language = payload.language === 'ru' ? 'ru' : 'en';
-  const idempotencyKey = optionalText(payload.idempotencyKey, 'idempotencyKey') || undefined;
-  if (idempotencyKey && !/^[A-Za-z0-9_-]{1,128}$/.test(idempotencyKey)) {
-    throw new HttpsError('invalid-argument', 'idempotencyKey has an invalid format.');
-  }
 
   return {
     courseId: requireText(payload.courseId, 'courseId'),
@@ -70,7 +60,7 @@ function parseInput(data: unknown): GuestCourseEnrollmentInput {
     guestPhone: requireText(payload.guestPhone, 'guestPhone'),
     guestEmail: optionalText(payload.guestEmail, 'guestEmail'),
     guestNotes: optionalText(payload.guestNotes, 'guestNotes'),
-    idempotencyKey,
+    idempotencyKey: parseIdempotencyKey(payload),
     language,
   };
 }
@@ -78,30 +68,29 @@ function parseInput(data: unknown): GuestCourseEnrollmentInput {
 export function createGuestCourseEnrollmentHandler(db: Firestore) {
   return async (request: CallableRequest<unknown>) => {
     const input = parseInput(request.data);
+    const spec = idempotencySpecFromRequest(request.data, 'guest_course_enrollment', {
+      courseId: input.courseId,
+      guestName: input.guestName,
+      guestPhone: input.guestPhone,
+      guestEmail: input.guestEmail ?? '',
+      guestNotes: input.guestNotes ?? '',
+      language: input.language ?? 'en',
+    });
     const bookingId = input.idempotencyKey
       ? `guest_course_${input.courseId}_${input.idempotencyKey}`
       : `guest_course_${input.courseId}_${randomUUID()}`;
     const guestId = `guest_${randomUUID()}`;
     const courseRef = db.collection('courses').doc(input.courseId);
     const bookingRef = db.collection('bookings').doc(bookingId);
-    const idempotencyRef = input.idempotencyKey
-      ? db.collection('function_idempotency').doc(`guest_course_enrollment_${input.idempotencyKey}`)
-      : null;
-    const requestSignature = getRequestSignature(input);
 
     return db.runTransaction(async (transaction) => {
-      if (idempotencyRef) {
-        const idempotencySnap = await transaction.get(idempotencyRef);
-        if (idempotencySnap.exists) {
-          const previous = idempotencySnap.data() as GuestCourseEnrollmentIdempotencyRecord;
-          if (previous.requestSignature !== requestSignature) {
-            throw new HttpsError('already-exists', 'IDEMPOTENCY_KEY_CONFLICT');
-          }
-          return {
-            bookingId: previous.bookingId,
-            availableSeats: previous.availableSeats,
-          };
-        }
+      const { ref: idempotencyRef, replay } = await loadIdempotencyReplay<GuestCourseEnrollmentResult>(
+        transaction,
+        db,
+        spec
+      );
+      if (replay) {
+        return replay;
       }
 
       const [courseSnap, bookingSnap] = await Promise.all([
@@ -118,7 +107,11 @@ export function createGuestCourseEnrollmentHandler(db: Firestore) {
 
       // If already created under this idempotencyKey, return existing state safely
       if (bookingSnap.exists) {
-        return { bookingId, availableSeats: course.availableSeats };
+        const result = { bookingId, availableSeats: course.availableSeats };
+        if (idempotencyRef && spec) {
+          writeIdempotentResult(transaction, idempotencyRef, spec.requestSignature, result);
+        }
+        return result;
       }
 
       if (course.availableSeats <= 0) {
@@ -154,8 +147,8 @@ export function createGuestCourseEnrollmentHandler(db: Firestore) {
       transaction.update(courseRef, { availableSeats: course.availableSeats - 1 });
 
       const result = { bookingId, availableSeats: course.availableSeats - 1 };
-      if (idempotencyRef) {
-        transaction.set(idempotencyRef, { requestSignature, ...result });
+      if (idempotencyRef && spec) {
+        writeIdempotentResult(transaction, idempotencyRef, spec.requestSignature, result);
       }
 
       return result;

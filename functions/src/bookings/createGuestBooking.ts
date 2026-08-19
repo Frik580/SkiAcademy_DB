@@ -8,6 +8,7 @@ import {
   createGuestBookingRecord,
   LessonDifficulty,
 } from './bookingLogic';
+import { idempotencySpecFromRequest, parseIdempotencyKey } from '../idempotency';
 
 const VALID_DIFFICULTIES: LessonDifficulty[] = [
   'beginner',
@@ -107,9 +108,10 @@ function parseCreateGuestBookingInput(data: unknown): CreateGuestBookingInput {
 export function createGuestBookingHandler(db: Firestore) {
   return async (request: CallableRequest<unknown>): Promise<CreateGuestBookingResult> => {
     const input = parseCreateGuestBookingInput(request.data);
-
-    const bookingId = input.id || `booking_guest_${randomUUID()}`;
-    const guestUserId = input.userId || `guest_${randomUUID()}`;
+    const idempotencyKey = parseIdempotencyKey(request.data);
+    const bookingId = input.id || (idempotencyKey ? `booking_guest_${idempotencyKey}` : `booking_guest_${randomUUID()}`);
+    const guestUserId =
+      input.userId || (idempotencyKey ? `guest_${idempotencyKey}` : `guest_${randomUUID()}`);
 
     const bookingRecord: BookingRecord = {
       id: bookingId,
@@ -132,8 +134,14 @@ export function createGuestBookingHandler(db: Firestore) {
     };
 
     try {
-      await createGuestBookingRecord(db, bookingRecord);
-      return { bookingId };
+      const result = await createGuestBookingRecord(
+        db,
+        bookingRecord,
+        idempotencySpecFromRequest(request.data, 'createGuestBooking_public', {
+          ...bookingRecord,
+        })
+      );
+      return result;
     } catch (error) {
       if (error instanceof BookingSlotOverlapError) {
         throw new HttpsError(

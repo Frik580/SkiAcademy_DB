@@ -1,6 +1,7 @@
 import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
 import { BookingRecord, finalizeBookingCompletionRecord } from './bookingLogic';
+import { idempotencySpecFromRequest } from '../idempotency';
 
 export interface CompleteBookingInput {
   bookingId: string;
@@ -68,7 +69,11 @@ export function completeBookingHandler(db: Firestore) {
       );
     }
 
-    const result = await finalizeBookingCompletionRecord(db, bookingId);
+    const result = await finalizeBookingCompletionRecord(
+      db,
+      bookingId,
+      idempotencySpecFromRequest(request.data, `completeBooking_${request.auth.uid}`, { bookingId })
+    );
     if (!result) {
       throw new HttpsError('not-found', 'Booking does not exist.');
     }

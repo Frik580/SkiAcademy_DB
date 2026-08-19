@@ -9,6 +9,7 @@ import {
   InsufficientFundsError,
   LessonDifficulty,
 } from './bookingLogic';
+import { idempotencySpecFromRequest } from '../idempotency';
 
 const VALID_STATUSES: BookingStatus[] = [
   'pending',
@@ -158,7 +159,15 @@ export function addBookingHandler(db: Firestore) {
     };
 
     try {
-      const result = await createBookingWithPayment(db, userId, bookingRecord);
+      const result = await createBookingWithPayment(
+        db,
+        userId,
+        bookingRecord,
+        idempotencySpecFromRequest(request.data, `addBooking_${request.auth.uid}`, {
+          userId,
+          booking,
+        })
+      );
       return {
         bookingId: result.bookingId,
         totalPrice: result.totalPrice,

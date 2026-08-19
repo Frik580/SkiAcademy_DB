@@ -1,6 +1,7 @@
 import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
 import { buildHourLockIds, isCourseBooking } from '@ski-academy/shared-domain';
+import { idempotencySpecFromRequest, withOptionalIdempotency } from '../idempotency';
 import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId } from '../walletLedger';
 
 type CancelBookingInput = { bookingId: string; refundAmount?: number };
@@ -52,7 +53,13 @@ export function cancelBookingHandler(db: Firestore) {
     const input = parseInput(request.data);
     const requesterId = request.auth.uid;
 
-    return db.runTransaction(async (transaction) => {
+    return withOptionalIdempotency(
+      db,
+      idempotencySpecFromRequest(request.data, `cancelBooking_${requesterId}`, {
+        bookingId: input.bookingId,
+        refundAmount: input.refundAmount ?? null,
+      }),
+      async (transaction, commit) => {
       const bookingRef = db.collection('bookings').doc(input.bookingId);
       const requesterRef = db.collection('users').doc(requesterId);
       const [bookingSnap, requesterSnap] = await Promise.all([
@@ -67,7 +74,11 @@ export function cancelBookingHandler(db: Firestore) {
       if (!isOwner && !isAdmin) {
         throw new HttpsError('permission-denied', 'You cannot cancel this booking.');
       }
-      if (booking.status === 'cancelled') return { refunded: 0, alreadyCancelled: true };
+      if (booking.status === 'cancelled') {
+        const result = { refunded: 0, alreadyCancelled: true };
+        commit(result);
+        return result;
+      }
       if (!isAdmin && input.refundAmount !== undefined) {
         throw new HttpsError('permission-denied', 'Only an administrator can set a refund amount.');
       }
@@ -134,7 +145,10 @@ export function cancelBookingHandler(db: Firestore) {
         });
       }
 
-      return { refunded: refund, alreadyCancelled: false };
-    });
+      const result = { refunded: refund, alreadyCancelled: false };
+      commit(result);
+      return result;
+    }
+    );
   };
 }

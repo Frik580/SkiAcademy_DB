@@ -1,6 +1,7 @@
 import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
 import { BookingRecord, requestBookingCancellationRecord } from './bookingLogic';
+import { idempotencySpecFromRequest } from '../idempotency';
 
 export interface RequestBookingCancellationInput {
   bookingId: string;
@@ -76,8 +77,15 @@ export function requestBookingCancellationHandler(db: Firestore) {
     }
 
     try {
-      await requestBookingCancellationRecord(db, input.bookingId, input.reason ?? '');
-      return { bookingId: input.bookingId, status: 'pending_cancellation' };
+      return await requestBookingCancellationRecord(
+        db,
+        input.bookingId,
+        input.reason ?? '',
+        idempotencySpecFromRequest(request.data, `requestBookingCancellation_${request.auth.uid}`, {
+          bookingId: input.bookingId,
+          reason: input.reason ?? '',
+        })
+      );
     } catch (error) {
       if (error instanceof HttpsError) {
         throw error;

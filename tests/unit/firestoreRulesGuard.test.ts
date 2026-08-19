@@ -57,6 +57,13 @@ describe('firestore.rules guardrails', () => {
     );
   });
 
+  it('locks function_idempotency documents to the Admin SDK', () => {
+    expect(rulesSource).toMatch(/match \/function_idempotency\/\{id\}/);
+    expect(rulesSource).toMatch(
+      /match \/function_idempotency\/\{id\}[\s\S]*allow read, write: if false;/
+    );
+  });
+
   it('allows admins to append wallet ledger entries for other users', () => {
     expect(rulesSource).toContain('function validWalletLedgerEntryFields');
     expect(rulesSource).toMatch(

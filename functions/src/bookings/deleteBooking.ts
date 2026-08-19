@@ -1,6 +1,7 @@
 import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
 import { deleteBookingRecord, DeleteBookingResult } from './bookingLogic';
+import { idempotencySpecFromRequest } from '../idempotency';
 
 export interface DeleteBookingInput {
   bookingId: string;
@@ -39,7 +40,11 @@ export function deleteBookingHandler(db: Firestore) {
     const { bookingId } = parseDeleteBookingInput(request.data);
 
     try {
-      return await deleteBookingRecord(db, bookingId);
+      return await deleteBookingRecord(
+        db,
+        bookingId,
+        idempotencySpecFromRequest(request.data, `deleteBooking_${request.auth.uid}`, { bookingId })
+      );
     } catch (error) {
       if (error instanceof HttpsError) {
         throw error;

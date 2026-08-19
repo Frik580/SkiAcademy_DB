@@ -9,6 +9,7 @@ import {
   InsufficientFundsError,
   LessonDifficulty,
 } from './bookingLogic';
+import { idempotencySpecFromRequest } from '../idempotency';
 
 const VALID_STATUSES: BookingStatus[] = [
   'pending',
@@ -132,7 +133,15 @@ async function handleCreateBooking(
   };
 
   try {
-    return await createBookingWithPayment(db, userId, booking);
+    return await createBookingWithPayment(
+      db,
+      userId,
+      booking,
+      idempotencySpecFromRequest(request.data, `createBooking_${userId}`, {
+        userId,
+        ...input,
+      })
+    );
   } catch (error) {
     if (error instanceof InsufficientFundsError) {
       throw new HttpsError('failed-precondition', 'Insufficient funds.');

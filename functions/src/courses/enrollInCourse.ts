@@ -1,5 +1,10 @@
 import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
+import {
+  loadIdempotencyReplay,
+  idempotencySpecFromRequest,
+  writeIdempotentResult,
+} from '../idempotency';
 import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId } from '../walletLedger';
 
 type EnrollCourseInput = { courseId: string; language?: 'en' | 'ru' };
@@ -32,7 +37,19 @@ export function enrollInCourseHandler(db: Firestore) {
     const bookingId = `booking_course_${userId}_${courseId}`;
     const bookingRef = db.collection('bookings').doc(bookingId);
 
+    const spec = idempotencySpecFromRequest(request.data, `enrollInCourse_${userId}`, {
+      courseId,
+      language,
+    });
+
     return db.runTransaction(async (transaction) => {
+      const { ref: idempotencyRef, replay } = await loadIdempotencyReplay<{
+        bookingId: string;
+        newBalance: number;
+        courseTitle: string;
+        availableSeats: number;
+      }>(transaction, db, spec);
+
       const [courseSnap, userSnap, bookingSnap] = await Promise.all([
         transaction.get(courseRef),
         transaction.get(userRef),
@@ -50,16 +67,29 @@ export function enrollInCourseHandler(db: Firestore) {
       }
       const balance = typeof user.balanceUSD === 'number' ? user.balanceUSD : 0;
       const courseTitle = typeof course.title === 'string' ? course.title : courseId;
+      const activeEnrollment =
+        bookingSnap.exists &&
+        (bookingSnap.data() as Record<string, unknown>).status !== 'cancelled' &&
+        (bookingSnap.data() as Record<string, unknown>).isDeleted !== true;
+
+      if (replay && activeEnrollment) {
+        return replay;
+      }
+
       if (bookingSnap.exists) {
         const previous = bookingSnap.data() as Record<string, unknown>;
         if (previous.status !== 'cancelled' && previous.isDeleted !== true) {
-          return {
+          const result = {
             bookingId,
             newBalance: balance,
             courseTitle:
               typeof previous.instructorName === 'string' ? previous.instructorName : courseTitle,
             availableSeats,
           };
+          if (idempotencyRef && spec) {
+            writeIdempotentResult(transaction, idempotencyRef, spec.requestSignature, result);
+          }
+          return result;
         }
       }
       if (availableSeats <= 0) throw new HttpsError('failed-precondition', 'COURSE_FULL');
@@ -100,7 +130,11 @@ export function enrollInCourseHandler(db: Firestore) {
         entryId: walletLedgerEntryId('course_payment', `${bookingId}__${createdAt}`),
       });
 
-      return { bookingId, newBalance, courseTitle, availableSeats: availableSeats - 1 };
+      const result = { bookingId, newBalance, courseTitle, availableSeats: availableSeats - 1 };
+      if (idempotencyRef && spec) {
+        writeIdempotentResult(transaction, idempotencyRef, spec.requestSignature, result);
+      }
+      return result;
     });
   };
 }

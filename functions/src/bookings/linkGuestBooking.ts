@@ -1,6 +1,7 @@
 import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
 import { BookingRecord, resolveBookingTotalPrice } from './bookingLogic';
+import { idempotencySpecFromRequest, withOptionalIdempotency } from '../idempotency';
 import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId } from '../walletLedger';
 
 export interface LinkGuestBookingInput {
@@ -53,7 +54,13 @@ export function linkGuestBookingHandler(db: Firestore) {
     let oldUserId = '';
     let isGuestBooking = false;
 
-    const result = await db.runTransaction(async (transaction) => {
+    const result = await withOptionalIdempotency<LinkGuestBookingResult>(
+      db,
+      idempotencySpecFromRequest(request.data, `linkGuestBooking_${request.auth.uid}`, {
+        bookingId,
+        targetUserId,
+      }),
+      async (transaction, commit) => {
       const bookingRef = db.collection('bookings').doc(bookingId);
       const targetUserRef = db.collection('users').doc(targetUserId);
 
@@ -80,7 +87,9 @@ export function linkGuestBookingHandler(db: Firestore) {
         if (booking.isGuest === true) {
           transaction.update(bookingRef, { isGuest: false });
         }
-        return { newBalance: currentBalance };
+        const result = { newBalance: currentBalance };
+        commit(result);
+        return result;
       }
 
       if (!isGuestBooking) {
@@ -121,8 +130,11 @@ export function linkGuestBookingHandler(db: Firestore) {
         isGuest: false,
       });
 
-      return { newBalance };
-    });
+      const result = { newBalance };
+      commit(result);
+      return result;
+    }
+    );
 
     // Post-transaction migration of guest scores and reviews (eventual consistency)
     if (oldUserId && (oldUserId.startsWith('guest_') || isGuestBooking)) {

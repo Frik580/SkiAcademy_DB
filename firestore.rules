@@ -650,6 +650,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Idempotency records are written by Callables via the Admin SDK.
+    match /function_idempotency/{id} {
+      allow read, write: if false;
+    }
+
     // Resort Data
     match /resort_data/{resortId} {
       allow read: if true;

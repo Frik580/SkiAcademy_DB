@@ -43,6 +43,7 @@ const createBookingPayload = (booking: Booking) => ({
   durationHours: booking.durationHours,
   status: booking.status,
   difficulty: booking.difficulty,
+  idempotencyKey: booking.id,
 });
 
 describe('createBooking callable', { timeout: 30_000 }, () => {
@@ -119,15 +120,21 @@ describe('createBooking callable', { timeout: 30_000 }, () => {
     expect(await readCallableUserBalance()).toBe(400);
   });
 
-  it('rejects a reused booking ID with a different payload', async () => {
+  it('rejects a reused idempotency key with a different payload', async () => {
     const createBooking = httpsCallable(getCallableFunctions(), 'createBooking');
-    const original = lessonBooking({ id: 'booking-callable-conflict' });
+    const original = lessonBooking({ id: 'booking-callable-key-conflict' });
 
     await createBooking(createBookingPayload(original));
 
     await expect(
-      createBooking(createBookingPayload({ ...original, time: '14:00' }))
-    ).rejects.toMatchObject({ code: 'functions/already-exists' } satisfies Partial<FirebaseError>);
+      createBooking({
+        ...createBookingPayload({ ...original, time: '14:00' }),
+        idempotencyKey: original.id,
+      })
+    ).rejects.toMatchObject({
+      code: 'functions/already-exists',
+      message: expect.stringContaining('IDEMPOTENCY_KEY_CONFLICT'),
+    } satisfies Partial<FirebaseError>);
     expect(await readCallableUserBalance()).toBe(400);
   });
 

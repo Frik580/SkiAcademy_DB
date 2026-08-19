@@ -163,6 +163,8 @@ export default tseslint.config(
       'functions/shared-domain',
       'node_modules',
       '.firebase',
+      '.cursor/**',
+      '.codex/**',
       'coverage',
       'scripts/*.mjs',
       'e2e/**',

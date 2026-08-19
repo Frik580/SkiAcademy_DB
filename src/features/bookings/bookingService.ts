@@ -7,40 +7,33 @@ import {
   getDocs,
   OperationType,
   query,
-  runTransaction,
   setDoc,
   updateDoc,
   where,
   writeBatch,
   handleFirestoreError,
 } from '../../infrastructure/firebase';
-import {
-  AVAILABILITY_SLOTS_COLLECTION,
-  blocksInstructorAvailability,
-  isCourseBooking,
-  toAvailabilitySlot,
-} from '../../domain/availability';
-import { finalizeBookingCompletion } from '../../features/bookings/completeBooking';
+import { AVAILABILITY_SLOTS_COLLECTION } from '../../domain/availability';
 import { createBookingViaCallable } from '../../features/bookings/createBookingCallable';
 import { cancelBookingViaCallable } from '../../features/bookings/cancelBookingCallable';
+import { addBookingViaCallable } from '../../features/bookings/addBookingCallable';
+import { createGuestBookingViaCallable } from '../../features/bookings/createGuestBookingCallable';
+import { updateBookingScheduleViaCallable } from '../../features/bookings/updateBookingScheduleCallable';
+import { linkGuestBookingViaCallable } from '../../features/bookings/linkGuestBookingCallable';
+import { completeBookingViaCallable } from '../../features/bookings/completeBookingCallable';
+import { confirmBookingViaCallable } from '../../features/bookings/confirmBookingCallable';
+import { deleteBookingViaCallable } from '../../features/bookings/deleteBookingCallable';
+import { requestBookingCancellationViaCallable } from '../../features/bookings/requestBookingCancellationCallable';
 import {
-  addBookingWithPayment,
+  BookingIdConflictError,
   BookingSlotOverlapError,
-  createGuestBooking,
   InsufficientFundsError,
-  rescheduleBooking,
-  resolveBookingTotalPrice,
   type BookingPaymentResult,
 } from '../../features/bookings/bookingTransactions';
-import {
-  activityLogId,
-  buildBookingCompletedMetadata,
-  logActivityForUser,
-} from '../../domain/activity';
+import { activityLogId, logActivityForUser } from '../../domain/activity';
 import { stripUndefinedFields } from '../../domain/course';
 import { Booking, Instructor, LessonRecommendation, Review, UserProfile } from '../../types';
 import type { AvailabilitySlot } from '../../types';
-import { toUserProfile } from '../../infrastructure/firebase';
 
 export async function getInstructorAvailabilitySlots(
   instructorId: string,
@@ -59,7 +52,7 @@ import {
   toggleCompletedRecommendationIds,
 } from '../../features/student-cabinet/lessonRecommendations';
 
-export { BookingSlotOverlapError, InsufficientFundsError };
+export { BookingIdConflictError, BookingSlotOverlapError, InsufficientFundsError };
 export type { BookingPaymentResult };
 
 export async function createBookingForUser(booking: Booking): Promise<BookingPaymentResult> {
@@ -67,7 +60,7 @@ export async function createBookingForUser(booking: Booking): Promise<BookingPay
 }
 
 export async function createGuestBookingService(booking: Booking): Promise<void> {
-  await createGuestBooking(db, booking);
+  await createGuestBookingViaCallable(booking);
 }
 
 export async function rescheduleBookingService(
@@ -76,7 +69,7 @@ export async function rescheduleBookingService(
   newTime: string
 ): Promise<void> {
   try {
-    await rescheduleBooking(db, id, { date: newDate, time: newTime });
+    await updateBookingScheduleViaCallable(id, { date: newDate, time: newTime });
   } catch (error) {
     if (!(error instanceof BookingSlotOverlapError)) {
       handleFirestoreError(error, OperationType.WRITE, `bookings/${id}/reschedule`);
@@ -92,7 +85,7 @@ export async function reassignInstructorService(
   newTime?: string
 ): Promise<void> {
   try {
-    await rescheduleBooking(db, id, {
+    await updateBookingScheduleViaCallable(id, {
       instructorId: newInstructor.id,
       instructorName: newInstructor.name,
       instructorAvatar: newInstructor.avatarUrl,
@@ -100,7 +93,7 @@ export async function reassignInstructorService(
       time: newTime,
     });
   } catch (error) {
-    if (!(error instanceof BookingSlotOverlapError)) {
+    if (!(error instanceof BookingSlotOverlapError) && !(error instanceof InsufficientFundsError)) {
       handleFirestoreError(error, OperationType.WRITE, `bookings/${id}/reassign`);
     }
     throw error;
@@ -120,15 +113,12 @@ export async function cancelBookingService(
 }
 
 export async function requestBookingCancellation(id: string, reason?: string): Promise<void> {
-  await updateDoc(doc(db, 'bookings', id), {
-    status: 'pending_cancellation',
-    cancellationReason: reason || '',
-  });
+  await requestBookingCancellationViaCallable(id, reason);
 }
 
 export async function addBookingDirect(booking: Booking): Promise<void> {
   try {
-    await addBookingWithPayment(db, booking);
+    await addBookingViaCallable(booking);
   } catch (error) {
     if (!(error instanceof InsufficientFundsError) && !(error instanceof BookingSlotOverlapError)) {
       handleFirestoreError(error, OperationType.WRITE, `bookings/${booking.id}/add`);
@@ -138,56 +128,27 @@ export async function addBookingDirect(booking: Booking): Promise<void> {
 }
 
 export async function deleteBookingService(
-  booking: Booking,
-  deletedCompletedStats: { revenue: number; count: number }
+  booking: Booking
 ): Promise<{ isDeletedDoc: boolean; newStats?: { revenue: number; count: number } }> {
-  if (booking.status === 'completed') {
-    const newStats = {
-      revenue: deletedCompletedStats.revenue + (booking.totalPrice || 0),
-      count: deletedCompletedStats.count + 1,
+  try {
+    const result = await deleteBookingViaCallable(booking.id);
+    return {
+      isDeletedDoc: result.isDeletedDoc,
+      ...(result.newStats ? { newStats: result.newStats } : {}),
     };
-    await setDoc(
-      doc(db, 'users', 'school_global_stats'),
-      {
-        deletedCompletedRevenue: newStats.revenue,
-        deletedCompletedCount: newStats.count,
-      },
-      { merge: true }
-    );
-    await updateDoc(doc(db, 'bookings', booking.id), { isDeleted: true });
-    return { isDeletedDoc: false, newStats };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `bookings/${booking.id}/delete`);
+    throw error;
   }
-
-  const batch = writeBatch(db);
-  batch.delete(doc(db, 'bookings', booking.id));
-  if (!isCourseBooking(booking)) {
-    batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id));
-  }
-  await batch.commit();
-  return { isDeletedDoc: true };
 }
 
 export async function confirmBookingService(id: string): Promise<void> {
-  await updateDoc(doc(db, 'bookings', id), { status: 'confirmed' });
-}
-
-export async function updateBookingStatusService(
-  booking: Booking,
-  status: 'confirmed'
-): Promise<void> {
-  const batch = writeBatch(db);
-  batch.update(doc(db, 'bookings', booking.id), { status });
-
-  const updatedBooking = { ...booking, status };
-  if (blocksInstructorAvailability(updatedBooking)) {
-    batch.set(
-      doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id),
-      toAvailabilitySlot(updatedBooking)
-    );
-  } else {
-    batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id));
+  try {
+    await confirmBookingViaCallable(id);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `bookings/${id}/confirm`);
+    throw error;
   }
-  await batch.commit();
 }
 
 export async function saveBookingRecommendationsService(
@@ -201,21 +162,12 @@ export async function saveBookingRecommendationsService(
 
 export async function completeBookingService(
   id: string,
-  actorUid?: string
+  _actorUid?: string
 ): Promise<Booking | null> {
-  const booking = await finalizeBookingCompletion(db, id);
-  if (!booking || booking.status !== 'completed') return null;
-
-  if (actorUid) {
-    await logActivityForUser(
-      booking.userId,
-      actorUid,
-      'booking_completed',
-      buildBookingCompletedMetadata(booking, []),
-      activityLogId.bookingCompleted(booking.id)
-    );
-  }
-  return booking;
+  await completeBookingViaCallable(id);
+  const snap = await getDoc(doc(db, 'bookings', id));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as Booking;
 }
 
 export async function toggleRecommendationService(
@@ -278,72 +230,14 @@ export async function linkGuestBookingService(
   targetUserId: string,
   errorMessages?: { insufficientFundsMsg?: string }
 ): Promise<void> {
-  const oldUserId = booking.userId;
-  const isConfirmed = booking.status === 'confirmed';
-
-  await runTransaction(db, async (transaction) => {
-    const lessonCost = await resolveBookingTotalPrice(transaction, db, booking);
-
-    const targetUserRef = doc(db, 'users', targetUserId);
-    const targetUserSnap = await transaction.get(targetUserRef);
-
-    let currentBalance = 0;
-    if (targetUserSnap.exists()) {
-      const userData = toUserProfile(targetUserSnap.data(), targetUserSnap.id);
-      if (!userData) throw new Error('Target user profile is invalid.');
-      currentBalance = userData.balanceUSD ?? 0;
+  try {
+    await linkGuestBookingViaCallable(booking.id, targetUserId);
+  } catch (error) {
+    const err = error as { code?: string; message?: string };
+    if (err.code === 'functions/failed-precondition' && errorMessages?.insufficientFundsMsg) {
+      throw new Error(errorMessages.insufficientFundsMsg);
     }
-
-    if (isConfirmed && lessonCost > 0) {
-      if (currentBalance < lessonCost) {
-        const errMsg =
-          errorMessages?.insufficientFundsMsg ||
-          `Недостаточно средств на счету клиента для привязки этого занятия. (Баланс: $${currentBalance}, стоимость: $${lessonCost})`;
-        throw new Error(errMsg);
-      }
-      const updatedTargetBalance = currentBalance - lessonCost;
-      if (targetUserSnap.exists()) {
-        transaction.update(targetUserRef, { balanceUSD: updatedTargetBalance });
-      }
-    }
-
-    transaction.update(doc(db, 'bookings', booking.id), {
-      userId: targetUserId,
-      isGuest: false,
-    });
-  });
-
-  if (oldUserId && (oldUserId.startsWith('guest_') || booking.isGuest)) {
-    try {
-      const oldUserDoc = await getDoc(doc(db, 'users', oldUserId));
-      if (oldUserDoc.exists()) {
-        const oldUserData = oldUserDoc.data();
-        if (oldUserData.skillScores && Object.keys(oldUserData.skillScores).length > 0) {
-          const targetUserDoc = await getDoc(doc(db, 'users', targetUserId));
-          const targetUserData = targetUserDoc.exists() ? targetUserDoc.data() : {};
-          const mergedScores = {
-            ...(targetUserData.skillScores || {}),
-            ...oldUserData.skillScores,
-          };
-          const mergedComments = {
-            ...(targetUserData.skillComments || {}),
-            ...(oldUserData.skillComments || {}),
-          };
-          await updateDoc(doc(db, 'users', targetUserId), {
-            skillScores: mergedScores,
-            skillComments: mergedComments,
-          });
-        }
-      }
-
-      const rQuery = query(collection(db, 'reviews'), where('userId', '==', oldUserId));
-      const rSnap = await getDocs(rQuery);
-      for (const rDoc of rSnap.docs) {
-        await updateDoc(doc(db, 'reviews', rDoc.id), { userId: targetUserId });
-      }
-    } catch (err) {
-      logger.error('Error linking guest data:', err);
-    }
+    throw error;
   }
 }
 

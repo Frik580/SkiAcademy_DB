@@ -41,6 +41,14 @@ export interface BookingRecord {
   createdAt?: string;
   endsAt?: string;
   isDeleted?: boolean;
+  isGuest?: boolean;
+  guestName?: string;
+  guestPhone?: string;
+  guestEmail?: string;
+  guestNotes?: string;
+  cancellationReason?: string;
+  completedRecommendationIds?: string[];
+  recommendations?: unknown[];
 }
 
 
@@ -78,7 +86,7 @@ function withBookingTimestamps(booking: BookingRecord): BookingRecord {
   return { ...booking, createdAt, ...(endsAt ? { endsAt } : {}) };
 }
 
-async function resolveBookingTotalPrice(
+export async function resolveBookingTotalPrice(
   transaction: Transaction,
   db: Firestore,
   booking: BookingRecord
@@ -138,6 +146,34 @@ async function assertNoSlotOverlap(
   }
 }
 
+async function collectExistingHourLockRefs(
+  transaction: Transaction,
+  db: Firestore,
+  booking: Pick<BookingRecord, 'instructorId' | 'date' | 'time' | 'durationHours'>
+): Promise<DocumentReference[]> {
+  const existingHourLockRefs: DocumentReference[] = [];
+  for (const lockId of buildHourLockIds(booking)) {
+    const lockRef = db.collection(AVAILABILITY_HOUR_LOCKS_COLLECTION).doc(lockId);
+    const lockSnap = await transaction.get(lockRef);
+    if (lockSnap.exists) {
+      existingHourLockRefs.push(lockRef);
+    }
+  }
+  return existingHourLockRefs;
+}
+
+function deleteLessonAvailability(
+  transaction: Transaction,
+  db: Firestore,
+  bookingId: string,
+  lockRefs: DocumentReference[]
+): void {
+  for (const lockRef of lockRefs) {
+    transaction.delete(lockRef);
+  }
+  transaction.delete(db.collection(AVAILABILITY_SLOTS_COLLECTION).doc(bookingId));
+}
+
 function writeHourLocks(transaction: Transaction, db: Firestore, booking: BookingRecord): void {
   for (const lockId of buildHourLockIds(booking)) {
     transaction.set(db.collection(AVAILABILITY_HOUR_LOCKS_COLLECTION).doc(lockId), {
@@ -147,6 +183,24 @@ function writeHourLocks(transaction: Transaction, db: Firestore, booking: Bookin
       bookingId: booking.id,
     });
   }
+}
+
+function isWalletSubject(booking: BookingRecord): boolean {
+  return (
+    booking.isGuest !== true &&
+    !booking.userId.startsWith('guest_') &&
+    !booking.userId.startsWith('system_block_')
+  );
+}
+
+function isActiveCourseEnrollment(booking: BookingRecord): boolean {
+  return (
+    isCourseBooking(booking) &&
+    booking.isDeleted !== true &&
+    (booking.status === 'pending' ||
+      booking.status === 'confirmed' ||
+      booking.status === 'pending_cancellation')
+  );
 }
 
 function writeBookingWithAvailability(
@@ -244,6 +298,10 @@ export async function createGuestBookingRecord(
   db: Firestore,
   booking: BookingRecord
 ): Promise<void> {
+  if (!booking.userId.startsWith('guest_')) {
+    throw new Error('Guest bookings must use a guest user id.');
+  }
+
   const existingSlotDocs = (
     await db
       .collection(AVAILABILITY_SLOTS_COLLECTION)
@@ -252,8 +310,28 @@ export async function createGuestBookingRecord(
   ).docs;
 
   return db.runTransaction(async (transaction) => {
+    const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(booking.id);
+    const bookingSnap = await transaction.get(bookingRef);
+
+    if (bookingSnap.exists) {
+      const existingBooking = bookingSnap.data() as BookingRecord;
+      if (
+        existingBooking.status !== 'cancelled' &&
+        existingBooking.isGuest === true &&
+        matchesExistingBookingRequest(existingBooking, booking)
+      ) {
+        return;
+      }
+      throw new BookingIdConflictError();
+    }
+
     const totalPrice = await resolveBookingTotalPrice(transaction, db, booking);
-    const bookingToWrite: BookingRecord = { ...booking, totalPrice };
+    const bookingToWrite: BookingRecord = {
+      ...booking,
+      status: 'pending',
+      isGuest: true,
+      totalPrice,
+    };
 
     await assertNoSlotOverlap(transaction, db, bookingToWrite, existingSlotDocs, booking.id);
     writeBookingWithAvailability(transaction, db, bookingToWrite);
@@ -311,26 +389,77 @@ export async function rescheduleBookingRecord(
       instructorAvatar: updates.instructorAvatar ?? bookingData.instructorAvatar,
     };
 
-    // Read old locks inside the transaction to know which ones actually exist.
-    const existingOldLockRefs: DocumentReference[] = [];
-    for (const lockId of buildHourLockIds(bookingData)) {
-      const lockRef = db.collection(AVAILABILITY_HOUR_LOCKS_COLLECTION).doc(lockId);
-      const lockSnap = await transaction.get(lockRef);
-      if (lockSnap.exists) {
-        existingOldLockRefs.push(lockRef);
+    if (bookingData.status === 'cancelled' || bookingData.status === 'completed') {
+      throw new Error('Cancelled or completed bookings cannot be rescheduled.');
+    }
+
+    const instructorChanged =
+      updates.instructorId !== undefined && updates.instructorId !== bookingData.instructorId;
+
+    let instructorName = bookingData.instructorName;
+    let instructorAvatar = bookingData.instructorAvatar;
+    if (instructorChanged) {
+      const instructorSnap = await transaction.get(
+        db.collection('instructors').doc(nextBooking.instructorId)
+      );
+      if (!instructorSnap.exists) {
+        throw new Error('Instructor does not exist.');
+      }
+      const instructor = instructorSnap.data() as {
+        name?: string;
+        avatarUrl?: string;
+      };
+      instructorName = instructor.name ?? nextBooking.instructorName;
+      instructorAvatar = instructor.avatarUrl ?? '';
+      nextBooking.instructorName = instructorName;
+      nextBooking.instructorAvatar = instructorAvatar;
+    } else {
+      nextBooking.instructorName = bookingData.instructorName;
+      nextBooking.instructorAvatar = bookingData.instructorAvatar;
+    }
+
+    const scheduleUnchanged =
+      nextBooking.date === bookingData.date &&
+      nextBooking.time === bookingData.time &&
+      nextBooking.instructorId === bookingData.instructorId;
+    if (scheduleUnchanged) {
+      return;
+    }
+
+    const existingOldLockRefs = await collectExistingHourLockRefs(transaction, db, bookingData);
+
+    let nextTotalPrice = bookingData.totalPrice;
+    let priceDelta = 0;
+    let ownerRef: DocumentReference | null = null;
+    let currentBalance = 0;
+    if (instructorChanged) {
+      nextTotalPrice = await resolveBookingTotalPrice(transaction, db, nextBooking);
+      nextBooking.totalPrice = nextTotalPrice;
+      priceDelta = nextTotalPrice - (bookingData.totalPrice ?? 0);
+      if (priceDelta !== 0 && isWalletSubject(bookingData)) {
+        ownerRef = db.collection('users').doc(bookingData.userId);
+        const ownerSnap = await transaction.get(ownerRef);
+        if (!ownerSnap.exists) {
+          throw new Error('User profile does not exist.');
+        }
+        const ownerData = ownerSnap.data();
+        currentBalance = typeof ownerData?.balanceUSD === 'number' ? ownerData.balanceUSD : 0;
+        if (priceDelta > 0 && currentBalance < priceDelta) {
+          throw new InsufficientFundsError();
+        }
       }
     }
 
     await assertNoSlotOverlap(transaction, db, nextBooking, existingSlotDocs, bookingId);
 
-    // Build the partial update for the booking document.
-    const bookingUpdate: Record<string, string> = {};
+    const bookingUpdate: Record<string, string | number> = {};
     if (updates.date !== undefined) bookingUpdate.date = nextBooking.date;
     if (updates.time !== undefined) bookingUpdate.time = nextBooking.time;
-    if (updates.instructorId !== undefined) {
+    if (instructorChanged) {
       bookingUpdate.instructorId = nextBooking.instructorId;
-      bookingUpdate.instructorName = nextBooking.instructorName;
-      bookingUpdate.instructorAvatar = nextBooking.instructorAvatar;
+      bookingUpdate.instructorName = instructorName;
+      bookingUpdate.instructorAvatar = instructorAvatar;
+      bookingUpdate.totalPrice = nextTotalPrice;
     }
 
     if (Object.keys(bookingUpdate).length > 0) {
@@ -339,7 +468,21 @@ export async function rescheduleBookingRecord(
       transaction.update(bookingRef, bookingUpdate);
     }
 
-    // Delete stale locks, then write new ones.
+    if (ownerRef && priceDelta !== 0) {
+      const newBalance = currentBalance - priceDelta;
+      transaction.update(ownerRef, { balanceUSD: newBalance });
+      const ledgerType = priceDelta > 0 ? 'lesson_payment' : 'refund';
+      recordWalletLedgerEntryInTransaction(transaction, db, {
+        userId: bookingData.userId,
+        amount: -priceDelta,
+        balanceAfter: newBalance,
+        type: ledgerType,
+        subjectName: nextBooking.instructorName,
+        bookingId,
+        entryId: walletLedgerEntryId(ledgerType, `${bookingId}_${nextBooking.instructorId}`),
+      });
+    }
+
     for (const lockRef of existingOldLockRefs) {
       transaction.delete(lockRef);
     }
@@ -379,19 +522,14 @@ export async function finalizeBookingCompletionRecord(
     if (booking.status === 'completed') return { bookingId, status: 'completed' };
 
     const isCourse = isCourseBooking(booking);
-    const isActiveEnrollment =
-      isCourse &&
-      booking.isDeleted !== true &&
-      (booking.status === 'pending' ||
-        booking.status === 'confirmed' ||
-        booking.status === 'pending_cancellation');
 
     // All reads must happen before any writes in a Firestore transaction.
     let courseRef: FirebaseFirestore.DocumentReference | null = null;
     let availableSeats: number | null = null;
     let totalSeats: number | null = null;
+    let existingHourLockRefs: DocumentReference[] = [];
 
-    if (isActiveEnrollment) {
+    if (isActiveCourseEnrollment(booking)) {
       const courseId = booking.courseId ?? booking.instructorId.slice('course_'.length);
       courseRef = db.collection('courses').doc(courseId);
       const courseSnap = await transaction.get(courseRef);
@@ -402,11 +540,15 @@ export async function finalizeBookingCompletionRecord(
       }
     }
 
+    if (!isCourse) {
+      existingHourLockRefs = await collectExistingHourLockRefs(transaction, db, booking);
+    }
+
     // Writes.
     transaction.update(bookingRef, { status: 'completed' });
 
     if (!isCourse) {
-      transaction.delete(db.collection(AVAILABILITY_SLOTS_COLLECTION).doc(bookingId));
+      deleteLessonAvailability(transaction, db, bookingId, existingHourLockRefs);
     } else if (
       courseRef !== null &&
       availableSeats !== null &&
@@ -417,5 +559,150 @@ export async function finalizeBookingCompletionRecord(
     }
 
     return { bookingId, status: 'completed' };
+  });
+}
+
+export async function confirmBookingRecord(db: Firestore, bookingId: string): Promise<void> {
+  return db.runTransaction(async (transaction) => {
+    const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(bookingId);
+    const bookingSnap = await transaction.get(bookingRef);
+    if (!bookingSnap.exists) {
+      throw new Error('Booking does not exist.');
+    }
+
+    const booking = bookingSnap.data() as BookingRecord;
+    if (booking.status === 'cancelled' || booking.status === 'completed') {
+      throw new Error('Cancelled or completed bookings cannot be confirmed.');
+    }
+
+    const nextBooking: BookingRecord = { ...booking, status: 'confirmed' };
+    if (booking.status !== 'confirmed') {
+      transaction.update(bookingRef, { status: 'confirmed' });
+    }
+
+    if (blocksInstructorAvailability(nextBooking)) {
+      writeHourLocks(transaction, db, nextBooking);
+      transaction.set(
+        db.collection(AVAILABILITY_SLOTS_COLLECTION).doc(bookingId),
+        toAvailabilitySlot(nextBooking)
+      );
+    }
+  });
+}
+
+export async function requestBookingCancellationRecord(
+  db: Firestore,
+  bookingId: string,
+  reason: string
+): Promise<void> {
+  return db.runTransaction(async (transaction) => {
+    const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(bookingId);
+    const bookingSnap = await transaction.get(bookingRef);
+    if (!bookingSnap.exists) {
+      throw new Error('Booking does not exist.');
+    }
+
+    const booking = bookingSnap.data() as BookingRecord;
+    if (booking.status === 'pending_cancellation') {
+      return;
+    }
+    if (booking.status !== 'pending' && booking.status !== 'confirmed') {
+      throw new Error('Only pending or confirmed bookings can request cancellation.');
+    }
+
+    transaction.update(bookingRef, {
+      status: 'pending_cancellation',
+      cancellationReason: reason,
+    });
+  });
+}
+
+export type DeleteBookingResult = {
+  bookingId: string;
+  isDeletedDoc: boolean;
+  newStats?: { revenue: number; count: number };
+};
+
+export async function deleteBookingRecord(
+  db: Firestore,
+  bookingId: string
+): Promise<DeleteBookingResult> {
+  return db.runTransaction(async (transaction) => {
+    const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(bookingId);
+    const statsRef = db.collection('users').doc('school_global_stats');
+    const bookingSnap = await transaction.get(bookingRef);
+    if (!bookingSnap.exists) {
+      throw new Error('Booking does not exist.');
+    }
+
+    const booking = { ...(bookingSnap.data() as BookingRecord), id: bookingId };
+    const isCourse = isCourseBooking(booking);
+    const statsSnap = await transaction.get(statsRef);
+    const statsData = statsSnap.data();
+    const currentStats = {
+      revenue:
+        typeof statsData?.deletedCompletedRevenue === 'number'
+          ? statsData.deletedCompletedRevenue
+          : 0,
+      count:
+        typeof statsData?.deletedCompletedCount === 'number' ? statsData.deletedCompletedCount : 0,
+    };
+
+    let courseRef: DocumentReference | null = null;
+    let availableSeats: number | null = null;
+    let totalSeats: number | null = null;
+    let existingHourLockRefs: DocumentReference[] = [];
+
+    if (booking.status === 'completed') {
+      if (booking.isDeleted === true) {
+        return { bookingId, isDeletedDoc: false, newStats: currentStats };
+      }
+
+      const newStats = {
+        revenue: currentStats.revenue + (booking.totalPrice || 0),
+        count: currentStats.count + 1,
+      };
+      transaction.set(
+        statsRef,
+        {
+          deletedCompletedRevenue: newStats.revenue,
+          deletedCompletedCount: newStats.count,
+        },
+        { merge: true }
+      );
+      transaction.update(bookingRef, { isDeleted: true });
+      return { bookingId, isDeletedDoc: false, newStats };
+    }
+
+    if (isActiveCourseEnrollment(booking)) {
+      const courseId = booking.courseId ?? booking.instructorId.slice('course_'.length);
+      courseRef = db.collection('courses').doc(courseId);
+      const courseSnap = await transaction.get(courseRef);
+      if (courseSnap.exists) {
+        const course = courseSnap.data() as { availableSeats?: number; totalSeats?: number };
+        availableSeats = course.availableSeats ?? 0;
+        totalSeats = course.totalSeats ?? availableSeats;
+      }
+    }
+
+    if (!isCourse) {
+      existingHourLockRefs = await collectExistingHourLockRefs(transaction, db, booking);
+    }
+
+    if (
+      courseRef !== null &&
+      availableSeats !== null &&
+      totalSeats !== null &&
+      availableSeats < totalSeats
+    ) {
+      transaction.update(courseRef, { availableSeats: availableSeats + 1 });
+    }
+
+    if (!isCourse) {
+      deleteLessonAvailability(transaction, db, bookingId, existingHourLockRefs);
+    }
+
+    transaction.delete(bookingRef);
+    return { bookingId, isDeletedDoc: true };
   });
 }

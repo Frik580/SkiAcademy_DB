@@ -1,4 +1,8 @@
 import { Firestore } from 'firebase-admin/firestore';
+import {
+  AVAILABILITY_HOUR_LOCKS_COLLECTION,
+  buildHourLockIds,
+} from '@ski-academy/shared-domain';
 
 const BOOKINGS_COLLECTION = 'bookings';
 const AVAILABILITY_SLOTS_COLLECTION = 'availability_slots';
@@ -67,6 +71,14 @@ async function completeBooking(
   batch.update(db.collection(BOOKINGS_COLLECTION).doc(bookingId), { status: 'completed' });
 
   if (!isCourseBooking(booking)) {
+    for (const lockId of buildHourLockIds({
+      instructorId: booking.instructorId,
+      date: booking.date,
+      time: booking.time || '00:00',
+      durationHours: booking.durationHours || 1,
+    })) {
+      batch.delete(db.collection(AVAILABILITY_HOUR_LOCKS_COLLECTION).doc(lockId));
+    }
     batch.delete(db.collection(AVAILABILITY_SLOTS_COLLECTION).doc(bookingId));
   } else if (shouldReleaseCourseSeat) {
     const courseId = resolveCourseId(booking);

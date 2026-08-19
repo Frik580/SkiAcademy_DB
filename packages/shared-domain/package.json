@@ -7,11 +7,15 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "require": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./entities": {
       "types": "./dist/entities.d.ts",
-      "require": "./dist/entities.js"
+      "import": "./dist/entities.js",
+      "require": "./dist/entities.js",
+      "default": "./dist/entities.js"
     }
   },
   "dependencies": {

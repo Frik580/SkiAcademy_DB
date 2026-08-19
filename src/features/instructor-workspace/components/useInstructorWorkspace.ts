@@ -20,7 +20,7 @@ import {
 import {
   completeBookingService,
   saveBookingRecommendationsService,
-  updateBookingStatusService,
+  confirmBookingService,
 } from '../../bookings/bookingService';
 import {
   updateStudentLevelService,
@@ -441,7 +441,7 @@ export const useInstructorWorkspace = ({
         return;
       }
 
-      await updateBookingStatusService(booking, nextStatus);
+      await confirmBookingService(bookingId);
     } catch (err) {
       logger.error('Error updating lesson status:', err);
     }

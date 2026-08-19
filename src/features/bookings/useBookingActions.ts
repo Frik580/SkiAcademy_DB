@@ -105,6 +105,7 @@ export function useBookingActions() {
         await reassignInstructorService(id, newInstructor, date, time);
       } catch (error) {
         if (error instanceof BookingSlotOverlapError) throw new Error(t('slotUnavailable'));
+        if (error instanceof InsufficientFundsError) throw new Error(t('insufficientFunds'));
         throw error;
       }
 
@@ -185,7 +186,7 @@ export function useBookingActions() {
     async (id: string) => {
       const booking = bookings.find((item) => item.id === id);
       if (!booking) return;
-      const result = await deleteBookingService(booking, deletedCompletedStats);
+      const result = await deleteBookingService(booking);
       if (result.newStats) setDeletedCompletedStats(result.newStats);
     },
     [bookings, deletedCompletedStats, setDeletedCompletedStats]

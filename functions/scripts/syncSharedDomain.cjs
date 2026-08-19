@@ -22,8 +22,18 @@ fs.writeFileSync(
       main: 'dist/index.js',
       types: 'dist/index.d.ts',
       exports: {
-        '.': { types: './dist/index.d.ts', require: './dist/index.js' },
-        './entities': { types: './dist/entities.d.ts', require: './dist/entities.js' },
+        '.': {
+          types: './dist/index.d.ts',
+          import: './dist/index.js',
+          require: './dist/index.js',
+          default: './dist/index.js',
+        },
+        './entities': {
+          types: './dist/entities.d.ts',
+          import: './dist/entities.js',
+          require: './dist/entities.js',
+          default: './dist/entities.js',
+        },
       },
       dependencies: { zod: '^4.4.3' },
     },

@@ -68,6 +68,9 @@ export const scheduledAutoCompleteBookings = onSchedule(
   {
     schedule: 'every 60 minutes',
     timeZone: 'Asia/Almaty',
+    cpu: 'gcf_gen1',
+    memory: '256MiB',
+    maxInstances: 1,
   },
   async () => {
     const completedCount = await autoCompletePastBookings(getAdminFirestore());

@@ -45,6 +45,10 @@ function isCourseBooking(booking: Pick<BookingRecord, 'instructorId'>): boolean 
 }
 
 function isEligibleForAutoComplete(booking: BookingRecord, now: Date): boolean {
+  if (booking.isDeleted === true) {
+    return false;
+  }
+
   if (booking.status !== 'confirmed' && booking.status !== 'pending_cancellation') {
     return false;
   }
@@ -130,7 +134,9 @@ export async function autoCompletePastBookings(db: Firestore, maxResults = 200):
   const nowIso = now.toISOString();
   const snapshot = await db
     .collection(BOOKINGS_COLLECTION)
+    .where('status', 'in', ['confirmed', 'pending_cancellation'])
     .where('endsAt', '<=', nowIso)
+    .orderBy('endsAt', 'asc')
     .limit(maxResults)
     .get();
 

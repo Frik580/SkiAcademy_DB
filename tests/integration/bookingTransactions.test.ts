@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AVAILABILITY_SLOTS_COLLECTION, toAvailabilitySlot } from '../../src/domain/availability';
 import {
@@ -42,6 +42,10 @@ const lessonBooking = (overrides: Partial<Booking> = {}): Booking => ({
   ...overrides,
 });
 
+async function withPrivilegedDb<T>(run: (db: Firestore) => Promise<T>): Promise<T> {
+  return seedData((context) => run(context.firestore()));
+}
+
 describe('booking transactions', () => {
   beforeAll(async () => {
     await setupIntegrationTestEnvironment();
@@ -64,7 +68,9 @@ describe('booking transactions', () => {
       .firestore();
     const booking = lessonBooking();
 
-    const { newBalance, totalPrice } = await createBookingWithPayment(userDb, USER_ID, booking);
+    const { newBalance, totalPrice } = await withPrivilegedDb((db) =>
+      createBookingWithPayment(db, USER_ID, booking)
+    );
 
     const userDoc = await getDoc(doc(userDb, 'users', USER_ID));
     const bookingDoc = await getDoc(doc(userDb, 'bookings', booking.id));
@@ -84,12 +90,15 @@ describe('booking transactions', () => {
     const booking = lessonBooking({ id: 'booking-idempotent-1' });
 
     // First call
-    const firstResult = await createBookingWithPayment(userDb, USER_ID, booking);
+    const firstResult = await withPrivilegedDb((db) =>
+      createBookingWithPayment(db, USER_ID, booking)
+    );
     expect(firstResult.newBalance).toBe(0);
     expect(firstResult.totalPrice).toBe(100);
 
-    // Second call with same booking ID
-    const secondResult = await createBookingWithPayment(userDb, USER_ID, booking);
+    const secondResult = await withPrivilegedDb((db) =>
+      createBookingWithPayment(db, USER_ID, booking)
+    );
     expect(secondResult.newBalance).toBe(0);
     expect(secondResult.totalPrice).toBe(100);
 
@@ -103,10 +112,12 @@ describe('booking transactions', () => {
       .firestore();
     const original = lessonBooking({ id: 'booking-id-conflict' });
 
-    await createBookingWithPayment(userDb, USER_ID, original);
+    await withPrivilegedDb((db) => createBookingWithPayment(db, USER_ID, original));
 
     await expect(
-      createBookingWithPayment(userDb, USER_ID, { ...original, time: '14:00' })
+      withPrivilegedDb((db) =>
+        createBookingWithPayment(db, USER_ID, { ...original, time: '14:00' })
+      )
     ).rejects.toBeInstanceOf(BookingIdConflictError);
   });
 
@@ -116,7 +127,9 @@ describe('booking transactions', () => {
       .firestore();
     const booking = lessonBooking({ id: 'booking-price-tamper', totalPrice: 0 });
 
-    const { newBalance, totalPrice } = await createBookingWithPayment(userDb, USER_ID, booking);
+    const { newBalance, totalPrice } = await withPrivilegedDb((db) =>
+      createBookingWithPayment(db, USER_ID, booking)
+    );
 
     const bookingDoc = await getDoc(doc(userDb, 'bookings', booking.id));
 
@@ -142,7 +155,7 @@ describe('booking transactions', () => {
     });
 
     const firstBooking = lessonBooking({ id: 'booking-first' });
-    await createBookingWithPayment(userDb, USER_ID, firstBooking);
+    await withPrivilegedDb((db) => createBookingWithPayment(db, USER_ID, firstBooking));
 
     const overlappingBooking = lessonBooking({
       id: 'booking-overlap',
@@ -152,7 +165,7 @@ describe('booking transactions', () => {
     });
 
     await expect(
-      createBookingWithPayment(otherUserDb, OTHER_USER_ID, overlappingBooking)
+      withPrivilegedDb((db) => createBookingWithPayment(db, OTHER_USER_ID, overlappingBooking))
     ).rejects.toBeInstanceOf(BookingSlotOverlapError);
 
     const overlapDoc = await getDoc(doc(otherUserDb, 'bookings', overlappingBooking.id));
@@ -168,9 +181,9 @@ describe('booking transactions', () => {
       .firestore();
     const booking = lessonBooking({ id: 'booking-too-expensive', durationHours: 3 });
 
-    await expect(createBookingWithPayment(userDb, USER_ID, booking)).rejects.toBeInstanceOf(
-      InsufficientFundsError
-    );
+    await expect(
+      withPrivilegedDb((db) => createBookingWithPayment(db, USER_ID, booking))
+    ).rejects.toBeInstanceOf(InsufficientFundsError);
 
     const adminDb = integrationTestEnv().authenticatedContext(OWNER_ID).firestore();
     const bookingDoc = await getDoc(doc(adminDb, 'bookings', booking.id));
@@ -186,7 +199,7 @@ describe('booking transactions', () => {
       .firestore();
     const booking = lessonBooking();
 
-    await createBookingWithPayment(userDb, USER_ID, booking);
+    await withPrivilegedDb((db) => createBookingWithPayment(db, USER_ID, booking));
     const { refunded } = await seedData((context) =>
       cancelBookingWithRefund(context.firestore(), booking.id)
     );
@@ -349,9 +362,11 @@ describe('booking transactions', () => {
       .firestore();
     const booking = lessonBooking();
 
-    await createBookingWithPayment(userDb, USER_ID, booking);
+    await withPrivilegedDb((db) => createBookingWithPayment(db, USER_ID, booking));
 
-    await rescheduleBooking(userDb, booking.id, { date: '2026-12-03', time: '11:00' });
+    await withPrivilegedDb((db) =>
+      rescheduleBooking(db, booking.id, { date: '2026-12-03', time: '11:00' })
+    );
 
     const bookingDoc = await getDoc(doc(userDb, 'bookings', booking.id));
     const slotDoc = await getDoc(doc(userDb, AVAILABILITY_SLOTS_COLLECTION, booking.id));
@@ -377,16 +392,20 @@ describe('booking transactions', () => {
       });
     });
 
-    await createBookingWithPayment(userDb, USER_ID, lessonBooking({ id: 'booking-occupied' }));
+    await withPrivilegedDb((db) =>
+      createBookingWithPayment(db, USER_ID, lessonBooking({ id: 'booking-occupied' }))
+    );
     const movable = lessonBooking({
       id: 'booking-movable',
       date: '2026-12-03',
       time: '08:00',
     });
-    await createBookingWithPayment(userDb, USER_ID, movable);
+    await withPrivilegedDb((db) => createBookingWithPayment(db, USER_ID, movable));
 
     await expect(
-      rescheduleBooking(userDb, movable.id, { date: '2026-12-02', time: '11:00' })
+      withPrivilegedDb((db) =>
+        rescheduleBooking(db, movable.id, { date: '2026-12-02', time: '11:00' })
+      )
     ).rejects.toBeInstanceOf(BookingSlotOverlapError);
 
     const bookingDoc = await getDoc(doc(userDb, 'bookings', movable.id));

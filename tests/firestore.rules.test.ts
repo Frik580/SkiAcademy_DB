@@ -155,7 +155,7 @@ describe('bookings', () => {
     );
   });
 
-  it('allows anonymous guests to create pending lesson bookings atomically', async () => {
+  it('rejects anonymous guest booking creates because they belong to Callables', async () => {
     const anonymousDb = testEnv.unauthenticatedContext().firestore();
     const bookingRef = doc(anonymousDb, 'bookings', 'guest_book_test_1');
     const slotRef = doc(anonymousDb, 'availability_slots', 'guest_book_test_1');
@@ -189,10 +189,10 @@ describe('bookings', () => {
       slotType: 'lesson',
     });
 
-    await assertSucceeds(createBatch.commit());
+    await assertFails(createBatch.commit());
   });
 
-  it('allows anonymous guests to create pending course enrollment requests', async () => {
+  it('rejects anonymous guest course enrollment requests', async () => {
     const anonymousDb = testEnv.unauthenticatedContext().firestore();
 
     await seedData(async (context) => {
@@ -229,7 +229,7 @@ describe('bookings', () => {
       notes: 'Guest course request',
     };
 
-    await assertSucceeds(
+    await assertFails(
       setDoc(doc(anonymousDb, 'bookings', guestCourseBooking.id), guestCourseBooking)
     );
   });
@@ -238,7 +238,7 @@ describe('bookings', () => {
     const db = testEnv.authenticatedContext(USER_ID).firestore();
     const bookingRef = doc(db, 'bookings', 'booking-2');
     const slotRef = doc(db, 'availability_slots', 'booking-2');
-    const booking = {
+    const confirmedBooking = {
       id: 'booking-2',
       userId: USER_ID,
       instructorId: 'instructor-1',
@@ -251,12 +251,28 @@ describe('bookings', () => {
       status: 'confirmed',
       difficulty: 'beginner',
     };
+    const pendingBooking = { ...confirmedBooking, status: 'pending' };
 
-    await assertFails(setDoc(bookingRef, booking));
+    await assertFails(setDoc(bookingRef, confirmedBooking));
+
+    const confirmedCreateBatch = writeBatch(db);
+    confirmedCreateBatch.set(bookingRef, confirmedBooking);
+    addHourLocksToBatch(confirmedCreateBatch, db, confirmedBooking);
+    confirmedCreateBatch.set(slotRef, {
+      bookingId: 'booking-2',
+      instructorId: 'instructor-1',
+      date: '2026-12-02',
+      time: '10:00',
+      durationHours: 2,
+      slotType: 'lesson',
+    });
+    await assertFails(confirmedCreateBatch.commit());
+
+    await assertFails(setDoc(bookingRef, pendingBooking));
 
     const createBatch = writeBatch(db);
-    createBatch.set(bookingRef, booking);
-    addHourLocksToBatch(createBatch, db, booking);
+    createBatch.set(bookingRef, pendingBooking);
+    addHourLocksToBatch(createBatch, db, pendingBooking);
     createBatch.set(slotRef, {
       bookingId: 'booking-2',
       instructorId: 'instructor-1',
@@ -265,7 +281,23 @@ describe('bookings', () => {
       durationHours: 2,
       slotType: 'lesson',
     });
-    await assertSucceeds(createBatch.commit());
+    await assertFails(createBatch.commit());
+
+    await seedData(async (context) => {
+      const seedDb = context.firestore();
+      const seedBatch = writeBatch(seedDb);
+      seedBatch.set(doc(seedDb, 'bookings', 'booking-2'), pendingBooking);
+      addHourLocksToBatch(seedBatch, seedDb, pendingBooking);
+      seedBatch.set(doc(seedDb, 'availability_slots', 'booking-2'), {
+        bookingId: 'booking-2',
+        instructorId: 'instructor-1',
+        date: '2026-12-02',
+        time: '10:00',
+        durationHours: 2,
+        slotType: 'lesson',
+      });
+      await seedBatch.commit();
+    });
 
     await assertFails(updateDoc(bookingRef, { date: '2026-12-03' }));
 
@@ -283,10 +315,10 @@ describe('bookings', () => {
     rescheduleBatch.set(doc(db, 'availability_hour_locks', 'instructor-1__2026-12-03__11:00'), {
       instructorId: 'instructor-1',
       date: '2026-12-03',
-      time: '10:00',
+      time: '11:00',
       bookingId: 'booking-2',
     });
-    await assertSucceeds(rescheduleBatch.commit());
+    await assertFails(rescheduleBatch.commit());
 
     const cancelBatch = writeBatch(db);
     cancelBatch.update(bookingRef, { status: 'cancelled' });
@@ -354,6 +386,82 @@ describe('bookings', () => {
       slotType: 'lesson',
     });
     await assertFails(createBatch.commit());
+  });
+
+  it('rejects client lifecycle status changes that belong to Callables', async () => {
+    const ownerDb = testEnv.authenticatedContext(USER_ID).firestore();
+    const instructorDb = testEnv.authenticatedContext(INSTRUCTOR_USER_ID).firestore();
+    const adminDb = testEnv.authenticatedContext(OWNER_ID).firestore();
+    const otherDb = testEnv.authenticatedContext(OTHER_USER_ID).firestore();
+    const bookingRef = doc(ownerDb, 'bookings', 'booking-1');
+
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'bookings', 'booking-pending'), {
+        id: 'booking-pending',
+        userId: USER_ID,
+        instructorId: 'instructor-1',
+        date: '2026-12-04',
+        time: '09:00',
+        durationHours: 1,
+        totalPrice: 50,
+        status: 'pending',
+      });
+      await setDoc(doc(db, 'availability_slots', 'booking-pending'), {
+        bookingId: 'booking-pending',
+        instructorId: 'instructor-1',
+        date: '2026-12-04',
+        time: '09:00',
+        durationHours: 1,
+        slotType: 'lesson',
+      });
+      await setDoc(doc(db, 'bookings', 'guest_status_lock'), {
+        id: 'guest_status_lock',
+        userId: 'guest_lock',
+        instructorId: 'instructor-1',
+        date: '2026-12-05',
+        time: '09:00',
+        durationHours: 1,
+        totalPrice: 50,
+        status: 'pending',
+        isGuest: true,
+      });
+    });
+
+    await assertFails(updateDoc(bookingRef, { status: 'pending_cancellation' }));
+    await assertFails(updateDoc(bookingRef, { status: 'completed' }));
+    await assertFails(updateDoc(bookingRef, { cancellationReason: 'changed plans' }));
+    await assertFails(
+      updateDoc(doc(ownerDb, 'bookings', 'booking-pending'), { status: 'confirmed' })
+    );
+    await assertFails(
+      updateDoc(doc(instructorDb, 'bookings', 'booking-pending'), { status: 'confirmed' })
+    );
+    await assertFails(updateDoc(doc(adminDb, 'bookings', 'booking-1'), { status: 'completed' }));
+    await assertFails(
+      updateDoc(doc(adminDb, 'bookings', 'guest_status_lock'), { status: 'confirmed' })
+    );
+    await assertFails(
+      updateDoc(doc(otherDb, 'bookings', 'guest_status_lock'), { date: '2026-12-06' })
+    );
+    await assertFails(updateDoc(doc(adminDb, 'bookings', 'booking-1'), { date: '2026-12-08' }));
+    await assertFails(deleteDoc(bookingRef));
+  });
+
+  it('still allows recommendation edits without changing booking status', async () => {
+    const ownerDb = testEnv.authenticatedContext(USER_ID).firestore();
+    const instructorDb = testEnv.authenticatedContext(INSTRUCTOR_USER_ID).firestore();
+
+    await assertSucceeds(
+      updateDoc(doc(ownerDb, 'bookings', 'booking-1'), {
+        completedRecommendationIds: ['rec-1'],
+      })
+    );
+    await assertSucceeds(
+      updateDoc(doc(instructorDb, 'bookings', 'booking-1'), {
+        recommendations: [{ id: 'rec-1', text: 'Practice carving' }],
+      })
+    );
   });
 });
 
@@ -476,7 +584,7 @@ describe('user profiles and roles', () => {
     );
   });
 
-  it('allows payment ledger entries tied to a booking transaction', async () => {
+  it('rejects client payment ledger writes tied to a booking create', async () => {
     const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
     const bookingId = `booking_course_${USER_ID}_course-ledger`;
 
@@ -489,7 +597,7 @@ describe('user profiles and roles', () => {
       });
     });
 
-    await assertSucceeds(
+    await assertFails(
       runTransaction(userDb, async (transaction) => {
         transaction.set(doc(userDb, 'bookings', bookingId), {
           id: bookingId,
@@ -945,7 +1053,7 @@ describe('course enrollment transactions', () => {
     });
   });
 
-  it('rejects standalone seat changes and allows an atomic enrollment', async () => {
+  it('rejects standalone seat changes and client enrollment transactions', async () => {
     const db = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
     const courseRef = doc(db, 'courses', 'course-1');
     const bookingRef = doc(db, 'bookings', `booking_course_${USER_ID}_course-1`);
@@ -960,7 +1068,7 @@ describe('course enrollment transactions', () => {
 
     await assertFails(updateDoc(courseRef, { availableSeats: 1 }));
 
-    await assertSucceeds(
+    await assertFails(
       runTransaction(db, async (transaction) => {
         const courseSnapshot = await transaction.get(courseRef);
         expect(courseSnapshot.exists()).toBe(true);
@@ -986,7 +1094,7 @@ describe('course enrollment transactions', () => {
     );
   });
 
-  it('allows re-enrollment by replacing a cancelled course booking', async () => {
+  it('rejects re-enrollment by replacing a cancelled course booking', async () => {
     const db = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
     const courseRef = doc(db, 'courses', 'course-1');
     const bookingRef = doc(db, 'bookings', `booking_course_${USER_ID}_course-1`);
@@ -996,7 +1104,7 @@ describe('course enrollment transactions', () => {
       const seedDb = context.firestore();
       await setDoc(doc(seedDb, 'users', USER_ID), userProfile(USER_ID, 'user@example.com', 'user'));
       await setDoc(
-        bookingRef,
+        doc(seedDb, 'bookings', bookingRef.id),
         buildCourseEnrollmentBooking(USER_ID, 'course-1', {
           instructorName: 'Course',
           instructorAvatar: '',
@@ -1018,7 +1126,7 @@ describe('course enrollment transactions', () => {
       });
     });
 
-    await assertSucceeds(
+    await assertFails(
       runTransaction(db, async (transaction) => {
         transaction.update(userRef, { balanceUSD: 0 });
         transaction.set(
@@ -1039,7 +1147,7 @@ describe('course enrollment transactions', () => {
     );
   });
 
-  it('allows the production enrollment transaction when a legacy cancelled booking exists', async () => {
+  it('rejects the production enrollment transaction because enrollment belongs to Callables', async () => {
     const db = testEnv
       .authenticatedContext(PROD_USER_ID, { email: 'user@example.com' })
       .firestore();
@@ -1068,7 +1176,7 @@ describe('course enrollment transactions', () => {
       });
     });
 
-    await assertSucceeds(
+    await assertFails(
       runTransaction(db, async (transaction) => {
         transaction.update(userRef, { balanceUSD: 3661 });
         transaction.set(bookingRef, buildCourseEnrollmentBooking(PROD_USER_ID, PROD_COURSE_ID));
@@ -1077,7 +1185,7 @@ describe('course enrollment transactions', () => {
     );
   });
 
-  it('allows seat decrement when course totalSeats is missing', async () => {
+  it('rejects seat decrement without the enrollInCourse Callable', async () => {
     const db = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
     const courseRef = doc(db, 'courses', 'course-no-total-seats');
     const bookingRef = doc(db, 'bookings', `booking_course_${USER_ID}_course-no-total-seats`);
@@ -1090,7 +1198,7 @@ describe('course enrollment transactions', () => {
       });
     });
 
-    await assertSucceeds(
+    await assertFails(
       runTransaction(db, async (transaction) => {
         transaction.update(courseRef, { availableSeats: 1 });
         transaction.set(bookingRef, {
@@ -1154,7 +1262,7 @@ describe('course enrollment transactions', () => {
     await seedData(async (context) => {
       const db = context.firestore();
       await setDoc(doc(db, 'users', USER_ID), userProfile(USER_ID, 'user@example.com', 'user'));
-      await setDoc(bookingRef, {
+      await setDoc(doc(db, 'bookings', bookingRef.id), {
         id: bookingRef.id,
         userId: USER_ID,
         courseId: 'course-1',
@@ -1169,7 +1277,7 @@ describe('course enrollment transactions', () => {
         difficulty: 'intermediate',
         notes: '',
       });
-      await setDoc(courseRef, {
+      await setDoc(doc(db, 'courses', 'course-1'), {
         title: 'Course',
         totalSeats: 2,
         availableSeats: 1,

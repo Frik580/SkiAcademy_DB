@@ -22,10 +22,7 @@ describe('firestore.rules guardrails', () => {
   });
 
   it('defines course enrollment reactivation validation', () => {
-    expect(rulesSource).toContain('function validCourseEnrollmentReactivation');
-    expect(rulesSource).toContain(
-      'validCourseEnrollmentReactivation(bookingId, resource.data, request.resource.data)'
-    );
+    expect(rulesSource).not.toContain('function validCourseEnrollmentReactivation');
   });
 
   it('skips availability slot sync for group course bookings', () => {
@@ -39,6 +36,17 @@ describe('firestore.rules guardrails', () => {
     expect(rulesSource).toMatch(/let previousBalance/);
     expect(rulesSource).not.toMatch(
       /request\.resource\.data\.balanceUSD < resource\.data\.balanceUSD;/
+    );
+  });
+
+  it('locks booking creates and lifecycle writes to Callables', () => {
+    expect(rulesSource).toContain('function bookingStatusUnchanged');
+    expect(rulesSource).toContain('function bookingScheduleUnchanged');
+    expect(rulesSource).toMatch(/allow create: if false;/);
+    expect(rulesSource).not.toContain('function clientAllowedCreateStatus');
+    expect(rulesSource).toMatch(/allow update: if \([\s\S]*bookingStatusUnchanged\(\)/);
+    expect(rulesSource).not.toMatch(
+      /\(resource\.data\.userId\.matches\('\^client_\.\*'\) \|\| resource\.data\.userId\.matches\('\^guest_\.\*'\)\)/
     );
   });
 

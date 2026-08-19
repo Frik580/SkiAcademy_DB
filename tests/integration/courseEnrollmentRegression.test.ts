@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, type Firestore } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { enrollInCourse } from '../../src/features/courses/courseTransactions';
 import {
@@ -19,6 +19,10 @@ import {
 } from './helpers';
 
 const bookingId = prodBookingId(PROD_USER_ID, PROD_COURSE_ID);
+
+async function withPrivilegedDb<T>(run: (db: Firestore) => Promise<T>): Promise<T> {
+  return seedData((context) => run(context.firestore()));
+}
 
 const seedProdUser = async (balanceUSD = 3860) => {
   await seedData(async (context) => {
@@ -81,11 +85,8 @@ describe('course enrollment production regressions', () => {
       .authenticatedContext(PROD_USER_ID, { email: 'user@example.com' })
       .firestore();
 
-    const { newBalance, bookingId: createdBookingId } = await enrollInCourse(
-      userDb,
-      PROD_USER_ID,
-      PROD_COURSE_ID,
-      'ru'
+    const { newBalance, bookingId: createdBookingId } = await withPrivilegedDb((db) =>
+      enrollInCourse(db, PROD_USER_ID, PROD_COURSE_ID, 'ru')
     );
 
     const userDoc = await getDoc(doc(userDb, 'users', PROD_USER_ID));
@@ -117,15 +118,11 @@ describe('course enrollment production regressions', () => {
       });
     });
 
-    const userDb = integrationTestEnv()
-      .authenticatedContext(PROD_USER_ID, { email: 'user@example.com' })
-      .firestore();
-
-    await expect(enrollInCourse(userDb, PROD_USER_ID, PROD_COURSE_ID, 'en')).resolves.toMatchObject(
-      {
-        bookingId,
-        newBalance: 3860 - 199,
-      }
-    );
+    await expect(
+      withPrivilegedDb((db) => enrollInCourse(db, PROD_USER_ID, PROD_COURSE_ID, 'en'))
+    ).resolves.toMatchObject({
+      bookingId,
+      newBalance: 3860 - 199,
+    });
   });
 });

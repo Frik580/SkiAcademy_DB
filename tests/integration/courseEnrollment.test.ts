@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, type Firestore } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { cancelBookingWithRefund } from '../../src/features/bookings/bookingTransactions';
 import {
@@ -18,6 +18,10 @@ import {
 
 const courseId = 'course-1';
 const bookingId = `booking_course_${USER_ID}_${courseId}`;
+
+async function withPrivilegedDb<T>(run: (db: Firestore) => Promise<T>): Promise<T> {
+  return seedData((context) => run(context.firestore()));
+}
 
 const seedCourse = async (availableSeats = 3, price = 150) => {
   await seedData(async (context) => {
@@ -56,11 +60,8 @@ describe('course enrollment transactions', () => {
       .authenticatedContext(USER_ID, { email: 'user@example.com' })
       .firestore();
 
-    const { newBalance, bookingId: createdBookingId } = await enrollInCourse(
-      userDb,
-      USER_ID,
-      courseId,
-      'en'
+    const { newBalance, bookingId: createdBookingId } = await withPrivilegedDb((db) =>
+      enrollInCourse(db, USER_ID, courseId, 'en')
     );
 
     const userDoc = await getDoc(doc(userDb, 'users', USER_ID));
@@ -81,22 +82,20 @@ describe('course enrollment transactions', () => {
 
   it('rejects enrollment when the course is full', async () => {
     await seedCourse(0, 150);
-    const userDb = integrationTestEnv()
-      .authenticatedContext(USER_ID, { email: 'user@example.com' })
-      .firestore();
 
-    await expect(enrollInCourse(userDb, USER_ID, courseId, 'en')).rejects.toMatchObject({
+    await expect(
+      withPrivilegedDb((db) => enrollInCourse(db, USER_ID, courseId, 'en'))
+    ).rejects.toMatchObject({
       message: 'COURSE_FULL',
     });
   });
 
   it('rejects enrollment when the user has insufficient balance', async () => {
     await seedCourse(3, 400);
-    const userDb = integrationTestEnv()
-      .authenticatedContext(USER_ID, { email: 'user@example.com' })
-      .firestore();
 
-    await expect(enrollInCourse(userDb, USER_ID, courseId, 'en')).rejects.toMatchObject({
+    await expect(
+      withPrivilegedDb((db) => enrollInCourse(db, USER_ID, courseId, 'en'))
+    ).rejects.toMatchObject({
       message: 'INSUFFICIENT_FUNDS',
     });
   });
@@ -105,10 +104,12 @@ describe('course enrollment transactions', () => {
     const userDb = integrationTestEnv()
       .authenticatedContext(USER_ID, { email: 'user@example.com' })
       .firestore();
-    await enrollInCourse(userDb, USER_ID, courseId, 'en');
+    await withPrivilegedDb((db) => enrollInCourse(db, USER_ID, courseId, 'en'));
     await seedData((context) => cancelBookingWithRefund(context.firestore(), bookingId));
 
-    const { newBalance } = await enrollInCourse(userDb, USER_ID, courseId, 'en');
+    const { newBalance } = await withPrivilegedDb((db) =>
+      enrollInCourse(db, USER_ID, courseId, 'en')
+    );
 
     const bookingDoc = await getDoc(doc(userDb, 'bookings', bookingId));
     expect(newBalance).toBe(150);
@@ -116,16 +117,14 @@ describe('course enrollment transactions', () => {
   });
 
   it('rejects duplicate enrollment for the same active course booking', async () => {
-    const userDb = integrationTestEnv()
-      .authenticatedContext(USER_ID, { email: 'user@example.com' })
-      .firestore();
+    await withPrivilegedDb((db) => enrollInCourse(db, USER_ID, courseId, 'en'));
 
-    await enrollInCourse(userDb, USER_ID, courseId, 'en');
-
-    await expect(enrollInCourse(userDb, USER_ID, courseId, 'en')).rejects.toBeInstanceOf(
-      CourseEnrollmentError
-    );
-    await expect(enrollInCourse(userDb, USER_ID, courseId, 'en')).rejects.toMatchObject({
+    await expect(
+      withPrivilegedDb((db) => enrollInCourse(db, USER_ID, courseId, 'en'))
+    ).rejects.toBeInstanceOf(CourseEnrollmentError);
+    await expect(
+      withPrivilegedDb((db) => enrollInCourse(db, USER_ID, courseId, 'en'))
+    ).rejects.toMatchObject({
       message: 'ALREADY_ENROLLED',
     });
   });

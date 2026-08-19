@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, type Firestore } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { cancelBookingWithRefund } from '../../src/features/bookings/bookingTransactions';
 import { enrollInCourse } from '../../src/features/courses/courseTransactions';
@@ -15,6 +15,10 @@ import {
 } from './helpers';
 
 const courseId = 'course-1';
+
+async function withPrivilegedDb<T>(run: (db: Firestore) => Promise<T>): Promise<T> {
+  return seedData((context) => run(context.firestore()));
+}
 
 const seedCourse = async (availableSeats = 5, price = 200) => {
   await seedData(async (context) => {
@@ -60,7 +64,9 @@ describe('course enrollment end-to-end flow', () => {
       .firestore();
     const adminDb = integrationTestEnv().authenticatedContext(OWNER_ID).firestore();
 
-    const { newBalance, bookingId } = await enrollInCourse(userDb, USER_ID, courseId, 'en');
+    const { newBalance, bookingId } = await withPrivilegedDb((db) =>
+      enrollInCourse(db, USER_ID, courseId, 'en')
+    );
 
     expect(newBalance).toBe(300);
     expect(bookingId).toBe(`booking_course_${USER_ID}_${courseId}`);

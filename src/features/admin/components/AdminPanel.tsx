@@ -1,5 +1,6 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useCallback, useState, Suspense, lazy } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Instructor, Booking, UserProfile, Course } from '../../../types';
 import {
   Shield,
@@ -10,6 +11,7 @@ import {
   BookOpen,
   AlertTriangle,
   ArrowLeftRight,
+  Wallet,
 } from 'lucide-react';
 import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../domain/achievements';
@@ -17,8 +19,9 @@ import { AchievementsConfig } from '../../../domain/achievements';
 import { AdminCollapsibleSection } from './settings';
 import { TableSkeleton } from '../../../ui/Skeleton';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
+import { ADMIN_TAB_QUERY_KEY, parseAdminTabId, type AdminTabId } from '../adminNavigation';
+import { AdminTabNav } from './AdminTabNav';
 
-// Lazy loading heavy admin tab modules
 const FinancialOverview = lazy(() =>
   import('./finance').then((m) => ({
     default: m.FinancialOverview,
@@ -29,9 +32,19 @@ const CashFlowPanel = lazy(() =>
     default: m.CashFlowPanel,
   }))
 );
-const SystemSettings = lazy(() =>
+const GuestWalletPanel = lazy(() =>
+  import('./finance').then((m) => ({
+    default: m.GuestWalletPanel,
+  }))
+);
+const AdminSystemSettings = lazy(() =>
   import('./settings').then((m) => ({
-    default: m.SystemSettings,
+    default: m.AdminSystemSettings,
+  }))
+);
+const AdminProductSettings = lazy(() =>
+  import('./settings').then((m) => ({
+    default: m.AdminProductSettings,
   }))
 );
 const ScheduleCalendar = lazy(() =>
@@ -177,6 +190,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onLoadMoreBookings,
 }) => {
   const { t, language } = useLanguage();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = parseAdminTabId(searchParams.get(ADMIN_TAB_QUERY_KEY));
+
+  const setActiveTab = useCallback(
+    (tab: AdminTabId) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set(ADMIN_TAB_QUERY_KEY, tab);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
 
   const bookings = useTranslatedBookings(rawBookings, courses, language, { syncCoursePrice: true });
 
@@ -213,7 +242,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Financial KPI Summary Header */}
       <Suspense fallback={<SectionLoadingFallback label={t('financialOverview')} />}>
         <FinancialOverview
           totalRevenue={totalRevenue}
@@ -223,185 +251,220 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         />
       </Suspense>
 
-      <Suspense fallback={<SectionLoadingFallback label={t('cashFlowTitle')} />}>
-        <AdminCollapsibleSection
-          id="school_cash_flow"
-          title={t('cashFlowTitle')}
-          subtitle={t('cashFlowSub')}
-          icon={ArrowLeftRight}
-        >
-          <CashFlowPanel usersList={usersList} />
-        </AdminCollapsibleSection>
-      </Suspense>
+      <AdminTabNav activeTab={activeTab} onChange={setActiveTab} />
 
-      {/* 1, 2, 3: System Settings (Skill Config Matrix, Resort Data, Slider Config) */}
-      <Suspense fallback={<SectionLoadingFallback label={t('systemSettingsTitle')} />}>
-        <SystemSettings
-          filtersEnabled={filtersEnabled}
-          onToggleFilters={onToggleFilters}
-          notificationRetentionDays={notificationRetentionDays}
-          onSetNotificationRetentionDays={onSetNotificationRetentionDays}
-          starterCreditUsd={starterCreditUsd}
-          onSetStarterCreditUsd={onSetStarterCreditUsd}
-          skillConfig={skillConfig}
-          onUpdateSkillConfig={onUpdateSkillConfig}
-          achievementsConfig={achievementsConfig}
-          onUpdateAchievementsConfig={onUpdateAchievementsConfig}
-          bookings={bookings}
-          courses={courses}
-          adminUid={currentUserProfile.uid}
-          onRequestConfirm={onRequestConfirm}
-          onClearStudentBookings={onClearStudentBookings}
-          onClearCancelledBookings={onClearCancelledBookings}
-          onResetSchoolFinances={onResetSchoolFinances}
-        />
-      </Suspense>
+      {activeTab === 'operations' && (
+        <div className="space-y-6">
+          <Suspense fallback={<SectionLoadingFallback label={t('scheduleBoardTitle')} />}>
+            <AdminCollapsibleSection
+              id="schedule_calendar"
+              title={t('scheduleBoardTitle')}
+              subtitle={t('scheduleBoardSub')}
+              icon={Calendar}
+              defaultOpen
+            >
+              <ScheduleCalendar
+                instructors={instructors}
+                bookings={bookings}
+                courses={courses}
+                usersList={usersList}
+                adminProfile={adminProfile}
+                onAddBooking={onAddBooking}
+                onRescheduleBooking={onRescheduleBooking}
+                onReassignInstructor={onReassignInstructor}
+                onDeleteBooking={onDeleteBooking}
+                onCancelBooking={onCancelBooking}
+                onCompleteBooking={onCompleteBooking}
+                onLinkGuestBooking={onLinkGuestBooking}
+              />
+            </AdminCollapsibleSection>
+          </Suspense>
 
-      {/* 4. Интерактивный планер и расписание инструкторов */}
-      <Suspense fallback={<SectionLoadingFallback label={t('scheduleBoardTitle')} />}>
-        <AdminCollapsibleSection
-          id="schedule_calendar"
-          title={t('scheduleBoardTitle')}
-          subtitle={t('scheduleBoardSub')}
-          icon={Calendar}
-        >
-          <ScheduleCalendar
-            instructors={instructors}
-            bookings={bookings}
-            courses={courses}
-            usersList={usersList}
-            adminProfile={adminProfile}
-            onAddBooking={onAddBooking}
-            onRescheduleBooking={onRescheduleBooking}
-            onReassignInstructor={onReassignInstructor}
-            onDeleteBooking={onDeleteBooking}
-            onCancelBooking={onCancelBooking}
-            onCompleteBooking={onCompleteBooking}
-            onLinkGuestBooking={onLinkGuestBooking}
-          />
-        </AdminCollapsibleSection>
-      </Suspense>
+          <Suspense fallback={<SectionLoadingFallback label={t('bookingsLogTitle')} />}>
+            <AdminCollapsibleSection
+              id="bookings_log"
+              title={t('bookingsLogTitle')}
+              subtitle={t('bookingsLogSub')}
+              icon={Clock}
+              badge={activeBookings}
+              defaultOpen={false}
+            >
+              <BookingsLog
+                bookings={bookings}
+                hasMoreBookings={bookingsHasMore}
+                onLoadMoreBookings={onLoadMoreBookings}
+                usersList={usersList}
+                instructors={instructors}
+                onConfirmBooking={onConfirmBooking}
+                onCompleteBooking={onCompleteBooking}
+                onLinkGuestBooking={onLinkGuestBooking}
+                onCancelBooking={onCancelBooking}
+                onRequestConfirm={onRequestConfirm}
+              />
+            </AdminCollapsibleSection>
+          </Suspense>
+        </div>
+      )}
 
-      {/* 5. Управление базой инструкторов */}
-      <Suspense fallback={<SectionLoadingFallback label={t('coachesDirectoryTitle')} />}>
-        <AdminCollapsibleSection
-          id="coaches_manager"
-          title={t('coachesDirectoryTitle')}
-          subtitle={t('coachesDirectorySub')}
-          icon={Users}
-          badge={instructors.length}
-        >
-          <CoachesManager
-            instructors={instructors}
-            bookings={bookings}
-            onAddInstructor={onAddInstructor}
-            onUpdateInstructor={onUpdateInstructor}
-            onDeleteInstructor={onDeleteInstructor}
-            onRequestConfirm={onRequestConfirm}
-          />
-        </AdminCollapsibleSection>
-      </Suspense>
+      {activeTab === 'finance' && (
+        <div className="space-y-6">
+          <Suspense fallback={<SectionLoadingFallback label={t('guestWalletPanelTitle')} />}>
+            <AdminCollapsibleSection
+              id="school_guest_wallet"
+              title={t('guestWalletPanelTitle')}
+              subtitle={t('guestWalletPanelSub')}
+              icon={Wallet}
+              defaultOpen
+            >
+              <GuestWalletPanel />
+            </AdminCollapsibleSection>
+          </Suspense>
 
-      {/* 6. Монитор активных бронирований */}
-      <Suspense fallback={<SectionLoadingFallback label={t('bookingsLogTitle')} />}>
-        <AdminCollapsibleSection
-          id="bookings_log"
-          title={t('bookingsLogTitle')}
-          subtitle={t('bookingsLogSub')}
-          icon={Clock}
-          badge={activeBookings}
-        >
-          <BookingsLog
-            bookings={bookings}
-            hasMoreBookings={bookingsHasMore}
-            onLoadMoreBookings={onLoadMoreBookings}
-            usersList={usersList}
-            instructors={instructors}
-            onConfirmBooking={onConfirmBooking}
-            onCompleteBooking={onCompleteBooking}
-            onLinkGuestBooking={onLinkGuestBooking}
-            onCancelBooking={onCancelBooking}
-            onRequestConfirm={onRequestConfirm}
-          />
-        </AdminCollapsibleSection>
-      </Suspense>
+          <Suspense fallback={<SectionLoadingFallback label={t('cashFlowTitle')} />}>
+            <AdminCollapsibleSection
+              id="school_cash_flow"
+              title={t('cashFlowTitle')}
+              subtitle={t('cashFlowSub')}
+              icon={ArrowLeftRight}
+              defaultOpen
+            >
+              <CashFlowPanel usersList={usersList} />
+            </AdminCollapsibleSection>
+          </Suspense>
+        </div>
+      )}
 
-      {/* 7. Управление базой клиентов */}
-      <Suspense fallback={<SectionLoadingFallback label={t('clientsManagerTitle')} />}>
-        <AdminCollapsibleSection
-          id="clients_manager"
-          title={t('clientsManagerTitle')}
-          subtitle={t('clientsManagerSub')}
-          icon={UserCheck}
-          badge={usersList.length}
-        >
-          <ClientsManager
-            usersList={usersList}
-            instructors={instructors}
-            currentUserProfile={currentUserProfile}
-            onAddUser={onAddUser}
-            onUpdateUser={onUpdateUser}
-            onDeleteUser={onDeleteUser}
-            onAddInstructor={onAddInstructor}
-            onUpdateInstructor={onUpdateInstructor}
-            onDeleteInstructor={onDeleteInstructor}
-            onRequestConfirm={onRequestConfirm}
-          />
-        </AdminCollapsibleSection>
-      </Suspense>
+      {activeTab === 'people' && (
+        <div className="space-y-6">
+          <Suspense fallback={<SectionLoadingFallback label={t('clientsManagerTitle')} />}>
+            <AdminCollapsibleSection
+              id="clients_manager"
+              title={t('clientsManagerTitle')}
+              subtitle={t('clientsManagerSub')}
+              icon={UserCheck}
+              badge={usersList.length}
+              defaultOpen
+            >
+              <ClientsManager
+                usersList={usersList}
+                instructors={instructors}
+                currentUserProfile={currentUserProfile}
+                onAddUser={onAddUser}
+                onUpdateUser={onUpdateUser}
+                onDeleteUser={onDeleteUser}
+                onAddInstructor={onAddInstructor}
+                onUpdateInstructor={onUpdateInstructor}
+                onDeleteInstructor={onDeleteInstructor}
+                onRequestConfirm={onRequestConfirm}
+              />
+            </AdminCollapsibleSection>
+          </Suspense>
 
-      {/* 8. Управление базой курсов */}
-      <Suspense fallback={<SectionLoadingFallback label={t('coursesManagerTitle')} />}>
-        <AdminCollapsibleSection
-          id="courses_manager"
-          title={t('coursesManagerTitle')}
-          subtitle={t('coursesManagerSub')}
-          icon={BookOpen}
-          badge={courses.length}
-        >
-          <CoursesManager
-            courses={courses}
-            bookings={bookings}
-            usersList={usersList}
-            instructors={instructors}
-            onAddCourse={onAddCourse}
-            onUpdateCourse={onUpdateCourse}
-            onDeleteCourse={onDeleteCourse}
-            onRequestConfirm={onRequestConfirm}
-          />
-        </AdminCollapsibleSection>
-      </Suspense>
+          <Suspense fallback={<SectionLoadingFallback label={t('coachesDirectoryTitle')} />}>
+            <AdminCollapsibleSection
+              id="coaches_manager"
+              title={t('coachesDirectoryTitle')}
+              subtitle={t('coachesDirectorySub')}
+              icon={Users}
+              badge={instructors.length}
+              defaultOpen={false}
+            >
+              <CoachesManager
+                instructors={instructors}
+                bookings={bookings}
+                onAddInstructor={onAddInstructor}
+                onUpdateInstructor={onUpdateInstructor}
+                onDeleteInstructor={onDeleteInstructor}
+                onRequestConfirm={onRequestConfirm}
+              />
+            </AdminCollapsibleSection>
+          </Suspense>
 
-      {/* 9. Управление администраторами курорта */}
-      <Suspense fallback={<SectionLoadingFallback label={t('adminRoleManagementTitle')} />}>
-        <AdminCollapsibleSection
-          id="admin_role_manager"
-          title={t('adminRoleManagementTitle')}
-          subtitle={t('adminRoleManagementSub')}
-          icon={Shield}
-        >
-          <AdminRoleManager
-            usersList={usersList}
-            currentUserProfile={currentUserProfile}
-            onUpdateUserRole={onUpdateUserRole}
-            onRequestConfirm={onRequestConfirm}
-          />
-        </AdminCollapsibleSection>
-      </Suspense>
+          <Suspense fallback={<SectionLoadingFallback label={t('adminRoleManagementTitle')} />}>
+            <AdminCollapsibleSection
+              id="admin_role_manager"
+              title={t('adminRoleManagementTitle')}
+              subtitle={t('adminRoleManagementSub')}
+              icon={Shield}
+              defaultOpen={false}
+            >
+              <AdminRoleManager
+                usersList={usersList}
+                currentUserProfile={currentUserProfile}
+                onUpdateUserRole={onUpdateUserRole}
+                onRequestConfirm={onRequestConfirm}
+              />
+            </AdminCollapsibleSection>
+          </Suspense>
+        </div>
+      )}
 
-      {/* 10. Логи системных ошибок */}
-      <Suspense fallback={<SectionLoadingFallback label={t('errorLogsTitle')} />}>
-        <AdminCollapsibleSection
-          id="error_logs"
-          title={t('errorLogsTitle')}
-          subtitle={t('errorLogsSub')}
-          icon={AlertTriangle}
-        >
-          <ErrorLogsPanel onRequestConfirm={onRequestConfirm} />
-        </AdminCollapsibleSection>
-      </Suspense>
+      {activeTab === 'product' && (
+        <div className="space-y-6">
+          <Suspense fallback={<SectionLoadingFallback label={t('coursesManagerTitle')} />}>
+            <AdminCollapsibleSection
+              id="courses_manager"
+              title={t('coursesManagerTitle')}
+              subtitle={t('coursesManagerSub')}
+              icon={BookOpen}
+              badge={courses.length}
+              defaultOpen
+            >
+              <CoursesManager
+                courses={courses}
+                bookings={bookings}
+                usersList={usersList}
+                instructors={instructors}
+                onAddCourse={onAddCourse}
+                onUpdateCourse={onUpdateCourse}
+                onDeleteCourse={onDeleteCourse}
+                onRequestConfirm={onRequestConfirm}
+              />
+            </AdminCollapsibleSection>
+          </Suspense>
 
-      {/* Confirmation modal portal */}
+          <Suspense fallback={<SectionLoadingFallback label={t('adminTabProduct')} />}>
+            <AdminProductSettings />
+          </Suspense>
+        </div>
+      )}
+
+      {activeTab === 'system' && (
+        <div className="space-y-6">
+          <Suspense fallback={<SectionLoadingFallback label={t('systemSettingsTitle')} />}>
+            <AdminSystemSettings
+              filtersEnabled={filtersEnabled}
+              onToggleFilters={onToggleFilters}
+              notificationRetentionDays={notificationRetentionDays}
+              onSetNotificationRetentionDays={onSetNotificationRetentionDays}
+              starterCreditUsd={starterCreditUsd}
+              onSetStarterCreditUsd={onSetStarterCreditUsd}
+              skillConfig={skillConfig}
+              onUpdateSkillConfig={onUpdateSkillConfig}
+              achievementsConfig={achievementsConfig}
+              onUpdateAchievementsConfig={onUpdateAchievementsConfig}
+              bookings={bookings}
+              onRequestConfirm={onRequestConfirm}
+              onClearStudentBookings={onClearStudentBookings}
+              onClearCancelledBookings={onClearCancelledBookings}
+              onResetSchoolFinances={onResetSchoolFinances}
+            />
+          </Suspense>
+
+          <Suspense fallback={<SectionLoadingFallback label={t('errorLogsTitle')} />}>
+            <AdminCollapsibleSection
+              id="error_logs"
+              title={t('errorLogsTitle')}
+              subtitle={t('errorLogsSub')}
+              icon={AlertTriangle}
+              defaultOpen={false}
+            >
+              <ErrorLogsPanel onRequestConfirm={onRequestConfirm} />
+            </AdminCollapsibleSection>
+          </Suspense>
+        </div>
+      )}
+
       {confirmModal &&
         createPortal(
           <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-55 p-4 animate-fade-in">

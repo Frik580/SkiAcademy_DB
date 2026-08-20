@@ -14,7 +14,6 @@ const COVERAGE_EXCLUDE = [
   'src/domain/wallet/walletCredit.ts',
   'src/domain/notifications/notifications.ts',
   'src/lib/availabilityMigration.ts',
-  'src/lib/backfillActivityLog.ts',
   'src/lib/useTranslatedBookings.ts',
   'src/infrastructure/firebase/storage.ts',
   'src/shared/designTheme.ts',

@@ -67,6 +67,70 @@ describe('Booking Callables Client Wrappers', () => {
       expect(result).toEqual({ newBalance: 350, totalPrice: 150 });
     });
 
+    it('sends system block payloads for planner breaks and day offs', async () => {
+      vi.mocked(callFunction).mockResolvedValueOnce({
+        bookingId: 'block_break_1',
+        totalPrice: 0,
+        newBalance: 0,
+      });
+
+      const breakBlock: Booking = {
+        ...sampleBooking,
+        id: 'block_break_1',
+        userId: 'system_block_break',
+        totalPrice: 0,
+        durationHours: 1,
+        notes: 'Break',
+      };
+
+      await addBookingViaCallable(breakBlock);
+
+      expect(callFunction).toHaveBeenCalledWith(
+        'addBooking',
+        expect.objectContaining({
+          userId: 'system_block_break',
+          booking: expect.objectContaining({
+            id: 'block_break_1',
+            totalPrice: 0,
+            durationHours: 1,
+          }),
+        }),
+        expect.objectContaining({ idempotencyKey: 'add_block_break_1' })
+      );
+
+      vi.mocked(callFunction).mockResolvedValueOnce({
+        bookingId: 'block_day_off_1',
+        totalPrice: 0,
+        newBalance: 0,
+      });
+
+      const dayOff: Booking = {
+        ...sampleBooking,
+        id: 'block_day_off_1',
+        userId: 'system_block_day_off',
+        time: '08:00',
+        durationHours: 11,
+        totalPrice: 0,
+        notes: 'Day off',
+      };
+
+      await addBookingViaCallable(dayOff);
+
+      expect(callFunction).toHaveBeenCalledWith(
+        'addBooking',
+        expect.objectContaining({
+          userId: 'system_block_day_off',
+          booking: expect.objectContaining({
+            id: 'block_day_off_1',
+            time: '08:00',
+            durationHours: 11,
+            totalPrice: 0,
+          }),
+        }),
+        expect.objectContaining({ idempotencyKey: 'add_block_day_off_1' })
+      );
+    });
+
     it('maps functions/failed-precondition to InsufficientFundsError', async () => {
       vi.mocked(callFunction).mockRejectedValueOnce({
         code: 'functions/failed-precondition',

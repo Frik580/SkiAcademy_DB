@@ -7,6 +7,7 @@ import {
   InsufficientFundsError,
   cancelBookingWithRefund,
   createBookingWithPayment,
+  addBookingWithPayment,
   rescheduleBooking,
 } from '../../src/features/bookings/bookingTransactions';
 import { addHourLocksToBatch } from '../helpers/hourLockFixtures';
@@ -191,6 +192,50 @@ describe('booking transactions', () => {
 
     expect(bookingDoc.exists()).toBe(false);
     expect(userDoc.data()?.balanceUSD).toBe(100);
+  });
+
+  it('creates instructor break and day-off blocks without a user wallet', async () => {
+    const breakBlock = lessonBooking({
+      id: 'block-break-1',
+      userId: 'system_block_break',
+      time: '12:00',
+      durationHours: 1,
+      totalPrice: 0,
+      notes: 'Break',
+    });
+    const dayOff = lessonBooking({
+      id: 'block-day-off-1',
+      userId: 'system_block_day_off',
+      // Separate day from the break so hour locks do not collide.
+      date: '2026-12-03',
+      time: '08:00',
+      durationHours: 11,
+      totalPrice: 0,
+      notes: 'Day off',
+    });
+
+    await withPrivilegedDb((db) => addBookingWithPayment(db, breakBlock));
+    await withPrivilegedDb((db) => addBookingWithPayment(db, dayOff));
+
+    const adminDb = integrationTestEnv().authenticatedContext(OWNER_ID).firestore();
+    expect((await getDoc(doc(adminDb, 'bookings', breakBlock.id))).data()).toMatchObject({
+      userId: 'system_block_break',
+      totalPrice: 0,
+      durationHours: 1,
+    });
+    expect((await getDoc(doc(adminDb, 'bookings', dayOff.id))).data()).toMatchObject({
+      userId: 'system_block_day_off',
+      date: '2026-12-03',
+      time: '08:00',
+      durationHours: 11,
+      totalPrice: 0,
+    });
+    expect(
+      (await getDoc(doc(adminDb, AVAILABILITY_SLOTS_COLLECTION, breakBlock.id))).exists()
+    ).toBe(true);
+    expect((await getDoc(doc(adminDb, AVAILABILITY_SLOTS_COLLECTION, dayOff.id))).exists()).toBe(
+      true
+    );
   });
 
   it('cancels a lesson booking, refunds balance, and removes the availability slot', async () => {

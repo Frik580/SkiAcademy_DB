@@ -191,3 +191,9 @@ export async function readCallableUserBalance(): Promise<number> {
   const userDoc = await getDoc(doc(getCallableFirestore(), 'users', getCallableUserId()));
   return userDoc.data()?.balanceUSD ?? 0;
 }
+
+export async function readCallableGuestWalletBalance(): Promise<number> {
+  const walletDoc = await getDoc(doc(getCallableFirestore(), 'settings', 'guest_wallet'));
+  const balance = walletDoc.data()?.balanceUSD;
+  return typeof balance === 'number' && Number.isFinite(balance) ? balance : 0;
+}

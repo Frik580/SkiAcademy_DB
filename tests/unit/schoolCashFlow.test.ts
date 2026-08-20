@@ -4,7 +4,6 @@ import {
   classifySchoolCashFlow,
   summarizeSchoolCashFlow,
 } from '../../src/domain/wallet/schoolCashFlow';
-import { isGuestCashSubject } from '../../src/domain/wallet/schoolGuestWallet';
 import type { WalletLedgerEntry } from '../../src/types';
 
 const entry = (
@@ -75,6 +74,34 @@ describe('school cash flow', () => {
     expect(summary.guestWalletBalanceUsd).toBe(0);
   });
 
+  it('counts admin guest-wallet top-up and withdraw on the cash track', () => {
+    const summary = summarizeSchoolCashFlow(
+      buildSchoolCashFlowRows([
+        entry({
+          id: 'a1',
+          userId: 'school_guest',
+          type: 'admin_adjustment',
+          amount: 50,
+          balanceAfter: 50,
+        }),
+        entry({
+          id: 'a2',
+          userId: 'school_guest',
+          type: 'admin_adjustment',
+          amount: -20,
+          balanceAfter: 30,
+        }),
+      ]),
+      [],
+      30
+    );
+
+    expect(summary.cashIn.USD).toBe(50);
+    expect(summary.cashOut.USD).toBe(20);
+    expect(summary.cashNet.USD).toBe(30);
+    expect(summary.guestWalletBalanceUsd).toBe(30);
+  });
+
   it('models guest cancel as refund back onto the guest wallet', () => {
     const summary = summarizeSchoolCashFlow(
       buildSchoolCashFlowRows([
@@ -138,14 +165,5 @@ describe('school cash flow', () => {
     );
     expect(summary.liabilities.USD).toBe(45);
     expect(summary.liabilities.KZT).toBe(1000);
-  });
-});
-
-describe('guest cash subject', () => {
-  it('detects guest bookings for cash wallet settlement', () => {
-    expect(isGuestCashSubject({ userId: 'guest_1', isGuest: true })).toBe(true);
-    expect(isGuestCashSubject({ userId: 'guest_1', isGuest: false })).toBe(true);
-    expect(isGuestCashSubject({ userId: 'user_1', isGuest: false })).toBe(false);
-    expect(isGuestCashSubject({ userId: 'system_block_x' })).toBe(false);
   });
 });

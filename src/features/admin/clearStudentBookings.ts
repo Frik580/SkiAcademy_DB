@@ -4,6 +4,7 @@ import {
   db,
   doc,
   documentId,
+  getDoc,
   getDocs,
   limit,
   orderBy,
@@ -14,12 +15,14 @@ import {
   writeBatch,
 } from '../../infrastructure/firebase';
 import { AVAILABILITY_SLOTS_COLLECTION, isCourseBooking } from '../../domain/availability';
+import { AVAILABILITY_HOUR_LOCKS_COLLECTION, buildHourLockIds } from '../../domain/booking';
 import { Booking, Course } from '../../types';
 
 export type ClearStudentBookingsResult = {
   bookingsDeleted: number;
   messagesDeleted: number;
   slotsDeleted: number;
+  locksDeleted: number;
   coursesReset: number;
 };
 
@@ -43,6 +46,57 @@ const deleteBookingMessages = async (bookingId: string): Promise<number> => {
 
   await commitBatchDeletes(messagesSnap.docs.map((messageDoc) => messageDoc.ref));
   return messagesSnap.size;
+};
+
+const hourLockRefsForBooking = (
+  booking: Pick<Booking, 'id' | 'instructorId' | 'date' | 'time' | 'durationHours'>
+) => buildHourLockIds(booking).map((lockId) => doc(db, AVAILABILITY_HOUR_LOCKS_COLLECTION, lockId));
+
+/** Removes locks whose booking document is already gone (e.g. after a prior clear). */
+const deleteOrphanHourLocks = async (): Promise<number> => {
+  let locksDeleted = 0;
+  let lastDoc: QueryDocumentSnapshot | undefined;
+
+  while (true) {
+    const pageQuery = lastDoc
+      ? query(
+          collection(db, AVAILABILITY_HOUR_LOCKS_COLLECTION),
+          orderBy(documentId()),
+          startAfter(lastDoc),
+          limit(PAGE_SIZE)
+        )
+      : query(
+          collection(db, AVAILABILITY_HOUR_LOCKS_COLLECTION),
+          orderBy(documentId()),
+          limit(PAGE_SIZE)
+        );
+
+    const snapshot = await getDocs(pageQuery);
+    if (snapshot.empty) break;
+
+    const orphanRefs: ReturnType<typeof doc>[] = [];
+    for (const lockDoc of snapshot.docs) {
+      const bookingId = lockDoc.data()?.bookingId;
+      if (typeof bookingId !== 'string' || !bookingId.trim()) {
+        orphanRefs.push(lockDoc.ref);
+        continue;
+      }
+      const bookingSnap = await getDoc(doc(db, 'bookings', bookingId));
+      if (!bookingSnap.exists()) {
+        orphanRefs.push(lockDoc.ref);
+      }
+    }
+
+    if (orphanRefs.length > 0) {
+      await commitBatchDeletes(orphanRefs);
+      locksDeleted += orphanRefs.length;
+    }
+
+    lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    if (snapshot.docs.length < PAGE_SIZE) break;
+  }
+
+  return locksDeleted;
 };
 
 const resetCourseSeats = async (): Promise<number> => {
@@ -79,6 +133,7 @@ export async function clearStudentBookings(
   let bookingsDeleted = 0;
   let messagesDeleted = 0;
   let slotsDeleted = 0;
+  let locksDeleted = 0;
   let lastDoc: QueryDocumentSnapshot | undefined;
 
   while (true) {
@@ -106,6 +161,10 @@ export async function clearStudentBookings(
       if (!isCourseBooking(booking)) {
         batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id));
         slotsDeleted += 1;
+        for (const lockRef of hourLockRefsForBooking(booking)) {
+          batch.delete(lockRef);
+          locksDeleted += 1;
+        }
       }
       await batch.commit();
 
@@ -117,6 +176,7 @@ export async function clearStudentBookings(
     if (snapshot.docs.length < PAGE_SIZE) break;
   }
 
+  locksDeleted += await deleteOrphanHourLocks();
   const coursesReset = await resetCourseSeats();
 
   await setDoc(
@@ -125,13 +185,14 @@ export async function clearStudentBookings(
     { merge: true }
   );
 
-  return { bookingsDeleted, messagesDeleted, slotsDeleted, coursesReset };
+  return { bookingsDeleted, messagesDeleted, slotsDeleted, locksDeleted, coursesReset };
 }
 
 export type ClearCancelledBookingsResult = {
   bookingsDeleted: number;
   messagesDeleted: number;
   slotsDeleted: number;
+  locksDeleted: number;
 };
 
 export async function clearCancelledBookings(
@@ -140,6 +201,7 @@ export async function clearCancelledBookings(
   let bookingsDeleted = 0;
   let messagesDeleted = 0;
   let slotsDeleted = 0;
+  let locksDeleted = 0;
   let lastDoc: QueryDocumentSnapshot | undefined;
 
   while (true) {
@@ -173,6 +235,10 @@ export async function clearCancelledBookings(
       if (!isCourseBooking(booking)) {
         batch.delete(doc(db, AVAILABILITY_SLOTS_COLLECTION, booking.id));
         slotsDeleted += 1;
+        for (const lockRef of hourLockRefsForBooking(booking)) {
+          batch.delete(lockRef);
+          locksDeleted += 1;
+        }
       }
       await batch.commit();
 
@@ -184,5 +250,7 @@ export async function clearCancelledBookings(
     if (snapshot.docs.length < PAGE_SIZE) break;
   }
 
-  return { bookingsDeleted, messagesDeleted, slotsDeleted };
+  locksDeleted += await deleteOrphanHourLocks();
+
+  return { bookingsDeleted, messagesDeleted, slotsDeleted, locksDeleted };
 }

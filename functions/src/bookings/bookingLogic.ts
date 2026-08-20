@@ -298,21 +298,51 @@ export async function createBookingWithPayment(
   booking: BookingRecord,
   idempotency?: IdempotencySpec
 ): Promise<BookingPaymentResult> {
+  const bookingWithUser: BookingRecord = { ...booking, userId };
+  const isSystemBlock = userId.startsWith('system_block_');
   const existingSlotDocs = (
     await db
       .collection(AVAILABILITY_SLOTS_COLLECTION)
-      .where('instructorId', '==', booking.instructorId)
+      .where('instructorId', '==', bookingWithUser.instructorId)
       .get()
   ).docs;
 
   return withOptionalIdempotency(db, idempotency, async (transaction, commit) => {
-    const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(booking.id);
-    const userRef = db.collection('users').doc(userId);
+    const bookingRef = db.collection(BOOKINGS_COLLECTION).doc(bookingWithUser.id);
+    const bookingSnap = await transaction.get(bookingRef);
 
-    const [bookingSnap, userSnap] = await Promise.all([
-      transaction.get(bookingRef),
-      transaction.get(userRef),
-    ]);
+    // Instructor breaks / day-offs have no user wallet — reserve the slot only.
+    if (isSystemBlock) {
+      if (bookingSnap.exists) {
+        const existingBooking = bookingSnap.data() as BookingRecord;
+        if (matchesExistingBookingRequest(existingBooking, bookingWithUser)) {
+          const result = {
+            bookingId: bookingWithUser.id,
+            newBalance: 0,
+            totalPrice: existingBooking.totalPrice ?? 0,
+          };
+          commit(result);
+          return result;
+        }
+        throw new BookingIdConflictError();
+      }
+
+      const totalPrice = await resolveBookingTotalPrice(transaction, db, bookingWithUser);
+      const bookingToWrite: BookingRecord = { ...bookingWithUser, totalPrice };
+      await assertNoSlotOverlap(transaction, db, bookingToWrite, existingSlotDocs, bookingWithUser.id);
+      writeBookingWithAvailability(transaction, db, bookingToWrite);
+
+      const result = {
+        bookingId: bookingWithUser.id,
+        newBalance: 0,
+        totalPrice,
+      };
+      commit(result);
+      return result;
+    }
+
+    const userRef = db.collection('users').doc(userId);
+    const userSnap = await transaction.get(userRef);
 
     if (!userSnap.exists) throw new Error('User profile does not exist.');
     const currentBalance = userSnap.data()?.balanceUSD ?? 0;
@@ -320,9 +350,9 @@ export async function createBookingWithPayment(
     // A repeated request may return the original result; a reused ID must never overwrite another booking.
     if (bookingSnap.exists) {
       const existingBooking = bookingSnap.data() as BookingRecord;
-      if (matchesExistingBookingRequest(existingBooking, booking)) {
+      if (matchesExistingBookingRequest(existingBooking, bookingWithUser)) {
         const result = {
-          bookingId: booking.id,
+          bookingId: bookingWithUser.id,
           newBalance: currentBalance,
           totalPrice: existingBooking.totalPrice ?? 0,
         };
@@ -332,12 +362,12 @@ export async function createBookingWithPayment(
       throw new BookingIdConflictError();
     }
 
-    const totalPrice = await resolveBookingTotalPrice(transaction, db, booking);
-    const bookingToWrite: BookingRecord = { ...booking, totalPrice };
+    const totalPrice = await resolveBookingTotalPrice(transaction, db, bookingWithUser);
+    const bookingToWrite: BookingRecord = { ...bookingWithUser, totalPrice };
 
     if (currentBalance < totalPrice) throw new InsufficientFundsError(currentBalance, totalPrice);
 
-    await assertNoSlotOverlap(transaction, db, bookingToWrite, existingSlotDocs, booking.id);
+    await assertNoSlotOverlap(transaction, db, bookingToWrite, existingSlotDocs, bookingWithUser.id);
     writeBookingWithAvailability(transaction, db, bookingToWrite);
     const newBalance = currentBalance - totalPrice;
     transaction.update(userRef, { balanceUSD: newBalance });
@@ -354,7 +384,7 @@ export async function createBookingWithPayment(
     }
 
     const result = {
-      bookingId: booking.id,
+      bookingId: bookingWithUser.id,
       newBalance,
       totalPrice,
     };

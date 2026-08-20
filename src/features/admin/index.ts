@@ -19,6 +19,17 @@ export { FinancialOverview, CashFlowPanel } from './components/finance';
 export {
   AchievementsManager,
   AdminCollapsibleSection,
+  AdminProductSettings,
+  AdminSystemSettings,
   ErrorLogsPanel,
   SystemSettings,
 } from './components/settings';
+export {
+  ADMIN_TAB_IDS,
+  ADMIN_TAB_LABEL_KEYS,
+  ADMIN_TAB_QUERY_KEY,
+  DEFAULT_ADMIN_TAB,
+  isAdminTabId,
+  parseAdminTabId,
+  type AdminTabId,
+} from './adminNavigation';

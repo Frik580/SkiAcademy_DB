@@ -10,6 +10,7 @@ export interface UpdateBookingScheduleInput {
   date?: string;
   time?: string;
   instructorId?: string;
+  allowNegativeBalance?: boolean;
 }
 
 export interface UpdateBookingScheduleResult {
@@ -33,6 +34,14 @@ function optionalString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function optionalBoolean(value: unknown): boolean | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'boolean') {
+    throw new HttpsError('invalid-argument', 'Expected a boolean value.');
+  }
+  return value;
+}
+
 function parseUpdateBookingScheduleInput(data: unknown): UpdateBookingScheduleInput {
   if (!data || typeof data !== 'object') {
     throw new HttpsError('invalid-argument', 'Update schedule payload is required.');
@@ -45,6 +54,7 @@ function parseUpdateBookingScheduleInput(data: unknown): UpdateBookingScheduleIn
     date: optionalString(payload.date),
     time: optionalString(payload.time),
     instructorId: optionalString(payload.instructorId),
+    allowNegativeBalance: optionalBoolean(payload.allowNegativeBalance),
   };
 }
 
@@ -92,6 +102,13 @@ export function updateBookingScheduleHandler(db: Firestore) {
       );
     }
 
+    if (input.allowNegativeBalance && !isAdmin) {
+      throw new HttpsError(
+        'permission-denied',
+        'Only administrators can approve a negative client balance.'
+      );
+    }
+
     if (isCourseBooking(booking)) {
       throw new HttpsError('invalid-argument', 'Course bookings cannot be rescheduled.');
     }
@@ -100,6 +117,7 @@ export function updateBookingScheduleHandler(db: Firestore) {
       date: input.date,
       time: input.time,
       instructorId: input.instructorId,
+      allowNegativeBalance: isAdmin ? input.allowNegativeBalance : undefined,
     };
 
     try {
@@ -112,6 +130,7 @@ export function updateBookingScheduleHandler(db: Firestore) {
           date: input.date ?? null,
           time: input.time ?? null,
           instructorId: input.instructorId ?? null,
+          allowNegativeBalance: updates.allowNegativeBalance === true,
         })
       );
     } catch (error) {

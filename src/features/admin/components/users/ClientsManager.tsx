@@ -7,6 +7,7 @@ import { isSystemOwner } from '../../../../lib/accessControl';
 import { ToggleSwitch } from '../../../../ui/ToggleSwitch';
 import { ApplePagination } from '../../../../ui/ApplePagination';
 import { useProfileStore } from '../../../profile/profileStore';
+import { useSettingsStore } from '../../../settings/settingsStore';
 
 interface ClientsManagerProps {
   usersList: UserProfile[];
@@ -35,6 +36,7 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
 }) => {
   const { t, language } = useLanguage();
   const { addNotification } = useNotifications();
+  const starterCreditUsd = useSettingsStore((state) => state.starterCreditUsd);
 
   const [clientSearchText, setClientSearchText] = useState('');
   const [clientPage, setClientPage] = useState(1);
@@ -46,7 +48,7 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('');
-  const [clientBalance, setClientBalance] = useState(250);
+  const [clientBalance, setClientBalance] = useState(starterCreditUsd);
   const [clientRole, setClientRole] = useState<'user' | 'admin'>('user');
   const [clientIsInstructor, setClientIsInstructor] = useState(false);
   const [clientIsActive, setClientIsActive] = useState(true);
@@ -156,7 +158,7 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
       setClientName('');
       setClientEmail('');
       setClientPhone('');
-      setClientBalance(250);
+      setClientBalance(starterCreditUsd);
       setClientRole('user');
       setClientIsInstructor(false);
       setClientIsActive(true);
@@ -204,7 +206,7 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
             setClientName('');
             setClientEmail('');
             setClientPhone('');
-            setClientBalance(250);
+            setClientBalance(starterCreditUsd);
             setClientRole('user');
             setClientIsActive(true);
             setClientIsInstructor(false);

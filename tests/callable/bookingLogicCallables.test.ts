@@ -14,6 +14,7 @@ import {
   promoteCallableUserToAdmin,
   readCallableUserBalance,
   seedCallableBaseFixtures,
+  seedCallableCourse,
   seedCallableUserProfile,
   setupCallableIntegrationEnvironment,
   teardownCallableIntegrationEnvironment,
@@ -105,10 +106,11 @@ describe('bookingLogic callable transactions', { timeout: 30_000 }, () => {
     expect(booking.data()?.status).toBe('confirmed');
   });
 
-  it('links a confirmed guest booking once and does not charge again on repeat', async () => {
+  it('does not charge when linking a confirmed guest booking and refunds the client on cancel', async () => {
     const createGuestBooking = httpsCallable(getCallableFunctions(), 'createGuestBooking');
     const confirmBooking = httpsCallable(getCallableFunctions(), 'confirmBooking');
     const linkGuestBooking = httpsCallable(getCallableFunctions(), 'linkGuestBooking');
+    const cancelBooking = httpsCallable(getCallableFunctions(), 'cancelBooking');
     const targetUserId = getCallableUserId();
 
     await createGuestBooking({
@@ -131,22 +133,165 @@ describe('bookingLogic callable transactions', { timeout: 30_000 }, () => {
       targetUserId,
       idempotencyKey: 'guest-link-1',
     });
-    expect(first.data).toEqual({ newBalance: 400 });
-    expect(await readCallableUserBalance()).toBe(400);
+    expect(first.data).toEqual({ newBalance: 500 });
+    expect(await readCallableUserBalance()).toBe(500);
 
     const second = await linkGuestBooking({
       bookingId: 'booking-guest-link',
       targetUserId,
       idempotencyKey: 'guest-link-2',
     });
-    expect(second.data).toEqual({ newBalance: 400 });
-    expect(await readCallableUserBalance()).toBe(400);
+    expect(second.data).toEqual({ newBalance: 500 });
+    expect(await readCallableUserBalance()).toBe(500);
 
     const booking = await getDoc(doc(getCallableFirestore(), 'bookings', 'booking-guest-link'));
     expect(booking.data()).toMatchObject({
       userId: targetUserId,
       isGuest: false,
       status: 'confirmed',
+    });
+
+    const cancelled = await cancelBooking({
+      bookingId: 'booking-guest-link',
+      idempotencyKey: 'guest-link-cancel',
+    });
+    expect(cancelled.data).toEqual({ refunded: 100, alreadyCancelled: false });
+    expect(await readCallableUserBalance()).toBe(600);
+  });
+
+  it('does not charge when linking a confirmed guest course and refunds the client on cancel', async () => {
+    const enroll = httpsCallable(getCallableFunctions(), 'createGuestCourseEnrollment');
+    const confirmBooking = httpsCallable(getCallableFunctions(), 'confirmBooking');
+    const linkGuestBooking = httpsCallable(getCallableFunctions(), 'linkGuestBooking');
+    const cancelBooking = httpsCallable(getCallableFunctions(), 'cancelBooking');
+    const targetUserId = getCallableUserId();
+    const courseId = 'guest-course-confirmed-link';
+
+    await seedCallableCourse(courseId);
+    const enrolled = await enroll({
+      courseId,
+      guestName: 'Guest Skier',
+      guestPhone: '+77000000000',
+      language: 'en',
+      idempotencyKey: 'guest-course-confirmed-create',
+    });
+    const bookingId = (enrolled.data as { bookingId: string }).bookingId;
+
+    await promoteCallableUserToAdmin(500);
+    await confirmBooking({ bookingId, idempotencyKey: 'guest-course-confirmed-confirm' });
+
+    const linked = await linkGuestBooking({
+      bookingId,
+      targetUserId,
+      idempotencyKey: 'guest-course-confirmed-link',
+    });
+    expect(linked.data).toEqual({ newBalance: 500 });
+    expect(await readCallableUserBalance()).toBe(500);
+
+    const cancelled = await cancelBooking({
+      bookingId,
+      idempotencyKey: 'guest-course-confirmed-cancel',
+    });
+    expect(cancelled.data).toEqual({ refunded: 200, alreadyCancelled: false });
+    expect(await readCallableUserBalance()).toBe(700);
+  });
+
+  it('charges the linked client when a pending guest lesson is confirmed', async () => {
+    const createGuestBooking = httpsCallable(getCallableFunctions(), 'createGuestBooking');
+    const confirmBooking = httpsCallable(getCallableFunctions(), 'confirmBooking');
+    const linkGuestBooking = httpsCallable(getCallableFunctions(), 'linkGuestBooking');
+    const targetUserId = getCallableUserId();
+
+    await createGuestBooking({
+      id: 'booking-guest-link-pending',
+      userId: 'guest_link_pending',
+      instructorId: CALLABLE_INSTRUCTOR_ID,
+      instructorName: 'Callable Instructor',
+      date: '2026-12-06',
+      time: '11:00',
+      durationHours: 2,
+      difficulty: 'beginner',
+      idempotencyKey: 'guest-link-pending-create',
+    });
+
+    await promoteCallableUserToAdmin(500);
+    const linked = await linkGuestBooking({
+      bookingId: 'booking-guest-link-pending',
+      targetUserId,
+      idempotencyKey: 'guest-link-pending-1',
+    });
+    expect(linked.data).toEqual({ newBalance: 500 });
+    expect(await readCallableUserBalance()).toBe(500);
+
+    await confirmBooking({
+      bookingId: 'booking-guest-link-pending',
+      idempotencyKey: 'guest-link-pending-confirm',
+    });
+    expect(await readCallableUserBalance()).toBe(400);
+
+    await confirmBooking({
+      bookingId: 'booking-guest-link-pending',
+      idempotencyKey: 'guest-link-pending-confirm-2',
+    });
+    expect(await readCallableUserBalance()).toBe(400);
+
+    const booking = await getDoc(
+      doc(getCallableFirestore(), 'bookings', 'booking-guest-link-pending')
+    );
+    expect(booking.data()).toMatchObject({
+      userId: targetUserId,
+      isGuest: false,
+      status: 'confirmed',
+    });
+    const ledger = await getDoc(
+      doc(getCallableFirestore(), 'wallet_ledger', 'wl_lesson_payment_booking-guest-link-pending')
+    );
+    expect(ledger.exists()).toBe(true);
+    expect(ledger.data()).toMatchObject({
+      userId: targetUserId,
+      amount: -100,
+      type: 'lesson_payment',
+    });
+  });
+
+  it('charges the linked client when a pending guest course is confirmed', async () => {
+    const enroll = httpsCallable(getCallableFunctions(), 'createGuestCourseEnrollment');
+    const confirmBooking = httpsCallable(getCallableFunctions(), 'confirmBooking');
+    const linkGuestBooking = httpsCallable(getCallableFunctions(), 'linkGuestBooking');
+    const targetUserId = getCallableUserId();
+    const courseId = 'guest-course-link-confirm';
+
+    await seedCallableCourse(courseId);
+    const enrolled = await enroll({
+      courseId,
+      guestName: 'Guest Skier',
+      guestPhone: '+77000000000',
+      language: 'en',
+      idempotencyKey: 'guest-course-link-create',
+    });
+    const bookingId = (enrolled.data as { bookingId: string }).bookingId;
+
+    await promoteCallableUserToAdmin(500);
+    const linked = await linkGuestBooking({
+      bookingId,
+      targetUserId,
+      idempotencyKey: 'guest-course-link-1',
+    });
+    expect(linked.data).toEqual({ newBalance: 500 });
+    expect(await readCallableUserBalance()).toBe(500);
+
+    await confirmBooking({ bookingId, idempotencyKey: 'guest-course-link-confirm' });
+    expect(await readCallableUserBalance()).toBe(300);
+
+    const ledger = await getDoc(
+      doc(getCallableFirestore(), 'wallet_ledger', `wl_course_payment_${bookingId}`)
+    );
+    expect(ledger.exists()).toBe(true);
+    expect(ledger.data()).toMatchObject({
+      userId: targetUserId,
+      amount: -200,
+      type: 'course_payment',
+      courseId,
     });
   });
 

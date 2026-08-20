@@ -72,7 +72,12 @@ export function rethrowAsHttpsError(
   if (error instanceof InsufficientFundsError) {
     throw new HttpsError(
       'failed-precondition',
-      options.insufficientFundsMessage ?? 'Insufficient funds.'
+      options.insufficientFundsMessage ?? 'Insufficient funds.',
+      {
+        code: 'INSUFFICIENT_FUNDS',
+        currentBalance: error.currentBalance,
+        required: error.required,
+      }
     );
   }
   if (error instanceof BookingSlotOverlapError) {

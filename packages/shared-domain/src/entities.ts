@@ -21,6 +21,7 @@ export const WalletLedgerTypeSchema = z.enum([
   'course_payment',
   'refund',
   'admin_adjustment',
+  'guest_payment',
 ]);
 export const WalletCurrencySchema = z.enum(['USD', 'KZT']);
 

@@ -1,7 +1,16 @@
 import React, { useState, Suspense, lazy } from 'react';
 import { createPortal } from 'react-dom';
 import { Instructor, Booking, UserProfile, Course } from '../../../types';
-import { Shield, Calendar, Users, Clock, UserCheck, BookOpen, AlertTriangle } from 'lucide-react';
+import {
+  Shield,
+  Calendar,
+  Users,
+  Clock,
+  UserCheck,
+  BookOpen,
+  AlertTriangle,
+  ArrowLeftRight,
+} from 'lucide-react';
 import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../domain/achievements';
 import { AchievementsConfig } from '../../../domain/achievements';
@@ -13,6 +22,11 @@ import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 const FinancialOverview = lazy(() =>
   import('./finance').then((m) => ({
     default: m.FinancialOverview,
+  }))
+);
+const CashFlowPanel = lazy(() =>
+  import('./finance').then((m) => ({
+    default: m.CashFlowPanel,
   }))
 );
 const SystemSettings = lazy(() =>
@@ -89,7 +103,8 @@ interface AdminPanelProps {
     id: string,
     newInstructor: Instructor,
     newDate?: string,
-    newTime?: string
+    newTime?: string,
+    options?: { allowNegativeBalance?: boolean }
   ) => Promise<void>;
   onDeleteBooking?: (id: string) => Promise<void>;
   onAddBooking?: (booking: Booking) => Promise<void>;
@@ -97,6 +112,8 @@ interface AdminPanelProps {
   onToggleFilters?: (enabled: boolean) => Promise<void>;
   notificationRetentionDays?: number;
   onSetNotificationRetentionDays?: (days: number) => Promise<void>;
+  starterCreditUsd?: number;
+  onSetStarterCreditUsd?: (amount: number) => Promise<void>;
   courses?: Course[];
   onAddCourse?: (course: Course) => Promise<void>;
   onUpdateCourse?: (course: Course) => Promise<void>;
@@ -111,6 +128,9 @@ interface AdminPanelProps {
   onClearCancelledBookings?: (
     onProgress?: (deleted: number) => void
   ) => Promise<import('../../../features/admin/clearStudentBookings').ClearCancelledBookingsResult>;
+  onResetSchoolFinances?: (
+    onProgress?: (step: number) => void
+  ) => Promise<import('../../../features/admin/resetSchoolFinances').ResetSchoolFinancesResult>;
   bookingsHasMore?: boolean;
   onLoadMoreBookings?: () => void;
 }
@@ -144,12 +164,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onToggleFilters,
   notificationRetentionDays,
   onSetNotificationRetentionDays,
+  starterCreditUsd,
+  onSetStarterCreditUsd,
   skillConfig,
   onUpdateSkillConfig,
   achievementsConfig,
   onUpdateAchievementsConfig,
   onClearStudentBookings,
   onClearCancelledBookings,
+  onResetSchoolFinances,
   bookingsHasMore = false,
   onLoadMoreBookings,
 }) => {
@@ -200,6 +223,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         />
       </Suspense>
 
+      <Suspense fallback={<SectionLoadingFallback label={t('cashFlowTitle')} />}>
+        <AdminCollapsibleSection
+          id="school_cash_flow"
+          title={t('cashFlowTitle')}
+          subtitle={t('cashFlowSub')}
+          icon={ArrowLeftRight}
+        >
+          <CashFlowPanel usersList={usersList} />
+        </AdminCollapsibleSection>
+      </Suspense>
+
       {/* 1, 2, 3: System Settings (Skill Config Matrix, Resort Data, Slider Config) */}
       <Suspense fallback={<SectionLoadingFallback label={t('systemSettingsTitle')} />}>
         <SystemSettings
@@ -207,6 +241,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           onToggleFilters={onToggleFilters}
           notificationRetentionDays={notificationRetentionDays}
           onSetNotificationRetentionDays={onSetNotificationRetentionDays}
+          starterCreditUsd={starterCreditUsd}
+          onSetStarterCreditUsd={onSetStarterCreditUsd}
           skillConfig={skillConfig}
           onUpdateSkillConfig={onUpdateSkillConfig}
           achievementsConfig={achievementsConfig}
@@ -217,6 +253,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           onRequestConfirm={onRequestConfirm}
           onClearStudentBookings={onClearStudentBookings}
           onClearCancelledBookings={onClearCancelledBookings}
+          onResetSchoolFinances={onResetSchoolFinances}
         />
       </Suspense>
 

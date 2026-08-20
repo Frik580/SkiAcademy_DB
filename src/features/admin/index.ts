@@ -15,7 +15,7 @@ export {
 export { FALLBACK_SLIDES, ResortConfigForm } from './components/resort';
 export { AdminRoleManager, ClientsManager, CoachesManager } from './components/users';
 export { BookingsLog, LinkGuestBookingModal } from './components/bookings';
-export { FinancialOverview } from './components/finance';
+export { FinancialOverview, CashFlowPanel } from './components/finance';
 export {
   AchievementsManager,
   AdminCollapsibleSection,

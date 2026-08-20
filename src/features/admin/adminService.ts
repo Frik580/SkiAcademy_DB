@@ -9,8 +9,10 @@ import {
   orderBy,
   query,
   setDoc,
+  toWalletLedgerEntry,
 } from '../../infrastructure/firebase';
-import { OperationType, type ErrorLog } from '../../types';
+import { WALLET_LEDGER_COLLECTION } from '../../domain/wallet';
+import { OperationType, type ErrorLog, type WalletLedgerEntry } from '../../types';
 import { QUERY_LIMITS } from '../../shared';
 
 const RESORT_CONFIG_COLLECTION = 'resort_data';
@@ -55,4 +57,46 @@ export async function deleteErrorLog(logId: string): Promise<void> {
 
 export function deleteErrorLogs(logIds: readonly string[]): Promise<void[]> {
   return Promise.all(logIds.map(deleteErrorLog));
+}
+
+export function subscribeWalletLedger(
+  onEntries: (entries: WalletLedgerEntry[], hasMore: boolean) => void,
+  onError: (error: Error) => void,
+  pageSize: number = QUERY_LIMITS.walletLedger
+): () => void {
+  return onSnapshot(
+    query(
+      collection(db, WALLET_LEDGER_COLLECTION),
+      orderBy('createdAt', 'desc'),
+      limit(pageSize + 1)
+    ),
+    (snapshot) =>
+      onEntries(
+        snapshot.docs
+          .slice(0, pageSize)
+          .map((ledgerDoc) => toWalletLedgerEntry(ledgerDoc.id, ledgerDoc.data())),
+        snapshot.docs.length > pageSize
+      ),
+    (error) => {
+      handleFirestoreError(error, OperationType.LIST, WALLET_LEDGER_COLLECTION);
+      onError(error);
+    }
+  );
+}
+
+export function subscribeGuestWalletBalance(
+  onBalance: (balanceUsd: number) => void,
+  onError: (error: Error) => void
+): () => void {
+  return onSnapshot(
+    doc(db, 'settings', 'guest_wallet'),
+    (snapshot) => {
+      const balance = snapshot.exists() ? snapshot.data()?.balanceUSD : 0;
+      onBalance(typeof balance === 'number' && Number.isFinite(balance) ? Math.max(0, balance) : 0);
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'settings/guest_wallet');
+      onError(error);
+    }
+  );
 }

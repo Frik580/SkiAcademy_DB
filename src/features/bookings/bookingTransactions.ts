@@ -43,7 +43,10 @@ import {
 } from '../../features/courses/courseTransactions';
 
 export class InsufficientFundsError extends Error {
-  constructor() {
+  constructor(
+    readonly currentBalance?: number,
+    readonly required?: number
+  ) {
     super('Insufficient funds');
     this.name = 'InsufficientFundsError';
   }
@@ -320,6 +323,7 @@ export type BookingScheduleUpdates = {
   instructorId?: string;
   instructorName?: string;
   instructorAvatar?: string;
+  allowNegativeBalance?: boolean;
 };
 
 export async function rescheduleBooking(

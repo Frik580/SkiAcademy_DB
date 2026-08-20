@@ -29,7 +29,8 @@ interface ScheduleCalendarProps {
     id: string,
     newInstructor: Instructor,
     newDate?: string,
-    newTime?: string
+    newTime?: string,
+    options?: { allowNegativeBalance?: boolean }
   ) => Promise<void>;
   onDeleteBooking?: (id: string) => Promise<void>;
   onCancelBooking: (id: string) => Promise<void>;

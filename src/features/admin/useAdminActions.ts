@@ -9,10 +9,15 @@ import {
   type ClearStudentBookingsResult,
   type ClearCancelledBookingsResult,
 } from '../../features/admin/clearStudentBookings';
+import {
+  resetSchoolFinances,
+  type ResetSchoolFinancesResult,
+} from '../../features/admin/resetSchoolFinances';
 import { notify, t } from '../../store/storeContext';
 import { useAuthStore } from '../auth/authStore';
 import { useProfileStore } from '../profile/profileStore';
 import { useBookingsStore } from '../bookings/bookingsStore';
+import { useSettingsStore } from '../settings/settingsStore';
 import { withOptimisticBalance } from '../wallet/walletService';
 import {
   confirmBookingService,
@@ -171,17 +176,23 @@ export function useAdminActions() {
   );
 
   const handleReassignInstructor = useCallback(
-    async (id: string, newInstructor: Instructor, newDate?: string, newTime?: string) => {
+    async (
+      id: string,
+      newInstructor: Instructor,
+      newDate?: string,
+      newTime?: string,
+      options?: { allowNegativeBalance?: boolean }
+    ) => {
       const booking = bookings.find((item) => item.id === id);
       if (!booking || isCourseBooking(booking)) return;
       const date = newDate ?? booking.date;
       const time = newTime ?? booking.time;
       const previousInstructorName = booking.instructorName;
       try {
-        await reassignInstructorService(id, newInstructor, date, time);
+        await reassignInstructorService(id, newInstructor, date, time, options);
       } catch (error) {
         if (error instanceof BookingSlotOverlapError) throw new Error(t('slotUnavailable'));
-        if (error instanceof InsufficientFundsError) throw new Error(t('insufficientFunds'));
+        if (error instanceof InsufficientFundsError) throw error;
         throw error;
       }
       if (userProfile?.role !== 'admin') return;
@@ -243,6 +254,16 @@ export function useAdminActions() {
     []
   );
 
+  const handleResetSchoolFinances = useCallback(
+    async (onProgress?: (step: number) => void): Promise<ResetSchoolFinancesResult> => {
+      const creditUsd = useSettingsStore.getState().starterCreditUsd;
+      const result = await resetSchoolFinances(onProgress, creditUsd);
+      setDeletedCompletedStats({ revenue: 0, count: 0 });
+      return result;
+    },
+    [setDeletedCompletedStats]
+  );
+
   return {
     handleAddInstructor,
     handleUpdateInstructor,
@@ -257,5 +278,6 @@ export function useAdminActions() {
     handleAddBooking,
     handleClearStudentBookings,
     handleClearCancelledBookings,
+    handleResetSchoolFinances,
   };
 }

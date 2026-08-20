@@ -1,11 +1,12 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Clock, Shield, X } from 'lucide-react';
+import { AlertCircle, Clock, Shield, X } from 'lucide-react';
 import type { Booking, Course, Instructor, UserProfile } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 import { useNotifications } from '../../../../features/notifications';
 import { BookingChatModal } from '../../../../features/bookings';
+import { InsufficientFundsError } from '../../../../features/bookings/bookingTransactions';
 import { LinkGuestBookingModal } from '../bookings/LinkGuestBookingModal';
 import { ActiveSlotDetails } from './../schedule/slot-modal/ActiveSlotDetails';
 import { ActiveSlotMoveForm } from './../schedule/slot-modal/ActiveSlotMoveForm';
@@ -15,6 +16,22 @@ import {
   getAvailableScheduleDurations,
   hasScheduleOverlap,
 } from './scheduleOverlap';
+
+type ReassignInstructorFn = (
+  id: string,
+  newInstructor: Instructor,
+  newDate?: string,
+  newTime?: string,
+  options?: { allowNegativeBalance?: boolean }
+) => Promise<void>;
+
+interface InsufficientFundsPrompt {
+  currentBalance: number;
+  required: number;
+  targetInstructor: Instructor;
+  date: string;
+  time: string;
+}
 
 export interface ActiveScheduleSlot {
   instructor: Instructor;
@@ -37,12 +54,7 @@ interface ScheduleSlotActionModalProps {
   onClose: () => void;
   onAddBooking?: (booking: Booking) => Promise<void>;
   onRescheduleBooking?: (id: string, newDate: string, newTime: string) => Promise<void>;
-  onReassignInstructor?: (
-    id: string,
-    newInstructor: Instructor,
-    newDate?: string,
-    newTime?: string
-  ) => Promise<void>;
+  onReassignInstructor?: ReassignInstructorFn;
   onDeleteBooking?: (id: string) => Promise<void>;
   onCancelBooking: (id: string) => Promise<void>;
   onCompleteBooking?: (id: string) => Promise<void>;
@@ -61,12 +73,7 @@ interface ActiveSlotDialogProps {
   onOpenChat: (booking: Booking) => void;
   onAddBooking?: (booking: Booking) => Promise<void>;
   onRescheduleBooking?: (id: string, newDate: string, newTime: string) => Promise<void>;
-  onReassignInstructor?: (
-    id: string,
-    newInstructor: Instructor,
-    newDate?: string,
-    newTime?: string
-  ) => Promise<void>;
+  onReassignInstructor?: ReassignInstructorFn;
   onCompleteBooking?: (id: string) => Promise<void>;
   onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
 }
@@ -108,11 +115,26 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   const [bookingNotes, setBookingNotes] = useState('');
   const [isSlotActionSubmitting, setIsSlotActionSubmitting] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const [insufficientFundsPrompt, setInsufficientFundsPrompt] =
+    useState<InsufficientFundsPrompt | null>(null);
   const [newMoveDate, setNewMoveDate] = useState(activeSlot.booking?.date || selectedDate);
   const [newMoveTime, setNewMoveTime] = useState(activeSlot.booking?.time || activeSlot.time);
   const [newInstructorId, setNewInstructorId] = useState(
     activeSlot.booking?.instructorId || activeSlot.instructor.id
   );
+
+  const setNewInstructorIdAndClearPrompt = (id: string) => {
+    setInsufficientFundsPrompt(null);
+    setNewInstructorId(id);
+  };
+  const setNewMoveDateAndClearPrompt = (date: string) => {
+    setInsufficientFundsPrompt(null);
+    setNewMoveDate(date);
+  };
+  const setNewMoveTimeAndClearPrompt = (time: string) => {
+    setInsufficientFundsPrompt(null);
+    setNewMoveTime(time);
+  };
 
   const canReassignInstructor = Boolean(
     activeSlot.booking && isReassignableBooking(activeSlot.booking) && onReassignInstructor
@@ -363,6 +385,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
     if (!instructorChanged && !onRescheduleBooking) return;
 
     setIsSlotActionSubmitting(true);
+    setInsufficientFundsPrompt(null);
     try {
       if (
         hasScheduleOverlap({
@@ -402,17 +425,64 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
           return;
         }
 
-        await onReassignInstructor!(
-          activeSlot.booking.id,
-          targetInstructor,
-          newMoveDate,
-          newMoveTime
-        );
+        try {
+          await onReassignInstructor!(
+            activeSlot.booking.id,
+            targetInstructor,
+            newMoveDate,
+            newMoveTime
+          );
+        } catch (error) {
+          if (error instanceof InsufficientFundsError) {
+            const client = usersList.find((user) => user.uid === activeSlot.booking!.userId);
+            const fallbackRequired =
+              Math.max(
+                0,
+                targetInstructor.pricePerHour * activeSlot.booking.durationHours -
+                  (activeSlot.booking.totalPrice ?? 0)
+              ) || 0;
+            setInsufficientFundsPrompt({
+              currentBalance:
+                typeof error.currentBalance === 'number'
+                  ? error.currentBalance
+                  : (client?.balanceUSD ?? 0),
+              required: typeof error.required === 'number' ? error.required : fallbackRequired,
+              targetInstructor,
+              date: newMoveDate,
+              time: newMoveTime,
+            });
+            setIsSlotActionSubmitting(false);
+            return;
+          }
+          throw error;
+        }
         addNotification('success', t('lessonReassigned'), t('lessonReassignedDesc'));
       } else {
         await onRescheduleBooking!(activeSlot.booking.id, newMoveDate, newMoveTime);
         addNotification('success', t('scheduleUpdated'), t('scheduleUpdatedDesc'));
       }
+      onClose();
+    } catch (err) {
+      addNotification('error', t('updateFailed'), t('moveSessionFailed'));
+    } finally {
+      setIsSlotActionSubmitting(false);
+    }
+  };
+
+  const handleApproveNegativeBalance = async () => {
+    if (!activeSlot.booking || !onReassignInstructor || !insufficientFundsPrompt) return;
+
+    setIsSlotActionSubmitting(true);
+    try {
+      await onReassignInstructor(
+        activeSlot.booking.id,
+        insufficientFundsPrompt.targetInstructor,
+        insufficientFundsPrompt.date,
+        insufficientFundsPrompt.time,
+        { allowNegativeBalance: true }
+      );
+      setInsufficientFundsPrompt(null);
+      addNotification('success', t('lessonReassigned'), t('lessonReassignedDesc'));
       onClose();
     } catch (err) {
       addNotification('error', t('updateFailed'), t('moveSessionFailed'));
@@ -458,16 +528,58 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
               onOpenChat={onOpenChat}
               onOpenLinkModal={() => setIsLinkModalOpen(true)}
             />
+            {insufficientFundsPrompt && (
+              <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                <div className="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-200">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <div className="space-y-1 font-mono">
+                    <p className="font-bold">{t('reassignInsufficientFundsTitle')}</p>
+                    <p>
+                      {t('reassignInsufficientFundsDescPrefix')} $
+                      {insufficientFundsPrompt.currentBalance.toFixed(2)}
+                      {t('reassignInsufficientFundsDescMiddle')}$
+                      {insufficientFundsPrompt.required.toFixed(2)}
+                      {t('reassignInsufficientFundsDescSuffix')}
+                    </p>
+                    <p>
+                      {t('reassignNegativeBalanceResultPrefix')}$
+                      {(
+                        insufficientFundsPrompt.currentBalance - insufficientFundsPrompt.required
+                      ).toFixed(2)}
+                      {t('reassignNegativeBalanceResultSuffix')}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    disabled={isSlotActionSubmitting}
+                    onClick={() => void handleApproveNegativeBalance()}
+                    className="flex-1 rounded-md bg-amber-600 px-3 py-2 text-xs font-mono font-bold text-white transition hover:bg-amber-700 disabled:opacity-50 cursor-pointer"
+                  >
+                    {t('reassignAllowNegativeBalance')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSlotActionSubmitting}
+                    onClick={() => setInsufficientFundsPrompt(null)}
+                    className="flex-1 rounded-md border border-[var(--border)] px-3 py-2 text-xs font-mono font-bold text-[var(--ink)] transition hover:bg-[var(--profile-bg)] disabled:opacity-50 cursor-pointer"
+                  >
+                    {t('reassignCancelMove')}
+                  </button>
+                </div>
+              </div>
+            )}
             <ActiveSlotMoveForm
               booking={activeSlot.booking}
               canReassignInstructor={canReassignInstructor}
               newInstructorId={newInstructorId}
-              setNewInstructorId={setNewInstructorId}
+              setNewInstructorId={setNewInstructorIdAndClearPrompt}
               availableInstructors={availableInstructors}
               newMoveDate={newMoveDate}
-              setNewMoveDate={setNewMoveDate}
+              setNewMoveDate={setNewMoveDateAndClearPrompt}
               newMoveTime={newMoveTime}
-              setNewMoveTime={setNewMoveTime}
+              setNewMoveTime={setNewMoveTimeAndClearPrompt}
               availableMoveTimeSlots={availableMoveTimeSlots}
               isSlotActionSubmitting={isSlotActionSubmitting}
               onCompleteBooking={onCompleteBooking}

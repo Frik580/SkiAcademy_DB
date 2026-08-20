@@ -94,7 +94,13 @@ export function useBookingActions() {
   );
 
   const handleReassignInstructor = useCallback(
-    async (id: string, newInstructor: Instructor, newDate?: string, newTime?: string) => {
+    async (
+      id: string,
+      newInstructor: Instructor,
+      newDate?: string,
+      newTime?: string,
+      options?: { allowNegativeBalance?: boolean }
+    ) => {
       const booking = bookings.find((item) => item.id === id);
       if (!booking || isCourseBooking(booking)) return;
 
@@ -102,10 +108,10 @@ export function useBookingActions() {
       const time = newTime ?? booking.time;
       const previousInstructorName = booking.instructorName;
       try {
-        await reassignInstructorService(id, newInstructor, date, time);
+        await reassignInstructorService(id, newInstructor, date, time, options);
       } catch (error) {
         if (error instanceof BookingSlotOverlapError) throw new Error(t('slotUnavailable'));
-        if (error instanceof InsufficientFundsError) throw new Error(t('insufficientFunds'));
+        if (error instanceof InsufficientFundsError) throw error;
         throw error;
       }
 

@@ -7,6 +7,7 @@ import {
 import { parseDesignTheme } from '../../../shared';
 import { DEFAULT_NOTIFICATION_RETENTION_DAYS } from '../../../domain/notifications';
 import { DEFAULT_SKILL_CONFIG } from '../../../domain/achievements';
+import { DEFAULT_STARTER_CREDIT_USD, normalizeStarterCreditUsd } from '../../../domain/wallet';
 import { logger } from '../../../shared';
 import { useSettingsStore } from '../settingsStore';
 
@@ -39,6 +40,18 @@ export const useSettingsSync = () => {
               : DEFAULT_NOTIFICATION_RETENTION_DAYS
           ),
       (error) => logger.error('Notification retention settings sync error:', error)
+    );
+    const unsubscribeStarterCredit = onSnapshot(
+      doc(db, 'settings', 'starter_credit'),
+      (snapshot) =>
+        useSettingsStore
+          .getState()
+          .setStarterCreditUsd(
+            snapshot.exists()
+              ? normalizeStarterCreditUsd(snapshot.data().amountUsd)
+              : DEFAULT_STARTER_CREDIT_USD
+          ),
+      (error) => logger.error('Starter credit settings sync error:', error)
     );
     const unsubscribeSkills = onSnapshot(
       doc(db, 'settings', 'skill_config'),
@@ -73,6 +86,7 @@ export const useSettingsSync = () => {
       unsubscribeFilters();
       unsubscribeTheme();
       unsubscribeRetention();
+      unsubscribeStarterCredit();
       unsubscribeSkills();
       unsubscribeAchievements();
     };

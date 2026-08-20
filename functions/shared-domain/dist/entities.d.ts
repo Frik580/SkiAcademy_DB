@@ -20,6 +20,7 @@ export declare const WalletLedgerTypeSchema: z.ZodEnum<{
     course_payment: "course_payment";
     refund: "refund";
     admin_adjustment: "admin_adjustment";
+    guest_payment: "guest_payment";
 }>;
 export declare const WalletCurrencySchema: z.ZodEnum<{
     USD: "USD";
@@ -166,6 +167,7 @@ export declare const WalletTransactionDocumentSchema: z.ZodObject<{
         course_payment: "course_payment";
         refund: "refund";
         admin_adjustment: "admin_adjustment";
+        guest_payment: "guest_payment";
     }>;
     subjectName: z.ZodOptional<z.ZodString>;
     bookingId: z.ZodOptional<z.ZodString>;

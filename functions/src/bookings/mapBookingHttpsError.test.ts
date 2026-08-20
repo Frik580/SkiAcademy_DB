@@ -11,8 +11,16 @@ describe('rethrowAsHttpsError', () => {
   });
 
   it('maps typed booking errors to stable codes', () => {
-    expect(() => rethrowAsHttpsError(new InsufficientFundsError(), 'Failed.')).toThrow(
-      expect.objectContaining({ code: 'failed-precondition', message: 'Insufficient funds.' })
+    expect(() => rethrowAsHttpsError(new InsufficientFundsError(25, 80), 'Failed.')).toThrow(
+      expect.objectContaining({
+        code: 'failed-precondition',
+        message: 'Insufficient funds.',
+        details: {
+          code: 'INSUFFICIENT_FUNDS',
+          currentBalance: 25,
+          required: 80,
+        },
+      })
     );
     expect(() => rethrowAsHttpsError(new BookingSlotOverlapError(), 'Failed.')).toThrow(
       expect.objectContaining({

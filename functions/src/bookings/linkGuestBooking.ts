@@ -1,8 +1,7 @@
 import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
-import { BookingRecord, resolveBookingTotalPrice } from './bookingLogic';
+import { BookingRecord } from './bookingLogic';
 import { idempotencySpecFromRequest, withOptionalIdempotency } from '../idempotency';
-import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId } from '../walletLedger';
 
 export interface LinkGuestBookingInput {
   bookingId: string;
@@ -99,38 +98,12 @@ export function linkGuestBookingHandler(db: Firestore) {
         );
       }
 
-      const lessonCost = await resolveBookingTotalPrice(transaction, db, booking);
-      const isConfirmed = booking.status === 'confirmed';
-
-      let newBalance = currentBalance;
-
-      if (isConfirmed && lessonCost > 0) {
-        if (currentBalance < lessonCost) {
-          throw new HttpsError(
-            'failed-precondition',
-            `Недостаточно средств на счету клиента для привязки этого занятия. (Баланс: $${currentBalance}, стоимость: $${lessonCost})`
-          );
-        }
-        newBalance = currentBalance - lessonCost;
-        transaction.update(targetUserRef, { balanceUSD: newBalance });
-
-        recordWalletLedgerEntryInTransaction(transaction, db, {
-          userId: targetUserId,
-          amount: -lessonCost,
-          balanceAfter: newBalance,
-          type: 'lesson_payment',
-          subjectName: booking.instructorName,
-          bookingId: booking.id,
-          entryId: walletLedgerEntryId('lesson_payment', booking.id),
-        });
-      }
-
       transaction.update(bookingRef, {
         userId: targetUserId,
         isGuest: false,
       });
 
-      const result = { newBalance };
+      const result = { newBalance: currentBalance };
       commit(result);
       return result;
     }

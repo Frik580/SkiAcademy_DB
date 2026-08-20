@@ -36,6 +36,7 @@ export const AdminRouteContainer: React.FC = () => {
   const courses = useCoursesStore((state) => state.courses);
   const filtersEnabled = useSettingsStore((state) => state.filtersEnabled);
   const notificationRetentionDays = useSettingsStore((state) => state.notificationRetentionDays);
+  const starterCreditUsd = useSettingsStore((state) => state.starterCreditUsd);
   const skillConfig = useSettingsStore((state) => state.skillConfig);
   const achievementsConfig = useSettingsStore((state) => state.achievementsConfig);
   const { translatedInstructors } = useInstructorFilters(language);
@@ -54,11 +55,13 @@ export const AdminRouteContainer: React.FC = () => {
     handleAddBooking,
     handleClearStudentBookings,
     handleClearCancelledBookings,
+    handleResetSchoolFinances,
   } = useAdminActions();
   const handleToggleFilters = useSettingsStore((state) => state.handleToggleFilters);
   const handleSetNotificationRetentionDays = useSettingsStore(
     (state) => state.handleSetNotificationRetentionDays
   );
+  const handleSetStarterCreditUsd = useSettingsStore((state) => state.handleSetStarterCreditUsd);
   const handleUpdateSkillConfig = useSettingsStore((state) => state.handleUpdateSkillConfig);
   const handleUpdateAchievementsConfig = useSettingsStore(
     (state) => state.handleUpdateAchievementsConfig
@@ -102,12 +105,15 @@ export const AdminRouteContainer: React.FC = () => {
           onToggleFilters={handleToggleFilters}
           notificationRetentionDays={notificationRetentionDays}
           onSetNotificationRetentionDays={handleSetNotificationRetentionDays}
+          starterCreditUsd={starterCreditUsd}
+          onSetStarterCreditUsd={handleSetStarterCreditUsd}
           skillConfig={skillConfig}
           onUpdateSkillConfig={handleUpdateSkillConfig}
           achievementsConfig={achievementsConfig}
           onUpdateAchievementsConfig={handleUpdateAchievementsConfig}
           onClearStudentBookings={handleClearStudentBookings}
           onClearCancelledBookings={handleClearCancelledBookings}
+          onResetSchoolFinances={handleResetSchoolFinances}
         />
       </LazyLoad>
     </AdminRoute>

@@ -1,7 +1,13 @@
 export type WalletCurrency = 'USD' | 'KZT';
 
 export type WalletLedgerType =
-  'top_up' | 'starter_credit' | 'lesson_payment' | 'course_payment' | 'refund' | 'admin_adjustment';
+  | 'top_up'
+  | 'starter_credit'
+  | 'lesson_payment'
+  | 'course_payment'
+  | 'refund'
+  | 'admin_adjustment'
+  | 'guest_payment';
 
 export interface WalletLedgerEntry {
   id: string;

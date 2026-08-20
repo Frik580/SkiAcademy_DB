@@ -25,6 +25,7 @@ exports.WalletLedgerTypeSchema = zod_1.z.enum([
     'course_payment',
     'refund',
     'admin_adjustment',
+    'guest_payment',
 ]);
 exports.WalletCurrencySchema = zod_1.z.enum(['USD', 'KZT']);
 exports.BookingDocumentSchema = zod_1.z

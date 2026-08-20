@@ -2,7 +2,15 @@ import { Firestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
 import { buildHourLockIds, isCourseBooking } from '@ski-academy/shared-domain';
 import { idempotencySpecFromRequest, withOptionalIdempotency } from '../idempotency';
-import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId } from '../walletLedger';
+import {
+  recordWalletLedgerEntryInTransaction,
+  WALLET_LEDGER_COLLECTION,
+  walletLedgerEntryId,
+} from '../walletLedger';
+import {
+  refundSchoolGuestBookingInTransaction,
+  SCHOOL_GUEST_WALLET_USER_ID,
+} from '../schoolGuestWallet';
 
 type CancelBookingInput = { bookingId: string; refundAmount?: number };
 
@@ -94,16 +102,46 @@ export function cancelBookingHandler(db: Firestore) {
       const courseRef = isCourseBooking(booking)
         ? db.collection('courses').doc(booking.courseId ?? booking.instructorId.slice('course_'.length))
         : null;
+      const lessonPaymentRef = db
+        .collection(WALLET_LEDGER_COLLECTION)
+        .doc(walletLedgerEntryId('lesson_payment', input.bookingId));
+      const coursePaymentRef = db
+        .collection(WALLET_LEDGER_COLLECTION)
+        .doc(walletLedgerEntryId('course_payment', input.bookingId));
       const bookingOwnerRef =
         refund > 0 && !isGuestOrSystem ? db.collection('users').doc(booking.userId) : null;
-      const [courseSnap, bookingOwnerSnap] = await Promise.all([
+      const [courseSnap, bookingOwnerSnap, lessonPaymentSnap, coursePaymentSnap] = await Promise.all([
         courseRef ? transaction.get(courseRef) : Promise.resolve(null),
         bookingOwnerRef
           ? booking.userId === requesterId
             ? Promise.resolve(requesterSnap)
             : transaction.get(bookingOwnerRef)
           : Promise.resolve(null),
+        transaction.get(lessonPaymentRef),
+        transaction.get(coursePaymentRef),
       ]);
+      const hasPaymentLedger = lessonPaymentSnap.exists || coursePaymentSnap.exists;
+      const paymentSnap = lessonPaymentSnap.exists
+        ? lessonPaymentSnap
+        : coursePaymentSnap.exists
+          ? coursePaymentSnap
+          : null;
+      const isSchoolGuestPayment =
+        paymentSnap?.exists === true &&
+        paymentSnap.data()?.userId === SCHOOL_GUEST_WALLET_USER_ID;
+      const isLinkedToRegisteredClient = !isGuestOrSystem;
+      const shouldRefundLinkedPending = booking.status !== 'pending' || hasPaymentLedger;
+
+      // Still a guest booking: refund settles back onto the school guest wallet.
+      // After link to a client: guest-paid charges refund to that client's wallet instead.
+      if (!isLinkedToRegisteredClient) {
+        await refundSchoolGuestBookingInTransaction(transaction, db, {
+          bookingId: input.bookingId,
+          refundAmount: refund,
+          instructorName: booking.instructorName,
+          courseId: booking.courseId,
+        });
+      }
 
       transaction.update(bookingRef, { status: 'cancelled' });
 
@@ -125,7 +163,14 @@ export function cancelBookingHandler(db: Firestore) {
         transaction.delete(db.collection('availability_slots').doc(input.bookingId));
       }
 
-      if (refund > 0 && bookingOwnerRef && bookingOwnerSnap) {
+      const shouldRefundToClient =
+        refund > 0 &&
+        shouldRefundLinkedPending &&
+        bookingOwnerRef &&
+        bookingOwnerSnap &&
+        (!isSchoolGuestPayment || isLinkedToRegisteredClient);
+
+      if (shouldRefundToClient) {
         if (!bookingOwnerSnap.exists) {
           throw new HttpsError('not-found', 'Booking owner profile does not exist.');
         }

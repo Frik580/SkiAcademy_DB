@@ -213,8 +213,6 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                   clientUsers.map((user) => {
                     const isSelected = selectedUserId === user.uid;
                     const userBalance = user.balanceUSD ?? 0;
-                    const isLowBalance =
-                      booking.status === 'confirmed' && userBalance < booking.totalPrice;
 
                     return (
                       <div
@@ -253,16 +251,9 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
 
                         <div className="flex items-center gap-3 shrink-0 font-mono text-right">
                           <div>
-                            <div
-                              className={`text-xs font-bold ${isLowBalance ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400'}`}
-                            >
+                            <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                               ${userBalance}
                             </div>
-                            {isLowBalance && (
-                              <div className="text-[9px] text-red-500 font-sans uppercase font-bold">
-                                {t('insufficientBalanceBadge') || 'Недостаточно средств'}
-                              </div>
-                            )}
                           </div>
 
                           {isSelected && (

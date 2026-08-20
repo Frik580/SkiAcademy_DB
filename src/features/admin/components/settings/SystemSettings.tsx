@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { Settings, Award, Mountain, Sliders, History, Trophy, Bell, Trash2 } from 'lucide-react';
+import {
+  Settings,
+  Award,
+  Mountain,
+  Sliders,
+  History,
+  Trophy,
+  Bell,
+  Trash2,
+  Gift,
+} from 'lucide-react';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../../domain/achievements';
 import { AchievementsConfig } from '../../../../domain/achievements';
@@ -10,6 +20,11 @@ import {
   MAX_NOTIFICATION_RETENTION_DAYS,
   MIN_NOTIFICATION_RETENTION_DAYS,
 } from '../../../../domain/notifications';
+import {
+  DEFAULT_STARTER_CREDIT_USD,
+  MAX_STARTER_CREDIT_USD,
+  MIN_STARTER_CREDIT_USD,
+} from '../../../../domain/wallet';
 import { SkillConfigManager } from '../../../../features/admin';
 import { AchievementsManager } from './AchievementsManager';
 import { ResortDataSection, ResortSliderSection } from '../resort/ResortConfigForm';
@@ -19,12 +34,15 @@ import {
   ClearStudentBookingsResult,
   ClearCancelledBookingsResult,
 } from '../../../../features/admin/clearStudentBookings';
+import { ResetSchoolFinancesResult } from '../../../../features/admin/resetSchoolFinances';
 
 interface SystemSettingsProps {
   filtersEnabled?: boolean;
   onToggleFilters?: (enabled: boolean) => Promise<void>;
   notificationRetentionDays?: number;
   onSetNotificationRetentionDays?: (days: number) => Promise<void>;
+  starterCreditUsd?: number;
+  onSetStarterCreditUsd?: (amount: number) => Promise<void>;
   skillConfig?: SkillConfig;
   achievementsConfig?: AchievementsConfig;
   onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
@@ -39,6 +57,9 @@ interface SystemSettingsProps {
   onClearCancelledBookings?: (
     onProgress?: (deleted: number) => void
   ) => Promise<ClearCancelledBookingsResult>;
+  onResetSchoolFinances?: (
+    onProgress?: (step: number) => void
+  ) => Promise<ResetSchoolFinancesResult>;
 }
 
 export const SystemSettings: React.FC<SystemSettingsProps> = ({
@@ -46,6 +67,8 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   onToggleFilters,
   notificationRetentionDays = DEFAULT_NOTIFICATION_RETENTION_DAYS,
   onSetNotificationRetentionDays,
+  starterCreditUsd = DEFAULT_STARTER_CREDIT_USD,
+  onSetStarterCreditUsd,
   skillConfig,
   achievementsConfig,
   onUpdateSkillConfig,
@@ -56,12 +79,15 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   onRequestConfirm,
   onClearStudentBookings,
   onClearCancelledBookings,
+  onResetSchoolFinances,
 }) => {
   const { t } = useLanguage();
   const [isBackfilling, setIsBackfilling] = useState(false);
   const [backfillMessage, setBackfillMessage] = useState<string | null>(null);
   const [retentionInput, setRetentionInput] = useState(String(notificationRetentionDays));
   const [isSavingRetention, setIsSavingRetention] = useState(false);
+  const [starterCreditInput, setStarterCreditInput] = useState(String(starterCreditUsd));
+  const [isSavingStarterCredit, setIsSavingStarterCredit] = useState(false);
   const [isClearingBookings, setIsClearingBookings] = useState(false);
   const [clearBookingsProgress, setClearBookingsProgress] = useState(0);
   const [clearBookingsMessage, setClearBookingsMessage] = useState<string | null>(null);
@@ -69,6 +95,10 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   const [isClearingCancelled, setIsClearingCancelled] = useState(false);
   const [clearCancelledProgress, setClearCancelledProgress] = useState(0);
   const [clearCancelledMessage, setClearCancelledMessage] = useState<string | null>(null);
+
+  const [isResettingFinances, setIsResettingFinances] = useState(false);
+  const [resetFinancesProgress, setResetFinancesProgress] = useState(0);
+  const [resetFinancesMessage, setResetFinancesMessage] = useState<string | null>(null);
 
   const studentBookingsCount = bookings.filter(
     (booking) => !booking.userId.startsWith('system_block_')
@@ -81,6 +111,10 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   React.useEffect(() => {
     setRetentionInput(String(notificationRetentionDays));
   }, [notificationRetentionDays]);
+
+  React.useEffect(() => {
+    setStarterCreditInput(String(starterCreditUsd));
+  }, [starterCreditUsd]);
 
   const handleSaveRetention = async () => {
     if (!onSetNotificationRetentionDays || isSavingRetention) return;
@@ -100,6 +134,27 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
       await onSetNotificationRetentionDays(parsed);
     } finally {
       setIsSavingRetention(false);
+    }
+  };
+
+  const handleSaveStarterCredit = async () => {
+    if (!onSetStarterCreditUsd || isSavingStarterCredit) return;
+
+    const parsed = Number(starterCreditInput);
+    if (
+      !Number.isFinite(parsed) ||
+      parsed < MIN_STARTER_CREDIT_USD ||
+      parsed > MAX_STARTER_CREDIT_USD
+    ) {
+      setStarterCreditInput(String(starterCreditUsd));
+      return;
+    }
+
+    setIsSavingStarterCredit(true);
+    try {
+      await onSetStarterCreditUsd(parsed);
+    } finally {
+      setIsSavingStarterCredit(false);
     }
   };
 
@@ -145,6 +200,32 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
     });
   };
 
+  const handleResetSchoolFinancesClick = () => {
+    if (!onRequestConfirm || !onResetSchoolFinances || isResettingFinances) return;
+
+    onRequestConfirm(
+      t('resetSchoolFinancesConfirm').replace('{amount}', String(starterCreditUsd)),
+      async () => {
+        setIsResettingFinances(true);
+        setResetFinancesMessage(null);
+        setResetFinancesProgress(0);
+        try {
+          const result = await onResetSchoolFinances(setResetFinancesProgress);
+          setResetFinancesMessage(
+            t('resetSchoolFinancesDone')
+              .replace('{users}', String(result.usersReset))
+              .replace('{ledger}', String(result.ledgerDeleted))
+              .replace('{credits}', String(result.starterCreditsWritten))
+          );
+        } catch {
+          setResetFinancesMessage(t('updateFailed'));
+        } finally {
+          setIsResettingFinances(false);
+        }
+      }
+    );
+  };
+
   const handleBackfillHistory = async () => {
     if (!adminUid || isBackfilling) return;
     setIsBackfilling(true);
@@ -161,7 +242,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
 
   return (
     <div className="space-y-6 animate-fade-in transition-colors duration-300 w-full min-w-0 overflow-hidden">
-      {/* Top Header Card for System Settings */}
       <div className="border border-[var(--border)] p-5 bg-black/5 dark:bg-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h3 className="font-serif text-xl font-light text-[var(--ink)] flex items-center gap-2">
@@ -232,7 +312,57 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         </div>
       </AdminCollapsibleSection>
 
-      {/* 1. Таблица начисления рейтинга клиентов (система уровней) */}
+      <AdminCollapsibleSection
+        id="starter_credit"
+        title={t('starterCreditSettingTitle')}
+        subtitle={t('starterCreditSettingSub')}
+        icon={Gift}
+      >
+        <div className="space-y-3 max-w-md">
+          <div className="space-y-1.5 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
+            <label
+              htmlFor="starter-credit-usd"
+              className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold"
+            >
+              {t('starterCreditSettingLabel')}
+            </label>
+            <p className="text-[10px] text-[var(--ink-dim)] leading-relaxed">
+              {t('starterCreditSettingDesc')}
+            </p>
+            <div className="flex items-center gap-3 pt-1">
+              <span className="text-xs font-mono text-[var(--ink-dim)]">$</span>
+              <input
+                id="starter-credit-usd"
+                type="number"
+                min={MIN_STARTER_CREDIT_USD}
+                max={MAX_STARTER_CREDIT_USD}
+                step={1}
+                value={starterCreditInput}
+                onChange={(e) => setStarterCreditInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void handleSaveStarterCredit();
+                  }
+                }}
+                className="w-28 bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+              />
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+                USD
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleSaveStarterCredit()}
+            disabled={isSavingStarterCredit || !onSetStarterCreditUsd}
+            className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
+          >
+            {isSavingStarterCredit ? t('saving') : t('saveChanges')}
+          </button>
+        </div>
+      </AdminCollapsibleSection>
+
       <AdminCollapsibleSection
         id="skill_matrix"
         title={
@@ -267,7 +397,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         />
       </AdminCollapsibleSection>
 
-      {/* 2. Данные курорта и геолокация погоды */}
       <AdminCollapsibleSection
         id="resort_data"
         title={t('resortDetailsTitle') || 'Данные курорта и геолокация погоды'}
@@ -277,7 +406,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         <ResortDataSection />
       </AdminCollapsibleSection>
 
-      {/* 3. Настройка рекламного баннера (Слайдер) */}
       <AdminCollapsibleSection
         id="resort_slider"
         title={t('heroSliderTitle') || 'Настройка рекламного баннера (Слайдер)'}
@@ -296,7 +424,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         icon={Trash2}
       >
         <div className="space-y-6 max-w-2xl">
-          {/* Sub-block 1: Clear cancelled bookings only */}
           <div className="space-y-3 border-b border-[var(--border)] pb-5">
             <h4 className="text-xs font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
               {t('clearCancelledBookingsTitle')}
@@ -327,8 +454,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             )}
           </div>
 
-          {/* Sub-block 2: Clear ALL student bookings */}
-          <div className="space-y-3">
+          <div className="space-y-3 border-b border-[var(--border)] pb-5">
             <h4 className="text-xs font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
               {t('clearStudentBookingsTitle')}
             </h4>
@@ -352,6 +478,28 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             </button>
             {clearBookingsMessage && (
               <p className="text-xs text-[var(--ink-dim)] font-mono">{clearBookingsMessage}</p>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
+              {t('resetSchoolFinancesTitle')}
+            </h4>
+            <p className="text-[10px] text-[var(--ink-dim)] leading-relaxed font-mono">
+              {t('resetSchoolFinancesDesc').replace('{amount}', String(starterCreditUsd))}
+            </p>
+            <button
+              type="button"
+              onClick={handleResetSchoolFinancesClick}
+              disabled={!onResetSchoolFinances || isResettingFinances}
+              className="py-2 px-4 border border-rose-900/40 hover:border-rose-500 text-rose-500 hover:bg-rose-950/10 rounded-none text-xs font-mono uppercase tracking-wider transition cursor-pointer disabled:opacity-50"
+            >
+              {isResettingFinances
+                ? t('resetSchoolFinancesRunning').replace('{n}', String(resetFinancesProgress))
+                : t('resetSchoolFinancesRun')}
+            </button>
+            {resetFinancesMessage && (
+              <p className="text-xs text-[var(--ink-dim)] font-mono">{resetFinancesMessage}</p>
             )}
           </div>
         </div>

@@ -17,7 +17,12 @@ import type {
   LessonDifficulty,
 } from '@ski-academy/shared-domain';
 import { withOptionalIdempotency, type IdempotencySpec } from '../idempotency';
-import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId } from '../walletLedger';
+import {
+  recordWalletLedgerEntryInTransaction,
+  WALLET_LEDGER_COLLECTION,
+  walletLedgerEntryId,
+} from '../walletLedger';
+import { settleSchoolGuestBookingInTransaction } from '../schoolGuestWallet';
 
 export type { IdempotencySpec };
 
@@ -64,7 +69,10 @@ export interface BookingPaymentResult {
 }
 
 export class InsufficientFundsError extends Error {
-  constructor() {
+  constructor(
+    readonly currentBalance?: number,
+    readonly required?: number
+  ) {
     super('Insufficient funds');
     this.name = 'InsufficientFundsError';
   }
@@ -196,6 +204,65 @@ function isWalletSubject(booking: BookingRecord): boolean {
   );
 }
 
+function bookingPaymentLedgerRefs(db: Firestore, bookingId: string) {
+  return {
+    lesson: db.collection(WALLET_LEDGER_COLLECTION).doc(walletLedgerEntryId('lesson_payment', bookingId)),
+    course: db.collection(WALLET_LEDGER_COLLECTION).doc(walletLedgerEntryId('course_payment', bookingId)),
+  };
+}
+
+export async function chargeWalletSubjectIfUnpaid(
+  transaction: Transaction,
+  db: Firestore,
+  booking: BookingRecord
+): Promise<{ newBalance: number; charged: boolean }> {
+  const userRef = db.collection('users').doc(booking.userId);
+  const paymentLedgerRefs = bookingPaymentLedgerRefs(db, booking.id);
+
+  const [userSnap, lessonPaymentSnap, coursePaymentSnap] = await Promise.all([
+    isWalletSubject(booking) ? transaction.get(userRef) : Promise.resolve(null),
+    transaction.get(paymentLedgerRefs.lesson),
+    transaction.get(paymentLedgerRefs.course),
+  ]);
+
+  if (!isWalletSubject(booking) || !userSnap) {
+    return { newBalance: 0, charged: false };
+  }
+  if (!userSnap.exists) {
+    throw new Error('User profile does not exist.');
+  }
+
+  const currentBalance =
+    typeof userSnap.data()?.balanceUSD === 'number' ? userSnap.data()?.balanceUSD : 0;
+  if (lessonPaymentSnap.exists || coursePaymentSnap.exists) {
+    return { newBalance: currentBalance, charged: false };
+  }
+
+  const totalPrice = await resolveBookingTotalPrice(transaction, db, booking);
+  if (totalPrice <= 0) {
+    return { newBalance: currentBalance, charged: false };
+  }
+  if (currentBalance < totalPrice) {
+    throw new InsufficientFundsError(currentBalance, totalPrice);
+  }
+
+  const newBalance = currentBalance - totalPrice;
+  const isCourse = isCourseBooking(booking);
+  const ledgerType = isCourse ? 'course_payment' : 'lesson_payment';
+  transaction.update(userRef, { balanceUSD: newBalance });
+  recordWalletLedgerEntryInTransaction(transaction, db, {
+    userId: booking.userId,
+    amount: -totalPrice,
+    balanceAfter: newBalance,
+    type: ledgerType,
+    subjectName: booking.instructorName,
+    bookingId: booking.id,
+    courseId: booking.courseId,
+    entryId: walletLedgerEntryId(ledgerType, booking.id),
+  });
+  return { newBalance, charged: true };
+}
+
 function isActiveCourseEnrollment(booking: BookingRecord): boolean {
   return (
     isCourseBooking(booking) &&
@@ -268,7 +335,7 @@ export async function createBookingWithPayment(
     const totalPrice = await resolveBookingTotalPrice(transaction, db, booking);
     const bookingToWrite: BookingRecord = { ...booking, totalPrice };
 
-    if (currentBalance < totalPrice) throw new InsufficientFundsError();
+    if (currentBalance < totalPrice) throw new InsufficientFundsError(currentBalance, totalPrice);
 
     await assertNoSlotOverlap(transaction, db, bookingToWrite, existingSlotDocs, booking.id);
     writeBookingWithAvailability(transaction, db, bookingToWrite);
@@ -365,6 +432,8 @@ export type BookingScheduleUpdates = {
   instructorId?: string;
   instructorName?: string;
   instructorAvatar?: string;
+  /** Admin-only: allow wallet balance to go negative when the price increases. */
+  allowNegativeBalance?: boolean;
 };
 
 export async function rescheduleBookingRecord(
@@ -461,8 +530,12 @@ export async function rescheduleBookingRecord(
         }
         const ownerData = ownerSnap.data();
         currentBalance = typeof ownerData?.balanceUSD === 'number' ? ownerData.balanceUSD : 0;
-        if (priceDelta > 0 && currentBalance < priceDelta) {
-          throw new InsufficientFundsError();
+        if (
+          priceDelta > 0 &&
+          currentBalance < priceDelta &&
+          !updates.allowNegativeBalance
+        ) {
+          throw new InsufficientFundsError(currentBalance, priceDelta);
         }
       }
     }
@@ -571,6 +644,10 @@ export async function finalizeBookingCompletionRecord(
     }
 
     // Writes.
+    await settleSchoolGuestBookingInTransaction(transaction, db, {
+      ...booking,
+      id: bookingId,
+    });
     transaction.update(bookingRef, { status: 'completed' });
 
     if (!isCourse) {
@@ -609,6 +686,11 @@ export async function confirmBookingRecord(
 
     const nextBooking: BookingRecord = { ...booking, status: 'confirmed' };
     if (booking.status !== 'confirmed') {
+      await chargeWalletSubjectIfUnpaid(transaction, db, booking);
+      await settleSchoolGuestBookingInTransaction(transaction, db, {
+        ...booking,
+        id: bookingId,
+      });
       transaction.update(bookingRef, { status: 'confirmed' });
     }
 

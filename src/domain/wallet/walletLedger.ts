@@ -257,23 +257,24 @@ export function buildSyntheticWalletOperations(
   return synthetic;
 }
 
-export function ledgerEntryToView(entry: WalletLedgerEntry): WalletOperationView {
-  const labelKeyMap: Record<WalletLedgerType, TranslationKey> = {
-    top_up: 'walletOpTopUp',
-    starter_credit: 'walletOpStarterCredit',
-    lesson_payment: 'walletOpLessonPayment',
-    course_payment: 'walletOpCoursePayment',
-    refund: 'walletOpRefund',
-    admin_adjustment: 'walletOpAdminAdjustment',
-  };
+export const WALLET_LEDGER_LABEL_KEYS: Record<WalletLedgerType, TranslationKey> = {
+  top_up: 'walletOpTopUp',
+  starter_credit: 'walletOpStarterCredit',
+  lesson_payment: 'walletOpLessonPayment',
+  course_payment: 'walletOpCoursePayment',
+  refund: 'walletOpRefund',
+  admin_adjustment: 'walletOpAdminAdjustment',
+  guest_payment: 'cashFlowOpGuestPayment',
+};
 
+export function ledgerEntryToView(entry: WalletLedgerEntry): WalletOperationView {
   return {
     id: entry.id,
     amount: entry.amount,
     balanceAfter: entry.balanceAfter,
     currency: entry.currency ?? 'USD',
     createdAt: entry.createdAt,
-    labelKey: labelKeyMap[entry.type],
+    labelKey: WALLET_LEDGER_LABEL_KEYS[entry.type],
     subjectName: entry.subjectName,
     bookingId: entry.bookingId,
     source: 'ledger',

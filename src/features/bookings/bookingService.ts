@@ -82,7 +82,8 @@ export async function reassignInstructorService(
   id: string,
   newInstructor: Instructor,
   newDate?: string,
-  newTime?: string
+  newTime?: string,
+  options?: { allowNegativeBalance?: boolean }
 ): Promise<void> {
   try {
     await updateBookingScheduleViaCallable(id, {
@@ -91,6 +92,7 @@ export async function reassignInstructorService(
       instructorAvatar: newInstructor.avatarUrl,
       date: newDate,
       time: newTime,
+      allowNegativeBalance: options?.allowNegativeBalance,
     });
   } catch (error) {
     if (!(error instanceof BookingSlotOverlapError) && !(error instanceof InsufficientFundsError)) {

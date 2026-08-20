@@ -155,8 +155,28 @@ describe('Booking Callables Client Wrappers', () => {
           date: '2026-12-11',
           time: '14:00',
           instructorId: undefined,
+          allowNegativeBalance: undefined,
         },
-        expect.any(Object)
+        expect.objectContaining({ idempotencyKey: 'resched_b-100_2026-12-11_14:00__bal' })
+      );
+    });
+
+    it('passes allowNegativeBalance when approving overdraft', async () => {
+      vi.mocked(callFunction).mockResolvedValueOnce({ success: true, bookingId: 'b-100' });
+
+      await updateBookingScheduleViaCallable('b-100', {
+        instructorId: 'inst-2',
+        allowNegativeBalance: true,
+      });
+
+      expect(callFunction).toHaveBeenCalledWith(
+        'updateBookingSchedule',
+        expect.objectContaining({
+          bookingId: 'b-100',
+          instructorId: 'inst-2',
+          allowNegativeBalance: true,
+        }),
+        expect.objectContaining({ idempotencyKey: 'resched_b-100___inst-2_neg' })
       );
     });
 
@@ -175,11 +195,16 @@ describe('Booking Callables Client Wrappers', () => {
       vi.mocked(callFunction).mockRejectedValueOnce({
         code: 'functions/failed-precondition',
         message: 'Insufficient funds to reassign this booking.',
+        details: { code: 'INSUFFICIENT_FUNDS', currentBalance: 10, required: 40 },
       });
 
       await expect(
         updateBookingScheduleViaCallable('b-100', { instructorId: 'inst-2' })
-      ).rejects.toThrow(InsufficientFundsError);
+      ).rejects.toMatchObject({
+        name: 'InsufficientFundsError',
+        currentBalance: 10,
+        required: 40,
+      });
     });
   });
 

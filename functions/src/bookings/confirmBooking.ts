@@ -72,7 +72,10 @@ export function confirmBookingHandler(db: Firestore) {
         idempotencySpecFromRequest(request.data, `confirmBooking_${request.auth.uid}`, { bookingId })
       );
     } catch (error) {
-      rethrowAsHttpsError(error, 'Failed to confirm booking.');
+      rethrowAsHttpsError(error, 'Failed to confirm booking.', {
+        insufficientFundsMessage:
+          'Недостаточно средств на счету клиента для подтверждения этого занятия.',
+      });
     }
   };
 }

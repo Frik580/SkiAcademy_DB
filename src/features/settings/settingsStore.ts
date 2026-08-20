@@ -3,6 +3,7 @@ import { AchievementsConfig, DEFAULT_ACHIEVEMENTS_CONFIG } from '../../domain/ac
 import { DesignTheme } from '../../shared';
 import { DEFAULT_NOTIFICATION_RETENTION_DAYS } from '../../domain/notifications';
 import { DEFAULT_SKILL_CONFIG, SkillConfig } from '../../domain/achievements';
+import { DEFAULT_STARTER_CREDIT_USD } from '../../domain/wallet';
 import { notify, t } from '../../store/storeContext';
 import {
   saveAchievementsConfig,
@@ -10,24 +11,28 @@ import {
   saveFiltersEnabled,
   saveNotificationRetentionDays,
   saveSkillConfig,
+  saveStarterCreditUsd,
 } from './settingsService';
 
 export interface SettingsState {
   filtersEnabled: boolean;
   designTheme: DesignTheme;
   notificationRetentionDays: number;
+  starterCreditUsd: number;
   skillConfig: SkillConfig;
   achievementsConfig: AchievementsConfig;
 
   setFiltersEnabled: (enabled: boolean) => void;
   setDesignTheme: (theme: DesignTheme) => void;
   setNotificationRetentionDays: (days: number) => void;
+  setStarterCreditUsd: (amount: number) => void;
   setSkillConfig: (config: SkillConfig) => void;
   setAchievementsConfig: (config: AchievementsConfig) => void;
 
   handleToggleFilters: (enabled: boolean) => Promise<void>;
   handleSetDesignTheme: (theme: DesignTheme) => Promise<void>;
   handleSetNotificationRetentionDays: (days: number) => Promise<void>;
+  handleSetStarterCreditUsd: (amount: number) => Promise<void>;
   handleUpdateSkillConfig: (config: SkillConfig) => Promise<void>;
   handleUpdateAchievementsConfig: (config: AchievementsConfig) => Promise<void>;
 }
@@ -36,12 +41,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   filtersEnabled: true,
   designTheme: 'air',
   notificationRetentionDays: DEFAULT_NOTIFICATION_RETENTION_DAYS,
+  starterCreditUsd: DEFAULT_STARTER_CREDIT_USD,
   skillConfig: DEFAULT_SKILL_CONFIG,
   achievementsConfig: DEFAULT_ACHIEVEMENTS_CONFIG,
 
   setFiltersEnabled: (filtersEnabled) => set({ filtersEnabled }),
   setDesignTheme: (designTheme) => set({ designTheme }),
   setNotificationRetentionDays: (notificationRetentionDays) => set({ notificationRetentionDays }),
+  setStarterCreditUsd: (starterCreditUsd) => set({ starterCreditUsd }),
   setSkillConfig: (skillConfig) => set({ skillConfig }),
   setAchievementsConfig: (achievementsConfig) => set({ achievementsConfig }),
 
@@ -58,6 +65,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     const notificationRetentionDays = await saveNotificationRetentionDays(days);
     set({ notificationRetentionDays });
     notify('info', t('notificationRetentionUpdated'), t('notificationRetentionUpdatedDesc'));
+  },
+  handleSetStarterCreditUsd: async (amount) => {
+    const starterCreditUsd = await saveStarterCreditUsd(amount);
+    set({ starterCreditUsd });
+    notify('info', t('starterCreditUpdated'), t('starterCreditUpdatedDesc'));
   },
   handleUpdateSkillConfig: async (skillConfig) => {
     await saveSkillConfig(skillConfig);

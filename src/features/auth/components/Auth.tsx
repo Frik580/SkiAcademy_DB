@@ -13,6 +13,7 @@ import {
   signInWithGoogleService,
   signUpWithEmailService,
 } from '../../../features/auth/authService';
+import { useSettingsStore } from '../../../features/settings/settingsStore';
 
 interface AuthProps {
   onSuccess: (profile: UserProfile) => void;
@@ -81,7 +82,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
             displayName,
             role: 'user',
             avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(avatarSeed)}`,
-            balanceUSD: 250, // Starter credits
+            balanceUSD: useSettingsStore.getState().starterCreditUsd,
             isClientActive: true,
             level: 1,
           };
@@ -138,7 +139,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
               avatarUrl:
                 user.photoURL ||
                 `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
-              balanceUSD: 250,
+              balanceUSD: useSettingsStore.getState().starterCreditUsd,
               isClientActive: true,
               level: 1,
             };
@@ -231,7 +232,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
             avatarUrl:
               user.photoURL ||
               `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
-            balanceUSD: 250,
+            balanceUSD: useSettingsStore.getState().starterCreditUsd,
             isClientActive: true,
             level: 1,
           };

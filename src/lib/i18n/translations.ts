@@ -51,7 +51,7 @@ export const translations = {
     starterCreditsDesc: 'Every new sign-up instantly receives $250 mock balance to explore.',
     seamlessDash: 'Seamless Dashboard',
     seamlessDashDesc:
-      'Book, reschedule, cancel, or leave rating reviews directly from your cabinet.',
+      'Book, cancel, or leave rating reviews directly from your cabinet.',
     authDisplayNameRequired: 'Display name is required',
     authNameCharactersOnly:
       'Name must contain only English or Russian letters, spaces, and hyphens.',
@@ -1694,7 +1694,7 @@ export const translations = {
       'Каждый новый зарегистрированный пользователь мгновенно получает $250 для ознакомления.',
     seamlessDash: 'Удобная панель управления',
     seamlessDashDesc:
-      'Бронируйте, переносите, отменяйте занятия или оставляйте отзывы прямо из личного кабинета.',
+      'Бронируйте, отменяйте занятия или оставляйте отзывы прямо из личного кабинета.',
     authDisplayNameRequired: 'Имя пользователя обязательно',
     authNameCharactersOnly:
       'Имя должно содержать только английские или русские буквы, пробелы и дефисы.',

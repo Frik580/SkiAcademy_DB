@@ -43,6 +43,6 @@ export const FALLBACK_SLIDES: CustomHeroSlide[] = [
       'Learn to corner on edges without slipping, with complete speed control and enjoyment from every descent. Private lessons for all skill levels.',
     line3Ru:
       'Научитесь проходить повороты на кантах без срыва, с полным контролем скорости и удовольствием от каждого спуска. Индивидуальные занятия для любого уровня подготовки.',
-    backgroundImage: 'https://storage.yandexcloud.net/carve/images/about.jpg',
+    backgroundImage: 'about',
   },
 ];

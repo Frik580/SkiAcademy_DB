@@ -93,7 +93,6 @@ export interface StudentCabinetShellProps {
   dismissedReviewIds?: string[];
   unreviewedCompletedBookings: Booking[];
   onDismissReview?: (id: string) => void;
-  onReschedule: (booking: Booking) => void;
   onCancel: (booking: Booking) => void;
   onChat: (booking: Booking) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
@@ -200,7 +199,6 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
 
   const panelProps = {
     ...ctx,
-    onReschedule: props.onReschedule,
     onCancel: props.onCancel,
     onChat: props.onChat,
     onWriteReview: props.onWriteReview,

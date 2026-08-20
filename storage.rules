@@ -135,6 +135,11 @@ service firebase.storage {
       allow write: if isBookingParticipant(bookingId) && isValidChatMediaUpload();
     }
 
+    match /image-cache/{fileName} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

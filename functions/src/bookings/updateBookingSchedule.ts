@@ -85,27 +85,12 @@ export function updateBookingScheduleHandler(db: Firestore) {
     const booking = bookingSnap.data() as BookingRecord;
     const callerProfile = callerSnap.data();
     const isAdmin = isAdminProfile(callerProfile);
-    const isOwner = booking.userId === request.auth.uid;
 
-    if (!isAdmin && !isOwner) {
+    // Clients cannot reschedule; only admins may update booking schedules.
+    if (!isAdmin) {
       throw new HttpsError(
         'permission-denied',
-        'You are not authorized to update this booking schedule.'
-      );
-    }
-
-    // Only admins can reassign instructors
-    if (!isAdmin && input.instructorId && input.instructorId !== booking.instructorId) {
-      throw new HttpsError(
-        'permission-denied',
-        'Only administrators can reassign instructors.'
-      );
-    }
-
-    if (input.allowNegativeBalance && !isAdmin) {
-      throw new HttpsError(
-        'permission-denied',
-        'Only administrators can approve a negative client balance.'
+        'Only administrators can update booking schedules.'
       );
     }
 

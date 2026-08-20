@@ -70,6 +70,36 @@ describe('Cloud Functions Booking Handlers - Input & Auth Validation', () => {
     );
   });
 
+  it('updateBookingSchedule rejects the booking owner', async () => {
+    const dbWithOwner = {
+      collection: (name: string) => ({
+        doc: () => ({
+          get: async () =>
+            name === 'bookings'
+              ? {
+                  exists: true,
+                  data: () => ({
+                    id: 'b-1',
+                    userId: 'student-1',
+                    instructorId: 'inst-1',
+                  }),
+                }
+              : { exists: true, data: () => ({ role: 'user' }) },
+        }),
+      }),
+    } as unknown as Firestore;
+
+    const handler = updateBookingScheduleHandler(dbWithOwner);
+    const req = {
+      auth: { uid: 'student-1' },
+      data: { bookingId: 'b-1', date: '2026-12-11', time: '14:00' },
+    } as unknown as CallableRequest<unknown>;
+
+    await expect(handler(req)).rejects.toThrow(
+      expect.objectContaining({ code: 'permission-denied' })
+    );
+  });
+
   it('linkGuestBooking rejects unauthenticated requests', async () => {
     const handler = linkGuestBookingHandler(mockDb);
     const req = {

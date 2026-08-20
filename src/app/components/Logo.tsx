@@ -1,6 +1,4 @@
 import React from 'react';
-// import logoLight from '../assets/images/logo6.png';
-// import logoDark from '../assets/images/logo4.png';
 import logoW from '../../assets/images/logo_w.png';
 import sW from '../../assets/images/s_logo_w.png';
 import logoB from '../../assets/images/logo_b.png';
@@ -13,9 +11,8 @@ interface LogoProps {
 }
 
 /**
- * Dual-rendered optimized Logo component.
- * Preloads both light and dark logo images into browser cache/DOM
- * so theme switching happens instantly with zero load latency or flickering.
+ * Renders the active theme logo eagerly; inactive pair loads lazily so
+ * theme switch still works without competing with LCP on first paint.
  */
 export const Logo: React.FC<LogoProps> = ({
   theme,
@@ -28,7 +25,6 @@ export const Logo: React.FC<LogoProps> = ({
     <span
       className={`relative inline-flex gap-3 items-center justify-center shrink-0 ${className}`}
     >
-      {/* LIGHT THEME */}
       <span
         className={`inline-flex items-center gap-3 transition-opacity duration-150 ${
           isLight ? 'opacity-80' : 'opacity-0 absolute pointer-events-none'
@@ -37,7 +33,9 @@ export const Logo: React.FC<LogoProps> = ({
         <img
           src={sW}
           alt=""
-          loading="eager"
+          loading={isLight ? 'eager' : 'lazy'}
+          decoding="async"
+          fetchPriority="low"
           referrerPolicy="no-referrer"
           className="max-h-9 w-auto object-contain"
         />
@@ -45,13 +43,14 @@ export const Logo: React.FC<LogoProps> = ({
         <img
           src={logoW}
           alt={alt}
-          loading="eager"
+          loading={isLight ? 'eager' : 'lazy'}
+          decoding="async"
+          fetchPriority="low"
           referrerPolicy="no-referrer"
           className="max-h-8 w-auto object-contain"
         />
       </span>
 
-      {/* DARK THEME */}
       <span
         className={`inline-flex items-center gap-3 transition-opacity duration-150 ${
           !isLight ? 'opacity-100' : 'opacity-0 absolute pointer-events-none'
@@ -60,7 +59,9 @@ export const Logo: React.FC<LogoProps> = ({
         <img
           src={sB}
           alt=""
-          loading="eager"
+          loading={!isLight ? 'eager' : 'lazy'}
+          decoding="async"
+          fetchPriority="low"
           referrerPolicy="no-referrer"
           className="max-h-9 w-auto object-contain"
         />
@@ -68,7 +69,9 @@ export const Logo: React.FC<LogoProps> = ({
         <img
           src={logoB}
           alt={alt}
-          loading="eager"
+          loading={!isLight ? 'eager' : 'lazy'}
+          decoding="async"
+          fetchPriority="low"
           referrerPolicy="no-referrer"
           className="max-h-8 w-auto object-contain"
         />

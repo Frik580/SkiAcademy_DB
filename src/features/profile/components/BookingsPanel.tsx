@@ -14,7 +14,6 @@ export interface BookingsPanelProps {
   unreviewedCompletedBookings?: Booking[];
   showWorkoutCalendar?: boolean;
   onDismissReview?: (id: string) => void;
-  onReschedule: (booking: Booking) => void;
   onCancel: (booking: Booking) => void;
   onChat: (booking: Booking) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
@@ -33,7 +32,6 @@ export const BookingsPanel: React.FC<BookingsPanelProps> = ({
   unreviewedCompletedBookings = [],
   showWorkoutCalendar = true,
   onDismissReview,
-  onReschedule,
   onCancel,
   onChat,
   hasUnreadChat,
@@ -63,7 +61,6 @@ export const BookingsPanel: React.FC<BookingsPanelProps> = ({
         onDismissReview={onDismissReview}
         onWriteReview={onWriteReview}
         onOpenLesson={onOpenLesson}
-        onReschedule={onReschedule}
         onCancel={onCancel}
         onChat={onChat}
         hasUnreadChat={hasUnreadChat}

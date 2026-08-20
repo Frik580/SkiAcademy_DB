@@ -18,7 +18,6 @@ import { useReviewFlow } from './ReviewFlow';
 import type { StudentCabinetResortSnapshot } from '../../student-cabinet/components/student/StudentHomeBottomSections';
 import type { TodayTaskRef } from '../../student-cabinet/todayChecklist';
 import { PersonalCabinetModals } from '../../student-cabinet/components/PersonalCabinetModals';
-import { useRescheduleBooking } from '../../student-cabinet/components/useRescheduleBooking';
 import { useBookingChatUnread } from '../../../features/student-cabinet/useBookingChatUnread';
 
 export interface PersonalCabinetProps {
@@ -27,7 +26,6 @@ export interface PersonalCabinetProps {
   reviews: Review[];
   dismissedReviewIds?: string[];
   onDismissReview?: (bookingId: string) => void;
-  onReschedule: (id: string, newDate: string, newTime: string) => Promise<void>;
   onCancel: (id: string, reason?: string) => Promise<void>;
   onAddReview: (
     newReview: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>
@@ -66,7 +64,6 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   reviews,
   dismissedReviewIds = [],
   onDismissReview,
-  onReschedule,
   onCancel,
   onAddReview,
   onToggleRecommendation,
@@ -96,7 +93,6 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   const { language, t } = useLanguage();
 
   const bookings = useTranslatedBookings(rawBookings, courses, language);
-  const reschedule = useRescheduleBooking({ bookings, courses, onReschedule });
   const reviewFlow = useReviewFlow({ onAddReview });
 
   const [selectedChatBookingId, setSelectedChatBookingId] = useState<string | null>(null);
@@ -218,7 +214,6 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             achievementsConfig={achievementsConfig}
             unreviewedCompletedBookings={unreviewedCompletedBookings}
             onDismissReview={onDismissReview}
-            onReschedule={reschedule.openReschedule}
             onCancel={handleCancelClick}
             onChat={(booking) => {
               markBookingChatRead(booking);
@@ -259,19 +254,6 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             instructors={instructors}
             usersList={usersList}
             reviews={reviews}
-            reschedule={{
-              isOpen: !!reschedule.rescheduleId,
-              onClose: reschedule.closeReschedule,
-              newDate: reschedule.newDate,
-              setNewDate: reschedule.setNewDate,
-              newTime: reschedule.newTime,
-              setNewTime: reschedule.setNewTime,
-              availableSlots: reschedule.availableSlots,
-              isLoadingSlots: reschedule.isLoadingInstructorBookings,
-              isSubmitting: reschedule.isRescheduling,
-              minDate: reschedule.minBookingDateStr,
-              onSubmit: reschedule.handleRescheduleSubmit,
-            }}
             lessonDetailsId={lessonDetailsId}
             onCloseLessonDetails={() => setLessonDetailsId(null)}
             onWriteReviewFromLesson={(booking) => {

@@ -16,6 +16,7 @@ import {
   hasPendingRecommendations,
 } from '../../../features/student-cabinet/lessonRecommendations';
 import { RecommendationIndicator } from '../../../features/profile';
+import { optimizedImageUrl } from '../../../lib/optimizedImageUrl';
 
 const formatCourseCardDate = (datePart: string) =>
   datePart
@@ -88,12 +89,17 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
           </div>
         )}
         <img
-          src={
+          src={optimizedImageUrl(
             course.bgImageUrl ||
-            'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800'
-          }
+              'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800',
+            960
+          )}
           referrerPolicy="no-referrer"
           alt={course.title}
+          loading="lazy"
+          decoding="async"
+          fetchPriority="low"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 523px"
           className="w-full h-full object-cover transition-all duration-500 scale-100 group-hover:scale-105"
         />
       </div>

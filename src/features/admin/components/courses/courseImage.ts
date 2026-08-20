@@ -45,8 +45,8 @@ export function optimizeCourseImage(file: File): Promise<Blob> {
               reject(new Error('Failed to create blob from canvas'));
             }
           },
-          'image/jpeg',
-          0.85 // Slightly higher quality for backgrounds
+          'image/webp',
+          0.82
         );
       };
       img.onerror = () => reject(new Error('Failed to load image source'));

@@ -119,7 +119,6 @@ export type StudentCabinetPanelInput = Pick<
   | 'onToggleTodayTaskComplete'
   | 'onAddCustomTodayTask'
 > & {
-  onReschedule: (booking: StudentBooking) => void;
   onCancel: (booking: StudentBooking) => void;
   onChat: (booking: StudentBooking) => void;
   hasUnreadChat?: (bookingId: string) => boolean;

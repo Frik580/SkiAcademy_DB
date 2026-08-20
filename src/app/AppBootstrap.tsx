@@ -6,16 +6,18 @@ import { useStoreSync } from '../store/useStoreSync';
 import { applyDesignThemeToDOM } from '../shared';
 import { registerFirestoreErrorListener } from '../infrastructure/firebase';
 import { logger } from '../shared';
-import { useAuthStore } from '../features/auth';
 import { useSettingsStore } from '../features/settings';
 import { useUiStore } from '../features/shell';
 import { useAchievementsSync } from '../features/profile';
-import { AppInitSkeleton } from '../ui/Skeleton';
 
 export interface AppBootstrapProps {
   children: React.ReactNode;
 }
 
+/**
+ * Bootstraps stores and theme without blocking the public shell on auth.
+ * Protected routes wait on authLoading inside RouteGate so LCP can paint.
+ */
 export const AppBootstrap: React.FC<AppBootstrapProps> = ({ children }) => {
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
@@ -34,7 +36,6 @@ export const AppBootstrap: React.FC<AppBootstrapProps> = ({ children }) => {
   useStoreSync();
   useAchievementsSync();
 
-  const authLoading = useAuthStore((s) => s.authLoading);
   const designTheme = useSettingsStore((s) => s.designTheme);
   const setDbStatusWarning = useUiStore((s) => s.setDbStatusWarning);
 
@@ -52,10 +53,6 @@ export const AppBootstrap: React.FC<AppBootstrapProps> = ({ children }) => {
       );
     });
   }, [t, setDbStatusWarning]);
-
-  if (authLoading) {
-    return <AppInitSkeleton label={t('checkingCredentials')} />;
-  }
 
   return <>{children}</>;
 };

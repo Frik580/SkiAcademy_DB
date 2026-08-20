@@ -2,6 +2,9 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { UserProfile } from '../../types';
 import { isInstructorWorkspaceUser } from '../../lib/workspaceRoutes';
+import { useAuthStore } from '../auth';
+import { useLanguage } from '../../app/providers/LanguageContext';
+import { AppInitSkeleton } from '../../ui/Skeleton';
 
 export type RouteGateRole = 'auth' | 'admin' | 'instructor';
 
@@ -18,6 +21,14 @@ export const RouteGate: React.FC<RouteGateProps> = ({
   fallbackPath = '/',
   children,
 }) => {
+  const { t } = useLanguage();
+  const authLoading = useAuthStore((s) => s.authLoading);
+
+  // Wait for auth before redirecting — avoids bouncing signed-in users to `/`.
+  if (authLoading) {
+    return <AppInitSkeleton label={t('checkingCredentials')} />;
+  }
+
   if (!userProfile) {
     return <Navigate to={fallbackPath} replace />;
   }

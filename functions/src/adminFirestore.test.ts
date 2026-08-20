@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const ADMIN_FIRESTORE_PATH = join(dirname(fileURLToPath(import.meta.url)), 'adminFirestore.ts');
+const ADMIN_APP_PATH = join(dirname(fileURLToPath(import.meta.url)), 'adminApp.ts');
 
 const mockGetApp = vi.fn();
 const mockInitializeApp = vi.fn();
@@ -18,9 +18,9 @@ vi.mock('firebase-admin/firestore', () => ({
   getFirestore: (...args: unknown[]) => mockGetFirestore(...args),
 }));
 
-describe('adminFirestore guardrails', () => {
+describe('adminApp guardrails', () => {
   it('does not gate initializeApp on getApps().length alone', () => {
-    const source = readFileSync(ADMIN_FIRESTORE_PATH, 'utf8');
+    const source = readFileSync(ADMIN_APP_PATH, 'utf8');
     expect(source).not.toMatch(/getApps\(\)/);
     expect(source).toMatch(/getApp\(\)/);
     expect(source).toMatch(/initializeApp\(/);

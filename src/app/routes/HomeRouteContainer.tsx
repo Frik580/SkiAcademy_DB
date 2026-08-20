@@ -18,12 +18,14 @@ import { useCoursesStore } from '../../features/courses';
 import { useCourseActions } from '../../features/courses';
 import { useSettingsStore } from '../../features/settings';
 import { useUiStore } from '../../features/shell';
+import { useAuthStore } from '../../features/auth';
 import type { AppRoutesProps } from './routeTypes';
 
 /** Connects the public home screen to catalogue data and UI actions. */
 export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIsFahrenheit }) => {
   const { t, language } = useLanguage();
   const { theme } = useTheme();
+  const authLoading = useAuthStore((state) => state.authLoading);
   const userProfile = useProfileStore((state) => state.userProfile);
   const courses = useCoursesStore((state) => state.courses);
   const bookings = useBookingsStore((state) => state.bookings);
@@ -53,7 +55,8 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
     element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  if (userProfile && userProfile.role !== 'admin') {
+  // Defer workspace redirect until auth resolves so guests can paint LCP immediately.
+  if (!authLoading && userProfile && userProfile.role !== 'admin') {
     return <Navigate to={getDefaultWorkspacePath(userProfile)} replace />;
   }
 

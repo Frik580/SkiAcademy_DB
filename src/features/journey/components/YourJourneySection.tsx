@@ -29,11 +29,12 @@ import {
   measureMarkerStops,
   resolveCompactJourneyActiveLevel,
 } from './journeyUtils';
-import { DesktopSkillCards, MobileSkillCards } from './SkillTree';
+import { MobileSkillCards, DesktopSkillCards } from './SkillTree';
 import { TrainingStreak } from './TrainingStreak';
 import type { JourneyEarnedSkill, YourJourneySectionProps } from './types';
 import { useBreakpoint } from './useBreakpoint';
 import { useCabinetJourneyLayout } from './useCabinetJourneyLayout';
+import { optimizedImageUrl } from '../../../lib/optimizedImageUrl';
 
 export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
   skillConfig = DEFAULT_SKILL_CONFIG,
@@ -354,7 +355,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
       .replace('{skills}', String(skills))
       .replace('{achievements}', String(achievements));
 
-  const bgUrl = isDark ? JOURNEY_BG.dark : JOURNEY_BG.light;
+  const bgUrl = optimizedImageUrl(isDark ? JOURNEY_BG.dark : JOURNEY_BG.light, 1920);
 
   const activateLevel = (levelId: number) => {
     if (
@@ -395,6 +396,9 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
       <img
         src={bgUrl}
         alt=""
+        loading="lazy"
+        decoding="async"
+        fetchPriority="low"
         className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
         draggable={false}
         aria-hidden="true"

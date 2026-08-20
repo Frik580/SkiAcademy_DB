@@ -29,7 +29,6 @@ export interface StudentCabinetProps {
   achievementsConfig?: AchievementsConfig;
   unreviewedCompletedBookings?: Booking[];
   onDismissReview?: (id: string) => void;
-  onReschedule: (booking: Booking) => void;
   onCancel: (booking: Booking) => void;
   onChat: (booking: Booking) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
@@ -71,7 +70,6 @@ export const StudentCabinet: React.FC<StudentCabinetProps> = ({
   achievementsConfig,
   unreviewedCompletedBookings = [],
   onDismissReview,
-  onReschedule,
   onCancel,
   onChat,
   hasUnreadChat,
@@ -113,7 +111,6 @@ export const StudentCabinet: React.FC<StudentCabinetProps> = ({
       achievementsConfig={achievementsConfig}
       unreviewedCompletedBookings={unreviewedCompletedBookings}
       onDismissReview={onDismissReview}
-      onReschedule={onReschedule}
       onCancel={onCancel}
       onChat={onChat}
       hasUnreadChat={hasUnreadChat}

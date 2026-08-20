@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Edit2,
   MessageSquare,
   Trash2,
 } from 'lucide-react';
@@ -53,7 +52,6 @@ interface ClientBookingsListProps {
   onDismissReview?: (bookingId: string) => void;
   onWriteReview?: (booking: Booking) => void;
   onOpenLesson?: (booking: Booking) => void;
-  onReschedule: (booking: Booking) => void;
   onCancel: (booking: Booking) => void;
   onChat: (booking: Booking) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
@@ -68,7 +66,6 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
   showWorkoutCalendar = true,
   onWriteReview,
   onOpenLesson,
-  onReschedule,
   onCancel,
   onChat,
   hasUnreadChat,
@@ -465,14 +462,6 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
 
                         {b.status === 'confirmed' && (
                           <div className="flex items-center gap-1">
-                            <button
-                              id={`reschedule-btn-${b.id}`}
-                              onClick={() => onReschedule(b)}
-                              title={t('rescheduleSession')}
-                              className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] rounded-lg transition"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
                             <button
                               id={`cancel-btn-${b.id}`}
                               onClick={() => onCancel(b)}

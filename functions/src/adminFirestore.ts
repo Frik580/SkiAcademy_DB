@@ -1,15 +1,7 @@
-import { getApp, initializeApp } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
+import { getOrInitApp } from './adminApp';
 
 let firestore: Firestore | undefined;
-
-function getOrInitApp() {
-  try {
-    return getApp();
-  } catch {
-    return initializeApp();
-  }
-}
 
 export function getAdminFirestore(): Firestore {
   if (!firestore) {

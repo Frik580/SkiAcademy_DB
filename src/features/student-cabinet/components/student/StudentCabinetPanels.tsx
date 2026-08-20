@@ -86,7 +86,6 @@ export const StudentCalendarPanel: React.FC<
   usersList = [],
   unreviewedCompletedBookings,
   onDismissReview,
-  onReschedule,
   onCancel,
   onChat,
   hasUnreadChat,
@@ -106,7 +105,6 @@ export const StudentCalendarPanel: React.FC<
       onDismissReview={onDismissReview}
       onWriteReview={onWriteReview}
       onOpenLesson={onOpenLesson}
-      onReschedule={onReschedule}
       onCancel={onCancel}
       onChat={onChat}
       hasUnreadChat={hasUnreadChat}

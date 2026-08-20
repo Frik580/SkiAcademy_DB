@@ -16,6 +16,8 @@ import { createGuestCourseEnrollmentHandler } from './courses/createGuestCourseE
 import { enrollInCourseHandler } from './courses/enrollInCourse';
 import { purgeExpiredNotifications } from './purgeExpiredNotifications';
 
+export { optimizeImage } from './images/optimizeImageHttp';
+
 export const createBooking = onCall({ region: 'us-central1' }, async (request) =>
   createCreateBookingHandler(getAdminFirestore())(request)
 );

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage, type Language } from '../../app/providers/LanguageContext';
@@ -6,6 +6,11 @@ import type { Theme } from '../../hooks/useTheme';
 import type { DesignTheme } from '../../shared';
 import { CustomHeroSlide } from '../../types';
 import { FALLBACK_SLIDES } from '../../features/admin';
+import {
+  heroBackgroundSrcSet,
+  preloadHeroLcpImage,
+  resolveHeroBackgroundUrl,
+} from '../../lib/mediaAssets';
 
 interface HeroCarouselProps {
   data: {
@@ -40,7 +45,7 @@ const HERO_SCRIM: Record<DesignTheme, { light: string; dark: string }> = {
   air: { light: '255, 255, 255', dark: '10, 10, 10' },
 };
 
-const resolveSlideBackground = (
+const resolveSlideBackgroundKey = (
   activeSlide: CustomHeroSlide | undefined,
   slideIndex: number
 ): string => {
@@ -51,26 +56,19 @@ const resolveSlideBackground = (
     const hash = Array.from(slideId).reduce((acc, char) => acc + char.charCodeAt(0), 0);
     bg = walls[hash % walls.length];
   }
-  if (bg.startsWith('http://') || bg.startsWith('https://')) {
-    return bg;
-  }
-  return `https://storage.yandexcloud.net/carve/${bg}.webp`;
+  return bg;
 };
 
-const buildBackgroundImage = (
-  bgUrl: string,
-  theme: Theme,
-  designTheme: DesignTheme = 'air'
-): string => {
+const buildScrimGradient = (theme: Theme, designTheme: DesignTheme = 'air'): string => {
   const scrim = HERO_SCRIM[designTheme];
   if (designTheme === 'air') {
     return theme === 'light'
-      ? `linear-gradient(105deg, rgba(${scrim.light},0.94) 0%, rgba(${scrim.light},0.78) 38%, rgba(${scrim.light},0.35) 62%, rgba(${scrim.light},0.05) 100%), url('${bgUrl}')`
-      : `linear-gradient(105deg, rgba(${scrim.dark},0.88) 0%, rgba(${scrim.dark},0.5) 45%, rgba(${scrim.dark},0.12) 100%), url('${bgUrl}')`;
+      ? `linear-gradient(105deg, rgba(${scrim.light},0.94) 0%, rgba(${scrim.light},0.78) 38%, rgba(${scrim.light},0.35) 62%, rgba(${scrim.light},0.05) 100%)`
+      : `linear-gradient(105deg, rgba(${scrim.dark},0.88) 0%, rgba(${scrim.dark},0.5) 45%, rgba(${scrim.dark},0.12) 100%)`;
   }
   return theme === 'light'
-    ? `linear-gradient(105deg, rgba(${scrim.light},0.98) 0%, rgba(${scrim.light},0.88) 32%, rgba(${scrim.light},0.55) 55%, rgba(${scrim.light},0.12) 100%), url('${bgUrl}')`
-    : `linear-gradient(105deg, rgba(${scrim.dark},0.82) 0%, rgba(${scrim.dark},0.42) 42%, rgba(${scrim.dark},0.1) 100%), url('${bgUrl}')`;
+    ? `linear-gradient(105deg, rgba(${scrim.light},0.98) 0%, rgba(${scrim.light},0.88) 32%, rgba(${scrim.light},0.55) 55%, rgba(${scrim.light},0.12) 100%)`
+    : `linear-gradient(105deg, rgba(${scrim.dark},0.82) 0%, rgba(${scrim.dark},0.42) 42%, rgba(${scrim.dark},0.1) 100%)`;
 };
 
 export const HeroCarousel: React.FC<HeroCarouselProps> = ({
@@ -122,10 +120,8 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
 
     if (Math.abs(deltaX) > minSwipeDistance && Math.abs(deltaX) > Math.abs(deltaY)) {
       if (deltaX < 0) {
-        // Swipe left -> next slide
         setCurrentSlide((prev) => (prev + 1) % slides.length);
       } else {
-        // Swipe right -> previous slide
         setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
       }
     }
@@ -155,12 +151,24 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
   } as const;
 
-  useEffect(() => {
-    slides.forEach((slide, idx) => {
-      const img = new Image();
-      img.src = resolveSlideBackground(slide, idx);
-    });
+  // Preload the actual first slide (may not be wall when order is random / custom).
+  useLayoutEffect(() => {
+    if (slides.length === 0) return;
+    const lcpKey = resolveSlideBackgroundKey(slides[0], 0);
+    const lcpUrl = resolveHeroBackgroundUrl(lcpKey);
+    return preloadHeroLcpImage(lcpUrl, heroBackgroundSrcSet(lcpKey));
   }, [slides]);
+
+  // Warm only the next slide — avoid competing with LCP for every background.
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    const nextIdx = (currentSlide + 1) % slides.length;
+    const nextUrl = resolveHeroBackgroundUrl(resolveSlideBackgroundKey(slides[nextIdx], nextIdx));
+    const img = new Image();
+    img.src = nextUrl;
+  }, [slides, currentSlide]);
+
+  const scrim = buildScrimGradient(theme, designTheme);
 
   return (
     <section
@@ -168,26 +176,39 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
       onTouchEnd={handleTouchEnd}
       className="ui-hero relative w-full min-h-[calc(100svh-4.25rem)] overflow-hidden flex flex-col justify-end touch-pan-y"
     >
-      {/* Layered background crossfade */}
       <div className="absolute inset-0 z-0" aria-hidden="true">
         {slides.map((slide, idx) => {
           const isActive = idx === currentSlide;
+          const bgKey = resolveSlideBackgroundKey(slide, idx);
+          const bgUrl = resolveHeroBackgroundUrl(bgKey);
+          const srcSet = heroBackgroundSrcSet(bgKey);
           return (
             <div
               key={slide.id || `hero-bg-${idx}`}
-              className={`absolute inset-0 bg-cover bg-center will-change-[opacity] transition-opacity ${
+              className={`absolute inset-0 will-change-[opacity] transition-opacity ${
                 isActive ? 'opacity-100' : 'opacity-0'
               }`}
               style={{
                 ...crossfadeStyle,
                 zIndex: isActive ? 2 : 1,
-                backgroundImage: buildBackgroundImage(
-                  resolveSlideBackground(slide, idx),
-                  theme,
-                  designTheme
-                ),
               }}
-            />
+            >
+              <img
+                src={bgUrl}
+                srcSet={srcSet}
+                sizes="100vw"
+                alt=""
+                fetchPriority={idx === 0 ? 'high' : 'low'}
+                decoding={isActive ? 'sync' : 'async'}
+                loading={idx === 0 ? 'eager' : 'lazy'}
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
+              />
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{ backgroundImage: scrim }}
+              />
+            </div>
           );
         })}
       </div>

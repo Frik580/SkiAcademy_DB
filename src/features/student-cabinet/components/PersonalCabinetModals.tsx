@@ -3,7 +3,6 @@ import { Booking, Course, Instructor, Review, UserProfile } from '../../../types
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useTheme } from '../../../hooks/useTheme';
 import { LazyLoad } from '../../../ui/LazyLoad';
-import { RescheduleModal } from './RescheduleModal';
 import { ReviewFlow } from '../../../features/profile';
 import { LessonDetailsModal } from './LessonDetailsModal';
 import { ConfirmActionModal } from './ConfirmActionModal';
@@ -22,19 +21,6 @@ interface PersonalCabinetModalsProps {
   instructors: Instructor[];
   usersList: UserProfile[];
   reviews: Review[];
-  reschedule: {
-    isOpen: boolean;
-    onClose: () => void;
-    newDate: string;
-    setNewDate: (value: string) => void;
-    newTime: string;
-    setNewTime: (value: string) => void;
-    availableSlots: string[];
-    isLoadingSlots: boolean;
-    isSubmitting: boolean;
-    minDate: string;
-    onSubmit: (e: React.FormEvent) => void;
-  };
   lessonDetailsId: string | null;
   onCloseLessonDetails: () => void;
   onWriteReviewFromLesson: (booking: Booking) => void;
@@ -73,7 +59,6 @@ export const PersonalCabinetModals: React.FC<PersonalCabinetModalsProps> = ({
   instructors,
   usersList,
   reviews,
-  reschedule,
   lessonDetailsId,
   onCloseLessonDetails,
   onWriteReviewFromLesson,
@@ -103,20 +88,6 @@ export const PersonalCabinetModals: React.FC<PersonalCabinetModalsProps> = ({
 
   return (
     <>
-      <RescheduleModal
-        isOpen={reschedule.isOpen}
-        onClose={reschedule.onClose}
-        newDate={reschedule.newDate}
-        setNewDate={reschedule.setNewDate}
-        newTime={reschedule.newTime}
-        setNewTime={reschedule.setNewTime}
-        availableSlots={reschedule.availableSlots}
-        isLoadingSlots={reschedule.isLoadingSlots}
-        isSubmitting={reschedule.isSubmitting}
-        minDate={reschedule.minDate}
-        onSubmit={reschedule.onSubmit}
-      />
-
       <LessonDetailsModal
         booking={lessonDetailsBooking}
         courses={courses}

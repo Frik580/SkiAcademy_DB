@@ -32,7 +32,7 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
     try {
       const optimizedBlob = await optimizeCourseImage(file);
       const targetCourseId = courseId || `course_${Date.now()}`;
-      const imageUrl = await uploadImage(optimizedBlob, `courses/${targetCourseId}.jpg`);
+      const imageUrl = await uploadImage(optimizedBlob, `courses/${targetCourseId}.webp`);
       onChange(imageUrl);
       addNotification('success', t('courseBgAttached'), t('courseBgAttachedDesc'));
     } catch (err) {

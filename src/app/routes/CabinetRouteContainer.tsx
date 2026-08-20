@@ -56,7 +56,7 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   const handleAddCustomTodayTask = useProfileStore((state) => state.handleAddCustomTodayTask);
   const handleRemoveTodayTask = useProfileStore((state) => state.handleRemoveTodayTask);
   const handleUpdateProfile = useProfileStore((state) => state.handleUpdateProfile);
-  const { handleReschedule, handleRequestCancel, handleAddReview, handleToggleRecommendation } =
+  const { handleRequestCancel, handleAddReview, handleToggleRecommendation } =
     useBookingActions();
   const { handleBookCourse } = useCourseActions();
   const setSelectedCourseForDetails = useUiStore((state) => state.setSelectedCourseForDetails);
@@ -79,7 +79,6 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
               reviews={reviews}
               dismissedReviewIds={dismissedReviewIds}
               onDismissReview={handleDismissReview}
-              onReschedule={handleReschedule}
               onCancel={handleRequestCancel}
               onAddReview={handleAddReview}
               onToggleRecommendation={handleToggleRecommendation}

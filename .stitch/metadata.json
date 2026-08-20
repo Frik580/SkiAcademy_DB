@@ -1,0 +1,20 @@
+{
+  "projectId": "12447626312814512672",
+  "title": "SkiAcademy UI",
+  "designSystem": {
+    "name": "assets/11762622741281556178",
+    "displayName": "SkiAcademy Alpine Air"
+  },
+  "screens": [
+    {
+      "id": "c6a068bb87a3481c8dff1aba61bdb978",
+      "name": "projects/12447626312814512672/screens/c6a068bb87a3481c8dff1aba61bdb978",
+      "title": "Carve Academy Home Page",
+      "deviceType": "DESKTOP",
+      "width": 2560,
+      "height": 6386,
+      "localScreenshot": ".stitch/designs/carve-academy-home.png",
+      "localHtml": ".stitch/designs/carve-academy-home.html"
+    }
+  ]
+}

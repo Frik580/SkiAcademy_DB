@@ -823,10 +823,17 @@
     background-color: var(--bg);
   }
 
-  .theme-air .ui-navbar {
+  .ui-navbar-panel {
+    border-bottom: 1px solid var(--border);
+    background-color: var(--bg);
+  }
+
+  .theme-air .ui-navbar,
+  .theme-air .ui-navbar-panel {
     border-bottom-color: var(--border-subtle);
     background-color: color-mix(in srgb, var(--bg) 82%, transparent);
     backdrop-filter: var(--nav-blur);
+    -webkit-backdrop-filter: var(--nav-blur);
   }
 
   /* «Путь к мастерству» — плавный переход к фону следующего блока */

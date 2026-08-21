@@ -1,77 +1,101 @@
 {
   "projectId": "12447626312814512672",
   "title": "SkiAcademy UI",
-  "designSystem": {
-    "name": "assets/11762622741281556178",
-    "displayName": "SkiAcademy Alpine Air"
-  },
   "screens": [
     {
-      "id": "c6a068bb87a3481c8dff1aba61bdb978",
-      "name": "projects/12447626312814512672/screens/c6a068bb87a3481c8dff1aba61bdb978",
-      "title": "Carve Academy Home Page",
-      "deviceType": "DESKTOP",
-      "width": 2560,
-      "height": 6386,
-      "localScreenshot": ".stitch/designs/carve-academy-home.png",
-      "localHtml": ".stitch/designs/carve-academy-home.html"
-    },
-    {
-      "id": "4caed8c3bc364542907a101b720d8ebc",
-      "name": "projects/12447626312814512672/screens/4caed8c3bc364542907a101b720d8ebc",
-      "title": "Student Dashboard - Mobile (TabBar baseline)",
+      "screenId": "768182b957114d5cb73b5f54ea800acd",
+      "title": "/cabinet/training — baseline",
+      "route": "/cabinet/training",
       "deviceType": "MOBILE",
-      "width": 780,
-      "height": 2064,
-      "localScreenshot": ".stitch/designs/tabbar/baseline.png",
       "role": "baseline"
     },
     {
-      "id": "e6b81ccbb75f40d99811e0eeb129ff3d",
-      "name": "projects/12447626312814512672/screens/e6b81ccbb75f40d99811e0eeb129ff3d",
-      "title": "Student Dashboard - Refined Dock",
+      "screenId": "322a2cf9827f4cf2aab1bd6dacf4091a",
+      "title": "/cabinet/settings — baseline",
+      "route": "/cabinet/settings",
       "deviceType": "MOBILE",
-      "width": 780,
-      "height": 2064,
-      "localScreenshot": ".stitch/designs/tabbar/variant-a-refined-dock.png",
-      "role": "variant-a",
-      "direction": "Refined Dock"
+      "role": "baseline"
     },
     {
-      "id": "19ec66f101d8432aa0bed28d01b4486e",
-      "name": "projects/12447626312814512672/screens/19ec66f101d8432aa0bed28d01b4486e",
-      "title": "Student Dashboard - Segmented Island",
+      "screenId": "9fe3b227691c4470a3e7a8015ec60b6d",
+      "title": "Training Hub - Editorial List (V1) aligned",
+      "route": "/cabinet/training",
       "deviceType": "MOBILE",
-      "width": 780,
-      "height": 2064,
-      "localScreenshot": ".stitch/designs/tabbar/variant-b-segmented-island.png",
-      "role": "variant-b",
-      "direction": "Segmented Island"
+      "variant": "V1 Editorial List",
+      "localAssets": {
+        "screenshot": ".stitch/designs/training-v1-editorial-list.png",
+        "html": ".stitch/designs/training-v1-editorial-list.html"
+      }
     },
     {
-      "id": "bd49e7ccf0ec4323ac309df2de0eee9d",
-      "name": "projects/12447626312814512672/screens/bd49e7ccf0ec4323ac309df2de0eee9d",
-      "title": "Student Dashboard - Elevated Action Rail",
+      "screenId": "51976917dc304e948ea6baec565141d4",
+      "title": "Training Hub - Editorial List (V1) prior",
+      "route": "/cabinet/training",
       "deviceType": "MOBILE",
-      "width": 780,
-      "height": 2064,
-      "localScreenshot": ".stitch/designs/tabbar/variant-c-elevated-action-rail.png",
-      "role": "variant-c",
-      "direction": "Elevated Action Rail"
+      "variant": "V1 Editorial List (superseded)"
+    },
+    {
+      "screenId": "a437b76085a44a1895c3009407aa3382",
+      "title": "Training Hub - Soft Inset Tiles (V2)",
+      "route": "/cabinet/training",
+      "deviceType": "MOBILE",
+      "variant": "V2 Soft Inset Tiles",
+      "localAssets": {
+        "screenshot": ".stitch/designs/training-v2-soft-inset-tiles.png",
+        "html": ".stitch/designs/training-v2-soft-inset-tiles.html"
+      }
+    },
+    {
+      "screenId": "bc3891a3864244a2a08a9c5a2de66e40",
+      "title": "Training Hub - Minimalist Flush (V3)",
+      "route": "/cabinet/training",
+      "deviceType": "MOBILE",
+      "variant": "V3 Minimalist Flush",
+      "localAssets": {
+        "screenshot": ".stitch/designs/training-v3-minimalist-flush.png",
+        "html": ".stitch/designs/training-v3-minimalist-flush.html"
+      }
+    },
+    {
+      "screenId": "9bf30dfb87704b4c955ef6c4141db090",
+      "title": "Profile Settings Hub - Editorial List (V1)",
+      "route": "/cabinet/settings",
+      "deviceType": "MOBILE",
+      "variant": "V1 Editorial List",
+      "localAssets": {
+        "screenshot": ".stitch/designs/settings-v1-editorial-list.png",
+        "html": ".stitch/designs/settings-v1-editorial-list.html"
+      }
+    },
+    {
+      "screenId": "3f610dc033624e78be4eb11dbdaabe22",
+      "title": "Profile Settings Hub - Soft Inset Tiles (V2)",
+      "route": "/cabinet/settings",
+      "deviceType": "MOBILE",
+      "variant": "V2 Soft Inset Tiles",
+      "localAssets": {
+        "screenshot": ".stitch/designs/settings-v2-soft-inset-tiles.png",
+        "html": ".stitch/designs/settings-v2-soft-inset-tiles.html"
+      }
+    },
+    {
+      "screenId": "8e45659b8d0545c0bff2252fbf6b9d54",
+      "title": "Profile - Minimalist Flush (V3)",
+      "route": "/cabinet/settings",
+      "deviceType": "MOBILE",
+      "variant": "V3 Minimalist Flush",
+      "localAssets": {
+        "screenshot": ".stitch/designs/settings-v3-minimalist-flush.png",
+        "html": ".stitch/designs/settings-v3-minimalist-flush.html"
+      }
     }
   ],
-  "tabBarExploration": {
-    "component": "StudentCabinetTabBar",
-    "source": "src/features/student-cabinet/components/student/StudentCabinetUI.tsx",
-    "preservedIA": [
-      "Home",
-      "Training",
-      "Coach",
-      "Profile",
-      "Book Lesson FAB (right)"
-    ],
-    "implementedVariant": "C — Elevated Action Rail",
-    "implementedScreenId": "bd49e7ccf0ec4323ac309df2de0eee9d",
-    "localSourceCodeChanged": true
+  "designSystem": {
+    "assetId": "11762622741281556178",
+    "displayName": "SkiAcademy Alpine Air",
+    "primaryColor": "#1a6578",
+    "secondaryColor": "#111111",
+    "backgroundColor": "#ffffff",
+    "fontFamily": "LITERATA / DM_SANS"
   }
 }

@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import {
   Award,
-  ChevronRight,
   LucideIcon,
   Mountain,
   Settings,
@@ -17,7 +16,15 @@ import { DEFAULT_SKILL_CONFIG } from '../../../../domain/achievements';
 import { StudentProfilePersonalSection } from './StudentProfilePersonalSection';
 import { StudentProfilePreferencesSection } from './StudentProfilePreferencesSection';
 import { LazySkillRadarChart } from './LazySkillRadarChart';
-import { ScStatGrid, ScTextButton, StudentPanelBackLink } from './StudentCabinetUI';
+import {
+  ScEditorialHubList,
+  ScPageIntro,
+  ScPageTitle,
+  SC_PAGE_INTRO_CLASS,
+  ScStatGrid,
+  ScTextButton,
+  StudentPanelBackLink,
+} from './StudentCabinetUI';
 import {
   buildStudentHistory,
   getAchievements,
@@ -126,8 +133,10 @@ const ProfilePanelShell: React.FC<ProfilePanelShellProps> = ({
         wide ? 'max-w-none' : 'max-w-3xl'
       }`}
     >
-      <StudentPanelBackLink onClick={() => onGoToTab('settings')} labelKey="scNavProfile" />
-      <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t(titleKey)}</h1>
+      <div className={SC_PAGE_INTRO_CLASS}>
+        <StudentPanelBackLink onClick={() => onGoToTab('settings')} labelKey="scNavProfile" />
+        <ScPageTitle>{t(titleKey)}</ScPageTitle>
+      </div>
       {children}
     </div>
   );
@@ -137,34 +146,21 @@ export const StudentProfileHubPanel: React.FC<StudentProfileHubInput> = ({ onGoT
   const { t } = useStudentCabinetTranslations();
 
   return (
-    <div className="space-y-6 pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
-      <StudentPanelBackLink onClick={() => onGoToTab('home')} />
-      <div className="space-y-1">
-        <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scNavProfile')}</h1>
-        <p className="text-sm text-[var(--ink-dim)]">{t('scProfileHubSub')}</p>
-      </div>
-
-      <div className="rounded-2xl border border-[var(--border-subtle)] overflow-hidden divide-y divide-[var(--border-subtle)]">
-        {PROFILE_HUB_ITEMS.map(({ tab, labelKey, descKey, icon: Icon }) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => onGoToTab(tab)}
-            className="w-full flex items-center gap-4 px-4 py-4 text-left hover:bg-[var(--border-subtle)]/40 transition-colors"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--accent)]/22 bg-[var(--accent-muted)]/45 text-[var(--accent)]">
-              <Icon className="h-5 w-5" strokeWidth={1.8} aria-hidden />
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-medium text-[var(--ink)]">{t(labelKey)}</span>
-              <span className="block text-xs text-[var(--ink-dim)] mt-0.5 truncate">
-                {t(descKey)}
-              </span>
-            </span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ink-dim)]" aria-hidden />
-          </button>
-        ))}
-      </div>
+    <div className="space-y-8 pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
+      <ScPageIntro
+        onBack={() => onGoToTab('home')}
+        title={t('scNavProfile')}
+        subtitle={t('scProfileHubSub')}
+      />
+      <ScEditorialHubList
+        items={PROFILE_HUB_ITEMS.map(({ tab, labelKey, descKey, icon }) => ({
+          id: tab,
+          label: t(labelKey),
+          description: t(descKey),
+          icon,
+          onClick: () => onGoToTab(tab),
+        }))}
+      />
     </div>
   );
 };

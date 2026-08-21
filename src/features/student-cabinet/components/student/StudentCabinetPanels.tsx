@@ -5,7 +5,7 @@ import { BookingsPanel } from '../../../../features/profile';
 import { GroupCourseCard, sortVisibleCourses } from '../../../../features/courses';
 import { InstructorCard } from '../../../../features/profile';
 import { StudentDevelopmentPanel } from './StudentDevelopmentPanel';
-import { ScDivider, ScSectionTitle, StudentPanelBackLink } from './StudentCabinetUI';
+import { ScDivider, ScEditorialHubList, ScPageIntro, ScSectionTitle } from './StudentCabinetUI';
 import {
   getAvailableCourses,
   getEnrolledCourses,
@@ -13,7 +13,7 @@ import {
   getRecommendedInstructors,
   StudentCabinetTab,
 } from './studentCabinetUtils';
-import { Calendar, ChevronRight, LayoutGrid, TrendingUp } from 'lucide-react';
+import { Calendar, LayoutGrid, TrendingUp } from 'lucide-react';
 import type {
   StudentCabinetPanelInput,
   StudentTrainingPanelInput,
@@ -42,34 +42,21 @@ export const StudentTrainingPanel: React.FC<StudentTrainingPanelInput> = ({ onGo
   const { t } = useStudentCabinetTranslations();
 
   return (
-    <div className="space-y-6 pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
-      <StudentPanelBackLink onClick={() => onGoToTab('home')} />
-      <div className="space-y-1">
-        <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scNavTraining')}</h1>
-        <p className="text-sm text-[var(--ink-dim)]">{t('scTrainingHubSub')}</p>
-      </div>
-
-      <div className="rounded-2xl border border-[var(--border-subtle)] overflow-hidden divide-y divide-[var(--border-subtle)]">
-        {TRAINING_HUB_ITEMS.map(({ tab, labelKey, descKey, icon: Icon }) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => onGoToTab(tab)}
-            className="w-full flex items-center gap-4 px-4 py-4 text-left hover:bg-[var(--border-subtle)]/40 transition-colors"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--accent)]/22 bg-[var(--accent-muted)]/45 text-[var(--accent)]">
-              <Icon className="h-5 w-5" strokeWidth={1.8} aria-hidden />
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-medium text-[var(--ink)]">{t(labelKey)}</span>
-              <span className="block text-xs text-[var(--ink-dim)] mt-0.5 truncate">
-                {t(descKey)}
-              </span>
-            </span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ink-dim)]" aria-hidden />
-          </button>
-        ))}
-      </div>
+    <div className="space-y-8 pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
+      <ScPageIntro
+        onBack={() => onGoToTab('home')}
+        title={t('scNavTraining')}
+        subtitle={t('scTrainingHubSub')}
+      />
+      <ScEditorialHubList
+        items={TRAINING_HUB_ITEMS.map(({ tab, labelKey, descKey, icon }) => ({
+          id: tab,
+          label: t(labelKey),
+          description: t(descKey),
+          icon,
+          onClick: () => onGoToTab(tab),
+        }))}
+      />
     </div>
   );
 };
@@ -158,13 +145,12 @@ export const StudentCoursesPanel: React.FC<
 
   return (
     <div className="pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 space-y-6 w-full min-w-0">
-      <StudentPanelBackLink onClick={() => onGoToTab('training')} labelKey="scNavTraining" />
-      <div>
-        <h1 className="text-2xl font-serif font-light text-[var(--ink)]">
-          {t('intensiveGroupCourses')}
-        </h1>
-        <p className="text-sm text-[var(--ink-dim)] mt-2">{t('intensiveGroupCoursesSub')}</p>
-      </div>
+      <ScPageIntro
+        onBack={() => onGoToTab('training')}
+        backLabelKey="scNavTraining"
+        title={t('intensiveGroupCourses')}
+        subtitle={t('intensiveGroupCoursesSub')}
+      />
 
       {myCourses.length > 0 && (
         <section className="space-y-4">
@@ -233,11 +219,11 @@ export const StudentInstructorsPanel: React.FC<
 
   return (
     <div className="space-y-6 pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
-      <StudentPanelBackLink onClick={() => onGoToTab('home')} />
-      <div className="space-y-1">
-        <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scNavCoach')}</h1>
-        <p className="text-sm text-[var(--ink-dim)]">{t('meetGuidesSub')}</p>
-      </div>
+      <ScPageIntro
+        onBack={() => onGoToTab('home')}
+        title={t('scNavCoach')}
+        subtitle={t('meetGuidesSub')}
+      />
 
       {recommendedInstructors.length > 0 && myInstructors.length === 0 && (
         <section className="space-y-4">

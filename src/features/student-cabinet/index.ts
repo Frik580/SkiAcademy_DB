@@ -5,7 +5,12 @@ export { PersonalCabinetModals } from './components/PersonalCabinetModals';
 export { ReviewModal } from './components/ReviewModal';
 export { StudentCabinetShell } from './components/student/StudentCabinetShell';
 export type { StudentCabinetResortSnapshot } from './components/student/StudentHomeBottomSections';
-export { StudentPanelBackLink } from './components/student/StudentCabinetUI';
+export {
+  ScPageHeader,
+  ScPageIntro,
+  ScPageTitle,
+  StudentPanelBackLink,
+} from './components/student/StudentCabinetUI';
 export { StudentWalletHistoryList } from './components/student/StudentWalletHistoryList';
 export type { StudentCabinetTab } from './components/student/studentCabinetNavigation';
 export {

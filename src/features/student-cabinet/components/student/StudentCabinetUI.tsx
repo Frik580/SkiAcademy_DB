@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import {
   ArrowLeft,
   CalendarPlus,
+  ChevronRight,
   CircleUser,
   GraduationCap,
   Home,
@@ -173,6 +174,89 @@ export const ScDivider: React.FC = () => (
   </div>
 );
 
+/** Page-level typography aligned to cabinet Editorial List (V1). */
+export const SC_PAGE_TITLE_CLASS =
+  'text-4xl font-serif font-light tracking-tight text-[var(--ink)] leading-[1.15]';
+export const SC_PAGE_SUBTITLE_CLASS = 'text-base text-[var(--ink-dim)]';
+export const SC_SECTION_TITLE_CLASS = 'font-serif text-xl font-light tracking-tight';
+
+export const ScPageTitle: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+}> = ({ children, className = '' }) => (
+  <h1 className={`${SC_PAGE_TITLE_CLASS} ${className}`}>{children}</h1>
+);
+
+export const ScPageHeader: React.FC<{
+  title: string;
+  subtitle?: string;
+}> = ({ title, subtitle }) => (
+  <div className="space-y-3">
+    <ScPageTitle>{title}</ScPageTitle>
+    {subtitle ? <p className={SC_PAGE_SUBTITLE_CLASS}>{subtitle}</p> : null}
+  </div>
+);
+
+/** Consistent back-link → title spacing (Editorial List V1: ~2rem). */
+export const SC_PAGE_INTRO_CLASS = 'flex flex-col gap-8';
+
+export const ScPageIntro: React.FC<{
+  onBack?: () => void;
+  backLabelKey?: TranslationKey;
+  backLabel?: string;
+  title: string;
+  subtitle?: string;
+}> = ({ onBack, backLabelKey, backLabel, title, subtitle }) => (
+  <div className={SC_PAGE_INTRO_CLASS}>
+    {onBack ? (
+      <StudentPanelBackLink onClick={onBack} labelKey={backLabelKey} label={backLabel} />
+    ) : null}
+    <ScPageHeader title={title} subtitle={subtitle} />
+  </div>
+);
+
+/** @deprecated Prefer ScPageHeader — kept as alias for hub screens. */
+export const ScEditorialHubHeader = ScPageHeader;
+
+/** Flush editorial hub list (Stitch V1) — no outer card, soft bottom rules, circular icons. */
+export type ScEditorialHubItem = {
+  id: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  onClick: () => void;
+};
+
+export const ScEditorialHubList: React.FC<{ items: ScEditorialHubItem[] }> = ({ items }) => (
+  <div className="flex flex-col -mx-4 sm:-mx-6">
+    {items.map((item) => {
+      const Icon = item.icon;
+      return (
+        <button
+          key={item.id}
+          type="button"
+          onClick={item.onClick}
+          className="group w-full flex items-center gap-4 px-4 sm:px-6 py-6 min-h-12 text-left border-b border-[var(--border-subtle)] hover:bg-[var(--profile-bg)]/50 transition-colors"
+        >
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--profile-bg)] text-[var(--ink)] group-hover:bg-[var(--accent-muted)] group-hover:text-[var(--accent)] transition-colors">
+            <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className={`block ${SC_SECTION_TITLE_CLASS} text-[var(--ink)] mb-1 truncate`}>
+              {item.label}
+            </span>
+            <span className="block text-sm text-[var(--ink-dim)] truncate">{item.description}</span>
+          </span>
+          <ChevronRight
+            className="h-5 w-5 shrink-0 text-[var(--ink-dim)] group-hover:text-[var(--ink)] transition-colors"
+            aria-hidden
+          />
+        </button>
+      );
+    })}
+  </div>
+);
+
 /** Muted Apple-style tints for student cabinet sections */
 export type ScTint = 'indigo' | 'accent' | 'amber' | 'sky' | 'green' | 'purple' | 'orange';
 
@@ -208,11 +292,7 @@ export const ScSectionTitle: React.FC<{
   children: React.ReactNode;
   tint?: ScTint;
 }> = ({ children, tint }) => (
-  <h2
-    className={`text-sm font-medium tracking-wide ${
-      tint ? SC_TINT_VALUE[tint] : 'text-[var(--ink-dim)]'
-    }`}
-  >
+  <h2 className={`${SC_SECTION_TITLE_CLASS} ${tint ? SC_TINT_VALUE[tint] : 'text-[var(--ink)]'}`}>
     {children}
   </h2>
 );

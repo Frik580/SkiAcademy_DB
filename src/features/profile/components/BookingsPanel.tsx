@@ -1,7 +1,7 @@
 import React from 'react';
 import { Booking, Course, Instructor, UserProfile } from '../../../types';
 import { ClientBookingsList } from '../../../features/student-cabinet';
-import { StudentPanelBackLink } from '../../../features/student-cabinet';
+import { ScPageIntro } from '../../../features/student-cabinet';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { StudentCabinetTab } from '../../../features/student-cabinet';
 
@@ -45,11 +45,12 @@ export const BookingsPanel: React.FC<BookingsPanelProps> = ({
 
   return (
     <div className="space-y-6 pb-24 max-w-3xl mx-auto px-4 sm:px-6 w-full min-w-0">
-      <div className="pt-6 space-y-4">
-        {showBackLink && onGoToTab && (
-          <StudentPanelBackLink onClick={() => onGoToTab('training')} labelKey="scNavTraining" />
-        )}
-        <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scFullCalendar')}</h1>
+      <div className="pt-6">
+        <ScPageIntro
+          onBack={showBackLink && onGoToTab ? () => onGoToTab('training') : undefined}
+          backLabelKey="scNavTraining"
+          title={t('scFullCalendar')}
+        />
       </div>
       <ClientBookingsList
         userBookings={userBookings}

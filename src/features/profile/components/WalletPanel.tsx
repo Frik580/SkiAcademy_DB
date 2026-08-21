@@ -1,7 +1,7 @@
 import React from 'react';
 import { Booking, Course, WalletLedgerEntry } from '../../../types';
 import { StudentWalletHistoryList } from '../../../features/student-cabinet';
-import { StudentPanelBackLink } from '../../../features/student-cabinet';
+import { ScPageIntro } from '../../../features/student-cabinet';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { StudentCabinetTab } from '../../../features/student-cabinet';
 
@@ -26,17 +26,12 @@ export const WalletPanel: React.FC<WalletPanelProps> = ({
 
   return (
     <div className="pb-24 mx-auto pt-6 px-4 sm:px-6 w-full min-w-0 space-y-6 max-w-3xl">
-      {showBackLink && onGoToTab && (
-        <StudentPanelBackLink onClick={() => onGoToTab('settings')} labelKey="scNavProfile" />
-      )}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-serif font-light text-[var(--ink)]">
-          {t('scProfileWalletHistory')}
-        </h1>
-        <p className="text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider">
-          {t('scProfileWalletHistorySub')}
-        </p>
-      </div>
+      <ScPageIntro
+        onBack={showBackLink && onGoToTab ? () => onGoToTab('settings') : undefined}
+        backLabelKey="scNavProfile"
+        title={t('scProfileWalletHistory')}
+        subtitle={t('scProfileWalletHistorySub')}
+      />
       <StudentWalletHistoryList
         userId={userId}
         bookings={bookings}

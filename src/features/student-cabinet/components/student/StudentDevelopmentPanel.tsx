@@ -5,7 +5,7 @@ import {
   getLevelProgressPercent,
   getPrioritySkillItems,
 } from './studentCabinetUtils';
-import { ScDivider, ScProgressBar, ScSectionTitle, StudentPanelBackLink } from './StudentCabinetUI';
+import { ScDivider, ScPageIntro, ScProgressBar, ScSectionTitle } from './StudentCabinetUI';
 import { LazySkillRadarChart } from './LazySkillRadarChart';
 import { getSkillItemTitle } from '../../../../domain/achievements';
 import type { StudentDevelopmentPanelInput } from './studentCabinetContracts';
@@ -41,15 +41,12 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = (
   return (
     <div className="space-y-0 pb-24 max-w-3xl mx-auto px-4 sm:px-6 w-full min-w-0">
       <section className="py-6 space-y-4">
-        <StudentPanelBackLink onClick={() => onGoToTab('training')} labelKey="scNavTraining" />
-        <div className="space-y-1">
-          <h1 className="text-2xl font-serif font-light text-[var(--ink)]">
-            {t('scDevelopmentDetail')}
-          </h1>
-          <p className="text-xs tracking-widest text-[var(--ink-dim)] uppercase">
-            LEVEL {level} · {getLevelLabel(level, lang)}
-          </p>
-        </div>
+        <ScPageIntro
+          onBack={() => onGoToTab('training')}
+          backLabelKey="scNavTraining"
+          title={t('scDevelopmentDetail')}
+          subtitle={`LEVEL ${level} · ${getLevelLabel(level, lang)}`}
+        />
         <div className="space-y-2">
           {!hideProgress && (
             <>

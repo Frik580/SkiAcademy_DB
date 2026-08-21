@@ -5,9 +5,8 @@ export const selectUserProfile = (
   state: ReturnType<typeof useProfileStore.getState>
 ): UserProfile | null => state.userProfile;
 
-export const selectProfileLoading = (
-  state: ReturnType<typeof useProfileStore.getState>
-): boolean => state.profileLoading;
+export const selectProfileLoading = (state: ReturnType<typeof useProfileStore.getState>): boolean =>
+  state.profileLoading;
 
 export const selectUsersList = (
   state: ReturnType<typeof useProfileStore.getState>

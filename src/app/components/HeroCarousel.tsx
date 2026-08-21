@@ -302,7 +302,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                 delay: shouldReduceMotion ? 0 : 0.58,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              className="flex flex-col items-start gap-3 pt-1"
+              className="flex flex-col items-start gap-3 pt-1 md:flex-row md:items-center md:gap-5"
             >
               <button
                 onClick={() => onScrollToSection('coaches-grid')}

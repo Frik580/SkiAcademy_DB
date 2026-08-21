@@ -9,6 +9,9 @@ import {
 import { InstructorCard } from '../../../../features/profile';
 import {
   ScDivider,
+  ScPageIntro,
+  ScPageTitle,
+  SC_PAGE_INTRO_CLASS,
   ScSectionTitle,
   ScTextButton,
   ScTintCard,
@@ -203,11 +206,11 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
 
   const renderList = () => (
     <>
-      <StudentPanelBackLink onClick={() => onGoToTab('home')} />
-      <div className="space-y-1">
-        <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{t('scNavCoach')}</h1>
-        <p className="text-sm text-[var(--ink-dim)]">{t('scCoachHubSub')}</p>
-      </div>
+      <ScPageIntro
+        onBack={() => onGoToTab('home')}
+        title={t('scNavCoach')}
+        subtitle={t('scCoachHubSub')}
+      />
 
       {myInstructors.length === 0 && otherInstructors.length === 0 ? (
         <p className="text-sm text-[var(--ink-dim)] py-4">{t('scCoachNoInstructors')}</p>
@@ -589,8 +592,10 @@ const CoachSectionShell: React.FC<{
   children: React.ReactNode;
 }> = ({ title, backLabel, onBack, children }) => (
   <div className="space-y-6">
-    <StudentPanelBackLink onClick={onBack} label={backLabel} />
-    <h1 className="text-2xl font-serif font-light text-[var(--ink)]">{title}</h1>
+    <div className={SC_PAGE_INTRO_CLASS}>
+      <StudentPanelBackLink onClick={onBack} label={backLabel} />
+      <ScPageTitle>{title}</ScPageTitle>
+    </div>
     {children}
   </div>
 );

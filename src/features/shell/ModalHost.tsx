@@ -32,7 +32,7 @@ const InstructorReviewsModal = React.lazy(() =>
 );
 
 const ModalLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
-  <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+  <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
     <BodyScrollLock />
     <ModalSkeleton title={label} />
   </div>

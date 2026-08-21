@@ -15,7 +15,7 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({ level, theme, onClos
 
   return createPortal(
     <div
-      className="ui-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 cursor-pointer bg-black/60 backdrop-blur-xs"
+      className="ui-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 cursor-pointer"
       onClick={onClose}
     >
       <BodyScrollLock />

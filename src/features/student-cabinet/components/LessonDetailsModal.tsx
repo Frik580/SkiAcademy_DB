@@ -47,7 +47,7 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
     <AnimatePresence>
       <div
         key="lesson-details-modal"
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-xs"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
       >
         <BodyScrollLock />
         <motion.div

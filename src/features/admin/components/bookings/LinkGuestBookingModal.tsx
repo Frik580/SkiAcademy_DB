@@ -75,7 +75,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
   };
 
   const modalContent = (
-    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-sans text-[var(--ink)]">
+    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 font-sans text-[var(--ink)]">
       <BodyScrollLock />
       <div
         className="ui-modal relative w-full max-w-lg border border-[var(--border)] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"

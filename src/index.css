@@ -196,7 +196,6 @@
   --ui-border-width: 0px;
   --ui-shadow: var(--shadow-card);
   --section-gap: 4rem;
-  --nav-blur: blur(16px);
 }
 
 .theme-air.dark,
@@ -711,6 +710,7 @@
 
   .ui-modal-overlay {
     background-color: rgba(0, 0, 0, 0.75);
+    -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
   }
 
@@ -722,6 +722,7 @@
 
   .theme-air .ui-modal-overlay {
     background-color: rgba(10, 10, 10, 0.55);
+    -webkit-backdrop-filter: blur(20px);
     backdrop-filter: blur(20px);
   }
 
@@ -818,22 +819,13 @@
     padding-bottom: 2.5rem;
   }
 
-  .ui-navbar {
-    border-bottom: 1px solid var(--border);
-    background-color: var(--bg);
-  }
-
+  /* Match StudentCabinetTabBar glass: card-bg 70% + blur-xl (24px) + saturate-150 */
+  .ui-navbar,
   .ui-navbar-panel {
-    border-bottom: 1px solid var(--border);
-    background-color: var(--bg);
-  }
-
-  .theme-air .ui-navbar,
-  .theme-air .ui-navbar-panel {
-    border-bottom-color: var(--border-subtle);
-    background-color: color-mix(in srgb, var(--bg) 82%, transparent);
-    backdrop-filter: var(--nav-blur);
-    -webkit-backdrop-filter: var(--nav-blur);
+    border-bottom: 1px solid color-mix(in srgb, var(--ink) 7%, transparent);
+    background-color: color-mix(in srgb, var(--card-bg) 70%, transparent);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    backdrop-filter: blur(24px) saturate(150%);
   }
 
   /* «Путь к мастерству» — плавный переход к фону следующего блока */

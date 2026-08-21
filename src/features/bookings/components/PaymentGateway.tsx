@@ -127,7 +127,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
   };
 
   return (
-    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
       <BodyScrollLock />
       <div className="ui-modal shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]">
         {/* Header */}

@@ -467,7 +467,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {confirmModal &&
         createPortal(
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-55 p-4 animate-fade-in">
+          <div className="ui-modal-overlay fixed inset-0 z-55 flex items-center justify-center p-4 animate-fade-in">
             <BodyScrollLock />
             <div className="bg-[var(--bg)] border border-[var(--border)] rounded-none w-full max-w-sm p-6 shadow-2xl relative space-y-4 animate-scale-up">
               <h4 className="font-serif text-sm font-light text-[var(--ink)] flex items-center gap-2">

@@ -142,7 +142,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
   };
 
   return createPortal(
-    <div className="ui-modal-overlay fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-xs overflow-y-auto">
+    <div className="ui-modal-overlay fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
       <BodyScrollLock />
       <div className="ui-modal w-full max-w-4xl max-h-[80vh] my-auto flex flex-col shadow-2xl overflow-hidden rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] relative">
         {/* Header */}

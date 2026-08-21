@@ -132,7 +132,7 @@ export const PersonalCabinetModals: React.FC<PersonalCabinetModalsProps> = ({
       {selectedChatBooking && (
         <LazyLoad
           fallback={
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 font-mono text-[10px] uppercase tracking-wider text-white">
+            <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center font-mono text-[10px] uppercase tracking-wider text-white">
               {t('loading')}
             </div>
           }

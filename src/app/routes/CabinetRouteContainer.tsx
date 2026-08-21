@@ -56,8 +56,7 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   const handleAddCustomTodayTask = useProfileStore((state) => state.handleAddCustomTodayTask);
   const handleRemoveTodayTask = useProfileStore((state) => state.handleRemoveTodayTask);
   const handleUpdateProfile = useProfileStore((state) => state.handleUpdateProfile);
-  const { handleRequestCancel, handleAddReview, handleToggleRecommendation } =
-    useBookingActions();
+  const { handleRequestCancel, handleAddReview, handleToggleRecommendation } = useBookingActions();
   const { handleBookCourse } = useCourseActions();
   const setSelectedCourseForDetails = useUiStore((state) => state.setSelectedCourseForDetails);
   const setSelectedCourseForAuth = useUiStore((state) => state.setSelectedCourseForAuth);

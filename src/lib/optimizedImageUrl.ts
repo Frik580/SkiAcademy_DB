@@ -24,7 +24,7 @@ export const isProxyableImageUrl = (url: string): boolean => {
   }
 };
 
-const useImageProxy = (): boolean => {
+const isImageProxyEnabled = (): boolean => {
   if (typeof import.meta === 'undefined' || !import.meta.env) return true;
   if (import.meta.env.VITE_IMAGE_PROXY === 'true') return true;
   if (import.meta.env.VITE_IMAGE_PROXY === 'false') return false;
@@ -47,7 +47,7 @@ export const optimizedImageUrl = (
   width: number,
   quality: number = DEFAULT_QUALITY
 ): string => {
-  if (!src || !isProxyableImageUrl(src) || !useImageProxy()) {
+  if (!src || !isProxyableImageUrl(src) || !isImageProxyEnabled()) {
     return src;
   }
   const w = snapWidth(width);
@@ -65,7 +65,7 @@ export const optimizedImageSrcSet = (
   widths: readonly number[] = [960, 1920],
   quality: number = DEFAULT_QUALITY
 ): string | undefined => {
-  if (!src || !isProxyableImageUrl(src) || !useImageProxy()) {
+  if (!src || !isProxyableImageUrl(src) || !isImageProxyEnabled()) {
     return undefined;
   }
   return widths.map((w) => `${optimizedImageUrl(src, w, quality)} ${snapWidth(w)}w`).join(', ');

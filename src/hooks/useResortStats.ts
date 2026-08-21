@@ -3,6 +3,8 @@ import {
   subscribeResortConfig,
   getResortWeatherCache,
   saveResortWeatherCache,
+  readCachedResortConfig,
+  writeCachedResortConfig,
 } from '../features/settings';
 import { ResortConfig } from '../types';
 import { logger } from '../shared';
@@ -59,7 +61,12 @@ const DEFAULT_CONFIG: ResortConfig = {
 };
 
 export const useResortStats = () => {
-  const [resortConfig, setResortConfig] = useState<ResortConfig>(DEFAULT_CONFIG);
+  const [resortConfig, setResortConfig] = useState<ResortConfig>(() => {
+    return readCachedResortConfig() ?? DEFAULT_CONFIG;
+  });
+  const [isResortConfigReady, setIsResortConfigReady] = useState(() => {
+    return readCachedResortConfig() !== null;
+  });
   const [tempC, setTempC] = useState(0);
   const [snowDepthCm, setSnowDepthCm] = useState(0);
   const [newSnow24h, setNewSnow24h] = useState(0);
@@ -73,8 +80,17 @@ export const useResortStats = () => {
   // Real-time listener for resort configuration
   useEffect(() => {
     return subscribeResortConfig(
-      (config) => setResortConfig(config ?? DEFAULT_CONFIG),
-      (error) => logger.error('Resort config sync error:', error)
+      (config) => {
+        const next = config ?? DEFAULT_CONFIG;
+        setResortConfig(next);
+        writeCachedResortConfig(next);
+        setIsResortConfigReady(true);
+      },
+      (error) => {
+        logger.error('Resort config sync error:', error);
+        // Keep cached slides if we have them; otherwise fall back so the page is usable.
+        setIsResortConfigReady(true);
+      }
     );
   }, []);
 
@@ -188,11 +204,13 @@ export const useResortStats = () => {
   }, []);
 
   useEffect(() => {
+    if (!isResortConfigReady) return;
     fetchResortStats(resortConfig);
-  }, [resortConfig, fetchResortStats]);
+  }, [resortConfig, fetchResortStats, isResortConfigReady]);
 
   return {
     resortConfig,
+    isResortConfigReady,
     tempC,
     snowDepthCm,
     newSnow24h,

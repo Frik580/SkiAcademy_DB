@@ -3,6 +3,7 @@ import type { ResortConfig } from '../../types';
 
 const resortConfigRef = doc(db, 'resort_data', 'config');
 const resortCacheRef = doc(db, 'resort_data', 'cache');
+const RESORT_CONFIG_STORAGE_KEY = 'alpine_glide_resort_config';
 
 export interface ResortWeatherCache {
   tempC: number;
@@ -14,6 +15,31 @@ export interface ResortWeatherCache {
   lastUpdatedTimestamp: number;
   latitude: number;
   longitude: number;
+}
+
+/** Last known Firestore resort config — avoids painting DEFAULT hero before the first snapshot. */
+export function readCachedResortConfig(): ResortConfig | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(RESORT_CONFIG_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<ResortConfig>;
+    if (typeof parsed?.latitude !== 'number' || typeof parsed?.longitude !== 'number') {
+      return null;
+    }
+    return parsed as ResortConfig;
+  } catch {
+    return null;
+  }
+}
+
+export function writeCachedResortConfig(config: ResortConfig): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(RESORT_CONFIG_STORAGE_KEY, JSON.stringify(config));
+  } catch {
+    // ignore quota / private mode
+  }
 }
 
 export function subscribeResortConfig(

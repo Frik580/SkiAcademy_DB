@@ -133,7 +133,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
           <Link
             to={
-              userProfile && userProfile.role !== 'admin' ? getDefaultWorkspacePath(userProfile) : '/'
+              userProfile && userProfile.role !== 'admin'
+                ? getDefaultWorkspacePath(userProfile)
+                : '/'
             }
             className="flex items-center select-none shrink-0"
           >

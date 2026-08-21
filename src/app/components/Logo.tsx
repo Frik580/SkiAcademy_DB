@@ -1,8 +1,8 @@
 import React from 'react';
-import logoW from '../../assets/images/logo_w.png';
-import sW from '../../assets/images/s_logo_w.png';
-import logoB from '../../assets/images/logo_b.png';
-import sB from '../../assets/images/s_logo_b.png';
+import logoW from '../../assets/images/logo_w.webp';
+import sW from '../../assets/images/s_logo_w.webp';
+import logoB from '../../assets/images/logo_b.webp';
+import sB from '../../assets/images/s_logo_b.webp';
 
 interface LogoProps {
   theme: 'light' | 'dark';

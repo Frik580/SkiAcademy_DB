@@ -65,6 +65,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
       <HeroCarousel
         data={{
           slides: resortData.resortConfig.slides,
+          configReady: resortData.isResortConfigReady,
           language,
           theme,
           designTheme,

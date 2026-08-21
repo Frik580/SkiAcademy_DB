@@ -50,8 +50,7 @@ export const translations = {
     starterCredits: 'Starter Gift Credits',
     starterCreditsDesc: 'Every new sign-up instantly receives $250 mock balance to explore.',
     seamlessDash: 'Seamless Dashboard',
-    seamlessDashDesc:
-      'Book, cancel, or leave rating reviews directly from your cabinet.',
+    seamlessDashDesc: 'Book, cancel, or leave rating reviews directly from your cabinet.',
     authDisplayNameRequired: 'Display name is required',
     authNameCharactersOnly:
       'Name must contain only English or Russian letters, spaces, and hyphens.',

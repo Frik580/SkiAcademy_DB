@@ -1,12 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  MessageSquare,
-  Trash2,
-} from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, MessageSquare, Trash2 } from 'lucide-react';
 import { Booking, Course, Instructor, UserProfile } from '../../../types';
 import { BookingCallCoachButton } from './student/BookingCallCoachButton';
 import {

@@ -7,10 +7,7 @@
  * Custom HTTPS carve URLs are proxied the same way.
  */
 
-import {
-  optimizedImageSrcSet,
-  optimizedImageUrl,
-} from './optimizedImageUrl';
+import { optimizedImageSrcSet, optimizedImageUrl } from './optimizedImageUrl';
 
 const YANDEX_CARVE = 'https://storage.yandexcloud.net/carve';
 

@@ -88,6 +88,51 @@
         "screenshot": ".stitch/designs/settings-v3-minimalist-flush.png",
         "html": ".stitch/designs/settings-v3-minimalist-flush.html"
       }
+    },
+    {
+      "screenId": "5e4c2a7ade2e469dae7ef7ccc0a15688",
+      "title": "/ — Hero baseline",
+      "route": "/",
+      "deviceType": "DESKTOP",
+      "role": "baseline",
+      "localAssets": {
+        "screenshot": ".stitch/designs/hero-baseline.png",
+        "html": ".stitch/designs/hero-baseline.html"
+      }
+    },
+    {
+      "screenId": "d0c89e2128144204943f7818f6d1c3da",
+      "title": "Hero — Brand Silhouette (V1)",
+      "route": "/",
+      "deviceType": "DESKTOP",
+      "variant": "V1 Brand Silhouette",
+      "localAssets": {
+        "screenshot": ".stitch/designs/hero-v1-brand-silhouette.png",
+        "html": ".stitch/designs/hero-v1-brand-silhouette.html"
+      }
+    },
+    {
+      "screenId": "1bbb1597a89147a9aeb4cb0a51383a7f",
+      "title": "Hero — Asymmetric Edge (V2)",
+      "route": "/",
+      "deviceType": "DESKTOP",
+      "variant": "V2 Asymmetric Edge",
+      "localAssets": {
+        "screenshot": ".stitch/designs/hero-v2-asymmetric-edge.png",
+        "html": ".stitch/designs/hero-v2-asymmetric-edge.html"
+      }
+    },
+    {
+      "screenId": "be57d3c6076540dd860d0a562b9b591a",
+      "title": "Hero — Minimalist Horizon (V3)",
+      "route": "/",
+      "deviceType": "DESKTOP",
+      "variant": "V3 Minimalist Horizon",
+      "role": "selected",
+      "localAssets": {
+        "screenshot": ".stitch/designs/hero-v3-minimalist-horizon.png",
+        "html": ".stitch/designs/hero-v3-minimalist-horizon.html"
+      }
     }
   ],
   "designSystem": {

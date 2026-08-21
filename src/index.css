@@ -169,20 +169,20 @@
   --accent-hover: #134e5e;
   --accent-muted: rgba(26, 101, 120, 0.08);
   --accent-foreground: #ffffff;
-  --hero-secondary-bg: rgba(255, 255, 255, 0.72);
-  --hero-secondary-bg-hover: rgba(255, 255, 255, 0.92);
-  --hero-secondary-border: rgba(17, 17, 17, 0.18);
-  --hero-secondary-border-hover: rgba(17, 17, 17, 0.32);
+  --hero-secondary-bg: transparent;
+  --hero-secondary-bg-hover: transparent;
+  --hero-secondary-border: transparent;
+  --hero-secondary-border-hover: transparent;
   --hero-secondary-shadow: none;
-  --hero-secondary-shadow-hover: 0 4px 20px rgba(17, 17, 17, 0.08);
+  --hero-secondary-shadow-hover: none;
   --hero-ink: #111111;
-  --hero-ink-dim: rgba(17, 17, 17, 0.62);
-  --hero-cta-bg: #111111;
-  --hero-cta-bg-hover: #2a2a2a;
+  --hero-ink-dim: rgba(17, 17, 17, 0.5);
+  --hero-cta-bg: #1a6578;
+  --hero-cta-bg-hover: #134e5e;
   --hero-cta-fg: #ffffff;
   --hero-cta-border: transparent;
   --hero-cta-shadow: none;
-  --hero-cta-shadow-hover: 0 6px 24px rgba(17, 17, 17, 0.18);
+  --hero-cta-shadow-hover: none;
   --hero-title-shadow: none;
   --hero-body-shadow: none;
   --hero-scrim: 255, 255, 255;
@@ -211,20 +211,20 @@
   --accent-hover: #8dd8ef;
   --accent-muted: rgba(94, 200, 232, 0.1);
   --accent-foreground: #0a0a0a;
-  --hero-secondary-bg: rgba(255, 255, 255, 0.06);
-  --hero-secondary-bg-hover: rgba(255, 255, 255, 0.1);
-  --hero-secondary-border: rgba(243, 243, 241, 0.2);
-  --hero-secondary-border-hover: rgba(243, 243, 241, 0.35);
+  --hero-secondary-bg: transparent;
+  --hero-secondary-bg-hover: transparent;
+  --hero-secondary-border: transparent;
+  --hero-secondary-border-hover: transparent;
   --hero-secondary-shadow: none;
   --hero-secondary-shadow-hover: none;
-  --hero-ink: var(--ink);
-  --hero-ink-dim: var(--ink-dim);
-  --hero-cta-bg: #f3f3f1;
-  --hero-cta-bg-hover: #ffffff;
-  --hero-cta-fg: #0a0a0a;
+  --hero-ink: #f3f3f1;
+  --hero-ink-dim: rgba(243, 243, 241, 0.7);
+  --hero-cta-bg: #1a6578;
+  --hero-cta-bg-hover: #134e5e;
+  --hero-cta-fg: #ffffff;
   --hero-cta-border: transparent;
   --hero-cta-shadow: none;
-  --hero-cta-shadow-hover: 0 6px 28px rgba(0, 0, 0, 0.45);
+  --hero-cta-shadow-hover: none;
   --hero-title-shadow: none;
   --hero-body-shadow: none;
   --shadow-card: 0 8px 40px rgba(0, 0, 0, 0.35);
@@ -400,7 +400,7 @@
   .btn-secondary-hero {
     background-color: var(--hero-secondary-bg);
     border: 1px solid var(--hero-secondary-border);
-    color: var(--ink);
+    color: var(--hero-ink);
     font-family: var(--font-sans);
     font-size: 0.8125rem;
     font-weight: 600;
@@ -408,7 +408,11 @@
     text-transform: uppercase;
     backdrop-filter: blur(10px);
     box-shadow: var(--hero-secondary-shadow);
-    transition: transform 0.15s;
+    transition:
+      background-color 0.2s,
+      border-color 0.2s,
+      box-shadow 0.2s,
+      transform 0.15s;
     cursor: pointer;
   }
 
@@ -939,8 +943,8 @@
     font-family: var(--font-sans);
     font-size: 0.875rem;
     font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    text-transform: none;
   }
 
   .theme-air .btn-secondary-hero {
@@ -949,9 +953,20 @@
     font-family: var(--font-sans);
     font-size: 0.875rem;
     font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    text-transform: none;
     backdrop-filter: blur(12px);
+  }
+
+  .theme-air .hero-copy-eyebrow {
+    font-family: var(--font-mono);
+  }
+
+  .theme-air .hero-copy-body {
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    text-transform: none;
+    letter-spacing: 0.025em;
   }
 }
 

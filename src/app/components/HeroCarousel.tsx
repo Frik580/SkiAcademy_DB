@@ -44,6 +44,7 @@ const HERO_CROSSFADE_MS = 1400;
 const HERO_SCRIM: Record<DesignTheme, { light: string; dark: string }> = {
   classic: { light: '250, 250, 247', dark: '17, 17, 19' },
   lodge: { light: '246, 239, 226', dark: '26, 20, 13' },
+  /** Minimalist Horizon (V3): soft light left scrim; photo dominates the upper frame. */
   air: { light: '255, 255, 255', dark: '10, 10, 10' },
 };
 
@@ -65,13 +66,15 @@ const buildScrimGradient = (theme: Theme, designTheme: DesignTheme = 'air'): str
   const scrim = HERO_SCRIM[designTheme];
   if (designTheme === 'air') {
     return theme === 'light'
-      ? `linear-gradient(105deg, rgba(${scrim.light},0.94) 0%, rgba(${scrim.light},0.78) 38%, rgba(${scrim.light},0.35) 62%, rgba(${scrim.light},0.05) 100%)`
-      : `linear-gradient(105deg, rgba(${scrim.dark},0.88) 0%, rgba(${scrim.dark},0.5) 45%, rgba(${scrim.dark},0.12) 100%)`;
+      ? `linear-gradient(90deg, rgba(${scrim.light},0.95) 0%, rgba(${scrim.light},0.8) 35%, rgba(${scrim.light},0) 100%)`
+      : `linear-gradient(90deg, rgba(${scrim.dark},0.88) 0%, rgba(${scrim.dark},0.62) 28%, rgba(${scrim.dark},0.32) 52%, rgba(${scrim.dark},0.1) 72%, rgba(${scrim.dark},0) 100%)`;
   }
   return theme === 'light'
     ? `linear-gradient(105deg, rgba(${scrim.light},0.98) 0%, rgba(${scrim.light},0.88) 32%, rgba(${scrim.light},0.55) 55%, rgba(${scrim.light},0.12) 100%)`
     : `linear-gradient(105deg, rgba(${scrim.dark},0.82) 0%, rgba(${scrim.dark},0.42) 42%, rgba(${scrim.dark},0.1) 100%)`;
 };
+
+const padSlideIndex = (n: number) => String(n).padStart(2, '0');
 
 export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   data: {
@@ -227,8 +230,8 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
       </div>
 
       {slides.length > 0 && (
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-10 pb-2 md:pb-4 pt-16 md:pt-20 flex flex-col justify-end flex-1">
-          <div className="flex flex-col gap-8 w-full max-w-2xl">
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-10 lg:px-12 pb-16 md:pb-16 pt-16 md:pt-20 flex flex-col justify-end flex-1">
+          <div className="flex flex-col gap-3 lg:gap-4 w-full max-w-2xl pb-8 md:pb-0">
             <div className="grid [&>*]:col-start-1 [&>*]:row-start-1 min-w-0">
               {slides.map((slide, idx) => {
                 const isActive = idx === currentSlide;
@@ -236,7 +239,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   <div
                     key={slide.id || `hero-copy-${idx}`}
                     aria-hidden={!isActive}
-                    className={`col-start-1 row-start-1 space-y-4 will-change-[opacity] transition-opacity ${
+                    className={`col-start-1 row-start-1 space-y-3 will-change-[opacity] transition-opacity ${
                       isActive ? 'opacity-100 z-[2]' : 'opacity-0 z-[1] pointer-events-none'
                     }`}
                     style={crossfadeStyle}
@@ -253,7 +256,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                         delay: isActive && !shouldReduceMotion ? 0.12 : 0,
                         ease: [0.22, 1, 0.36, 1],
                       }}
-                      className="hero-copy-eyebrow text-[9px] font-mono uppercase tracking-widest block"
+                      className="hero-copy-eyebrow text-xs font-mono font-medium uppercase tracking-[0.1em] block"
                     >
                       {language === 'en' ? slide.line1En : slide.line1Ru}
                     </motion.span>
@@ -269,7 +272,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                         delay: isActive && !shouldReduceMotion ? 0.26 : 0,
                         ease: [0.22, 1, 0.36, 1],
                       }}
-                      className="hero-copy-title text-3xl md:text-4xl lg:text-5xl font-serif font-light leading-[1.05] tracking-tight"
+                      className="hero-copy-title text-4xl md:text-5xl lg:text-6xl font-serif font-light leading-tight tracking-tight"
                     >
                       {language === 'en' ? slide.line2En : slide.line2Ru}
                     </motion.h2>
@@ -285,7 +288,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                         delay: isActive && !shouldReduceMotion ? 0.42 : 0,
                         ease: [0.22, 1, 0.36, 1],
                       }}
-                      className="hero-copy-body text-xs font-mono max-w-lg tracking-wider leading-relaxed"
+                      className="hero-copy-body text-sm tracking-wide leading-relaxed max-w-lg"
                     >
                       {language === 'en' ? slide.line3En : slide.line3Ru}
                     </motion.p>
@@ -302,45 +305,57 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                 delay: shouldReduceMotion ? 0 : 0.58,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              className="flex flex-col items-start gap-3 pt-1 md:flex-row md:items-center md:gap-5"
+              className="flex flex-col items-start gap-3 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6"
             >
               <button
                 onClick={() => onScrollToSection('coaches-grid')}
-                className="btn-primary-hero px-5 py-3 inline-flex items-center justify-center gap-2"
+                className="btn-primary-hero px-7 py-3.5 inline-flex items-center justify-center gap-2 group"
               >
                 <span>{t('startYourJourney')}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
               </button>
               <button
                 type="button"
                 onClick={() => onScrollToSection('courses-grid')}
-                className="inline-flex items-center gap-1.5 text-sm text-[var(--ink)]/80 hover:text-[var(--ink)] transition-colors bg-transparent border-0 p-0 cursor-pointer group"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--hero-ink)]/80 hover:text-[var(--accent)] transition-colors bg-transparent border-0 p-0 cursor-pointer group pl-7 sm:pl-0"
               >
                 <span>{t('chooseCourse')}</span>
-                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
               </button>
+              {slides.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)}
+                  className="hidden md:flex ml-2 md:ml-4 font-mono text-xs font-medium tracking-[0.2em] text-[var(--hero-ink)]/70 items-center gap-2 bg-transparent border-0 p-0 cursor-pointer hover:text-[var(--hero-ink)] transition-colors"
+                  aria-label={`${t('goToSlide')} ${currentSlide + 1} / ${slides.length}`}
+                >
+                  <span aria-hidden="true">{padSlideIndex(currentSlide + 1)}</span>
+                  <span
+                    className="w-8 h-px bg-[var(--hero-ink)]/20"
+                    aria-hidden="true"
+                  />
+                  <span className="text-[var(--hero-ink)]/40" aria-hidden="true">
+                    {padSlideIndex(slides.length)}
+                  </span>
+                </button>
+              )}
             </motion.div>
           </div>
-          <div
-            className="flex justify-center gap-2 mt-8 md:mt-10"
-            role="tablist"
-            aria-label={t('goToSlide')}
-          >
-            {slides.map((_, idx) => (
-              <button
-                key={idx}
-                role="tab"
-                aria-selected={currentSlide === idx}
-                onClick={() => setCurrentSlide(idx)}
-                className={`h-1 transition-[width,background-color] duration-500 ease-in-out cursor-pointer rounded-full ${
-                  currentSlide === idx
-                    ? 'w-8 bg-[var(--accent)]'
-                    : 'w-2 bg-[var(--ink)]/30 hover:bg-[var(--ink)]/60'
-                }`}
-                aria-label={`${t('goToSlide')} ${idx + 1}`}
-              />
-            ))}
-          </div>
+
+          {slides.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)}
+              className="md:hidden absolute bottom-5 left-1/2 -translate-x-1/2 font-mono text-xs font-medium tracking-[0.2em] text-[var(--hero-ink)]/70 flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer hover:text-[var(--hero-ink)] transition-colors"
+              aria-label={`${t('goToSlide')} ${currentSlide + 1} / ${slides.length}`}
+            >
+              <span aria-hidden="true">{padSlideIndex(currentSlide + 1)}</span>
+              <span className="w-8 h-px bg-[var(--hero-ink)]/20" aria-hidden="true" />
+              <span className="text-[var(--hero-ink)]/40" aria-hidden="true">
+                {padSlideIndex(slides.length)}
+              </span>
+            </button>
+          )}
         </div>
       )}
     </section>

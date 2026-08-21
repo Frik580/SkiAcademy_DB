@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { User } from 'firebase/auth';
 import { logger } from '../../shared';
 import { resetUserScopedStores } from '../../store/resetDataStores';
+import { useProfileStore } from '../profile/profileStore';
 import { signOutService } from './authService';
 
 export interface AuthState {
@@ -18,7 +19,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   authLoading: true,
 
   setFirebaseUser: (user) => {
-    if (!user) resetUserScopedStores();
+    if (!user) {
+      resetUserScopedStores();
+    } else {
+      // Mark profile pending synchronously so RouteGate does not bounce to `/`
+      // between auth resolve and the first Firestore profile snapshot.
+      useProfileStore.getState().setProfileLoading(true);
+    }
     set({ firebaseUser: user });
   },
   setAuthLoading: (loading) => set({ authLoading: loading }),

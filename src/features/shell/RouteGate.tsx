@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { UserProfile } from '../../types';
 import { isInstructorWorkspaceUser } from '../../lib/workspaceRoutes';
 import { useAuthStore } from '../auth';
+import { useProfileStore } from '../profile';
 import { useLanguage } from '../../app/providers/LanguageContext';
 import { AppInitSkeleton } from '../../ui/Skeleton';
 
@@ -23,9 +24,10 @@ export const RouteGate: React.FC<RouteGateProps> = ({
 }) => {
   const { t } = useLanguage();
   const authLoading = useAuthStore((s) => s.authLoading);
+  const profileLoading = useProfileStore((s) => s.profileLoading);
 
-  // Wait for auth before redirecting — avoids bouncing signed-in users to `/`.
-  if (authLoading) {
+  // Wait for auth + profile before redirecting — avoids /cabinet → / → /cabinet on reload.
+  if (authLoading || profileLoading) {
     return <AppInitSkeleton label={t('checkingCredentials')} />;
   }
 

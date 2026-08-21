@@ -20,6 +20,7 @@ export function resetUserScopedStores(): void {
   useCoursesStore.setState({ courses: [] });
   useProfileStore.setState({
     userProfile: null,
+    profileLoading: false,
     usersList: [],
     dismissedReviewIds: [],
     activityLogs: [],

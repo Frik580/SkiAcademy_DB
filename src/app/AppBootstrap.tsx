@@ -16,7 +16,7 @@ export interface AppBootstrapProps {
 
 /**
  * Bootstraps stores and theme without blocking the public shell on auth.
- * Protected routes wait on authLoading inside RouteGate so LCP can paint.
+ * Protected routes wait on auth + profile loading inside RouteGate so LCP can paint.
  */
 export const AppBootstrap: React.FC<AppBootstrapProps> = ({ children }) => {
   const { addNotification } = useNotifications();

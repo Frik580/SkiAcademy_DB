@@ -19,6 +19,7 @@ import { useCourseActions } from '../../features/courses';
 import { useSettingsStore } from '../../features/settings';
 import { useUiStore } from '../../features/shell';
 import { useAuthStore } from '../../features/auth';
+import { AppInitSkeleton } from '../../ui/Skeleton';
 import type { AppRoutesProps } from './routeTypes';
 
 /** Connects the public home screen to catalogue data and UI actions. */
@@ -26,6 +27,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
   const { t, language } = useLanguage();
   const { theme } = useTheme();
   const authLoading = useAuthStore((state) => state.authLoading);
+  const profileLoading = useProfileStore((state) => state.profileLoading);
   const userProfile = useProfileStore((state) => state.userProfile);
   const courses = useCoursesStore((state) => state.courses);
   const bookings = useBookingsStore((state) => state.bookings);
@@ -55,7 +57,12 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
     element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  // Defer workspace redirect until auth resolves so guests can paint LCP immediately.
+  // Guests paint LCP during authLoading. Once a session is known, wait for profile
+  // instead of flashing the marketing home before the workspace redirect.
+  if (!authLoading && profileLoading) {
+    return <AppInitSkeleton label={t('checkingCredentials')} />;
+  }
+
   if (!authLoading && userProfile && userProfile.role !== 'admin') {
     return <Navigate to={getDefaultWorkspacePath(userProfile)} replace />;
   }

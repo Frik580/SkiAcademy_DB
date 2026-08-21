@@ -25,6 +25,8 @@ import {
 
 export interface ProfileState {
   userProfile: UserProfile | null;
+  /** True while a signed-in session awaits the first profile snapshot. */
+  profileLoading: boolean;
   usersList: UserProfile[];
   dismissedReviewIds: string[];
   activityLogs: ActivityLog[];
@@ -34,6 +36,7 @@ export interface ProfileState {
   activityLogsHasMore: boolean;
 
   setUserProfile: (profile: UserProfile | null) => void;
+  setProfileLoading: (loading: boolean) => void;
   syncUserProfileFromSnapshot: (profile: UserProfile | null) => void;
   setUsersList: (users: UserProfile[]) => void;
   setDismissedReviewIds: (ids: string[]) => void;
@@ -61,6 +64,7 @@ export interface ProfileState {
 
 export const useProfileStore = create<ProfileState>((set, get) => ({
   userProfile: null,
+  profileLoading: false,
   usersList: [],
   dismissedReviewIds: [],
   activityLogs: [],
@@ -70,7 +74,8 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   activityLogsHasMore: false,
 
   setUserProfile: (profile) => set({ userProfile: profile }),
-  syncUserProfileFromSnapshot: (profile) => set({ userProfile: profile }),
+  setProfileLoading: (loading) => set({ profileLoading: loading }),
+  syncUserProfileFromSnapshot: (profile) => set({ userProfile: profile, profileLoading: false }),
   setUsersList: (users) => set({ usersList: users }),
   setDismissedReviewIds: (ids) => set({ dismissedReviewIds: ids }),
   setActivityLogs: (logs) => set({ activityLogs: logs }),
@@ -85,6 +90,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   resetProfileState: () =>
     set({
       userProfile: null,
+      profileLoading: false,
       usersList: [],
       dismissedReviewIds: [],
       activityLogs: [],

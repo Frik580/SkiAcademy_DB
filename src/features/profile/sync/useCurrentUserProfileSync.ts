@@ -42,7 +42,10 @@ export const useCurrentUserProfileSync = () => {
         const saved = localStorage.getItem(`alpine_glide_dismissed_reviews_${firebaseUser.uid}`);
         useProfileStore.getState().setDismissedReviewIds(saved ? JSON.parse(saved) : []);
       },
-      (error) => logger.error('Current user profile sync error:', error)
+      (error) => {
+        logger.error('Current user profile sync error:', error);
+        useProfileStore.getState().setProfileLoading(false);
+      }
     );
   }, [firebaseUser]);
 };

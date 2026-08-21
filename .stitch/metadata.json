@@ -15,6 +15,61 @@
       "height": 6386,
       "localScreenshot": ".stitch/designs/carve-academy-home.png",
       "localHtml": ".stitch/designs/carve-academy-home.html"
+    },
+    {
+      "id": "4caed8c3bc364542907a101b720d8ebc",
+      "name": "projects/12447626312814512672/screens/4caed8c3bc364542907a101b720d8ebc",
+      "title": "Student Dashboard - Mobile (TabBar baseline)",
+      "deviceType": "MOBILE",
+      "width": 780,
+      "height": 2064,
+      "localScreenshot": ".stitch/designs/tabbar/baseline.png",
+      "role": "baseline"
+    },
+    {
+      "id": "e6b81ccbb75f40d99811e0eeb129ff3d",
+      "name": "projects/12447626312814512672/screens/e6b81ccbb75f40d99811e0eeb129ff3d",
+      "title": "Student Dashboard - Refined Dock",
+      "deviceType": "MOBILE",
+      "width": 780,
+      "height": 2064,
+      "localScreenshot": ".stitch/designs/tabbar/variant-a-refined-dock.png",
+      "role": "variant-a",
+      "direction": "Refined Dock"
+    },
+    {
+      "id": "19ec66f101d8432aa0bed28d01b4486e",
+      "name": "projects/12447626312814512672/screens/19ec66f101d8432aa0bed28d01b4486e",
+      "title": "Student Dashboard - Segmented Island",
+      "deviceType": "MOBILE",
+      "width": 780,
+      "height": 2064,
+      "localScreenshot": ".stitch/designs/tabbar/variant-b-segmented-island.png",
+      "role": "variant-b",
+      "direction": "Segmented Island"
+    },
+    {
+      "id": "bd49e7ccf0ec4323ac309df2de0eee9d",
+      "name": "projects/12447626312814512672/screens/bd49e7ccf0ec4323ac309df2de0eee9d",
+      "title": "Student Dashboard - Elevated Action Rail",
+      "deviceType": "MOBILE",
+      "width": 780,
+      "height": 2064,
+      "localScreenshot": ".stitch/designs/tabbar/variant-c-elevated-action-rail.png",
+      "role": "variant-c",
+      "direction": "Elevated Action Rail"
     }
-  ]
+  ],
+  "tabBarExploration": {
+    "component": "StudentCabinetTabBar",
+    "source": "src/features/student-cabinet/components/student/StudentCabinetUI.tsx",
+    "preservedIA": [
+      "Home",
+      "Training",
+      "Coach",
+      "Profile",
+      "Book Lesson FAB (right)"
+    ],
+    "localSourceCodeChanged": false
+  }
 }

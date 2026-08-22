@@ -382,13 +382,13 @@ export const JourneyPathStrip: React.FC<{
   const navigate = useNavigate();
 
   return (
-    <>
+    <div className="flex flex-col gap-4 sm:gap-5 md:gap-6 shrink-0">
       {/* Полоса пути: метки + волнистая линия */}
       <div
         className={
           effectiveFillViewport
-            ? 'relative w-full flex-1 min-h-[7.5rem]'
-            : 'relative w-full h-36 sm:h-44 md:h-52 shrink-0'
+            ? 'relative w-full flex-1 min-h-[9.5rem]'
+            : 'relative w-full h-48 sm:h-56 md:h-64 shrink-0'
         }
       >
         <JourneyPath
@@ -494,7 +494,7 @@ export const JourneyPathStrip: React.FC<{
               onMouseLeave={clearHover}
             >
               <h3
-                className={`text-[10px] sm:text-xs md:text-sm font-semibold tracking-[0.08em] sm:tracking-[0.12em] uppercase transition-opacity ${
+                className={`sm:text-xs md:text-sm font-semibold tracking-[0.08em] sm:tracking-[0.12em] uppercase transition-opacity ${
                   isCurrent
                     ? isDark
                       ? 'text-[#f5d76e]'
@@ -507,7 +507,7 @@ export const JourneyPathStrip: React.FC<{
                 {t(level.labelKey)}
               </h3>
               <p
-                className={`text-[11px] sm:text-xs font-medium ${
+                className={`sm:text-xs font-medium ${
                   isCurrent ? (isDark ? 'text-[#f5d76e]' : 'text-[#b8860b]') : ''
                 }`}
                 style={isCurrent ? undefined : { color: level.accent }}
@@ -527,6 +527,6 @@ export const JourneyPathStrip: React.FC<{
           );
         })}
       </div>
-    </>
+    </div>
   );
 };

@@ -1,6 +1,5 @@
 import { db, doc, setDoc } from '../../infrastructure/firebase';
 import { AchievementsConfig, normalizeAchievementsConfig } from '../../domain/achievements';
-import { DesignTheme } from '../../shared';
 import {
   MAX_NOTIFICATION_RETENTION_DAYS,
   MIN_NOTIFICATION_RETENTION_DAYS,
@@ -14,9 +13,6 @@ import {
 
 export const saveFiltersEnabled = (enabled: boolean): Promise<void> =>
   setDoc(doc(db, 'settings', 'instructor_filters'), { enabled });
-
-export const saveDesignTheme = (theme: DesignTheme): Promise<void> =>
-  setDoc(doc(db, 'settings', 'design_theme'), { theme });
 
 export async function saveNotificationRetentionDays(days: number): Promise<number> {
   const normalizedDays = Math.min(

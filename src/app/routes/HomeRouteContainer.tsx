@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { AnimatePresence } from 'motion/react';
 import { Navigate } from 'react-router-dom';
 import { Compass } from 'lucide-react';
@@ -32,7 +32,6 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
   const courses = useCoursesStore((state) => state.courses);
   const bookings = useBookingsStore((state) => state.bookings);
   const filtersEnabled = useSettingsStore((state) => state.filtersEnabled);
-  const designTheme = useSettingsStore((state) => state.designTheme);
   const skillConfig = useSettingsStore((state) => state.skillConfig);
   const { handleBookCourse } = useCourseActions();
   const setSelectedInstructor = useUiStore((state) => state.setSelectedInstructor);
@@ -75,7 +74,6 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
           configReady: resortData.isResortConfigReady,
           language,
           theme,
-          designTheme,
           slideIntervalSeconds: resortData.resortConfig.slideIntervalSeconds,
           slidesRandomOrder: resortData.resortConfig.slidesRandomOrder,
           isAuthenticated: Boolean(userProfile),
@@ -85,7 +83,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
 
       <YourJourneySection skillConfig={skillConfig} userProfile={null} />
 
-      <div className="flex flex-col lg:grid gap-0 lg:gap-12 theme-air:lg:gap-16 lg:grid-cols-[minmax(140px,200px)_1fr]">
+      <div className="flex flex-col lg:grid gap-0 lg:gap-16 lg:grid-cols-[minmax(140px,200px)_1fr]">
         <ResortConditionsSidebar
           data={{
             language,
@@ -102,7 +100,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
         <div className="flex flex-col">
           <div
             id="main-content-pane"
-            className="p-4 sm:p-8 md:p-10 lg:p-12 space-y-10 sm:space-y-12 theme-air:space-y-16 flex flex-col justify-start min-w-0"
+            className="p-4 sm:p-8 md:p-10 lg:p-12 space-y-16 flex flex-col justify-start min-w-0"
           >
             <GroupCoursesSection
               data={{ courses, bookings, userProfile, language }}
@@ -113,7 +111,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
               }}
             />
 
-            <div id="coaches-grid" className="space-y-8 theme-air:space-y-10">
+            <div id="coaches-grid" className="space-y-10">
               <div>
                 <h3 className="ui-section-title">{t('meetGuides')}</h3>
                 <p className="ui-section-eyebrow mt-2">{t('meetGuidesSub')}</p>

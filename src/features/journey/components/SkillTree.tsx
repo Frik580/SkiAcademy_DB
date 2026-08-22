@@ -44,7 +44,7 @@ export const LevelCardBody: React.FC<{
                 <li
                   key={skill.id}
                   className={`flex items-start gap-1.5 ${
-                    compact ? 'text-[11px] sm:text-xs' : 'text-xs'
+                    compact ? 'sm:text-xs' : 'text-xs'
                   } leading-snug ${isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'}`}
                 >
                   <Check
@@ -58,7 +58,7 @@ export const LevelCardBody: React.FC<{
             </ul>
           ) : (
             <p
-              className={`${compact ? 'text-[11px] sm:text-xs' : 'text-xs'} leading-snug ${
+              className={`${compact ? 'sm:text-xs' : 'text-xs'} leading-snug ${
                 isDark ? 'text-white/40' : 'text-[var(--ink-dim)]/70'
               }`}
             >
@@ -71,7 +71,7 @@ export const LevelCardBody: React.FC<{
               <li
                 key={skillKey}
                 className={`flex items-start gap-1.5 ${
-                  compact ? 'text-[11px] sm:text-xs' : 'text-xs'
+                  compact ? 'sm:text-xs' : 'text-xs'
                 } leading-snug ${isDark ? 'text-white/70' : 'text-[var(--ink-dim)]'}`}
               >
                 <Check
@@ -93,7 +93,7 @@ export const LevelCardBody: React.FC<{
             e.stopPropagation();
             onOpenDevelopment();
           }}
-          className={`mt-auto w-full shrink-0 pt-1 border-t text-left text-[11px] sm:text-xs font-medium transition-colors inline-flex items-center gap-1 ${
+          className={`mt-auto w-full shrink-0 pt-1 border-t text-left sm:text-xs font-medium transition-colors inline-flex items-center gap-1 ${
             isDark
               ? 'border-white/10 text-[#7ec8ff] hover:text-white'
               : 'border-black/8 text-[var(--accent)] hover:text-[var(--ink)]'

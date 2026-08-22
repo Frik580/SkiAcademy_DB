@@ -22,13 +22,13 @@ export const AuthModeSliderSwitch: React.FC<AuthModeSliderSwitchProps> = ({
     <div className={`w-full max-w-[380px] sm:max-w-[420px] mx-auto ${className}`}>
       {/* Segmented Switch matching site style */}
       <div
-        className="relative flex items-center bg-black/5 dark:bg-white/5 p-1 rounded-none theme-air:rounded-full w-full border border-[var(--border)] overflow-hidden"
+        className="relative flex items-center bg-black/5 dark:bg-white/5 p-1 rounded-full w-full border border-[var(--border)] overflow-hidden"
         role="tablist"
         aria-label="Режим записи"
       >
         {/* Animated Sliding Thumb */}
         <motion.div
-          className="absolute top-1 bottom-1 rounded-none theme-air:rounded-full bg-[var(--card-bg)] shadow-xs border border-[var(--border)]"
+          className="absolute top-1 bottom-1 rounded-full bg-[var(--card-bg)] shadow-xs border border-[var(--border)]"
           initial={false}
           animate={{
             left: isGuest ? '4px' : 'calc(50% + 2px)',
@@ -41,7 +41,7 @@ export const AuthModeSliderSwitch: React.FC<AuthModeSliderSwitchProps> = ({
         <button
           type="button"
           onClick={() => onChange('guest')}
-          className={`relative z-10 flex-1 min-w-0 py-1.5 px-2 text-center text-[10px] sm:text-xs font-mono uppercase tracking-wider theme-air:font-sans theme-air:normal-case theme-air:text-xs font-medium transition-colors duration-200 flex items-center justify-center cursor-pointer ${
+          className={`relative z-10 flex-1 min-w-0 py-1.5 px-2 text-center sm:text-xs font-sans normal-case text-xs font-medium transition-colors duration-200 flex items-center justify-center cursor-pointer ${
             isGuest
               ? 'text-[var(--ink)] font-bold'
               : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
@@ -56,7 +56,7 @@ export const AuthModeSliderSwitch: React.FC<AuthModeSliderSwitchProps> = ({
         <button
           type="button"
           onClick={() => onChange('auth')}
-          className={`relative z-10 flex-1 min-w-0 py-1.5 px-2 text-center text-[10px] sm:text-xs font-mono uppercase tracking-wider theme-air:font-sans theme-air:normal-case theme-air:text-xs font-medium transition-colors duration-200 flex items-center justify-center cursor-pointer ${
+          className={`relative z-10 flex-1 min-w-0 py-1.5 px-2 text-center sm:text-xs font-sans normal-case text-xs font-medium transition-colors duration-200 flex items-center justify-center cursor-pointer ${
             !isGuest
               ? 'text-[var(--ink)] font-bold'
               : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'

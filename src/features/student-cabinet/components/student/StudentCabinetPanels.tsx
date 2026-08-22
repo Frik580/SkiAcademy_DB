@@ -124,7 +124,7 @@ export const StudentCoursesPanel: React.FC<
 
   const renderCourseGrid = (items: Course[]) => (
     <div
-      className="grid gap-6 theme-air:gap-8"
+      className="grid gap-6 gap-8"
       style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}
     >
       {items.map((rawCourse) => (

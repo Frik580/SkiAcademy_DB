@@ -39,15 +39,15 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
   } = workspace;
 
   const fieldClass =
-    'ui-field-plain focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]';
+    'ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)]';
 
   const labelStyle =
-    'text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 theme-air:font-sans theme-air:text-xs';
+    'uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs';
 
   return (
     <form onSubmit={handleSubmitGuest} className="space-y-4">
       {/* Notice matching Auth style */}
-      <div className="p-3 bg-[var(--accent-muted)] border border-[var(--border)] text-xs text-[var(--ink)] leading-relaxed rounded-none theme-air:rounded-[var(--radius-md)]">
+      <div className="p-3 bg-[var(--accent-muted)] border border-[var(--border)] text-xs text-[var(--ink)] leading-relaxed rounded-none rounded-[var(--radius-md)]">
         💡 {t('guestBookingNotice')}
       </div>
 
@@ -129,11 +129,11 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
       </div>
 
       {/* Total Price Card */}
-      <div className="p-3.5 border border-[var(--border)] bg-black/5 dark:bg-white/5 rounded-none theme-air:rounded-[var(--radius-md)] flex items-center justify-between">
-        <span className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] theme-air:font-sans theme-air:normal-case theme-air:text-sm">
+      <div className="p-3.5 border border-[var(--border)] bg-black/5 dark:bg-white/5 rounded-none rounded-[var(--radius-md)] flex items-center justify-between">
+        <span className="text-xs text-[var(--ink)] font-sans normal-case text-sm">
           {t('totalLessonFee')}
         </span>
-        <span className="text-lg font-extrabold text-[var(--accent)] font-mono theme-air:font-sans">
+        <span className="text-lg font-extrabold text-[var(--accent)] font-sans">
           ${totalCost}
         </span>
       </div>

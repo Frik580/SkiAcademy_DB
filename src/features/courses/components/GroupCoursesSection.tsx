@@ -27,14 +27,14 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
   const visibleCourses = sortVisibleCourses(courses);
 
   return (
-    <div id="courses-grid" className="space-y-6">
+    <div id="courses-grid" className="space-y-6 max-w-3xl w-full">
       <div>
         <h3 className="ui-section-title">{t('intensiveGroupCourses')}</h3>
         <p className="ui-section-eyebrow mt-2">{t('intensiveGroupCoursesSub')}</p>
       </div>
 
       <div
-        className="grid gap-6 theme-air:gap-8"
+        className="grid gap-6 gap-8"
         style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}
       >
         {visibleCourses.map((rawCourse, index) => (

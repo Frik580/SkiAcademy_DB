@@ -39,9 +39,19 @@ const adminBadgeClass: Record<CourseLevel | '', string> = {
     'bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-900/50',
 };
 
+/** V2 soft pill — pastel fill, no border (course cards). */
+const courseCardLevelBadgeClass: Record<CourseLevel | '', string> = {
+  '': 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300',
+  beginner:
+    'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300',
+  intermediate: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300',
+  advanced: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
+  expert: 'bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-300',
+};
+
 /** Badge on public / cabinet course cards. */
 export function getCourseLevelCardBadgeClass(level: Course['level']): string {
-  return adminBadgeClass[level || ''];
+  return courseCardLevelBadgeClass[level || ''];
 }
 
 export const courseLevelBadgeLabel: Record<CourseLevel, string> = {
@@ -90,7 +100,7 @@ export function userLevelToCourseLevel(level: number): CourseLevel {
   return USER_LEVEL_TO_COURSE_LEVEL[level] ?? 'beginner';
 }
 
-/** Level badge in the student cabinet — same palette as course cards. */
+/** Level badge in the navbar / cabinet — bordered admin style. */
 export function getUserLevelBadgeClass(level: number): string {
-  return getCourseLevelCardBadgeClass(userLevelToCourseLevel(level));
+  return getCourseLevelBadgeClass(userLevelToCourseLevel(level));
 }

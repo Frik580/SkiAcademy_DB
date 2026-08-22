@@ -16,7 +16,6 @@ const COVERAGE_EXCLUDE = [
   'src/lib/availabilityMigration.ts',
   'src/lib/useTranslatedBookings.ts',
   'src/infrastructure/firebase/storage.ts',
-  'src/shared/designTheme.ts',
   'src/lib/workspaceRoutes.ts',
   'src/lib/accessControl.ts',
   'src/domain/achievements/achievements.ts',

@@ -1,13 +1,11 @@
 import { create } from 'zustand';
 import { AchievementsConfig, DEFAULT_ACHIEVEMENTS_CONFIG } from '../../domain/achievements';
-import { DesignTheme } from '../../shared';
 import { DEFAULT_NOTIFICATION_RETENTION_DAYS } from '../../domain/notifications';
 import { DEFAULT_SKILL_CONFIG, SkillConfig } from '../../domain/achievements';
 import { DEFAULT_STARTER_CREDIT_USD } from '../../domain/wallet';
 import { notify, t } from '../../store/storeContext';
 import {
   saveAchievementsConfig,
-  saveDesignTheme,
   saveFiltersEnabled,
   saveNotificationRetentionDays,
   saveSkillConfig,
@@ -16,21 +14,18 @@ import {
 
 export interface SettingsState {
   filtersEnabled: boolean;
-  designTheme: DesignTheme;
   notificationRetentionDays: number;
   starterCreditUsd: number;
   skillConfig: SkillConfig;
   achievementsConfig: AchievementsConfig;
 
   setFiltersEnabled: (enabled: boolean) => void;
-  setDesignTheme: (theme: DesignTheme) => void;
   setNotificationRetentionDays: (days: number) => void;
   setStarterCreditUsd: (amount: number) => void;
   setSkillConfig: (config: SkillConfig) => void;
   setAchievementsConfig: (config: AchievementsConfig) => void;
 
   handleToggleFilters: (enabled: boolean) => Promise<void>;
-  handleSetDesignTheme: (theme: DesignTheme) => Promise<void>;
   handleSetNotificationRetentionDays: (days: number) => Promise<void>;
   handleSetStarterCreditUsd: (amount: number) => Promise<void>;
   handleUpdateSkillConfig: (config: SkillConfig) => Promise<void>;
@@ -39,14 +34,12 @@ export interface SettingsState {
 
 export const useSettingsStore = create<SettingsState>((set) => ({
   filtersEnabled: true,
-  designTheme: 'air',
   notificationRetentionDays: DEFAULT_NOTIFICATION_RETENTION_DAYS,
   starterCreditUsd: DEFAULT_STARTER_CREDIT_USD,
   skillConfig: DEFAULT_SKILL_CONFIG,
   achievementsConfig: DEFAULT_ACHIEVEMENTS_CONFIG,
 
   setFiltersEnabled: (filtersEnabled) => set({ filtersEnabled }),
-  setDesignTheme: (designTheme) => set({ designTheme }),
   setNotificationRetentionDays: (notificationRetentionDays) => set({ notificationRetentionDays }),
   setStarterCreditUsd: (starterCreditUsd) => set({ starterCreditUsd }),
   setSkillConfig: (skillConfig) => set({ skillConfig }),
@@ -55,11 +48,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   handleToggleFilters: async (enabled) => {
     await saveFiltersEnabled(enabled);
     set({ filtersEnabled: enabled });
-  },
-  handleSetDesignTheme: async (theme) => {
-    await saveDesignTheme(theme);
-    set({ designTheme: theme });
-    notify('info', t('designThemeUpdated'), t('designThemeUpdatedDesc'));
   },
   handleSetNotificationRetentionDays: async (days) => {
     const notificationRetentionDays = await saveNotificationRetentionDays(days);

@@ -62,7 +62,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
           !instructor.isAvailable ? 'opacity-60' : ''
         }`}
       >
-        <div className="ui-avatar relative w-28 h-28 sm:w-32 sm:h-32 rounded-none theme-air:rounded-full overflow-hidden">
+        <div className="ui-avatar relative w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden">
           <img
             src={instructor.avatarUrl}
             alt={instructor.name}
@@ -71,11 +71,11 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
               backfaceVisibility: 'hidden',
               transform: 'translateZ(0)',
             }}
-            className="w-full h-full object-cover filter grayscale group-hover:grayscale-0 transition-all duration-300 theme-air:rounded-full"
+            className="w-full h-full object-cover filter grayscale group-hover:grayscale-0 transition-all duration-300 rounded-full"
           />
           {!instructor.isAvailable && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center theme-air:rounded-full">
-              <span className="text-[9px] font-mono tracking-wider text-rose-400 font-bold uppercase rotate-12 theme-air:normal-case theme-air:rotate-0 theme-air:font-sans theme-air:text-xs">
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-full">
+              <span className="text-xs tracking-wider text-rose-400 font-bold normal-case font-sans">
                 {t('instructorOffline')}
               </span>
             </div>
@@ -85,14 +85,14 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
         <div className="flex-1 w-full flex flex-col gap-5">
           <div className="space-y-2 w-full text-center sm:text-left">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 justify-center sm:justify-start">
-              <h3 className="font-serif text-2xl font-light text-[var(--ink)] tracking-tight group-hover:text-[var(--accent)] transition theme-air:text-3xl">
+              <h3 className="font-serif font-light text-[var(--ink)] tracking-tight group-hover:text-[var(--accent)] transition text-3xl">
                 {instructor.name}
               </h3>
               {onViewReviews ? (
                 <button
                   type="button"
                   onClick={() => onViewReviews(instructor)}
-                  className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-500 hover:text-amber-400 hover:underline transition select-none theme-air:text-sm theme-air:font-sans bg-transparent border-0 p-0 cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[10px] text-amber-500 hover:text-amber-400 hover:underline transition select-none text-sm font-sans bg-transparent border-0 p-0 cursor-pointer"
                   title={t('readReviews')}
                 >
                   <Star className="w-3 h-3 fill-amber-400 stroke-amber-500" />
@@ -101,7 +101,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
                   </span>
                 </button>
               ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-500 theme-air:text-sm theme-air:font-sans">
+                <span className="inline-flex items-center gap-1 text-[10px] text-amber-500 text-sm font-sans">
                   <Star className="w-3 h-3 fill-amber-400 stroke-amber-500" />
                   <span>
                     {instructor.rating.toFixed(1)} ({instructor.reviewsCount})
@@ -109,27 +109,27 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
                 </span>
               )}
             </div>
-            <p className="text-xs text-[var(--ink-dim)] leading-relaxed max-w-2xl theme-air:text-sm theme-air:leading-relaxed">
+            <p className="text-xs text-[var(--ink-dim)] leading-relaxed max-w-2xl text-sm leading-relaxed">
               {instructor.bio}
             </p>
           </div>
 
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2 ui-divider-t theme-air:pt-4">
-            <div className="text-center md:text-left space-y-1 w-full md:w-auto font-mono text-xs text-[var(--ink-dim)] uppercase tracking-wider theme-air:font-sans theme-air:normal-case theme-air:text-sm">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2 ui-divider-t pt-4">
+            <div className="text-center md:text-left space-y-1 w-full md:w-auto text-xs text-[var(--ink-dim)] font-sans normal-case text-sm">
               <div className="text-[var(--ink)] font-bold">
                 {specialtyText} • {instructor.experienceYears}
                 {t('yearShort')}
               </div>
-              <div className="flex flex-wrap gap-1 items-center justify-center md:justify-start text-[10px] lowercase text-[var(--ink-dim)] theme-air:text-sm">
+              <div className="flex flex-wrap gap-1 items-center justify-center md:justify-start text-[10px] lowercase text-[var(--ink-dim)] text-sm">
                 <Globe className="w-3 h-3 shrink-0" />
                 <span>{instructor.languages.map(getLanguageLabel).join(', ')}</span>
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-center md:justify-end gap-3 w-full md:w-auto">
-              <div className="text-2xl font-serif text-[var(--ink)] font-light theme-air:text-3xl">
+              <div className="font-serif text-[var(--ink)] font-light text-4xl">
                 {formatPrice(instructor.pricePerHour, instructor.pricePerHourKZT)}{' '}
-                <span className="text-[9px] font-mono tracking-wider text-[var(--ink-dim)] theme-air:text-xs theme-air:font-sans">
+                <span className="text-[9px] tracking-wider text-[var(--ink-dim)] text-xs font-sans">
                   / {t('hr')}
                 </span>
               </div>

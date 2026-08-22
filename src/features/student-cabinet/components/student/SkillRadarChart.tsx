@@ -376,7 +376,7 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
             >
               <p
                 className={`font-semibold tracking-wide text-[var(--ink)] leading-tight ${
-                  sideLegend ? 'text-[10px] sm:text-xs' : 'text-[10px]'
+                  sideLegend ? 'sm:text-xs' : 'text-[10px]'
                 }`}
               >
                 {titleText}

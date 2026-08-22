@@ -111,7 +111,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
               role="dialog"
               aria-modal="true"
               aria-labelledby="course-enrollment-modal-title"
-              className="ui-modal pointer-events-auto relative z-10 flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[var(--border)] bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl transition-colors duration-300 theme-air:rounded-t-[var(--radius)] theme-air:rounded-b-none sm:rounded-2xl sm:theme-air:rounded-[var(--radius)]"
+              className="ui-modal pointer-events-auto relative z-10 flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[var(--border)] bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl transition-colors duration-300 rounded-t-[var(--radius)] rounded-b-none sm:rounded-2xl sm:rounded-[var(--radius)]"
               onClick={(e) => e.stopPropagation()}
             >
               <div
@@ -159,7 +159,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       {t('courseEnrollmentAuthPrompt')}
                     </p>
 
-                    <div className="border border-[var(--border)] p-4 bg-transparent rounded-none theme-air:rounded-[var(--radius-md)]">
+                    <div className="border border-[var(--border)] p-4 bg-transparent rounded-none rounded-[var(--radius-md)]">
                       <Auth
                         onSuccess={(profile) => {
                           onAuthSuccess?.(profile);
@@ -171,14 +171,14 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                   </div>
                 ) : (
                   <form onSubmit={handleSubmitGuest} className="space-y-4">
-                    <div className="p-3 bg-[var(--accent-muted)] border border-[var(--border)] text-xs text-[var(--ink)] leading-relaxed rounded-none theme-air:rounded-[var(--radius-md)]">
+                    <div className="p-3 bg-[var(--accent-muted)] border border-[var(--border)] text-xs text-[var(--ink)] leading-relaxed rounded-none rounded-[var(--radius-md)]">
                       💡 {t('guestBookingNotice')}
                     </div>
 
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 items-end">
                         <div className="flex flex-col justify-end">
-                          <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 theme-air:font-sans theme-air:text-xs min-h-[20px]">
+                          <label className="uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs min-h-[20px]">
                             <User className="w-3.5 h-3.5 shrink-0" />{' '}
                             <span className="truncate">{t('guestNameLabel')} *</span>
                           </label>
@@ -188,11 +188,11 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                             value={guestName}
                             onChange={(e) => setGuestName(e.target.value)}
                             placeholder={t('guestNamePlaceholder')}
-                            className="ui-field-plain focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
+                            className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)]"
                           />
                         </div>
                         <div className="flex flex-col justify-end">
-                          <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 theme-air:font-sans theme-air:text-xs min-h-[20px]">
+                          <label className="uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs min-h-[20px]">
                             <Phone className="w-3.5 h-3.5 shrink-0" />{' '}
                             <span className="truncate">{t('guestPhoneLabel')} *</span>
                           </label>
@@ -202,13 +202,13 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                             value={guestPhone}
                             onChange={(e) => setGuestPhone(e.target.value)}
                             placeholder={t('guestPhonePlaceholder')}
-                            className="ui-field-plain focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
+                            className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)]"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 theme-air:font-sans theme-air:text-xs">
+                        <label className="uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs">
                           <Mail className="w-3.5 h-3.5" /> {t('guestEmailLabel')}
                         </label>
                         <input
@@ -216,29 +216,29 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                           value={guestEmail}
                           onChange={(e) => setGuestEmail(e.target.value)}
                           placeholder={t('guestEmailPlaceholder')}
-                          className="ui-field-plain focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
+                          className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)]"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 theme-air:font-sans theme-air:text-xs">
+                      <label className="uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs">
                         {t('guestCourseNotes')}
                       </label>
                       <textarea
                         value={guestNotes}
                         onChange={(e) => setGuestNotes(e.target.value)}
                         placeholder={t('personalGoalsPlaceholder')}
-                        className="ui-field-plain focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)] h-16 resize-none"
+                        className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] h-16 resize-none"
                       />
                     </div>
 
-                    <div className="p-3.5 border border-[var(--border)] bg-black/5 dark:bg-white/5 rounded-none theme-air:rounded-[var(--radius-md)] space-y-1">
+                    <div className="p-3.5 border border-[var(--border)] bg-black/5 dark:bg-white/5 rounded-none rounded-[var(--radius-md)] space-y-1">
                       <div className="flex justify-between items-baseline">
-                        <span className="text-xs font-mono uppercase tracking-widest text-[var(--ink)] theme-air:font-sans theme-air:normal-case theme-air:text-sm">
+                        <span className="text-xs text-[var(--ink)] font-sans normal-case text-sm">
                           {t('courseTotalTuition')}
                         </span>
-                        <span className="text-lg font-extrabold text-[var(--accent)] font-mono theme-air:font-sans">
+                        <span className="text-lg font-extrabold text-[var(--accent)] font-sans">
                           {formatPrice(course.price, course.priceKZT)}
                         </span>
                       </div>

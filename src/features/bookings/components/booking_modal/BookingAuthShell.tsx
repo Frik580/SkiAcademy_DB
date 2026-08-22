@@ -22,7 +22,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 24 }}
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-      className="ui-modal pointer-events-auto relative flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[var(--border)] bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl transition-colors duration-300 theme-air:rounded-t-[var(--radius)] theme-air:rounded-b-none sm:rounded-2xl sm:theme-air:rounded-[var(--radius)]"
+      className="ui-modal pointer-events-auto relative flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[var(--border)] bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl transition-colors duration-300 rounded-t-[var(--radius)] rounded-b-none sm:rounded-2xl sm:rounded-[var(--radius)]"
       role="dialog"
       aria-modal="true"
       aria-label={t('bookLessonWith')}
@@ -45,7 +45,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
             <p className="text-xs text-[var(--ink-dim)] text-center leading-relaxed">
               {t('bookingSignInPrompt')}
             </p>
-            <div className="border border-[var(--border)] p-4 bg-transparent rounded-none theme-air:rounded-[var(--radius-md)]">
+            <div className="border border-[var(--border)] p-4 bg-transparent rounded-none rounded-[var(--radius-md)]">
               <Auth onSuccess={onAuthSuccess || (() => {})} />
             </div>
           </div>

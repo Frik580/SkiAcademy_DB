@@ -3,7 +3,6 @@ import { ArrowRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage, type Language } from '../../app/providers/LanguageContext';
 import type { Theme } from '../../hooks/useTheme';
-import type { DesignTheme } from '../../shared';
 import { CustomHeroSlide } from '../../types';
 import { FALLBACK_SLIDES } from '../../features/admin';
 import {
@@ -19,7 +18,6 @@ interface HeroCarouselProps {
     configReady?: boolean;
     language: Language;
     theme: Theme;
-    designTheme?: DesignTheme;
     slideIntervalSeconds?: number;
     slidesRandomOrder?: boolean;
     /** Авторизованный пользователь — другой текст CTA */
@@ -41,12 +39,7 @@ const shuffleSlides = (items: CustomHeroSlide[]): CustomHeroSlide[] => {
 
 const HERO_CROSSFADE_MS = 1400;
 
-const HERO_SCRIM: Record<DesignTheme, { light: string; dark: string }> = {
-  classic: { light: '250, 250, 247', dark: '17, 17, 19' },
-  lodge: { light: '246, 239, 226', dark: '26, 20, 13' },
-  /** Minimalist Horizon (V3): soft light left scrim; photo dominates the upper frame. */
-  air: { light: '255, 255, 255', dark: '10, 10, 10' },
-};
+const HERO_SCRIM = { light: '255, 255, 255', dark: '10, 10, 10' };
 
 const resolveSlideBackgroundKey = (
   activeSlide: CustomHeroSlide | undefined,
@@ -62,25 +55,16 @@ const resolveSlideBackgroundKey = (
   return bg;
 };
 
-const buildScrimGradient = (
-  theme: Theme,
-  designTheme: DesignTheme = 'air',
-  isMobile = false
-): string => {
-  const scrim = HERO_SCRIM[designTheme];
-  if (designTheme === 'air') {
-    if (theme === 'light') {
-      return isMobile
-        ? `linear-gradient(90deg, rgba(${scrim.light},0.95) 0%, rgba(${scrim.light},0.8) 35%, rgba(${scrim.light},0.2) 100%)`
-        : `linear-gradient(90deg, rgba(${scrim.light},0.95) 0%, rgba(${scrim.light},0.8) 35%, rgba(${scrim.light},0) 100%)`;
-    }
+const buildScrimGradient = (theme: Theme, isMobile = false): string => {
+  const scrim = HERO_SCRIM;
+  if (theme === 'light') {
     return isMobile
-      ? `linear-gradient(90deg, rgba(${scrim.dark},0.88) 0%, rgba(${scrim.dark},0.71) 25%, rgba(${scrim.dark},0.54) 50%, rgba(${scrim.dark},0.37) 75%, rgba(${scrim.dark},0.2) 100%)`
-      : `linear-gradient(90deg, rgba(${scrim.dark},0.88) 0%, rgba(${scrim.dark},0.62) 28%, rgba(${scrim.dark},0.32) 52%, rgba(${scrim.dark},0.1) 72%, rgba(${scrim.dark},0) 100%)`;
+      ? `linear-gradient(90deg, rgba(${scrim.light},0.95) 0%, rgba(${scrim.light},0.8) 35%, rgba(${scrim.light},0.2) 100%)`
+      : `linear-gradient(90deg, rgba(${scrim.light},0.95) 0%, rgba(${scrim.light},0.8) 35%, rgba(${scrim.light},0) 100%)`;
   }
-  return theme === 'light'
-    ? `linear-gradient(105deg, rgba(${scrim.light},0.98) 0%, rgba(${scrim.light},0.88) 32%, rgba(${scrim.light},0.55) 55%, rgba(${scrim.light},0.12) 100%)`
-    : `linear-gradient(105deg, rgba(${scrim.dark},0.82) 0%, rgba(${scrim.dark},0.42) 42%, rgba(${scrim.dark},0.1) 100%)`;
+  return isMobile
+    ? `linear-gradient(90deg, rgba(${scrim.dark},0.88) 0%, rgba(${scrim.dark},0.71) 25%, rgba(${scrim.dark},0.54) 50%, rgba(${scrim.dark},0.37) 75%, rgba(${scrim.dark},0.2) 100%)`
+    : `linear-gradient(90deg, rgba(${scrim.dark},0.88) 0%, rgba(${scrim.dark},0.62) 28%, rgba(${scrim.dark},0.32) 52%, rgba(${scrim.dark},0.1) 72%, rgba(${scrim.dark},0) 100%)`;
 };
 
 const padSlideIndex = (n: number) => String(n).padStart(2, '0');
@@ -91,7 +75,6 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     configReady = true,
     language,
     theme,
-    designTheme = 'air',
     slideIntervalSeconds = 6,
     slidesRandomOrder = false,
   },
@@ -195,7 +178,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     img.src = nextUrl;
   }, [slides, currentSlide]);
 
-  const scrim = buildScrimGradient(theme, designTheme, isMobile);
+  const scrim = buildScrimGradient(theme, isMobile);
 
   return (
     <section

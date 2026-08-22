@@ -3,10 +3,8 @@ import { useLanguage } from '../app/providers/LanguageContext';
 import { useNotifications } from '../features/notifications';
 import { setStoreContext } from '../store/storeContext';
 import { useStoreSync } from '../store/useStoreSync';
-import { applyDesignThemeToDOM } from '../shared';
 import { registerFirestoreErrorListener } from '../infrastructure/firebase';
 import { logger } from '../shared';
-import { useSettingsStore } from '../features/settings';
 import { useUiStore } from '../features/shell';
 import { useAchievementsSync } from '../features/profile';
 
@@ -36,13 +34,7 @@ export const AppBootstrap: React.FC<AppBootstrapProps> = ({ children }) => {
   useStoreSync();
   useAchievementsSync();
 
-  const designTheme = useSettingsStore((s) => s.designTheme);
   const setDbStatusWarning = useUiStore((s) => s.setDbStatusWarning);
-
-  // Apply visual theme to DOM
-  useEffect(() => {
-    applyDesignThemeToDOM(designTheme);
-  }, [designTheme]);
 
   // Global Firestore Safe Fallback Listener
   useEffect(() => {

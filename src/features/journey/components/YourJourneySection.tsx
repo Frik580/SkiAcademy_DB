@@ -421,14 +421,14 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
       >
         <header className="text-center space-y-3 max-w-2xl mx-auto shrink-0">
           <p
-            className={`text-[11px] sm:text-xs font-medium tracking-[0.22em] uppercase ${
+            className={`sm:text-xs font-medium tracking-[0.22em] uppercase ${
               isDark ? 'text-[#7ec8ff]' : 'text-[var(--accent)]'
             }`}
           >
             {t('journeyEyebrow')}
           </p>
           <h2
-            className={`font-serif text-2xl sm:text-3xl md:text-4xl font-light tracking-tight leading-tight ${
+            className={`font-serif sm:text-3xl md:text-4xl font-light tracking-tight leading-tight ${
               isDark ? 'text-white' : 'text-[var(--ink)]'
             }`}
           >
@@ -452,10 +452,10 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
           ref={pathBlockRef}
           className={
             effectiveFillViewport
-              ? 'relative flex-1 flex flex-col min-h-0 space-y-3 sm:space-y-4'
+              ? 'relative flex-1 flex flex-col min-h-0 space-y-4 sm:space-y-6'
               : isCompactJourneyLayout
-                ? 'relative flex flex-col space-y-3 sm:space-y-4'
-                : 'relative space-y-4'
+                ? 'relative flex flex-col space-y-4 sm:space-y-6'
+                : 'relative space-y-6 sm:space-y-8'
           }
         >
           <JourneyPathStrip

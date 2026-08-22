@@ -18,9 +18,9 @@ import type { Breakpoint, JourneyLevel, PathBend } from './types';
  */
 export const LEVEL_MARKER_Y: Record<Breakpoint, [number, number, number, number]> = {
   //          Beginner  Carve  Performance  Expert
-  mobile: [100, 90, 65, 20],
-  tablet: [100, 80, 45, 0],
-  desktop: [100, 80, 45, 0],
+  mobile: [100, 88, 58, 12],
+  tablet: [100, 74, 38, 0],
+  desktop: [100, 74, 38, 0],
 };
 
 /** Горизонтальные позиции меток в viewBox 0–400 (обычно не трогать). */

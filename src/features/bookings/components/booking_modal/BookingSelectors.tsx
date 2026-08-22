@@ -53,13 +53,13 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
   ];
 
   const selectClass =
-    'ui-select focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)] truncate';
+    'ui-select focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] truncate';
 
   const fieldClass =
-    'ui-field-plain focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)] truncate';
+    'ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] truncate';
 
   const labelStyle =
-    'text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 theme-air:font-sans theme-air:text-xs truncate';
+    'uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs truncate';
 
   return (
     <div className={`grid grid-cols-2 ${gapClass}`}>

@@ -89,7 +89,7 @@ export const ResortConditionsSidebar: React.FC<ResortConditionsSidebarProps> = (
             <button
               type="button"
               onClick={onToggleTemperatureUnit}
-              className="font-serif text-5xl font-light text-[var(--ink)] leading-none tracking-tight theme-air:lg:text-6xl bg-transparent border-0 p-0 cursor-pointer text-left"
+              className="font-serif text-5xl font-light text-[var(--ink)] leading-none tracking-tight lg:text-6xl bg-transparent border-0 p-0 cursor-pointer text-left"
               aria-label={t('mountainTemp')}
             >
               {tempDisplay}

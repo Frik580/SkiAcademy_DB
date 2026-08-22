@@ -304,7 +304,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
 
   const isSidebar = variant === 'sidebar';
   const fieldClass =
-    'ui-field-plain focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]';
+    'ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)]';
   const sectionGap = isSidebar ? 'space-y-8' : 'space-y-6';
   const formGap = isSidebar ? 'space-y-5' : 'space-y-4';
 
@@ -313,7 +313,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
       <div className={isSidebar ? 'space-y-3' : 'space-y-2'}>
         <h2
           className={`font-serif font-light text-[var(--ink)] tracking-tight ${
-            isSidebar ? 'text-3xl' : 'text-2xl theme-air:text-3xl'
+            isSidebar ? 'text-3xl' : 'text-3xl'
           } ${isSidebar ? '' : 'text-center md:text-left'}`}
         >
           {isForgotPassword
@@ -353,7 +353,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
       )}
 
       {error && (
-        <div className="p-3 bg-red-950/20 border border-red-900/40 text-[10px] font-mono text-red-400 uppercase tracking-wider leading-normal theme-air:rounded-[var(--radius-md)] theme-air:font-sans theme-air:normal-case theme-air:text-sm theme-air:border-red-500/20 theme-air:bg-red-500/10">
+        <div className="p-3 bg-red-950/20 border border-red-900/40 text-[10px] text-red-400 leading-normal rounded-[var(--radius-md)] font-sans normal-case text-sm border-red-500/20 bg-red-500/10">
           {error}
         </div>
       )}
@@ -421,10 +421,10 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
                           key={seed}
                           type="button"
                           onClick={() => setAvatarSeed(seed)}
-                          className={`relative aspect-square p-1 bg-black/10 border transition hover:scale-105 cursor-pointer theme-air:rounded-full theme-air:border-none theme-air:bg-[var(--profile-bg)] ${
+                          className={`relative aspect-square p-1 bg-black/10 border transition hover:scale-105 cursor-pointer rounded-full border-none bg-[var(--profile-bg)] ${
                             isSelected
-                              ? 'border-[var(--ink)] bg-black/25 theme-air:ring-2 theme-air:ring-[var(--accent)]'
-                              : 'border-[var(--border)] hover:border-[var(--ink)] theme-air:hover:bg-[var(--accent-muted)]'
+                              ? 'border-[var(--ink)] bg-black/25 ring-2 ring-[var(--accent)]'
+                              : 'border-[var(--border)] hover:border-[var(--ink)] hover:bg-[var(--accent-muted)]'
                           }`}
                         >
                           <img

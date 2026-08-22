@@ -4,7 +4,6 @@ import {
   DEFAULT_ACHIEVEMENTS_CONFIG,
   normalizeAchievementsConfig,
 } from '../../../domain/achievements';
-import { parseDesignTheme } from '../../../shared';
 import { DEFAULT_NOTIFICATION_RETENTION_DAYS } from '../../../domain/notifications';
 import { DEFAULT_SKILL_CONFIG } from '../../../domain/achievements';
 import { DEFAULT_STARTER_CREDIT_USD, normalizeStarterCreditUsd } from '../../../domain/wallet';
@@ -31,15 +30,6 @@ export const useSettingsSync = () => {
           .setFiltersEnabled(snapshot.exists() ? (snapshot.data().enabled ?? true) : true),
       (error) => logger.error('Instructor filters settings sync error:', error)
     );
-    const unsubscribeTheme = onSnapshot(
-      doc(db, 'settings', 'design_theme'),
-      (snapshot) =>
-        useSettingsStore
-          .getState()
-          .setDesignTheme(snapshot.exists() ? parseDesignTheme(snapshot.data().theme) : 'air'),
-      (error) => logger.error('Design theme settings sync error:', error)
-    );
-
     // Secondary settings — defer until idle to shorten critical-path Listen spam.
     let unsubscribeRetention: (() => void) | undefined;
     let unsubscribeStarterCredit: (() => void) | undefined;
@@ -104,7 +94,6 @@ export const useSettingsSync = () => {
     return () => {
       cancelIdle();
       unsubscribeFilters();
-      unsubscribeTheme();
       unsubscribeRetention?.();
       unsubscribeStarterCredit?.();
       unsubscribeSkills?.();

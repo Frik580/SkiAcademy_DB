@@ -59,7 +59,7 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
   ];
 
   return (
-    <div className="ui-card p-5 lg:p-6 space-y-5 bg-transparent theme-air:shadow-none theme-air:bg-[var(--profile-bg)]">
+    <div className="ui-card p-5 lg:p-6 space-y-5 bg-transparent shadow-none bg-[var(--profile-bg)]">
       <div className="flex items-center gap-2 pb-1">
         <SlidersHorizontal className="w-3.5 h-3.5 text-[var(--ink)]" />
         <h3 className="ui-section-eyebrow text-[var(--ink)] font-bold">{t('filterInstructors')}</h3>
@@ -74,7 +74,7 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('searchPlaceholder')}
-              className="ui-field-plain pl-9 focus:outline-none focus:border-[var(--ink)] theme-air:focus:border-[var(--accent)]"
+              className="ui-field-plain pl-9 focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)]"
             />
             <Search className="w-3.5 h-3.5 text-[var(--ink-dim)] absolute left-3 top-1/2 -translate-y-1/2" />
           </div>
@@ -82,7 +82,7 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
 
         <div className="space-y-2">
           <label className="ui-label block">{t('discipline')}</label>
-          <div className="ui-chip-group grid-cols-4 theme-air:grid-cols-none">
+          <div className="ui-chip-group grid-cols-4 grid-cols-none">
             {(['all', 'ski', 'snowboard', 'both'] as const).map((spec) => (
               <button
                 key={spec}

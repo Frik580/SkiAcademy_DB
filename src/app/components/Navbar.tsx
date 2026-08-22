@@ -159,7 +159,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 <button
                   onClick={() => setLanguage(language === 'en' ? 'ru' : 'en')}
-                  className="ui-icon-btn px-2.5 sm:px-3 font-mono text-[10px] theme-air:font-sans theme-air:text-xs xl:theme-air:text-sm theme-air:normal-case shrink-0"
+                  className="ui-icon-btn px-2.5 sm:px-3 font-sans text-xs xl:text-sm normal-case shrink-0"
                   title={t('switchLanguage')}
                 >
                   {language === 'en' ? 'EN' : 'RU'}
@@ -185,10 +185,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onClick={() => setIsWorkspaceMenuOpen((open) => !open)}
                     aria-expanded={isWorkspaceMenuOpen}
                     aria-haspopup="menu"
-                    className={`flex items-center gap-1.5 px-3 xl:px-4 py-1.5 xl:py-2 transition cursor-pointer text-[10px] font-mono uppercase tracking-widest theme-air:font-sans theme-air:normal-case theme-air:text-xs xl:theme-air:text-sm theme-air:tracking-normal rounded-none theme-air:rounded-full whitespace-nowrap shrink-0 ${
+                    className={`flex items-center gap-1.5 px-3 xl:px-4 py-1.5 xl:py-2 transition cursor-pointer font-sans normal-case text-xs xl:text-sm tracking-normal rounded-full whitespace-nowrap shrink-0 ${
                       workspaceItems.some((item) => item.active)
-                        ? 'bg-[var(--accent-muted)] text-[var(--accent)] theme-air:bg-[var(--accent-muted)]'
-                        : 'bg-transparent border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] theme-air:border-none theme-air:bg-[var(--profile-bg)]'
+                        ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
+                        : 'bg-transparent border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] border-none bg-[var(--profile-bg)]'
                     }`}
                   >
                     <span>{activeWorkspaceLabel}</span>
@@ -198,8 +198,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 )}
 
-                <div className="flex items-center gap-1.5 xl:gap-2 select-none text-[11px] text-[var(--ink)] font-mono theme-air:font-sans theme-air:text-xs xl:theme-air:text-sm px-1 xl:px-2 whitespace-nowrap">
-                  <span className="text-[var(--ink-dim)] uppercase hidden xl:inline theme-air:normal-case">
+                <div className="flex items-center gap-1.5 xl:gap-2 select-none text-[var(--ink)] font-sans text-xs xl:text-sm px-1 xl:px-2 whitespace-nowrap">
+                  <span className="text-[var(--ink-dim)] normal-case hidden xl:inline">
                     {t('balance')}:
                   </span>
                   <span className="font-bold">{formatPrice(effectiveBalance)}</span>
@@ -214,7 +214,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     />
                   </div>
                   <div className="hidden sm:flex items-center gap-2 text-left leading-none">
-                    <span className="hidden 2xl:inline text-[10px] font-bold text-[var(--ink)] theme-air:text-sm theme-air:font-normal">
+                    <span className="hidden 2xl:inline text-[10px] font-bold text-[var(--ink)] text-sm font-normal">
                       {userProfile.displayName.split(' ')[0]}
                     </span>
                     {!userProfile.hideProgressTracking && (
@@ -232,7 +232,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     aria-label={notificationButtonTitle}
                     className={`ui-icon-btn relative shrink-0 ${
                       hasUnreadNotifications
-                        ? 'text-[var(--accent)] bg-[var(--accent)]/10 theme-air:bg-[var(--accent-muted)]'
+                        ? 'text-[var(--accent)] bg-[var(--accent)]/10 bg-[var(--accent-muted)]'
                         : ''
                     }`}
                   >
@@ -261,7 +261,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                   <button
                     onClick={() => setLanguage(language === 'en' ? 'ru' : 'en')}
-                    className="ui-icon-btn px-2.5 sm:px-3 font-mono text-[10px] theme-air:font-sans theme-air:text-xs xl:theme-air:text-sm theme-air:normal-case shrink-0"
+                    className="ui-icon-btn px-2.5 sm:px-3 font-sans text-xs xl:text-sm normal-case shrink-0"
                     title={t('switchLanguage')}
                   >
                     {language === 'en' ? 'EN' : 'RU'}
@@ -275,7 +275,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       aria-label={isAdminView ? t('browseSlopes') : t('manageResort')}
                       className={`ui-icon-btn shrink-0 ${
                         isAdminView
-                          ? 'text-amber-500 bg-amber-500/10 theme-air:bg-amber-500/15'
+                          ? 'text-amber-500 bg-amber-500/10 bg-amber-500/15'
                           : ''
                       }`}
                     >
@@ -342,7 +342,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 to={item.to}
                 role="menuitem"
                 onClick={() => setIsWorkspaceMenuOpen(false)}
-                className={`px-5 py-2.5 text-[10px] font-mono uppercase tracking-widest theme-air:font-sans theme-air:normal-case theme-air:text-xs theme-air:tracking-normal no-underline whitespace-nowrap transition ${
+                className={`px-5 py-2.5 font-sans normal-case text-xs tracking-normal no-underline whitespace-nowrap transition ${
                   item.active
                     ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
                     : 'text-[var(--ink)] hover:bg-[var(--profile-bg)]'
@@ -370,10 +370,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <Link
                     to="/cabinet"
                     onClick={() => setIsMenuOpen(false)}
-                    className={`w-full px-4 py-3 transition text-xs font-mono uppercase tracking-widest rounded-none theme-air:rounded-full theme-air:font-sans theme-air:normal-case no-underline text-center ${
+                    className={`w-full px-4 py-3 transition text-xs rounded-full font-sans normal-case no-underline text-center ${
                       isCabinetView
                         ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
-                        : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] theme-air:border-none'
+                        : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
                     }`}
                   >
                     {t('clientCabinet')}
@@ -384,10 +384,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <Link
                     to="/instructor"
                     onClick={() => setIsMenuOpen(false)}
-                    className={`w-full px-4 py-3 transition text-xs font-mono uppercase tracking-widest rounded-none theme-air:rounded-full theme-air:font-sans theme-air:normal-case no-underline text-center ${
+                    className={`w-full px-4 py-3 transition text-xs rounded-full font-sans normal-case no-underline text-center ${
                       isInstructorView
                         ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
-                        : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] theme-air:border-none'
+                        : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
                     }`}
                   >
                     {t('instructorWorkspaceTab')}
@@ -400,10 +400,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                       navigate(isAdminView ? '/' : '/admin');
                       setIsMenuOpen(false);
                     }}
-                    className={`w-full px-4 py-3 transition cursor-pointer text-xs font-mono uppercase tracking-widest rounded-none theme-air:rounded-full theme-air:font-sans theme-air:normal-case ${
+                    className={`w-full px-4 py-3 transition cursor-pointer text-xs rounded-full font-sans normal-case ${
                       isAdminView
                         ? 'bg-amber-500 border border-amber-500 text-white'
-                        : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] theme-air:border-none'
+                        : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
                     }`}
                   >
                     {isAdminView ? t('browseSlopes') : t('manageResort')}
@@ -473,7 +473,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onSignOut();
                   setIsMenuOpen(false);
                 }}
-                className="w-full mt-2 px-4 py-3 text-rose-500 hover:bg-rose-500/10 transition cursor-pointer text-sm theme-air:rounded-full"
+                className="w-full mt-2 px-4 py-3 text-rose-500 hover:bg-rose-500/10 transition cursor-pointer text-sm rounded-full"
               >
                 {t('signOut')}
               </button>

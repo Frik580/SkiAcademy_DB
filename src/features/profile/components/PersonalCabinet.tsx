@@ -181,8 +181,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   return (
     <div className="w-full max-w-full min-w-0">
       {userProfile.isClientActive === false ? (
-        <div className="ui-card p-8 lg:p-10 space-y-6 animate-fade-in text-center max-w-xl mx-auto my-12 theme-air:shadow-soft">
-          <div className="w-16 h-16 ui-avatar rounded-full flex items-center justify-center mx-auto text-rose-400 bg-rose-500/10 theme-air:border-none">
+        <div className="ui-card p-8 lg:p-10 space-y-6 animate-fade-in text-center max-w-xl mx-auto my-12 shadow-soft">
+          <div className="w-16 h-16 ui-avatar rounded-full flex items-center justify-center mx-auto text-rose-400 bg-rose-500/10 border-none">
             <Lock className="w-8 h-8" />
           </div>
           <div className="space-y-2">

@@ -62,11 +62,20 @@ const resolveSlideBackgroundKey = (
   return bg;
 };
 
-const buildScrimGradient = (theme: Theme, designTheme: DesignTheme = 'air'): string => {
+const buildScrimGradient = (
+  theme: Theme,
+  designTheme: DesignTheme = 'air',
+  isMobile = false
+): string => {
   const scrim = HERO_SCRIM[designTheme];
   if (designTheme === 'air') {
-    return theme === 'light'
-      ? `linear-gradient(90deg, rgba(${scrim.light},0.95) 0%, rgba(${scrim.light},0.8) 35%, rgba(${scrim.light},0) 100%)`
+    if (theme === 'light') {
+      return isMobile
+        ? `linear-gradient(90deg, rgba(${scrim.light},0.95) 0%, rgba(${scrim.light},0.8) 35%, rgba(${scrim.light},0.2) 100%)`
+        : `linear-gradient(90deg, rgba(${scrim.light},0.95) 0%, rgba(${scrim.light},0.8) 35%, rgba(${scrim.light},0) 100%)`;
+    }
+    return isMobile
+      ? `linear-gradient(90deg, rgba(${scrim.dark},0.88) 0%, rgba(${scrim.dark},0.71) 25%, rgba(${scrim.dark},0.54) 50%, rgba(${scrim.dark},0.37) 75%, rgba(${scrim.dark},0.2) 100%)`
       : `linear-gradient(90deg, rgba(${scrim.dark},0.88) 0%, rgba(${scrim.dark},0.62) 28%, rgba(${scrim.dark},0.32) 52%, rgba(${scrim.dark},0.1) 72%, rgba(${scrim.dark},0) 100%)`;
   }
   return theme === 'light'
@@ -91,9 +100,20 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   const { t } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
+  );
 
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const onChange = () => setIsMobile(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   const slides = useMemo(() => {
     if (!configReady) return [];
@@ -175,7 +195,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     img.src = nextUrl;
   }, [slides, currentSlide]);
 
-  const scrim = buildScrimGradient(theme, designTheme);
+  const scrim = buildScrimGradient(theme, designTheme, isMobile);
 
   return (
     <section

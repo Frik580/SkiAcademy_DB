@@ -133,6 +133,54 @@
         "screenshot": ".stitch/designs/hero-v3-minimalist-horizon.png",
         "html": ".stitch/designs/hero-v3-minimalist-horizon.html"
       }
+    },
+    {
+      "screenId": "d06fa524b93244ae8781244c7069d9c7",
+      "title": "/ — Path to Mastery baseline",
+      "route": "/",
+      "section": "path-to-mastery",
+      "deviceType": "DESKTOP",
+      "role": "baseline",
+      "localAssets": {
+        "screenshot": ".stitch/designs/path-to-mastery-baseline.png",
+        "html": ".stitch/designs/path-to-mastery-baseline.html"
+      }
+    },
+    {
+      "screenId": "4d331bf4f4b14883ba670d8ff8a1654d",
+      "title": "Path to Mastery — Editorial Asymmetric Trail (V1)",
+      "route": "/",
+      "section": "path-to-mastery",
+      "deviceType": "DESKTOP",
+      "variant": "V1 Editorial Asymmetric Trail",
+      "localAssets": {
+        "screenshot": ".stitch/designs/path-to-mastery-v1-editorial-asymmetric-trail.png",
+        "html": ".stitch/designs/path-to-mastery-v1-editorial-asymmetric-trail.html"
+      }
+    },
+    {
+      "screenId": "cd09652eee4b443c8622914dad363221",
+      "title": "Path to Mastery — Asymmetric Split (V2)",
+      "route": "/",
+      "section": "path-to-mastery",
+      "deviceType": "DESKTOP",
+      "variant": "V2 Asymmetric Split",
+      "localAssets": {
+        "screenshot": ".stitch/designs/path-to-mastery-v2-asymmetric-split.png",
+        "html": ".stitch/designs/path-to-mastery-v2-asymmetric-split.html"
+      }
+    },
+    {
+      "screenId": "c5c3a2fe00e04119bab62d8819244e03",
+      "title": "Path to Mastery — Horizon Path Band (V3)",
+      "route": "/",
+      "section": "path-to-mastery",
+      "deviceType": "DESKTOP",
+      "variant": "V3 Horizon Path Band",
+      "localAssets": {
+        "screenshot": ".stitch/designs/path-to-mastery-v3-horizon-path-band.png",
+        "html": ".stitch/designs/path-to-mastery-v3-horizon-path-band.html"
+      }
     }
   ],
   "designSystem": {

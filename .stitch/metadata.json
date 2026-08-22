@@ -1,194 +1,55 @@
 {
   "projectId": "12447626312814512672",
-  "title": "SkiAcademy UI",
+  "projectTitle": "SkiAcademy UI",
+  "designSystem": "assets/0878af95608e4bdca9f23f15280d5cbe",
+  "designSystemName": "Carve Academy",
+  "component": "InstructorCard",
+  "sourceFile": "src/features/profile/components/InstructorCard.tsx",
+  "preservedIA": [
+    "avatarUrl",
+    "name",
+    "rating",
+    "reviewsCount",
+    "bio",
+    "specialty",
+    "experienceYears",
+    "languages",
+    "pricePerHour",
+    "isAvailable",
+    "onBook",
+    "onViewReviews"
+  ],
   "screens": [
     {
-      "screenId": "768182b957114d5cb73b5f54ea800acd",
-      "title": "/cabinet/training — baseline",
-      "route": "/cabinet/training",
-      "deviceType": "MOBILE",
+      "id": "292d7835b1c74978834390aeed44f536",
+      "title": "Instructor Card — Current IA Documentation",
+      "slug": "instructor-card-current-ia",
+      "deviceType": "DESKTOP",
       "role": "baseline"
     },
     {
-      "screenId": "322a2cf9827f4cf2aab1bd6dacf4091a",
-      "title": "/cabinet/settings — baseline",
-      "route": "/cabinet/settings",
-      "deviceType": "MOBILE",
-      "role": "baseline"
-    },
-    {
-      "screenId": "9fe3b227691c4470a3e7a8015ec60b6d",
-      "title": "Training Hub - Editorial List (V1) aligned",
-      "route": "/cabinet/training",
-      "deviceType": "MOBILE",
-      "variant": "V1 Editorial List",
-      "localAssets": {
-        "screenshot": ".stitch/designs/training-v1-editorial-list.png",
-        "html": ".stitch/designs/training-v1-editorial-list.html"
-      }
-    },
-    {
-      "screenId": "51976917dc304e948ea6baec565141d4",
-      "title": "Training Hub - Editorial List (V1) prior",
-      "route": "/cabinet/training",
-      "deviceType": "MOBILE",
-      "variant": "V1 Editorial List (superseded)"
-    },
-    {
-      "screenId": "a437b76085a44a1895c3009407aa3382",
-      "title": "Training Hub - Soft Inset Tiles (V2)",
-      "route": "/cabinet/training",
-      "deviceType": "MOBILE",
-      "variant": "V2 Soft Inset Tiles",
-      "localAssets": {
-        "screenshot": ".stitch/designs/training-v2-soft-inset-tiles.png",
-        "html": ".stitch/designs/training-v2-soft-inset-tiles.html"
-      }
-    },
-    {
-      "screenId": "bc3891a3864244a2a08a9c5a2de66e40",
-      "title": "Training Hub - Minimalist Flush (V3)",
-      "route": "/cabinet/training",
-      "deviceType": "MOBILE",
-      "variant": "V3 Minimalist Flush",
-      "localAssets": {
-        "screenshot": ".stitch/designs/training-v3-minimalist-flush.png",
-        "html": ".stitch/designs/training-v3-minimalist-flush.html"
-      }
-    },
-    {
-      "screenId": "9bf30dfb87704b4c955ef6c4141db090",
-      "title": "Profile Settings Hub - Editorial List (V1)",
-      "route": "/cabinet/settings",
-      "deviceType": "MOBILE",
-      "variant": "V1 Editorial List",
-      "localAssets": {
-        "screenshot": ".stitch/designs/settings-v1-editorial-list.png",
-        "html": ".stitch/designs/settings-v1-editorial-list.html"
-      }
-    },
-    {
-      "screenId": "3f610dc033624e78be4eb11dbdaabe22",
-      "title": "Profile Settings Hub - Soft Inset Tiles (V2)",
-      "route": "/cabinet/settings",
-      "deviceType": "MOBILE",
-      "variant": "V2 Soft Inset Tiles",
-      "localAssets": {
-        "screenshot": ".stitch/designs/settings-v2-soft-inset-tiles.png",
-        "html": ".stitch/designs/settings-v2-soft-inset-tiles.html"
-      }
-    },
-    {
-      "screenId": "8e45659b8d0545c0bff2252fbf6b9d54",
-      "title": "Profile - Minimalist Flush (V3)",
-      "route": "/cabinet/settings",
-      "deviceType": "MOBILE",
-      "variant": "V3 Minimalist Flush",
-      "localAssets": {
-        "screenshot": ".stitch/designs/settings-v3-minimalist-flush.png",
-        "html": ".stitch/designs/settings-v3-minimalist-flush.html"
-      }
-    },
-    {
-      "screenId": "5e4c2a7ade2e469dae7ef7ccc0a15688",
-      "title": "/ — Hero baseline",
-      "route": "/",
+      "id": "3954f6b5d9a24b3891166a1e4d96bc55",
+      "title": "Instructor Showcase: Editorial Split (Variant A)",
+      "slug": "instructor-card-variant-a",
       "deviceType": "DESKTOP",
-      "role": "baseline",
-      "localAssets": {
-        "screenshot": ".stitch/designs/hero-baseline.png",
-        "html": ".stitch/designs/hero-baseline.html"
-      }
+      "role": "variant",
+      "direction": "Editorial split with right action rail"
     },
     {
-      "screenId": "d0c89e2128144204943f7818f6d1c3da",
-      "title": "Hero — Brand Silhouette (V1)",
-      "route": "/",
+      "id": "b0d8c2abb5a04542bccea8903e21d476",
+      "title": "Instructor Showcase: Compact Row (Variant B)",
+      "slug": "instructor-card-variant-b",
       "deviceType": "DESKTOP",
-      "variant": "V1 Brand Silhouette",
-      "localAssets": {
-        "screenshot": ".stitch/designs/hero-v1-brand-silhouette.png",
-        "html": ".stitch/designs/hero-v1-brand-silhouette.html"
-      }
+      "role": "variant",
+      "direction": "Compact directory density"
     },
     {
-      "screenId": "1bbb1597a89147a9aeb4cb0a51383a7f",
-      "title": "Hero — Asymmetric Edge (V2)",
-      "route": "/",
+      "id": "2affa7b447ef4818b5cdfaa5dcb6e490",
+      "title": "Instructor Card — Variant C: Soft Media-Object Refinement",
+      "slug": "instructor-card-variant-c",
       "deviceType": "DESKTOP",
-      "variant": "V2 Asymmetric Edge",
-      "localAssets": {
-        "screenshot": ".stitch/designs/hero-v2-asymmetric-edge.png",
-        "html": ".stitch/designs/hero-v2-asymmetric-edge.html"
-      }
-    },
-    {
-      "screenId": "be57d3c6076540dd860d0a562b9b591a",
-      "title": "Hero — Minimalist Horizon (V3)",
-      "route": "/",
-      "deviceType": "DESKTOP",
-      "variant": "V3 Minimalist Horizon",
-      "role": "selected",
-      "localAssets": {
-        "screenshot": ".stitch/designs/hero-v3-minimalist-horizon.png",
-        "html": ".stitch/designs/hero-v3-minimalist-horizon.html"
-      }
-    },
-    {
-      "screenId": "d06fa524b93244ae8781244c7069d9c7",
-      "title": "/ — Path to Mastery baseline",
-      "route": "/",
-      "section": "path-to-mastery",
-      "deviceType": "DESKTOP",
-      "role": "baseline",
-      "localAssets": {
-        "screenshot": ".stitch/designs/path-to-mastery-baseline.png",
-        "html": ".stitch/designs/path-to-mastery-baseline.html"
-      }
-    },
-    {
-      "screenId": "4d331bf4f4b14883ba670d8ff8a1654d",
-      "title": "Path to Mastery — Editorial Asymmetric Trail (V1)",
-      "route": "/",
-      "section": "path-to-mastery",
-      "deviceType": "DESKTOP",
-      "variant": "V1 Editorial Asymmetric Trail",
-      "localAssets": {
-        "screenshot": ".stitch/designs/path-to-mastery-v1-editorial-asymmetric-trail.png",
-        "html": ".stitch/designs/path-to-mastery-v1-editorial-asymmetric-trail.html"
-      }
-    },
-    {
-      "screenId": "cd09652eee4b443c8622914dad363221",
-      "title": "Path to Mastery — Asymmetric Split (V2)",
-      "route": "/",
-      "section": "path-to-mastery",
-      "deviceType": "DESKTOP",
-      "variant": "V2 Asymmetric Split",
-      "localAssets": {
-        "screenshot": ".stitch/designs/path-to-mastery-v2-asymmetric-split.png",
-        "html": ".stitch/designs/path-to-mastery-v2-asymmetric-split.html"
-      }
-    },
-    {
-      "screenId": "c5c3a2fe00e04119bab62d8819244e03",
-      "title": "Path to Mastery — Horizon Path Band (V3)",
-      "route": "/",
-      "section": "path-to-mastery",
-      "deviceType": "DESKTOP",
-      "variant": "V3 Horizon Path Band",
-      "localAssets": {
-        "screenshot": ".stitch/designs/path-to-mastery-v3-horizon-path-band.png",
-        "html": ".stitch/designs/path-to-mastery-v3-horizon-path-band.html"
-      }
+      "role": "variant",
+      "direction": "Production-faithful soft refinement"
     }
-  ],
-  "designSystem": {
-    "assetId": "11762622741281556178",
-    "displayName": "SkiAcademy Alpine Air",
-    "primaryColor": "#1a6578",
-    "secondaryColor": "#111111",
-    "backgroundColor": "#ffffff",
-    "fontFamily": "LITERATA / DM_SANS"
-  }
+  ]
 }

@@ -59,6 +59,8 @@ ehthumbs.db
 Thumbs.db
 
 
-.cursor/mcp.json
+.cursor/
 
 .stitch/
+
+.agents/

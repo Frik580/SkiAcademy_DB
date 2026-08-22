@@ -77,11 +77,11 @@ export function getDifficultyLabel(
     if (language === 'ru') {
       switch (key) {
         case 'beginner':
-          return '🟢 Начинающий (Зеленые)';
+          return '🟢 Начинающий';
         case 'intermediate':
-          return '🔵 Средний уровень (Синие)';
+          return '🔵 Средний уровень';
         case 'advanced':
-          return '🔴 Продвинутый (Красные/Черные)';
+          return '🔴 Продвинутый';
         case 'freeride':
           return '🏔️ Вне трассы / Фрирайд';
         case 'freestyle':
@@ -92,11 +92,11 @@ export function getDifficultyLabel(
     }
     switch (key) {
       case 'beginner':
-        return '🟢 Beginner (Green Slopes)';
+        return '🟢 Beginner';
       case 'intermediate':
-        return '🔵 Intermediate (Blue Slopes)';
+        return '🔵 Intermediate';
       case 'advanced':
-        return '🔴 Advanced (Red/Black)';
+        return '🔴 Advanced';
       case 'freeride':
         return '🏔️ Off-Piste / Freeride';
       case 'freestyle':

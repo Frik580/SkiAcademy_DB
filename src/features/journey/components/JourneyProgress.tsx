@@ -387,7 +387,7 @@ export const JourneyPathStrip: React.FC<{
       <div
         className={
           effectiveFillViewport
-            ? 'relative w-full flex-1 min-h-[9.5rem]'
+            ? 'relative w-full h-40 sm:h-48 md:h-52 shrink-0'
             : 'relative w-full h-48 sm:h-56 md:h-64 shrink-0'
         }
       >

@@ -94,6 +94,11 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
     return map;
   }, [userProfile?.skillScores, skillConfig.items, language]);
 
+  const earnedSkillsCount = useMemo(
+    () => Object.values(earnedSkillsByLevel).reduce((sum, skills) => sum + skills.length, 0),
+    [earnedSkillsByLevel]
+  );
+
   useEffect(() => {
     if (currentUserLevelId == null) return;
 
@@ -136,7 +141,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
 
   const { sectionRef, effectiveFillViewport } = useCabinetJourneyLayout(
     fillViewport && showAllCards,
-    `${breakpoint}-${activeLevelId ?? 'none'}`
+    `${breakpoint}-${activeLevelId ?? 'none'}-${earnedSkillsCount}`
   );
 
   const markerYs = LEVEL_MARKER_Y[breakpoint];

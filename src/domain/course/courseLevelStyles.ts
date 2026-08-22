@@ -42,8 +42,7 @@ const adminBadgeClass: Record<CourseLevel | '', string> = {
 /** V2 soft pill — pastel fill, no border (course cards). */
 const courseCardLevelBadgeClass: Record<CourseLevel | '', string> = {
   '': 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300',
-  beginner:
-    'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300',
+  beginner: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300',
   intermediate: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300',
   advanced: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
   expert: 'bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-300',

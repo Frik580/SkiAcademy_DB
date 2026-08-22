@@ -114,39 +114,37 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
       <div className="p-5 lg:p-6 flex-1 flex flex-col justify-between">
         <div className="flex flex-col gap-4">
           <div className="flex items-start justify-between gap-3">
-              <h4 className="font-serif text-[1.375rem] sm:text-2xl font-normal leading-[1.2] tracking-[-0.02em] flex items-start gap-2 min-w-0 flex-1 text-[var(--ink)]">
-                <span className="min-w-0">{course.title}</span>
-                {showRecommendations && (
-                  <RecommendationIndicator pending={hasPendingRecommendations(enrollmentBooking)} />
-                )}
-              </h4>
-              {rawCourse.level && (
-                <span
-                  className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${isEnrolled ? 'opacity-70' : ''} ${getCourseLevelCardBadgeClass(rawCourse.level)}`}
-                >
-                  {courseLevelBadgeLabel[rawCourse.level]}
+            <h4 className="font-serif text-[1.375rem] sm:text-2xl font-normal leading-[1.2] tracking-[-0.02em] flex items-start gap-2 min-w-0 flex-1 text-[var(--ink)]">
+              <span className="min-w-0">{course.title}</span>
+              {showRecommendations && (
+                <RecommendationIndicator pending={hasPendingRecommendations(enrollmentBooking)} />
+              )}
+            </h4>
+            {rawCourse.level && (
+              <span
+                className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${isEnrolled ? 'opacity-70' : ''} ${getCourseLevelCardBadgeClass(rawCourse.level)}`}
+              >
+                {courseLevelBadgeLabel[rawCourse.level]}
+              </span>
+            )}
+          </div>
+
+          {(cardDate || cardDuration) && (
+            <div className={`flex flex-wrap gap-2 ${isEnrolled ? 'opacity-80' : ''}`}>
+              {cardDate && (
+                <span className={metaChipClass(isEnrolled)}>
+                  <Calendar className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden />
+                  <span>{cardDate}</span>
+                </span>
+              )}
+              {cardDuration && (
+                <span className={metaChipClass(isEnrolled)}>
+                  <Clock className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden />
+                  <span>{cardDuration}</span>
                 </span>
               )}
             </div>
-
-            {(cardDate || cardDuration) && (
-              <div
-                className={`flex flex-wrap gap-2 ${isEnrolled ? 'opacity-80' : ''}`}
-              >
-                {cardDate && (
-                  <span className={metaChipClass(isEnrolled)}>
-                    <Calendar className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden />
-                    <span>{cardDate}</span>
-                  </span>
-                )}
-                {cardDuration && (
-                  <span className={metaChipClass(isEnrolled)}>
-                    <Clock className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden />
-                    <span>{cardDuration}</span>
-                  </span>
-                )}
-              </div>
-            )}
+          )}
 
           <p className="text-[0.8125rem] leading-[1.6] text-[var(--ink-dim)]/90 font-sans">
             {course.shortDescription || course.description}
@@ -158,9 +156,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
             <p className="text-4xl font-serif font-light tracking-[-0.03em] text-[var(--ink)] leading-none">
               {formatPrice(rawCourse.price, rawCourse.priceKZT)}
             </p>
-            <p className="text-xs text-[var(--ink-dim)]/60 font-sans">
-              {t('perCourse')}
-            </p>
+            <p className="text-xs text-[var(--ink-dim)]/60 font-sans">{t('perCourse')}</p>
           </div>
 
           <div className="grid grid-cols-[minmax(0,7fr)_minmax(0,3fr)] gap-3 w-full">

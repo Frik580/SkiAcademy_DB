@@ -1,9 +1,19 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Calendar, Clock, HelpCircle } from 'lucide-react';
 import { LessonDifficulty } from '../../../../types';
 import { type TranslationKey, type Language } from '../../../../app/providers/LanguageContext';
 import { type DifficultyLabelVariant } from '../../../../lib/i18n/bookingLabels';
 import { formatDurationLabel } from '../../../../lib/i18n/duration';
+import { BookingAppleDatePicker } from './BookingAppleDatePicker';
+import { BookingAppleWheelPicker } from './BookingAppleWheelPicker';
+
+const DIFFICULTY_OPTIONS: LessonDifficulty[] = [
+  'beginner',
+  'intermediate',
+  'advanced',
+  'freeride',
+  'freestyle',
+];
 
 interface BookingSelectorsProps {
   date: string;
@@ -44,99 +54,90 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
   getDifficultyLabel,
   gapClass = 'gap-4',
 }) => {
-  const difficultyOptions: LessonDifficulty[] = [
-    'beginner',
-    'intermediate',
-    'advanced',
-    'freeride',
-    'freestyle',
-  ];
+  const labelStyle = 'mb-1.5 flex items-center gap-1.5 truncate text-xs text-[var(--ink-dim)]';
 
-  const selectClass =
-    'ui-select focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] truncate';
+  const timeOptions = useMemo(() => {
+    if (isLoadingBookings) {
+      return [{ value: '', label: `${t('loading')}...`, disabled: true }];
+    }
+    if (availableSlots.length === 0) {
+      return [{ value: '', label: t('noSlotsAvailable'), disabled: true }];
+    }
+    return availableSlots.map((slot) => ({ value: slot, label: slot }));
+  }, [availableSlots, isLoadingBookings, t]);
 
-  const fieldClass =
-    'ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] truncate';
+  const durationOptions = useMemo(
+    () =>
+      [1, 2, 3, 4, 6].map((hrs) => ({
+        value: String(hrs),
+        label: formatDurationLabel(hrs, language === 'ru' ? 'ru' : 'en'),
+      })),
+    [language]
+  );
 
-  const labelStyle =
-    'uppercase tracking-wider text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 font-sans text-xs truncate';
+  const stageOptions = useMemo(
+    () =>
+      DIFFICULTY_OPTIONS.map((diff) => ({
+        value: diff,
+        label: getDifficultyLabel(diff, language, 'booking'),
+      })),
+    [getDifficultyLabel, language]
+  );
+
+  const locale = language === 'ru' ? 'ru-RU' : 'en-US';
 
   return (
     <div className={`grid grid-cols-2 ${gapClass}`}>
       <div>
         <label className={labelStyle}>
-          <Calendar className="w-3.5 h-3.5" /> {t('dateLabel')}
+          <Calendar className="h-3.5 w-3.5" /> {t('dateLabel')}
         </label>
-        <input
-          type="date"
-          required
-          min={minBookingDateStr}
+        <BookingAppleDatePicker
           value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className={fieldClass}
+          onChange={setDate}
+          min={minBookingDateStr}
+          locale={locale}
+          placeholder={t('dateLabel')}
+          aria-label={t('dateLabel')}
         />
       </div>
 
       <div>
         <label className={labelStyle}>
-          <Clock className="w-3.5 h-3.5" /> {t('timeSlot')}
+          <Clock className="h-3.5 w-3.5" /> {t('timeSlot')}
         </label>
-        <select
+        <BookingAppleWheelPicker
           value={time}
-          onChange={(e) => setTime(e.target.value)}
+          onChange={setTime}
+          options={timeOptions}
           disabled={isLoadingBookings || availableSlots.length === 0}
-          className={`${selectClass} disabled:opacity-50`}
-        >
-          {isLoadingBookings ? (
-            <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
-              {t('loading')}...
-            </option>
-          ) : availableSlots.length === 0 ? (
-            <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
-              {t('noSlotsAvailable')}
-            </option>
-          ) : (
-            availableSlots.map((slot) => (
-              <option key={slot} value={slot} className="bg-[var(--bg)] text-[var(--ink)]">
-                {slot}
-              </option>
-            ))
-          )}
-        </select>
+          placeholder={t('timeSlot')}
+          aria-label={t('timeSlot')}
+        />
       </div>
 
       <div>
         <label className={labelStyle}>
-          <Clock className="w-3.5 h-3.5" /> {t('durationHours')}
+          <Clock className="h-3.5 w-3.5" /> {t('durationHours')}
         </label>
-        <select
-          value={duration}
-          onChange={(e) => setDuration(Number(e.target.value))}
-          className={selectClass}
-        >
-          {[1, 2, 3, 4, 6].map((hrs) => (
-            <option key={hrs} value={hrs} className="bg-[var(--bg)] text-[var(--ink)]">
-              {formatDurationLabel(hrs, language === 'ru' ? 'ru' : 'en')}
-            </option>
-          ))}
-        </select>
+        <BookingAppleWheelPicker
+          value={String(duration)}
+          onChange={(value) => setDuration(Number(value))}
+          options={durationOptions}
+          aria-label={t('durationHours')}
+        />
       </div>
 
       <div>
         <label className={labelStyle}>
-          <HelpCircle className="w-3.5 h-3.5" /> {t('lessonStage')}
+          <HelpCircle className="h-3.5 w-3.5" /> {t('lessonStage')}
         </label>
-        <select
+        <BookingAppleWheelPicker
           value={difficulty}
-          onChange={(e) => setDifficulty(e.target.value as LessonDifficulty)}
-          className={selectClass}
-        >
-          {difficultyOptions.map((diff) => (
-            <option key={diff} value={diff} className="bg-[var(--bg)] text-[var(--ink)]">
-              {getDifficultyLabel(diff, language, 'booking')}
-            </option>
-          ))}
-        </select>
+          onChange={(value) => setDifficulty(value as LessonDifficulty)}
+          options={stageOptions}
+          aria-label={t('lessonStage')}
+        />
       </div>
     </div>
   );

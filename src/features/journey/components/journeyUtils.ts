@@ -219,3 +219,18 @@ export function measureElementHeightWithMargin(el: HTMLElement): number {
   const marginBottom = parseFloat(style.marginBottom) || 0;
   return el.offsetHeight + marginTop + marginBottom;
 }
+
+/** Allocated vs content height — detects flex-squeezed skill lists in cabinet fill mode. */
+export function measureSkillsBlockHeights(el: HTMLElement): {
+  allocated: number;
+  content: number;
+} {
+  const style = getComputedStyle(el);
+  const marginTop = parseFloat(style.marginTop) || 0;
+  const marginBottom = parseFloat(style.marginBottom) || 0;
+  const margins = marginTop + marginBottom;
+  return {
+    allocated: el.offsetHeight + margins,
+    content: el.scrollHeight + margins,
+  };
+}

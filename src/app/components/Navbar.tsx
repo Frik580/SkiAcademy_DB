@@ -274,9 +274,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       title={isAdminView ? t('browseSlopes') : t('manageResort')}
                       aria-label={isAdminView ? t('browseSlopes') : t('manageResort')}
                       className={`ui-icon-btn shrink-0 ${
-                        isAdminView
-                          ? 'text-amber-500 bg-amber-500/10 bg-amber-500/15'
-                          : ''
+                        isAdminView ? 'text-amber-500 bg-amber-500/10 bg-amber-500/15' : ''
                       }`}
                     >
                       <Settings className="w-4 h-4" />

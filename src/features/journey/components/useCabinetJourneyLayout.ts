@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CABINET_JOURNEY_MIN_SKILLS_BLOCK_PX } from './constants';
-import { measureElementHeightWithMargin } from './journeyUtils';
+import { measureSkillsBlockHeights } from './journeyUtils';
 
 /** ЛК (desktop): fillViewport, пока блок навыков (с margin) ≥150px; иначе — как на лендинге. */
 export function useCabinetJourneyLayout(fillViewport: boolean, remeasureKey: string) {
@@ -66,17 +66,29 @@ export function useCabinetJourneyLayout(fillViewport: boolean, remeasureKey: str
       const scrollEls = section.querySelectorAll('[data-journey-skills-scroll]');
       if (scrollEls.length === 0) return;
 
-      let skillsBlockHeight = 0;
+      let hasVisibleSkills = false;
+      let shouldFill = true;
+
       scrollEls.forEach((el) => {
         if (!(el instanceof HTMLElement)) return;
         const article = el.closest('article');
         if (article instanceof HTMLElement && article.classList.contains('invisible')) return;
-        skillsBlockHeight = Math.max(skillsBlockHeight, measureElementHeightWithMargin(el));
+
+        hasVisibleSkills = true;
+        const { allocated, content } = measureSkillsBlockHeights(el);
+        const isClipped = content > allocated + 2;
+        const isTooSmall = allocated < CABINET_JOURNEY_MIN_SKILLS_BLOCK_PX;
+        if (isClipped || isTooSmall) {
+          shouldFill = false;
+        }
       });
 
-      if (skillsBlockHeight === 0) return;
+      if (!hasVisibleSkills) {
+        setEffectiveFillViewport(false);
+        return;
+      }
 
-      setEffectiveFillViewport(skillsBlockHeight >= CABINET_JOURNEY_MIN_SKILLS_BLOCK_PX);
+      setEffectiveFillViewport(shouldFill);
     };
 
     evaluate();
@@ -88,7 +100,6 @@ export function useCabinetJourneyLayout(fillViewport: boolean, remeasureKey: str
 
     const onViewportChange = () => {
       lastWidthRef.current = window.innerWidth;
-      setEffectiveFillViewport(true);
       requestAnimationFrame(evaluate);
     };
 

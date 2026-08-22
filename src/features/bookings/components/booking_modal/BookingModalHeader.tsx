@@ -14,21 +14,21 @@ export const BookingModalHeader: React.FC<BookingModalHeaderProps> = ({
   t,
   onClose,
 }) => (
-  <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 border border-[var(--border)] rounded-full overflow-hidden bg-black/5 dark:bg-white/5 shrink-0 filter grayscale">
+  <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] bg-black/5 p-4 dark:bg-white/5">
+    <div className="flex min-w-0 items-center gap-2.5">
+      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[var(--border)] bg-black/5 filter grayscale dark:bg-white/5">
         <img
           src={targetInstructor.avatarUrl}
           alt={targetInstructor.name}
           className="w-full h-full object-cover"
         />
       </div>
-      <div>
-        <h3 className="font-serif text-lg font-light text-[var(--ink)]">
+      <div className="min-w-0">
+        <h3 className="truncate font-serif text-base font-light text-[var(--ink)]">
           {t('bookLessonWith')} {targetInstructor.name}
         </h3>
-        <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] mt-0.5">
-          ${targetInstructor.pricePerHour}/{t('hr')} • {t('privateInstruction')}
+        <p className="mt-0.5 truncate text-[11px] text-[var(--ink-dim)]">
+          ${targetInstructor.pricePerHour}/{t('hr')} · {t('privateInstruction')}
         </p>
       </div>
     </div>

@@ -6,6 +6,7 @@ import { useBookingModal } from './booking_modal/useBookingModal';
 import { BookingAuthShell } from './booking_modal/BookingAuthShell';
 import { AuthBookingForm } from './booking_modal/AuthBookingForm';
 import { BookingModalHeader } from './booking_modal/BookingModalHeader';
+import { BOOKING_MODAL_SHELL_CLASS } from './booking_modal/bookingModalLayout';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 
 interface BookingModalProps {
@@ -56,7 +57,7 @@ export const BookingModal: React.FC<BookingModalProps> = (props) => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 24 }}
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                className="ui-modal pointer-events-auto relative flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[var(--border)] bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl transition-colors duration-300 rounded-t-[var(--radius)] rounded-b-none sm:rounded-2xl sm:rounded-[var(--radius)]"
+                className={BOOKING_MODAL_SHELL_CLASS}
                 role="dialog"
                 aria-modal="true"
                 onClick={(e) => e.stopPropagation()}

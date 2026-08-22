@@ -333,10 +333,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   aria-label={`${t('goToSlide')} ${currentSlide + 1} / ${slides.length}`}
                 >
                   <span aria-hidden="true">{padSlideIndex(currentSlide + 1)}</span>
-                  <span
-                    className="w-8 h-px bg-[var(--hero-ink)]/20"
-                    aria-hidden="true"
-                  />
+                  <span className="w-8 h-px bg-[var(--hero-ink)]/20" aria-hidden="true" />
                   <span className="text-[var(--hero-ink)]/40" aria-hidden="true">
                     {padSlideIndex(slides.length)}
                   </span>

@@ -291,7 +291,9 @@ export const DesktopSkillCards: React.FC<{
 }) => (
   <div
     className={`grid grid-cols-4 gap-3 sm:gap-4 items-stretch min-w-0 w-full ${
-      effectiveFillViewport ? 'flex-1 min-h-0 overflow-hidden grid-rows-[minmax(0,1fr)]' : ''
+      effectiveFillViewport
+        ? 'flex-1 min-h-[9.375rem] overflow-hidden grid-rows-[minmax(9.375rem,1fr)]'
+        : ''
     }`}
   >
     {levelsWithXp.map((level) => {

@@ -34,6 +34,9 @@ const COVERAGE_EXCLUDE = [
 export default defineConfig({
   resolve: {
     alias: {
+      '@ski-academy/shared-domain/testing': fileURLToPath(
+        new URL('./packages/shared-domain/src/testing/index.ts', import.meta.url)
+      ),
       '@ski-academy/shared-domain/entities': fileURLToPath(
         new URL('./packages/shared-domain/src/entities.ts', import.meta.url)
       ),

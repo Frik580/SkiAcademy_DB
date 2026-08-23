@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { type AccountId, type ActiveCourseEnrollmentGuardId, type ActivityLogId, type AdminIssueId, type AttendanceId, type BookingChangeRequestId, type BookingId, type BookingProposalId, type CommandId, type CourseDayId, type CourseEnrollmentId, type CourseId, type DomainOutboxId, type InstructorId, type InstructorRelationshipId, type MonetaryEventId, type NotificationId, type ParticipantBlockId, type ParticipantId, type ParticipantManagementId, type PaymentId, type ProviderEventReceiptId, type ResourceClaimGuardId, type ResourceClaimId } from './identifiers';
+import { type AccountId, type ActivityLogId, type AdminIssueId, type AttendanceId, type BookingChangeRequestId, type BookingId, type BookingProposalId, type CommandId, type CourseDayId, type CourseEnrollmentId, type CourseId, type DomainOutboxId, type InstructorId, type InstructorRelationshipId, type MonetaryEventId, type NotificationId, type ParticipantBlockId, type ParticipantId, type ParticipantManagementId, type PaymentId, type ProviderEventReceiptId, type ResourceClaimGuardId, type ResourceClaimId } from './identifiers';
 declare const canonicalCollectionPathBrand: unique symbol;
 declare const canonicalDocumentPathBrand: unique symbol;
 export type CanonicalCollectionPath = string & {
@@ -57,7 +57,7 @@ export declare const canonicalPaths: {
     readonly adminIssue: (id: AdminIssueId) => CanonicalDocumentPath;
     readonly resourceClaim: (id: ResourceClaimId) => CanonicalDocumentPath;
     readonly resourceClaimGuard: (id: ResourceClaimGuardId) => CanonicalDocumentPath;
-    readonly activeCourseEnrollmentGuard: (id: ActiveCourseEnrollmentGuardId) => CanonicalDocumentPath;
+    readonly activeCourseEnrollmentGuard: (participantId: ParticipantId, courseId: CourseId) => CanonicalDocumentPath;
     readonly activityLog: (id: ActivityLogId) => CanonicalDocumentPath;
     readonly commandIdempotency: (id: CommandId) => CanonicalDocumentPath;
     readonly domainOutbox: (id: DomainOutboxId) => CanonicalDocumentPath;

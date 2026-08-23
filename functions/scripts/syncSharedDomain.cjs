@@ -34,6 +34,12 @@ fs.writeFileSync(
           require: './dist/entities.js',
           default: './dist/entities.js',
         },
+        './testing': {
+          types: './dist/testing/index.d.ts',
+          import: './dist/testing/index.js',
+          require: './dist/testing/index.js',
+          default: './dist/testing/index.js',
+        },
       },
       dependencies: { zod: '^4.4.3' },
     },

@@ -5,6 +5,9 @@ export default defineConfig({
   root: __dirname,
   resolve: {
     alias: {
+      '@ski-academy/shared-domain/testing': fileURLToPath(
+        new URL('../packages/shared-domain/src/testing/index.ts', import.meta.url)
+      ),
       '@ski-academy/shared-domain/entities': fileURLToPath(
         new URL('../packages/shared-domain/src/entities.ts', import.meta.url)
       ),
@@ -18,4 +21,3 @@ export default defineConfig({
     include: ['src/**/*.test.ts'],
   },
 });
-

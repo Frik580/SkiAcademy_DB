@@ -101,6 +101,15 @@ exports.CommandErrorTransportSchema = zod_1.z
         });
     }
 });
+function internalErrorTransport(correlationId) {
+    const policy = exports.COMMAND_ERROR_POLICY.internal;
+    return {
+        code: 'internal',
+        message: policy.message,
+        retryable: policy.retryable,
+        correlationId,
+    };
+}
 class CanonicalCommandError extends Error {
     code;
     retryable;
@@ -118,6 +127,9 @@ class CanonicalCommandError extends Error {
         this.details = options.details;
     }
     toTransport() {
+        if (this.code === 'audit_integrity_violation') {
+            return internalErrorTransport(this.correlationId);
+        }
         return exports.CommandErrorTransportSchema.parse({
             code: this.code,
             message: this.message,
@@ -133,13 +145,10 @@ function toCommandErrorTransport(error, fallbackCorrelationId) {
     if (error instanceof CanonicalCommandError)
         return error.toTransport();
     const parsed = exports.CommandErrorTransportSchema.safeParse(error);
-    if (parsed.success)
-        return parsed.data;
-    const policy = exports.COMMAND_ERROR_POLICY.internal;
-    return {
-        code: 'internal',
-        message: policy.message,
-        retryable: policy.retryable,
-        correlationId: fallbackCorrelationId,
-    };
+    if (parsed.success) {
+        return parsed.data.code === 'audit_integrity_violation'
+            ? internalErrorTransport(parsed.data.correlationId)
+            : parsed.data;
+    }
+    return internalErrorTransport(fallbackCorrelationId);
 }

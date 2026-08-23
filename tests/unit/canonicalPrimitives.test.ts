@@ -1,7 +1,10 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import { canonicalPrimitiveFixtures } from '@ski-academy/shared-domain/testing';
 import {
   AccountIdSchema,
+  ActiveCourseEnrollmentGuardKeySchema,
   AggregateRevisionSchema,
+  ActorRefSchema,
   BookingIdSchema,
   CANONICAL_COLLECTIONS,
   COMMAND_ERROR_CODES,
@@ -12,13 +15,18 @@ import {
   CanonicalReferenceSchema,
   CommandErrorTransportSchema,
   CorrelationIdSchema,
+  CourseIdSchema,
+  GuestSubjectIdSchema,
   IanaTimeZoneSchema,
   KztMoneySchema,
   ParticipantIdSchema,
   TimeIntervalSchema,
+  accountActorRef,
+  activeCourseEnrollmentGuardKey,
   canonicalPaths,
   canonicalReference,
   compareCanonicalTimestamps,
+  guestActorRef,
   intervalsOverlap,
   timestampFromDate,
   toCommandErrorTransport,
@@ -29,6 +37,11 @@ import {
 } from '@ski-academy/shared-domain';
 
 describe('canonical identifiers and references', () => {
+  it('publishes canonical primitive fixtures from the testing subpath', () => {
+    expect(canonicalPrimitiveFixtures.money).toEqual({ currency: 'KZT', minorUnits: 25_000 });
+    expect(canonicalPrimitiveFixtures.guestActorRef.kind).toBe('guest');
+  });
+
   it.each(['', 'has/slash', '.', '..', 'has space', 'a'.repeat(129)])(
     'rejects malformed opaque ID %j',
     (candidate) => {
@@ -74,6 +87,20 @@ describe('canonical identifiers and references', () => {
       }).success
     ).toBe(false);
   });
+
+  it('models bookedBy as an Account-or-guest actor reference', () => {
+    const accountId = AccountIdSchema.parse('auth_uid_01');
+    const guestSubjectId = GuestSubjectIdSchema.parse('guest_subject_01');
+
+    expect(accountActorRef(accountId)).toEqual({ kind: 'account', accountId });
+    expect(guestActorRef(guestSubjectId)).toEqual({ kind: 'guest', guestSubjectId });
+    expect(ActorRefSchema.safeParse({ kind: 'account', accountId }).success).toBe(true);
+    expect(ActorRefSchema.safeParse({ kind: 'guest', guestSubjectId }).success).toBe(true);
+    expect(ActorRefSchema.safeParse({ kind: 'guest', accountId }).success).toBe(false);
+    expect(
+      ActorRefSchema.safeParse({ kind: 'account', accountId, capability: 'admin' }).success
+    ).toBe(false);
+  });
 });
 
 describe('canonical collections and paths', () => {
@@ -105,6 +132,27 @@ describe('canonical collections and paths', () => {
     expect(CanonicalDocumentPathSchema.parse('/bookings/bkg_01JABCDEFGHJKMNPQRSTVWXYZ')).toBe(
       '/bookings/bkg_01JABCDEFGHJKMNPQRSTVWXYZ'
     );
+  });
+
+  it('derives the active Enrollment guard key from its Participant and Course pair', () => {
+    const participantId = ParticipantIdSchema.parse('participant_01');
+    const courseId = CourseIdSchema.parse('course_01');
+    const key = activeCourseEnrollmentGuardKey(participantId, courseId);
+
+    expect(key).toBe('aceg_v1_14_participant_01_9_course_01');
+    expect(ActiveCourseEnrollmentGuardKeySchema.parse(key)).toBe(key);
+    expect(canonicalPaths.activeCourseEnrollmentGuard(participantId, courseId)).toBe(
+      '/active_course_enrollment_guards/aceg_v1_14_participant_01_9_course_01'
+    );
+    expect(ActiveCourseEnrollmentGuardKeySchema.safeParse('arbitrary_guard').success).toBe(false);
+    expect(
+      CanonicalDocumentPathSchema.safeParse('/active_course_enrollment_guards/arbitrary_guard')
+        .success
+    ).toBe(false);
+    expect(
+      ActiveCourseEnrollmentGuardKeySchema.safeParse('aceg_v1_13_participant_01_9_course_01')
+        .success
+    ).toBe(false);
   });
 
   it.each([
@@ -186,6 +234,20 @@ describe('stable command errors', () => {
     });
     expect(JSON.stringify(transport)).not.toContain('secret');
     expect(JSON.stringify(transport)).not.toContain('/payments');
+  });
+
+  it('hides the internal audit-integrity classification at the public transport boundary', () => {
+    const transport = toCommandErrorTransport(
+      new CanonicalCommandError('audit_integrity_violation', { correlationId }),
+      correlationId
+    );
+
+    expect(transport).toEqual({
+      code: 'internal',
+      message: 'The operation could not be completed.',
+      retryable: true,
+      correlationId,
+    });
   });
 
   it('rejects unknown codes, policy mismatches, and arbitrary detail fields', () => {

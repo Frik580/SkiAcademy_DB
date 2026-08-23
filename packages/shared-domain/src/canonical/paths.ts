@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import {
   AccountIdSchema,
-  ActiveCourseEnrollmentGuardIdSchema,
+  ActiveCourseEnrollmentGuardKeySchema,
   ActivityLogIdSchema,
   AdminIssueIdSchema,
   AttendanceIdSchema,
@@ -24,8 +24,8 @@ import {
   ProviderEventReceiptIdSchema,
   ResourceClaimGuardIdSchema,
   ResourceClaimIdSchema,
+  activeCourseEnrollmentGuardKey,
   type AccountId,
-  type ActiveCourseEnrollmentGuardId,
   type ActivityLogId,
   type AdminIssueId,
   type AttendanceId,
@@ -106,7 +106,7 @@ const topLevelDocumentSchemas: Readonly<Record<string, z.ZodType<string>>> = {
   admin_issues: AdminIssueIdSchema,
   resource_claims: ResourceClaimIdSchema,
   resource_claim_guards: ResourceClaimGuardIdSchema,
-  active_course_enrollment_guards: ActiveCourseEnrollmentGuardIdSchema,
+  active_course_enrollment_guards: ActiveCourseEnrollmentGuardKeySchema,
   activity_logs: ActivityLogIdSchema,
   command_idempotency: CommandIdSchema,
   domain_outbox: DomainOutboxIdSchema,
@@ -193,8 +193,11 @@ export const canonicalPaths = {
   adminIssue: (id: AdminIssueId) => documentPath('admin_issues', id),
   resourceClaim: (id: ResourceClaimId) => documentPath('resource_claims', id),
   resourceClaimGuard: (id: ResourceClaimGuardId) => documentPath('resource_claim_guards', id),
-  activeCourseEnrollmentGuard: (id: ActiveCourseEnrollmentGuardId) =>
-    documentPath('active_course_enrollment_guards', id),
+  activeCourseEnrollmentGuard: (participantId: ParticipantId, courseId: CourseId) =>
+    documentPath(
+      'active_course_enrollment_guards',
+      activeCourseEnrollmentGuardKey(participantId, courseId)
+    ),
   activityLog: (id: ActivityLogId) => documentPath('activity_logs', id),
   commandIdempotency: (id: CommandId) => documentPath('command_idempotency', id),
   domainOutbox: (id: DomainOutboxId) => documentPath('domain_outbox', id),

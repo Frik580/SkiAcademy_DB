@@ -8,6 +8,12 @@ export declare const canonicalPrimitiveFixtures: Readonly<{
     courseEnrollmentId: import("../canonical").CanonicalId<"course_enrollment">;
     paymentId: import("../canonical").CanonicalId<"payment">;
     correlationId: import("../canonical").CanonicalId<"correlation">;
+    guestSubjectId: import("../canonical").CanonicalId<"guest_subject">;
+    guestActorRef: {
+        kind: "guest";
+        guestSubjectId: import("../canonical").CanonicalId<"guest_subject">;
+    };
+    activeCourseEnrollmentGuardKey: import("../canonical").ActiveCourseEnrollmentGuardKey;
     revision: import("../canonical").AggregateRevision;
     money: {
         currency: "KZT";

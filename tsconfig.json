@@ -7,7 +7,8 @@
     "baseUrl": ".",
     "paths": {
       "@ski-academy/shared-domain": ["packages/shared-domain/src/index.ts"],
-      "@ski-academy/shared-domain/entities": ["packages/shared-domain/src/entities.ts"]
+      "@ski-academy/shared-domain/entities": ["packages/shared-domain/src/entities.ts"],
+      "@ski-academy/shared-domain/testing": ["packages/shared-domain/src/testing/index.ts"]
     },
     "skipLibCheck": true,
 

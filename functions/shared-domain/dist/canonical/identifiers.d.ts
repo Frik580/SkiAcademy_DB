@@ -1,6 +1,6 @@
 import { z } from 'zod';
 declare const canonicalIdBrand: unique symbol;
-export declare const CANONICAL_ID_KINDS: readonly ["account", "instructor", "participant", "participant_management", "participant_management_active_owner", "instructor_relationship", "participant_block", "booking", "course", "course_day", "course_enrollment", "payment", "attendance", "booking_proposal", "booking_change_request", "admin_issue", "resource_claim", "resource_claim_guard", "active_course_enrollment_guard", "activity_log", "command", "domain_outbox", "notification", "monetary_event", "provider_event_receipt", "correlation", "causation", "occurrence", "incremental_requirement", "guest_subject", "system_actor", "provider"];
+export declare const CANONICAL_ID_KINDS: readonly ["account", "instructor", "participant", "participant_management", "instructor_relationship", "participant_block", "booking", "course", "course_day", "course_enrollment", "payment", "attendance", "booking_proposal", "booking_change_request", "admin_issue", "resource_claim", "resource_claim_guard", "activity_log", "command", "domain_outbox", "notification", "monetary_event", "provider_event_receipt", "correlation", "causation", "occurrence", "incremental_requirement", "guest_subject", "system_actor", "provider"];
 export type CanonicalIdKind = (typeof CANONICAL_ID_KINDS)[number];
 export type CanonicalId<Kind extends CanonicalIdKind> = string & {
     readonly [canonicalIdBrand]: Kind;
@@ -10,7 +10,6 @@ export declare const AccountIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<Cano
 export declare const InstructorIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"instructor">, string>>;
 export declare const ParticipantIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"participant">, string>>;
 export declare const ParticipantManagementIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"participant_management">, string>>;
-export declare const ParticipantManagementActiveOwnerIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"participant_management_active_owner">, string>>;
 export declare const InstructorRelationshipIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"instructor_relationship">, string>>;
 export declare const ParticipantBlockIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"participant_block">, string>>;
 export declare const BookingIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"booking">, string>>;
@@ -24,7 +23,6 @@ export declare const BookingChangeRequestIdSchema: z.ZodPipe<z.ZodString, z.ZodT
 export declare const AdminIssueIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"admin_issue">, string>>;
 export declare const ResourceClaimIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"resource_claim">, string>>;
 export declare const ResourceClaimGuardIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"resource_claim_guard">, string>>;
-export declare const ActiveCourseEnrollmentGuardIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"active_course_enrollment_guard">, string>>;
 export declare const ActivityLogIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"activity_log">, string>>;
 export declare const CommandIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"command">, string>>;
 export declare const DomainOutboxIdSchema: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"domain_outbox">, string>>;
@@ -42,7 +40,6 @@ export type AccountId = z.output<typeof AccountIdSchema>;
 export type InstructorId = z.output<typeof InstructorIdSchema>;
 export type ParticipantId = z.output<typeof ParticipantIdSchema>;
 export type ParticipantManagementId = z.output<typeof ParticipantManagementIdSchema>;
-export type ParticipantManagementActiveOwnerId = z.output<typeof ParticipantManagementActiveOwnerIdSchema>;
 export type InstructorRelationshipId = z.output<typeof InstructorRelationshipIdSchema>;
 export type ParticipantBlockId = z.output<typeof ParticipantBlockIdSchema>;
 export type BookingId = z.output<typeof BookingIdSchema>;
@@ -56,7 +53,6 @@ export type BookingChangeRequestId = z.output<typeof BookingChangeRequestIdSchem
 export type AdminIssueId = z.output<typeof AdminIssueIdSchema>;
 export type ResourceClaimId = z.output<typeof ResourceClaimIdSchema>;
 export type ResourceClaimGuardId = z.output<typeof ResourceClaimGuardIdSchema>;
-export type ActiveCourseEnrollmentGuardId = z.output<typeof ActiveCourseEnrollmentGuardIdSchema>;
 export type ActivityLogId = z.output<typeof ActivityLogIdSchema>;
 export type CommandId = z.output<typeof CommandIdSchema>;
 export type DomainOutboxId = z.output<typeof DomainOutboxIdSchema>;
@@ -106,4 +102,30 @@ export type CanonicalReference = {
 }[CanonicalReferenceKind];
 export declare const CanonicalReferenceSchema: z.ZodType<CanonicalReference>;
 export declare function canonicalReference<Kind extends CanonicalReferenceKind>(kind: Kind, id: CanonicalReferenceIdMap[Kind]): CanonicalReferenceFor<Kind>;
+export declare const AccountActorRefSchema: z.ZodObject<{
+    kind: z.ZodLiteral<"account">;
+    accountId: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"account">, string>>;
+}, z.core.$strict>;
+export declare const GuestActorRefSchema: z.ZodObject<{
+    kind: z.ZodLiteral<"guest">;
+    guestSubjectId: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"guest_subject">, string>>;
+}, z.core.$strict>;
+export declare const ActorRefSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
+    kind: z.ZodLiteral<"account">;
+    accountId: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"account">, string>>;
+}, z.core.$strict>, z.ZodObject<{
+    kind: z.ZodLiteral<"guest">;
+    guestSubjectId: z.ZodPipe<z.ZodString, z.ZodTransform<CanonicalId<"guest_subject">, string>>;
+}, z.core.$strict>], "kind">;
+export type ActorRef = z.output<typeof ActorRefSchema>;
+export type AccountActorRef = z.output<typeof AccountActorRefSchema>;
+export type GuestActorRef = z.output<typeof GuestActorRefSchema>;
+export declare function accountActorRef(accountId: AccountId): AccountActorRef;
+export declare function guestActorRef(guestSubjectId: GuestSubjectId): GuestActorRef;
+declare const activeCourseEnrollmentGuardKeyBrand: unique symbol;
+export type ActiveCourseEnrollmentGuardKey = string & {
+    readonly [activeCourseEnrollmentGuardKeyBrand]: 'ActiveCourseEnrollmentGuardKey';
+};
+export declare const ActiveCourseEnrollmentGuardKeySchema: z.ZodPipe<z.ZodString, z.ZodTransform<ActiveCourseEnrollmentGuardKey, string>>;
+export declare function activeCourseEnrollmentGuardKey(participantId: ParticipantId, courseId: CourseId): ActiveCourseEnrollmentGuardKey;
 export {};

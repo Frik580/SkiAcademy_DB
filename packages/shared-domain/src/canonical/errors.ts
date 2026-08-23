@@ -120,6 +120,16 @@ export interface CanonicalCommandErrorOptions {
   readonly details?: CommandErrorDetails;
 }
 
+function internalErrorTransport(correlationId: CorrelationId): CommandErrorTransport {
+  const policy = COMMAND_ERROR_POLICY.internal;
+  return {
+    code: 'internal',
+    message: policy.message,
+    retryable: policy.retryable,
+    correlationId,
+  };
+}
+
 export class CanonicalCommandError extends Error {
   readonly code: CommandErrorCode;
   readonly retryable: boolean;
@@ -139,6 +149,10 @@ export class CanonicalCommandError extends Error {
   }
 
   toTransport(): CommandErrorTransport {
+    if (this.code === 'audit_integrity_violation') {
+      return internalErrorTransport(this.correlationId);
+    }
+
     return CommandErrorTransportSchema.parse({
       code: this.code,
       message: this.message,
@@ -157,13 +171,11 @@ export function toCommandErrorTransport(
   if (error instanceof CanonicalCommandError) return error.toTransport();
 
   const parsed = CommandErrorTransportSchema.safeParse(error);
-  if (parsed.success) return parsed.data;
+  if (parsed.success) {
+    return parsed.data.code === 'audit_integrity_violation'
+      ? internalErrorTransport(parsed.data.correlationId)
+      : parsed.data;
+  }
 
-  const policy = COMMAND_ERROR_POLICY.internal;
-  return {
-    code: 'internal',
-    message: policy.message,
-    retryable: policy.retryable,
-    correlationId: fallbackCorrelationId,
-  };
+  return internalErrorTransport(fallbackCorrelationId);
 }

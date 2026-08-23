@@ -7,7 +7,6 @@ export const CANONICAL_ID_KINDS = [
   'instructor',
   'participant',
   'participant_management',
-  'participant_management_active_owner',
   'instructor_relationship',
   'participant_block',
   'booking',
@@ -21,7 +20,6 @@ export const CANONICAL_ID_KINDS = [
   'admin_issue',
   'resource_claim',
   'resource_claim_guard',
-  'active_course_enrollment_guard',
   'activity_log',
   'command',
   'domain_outbox',
@@ -61,9 +59,6 @@ export const AccountIdSchema = canonicalIdSchema('account');
 export const InstructorIdSchema = canonicalIdSchema('instructor');
 export const ParticipantIdSchema = canonicalIdSchema('participant');
 export const ParticipantManagementIdSchema = canonicalIdSchema('participant_management');
-export const ParticipantManagementActiveOwnerIdSchema = canonicalIdSchema(
-  'participant_management_active_owner'
-);
 export const InstructorRelationshipIdSchema = canonicalIdSchema('instructor_relationship');
 export const ParticipantBlockIdSchema = canonicalIdSchema('participant_block');
 export const BookingIdSchema = canonicalIdSchema('booking');
@@ -77,9 +72,6 @@ export const BookingChangeRequestIdSchema = canonicalIdSchema('booking_change_re
 export const AdminIssueIdSchema = canonicalIdSchema('admin_issue');
 export const ResourceClaimIdSchema = canonicalIdSchema('resource_claim');
 export const ResourceClaimGuardIdSchema = canonicalIdSchema('resource_claim_guard');
-export const ActiveCourseEnrollmentGuardIdSchema = canonicalIdSchema(
-  'active_course_enrollment_guard'
-);
 export const ActivityLogIdSchema = canonicalIdSchema('activity_log');
 export const CommandIdSchema = canonicalIdSchema('command');
 export const DomainOutboxIdSchema = canonicalIdSchema('domain_outbox');
@@ -98,9 +90,6 @@ export type AccountId = z.output<typeof AccountIdSchema>;
 export type InstructorId = z.output<typeof InstructorIdSchema>;
 export type ParticipantId = z.output<typeof ParticipantIdSchema>;
 export type ParticipantManagementId = z.output<typeof ParticipantManagementIdSchema>;
-export type ParticipantManagementActiveOwnerId = z.output<
-  typeof ParticipantManagementActiveOwnerIdSchema
->;
 export type InstructorRelationshipId = z.output<typeof InstructorRelationshipIdSchema>;
 export type ParticipantBlockId = z.output<typeof ParticipantBlockIdSchema>;
 export type BookingId = z.output<typeof BookingIdSchema>;
@@ -114,7 +103,6 @@ export type BookingChangeRequestId = z.output<typeof BookingChangeRequestIdSchem
 export type AdminIssueId = z.output<typeof AdminIssueIdSchema>;
 export type ResourceClaimId = z.output<typeof ResourceClaimIdSchema>;
 export type ResourceClaimGuardId = z.output<typeof ResourceClaimGuardIdSchema>;
-export type ActiveCourseEnrollmentGuardId = z.output<typeof ActiveCourseEnrollmentGuardIdSchema>;
 export type ActivityLogId = z.output<typeof ActivityLogIdSchema>;
 export type CommandId = z.output<typeof CommandIdSchema>;
 export type DomainOutboxId = z.output<typeof DomainOutboxIdSchema>;
@@ -189,4 +177,85 @@ export function canonicalReference<Kind extends CanonicalReferenceKind>(
   id: CanonicalReferenceIdMap[Kind]
 ): CanonicalReferenceFor<Kind> {
   return { kind, id };
+}
+
+export const AccountActorRefSchema = z
+  .object({ kind: z.literal('account'), accountId: AccountIdSchema })
+  .strict();
+
+export const GuestActorRefSchema = z
+  .object({ kind: z.literal('guest'), guestSubjectId: GuestSubjectIdSchema })
+  .strict();
+
+export const ActorRefSchema = z.discriminatedUnion('kind', [
+  AccountActorRefSchema,
+  GuestActorRefSchema,
+]);
+
+export type ActorRef = z.output<typeof ActorRefSchema>;
+export type AccountActorRef = z.output<typeof AccountActorRefSchema>;
+export type GuestActorRef = z.output<typeof GuestActorRefSchema>;
+
+export function accountActorRef(accountId: AccountId): AccountActorRef {
+  return { kind: 'account', accountId };
+}
+
+export function guestActorRef(guestSubjectId: GuestSubjectId): GuestActorRef {
+  return { kind: 'guest', guestSubjectId };
+}
+
+declare const activeCourseEnrollmentGuardKeyBrand: unique symbol;
+
+export type ActiveCourseEnrollmentGuardKey = string & {
+  readonly [activeCourseEnrollmentGuardKeyBrand]: 'ActiveCourseEnrollmentGuardKey';
+};
+
+const ACTIVE_COURSE_ENROLLMENT_GUARD_PREFIX = 'aceg_v1_';
+
+function readLengthPrefixedPart(
+  input: string,
+  start: number
+): Readonly<{ value: string; next: number }> | undefined {
+  const lengthEnd = input.indexOf('_', start);
+  if (lengthEnd < 0) return undefined;
+
+  const encodedLength = input.slice(start, lengthEnd);
+  if (!/^(0|[1-9][0-9]{0,2})$/.test(encodedLength)) return undefined;
+
+  const length = Number(encodedLength);
+  const valueStart = lengthEnd + 1;
+  const valueEnd = valueStart + length;
+  if (valueEnd > input.length) return undefined;
+
+  return { value: input.slice(valueStart, valueEnd), next: valueEnd };
+}
+
+function isActiveCourseEnrollmentGuardKey(value: string): boolean {
+  if (!value.startsWith(ACTIVE_COURSE_ENROLLMENT_GUARD_PREFIX)) return false;
+
+  const participant = readLengthPrefixedPart(value, ACTIVE_COURSE_ENROLLMENT_GUARD_PREFIX.length);
+  if (!participant || value[participant.next] !== '_') return false;
+
+  const course = readLengthPrefixedPart(value, participant.next + 1);
+  if (!course || course.next !== value.length) return false;
+
+  return (
+    ParticipantIdSchema.safeParse(participant.value).success &&
+    CourseIdSchema.safeParse(course.value).success
+  );
+}
+
+export const ActiveCourseEnrollmentGuardKeySchema = z
+  .string()
+  .max(320)
+  .refine(isActiveCourseEnrollmentGuardKey, 'Guard key must encode a Participant and Course pair')
+  .transform((value) => value as ActiveCourseEnrollmentGuardKey);
+
+export function activeCourseEnrollmentGuardKey(
+  participantId: ParticipantId,
+  courseId: CourseId
+): ActiveCourseEnrollmentGuardKey {
+  return ActiveCourseEnrollmentGuardKeySchema.parse(
+    `${ACTIVE_COURSE_ENROLLMENT_GUARD_PREFIX}${participantId.length}_${participantId}_${courseId.length}_${courseId}`
+  );
 }

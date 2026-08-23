@@ -5,6 +5,9 @@ T01 establishes these shared-domain conventions for later canonical slices:
 - IDs are URL-safe opaque strings of 1–128 characters. Their TypeScript brands and typed
   reference/path builders prevent aggregate kinds from being substituted; the raw value does not
   encode business identity or derive one aggregate ID from another.
+- `ActorRef` is the closed Account-or-guest reference used by `bookedBy`; capability remains a
+  separate later command concern. Active Course Enrollment guard keys are versioned,
+  length-prefixed encodings of their Participant+Course pair and are not Enrollment identities.
 - Timestamps use the transport-neutral `{ seconds, nanoseconds }` shape and Firestore's supported
   UTC range. Persisting adapters can map this value directly to and from Firestore `Timestamp`.
 - Time intervals are half-open `[startsAt, endsAt)` and require `endsAt > startsAt`, so adjacent
@@ -16,6 +19,7 @@ T01 establishes these shared-domain conventions for later canonical slices:
 - Validation failures expose sorted, normalized issue codes and paths without copying rejected
   values. Command-error transport uses a closed code/policy registry and maps unknown failures to a
   fixed internal response without serializing exception messages, stacks, SDK data, or paths.
+  Internal audit-integrity classifications are also collapsed to that generic public response.
 
 These modules do not import legacy Booking, Course-shaped Enrollment, availability-lock, Wallet
 ledger, transaction, or frontend contracts.

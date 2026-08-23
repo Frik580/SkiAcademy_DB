@@ -1,32 +1,47 @@
 import {
   AccountIdSchema,
+  ActivityLogIdSchema,
   BookingIdSchema,
   CommandIdSchema,
   CorrelationIdSchema,
   CourseIdSchema,
+  DomainOutboxIdSchema,
   GuestSubjectIdSchema,
   InstructorIdSchema,
   InstructorRelationshipIdSchema,
+  MonetaryEventIdSchema,
   ParticipantAccessTopologySchema,
   ParticipantBlockIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
+  PaymentIdSchema,
+  ResourceClaimIdSchema,
+  WalletSchema,
   accountActorRef,
   activeCourseEnrollmentGuardKey,
+  activityLogIdFromCommandId,
   canonicalPaths,
   canonicalReference,
+  domainOutboxIdFromCommand,
   evaluateInstructorParticipantAccess,
   evaluateParticipantManagementAccess,
+  monetaryEventIdFromCommandEffect,
+  resourceClaimIdFromIdentity,
   type BookingId,
   type InstructorParticipantAccessDecision,
   type InstructorRelationship,
   type ParticipantBlock,
   type ParticipantManagement,
   type ParticipantManagementAccessDecision,
+  type PaymentId,
 } from '../src';
 import { canonicalPrimitiveFixtures } from '../src/testing';
 
-const bookingId = BookingIdSchema.parse('booking_contract_01');
+const paymentId = PaymentIdSchema.parse('payment_contract_01');
+const monetaryEventId = MonetaryEventIdSchema.parse('monetary_event_contract_01');
+const resourceClaimId = ResourceClaimIdSchema.parse('resource_claim_contract_01');
+const activityLogId = ActivityLogIdSchema.parse('activity_log_contract_01');
+const outboxId = DomainOutboxIdSchema.parse('domain_outbox_contract_01');
 const participantId = ParticipantIdSchema.parse('participant_contract_01');
 const accountId = AccountIdSchema.parse('account_contract_01');
 const guestSubjectId = GuestSubjectIdSchema.parse('guest_contract_01');
@@ -107,8 +122,31 @@ const accessTopology = ParticipantAccessTopologySchema.parse({
   participantBlocks: [],
 });
 
-canonicalReference('booking', bookingId);
-canonicalPaths.booking(bookingId);
+const bookingId = BookingIdSchema.parse('booking_contract_01');
+
+canonicalReference('payment', paymentId);
+canonicalPaths.payment(paymentId);
+activityLogIdFromCommandId(commandId);
+domainOutboxIdFromCommand(commandId, 0);
+monetaryEventIdFromCommandEffect(commandId, 0);
+resourceClaimIdFromIdentity({
+  strategyVersion: 'claim:v1',
+  claimKind: 'instructor_booking_occurrence',
+  resourceKind: 'instructor',
+  resourceId: instructorId,
+  ownerKind: 'booking',
+  ownerId: bookingId,
+  occurrenceId: 'occurrence_contract_01',
+});
+WalletSchema.parse({
+  accountId,
+  currency: 'KZT',
+  balance: canonicalPrimitiveFixtures.money.minorUnits,
+  revision: canonicalPrimitiveFixtures.revision,
+  eventRevision: 0,
+  createdAt: canonicalPrimitiveFixtures.interval.startsAt,
+  updatedAt: canonicalPrimitiveFixtures.interval.startsAt,
+});
 accountActorRef(accountId);
 activeCourseEnrollmentGuardKey(participantId, courseId);
 evaluateParticipantManagementAccess(accessTopology, { accountId, participantId });
@@ -131,8 +169,32 @@ canonicalReference('booking', participantId);
 // @ts-expect-error A Participant ID cannot address a Booking document.
 canonicalPaths.booking(participantId);
 
-// @ts-expect-error Branded aggregate IDs are not structurally interchangeable.
-const crossTypeId: BookingId = participantId;
+// @ts-expect-error A Monetary Event ID cannot address a Payment document.
+canonicalPaths.payment(monetaryEventId);
+
+// @ts-expect-error A Resource Claim ID cannot address a Payment document.
+canonicalPaths.payment(resourceClaimId);
+
+// @ts-expect-error Branded financial and claim IDs are not interchangeable.
+const crossFinancialId: PaymentId = monetaryEventId;
+
+// @ts-expect-error Branded claim IDs are not interchangeable with Payment IDs.
+const crossClaimId: PaymentId = resourceClaimId;
+
+// @ts-expect-error Activity Log IDs cannot substitute for outbox IDs.
+const crossOutboxId: DomainOutboxId = activityLogId;
+
+void crossFinancialId;
+void crossClaimId;
+void crossOutboxId;
+void paymentId;
+void monetaryEventId;
+void resourceClaimId;
+void activityLogId;
+void outboxId;
+
+canonicalReference('booking', bookingId);
+canonicalPaths.booking(bookingId);
 
 // @ts-expect-error A guest subject cannot be substituted for an Account actor.
 accountActorRef(guestSubjectId);
@@ -150,6 +212,9 @@ evaluateInstructorParticipantAccess(accessTopology, {
   at: canonicalPrimitiveFixtures.interval.startsAt,
   bookingScopedEvidence: [],
 });
+
+// @ts-expect-error Branded aggregate IDs are not structurally interchangeable.
+const crossTypeId: BookingId = participantId;
 
 void crossTypeId;
 void ownedManagementContract;

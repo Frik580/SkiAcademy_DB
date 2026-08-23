@@ -77,7 +77,7 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
           hasUnreadChat={hasUnreadChat}
         />
       )}
-      
+
       {/* 1. Обратный отсчёт и текущие занятия */}
       {todayCountdown && (
         <SessionCountdownBlock

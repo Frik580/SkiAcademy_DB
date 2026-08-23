@@ -81,14 +81,22 @@ A blocking operational record requiring administrator resolution, such as missin
 **Payment State**:
 The financial lifecycle `unpaid`, `partially_paid`, `paid`, `refunded`, or `partially_refunded`, supported by explicit `price`, `paidAmount`, `refundedAmount`, and `outstandingAmount` values. It is independent of Booking lifecycle.
 
+The Payment aggregate owns current financial state and the numeric original and current agreed service price. Booking and Course Enrollment retain lifecycle and pricing basis but are not competing numeric price authorities.
+
 **Wallet**:
 The Account Owner's simulated stored-value balance used for lessons and Courses. It must never become negative.
+
+**Monetary Event**:
+An immutable entry in the append-only `monetary_events` history that records canonical financial effects and provenance. Monetary Events explain Payment and Wallet projections but do not replace their current-state authority.
 
 **Payment Provenance**:
 The historical origin of money applied to a Booking or Course Enrollment. Account linking may change future refund destination but never rewrites how earlier payment was made.
 
 **Activity Log**:
-An immutable audit record of an actor and a domain-significant action. It explains history but is never the source of current lifecycle, financial, Attendance, or access state.
+An immutable audit record of an actor and an authoritative command or domain-significant action. It is written synchronously and atomically with the authoritative domain transaction, explains history, and is never the source of current lifecycle, financial, Attendance, or access state.
+
+**Domain Outbox**:
+A durable obligation for asynchronous external delivery. It may be pending, retried, delivered, or dead-lettered independently after commit and is neither Activity Log history nor current domain authority.
 
 **Archived Booking**:
 A terminal Booking hidden through `isDeleted` without changing lifecycle, money, capacity, or resource claims. Archival is not a lifecycle transition.
@@ -106,24 +114,31 @@ Minimum dependent Participant data is name, birth date or age, skill level, ski/
 
 ## Sources of truth
 
-| Concern                     | Canonical source                                                             | Derived or enforcement representations                                                         |
-| --------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Booking lifecycle           | `Booking.status`                                                             | UI labels, timestamps, notifications, Activity Logs                                            |
-| Course Enrollment lifecycle | `CourseEnrollment.status`                                                    | UI labels, timestamps, notifications, Activity Logs                                            |
-| Booking origin              | Immutable `bookingOrigin`                                                    | Guest identifiers and linking state must not be used to infer it                               |
-| Ownership and participation | `bookedBy`, Participant references, optional `payerAccountId`                | Display names and contact snapshots                                                            |
-| Course participation        | Explicit Course Enrollment with `courseId` and `participantId`               | Synthetic `instructorId: course_{courseId}` is legacy technical debt                           |
-| Financial state             | Payment State and explicit monetary fields                                   | Wallet ledger and Activity Logs explain movements but do not replace current state             |
-| Actual participation        | Attendance records                                                           | `completed` and `no_show` are lifecycle outcomes derived through authorized transitions        |
-| Participant progress        | Participant profile                                                          | Account Owner profile is not the Participant's progress record unless they are the same person |
-| Instructor schedule         | Active Booking claims and administrative blocks                              | Availability documents and hour locks are transactional projections                            |
-| Participant schedule        | Active lesson intervals and actual Course Day intervals for that Participant | Account Owner schedule is not a substitute                                                     |
-| Course admission capacity   | Pre-start active seat occupancy and `totalSeats`                             | `availableSeats` is the transactional admission counter and freezes at `course.startAt`        |
-| Instructor access           | Active Instructor Relationships and booking-scoped minimum access            | Booking history may establish or extend a relationship but is not itself an access grant query |
-| Mutual blocking             | Independent active Participant Block records                                 | UI suppression is not enforcement                                                              |
-| Audit history               | Activity Logs                                                                | Logs never determine current business state                                                    |
+| Concern                                | Canonical source                                                             | Derived or enforcement representations                                                          |
+| -------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Booking lifecycle                      | `Booking.status`                                                             | UI labels, timestamps, notifications, Activity Logs                                             |
+| Course Enrollment lifecycle            | `CourseEnrollment.status`                                                    | UI labels, timestamps, notifications, Activity Logs                                             |
+| Booking origin                         | Immutable `bookingOrigin`                                                    | Guest identifiers and linking state must not be used to infer it                                |
+| Ownership and participation            | `bookedBy`, Participant references, optional `payerAccountId`                | Display names and contact snapshots                                                             |
+| Course participation                   | Explicit Course Enrollment with `courseId` and `participantId`               | Synthetic `instructorId: course_{courseId}` is legacy technical debt                            |
+| Current financial state and price      | Payment State and Payment numeric fields                                     | Booking/Enrollment pricing basis and read models do not replace Payment authority               |
+| Canonical financial history            | Append-only `monetary_events`                                                | Activity Logs may reference events but are not a financial ledger                               |
+| Current spendable Account balance      | Wallet                                                                       | Payment obligations and Monetary Event queries do not replace current Wallet state              |
+| Actual participation evidence          | Attendance records                                                           | `completed` and `no_show` are lifecycle outcomes derived through authorized transitions         |
+| Current operational inconsistencies    | Unresolved Admin Issues                                                      | Activity Logs explain issue actions but do not replace current issue state                      |
+| Participant progress                   | Participant profile                                                          | Account Owner profile is not the Participant's progress record unless they are the same person  |
+| Instructor schedule                    | Active Booking and Course Day scheduling intent plus administrative blocks   | Server-owned resource claims and guards enforce conflicts; sanitized read models may be derived |
+| Participant schedule                   | Active lesson intervals and actual Course Day intervals for that Participant | Account Owner schedule is not a substitute                                                      |
+| Scheduling enforcement                 | Server-owned resource claims and guards                                      | Owners retain lifecycle and schedule intent; sanitized availability is a read model             |
+| Course admission capacity              | Pre-start active seat occupancy and `totalSeats`                             | `availableSeats` is the transactional admission counter and freezes at `course.startAt`         |
+| Instructor access                      | Active Instructor Relationships and booking-scoped minimum access            | Booking history may establish or extend a relationship but is not itself an access grant query  |
+| Mutual blocking                        | Independent active Participant Block records                                 | UI suppression is not enforcement                                                               |
+| Immutable command/action audit history | Activity Logs                                                                | Written in the authoritative transaction; never determine current business state                |
+| Asynchronous delivery obligations      | Domain Outbox                                                                | Delivery may lag or retry independently; outbox state is not audit or domain state              |
 
 The UI must not infer canonical state from indirect signals. In particular, `endsAt < now` does not mean a Booking is completed; an authorized server transition must update lifecycle state.
+
+Canonical scheduling enforcement uses the server-owned resource claims and guards defined by ADR-0001. The existing `/availability_slots` and `/availability_hour_locks` collections are legacy implementation details scheduled for removal; neither is canonical, a required future projection, nor a source of truth. Future derived scheduling read models may exist under a distinct canonical contract, but they must not be confused with those retired collections or used as enforcement authority.
 
 ## Booking origins and creation
 
@@ -346,7 +361,7 @@ Instructor capability and administrative role are independent dimensions and may
 
 Only administration may set `isDeleted`, and only on `cancelled`, `completed`, `no_show`, or `withdrawn`. Archival never changes status, money, capacity, or resources and never repeats release/refund effects.
 
-Every action affecting money, lifecycle, schedule, participant composition, access, blocks, or corrections writes an Activity Log. This includes creation, confirmation, cancellation decisions, completion/no-show/withdrawal and corrections, rescheduling, instructor/duration/price/participant changes, overrides, refunds, blocks, proposals, change requests, and account linking. Automatic actions use `actor = system`; a successful action must not be represented as fully audited when its required log is missing.
+Every action affecting money, lifecycle, schedule, participant composition, access, blocks, or corrections writes an Activity Log synchronously and atomically in the authoritative domain transaction. This includes creation, confirmation, cancellation decisions, completion/no-show/withdrawal and corrections, rescheduling, instructor/duration/price/participant changes, overrides, refunds, blocks, proposals, change requests, and account linking. Automatic actions use `actor = system`; a successful action must not commit when its required log cannot be written. Any required outbox obligations are distinct records that commit in the same transaction alongside that log, then are delivered asynchronously and may lag or retry without creating Activity Log materialization lag.
 
 ## Critical invariants
 
@@ -365,14 +380,14 @@ Future `$implement` and `$code-review` work must verify:
 - Refunds never exceed `paidAmount`; seat/resource release and refund amount are independent decisions.
 - One Course Enrollment represents one Participant and one seat; multi-Participant enrollment creation is all-or-nothing.
 - Before Course start, capacity mutations are transactional and idempotent; at `startAt`, admission capacity freezes.
-- Course Enrollment uses explicit `courseId`; synthetic instructor identifiers are compatibility data only.
+- Course Enrollment uses explicit `courseId`; synthetic instructor identifiers are legacy implementation details scheduled for removal and are rejected after canonical cutover.
 - Rescheduling releases old resources and acquires new resources atomically.
 - Existing price is a snapshot; only an explicit audited modification changes it.
 - Terminal transitions never reactivate a record except the explicitly allowed terminal corrections.
 - `isDeleted` is visibility-only and never repeats lifecycle, money, or capacity effects.
 - Instructor access is relationship-scoped, time-bounded, revocable, and reduced to minimum booking access when needed.
 - Independent blocks remain non-overridable and removable only by their creator.
-- Activity Logs are complete audit history but never current-state authority.
+- Activity Logs are synchronous, atomic, complete audit history but never current-state authority; outbox delivery is asynchronous and independently retryable.
 
 ## Current implementation gaps
 
@@ -395,38 +410,29 @@ The following gaps are verified in the current repository and must not be mistak
 - `isDeleted` currently mixes soft deletion and hard deletion and may release resources or alter statistics instead of acting only as archival visibility.
 - Activity Logs cover only a subset of required events, may be written outside the domain transaction, and current rules permit overly broad client/instructor audit writes. Separate Participant-profile and Booking read permissions are broader than canonical Instructor Relationships.
 
-## Potential ADRs, ranked
+## Architecture decision status
 
-No ADR files are created by this update. The following decisions are hard to reverse, cross-cutting, and should be recorded before implementation:
+The canonical rewrite's complete required ADR set is accepted:
 
-1. **P0 — Participant, Booking, and Course Enrollment aggregate boundaries:** choose identifiers, ownership references, family composition, explicit Course Enrollment, and compatibility with legacy booking-shaped records.
-2. **P0 — Payment aggregate and Wallet accounting:** define Payment State persistence, ledger relationship, underpayment/write-off/refund provenance, idempotency, and reconciliation of existing balances.
-3. **P0 — Attendance and automated outcome architecture:** define individual, family, and Course Attendance records, sufficiency rules, Admin Issues, and the 24-hour resolver.
-4. **P0 — Scheduling/resource claim model:** define explicit Course Days, Participant conflict indexing, instructor availability projections, locks, atomicity, and drift repair.
-5. **P1 — Migration and compatibility strategy:** choose backfill confidence, dual-read/write period, immutable origin recovery, legacy `completed` classification, and rollout order.
-6. **P1 — Guest reservation security:** define token storage/rotation/use semantics, TTL scheduling, notification links, and account-linking boundary.
-7. **P1 — Instructor access and mutual blocking:** define relationship grants, expiry/revocation evaluation, booking-scoped minimum access, block ownership, and Firestore enforcement.
-8. **P1 — Proposal and change-request workflows:** decide whether they are separate aggregates, their concurrency/idempotency model, expiry processing, and Booking linkage.
-9. **P1 — Audit transaction boundary:** define Activity Log immutability, actor identity, event taxonomy, atomic write policy, and correction history.
-10. **P2 — Course admission capacity projection:** define the authoritative pre-start occupancy calculation, frozen post-start counter semantics, and reconciliation tooling.
+1. [ADR-0001: Canonical Aggregate Topology](docs/adr/0001-canonical-aggregate-topology.md)
+2. [ADR-0002: Server Command, Transaction and Resource Model](docs/adr/0002-server-command-transaction-and-resource-model.md)
+3. [ADR-0003: Payment Accounting Source](docs/adr/0003-payment-accounting-source.md)
+4. [ADR-0004: Attendance, Outcome and Admin Issue Model](docs/adr/0004-attendance-outcome-and-admin-issue-model.md)
+5. [ADR-0005: Audit Durability and Transaction Policy](docs/adr/0005-audit-durability-and-transaction-policy.md)
 
-## Migration risks
+There are no remaining blocking architecture ADRs for the canonical rewrite. Compatibility/Cutover and legacy Participant migration are not separate ADRs under the clean canonical rewrite strategy.
 
-- Existing `userId` cannot reliably distinguish Account Owner, Participant, bookedBy, or Payer; dependent Participants cannot be reconstructed without external mapping.
-- Guest linking clears guest markers, so historical `bookingOrigin` may be unknowable. Admin- versus account-origin creation is also not stored.
-- Legacy `completed` conflates delivered training, no-refund Course withdrawal, premature manual completion, and scheduled completion; Attendance evidence is absent.
-- Existing `pending_cancellation` records may already have been auto-completed and require manual review.
-- Guest pending records have no expiration or token state and may be stale while still holding locks or seats.
-- Course schedules stored as free-form ranges cannot reliably become Course Days, timezone-safe `startAt`/`endsAt`, or historical Attendance intervals.
-- Synthetic course instructor identifiers and optional `courseId` require a compatibility/backfill strategy across queries, rules, UI, and Functions.
-- Deterministic Course Enrollment IDs may have overwritten cancelled enrollment history, preventing faithful new-record reconstruction.
-- Stored `availableSeats` may have drifted through completion, cancellation after start, concurrent scheduler updates, manual edits, or missing enrollments.
-- Wallet ledgers do not provide complete per-Booking paid/refunded/outstanding/retained/write-off state; legacy guest settlement requires deduplication and provenance rules.
-- Negative Wallet balances may already exist from administrator price-difference overrides.
-- Progress, recommendations, reviews, and achievements currently attached to account-like profiles may need reassignment to Participant profiles.
-- Hard-deleted Bookings and missing audit events cannot be reconstructed from the primary collection alone.
-- Existing permission rules may have exposed participant data too broadly; access migration must avoid preserving unauthorized relationships as canonical grants.
-- Every query, index, rule, UI status map, test fixture, and Cloud Function assuming the old five-status vocabulary must migrate consistently.
+## Clean-rewrite and cutover risks
+
+- Incomplete legacy-code removal could leave a reader, direct writer, callable, index dependency, or Storage authorization path that expects or recreates a retired shape.
+- Stale browser clients or offline persistence may retry old writes unless canonical Rules, endpoint removal, release checks, and local-store invalidation all fail closed.
+- Deployment ordering is safety-critical because Rules, Functions, scheduled jobs, reset, seed, and frontend deployment are not physically atomic.
+- An incorrect allowlisted seed may introduce invalid Account, Instructor, Course, Course Day, capacity, timezone, assignment, or asset-reference data into an otherwise clean database.
+- Resetting Firestore does not reset Firebase Auth or Storage; stale identities, claims, chat/media objects, and orphaned assets require explicit handling and verification.
+- Family/Group and multi-day Course operations may exceed Firestore transaction or write limits unless the command/resource model defines and enforces bounded operation sizes.
+- Security-rule regressions may allow direct mutation of server-owned state or broaden Participant, financial, Attendance, or audit access beyond canonical authorization.
+- A scheduled legacy job or undeleted legacy endpoint could recreate retired documents after reset or mutate canonical data with old assumptions.
+- Incomplete frontend migration could retain old queries, payloads, status maps, persisted stores, or course-shaped Booking behavior despite a canonical backend.
 
 ## Evidence map
 

@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import { sha256Hex } from './sha256Hex';
 import {
   ActivityLogIdSchema,
   DomainOutboxIdSchema,
@@ -14,7 +14,7 @@ const DETERMINISTIC_ID_PART_SEPARATOR = '\u001f';
 
 export function canonicalDeterministicHash(parts: readonly string[]): string {
   const payload = parts.join(DETERMINISTIC_ID_PART_SEPARATOR);
-  return createHash('sha256').update(payload, 'utf8').digest('hex');
+  return sha256Hex(payload);
 }
 
 export function activityLogIdFromCommandId(commandId: CommandId): ActivityLogId {

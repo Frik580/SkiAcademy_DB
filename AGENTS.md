@@ -28,8 +28,26 @@ Rules:
 
 ### Issue tracker
 
-Issues and specs are tracked in this repository's GitHub Issues. See `docs/agents/issue-tracker.md`.
+Issues and specs are tracked using this repository's configured issue workflow.
+See `docs/agents/issue-tracker.md`.
+
+When GitHub Issues are unavailable, use the approved issue-ready artifacts in
+`.scratch/canonical-booking-domain-rewrite/issues/` as the implementation-ticket source.
 
 ### Domain docs
 
 Single-context layout: one root `CONTEXT.md` and ADRs in `docs/adr/`. See `docs/agents/domain.md`.
+
+## Review policy
+
+For implementation tickets, use one independent code-review pass by default.
+
+Do not launch multiple parallel reviewers unless the ticket explicitly involves:
+- financial accounting;
+- transaction/concurrency infrastructure;
+- security Rules;
+- destructive reset/cutover behavior.
+
+Implementation-time tests, typecheck, lint, build, and self-checks do not count as separate code reviews.
+
+If the first review finds substantial issues and fixes are applied, rerun targeted checks and review only the changed/risky areas instead of launching another full parallel review.

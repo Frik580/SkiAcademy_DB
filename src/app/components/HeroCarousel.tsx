@@ -216,7 +216,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
                   srcSet={srcSet}
                   sizes="100vw"
                   alt=""
-                  fetchpriority={idx === 0 ? 'high' : 'low'}
+                  fetchPriority={idx === 0 ? 'high' : 'low'}
                   decoding={isActive ? 'sync' : 'async'}
                   loading={idx === 0 ? 'eager' : 'lazy'}
                   draggable={false}

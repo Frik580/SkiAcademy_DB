@@ -35,7 +35,7 @@ export const Logo: React.FC<LogoProps> = ({
           alt=""
           loading={isLight ? 'eager' : 'lazy'}
           decoding="async"
-          fetchpriority="low"
+          fetchPriority="low"
           referrerPolicy="no-referrer"
           className="max-h-9 w-auto object-contain"
         />
@@ -45,7 +45,7 @@ export const Logo: React.FC<LogoProps> = ({
           alt={alt}
           loading={isLight ? 'eager' : 'lazy'}
           decoding="async"
-          fetchpriority="low"
+          fetchPriority="low"
           referrerPolicy="no-referrer"
           className="max-h-8 w-auto object-contain"
         />
@@ -61,7 +61,7 @@ export const Logo: React.FC<LogoProps> = ({
           alt=""
           loading={!isLight ? 'eager' : 'lazy'}
           decoding="async"
-          fetchpriority="low"
+          fetchPriority="low"
           referrerPolicy="no-referrer"
           className="max-h-9 w-auto object-contain"
         />
@@ -71,7 +71,7 @@ export const Logo: React.FC<LogoProps> = ({
           alt={alt}
           loading={!isLight ? 'eager' : 'lazy'}
           decoding="async"
-          fetchpriority="low"
+          fetchPriority="low"
           referrerPolicy="no-referrer"
           className="max-h-8 w-auto object-contain"
         />

@@ -105,7 +105,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
           alt={course.title}
           loading="lazy"
           decoding="async"
-          fetchpriority="low"
+          fetchPriority="low"
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 523px"
           className="w-full h-full object-cover"
         />

@@ -1,407 +1,452 @@
 # Carve Academy Domain Context
 
-Carve Academy coordinates lessons, group courses, scheduling, learning progress, and simulated payments for a ski and snowboard school. This document defines the domain language and the rules that future product and engineering changes must preserve; it is not an implementation inventory.
+Carve Academy coordinates lessons, group courses, scheduling, attendance, participant development, and simulated payments for a ski and snowboard school. This document records the approved canonical domain model and separates it from known implementation gaps; it is not application-code documentation.
 
 ## How to read this document
 
-- **Intended invariant** — a rule the domain should preserve, even where enforcement is incomplete.
-- **Current business rule** — stakeholder-confirmed product behavior the domain currently expects.
-- **Current implementation** — behavior verified in the current repository.
-- **Known inconsistency** — verified behavior that conflicts with an intended invariant or with another representation.
-- **Open business question** — a choice the repository does not settle; do not silently choose an answer.
-
-## Product overview
-
-The product serves four human capabilities: a student books and follows training; a guest submits a booking or course request without an account; an instructor manages assigned training and student development; an administrator operates the school. System actors perform scheduled completion and other maintenance.
-
-The main journeys are:
-
-- selecting an instructor and booking an individual lesson;
-- submitting a guest lesson request and optionally linking it to a registered student later;
-- enrolling a registered student or guest in a group course;
-- confirming, rescheduling, cancelling, or completing a booking;
-- paying from a simulated wallet, refunding cancellations, and reviewing operation history;
-- recording recommendations, skill progress, achievements, reviews, chat, and activity history.
-
-The product owns school scheduling, enrollments, learning progress, and its internal wallet ledger. It does not currently model a real payment processor, payroll, accounting settlement, equipment rental, lift access, lodging, or resort operations beyond configurable public content.
+- **Canonical rule** — approved business behavior that future implementation must preserve.
+- **Current implementation gap** — verified repository behavior or missing representation that does not yet satisfy the canonical model.
+- **Open design decision** — an implementation-shaping choice that still requires an ADR; it is not permission to change the business rule.
 
 ## Language
 
-### People and capabilities
+### People, ownership, and access
 
-**Student**:
-An authenticated person who books training and owns a learning profile, wallet, progress, reviews, and personal booking history.
-_Avoid_: User, client, customer, account — use these only when referring to an implementation field or authentication identity.
+**Account Owner**:
+An authenticated person who manages an account, its wallet, and one or more Participant profiles. An Account Owner may also be a Participant.
+_Avoid_: Student when referring to login, wallet, or management authority.
 
-**Guest**:
-A person who submits contact details for a lesson or course without an authenticated student profile. A guest may later have a booking linked to a student by an administrator.
-_Avoid_: Anonymous student, temporary user.
+**Parent/Guardian**:
+The Account Owner capability used when managing a dependent Participant. Parent permissions and parent-created blocks apply in that managed-participant relationship rather than being inferred from payment alone.
 
-**Instructor**:
-A school professional who delivers assigned lessons or courses and may evaluate student skills and give recommendations. Instructor capability is linked from a user profile to an instructor profile; it is independent of administrative role.
-_Avoid_: Coach where canonical domain terminology is required. The UI uses both names.
+**Participant**:
+The person who attends training and owns progress, skills, level, achievements, Attendance, and no-show history. A Participant may be the Account Owner or a dependent without a login.
+_Avoid_: User, account, child when the rule applies to every attendee.
 
-**Administrator**:
-A user with school-wide operational authority over bookings, schedules, courses, instructors, students, settings, and finance views.
-_Avoid_: Manager unless a distinct manager capability is introduced.
+**Booked By**:
+The account or originating actor that initiated a Booking. It is distinct from the Participant and Payer.
 
-**System Owner**:
-An administrator with the additional capability to manage administrative roles. Ownership is an administrative privilege, not a separate kind of student or instructor.
+**Payer Account**:
+The optional account whose Wallet funds a Booking or Course Enrollment. Guest or manual external payments may have no `payerAccountId`, and later account linking does not rewrite historical payment provenance.
+_Avoid_: Participant; the attendee and payer may differ.
 
-**System Actor**:
-A non-human actor that performs scheduled or maintenance workflows, such as automatic booking completion.
+**Booking Origin**:
+The immutable source of a Booking: `account`, `guest`, `instructor`, or `admin`. Linking a Booking to an account never changes its origin.
+
+**Instructor Relationship**:
+Time-limited authority for an Instructor to access a Participant, created by confirmed training, explicit administration assignment, or Parent/Guardian permission. It lasts for 12 months after the latest qualifying interaction or permission unless revoked earlier, subject to minimum booking-scoped access for existing current or future Bookings.
+
+**Participant Block**:
+An independent prohibition created either by a Parent/Guardian against an Instructor for one managed Participant or by an Instructor against a Participant. Each block retains its own actor, reason, and timestamp; only its creator may remove it.
 
 ### Training and scheduling
 
-**Lesson**:
-A scheduled period of individual instruction with one instructor. A lesson is represented by a booking whose target is an instructor rather than a course.
-_Avoid_: Training when referring to one scheduled session; training is the broader learning activity.
-
 **Booking**:
-The durable record of a student's, guest's, or system block's claim on a training product. It carries ownership, schedule, price, lifecycle status, and snapshots needed to display historical context.
-_Avoid_: Reservation, order.
+The lifecycle record for an individual or family/group lesson. It identifies who booked, who participates, who pays, the reserved service, its price snapshot, and its current lifecycle state.
+_Avoid_: Course Enrollment.
+
+**Individual Lesson**:
+A Booking for exactly one Participant.
+
+**Family/Group Lesson**:
+A Booking for multiple Participants, priced by a dedicated participant-count tariff and carrying Attendance for each Participant.
 
 **Course**:
-A group training product with its own identity, schedule description, price, instructors, content, and capacity.
-_Avoid_: Lesson, booking.
+A group training product with explicit Course Days, price, instructors, content, capacity, and a `startAt` equal to the start of its first Course Day.
+
+**Course Day**:
+One actual dated time interval in a multi-day Course. Scheduling conflicts use these intervals rather than one continuous first-day-to-last-day range.
 
 **Course Enrollment**:
-A student's or guest's participation claim on a course. Semantically it is identified by a booking associated with a `courseId`; it is not an instructor lesson.
-_Avoid_: Course booking when the distinction from an individual lesson matters.
+One Participant's lifecycle and seat claim on one Course. Every Participant has a separate enrollment, even when an Account Owner enrolls several Participants atomically.
+_Avoid_: Synthetic instructor booking.
 
-**Active Seat Occupancy**:
-The single course seat claimed by an enrollment while the student is still expected to participate. It ends when an authorized outcome closes participation, whether or not that outcome refunds the payment.
+**Booking Proposal**:
+A non-reserving invitation from an Instructor to create a specific Participant's Booking. Acceptance revalidates all resources and payment before atomically creating a confirmed Booking.
 
-**Availability Slot**:
-A public, privacy-reduced projection of an individual instructor's occupied time. It is derived from an active individual booking or a system block.
-_Avoid_: Booking — a slot deliberately omits ownership, price, and notes.
+**Booking Change Request**:
+An Instructor's request for administration to resolve unavailability without letting the Instructor cancel or reschedule the Booking directly.
 
-**Hour Lock**:
-A derived concurrency guard for one instructor, date, and hourly start boundary. It prevents competing transactions from claiming the same instructor time.
-_Avoid_: Availability; a lock is an enforcement artifact, not the instructor's full schedule.
+**Active Resource Claim**:
+A `pending`, `confirmed`, or `pending_cancellation` Booking or Course Enrollment that still reserves participant time, instructor time, or pre-start course capacity.
 
-**System Block**:
-A zero-priced booking-shaped schedule block created by administration to make instructor time unavailable without representing a lesson.
-_Avoid_: Lesson, student booking.
+**Attendance**:
+The independent record of whether a Participant was `present` or `absent` for an individual lesson, family/group lesson, or Course Day. Attendance—not timestamps or lifecycle guesses—is the source of truth for actual participation.
 
-**Cancellation Request**:
-A request to cancel a pending or confirmed booking, represented by the `pending_cancellation` status and an optional reason. It is not yet the terminal cancellation outcome.
+**Admin Issue**:
+A blocking operational record requiring administrator resolution, such as missing Attendance or incomplete payment at service start. An unresolved Admin Issue prevents automatic completion.
 
-**Completion Status**:
-A terminal booking marker currently used for both successful training completion and a course enrollment closed before the course starts without a refund. It does not, by itself, prove that the student attended or completed the course.
+### Money, history, and visibility
 
-**No-refund Course Withdrawal**:
-A student's withdrawal before a course starts where participation ends, the school retains the payment, and the seat is released. The current status model records this outcome as `completed`, although it is not successful course completion.
-
-### Money and learning progress
+**Payment State**:
+The financial lifecycle `unpaid`, `partially_paid`, `paid`, `refunded`, or `partially_refunded`, supported by explicit `price`, `paidAmount`, `refundedAmount`, and `outstandingAmount` values. It is independent of Booking lifecycle.
 
 **Wallet**:
-The product's simulated stored-value balance used to pay for lessons and courses. It is not an external bank or payment-provider account.
+The Account Owner's simulated stored-value balance used for lessons and Courses. It must never become negative.
 
-**Wallet Ledger Entry**:
-An append-only record of a wallet operation such as credit, payment, refund, or adjustment. It explains balance movement but is not currently used to recompute the spendable balance.
+**Payment Provenance**:
+The historical origin of money applied to a Booking or Course Enrollment. Account linking may change future refund destination but never rewrites how earlier payment was made.
 
-**School Guest Wallet**:
-The school's internal balance and ledger flow used to represent guest cash activity when no student wallet owns the payment.
+**Activity Log**:
+An immutable audit record of an actor and a domain-significant action. It explains history but is never the source of current lifecycle, financial, Attendance, or access state.
 
-**Skill Item**:
-A configured learning competency that an instructor may score or comment on for a student.
+**Archived Booking**:
+A terminal Booking hidden through `isDeleted` without changing lifecycle, money, capacity, or resource claims. Archival is not a lifecycle transition.
 
-**Recommendation**:
-An instructor-authored action attached to a lesson that the student may mark complete.
+## Canonical relationships
 
-**Achievement**:
-A configured milestone evaluated from student activity and progress.
+- One Account Owner manages one or more Participant profiles and one Wallet.
+- A Participant may exist without authentication and owns all learning and Attendance history.
+- A Booking has one `bookedBy`, one optional `payerAccountId`, one immutable `bookingOrigin`, and either one Participant or a family/group participant composition.
+- A Course Enrollment belongs to exactly one Participant and one Course and occupies at most one seat.
+- A Booking Proposal targets exactly one Participant and can create exactly one Booking.
+- Booking lifecycle, Payment State, Attendance, access relationships, and audit history are independent representations.
 
-**Review**:
-A student's rating and comment about an instructor, optionally associated with a booking.
-
-**Activity Log Entry**:
-An immutable historical event about student development, such as booking completion, skill changes, recommendations, reviews, levels, or achievements.
-
-## Core entities and relationships
-
-```text
-Authentication Identity -> Student Profile -> Booking -> Instructor Profile
-                                          \-> Course Enrollment -> Course
-Student Profile -> Wallet Ledger Entry
-Student Profile -> Skill Scores / Comments / Today Tasks
-Booking -> Recommendations / Chat / Review / Activity Log Entry
-Individual Booking -> Availability Slot + Hour Locks
-```
-
-- A `Booking` has one durable identifier and one owner identifier. The owner may be a student, a guest surrogate, or a system-block surrogate.
-- An individual lesson points to an instructor identity and snapshots the instructor name and avatar for display and history.
-- A course enrollment points semantically to a `Course`; the current booking representation also carries course presentation snapshots.
-- A `Course` owns its published content, assigned instructors, total capacity, and mutable available-seat counter.
-- A `UserProfile` owns student-facing progress and wallet fields. An instructor-capable user's profile also links to a public `Instructor` profile.
-- Reviews, activity entries, wallet entries, notifications, and booking messages are separate records related by identifiers rather than child fields on the primary entities.
-
-## Roles and permissions
-
-Roles and capabilities are not mutually exclusive. In particular, `role: admin` and instructor capability may coexist on the same user profile.
-
-### Student
-
-- **Intended invariant:** a student controls personal data and student-owned actions, but cannot grant roles or choose privileged booking lifecycle transitions.
-- **Current implementation:** a student can create and pay for an individual booking, enroll in a course, read owned bookings, update completed recommendation identifiers, create reviews, and use accessible chats.
-- **Current implementation:** the booking-cancellation callable permits an owner to cancel directly; a separate workflow permits an owner to request cancellation. The intended distinction between these paths is unresolved.
-- **Current implementation:** direct Firestore booking creation and lifecycle/schedule changes are denied; those operations are routed through server callables.
-
-### Guest
-
-- **Current implementation:** an unauthenticated guest can submit an individual lesson request or course request. These begin as `pending`, reserve time or a course seat, and carry guest contact snapshots.
-- **Intended invariant:** a guest must not gain authenticated student permissions merely by knowing a booking identifier.
-
-### Instructor
-
-- **Current implementation:** instructor capability exists when a user profile links to an `instructorId`; it is independent of the `user`/`admin` role field.
-- **Current implementation:** an assigned instructor can read the booking, confirm it, complete it, add recommendations, and participate in its chat.
-- **Known inconsistency:** profile security rules allow any instructor-capable user to update student level, skill scores, and comments without visibly constraining the target to an assigned student. Whether school policy intentionally grants this breadth is unresolved.
-
-### Administrator and System Owner
-
-- **Current implementation:** administrators manage operational records and can add, reschedule, confirm, cancel, complete, link, and delete bookings.
-- **Current implementation:** only the System Owner capability manages administrative roles; administrators and owners may also carry instructor capability.
-- **Intended invariant:** UI visibility is not authority. Firestore rules and server callables are the enforcement boundary.
-
-### System actors
-
-- **Current implementation:** a scheduled actor completes eligible ended bookings and writes completion activity history.
-- **Intended invariant:** system actions must be identifiable, idempotent where retried, and subject to the same lifecycle invariants as human-triggered actions.
-
-## Booking lifecycle
-
-Declared statuses are `pending`, `confirmed`, `pending_cancellation`, `cancelled`, and `completed`.
-
-```text
-pending ---------> confirmed ---------> completed
-   \                   \
-    \                   +-------------> pending_cancellation
-     +---------------------------------> pending_cancellation
-
-pending / confirmed / pending_cancellation -----> cancelled
-confirmed / pending_cancellation --after end----> completed (scheduled)
-active course enrollment --no-refund withdrawal before start--> completed
-```
-
-The diagram expresses supported normal paths, not every transition the current implementation happens to permit.
-
-### Creation
-
-- **Intended invariant:** each creation workflow must choose its canonical initial status on the server. A client must not arbitrarily select `confirmed`, `cancelled`, `completed`, or any other lifecycle state.
-- **Current implementation:** guest lesson and guest course requests start `pending`.
-- **Current implementation:** the primary authenticated lesson UI and authenticated course enrollment start `confirmed` after charging the wallet.
-- **Known violation:** the authenticated individual-booking callable accepts any declared status supplied by the client, including `cancelled` and `completed`, and still executes pricing/payment logic. The server does not own the initial transition.
-- **Open business question:** should a successfully paid authenticated lesson/course be created directly as `confirmed`, or should all user-created bookings begin `pending` and require confirmation?
-
-### Confirmation, cancellation, completion, and deletion
-
-- **Current implementation:** an assigned instructor or administrator can confirm a booking unless it is already `cancelled` or `completed`.
-- **Current implementation:** the booking owner or administrator can request cancellation only from `pending` or `confirmed`; the result is `pending_cancellation` with a reason.
-- **Current implementation:** while `pending_cancellation`, an individual lesson retains its availability slot and locks, and a course enrollment continues to consume a seat.
-- **Open business question:** retaining those resources during a cancellation request is observed behavior, not yet a confirmed business rule.
-- **Current implementation:** the owner or administrator can invoke cancellation. Cancellation releases lesson availability or course capacity and normally refunds up to the paid price; cancelling an already completed booking produces no refund.
-- **Current implementation:** an assigned instructor or administrator can invoke completion. The scheduled actor completes only `confirmed` or `pending_cancellation` bookings whose `endsAt` has passed.
-- **Current business rule:** an active course enrollment may be closed as `completed` before the course starts when the student withdraws without a refund. The student stops participating, the enrollment is financially closed with its payment retained, and one seat is released for another student.
-- **Known inconsistency:** `completed` represents both successful course completion and pre-course withdrawal without refund. The status alone cannot identify the actual participation outcome.
-- **Known inconsistency:** the generic manual completion workflow does not record which of those outcomes occurred and does not fully constrain source status or elapsed time. Its ability to run before the course starts is valid for no-refund withdrawal but ambiguous for successful completion.
-- **Current implementation:** completion removes individual lesson availability. For a course enrollment that was actively occupying a seat, it increments `availableSeats` once, up to `totalSeats`.
-- **Current implementation:** the administrator deletion workflow hard-deletes a booking and cleans related availability. `isDeleted` remains in the model for legacy or alternative flows, including course-enrollment checks.
-
-### Rescheduling
-
-- **Current implementation:** only administrators can change date, time, or instructor through the server workflow; course enrollments cannot be rescheduled as lessons.
-- **Intended invariant:** rescheduling must atomically release the old instructor claim, validate and acquire the new claim, recalculate trusted price, settle the balance difference, and retain booking identity.
-
-## Course lifecycle and capacity
-
-- A course is a group product; a course enrollment is a participation record for one student or guest.
-- **Intended invariant:** `courseId` is the semantic association from enrollment to course wherever it is available.
-- **Current implementation:** course enrollment is encoded as a booking and commonly identified by both `courseId` and a synthetic `instructorId` beginning with `course_`.
-- **Known inconsistency / technical debt:** several paths fall back to parsing `courseId` from the synthetic instructor identifier, so enrollment identity depends on a string convention rather than an explicit domain type.
-- **Current implementation:** authenticated enrollment charges the student's wallet and begins `confirmed`; guest enrollment begins `pending` and uses the school guest-wallet settlement path.
-- **Intended invariant:** one student cannot hold more than one active enrollment for the same course. An enrollment holds exactly one active seat occupancy while participation remains open; closing participation releases that seat exactly once, independently of whether money is refunded.
-- **Intended invariant:** `availableSeats` equals `totalSeats` minus the number of enrollments actively occupying seats and always remains within `0..totalSeats`. A lifecycle label such as `completed` is not the domain reason for capacity change; the underlying participation/seat-occupancy outcome is.
-- **Current implementation:** `pending`, `confirmed`, and `pending_cancellation` course enrollments are treated as active seat occupants; `cancelled`, `completed`, and deleted enrollments are not. Enrollment and release paths update the booking and `availableSeats` in one transaction.
-- **Current implementation:** a deterministic booking identifier supports one current enrollment per student/course and reuses a cancelled record for reenrollment.
-
-## Availability model
-
-- **Intended invariant:** active individual lessons and system blocks for the same instructor must not overlap.
-- **Current implementation:** `pending`, `confirmed`, and `pending_cancellation` individual bookings that are not deleted block availability. Course enrollments do not use instructor availability.
-- **Current implementation:** a booking-derived availability slot supports public schedule reads and arbitrary-duration overlap checks.
-- **Current implementation:** deterministic hour locks provide transactional conflict detection for each occupied hourly boundary.
-- **Known limitation:** lock identifiers are hourly while durations are numeric hours; the model assumes hour-aligned scheduling and does not establish general fractional-duration locking.
-- **Known inconsistency risk:** booking schedule, availability slot, and hour locks duplicate the same claim. Normal transactions update them together, but legacy data, partial migrations, or bypass paths may drift.
-- **Current implementation:** the standard displayed lesson day uses hourly starts from 08:00 through 18:00 and requires the lesson to end by 19:00. Treat these as current product settings, not an immutable domain law.
-
-## Wallet and payment model
-
-- **Current implementation:** lesson price is derived from the instructor's current hourly rate and duration; course price is derived from the course. Client-supplied totals are not authoritative.
-- **Intended invariant:** price calculation, debit, booking/enrollment creation, seat/availability reservation, and ledger recording must succeed atomically or not at all.
-- **Current implementation:** `balanceUSD` is the spendable balance used by booking workflows. `walletBalances` adds currency-specific balances but coexists with the legacy USD field.
-- **Current implementation:** wallet ledger entries record credits and debits and are append-only for ordinary users. Some UI history can synthesize missing legacy payment/refund operations from bookings.
-- **Intended invariant:** a normal student purchase cannot create a negative balance; only an explicit privileged adjustment may bypass this rule.
-- **Intended invariant:** a payment or refund for the same booking event must be idempotent and must never be applied twice.
-- **Current implementation:** guests have no student wallet; school guest-wallet records represent guest cash collection, settlement, and refunds.
-- **Known inconsistency risk:** the spendable balance, currency balances, ledger, and synthesized legacy operations are overlapping representations. Their reconciliation policy is not fully expressed as one domain rule.
-
-## Learning progress and communication
-
-- Student skill scores, instructor comments, level, checklist state, and preferences live with the student profile.
-- Recommendations belong to a booking; the student's completed recommendation identifiers are stored on that booking.
-- Achievements are evaluated from configured criteria and student activity; earned achievements and activity history are durable records.
-- Reviews relate a student to an instructor and may reference the lesson that made the review eligible.
-- Booking chat is scoped to booking participants and administrators; course chat additionally depends on course enrollment or instructor assignment.
-- Notifications are user-owned delivery records, not the source of truth for the domain event they describe.
+Minimum dependent Participant data is name, birth date or age, skill level, ski/snowboard discipline, and an optional Instructor comment. Phone and email are not required.
 
 ## Sources of truth
 
-| Concept                     | Canonical representation                                                                                                                                                                         | Derived or denormalized representations                                                  | Classification notes                                                                                                              |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Booking                     | The booking record identified by booking ID; its persisted status and schedule are the current operational state, even when a deficient creation path accepted an invalid client-selected status | Instructor name/avatar, display labels, and historical presentation fields are snapshots | Intended invariant: lifecycle and schedule values enter this canonical record only through authorized server transitions.         |
-| Course enrollment           | The booking's explicit `courseId`, owner, and lifecycle; active seat occupancy is a domain fact currently inferred from that lifecycle                                                           | Synthetic `instructorId: course_{courseId}` and copied course title/image/date/duration  | No explicit outcome distinguishes successful completion from no-refund withdrawal.                                                |
-| Course capacity             | `Course.totalSeats` and the set of enrollments actively occupying seats define the domain capacity                                                                                               | Stored `Course.availableSeats` is the operational counter used for admission checks      | The counter must equal total seats minus active seat occupancy; releasing a seat and refunding payment are independent decisions. |
-| Instructor availability     | Active individual bookings and system blocks are the durable scheduling commitments                                                                                                              | Availability slots are public projections                                                | A slot must correspond to its source booking/block while that source blocks time.                                                 |
-| Hour locks                  | No independent business fact; they are deterministic guards derived from an active scheduling commitment                                                                                         | Lock documents duplicate instructor/date/time/booking identity                           | They are authoritative for transactional conflict acquisition, not for explaining the schedule.                                   |
-| Student wallet              | `UserProfile.balanceUSD` is the current spendable USD balance; currency-specific balances are authoritative only for their represented currencies                                                | Ledger entries audit operations; legacy history may be synthesized from bookings         | Multiple balance representations require care; the ledger is not currently the sole balance source.                               |
-| Instructor identity/profile | The Instructor profile is canonical for public professional data; the UserProfile-to-`instructorId` link grants instructor capability                                                            | Booking instructor name/avatar and translated UI fields are snapshots                    | Authentication identity, instructor capability, and admin role are independent dimensions.                                        |
+| Concern                     | Canonical source                                                             | Derived or enforcement representations                                                         |
+| --------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Booking lifecycle           | `Booking.status`                                                             | UI labels, timestamps, notifications, Activity Logs                                            |
+| Course Enrollment lifecycle | `CourseEnrollment.status`                                                    | UI labels, timestamps, notifications, Activity Logs                                            |
+| Booking origin              | Immutable `bookingOrigin`                                                    | Guest identifiers and linking state must not be used to infer it                               |
+| Ownership and participation | `bookedBy`, Participant references, optional `payerAccountId`                | Display names and contact snapshots                                                            |
+| Course participation        | Explicit Course Enrollment with `courseId` and `participantId`               | Synthetic `instructorId: course_{courseId}` is legacy technical debt                           |
+| Financial state             | Payment State and explicit monetary fields                                   | Wallet ledger and Activity Logs explain movements but do not replace current state             |
+| Actual participation        | Attendance records                                                           | `completed` and `no_show` are lifecycle outcomes derived through authorized transitions        |
+| Participant progress        | Participant profile                                                          | Account Owner profile is not the Participant's progress record unless they are the same person |
+| Instructor schedule         | Active Booking claims and administrative blocks                              | Availability documents and hour locks are transactional projections                            |
+| Participant schedule        | Active lesson intervals and actual Course Day intervals for that Participant | Account Owner schedule is not a substitute                                                     |
+| Course admission capacity   | Pre-start active seat occupancy and `totalSeats`                             | `availableSeats` is the transactional admission counter and freezes at `course.startAt`        |
+| Instructor access           | Active Instructor Relationships and booking-scoped minimum access            | Booking history may establish or extend a relationship but is not itself an access grant query |
+| Mutual blocking             | Independent active Participant Block records                                 | UI suppression is not enforcement                                                              |
+| Audit history               | Activity Logs                                                                | Logs never determine current business state                                                    |
 
-## Major workflows
+The UI must not infer canonical state from indirect signals. In particular, `endsAt < now` does not mean a Booking is completed; an authorized server transition must update lifecycle state.
 
-### Authenticated individual booking
+## Booking origins and creation
 
-`student submits selection -> server validates identity, instructor, price, funds, and conflicts -> booking, availability, locks, debit, and ledger entry are committed -> UI and notifications reflect the result`
+### Account self-service
 
-### Guest lesson request
+An Account Owner may create a confirmed Booking or Course Enrollment with `bookingOrigin = account` only when the selected resources are available, every Participant is conflict-free and unblocked, and the Wallet can atomically pay the full price. Self-service creation has no partial-payment path.
 
-`guest submits contact details -> server validates the request and conflicts -> pending guest booking and availability claim are committed -> administrator later confirms, links, cancels, or otherwise resolves it`
+### Guest reservation
 
-### Course enrollment
+A guest request with `bookingOrigin = guest` is the only normal source of `pending`. It may be created up to `startAt` and temporarily reserves the resource until `min(createdAt + TTL, startAt)`: at most one hour for a lesson and 24 hours for a Course Enrollment. Unconfirmed expiration produces `cancelled` with `reservation_expired`.
 
-`student or guest selects course -> server validates course and capacity -> enrollment booking and seat decrement are committed -> student wallet is charged or guest settlement is tracked`
+A guest may cancel only through a signed, booking-scoped, action-limited token that does not rely on Booking ID alone and becomes invalid after expiration, use, or status change. Guest cancellation produces `cancelled` with `guest_cancelled`.
 
-### Confirmation
+Only an Administrator confirms or cancels a pending guest request. Confirmation is independent of payment and sends schedule, service, price, Payment State, and account-linking information. Linking grants normal client management rights, links or creates the Participant, preserves `bookingOrigin = guest`, and does not rewrite payment provenance.
 
-`assigned instructor or administrator confirms -> server rejects terminal bookings -> any unpaid guest/system settlement is applied -> status and required availability are committed`
+### Administrator creation
+
+An Administrator may create a confirmed Booking or Course Enrollment with `bookingOrigin = admin` for an authenticated or unauthenticated person despite insufficient Wallet funds. The Wallet remains non-negative; underpayment is represented in Payment State, requires a reason, and is audited. Financial override never bypasses instructor or Participant conflicts, blocks, or full payment by service start.
+
+### Instructor proposal acceptance
+
+An Instructor never charges a Wallet or directly creates a confirmed client Booking. Acceptance of an open Booking Proposal rechecks availability, Participant conflicts, blocks, and full Wallet funding, then atomically charges and creates a confirmed Booking with `bookingOrigin = instructor`.
+
+## Scheduling and resource invariants
+
+- Conflicts are checked per Participant, not per Account Owner.
+- A Participant cannot overlap active individual lessons, family/group lessons, or actual Course Day intervals.
+- Every Participant in a family/group Booking must be conflict-free.
+- Instructor conflicts and either party's active block can never be overridden, including by an Administrator.
+- Active resource statuses are `pending`, `confirmed`, and `pending_cancellation`.
+- Inactive or terminal statuses are `cancelled`, `completed`, `no_show`, and, for Courses, `withdrawn`.
+- Booking mutation, old-resource release, new-resource acquisition, Participant checks, and price/payment changes belonging to one operation are atomic. The operation is also audited.
+
+## Individual Booking lifecycle
+
+### State-transition matrix
+
+| From                   | To                       | Actor                              | Required conditions and effects                                                                                                   |
+| ---------------------- | ------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| —                      | `pending`                | Guest                              | Secure guest request; reserve resource until lesson TTL or `startAt`                                                              |
+| —                      | `confirmed`              | Account Owner                      | Full payment, all Participant and instructor checks pass                                                                          |
+| —                      | `confirmed`              | Administrator                      | Checks pass; underpayment allowed separately with reason and audit                                                                |
+| —                      | `confirmed`              | Account Owner accepting a proposal | Proposal checks and full charge succeed; origin remains `instructor`                                                              |
+| `pending`              | `confirmed`              | Administrator                      | Guest request accepted; payment is independent                                                                                    |
+| `pending`              | `cancelled`              | Guest, Administrator, System       | Token cancellation, admin decision, or TTL/start expiration with explicit reason                                                  |
+| `confirmed`            | `cancelled`              | Account Owner                      | At least 24 hours before `startAt`; refund 100% of actually paid amount                                                           |
+| `confirmed`            | `cancelled`              | Administrator                      | Approved Booking Change Request or incomplete-payment resolution; required reason, audit, and refund no greater than `paidAmount` |
+| `confirmed`            | `pending_cancellation`   | Account Owner                      | Less than 24 hours but before `startAt`; never allowed after `startAt`                                                            |
+| `pending_cancellation` | `confirmed`              | Account Owner                      | Withdraw unprocessed request                                                                                                      |
+| `pending_cancellation` | `confirmed`              | Administrator                      | Reject request before `endsAt`                                                                                                    |
+| `pending_cancellation` | `cancelled`              | Administrator                      | Approve after choosing a 0–100% refund of actually paid amount                                                                    |
+| `confirmed`            | `completed`              | Instructor                         | After `endsAt` and within 24 hours; sufficient Attendance proves presence                                                         |
+| `confirmed`            | `no_show`                | Instructor                         | After `endsAt` and within 24 hours; sufficient Attendance proves absence                                                          |
+| `confirmed`            | `completed` or `no_show` | Administrator                      | After `endsAt`; sufficient Attendance and an audited resolution, override, or correction                                          |
+| `confirmed`            | `completed` or `no_show` | System                             | At least 24 hours after `endsAt`, no payment issue, and sufficient Attendance determines the outcome                              |
+| `pending_cancellation` | `completed` or `no_show` | Administrator                      | After `endsAt`, cancellation rejected, and sufficient Attendance determines the outcome                                           |
+| `completed`            | `no_show`                | Administrator                      | Audited error correction only                                                                                                     |
+| `no_show`              | `completed`              | Administrator                      | Audited error correction only                                                                                                     |
+
+`pending_cancellation` never auto-completes and remains unresolved until administration acts. Missing Attendance leaves `confirmed` and creates an Admin Issue; automation never guesses.
 
 ### Rescheduling
 
-`administrator chooses a new schedule/instructor -> server recalculates price and validates conflicts -> old claims are released and new claims acquired -> balance difference and booking update are committed`
+An Account Owner has exactly one lifetime self-service reschedule for a confirmed individual lesson, available at least 24 hours before `startAt`. Only date/time may change; instructor, duration, and price remain fixed, and the new slot must pass every conflict and block check. Administrator reschedules neither consume nor restore this allowance.
 
-### Cancellation
+Inside 24 hours, administration decides whether to reschedule without financial change or apply late-cancellation rules. Every reschedule atomically releases old locks, acquires new locks, updates the Booking, and writes audit history.
 
-`owner or administrator cancels -> server determines permitted refund -> status, refund/ledger, availability or capacity release, and guest settlement are committed`
+When only date/time changes, the existing price and payment remain unchanged: the workflow neither refunds nor charges the Booking again.
 
-### Manual completion
+An Instructor uses a Booking Change Request rather than cancelling or rescheduling. Administration obtains client agreement before an instructor-initiated reschedule.
 
-`assigned instructor or administrator invokes completion -> server validates authority but does not capture the completion outcome -> status changes to completed -> individual availability or active course seat occupancy is released -> activity history is recorded where applicable`
+### Administrator modifications
 
-### No-refund course withdrawal
+Only administration may change instructor, duration, or manually override price. Changing instructor rechecks availability and blocks, charges a positive price difference or returns a negative difference to the Wallet, and may represent insufficient funds only as temporary underpayment. Changing duration rechecks adjacent availability and recalculates price. Every manual price change requires a reason and audit entry.
 
-`student decides not to attend before the course starts -> authorized workflow closes the active enrollment as completed -> participation and seat occupancy end -> one seat is released -> payment remains retained and no refund is recorded`
+Existing price is a snapshot and does not follow later global tariff changes. Only an explicit Booking modification may recalculate it.
 
-### Automatic completion
+## Family/group lessons
 
-`scheduled actor selects confirmed or pending-cancellation bookings whose endsAt has passed -> status changes to completed -> individual availability or active course seat occupancy is released -> completion activity history is recorded`
+Attendance is recorded per Participant. At least one present Participant produces `completed`; all absent produces `no_show`. The approved rules do not introduce a separate family/group automation schedule.
 
-### Guest-account linking
+Entire Booking cancellation follows the Individual Booking policy: at least 24 hours before `startAt` it becomes `cancelled` with a 100% refund of actually paid money; inside 24 hours it becomes `pending_cancellation`.
 
-`administrator selects guest booking and target student -> server validates both -> booking ownership changes and guest markers are cleared -> payment/profile-related legacy data is reconciled where supported`
+### Composition changes
+
+Adding a second Participant converts an Individual Lesson to a Family/Group Lesson; returning to one Participant converts it back. The dedicated tariff is recalculated for every composition change, while instructor and time remain unchanged unless separately modified through an authorized workflow.
+
+At least 24 hours before `startAt`, the Account Owner may add a conflict-free Participant with full incremental payment or remove one with a full Wallet refund of the calculated difference. Inside 24 hours only administration may change composition; removal permits a reasoned 0–100% refund, and addition may create temporary underpayment.
+
+Each addition has its own payment obligation. An unpaid addition at `startAt` is rolled back without blocking fully paid Participants, after which type and tariff are recalculated.
+
+## Course Enrollment lifecycle
+
+Each Participant has a separate Course Enrollment. Enrolling several Participants in one operation is atomic: all seats, schedules, blocks, and funds pass or no enrollment is created. A `participantId + courseId` pair has at most one active enrollment; re-enrollment after `cancelled` or `withdrawn` creates a new record at current price before Course start.
+
+### State-transition matrix
+
+| From                   | To                       | Actor                        | Required conditions and effects                                                                        |
+| ---------------------- | ------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
+| —                      | `pending`                | Guest                        | Reserve one seat until course TTL or first `startAt`                                                   |
+| —                      | `confirmed`              | Account Owner                | Seats, Course Day conflicts, blocks, and full payment pass                                             |
+| —                      | `confirmed`              | Administrator                | Same nonfinancial checks; temporary underpayment allowed with reason and audit                         |
+| `pending`              | `confirmed`              | Administrator                | Guest request accepted; payment independent                                                            |
+| `pending`              | `cancelled`              | Guest, Administrator, System | Token cancellation, admin decision, or TTL/start expiration                                            |
+| `confirmed`            | `cancelled`              | Account Owner                | At least 7 days before `startAt`; refund 100% of actually paid amount                                  |
+| `confirmed`            | `cancelled`              | Account Owner                | From exactly 2 days to less than 7 days before `startAt`; refund 50% of actually paid amount           |
+| `confirmed`            | `cancelled`              | Administrator                | Incomplete-payment resolution with required reason/refund decision; post-start capacity remains frozen |
+| `confirmed`            | `pending_cancellation`   | Account Owner                | Less than 2 days before or any time after `startAt`                                                    |
+| `pending_cancellation` | `confirmed`              | Account Owner                | Withdraw unprocessed request                                                                           |
+| `pending_cancellation` | `confirmed`              | Administrator                | Reject before Course completion                                                                        |
+| `pending_cancellation` | `cancelled`              | Administrator                | Approve with any refund greater than zero                                                              |
+| `pending_cancellation` | `withdrawn`              | Administrator                | Approve with zero refund                                                                               |
+| `confirmed`            | `withdrawn`              | Administrator                | Participation ends with zero refund                                                                    |
+| `confirmed`            | `completed`              | Instructor                   | After final Course Day and within 24 hours; at least one explicit `present`                            |
+| `confirmed`            | `no_show`                | Instructor                   | After final Course Day and within 24 hours; every Course Day explicitly `absent`                       |
+| `confirmed`            | `completed` or `no_show` | Administrator                | During the 24-hour window or later Admin Issue/correction; sufficient Attendance decides               |
+| `confirmed`            | `completed` or `no_show` | System                       | After 24 hours, no payment issue, and sufficient Attendance determines the outcome                     |
+| `pending_cancellation` | `completed`              | Administrator                | Request rejected after Course end and at least one explicit `present`                                  |
+| `pending_cancellation` | `no_show`                | Administrator                | Request rejected after Course end and all days explicitly `absent`                                     |
+| `withdrawn`            | `cancelled`              | Administrator                | Audited terminal correction when a later refund greater than zero is issued                            |
+| `completed`            | `no_show`                | Administrator                | Audited Attendance/error correction only                                                               |
+| `no_show`              | `completed`              | Administrator                | Audited Attendance/error correction only                                                               |
+
+`withdrawn` exists only for Courses, always means zero refund, and never returns to `confirmed`. `pending_cancellation` never auto-resolves. If there is no explicit `present` and any Course Day lacks Attendance, the enrollment remains `confirmed` with an Admin Issue; one explicit `present` is sufficient for `completed` even if other day records are missing.
+
+### Capacity
+
+Before `course.startAt`, `pending`, `confirmed`, and `pending_cancellation` occupy one seat; `cancelled` and `withdrawn` release one seat exactly once. `completed` and `no_show` are not valid pre-start capacity-release mechanisms.
+
+Admission capacity freezes at `course.startAt`. After that instant, `cancelled`, `withdrawn`, `completed`, `no_show`, and `isDeleted` never increase `availableSeats`. No normal joining of an already-started Course is allowed.
+
+Capacity updates are transactional and keep `availableSeats` within `0..totalSeats` before start. The counter represents pre-start admission availability, not historical or post-start participant count.
+
+### Course transfer
+
+Only administration may transfer an enrollment from Course A to Course B, and only before Course A and Course B have started. Course B must have capacity and the Participant must be conflict-free and unblocked. One atomic operation releases A's seat, occupies B's seat, charges the difference when B is more expensive or refunds the difference to the Wallet when B is cheaper, updates the enrollment, and audits the transfer. Insufficient funds may create temporary underpayment but it must be cleared by B's `startAt`.
+
+After Course A starts, direct transfer is forbidden; the old enrollment is closed under its lifecycle and any new enrollment is a separate operation subject to the no-late-join rule.
+
+## Booking Proposal matrix
+
+| From   | To            | Actor                    | Required conditions and effects                                                                                                  |
+| ------ | ------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| —      | `open`        | Instructor               | Instructor proposes only their own service to one authorized Participant; no resource reservation                                |
+| `open` | `accepted`    | Account Owner            | Participant cannot change; recheck availability, conflicts, blocks, and full Wallet funding; atomically create confirmed Booking |
+| `open` | `declined`    | Account Owner            | No Booking or financial effect                                                                                                   |
+| `open` | `expired`     | System                   | At `min(createdAt + 24h, proposed startAt)`                                                                                      |
+| `open` | `unavailable` | System during acceptance | Proposed instructor slot became unavailable                                                                                      |
+| `open` | `cancelled`   | Instructor               | Instructor withdraws proposal                                                                                                    |
+| `open` | `cancelled`   | System                   | New Parent/Guardian block invalidates proposal with `instructor_blocked_by_owner`                                                |
+
+Insufficient funds leave the proposal `open` until expiry so the Account Owner can top up and retry. Proposals may overlap and never reserve time. A failed Participant-conflict or block recheck cannot create a Booking; the approved rules do not assign an additional Proposal status beyond the explicit Parent/Guardian-block cancellation rule.
+
+## Booking Change Request matrix
+
+| From   | To          | Actor               | Required conditions and effects                                                                        |
+| ------ | ----------- | ------------------- | ------------------------------------------------------------------------------------------------------ |
+| —      | `open`      | Assigned Instructor | Type `instructor_unavailable`, Booking remains confirmed, reason required                              |
+| `open` | `resolved`  | Administrator       | Resolution is `rescheduled`, `booking_cancelled`, or `no_change`; reschedule requires client agreement |
+| `open` | `cancelled` | Instructor          | Instructor withdraws the request; Booking remains unchanged                                            |
+
+School/instructor rescheduling never consumes the Account Owner's self-service reschedule allowance.
+
+## Payment model and service-start gate
+
+- Payment State and Booking lifecycle change independently but atomically when one business event affects both.
+- Refund percentages apply to `paidAmount`, never to nominal price, and total refunds never exceed money actually paid.
+- Refunds go to the Account Wallet. An unlinked guest refund is handled manually outside the system and recorded; after linking, the account may receive future Wallet refunds without changing historical payer provenance.
+- `cancelled` writes off unpaid remainder after the selected refund. `withdrawn` and `no_show` retain paid money, refund zero, and write off unpaid remainder.
+- Financial history preserves original/current price, paid, refunded, retained, and written-off amounts.
+- Global tariff changes never alter an existing price snapshot; only an explicit audited modification recalculates it.
+- An Administrator may create temporary underpayment but never a negative Wallet.
+
+A Participant cannot attend unless the Booking or Course Enrollment is fully paid by its applicable `startAt`. Underpayment at that instant creates an Admin Issue, blocks service and automation, and exposes only a “Payment required—do not start” message to the Instructor.
+
+Full payment received before `startAt` clears the payment restriction automatically.
+
+There is no grace period. Late payment does not make the missed occurrence deliverable. For an individual lesson, administration may cancel or, with client agreement, reschedule the same Booking to a future fully paid slot. For a Course, late payment never reactivates admission; administration resolves it under incomplete-payment cancellation rules.
+
+When administration cancels for incomplete payment at `startAt`, it selects a refund from zero through `paidAmount`, writes off the unpaid remainder, records a mandatory reason, and audits the decision.
+
+## Instructor relationships, privacy, and blocking
+
+- An Instructor sees only Participants covered by an active Instructor Relationship or minimum booking-scoped access.
+- Confirmed individual training, confirmed Course Enrollment, explicit admin assignment, and explicit Parent/Guardian permission create qualifying access.
+- General access and Parent/Guardian permission expire 12 months after the latest qualifying interaction or permission.
+- Parent/Guardian revocation stops new access and proposals immediately but preserves minimum data required to deliver existing current or future confirmed Bookings until completion.
+- Parent/Guardian-to-Instructor and Instructor-to-Participant blocks are independent; removing one never removes the other.
+- Neither administration nor financial override bypasses a block.
+- Existing confirmed Bookings survive a new block, but no new Booking is created while either applicable block is active.
+- A new Parent/Guardian block cancels affected open proposals with an explicit reason.
+
+## Roles and permissions matrix
+
+| Capability                       | Account Owner                                | Guest                  | Instructor                               | Administrator                   | System                                                    |
+| -------------------------------- | -------------------------------------------- | ---------------------- | ---------------------------------------- | ------------------------------- | --------------------------------------------------------- |
+| Manage Participant profiles      | Own account                                  | No                     | Authorized learning fields only          | Operational administration      | No                                                        |
+| Create lesson                    | Confirmed, fully paid                        | Pending request        | Proposal only                            | Confirmed; underpayment allowed | No independent authority                                  |
+| Create Course Enrollment         | Confirmed, fully paid                        | Pending request        | No                                       | Confirmed; underpayment allowed | No                                                        |
+| Confirm guest request            | No                                           | No                     | No                                       | Yes                             | No                                                        |
+| Cancel guest pending             | No                                           | Through secure token   | No                                       | Yes                             | On expiry                                                 |
+| Cancel/request cancellation      | Policy-bound owned records                   | Pending token only     | No                                       | Decide/correct with audit       | Expiry only                                               |
+| Record Attendance                | No                                           | No                     | Assigned/authorized training             | Yes/correct                     | No guessing                                               |
+| Set `completed`/`no_show`        | No                                           | No                     | After service with sufficient Attendance | Yes with audit                  | After 24h with sufficient Attendance and no payment issue |
+| Set Course `withdrawn`           | No                                           | No                     | No                                       | Yes, zero refund only           | No                                                        |
+| Reschedule                       | One eligible self-service lesson change      | No                     | Change Request only                      | Yes with checks/audit           | No                                                        |
+| Change instructor/duration/price | No                                           | No                     | No                                       | Yes with reason/checks/audit    | No                                                        |
+| Change participant composition   | Policy-bound add/remove                      | No                     | No                                       | Yes with reason/checks/audit    | Roll back an unpaid addition at `startAt`                 |
+| Transfer Course Enrollment       | No                                           | No                     | No                                       | Before both Courses start       | No                                                        |
+| Create proposal                  | No                                           | No                     | For self and authorized Participant      | No                              | No                                                        |
+| Manage own block/permission      | As Parent/Guardian for a managed Participant | No                     | Instructor block                         | Cannot override                 | Expiry enforcement                                        |
+| View financial detail            | Own account                                  | Booking-scoped summary | Payment-required operational flag only   | Yes                             | Automation only                                           |
+| Archive terminal record          | No                                           | No                     | No                                       | Yes                             | No                                                        |
+
+Instructor capability and administrative role are independent dimensions and may coexist. When one person has both, each action is still authorized and audited under the capability used.
+
+## Archival, terminal states, and audit
+
+`cancelled` is irreversible; an erroneous cancellation requires a new Booking. `completed` and `no_show` may be corrected into each other only by audited administration. Course `withdrawn` may become `cancelled` only when a later refund greater than zero is issued. No terminal state returns to `confirmed`.
+
+Only administration may set `isDeleted`, and only on `cancelled`, `completed`, `no_show`, or `withdrawn`. Archival never changes status, money, capacity, or resources and never repeats release/refund effects.
+
+Every action affecting money, lifecycle, schedule, participant composition, access, blocks, or corrections writes an Activity Log. This includes creation, confirmation, cancellation decisions, completion/no-show/withdrawal and corrections, rescheduling, instructor/duration/price/participant changes, overrides, refunds, blocks, proposals, change requests, and account linking. Automatic actions use `actor = system`; a successful action must not be represented as fully audited when its required log is missing.
 
 ## Critical invariants
 
-Future `$implement` and `$code-review` work should use this checklist:
+Future `$implement` and `$code-review` work must verify:
 
-- A booking has exactly one owner identifier at any given time: student, guest surrogate, or system-block surrogate. Authorized guest-account linking may transfer that ownership.
-- The server, not an unprivileged client, chooses and changes lifecycle status.
-- Invalid lifecycle transitions must be rejected even for privileged workflows unless an explicit recovery operation says otherwise.
-- A booking ID cannot be reused to overwrite a different request; retries must be idempotent.
-- Individual instructor commitments cannot overlap, and their slot/lock projections must match the booking.
-- Course enrollment uses explicit `courseId` as its semantic link; synthetic instructor identifiers are compatibility data only.
-- Each active course enrollment occupies exactly one seat; each enrollment reserves and releases that seat at most once.
-- `availableSeats` equals `totalSeats` minus active seat occupancy and remains within `0..totalSeats`.
-- Seat release and refund eligibility are independent: a closed no-refund withdrawal releases capacity without returning payment.
-- `completed` alone must not be interpreted as proof of attendance or successful course completion.
-- Prices come from the canonical instructor or course record, never from client-supplied totals.
-- Booking/enrollment mutation, wallet mutation, ledger entry, and availability/capacity mutation are atomic where they belong to one business event.
-- Ordinary student spending cannot make the spendable balance negative; credits and refunds cannot be applied twice.
-- Instructor snapshots on bookings never override the canonical Instructor profile for current professional data.
-- Instructor capability, student identity, administrator role, and System Owner privilege remain independent unless the domain explicitly introduces exclusivity.
-- UI visibility is never treated as security enforcement.
-- Terminal or deleted bookings do not continue blocking individual instructor availability.
-- Notifications and projections never become the source of truth for the event or entity they describe.
+- `bookingOrigin` is explicit, immutable, and never inferred from identifiers or linking state.
+- `bookedBy`, Participant, and optional `payerAccountId` remain separate.
+- Participant-owned progress and Attendance never attach to the Account Owner merely because the owner paid.
+- The server owns every lifecycle transition; unprivileged clients submit intent, not target status.
+- Active Participant, instructor, Course Day, and block conflicts are checked atomically and cannot be overridden.
+- Account self-service creation is confirmed and fully paid; normal pending is guest-only and expires safely.
+- Wallet balance never becomes negative; underpayment is explicit and blocks service at `startAt`.
+- An unresolved Attendance or payment Admin Issue blocks automatic completion.
+- Automation waits 24 hours, never guesses Attendance, and never auto-completes `pending_cancellation`.
+- Attendance sufficient for the service determines `completed` versus `no_show`.
+- Refunds never exceed `paidAmount`; seat/resource release and refund amount are independent decisions.
+- One Course Enrollment represents one Participant and one seat; multi-Participant enrollment creation is all-or-nothing.
+- Before Course start, capacity mutations are transactional and idempotent; at `startAt`, admission capacity freezes.
+- Course Enrollment uses explicit `courseId`; synthetic instructor identifiers are compatibility data only.
+- Rescheduling releases old resources and acquires new resources atomically.
+- Existing price is a snapshot; only an explicit audited modification changes it.
+- Terminal transitions never reactivate a record except the explicitly allowed terminal corrections.
+- `isDeleted` is visibility-only and never repeats lifecycle, money, or capacity effects.
+- Instructor access is relationship-scoped, time-bounded, revocable, and reduced to minimum booking access when needed.
+- Independent blocks remain non-overridable and removable only by their creator.
+- Activity Logs are complete audit history but never current-state authority.
 
-## System boundaries
+## Current implementation gaps
 
-- **Frontend:** gathers intent, presents domain state, and may calculate previews; it is not trusted to authorize lifecycle, price, balance, capacity, or schedule changes.
-- **Shared domain package:** holds cross-runtime booking vocabulary and deterministic pricing, overlap, identity, and time helpers. It is the preferred seam for rules that must agree between frontend and server.
-- **Firebase Authentication:** establishes authenticated identity; the domain profile supplies school capabilities and data.
-- **Firestore:** persists domain records, projections, ledgers, configuration, and security rules.
-- **Cloud Functions:** enforce privileged workflows, trusted pricing, transaction boundaries, idempotency, and lifecycle authorization.
-- **Scheduled jobs:** perform time-based completion and retention work as identifiable system actors.
-- **Storage:** stores media governed by ownership and administrative rules; it is not a source of domain identity.
-- **External integrations:** no real payment-provider settlement is represented; wallet top-up is currently simulated.
+The following gaps are verified in the current repository and must not be mistaken for canonical behavior:
 
-Business logic currently exists in both frontend transaction modules and Cloud Functions. Server callables are the security boundary, but duplicated rules—especially booking lifecycle, course seats, availability cleanup, wallet settlement, and identifiers—must remain aligned until consolidated.
+- Booking supports only `pending`, `confirmed`, `pending_cancellation`, `cancelled`, and `completed`; `no_show`, `withdrawn`, Attendance, Admin Issues, and terminal correction rules are absent.
+- `Booking.userId` conflates owner, Participant, and payer. `bookingOrigin`, `bookedBy`, Participant references, and `payerAccountId` are absent; guest linking overwrites identity markers and loses origin.
+- Authenticated creation accepts client-selected lifecycle status. Administrator creation requires full Wallet funds, while some rescheduling paths can write a negative balance.
+- Participant profiles without login, family/group composition, per-Participant progress/Attendance, participant tariffs, and participant conflict checks do not exist.
+- Server scheduling protects individual instructor slots but does not enforce Participant conflicts or Course Day conflicts. Course dates are free-form strings rather than explicit intervals.
+- Guest pending reservations have no TTL expiration workflow, signed action token, guest self-cancellation, or explicit expiration/cancellation reason and may hold resources indefinitely.
+- Current cancellation callables do not enforce the 24-hour lesson policy or 7-day/2-day Course policy and calculate refunds from price rather than actual paid amount.
+- Assigned Instructors can confirm states that canonically require administration. Manual completion lacks sufficient source-status, time, Attendance, and outcome checks; assigned Course Instructors cannot complete enrollments because authorization compares their profile ID with a synthetic course identifier.
+- Scheduled completion runs at `endsAt`, includes `pending_cancellation`, and does not consult Attendance or payment issues. Normal Course Enrollment creation omits `endsAt`, so those enrollments usually do not enter automatic completion at all.
+- Booking Proposal, Booking Change Request, Instructor Relationship, Parent/Guardian permission, and mutual block records/workflows are absent.
+- Client self-rescheduling is absent. Administrator rescheduling is not comprehensively audited and does not enforce Participant rules.
+- Course Enrollment remains booking-shaped, often identified through `instructorId = course_{courseId}`. Authenticated re-enrollment reuses a deterministic ID and can overwrite cancelled history.
+- Current Course completion/cancellation can increase `availableSeats` after Course start. The cancellation callable also permits `completed → cancelled`, risking a second capacity release; Course transfer and atomic multi-Participant enrollment do not exist.
+- Payment State and explicit paid/refunded/outstanding/retained/written-off amounts are absent; balances, ledgers, guest settlement, and synthesized history overlap.
+- `isDeleted` currently mixes soft deletion and hard deletion and may release resources or alter statistics instead of acting only as archival visibility.
+- Activity Logs cover only a subset of required events, may be written outside the domain transaction, and current rules permit overly broad client/instructor audit writes. Separate Participant-profile and Booking read permissions are broader than canonical Instructor Relationships.
 
-## Known architectural and domain problems
+## Potential ADRs, ranked
 
-### Verified
+No ADR files are created by this update. The following decisions are hard to reverse, cross-cutting, and should be recorded before implementation:
 
-- The authenticated lesson-creation server accepts client-selected lifecycle status.
-- Manual completion can bypass time-based completion rules and does not fully constrain source status.
-- Course enrollment is encoded through a booking plus a synthetic instructor identifier; `courseId` is not uniformly required.
-- Booking, availability slot, and hour locks duplicate scheduling state.
-- `completed` overloads successful course completion and pre-course withdrawal without refund; no explicit outcome records which occurred.
-- `balanceUSD`, currency balances, wallet ledger, and synthesized legacy history overlap.
-- `isDeleted` remains part of lifecycle checks although the primary administrator deletion workflow hard-deletes records.
-- The code and UI use `student`, `client`, `user`, `instructor`, and `coach` inconsistently.
+1. **P0 — Participant, Booking, and Course Enrollment aggregate boundaries:** choose identifiers, ownership references, family composition, explicit Course Enrollment, and compatibility with legacy booking-shaped records.
+2. **P0 — Payment aggregate and Wallet accounting:** define Payment State persistence, ledger relationship, underpayment/write-off/refund provenance, idempotency, and reconciliation of existing balances.
+3. **P0 — Attendance and automated outcome architecture:** define individual, family, and Course Attendance records, sufficiency rules, Admin Issues, and the 24-hour resolver.
+4. **P0 — Scheduling/resource claim model:** define explicit Course Days, Participant conflict indexing, instructor availability projections, locks, atomicity, and drift repair.
+5. **P1 — Migration and compatibility strategy:** choose backfill confidence, dual-read/write period, immutable origin recovery, legacy `completed` classification, and rollout order.
+6. **P1 — Guest reservation security:** define token storage/rotation/use semantics, TTL scheduling, notification links, and account-linking boundary.
+7. **P1 — Instructor access and mutual blocking:** define relationship grants, expiry/revocation evaluation, booking-scoped minimum access, block ownership, and Firestore enforcement.
+8. **P1 — Proposal and change-request workflows:** decide whether they are separate aggregates, their concurrency/idempotency model, expiry processing, and Booking linkage.
+9. **P1 — Audit transaction boundary:** define Activity Log immutability, actor identity, event taxonomy, atomic write policy, and correction history.
+10. **P2 — Course admission capacity projection:** define the authoritative pre-start occupancy calculation, frozen post-start counter semantics, and reconciliation tooling.
 
-### Suspected risks requiring product or security confirmation
+## Migration risks
 
-- Instructor-wide profile update permission may be broader than the intended assigned-student relationship.
-- Direct owner cancellation and cancellation-request workflows may represent competing policies.
-- Legacy or partially migrated availability projections may disagree with bookings.
-- Free-form course date/duration strings and fixed booking fields can disagree about actual course end time.
-
-## Potential ADRs
-
-No ADRs currently exist. Do not create one until the underlying business choice is made and the decision satisfies the project's ADR threshold.
-
-- **Booking initial state and transition authority:** decide whether paid authenticated bookings begin `pending` or `confirmed`, and establish one server-owned transition model.
-- **Course enrollment outcome model:** decide whether successful completion and pre-course no-refund withdrawal need distinct statuses, a separate outcome/reason, or another explicit representation. The current overloaded `completed` status must not be treated as proof of attendance.
-- **Explicit Course Enrollment model:** decide whether to introduce a first-class enrollment entity/type and retire `instructorId.startsWith("course_")` as a domain discriminator.
-- **Availability representation:** decide the long-term canonical/projection/lock relationship and repair strategy for drift.
-- **Wallet source and reconciliation:** decide whether balances or the ledger become the accounting source of truth across currencies and guest settlement.
-
-## Open questions
-
-- What is the canonical initial status for a paid authenticated individual lesson and for a paid course enrollment?
-- Should students cancel immediately, request approval, or use different policies based on time, product, or refund eligibility?
-- Should `pending_cancellation` continue reserving instructor time and course capacity?
-- Which source statuses may an instructor or administrator close, and how should the workflow distinguish successful completion from no-refund withdrawal?
-- Should successful course completion and pre-course no-refund withdrawal become distinct statuses, or should outcome be represented separately from lifecycle status?
-- May one instructor-capable user evaluate every student, or only students linked through assigned lessons/courses?
-- Is a guest request a reservation, an unpaid lead, or a financially committed booking before confirmation?
-- Which representation should ultimately reconcile wallet truth: stored balances, ledger totals, or an external payment system?
-- Should deleted bookings remain as soft-deleted audit records instead of being hard-deleted?
-- Are fractional lesson durations supported, or is hour alignment a deliberate domain constraint?
+- Existing `userId` cannot reliably distinguish Account Owner, Participant, bookedBy, or Payer; dependent Participants cannot be reconstructed without external mapping.
+- Guest linking clears guest markers, so historical `bookingOrigin` may be unknowable. Admin- versus account-origin creation is also not stored.
+- Legacy `completed` conflates delivered training, no-refund Course withdrawal, premature manual completion, and scheduled completion; Attendance evidence is absent.
+- Existing `pending_cancellation` records may already have been auto-completed and require manual review.
+- Guest pending records have no expiration or token state and may be stale while still holding locks or seats.
+- Course schedules stored as free-form ranges cannot reliably become Course Days, timezone-safe `startAt`/`endsAt`, or historical Attendance intervals.
+- Synthetic course instructor identifiers and optional `courseId` require a compatibility/backfill strategy across queries, rules, UI, and Functions.
+- Deterministic Course Enrollment IDs may have overwritten cancelled enrollment history, preventing faithful new-record reconstruction.
+- Stored `availableSeats` may have drifted through completion, cancellation after start, concurrent scheduler updates, manual edits, or missing enrollments.
+- Wallet ledgers do not provide complete per-Booking paid/refunded/outstanding/retained/write-off state; legacy guest settlement requires deduplication and provenance rules.
+- Negative Wallet balances may already exist from administrator price-difference overrides.
+- Progress, recommendations, reviews, and achievements currently attached to account-like profiles may need reassignment to Participant profiles.
+- Hard-deleted Bookings and missing audit events cannot be reconstructed from the primary collection alone.
+- Existing permission rules may have exposed participant data too broadly; access migration must avoid preserving unauthorized relationships as canonical grants.
+- Every query, index, rule, UI status map, test fixture, and Cloud Function assuming the old five-status vocabulary must migrate consistently.
 
 ## Evidence map
 
-The principal evidence for this model is the shared booking vocabulary, domain types, booking/course transaction workflows, Cloud Function handlers, Firestore security rules, scheduled completion, and tests covering callables, transactions, availability migration, and course enrollment. Key entry points include:
+Repository evidence used for the gap analysis includes:
 
 - `packages/shared-domain/src/booking.ts`
 - `packages/shared-domain/src/entities.ts`
-- `src/types/`
+- `src/types/booking.ts`
+- `src/types/user.ts`
+- `src/types/course.ts`
+- `src/types/activity.ts`
 - `src/domain/availability/`
 - `src/domain/wallet/`
-- `src/features/bookings/bookingTransactions.ts`
-- `src/features/courses/courseTransactions.ts`
+- `src/features/bookings/`
+- `src/features/courses/`
 - `functions/src/bookings/`
 - `functions/src/courses/`
+- `functions/src/schoolGuestWallet.ts`
+- `functions/src/walletLedger.ts`
 - `firestore.rules`
+- unit, callable, emulator, and security-rule tests
 
-Repository behavior is evidence, not automatic endorsement. Where the implementation does not establish product intent, this document labels the point as an open question rather than inventing a rule.
+Repository behavior is evidence for migration and gap analysis, not automatic endorsement of the canonical business model.

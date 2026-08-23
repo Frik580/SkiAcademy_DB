@@ -7,6 +7,7 @@ import {
   PaymentSchema,
   ResourceClaimGuardSchema,
   ResourceClaimSchema,
+  ResourceClaimIdentityInputSchema,
   WalletSchema,
   activityLogIdFromCommandId,
   domainOutboxIdFromCommand,
@@ -97,15 +98,15 @@ const monetaryEvent = MonetaryEventSchema.parse({
   recordedAt: updatedAt,
 });
 
-const claimIdentity = {
-  strategyVersion: 'claim:v1' as const,
+const claimIdentity = ResourceClaimIdentityInputSchema.parse({
+  strategyVersion: 'claim:v1',
   claimKind: 'instructor_booking_occurrence',
   resourceKind: 'instructor',
   resourceId: 'instructor_fixture_01',
   ownerKind: 'booking',
   ownerId: 'booking_fixture_01',
   occurrenceId: 'occurrence_fixture_01',
-};
+});
 
 const resourceClaim = ResourceClaimSchema.parse({
   claimId: resourceClaimIdFromIdentity(claimIdentity),

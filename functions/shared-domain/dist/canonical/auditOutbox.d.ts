@@ -24,6 +24,9 @@ export declare const COMMAND_SOURCES: readonly ["client_callable", "admin_callab
 export type CommandSource = (typeof COMMAND_SOURCES)[number];
 export declare const AUDIT_EFFECT_KINDS: readonly ["payment_state_changed", "wallet_balance_changed", "booking_lifecycle_changed", "course_enrollment_lifecycle_changed", "resource_claim_changed", "attendance_recorded", "admin_issue_opened", "admin_issue_resolved", "participant_access_changed", "audit_correction_recorded", "financial_correction_recorded", "outbox_obligation_created"];
 export type AuditEffectKind = (typeof AUDIT_EFFECT_KINDS)[number];
+export declare const FINANCIAL_ACTIVITY_LOG_EFFECT_KINDS: readonly ["payment_state_changed", "wallet_balance_changed", "financial_correction_recorded"];
+export type FinancialActivityLogEffectKind = (typeof FINANCIAL_ACTIVITY_LOG_EFFECT_KINDS)[number];
+export declare function financialActivityLogEffectSummaryDuplicatesMonetaryDetail(summary: string): boolean;
 export declare const ActivityLogActorSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     kind: z.ZodLiteral<"account">;
     actorKey: z.ZodString;

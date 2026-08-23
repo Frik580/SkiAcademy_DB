@@ -84,6 +84,30 @@ export const AUDIT_EFFECT_KINDS = [
 ] as const;
 export type AuditEffectKind = (typeof AUDIT_EFFECT_KINDS)[number];
 
+export const FINANCIAL_ACTIVITY_LOG_EFFECT_KINDS = [
+  'payment_state_changed',
+  'wallet_balance_changed',
+  'financial_correction_recorded',
+] as const satisfies readonly AuditEffectKind[];
+export type FinancialActivityLogEffectKind = (typeof FINANCIAL_ACTIVITY_LOG_EFFECT_KINDS)[number];
+
+const MONETARY_FIELD_ASSIGNMENT_IN_SUMMARY =
+  /(?:balance|paidAmount|refundedAmount|retainedAmount|writtenOffAmount|outstandingAmount|settledAmount|minorUnits|price)\s*[:=]\s*\d/i;
+const FINANCIAL_VERB_FOLLOWED_BY_AMOUNT =
+  /\b(?:charged|refunded|paid|credited|debited|balance|owing|outstanding|settled|written[\s-]?off|amount)\s+\d[\d,]*/i;
+const AMOUNT_WITH_CURRENCY_IN_SUMMARY =
+  /\b\d[\d,]*\s+(?:KZT|kzt|₸|тенге)\b|\b(?:KZT|kzt|₸)\s+\d[\d,]*\b/i;
+
+export function financialActivityLogEffectSummaryDuplicatesMonetaryDetail(
+  summary: string
+): boolean {
+  return (
+    MONETARY_FIELD_ASSIGNMENT_IN_SUMMARY.test(summary) ||
+    FINANCIAL_VERB_FOLLOWED_BY_AMOUNT.test(summary) ||
+    AMOUNT_WITH_CURRENCY_IN_SUMMARY.test(summary)
+  );
+}
+
 export const ActivityLogActorSchema = z.discriminatedUnion('kind', [
   z
     .object({
@@ -139,21 +163,13 @@ export const ActivityLogEffectSchema = z
   })
   .strict()
   .superRefine((effect, context) => {
-    if (
-      effect.kind === 'payment_state_changed' ||
-      effect.kind === 'wallet_balance_changed' ||
-      effect.kind === 'financial_correction_recorded'
-    ) {
-      const forbidden =
-        /(balance|paidAmount|refundedAmount|retainedAmount|writtenOffAmount|outstandingAmount|minorUnits)\s*[:=]/i;
-      const numericAmount = /\b\d{4,}\b/;
-      if (forbidden.test(effect.summary) || numericAmount.test(effect.summary)) {
-        context.addIssue({
-          code: 'custom',
-          path: ['summary'],
-          message: 'Activity Log effects must not duplicate monetary deltas or balances',
-        });
-      }
+    if (financialActivityLogEffectSummaryDuplicatesMonetaryDetail(effect.summary)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['summary'],
+        message:
+          'Activity Log effects must not embed monetary amounts, balances, or field values in summary text',
+      });
     }
   });
 

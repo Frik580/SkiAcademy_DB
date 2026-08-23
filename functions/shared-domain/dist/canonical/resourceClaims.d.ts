@@ -1,17 +1,59 @@
 import { z } from 'zod';
+import { type ResourceClaimId } from './identifiers';
 import { TimeIntervalSchema } from './primitives';
-import { ResourceClaimIdentityInputSchema } from './deterministicIdentity';
 export declare const RESOURCE_CLAIM_STRATEGY_VERSION: "claim:v1";
 export declare const RESOURCE_GUARD_STRATEGY_VERSION: "guard:v1";
 export declare const RESOURCE_GUARD_BUCKET_HOURS: 12;
 export declare const RESOURCE_CLAIM_KINDS: readonly ["instructor_booking_occurrence", "participant_booking_occurrence", "instructor_course_day", "participant_course_day_enrollment", "course_seat_pre_start", "administrative_availability_block"];
 export type ResourceClaimKind = (typeof RESOURCE_CLAIM_KINDS)[number];
+export declare const ADMINISTRATIVE_AVAILABILITY_BLOCK_CLAIM_KIND: "administrative_availability_block";
 export declare const RESOURCE_KINDS: readonly ["instructor", "participant", "course", "administrative_block"];
 export type ResourceKind = (typeof RESOURCE_KINDS)[number];
 export declare const RESOURCE_OWNER_KINDS: readonly ["booking", "course_enrollment", "course_day", "administrative_block"];
 export type ResourceOwnerKind = (typeof RESOURCE_OWNER_KINDS)[number];
 export declare const RESOURCE_CLAIM_LIFECYCLE_STATUSES: readonly ["active", "released", "frozen"];
 export type ResourceClaimLifecycleStatus = (typeof RESOURCE_CLAIM_LIFECYCLE_STATUSES)[number];
+export declare const ResourceClaimIdentityInputSchema: z.ZodObject<{
+    strategyVersion: z.ZodLiteral<"claim:v1">;
+    claimKind: z.ZodEnum<{
+        instructor_booking_occurrence: "instructor_booking_occurrence";
+        participant_booking_occurrence: "participant_booking_occurrence";
+        instructor_course_day: "instructor_course_day";
+        participant_course_day_enrollment: "participant_course_day_enrollment";
+        course_seat_pre_start: "course_seat_pre_start";
+        administrative_availability_block: "administrative_availability_block";
+    }>;
+    resourceKind: z.ZodEnum<{
+        instructor: "instructor";
+        participant: "participant";
+        course: "course";
+        administrative_block: "administrative_block";
+    }>;
+    resourceId: z.ZodString;
+    ownerKind: z.ZodEnum<{
+        booking: "booking";
+        course_day: "course_day";
+        course_enrollment: "course_enrollment";
+        administrative_block: "administrative_block";
+    }>;
+    ownerId: z.ZodString;
+    occurrenceId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"occurrence">, string>>;
+}, z.core.$strict>;
+export type ResourceClaimIdentityInput = z.output<typeof ResourceClaimIdentityInputSchema>;
+export declare function resourceClaimIdFromIdentity(input: ResourceClaimIdentityInput): ResourceClaimId;
+export declare const ResourceClaimGuardBucketIdentityInputSchema: z.ZodObject<{
+    strategyVersion: z.ZodLiteral<"guard:v1">;
+    resourceKind: z.ZodEnum<{
+        instructor: "instructor";
+        participant: "participant";
+        course: "course";
+        administrative_block: "administrative_block";
+    }>;
+    resourceId: z.ZodString;
+    bucketStartSeconds: z.ZodNumber;
+}, z.core.$strict>;
+export type ResourceClaimGuardBucketIdentityInput = z.output<typeof ResourceClaimGuardBucketIdentityInputSchema>;
+export declare function resourceClaimGuardBucketKeyFromIdentity(input: ResourceClaimGuardBucketIdentityInput): string;
 export declare const ResourceClaimOwnerRefSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     ownerKind: z.ZodLiteral<"booking">;
     ownerId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"booking">, string>>;

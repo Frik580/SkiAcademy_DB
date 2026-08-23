@@ -18,6 +18,7 @@ import {
   containsLegacyMutableActivityLogFields,
   derivePaymentStatus,
   deriveRetainedAmount,
+  financialActivityLogEffectSummaryDuplicatesMonetaryDetail,
   domainOutboxIdFromCommand,
   intervalsConflict,
   isPaymentFullyFundedForService,
@@ -304,7 +305,7 @@ describe('resource claim and guard contracts', () => {
     ).toBe(claimId);
   });
 
-  it('rejects personal-data-bearing deterministic identity inputs', () => {
+  it('rejects non-canonical identity inputs such as email-shaped resource IDs', () => {
     expect(
       ResourceClaimIdentityInputSchema.safeParse({
         strategyVersion: 'claim:v1',
@@ -407,18 +408,59 @@ describe('Activity Log and outbox contracts', () => {
     ).toBe(false);
   });
 
-  it('rejects Activity Log effects that duplicate monetary balances', () => {
-    expect(
-      ActivityLogSchema.safeParse({
-        ...canonicalPaymentWalletAuditFixtures.activityLog,
-        effects: [
-          {
-            kind: 'payment_state_changed',
-            summary: 'charged 100000 KZT',
-          },
-        ],
-      }).success
-    ).toBe(false);
+  it('rejects Activity Log effects that duplicate monetary detail in summaries', () => {
+    const rejectSummaries = [
+      'paidAmount=100000 retainedAmount=100000',
+      'charged 100000 KZT',
+      'refunded 5000 KZT',
+      'balance 120000 KZT',
+    ];
+    const effectKinds = ['payment_state_changed', 'booking_lifecycle_changed'] as const;
+
+    for (const summary of rejectSummaries) {
+      expect(financialActivityLogEffectSummaryDuplicatesMonetaryDetail(summary)).toBe(true);
+      for (const kind of effectKinds) {
+        expect(
+          ActivityLogSchema.safeParse({
+            ...canonicalPaymentWalletAuditFixtures.activityLog,
+            effects: [{ kind, summary }],
+          }).success
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('allows legitimate non-monetary numeric semantics in Activity Log effect summaries', () => {
+    const allowSummaries = [
+      'Payment created after reschedule to 2026-01-15',
+      'Wallet balance changed for revision 3',
+      'Payment state updated for booking BK-100000',
+    ];
+    const effectKinds = ['payment_state_changed', 'booking_lifecycle_changed'] as const;
+
+    for (const summary of allowSummaries) {
+      expect(financialActivityLogEffectSummaryDuplicatesMonetaryDetail(summary)).toBe(false);
+      for (const kind of effectKinds) {
+        expect(
+          ActivityLogSchema.safeParse({
+            ...canonicalPaymentWalletAuditFixtures.activityLog,
+            effects: [
+              {
+                kind,
+                subjectRef:
+                  kind === 'payment_state_changed'
+                    ? {
+                        kind: 'payment',
+                        id: canonicalPaymentWalletAuditFixtures.payment.paymentId,
+                      }
+                    : undefined,
+                summary,
+              },
+            ],
+          }).success
+        ).toBe(true);
+      }
+    }
   });
 
   it('rejects legacy mutable audit shapes', () => {

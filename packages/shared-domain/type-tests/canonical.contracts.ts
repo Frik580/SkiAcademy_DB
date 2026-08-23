@@ -14,6 +14,7 @@ import {
   ParticipantBlockIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
+  OccurrenceIdSchema,
   PaymentIdSchema,
   ResourceClaimIdSchema,
   WalletSchema,
@@ -136,7 +137,7 @@ resourceClaimIdFromIdentity({
   resourceId: instructorId,
   ownerKind: 'booking',
   ownerId: bookingId,
-  occurrenceId: 'occurrence_contract_01',
+  occurrenceId: OccurrenceIdSchema.parse('occurrence_contract_01'),
 });
 WalletSchema.parse({
   accountId,

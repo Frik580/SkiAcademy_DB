@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   BookingIdSchema,
+  CanonicalOpaqueIdSchema,
   CommandIdSchema,
   CorrelationIdSchema,
   CourseDayIdSchema,
@@ -11,6 +12,7 @@ import {
   ParticipantIdSchema,
   ResourceClaimGuardIdSchema,
   ResourceClaimIdSchema,
+  type ResourceClaimId,
 } from './identifiers';
 import {
   AggregateRevisionSchema,
@@ -18,12 +20,7 @@ import {
   TimeIntervalSchema,
   compareCanonicalTimestamps,
 } from './primitives';
-import {
-  ResourceClaimIdentityInputSchema,
-  resourceClaimGuardBucketKeyFromIdentity,
-  resourceClaimIdFromIdentity,
-  validateDeterministicIdentityInputs,
-} from './deterministicIdentity';
+import { canonicalDeterministicHash } from './deterministicIdentity';
 
 const PersistedAggregateRevisionSchema = AggregateRevisionSchema.refine(
   (revision) => revision >= 1,
@@ -44,6 +41,11 @@ export const RESOURCE_CLAIM_KINDS = [
 ] as const;
 export type ResourceClaimKind = (typeof RESOURCE_CLAIM_KINDS)[number];
 
+// Administrative schedule unavailability claims (ADR-0002). These are resource-time
+// enforcement records and are not T02 ParticipantBlock access-policy records.
+export const ADMINISTRATIVE_AVAILABILITY_BLOCK_CLAIM_KIND =
+  'administrative_availability_block' as const satisfies ResourceClaimKind;
+
 export const RESOURCE_KINDS = [
   'instructor',
   'participant',
@@ -62,6 +64,120 @@ export type ResourceOwnerKind = (typeof RESOURCE_OWNER_KINDS)[number];
 
 export const RESOURCE_CLAIM_LIFECYCLE_STATUSES = ['active', 'released', 'frozen'] as const;
 export type ResourceClaimLifecycleStatus = (typeof RESOURCE_CLAIM_LIFECYCLE_STATUSES)[number];
+
+const AdministrativeAvailabilityBlockIdSchema = CanonicalOpaqueIdSchema.describe(
+  'Administrative availability block ID'
+);
+
+function validateClaimIdentityRefs(
+  input: Readonly<{
+    resourceKind: ResourceKind;
+    resourceId: string;
+    ownerKind: ResourceOwnerKind;
+    ownerId: string;
+  }>,
+  context: z.RefinementCtx
+): void {
+  const resourceIdChecks: Record<ResourceKind, z.ZodType<string>> = {
+    instructor: InstructorIdSchema,
+    participant: ParticipantIdSchema,
+    course: CourseIdSchema,
+    administrative_block: AdministrativeAvailabilityBlockIdSchema,
+  };
+  const ownerIdChecks: Record<ResourceOwnerKind, z.ZodType<string>> = {
+    booking: BookingIdSchema,
+    course_enrollment: CourseEnrollmentIdSchema,
+    course_day: CourseDayIdSchema,
+    administrative_block: AdministrativeAvailabilityBlockIdSchema,
+  };
+
+  if (!resourceIdChecks[input.resourceKind].safeParse(input.resourceId).success) {
+    context.addIssue({
+      code: 'custom',
+      path: ['resourceId'],
+      message: 'resourceId must be a canonical ID for the declared resourceKind',
+    });
+  }
+  if (!ownerIdChecks[input.ownerKind].safeParse(input.ownerId).success) {
+    context.addIssue({
+      code: 'custom',
+      path: ['ownerId'],
+      message: 'ownerId must be a canonical ID for the declared ownerKind',
+    });
+  }
+}
+
+export const ResourceClaimIdentityInputSchema = z
+  .object({
+    strategyVersion: z.literal(RESOURCE_CLAIM_STRATEGY_VERSION),
+    claimKind: z.enum(RESOURCE_CLAIM_KINDS),
+    resourceKind: z.enum(RESOURCE_KINDS),
+    resourceId: z.string().min(1).max(128),
+    ownerKind: z.enum(RESOURCE_OWNER_KINDS),
+    ownerId: z.string().min(1).max(128),
+    occurrenceId: OccurrenceIdSchema,
+  })
+  .strict()
+  .superRefine((input, context) => {
+    validateClaimIdentityRefs(input, context);
+  });
+
+export type ResourceClaimIdentityInput = z.output<typeof ResourceClaimIdentityInputSchema>;
+
+export function resourceClaimIdFromIdentity(input: ResourceClaimIdentityInput): ResourceClaimId {
+  const parsed = ResourceClaimIdentityInputSchema.parse(input);
+  return ResourceClaimIdSchema.parse(
+    canonicalDeterministicHash([
+      parsed.strategyVersion,
+      parsed.claimKind,
+      parsed.resourceKind,
+      parsed.resourceId,
+      parsed.ownerKind,
+      parsed.ownerId,
+      parsed.occurrenceId,
+    ])
+  );
+}
+
+export const ResourceClaimGuardBucketIdentityInputSchema = z
+  .object({
+    strategyVersion: z.literal(RESOURCE_GUARD_STRATEGY_VERSION),
+    resourceKind: z.enum(RESOURCE_KINDS),
+    resourceId: z.string().min(1).max(128),
+    bucketStartSeconds: z.number().finite().int().nonnegative(),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    const resourceIdChecks: Record<ResourceKind, z.ZodType<string>> = {
+      instructor: InstructorIdSchema,
+      participant: ParticipantIdSchema,
+      course: CourseIdSchema,
+      administrative_block: AdministrativeAvailabilityBlockIdSchema,
+    };
+    if (!resourceIdChecks[input.resourceKind].safeParse(input.resourceId).success) {
+      context.addIssue({
+        code: 'custom',
+        path: ['resourceId'],
+        message: 'resourceId must be a canonical ID for the declared resourceKind',
+      });
+    }
+  });
+
+export type ResourceClaimGuardBucketIdentityInput = z.output<
+  typeof ResourceClaimGuardBucketIdentityInputSchema
+>;
+
+export function resourceClaimGuardBucketKeyFromIdentity(
+  input: ResourceClaimGuardBucketIdentityInput
+): string {
+  const parsed = ResourceClaimGuardBucketIdentityInputSchema.parse(input);
+  return canonicalDeterministicHash([
+    parsed.strategyVersion,
+    parsed.resourceKind,
+    parsed.resourceId,
+    String(parsed.bucketStartSeconds),
+  ]);
+}
 
 export const ResourceClaimOwnerRefSchema = z.discriminatedUnion('ownerKind', [
   z.object({ ownerKind: z.literal('booking'), ownerId: BookingIdSchema }).strict(),
@@ -155,6 +271,8 @@ export const ResourceClaimSchema = z
       });
     }
 
+    validateClaimIdentityRefs(claim, context);
+
     if (
       claim.lifecycle.status === 'released' &&
       (compareCanonicalTimestamps(claim.lifecycle.releasedAt, claim.createdAt) < 0 ||
@@ -211,13 +329,19 @@ export const ResourceClaimGuardSchema = z
   })
   .strict()
   .superRefine((guard, context) => {
-    validateDeterministicIdentityInputs(
-      {
-        resourceKind: guard.resourceKind,
-        resourceId: guard.resourceId,
-      },
-      context
-    );
+    const resourceIdChecks: Record<ResourceKind, z.ZodType<string>> = {
+      instructor: InstructorIdSchema,
+      participant: ParticipantIdSchema,
+      course: CourseIdSchema,
+      administrative_block: AdministrativeAvailabilityBlockIdSchema,
+    };
+    if (!resourceIdChecks[guard.resourceKind].safeParse(guard.resourceId).success) {
+      context.addIssue({
+        code: 'custom',
+        path: ['resourceId'],
+        message: 'resourceId must be a canonical ID for the declared resourceKind',
+      });
+    }
 
     const expectedBucketKey = resourceClaimGuardBucketKeyFromIdentity({
       strategyVersion: RESOURCE_GUARD_STRATEGY_VERSION,

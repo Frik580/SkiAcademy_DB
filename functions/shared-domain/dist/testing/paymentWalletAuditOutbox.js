@@ -71,7 +71,7 @@ const monetaryEvent = canonical_1.MonetaryEventSchema.parse({
     occurredAt: createdAt,
     recordedAt: updatedAt,
 });
-const claimIdentity = {
+const claimIdentity = canonical_1.ResourceClaimIdentityInputSchema.parse({
     strategyVersion: 'claim:v1',
     claimKind: 'instructor_booking_occurrence',
     resourceKind: 'instructor',
@@ -79,7 +79,7 @@ const claimIdentity = {
     ownerKind: 'booking',
     ownerId: 'booking_fixture_01',
     occurrenceId: 'occurrence_fixture_01',
-};
+});
 const resourceClaim = canonical_1.ResourceClaimSchema.parse({
     claimId: (0, canonical_1.resourceClaimIdFromIdentity)(claimIdentity),
     strategyVersion: 'claim:v1',

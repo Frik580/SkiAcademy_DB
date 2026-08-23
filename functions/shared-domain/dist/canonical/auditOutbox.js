@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LegacyMutableActivityLogShapeSchema = exports.MutableAuditFieldNames = exports.DomainOutboxObligationSchema = exports.OutboxRenderInputSchema = exports.OutboxRecipientRefSchema = exports.OUTBOX_DELIVERY_STATUSES = exports.OUTBOX_DELIVERY_CHANNELS = exports.ActivityLogSchema = exports.ActivityLogResultingRevisionSchema = exports.ActivityLogEffectSchema = exports.ActivityLogPrimarySubjectSchema = exports.ActivityLogReasonSchema = exports.ActivityLogActorSchema = exports.AUDIT_EFFECT_KINDS = exports.COMMAND_SOURCES = exports.EXERCISED_CAPABILITIES = exports.ACTIVITY_LOG_ACTOR_KINDS = exports.AUDIT_CARDINALITY_LIMITS = exports.AUDIT_RETENTION_POLICY_VERSION = exports.OUTBOX_SCHEMA_VERSION = exports.AUDIT_SCHEMA_VERSION = void 0;
+exports.LegacyMutableActivityLogShapeSchema = exports.MutableAuditFieldNames = exports.DomainOutboxObligationSchema = exports.OutboxRenderInputSchema = exports.OutboxRecipientRefSchema = exports.OUTBOX_DELIVERY_STATUSES = exports.OUTBOX_DELIVERY_CHANNELS = exports.ActivityLogSchema = exports.ActivityLogResultingRevisionSchema = exports.ActivityLogEffectSchema = exports.ActivityLogPrimarySubjectSchema = exports.ActivityLogReasonSchema = exports.ActivityLogActorSchema = exports.FINANCIAL_ACTIVITY_LOG_EFFECT_KINDS = exports.AUDIT_EFFECT_KINDS = exports.COMMAND_SOURCES = exports.EXERCISED_CAPABILITIES = exports.ACTIVITY_LOG_ACTOR_KINDS = exports.AUDIT_CARDINALITY_LIMITS = exports.AUDIT_RETENTION_POLICY_VERSION = exports.OUTBOX_SCHEMA_VERSION = exports.AUDIT_SCHEMA_VERSION = void 0;
+exports.financialActivityLogEffectSummaryDuplicatesMonetaryDetail = financialActivityLogEffectSummaryDuplicatesMonetaryDetail;
 exports.containsLegacyMutableActivityLogFields = containsLegacyMutableActivityLogFields;
 exports.activityLogEnvelopeWithinLimits = activityLogEnvelopeWithinLimits;
 exports.outboxObligationCountWithinLimit = outboxObligationCountWithinLimit;
@@ -63,6 +64,19 @@ exports.AUDIT_EFFECT_KINDS = [
     'financial_correction_recorded',
     'outbox_obligation_created',
 ];
+exports.FINANCIAL_ACTIVITY_LOG_EFFECT_KINDS = [
+    'payment_state_changed',
+    'wallet_balance_changed',
+    'financial_correction_recorded',
+];
+const MONETARY_FIELD_ASSIGNMENT_IN_SUMMARY = /(?:balance|paidAmount|refundedAmount|retainedAmount|writtenOffAmount|outstandingAmount|settledAmount|minorUnits|price)\s*[:=]\s*\d/i;
+const FINANCIAL_VERB_FOLLOWED_BY_AMOUNT = /\b(?:charged|refunded|paid|credited|debited|balance|owing|outstanding|settled|written[\s-]?off|amount)\s+\d[\d,]*/i;
+const AMOUNT_WITH_CURRENCY_IN_SUMMARY = /\b\d[\d,]*\s+(?:KZT|kzt|₸|тенге)\b|\b(?:KZT|kzt|₸)\s+\d[\d,]*\b/i;
+function financialActivityLogEffectSummaryDuplicatesMonetaryDetail(summary) {
+    return (MONETARY_FIELD_ASSIGNMENT_IN_SUMMARY.test(summary) ||
+        FINANCIAL_VERB_FOLLOWED_BY_AMOUNT.test(summary) ||
+        AMOUNT_WITH_CURRENCY_IN_SUMMARY.test(summary));
+}
 exports.ActivityLogActorSchema = zod_1.z.discriminatedUnion('kind', [
     zod_1.z
         .object({
@@ -115,18 +129,12 @@ exports.ActivityLogEffectSchema = zod_1.z
 })
     .strict()
     .superRefine((effect, context) => {
-    if (effect.kind === 'payment_state_changed' ||
-        effect.kind === 'wallet_balance_changed' ||
-        effect.kind === 'financial_correction_recorded') {
-        const forbidden = /(balance|paidAmount|refundedAmount|retainedAmount|writtenOffAmount|outstandingAmount|minorUnits)\s*[:=]/i;
-        const numericAmount = /\b\d{4,}\b/;
-        if (forbidden.test(effect.summary) || numericAmount.test(effect.summary)) {
-            context.addIssue({
-                code: 'custom',
-                path: ['summary'],
-                message: 'Activity Log effects must not duplicate monetary deltas or balances',
-            });
-        }
+    if (financialActivityLogEffectSummaryDuplicatesMonetaryDetail(effect.summary)) {
+        context.addIssue({
+            code: 'custom',
+            path: ['summary'],
+            message: 'Activity Log effects must not embed monetary amounts, balances, or field values in summary text',
+        });
     }
 });
 exports.ActivityLogResultingRevisionSchema = zod_1.z

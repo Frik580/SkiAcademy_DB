@@ -35,28 +35,39 @@ export async function openGuestBookingModal(page: Page, instructorName: string):
   ).toBeVisible();
 }
 
+function getBookingModal(page: Page) {
+  return page.locator('.ui-modal').filter({
+    has: page.getByRole('button', { name: 'Date', exact: true }),
+  });
+}
+
 export async function fillBookingSelectors(page: Page, dayOffset = 1): Promise<void> {
-  const dateInput = page.locator('input[type="date"]').first();
-  await expect(dateInput).toBeVisible();
-  const minDate = await dateInput.getAttribute('min');
-  if (minDate) {
-    const [year, month, day] = minDate.split('-').map(Number);
-    const bookingDate = new Date(year, month - 1, day + dayOffset);
-    const bookingDateStr = [
-      bookingDate.getFullYear(),
-      String(bookingDate.getMonth() + 1).padStart(2, '0'),
-      String(bookingDate.getDate()).padStart(2, '0'),
-    ].join('-');
-    await dateInput.fill(bookingDateStr);
+  const bookingModal = getBookingModal(page);
+
+  const bookingDate = new Date();
+  bookingDate.setHours(0, 0, 0, 0);
+  bookingDate.setDate(bookingDate.getDate() + dayOffset);
+
+  const dateButton = bookingModal.getByRole('button', { name: 'Date', exact: true });
+  await expect(dateButton).toBeVisible();
+  await dateButton.click();
+  await bookingModal
+    .getByRole('button', { name: String(bookingDate.getDate()), exact: true })
+    .click();
+  if ((await dateButton.getAttribute('aria-expanded')) === 'true') {
+    await page.keyboard.press('Escape');
   }
 
-  const timeSelect = page.locator('select').first();
-  await expect(timeSelect).toBeEnabled({ timeout: 20_000 });
-  const firstSlot = timeSelect.locator('option').nth(1);
-  const slotValue = await firstSlot.getAttribute('value');
-  if (slotValue) {
-    await timeSelect.selectOption(slotValue);
-  }
+  const timeButton = bookingModal.getByRole('button', { name: 'Time Slot', exact: true });
+  await expect(timeButton).toBeEnabled({ timeout: 20_000 });
+  await expect
+    .poll(async () => /\d{1,2}:\d{2}/.test((await timeButton.textContent()) ?? ''), {
+      timeout: 20_000,
+    })
+    .toBe(true);
+
+  await timeButton.click();
+  await bookingModal.getByRole('button', { name: /^\d{1,2}:\d{2}$/ }).first().click();
 }
 
 export { expect };

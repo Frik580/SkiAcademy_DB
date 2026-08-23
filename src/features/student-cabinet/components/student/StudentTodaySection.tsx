@@ -66,16 +66,6 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
     <section className="py-5 space-y-0">
       <ScSectionTitle>{t('scTodaySection')}</ScSectionTitle>
 
-      {/* 1. Обратный отсчёт и текущие занятия */}
-      {todayCountdown && (
-        <SessionCountdownBlock
-          countdown={todayCountdown}
-          courses={courses}
-          instructors={instructors}
-          usersList={usersList}
-        />
-      )}
-
       {currentSessions.length > 0 && (
         <CurrentSessionsBlock
           sessions={currentSessions}
@@ -85,6 +75,16 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
           onOpenLesson={onOpenLesson}
           onOpenSession={onOpenSession}
           hasUnreadChat={hasUnreadChat}
+        />
+      )}
+      
+      {/* 1. Обратный отсчёт и текущие занятия */}
+      {todayCountdown && (
+        <SessionCountdownBlock
+          countdown={todayCountdown}
+          courses={courses}
+          instructors={instructors}
+          usersList={usersList}
         />
       )}
 

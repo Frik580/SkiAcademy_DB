@@ -23,3 +23,13 @@ Rules:
 - Keep domain calculations, sorting, filtering, and formatting outside JSX in feature/domain helpers. Components should compose results rather than reimplement rules inline.
 - When adding a new component, check whether it adds a direct edge to `useLanguage()`, `Booking`, `UserProfile`, or `Course`; use an existing feature boundary unless the direct dependency is justified by the component's responsibility.
 - Refactor existing code to these boundaries only when the file is being changed or its coupling creates a concrete maintenance problem.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs are tracked in this repository's GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context layout: one root `CONTEXT.md` and ADRs in `docs/adr/`. See `docs/agents/domain.md`.

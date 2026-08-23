@@ -87,7 +87,7 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
 
   return (
-    <div className={`grid grid-cols-2 ${gapClass}`}>
+    <div className={`grid grid-cols-1 sm:grid-cols-2 ${gapClass}`}>
       <div>
         <label className={labelStyle}>
           <Calendar className="h-3.5 w-3.5" /> {t('dateLabel')}

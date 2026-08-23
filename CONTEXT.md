@@ -5,6 +5,7 @@ Carve Academy coordinates lessons, group courses, scheduling, learning progress,
 ## How to read this document
 
 - **Intended invariant** — a rule the domain should preserve, even where enforcement is incomplete.
+- **Current business rule** — stakeholder-confirmed product behavior the domain currently expects.
 - **Current implementation** — behavior verified in the current repository.
 - **Known inconsistency** — verified behavior that conflicts with an intended invariant or with another representation.
 - **Open business question** — a choice the repository does not settle; do not silently choose an answer.
@@ -68,6 +69,9 @@ _Avoid_: Lesson, booking.
 A student's or guest's participation claim on a course. Semantically it is identified by a booking associated with a `courseId`; it is not an instructor lesson.
 _Avoid_: Course booking when the distinction from an individual lesson matters.
 
+**Active Seat Occupancy**:
+The single course seat claimed by an enrollment while the student is still expected to participate. It ends when an authorized outcome closes participation, whether or not that outcome refunds the payment.
+
 **Availability Slot**:
 A public, privacy-reduced projection of an individual instructor's occupied time. It is derived from an active individual booking or a system block.
 _Avoid_: Booking — a slot deliberately omits ownership, price, and notes.
@@ -83,8 +87,11 @@ _Avoid_: Lesson, student booking.
 **Cancellation Request**:
 A request to cancel a pending or confirmed booking, represented by the `pending_cancellation` status and an optional reason. It is not yet the terminal cancellation outcome.
 
-**Completion**:
-The terminal record that training is treated as delivered. Completion may be triggered by an authorized human or by the scheduled system actor.
+**Completion Status**:
+A terminal booking marker currently used for both successful training completion and a course enrollment closed before the course starts without a refund. It does not, by itself, prove that the student attended or completed the course.
+
+**No-refund Course Withdrawal**:
+A student's withdrawal before a course starts where participation ends, the school retains the payment, and the seat is released. The current status model records this outcome as `completed`, although it is not successful course completion.
 
 ### Money and learning progress
 
@@ -175,6 +182,7 @@ pending ---------> confirmed ---------> completed
 
 pending / confirmed / pending_cancellation -----> cancelled
 confirmed / pending_cancellation --after end----> completed (scheduled)
+active course enrollment --no-refund withdrawal before start--> completed
 ```
 
 The diagram expresses supported normal paths, not every transition the current implementation happens to permit.
@@ -195,9 +203,10 @@ The diagram expresses supported normal paths, not every transition the current i
 - **Open business question:** retaining those resources during a cancellation request is observed behavior, not yet a confirmed business rule.
 - **Current implementation:** the owner or administrator can invoke cancellation. Cancellation releases lesson availability or course capacity and normally refunds up to the paid price; cancelling an already completed booking produces no refund.
 - **Current implementation:** an assigned instructor or administrator can invoke completion. The scheduled actor completes only `confirmed` or `pending_cancellation` bookings whose `endsAt` has passed.
-- **Known violation:** manual completion does not enforce that the lesson has ended and does not reject every invalid source status; privileged callers can therefore bypass the normal lifecycle shape.
-- **Current implementation:** completion removes individual availability. For an active course enrollment it also increments `availableSeats` up to `totalSeats`.
-- **Open business question:** it is unresolved whether completing a course should return capacity. Do not treat the current counter update as the canonical course-capacity rule.
+- **Current business rule:** an active course enrollment may be closed as `completed` before the course starts when the student withdraws without a refund. The student stops participating, the enrollment is financially closed with its payment retained, and one seat is released for another student.
+- **Known inconsistency:** `completed` represents both successful course completion and pre-course withdrawal without refund. The status alone cannot identify the actual participation outcome.
+- **Known inconsistency:** the generic manual completion workflow does not record which of those outcomes occurred and does not fully constrain source status or elapsed time. Its ability to run before the course starts is valid for no-refund withdrawal but ambiguous for successful completion.
+- **Current implementation:** completion removes individual lesson availability. For a course enrollment that was actively occupying a seat, it increments `availableSeats` once, up to `totalSeats`.
 - **Current implementation:** the administrator deletion workflow hard-deletes a booking and cleans related availability. `isDeleted` remains in the model for legacy or alternative flows, including course-enrollment checks.
 
 ### Rescheduling
@@ -212,9 +221,10 @@ The diagram expresses supported normal paths, not every transition the current i
 - **Current implementation:** course enrollment is encoded as a booking and commonly identified by both `courseId` and a synthetic `instructorId` beginning with `course_`.
 - **Known inconsistency / technical debt:** several paths fall back to parsing `courseId` from the synthetic instructor identifier, so enrollment identity depends on a string convention rather than an explicit domain type.
 - **Current implementation:** authenticated enrollment charges the student's wallet and begins `confirmed`; guest enrollment begins `pending` and uses the school guest-wallet settlement path.
-- **Intended invariant:** one student cannot hold more than one active enrollment for the same course, and capacity cannot be reserved below zero or released above `totalSeats`.
-- **Current implementation:** normal enrollment and release paths update the booking and `availableSeats` in one transaction. A deterministic booking identifier supports one current enrollment per student/course and reuses a cancelled record for reenrollment.
-- **Open business question:** define precisely when a seat is consumed and released—on request, confirmation, cancellation, deletion, completion, course end, or another event.
+- **Intended invariant:** one student cannot hold more than one active enrollment for the same course. An enrollment holds exactly one active seat occupancy while participation remains open; closing participation releases that seat exactly once, independently of whether money is refunded.
+- **Intended invariant:** `availableSeats` equals `totalSeats` minus the number of enrollments actively occupying seats and always remains within `0..totalSeats`. A lifecycle label such as `completed` is not the domain reason for capacity change; the underlying participation/seat-occupancy outcome is.
+- **Current implementation:** `pending`, `confirmed`, and `pending_cancellation` course enrollments are treated as active seat occupants; `cancelled`, `completed`, and deleted enrollments are not. Enrollment and release paths update the booking and `availableSeats` in one transaction.
+- **Current implementation:** a deterministic booking identifier supports one current enrollment per student/course and reuses a cancelled record for reenrollment.
 
 ## Availability model
 
@@ -248,15 +258,15 @@ The diagram expresses supported normal paths, not every transition the current i
 
 ## Sources of truth
 
-| Concept                     | Canonical representation                                                                                                                                                                         | Derived or denormalized representations                                                  | Classification notes                                                                                                          |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Booking                     | The booking record identified by booking ID; its persisted status and schedule are the current operational state, even when a deficient creation path accepted an invalid client-selected status | Instructor name/avatar, display labels, and historical presentation fields are snapshots | Intended invariant: lifecycle and schedule values enter this canonical record only through authorized server transitions.     |
-| Course enrollment           | The booking's explicit `courseId` plus its owner and lifecycle                                                                                                                                   | Synthetic `instructorId: course_{courseId}` and copied course title/image/date/duration  | Prefix detection is a current compatibility convention and technical debt, not the desired model.                             |
-| Course capacity             | `Course.totalSeats` defines maximum capacity; stored `Course.availableSeats` is the current operational counter                                                                                  | Active enrollment records provide evidence from which occupancy could be audited         | The counter is authoritative for current admission checks, but its release semantics—especially on completion—are unresolved. |
-| Instructor availability     | Active individual bookings and system blocks are the durable scheduling commitments                                                                                                              | Availability slots are public projections                                                | A slot must correspond to its source booking/block while that source blocks time.                                             |
-| Hour locks                  | No independent business fact; they are deterministic guards derived from an active scheduling commitment                                                                                         | Lock documents duplicate instructor/date/time/booking identity                           | They are authoritative for transactional conflict acquisition, not for explaining the schedule.                               |
-| Student wallet              | `UserProfile.balanceUSD` is the current spendable USD balance; currency-specific balances are authoritative only for their represented currencies                                                | Ledger entries audit operations; legacy history may be synthesized from bookings         | Multiple balance representations require care; the ledger is not currently the sole balance source.                           |
-| Instructor identity/profile | The Instructor profile is canonical for public professional data; the UserProfile-to-`instructorId` link grants instructor capability                                                            | Booking instructor name/avatar and translated UI fields are snapshots                    | Authentication identity, instructor capability, and admin role are independent dimensions.                                    |
+| Concept                     | Canonical representation                                                                                                                                                                         | Derived or denormalized representations                                                  | Classification notes                                                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Booking                     | The booking record identified by booking ID; its persisted status and schedule are the current operational state, even when a deficient creation path accepted an invalid client-selected status | Instructor name/avatar, display labels, and historical presentation fields are snapshots | Intended invariant: lifecycle and schedule values enter this canonical record only through authorized server transitions.         |
+| Course enrollment           | The booking's explicit `courseId`, owner, and lifecycle; active seat occupancy is a domain fact currently inferred from that lifecycle                                                           | Synthetic `instructorId: course_{courseId}` and copied course title/image/date/duration  | No explicit outcome distinguishes successful completion from no-refund withdrawal.                                                |
+| Course capacity             | `Course.totalSeats` and the set of enrollments actively occupying seats define the domain capacity                                                                                               | Stored `Course.availableSeats` is the operational counter used for admission checks      | The counter must equal total seats minus active seat occupancy; releasing a seat and refunding payment are independent decisions. |
+| Instructor availability     | Active individual bookings and system blocks are the durable scheduling commitments                                                                                                              | Availability slots are public projections                                                | A slot must correspond to its source booking/block while that source blocks time.                                                 |
+| Hour locks                  | No independent business fact; they are deterministic guards derived from an active scheduling commitment                                                                                         | Lock documents duplicate instructor/date/time/booking identity                           | They are authoritative for transactional conflict acquisition, not for explaining the schedule.                                   |
+| Student wallet              | `UserProfile.balanceUSD` is the current spendable USD balance; currency-specific balances are authoritative only for their represented currencies                                                | Ledger entries audit operations; legacy history may be synthesized from bookings         | Multiple balance representations require care; the ledger is not currently the sole balance source.                               |
+| Instructor identity/profile | The Instructor profile is canonical for public professional data; the UserProfile-to-`instructorId` link grants instructor capability                                                            | Booking instructor name/avatar and translated UI fields are snapshots                    | Authentication identity, instructor capability, and admin role are independent dimensions.                                        |
 
 ## Major workflows
 
@@ -286,11 +296,15 @@ The diagram expresses supported normal paths, not every transition the current i
 
 ### Manual completion
 
-`assigned instructor or administrator invokes completion -> server validates authority but currently does not fully enforce source status or elapsed end time -> status changes -> individual availability is removed or current course-capacity release behavior runs -> activity history is recorded where applicable`
+`assigned instructor or administrator invokes completion -> server validates authority but does not capture the completion outcome -> status changes to completed -> individual availability or active course seat occupancy is released -> activity history is recorded where applicable`
+
+### No-refund course withdrawal
+
+`student decides not to attend before the course starts -> authorized workflow closes the active enrollment as completed -> participation and seat occupancy end -> one seat is released -> payment remains retained and no refund is recorded`
 
 ### Automatic completion
 
-`scheduled actor selects confirmed or pending-cancellation bookings whose endsAt has passed -> status changes to completed -> individual availability is removed or current course-capacity release behavior runs -> completion activity history is recorded`
+`scheduled actor selects confirmed or pending-cancellation bookings whose endsAt has passed -> status changes to completed -> individual availability or active course seat occupancy is released -> completion activity history is recorded`
 
 ### Guest-account linking
 
@@ -306,7 +320,10 @@ Future `$implement` and `$code-review` work should use this checklist:
 - A booking ID cannot be reused to overwrite a different request; retries must be idempotent.
 - Individual instructor commitments cannot overlap, and their slot/lock projections must match the booking.
 - Course enrollment uses explicit `courseId` as its semantic link; synthetic instructor identifiers are compatibility data only.
-- Course capacity remains within `0..totalSeats`, and one enrollment event reserves or releases a seat at most once.
+- Each active course enrollment occupies exactly one seat; each enrollment reserves and releases that seat at most once.
+- `availableSeats` equals `totalSeats` minus active seat occupancy and remains within `0..totalSeats`.
+- Seat release and refund eligibility are independent: a closed no-refund withdrawal releases capacity without returning payment.
+- `completed` alone must not be interpreted as proof of attendance or successful course completion.
 - Prices come from the canonical instructor or course record, never from client-supplied totals.
 - Booking/enrollment mutation, wallet mutation, ledger entry, and availability/capacity mutation are atomic where they belong to one business event.
 - Ordinary student spending cannot make the spendable balance negative; credits and refunds cannot be applied twice.
@@ -337,7 +354,7 @@ Business logic currently exists in both frontend transaction modules and Cloud F
 - Manual completion can bypass time-based completion rules and does not fully constrain source status.
 - Course enrollment is encoded through a booking plus a synthetic instructor identifier; `courseId` is not uniformly required.
 - Booking, availability slot, and hour locks duplicate scheduling state.
-- Course-seat release currently occurs on completion as well as cancellation/deletion.
+- `completed` overloads successful course completion and pre-course withdrawal without refund; no explicit outcome records which occurred.
 - `balanceUSD`, currency balances, wallet ledger, and synthesized legacy history overlap.
 - `isDeleted` remains part of lifecycle checks although the primary administrator deletion workflow hard-deletes records.
 - The code and UI use `student`, `client`, `user`, `instructor`, and `coach` inconsistently.
@@ -354,7 +371,7 @@ Business logic currently exists in both frontend transaction modules and Cloud F
 No ADRs currently exist. Do not create one until the underlying business choice is made and the decision satisfies the project's ADR threshold.
 
 - **Booking initial state and transition authority:** decide whether paid authenticated bookings begin `pending` or `confirmed`, and establish one server-owned transition model.
-- **Course capacity release policy:** decide whether a seat is released on completion, only on cancellation/withdrawal, at course end, or under another policy. Current completion behavior must not be normalized before this decision.
+- **Course enrollment outcome model:** decide whether successful completion and pre-course no-refund withdrawal need distinct statuses, a separate outcome/reason, or another explicit representation. The current overloaded `completed` status must not be treated as proof of attendance.
 - **Explicit Course Enrollment model:** decide whether to introduce a first-class enrollment entity/type and retire `instructorId.startsWith("course_")` as a domain discriminator.
 - **Availability representation:** decide the long-term canonical/projection/lock relationship and repair strategy for drift.
 - **Wallet source and reconciliation:** decide whether balances or the ledger become the accounting source of truth across currencies and guest settlement.
@@ -364,9 +381,8 @@ No ADRs currently exist. Do not create one until the underlying business choice 
 - What is the canonical initial status for a paid authenticated individual lesson and for a paid course enrollment?
 - Should students cancel immediately, request approval, or use different policies based on time, product, or refund eligibility?
 - Should `pending_cancellation` continue reserving instructor time and course capacity?
-- Which source statuses may an instructor or administrator complete, and must manual completion require the scheduled end time?
-- When exactly should course capacity be released? In particular, should completion increment `availableSeats`?
-- Does `availableSeats` mean capacity open for new enrollment, active unconsumed participation, or something else after a course starts?
+- Which source statuses may an instructor or administrator close, and how should the workflow distinguish successful completion from no-refund withdrawal?
+- Should successful course completion and pre-course no-refund withdrawal become distinct statuses, or should outcome be represented separately from lifecycle status?
 - May one instructor-capable user evaluate every student, or only students linked through assigned lessons/courses?
 - Is a guest request a reservation, an unpaid lead, or a financially committed booking before confirmation?
 - Which representation should ultimately reconcile wallet truth: stored balances, ledger totals, or an external payment system?

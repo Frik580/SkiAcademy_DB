@@ -539,7 +539,9 @@ describe('BookingChangeRequest contracts', () => {
       ...metadata,
     });
 
-    expect(BookingChangeRequestSchema.parse(JSON.parse(JSON.stringify(resolved)))).toEqual(resolved);
+    expect(BookingChangeRequestSchema.parse(JSON.parse(JSON.stringify(resolved)))).toEqual(
+      resolved
+    );
     expect(BookingChangeRequestSchema.parse(JSON.parse(JSON.stringify(cancelled)))).toEqual(
       cancelled
     );

@@ -195,9 +195,9 @@ describe('Course and CourseDay contracts', () => {
 
   it('rejects whole-Course cancellation fields', () => {
     expect(containsWholeCourseCancellationFields({ wholeCourseCancelled: true })).toBe(true);
-    expect(WholeCourseCancellationShapeSchema.safeParse({ wholeCourseCancelled: true }).success).toBe(
-      false
-    );
+    expect(
+      WholeCourseCancellationShapeSchema.safeParse({ wholeCourseCancelled: true }).success
+    ).toBe(false);
   });
 });
 
@@ -207,9 +207,7 @@ describe('CourseEnrollment contracts', () => {
   });
 
   it('belongs to exactly one Participant', () => {
-    expect(
-      courseEnrollmentBelongsToExactlyOneParticipant({ participantId })
-    ).toBe(true);
+    expect(courseEnrollmentBelongsToExactlyOneParticipant({ participantId })).toBe(true);
   });
 
   it('keeps enrollmentId opaque and not derived from participant/course pair', () => {
@@ -274,9 +272,9 @@ describe('CourseEnrollment contracts', () => {
     const second = activeCourseEnrollmentGuardKey(participantId, courseId);
     expect(first).toBe(second);
     expect(ActiveCourseEnrollmentGuardKeySchema.safeParse(first).success).toBe(true);
-    expect(activeCourseEnrollmentGuardKey(participantId, CourseIdSchema.parse('course_test_02'))).not.toBe(
-      first
-    );
+    expect(
+      activeCourseEnrollmentGuardKey(participantId, CourseIdSchema.parse('course_test_02'))
+    ).not.toBe(first);
   });
 
   it('validates attendance summary against course day count in structured delivery', () => {
@@ -383,9 +381,9 @@ describe('Attendance contracts', () => {
   });
 
   it('rejects explicit unknown Attendance status', () => {
-    expect(UnknownAttendanceStatusShapeSchema.safeParse({ attendanceStatus: 'unknown' }).success).toBe(
-      false
-    );
+    expect(
+      UnknownAttendanceStatusShapeSchema.safeParse({ attendanceStatus: 'unknown' }).success
+    ).toBe(false);
     expect(AttendanceStatusSchema.safeParse('unknown').success).toBe(false);
   });
 
@@ -397,9 +395,9 @@ describe('Attendance contracts', () => {
     expect(bookingAttendanceIdentityKey({ occurrenceId, participantId })).toBe(
       `attendance:v1:booking:${occurrenceId}:${participantId}`
     );
-    expect(
-      courseDayAttendanceIdentityKey({ enrollmentId, courseDayId })
-    ).toBe(`attendance:v1:course-day:${enrollmentId}:${courseDayId}`);
+    expect(courseDayAttendanceIdentityKey({ enrollmentId, courseDayId })).toBe(
+      `attendance:v1:course-day:${enrollmentId}:${courseDayId}`
+    );
 
     const bookingAttendanceId = attendanceIdFromBookingIdentity({
       strategyVersion: 'attendance:v1',
@@ -414,18 +412,22 @@ describe('Attendance contracts', () => {
       courseDayId,
     });
 
-    expect(attendanceIdFromBookingIdentity({
-      strategyVersion: 'attendance:v1',
-      subjectKind: 'booking',
-      occurrenceId,
-      participantId,
-    })).toBe(bookingAttendanceId);
-    expect(attendanceIdFromCourseDayIdentity({
-      strategyVersion: 'attendance:v1',
-      subjectKind: 'course_enrollment',
-      enrollmentId,
-      courseDayId: CourseDayIdSchema.parse('course_day_test_02'),
-    })).not.toBe(courseAttendanceId);
+    expect(
+      attendanceIdFromBookingIdentity({
+        strategyVersion: 'attendance:v1',
+        subjectKind: 'booking',
+        occurrenceId,
+        participantId,
+      })
+    ).toBe(bookingAttendanceId);
+    expect(
+      attendanceIdFromCourseDayIdentity({
+        strategyVersion: 'attendance:v1',
+        subjectKind: 'course_enrollment',
+        enrollmentId,
+        courseDayId: CourseDayIdSchema.parse('course_day_test_02'),
+      })
+    ).not.toBe(courseAttendanceId);
   });
 
   it('rejects wrong subject and identity combinations', () => {
@@ -468,7 +470,9 @@ describe('Attendance contracts', () => {
   });
 
   it('round-trips strict Attendance serialization variants', () => {
-    const parsed = AttendanceSchema.parse(canonicalCourseDeliveryFixtures.presentCourseDayAttendance);
+    const parsed = AttendanceSchema.parse(
+      canonicalCourseDeliveryFixtures.presentCourseDayAttendance
+    );
     expect(parsed).toEqual(canonicalCourseDeliveryFixtures.presentCourseDayAttendance);
     expect(validateCanonical(AttendanceSchema, parsed).ok).toBe(true);
   });

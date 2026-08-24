@@ -83,6 +83,7 @@ import {
   parseInstructorCatalog,
   toFirestoreWritePayload,
 } from './bookingStore';
+import { createPaymentStartGateCommandHandler } from './paymentStartGate';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -246,7 +247,9 @@ function createConfirmedBookingHandler(
         path: accountPath(actor.accountId),
         category: 'authorization_check',
       });
-      const actorAccount = parseAccount(actorAccountRead.exists ? actorAccountRead.data : undefined);
+      const actorAccount = parseAccount(
+        actorAccountRead.exists ? actorAccountRead.data : undefined
+      );
       if (!actorAccount || actorAccount.lifecycle.status !== 'active') {
         throw new CanonicalCommandError('forbidden', {
           correlationId: envelope.context.correlationId,
@@ -259,12 +262,16 @@ function createConfirmedBookingHandler(
         management: managementRecord,
       });
 
-      const payerAccountRead = await session.tx.get({ path: accountPath(authorization.payerAccountId) });
+      const payerAccountRead = await session.tx.get({
+        path: accountPath(authorization.payerAccountId),
+      });
       session.plan.planRead({
         path: accountPath(authorization.payerAccountId),
         category: 'authorization_check',
       });
-      payerAccountRecord = parseAccount(payerAccountRead.exists ? payerAccountRead.data : undefined);
+      payerAccountRecord = parseAccount(
+        payerAccountRead.exists ? payerAccountRead.data : undefined
+      );
       if (!payerAccountRecord || payerAccountRecord.lifecycle.status !== 'active') {
         throw new CanonicalCommandError('validation', {
           correlationId: envelope.context.correlationId,
@@ -503,8 +510,14 @@ function createConfirmedBookingHandler(
           updatedAt: decidedAt,
         });
 
-        session.tx.create({ path: bookingDocumentPath }, toFirestoreWritePayload(booking as Record<string, unknown>));
-        session.tx.create({ path: paymentPathValue }, financeToFirestoreWritePayload(payment as Record<string, unknown>));
+        session.tx.create(
+          { path: bookingDocumentPath },
+          toFirestoreWritePayload(booking as Record<string, unknown>)
+        );
+        session.tx.create(
+          { path: paymentPathValue },
+          financeToFirestoreWritePayload(payment as Record<string, unknown>)
+        );
 
         if (includeWalletEffect) {
           const wallet = walletRecord ?? initialWallet(authorization.payerAccountId, decidedAt);
@@ -584,9 +597,10 @@ function createConfirmedBookingHandler(
 
 export function createBookingCommandHandlers(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
-): Pick<CommandHandlerMap, 'create_confirmed_booking'> {
+): Pick<CommandHandlerMap, 'create_confirmed_booking' | 'enforce_payment_start_gate'> {
   return {
     create_confirmed_booking: (envelope, environment) =>
       createConfirmedBookingHandler(envelope, environment, executor),
+    ...createPaymentStartGateCommandHandler(executor),
   };
 }

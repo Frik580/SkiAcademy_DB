@@ -153,9 +153,7 @@ export function assertNoActiveServiceBlock(
     management: input.management,
     additionalBlocks: input.participantBlocks,
   });
-  if (
-    evaluateNewServiceBlocked(topology, input.participant.participantId, instructorId)
-  ) {
+  if (evaluateNewServiceBlocked(topology, input.participant.participantId, instructorId)) {
     throw new CanonicalCommandError('blocked_relationship', {
       correlationId: envelope.context.correlationId,
       details: { resourceKind: 'participant', reason: 'conflict' },
@@ -184,4 +182,29 @@ export function assertParticipantRecord(
   participant: Participant | undefined
 ): Participant {
   return assertParticipantActive(envelope, participant);
+}
+
+export type PaymentStartGateActorMode = 'system' | 'administrator';
+
+export function resolvePaymentStartGateAuthorization(
+  envelope: CommandEnvelope<'enforce_payment_start_gate'>
+): PaymentStartGateActorMode {
+  const { actor, exercisedCapability, source } = envelope.context;
+  if (
+    actor.kind === 'system' &&
+    exercisedCapability === 'system' &&
+    (source === 'scheduler' || source === 'system_reconciliation')
+  ) {
+    return 'system';
+  }
+  if (
+    actor.kind === 'account' &&
+    exercisedCapability === 'administrator' &&
+    source === 'admin_callable'
+  ) {
+    return 'administrator';
+  }
+  throw new CanonicalCommandError('forbidden', {
+    correlationId: envelope.context.correlationId,
+  });
 }

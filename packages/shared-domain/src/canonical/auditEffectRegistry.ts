@@ -5,9 +5,7 @@ import type { CorrelationId } from './identifiers';
 
 export const AUDIT_EFFECT_REGISTRY_VERSION = 'effect:v1' as const;
 
-const COMMAND_KIND_ALLOWED_EFFECTS: Partial<
-  Record<CommandKind, readonly AuditEffectKind[]>
-> = {
+const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEffectKind[]>> = {
   complete_booking: ['booking_lifecycle_changed'],
   create_confirmed_booking: [
     'booking_lifecycle_changed',
@@ -15,6 +13,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<
     'resource_claim_changed',
     'outbox_obligation_created',
   ],
+  enforce_payment_start_gate: ['admin_issue_opened'],
   record_manual_wallet_funding: ['wallet_balance_changed', 'financial_correction_recorded'],
   record_provider_payment_event: ['payment_state_changed'],
   adjust_service_price: ['payment_state_changed', 'wallet_balance_changed'],

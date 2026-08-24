@@ -24,6 +24,7 @@ const GLOBAL_REASON_CODES = new Set(exports.AUDIT_REASON_CODES);
 const COMMAND_KIND_REASON_CODES = {
     complete_booking: ['self_service_completion', 'scheduled_system_action', 'other'],
     create_confirmed_booking: ['self_service_booking', 'manual_override', 'other'],
+    enforce_payment_start_gate: ['scheduled_system_action', 'manual_override'],
     record_manual_wallet_funding: ['manual_financial_correction', 'manual_override', 'other'],
     record_provider_payment_event: ['provider_callback_processed', 'manual_override', 'other'],
     adjust_service_price: ['manual_override', 'other'],

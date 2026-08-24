@@ -30,6 +30,7 @@ __exportStar(require("./auditOutboxStaging"), exports);
 __exportStar(require("./bookingOccurrenceProposalChange"), exports);
 __exportStar(require("./bookingCreation"), exports);
 __exportStar(require("./courseEnrollmentAttendanceAdminIssue"), exports);
+__exportStar(require("./adminIssuePolicy"), exports);
 __exportStar(require("./deterministicIdentity"), exports);
 __exportStar(require("./errors"), exports);
 __exportStar(require("./identifiers"), exports);

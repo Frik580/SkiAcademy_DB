@@ -14,6 +14,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS = {
         'resource_claim_changed',
         'outbox_obligation_created',
     ],
+    enforce_payment_start_gate: ['admin_issue_opened'],
     record_manual_wallet_funding: ['wallet_balance_changed', 'financial_correction_recorded'],
     record_provider_payment_event: ['payment_state_changed'],
     adjust_service_price: ['payment_state_changed', 'wallet_balance_changed'],

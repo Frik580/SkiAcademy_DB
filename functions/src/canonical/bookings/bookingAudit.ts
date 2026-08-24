@@ -3,13 +3,14 @@ import {
   AggregateRevisionSchema,
   canonicalReference,
   type AccountId,
+  type AdminIssueId,
   type AuditOutboxStagingPlan,
   type BookingId,
   type CommandEnvelope,
   type MonetaryEventId,
   type PaymentId,
 } from '@ski-academy/shared-domain';
-import type { BookingCreationMode } from './bookingAuthorization';
+import type { BookingCreationMode, PaymentStartGateActorMode } from './bookingAuthorization';
 
 export function buildCreateConfirmedBookingAuditPlan(input: {
   envelope: CommandEnvelope<'create_confirmed_booking'>;
@@ -107,5 +108,70 @@ export function buildCreateConfirmedBookingAuditPlan(input: {
         deliverySemantics: 'transactional',
       },
     ],
+  };
+}
+
+export function buildPaymentStartGateAuditPlan(input: {
+  bookingId: BookingId;
+  mode: PaymentStartGateActorMode;
+  issue:
+    | {
+        readonly issueId: AdminIssueId;
+        readonly revision: number;
+        readonly effect: 'opened' | 'reused';
+      }
+    | undefined;
+}): AuditOutboxStagingPlan {
+  const bookingRef = canonicalReference('booking', input.bookingId);
+  const reasonCode =
+    input.mode === 'administrator'
+      ? ('manual_override' as const)
+      : ('scheduled_system_action' as const);
+  const explanation =
+    reasonCode === 'manual_override' ? 'Administrator rechecked the payment start gate' : undefined;
+
+  const issueRef =
+    input.issue === undefined ? undefined : canonicalReference('admin_issue', input.issue.issueId);
+  const effects: AuditOutboxStagingPlan['activityLog']['effects'] =
+    input.issue === undefined
+      ? []
+      : [
+          {
+            kind: 'admin_issue_opened',
+            subjectRef: issueRef,
+            summary:
+              input.issue.effect === 'opened'
+                ? 'Payment required at start; delivery restricted'
+                : 'Payment start gate rechecked; delivery still restricted',
+          },
+        ];
+
+  return {
+    activityLog: {
+      reason: {
+        registryVersion: AUDIT_REASON_REGISTRY_VERSION,
+        reasonCode,
+        ...(explanation === undefined ? {} : { explanation }),
+      },
+      primarySubject: {
+        kind: 'booking',
+        id: input.bookingId,
+        subjectKey: `booking:${input.bookingId}`,
+      },
+      affectedSubjects: issueRef === undefined ? [bookingRef] : [bookingRef, issueRef],
+      effects,
+      monetaryEventIds: [],
+      adminIssueIds: input.issue === undefined ? [] : [input.issue.issueId],
+      resultingRevisions:
+        input.issue === undefined
+          ? []
+          : [
+              {
+                subject: issueRef!,
+                revision: AggregateRevisionSchema.parse(input.issue.revision),
+              },
+            ],
+    },
+    outboxObligations: [],
   };
 }

@@ -14,6 +14,7 @@ export * from './auditOutboxStaging';
 export * from './bookingOccurrenceProposalChange';
 export * from './bookingCreation';
 export * from './courseEnrollmentAttendanceAdminIssue';
+export * from './adminIssuePolicy';
 export * from './deterministicIdentity';
 export * from './errors';
 export * from './identifiers';

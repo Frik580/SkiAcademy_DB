@@ -110,6 +110,8 @@ const runsOnFirestoreEmulator = Boolean(
   process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
 );
 
+const EMULATOR_CONCURRENCY_TIMEOUT_MS = 30_000;
+
 describe.skipIf(!runsOnFirestoreEmulator)('resource claim engine (firestore emulator)', () => {
   beforeAll(() => {
     process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
@@ -157,7 +159,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('resource claim engine (firestore emul
     const results = await Promise.all(attempts);
     expect(results.filter((result) => result === 'success')).toHaveLength(1);
     expect(results.filter((result) => result === 'instructor_conflict')).toHaveLength(7);
-  });
+  }, EMULATOR_CONCURRENCY_TIMEOUT_MS);
 
   it('allows concurrent non-overlapping claims in the same bucket', async () => {
     const executor = createFirestoreCanonicalTransactionExecutor(firestore);
@@ -203,7 +205,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('resource claim engine (firestore emul
     expect(entries.map((entry: { claimId: string }) => entry.claimId).sort()).toEqual(
       [...results].sort()
     );
-  }, 30_000);
+  }, EMULATOR_CONCURRENCY_TIMEOUT_MS);
 
   it('serializes overlapping participant claims so exactly one wins', async () => {
     const executor = createFirestoreCanonicalTransactionExecutor(firestore);
@@ -231,7 +233,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('resource claim engine (firestore emul
     const results = await Promise.all(attempts);
     expect(results.filter((result) => result === 'success')).toHaveLength(1);
     expect(results.filter((result) => result === 'participant_conflict')).toHaveLength(5);
-  });
+  }, EMULATOR_CONCURRENCY_TIMEOUT_MS);
 
   it('moves a claim without leaving duplicate guard occupancy', async () => {
     const executor = createFirestoreCanonicalTransactionExecutor(firestore);
@@ -296,5 +298,5 @@ describe.skipIf(!runsOnFirestoreEmulator)('resource claim engine (firestore emul
 
     expect(attempts.filter((result) => result === 'success')).toHaveLength(1);
     expect(attempts.filter((result) => result === 'duplicate_active_enrollment')).toHaveLength(1);
-  });
+  }, EMULATOR_CONCURRENCY_TIMEOUT_MS);
 });

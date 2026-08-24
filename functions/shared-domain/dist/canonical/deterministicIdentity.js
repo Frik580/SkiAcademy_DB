@@ -5,12 +5,12 @@ exports.activityLogIdFromCommandId = activityLogIdFromCommandId;
 exports.domainOutboxIdFromCommand = domainOutboxIdFromCommand;
 exports.monetaryEventIdFromCommandEffect = monetaryEventIdFromCommandEffect;
 exports.validateDeterministicIdentityInputs = validateDeterministicIdentityInputs;
-const node_crypto_1 = require("node:crypto");
+const sha256Hex_1 = require("./sha256Hex");
 const identifiers_1 = require("./identifiers");
 const DETERMINISTIC_ID_PART_SEPARATOR = '\u001f';
 function canonicalDeterministicHash(parts) {
     const payload = parts.join(DETERMINISTIC_ID_PART_SEPARATOR);
-    return (0, node_crypto_1.createHash)('sha256').update(payload, 'utf8').digest('hex');
+    return (0, sha256Hex_1.sha256Hex)(payload);
 }
 function activityLogIdFromCommandId(commandId) {
     return identifiers_1.ActivityLogIdSchema.parse(canonicalDeterministicHash(['audit:v1', commandId]));

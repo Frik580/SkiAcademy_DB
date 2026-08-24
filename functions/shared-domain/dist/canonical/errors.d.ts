@@ -6,6 +6,7 @@ export type CommandErrorCode = (typeof COMMAND_ERROR_CODES)[number];
 export declare const CommandErrorCodeSchema: z.ZodEnum<{
     expired: "expired";
     unauthorized: "unauthorized";
+    unavailable: "unavailable";
     forbidden: "forbidden";
     validation: "validation";
     insufficient_funds: "insufficient_funds";
@@ -19,7 +20,6 @@ export declare const CommandErrorCodeSchema: z.ZodEnum<{
     concurrent_modification: "concurrent_modification";
     invalid_transition: "invalid_transition";
     blocked_relationship: "blocked_relationship";
-    unavailable: "unavailable";
     idempotency_conflict: "idempotency_conflict";
     operation_too_large: "operation_too_large";
     audit_integrity_violation: "audit_integrity_violation";
@@ -129,6 +129,7 @@ export declare const CommandErrorTransportSchema: z.ZodObject<{
     code: z.ZodEnum<{
         expired: "expired";
         unauthorized: "unauthorized";
+        unavailable: "unavailable";
         forbidden: "forbidden";
         validation: "validation";
         insufficient_funds: "insufficient_funds";
@@ -142,7 +143,6 @@ export declare const CommandErrorTransportSchema: z.ZodObject<{
         concurrent_modification: "concurrent_modification";
         invalid_transition: "invalid_transition";
         blocked_relationship: "blocked_relationship";
-        unavailable: "unavailable";
         idempotency_conflict: "idempotency_conflict";
         operation_too_large: "operation_too_large";
         audit_integrity_violation: "audit_integrity_violation";

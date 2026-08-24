@@ -1,6 +1,7 @@
 import {
   CanonicalCommandError,
   ResourceClaimGuardSchema,
+  ResourceClaimGuardEntrySchema,
   ResourceClaimSchema,
   RESOURCE_CLAIM_STRATEGY_VERSION,
   buildResourceClaimIdentityInput,
@@ -16,6 +17,7 @@ import {
   resourceClaimIdFromIdentity,
   timestampFromDate,
   RESOURCE_CLAIM_PLANNING_ESTIMATES,
+  normalizeFirestoreDocument,
   type CommandId,
   type CorrelationId,
   type ResourceClaim,
@@ -56,6 +58,8 @@ interface LoadedGuardBucket {
   readonly guardId: ReturnType<typeof resourceClaimGuardIdFromBucketIdentity>;
   readonly path: string;
   readonly existing: ResourceClaimGuard | undefined;
+  readonly documentExists: boolean;
+  readonly conflictEntries: readonly ResourceClaimGuardEntry[];
 }
 
 export interface ResourceClaimOperationPlan {
@@ -83,19 +87,50 @@ function guardPathFor(guardId: ReturnType<typeof resourceClaimGuardIdFromBucketI
 }
 
 function parseClaim(data: Record<string, unknown> | undefined): ResourceClaim | undefined {
-  if (!data) {
+  const normalized = normalizeFirestoreDocument(data);
+  if (!normalized) {
     return undefined;
   }
-  const parsed = ResourceClaimSchema.safeParse(data);
+  const parsed = ResourceClaimSchema.safeParse(normalized);
   return parsed.success ? parsed.data : undefined;
 }
 
 function parseGuard(data: Record<string, unknown> | undefined): ResourceClaimGuard | undefined {
-  if (!data) {
+  const normalized = normalizeFirestoreDocument(data);
+  if (!normalized) {
     return undefined;
   }
-  const parsed = ResourceClaimGuardSchema.safeParse(data);
+  const parsed = ResourceClaimGuardSchema.safeParse(normalized);
   return parsed.success ? parsed.data : undefined;
+}
+
+function parseGuardEntries(data: Record<string, unknown> | undefined): ResourceClaimGuardEntry[] {
+  const normalized = normalizeFirestoreDocument(data);
+  if (!normalized || !Array.isArray(normalized.entries)) {
+    return [];
+  }
+
+  const entries: ResourceClaimGuardEntry[] = [];
+  for (const rawEntry of normalized.entries) {
+    if (!rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) {
+      continue;
+    }
+    const parsed = ResourceClaimGuardEntrySchema.safeParse(rawEntry);
+    if (parsed.success) {
+      entries.push(parsed.data);
+    }
+  }
+  return entries;
+}
+
+function conflictEntriesForBucket(
+  existing: ResourceClaimGuard | undefined,
+  rawData: Record<string, unknown> | undefined
+): readonly ResourceClaimGuardEntry[] {
+  if (existing) {
+    return existing.entries;
+  }
+  return parseGuardEntries(rawData);
 }
 
 function buildGuardEntry(claim: ResourceClaim): ResourceClaimGuardEntry {
@@ -124,7 +159,7 @@ function guardOccupancyMatchesClaim(
     if (!expectedKeys.has(bucket.bucket.bucketKey)) {
       continue;
     }
-    const hasEntry = (bucket.existing?.entries ?? []).some(
+    const hasEntry = bucket.conflictEntries.some(
       (entry) =>
         entry.claimId === claim.claimId &&
         entry.lifecycleStatus !== 'released' &&
@@ -176,6 +211,8 @@ function planGuardRead(
     guardId,
     path,
     existing: undefined,
+    documentExists: false,
+    conflictEntries: [],
   };
 }
 
@@ -188,9 +225,13 @@ async function loadGuardBuckets(
 
   for (const item of planned) {
     const snapshot = await session.tx.get({ path: item.path });
+    const rawData = snapshot.exists ? snapshot.data : undefined;
+    const existing = rawData ? parseGuard(rawData) : undefined;
     loaded.push({
       ...item,
-      existing: snapshot.exists ? parseGuard(snapshot.data) : undefined,
+      existing,
+      documentExists: snapshot.exists,
+      conflictEntries: conflictEntriesForBucket(existing, rawData),
     });
   }
 
@@ -218,7 +259,7 @@ function assertNoIntervalConflict(
   ignore: ResourceClaimReplacementIgnore | undefined
 ): void {
   for (const bucket of buckets) {
-    const entries = bucket.existing?.entries ?? [];
+    const entries = bucket.conflictEntries;
     const conflict = findGuardIntervalConflict(candidate, entries, ignore);
     if (conflict) {
       throw new CanonicalCommandError(conflictErrorCodeForResourceKind(resourceKind), {
@@ -268,8 +309,8 @@ function planGuardWritesForAcquire(
   const entry = buildGuardEntry(claim);
 
   return buckets.map((bucket) => {
-    const mergedEntries = mergeGuardEntries(bucket.existing?.entries ?? [], entry);
-    const mutationKind = bucket.existing ? 'update' : 'create';
+    const mergedEntries = mergeGuardEntries(bucket.conflictEntries, entry);
+    const mutationKind = bucket.documentExists ? 'update' : 'create';
 
     return {
       bucket: bucket.bucket,
@@ -415,7 +456,7 @@ export async function readAndPlanAcquireResourceClaim(
     .map((bucket) => {
       const inOld = oldBucketKeys.has(bucket.bucket.bucketKey);
       const inNew = newBucketKeys.has(bucket.bucket.bucketKey);
-      let entries = bucket.existing?.entries ?? [];
+      let entries = [...bucket.conflictEntries];
 
       if (inOld && existingClaim) {
         entries = removeGuardEntryByClaimId(entries, existingClaim.claimId);
@@ -425,19 +466,21 @@ export async function readAndPlanAcquireResourceClaim(
       }
 
       if (entries.length === 0) {
-        return bucket.existing
+        return bucket.documentExists
           ? {
               bucket: bucket.bucket,
               guardId: bucket.guardId,
               path: bucket.path,
               mutationKind: 'delete' as const,
               entries,
-              revision: nextAggregateRevision(bucket.existing.revision),
+              revision: bucket.existing
+                ? nextAggregateRevision(bucket.existing.revision)
+                : 1,
             }
           : undefined;
       }
 
-      const mutationKind = bucket.existing ? ('update' as const) : ('create' as const);
+      const mutationKind = bucket.documentExists ? ('update' as const) : ('create' as const);
       return {
         bucket: bucket.bucket,
         guardId: bucket.guardId,
@@ -597,7 +640,7 @@ export async function readAndPlanMoveResourceClaim(
     .map((bucket) => {
       const inOld = oldBucketKeys.has(bucket.bucket.bucketKey);
       const inNew = newBucketKeys.has(bucket.bucket.bucketKey);
-      let entries = bucket.existing?.entries ?? [];
+      let entries = [...bucket.conflictEntries];
 
       if (inOld) {
         entries = removeGuardEntryByClaimId(entries, existingClaim.claimId);
@@ -607,19 +650,21 @@ export async function readAndPlanMoveResourceClaim(
       }
 
       if (entries.length === 0) {
-        return bucket.existing
+        return bucket.documentExists
           ? {
               bucket: bucket.bucket,
               guardId: bucket.guardId,
               path: bucket.path,
               mutationKind: 'delete' as const,
               entries,
-              revision: nextAggregateRevision(bucket.existing.revision),
+              revision: bucket.existing
+                ? nextAggregateRevision(bucket.existing.revision)
+                : 1,
             }
           : undefined;
       }
 
-      const mutationKind = bucket.existing ? ('update' as const) : ('create' as const);
+      const mutationKind = bucket.documentExists ? ('update' as const) : ('create' as const);
       return {
         bucket: bucket.bucket,
         guardId: bucket.guardId,
@@ -704,10 +749,10 @@ export async function readAndPlanReleaseResourceClaim(
   const guardWrites = buckets
     .map((bucket) => {
       const entries = removeGuardEntryByClaimId(
-        bucket.existing?.entries ?? [],
+        bucket.conflictEntries,
         existingClaim.claimId
       );
-      if (!bucket.existing) {
+      if (!bucket.documentExists) {
         return undefined;
       }
       const mutationKind: 'delete' | 'update' = entries.length === 0 ? 'delete' : 'update';
@@ -717,7 +762,7 @@ export async function readAndPlanReleaseResourceClaim(
         path: bucket.path,
         mutationKind,
         entries,
-        revision: nextAggregateRevision(bucket.existing.revision),
+        revision: bucket.existing ? nextAggregateRevision(bucket.existing.revision) : 1,
       };
     })
     .filter((write): write is NonNullable<typeof write> => write !== undefined);

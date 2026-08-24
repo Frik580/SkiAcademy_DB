@@ -16,6 +16,7 @@ export * from './identifiers';
 export * from './paths';
 export * from './paymentWallet';
 export * from './primitives';
+export * from './firestoreSerialization';
 export * from './resourceClaims';
 export * from './resourceClaimGuards';
 export * from './validation';

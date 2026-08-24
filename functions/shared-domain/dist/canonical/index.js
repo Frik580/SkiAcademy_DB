@@ -32,6 +32,7 @@ __exportStar(require("./identifiers"), exports);
 __exportStar(require("./paths"), exports);
 __exportStar(require("./paymentWallet"), exports);
 __exportStar(require("./primitives"), exports);
+__exportStar(require("./firestoreSerialization"), exports);
 __exportStar(require("./resourceClaims"), exports);
 __exportStar(require("./resourceClaimGuards"), exports);
 __exportStar(require("./validation"), exports);

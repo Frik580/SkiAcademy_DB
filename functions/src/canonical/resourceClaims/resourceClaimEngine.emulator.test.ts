@@ -9,6 +9,8 @@ import {
   ParticipantIdSchema,
   ResourceClaimIdentityInputSchema,
   canonicalPaths,
+  expandUtcGuardBuckets,
+  resourceClaimGuardIdFromBucketIdentity,
   timestampFromDate,
   CourseEnrollmentIdSchema,
   CourseIdSchema,
@@ -159,6 +161,16 @@ describe.skipIf(!runsOnFirestoreEmulator)('resource claim engine (firestore emul
 
   it('allows concurrent non-overlapping claims in the same bucket', async () => {
     const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+    const sameBucketIntervals = [
+      interval('2026-01-15T04:00:00.000Z', '2026-01-15T05:00:00.000Z'),
+      interval('2026-01-15T06:00:00.000Z', '2026-01-15T07:00:00.000Z'),
+      interval('2026-01-15T08:00:00.000Z', '2026-01-15T09:00:00.000Z'),
+      interval('2026-01-15T10:00:00.000Z', '2026-01-15T11:00:00.000Z'),
+    ];
+    const [bucket] = expandUtcGuardBuckets('instructor', instructorId, sameBucketIntervals[0]!);
+    expect(bucket).toBeDefined();
+    const guardId = resourceClaimGuardIdFromBucketIdentity(bucket!.bucketIdentity);
+
     const results = await Promise.all(
       Array.from({ length: 4 }, (_, index) =>
         executor.runAtomic({
@@ -170,19 +182,28 @@ describe.skipIf(!runsOnFirestoreEmulator)('resource claim engine (firestore emul
                 `booking_claim_emulator_adj_${index}`,
                 `occurrence_claim_emulator_adj_${index}`
               ),
-              interval:
-                index % 2 === 0
-                  ? interval('2026-01-15T04:00:00.000Z', '2026-01-15T05:00:00.000Z')
-                  : interval('2026-01-15T14:00:00.000Z', '2026-01-15T15:00:00.000Z'),
+              interval: sameBucketIntervals[index]!,
             });
             await session.transitionToWrites();
             commitResourceClaimPlan(session, plan, metadata);
+            return plan.claim.claimId;
           },
         })
       )
     );
     expect(results).toHaveLength(4);
-  });
+    expect(new Set(results).size).toBe(4);
+
+    const guardDoc = await firestore
+      .doc(canonicalPaths.resourceClaimGuard(guardId).slice(1))
+      .get();
+    expect(guardDoc.exists).toBe(true);
+    const entries = guardDoc.data()?.entries ?? [];
+    expect(entries).toHaveLength(4);
+    expect(entries.map((entry: { claimId: string }) => entry.claimId).sort()).toEqual(
+      [...results].sort()
+    );
+  }, 30_000);
 
   it('serializes overlapping participant claims so exactly one wins', async () => {
     const executor = createFirestoreCanonicalTransactionExecutor(firestore);

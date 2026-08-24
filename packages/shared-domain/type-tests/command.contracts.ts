@@ -49,6 +49,8 @@ const _missingCreateFields: CommandIntentForKind<'create_confirmed_booking'> = c
 // @ts-expect-error kind literal must match envelope generic parameter
 const _wrongKindEnvelope: CommandEnvelope<'complete_booking'> = createEnvelope;
 
+void _missingCreateFields;
+void _wrongKindEnvelope;
 void completeEnvelope;
 void createEnvelope;
 

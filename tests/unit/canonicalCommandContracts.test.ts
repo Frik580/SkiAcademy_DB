@@ -36,8 +36,10 @@ const providerId = ProviderIdSchema.parse('provider_payment_01');
 function baseContext(
   overrides: Partial<{
     actor: ReturnType<typeof accountCommandActor>;
-    exercisedCapability: 'account_owner' | 'administrator' | 'guest' | 'system' | 'provider_callback';
-    source: 'client_callable' | 'admin_callable' | 'guest_callable' | 'scheduler' | 'provider_callback';
+    exercisedCapability:
+      'account_owner' | 'administrator' | 'guest' | 'system' | 'provider_callback';
+    source:
+      'client_callable' | 'admin_callable' | 'guest_callable' | 'scheduler' | 'provider_callback';
   }> = {}
 ) {
   return {
@@ -191,7 +193,10 @@ describe('stable public error boundary', () => {
   });
 
   it('maps unknown failures to internal without SDK leakage', () => {
-    const transport = toCommandErrorTransport(new Error('Firestore: collection/path leaked'), correlationId);
+    const transport = toCommandErrorTransport(
+      new Error('Firestore: collection/path leaked'),
+      correlationId
+    );
     expect(transport.code).toBe('internal');
     expect(transport.message).not.toContain('Firestore');
     expect(transport.message).not.toContain('collection');

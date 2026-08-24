@@ -54,13 +54,14 @@ async function clearCollections(collections: readonly string[]): Promise<void> {
   }
 }
 
-describe('participant access emulator concurrency', () => {
-  beforeAll(async () => {
-    if (getApps().length === 0) {
-      app = initializeApp({ projectId: PROJECT_ID });
-    } else {
-      app = getApps()[0]!;
-    }
+const runsOnFirestoreEmulator = Boolean(
+  process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
+);
+
+describe.skipIf(!runsOnFirestoreEmulator)('participant access emulator concurrency', () => {
+  beforeAll(() => {
+    process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
+    app = getApps().length > 0 ? getApps()[0]! : initializeApp({ projectId: PROJECT_ID });
     firestore = getFirestore(app);
   }, 30_000);
 

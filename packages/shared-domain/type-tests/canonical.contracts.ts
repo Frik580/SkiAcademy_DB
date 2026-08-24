@@ -1,7 +1,10 @@
 import {
   AccountIdSchema,
   ActivityLogIdSchema,
+  BookingChangeRequestSchema,
   BookingIdSchema,
+  BookingProposalSchema,
+  BookingSchema,
   CommandIdSchema,
   CorrelationIdSchema,
   CourseIdSchema,
@@ -227,3 +230,80 @@ void blockedDecisionContract;
 void unauthorizedDecisionContract;
 void invalidInstructorBlockContract;
 void canonicalPrimitiveFixtures;
+
+const bookingContract = BookingSchema.parse({
+  bookingId,
+  attribution: {
+    bookingOrigin: 'account',
+    bookedBy: accountActorRef(accountId),
+  },
+  party: {
+    kind: 'individual',
+    participantIds: [participantId],
+  },
+  occurrence: {
+    occurrenceId: OccurrenceIdSchema.parse('occurrence_contract_01'),
+    instructorId,
+    interval: canonicalPrimitiveFixtures.interval,
+    timeZone: canonicalPrimitiveFixtures.timeZone,
+    scheduleRevision: 1,
+    serviceParty: {
+      participantIds: [participantId],
+      frozenAt: canonicalPrimitiveFixtures.interval.startsAt,
+    },
+  },
+  lifecycle: { status: 'confirmed' },
+  paymentId,
+  payerAccountId: accountId,
+  ...accessMetadata,
+});
+
+BookingProposalSchema.parse({
+  proposalId: 'proposal_contract_01',
+  participantId,
+  instructorId,
+  proposedService: {
+    interval: canonicalPrimitiveFixtures.interval,
+    timeZone: canonicalPrimitiveFixtures.timeZone,
+  },
+  lifecycle: { status: 'open' },
+  ...accessMetadata,
+});
+
+BookingChangeRequestSchema.parse({
+  requestId: 'change_request_contract_01',
+  bookingId,
+  requestType: 'instructor_unavailable',
+  reason: 'Contract change request.',
+  lifecycle: { status: 'open' },
+  ...accessMetadata,
+});
+
+const invalidBookedByParticipant: typeof bookingContract = {
+  ...bookingContract,
+  attribution: {
+    bookingOrigin: 'account',
+    // @ts-expect-error bookedBy must remain an ActorRef, not a Participant identity.
+    bookedBy: participantId,
+  },
+};
+
+const invalidPayerParticipant: typeof bookingContract = {
+  ...bookingContract,
+  // @ts-expect-error payerAccountId must remain an Account identity, not a Participant identity.
+  payerAccountId: participantId,
+};
+
+const invalidPartyAccount: typeof bookingContract = {
+  ...bookingContract,
+  party: {
+    kind: 'individual',
+    // @ts-expect-error Booking party participantIds must remain Participant identities.
+    participantIds: [accountId],
+  },
+};
+
+void invalidBookedByParticipant;
+void invalidPayerParticipant;
+void invalidPartyAccount;
+void bookingContract;

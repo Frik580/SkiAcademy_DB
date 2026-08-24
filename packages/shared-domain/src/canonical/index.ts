@@ -1,5 +1,6 @@
 export * from './accountParticipantAccess';
 export * from './auditOutbox';
+export * from './bookingOccurrenceProposalChange';
 export * from './deterministicIdentity';
 export * from './errors';
 export * from './identifiers';

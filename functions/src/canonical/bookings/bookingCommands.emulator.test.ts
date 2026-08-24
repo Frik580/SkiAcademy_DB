@@ -21,11 +21,22 @@ import { createFirestoreCanonicalTransactionExecutor } from '../transactions/fir
 
 const PROJECT_ID = 'ski-academy-booking-emulator-test';
 const correlationId = CorrelationIdSchema.parse('correlation_booking_emulator_01');
+const correlationIdB = CorrelationIdSchema.parse('correlation_booking_emulator_02');
 const accountId = AccountIdSchema.parse('account_booking_emulator_01');
 const participantId = ParticipantIdSchema.parse('participant_booking_emulator_01');
+const participantIdB = ParticipantIdSchema.parse('participant_booking_emulator_02');
 const managementId = ParticipantManagementIdSchema.parse('management_booking_emulator_01');
+const managementIdB = ParticipantManagementIdSchema.parse('management_booking_emulator_02');
 const instructorId = InstructorIdSchema.parse('instructor_booking_emulator_01');
+const instructorIdB = InstructorIdSchema.parse('instructor_booking_emulator_02');
+const participantRaceInstructorIds = Array.from({ length: 6 }, (_, index) =>
+  InstructorIdSchema.parse(`instructor_booking_emulator_part_race_${index}`)
+);
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+
+const BOOKING_PRICE_KZT = 12_000;
+const WALLET_ONE_BOOKING_KZT = BOOKING_PRICE_KZT;
+const WALLET_TWO_BOOKINGS_KZT = BOOKING_PRICE_KZT * 2;
 
 let app: App;
 let firestore: Firestore;
@@ -33,6 +44,21 @@ let firestore: Firestore;
 const runsOnFirestoreEmulator = Boolean(
   process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
 );
+
+const COLLECTIONS_TO_CLEAR = [
+  'users',
+  'participants',
+  'participant_management',
+  'instructors',
+  'bookings',
+  'payments',
+  'monetary_events',
+  'resource_claims',
+  'resource_claim_guards',
+  'activity_logs',
+  'domain_outbox',
+  'command_idempotency',
+] as const;
 
 function seedAccount() {
   return AccountSchema.parse({
@@ -61,6 +87,51 @@ function seedWallet(balance: number) {
   });
 }
 
+function seedParticipantRecord(input: {
+  participantId: typeof participantId;
+  managementId: typeof managementId;
+}) {
+  return {
+    participantId: input.participantId,
+    displayName: `Emulator Participant ${input.participantId}`,
+    age: { kind: 'age_years', years: 22 },
+    skillLevel: 'intermediate',
+    discipline: 'ski',
+    management: { kind: 'managed', participantManagementId: input.managementId },
+    lifecycle: { status: 'active' },
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'command_seed_participant',
+      lastChangedByCommandId: 'command_seed_participant',
+      correlationId,
+    },
+  };
+}
+
+function seedManagementRecord(input: {
+  managementId: typeof managementId;
+  participantId: typeof participantId;
+}) {
+  return {
+    participantManagementId: input.managementId,
+    participantId: input.participantId,
+    accountId,
+    role: 'owner',
+    authority: 'self',
+    status: 'active',
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'command_seed_management',
+      lastChangedByCommandId: 'command_seed_management',
+      correlationId,
+    },
+  };
+}
+
 async function clearCollections(collections: readonly string[]): Promise<void> {
   for (const collection of collections) {
     const snapshot = await firestore.collection(collection).get();
@@ -73,83 +144,118 @@ async function clearCollections(collections: readonly string[]): Promise<void> {
   }
 }
 
-function bookingEnvelope(bookingId: string, idempotencyKey: string): CommandEnvelope<'create_confirmed_booking'> {
+function bookingEnvelope(input: {
+  bookingId: string;
+  idempotencyKey: string;
+  participantIds: readonly [typeof participantId];
+  instructorId: typeof instructorId;
+  correlation?: typeof correlationId;
+  localTime?: string;
+}): CommandEnvelope<'create_confirmed_booking'> {
   return {
     kind: 'create_confirmed_booking',
     context: {
       actor: accountCommandActor(accountId),
       exercisedCapability: 'account_owner',
-      idempotencyKey,
-      correlationId,
+      idempotencyKey: input.idempotencyKey,
+      correlationId: input.correlation ?? correlationId,
       source: 'client_callable',
       calendarInput: {
         localDate: '2026-01-15',
-        localTime: '09:00',
+        localTime: input.localTime ?? '09:00',
         durationMinutes: 60,
       },
       timezone: 'Asia/Almaty',
     },
     intent: {
-      bookingId: BookingIdSchema.parse(bookingId),
-      instructorId,
-      participantIds: [participantId],
+      bookingId: BookingIdSchema.parse(input.bookingId),
+      instructorId: input.instructorId,
+      participantIds: [...input.participantIds],
     },
   };
 }
 
-async function seedSharedFixture(): Promise<void> {
+async function seedInstructor(
+  id: typeof instructorId,
+  tariff: Readonly<{ pricePerHourKZT?: number; pricePerHour?: number; avatarUrl?: string }>
+): Promise<void> {
+  await firestore
+    .collection('instructors')
+    .doc(id)
+    .set({
+      id,
+      name: `Emulator Instructor ${id}`,
+      isAvailable: true,
+      ...tariff,
+    });
+}
+
+async function seedSharedFixture(walletBalance: number): Promise<void> {
   await firestore.collection('users').doc(accountId).set(seedAccount());
   await firestore
     .collection('users')
     .doc(accountId)
     .collection('wallet')
     .doc('state')
-    .set(seedWallet(500_000));
-  await firestore
-    .collection('participants')
-    .doc(participantId)
-    .set({
-      participantId,
-      displayName: 'Emulator Participant',
-      age: { kind: 'age_years', years: 22 },
-      skillLevel: 'intermediate',
-      discipline: 'ski',
-      management: { kind: 'managed', participantManagementId: managementId },
-      lifecycle: { status: 'active' },
-      revision: 1,
-      createdAt: decidedAt,
-      updatedAt: decidedAt,
-      audit: {
-        createdByCommandId: 'command_seed_participant',
-        lastChangedByCommandId: 'command_seed_participant',
-        correlationId,
-      },
-    });
-  await firestore
-    .collection('participant_management')
-    .doc(managementId)
-    .set({
-      participantManagementId: managementId,
-      participantId,
-      accountId,
-      role: 'owner',
-      authority: 'self',
-      status: 'active',
-      revision: 1,
-      createdAt: decidedAt,
-      updatedAt: decidedAt,
-      audit: {
-        createdByCommandId: 'command_seed_management',
-        lastChangedByCommandId: 'command_seed_management',
-        correlationId,
-      },
-    });
-  await firestore.collection('instructors').doc(instructorId).set({
-    id: instructorId,
-    name: 'Emulator Instructor',
-    pricePerHourKZT: 12_000,
-    isAvailable: true,
-  });
+    .set(seedWallet(walletBalance));
+
+  await firestore.collection('participants').doc(participantId).set(
+    seedParticipantRecord({ participantId, managementId })
+  );
+  await firestore.collection('participants').doc(participantIdB).set(
+    seedParticipantRecord({ participantId: participantIdB, managementId: managementIdB })
+  );
+
+  await firestore.collection('participant_management').doc(managementId).set(
+    seedManagementRecord({ managementId, participantId })
+  );
+  await firestore.collection('participant_management').doc(managementIdB).set(
+    seedManagementRecord({ managementId: managementIdB, participantId: participantIdB })
+  );
+
+  await seedInstructor(instructorId, { pricePerHourKZT: BOOKING_PRICE_KZT });
+  await seedInstructor(instructorIdB, { pricePerHourKZT: BOOKING_PRICE_KZT });
+}
+
+function createCommands() {
+  const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+  const environment = { clock: createAuthoritativeCommandClock(new Date('2026-01-01T00:00:00.000Z')) };
+  return createProductionCanonicalCommands(environment, executor);
+}
+
+async function durableCounts() {
+  const [bookings, payments, monetaryEvents, activityLogs, idempotency, claims, wallet] =
+    await Promise.all([
+      firestore.collection('bookings').get(),
+      firestore.collection('payments').get(),
+      firestore.collection('monetary_events').get(),
+      firestore.collection('activity_logs').get(),
+      firestore.collection('command_idempotency').get(),
+      firestore.collection('resource_claims').get(),
+      firestore
+        .collection('users')
+        .doc(accountId)
+        .collection('wallet')
+        .doc('state')
+        .get(),
+    ]);
+
+  const successfulIdempotency = idempotency.docs.filter(
+    (doc) => doc.data().completionState === 'completed'
+  );
+
+  return {
+    bookings: bookings.size,
+    payments: payments.size,
+    monetaryEvents: monetaryEvents.size,
+    activityLogs: activityLogs.size,
+    idempotency: idempotency.size,
+    successfulIdempotency: successfulIdempotency.length,
+    claims: claims.size,
+    walletBalance: wallet.data()?.balance as number | undefined,
+    bookingIds: bookings.docs.map((doc) => doc.id),
+    paymentIds: payments.docs.map((doc) => doc.id),
+  };
 }
 
 describe.skipIf(!runsOnFirestoreEmulator)('booking commands (firestore emulator)', () => {
@@ -166,33 +272,23 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking commands (firestore emulator)
   });
 
   beforeEach(async () => {
-    await clearCollections([
-      'users',
-      'participants',
-      'participant_management',
-      'instructors',
-      'bookings',
-      'payments',
-      'monetary_events',
-      'resource_claims',
-      'resource_claim_guards',
-      'activity_logs',
-      'domain_outbox',
-      'command_idempotency',
-    ]);
-    await seedSharedFixture();
+    await clearCollections([...COLLECTIONS_TO_CLEAR]);
+    await seedSharedFixture(WALLET_TWO_BOOKINGS_KZT);
   }, 30_000);
 
   it(
     'serializes overlapping instructor booking races so exactly one wins',
     async () => {
-      const executor = createFirestoreCanonicalTransactionExecutor(firestore);
-      const environment = { clock: createAuthoritativeCommandClock(new Date('2026-01-01T00:00:00.000Z')) };
-      const commands = createProductionCanonicalCommands(environment, executor);
+      const commands = createCommands();
       const attempts = await Promise.all(
         Array.from({ length: 6 }, (_, index) =>
           commands.execute(
-            bookingEnvelope(`booking_booking_emulator_race_${index}`, `booking-race-${index}`)
+            bookingEnvelope({
+              bookingId: `booking_booking_emulator_race_${index}`,
+              idempotencyKey: `booking-race-${index}`,
+              participantIds: [participantId],
+              instructorId,
+            })
           )
         )
       );
@@ -202,6 +298,164 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking commands (firestore emulator)
       );
       expect(successes.length).toBe(1);
       expect(conflicts.length).toBe(5);
+
+      const state = await durableCounts();
+      expect(state.bookings).toBe(1);
+      expect(state.payments).toBe(1);
+      expect(state.monetaryEvents).toBe(1);
+      expect(state.activityLogs).toBe(1);
+      expect(state.successfulIdempotency).toBe(1);
+      expect(state.claims).toBe(2);
+      expect(state.walletBalance).toBe(WALLET_TWO_BOOKINGS_KZT - BOOKING_PRICE_KZT);
+    },
+    30_000
+  );
+
+  it(
+    'serializes overlapping participant booking races so exactly one wins',
+    async () => {
+      for (const raceInstructorId of participantRaceInstructorIds) {
+        await seedInstructor(raceInstructorId, { pricePerHourKZT: BOOKING_PRICE_KZT });
+      }
+
+      const commands = createCommands();
+      const attempts = await Promise.all(
+        Array.from({ length: 6 }, (_, index) =>
+          commands.execute(
+            bookingEnvelope({
+              bookingId: `booking_booking_emulator_participant_race_${index}`,
+              idempotencyKey: `booking-participant-race-${index}`,
+              participantIds: [participantId],
+              instructorId: participantRaceInstructorIds[index]!,
+            })
+          )
+        )
+      );
+      const successes = attempts.filter((attempt) => attempt.status === 'success');
+      const conflicts = attempts.filter(
+        (attempt) => attempt.status === 'error' && attempt.error.code === 'participant_conflict'
+      );
+      expect(successes.length).toBe(1);
+      expect(conflicts.length).toBe(5);
+
+      const state = await durableCounts();
+      expect(state.bookings).toBe(1);
+      expect(state.payments).toBe(1);
+      expect(state.monetaryEvents).toBe(1);
+      expect(state.activityLogs).toBe(1);
+      expect(state.successfulIdempotency).toBe(1);
+      expect(state.claims).toBe(2);
+      expect(state.walletBalance).toBe(WALLET_TWO_BOOKINGS_KZT - BOOKING_PRICE_KZT);
+    },
+    30_000
+  );
+
+  it(
+    'prevents concurrent wallet debits from funding two separate bookings on the same wallet',
+    async () => {
+      const commands = createCommands();
+      const envelopeA = bookingEnvelope({
+        bookingId: 'booking_booking_emulator_wallet_a',
+        idempotencyKey: 'booking-wallet-contention-a',
+        participantIds: [participantId],
+        instructorId,
+        correlation: correlationId,
+        localTime: '09:00',
+      });
+      const envelopeB = bookingEnvelope({
+        bookingId: 'booking_booking_emulator_wallet_b',
+        idempotencyKey: 'booking-wallet-contention-b',
+        participantIds: [participantIdB],
+        instructorId: instructorIdB,
+        correlation: correlationIdB,
+        localTime: '11:00',
+      });
+
+      await clearCollections([...COLLECTIONS_TO_CLEAR]);
+      await seedSharedFixture(WALLET_ONE_BOOKING_KZT);
+      const aloneA = await commands.execute(envelopeA);
+      expect(aloneA.status).toBe('success');
+
+      await clearCollections([...COLLECTIONS_TO_CLEAR]);
+      await seedSharedFixture(WALLET_ONE_BOOKING_KZT);
+      const aloneB = await commands.execute(envelopeB);
+      expect(aloneB.status).toBe('success');
+
+      await clearCollections([...COLLECTIONS_TO_CLEAR]);
+      await seedSharedFixture(WALLET_ONE_BOOKING_KZT);
+
+      const settled = await Promise.allSettled([
+        commands.execute(envelopeA),
+        commands.execute(envelopeB),
+      ]);
+      expect(settled.every((outcome) => outcome.status === 'fulfilled')).toBe(true);
+
+      const resultA = settled[0]?.status === 'fulfilled' ? settled[0].value : undefined;
+      const resultB = settled[1]?.status === 'fulfilled' ? settled[1].value : undefined;
+      const successes = [resultA, resultB].filter((result) => result?.status === 'success');
+      const insufficient = [resultA, resultB].filter(
+        (result) => result?.status === 'error' && result.error.code === 'insufficient_funds'
+      );
+
+      expect(successes).toHaveLength(1);
+      expect(insufficient).toHaveLength(1);
+
+      const state = await durableCounts();
+      expect(state.bookings).toBe(1);
+      expect(state.payments).toBe(1);
+      expect(state.monetaryEvents).toBe(1);
+      expect(state.activityLogs).toBe(1);
+      expect(state.successfulIdempotency).toBe(1);
+      expect(state.claims).toBe(2);
+      expect(state.walletBalance).toBe(0);
+
+      const winnerBookingId = state.bookingIds[0]!;
+      const loserBookingId =
+        winnerBookingId === envelopeA.intent.bookingId
+          ? envelopeB.intent.bookingId
+          : envelopeA.intent.bookingId;
+      expect(state.paymentIds).toEqual([paymentIdFromBookingId(winnerBookingId)]);
+      expect(state.paymentIds).not.toContain(paymentIdFromBookingId(loserBookingId));
+    },
+    30_000
+  );
+
+  it(
+    'commits booking creation through real Firestore without undefined-field write failures',
+    async () => {
+      await clearCollections([...COLLECTIONS_TO_CLEAR]);
+      await firestore.collection('users').doc(accountId).set(seedAccount());
+      await firestore
+        .collection('users')
+        .doc(accountId)
+        .collection('wallet')
+        .doc('state')
+        .set(seedWallet(WALLET_ONE_BOOKING_KZT));
+      await firestore.collection('participants').doc(participantId).set(
+        seedParticipantRecord({ participantId, managementId })
+      );
+      await firestore.collection('participant_management').doc(managementId).set(
+        seedManagementRecord({ managementId, participantId })
+      );
+      await seedInstructor(instructorId, { pricePerHour: 120 });
+
+      const commands = createCommands();
+      const result = await commands.execute(
+        bookingEnvelope({
+          bookingId: 'booking_booking_emulator_firestore_boundary',
+          idempotencyKey: 'booking-firestore-boundary',
+          participantIds: [participantId],
+          instructorId,
+        })
+      );
+      expect(result.status).toBe('success');
+
+      const bookingDoc = await firestore
+        .collection('bookings')
+        .doc('booking_booking_emulator_firestore_boundary')
+        .get();
+      expect(bookingDoc.exists).toBe(true);
+      expect(bookingDoc.data()?.lifecycle).toEqual({ status: 'confirmed' });
     },
     30_000
   );
@@ -209,21 +463,22 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking commands (firestore emulator)
   it(
     'replays the same idempotency key without duplicate booking or payment writes',
     async () => {
-      const executor = createFirestoreCanonicalTransactionExecutor(firestore);
-      const environment = { clock: createAuthoritativeCommandClock(new Date('2026-01-01T00:00:00.000Z')) };
-      const commands = createProductionCanonicalCommands(environment, executor);
-      const envelope = bookingEnvelope('booking_booking_emulator_replay', 'booking-replay-emulator');
+      const commands = createCommands();
+      const envelope = bookingEnvelope({
+        bookingId: 'booking_booking_emulator_replay',
+        idempotencyKey: 'booking-replay-emulator',
+        participantIds: [participantId],
+        instructorId,
+      });
       const first = await commands.execute(envelope);
       const second = await commands.execute(envelope);
       expect(first.status).toBe('success');
       expect(second.status).toBe('success');
-      const bookings = await firestore.collection('bookings').get();
-      const payments = await firestore.collection('payments').get();
-      const monetaryEvents = await firestore.collection('monetary_events').get();
-      expect(bookings.size).toBe(1);
-      expect(payments.size).toBe(1);
-      expect(monetaryEvents.size).toBe(1);
-      expect(payments.docs[0]!.id).toBe(
+      const state = await durableCounts();
+      expect(state.bookings).toBe(1);
+      expect(state.payments).toBe(1);
+      expect(state.monetaryEvents).toBe(1);
+      expect(state.paymentIds[0]).toBe(
         paymentIdFromBookingId(BookingIdSchema.parse('booking_booking_emulator_replay'))
       );
     },

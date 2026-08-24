@@ -1,0 +1,159 @@
+import { z } from 'zod';
+import type { CommandKind } from './commandKinds';
+export declare const CommandIntentSchemaByKind: {
+    create_confirmed_booking: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+        instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"instructor">, string>>;
+        participantIds: z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>>;
+    }, z.core.$strict>;
+    create_guest_booking_request: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+        instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"instructor">, string>>;
+        participantIds: z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>>;
+    }, z.core.$strict>;
+    confirm_guest_booking: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+    }, z.core.$strict>;
+    link_guest_booking_to_account: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+        participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>;
+    }, z.core.$strict>;
+    request_booking_cancellation: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+    }, z.core.$strict>;
+    withdraw_booking_cancellation_request: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+    }, z.core.$strict>;
+    resolve_booking_cancellation: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+    }, z.core.$strict>;
+    reschedule_booking: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+    }, z.core.$strict>;
+    change_booking_instructor: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+    }, z.core.$strict>;
+    change_booking_duration: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+    }, z.core.$strict>;
+    change_booking_party: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+    }, z.core.$strict>;
+    complete_booking: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+    }, z.core.$strict>;
+    record_booking_no_show: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+    }, z.core.$strict>;
+    create_course_enrollments: z.ZodObject<{
+        courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course">, string>>;
+        participantIds: z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>>;
+    }, z.core.$strict>;
+    transfer_course_enrollment: z.ZodObject<{
+        courseEnrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_enrollment">, string>>;
+    }, z.core.$strict>;
+    withdraw_course_enrollment: z.ZodObject<{
+        courseEnrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_enrollment">, string>>;
+    }, z.core.$strict>;
+    request_course_enrollment_cancellation: z.ZodObject<{
+        courseEnrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_enrollment">, string>>;
+    }, z.core.$strict>;
+    resolve_course_enrollment_cancellation: z.ZodObject<{
+        courseEnrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_enrollment">, string>>;
+    }, z.core.$strict>;
+    create_booking_proposal: z.ZodObject<{
+        bookingProposalId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking_proposal">, string>>;
+        instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"instructor">, string>>;
+        participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>;
+    }, z.core.$strict>;
+    accept_booking_proposal: z.ZodObject<{
+        bookingProposalId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking_proposal">, string>>;
+    }, z.core.$strict>;
+    cancel_booking_proposal: z.ZodObject<{
+        bookingProposalId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking_proposal">, string>>;
+    }, z.core.$strict>;
+    expire_booking_proposal: z.ZodObject<{
+        bookingProposalId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking_proposal">, string>>;
+    }, z.core.$strict>;
+    create_booking_change_request: z.ZodObject<{
+        bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking_change_request">, string>>;
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+    }, z.core.$strict>;
+    withdraw_booking_change_request: z.ZodObject<{
+        bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking_change_request">, string>>;
+    }, z.core.$strict>;
+    resolve_booking_change_request: z.ZodObject<{
+        bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking_change_request">, string>>;
+    }, z.core.$strict>;
+    expire_guest_reservation: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+    }, z.core.$strict>;
+    enforce_payment_start_gate: z.ZodObject<{
+        subjectKind: z.ZodEnum<{
+            booking: "booking";
+            course_enrollment: "course_enrollment";
+        }>;
+        subjectId: z.ZodString;
+    }, z.core.$strict>;
+    resolve_attendance_outcome: z.ZodObject<{
+        subjectKind: z.ZodEnum<{
+            booking: "booking";
+            course_enrollment: "course_enrollment";
+        }>;
+        subjectId: z.ZodString;
+    }, z.core.$strict>;
+    create_participant: z.ZodObject<{
+        participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>;
+        displayName: z.ZodString;
+    }, z.core.$strict>;
+    update_participant_profile: z.ZodObject<{
+        participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>;
+    }, z.core.$strict>;
+    assign_participant_management: z.ZodObject<{
+        participantManagementId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant_management">, string>>;
+        participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>;
+    }, z.core.$strict>;
+    revoke_participant_management: z.ZodObject<{
+        participantManagementId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant_management">, string>>;
+    }, z.core.$strict>;
+    create_instructor_relationship: z.ZodObject<{
+        instructorRelationshipId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"instructor_relationship">, string>>;
+        instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"instructor">, string>>;
+        participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>;
+    }, z.core.$strict>;
+    revoke_instructor_relationship: z.ZodObject<{
+        instructorRelationshipId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"instructor_relationship">, string>>;
+    }, z.core.$strict>;
+    block_participant: z.ZodObject<{
+        participantBlockId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant_block">, string>>;
+        participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>;
+        instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"instructor">, string>>;
+    }, z.core.$strict>;
+    unblock_participant: z.ZodObject<{
+        participantBlockId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant_block">, string>>;
+    }, z.core.$strict>;
+    record_provider_payment_event: z.ZodObject<{
+        paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"payment">, string>>;
+    }, z.core.$strict>;
+    record_manual_wallet_funding: z.ZodObject<{}, z.core.$strict>;
+    adjust_service_price: z.ZodObject<{
+        paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"payment">, string>>;
+    }, z.core.$strict>;
+    record_financial_correction: z.ZodObject<{
+        paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"payment">, string>>;
+    }, z.core.$strict>;
+    record_audit_correction: z.ZodObject<{}, z.core.$strict>;
+    create_course_day: z.ZodObject<{
+        courseDayId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_day">, string>>;
+        courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course">, string>>;
+        instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"instructor">, string>>;
+    }, z.core.$strict>;
+    reassign_course_day_instructor: z.ZodObject<{
+        courseDayId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_day">, string>>;
+    }, z.core.$strict>;
+};
+export type CommandIntentForKind<Kind extends CommandKind> = z.output<(typeof CommandIntentSchemaByKind)[Kind]>;
+export type CommandIntentMap = {
+    [Kind in CommandKind]: CommandIntentForKind<Kind>;
+};
+export declare function parseCommandIntent<Kind extends CommandKind>(kind: Kind, input: unknown): z.ZodSafeParseResult<CommandIntentForKind<Kind>>;

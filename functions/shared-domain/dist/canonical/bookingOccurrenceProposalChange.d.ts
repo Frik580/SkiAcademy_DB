@@ -50,10 +50,10 @@ export declare const BookingCancellationReasonCodeSchema: z.ZodEnum<{
 export declare const BookingProposalStatusSchema: z.ZodEnum<{
     cancelled: "cancelled";
     expired: "expired";
+    unavailable: "unavailable";
     open: "open";
     accepted: "accepted";
     declined: "declined";
-    unavailable: "unavailable";
 }>;
 export declare const BookingProposalCancellationReasonCodeSchema: z.ZodEnum<{
     instructor_withdrawn: "instructor_withdrawn";

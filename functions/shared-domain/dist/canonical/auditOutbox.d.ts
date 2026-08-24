@@ -103,10 +103,10 @@ export declare const ActivityLogSchema: z.ZodObject<{
     exercisedCapability: z.ZodEnum<{
         instructor: "instructor";
         guest: "guest";
-        parent_guardian: "parent_guardian";
-        administrator: "administrator";
         system: "system";
         account_owner: "account_owner";
+        parent_guardian: "parent_guardian";
+        administrator: "administrator";
         provider_callback: "provider_callback";
     }>;
     source: z.ZodEnum<{

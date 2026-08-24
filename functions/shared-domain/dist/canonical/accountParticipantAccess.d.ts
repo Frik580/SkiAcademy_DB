@@ -113,8 +113,8 @@ export declare const ParticipantManagementSchema: z.ZodDiscriminatedUnion<[z.Zod
     participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"participant">, string>>;
     role: z.ZodLiteral<"owner">;
     authority: z.ZodEnum<{
-        self: "self";
         parent_guardian: "parent_guardian";
+        self: "self";
     }>;
 }, z.core.$strict>, z.ZodObject<{
     status: z.ZodLiteral<"ended">;
@@ -141,8 +141,8 @@ export declare const ParticipantManagementSchema: z.ZodDiscriminatedUnion<[z.Zod
     participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"participant">, string>>;
     role: z.ZodLiteral<"owner">;
     authority: z.ZodEnum<{
-        self: "self";
         parent_guardian: "parent_guardian";
+        self: "self";
     }>;
 }, z.core.$strict>], "status">;
 export type ParticipantManagement = Readonly<z.output<typeof ParticipantManagementSchema>>;
@@ -485,8 +485,8 @@ export declare const ParticipantAccessTopologySchema: z.ZodObject<{
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"participant">, string>>;
         role: z.ZodLiteral<"owner">;
         authority: z.ZodEnum<{
-            self: "self";
             parent_guardian: "parent_guardian";
+            self: "self";
         }>;
     }, z.core.$strict>, z.ZodObject<{
         status: z.ZodLiteral<"ended">;
@@ -513,8 +513,8 @@ export declare const ParticipantAccessTopologySchema: z.ZodObject<{
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"participant">, string>>;
         role: z.ZodLiteral<"owner">;
         authority: z.ZodEnum<{
-            self: "self";
             parent_guardian: "parent_guardian";
+            self: "self";
         }>;
     }, z.core.$strict>], "status">>;
     activeOwnerGuards: z.ZodArray<z.ZodObject<{

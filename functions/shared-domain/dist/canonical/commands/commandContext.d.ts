@@ -58,6 +58,7 @@ export type CommandContext = z.output<typeof CommandContextSchema>;
 export interface AuthoritativeCommandClock {
     now(): Date;
     decidedAt(): Date;
+    committedAt(): Date;
 }
 export interface CommandExecutionEnvironment {
     readonly clock: AuthoritativeCommandClock;

@@ -11,6 +11,8 @@ import {
   toStoredCommandResult,
   assertExpectedRevision,
   nextAggregateRevision,
+  validateAuditOutboxStagingPlan,
+  type AuditOutboxStagingPlan,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
   type CommandIdempotencyRecord,
@@ -22,6 +24,11 @@ import type {
   CanonicalTransactionDocumentRef,
   CanonicalTransactionExecutor,
 } from '../transactions';
+import {
+  prepareAuditOutboxReads,
+  stageAuditOutboxInTransaction,
+  committedAtFromEnvironment,
+} from '../auditOutbox';
 
 export interface IdempotentCommandRevisionTarget {
   readonly ref: CanonicalTransactionDocumentRef;
@@ -36,6 +43,9 @@ export interface IdempotentCommandWriteContext {
 
 export interface IdempotentCanonicalCommandHandler<Kind extends CommandKind> {
   readonly read?: (session: CanonicalAtomicTransactionSession) => Promise<void>;
+  readonly planAuditOutbox?: (
+    session: CanonicalAtomicTransactionSession
+  ) => Promise<AuditOutboxStagingPlan>;
   readonly execute: (
     session: CanonicalAtomicTransactionSession,
     context: IdempotentCommandWriteContext
@@ -48,6 +58,10 @@ export interface ExecuteIdempotentCanonicalCommandInput<Kind extends CommandKind
   readonly executor: CanonicalTransactionExecutor;
   readonly revisionTarget?: IdempotentCommandRevisionTarget;
   readonly handler: IdempotentCanonicalCommandHandler<Kind>;
+  /**
+   * When true, a successful result requires staged audit/outbox via planAuditOutbox.
+   */
+  readonly requireAuditOnSuccess?: boolean;
 }
 
 function completionStateForResult(
@@ -89,7 +103,8 @@ function toTransactionPath(path: string): string {
 export async function executeIdempotentCanonicalCommand<Kind extends CommandKind>(
   input: ExecuteIdempotentCanonicalCommandInput<Kind>
 ): Promise<CommandResult<Kind>> {
-  const { envelope, environment, executor, revisionTarget, handler } = input;
+  const { envelope, environment, executor, revisionTarget, handler, requireAuditOnSuccess } =
+    input;
   const identity = resolveCommandIdempotencyIdentity(envelope);
   const idempotencyPath = toTransactionPath(identity.recordPath);
 
@@ -137,6 +152,30 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
           await handler.read(session);
         }
 
+        let auditPlan: AuditOutboxStagingPlan | undefined;
+        let preparedAuditReads: Awaited<ReturnType<typeof prepareAuditOutboxReads>> | undefined;
+
+        if (handler.planAuditOutbox !== undefined) {
+          auditPlan = await handler.planAuditOutbox(session);
+          validateAuditOutboxStagingPlan(envelope, auditPlan);
+          preparedAuditReads = await prepareAuditOutboxReads(
+            session,
+            identity.commandKey,
+            auditPlan
+          );
+        } else if (requireAuditOnSuccess) {
+          throw new CanonicalCommandError('internal', {
+            correlationId: envelope.context.correlationId,
+          });
+        }
+
+        session.plan.planMutation({
+          path: idempotencyPath,
+          kind: 'create',
+          category: 'idempotency',
+          estimatedPayloadBytes: 2048,
+        });
+
         await session.transitionToWrites();
 
         const decidedAt = environment.clock.decidedAt();
@@ -156,14 +195,34 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
           });
         }
 
+        if (
+          result.status === 'success' &&
+          requireAuditOnSuccess &&
+          auditPlan === undefined
+        ) {
+          throw new CanonicalCommandError('internal', {
+            correlationId: envelope.context.correlationId,
+          });
+        }
+
+        if (
+          result.status === 'success' &&
+          auditPlan !== undefined &&
+          preparedAuditReads !== undefined
+        ) {
+          stageAuditOutboxInTransaction({
+            session,
+            envelope,
+            commandId: identity.commandKey,
+            decidedAt,
+            committedAt: committedAtFromEnvironment(environment),
+            plan: auditPlan,
+            preparedReads: preparedAuditReads,
+          });
+        }
+
         if (shouldPersistIdempotencyOutcome(result)) {
           const record = buildIdempotencyRecord(envelope, identity, result, decidedAt);
-          session.plan.planMutation({
-            path: idempotencyPath,
-            kind: 'create',
-            category: 'idempotency',
-            estimatedPayloadBytes: 2048,
-          });
           session.tx.create({ path: idempotencyPath }, record);
         }
 

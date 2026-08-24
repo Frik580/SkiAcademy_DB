@@ -14,12 +14,7 @@ export const IdempotencyKeySchema = z
 export type IdempotencyKey = z.output<typeof IdempotencyKeySchema>;
 
 export const CommandTransportMetadataSchema = z
-  .record(
-    z
-      .string()
-      .regex(/^[a-z][a-z0-9_]{0,31}$/),
-    z.string().max(256)
-  )
+  .record(z.string().regex(/^[a-z][a-z0-9_]{0,31}$/), z.string().max(256))
   .refine((value) => Object.keys(value).length <= 16, 'Transport metadata is bounded');
 
 export type CommandTransportMetadata = z.output<typeof CommandTransportMetadataSchema>;
@@ -28,7 +23,12 @@ export const CommandCalendarInputSchema = z
   .object({
     localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     localTime: z.string().regex(/^\d{2}:\d{2}$/),
-    durationMinutes: z.number().finite().int().positive().max(24 * 60),
+    durationMinutes: z
+      .number()
+      .finite()
+      .int()
+      .positive()
+      .max(24 * 60),
   })
   .strict();
 
@@ -54,6 +54,7 @@ export type CommandContext = z.output<typeof CommandContextSchema>;
 export interface AuthoritativeCommandClock {
   now(): Date;
   decidedAt(): Date;
+  committedAt(): Date;
 }
 
 export interface CommandExecutionEnvironment {

@@ -1,12 +1,17 @@
 import {
   AccountIdSchema,
   ActivityLogIdSchema,
+  AdminIssueIdSchema,
+  AttendanceIdSchema,
   BookingChangeRequestSchema,
   BookingIdSchema,
   BookingProposalSchema,
   BookingSchema,
   CommandIdSchema,
   CorrelationIdSchema,
+  CourseDayIdSchema,
+  CourseEnrollmentIdSchema,
+  CourseEnrollmentSchema,
   CourseIdSchema,
   DomainOutboxIdSchema,
   GuestSubjectIdSchema,
@@ -24,6 +29,9 @@ import {
   accountActorRef,
   activeCourseEnrollmentGuardKey,
   activityLogIdFromCommandId,
+  adminIssueDedupeKeyFromIdentity,
+  adminIssueIdFromDedupeKey,
+  attendanceIdFromBookingIdentity,
   canonicalPaths,
   canonicalReference,
   domainOutboxIdFromCommand,
@@ -307,3 +315,67 @@ void invalidBookedByParticipant;
 void invalidPayerParticipant;
 void invalidPartyAccount;
 void bookingContract;
+
+const courseEnrollmentId = CourseEnrollmentIdSchema.parse('course_enrollment_contract_01');
+const courseDayId = CourseDayIdSchema.parse('course_day_contract_01');
+const attendanceId = attendanceIdFromBookingIdentity({
+  strategyVersion: 'attendance:v1',
+  subjectKind: 'booking',
+  occurrenceId: OccurrenceIdSchema.parse('occurrence_contract_01'),
+  participantId,
+});
+AttendanceIdSchema.parse(attendanceId);
+const adminIssueId = adminIssueIdFromDedupeKey(
+  adminIssueDedupeKeyFromIdentity({
+    strategyVersion: 'issue:v1',
+    kind: 'missing_attendance',
+    subjectKind: 'course_enrollment',
+    subjectId: courseEnrollmentId,
+    participantId,
+    courseDayId,
+  })
+);
+AdminIssueIdSchema.parse(adminIssueId);
+
+CourseEnrollmentSchema.parse({
+  enrollmentId: courseEnrollmentId,
+  participantId,
+  courseId,
+  originalCourseId: courseId,
+  attribution: {
+    bookingOrigin: 'account',
+    bookedBy: accountActorRef(accountId),
+  },
+  lifecycle: { status: 'confirmed' },
+  paymentId,
+  payerAccountId: accountId,
+  ...accessMetadata,
+});
+
+canonicalReference('course_enrollment', courseEnrollmentId);
+canonicalPaths.courseEnrollment(courseEnrollmentId);
+canonicalPaths.courseDay(courseId, courseDayId);
+canonicalPaths.attendance(attendanceId);
+canonicalPaths.adminIssue(adminIssueId);
+
+// @ts-expect-error A CourseEnrollment ID cannot address a Booking document.
+canonicalPaths.booking(courseEnrollmentId);
+
+// @ts-expect-error A Booking ID cannot address a CourseEnrollment document.
+canonicalPaths.courseEnrollment(bookingId);
+
+// @ts-expect-error A CourseDay ID cannot address an Attendance document path without attendance ID.
+canonicalPaths.attendance(courseDayId);
+
+// @ts-expect-error Branded aggregate IDs are not interchangeable across Course delivery roots.
+const crossEnrollmentId: BookingId = courseEnrollmentId;
+
+// @ts-expect-error Attendance IDs cannot substitute for AdminIssue IDs.
+const crossAdminIssueId: AdminIssueId = attendanceId;
+
+// @ts-expect-error Participant IDs cannot substitute for CourseDay IDs.
+const crossCourseDayId: CourseDayId = participantId;
+
+void crossEnrollmentId;
+void crossAdminIssueId;
+void crossCourseDayId;

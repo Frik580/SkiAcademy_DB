@@ -17,6 +17,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./accountParticipantAccess"), exports);
 __exportStar(require("./auditOutbox"), exports);
 __exportStar(require("./bookingOccurrenceProposalChange"), exports);
+__exportStar(require("./courseEnrollmentAttendanceAdminIssue"), exports);
 __exportStar(require("./deterministicIdentity"), exports);
 __exportStar(require("./errors"), exports);
 __exportStar(require("./identifiers"), exports);

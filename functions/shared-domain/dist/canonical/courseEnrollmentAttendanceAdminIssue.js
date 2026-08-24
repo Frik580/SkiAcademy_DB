@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AdminIssueSchema = exports.AdminIssueDedupeIdentityInputSchema = exports.AdminIssueSubjectRefSchema = exports.ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION = exports.AdminIssueSeveritySchema = exports.ADMIN_ISSUE_SEVERITIES = exports.AdminIssueLifecycleStatusSchema = exports.ADMIN_ISSUE_LIFECYCLE_STATUSES = exports.AdminIssueKindSchema = exports.ADMIN_ISSUE_KINDS = exports.UnknownAttendanceStatusShapeSchema = exports.AttendanceSchema = exports.CourseDayAttendanceIdentityInputSchema = exports.BookingAttendanceIdentityInputSchema = exports.ATTENDANCE_IDENTITY_STRATEGY_VERSION = exports.AttendanceSubjectRefSchema = exports.CourseEnrollmentAttendanceSubjectRefSchema = exports.BookingAttendanceSubjectRefSchema = exports.AttendanceRecorderSchema = exports.AttendanceSubjectKindSchema = exports.ATTENDANCE_SUBJECT_KINDS = exports.AttendanceStatusSchema = exports.ATTENDANCE_STATUSES = exports.LegacyCourseEnrollmentBookingShapeSchema = exports.WholeCourseCancellationShapeSchema = exports.LegacyCourseScheduleShapeSchema = exports.StructuredCourseDeliverySchema = exports.CourseEnrollmentSchema = exports.CourseEnrollmentAttendanceSummarySchema = exports.CourseEnrollmentCancellationReasonCodeSchema = exports.CourseEnrollmentLifecycleStatusSchema = exports.COURSE_ENROLLMENT_CANCELLATION_REASON_CODES = exports.COURSE_ENROLLMENT_LIFECYCLE_STATUSES = exports.AdminIssueDedupeKeySchema = exports.CourseDaySchema = exports.CourseSchema = exports.CourseCapacitySchema = exports.CourseScheduleProjectionSchema = exports.LEGACY_COURSE_ENROLLMENT_BOOKING_FIELD_NAMES = exports.WHOLE_COURSE_CANCELLATION_FIELD_NAMES = exports.LEGACY_COURSE_SCHEDULE_FIELD_NAMES = exports.COURSE_SCHEDULE_PROJECTION_FIELDS = exports.COURSE_DAY_MAX = exports.COURSE_SEAT_MAX = exports.COURSE_SEAT_MIN = void 0;
+exports.AdminIssueSchema = exports.AdminIssueDedupeIdentityInputSchema = exports.AdminIssueSubjectRefSchema = exports.AdminIssueReconciliationScopeSchema = exports.ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION = exports.AdminIssueSeveritySchema = exports.ADMIN_ISSUE_SEVERITIES = exports.AdminIssueLifecycleStatusSchema = exports.ADMIN_ISSUE_LIFECYCLE_STATUSES = exports.AdminIssueKindSchema = exports.ADMIN_ISSUE_KINDS = exports.UnknownAttendanceStatusShapeSchema = exports.AttendanceSchema = exports.CourseDayAttendanceIdentityInputSchema = exports.BookingAttendanceIdentityInputSchema = exports.ATTENDANCE_IDENTITY_STRATEGY_VERSION = exports.AttendanceSubjectRefSchema = exports.CourseEnrollmentAttendanceSubjectRefSchema = exports.BookingAttendanceSubjectRefSchema = exports.AttendanceRecorderSchema = exports.AttendanceSubjectKindSchema = exports.ATTENDANCE_SUBJECT_KINDS = exports.AttendanceStatusSchema = exports.ATTENDANCE_STATUSES = exports.LegacyCourseEnrollmentBookingShapeSchema = exports.WholeCourseCancellationShapeSchema = exports.LegacyCourseScheduleShapeSchema = exports.StructuredCourseDeliverySchema = exports.CourseEnrollmentSchema = exports.CourseEnrollmentAttendanceSummarySchema = exports.CourseEnrollmentCancellationReasonCodeSchema = exports.CourseEnrollmentLifecycleStatusSchema = exports.COURSE_ENROLLMENT_CANCELLATION_REASON_CODES = exports.COURSE_ENROLLMENT_LIFECYCLE_STATUSES = exports.AdminIssueDedupeKeySchema = exports.CourseDaySchema = exports.CourseSchema = exports.CourseCapacitySchema = exports.CourseScheduleProjectionSchema = exports.LEGACY_COURSE_ENROLLMENT_BOOKING_FIELD_NAMES = exports.WHOLE_COURSE_CANCELLATION_FIELD_NAMES = exports.LEGACY_COURSE_SCHEDULE_FIELD_NAMES = exports.COURSE_SCHEDULE_PROJECTION_FIELDS = exports.COURSE_DAY_MAX = exports.COURSE_SEAT_MAX = exports.COURSE_SEAT_MIN = void 0;
 exports.validateStructuredCourseDays = validateStructuredCourseDays;
 exports.validateCourseEnrollmentAttendanceSummary = validateCourseEnrollmentAttendanceSummary;
 exports.attendanceSummaryIsDerivedProjection = attendanceSummaryIsDerivedProjection;
@@ -15,6 +15,7 @@ exports.courseDayAttendanceIdentityKey = courseDayAttendanceIdentityKey;
 exports.attendanceIdFromBookingIdentity = attendanceIdFromBookingIdentity;
 exports.attendanceIdFromCourseDayIdentity = attendanceIdFromCourseDayIdentity;
 exports.missingAttendanceIsDocumentAbsence = missingAttendanceIsDocumentAbsence;
+exports.adminIssueDedupeIdentityFromRecord = adminIssueDedupeIdentityFromRecord;
 exports.adminIssueDedupeKeyFromIdentity = adminIssueDedupeKeyFromIdentity;
 exports.adminIssueIdFromDedupeKey = adminIssueIdFromDedupeKey;
 exports.adminIssueLifecycleIsOperationalState = adminIssueLifecycleIsOperationalState;
@@ -651,6 +652,12 @@ exports.AdminIssueLifecycleStatusSchema = zod_1.z.enum(exports.ADMIN_ISSUE_LIFEC
 exports.ADMIN_ISSUE_SEVERITIES = ['normal', 'urgent', 'critical'];
 exports.AdminIssueSeveritySchema = zod_1.z.enum(exports.ADMIN_ISSUE_SEVERITIES);
 exports.ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION = 'issue:v1';
+const ADMIN_ISSUE_RECONCILIATION_SCOPE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$/;
+exports.AdminIssueReconciliationScopeSchema = zod_1.z
+    .string()
+    .min(1)
+    .max(128)
+    .regex(ADMIN_ISSUE_RECONCILIATION_SCOPE_PATTERN, 'Reconciliation scope must be an opaque identifier');
 exports.AdminIssueSubjectRefSchema = zod_1.z.discriminatedUnion('subjectKind', [
     zod_1.z.object({ subjectKind: zod_1.z.literal('booking'), bookingId: identifiers_1.BookingIdSchema }).strict(),
     zod_1.z
@@ -667,7 +674,7 @@ exports.AdminIssueDedupeIdentityInputSchema = zod_1.z
     participantId: identifiers_1.ParticipantIdSchema.optional(),
     courseDayId: identifiers_1.CourseDayIdSchema.optional(),
     scheduleRevision: PersistedAggregateRevisionSchema.optional(),
-    reconciliationScope: zod_1.z.string().trim().min(1).max(128).optional(),
+    reconciliationScope: exports.AdminIssueReconciliationScopeSchema.optional(),
 })
     .strict()
     .superRefine((input, context) => {
@@ -697,6 +704,21 @@ exports.AdminIssueDedupeIdentityInputSchema = zod_1.z
         });
     }
 });
+function adminIssueDedupeIdentityFromRecord(issue) {
+    return {
+        strategyVersion: exports.ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION,
+        kind: issue.kind,
+        subjectKind: issue.subjectRef.subjectKind,
+        subjectId: issue.subjectRef.subjectKind === 'booking'
+            ? issue.subjectRef.bookingId
+            : issue.subjectRef.enrollmentId,
+        occurrenceId: issue.occurrenceId,
+        participantId: issue.participantId,
+        courseDayId: issue.courseDayId,
+        scheduleRevision: issue.scheduleRevision,
+        reconciliationScope: issue.reconciliationScope,
+    };
+}
 function adminIssueDedupeKeyFromIdentity(input) {
     const parsed = exports.AdminIssueDedupeIdentityInputSchema.parse(input);
     const parts = [
@@ -759,6 +781,8 @@ exports.AdminIssueSchema = zod_1.z
     occurrenceId: identifiers_1.OccurrenceIdSchema.optional(),
     participantId: identifiers_1.ParticipantIdSchema.optional(),
     courseDayId: identifiers_1.CourseDayIdSchema.optional(),
+    scheduleRevision: PersistedAggregateRevisionSchema.optional(),
+    reconciliationScope: exports.AdminIssueReconciliationScopeSchema.optional(),
     lifecycle: AdminIssueLifecycleSchema,
     severity: exports.AdminIssueSeveritySchema,
     blocksOutcome: zod_1.z.boolean(),
@@ -775,7 +799,15 @@ exports.AdminIssueSchema = zod_1.z
     .strict()
     .superRefine((issue, context) => {
     addRecordChronologyIssue(issue, context);
-    const expectedIssueId = adminIssueIdFromDedupeKey(issue.dedupeKey);
+    const expectedDedupeKey = adminIssueDedupeKeyFromIdentity(adminIssueDedupeIdentityFromRecord(issue));
+    if (issue.dedupeKey !== expectedDedupeKey) {
+        context.addIssue({
+            code: 'custom',
+            path: ['dedupeKey'],
+            message: 'dedupeKey must match deterministic AdminIssue identity inputs',
+        });
+    }
+    const expectedIssueId = adminIssueIdFromDedupeKey(expectedDedupeKey);
     if (issue.issueId !== expectedIssueId) {
         context.addIssue({
             code: 'custom',

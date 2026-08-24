@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { type AdminIssueId, type AttendanceId, type CanonicalReference, type CourseDayId, type CourseEnrollmentId, type CourseId, type OccurrenceId, type ParticipantId } from './identifiers';
 import { type ImmutableBookingAttribution } from './bookingOccurrenceProposalChange';
+declare const PersistedAggregateRevisionSchema: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("./primitives").AggregateRevision, number>>;
 export declare const COURSE_SEAT_MIN: 1;
 export declare const COURSE_SEAT_MAX: 64;
 export declare const COURSE_DAY_MAX: 64;
@@ -612,6 +613,7 @@ export declare const AdminIssueSeveritySchema: z.ZodEnum<{
     critical: "critical";
 }>;
 export declare const ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION: "issue:v1";
+export declare const AdminIssueReconciliationScopeSchema: z.ZodString;
 export declare const AdminIssueSubjectRefSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     subjectKind: z.ZodLiteral<"booking">;
     bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"booking">, string>>;
@@ -643,6 +645,15 @@ export declare const AdminIssueDedupeIdentityInputSchema: z.ZodObject<{
     reconciliationScope: z.ZodOptional<z.ZodString>;
 }, z.core.$strict>;
 export type AdminIssueDedupeIdentityInput = z.output<typeof AdminIssueDedupeIdentityInputSchema>;
+export declare function adminIssueDedupeIdentityFromRecord(issue: Readonly<{
+    kind: AdminIssueKind;
+    subjectRef: AdminIssueSubjectRef;
+    occurrenceId?: OccurrenceId;
+    participantId?: ParticipantId;
+    courseDayId?: CourseDayId;
+    scheduleRevision?: z.output<typeof PersistedAggregateRevisionSchema>;
+    reconciliationScope?: z.output<typeof AdminIssueReconciliationScopeSchema>;
+}>): AdminIssueDedupeIdentityInput;
 export declare function adminIssueDedupeKeyFromIdentity(input: AdminIssueDedupeIdentityInput): AdminIssueDedupeKey;
 export declare function adminIssueIdFromDedupeKey(dedupeKey: AdminIssueDedupeKey): AdminIssueId;
 declare const AdminIssueLifecycleSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
@@ -726,6 +737,8 @@ export declare const AdminIssueSchema: z.ZodObject<{
     occurrenceId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"occurrence">, string>>>;
     participantId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"participant">, string>>>;
     courseDayId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"course_day">, string>>>;
+    scheduleRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("./primitives").AggregateRevision, number>>>;
+    reconciliationScope: z.ZodOptional<z.ZodString>;
     lifecycle: z.ZodDiscriminatedUnion<[z.ZodObject<{
         status: z.ZodLiteral<"open">;
         openedAt: z.ZodObject<{

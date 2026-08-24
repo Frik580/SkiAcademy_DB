@@ -295,6 +295,40 @@ describe('CourseEnrollment contracts', () => {
       }).success
     ).toBe(false);
   });
+
+  it('allows partial attendance recording while other days remain unknown', () => {
+    const courseDays = Array.from({ length: 5 }, (_, index) =>
+      baseCourseDay({
+        courseDayId: CourseDayIdSchema.parse(`course_day_test_0${index + 1}`),
+        dayOrder: index + 1,
+        interval: {
+          startsAt: timestamp(`2026-02-0${index + 1}T04:00:00.000Z`),
+          endsAt: timestamp(`2026-02-0${index + 1}T08:00:00.000Z`),
+        },
+      })
+    );
+
+    expect(
+      StructuredCourseDeliverySchema.safeParse({
+        course: baseCourse({
+          scheduleProjection: {
+            courseDayCount: 5,
+            finalCourseDayEndsAt: timestamp('2026-02-05T08:00:00.000Z'),
+            courseScheduleRevision: 1,
+          },
+        }),
+        courseDays,
+        enrollment: baseEnrollment({
+          attendanceSummary: {
+            recordedDayCount: 3,
+            presentDayCount: 2,
+            absentDayCount: 1,
+            projectionRevision: 1,
+          },
+        }),
+      }).success
+    ).toBe(true);
+  });
 });
 
 describe('Attendance contracts', () => {
@@ -442,15 +476,17 @@ describe('Attendance contracts', () => {
 
 describe('AdminIssue contracts', () => {
   it('derives deterministic issue identity from dedupe key', () => {
-    const dedupeKey = adminIssueDedupeKeyFromIdentity({
-      strategyVersion: 'issue:v1',
-      kind: 'missing_attendance',
-      subjectKind: 'course_enrollment',
+    const identity = {
+      strategyVersion: 'issue:v1' as const,
+      kind: 'missing_attendance' as const,
+      subjectKind: 'course_enrollment' as const,
       subjectId: enrollmentId,
       participantId,
       courseDayId,
-    });
+    };
+    const dedupeKey = adminIssueDedupeKeyFromIdentity(identity);
     const issueId = adminIssueIdFromDedupeKey(dedupeKey);
+    expect(adminIssueDedupeKeyFromIdentity(identity)).toBe(dedupeKey);
     expect(adminIssueIdFromDedupeKey(dedupeKey)).toBe(issueId);
     expect(
       adminIssueIdFromDedupeKey(
@@ -462,6 +498,38 @@ describe('AdminIssue contracts', () => {
         })
       )
     ).not.toBe(issueId);
+  });
+
+  it('rejects arbitrary caller-supplied dedupe keys', () => {
+    const derivedKey = adminIssueDedupeKeyFromIdentity({
+      strategyVersion: 'issue:v1',
+      kind: 'missing_attendance',
+      subjectKind: 'course_enrollment',
+      subjectId: enrollmentId,
+      participantId,
+      courseDayId,
+    });
+
+    expect(
+      AdminIssueSchema.safeParse({
+        issueId: adminIssueIdFromDedupeKey(derivedKey),
+        kind: 'missing_attendance',
+        subjectRef: { subjectKind: 'course_enrollment', enrollmentId },
+        participantId,
+        courseDayId,
+        lifecycle: {
+          status: 'open',
+          openedAt: timestamp('2026-02-01T08:00:00.000Z'),
+          lastDetectedAt: timestamp('2026-02-01T08:00:00.000Z'),
+        },
+        severity: 'normal',
+        blocksOutcome: true,
+        blocksDelivery: false,
+        dedupeKey: 'issue:v1:missing_attendance:course_enrollment:arbitrary_caller_key',
+        correlationId: 'correlation_course_test_create',
+        ...metadata,
+      }).success
+    ).toBe(false);
   });
 
   it('accepts open, resolved, and dismissed lifecycle variants', () => {

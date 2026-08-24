@@ -864,6 +864,17 @@ export const AdminIssueSeveritySchema = z.enum(ADMIN_ISSUE_SEVERITIES);
 
 export const ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION = 'issue:v1' as const;
 
+const ADMIN_ISSUE_RECONCILIATION_SCOPE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$/;
+
+export const AdminIssueReconciliationScopeSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(
+    ADMIN_ISSUE_RECONCILIATION_SCOPE_PATTERN,
+    'Reconciliation scope must be an opaque identifier'
+  );
+
 export const AdminIssueSubjectRefSchema = z.discriminatedUnion('subjectKind', [
   z.object({ subjectKind: z.literal('booking'), bookingId: BookingIdSchema }).strict(),
   z
@@ -883,7 +894,7 @@ export const AdminIssueDedupeIdentityInputSchema = z
     participantId: ParticipantIdSchema.optional(),
     courseDayId: CourseDayIdSchema.optional(),
     scheduleRevision: PersistedAggregateRevisionSchema.optional(),
-    reconciliationScope: z.string().trim().min(1).max(128).optional(),
+    reconciliationScope: AdminIssueReconciliationScopeSchema.optional(),
   })
   .strict()
   .superRefine((input, context) => {
@@ -921,6 +932,33 @@ export const AdminIssueDedupeIdentityInputSchema = z
   });
 
 export type AdminIssueDedupeIdentityInput = z.output<typeof AdminIssueDedupeIdentityInputSchema>;
+
+export function adminIssueDedupeIdentityFromRecord(
+  issue: Readonly<{
+    kind: AdminIssueKind;
+    subjectRef: AdminIssueSubjectRef;
+    occurrenceId?: OccurrenceId;
+    participantId?: ParticipantId;
+    courseDayId?: CourseDayId;
+    scheduleRevision?: z.output<typeof PersistedAggregateRevisionSchema>;
+    reconciliationScope?: z.output<typeof AdminIssueReconciliationScopeSchema>;
+  }>
+): AdminIssueDedupeIdentityInput {
+  return {
+    strategyVersion: ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION,
+    kind: issue.kind,
+    subjectKind: issue.subjectRef.subjectKind,
+    subjectId:
+      issue.subjectRef.subjectKind === 'booking'
+        ? issue.subjectRef.bookingId
+        : issue.subjectRef.enrollmentId,
+    occurrenceId: issue.occurrenceId,
+    participantId: issue.participantId,
+    courseDayId: issue.courseDayId,
+    scheduleRevision: issue.scheduleRevision,
+    reconciliationScope: issue.reconciliationScope,
+  };
+}
 
 export function adminIssueDedupeKeyFromIdentity(
   input: AdminIssueDedupeIdentityInput
@@ -992,6 +1030,8 @@ export const AdminIssueSchema = z
     occurrenceId: OccurrenceIdSchema.optional(),
     participantId: ParticipantIdSchema.optional(),
     courseDayId: CourseDayIdSchema.optional(),
+    scheduleRevision: PersistedAggregateRevisionSchema.optional(),
+    reconciliationScope: AdminIssueReconciliationScopeSchema.optional(),
     lifecycle: AdminIssueLifecycleSchema,
     severity: AdminIssueSeveritySchema,
     blocksOutcome: z.boolean(),
@@ -1009,7 +1049,18 @@ export const AdminIssueSchema = z
   .superRefine((issue, context) => {
     addRecordChronologyIssue(issue, context);
 
-    const expectedIssueId = adminIssueIdFromDedupeKey(issue.dedupeKey as AdminIssueDedupeKey);
+    const expectedDedupeKey = adminIssueDedupeKeyFromIdentity(
+      adminIssueDedupeIdentityFromRecord(issue)
+    );
+    if (issue.dedupeKey !== expectedDedupeKey) {
+      context.addIssue({
+        code: 'custom',
+        path: ['dedupeKey'],
+        message: 'dedupeKey must match deterministic AdminIssue identity inputs',
+      });
+    }
+
+    const expectedIssueId = adminIssueIdFromDedupeKey(expectedDedupeKey);
     if ((issue.issueId as string) !== (expectedIssueId as string)) {
       context.addIssue({
         code: 'custom',

@@ -157,7 +157,7 @@ const resourceClaimGuard = ResourceClaimGuardSchema.parse({
 const activityLog = ActivityLogSchema.parse({
   schemaVersion: 'audit:v1',
   activityLogId: activityLogIdFromCommandId(commandId),
-  command: { commandId, kind: 'create_booking' },
+  command: { commandId, kind: 'create_confirmed_booking' },
   actor: {
     kind: 'account',
     actorKey: 'account:account_fixture_01',

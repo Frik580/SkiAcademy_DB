@@ -5,6 +5,8 @@ export declare const CommandIntentSchemaByKind: {
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"instructor">, string>>;
         participantIds: z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>>;
+        payerAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"account">, string>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>;
     create_guest_booking_request: z.ZodObject<{
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;

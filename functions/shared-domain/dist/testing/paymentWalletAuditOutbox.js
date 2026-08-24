@@ -127,7 +127,7 @@ const resourceClaimGuard = canonical_1.ResourceClaimGuardSchema.parse({
 const activityLog = canonical_1.ActivityLogSchema.parse({
     schemaVersion: 'audit:v1',
     activityLogId: (0, canonical_1.activityLogIdFromCommandId)(commandId),
-    command: { commandId, kind: 'create_booking' },
+    command: { commandId, kind: 'create_confirmed_booking' },
     actor: {
         kind: 'account',
         actorKey: 'account:account_fixture_01',

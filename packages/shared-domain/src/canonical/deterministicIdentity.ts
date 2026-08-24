@@ -5,15 +5,20 @@ import {
   DomainOutboxIdSchema,
   InstructorRelationshipIdSchema,
   MonetaryEventIdSchema,
+  OccurrenceIdSchema,
   ParticipantBlockIdSchema,
+  PaymentIdSchema,
   type ActivityLogId,
+  type BookingId,
   type CommandId,
   type DomainOutboxId,
   type InstructorId,
   type InstructorRelationshipId,
   type MonetaryEventId,
+  type OccurrenceId,
   type ParticipantBlockId,
   type ParticipantId,
+  type PaymentId,
 } from './identifiers';
 
 const DETERMINISTIC_ID_PART_SEPARATOR = '\u001f';
@@ -70,6 +75,18 @@ export function instructorRelationshipIdFromPair(input: {
       input.participantId,
       input.instructorId,
     ])
+  );
+}
+
+export function paymentIdFromBookingId(bookingId: BookingId): PaymentId {
+  return PaymentIdSchema.parse(
+    canonicalDeterministicHash(['payment:v1', 'booking', bookingId])
+  );
+}
+
+export function initialBookingOccurrenceIdFromBookingId(bookingId: BookingId): OccurrenceId {
+  return OccurrenceIdSchema.parse(
+    canonicalDeterministicHash(['occurrence:v1', 'booking', bookingId, '1'])
   );
 }
 

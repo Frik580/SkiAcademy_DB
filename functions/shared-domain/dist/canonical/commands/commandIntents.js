@@ -135,6 +135,8 @@ exports.CommandIntentSchemaByKind = {
         bookingId: identifiers_1.BookingIdSchema,
         instructorId: identifiers_1.InstructorIdSchema,
         participantIds: zod_1.z.array(identifiers_1.ParticipantIdSchema).min(1).max(8),
+        payerAccountId: identifiers_1.AccountIdSchema.optional(),
+        reasonExplanation: zod_1.z.string().trim().min(1).max(1_000).optional(),
     })
         .strict(),
     create_guest_booking_request: zod_1.z

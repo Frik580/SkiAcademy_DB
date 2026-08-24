@@ -6,6 +6,8 @@ exports.domainOutboxIdFromCommand = domainOutboxIdFromCommand;
 exports.monetaryEventIdFromCommandEffect = monetaryEventIdFromCommandEffect;
 exports.participantBlockIdFromDirection = participantBlockIdFromDirection;
 exports.instructorRelationshipIdFromPair = instructorRelationshipIdFromPair;
+exports.paymentIdFromBookingId = paymentIdFromBookingId;
+exports.initialBookingOccurrenceIdFromBookingId = initialBookingOccurrenceIdFromBookingId;
 exports.validateDeterministicIdentityInputs = validateDeterministicIdentityInputs;
 const sha256Hex_1 = require("./sha256Hex");
 const identifiers_1 = require("./identifiers");
@@ -37,6 +39,12 @@ function instructorRelationshipIdFromPair(input) {
         input.participantId,
         input.instructorId,
     ]));
+}
+function paymentIdFromBookingId(bookingId) {
+    return identifiers_1.PaymentIdSchema.parse(canonicalDeterministicHash(['payment:v1', 'booking', bookingId]));
+}
+function initialBookingOccurrenceIdFromBookingId(bookingId) {
+    return identifiers_1.OccurrenceIdSchema.parse(canonicalDeterministicHash(['occurrence:v1', 'booking', bookingId, '1']));
 }
 const PERSONAL_DATA_PATTERNS = [
     /@/,

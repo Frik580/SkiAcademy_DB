@@ -148,6 +148,8 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
         participantIds: z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>>;
+        payerAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"account">, string>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
@@ -326,6 +328,8 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
         participantIds: z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>>;
+        payerAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"account">, string>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
@@ -504,6 +508,8 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
         participantIds: z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>>;
+        payerAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"account">, string>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;

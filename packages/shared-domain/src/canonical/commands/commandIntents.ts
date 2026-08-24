@@ -149,6 +149,8 @@ export const CommandIntentSchemaByKind = {
       bookingId: BookingIdSchema,
       instructorId: InstructorIdSchema,
       participantIds: z.array(ParticipantIdSchema).min(1).max(8),
+      payerAccountId: AccountIdSchema.optional(),
+      reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
     })
     .strict(),
   create_guest_booking_request: z

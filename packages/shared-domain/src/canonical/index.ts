@@ -1,4 +1,5 @@
 export * from './commands';
+export * from './transactions';
 export * from './accountParticipantAccess';
 export * from './auditOutbox';
 export * from './bookingOccurrenceProposalChange';

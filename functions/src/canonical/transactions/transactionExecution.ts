@@ -1,0 +1,63 @@
+export const CANONICAL_TRANSACTION_PHASES = ['reads', 'writes'] as const;
+
+export type CanonicalTransactionPhase = (typeof CANONICAL_TRANSACTION_PHASES)[number];
+
+export interface CanonicalTransactionDocumentRef {
+  readonly path: string;
+}
+
+export interface CanonicalTransactionReadResult {
+  readonly exists: boolean;
+  readonly data?: Record<string, unknown>;
+}
+
+export interface CanonicalTransactionOperations {
+  readonly phase: CanonicalTransactionPhase;
+  get(ref: CanonicalTransactionDocumentRef): Promise<CanonicalTransactionReadResult>;
+  create(ref: CanonicalTransactionDocumentRef, data: Record<string, unknown>): void;
+  update(ref: CanonicalTransactionDocumentRef, data: Record<string, unknown>): void;
+  delete(ref: CanonicalTransactionDocumentRef): void;
+}
+
+export interface CanonicalTransactionPhaseControl {
+  awaitPendingReads(): Promise<void>;
+  enterWritePhase(): void;
+}
+
+export type CanonicalTransactionOperationsInternal = CanonicalTransactionOperations &
+  CanonicalTransactionPhaseControl;
+
+export class CanonicalTransactionPhaseError extends Error {
+  readonly attemptedOperation: 'read' | 'create' | 'update' | 'delete' | 'transition';
+  readonly currentPhase: CanonicalTransactionPhase;
+
+  constructor(
+    attemptedOperation: CanonicalTransactionPhaseError['attemptedOperation'],
+    currentPhase: CanonicalTransactionPhase
+  ) {
+    super(
+      `Canonical transaction ${attemptedOperation} is not allowed during the ${currentPhase} phase.`
+    );
+    this.name = 'CanonicalTransactionPhaseError';
+    this.attemptedOperation = attemptedOperation;
+    this.currentPhase = currentPhase;
+  }
+}
+
+export function assertReadPhase(
+  operations: CanonicalTransactionOperations,
+  attemptedOperation: CanonicalTransactionPhaseError['attemptedOperation']
+): void {
+  if (operations.phase !== 'reads') {
+    throw new CanonicalTransactionPhaseError(attemptedOperation, operations.phase);
+  }
+}
+
+export function assertWritePhase(
+  operations: CanonicalTransactionOperations,
+  attemptedOperation: CanonicalTransactionPhaseError['attemptedOperation']
+): void {
+  if (operations.phase !== 'writes') {
+    throw new CanonicalTransactionPhaseError(attemptedOperation, operations.phase);
+  }
+}

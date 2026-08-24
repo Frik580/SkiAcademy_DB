@@ -224,18 +224,20 @@ export function validateBookingAttribution(
     context.addIssue({ code: 'custom', path: [...basePath, path], message });
   };
 
-  if (attribution.bookingOrigin === 'guest') {
-    if (attribution.bookedBy.kind !== 'guest') {
-      add('bookedBy', 'Guest bookingOrigin requires a guest bookedBy actor');
-    }
-    return;
-  }
-
-  if (attribution.bookedBy.kind !== 'account') {
-    add(
-      'bookedBy',
-      'Account, admin, and instructor booking origins require an Account bookedBy actor'
-    );
+  switch (attribution.bookingOrigin) {
+    case 'guest':
+      if (attribution.bookedBy.kind !== 'guest') {
+        add('bookedBy', 'Guest bookingOrigin requires a guest bookedBy actor');
+      }
+      return;
+    case 'account':
+    case 'instructor':
+      if (attribution.bookedBy.kind !== 'account') {
+        add('bookedBy', `${attribution.bookingOrigin} bookingOrigin requires an Account bookedBy actor`);
+      }
+      return;
+    case 'admin':
+      return;
   }
 }
 

@@ -104,6 +104,22 @@ const guestPendingBooking = BookingSchema.parse({
   ...metadata,
 });
 
+const adminGuestBookedByBooking = BookingSchema.parse({
+  bookingId: 'booking_admin_guest_fixture_01',
+  attribution: {
+    bookingOrigin: 'admin',
+    bookedBy: guestActorRef(canonicalPrimitiveFixtures.guestSubjectId),
+  },
+  party: {
+    kind: 'individual',
+    participantIds: [canonicalPrimitiveFixtures.participantId],
+  },
+  occurrence: occurrenceFor([canonicalPrimitiveFixtures.participantId]),
+  lifecycle: { status: 'confirmed' },
+  paymentId: 'payment_admin_guest_fixture_01',
+  ...metadata,
+});
+
 const openProposal = BookingProposalSchema.parse({
   proposalId: 'proposal_fixture_01',
   participantId: canonicalPrimitiveFixtures.participantId,
@@ -129,6 +145,7 @@ export interface CanonicalBookingCollaborationFixtures {
   readonly individualBooking: Booking;
   readonly familyGroupBooking: Booking;
   readonly guestPendingBooking: Booking;
+  readonly adminGuestBookedByBooking: Booking;
   readonly openProposal: BookingProposal;
   readonly openChangeRequest: BookingChangeRequest;
 }
@@ -138,6 +155,7 @@ export const canonicalBookingCollaborationFixtures: CanonicalBookingCollaboratio
     individualBooking,
     familyGroupBooking,
     guestPendingBooking,
+    adminGuestBookedByBooking,
     openProposal,
     openChangeRequest,
   });

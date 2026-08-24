@@ -8,7 +8,10 @@ identity, frozen service-party representation, BookingProposal, and BookingChang
 - Persisted Booking aggregates begin at revision 1 and carry `createdAt`, `updatedAt`, creating and
   last-changing command IDs, and the current correlation ID.
 - `attribution` is an immutable historical record of `bookingOrigin` and `bookedBy`. Guest origin
-  requires a guest `bookedBy`; account, admin, and instructor origins require an Account `bookedBy`.
+  requires a guest `bookedBy`; account and instructor origins require an Account `bookedBy`; admin
+  origin accepts either an Account or guest `bookedBy` for authenticated or unauthenticated clients.
+  The Administrator executing an admin-origin command is recorded separately in command/audit
+  metadata, not by substituting an admin identity into `bookedBy`.
   Linking a guest Booking later must not change its origin.
 - `party.participantIds` contains 1–8 unique Participants. One Participant means an Individual
   Lesson; two through eight means a Family/Group Lesson.

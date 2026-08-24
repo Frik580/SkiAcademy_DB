@@ -105,6 +105,9 @@ describe('canonical booking collaboration fixtures', () => {
     expect(canonicalBookingCollaborationFixtures.guestPendingBooking.lifecycle.status).toBe(
       'pending'
     );
+    expect(
+      canonicalBookingCollaborationFixtures.adminGuestBookedByBooking.attribution.bookingOrigin
+    ).toBe('admin');
     expect(canonicalBookingCollaborationFixtures.openProposal.lifecycle.status).toBe('open');
     expect(canonicalBookingCollaborationFixtures.openChangeRequest.lifecycle.status).toBe('open');
   });
@@ -170,19 +173,48 @@ describe('Booking aggregate contracts', () => {
     ).toBe(false);
   });
 
-  it('rejects invalid bookedBy/origin combinations', () => {
-    expect(
-      ImmutableBookingAttributionSchema.safeParse({
-        bookingOrigin: 'guest',
-        bookedBy: accountActorRef(accountId),
-      }).success
-    ).toBe(false);
-    expect(
-      ImmutableBookingAttributionSchema.safeParse({
-        bookingOrigin: 'account',
-        bookedBy: guestActorRef(guestSubjectId),
-      }).success
-    ).toBe(false);
+  it('accepts the approved bookingOrigin and bookedBy combinations', () => {
+    const attributionCases = [
+      { bookingOrigin: 'account', bookedBy: accountActorRef(accountId) },
+      { bookingOrigin: 'guest', bookedBy: guestActorRef(guestSubjectId) },
+      { bookingOrigin: 'instructor', bookedBy: accountActorRef(accountId) },
+      { bookingOrigin: 'admin', bookedBy: accountActorRef(accountId) },
+      { bookingOrigin: 'admin', bookedBy: guestActorRef(guestSubjectId) },
+    ] as const;
+
+    for (const attribution of attributionCases) {
+      expect(ImmutableBookingAttributionSchema.safeParse(attribution).success).toBe(true);
+      expect(
+        BookingSchema.safeParse(
+          baseBooking({
+            attribution,
+            lifecycle:
+              attribution.bookingOrigin === 'guest'
+                ? {
+                    status: 'pending',
+                    reservationExpiresAt: timestamp('2026-01-01T01:00:00.000Z'),
+                  }
+                : { status: 'confirmed' },
+            payerAccountId:
+              attribution.bookingOrigin === 'guest' && attribution.bookedBy.kind === 'guest'
+                ? undefined
+                : accountId,
+          })
+        ).success
+      ).toBe(true);
+    }
+  });
+
+  it('rejects invalid bookingOrigin and bookedBy combinations', () => {
+    const invalidCases = [
+      { bookingOrigin: 'account', bookedBy: guestActorRef(guestSubjectId) },
+      { bookingOrigin: 'guest', bookedBy: accountActorRef(accountId) },
+      { bookingOrigin: 'instructor', bookedBy: guestActorRef(guestSubjectId) },
+    ] as const;
+
+    for (const attribution of invalidCases) {
+      expect(ImmutableBookingAttributionSchema.safeParse(attribution).success).toBe(false);
+    }
   });
 
   it('rejects non-guest pending lifecycle combinations', () => {

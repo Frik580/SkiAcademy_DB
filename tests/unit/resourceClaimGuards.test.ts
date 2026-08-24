@@ -208,9 +208,7 @@ describe('guard bucket capacity and planning', () => {
 
   it('includes guard occupancy in T07 payload estimates', () => {
     const saturatedBytes = estimateGuardMutationBytes(RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET);
-    expect(saturatedBytes).toBe(
-      256 + RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET * 192
-    );
+    expect(saturatedBytes).toBe(256 + RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET * 192);
     expect(saturatedBytes).toBeLessThan(TRANSACTION_SAFETY_BUDGET.maxEstimatedRequestBytes);
   });
 });
@@ -274,28 +272,22 @@ describe('Firestore timestamp normalization', () => {
   it('normalizes Firestore Timestamp instances for canonical Zod parsing', () => {
     const timestamp = firestoreTimestamp(new Date('2026-01-15T05:00:00.000Z'));
     const normalized = normalizeFirestoreRecord(timestamp);
-    expect(TimeIntervalSchema.safeParse({
-      startsAt: timestampFromDate(new Date('2026-01-15T04:00:00.000Z')),
-      endsAt: normalized,
-    }).success).toBe(true);
+    expect(
+      TimeIntervalSchema.safeParse({
+        startsAt: timestampFromDate(new Date('2026-01-15T04:00:00.000Z')),
+        endsAt: normalized,
+      }).success
+    ).toBe(true);
   });
 
   it('preserves exact half-open semantics after normalization', () => {
     const left = {
-      startsAt: normalizeFirestoreRecord(
-        firestoreTimestamp(new Date('2026-01-15T09:00:00.000Z'))
-      ),
-      endsAt: normalizeFirestoreRecord(
-        firestoreTimestamp(new Date('2026-01-15T10:00:00.000Z'))
-      ),
+      startsAt: normalizeFirestoreRecord(firestoreTimestamp(new Date('2026-01-15T09:00:00.000Z'))),
+      endsAt: normalizeFirestoreRecord(firestoreTimestamp(new Date('2026-01-15T10:00:00.000Z'))),
     };
     const right = {
-      startsAt: normalizeFirestoreRecord(
-        firestoreTimestamp(new Date('2026-01-15T10:00:00.000Z'))
-      ),
-      endsAt: normalizeFirestoreRecord(
-        firestoreTimestamp(new Date('2026-01-15T11:00:00.000Z'))
-      ),
+      startsAt: normalizeFirestoreRecord(firestoreTimestamp(new Date('2026-01-15T10:00:00.000Z'))),
+      endsAt: normalizeFirestoreRecord(firestoreTimestamp(new Date('2026-01-15T11:00:00.000Z'))),
     };
     expect(intervalsConflict(left, right)).toBe(false);
   });

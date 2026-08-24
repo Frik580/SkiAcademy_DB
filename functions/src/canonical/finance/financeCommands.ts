@@ -116,7 +116,7 @@ function recordManualWalletFundingHandler(
   let walletExists = false;
   let plannedWalletRevision = AggregateRevisionSchema.parse(1);
   let plannedEventRevision = AggregateRevisionSchema.parse(0);
-  let stagedEventId = monetaryEventIdFromCommandEffect(metadata.commandId, 0);
+  const stagedEventId = monetaryEventIdFromCommandEffect(metadata.commandId, 0);
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'record_manual_wallet_funding'> = {
     read: async (session) => {
@@ -226,7 +226,7 @@ function recordProviderPaymentEventHandler(
   let projectedPayment!: Payment;
   let plannedPaymentRevision!: Payment['revision'];
   let plannedPaymentEventRevision!: Payment['eventRevision'];
-  let stagedEventId = monetaryEventIdFromCommandEffect(metadata.commandId, 0);
+  const stagedEventId = monetaryEventIdFromCommandEffect(metadata.commandId, 0);
   let providerReceiptPath: string | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'record_provider_payment_event'> = {

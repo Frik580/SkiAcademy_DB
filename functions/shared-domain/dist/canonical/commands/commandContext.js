@@ -14,15 +14,18 @@ exports.IdempotencyKeySchema = zod_1.z
     .string()
     .regex(/^[A-Za-z0-9._:-]{1,200}$/, 'idempotencyKey has an invalid format');
 exports.CommandTransportMetadataSchema = zod_1.z
-    .record(zod_1.z
-    .string()
-    .regex(/^[a-z][a-z0-9_]{0,31}$/), zod_1.z.string().max(256))
+    .record(zod_1.z.string().regex(/^[a-z][a-z0-9_]{0,31}$/), zod_1.z.string().max(256))
     .refine((value) => Object.keys(value).length <= 16, 'Transport metadata is bounded');
 exports.CommandCalendarInputSchema = zod_1.z
     .object({
     localDate: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     localTime: zod_1.z.string().regex(/^\d{2}:\d{2}$/),
-    durationMinutes: zod_1.z.number().finite().int().positive().max(24 * 60),
+    durationMinutes: zod_1.z
+        .number()
+        .finite()
+        .int()
+        .positive()
+        .max(24 * 60),
 })
     .strict();
 exports.CommandContextSchema = zod_1.z

@@ -425,6 +425,8 @@ export declare const canonicalCourseDeliveryFixtures: Readonly<{
         occurrenceId?: import("../canonical/identifiers").CanonicalId<"occurrence"> | undefined;
         participantId?: import("../canonical/identifiers").CanonicalId<"participant"> | undefined;
         courseDayId?: import("../canonical/identifiers").CanonicalId<"course_day"> | undefined;
+        scheduleRevision?: import("../canonical/primitives").AggregateRevision | undefined;
+        reconciliationScope?: string | undefined;
         assignedTo?: import("../canonical/identifiers").CanonicalId<"account"> | undefined;
         causationId?: import("../canonical/identifiers").CanonicalId<"command"> | undefined;
     };

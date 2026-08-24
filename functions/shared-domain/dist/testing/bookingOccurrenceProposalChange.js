@@ -88,6 +88,21 @@ const guestPendingBooking = bookingOccurrenceProposalChange_1.BookingSchema.pars
     paymentId: 'payment_guest_fixture_01',
     ...metadata,
 });
+const adminGuestBookedByBooking = bookingOccurrenceProposalChange_1.BookingSchema.parse({
+    bookingId: 'booking_admin_guest_fixture_01',
+    attribution: {
+        bookingOrigin: 'admin',
+        bookedBy: (0, identifiers_1.guestActorRef)(primitives_2.canonicalPrimitiveFixtures.guestSubjectId),
+    },
+    party: {
+        kind: 'individual',
+        participantIds: [primitives_2.canonicalPrimitiveFixtures.participantId],
+    },
+    occurrence: occurrenceFor([primitives_2.canonicalPrimitiveFixtures.participantId]),
+    lifecycle: { status: 'confirmed' },
+    paymentId: 'payment_admin_guest_fixture_01',
+    ...metadata,
+});
 const openProposal = bookingOccurrenceProposalChange_1.BookingProposalSchema.parse({
     proposalId: 'proposal_fixture_01',
     participantId: primitives_2.canonicalPrimitiveFixtures.participantId,
@@ -111,6 +126,7 @@ exports.canonicalBookingCollaborationFixtures = Object.freeze({
     individualBooking,
     familyGroupBooking,
     guestPendingBooking,
+    adminGuestBookedByBooking,
     openProposal,
     openChangeRequest,
 });

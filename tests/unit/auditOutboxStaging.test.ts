@@ -241,4 +241,159 @@ describe('audit outbox staging contracts', () => {
       true
     );
   });
+
+  it('rejects audit plans for CommandKinds without a reason registry entry', () => {
+    const envelope: CommandEnvelope<'reschedule_booking'> = {
+      kind: 'reschedule_booking',
+      context: {
+        actor: accountCommandActor('account_audit_staging_01'),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'fail-closed-reason-kind',
+        correlationId,
+        source: 'client_callable',
+      },
+      intent: { bookingId: 'booking_audit_staging_01' },
+    };
+
+    expect(() =>
+      validateAuditOutboxStagingPlan(envelope, {
+        activityLog: {
+          reason: { registryVersion: 'reason:v1', reasonCode: 'self_service_completion' },
+          primarySubject: {
+            kind: 'booking',
+            id: 'booking_audit_staging_01',
+            subjectKey: 'booking:booking_audit_staging_01',
+          },
+          affectedSubjects: [],
+          effects: [],
+          monetaryEventIds: [],
+          adminIssueIds: [],
+          resultingRevisions: [],
+        },
+        outboxObligations: [],
+      })
+    ).toThrow(expect.objectContaining({ code: 'validation' }));
+  });
+
+  it('rejects registered CommandKind with unregistered reason code', () => {
+    const envelope = completeBookingEnvelope('fail-closed-reason-code');
+
+    expect(() =>
+      validateAuditOutboxStagingPlan(envelope, {
+        activityLog: {
+          reason: { registryVersion: 'reason:v1', reasonCode: 'manual_override' },
+          primarySubject: {
+            kind: 'booking',
+            id: 'booking_audit_staging_01',
+            subjectKey: 'booking:booking_audit_staging_01',
+          },
+          affectedSubjects: [],
+          effects: [
+            {
+              kind: 'booking_lifecycle_changed',
+              summary: 'Booking marked completed',
+            },
+          ],
+          monetaryEventIds: [],
+          adminIssueIds: [],
+          resultingRevisions: [],
+        },
+        outboxObligations: [],
+      })
+    ).toThrow(expect.objectContaining({ code: 'validation' }));
+  });
+
+  it('rejects arbitrary reason strings not in reason:v1', () => {
+    const envelope = completeBookingEnvelope('fail-closed-arbitrary-reason');
+
+    expect(() =>
+      validateAuditOutboxStagingPlan(envelope, {
+        activityLog: {
+          reason: { registryVersion: 'reason:v1', reasonCode: 'bogus_reason_code' },
+          primarySubject: {
+            kind: 'booking',
+            id: 'booking_audit_staging_01',
+            subjectKey: 'booking:booking_audit_staging_01',
+          },
+          affectedSubjects: [],
+          effects: [
+            {
+              kind: 'booking_lifecycle_changed',
+              summary: 'Booking marked completed',
+            },
+          ],
+          monetaryEventIds: [],
+          adminIssueIds: [],
+          resultingRevisions: [],
+        },
+        outboxObligations: [],
+      })
+    ).toThrow(expect.objectContaining({ code: 'validation' }));
+  });
+
+  it('rejects registered CommandKind with unregistered effect kind', () => {
+    const envelope = completeBookingEnvelope('fail-closed-effect');
+
+    expect(() =>
+      validateAuditOutboxStagingPlan(envelope, {
+        activityLog: {
+          reason: { registryVersion: 'reason:v1', reasonCode: 'self_service_completion' },
+          primarySubject: {
+            kind: 'booking',
+            id: 'booking_audit_staging_01',
+            subjectKey: 'booking:booking_audit_staging_01',
+          },
+          affectedSubjects: [],
+          effects: [
+            {
+              kind: 'payment_state_changed',
+              summary: 'Payment state changed for booking',
+            },
+          ],
+          monetaryEventIds: [],
+          adminIssueIds: [],
+          resultingRevisions: [],
+        },
+        outboxObligations: [],
+      })
+    ).toThrow(expect.objectContaining({ code: 'validation' }));
+  });
+
+  it('rejects audit plans for CommandKinds without an effect registry entry', () => {
+    const envelope: CommandEnvelope<'reschedule_booking'> = {
+      kind: 'reschedule_booking',
+      context: {
+        actor: accountCommandActor('account_audit_staging_01'),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'fail-closed-effect-kind',
+        correlationId,
+        source: 'client_callable',
+      },
+      intent: { bookingId: 'booking_audit_staging_01' },
+    };
+
+    expect(() =>
+      validateAuditOutboxStagingPlan(envelope, {
+        activityLog: {
+          reason: { registryVersion: 'reason:v1', reasonCode: 'self_service_completion' },
+          primarySubject: {
+            kind: 'booking',
+            id: 'booking_audit_staging_01',
+            subjectKey: 'booking:booking_audit_staging_01',
+          },
+          affectedSubjects: [],
+          effects: [
+            {
+              kind: 'booking_lifecycle_changed',
+              summary: 'Booking lifecycle changed',
+            },
+          ],
+          monetaryEventIds: [],
+          adminIssueIds: [],
+          resultingRevisions: [],
+        },
+        outboxObligations: [],
+      })
+    ).toThrow(expect.objectContaining({ code: 'validation' }));
+  });
 });

@@ -27,6 +27,10 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
   record_manual_wallet_funding: ['manual_financial_correction', 'manual_override', 'other'],
 };
 
+export function hasAuditReasonRegistryEntry(commandKind: CommandKind): boolean {
+  return COMMAND_KIND_REASON_CODES[commandKind] !== undefined;
+}
+
 const EXPLANATION_REQUIRED_REASON_CODES = new Set<AuditReasonCode>([
   'manual_override',
   'manual_financial_correction',
@@ -65,9 +69,14 @@ export function validateAuditReason(
   }
 
   const allowedForKind = COMMAND_KIND_REASON_CODES[commandKind];
-  const allowedCodes = allowedForKind === undefined ? AUDIT_REASON_CODES : allowedForKind;
+  if (allowedForKind === undefined) {
+    throw new CanonicalCommandError('validation', {
+      correlationId,
+      details: { reason: 'unsupported', field: 'reason.reasonCode' },
+    });
+  }
 
-  if (!allowedCodes.includes(reason.reasonCode as AuditReasonCode)) {
+  if (!allowedForKind.includes(reason.reasonCode as AuditReasonCode)) {
     throw new CanonicalCommandError('validation', {
       correlationId,
       details: { reason: 'unsupported', field: 'reason.reasonCode' },

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AUDIT_EFFECT_REGISTRY_VERSION = void 0;
+exports.hasAuditEffectRegistryEntry = hasAuditEffectRegistryEntry;
 exports.allowedAuditEffectsForCommand = allowedAuditEffectsForCommand;
 exports.validateAuditEffectsForCommand = validateAuditEffectsForCommand;
 const errors_1 = require("./errors");
@@ -15,25 +16,25 @@ const COMMAND_KIND_ALLOWED_EFFECTS = {
     ],
     record_manual_wallet_funding: ['wallet_balance_changed', 'financial_correction_recorded'],
 };
-const DEFAULT_ALLOWED_EFFECTS = [
-    'payment_state_changed',
-    'wallet_balance_changed',
-    'booking_lifecycle_changed',
-    'course_enrollment_lifecycle_changed',
-    'resource_claim_changed',
-    'attendance_recorded',
-    'admin_issue_opened',
-    'admin_issue_resolved',
-    'participant_access_changed',
-    'audit_correction_recorded',
-    'financial_correction_recorded',
-    'outbox_obligation_created',
-];
+function hasAuditEffectRegistryEntry(commandKind) {
+    return COMMAND_KIND_ALLOWED_EFFECTS[commandKind] !== undefined;
+}
 function allowedAuditEffectsForCommand(commandKind) {
-    return COMMAND_KIND_ALLOWED_EFFECTS[commandKind] ?? DEFAULT_ALLOWED_EFFECTS;
+    const allowed = COMMAND_KIND_ALLOWED_EFFECTS[commandKind];
+    if (allowed === undefined) {
+        return [];
+    }
+    return allowed;
 }
 function validateAuditEffectsForCommand(correlationId, commandKind, effects) {
-    const allowed = new Set(allowedAuditEffectsForCommand(commandKind));
+    const allowedForKind = COMMAND_KIND_ALLOWED_EFFECTS[commandKind];
+    if (allowedForKind === undefined) {
+        throw new errors_1.CanonicalCommandError('validation', {
+            correlationId,
+            details: { reason: 'unsupported', field: 'effects.kind' },
+        });
+    }
+    const allowed = new Set(allowedForKind);
     for (const effect of effects) {
         if (!allowed.has(effect.kind)) {
             throw new errors_1.CanonicalCommandError('validation', {

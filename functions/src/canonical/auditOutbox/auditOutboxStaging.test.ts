@@ -22,7 +22,10 @@ import {
   type CommandResult,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
-import { executeIdempotentCanonicalCommand } from '../commands/idempotentCommandExecution';
+import {
+  executeAuthoritativeIdempotentCanonicalCommand,
+  executeIdempotentCanonicalCommand,
+} from '../commands/idempotentCommandExecution';
 import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
 
 const correlationId = CorrelationIdSchema.parse('correlation_audit_fn_01');
@@ -90,10 +93,10 @@ function auditedHandler(onExecute?: () => void): {
   planAuditOutbox: () => Promise<AuditOutboxStagingPlan>;
   execute: (
     session: Parameters<
-      NonNullable<Parameters<typeof executeIdempotentCanonicalCommand>[0]['handler']['execute']>
+      NonNullable<Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['handler']['execute']>
     >[0],
     context: Parameters<
-      NonNullable<Parameters<typeof executeIdempotentCanonicalCommand>[0]['handler']['execute']>
+      NonNullable<Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['handler']['execute']>
     >[1]
   ) => Promise<CommandResult<'complete_booking'>>;
 } {
@@ -116,12 +119,11 @@ describe('audited idempotent command execution', () => {
       [bookingPath]: { revision: 1, status: 'confirmed' },
     });
 
-    await executeIdempotentCanonicalCommand({
+    await executeAuthoritativeIdempotentCanonicalCommand({
       envelope: envelope('audit-one-log-01'),
       environment: environment('2026-01-01T00:00:00.000Z'),
       executor,
       revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
-      requireAuditOnSuccess: true,
       handler: auditedHandler(),
     });
 
@@ -140,7 +142,7 @@ describe('audited idempotent command execution', () => {
       [bookingPath]: { revision: 1, status: 'confirmed' },
     });
 
-    const rejected = await executeIdempotentCanonicalCommand({
+    const rejected = await executeAuthoritativeIdempotentCanonicalCommand({
       envelope: envelope('audit-reject-01'),
       environment: environment('2026-01-01T00:00:00.000Z'),
       executor,
@@ -172,20 +174,18 @@ describe('audited idempotent command execution', () => {
       executeCalls += 1;
     });
 
-    await executeIdempotentCanonicalCommand({
+    await executeAuthoritativeIdempotentCanonicalCommand({
       envelope: envelope('audit-replay-01'),
       environment: environment('2026-01-01T00:00:00.000Z'),
       executor,
       revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
-      requireAuditOnSuccess: true,
       handler,
     });
-    await executeIdempotentCanonicalCommand({
+    await executeAuthoritativeIdempotentCanonicalCommand({
       envelope: envelope('audit-replay-01'),
       environment: environment('2026-01-02T00:00:00.000Z'),
       executor,
       revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
-      requireAuditOnSuccess: true,
       handler,
     });
 
@@ -235,12 +235,11 @@ describe('audited idempotent command execution', () => {
       },
     });
 
-    const result = await executeIdempotentCanonicalCommand({
+    const result = await executeAuthoritativeIdempotentCanonicalCommand({
       envelope: envelope('audit-collision-01'),
       environment: environment('2026-01-01T00:00:00.000Z'),
       executor,
       revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
-      requireAuditOnSuccess: true,
       handler: auditedHandler(),
     });
 
@@ -274,12 +273,11 @@ describe('audited idempotent command execution', () => {
       },
     });
 
-    const result = await executeIdempotentCanonicalCommand({
+    const result = await executeAuthoritativeIdempotentCanonicalCommand({
       envelope: envelope('audit-outbox-collision-01'),
       environment: environment('2026-01-01T00:00:00.000Z'),
       executor,
       revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
-      requireAuditOnSuccess: true,
       handler: auditedHandler(),
     });
 
@@ -292,12 +290,11 @@ describe('audited idempotent command execution', () => {
       [bookingPath]: { revision: 1, status: 'confirmed' },
     });
 
-    await executeIdempotentCanonicalCommand({
+    await executeAuthoritativeIdempotentCanonicalCommand({
       envelope: envelope('audit-atomic-01'),
       environment: environment('2026-01-01T00:00:00.000Z'),
       executor,
       revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
-      requireAuditOnSuccess: true,
       handler: auditedHandler(),
     });
 
@@ -318,12 +315,11 @@ describe('audited idempotent command execution', () => {
       [bookingPath]: { revision: 1, status: 'confirmed' },
     });
 
-    await executeIdempotentCanonicalCommand({
+    await executeAuthoritativeIdempotentCanonicalCommand({
       envelope: envelope('audit-timestamps-01'),
       environment: environment('2026-01-01T00:00:00.000Z', 2500),
       executor,
       revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
-      requireAuditOnSuccess: true,
       handler: auditedHandler(),
     });
 
@@ -347,12 +343,11 @@ describe('audited idempotent command execution', () => {
     );
     let attempt = 0;
 
-    await executeIdempotentCanonicalCommand({
+    await executeAuthoritativeIdempotentCanonicalCommand({
       envelope: envelope('audit-retry-01'),
       environment: environment('2026-01-01T00:00:00.000Z'),
       executor,
       revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
-      requireAuditOnSuccess: true,
       handler: {
         planAuditOutbox: async () => auditPlan(),
         execute: async (session, context) => {
@@ -405,7 +400,7 @@ describe('audited idempotent command execution', () => {
       intent: { bookingId },
     };
 
-    const result = await executeIdempotentCanonicalCommand({
+    const result = await executeAuthoritativeIdempotentCanonicalCommand({
       envelope: systemEnvelope,
       environment: environment('2026-01-01T00:00:00.000Z'),
       executor,
@@ -438,5 +433,68 @@ describe('audited idempotent command execution', () => {
       );
       expect(maxObligations.estimate.byCategory.activity_log.mutations).toBe(1);
     }
+  });
+
+  it('allows the non-authoritative idempotent seam to succeed without audit staging', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [bookingPath]: { revision: 1, status: 'confirmed' },
+    });
+
+    await executeIdempotentCanonicalCommand({
+      envelope: envelope('non-authoritative-seam-01'),
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
+      handler: {
+        execute: async (session, context) => {
+          session.tx.update(
+            { path: bookingPath },
+            {
+              revision: context.nextRevision(AggregateRevisionSchema.parse(1)),
+              status: 'completed',
+            }
+          );
+          return commandSuccessResult('complete_booking', correlationId);
+        },
+      },
+    });
+
+    const identity = resolveCommandIdempotencyIdentity(envelope('non-authoritative-seam-01'));
+    const activityLogPath = `activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`;
+    expect(executor.snapshot().docs.get(bookingPath)?.data.status).toBe('completed');
+    expect(executor.snapshot().docs.has(activityLogPath)).toBe(false);
+  });
+
+  it('rejects authoritative execution when planAuditOutbox is missing before domain writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [bookingPath]: { revision: 1, status: 'confirmed' },
+    });
+
+    const result = await executeIdempotentCanonicalCommand({
+      envelope: envelope('authoritative-missing-plan-01'),
+      environment: environment('2026-01-01T00:00:00.000Z'),
+      executor,
+      revisionTarget: { ref: { path: bookingPath }, requireExpectedRevision: true },
+      requireAuditOnSuccess: true,
+      handler: {
+        execute: async (session, context) => {
+          session.tx.update(
+            { path: bookingPath },
+            {
+              revision: context.nextRevision(AggregateRevisionSchema.parse(1)),
+              status: 'completed',
+            }
+          );
+          return commandSuccessResult('complete_booking', correlationId);
+        },
+      },
+    });
+
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('internal');
+    }
+    expect(executor.snapshot().docs.get(bookingPath)?.data.revision).toBe(1);
+    expect(executor.snapshot().docs.get(bookingPath)?.data.status).toBe('confirmed');
   });
 });

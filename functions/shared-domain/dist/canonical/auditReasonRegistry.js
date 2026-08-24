@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AUDIT_REASON_CODES = exports.AUDIT_REASON_REGISTRY_VERSION = void 0;
+exports.hasAuditReasonRegistryEntry = hasAuditReasonRegistryEntry;
 exports.isAuditExplanationRequired = isAuditExplanationRequired;
 exports.validateAuditReason = validateAuditReason;
 const errors_1 = require("./errors");
@@ -23,6 +24,9 @@ const COMMAND_KIND_REASON_CODES = {
     create_confirmed_booking: ['self_service_booking', 'manual_override', 'other'],
     record_manual_wallet_funding: ['manual_financial_correction', 'manual_override', 'other'],
 };
+function hasAuditReasonRegistryEntry(commandKind) {
+    return COMMAND_KIND_REASON_CODES[commandKind] !== undefined;
+}
 const EXPLANATION_REQUIRED_REASON_CODES = new Set([
     'manual_override',
     'manual_financial_correction',
@@ -48,8 +52,13 @@ function validateAuditReason(correlationId, commandKind, reason) {
         });
     }
     const allowedForKind = COMMAND_KIND_REASON_CODES[commandKind];
-    const allowedCodes = allowedForKind === undefined ? exports.AUDIT_REASON_CODES : allowedForKind;
-    if (!allowedCodes.includes(reason.reasonCode)) {
+    if (allowedForKind === undefined) {
+        throw new errors_1.CanonicalCommandError('validation', {
+            correlationId,
+            details: { reason: 'unsupported', field: 'reason.reasonCode' },
+        });
+    }
+    if (!allowedForKind.includes(reason.reasonCode)) {
         throw new errors_1.CanonicalCommandError('validation', {
             correlationId,
             details: { reason: 'unsupported', field: 'reason.reasonCode' },

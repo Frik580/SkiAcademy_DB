@@ -52,6 +52,25 @@ export interface IdempotentCanonicalCommandHandler<Kind extends CommandKind> {
   ) => Promise<CommandResult<Kind>>;
 }
 
+export interface AuthoritativeIdempotentCanonicalCommandHandler<Kind extends CommandKind> {
+  readonly read?: (session: CanonicalAtomicTransactionSession) => Promise<void>;
+  readonly planAuditOutbox: (
+    session: CanonicalAtomicTransactionSession
+  ) => Promise<AuditOutboxStagingPlan>;
+  readonly execute: (
+    session: CanonicalAtomicTransactionSession,
+    context: IdempotentCommandWriteContext
+  ) => Promise<CommandResult<Kind>>;
+}
+
+export interface ExecuteAuthoritativeIdempotentCanonicalCommandInput<Kind extends CommandKind> {
+  readonly envelope: CommandEnvelope<Kind>;
+  readonly environment: CommandExecutionEnvironment;
+  readonly executor: CanonicalTransactionExecutor;
+  readonly revisionTarget?: IdempotentCommandRevisionTarget;
+  readonly handler: AuthoritativeIdempotentCanonicalCommandHandler<Kind>;
+}
+
 export interface ExecuteIdempotentCanonicalCommandInput<Kind extends CommandKind> {
   readonly envelope: CommandEnvelope<Kind>;
   readonly environment: CommandExecutionEnvironment;
@@ -98,6 +117,15 @@ function idempotencyConflictError(envelope: CommandEnvelope): CanonicalCommandEr
 
 function toTransactionPath(path: string): string {
   return path.startsWith('/') ? path.slice(1) : path;
+}
+
+export async function executeAuthoritativeIdempotentCanonicalCommand<Kind extends CommandKind>(
+  input: ExecuteAuthoritativeIdempotentCanonicalCommandInput<Kind>
+): Promise<CommandResult<Kind>> {
+  return executeIdempotentCanonicalCommand({
+    ...input,
+    requireAuditOnSuccess: true,
+  });
 }
 
 export async function executeIdempotentCanonicalCommand<Kind extends CommandKind>(

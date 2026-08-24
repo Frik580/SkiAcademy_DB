@@ -16,7 +16,7 @@ import {
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
-import { executeIdempotentCanonicalCommand } from '../commands/idempotentCommandExecution';
+import { executeAuthoritativeIdempotentCanonicalCommand } from '../commands/idempotentCommandExecution';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 
 const PROJECT_ID = 'ski-academy-canonical-audit-test';
@@ -123,7 +123,7 @@ describe.skipIf(!runsOnFirestoreEmulator)(
     it('commits domain, audit, and outbox atomically in Firestore', async () => {
       const executor = createFirestoreCanonicalTransactionExecutor(firestore);
 
-      await executeIdempotentCanonicalCommand({
+      await executeAuthoritativeIdempotentCanonicalCommand({
         envelope: envelope('audit-emulator-atomic-01'),
         environment: {
           clock: createAuthoritativeCommandClock(new Date('2026-04-01T00:00:00.000Z'), {
@@ -165,7 +165,7 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       let handlerCalls = 0;
 
       const run = () =>
-        executeIdempotentCanonicalCommand({
+        executeAuthoritativeIdempotentCanonicalCommand({
           envelope: envelope('audit-emulator-concurrent-01'),
           environment: {
             clock: createAuthoritativeCommandClock(new Date('2026-04-02T00:00:00.000Z')),

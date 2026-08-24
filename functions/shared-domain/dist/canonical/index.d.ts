@@ -17,4 +17,5 @@ export * from './paths';
 export * from './paymentWallet';
 export * from './primitives';
 export * from './resourceClaims';
+export * from './resourceClaimGuards';
 export * from './validation';

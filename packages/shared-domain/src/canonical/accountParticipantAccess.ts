@@ -181,6 +181,7 @@ export const ParticipantSchema = z
     discipline: z.enum(['ski', 'snowboard']),
     instructorComment: z.string().trim().min(1).max(2_000).optional(),
     management: ParticipantManagementStateSchema,
+    initialManagementEligibleAccountId: AccountIdSchema.optional(),
     lifecycle: ParticipantLifecycleSchema,
     ...revisionedRecordFields,
   })
@@ -196,6 +197,17 @@ export const ParticipantSchema = z
         code: 'custom',
         path: ['lifecycle', 'archivedAt'],
         message: 'archivedAt must not precede createdAt',
+      });
+    }
+    if (
+      participant.management.kind === 'managed' &&
+      participant.initialManagementEligibleAccountId !== undefined
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['initialManagementEligibleAccountId'],
+        message:
+          'Initial management eligibility must be cleared once a Participant is actively managed',
       });
     }
   });
@@ -605,6 +617,16 @@ export const ParticipantAccessTopologySchema = z
             context,
             ['participants', index, 'management'],
             'An unmanaged guest cannot have active Participant management'
+          );
+        }
+        if (
+          participant.initialManagementEligibleAccountId !== undefined &&
+          !accountIds.has(participant.initialManagementEligibleAccountId)
+        ) {
+          addTopologyIssue(
+            context,
+            ['participants', index, 'initialManagementEligibleAccountId'],
+            'Initial management eligibility references an unknown Account actor'
           );
         }
         return;

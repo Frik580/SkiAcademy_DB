@@ -81,6 +81,7 @@ export declare const ParticipantSchema: z.ZodObject<{
         kind: z.ZodLiteral<"managed">;
         participantManagementId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"participant_management">, string>>;
     }, z.core.$strict>], "kind">;
+    initialManagementEligibleAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"account">, string>>>;
     lifecycle: z.ZodDiscriminatedUnion<[z.ZodObject<{
         status: z.ZodLiteral<"active">;
     }, z.core.$strict>, z.ZodObject<{
@@ -464,6 +465,7 @@ export declare const ParticipantAccessTopologySchema: z.ZodObject<{
             kind: z.ZodLiteral<"managed">;
             participantManagementId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"participant_management">, string>>;
         }, z.core.$strict>], "kind">;
+        initialManagementEligibleAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"account">, string>>>;
         lifecycle: z.ZodDiscriminatedUnion<[z.ZodObject<{
             status: z.ZodLiteral<"active">;
         }, z.core.$strict>, z.ZodObject<{

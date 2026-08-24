@@ -88,6 +88,7 @@ describe('participant access emulator concurrency', () => {
       skillLevel: 'beginner',
       discipline: 'ski',
       management: { kind: 'unmanaged_guest' },
+      initialManagementEligibleAccountId: accountA,
       lifecycle: { status: 'active' },
       revision: 1,
       createdAt: decidedAt,
@@ -128,7 +129,7 @@ describe('participant access emulator concurrency', () => {
       const envelopeB: CommandEnvelope<'assign_participant_management'> = {
         kind: 'assign_participant_management',
         context: {
-          actor: accountCommandActor(accountB),
+          actor: accountCommandActor(accountA),
           exercisedCapability: 'parent_guardian',
           idempotencyKey: 'concurrent-owner-b',
           correlationId: CorrelationIdSchema.parse('correlation_participant_emulator_02'),

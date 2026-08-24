@@ -18,6 +18,7 @@ import {
   type ParticipantBlock,
   type ParticipantManagement,
   type InstructorRelationship,
+  type AccountId,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
 import {
@@ -29,12 +30,14 @@ import {
   readAndPlanAcquireParticipantManagementActiveOwnerGuard,
   releaseParticipantManagementActiveOwnerGuard,
 } from '../resourceClaims/uniquenessGuards';
+import { CANONICAL_FIELD_DELETE } from '../transactions/transactionExecution';
 import { buildParticipantAccessAuditPlan } from './participantAccessAudit';
 import {
   assertAccountActive,
   assertAdministrator,
   assertAuthorizedParticipantManager,
   assertCapabilityMatchesManagementAuthority,
+  assertInitialManagementAssignmentEligible,
   assertInstructorCapability,
   assertNotAdministratorForBlockMutation,
   assertParticipantActive,
@@ -121,11 +124,19 @@ function assignParticipantManagementHandler(
         });
       }
 
+      assertInitialManagementAssignmentEligible(envelope, participantRecord, actor.accountId);
+
       const managementRead = await session.tx.get({ path: managementDocumentPath });
       session.plan.planRead({ path: managementDocumentPath, category: 'aggregate' });
       existingManagement = parseParticipantManagement(
         managementRead.exists ? managementRead.data : undefined
       );
+      if (existingManagement?.status === 'ended') {
+        throw new CanonicalCommandError('forbidden', {
+          correlationId: envelope.context.correlationId,
+          details: { resourceKind: 'participant', reason: 'conflict' },
+        });
+      }
       plannedManagementRevision = existingManagement
         ? nextAggregateRevision(existingManagement.revision)
         : AggregateRevisionSchema.parse(1);
@@ -227,6 +238,7 @@ function assignParticipantManagementHandler(
           kind: 'managed',
           participantManagementId: envelope.intent.participantManagementId,
         },
+        initialManagementEligibleAccountId: CANONICAL_FIELD_DELETE as unknown as AccountId,
         revision: nextAggregateRevision(participantRecord!.revision),
         updatedAt: decidedAt,
         audit: {
@@ -1348,6 +1360,7 @@ function createParticipantHandler(
           ? {}
           : { instructorComment: envelope.intent.instructorComment }),
         management: { kind: 'unmanaged_guest' },
+        initialManagementEligibleAccountId: actor.accountId,
         lifecycle: { status: 'active' },
         revision: AggregateRevisionSchema.parse(1),
         createdAt: decidedAt,

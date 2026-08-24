@@ -61,3 +61,24 @@ export function assertWritePhase(
     throw new CanonicalTransactionPhaseError(attemptedOperation, operations.phase);
   }
 }
+
+export const CANONICAL_FIELD_DELETE = Symbol('CANONICAL_FIELD_DELETE');
+
+export function isCanonicalFieldDelete(value: unknown): value is typeof CANONICAL_FIELD_DELETE {
+  return value === CANONICAL_FIELD_DELETE;
+}
+
+export function applyCanonicalDocumentUpdate(
+  existing: Record<string, unknown>,
+  update: Record<string, unknown>
+): Record<string, unknown> {
+  const merged = { ...existing };
+  for (const [key, value] of Object.entries(update)) {
+    if (isCanonicalFieldDelete(value)) {
+      delete merged[key];
+      continue;
+    }
+    merged[key] = value;
+  }
+  return merged;
+}

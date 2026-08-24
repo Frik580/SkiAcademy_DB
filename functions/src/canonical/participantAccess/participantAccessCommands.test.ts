@@ -110,6 +110,9 @@ describe('participant access commands', () => {
     expect(assigned.status).toBe('success');
 
     const snapshot = executor.snapshot();
+    expect(
+      snapshot.docs.get(`participants/${participantId}`)?.data.initialManagementEligibleAccountId
+    ).toBeUndefined();
     expect(snapshot.docs.get(`participants/${participantId}`)?.data.management).toEqual({
       kind: 'managed',
       participantManagementId: managementId,
@@ -133,6 +136,7 @@ describe('participant access commands', () => {
         skillLevel: 'beginner',
         discipline: 'ski',
         management: { kind: 'unmanaged_guest' },
+        initialManagementEligibleAccountId: accountId,
         lifecycle: { status: 'active' },
         revision: 1,
         createdAt: decidedAt,
@@ -175,11 +179,121 @@ describe('participant access commands', () => {
     const second = await runCommand(executor, secondEnvelope);
 
     const successes = [first, second].filter((result) => result.status === 'success');
-    const blocked = [first, second].filter(
-      (result) => result.status === 'error' && result.error.code === 'blocked_relationship'
-    );
+    const denied = [first, second].filter((result) => result.status === 'error');
     expect(successes).toHaveLength(1);
-    expect(blocked).toHaveLength(1);
+    expect(denied).toHaveLength(1);
+    if (denied[0]?.status === 'error') {
+      expect(['forbidden', 'blocked_relationship']).toContain(denied[0].error.code);
+    }
+  });
+
+  it('rejects an unrelated account claiming an orphan participant without eligibility', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: seedAccount(),
+      [`users/${otherAccountId}`]: seedAccount(otherAccountId),
+      [`participants/${participantId}`]: {
+        participantId,
+        displayName: 'Orphan Participant',
+        age: { kind: 'age_years', years: 9 },
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        management: { kind: 'unmanaged_guest' },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_participant',
+          lastChangedByCommandId: 'command_seed_participant',
+          correlationId,
+        },
+      },
+    });
+
+    const claimEnvelope: CommandEnvelope<'assign_participant_management'> = {
+      kind: 'assign_participant_management',
+      context: {
+        ...accountContext('parent_guardian', otherAccountId),
+        idempotencyKey: 'orphan-claim-01',
+      },
+      intent: {
+        participantManagementId: ParticipantManagementIdSchema.parse('management_participant_cmd_02'),
+        participantId,
+        authority: 'parent_guardian',
+      },
+    };
+
+    const result = await runCommand(executor, claimEnvelope);
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
+
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.has(`participant_management/management_participant_cmd_02`)).toBe(false);
+    expect(snapshot.docs.has(`participant_management_active_owner/${participantId}`)).toBe(false);
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('activity_logs/'))
+    ).toHaveLength(0);
+  });
+
+  it('rejects reassignment after management revocation without an approved transfer path', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: seedAccount(),
+      [`participants/${participantId}`]: {
+        participantId,
+        displayName: 'Revoked Participant',
+        age: { kind: 'age_years', years: 11 },
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        management: { kind: 'unmanaged_guest' },
+        lifecycle: { status: 'active' },
+        revision: 2,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_participant',
+          lastChangedByCommandId: 'command_revoke_management',
+          correlationId,
+        },
+      },
+      [`participant_management/${managementId}`]: {
+        participantManagementId: managementId,
+        accountId,
+        participantId,
+        role: 'owner',
+        authority: 'parent_guardian',
+        status: 'ended',
+        endedAt: decidedAt,
+        revision: 2,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_management',
+          lastChangedByCommandId: 'command_revoke_management',
+          correlationId,
+        },
+      },
+    });
+
+    const reclaimEnvelope: CommandEnvelope<'assign_participant_management'> = {
+      kind: 'assign_participant_management',
+      context: {
+        ...accountContext('parent_guardian'),
+        idempotencyKey: 'reclaim-after-revoke-01',
+      },
+      intent: {
+        participantManagementId: ParticipantManagementIdSchema.parse('management_participant_cmd_03'),
+        participantId,
+        authority: 'parent_guardian',
+      },
+    };
+
+    const result = await runCommand(executor, reclaimEnvelope);
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
   });
 
   it('creates opposite-direction blocks and removes only the creator block', async () => {

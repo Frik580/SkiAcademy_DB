@@ -1,4 +1,4 @@
-import type { Firestore, Transaction } from 'firebase-admin/firestore';
+import { FieldValue, type Firestore, type Transaction } from 'firebase-admin/firestore';
 import {
   assertTransactionWithinBudget,
   CanonicalCommandError,
@@ -9,6 +9,7 @@ import {
 import {
   assertReadPhase,
   assertWritePhase,
+  isCanonicalFieldDelete,
   type CanonicalTransactionDocumentRef,
   type CanonicalTransactionOperations,
   type CanonicalTransactionOperationsInternal,
@@ -81,7 +82,12 @@ class FirestoreCanonicalTransactionOperations implements CanonicalTransactionOpe
 
   update(ref: CanonicalTransactionDocumentRef, data: Record<string, unknown>): void {
     assertWritePhase(this, 'update');
-    this.transaction.update(this.firestore.doc(ref.path), data);
+    const payload = Object.fromEntries(
+      Object.entries(data).map(([key, value]) =>
+        isCanonicalFieldDelete(value) ? [key, FieldValue.delete()] : [key, value]
+      )
+    );
+    this.transaction.update(this.firestore.doc(ref.path), payload);
   }
 
   delete(ref: CanonicalTransactionDocumentRef): void {

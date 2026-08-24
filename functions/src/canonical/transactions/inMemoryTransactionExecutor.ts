@@ -7,6 +7,7 @@ import {
 import {
   assertReadPhase,
   assertWritePhase,
+  applyCanonicalDocumentUpdate,
   type CanonicalTransactionDocumentRef,
   type CanonicalTransactionOperations,
   type CanonicalTransactionOperationsInternal,
@@ -88,7 +89,7 @@ class InMemoryCanonicalTransactionOperations implements CanonicalTransactionOper
       if (!existing) {
         throw new Error(`Document does not exist: ${ref.path}`);
       }
-      this.docs.set(ref.path, { data: { ...existing.data, ...data } });
+      this.docs.set(ref.path, { data: applyCanonicalDocumentUpdate(existing.data, data) });
       this.writesAttempted.count += 1;
     });
   }

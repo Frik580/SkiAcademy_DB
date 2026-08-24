@@ -118,6 +118,19 @@ export function assertCapabilityMatchesManagementAuthority(
   }
 }
 
+export function assertInitialManagementAssignmentEligible(
+  envelope: CommandEnvelope,
+  participant: Participant,
+  accountId: AccountId
+): void {
+  if (participant.initialManagementEligibleAccountId !== accountId) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+      details: { resourceKind: 'participant', reason: 'conflict' },
+    });
+  }
+}
+
 export function assertAuthorizedParticipantManager(
   envelope: CommandEnvelope,
   input: Readonly<{

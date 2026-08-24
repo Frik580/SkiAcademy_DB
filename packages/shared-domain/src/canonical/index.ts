@@ -18,6 +18,8 @@ export * from './errors';
 export * from './identifiers';
 export * from './paths';
 export * from './paymentWallet';
+export * from './paymentWalletOperations';
+export * from './providerEventReceipt';
 export * from './primitives';
 export * from './firestoreSerialization';
 export * from './resourceClaims';

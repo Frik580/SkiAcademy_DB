@@ -119,6 +119,30 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
     }, z.core.$strict> | z.ZodObject<{
         paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"payment">, string>>;
     }, z.core.$strict> | z.ZodObject<{
+        paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"payment">, string>>;
+        amount: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>;
+        sourceKind: z.ZodEnum<{
+            provider: "provider";
+            manual_external: "manual_external";
+            cash: "cash";
+            bank_transfer: "bank_transfer";
+        }>;
+        providerKind: z.ZodOptional<z.ZodString>;
+        providerEventId: z.ZodOptional<z.ZodString>;
+        providerTransactionRef: z.ZodOptional<z.ZodString>;
+        manualReference: z.ZodOptional<z.ZodString>;
+        payerAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"account">, string>>>;
+    }, z.core.$strict> | z.ZodObject<{
+        accountId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"account">, string>>;
+        amount: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>;
+        reasonExplanation: z.ZodString;
+    }, z.core.$strict> | z.ZodObject<{
+        paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"payment">, string>>;
+        newPrice: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>;
+        fundingAmount: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>>;
+        walletAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"account">, string>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict> | z.ZodObject<{
         courseDayId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course_day">, string>>;
     }, z.core.$strict> | z.ZodObject<{}, z.core.$strict> | z.ZodObject<{
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
@@ -273,6 +297,30 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
     }, z.core.$strict> | z.ZodObject<{
         paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"payment">, string>>;
     }, z.core.$strict> | z.ZodObject<{
+        paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"payment">, string>>;
+        amount: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>;
+        sourceKind: z.ZodEnum<{
+            provider: "provider";
+            manual_external: "manual_external";
+            cash: "cash";
+            bank_transfer: "bank_transfer";
+        }>;
+        providerKind: z.ZodOptional<z.ZodString>;
+        providerEventId: z.ZodOptional<z.ZodString>;
+        providerTransactionRef: z.ZodOptional<z.ZodString>;
+        manualReference: z.ZodOptional<z.ZodString>;
+        payerAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"account">, string>>>;
+    }, z.core.$strict> | z.ZodObject<{
+        accountId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"account">, string>>;
+        amount: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>;
+        reasonExplanation: z.ZodString;
+    }, z.core.$strict> | z.ZodObject<{
+        paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"payment">, string>>;
+        newPrice: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>;
+        fundingAmount: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>>;
+        walletAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"account">, string>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict> | z.ZodObject<{
         courseDayId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course_day">, string>>;
     }, z.core.$strict> | z.ZodObject<{}, z.core.$strict> | z.ZodObject<{
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
@@ -426,6 +474,30 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         instructorComment: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"payment">, string>>;
+    }, z.core.$strict> | z.ZodObject<{
+        paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"payment">, string>>;
+        amount: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>;
+        sourceKind: z.ZodEnum<{
+            provider: "provider";
+            manual_external: "manual_external";
+            cash: "cash";
+            bank_transfer: "bank_transfer";
+        }>;
+        providerKind: z.ZodOptional<z.ZodString>;
+        providerEventId: z.ZodOptional<z.ZodString>;
+        providerTransactionRef: z.ZodOptional<z.ZodString>;
+        manualReference: z.ZodOptional<z.ZodString>;
+        payerAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"account">, string>>>;
+    }, z.core.$strict> | z.ZodObject<{
+        accountId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"account">, string>>;
+        amount: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>;
+        reasonExplanation: z.ZodString;
+    }, z.core.$strict> | z.ZodObject<{
+        paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"payment">, string>>;
+        newPrice: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>;
+        fundingAmount: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>>;
+        walletAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"account">, string>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         courseDayId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course_day">, string>>;
     }, z.core.$strict> | z.ZodObject<{}, z.core.$strict> | z.ZodObject<{

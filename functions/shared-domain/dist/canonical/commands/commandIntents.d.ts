@@ -171,10 +171,30 @@ export declare const CommandIntentSchemaByKind: {
     }, z.core.$strict>;
     record_provider_payment_event: z.ZodObject<{
         paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"payment">, string>>;
+        amount: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").KztMinorUnits, number>>;
+        sourceKind: z.ZodEnum<{
+            provider: "provider";
+            manual_external: "manual_external";
+            cash: "cash";
+            bank_transfer: "bank_transfer";
+        }>;
+        providerKind: z.ZodOptional<z.ZodString>;
+        providerEventId: z.ZodOptional<z.ZodString>;
+        providerTransactionRef: z.ZodOptional<z.ZodString>;
+        manualReference: z.ZodOptional<z.ZodString>;
+        payerAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"account">, string>>>;
     }, z.core.$strict>;
-    record_manual_wallet_funding: z.ZodObject<{}, z.core.$strict>;
+    record_manual_wallet_funding: z.ZodObject<{
+        accountId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"account">, string>>;
+        amount: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").KztMinorUnits, number>>;
+        reasonExplanation: z.ZodString;
+    }, z.core.$strict>;
     adjust_service_price: z.ZodObject<{
         paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"payment">, string>>;
+        newPrice: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").KztMinorUnits, number>>;
+        fundingAmount: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").KztMinorUnits, number>>>;
+        walletAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"account">, string>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>;
     record_financial_correction: z.ZodObject<{
         paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"payment">, string>>;

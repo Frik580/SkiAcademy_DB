@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  AccountIdSchema,
   BookingChangeRequestIdSchema,
   BookingIdSchema,
   BookingProposalIdSchema,
@@ -13,6 +14,7 @@ import {
   ParticipantManagementIdSchema,
   PaymentIdSchema,
 } from '../identifiers';
+import { KztMinorUnitsSchema } from '../primitives';
 import type { CommandKind } from './commandKinds';
 
 const bookingTargetIntent = z.object({ bookingId: BookingIdSchema }).strict();
@@ -67,6 +69,77 @@ const instructorRelationshipBasisIntent = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('administration_assignment') }).strict(),
 ]);
 const paymentTargetIntent = z.object({ paymentId: PaymentIdSchema }).strict();
+const positiveKztIntent = KztMinorUnitsSchema.refine((value) => value > 0, 'Amount must be positive');
+const providerPaymentSourceKindIntent = z.enum(['provider', 'manual_external', 'cash', 'bank_transfer']);
+const recordProviderPaymentEventIntent = z
+  .object({
+    paymentId: PaymentIdSchema,
+    amount: positiveKztIntent,
+    sourceKind: providerPaymentSourceKindIntent,
+    providerKind: z.string().trim().min(1).max(64).optional(),
+    providerEventId: z.string().trim().min(1).max(128).optional(),
+    providerTransactionRef: z.string().trim().min(1).max(128).optional(),
+    manualReference: z.string().trim().min(1).max(128).optional(),
+    payerAccountId: AccountIdSchema.optional(),
+  })
+  .strict()
+  .superRefine((intent, context) => {
+    if (intent.sourceKind === 'provider') {
+      if (!intent.providerKind) {
+        context.addIssue({
+          code: 'custom',
+          path: ['providerKind'],
+          message: 'providerKind is required for provider source',
+        });
+      }
+      if (!intent.providerEventId) {
+        context.addIssue({
+          code: 'custom',
+          path: ['providerEventId'],
+          message: 'providerEventId is required for provider source',
+        });
+      }
+    }
+    if (intent.sourceKind === 'manual_external' && !intent.manualReference) {
+      context.addIssue({
+        code: 'custom',
+        path: ['manualReference'],
+        message: 'manualReference is required for manual_external source',
+      });
+    }
+  });
+const recordManualWalletFundingIntent = z
+  .object({
+    accountId: AccountIdSchema,
+    amount: positiveKztIntent,
+    reasonExplanation: z.string().trim().min(1).max(1_000),
+  })
+  .strict();
+const adjustServicePriceIntent = z
+  .object({
+    paymentId: PaymentIdSchema,
+    newPrice: KztMinorUnitsSchema,
+    fundingAmount: KztMinorUnitsSchema.optional(),
+    walletAccountId: AccountIdSchema.optional(),
+    reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
+  })
+  .strict()
+  .superRefine((intent, context) => {
+    if (intent.fundingAmount !== undefined && intent.fundingAmount <= 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['fundingAmount'],
+        message: 'fundingAmount must be positive when provided',
+      });
+    }
+    if (intent.fundingAmount !== undefined && intent.walletAccountId === undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['walletAccountId'],
+        message: 'walletAccountId is required when fundingAmount is provided',
+      });
+    }
+  });
 const courseDayTargetIntent = z.object({ courseDayId: CourseDayIdSchema }).strict();
 const emptyIntent = z.object({}).strict();
 
@@ -191,9 +264,9 @@ export const CommandIntentSchemaByKind = {
       participantBlockId: ParticipantBlockIdSchema,
     })
     .strict(),
-  record_provider_payment_event: paymentTargetIntent,
-  record_manual_wallet_funding: emptyIntent,
-  adjust_service_price: paymentTargetIntent,
+  record_provider_payment_event: recordProviderPaymentEventIntent,
+  record_manual_wallet_funding: recordManualWalletFundingIntent,
+  adjust_service_price: adjustServicePriceIntent,
   record_financial_correction: paymentTargetIntent,
   record_audit_correction: emptyIntent,
   create_course_day: z

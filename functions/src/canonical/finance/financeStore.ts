@@ -116,14 +116,21 @@ export function mergePaymentProjection(
     readonly payerAccountId?: Payment['payerAccountId'];
   }
 ): Payment {
+  const payerAccountId = input.payerAccountId ?? payment.payerAccountId;
   return PaymentSchema.parse({
     ...payment,
     ...projection,
-    payerAccountId: input.payerAccountId ?? payment.payerAccountId,
+    ...(payerAccountId === undefined ? {} : { payerAccountId }),
     revision: input.revision,
     eventRevision: input.eventRevision,
     updatedAt: input.updatedAt,
   });
+}
+
+export function toFirestoreWritePayload(
+  data: Record<string, unknown>
+): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
 }
 
 export function mergeWalletBalance(

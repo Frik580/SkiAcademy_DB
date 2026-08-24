@@ -272,6 +272,38 @@ describe('finance commands', () => {
     expect(wallet?.balance).toBe(20_000);
   });
 
+  it('funds price increase from wallet on fully paid payment without payerAccountId', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: seedAccount(),
+      [`users/${accountId}/wallet/state`]: seedWallet(5_000),
+      [`payments/${paymentId}`]: seedPayment({
+        paidAmount: 100_000,
+        retainedAmount: 100_000,
+        settledAmount: 100_000,
+        outstandingAmount: 0,
+        paymentStatus: 'paid',
+      }),
+    });
+
+    const result = await runCommand(executor, {
+      kind: 'adjust_service_price',
+      context: {
+        ...adminContext('price-increase-fully-paid'),
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        paymentId,
+        newPrice: 110_000,
+        fundingAmount: 4_000,
+        walletAccountId: accountId,
+        reasonExplanation: 'Price increase',
+      },
+    });
+
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(1_000);
+  });
+
   it('rejects wallet debit when funds are insufficient for funded price increase', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       [`users/${accountId}`]: seedAccount(),

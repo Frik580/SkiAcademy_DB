@@ -56,6 +56,7 @@ import {
   paymentAccountingFields,
   paymentPath,
   providerEventReceiptPath,
+  toFirestoreWritePayload,
   walletPath,
 } from './financeStore';
 
@@ -92,7 +93,7 @@ function stageMonetaryEventCreate(
   >[0],
   event: MonetaryEvent
 ): void {
-  session.tx.create({ path: monetaryEventPath(event.eventId) }, event as Record<string, unknown>);
+  session.tx.create({ path: monetaryEventPath(event.eventId) }, toFirestoreWritePayload(event as Record<string, unknown>));
   session.plan.planMutation({
     path: monetaryEventPath(event.eventId),
     kind: 'create',
@@ -187,9 +188,9 @@ function recordManualWalletFundingHandler(
         };
 
         if (walletExists) {
-          session.tx.update({ path: walletDocumentPath }, updatedWallet as Record<string, unknown>);
+          session.tx.update({ path: walletDocumentPath }, toFirestoreWritePayload(updatedWallet as Record<string, unknown>));
         } else {
-          session.tx.create({ path: walletDocumentPath }, updatedWallet as Record<string, unknown>);
+          session.tx.create({ path: walletDocumentPath }, toFirestoreWritePayload(updatedWallet as Record<string, unknown>));
         }
         stageMonetaryEventCreate(session, monetaryEvent);
 
@@ -347,7 +348,7 @@ function recordProviderPaymentEventHandler(
           recordedAt: decidedAt,
         };
 
-        session.tx.update({ path: paymentDocumentPath }, projectedPayment as Record<string, unknown>);
+        session.tx.update({ path: paymentDocumentPath }, toFirestoreWritePayload(projectedPayment as Record<string, unknown>));
         stageMonetaryEventCreate(session, monetaryEvent);
 
         if (
@@ -365,7 +366,7 @@ function recordProviderPaymentEventHandler(
             outcome: 'applied',
             createdAt: decidedAt,
           });
-          session.tx.create({ path: providerReceiptPath }, receipt as Record<string, unknown>);
+          session.tx.create({ path: providerReceiptPath }, toFirestoreWritePayload(receipt as Record<string, unknown>));
         }
 
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
@@ -585,7 +586,7 @@ function adjustServicePriceHandler(
           recordedAt: decidedAt,
         };
 
-        session.tx.update({ path: paymentDocumentPath }, updatedPayment as Record<string, unknown>);
+        session.tx.update({ path: paymentDocumentPath }, toFirestoreWritePayload(updatedPayment as Record<string, unknown>));
         stageMonetaryEventCreate(session, priceEvent);
 
         if (
@@ -605,7 +606,7 @@ function adjustServicePriceHandler(
             eventRevision: plannedWalletEventRevision,
             updatedAt: decidedAt,
           });
-          session.tx.update({ path: walletDocumentPath }, updatedWallet as Record<string, unknown>);
+          session.tx.update({ path: walletDocumentPath }, toFirestoreWritePayload(updatedWallet as Record<string, unknown>));
         }
 
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);

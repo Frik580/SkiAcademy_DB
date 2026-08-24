@@ -8,15 +8,21 @@ import {
   ResourceClaimIdentityInputSchema,
   TimeIntervalSchema,
   expandUtcGuardBuckets,
+  estimateGuardMutationBytes,
   findGuardIntervalConflict,
+  guardEntryParticipatesInConflict,
   intervalsConflict,
+  mergeGuardEntries,
   normalizeFirestoreDocument,
   normalizeFirestoreRecord,
+  removeGuardEntryByClaimId,
   resourceClaimGuardIdFromBucketIdentity,
   shouldIgnoreGuardEntry,
   timestampFromDate,
   utcBucketStartSecondsForInstant,
   RESOURCE_GUARD_BUCKET_SECONDS,
+  RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET,
+  TRANSACTION_SAFETY_BUDGET,
 } from '@ski-academy/shared-domain';
 
 const correlationId = CorrelationIdSchema.parse('correlation_guard_test_01');
@@ -155,6 +161,104 @@ describe('replacement ignore semantics', () => {
         occurrenceId: OccurrenceIdSchema.parse('occurrence_guard_test_99'),
       })
     ).toBe(false);
+  });
+});
+
+function guardEntryForCapacityTest(index: number) {
+  const startMinute = 4 * 60 + index;
+  const startHour = Math.floor(startMinute / 60);
+  const startMin = startMinute % 60;
+  const endMinute = startMinute + 1;
+  const endHour = Math.floor(endMinute / 60);
+  const endMin = endMinute % 60;
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return {
+    claimId: `resource_claim_capacity_${String(index).padStart(3, '0')}`,
+    ownerKind: 'booking' as const,
+    ownerId: `booking_capacity_${index}`,
+    occurrenceId: OccurrenceIdSchema.parse(`occurrence_capacity_${String(index).padStart(3, '0')}`),
+    interval: interval(
+      `2026-01-15T${pad(startHour)}:${pad(startMin)}:00.000Z`,
+      `2026-01-15T${pad(endHour)}:${pad(endMin)}:00.000Z`
+    ),
+    lifecycleStatus: 'active' as const,
+  };
+}
+
+describe('guard bucket capacity and planning', () => {
+  it('allows exactly RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET entries in one bucket', () => {
+    const existing = Array.from({ length: RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET - 1 }, (_, index) =>
+      guardEntryForCapacityTest(index)
+    );
+    const incoming = guardEntryForCapacityTest(RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET - 1);
+    expect(mergeGuardEntries(existing, incoming, correlationId)).toHaveLength(
+      RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET
+    );
+  });
+
+  it('rejects guard bucket saturation before writes with operation_too_large', () => {
+    const existing = Array.from({ length: RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET }, (_, index) =>
+      guardEntryForCapacityTest(index)
+    );
+    const incoming = guardEntryForCapacityTest(RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET);
+    expect(() => mergeGuardEntries(existing, incoming, correlationId)).toThrow(
+      expect.objectContaining({ code: 'operation_too_large' })
+    );
+  });
+
+  it('includes guard occupancy in T07 payload estimates', () => {
+    const saturatedBytes = estimateGuardMutationBytes(RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET);
+    expect(saturatedBytes).toBe(
+      256 + RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET * 192
+    );
+    expect(saturatedBytes).toBeLessThan(TRANSACTION_SAFETY_BUDGET.maxEstimatedRequestBytes);
+  });
+});
+
+describe('guard entry lifecycle semantics', () => {
+  const activeEntry = {
+    claimId: 'resource_claim_lifecycle_01',
+    ownerKind: 'booking' as const,
+    ownerId: 'booking_lifecycle_01',
+    occurrenceId: OccurrenceIdSchema.parse('occurrence_lifecycle_01'),
+    interval: interval('2026-01-15T09:00:00.000Z', '2026-01-15T10:00:00.000Z'),
+    lifecycleStatus: 'active' as const,
+  };
+
+  it('treats frozen entries as conflict participants', () => {
+    const frozenEntry = { ...activeEntry, lifecycleStatus: 'frozen' as const };
+    expect(guardEntryParticipatesInConflict(frozenEntry)).toBe(true);
+    expect(
+      findGuardIntervalConflict(
+        interval('2026-01-15T09:30:00.000Z', '2026-01-15T10:30:00.000Z'),
+        [frozenEntry],
+        undefined
+      )
+    ).toBe(frozenEntry);
+  });
+
+  it('ignores released entries for exact interval conflict checks', () => {
+    const releasedEntry = { ...activeEntry, lifecycleStatus: 'released' as const };
+    expect(guardEntryParticipatesInConflict(releasedEntry)).toBe(false);
+    expect(
+      findGuardIntervalConflict(
+        interval('2026-01-15T09:30:00.000Z', '2026-01-15T10:30:00.000Z'),
+        [releasedEntry],
+        undefined
+      )
+    ).toBeUndefined();
+  });
+
+  it('removes guard occupancy by claimId on release', () => {
+    const secondEntry = {
+      ...activeEntry,
+      claimId: 'resource_claim_lifecycle_02',
+      occurrenceId: OccurrenceIdSchema.parse('occurrence_lifecycle_02'),
+      interval: interval('2026-01-15T10:00:00.000Z', '2026-01-15T11:00:00.000Z'),
+    };
+    expect(removeGuardEntryByClaimId([activeEntry, secondEntry], activeEntry.claimId)).toEqual([
+      secondEntry,
+    ]);
   });
 });
 

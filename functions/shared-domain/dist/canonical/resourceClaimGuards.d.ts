@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CommandIdSchema, CorrelationIdSchema, type CourseEnrollmentId, type CourseId, type ParticipantId, type ResourceClaimGuardId, type ResourceClaimId, type ActiveCourseEnrollmentGuardKey } from './identifiers';
+import { CommandIdSchema, CorrelationIdSchema, type CorrelationId, type CourseEnrollmentId, type CourseId, type ParticipantId, type ResourceClaimGuardId, type ResourceClaimId, type ActiveCourseEnrollmentGuardKey } from './identifiers';
 import { type CanonicalTimestamp, type TimeInterval } from './primitives';
 import { ResourceClaimGuardBucketIdentityInputSchema, type ResourceClaimGuardEntry, type ResourceClaimGuardBucketIdentityInput, type ResourceKind } from './resourceClaims';
 export declare const RESOURCE_GUARD_BUCKET_SECONDS: number;
@@ -33,7 +33,8 @@ export declare function shouldIgnoreGuardEntry(entry: ResourceClaimGuardEntry, i
 export declare function findGuardIntervalConflict(candidate: TimeInterval, entries: readonly ResourceClaimGuardEntry[], ignore: ResourceClaimReplacementIgnore | undefined): ResourceClaimGuardEntry | undefined;
 export declare function conflictErrorCodeForResourceKind(resourceKind: ResourceKind): 'instructor_conflict' | 'participant_conflict' | 'resource_conflict';
 export declare function estimateGuardMutationBytes(entryCount: number): number;
-export declare function mergeGuardEntries(existing: readonly ResourceClaimGuardEntry[], incoming: ResourceClaimGuardEntry): ResourceClaimGuardEntry[];
+export declare function assertGuardBucketEntryCapacity(correlationId: CorrelationId, entryCount: number): void;
+export declare function mergeGuardEntries(existing: readonly ResourceClaimGuardEntry[], incoming: ResourceClaimGuardEntry, correlationId: CorrelationId): ResourceClaimGuardEntry[];
 export declare function removeGuardEntryByClaimId(existing: readonly ResourceClaimGuardEntry[], claimId: ResourceClaimId): ResourceClaimGuardEntry[];
 export declare const ActiveCourseEnrollmentGuardSchema: z.ZodObject<{
     guardKey: z.ZodString;

@@ -9,6 +9,8 @@ import {
   ResourceClaimSchema,
   TRANSACTION_SAFETY_BUDGET,
   canonicalPaths,
+  expandUtcGuardBuckets,
+  resourceClaimGuardIdFromBucketIdentity,
   timestampFromDate,
   AccountIdSchema,
   CourseEnrollmentIdSchema,
@@ -278,6 +280,68 @@ describe('resource claim engine', () => {
               estimatedPayloadBytes: 4096,
             });
           }
+          await session.transitionToWrites();
+        },
+      })
+    ).rejects.toMatchObject({ code: 'operation_too_large' });
+
+    expect(executor.snapshot().writesAttempted).toBe(0);
+  });
+
+  it('rejects saturated guard buckets before writes', async () => {
+    const candidateInterval = interval('2026-01-15T09:00:00.000Z', '2026-01-15T09:01:00.000Z');
+    const [bucket] = expandUtcGuardBuckets('instructor', instructorId, candidateInterval);
+    const guardId = resourceClaimGuardIdFromBucketIdentity(bucket!.bucketIdentity);
+    const guardPath = canonicalPaths.resourceClaimGuard(guardId).slice(1);
+    const entries = Array.from({ length: 256 }, (_, index) => {
+      const startMinute = 4 * 60 + index;
+      const startHour = Math.floor(startMinute / 60);
+      const startMin = startMinute % 60;
+      const endMinute = startMinute + 1;
+      const endHour = Math.floor(endMinute / 60);
+      const endMin = endMinute % 60;
+      const pad = (value: number) => String(value).padStart(2, '0');
+      return {
+        claimId: `resource_claim_saturated_${String(index).padStart(3, '0')}`,
+        ownerKind: 'booking',
+        ownerId: `booking_saturated_${index}`,
+        occurrenceId: `occurrence_saturated_${String(index).padStart(3, '0')}`,
+        interval: interval(
+          `2026-01-15T${pad(startHour)}:${pad(startMin)}:00.000Z`,
+          `2026-01-15T${pad(endHour)}:${pad(endMin)}:00.000Z`
+        ),
+        lifecycleStatus: 'active',
+      };
+    });
+
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [guardPath]: {
+        guardId,
+        strategyVersion: 'guard:v1',
+        bucketKey: bucket!.bucketKey,
+        resourceKind: 'instructor',
+        resourceId: instructorId,
+        bucketStartAt: bucket!.bucketStartAt,
+        entries,
+        revision: 1,
+        updatedAt: timestampFromDate(decidedAt),
+        lastChangedByCommandId: commandId,
+        correlationId,
+      },
+    });
+
+    await expect(
+      executor.runAtomic({
+        correlationId,
+        run: async (session) => {
+          await readAndPlanAcquireResourceClaim(session, {
+            ...metadata,
+            identity: instructorIdentity(
+              'booking_claim_engine_saturated',
+              'occurrence_claim_engine_saturated'
+            ),
+            interval: candidateInterval,
+          });
           await session.transitionToWrites();
         },
       })

@@ -304,12 +304,13 @@ function buildClaimDocument(
 
 function planGuardWritesForAcquire(
   claim: ResourceClaim,
-  buckets: readonly LoadedGuardBucket[]
+  buckets: readonly LoadedGuardBucket[],
+  correlationId: CorrelationId
 ): ResourceClaimOperationPlan['guardWrites'] {
   const entry = buildGuardEntry(claim);
 
   return buckets.map((bucket) => {
-    const mergedEntries = mergeGuardEntries(bucket.conflictEntries, entry);
+    const mergedEntries = mergeGuardEntries(bucket.conflictEntries, entry, correlationId);
     const mutationKind = bucket.documentExists ? 'update' : 'create';
 
     return {
@@ -390,7 +391,11 @@ export async function readAndPlanAcquireResourceClaim(
       };
     }
 
-    const repairWrites = planGuardWritesForAcquire(existingClaim, buckets);
+    const repairWrites = planGuardWritesForAcquire(
+      existingClaim,
+      buckets,
+      input.correlationId
+    );
     return {
       claim: existingClaim,
       claimPath,
@@ -462,7 +467,7 @@ export async function readAndPlanAcquireResourceClaim(
         entries = removeGuardEntryByClaimId(entries, existingClaim.claimId);
       }
       if (inNew) {
-        entries = mergeGuardEntries(entries, entry);
+        entries = mergeGuardEntries(entries, entry, input.correlationId);
       }
 
       if (entries.length === 0) {
@@ -646,7 +651,7 @@ export async function readAndPlanMoveResourceClaim(
         entries = removeGuardEntryByClaimId(entries, existingClaim.claimId);
       }
       if (inNew) {
-        entries = mergeGuardEntries(entries, newEntry);
+        entries = mergeGuardEntries(entries, newEntry, input.correlationId);
       }
 
       if (entries.length === 0) {

@@ -11,6 +11,7 @@ exports.shouldIgnoreGuardEntry = shouldIgnoreGuardEntry;
 exports.findGuardIntervalConflict = findGuardIntervalConflict;
 exports.conflictErrorCodeForResourceKind = conflictErrorCodeForResourceKind;
 exports.estimateGuardMutationBytes = estimateGuardMutationBytes;
+exports.assertGuardBucketEntryCapacity = assertGuardBucketEntryCapacity;
 exports.mergeGuardEntries = mergeGuardEntries;
 exports.removeGuardEntryByClaimId = removeGuardEntryByClaimId;
 exports.buildActiveCourseEnrollmentGuard = buildActiveCourseEnrollmentGuard;
@@ -121,12 +122,18 @@ function estimateGuardMutationBytes(entryCount) {
     return (exports.RESOURCE_CLAIM_PLANNING_ESTIMATES.guardDocumentBaseBytes +
         entryCount * exports.RESOURCE_CLAIM_PLANNING_ESTIMATES.guardEntryBytes);
 }
-function mergeGuardEntries(existing, incoming) {
+function assertGuardBucketEntryCapacity(correlationId, entryCount) {
+    if (entryCount > exports.RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET) {
+        throw new errors_1.CanonicalCommandError('operation_too_large', {
+            correlationId,
+            details: { reason: 'out_of_range' },
+        });
+    }
+}
+function mergeGuardEntries(existing, incoming, correlationId) {
     const withoutIncoming = existing.filter((entry) => entry.claimId !== incoming.claimId);
     const merged = [...withoutIncoming, incoming];
-    if (merged.length > exports.RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET) {
-        throw new RangeError('Guard bucket entry capacity exceeded');
-    }
+    assertGuardBucketEntryCapacity(correlationId, merged.length);
     return merged;
 }
 function removeGuardEntryByClaimId(existing, claimId) {

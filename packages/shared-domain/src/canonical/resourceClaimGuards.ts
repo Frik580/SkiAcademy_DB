@@ -6,6 +6,7 @@ import {
   CourseIdSchema,
   ParticipantIdSchema,
   ResourceClaimGuardIdSchema,
+  type CorrelationId,
   type CourseEnrollmentId,
   type CourseId,
   type ParticipantId,
@@ -196,15 +197,26 @@ export function estimateGuardMutationBytes(entryCount: number): number {
   );
 }
 
+export function assertGuardBucketEntryCapacity(
+  correlationId: CorrelationId,
+  entryCount: number
+): void {
+  if (entryCount > RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET) {
+    throw new CanonicalCommandError('operation_too_large', {
+      correlationId,
+      details: { reason: 'out_of_range' },
+    });
+  }
+}
+
 export function mergeGuardEntries(
   existing: readonly ResourceClaimGuardEntry[],
-  incoming: ResourceClaimGuardEntry
+  incoming: ResourceClaimGuardEntry,
+  correlationId: CorrelationId
 ): ResourceClaimGuardEntry[] {
   const withoutIncoming = existing.filter((entry) => entry.claimId !== incoming.claimId);
   const merged = [...withoutIncoming, incoming];
-  if (merged.length > RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET) {
-    throw new RangeError('Guard bucket entry capacity exceeded');
-  }
+  assertGuardBucketEntryCapacity(correlationId, merged.length);
   return merged;
 }
 

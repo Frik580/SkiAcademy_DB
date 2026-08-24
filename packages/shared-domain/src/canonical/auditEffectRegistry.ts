@@ -16,6 +16,14 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<
     'outbox_obligation_created',
   ],
   record_manual_wallet_funding: ['wallet_balance_changed', 'financial_correction_recorded'],
+  create_participant: ['participant_access_changed'],
+  update_participant_profile: ['participant_access_changed'],
+  assign_participant_management: ['participant_access_changed'],
+  revoke_participant_management: ['participant_access_changed'],
+  create_instructor_relationship: ['participant_access_changed'],
+  revoke_instructor_relationship: ['participant_access_changed'],
+  block_participant: ['participant_access_changed'],
+  unblock_participant: ['participant_access_changed'],
 };
 
 export function hasAuditEffectRegistryEntry(commandKind: CommandKind): boolean {

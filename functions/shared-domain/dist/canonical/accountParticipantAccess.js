@@ -1,7 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ParticipantAccessTopologySchema = exports.BookingScopedParticipantAccessEvidenceSchema = exports.ParticipantBlockSchema = exports.InstructorRelationshipSchema = exports.ParticipantManagementActiveOwnerGuardSchema = exports.ParticipantManagementSchema = exports.ParticipantSchema = exports.AccountSchema = exports.CanonicalRecordMetadataSchema = void 0;
+exports.participantBlockActorKey = participantBlockActorKey;
 exports.evaluateParticipantManagementAccess = evaluateParticipantManagementAccess;
+exports.addCanonicalMonths = addCanonicalMonths;
+exports.instructorRelationshipExpiresAt = instructorRelationshipExpiresAt;
+exports.isParticipantInstructorPairBlockedForNewService = isParticipantInstructorPairBlockedForNewService;
+exports.sanitizeParticipantProfileForInstructor = sanitizeParticipantProfileForInstructor;
 exports.evaluateInstructorParticipantAccess = evaluateInstructorParticipantAccess;
 const zod_1 = require("zod");
 const identifiers_1 = require("./identifiers");
@@ -571,6 +576,42 @@ function evaluateParticipantManagementAccess(topology, request) {
         allowed: true,
         authority: management.authority,
         participantManagementId: management.participantManagementId,
+    };
+}
+function addCanonicalMonths(timestamp, months) {
+    const date = new Date(timestamp.seconds * 1_000 + timestamp.nanoseconds / 1_000_000);
+    const utcYear = date.getUTCFullYear();
+    const utcMonth = date.getUTCMonth();
+    const utcDay = date.getUTCDate();
+    const utcHours = date.getUTCHours();
+    const utcMinutes = date.getUTCMinutes();
+    const utcSeconds = date.getUTCSeconds();
+    const utcMilliseconds = date.getUTCMilliseconds();
+    const targetMonthIndex = utcMonth + months;
+    const targetYear = utcYear + Math.floor(targetMonthIndex / 12);
+    const normalizedMonth = ((targetMonthIndex % 12) + 12) % 12;
+    const daysInTargetMonth = new Date(Date.UTC(targetYear, normalizedMonth + 1, 0)).getUTCDate();
+    const targetDay = Math.min(utcDay, daysInTargetMonth);
+    return (0, primitives_1.timestampFromDate)(new Date(Date.UTC(targetYear, normalizedMonth, targetDay, utcHours, utcMinutes, utcSeconds, utcMilliseconds)));
+}
+function instructorRelationshipExpiresAt(validFrom) {
+    return addCanonicalMonths(validFrom, 12);
+}
+function isParticipantInstructorPairBlockedForNewService(topology, request) {
+    return topology.participantBlocks.some((block) => block.status === 'active' &&
+        block.participantId === request.participantId &&
+        block.instructorId === request.instructorId);
+}
+function sanitizeParticipantProfileForInstructor(participant) {
+    return {
+        participantId: participant.participantId,
+        displayName: participant.displayName,
+        age: participant.age,
+        skillLevel: participant.skillLevel,
+        discipline: participant.discipline,
+        ...(participant.instructorComment === undefined
+            ? {}
+            : { instructorComment: participant.instructorComment }),
     };
 }
 function evaluateInstructorParticipantAccess(topology, request) {

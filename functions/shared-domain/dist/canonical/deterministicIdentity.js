@@ -4,6 +4,8 @@ exports.canonicalDeterministicHash = canonicalDeterministicHash;
 exports.activityLogIdFromCommandId = activityLogIdFromCommandId;
 exports.domainOutboxIdFromCommand = domainOutboxIdFromCommand;
 exports.monetaryEventIdFromCommandEffect = monetaryEventIdFromCommandEffect;
+exports.participantBlockIdFromDirection = participantBlockIdFromDirection;
+exports.instructorRelationshipIdFromPair = instructorRelationshipIdFromPair;
 exports.validateDeterministicIdentityInputs = validateDeterministicIdentityInputs;
 const sha256Hex_1 = require("./sha256Hex");
 const identifiers_1 = require("./identifiers");
@@ -20,6 +22,21 @@ function domainOutboxIdFromCommand(commandId, deliveryEffectOrdinal) {
 }
 function monetaryEventIdFromCommandEffect(commandId, effectOrdinal) {
     return identifiers_1.MonetaryEventIdSchema.parse(canonicalDeterministicHash(['monetary:v1', commandId, String(effectOrdinal)]));
+}
+function participantBlockIdFromDirection(input) {
+    return identifiers_1.ParticipantBlockIdSchema.parse(canonicalDeterministicHash([
+        'participant_block:v1',
+        input.createdByKind,
+        input.participantId,
+        input.instructorId,
+    ]));
+}
+function instructorRelationshipIdFromPair(input) {
+    return identifiers_1.InstructorRelationshipIdSchema.parse(canonicalDeterministicHash([
+        'instructor_relationship:v1',
+        input.participantId,
+        input.instructorId,
+    ]));
 }
 const PERSONAL_DATA_PATTERNS = [
     /@/,

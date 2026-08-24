@@ -23,7 +23,49 @@ const bookingProposalTargetIntent = z.object({ bookingProposalId: BookingProposa
 const bookingChangeRequestTargetIntent = z
   .object({ bookingChangeRequestId: BookingChangeRequestIdSchema })
   .strict();
-const participantTargetIntent = z.object({ participantId: ParticipantIdSchema }).strict();
+const participantAgeIntent = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('birth_date'),
+      birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('age_years'),
+      years: z.number().finite().int().min(0).max(125),
+    })
+    .strict(),
+]);
+const participantProfilePatchIntent = z
+  .object({
+    participantId: ParticipantIdSchema,
+    displayName: z.string().trim().min(1).max(200).optional(),
+    age: participantAgeIntent.optional(),
+    skillLevel: z.string().trim().min(1).max(64).optional(),
+    discipline: z.enum(['ski', 'snowboard']).optional(),
+    instructorComment: z.string().trim().min(1).max(2_000).optional(),
+  })
+  .strict()
+  .superRefine((intent, context) => {
+    const hasPatch =
+      intent.displayName !== undefined ||
+      intent.age !== undefined ||
+      intent.skillLevel !== undefined ||
+      intent.discipline !== undefined ||
+      intent.instructorComment !== undefined;
+    if (!hasPatch) {
+      context.addIssue({
+        code: 'custom',
+        path: [],
+        message: 'At least one profile field must be provided',
+      });
+    }
+  });
+const instructorRelationshipBasisIntent = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('guardian_permission') }).strict(),
+  z.object({ kind: z.literal('administration_assignment') }).strict(),
+]);
 const paymentTargetIntent = z.object({ paymentId: PaymentIdSchema }).strict();
 const courseDayTargetIntent = z.object({ courseDayId: CourseDayIdSchema }).strict();
 const emptyIntent = z.object({}).strict();
@@ -103,14 +145,19 @@ export const CommandIntentSchemaByKind = {
   create_participant: z
     .object({
       participantId: ParticipantIdSchema,
-      displayName: z.string().min(1).max(128),
+      displayName: z.string().trim().min(1).max(200),
+      age: participantAgeIntent,
+      skillLevel: z.string().trim().min(1).max(64),
+      discipline: z.enum(['ski', 'snowboard']),
+      instructorComment: z.string().trim().min(1).max(2_000).optional(),
     })
     .strict(),
-  update_participant_profile: participantTargetIntent,
+  update_participant_profile: participantProfilePatchIntent,
   assign_participant_management: z
     .object({
       participantManagementId: ParticipantManagementIdSchema,
       participantId: ParticipantIdSchema,
+      authority: z.enum(['self', 'parent_guardian']),
     })
     .strict(),
   revoke_participant_management: z
@@ -123,6 +170,7 @@ export const CommandIntentSchemaByKind = {
       instructorRelationshipId: InstructorRelationshipIdSchema,
       instructorId: InstructorIdSchema,
       participantId: ParticipantIdSchema,
+      basis: instructorRelationshipBasisIntent,
     })
     .strict(),
   revoke_instructor_relationship: z
@@ -135,6 +183,7 @@ export const CommandIntentSchemaByKind = {
       participantBlockId: ParticipantBlockIdSchema,
       participantId: ParticipantIdSchema,
       instructorId: InstructorIdSchema,
+      reason: z.string().trim().min(1).max(1_000),
     })
     .strict(),
   unblock_participant: z

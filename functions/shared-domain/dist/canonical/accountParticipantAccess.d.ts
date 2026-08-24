@@ -300,6 +300,16 @@ export declare const InstructorRelationshipSchema: z.ZodDiscriminatedUnion<[z.Zo
     }, z.core.$strict>;
 }, z.core.$strict>], "status">;
 export type InstructorRelationship = Readonly<z.output<typeof InstructorRelationshipSchema>>;
+declare const ParticipantBlockCreatorSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
+    kind: z.ZodLiteral<"participant_manager">;
+    accountId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"account">, string>>;
+    participantManagementId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"participant_management">, string>>;
+}, z.core.$strict>, z.ZodObject<{
+    kind: z.ZodLiteral<"instructor">;
+    instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"instructor">, string>>;
+}, z.core.$strict>], "kind">;
+export declare function participantBlockActorKey(actor: z.output<typeof ParticipantBlockCreatorSchema>): string;
+export type ParticipantBlockCreator = Readonly<z.output<typeof ParticipantBlockCreatorSchema>>;
 export declare const ParticipantBlockSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     status: z.ZodLiteral<"active">;
     revision: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("./primitives").AggregateRevision, number>>;
@@ -764,9 +774,24 @@ export type InstructorParticipantAccessDecision = Readonly<{
     allowed: false;
     reason: 'unauthorized' | 'participant_inactive' | 'blocked';
 }>;
+export declare function addCanonicalMonths(timestamp: CanonicalTimestamp, months: number): CanonicalTimestamp;
+export declare function instructorRelationshipExpiresAt(validFrom: CanonicalTimestamp): CanonicalTimestamp;
+export declare function isParticipantInstructorPairBlockedForNewService(topology: ParticipantAccessTopology, request: Readonly<{
+    participantId: ParticipantId;
+    instructorId: InstructorId;
+}>): boolean;
+export declare function sanitizeParticipantProfileForInstructor(participant: Participant): Readonly<{
+    participantId: ParticipantId;
+    displayName: string;
+    age: Participant['age'];
+    skillLevel: string;
+    discipline: Participant['discipline'];
+    instructorComment?: string;
+}>;
 export declare function evaluateInstructorParticipantAccess(topology: ParticipantAccessTopology, request: Readonly<{
     instructorId: InstructorId;
     participantId: ParticipantId;
     at: CanonicalTimestamp;
     bookingScopedEvidence: readonly BookingScopedParticipantAccessEvidence[];
 }>): InstructorParticipantAccessDecision;
+export {};

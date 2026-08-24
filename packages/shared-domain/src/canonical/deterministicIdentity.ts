@@ -3,11 +3,17 @@ import { sha256Hex } from './sha256Hex';
 import {
   ActivityLogIdSchema,
   DomainOutboxIdSchema,
+  InstructorRelationshipIdSchema,
   MonetaryEventIdSchema,
+  ParticipantBlockIdSchema,
   type ActivityLogId,
   type CommandId,
   type DomainOutboxId,
+  type InstructorId,
+  type InstructorRelationshipId,
   type MonetaryEventId,
+  type ParticipantBlockId,
+  type ParticipantId,
 } from './identifiers';
 
 const DETERMINISTIC_ID_PART_SEPARATOR = '\u001f';
@@ -36,6 +42,34 @@ export function monetaryEventIdFromCommandEffect(
 ): MonetaryEventId {
   return MonetaryEventIdSchema.parse(
     canonicalDeterministicHash(['monetary:v1', commandId, String(effectOrdinal)])
+  );
+}
+
+export function participantBlockIdFromDirection(input: {
+  readonly participantId: ParticipantId;
+  readonly instructorId: InstructorId;
+  readonly createdByKind: 'participant_manager' | 'instructor';
+}): ParticipantBlockId {
+  return ParticipantBlockIdSchema.parse(
+    canonicalDeterministicHash([
+      'participant_block:v1',
+      input.createdByKind,
+      input.participantId,
+      input.instructorId,
+    ])
+  );
+}
+
+export function instructorRelationshipIdFromPair(input: {
+  readonly participantId: ParticipantId;
+  readonly instructorId: InstructorId;
+}): InstructorRelationshipId {
+  return InstructorRelationshipIdSchema.parse(
+    canonicalDeterministicHash([
+      'instructor_relationship:v1',
+      input.participantId,
+      input.instructorId,
+    ])
   );
 }
 

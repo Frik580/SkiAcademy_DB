@@ -102,6 +102,20 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking_change_request">, string>>;
     }, z.core.$strict> | z.ZodObject<{
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+        displayName: z.ZodOptional<z.ZodString>;
+        age: z.ZodOptional<z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"birth_date">;
+            birthDate: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"age_years">;
+            years: z.ZodNumber;
+        }, z.core.$strict>], "kind">>;
+        skillLevel: z.ZodOptional<z.ZodString>;
+        discipline: z.ZodOptional<z.ZodEnum<{
+            ski: "ski";
+            snowboard: "snowboard";
+        }>>;
+        instructorComment: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"payment">, string>>;
     }, z.core.$strict> | z.ZodObject<{
@@ -142,21 +156,44 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
     }, z.core.$strict> | z.ZodObject<{
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
         displayName: z.ZodString;
+        age: z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"birth_date">;
+            birthDate: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"age_years">;
+            years: z.ZodNumber;
+        }, z.core.$strict>], "kind">;
+        skillLevel: z.ZodString;
+        discipline: z.ZodEnum<{
+            ski: "ski";
+            snowboard: "snowboard";
+        }>;
+        instructorComment: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         participantManagementId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant_management">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+        authority: z.ZodEnum<{
+            parent_guardian: "parent_guardian";
+            self: "self";
+        }>;
     }, z.core.$strict> | z.ZodObject<{
         participantManagementId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant_management">, string>>;
     }, z.core.$strict> | z.ZodObject<{
         instructorRelationshipId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor_relationship">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+        basis: z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"guardian_permission">;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"administration_assignment">;
+        }, z.core.$strict>], "kind">;
     }, z.core.$strict> | z.ZodObject<{
         instructorRelationshipId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor_relationship">, string>>;
     }, z.core.$strict> | z.ZodObject<{
         participantBlockId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant_block">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
+        reason: z.ZodString;
     }, z.core.$strict> | z.ZodObject<{
         participantBlockId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant_block">, string>>;
     }, z.core.$strict> | z.ZodObject<{
@@ -219,6 +256,20 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking_change_request">, string>>;
     }, z.core.$strict> | z.ZodObject<{
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+        displayName: z.ZodOptional<z.ZodString>;
+        age: z.ZodOptional<z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"birth_date">;
+            birthDate: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"age_years">;
+            years: z.ZodNumber;
+        }, z.core.$strict>], "kind">>;
+        skillLevel: z.ZodOptional<z.ZodString>;
+        discipline: z.ZodOptional<z.ZodEnum<{
+            ski: "ski";
+            snowboard: "snowboard";
+        }>>;
+        instructorComment: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"payment">, string>>;
     }, z.core.$strict> | z.ZodObject<{
@@ -259,21 +310,44 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
     }, z.core.$strict> | z.ZodObject<{
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
         displayName: z.ZodString;
+        age: z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"birth_date">;
+            birthDate: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"age_years">;
+            years: z.ZodNumber;
+        }, z.core.$strict>], "kind">;
+        skillLevel: z.ZodString;
+        discipline: z.ZodEnum<{
+            ski: "ski";
+            snowboard: "snowboard";
+        }>;
+        instructorComment: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         participantManagementId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant_management">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+        authority: z.ZodEnum<{
+            parent_guardian: "parent_guardian";
+            self: "self";
+        }>;
     }, z.core.$strict> | z.ZodObject<{
         participantManagementId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant_management">, string>>;
     }, z.core.$strict> | z.ZodObject<{
         instructorRelationshipId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor_relationship">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+        basis: z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"guardian_permission">;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"administration_assignment">;
+        }, z.core.$strict>], "kind">;
     }, z.core.$strict> | z.ZodObject<{
         instructorRelationshipId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor_relationship">, string>>;
     }, z.core.$strict> | z.ZodObject<{
         participantBlockId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant_block">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
+        reason: z.ZodString;
     }, z.core.$strict> | z.ZodObject<{
         participantBlockId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant_block">, string>>;
     }, z.core.$strict> | z.ZodObject<{
@@ -336,6 +410,20 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking_change_request">, string>>;
     }, z.core.$strict> | z.ZodObject<{
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+        displayName: z.ZodOptional<z.ZodString>;
+        age: z.ZodOptional<z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"birth_date">;
+            birthDate: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"age_years">;
+            years: z.ZodNumber;
+        }, z.core.$strict>], "kind">>;
+        skillLevel: z.ZodOptional<z.ZodString>;
+        discipline: z.ZodOptional<z.ZodEnum<{
+            ski: "ski";
+            snowboard: "snowboard";
+        }>>;
+        instructorComment: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"payment">, string>>;
     }, z.core.$strict> | z.ZodObject<{
@@ -376,21 +464,44 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
     }, z.core.$strict> | z.ZodObject<{
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
         displayName: z.ZodString;
+        age: z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"birth_date">;
+            birthDate: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"age_years">;
+            years: z.ZodNumber;
+        }, z.core.$strict>], "kind">;
+        skillLevel: z.ZodString;
+        discipline: z.ZodEnum<{
+            ski: "ski";
+            snowboard: "snowboard";
+        }>;
+        instructorComment: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         participantManagementId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant_management">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+        authority: z.ZodEnum<{
+            parent_guardian: "parent_guardian";
+            self: "self";
+        }>;
     }, z.core.$strict> | z.ZodObject<{
         participantManagementId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant_management">, string>>;
     }, z.core.$strict> | z.ZodObject<{
         instructorRelationshipId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor_relationship">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+        basis: z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"guardian_permission">;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"administration_assignment">;
+        }, z.core.$strict>], "kind">;
     }, z.core.$strict> | z.ZodObject<{
         instructorRelationshipId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor_relationship">, string>>;
     }, z.core.$strict> | z.ZodObject<{
         participantBlockId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant_block">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
+        reason: z.ZodString;
     }, z.core.$strict> | z.ZodObject<{
         participantBlockId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant_block">, string>>;
     }, z.core.$strict> | z.ZodObject<{

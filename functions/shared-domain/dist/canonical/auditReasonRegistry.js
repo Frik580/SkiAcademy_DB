@@ -16,6 +16,8 @@ exports.AUDIT_REASON_CODES = [
     'attendance_correction',
     'admin_issue_dismissal',
     'audit_correction',
+    'participant_management',
+    'participant_access_control',
     'other',
 ];
 const GLOBAL_REASON_CODES = new Set(exports.AUDIT_REASON_CODES);
@@ -23,6 +25,14 @@ const COMMAND_KIND_REASON_CODES = {
     complete_booking: ['self_service_completion', 'scheduled_system_action', 'other'],
     create_confirmed_booking: ['self_service_booking', 'manual_override', 'other'],
     record_manual_wallet_funding: ['manual_financial_correction', 'manual_override', 'other'],
+    create_participant: ['participant_management', 'other'],
+    update_participant_profile: ['participant_management', 'other'],
+    assign_participant_management: ['participant_management', 'other'],
+    revoke_participant_management: ['participant_management', 'other'],
+    create_instructor_relationship: ['participant_management', 'manual_override', 'other'],
+    revoke_instructor_relationship: ['participant_management', 'manual_override', 'other'],
+    block_participant: ['participant_access_control', 'other'],
+    unblock_participant: ['participant_access_control', 'other'],
 };
 function hasAuditReasonRegistryEntry(commandKind) {
     return COMMAND_KIND_REASON_CODES[commandKind] !== undefined;

@@ -105,13 +105,44 @@ export declare const CommandIntentSchemaByKind: {
     create_participant: z.ZodObject<{
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>;
         displayName: z.ZodString;
+        age: z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"birth_date">;
+            birthDate: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"age_years">;
+            years: z.ZodNumber;
+        }, z.core.$strict>], "kind">;
+        skillLevel: z.ZodString;
+        discipline: z.ZodEnum<{
+            ski: "ski";
+            snowboard: "snowboard";
+        }>;
+        instructorComment: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>;
     update_participant_profile: z.ZodObject<{
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>;
+        displayName: z.ZodOptional<z.ZodString>;
+        age: z.ZodOptional<z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"birth_date">;
+            birthDate: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"age_years">;
+            years: z.ZodNumber;
+        }, z.core.$strict>], "kind">>;
+        skillLevel: z.ZodOptional<z.ZodString>;
+        discipline: z.ZodOptional<z.ZodEnum<{
+            ski: "ski";
+            snowboard: "snowboard";
+        }>>;
+        instructorComment: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>;
     assign_participant_management: z.ZodObject<{
         participantManagementId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant_management">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>;
+        authority: z.ZodEnum<{
+            parent_guardian: "parent_guardian";
+            self: "self";
+        }>;
     }, z.core.$strict>;
     revoke_participant_management: z.ZodObject<{
         participantManagementId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant_management">, string>>;
@@ -120,6 +151,11 @@ export declare const CommandIntentSchemaByKind: {
         instructorRelationshipId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"instructor_relationship">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"instructor">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>;
+        basis: z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"guardian_permission">;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"administration_assignment">;
+        }, z.core.$strict>], "kind">;
     }, z.core.$strict>;
     revoke_instructor_relationship: z.ZodObject<{
         instructorRelationshipId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"instructor_relationship">, string>>;
@@ -128,6 +164,7 @@ export declare const CommandIntentSchemaByKind: {
         participantBlockId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant_block">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"instructor">, string>>;
+        reason: z.ZodString;
     }, z.core.$strict>;
     unblock_participant: z.ZodObject<{
         participantBlockId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant_block">, string>>;

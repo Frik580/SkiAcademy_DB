@@ -14,6 +14,9 @@ import {
 
 const MALFORMED_ENVELOPE_CORRELATION_ID = CorrelationIdSchema.parse('correlation_malformed_envelope');
 
+import type { CanonicalTransactionExecutor } from '../transactions';
+import { createParticipantAccessCommandHandlers } from '../participantAccess';
+
 export type CommandHandler<Kind extends CommandKind> = (
   envelope: CommandEnvelope<Kind>,
   environment: CommandExecutionEnvironment
@@ -128,7 +131,8 @@ export function createCanonicalCommands(
 }
 
 export function createProductionCanonicalCommands(
-  environment: CommandExecutionEnvironment
+  environment: CommandExecutionEnvironment,
+  executor: CanonicalTransactionExecutor
 ): CanonicalCommands {
-  return createCanonicalCommands({}, environment);
+  return createCanonicalCommands(createParticipantAccessCommandHandlers(executor), environment);
 }

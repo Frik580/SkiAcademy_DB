@@ -20,6 +20,7 @@ import {
   AggregateRevisionSchema,
   CanonicalTimestampSchema,
   compareCanonicalTimestamps,
+  timestampFromDate,
   type CanonicalTimestamp,
 } from './primitives';
 
@@ -384,11 +385,15 @@ const participantBlockBaseFields = {
   ...revisionedRecordFields,
 } as const;
 
-function participantBlockActorKey(actor: z.output<typeof ParticipantBlockCreatorSchema>): string {
+export function participantBlockActorKey(
+  actor: z.output<typeof ParticipantBlockCreatorSchema>
+): string {
   return actor.kind === 'instructor'
     ? `instructor:${actor.instructorId}`
     : `participant_manager:${actor.accountId}:${actor.participantManagementId}`;
 }
+
+export type ParticipantBlockCreator = Readonly<z.output<typeof ParticipantBlockCreatorSchema>>;
 
 export const ParticipantBlockSchema = z
   .discriminatedUnion('status', [
@@ -831,6 +836,78 @@ export type InstructorParticipantAccessDecision =
       allowed: false;
       reason: 'unauthorized' | 'participant_inactive' | 'blocked';
     }>;
+
+export function addCanonicalMonths(
+  timestamp: CanonicalTimestamp,
+  months: number
+): CanonicalTimestamp {
+  const date = new Date(timestamp.seconds * 1_000 + timestamp.nanoseconds / 1_000_000);
+  const utcYear = date.getUTCFullYear();
+  const utcMonth = date.getUTCMonth();
+  const utcDay = date.getUTCDate();
+  const utcHours = date.getUTCHours();
+  const utcMinutes = date.getUTCMinutes();
+  const utcSeconds = date.getUTCSeconds();
+  const utcMilliseconds = date.getUTCMilliseconds();
+
+  const targetMonthIndex = utcMonth + months;
+  const targetYear = utcYear + Math.floor(targetMonthIndex / 12);
+  const normalizedMonth = ((targetMonthIndex % 12) + 12) % 12;
+  const daysInTargetMonth = new Date(Date.UTC(targetYear, normalizedMonth + 1, 0)).getUTCDate();
+  const targetDay = Math.min(utcDay, daysInTargetMonth);
+
+  return timestampFromDate(
+    new Date(
+      Date.UTC(
+        targetYear,
+        normalizedMonth,
+        targetDay,
+        utcHours,
+        utcMinutes,
+        utcSeconds,
+        utcMilliseconds
+      )
+    )
+  );
+}
+
+export function instructorRelationshipExpiresAt(validFrom: CanonicalTimestamp): CanonicalTimestamp {
+  return addCanonicalMonths(validFrom, 12);
+}
+
+export function isParticipantInstructorPairBlockedForNewService(
+  topology: ParticipantAccessTopology,
+  request: Readonly<{ participantId: ParticipantId; instructorId: InstructorId }>
+): boolean {
+  return topology.participantBlocks.some(
+    (block) =>
+      block.status === 'active' &&
+      block.participantId === request.participantId &&
+      block.instructorId === request.instructorId
+  );
+}
+
+export function sanitizeParticipantProfileForInstructor(
+  participant: Participant
+): Readonly<{
+  participantId: ParticipantId;
+  displayName: string;
+  age: Participant['age'];
+  skillLevel: string;
+  discipline: Participant['discipline'];
+  instructorComment?: string;
+}> {
+  return {
+    participantId: participant.participantId,
+    displayName: participant.displayName,
+    age: participant.age,
+    skillLevel: participant.skillLevel,
+    discipline: participant.discipline,
+    ...(participant.instructorComment === undefined
+      ? {}
+      : { instructorComment: participant.instructorComment }),
+  };
+}
 
 export function evaluateInstructorParticipantAccess(
   topology: ParticipantAccessTopology,

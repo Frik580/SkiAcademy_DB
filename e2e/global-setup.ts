@@ -6,6 +6,9 @@ import { doc, setDoc } from 'firebase/firestore';
 
 export const E2E_PROJECT_ID = 'ski-school-8f3ca';
 export const AUTH_EMULATOR_HOST = 'http://127.0.0.1:9099';
+export const FUNCTIONS_EMULATOR_HOST = '127.0.0.1';
+export const FUNCTIONS_EMULATOR_PORT = 5001;
+export const FUNCTIONS_REGION = 'us-central1';
 
 export const E2E_STUDENT_EMAIL = 'student@e2e.test';
 export const E2E_STUDENT_PASSWORD = 'password123';
@@ -23,6 +26,84 @@ export interface E2ERuntimeConfig {
 }
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+const FUNCTIONS_READINESS_PROBE = 'optimizeImage';
+const FUNCTIONS_READINESS_TIMEOUT_MS = 60_000;
+const FUNCTIONS_READINESS_RETRY_INTERVAL_MS = 250;
+const FUNCTIONS_READINESS_ATTEMPT_TIMEOUT_MS = 3_000;
+const FUNCTIONS_READINESS_STABLE_PROBES = 3;
+const FUNCTIONS_READINESS_STABLE_INTERVAL_MS = 500;
+
+function functionsCallableUrl(functionName: string): string {
+  return `http://${FUNCTIONS_EMULATOR_HOST}:${FUNCTIONS_EMULATOR_PORT}/${E2E_PROJECT_ID}/${FUNCTIONS_REGION}/${functionName}`;
+}
+
+async function probeFunctionsHttp(functionName: string): Promise<boolean> {
+  try {
+    const response = await fetch(functionsCallableUrl(functionName), {
+      method: 'GET',
+      signal: AbortSignal.timeout(FUNCTIONS_READINESS_ATTEMPT_TIMEOUT_MS),
+    });
+    return response.status < 502;
+  } catch {
+    return false;
+  }
+}
+
+async function probeFunctionsCallable(functionName: string): Promise<boolean> {
+  try {
+    const response = await fetch(functionsCallableUrl(functionName), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: {} }),
+      signal: AbortSignal.timeout(FUNCTIONS_READINESS_ATTEMPT_TIMEOUT_MS),
+    });
+    return response.status < 502;
+  } catch {
+    return false;
+  }
+}
+
+async function probeFunctionsRuntimeReady(): Promise<boolean> {
+  const [httpReady, guestCallableReady, bookingCallableReady] = await Promise.all([
+    probeFunctionsHttp(FUNCTIONS_READINESS_PROBE),
+    probeFunctionsCallable('createGuestBooking'),
+    probeFunctionsCallable('createBooking'),
+  ]);
+  return httpReady && guestCallableReady && bookingCallableReady;
+}
+
+/**
+ * Poll until the Functions emulator serves callable traffic reliably. `firebase emulators:exec`
+ * waits for initial emulator startup, but Playwright then starts Vite which can trigger
+ * Functions reloads on Windows. Run this after the web server is up (e.g. test.beforeAll).
+ */
+export async function waitForFunctionsEmulatorReady(
+  functionName = FUNCTIONS_READINESS_PROBE,
+  timeoutMs = FUNCTIONS_READINESS_TIMEOUT_MS
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let stableProbes = 0;
+
+  while (Date.now() < deadline) {
+    if (await probeFunctionsRuntimeReady()) {
+      stableProbes += 1;
+      if (stableProbes >= FUNCTIONS_READINESS_STABLE_PROBES) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, FUNCTIONS_READINESS_STABLE_INTERVAL_MS));
+      continue;
+    }
+
+    stableProbes = 0;
+    await new Promise((resolve) => setTimeout(resolve, FUNCTIONS_READINESS_RETRY_INTERVAL_MS));
+  }
+
+  throw new Error(
+    `Functions emulator did not become ready for "${functionName}" at ${functionsCallableUrl(functionName)} within ${timeoutMs}ms. ` +
+      'Ensure E2E runs via `npm run test:e2e` so auth, firestore, functions, and storage emulators are started.'
+  );
+}
 
 async function createAuthUser(email: string, password: string): Promise<string> {
   const response = await fetch(
@@ -127,4 +208,6 @@ export default async function globalSetup(): Promise<void> {
     join(rootDir, 'e2e', '.runtime-config.json'),
     JSON.stringify(runtimeConfig, null, 2)
   );
+
+  await waitForFunctionsEmulatorReady();
 }

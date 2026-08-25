@@ -6,8 +6,13 @@ import {
   openGuestBookingModal,
   signInStudent,
 } from './fixtures';
+import { waitForFunctionsEmulatorReady } from './global-setup';
 
 test.describe('booking flow', () => {
+  test.beforeAll(async () => {
+    await waitForFunctionsEmulatorReady();
+  });
+
   test('guest can submit a lesson request from the home page', async ({ page }) => {
     const runtimeConfig = loadRuntimeConfig();
     await openGuestBookingModal(page, runtimeConfig.instructorName);
@@ -16,6 +21,7 @@ test.describe('booking flow', () => {
     await page.getByPlaceholder('+1 (555) 000-0000').fill('+1 555 0100');
     await fillBookingSelectors(page);
 
+    await waitForFunctionsEmulatorReady();
     await page.getByRole('button', { name: 'Submit Application to Admin' }).click();
 
     await expect(page.getByText('Application Submitted!')).toBeVisible();
@@ -34,6 +40,7 @@ test.describe('booking flow', () => {
       .click();
 
     await fillBookingSelectors(page, 2);
+    await waitForFunctionsEmulatorReady();
     await page.getByRole('button', { name: /Confirm — deduct .+ from balance/ }).click();
 
     await expect(page.getByText('Lesson Booked!')).toBeVisible({ timeout: 30_000 });

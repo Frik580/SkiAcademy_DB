@@ -89,6 +89,49 @@ export function buildChangeBookingPartyAuditPlan(input: {
   };
 }
 
+export function buildServicePartyFreezeAtStartAuditPlan(input: {
+  envelope: CommandEnvelope<'rollback_unpaid_booking_party_additions'>;
+  bookingId: BookingId;
+  bookingRevision: number;
+}): AuditOutboxStagingPlan {
+  const bookingRef = canonicalReference('booking', input.bookingId);
+  return {
+    activityLog: {
+      reason: {
+        registryVersion: AUDIT_REASON_REGISTRY_VERSION,
+        reasonCode: 'scheduled_system_action',
+      },
+      primarySubject: {
+        kind: 'booking',
+        id: input.bookingId,
+        subjectKey: `booking:${input.bookingId}`,
+      },
+      affectedSubjects: [bookingRef],
+      effects: [
+        {
+          kind: 'booking_party_changed',
+          subjectRef: bookingRef,
+          summary: 'Service party frozen at start boundary',
+        },
+        {
+          kind: 'outbox_obligation_created',
+          subjectRef: bookingRef,
+          summary: 'Service party freeze notification queued',
+        },
+      ],
+      monetaryEventIds: [],
+      adminIssueIds: [],
+      resultingRevisions: [
+        {
+          subject: bookingRef,
+          revision: AggregateRevisionSchema.parse(input.bookingRevision),
+        },
+      ],
+    },
+    outboxObligations: [],
+  };
+}
+
 export function buildRollbackUnpaidBookingPartyAdditionsAuditPlan(input: {
   envelope: CommandEnvelope<'rollback_unpaid_booking_party_additions'>;
   bookingId: BookingId;

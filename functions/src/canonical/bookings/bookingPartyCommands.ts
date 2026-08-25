@@ -31,6 +31,7 @@ import {
   derivePaymentStatus,
   resolveInstructorHourlyRateKzt,
   resolveRefundDestination,
+  compareCanonicalTimestamps,
   timestampFromDate,
   type Booking,
   type CommandEnvelope,
@@ -90,6 +91,7 @@ import {
 import {
   buildChangeBookingPartyAuditPlan,
   buildRollbackUnpaidBookingPartyAdditionsAuditPlan,
+  buildServicePartyFreezeAtStartAuditPlan,
 } from './bookingPartyAudit';
 import {
   planAcquireParticipantBookingClaim,
@@ -772,6 +774,7 @@ function rollbackUnpaidBookingPartyAdditionsHandler(
   let includeMonetaryEvent = false;
   let refundAmount = KztMinorUnitsSchema.parse(0);
   let walletRecord: Wallet | undefined;
+  let freezeOnly = false;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'rollback_unpaid_booking_party_additions'> =
     {
@@ -800,8 +803,21 @@ function rollbackUnpaidBookingPartyAdditionsHandler(
         }
         payment = parsedPayment;
 
+        nextParticipantIds = booking.party.participantIds;
+
         const unpaid = listUnpaidActiveIncrementalRequirements(payment.incrementalRequirements);
         if (unpaid.length === 0) {
+          if (booking.occurrence.serviceParty.frozenAt) {
+            return;
+          }
+          freezeOnly = true;
+          plannedBookingRevision = nextAggregateRevision(booking.revision);
+          session.plan.planMutation({
+            path: bookingDocumentPath,
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: BOOKING_PLANNING_ESTIMATES.bookingBytes,
+          });
           return;
         }
 
@@ -819,7 +835,13 @@ function rollbackUnpaidBookingPartyAdditionsHandler(
         individualLessonPrice = individualLessonPriceFromBooking(instructorRecord, booking);
 
         participantsToRemove = [...unpaid]
-          .sort((left, right) => right.createdAt.seconds - left.createdAt.seconds)
+          .sort((left, right) => {
+            const timeCompare = compareCanonicalTimestamps(right.createdAt, left.createdAt);
+            if (timeCompare !== 0) {
+              return timeCompare;
+            }
+            return left.participantId.localeCompare(right.participantId);
+          })
           .map((requirement) => requirement.participantId);
         nextParticipantIds = booking.party.participantIds.filter(
           (participantId) => !participantsToRemove.includes(participantId)
@@ -889,6 +911,13 @@ function rollbackUnpaidBookingPartyAdditionsHandler(
         }
       },
       planAuditOutbox: async () => {
+        if (freezeOnly) {
+          return buildServicePartyFreezeAtStartAuditPlan({
+            envelope,
+            bookingId: booking.bookingId,
+            bookingRevision: plannedBookingRevision,
+          });
+        }
         if (participantsToRemove.length === 0) {
           return {
             activityLog: {
@@ -923,10 +952,37 @@ function rollbackUnpaidBookingPartyAdditionsHandler(
         });
       },
       execute: async (session, context) => {
+        const decidedAt = timestampFromDate(context.decidedAt);
+        if (freezeOnly) {
+          if (booking.occurrence.serviceParty.frozenAt) {
+            return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+          }
+          const updatedBooking = BookingSchema.parse({
+            ...booking,
+            occurrence: {
+              ...booking.occurrence,
+              serviceParty: {
+                participantIds: booking.party.participantIds,
+                frozenAt: decidedAt,
+              },
+            },
+            revision: plannedBookingRevision,
+            updatedAt: decidedAt,
+            audit: {
+              ...booking.audit,
+              lastChangedByCommandId: metadata.commandId,
+              correlationId: metadata.correlationId,
+            },
+          });
+          session.tx.update(
+            { path: bookingDocumentPath },
+            toFirestoreWritePayload(updatedBooking as Record<string, unknown>)
+          );
+          return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+        }
         if (participantsToRemove.length === 0) {
           return commandSuccessResult(envelope.kind, envelope.context.correlationId);
         }
-        const decidedAt = timestampFromDate(context.decidedAt);
         const before = paymentAccountingFields(payment);
         const removedSet = new Set(participantsToRemove);
         const updatedRequirements = payment.incrementalRequirements.map((requirement) =>

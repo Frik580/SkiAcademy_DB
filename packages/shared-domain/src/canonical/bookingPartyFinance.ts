@@ -72,6 +72,8 @@ export function markIncrementalRequirementRolledBack(
 ): IncrementalRequirement {
   return {
     ...requirement,
+    allocatedSettledAmount: KztMinorUnitsSchema.parse(0),
+    allocatedRetainedAmount: KztMinorUnitsSchema.parse(0),
     state: 'rolled_back',
   };
 }

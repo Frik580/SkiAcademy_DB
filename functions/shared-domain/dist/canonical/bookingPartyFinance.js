@@ -50,6 +50,8 @@ function allocateIncrementalRequirementFunding(requirement, fundingAmount) {
 function markIncrementalRequirementRolledBack(requirement) {
     return {
         ...requirement,
+        allocatedSettledAmount: primitives_1.KztMinorUnitsSchema.parse(0),
+        allocatedRetainedAmount: primitives_1.KztMinorUnitsSchema.parse(0),
         state: 'rolled_back',
     };
 }

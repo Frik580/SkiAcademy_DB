@@ -7,6 +7,8 @@ exports.monetaryEventIdFromCommandEffect = monetaryEventIdFromCommandEffect;
 exports.participantBlockIdFromDirection = participantBlockIdFromDirection;
 exports.instructorRelationshipIdFromPair = instructorRelationshipIdFromPair;
 exports.paymentIdFromBookingId = paymentIdFromBookingId;
+exports.guestSubjectIdFromBookingId = guestSubjectIdFromBookingId;
+exports.participantManagementIdFromGuestLink = participantManagementIdFromGuestLink;
 exports.initialBookingOccurrenceIdFromBookingId = initialBookingOccurrenceIdFromBookingId;
 exports.validateDeterministicIdentityInputs = validateDeterministicIdentityInputs;
 const sha256Hex_1 = require("./sha256Hex");
@@ -42,6 +44,17 @@ function instructorRelationshipIdFromPair(input) {
 }
 function paymentIdFromBookingId(bookingId) {
     return identifiers_1.PaymentIdSchema.parse(canonicalDeterministicHash(['payment:v1', 'booking', bookingId]));
+}
+function guestSubjectIdFromBookingId(bookingId) {
+    return identifiers_1.GuestSubjectIdSchema.parse(canonicalDeterministicHash(['guest_subject:v1', 'booking', bookingId]));
+}
+function participantManagementIdFromGuestLink(input) {
+    return identifiers_1.ParticipantManagementIdSchema.parse(canonicalDeterministicHash([
+        'participant_management:v1',
+        'guest_link',
+        input.participantId,
+        input.accountId,
+    ]));
 }
 function initialBookingOccurrenceIdFromBookingId(bookingId) {
     return identifiers_1.OccurrenceIdSchema.parse(canonicalDeterministicHash(['occurrence:v1', 'booking', bookingId, '1']));

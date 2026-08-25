@@ -29,6 +29,8 @@ __exportStar(require("./auditReasonRegistry"), exports);
 __exportStar(require("./auditOutboxStaging"), exports);
 __exportStar(require("./bookingOccurrenceProposalChange"), exports);
 __exportStar(require("./bookingCreation"), exports);
+__exportStar(require("./guestBooking"), exports);
+__exportStar(require("./guestCredential"), exports);
 __exportStar(require("./courseEnrollmentAttendanceAdminIssue"), exports);
 __exportStar(require("./adminIssuePolicy"), exports);
 __exportStar(require("./deterministicIdentity"), exports);

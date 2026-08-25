@@ -18,6 +18,7 @@ import type { CanonicalTransactionExecutor } from '../transactions';
 import { createFinanceCommandHandlers } from '../finance';
 import { createParticipantAccessCommandHandlers } from '../participantAccess';
 import { createBookingCommandHandlers } from '../bookings';
+import { createGuestBookingCommandHandlers } from '../bookings/guestBookingCommands';
 
 export type CommandHandler<Kind extends CommandKind> = (
   envelope: CommandEnvelope<Kind>,
@@ -134,13 +135,15 @@ export function createCanonicalCommands(
 
 export function createProductionCanonicalCommands(
   environment: CommandExecutionEnvironment,
-  executor: CanonicalTransactionExecutor
+  executor: CanonicalTransactionExecutor,
+  options: { readonly guestActionTokenSecret?: string } = {}
 ): CanonicalCommands {
   return createCanonicalCommands(
     {
       ...createParticipantAccessCommandHandlers(executor),
       ...createFinanceCommandHandlers(executor),
       ...createBookingCommandHandlers(executor),
+      ...createGuestBookingCommandHandlers(executor, options.guestActionTokenSecret),
     },
     environment
   );

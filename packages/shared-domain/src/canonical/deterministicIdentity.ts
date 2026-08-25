@@ -3,21 +3,26 @@ import { sha256Hex } from './sha256Hex';
 import {
   ActivityLogIdSchema,
   DomainOutboxIdSchema,
+  GuestSubjectIdSchema,
   InstructorRelationshipIdSchema,
   MonetaryEventIdSchema,
   OccurrenceIdSchema,
   ParticipantBlockIdSchema,
+  ParticipantManagementIdSchema,
   PaymentIdSchema,
+  type AccountId,
   type ActivityLogId,
   type BookingId,
   type CommandId,
   type DomainOutboxId,
+  type GuestSubjectId,
   type InstructorId,
   type InstructorRelationshipId,
   type MonetaryEventId,
   type OccurrenceId,
   type ParticipantBlockId,
   type ParticipantId,
+  type ParticipantManagementId,
   type PaymentId,
 } from './identifiers';
 
@@ -81,6 +86,26 @@ export function instructorRelationshipIdFromPair(input: {
 export function paymentIdFromBookingId(bookingId: BookingId): PaymentId {
   return PaymentIdSchema.parse(
     canonicalDeterministicHash(['payment:v1', 'booking', bookingId])
+  );
+}
+
+export function guestSubjectIdFromBookingId(bookingId: BookingId): GuestSubjectId {
+  return GuestSubjectIdSchema.parse(
+    canonicalDeterministicHash(['guest_subject:v1', 'booking', bookingId])
+  );
+}
+
+export function participantManagementIdFromGuestLink(input: {
+  readonly participantId: ParticipantId;
+  readonly accountId: AccountId;
+}): ParticipantManagementId {
+  return ParticipantManagementIdSchema.parse(
+    canonicalDeterministicHash([
+      'participant_management:v1',
+      'guest_link',
+      input.participantId,
+      input.accountId,
+    ])
   );
 }
 

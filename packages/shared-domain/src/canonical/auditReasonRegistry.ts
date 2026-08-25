@@ -26,6 +26,11 @@ const GLOBAL_REASON_CODES = new Set<string>(AUDIT_REASON_CODES);
 const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReasonCode[]>> = {
   complete_booking: ['self_service_completion', 'scheduled_system_action', 'other'],
   create_confirmed_booking: ['self_service_booking', 'manual_override', 'other'],
+  create_guest_booking_request: ['other'],
+  confirm_guest_booking: ['manual_override', 'other'],
+  link_guest_booking_to_account: ['participant_management', 'other'],
+  request_booking_cancellation: ['self_service_booking', 'manual_override', 'other'],
+  expire_guest_reservation: ['scheduled_system_action'],
   enforce_payment_start_gate: ['scheduled_system_action', 'manual_override'],
   record_manual_wallet_funding: ['manual_financial_correction', 'manual_override', 'other'],
   record_provider_payment_event: ['provider_callback_processed', 'manual_override', 'other'],

@@ -213,6 +213,8 @@ export default tseslint.config(
       'prettier/prettier': 'warn',
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off', // TypeScript handles static prop type checking
+      // React 18 DOM does not recognize fetchPriority; lowercase fetchpriority is the valid HTML attribute.
+      'react/no-unknown-property': ['error', { ignore: ['fetchpriority'] }],
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       // Legacy UI still has explicit any usages; new feature and app code is stricter below.
       '@typescript-eslint/no-explicit-any': 'warn',

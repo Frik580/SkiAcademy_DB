@@ -305,15 +305,35 @@ export function assertAdministratorMayMutateAdminIssue(
 
 function resolveIssueActorAccountId(
   correlationId: CorrelationId,
-  input: ResolveOrDismissAdminIssueInput
+  actor: AdminIssueLifecycleActor
 ): AccountId {
-  if (input.coupledDomainCommand) {
-    if (input.actor.actor.kind !== 'account') {
-      throw new CanonicalCommandError('forbidden', { correlationId });
-    }
-    return input.actor.actor.accountId;
+  return assertAdministratorMayMutateAdminIssue(correlationId, actor);
+}
+
+function assertOwnerMayResolveUnresolvedPendingCancellation(
+  correlationId: CorrelationId,
+  existing: AdminIssue,
+  input: OwnerWithdrawalUnresolvedPendingCancellationResolutionInput
+): AccountId {
+  if (existing.kind !== 'unresolved_pending_cancellation') {
+    throw new CanonicalCommandError('forbidden', { correlationId });
   }
-  return assertAdministratorMayMutateAdminIssue(correlationId, input.actor);
+  if (
+    existing.subjectRef.subjectKind !== 'booking' ||
+    existing.subjectRef.bookingId !== input.bookingId
+  ) {
+    throw new CanonicalCommandError('forbidden', { correlationId });
+  }
+  if (input.actor.actor.kind !== 'account') {
+    throw new CanonicalCommandError('forbidden', { correlationId });
+  }
+  if (
+    input.actor.exercisedCapability !== 'account_owner' &&
+    input.actor.exercisedCapability !== 'parent_guardian'
+  ) {
+    throw new CanonicalCommandError('forbidden', { correlationId });
+  }
+  return input.actor.actor.accountId;
 }
 
 export interface ResolveOrDismissAdminIssueInput {
@@ -324,6 +344,16 @@ export interface ResolveOrDismissAdminIssueInput {
   readonly reason: string;
   readonly actor: AdminIssueLifecycleActor;
   readonly coupledDomainCommand: boolean;
+}
+
+export interface OwnerWithdrawalUnresolvedPendingCancellationResolutionInput {
+  readonly expectedRevision: AdminIssue['revision'];
+  readonly now: CanonicalTimestamp;
+  readonly correlationId: CorrelationId;
+  readonly commandId: string;
+  readonly reason: string;
+  readonly actor: AdminIssueLifecycleActor;
+  readonly bookingId: BookingId;
 }
 
 function assertOpenIssue(correlationId: CorrelationId, issue: AdminIssue): void {
@@ -337,10 +367,16 @@ function assertOpenIssue(correlationId: CorrelationId, issue: AdminIssue): void 
 
 function applyTerminalIssueLifecycle(
   existing: AdminIssue,
-  input: ResolveOrDismissAdminIssueInput,
-  status: 'resolved' | 'dismissed'
+  input: Readonly<{
+    expectedRevision: AdminIssue['revision'];
+    now: CanonicalTimestamp;
+    correlationId: CorrelationId;
+    commandId: string;
+    reason: string;
+  }>,
+  status: 'resolved' | 'dismissed',
+  resolvedByAccountId: AccountId
 ): AdminIssue {
-  const resolvedByAccountId = resolveIssueActorAccountId(input.correlationId, input);
   assertExpectedRevision({
     correlationId: input.correlationId,
     expectedRevision: input.expectedRevision,
@@ -393,7 +429,20 @@ export function resolveAdminIssue(
       details: { reason: 'unsupported' },
     });
   }
-  return applyTerminalIssueLifecycle(existing, input, 'resolved');
+  const resolvedByAccountId = resolveIssueActorAccountId(input.correlationId, input.actor);
+  return applyTerminalIssueLifecycle(existing, input, 'resolved', resolvedByAccountId);
+}
+
+export function resolveUnresolvedPendingCancellationForOwnerWithdrawal(
+  existing: AdminIssue,
+  input: OwnerWithdrawalUnresolvedPendingCancellationResolutionInput
+): AdminIssue {
+  const resolvedByAccountId = assertOwnerMayResolveUnresolvedPendingCancellation(
+    input.correlationId,
+    existing,
+    input
+  );
+  return applyTerminalIssueLifecycle(existing, input, 'resolved', resolvedByAccountId);
 }
 
 export function dismissAdminIssue(
@@ -407,7 +456,8 @@ export function dismissAdminIssue(
       details: { reason: 'unsupported' },
     });
   }
-  return applyTerminalIssueLifecycle(existing, input, 'dismissed');
+  const resolvedByAccountId = resolveIssueActorAccountId(input.correlationId, input.actor);
+  return applyTerminalIssueLifecycle(existing, input, 'dismissed', resolvedByAccountId);
 }
 
 export interface SanitizedPaymentStartGateInstructorView {

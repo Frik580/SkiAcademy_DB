@@ -22,11 +22,13 @@ import {
   paymentIdFromBookingId,
   paymentRequiredAtStartIdentity,
   resolveAdminIssue,
+  resolveUnresolvedPendingCancellationForOwnerWithdrawal,
   reuseOrReopenAdminIssue,
   sanitizePaymentStartGateForInstructor,
   sanitizedInstructorViewOmitsFinancialFields,
   systemCommandActor,
   timestampFromDate,
+  unresolvedPendingCancellationIdentity,
   validateAuditEffectsForCommand,
   validateAuditReason,
 } from '@ski-academy/shared-domain';
@@ -40,6 +42,15 @@ const commandId = 'command_admin_issue_policy_01';
 const accountId = 'account_admin_issue_policy_01';
 
 const identity = paymentRequiredAtStartIdentity({ bookingId, occurrenceId });
+const pendingCancellationIdentity = unresolvedPendingCancellationIdentity({
+  bookingId,
+  occurrenceId,
+});
+const unrelatedBookingId = BookingIdSchema.parse('booking_admin_issue_policy_other');
+const unrelatedPendingCancellationIdentity = unresolvedPendingCancellationIdentity({
+  bookingId: unrelatedBookingId,
+  occurrenceId,
+});
 
 function metadata() {
   return {
@@ -230,6 +241,20 @@ describe('AdminIssue policy and lifecycle', () => {
         now,
         correlationId,
         commandId,
+        reason: 'Account owner cannot use generic coupled resolve',
+        actor: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+        },
+        coupledDomainCommand: true,
+      })
+    ).toThrow(CanonicalCommandError);
+    expect(() =>
+      resolveAdminIssue(opened, {
+        expectedRevision: opened.revision,
+        now,
+        correlationId,
+        commandId,
         reason: 'System should not resolve',
         actor: {
           actor: systemCommandActor('system_admin_issue_policy_01'),
@@ -238,6 +263,89 @@ describe('AdminIssue policy and lifecycle', () => {
         coupledDomainCommand: true,
       })
     ).toThrow(CanonicalCommandError);
+  });
+
+  it('scopes owner withdrawal to unresolved_pending_cancellation for the authorized booking', () => {
+    const opened = createOpenAdminIssue({
+      identity: pendingCancellationIdentity,
+      now,
+      correlationId,
+      commandId,
+    });
+    const unrelatedIssue = createOpenAdminIssue({
+      identity: unrelatedPendingCancellationIdentity,
+      now,
+      correlationId,
+      commandId: 'command_admin_issue_policy_unrelated',
+    });
+
+    const resolved = resolveUnresolvedPendingCancellationForOwnerWithdrawal(opened, {
+      expectedRevision: opened.revision,
+      now: timestampFromDate(new Date('2026-01-15T06:00:00.000Z')),
+      correlationId,
+      commandId: 'command_admin_issue_policy_owner_withdraw',
+      reason: 'Cancellation request withdrawn',
+      actor: {
+        actor: accountCommandActor(accountId),
+        exercisedCapability: 'account_owner',
+      },
+      bookingId,
+    });
+    expect(resolved.lifecycle.status).toBe('resolved');
+
+    expect(() =>
+      resolveUnresolvedPendingCancellationForOwnerWithdrawal(unrelatedIssue, {
+        expectedRevision: unrelatedIssue.revision,
+        now,
+        correlationId,
+        commandId,
+        reason: 'Owner cannot resolve unrelated booking issue',
+        actor: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+        },
+        bookingId,
+      })
+    ).toThrow(CanonicalCommandError);
+
+    expect(() =>
+      resolveUnresolvedPendingCancellationForOwnerWithdrawal(opened, {
+        expectedRevision: opened.revision,
+        now,
+        correlationId,
+        commandId,
+        reason: 'Instructor cannot use owner withdrawal path',
+        actor: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'instructor',
+        },
+        bookingId,
+      })
+    ).toThrow(CanonicalCommandError);
+  });
+
+  it('does not mutate issue revision when unauthorized coupled resolution fails', () => {
+    const opened = createOpenAdminIssue({ identity, now, correlationId, commandId });
+    const revisionBefore = opened.revision;
+    const lifecycleBefore = opened.lifecycle;
+
+    expect(() =>
+      resolveAdminIssue(opened, {
+        expectedRevision: opened.revision,
+        now,
+        correlationId,
+        commandId,
+        reason: 'Unauthorized coupled resolve',
+        actor: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+        },
+        coupledDomainCommand: true,
+      })
+    ).toThrow(CanonicalCommandError);
+
+    expect(opened.revision).toBe(revisionBefore);
+    expect(opened.lifecycle).toEqual(lifecycleBefore);
   });
 
   it('forbids standalone resolve and dismiss for payment_required_at_start', () => {

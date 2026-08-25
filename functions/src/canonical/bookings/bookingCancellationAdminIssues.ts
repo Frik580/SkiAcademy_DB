@@ -1,5 +1,7 @@
 import {
+  administratorCapabilityExercisedByAccount,
   resolveAdminIssue,
+  resolveUnresolvedPendingCancellationForOwnerWithdrawal,
   unresolvedPendingCancellationIdentity,
   type AdminIssue,
   type Booking,
@@ -45,18 +47,30 @@ export async function planResolveOpenUnresolvedPendingCancellationIssue(
     return undefined;
   }
 
-  const resolved = resolveAdminIssue(existing, {
+  const actor = {
+    actor: input.envelope.context.actor,
+    exercisedCapability: input.envelope.context.exercisedCapability,
+  };
+  const resolutionInput = {
     expectedRevision: existing.revision,
     now: input.now,
     correlationId: input.correlationId,
     commandId: input.commandId,
     reason: input.reason,
-    actor: {
-      actor: input.envelope.context.actor,
-      exercisedCapability: input.envelope.context.exercisedCapability,
-    },
-    coupledDomainCommand: true,
-  });
+    actor,
+  };
+  const isAdministratorResolution =
+    administratorCapabilityExercisedByAccount(input.envelope.context) &&
+    input.envelope.context.exercisedCapability === 'administrator';
+  const resolved = isAdministratorResolution
+    ? resolveAdminIssue(existing, {
+        ...resolutionInput,
+        coupledDomainCommand: true,
+      })
+    : resolveUnresolvedPendingCancellationForOwnerWithdrawal(existing, {
+        ...resolutionInput,
+        bookingId: input.booking.bookingId,
+      });
 
   session.plan.planMutation({
     path: documentPath,

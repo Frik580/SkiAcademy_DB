@@ -17,7 +17,10 @@ import {
   evaluateInstructorAttendanceWindow,
   shouldCreateAttendancePaymentConflict,
 } from '@ski-academy/shared-domain';
-import { canonicalBookingCollaborationFixtures, canonicalPrimitiveFixtures } from '@ski-academy/shared-domain/testing';
+import {
+  canonicalBookingCollaborationFixtures,
+  canonicalPrimitiveFixtures,
+} from '@ski-academy/shared-domain/testing';
 
 const individualBooking = canonicalBookingCollaborationFixtures.individualBooking;
 
@@ -35,7 +38,9 @@ function bookingFixture(
     status: 'confirmed' | 'pending_cancellation' | 'completed';
   }> = {}
 ) {
-  const participantIds = (overrides.participantIds ?? [participantOne]) as typeof individualBooking.party.participantIds;
+  const participantIds = (overrides.participantIds ?? [
+    participantOne,
+  ]) as typeof individualBooking.party.participantIds;
   return BookingSchema.parse({
     ...individualBooking,
     party: {
@@ -87,9 +92,9 @@ function attendanceFor(participantId: typeof participantOne, status: 'present' |
 
 describe('bookingAttendancePolicy', () => {
   it('uses inclusive instructor window boundaries', () => {
-    expect(
-      evaluateInstructorAttendanceWindow({ now: startsAt, startsAt, endsAt })
-    ).toBe('in_window');
+    expect(evaluateInstructorAttendanceWindow({ now: startsAt, startsAt, endsAt })).toBe(
+      'in_window'
+    );
     expect(
       evaluateInstructorAttendanceWindow({
         now: bookingInstructorAttendanceWindowEnd(endsAt),
@@ -214,7 +219,9 @@ describe('bookingAttendancePolicy', () => {
       evaluateBookingOutcomeCalculator({
         now: endsAt,
         booking: bookingFixture(),
-        attendancesByParticipantId: new Map([[participantOne, attendanceFor(participantOne, 'present')]]),
+        attendancesByParticipantId: new Map([
+          [participantOne, attendanceFor(participantOne, 'present')],
+        ]),
         openAdminIssues: [],
         automationOnly: false,
         justRecordedPresentWithPaymentConflict: true,

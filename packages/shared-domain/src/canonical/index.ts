@@ -24,6 +24,7 @@ export * from './bookingProposalPolicy';
 export * from './bookingChangeRequestPolicy';
 export * from './guestCredential';
 export * from './courseEnrollmentAttendanceAdminIssue';
+export * from './courseDayScheduling';
 export * from './adminIssuePolicy';
 export * from './deterministicIdentity';
 export * from './errors';

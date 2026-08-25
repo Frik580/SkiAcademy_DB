@@ -16,6 +16,7 @@ import {
   type BookingId,
   type BookingProposalId,
   type CommandId,
+  type CourseDayId,
   type DomainOutboxId,
   type GuestSubjectId,
   type InstructorId,
@@ -131,6 +132,22 @@ export function bookingOccurrenceIdFromScheduleRevision(
 
 export function initialBookingOccurrenceIdFromBookingId(bookingId: BookingId): OccurrenceId {
   return bookingOccurrenceIdFromScheduleRevision(bookingId, 1);
+}
+
+export function courseDayOccurrenceIdFromRevision(
+  courseDayId: CourseDayId,
+  revision: number
+): OccurrenceId {
+  if (!Number.isInteger(revision) || revision < 1) {
+    throw new Error('revision must be a positive integer');
+  }
+  return OccurrenceIdSchema.parse(
+    canonicalDeterministicHash(['occurrence:v1', 'course_day', courseDayId, String(revision)])
+  );
+}
+
+export function initialCourseDayOccurrenceId(courseDayId: CourseDayId): OccurrenceId {
+  return courseDayOccurrenceIdFromRevision(courseDayId, 1);
 }
 
 export function nextBookingScheduleRevision(

@@ -121,6 +121,8 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'resource_claim_changed',
     'outbox_obligation_created',
   ],
+  create_course_day: ['resource_claim_changed', 'outbox_obligation_created'],
+  reassign_course_day_instructor: ['resource_claim_changed', 'outbox_obligation_created'],
 };
 
 export function hasAuditEffectRegistryEntry(commandKind: CommandKind): boolean {

@@ -60,6 +60,8 @@ const COMMAND_KIND_REASON_CODES = {
     create_booking_change_request: ['other'],
     withdraw_booking_change_request: ['other'],
     resolve_booking_change_request: ['manual_override', 'other'],
+    create_course_day: ['manual_override', 'other'],
+    reassign_course_day_instructor: ['manual_override', 'other'],
 };
 function hasAuditReasonRegistryEntry(commandKind) {
     return COMMAND_KIND_REASON_CODES[commandKind] !== undefined;

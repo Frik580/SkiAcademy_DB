@@ -12,6 +12,8 @@ exports.guestSubjectIdFromBookingId = guestSubjectIdFromBookingId;
 exports.participantManagementIdFromGuestLink = participantManagementIdFromGuestLink;
 exports.bookingOccurrenceIdFromScheduleRevision = bookingOccurrenceIdFromScheduleRevision;
 exports.initialBookingOccurrenceIdFromBookingId = initialBookingOccurrenceIdFromBookingId;
+exports.courseDayOccurrenceIdFromRevision = courseDayOccurrenceIdFromRevision;
+exports.initialCourseDayOccurrenceId = initialCourseDayOccurrenceId;
 exports.nextBookingScheduleRevision = nextBookingScheduleRevision;
 exports.validateDeterministicIdentityInputs = validateDeterministicIdentityInputs;
 const sha256Hex_1 = require("./sha256Hex");
@@ -70,6 +72,15 @@ function bookingOccurrenceIdFromScheduleRevision(bookingId, scheduleRevision) {
 }
 function initialBookingOccurrenceIdFromBookingId(bookingId) {
     return bookingOccurrenceIdFromScheduleRevision(bookingId, 1);
+}
+function courseDayOccurrenceIdFromRevision(courseDayId, revision) {
+    if (!Number.isInteger(revision) || revision < 1) {
+        throw new Error('revision must be a positive integer');
+    }
+    return identifiers_1.OccurrenceIdSchema.parse(canonicalDeterministicHash(['occurrence:v1', 'course_day', courseDayId, String(revision)]));
+}
+function initialCourseDayOccurrenceId(courseDayId) {
+    return courseDayOccurrenceIdFromRevision(courseDayId, 1);
 }
 function nextBookingScheduleRevision(currentScheduleRevision) {
     if (!Number.isInteger(currentScheduleRevision) || currentScheduleRevision < 1) {

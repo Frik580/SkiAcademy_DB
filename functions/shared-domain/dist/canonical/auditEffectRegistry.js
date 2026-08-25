@@ -122,6 +122,8 @@ const COMMAND_KIND_ALLOWED_EFFECTS = {
         'resource_claim_changed',
         'outbox_obligation_created',
     ],
+    create_course_day: ['resource_claim_changed', 'outbox_obligation_created'],
+    reassign_course_day_instructor: ['resource_claim_changed', 'outbox_obligation_created'],
 };
 function hasAuditEffectRegistryEntry(commandKind) {
     return COMMAND_KIND_ALLOWED_EFFECTS[commandKind] !== undefined;

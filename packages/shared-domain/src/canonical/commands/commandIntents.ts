@@ -143,7 +143,6 @@ const adjustServicePriceIntent = z
       });
     }
   });
-const courseDayTargetIntent = z.object({ courseDayId: CourseDayIdSchema }).strict();
 const financialCorrectionReasonIntent = z.string().trim().min(1).max(1_000);
 const recordFinancialCorrectionIntent = z.discriminatedUnion('correctionKind', [
   z
@@ -529,7 +528,14 @@ export const CommandIntentSchemaByKind = {
       instructorId: InstructorIdSchema,
     })
     .strict(),
-  reassign_course_day_instructor: courseDayTargetIntent,
+  reassign_course_day_instructor: z
+    .object({
+      courseId: CourseIdSchema,
+      courseDayId: CourseDayIdSchema,
+      instructorId: InstructorIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
+    })
+    .strict(),
 } satisfies Record<CommandKind, z.ZodType>;
 
 export type CommandIntentForKind<Kind extends CommandKind> = z.output<

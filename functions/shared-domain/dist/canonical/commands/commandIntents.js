@@ -128,7 +128,6 @@ const adjustServicePriceIntent = zod_1.z
         });
     }
 });
-const courseDayTargetIntent = zod_1.z.object({ courseDayId: identifiers_1.CourseDayIdSchema }).strict();
 const financialCorrectionReasonIntent = zod_1.z.string().trim().min(1).max(1_000);
 const recordFinancialCorrectionIntent = zod_1.z.discriminatedUnion('correctionKind', [
     zod_1.z
@@ -512,7 +511,14 @@ exports.CommandIntentSchemaByKind = {
         instructorId: identifiers_1.InstructorIdSchema,
     })
         .strict(),
-    reassign_course_day_instructor: courseDayTargetIntent,
+    reassign_course_day_instructor: zod_1.z
+        .object({
+        courseId: identifiers_1.CourseIdSchema,
+        courseDayId: identifiers_1.CourseDayIdSchema,
+        instructorId: identifiers_1.InstructorIdSchema,
+        reasonExplanation: zod_1.z.string().trim().min(1).max(1_000).optional(),
+    })
+        .strict(),
 };
 function parseCommandIntent(kind, input) {
     return exports.CommandIntentSchemaByKind[kind].safeParse(input);

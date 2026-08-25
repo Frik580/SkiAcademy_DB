@@ -35,19 +35,35 @@ const participantIdB = ParticipantIdSchema.parse('participant_proposal_emulator_
 const managementId = ParticipantManagementIdSchema.parse('management_proposal_emulator_01');
 const managementIdB = ParticipantManagementIdSchema.parse('management_proposal_emulator_02');
 const instructorId = InstructorIdSchema.parse('instructor_proposal_emulator_01');
+const instructorIdB = InstructorIdSchema.parse('instructor_proposal_emulator_02');
 const proposalId = BookingProposalIdSchema.parse('booking_proposal_emulator_01');
+const proposalIdB = BookingProposalIdSchema.parse('booking_proposal_emulator_02');
 const relationshipId = instructorRelationshipIdFromPair({ participantId, instructorId });
+const relationshipIdB = instructorRelationshipIdFromPair({ participantId, instructorId: instructorIdB });
+const relationshipIdParticipantB = instructorRelationshipIdFromPair({
+  participantId: participantIdB,
+  instructorId: instructorIdB,
+});
 const bookingId = bookingIdFromAcceptedProposal(proposalId);
+const bookingIdB = bookingIdFromAcceptedProposal(proposalIdB);
 const paymentId = paymentIdFromBookingId(bookingId);
 const systemActorId = SystemActorIdSchema.parse('system_proposal_emulator_01');
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 
 const BOOKING_PRICE_KZT = 12_000;
 const WALLET_START_KZT = 50_000;
+const WALLET_CONTENTION_KZT = 15_000;
+const WALLET_CONTENTION_PRICE_KZT = 10_000;
 
 const calendarInput = {
   localDate: '2026-01-15',
   localTime: '09:00',
+  durationMinutes: 60,
+} as const;
+
+const calendarInputB = {
+  localDate: '2026-01-16',
+  localTime: '11:00',
   durationMinutes: 60,
 } as const;
 
@@ -157,14 +173,19 @@ function seedManagementRecord(input: {
   };
 }
 
-function seedRelationship() {
+function seedRelationship(input: {
+  relationshipId: typeof relationshipId;
+  participantId: typeof participantId;
+  instructorId: typeof instructorId;
+  managementId: typeof managementId;
+}) {
   return {
-    instructorRelationshipId: relationshipId,
-    participantId,
-    instructorId,
+    instructorRelationshipId: input.relationshipId,
+    participantId: input.participantId,
+    instructorId: input.instructorId,
     basis: {
       kind: 'guardian_permission',
-      participantManagementId: managementId,
+      participantManagementId: input.managementId,
       grantedByAccountId: accountId,
     },
     validFrom: decidedAt,
@@ -205,7 +226,14 @@ async function seedInstructor(
   });
 }
 
-async function seedSharedFixture(walletBalance = WALLET_START_KZT): Promise<void> {
+async function seedSharedFixture(
+  walletBalance = WALLET_START_KZT,
+  options: {
+    instructorPriceKzt?: number;
+    includeSecondInstructor?: boolean;
+  } = {}
+): Promise<void> {
+  const instructorPriceKzt = options.instructorPriceKzt ?? BOOKING_PRICE_KZT;
   await firestore.collection('users').doc(accountId).set(seedAccount());
   await firestore.collection('users').doc(instructorAccountId).set(seedAccount(instructorAccountId));
   await firestore
@@ -229,20 +257,49 @@ async function seedSharedFixture(walletBalance = WALLET_START_KZT): Promise<void
     seedManagementRecord({ managementId: managementIdB, participantId: participantIdB })
   );
 
-  await firestore.collection('instructor_relationships').doc(relationshipId).set(seedRelationship());
-  await seedInstructor(instructorId, { pricePerHourKZT: BOOKING_PRICE_KZT });
+  await firestore.collection('instructor_relationships').doc(relationshipId).set(
+    seedRelationship({ relationshipId, participantId, instructorId, managementId })
+  );
+  await seedInstructor(instructorId, { pricePerHourKZT: instructorPriceKzt });
+
+  if (options.includeSecondInstructor) {
+    await firestore.collection('instructor_relationships').doc(relationshipIdB).set(
+      seedRelationship({
+        relationshipId: relationshipIdB,
+        participantId,
+        instructorId: instructorIdB,
+        managementId,
+      })
+    );
+    await firestore.collection('instructor_relationships').doc(relationshipIdParticipantB).set(
+      seedRelationship({
+        relationshipId: relationshipIdParticipantB,
+        participantId: participantIdB,
+        instructorId: instructorIdB,
+        managementId: managementIdB,
+      })
+    );
+    await seedInstructor(instructorIdB, { pricePerHourKZT: instructorPriceKzt });
+  }
 }
 
-function instructorContext(idempotencyKey: string) {
+function instructorContext(
+  idempotencyKey: string,
+  input: {
+    instructorId?: typeof instructorId;
+    calendarInput?: typeof calendarInput;
+  } = {}
+) {
+  const resolvedInstructorId = input.instructorId ?? instructorId;
   return {
     actor: accountCommandActor(instructorAccountId),
     exercisedCapability: 'instructor' as const,
     idempotencyKey,
     correlationId,
     source: 'client_callable' as const,
-    calendarInput,
+    calendarInput: input.calendarInput ?? calendarInput,
     timezone: 'Asia/Almaty' as const,
-    transportMetadata: { instructor_id: instructorId },
+    transportMetadata: { instructor_id: resolvedInstructorId },
   };
 }
 
@@ -260,27 +317,39 @@ function ownerContext(idempotencyKey: string, expectedRevision?: number) {
 }
 
 function createProposalEnvelope(
-  idempotencyKey = 'proposal-create-emulator'
+  input: {
+    idempotencyKey?: string;
+    bookingProposalId?: typeof proposalId;
+    instructorId?: typeof instructorId;
+    participantId?: typeof participantId;
+    calendarInput?: typeof calendarInput;
+  } = {}
 ): CommandEnvelope<'create_booking_proposal'> {
   return {
     kind: 'create_booking_proposal',
-    context: instructorContext(idempotencyKey),
+    context: instructorContext(input.idempotencyKey ?? 'proposal-create-emulator', {
+      instructorId: input.instructorId,
+      calendarInput: input.calendarInput,
+    }),
     intent: {
-      bookingProposalId: proposalId,
-      instructorId,
-      participantId,
+      bookingProposalId: input.bookingProposalId ?? proposalId,
+      instructorId: input.instructorId ?? instructorId,
+      participantId: input.participantId ?? participantId,
     },
   };
 }
 
 function acceptProposalEnvelope(
-  idempotencyKey: string,
-  expectedRevision = 1
+  input: {
+    idempotencyKey: string;
+    bookingProposalId?: typeof proposalId;
+    expectedRevision?: number;
+  }
 ): CommandEnvelope<'accept_booking_proposal'> {
   return {
     kind: 'accept_booking_proposal',
-    context: ownerContext(idempotencyKey, expectedRevision),
-    intent: { bookingProposalId: proposalId },
+    context: ownerContext(input.idempotencyKey, input.expectedRevision ?? 1),
+    intent: { bookingProposalId: input.bookingProposalId ?? proposalId },
   };
 }
 
@@ -315,10 +384,20 @@ function expireProposalEnvelope(
 
 async function createOpenProposal(
   commands: ReturnType<typeof createCommands>,
-  idempotencyKey = 'proposal-create-emulator'
+  input: Parameters<typeof createProposalEnvelope>[0] = {}
 ): Promise<void> {
-  const result = await commands.execute(createProposalEnvelope(idempotencyKey));
+  const result = await commands.execute(createProposalEnvelope(input));
   expect(result.status).toBe('success');
+}
+
+async function activeParticipantClaimsFor(participant: typeof participantId) {
+  const claims = await firestore.collection('resource_claims').get();
+  return claims.docs.filter(
+    (doc) =>
+      doc.data().resourceKind === 'participant' &&
+      doc.data().resourceId === participant &&
+      doc.data().lifecycle?.status === 'active'
+  );
 }
 
 async function durableCounts() {
@@ -399,7 +478,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking proposal emulator races', () 
       await createOpenProposal(commands);
 
       const results = await Promise.allSettled([
-        commands.execute(acceptProposalEnvelope('proposal-accept-race-01')),
+        commands.execute(acceptProposalEnvelope({ idempotencyKey: 'proposal-accept-race-01' })),
         commands.execute(declineProposalEnvelope('proposal-decline-race-01')),
       ]);
       const statuses = results.map((result) =>
@@ -437,8 +516,8 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking proposal emulator races', () 
       await createOpenProposal(commands);
 
       const results = await Promise.allSettled([
-        commands.execute(acceptProposalEnvelope('proposal-double-accept-01')),
-        commands.execute(acceptProposalEnvelope('proposal-double-accept-02')),
+        commands.execute(acceptProposalEnvelope({ idempotencyKey: 'proposal-double-accept-01' })),
+        commands.execute(acceptProposalEnvelope({ idempotencyKey: 'proposal-double-accept-02' })),
       ]);
       const statuses = results.map((result) =>
         result.status === 'fulfilled' ? result.value.status : 'rejected'
@@ -481,7 +560,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking proposal emulator races', () 
       };
 
       const results = await Promise.allSettled([
-        commands.execute(acceptProposalEnvelope('proposal-contention-accept')),
+        commands.execute(acceptProposalEnvelope({ idempotencyKey: 'proposal-contention-accept' })),
         commands.execute(bookingEnvelope),
       ]);
       const statuses = results.map((result) =>
@@ -505,12 +584,161 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking proposal emulator races', () 
   );
 
   it(
+    'E. accept vs participant contention - proposal stays open on participant_conflict',
+    async () => {
+      await seedInstructor(instructorIdB, { pricePerHourKZT: BOOKING_PRICE_KZT });
+      await firestore.collection('instructor_relationships').doc(relationshipIdB).set(
+        seedRelationship({
+          relationshipId: relationshipIdB,
+          participantId,
+          instructorId: instructorIdB,
+          managementId,
+        })
+      );
+
+      const commands = createCommands();
+      await createOpenProposal(commands, { idempotencyKey: 'proposal-participant-contention-create' });
+
+      const conflictingBookingId = BookingIdSchema.parse('booking_proposal_emulator_participant_conflict');
+      const participantConflictBooking: CommandEnvelope<'create_confirmed_booking'> = {
+        kind: 'create_confirmed_booking',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'proposal-participant-contention-booking',
+          correlationId,
+          source: 'client_callable',
+          calendarInput,
+          timezone: 'Asia/Almaty',
+        },
+        intent: {
+          bookingId: conflictingBookingId,
+          instructorId: instructorIdB,
+          participantIds: [participantId],
+        },
+      };
+
+      const results = await Promise.allSettled([
+        commands.execute(
+          acceptProposalEnvelope({ idempotencyKey: 'proposal-participant-contention-accept' })
+        ),
+        commands.execute(participantConflictBooking),
+      ]);
+      const outcomes = results.map((result) =>
+        result.status === 'fulfilled' ? result.value : undefined
+      );
+      const acceptOutcome = outcomes[0];
+      const bookingOutcome = outcomes[1];
+
+      const proposal = (await firestore.doc(`booking_proposals/${proposalId}`).get()).data();
+      const state = await durableCounts();
+      const participantClaims = await activeParticipantClaimsFor(participantId);
+
+      expect(participantClaims.length).toBe(1);
+
+      if (bookingOutcome?.status === 'success') {
+        expect(proposal?.lifecycle).toEqual({ status: 'open' });
+        expect(acceptOutcome?.status).toBe('error');
+        if (acceptOutcome?.status === 'error') {
+          expect(acceptOutcome.error.code).toBe('participant_conflict');
+        }
+        expect(state.bookings).toBe(1);
+        expect(state.bookingIds).toEqual([conflictingBookingId]);
+        expect(state.payments).toBe(1);
+        expect(state.monetaryEvents).toBe(1);
+        expect(state.walletBalance).toBe(WALLET_START_KZT - BOOKING_PRICE_KZT);
+        expect(state.claims).toBe(2);
+        expect(proposal?.lifecycle?.status).not.toBe('unavailable');
+      } else {
+        expect(proposal?.lifecycle.status).toBe('accepted');
+        expect(acceptOutcome?.status).toBe('success');
+        expect(state.bookings).toBe(1);
+        expect(state.bookingIds).toEqual([bookingId]);
+      }
+    },
+    30_000
+  );
+
+  it(
+    'F. concurrent acceptances share one Wallet - one succeeds, one insufficient_funds',
+    async () => {
+      await seedSharedFixture(WALLET_CONTENTION_KZT, {
+        instructorPriceKzt: WALLET_CONTENTION_PRICE_KZT,
+        includeSecondInstructor: true,
+      });
+
+      const commands = createCommands();
+      await createOpenProposal(commands, {
+        idempotencyKey: 'wallet-contention-create-a',
+        bookingProposalId: proposalId,
+        instructorId,
+        participantId,
+        calendarInput,
+      });
+      await createOpenProposal(commands, {
+        idempotencyKey: 'wallet-contention-create-b',
+        bookingProposalId: proposalIdB,
+        instructorId: instructorIdB,
+        participantId: participantIdB,
+        calendarInput: calendarInputB,
+      });
+
+      const results = await Promise.allSettled([
+        commands.execute(
+          acceptProposalEnvelope({
+            idempotencyKey: 'wallet-contention-accept-a',
+            bookingProposalId: proposalId,
+          })
+        ),
+        commands.execute(
+          acceptProposalEnvelope({
+            idempotencyKey: 'wallet-contention-accept-b',
+            bookingProposalId: proposalIdB,
+          })
+        ),
+      ]);
+      const outcomes = results.map((result) =>
+        result.status === 'fulfilled' ? result.value : undefined
+      );
+      const successes = outcomes.filter((outcome) => outcome?.status === 'success');
+      const insufficientFunds = outcomes.filter(
+        (outcome) => outcome?.status === 'error' && outcome.error.code === 'insufficient_funds'
+      );
+
+      expect(successes.length).toBe(1);
+      expect(insufficientFunds.length).toBe(1);
+
+      const proposalA = (await firestore.doc(`booking_proposals/${proposalId}`).get()).data();
+      const proposalB = (await firestore.doc(`booking_proposals/${proposalIdB}`).get()).data();
+      const state = await durableCounts();
+      const acceptedProposals = [proposalA, proposalB].filter(
+        (proposal) => proposal?.lifecycle?.status === 'accepted'
+      );
+      const openProposals = [proposalA, proposalB].filter(
+        (proposal) => proposal?.lifecycle?.status === 'open'
+      );
+
+      expect(acceptedProposals.length).toBe(1);
+      expect(openProposals.length).toBe(1);
+      expect(state.bookings).toBe(1);
+      expect(state.payments).toBe(1);
+      expect(state.monetaryEvents).toBe(1);
+      expect(state.claims).toBe(2);
+      expect(state.walletBalance).toBe(WALLET_CONTENTION_KZT - WALLET_CONTENTION_PRICE_KZT);
+      expect(state.walletBalance).toBeGreaterThanOrEqual(0);
+      expect(state.successfulIdempotency).toBe(3);
+      expect(state.activityLogs).toBe(3);
+    },
+    30_000
+  );
+
+  it(
     'G. successful accept replay - no duplicate durable state',
     async () => {
       const commands = createCommands();
       await createOpenProposal(commands);
 
-      const envelope = acceptProposalEnvelope('proposal-accept-replay-g');
+      const envelope = acceptProposalEnvelope({ idempotencyKey: 'proposal-accept-replay-g' });
       const first = await commands.execute(envelope);
       const second = await commands.execute(envelope);
       expect(first.status).toBe('success');
@@ -543,7 +771,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking proposal emulator races', () 
 
       const commands = createCommands('2026-01-03T00:00:00.000Z');
       const results = await Promise.allSettled([
-        commands.execute(acceptProposalEnvelope('proposal-expire-race-accept')),
+        commands.execute(acceptProposalEnvelope({ idempotencyKey: 'proposal-expire-race-accept' })),
         commands.execute(expireProposalEnvelope('proposal-expire-race-expire')),
       ]);
       const statuses = results.map((result) =>

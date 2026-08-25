@@ -29,6 +29,7 @@ import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
 
 const correlationId = CorrelationIdSchema.parse('correlation_party_cmd_01');
 const accountId = AccountIdSchema.parse('account_party_cmd_01');
+const unrelatedAccountId = AccountIdSchema.parse('account_party_unrelated_01');
 const adminAccountId = AccountIdSchema.parse('account_party_admin_01');
 const participantId = ParticipantIdSchema.parse('participant_party_cmd_01');
 const participantTwoId = ParticipantIdSchema.parse('participant_party_cmd_02');
@@ -90,6 +91,18 @@ function seedBase(walletBalance = 50_000) {
       audit: {
         createdByCommandId: 'command_seed_admin',
         lastChangedByCommandId: 'command_seed_admin',
+        correlationId,
+      },
+    }),
+    [`users/${unrelatedAccountId}`]: AccountSchema.parse({
+      accountId: unrelatedAccountId,
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_unrelated',
+        lastChangedByCommandId: 'command_seed_unrelated',
         correlationId,
       },
     }),
@@ -197,6 +210,7 @@ function partyEnvelope(
   input: {
     idempotencyKey: string;
     capability?: 'account_owner' | 'administrator';
+    actorAccountId?: typeof accountId | typeof adminAccountId;
     expectedRevision?: number;
     participantIdsToAdd?: (typeof participantId | typeof participantTwoId)[];
     participantIdsToRemove?: (typeof participantId | typeof participantTwoId)[];
@@ -208,7 +222,7 @@ function partyEnvelope(
     kind: 'change_booking_party',
     context: accountContext(
       input.capability ?? 'account_owner',
-      input.capability === 'administrator' ? adminAccountId : accountId,
+      input.actorAccountId ?? (input.capability === 'administrator' ? adminAccountId : accountId),
       input.idempotencyKey,
       input.expectedRevision ?? 1
     ),
@@ -395,6 +409,49 @@ describe('booking party commands', () => {
           (requirement: { state: string }) => requirement.state === 'rolled_back'
         )
     ).toBe(true);
+  });
+
+  it('rejects self-service party change from unrelated account', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.interval
+      .startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS
+    );
+    const commands = createProductionCanonicalCommands(environment(isoFromTimestamp(requestAt)), executor);
+    const result = await commands.execute(
+      partyEnvelope({
+        idempotencyKey: 'party-unauthorized',
+        actorAccountId: unrelatedAccountId,
+        participantIdsToAdd: [participantTwoId],
+      })
+    );
+    expect(result.status).toBe('error');
+  });
+
+  it('freezes service party when rollback finds no unpaid additions', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const commands = createProductionCanonicalCommands(environment('2026-01-15T09:00:00.000Z'), executor);
+    const rollbackEnvelope: CommandEnvelope<'rollback_unpaid_booking_party_additions'> = {
+      kind: 'rollback_unpaid_booking_party_additions',
+      context: {
+        actor: systemCommandActor('scheduler_party_rollback'),
+        exercisedCapability: 'system',
+        idempotencyKey: 'rollback-freeze-only-unit',
+        correlationId,
+        source: 'scheduler',
+      },
+      intent: { bookingId },
+    };
+    const result = await commands.execute(rollbackEnvelope);
+    expect(result.status).toBe('success');
+    const booking = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data;
+    expect(booking?.party.participantIds).toEqual([participantId]);
+    expect(booking?.occurrence.serviceParty.frozenAt).toBeDefined();
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data.price).toBe(12_000);
   });
 
   it('replays successful party add without duplicate refund or claim', async () => {

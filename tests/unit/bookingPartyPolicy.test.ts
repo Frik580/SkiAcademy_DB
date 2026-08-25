@@ -9,6 +9,7 @@ import {
   FAMILY_GROUP_PARTY_PRICE_MULTIPLIERS_BP,
   partitionAddedParticipantsByMarginalDelta,
   validatePartyParticipantIds,
+  resolveAuthoritativePartyPrices,
   timestampFromDate,
   KztMinorUnitsSchema,
   ParticipantIdSchema,
@@ -99,5 +100,36 @@ describe('bookingPartyPolicy', () => {
         participantIdsToRemove: [ParticipantIdSchema.parse('participant_party_02')],
       })
     ).toEqual([ParticipantIdSchema.parse('participant_party_01')]);
+  });
+
+  it('allocates batch-add marginal deltas that sum to the canonical party price delta', () => {
+    const individual = KztMinorUnitsSchema.parse(12_000);
+    const current = [ParticipantIdSchema.parse('participant_party_01')];
+    const toAdd = [
+      ParticipantIdSchema.parse('participant_party_02'),
+      ParticipantIdSchema.parse('participant_party_03'),
+    ];
+    const additions = partitionAddedParticipantsByMarginalDelta({
+      individualLessonPriceKzt: individual,
+      currentParticipantIds: current,
+      participantIdsToAdd: toAdd,
+    });
+    const prices = resolveAuthoritativePartyPrices({
+      individualLessonPriceKzt: individual,
+      currentParticipantIds: current,
+      nextParticipantIds: [...current, ...toAdd],
+    });
+    const requirementSum = additions.reduce((sum, entry) => sum + entry.requiredPriceDelta, 0);
+    expect(requirementSum).toBe(prices.signedPriceDelta);
+    expect(additions).toEqual([
+      {
+        participantId: ParticipantIdSchema.parse('participant_party_02'),
+        requiredPriceDelta: KztMinorUnitsSchema.parse(6_000),
+      },
+      {
+        participantId: ParticipantIdSchema.parse('participant_party_03'),
+        requiredPriceDelta: KztMinorUnitsSchema.parse(6_000),
+      },
+    ]);
   });
 });

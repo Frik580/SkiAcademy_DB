@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CommandIdSchema,
   CorrelationIdSchema,
+  CourseEnrollmentIdSchema,
   InstructorIdSchema,
   OccurrenceIdSchema,
   ParticipantIdSchema,
@@ -18,6 +19,7 @@ import {
   removeGuardEntryByClaimId,
   resourceClaimGuardIdFromBucketIdentity,
   shouldIgnoreGuardEntry,
+  shouldSkipGuardEntryForAcquireConflict,
   timestampFromDate,
   utcBucketStartSecondsForInstant,
   RESOURCE_GUARD_BUCKET_SECONDS,
@@ -311,6 +313,110 @@ describe('Firestore timestamp normalization', () => {
     });
     expect(doc?.entries).toHaveLength(1);
     expect(doc?.entries?.[0]?.startsAt).toEqual(startsAt);
+  });
+});
+
+describe('pooled course seat conflict skip semantics', () => {
+  const overlapping = interval('2026-01-15T09:00:00.000Z', '2026-01-15T12:00:00.000Z');
+  const seatScope = {
+    resourceKind: 'course' as const,
+    claimKind: 'course_seat_pre_start' as const,
+  };
+
+  function entry(input: {
+    ownerKind: 'course_enrollment' | 'booking';
+    ownerId: string;
+    occurrenceId: string;
+    claimId?: string;
+  }) {
+    return {
+      claimId: input.claimId ?? `resource_claim_${input.ownerId}`,
+      ownerKind: input.ownerKind,
+      ownerId: input.ownerId,
+      occurrenceId: OccurrenceIdSchema.parse(input.occurrenceId),
+      interval: overlapping,
+      lifecycleStatus: 'active' as const,
+    };
+  }
+
+  it('allows another course_seat_pre_start acquire to ignore existing course_enrollment seat entries', () => {
+    const existingSeat = entry({
+      ownerKind: 'course_enrollment',
+      ownerId: CourseEnrollmentIdSchema.parse('course_enrollment_seat_a'),
+      occurrenceId: 'occurrence_seat_a',
+    });
+    expect(
+      findGuardIntervalConflict(overlapping, [existingSeat], undefined, seatScope)
+    ).toBeUndefined();
+    expect(shouldSkipGuardEntryForAcquireConflict(existingSeat, seatScope)).toBe(true);
+  });
+
+  it('still blocks participant booking vs course day enrollment overlaps', () => {
+    const bookingParticipant = entry({
+      ownerKind: 'booking',
+      ownerId: 'booking_guard_cross_domain',
+      occurrenceId: 'occurrence_booking_cross',
+      claimId: 'resource_claim_booking_participant',
+    });
+    const participantScope = {
+      resourceKind: 'participant' as const,
+      claimKind: 'participant_course_day_enrollment' as const,
+    };
+    expect(
+      findGuardIntervalConflict(overlapping, [bookingParticipant], undefined, participantScope)
+    ).toBe(bookingParticipant);
+    expect(shouldSkipGuardEntryForAcquireConflict(bookingParticipant, participantScope)).toBe(
+      false
+    );
+  });
+
+  it('still blocks instructor booking vs instructor course day overlaps', () => {
+    const instructorBooking = {
+      claimId: 'resource_claim_instructor_booking',
+      ownerKind: 'booking' as const,
+      ownerId: 'booking_instructor_cross',
+      occurrenceId: OccurrenceIdSchema.parse('occurrence_instructor_booking'),
+      interval: overlapping,
+      lifecycleStatus: 'active' as const,
+    };
+    const instructorScope = {
+      resourceKind: 'instructor' as const,
+      claimKind: 'instructor_course_day' as const,
+    };
+    expect(
+      findGuardIntervalConflict(overlapping, [instructorBooking], undefined, instructorScope)
+    ).toBe(instructorBooking);
+    expect(shouldSkipGuardEntryForAcquireConflict(instructorBooking, instructorScope)).toBe(false);
+  });
+
+  it('does not skip course_enrollment seat entries for non-seat acquire scopes', () => {
+    const existingSeat = entry({
+      ownerKind: 'course_enrollment',
+      ownerId: CourseEnrollmentIdSchema.parse('course_enrollment_seat_b'),
+      occurrenceId: 'occurrence_seat_b',
+    });
+    expect(
+      shouldSkipGuardEntryForAcquireConflict(existingSeat, {
+        resourceKind: 'course',
+        claimKind: 'participant_course_day_enrollment',
+      })
+    ).toBe(false);
+  });
+
+  it('still blocks participant booking vs participant booking overlaps', () => {
+    const first = entry({
+      ownerKind: 'booking',
+      ownerId: 'booking_participant_a',
+      occurrenceId: 'occurrence_participant_a',
+      claimId: 'resource_claim_participant_a',
+    });
+    const participantScope = {
+      resourceKind: 'participant' as const,
+      claimKind: 'participant_booking_occurrence' as const,
+    };
+    expect(findGuardIntervalConflict(overlapping, [first], undefined, participantScope)).toBe(
+      first
+    );
   });
 });
 

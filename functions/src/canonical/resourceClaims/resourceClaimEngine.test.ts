@@ -23,7 +23,9 @@ import {
   readAndPlanAcquireResourceClaim,
   readAndPlanMoveResourceClaim,
   readAndPlanReleaseResourceClaim,
+  registerResourceClaimPlanInGuardOverlay,
   replacementIgnoreFromClaim,
+  type InTransactionGuardOverlay,
 } from './resourceClaimEngine';
 import {
   commitAcquireActiveCourseEnrollmentGuard,
@@ -502,5 +504,58 @@ describe('uniqueness guards', () => {
         },
       })
     ).rejects.toMatchObject({ code: 'blocked_relationship' });
+  });
+
+  it('acquires multiple pooled course seat claims in one transaction via guard overlay', async () => {
+    resetSharedExecutor();
+    const courseId = CourseIdSchema.parse('course_claim_engine_pool_01');
+    const enrollmentA = CourseEnrollmentIdSchema.parse('course_enrollment_pool_a');
+    const enrollmentB = CourseEnrollmentIdSchema.parse('course_enrollment_pool_b');
+    const seatInterval = interval('2026-01-15T08:00:00.000Z', '2026-02-01T12:00:00.000Z');
+
+    function seatIdentity(enrollmentId: typeof enrollmentA, occurrenceId: string) {
+      return ResourceClaimIdentityInputSchema.parse({
+        strategyVersion: 'claim:v1',
+        claimKind: 'course_seat_pre_start',
+        resourceKind: 'course',
+        resourceId: courseId,
+        ownerKind: 'course_enrollment',
+        ownerId: enrollmentId,
+        occurrenceId: OccurrenceIdSchema.parse(occurrenceId),
+      });
+    }
+
+    await sharedExecutor.runAtomic({
+      correlationId,
+      run: async (session) => {
+        const overlay: InTransactionGuardOverlay = new Map();
+        const firstPlan = await readAndPlanAcquireResourceClaim(session, {
+          ...metadata,
+          identity: seatIdentity(enrollmentA, 'occurrence_pool_a'),
+          interval: seatInterval,
+          inTransactionGuardOverlay: overlay,
+        });
+        registerResourceClaimPlanInGuardOverlay(overlay, firstPlan);
+        const secondPlan = await readAndPlanAcquireResourceClaim(session, {
+          ...metadata,
+          identity: seatIdentity(enrollmentB, 'occurrence_pool_b'),
+          interval: seatInterval,
+          inTransactionGuardOverlay: overlay,
+        });
+
+        expect(firstPlan.guardWrites.some((write) => write.mutationKind === 'create')).toBe(true);
+        expect(secondPlan.guardWrites.every((write) => write.mutationKind === 'update')).toBe(true);
+        expect(secondPlan.guardWrites[0]?.entries).toHaveLength(2);
+
+        await session.transitionToWrites();
+        commitResourceClaimPlan(session, firstPlan, metadata);
+        commitResourceClaimPlan(session, secondPlan, metadata);
+      },
+    });
+
+    const snapshot = sharedExecutor.snapshot();
+    expect([...snapshot.docs.keys()].filter((path) => path.startsWith('resource_claims/')).length).toBe(
+      2
+    );
   });
 });

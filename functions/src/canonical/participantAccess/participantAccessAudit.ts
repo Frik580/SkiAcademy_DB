@@ -1,6 +1,9 @@
 import {
   AUDIT_REASON_REGISTRY_VERSION,
+  AggregateRevisionSchema,
+  canonicalReference,
   type AuditOutboxStagingPlan,
+  type BookingProposalId,
   type CommandEnvelope,
   type CommandKind,
 } from '@ski-academy/shared-domain';
@@ -49,9 +52,40 @@ export function buildParticipantAccessAuditPlan(input: {
   primarySubject: AuditOutboxStagingPlan['activityLog']['primarySubject'];
   affectedSubjects: AuditOutboxStagingPlan['activityLog']['affectedSubjects'];
   resultingRevisions: AuditOutboxStagingPlan['activityLog']['resultingRevisions'];
+  cancelledOpenProposalIds?: readonly BookingProposalId[];
+  cancelledOpenProposalRevisions?: Readonly<Record<BookingProposalId, number>>;
+  cancelledProposalNotificationAccountId?: import('@ski-academy/shared-domain').AccountId;
 }): AuditOutboxStagingPlan {
   const kind = input.envelope.kind;
   const effectSubject = input.affectedSubjects[0];
+  const cancelledProposals = input.cancelledOpenProposalIds ?? [];
+  const proposalEffects = cancelledProposals.map((proposalId) => ({
+    kind: 'outbox_obligation_created' as const,
+    subjectRef: canonicalReference('booking_proposal', proposalId),
+    summary: 'Open booking proposal cancelled due to participant block',
+  }));
+  const proposalRevisions = cancelledProposals.map((proposalId) => ({
+    subject: canonicalReference('booking_proposal', proposalId),
+    revision: AggregateRevisionSchema.parse(
+      input.cancelledOpenProposalRevisions?.[proposalId] ?? 1
+    ),
+  }));
+  const outboxObligations =
+    input.cancelledProposalNotificationAccountId === undefined
+      ? []
+      : cancelledProposals.map((proposalId, index) => ({
+          deliveryEffectOrdinal: index,
+          recipient: {
+            kind: 'account' as const,
+            id: input.cancelledProposalNotificationAccountId!,
+          },
+          channel: 'in_app' as const,
+          templateId: 'booking_proposal_cancelled',
+          templateVersion: 'v1',
+          renderInputs: { bookingProposalId: proposalId },
+          deliverySemantics: 'transactional' as const,
+        }));
+
   return {
     activityLog: {
       reason: {
@@ -59,18 +93,24 @@ export function buildParticipantAccessAuditPlan(input: {
         reasonCode: reasonCodeForKind(kind),
       },
       primarySubject: input.primarySubject,
-      affectedSubjects: input.affectedSubjects,
+      affectedSubjects: [
+        ...input.affectedSubjects,
+        ...cancelledProposals.map((proposalId) =>
+          canonicalReference('booking_proposal', proposalId)
+        ),
+      ],
       effects: [
         {
           kind: 'participant_access_changed',
           ...(effectSubject === undefined ? {} : { subjectRef: effectSubject }),
           summary: summaryForKind(kind),
         },
+        ...proposalEffects,
       ],
       monetaryEventIds: [],
       adminIssueIds: [],
-      resultingRevisions: input.resultingRevisions,
+      resultingRevisions: [...input.resultingRevisions, ...proposalRevisions],
     },
-    outboxObligations: [],
+    outboxObligations,
   };
 }

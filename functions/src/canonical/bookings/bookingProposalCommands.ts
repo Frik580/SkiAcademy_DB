@@ -104,6 +104,13 @@ import {
   buildExpireProposalAuditPlan,
 } from './bookingProposalAudit';
 import {
+  commitAddOpenProposalToIndex,
+  commitRemoveOpenProposalFromIndex,
+  planOpenProposalIndexMutation,
+  readBookingProposalOpenIndex,
+  type BookingProposalOpenIndex,
+} from './bookingProposalOpenIndex';
+import {
   BOOKING_PROPOSAL_PLANNING_ESTIMATES,
   bookingProposalPath,
   parseBookingProposal,
@@ -240,6 +247,7 @@ function createBookingProposalHandler(
   let instructorRecord!: NonNullable<ReturnType<typeof parseInstructorCatalog>>;
   let schedule!: ReturnType<typeof resolveBookingScheduleFromCalendarInput>;
   let notificationAccountId!: ParticipantManagement['accountId'];
+  let openProposalIndex: BookingProposalOpenIndex | undefined;
   const plannedProposalRevision = AggregateRevisionSchema.parse(1);
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_booking_proposal'> = {
@@ -371,6 +379,16 @@ function createBookingProposalHandler(
         category: 'aggregate',
         estimatedPayloadBytes: BOOKING_PROPOSAL_PLANNING_ESTIMATES.proposalBytes,
       });
+
+      openProposalIndex = await readBookingProposalOpenIndex(session, {
+        participantId: envelope.intent.participantId,
+        instructorId: envelope.intent.instructorId,
+      });
+      planOpenProposalIndexMutation(session, {
+        participantId: envelope.intent.participantId,
+        instructorId: envelope.intent.instructorId,
+        exists: openProposalIndex !== undefined,
+      });
     },
     planAuditOutbox: async () =>
       buildCreateProposalAuditPlan({
@@ -399,6 +417,13 @@ function createBookingProposalHandler(
         { path: proposalDocumentPath },
         toFirestoreWritePayload(proposal as Record<string, unknown>)
       );
+      commitAddOpenProposalToIndex(session, {
+        participantId: envelope.intent.participantId,
+        instructorId: envelope.intent.instructorId,
+        proposalId: envelope.intent.bookingProposalId,
+        existingIndex: openProposalIndex,
+        decidedAt,
+      });
 
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
@@ -440,6 +465,7 @@ function acceptBookingProposalHandler(
   let instructorClaimPlan: ResourceClaimOperationPlan | undefined;
   let participantClaimPlan: ResourceClaimOperationPlan | undefined;
   let transitionUnavailable = false;
+  let openProposalIndex: BookingProposalOpenIndex | undefined;
   const bookingId = bookingIdFromAcceptedProposal(envelope.intent.bookingProposalId);
   const bookingDocumentPath = bookingPath(bookingId);
   const paymentId = paymentIdFromBookingId(bookingId);
@@ -706,6 +732,16 @@ function acceptBookingProposalHandler(
         estimatedPayloadBytes: BOOKING_PROPOSAL_PLANNING_ESTIMATES.proposalBytes,
       });
 
+      openProposalIndex = await readBookingProposalOpenIndex(session, {
+        participantId: proposal.participantId,
+        instructorId: proposal.instructorId,
+      });
+      planOpenProposalIndexMutation(session, {
+        participantId: proposal.participantId,
+        instructorId: proposal.instructorId,
+        exists: openProposalIndex !== undefined,
+      });
+
       if (!transitionUnavailable) {
         session.plan.planMutation({
           path: bookingDocumentPath,
@@ -770,6 +806,13 @@ function acceptBookingProposalHandler(
             { path: proposalDocumentPath },
             toFirestoreWritePayload(unavailableProposal as Record<string, unknown>)
           );
+          commitRemoveOpenProposalFromIndex(session, {
+            participantId: proposal.participantId,
+            instructorId: proposal.instructorId,
+            proposalId: proposal.proposalId,
+            existingIndex: openProposalIndex,
+            decidedAt,
+          });
           return commandSuccessResult(envelope.kind, envelope.context.correlationId);
         }
 
@@ -909,6 +952,13 @@ function acceptBookingProposalHandler(
         };
         commitResourceClaimPlan(session, instructorClaimPlan!, claimMetadata);
         commitResourceClaimPlan(session, participantClaimPlan!, claimMetadata);
+        commitRemoveOpenProposalFromIndex(session, {
+          participantId: proposal.participantId,
+          instructorId: proposal.instructorId,
+          proposalId: proposal.proposalId,
+          existingIndex: openProposalIndex,
+          decidedAt,
+        });
 
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
       } catch (error) {
@@ -939,6 +989,7 @@ function cancelBookingProposalHandler(
   let plannedProposalRevision = AggregateRevisionSchema.parse(1);
   let lifecycleTarget: 'declined' | 'cancelled' = 'declined';
   let notificationAccountId!: ParticipantManagement['accountId'];
+  let openProposalIndex: BookingProposalOpenIndex | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'cancel_booking_proposal'> = {
     read: async (session) => {
@@ -1038,6 +1089,16 @@ function cancelBookingProposalHandler(
         category: 'aggregate',
         estimatedPayloadBytes: BOOKING_PROPOSAL_PLANNING_ESTIMATES.proposalBytes,
       });
+
+      openProposalIndex = await readBookingProposalOpenIndex(session, {
+        participantId: proposal.participantId,
+        instructorId: proposal.instructorId,
+      });
+      planOpenProposalIndexMutation(session, {
+        participantId: proposal.participantId,
+        instructorId: proposal.instructorId,
+        exists: openProposalIndex !== undefined,
+      });
     },
     planAuditOutbox: async () =>
       buildCancelProposalAuditPlan({
@@ -1070,6 +1131,13 @@ function cancelBookingProposalHandler(
         { path: proposalDocumentPath },
         toFirestoreWritePayload(updatedProposal as Record<string, unknown>)
       );
+      commitRemoveOpenProposalFromIndex(session, {
+        participantId: proposal.participantId,
+        instructorId: proposal.instructorId,
+        proposalId: proposal.proposalId,
+        existingIndex: openProposalIndex,
+        decidedAt,
+      });
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
   };
@@ -1094,6 +1162,7 @@ function expireBookingProposalHandler(
 
   let proposal!: BookingProposal;
   let plannedProposalRevision = AggregateRevisionSchema.parse(1);
+  let openProposalIndex: BookingProposalOpenIndex | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'expire_booking_proposal'> = {
     read: async (session) => {
@@ -1112,6 +1181,16 @@ function expireBookingProposalHandler(
         kind: 'update',
         category: 'aggregate',
         estimatedPayloadBytes: BOOKING_PROPOSAL_PLANNING_ESTIMATES.proposalBytes,
+      });
+
+      openProposalIndex = await readBookingProposalOpenIndex(session, {
+        participantId: proposal.participantId,
+        instructorId: proposal.instructorId,
+      });
+      planOpenProposalIndexMutation(session, {
+        participantId: proposal.participantId,
+        instructorId: proposal.instructorId,
+        exists: openProposalIndex !== undefined,
       });
     },
     planAuditOutbox: async () =>
@@ -1139,6 +1218,13 @@ function expireBookingProposalHandler(
         { path: proposalDocumentPath },
         toFirestoreWritePayload(updatedProposal as Record<string, unknown>)
       );
+      commitRemoveOpenProposalFromIndex(session, {
+        participantId: proposal.participantId,
+        instructorId: proposal.instructorId,
+        proposalId: proposal.proposalId,
+        existingIndex: openProposalIndex,
+        decidedAt,
+      });
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
   };

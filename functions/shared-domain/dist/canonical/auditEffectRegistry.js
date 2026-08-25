@@ -86,7 +86,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS = {
     revoke_participant_management: ['participant_access_changed'],
     create_instructor_relationship: ['participant_access_changed'],
     revoke_instructor_relationship: ['participant_access_changed'],
-    block_participant: ['participant_access_changed'],
+    block_participant: ['participant_access_changed', 'outbox_obligation_created'],
     unblock_participant: ['participant_access_changed'],
     create_booking_proposal: ['outbox_obligation_created'],
     accept_booking_proposal: [

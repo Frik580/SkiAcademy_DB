@@ -33,6 +33,12 @@ import {
 import { CANONICAL_FIELD_DELETE } from '../transactions/transactionExecution';
 import { buildParticipantAccessAuditPlan } from './participantAccessAudit';
 import {
+  cancelledProposalIds,
+  commitBlockCancellationOfOpenProposals,
+  planBlockCancellationOfOpenProposals,
+  type BlockCancelledOpenProposalPlan,
+} from '../bookings/bookingProposalBlockCancellation';
+import {
   assertAccountActive,
   assertAdministrator,
   assertAuthorizedParticipantManager,
@@ -963,9 +969,16 @@ function blockParticipantHandler(
   let managementRecord: ReturnType<typeof parseParticipantManagement>;
   let accountRecord: ReturnType<typeof parseAccount>;
   let existingBlock: ParticipantBlock | undefined;
+  let cancelledOpenProposalPlans: readonly BlockCancelledOpenProposalPlan[] = [];
+  let openProposalIndexForBlock: Awaited<
+    ReturnType<typeof planBlockCancellationOfOpenProposals>
+  >['existingIndex'];
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'block_participant'> = {
     read: async (session) => {
+      cancelledOpenProposalPlans = [];
+      openProposalIndexForBlock = undefined;
+
       const blockRead = await session.tx.get({ path: blockDocumentPath });
       session.plan.planRead({ path: blockDocumentPath, category: 'aggregate' });
       existingBlock = parseParticipantBlock(blockRead.exists ? blockRead.data : undefined);
@@ -1021,6 +1034,13 @@ function blockParticipantHandler(
           },
           participantRecord.participantId
         );
+
+        const cancellationPlan = await planBlockCancellationOfOpenProposals(session, {
+          participantId: envelope.intent.participantId,
+          instructorId: envelope.intent.instructorId,
+        });
+        openProposalIndexForBlock = cancellationPlan.existingIndex;
+        cancelledOpenProposalPlans = cancellationPlan.plans;
       }
 
       session.plan.planMutation({
@@ -1050,6 +1070,18 @@ function blockParticipantHandler(
               : AggregateRevisionSchema.parse(1),
           },
         ],
+        ...(createdByKind === 'participant_manager' && cancelledOpenProposalPlans.length > 0
+          ? {
+              cancelledOpenProposalIds: cancelledProposalIds(cancelledOpenProposalPlans),
+              cancelledOpenProposalRevisions: Object.fromEntries(
+                cancelledOpenProposalPlans.map((plan) => [
+                  plan.proposal.proposalId,
+                  plan.nextRevision,
+                ])
+              ),
+              cancelledProposalNotificationAccountId: managementRecord!.accountId,
+            }
+          : {}),
       }),
     execute: async (session, context) => {
       if (existingBlock?.status === 'active') {
@@ -1100,6 +1132,18 @@ function blockParticipantHandler(
         session.tx.update({ path: blockDocumentPath }, block as Record<string, unknown>);
       } else {
         session.tx.create({ path: blockDocumentPath }, block as Record<string, unknown>);
+      }
+
+      if (createdByKind === 'participant_manager' && cancelledOpenProposalPlans.length > 0) {
+        commitBlockCancellationOfOpenProposals(session, {
+          participantId: envelope.intent.participantId,
+          instructorId: envelope.intent.instructorId,
+          plans: cancelledOpenProposalPlans,
+          existingIndex: openProposalIndexForBlock,
+          decidedAt,
+          commandId: metadata.commandId,
+          correlationId: metadata.correlationId,
+        });
       }
 
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);

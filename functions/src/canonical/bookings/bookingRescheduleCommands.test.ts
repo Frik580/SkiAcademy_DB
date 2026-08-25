@@ -20,6 +20,9 @@ import {
   canonicalTimestampToEpochMs,
   timestampFromDate,
   accountCommandActor,
+  guestCommandActor,
+  guestSubjectIdFromBookingId,
+  participantManagementIdFromGuestLink,
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
@@ -36,6 +39,14 @@ const instructorTwoId = InstructorIdSchema.parse('instructor_reschedule_cmd_02')
 const bookingId = BookingIdSchema.parse('booking_reschedule_cmd_01');
 const paymentId = paymentIdFromBookingId(bookingId);
 const initialOccurrenceId = initialBookingOccurrenceIdFromBookingId(bookingId);
+const guestBookingId = BookingIdSchema.parse('booking_guest_reschedule_cmd_01');
+const guestParticipantId = ParticipantIdSchema.parse('participant_guest_reschedule_cmd_01');
+const guestSubjectId = guestSubjectIdFromBookingId(guestBookingId);
+const guestPaymentId = paymentIdFromBookingId(guestBookingId);
+const guestInitialOccurrenceId = initialBookingOccurrenceIdFromBookingId(guestBookingId);
+const linkAccountId = AccountIdSchema.parse('account_guest_link_reschedule_01');
+const unrelatedAccountId = AccountIdSchema.parse('account_unrelated_reschedule_01');
+const guestTokenSecret = 'guest-reschedule-test-secret-01';
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 
 function environment(at: string) {
@@ -337,5 +348,358 @@ describe('booking reschedule commands', () => {
     expect(
       [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/')).length
     ).toBe(1);
+  });
+});
+
+function guestFixture() {
+  return {
+    [`instructors/${instructorId}`]: {
+      id: instructorId,
+      name: 'Coach One',
+      pricePerHourKZT: 12_000,
+      isAvailable: true,
+    },
+    [`participants/${guestParticipantId}`]: {
+      participantId: guestParticipantId,
+      displayName: 'Guest Reschedule Participant',
+      age: { kind: 'age_years', years: 25 },
+      skillLevel: 'beginner',
+      discipline: 'ski',
+      management: { kind: 'unmanaged_guest' },
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_guest_participant',
+        lastChangedByCommandId: 'command_seed_guest_participant',
+        correlationId,
+      },
+    },
+    [`users/${adminAccountId}`]: AccountSchema.parse({
+      accountId: adminAccountId,
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_admin',
+        lastChangedByCommandId: 'command_seed_admin',
+        correlationId,
+      },
+    }),
+    [`users/${linkAccountId}`]: AccountSchema.parse({
+      accountId: linkAccountId,
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_link_account',
+        lastChangedByCommandId: 'command_seed_link_account',
+        correlationId,
+      },
+    }),
+    [`users/${unrelatedAccountId}`]: AccountSchema.parse({
+      accountId: unrelatedAccountId,
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_unrelated_account',
+        lastChangedByCommandId: 'command_seed_unrelated_account',
+        correlationId,
+      },
+    }),
+    [`users/${accountId}`]: AccountSchema.parse({
+      accountId,
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_account',
+        lastChangedByCommandId: 'command_seed_account',
+        correlationId,
+      },
+    }),
+  };
+}
+
+function guestCommands(
+  executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>,
+  at = '2026-01-01T10:00:00.000Z'
+) {
+  return createProductionCanonicalCommands(environment(at), executor, {
+    guestActionTokenSecret: guestTokenSecret,
+  });
+}
+
+async function seedConfirmedGuestBooking(
+  executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>
+) {
+  const commands = guestCommands(executor);
+  const createResult = await commands.execute({
+    kind: 'create_guest_booking_request',
+    context: {
+      actor: guestCommandActor(guestSubjectId),
+      exercisedCapability: 'guest',
+      idempotencyKey: 'guest-create-reschedule',
+      correlationId,
+      source: 'guest_callable',
+      calendarInput: {
+        localDate: '2026-01-15',
+        localTime: '09:00',
+        durationMinutes: 60,
+      },
+      timezone: 'Asia/Almaty',
+    },
+    intent: {
+      bookingId: guestBookingId,
+      instructorId,
+      participantIds: [guestParticipantId],
+    },
+  });
+  expect(createResult.status).toBe('success');
+
+  const confirmResult = await commands.execute({
+    kind: 'confirm_guest_booking',
+    context: {
+      actor: accountCommandActor(adminAccountId),
+      exercisedCapability: 'administrator',
+      idempotencyKey: 'guest-confirm-reschedule',
+      correlationId,
+      source: 'admin_callable',
+      expectedRevision: AggregateRevisionSchema.parse(1),
+    },
+    intent: { bookingId: guestBookingId },
+  });
+  expect(confirmResult.status).toBe('success');
+}
+
+async function linkGuestBookingToAccount(
+  executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>,
+  actorAccountId = linkAccountId
+) {
+  const commands = guestCommands(executor);
+  const bookingRevision = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.revision;
+  const result = await commands.execute({
+    kind: 'link_guest_booking_to_account',
+    context: {
+      actor: accountCommandActor(actorAccountId),
+      exercisedCapability: 'account_owner',
+      idempotencyKey: `guest-link-${actorAccountId}`,
+      correlationId,
+      source: 'client_callable',
+      expectedRevision: AggregateRevisionSchema.parse(bookingRevision ?? 1),
+    },
+    intent: { bookingId: guestBookingId, participantId: guestParticipantId },
+  });
+  expect(result.status).toBe('success');
+}
+
+function guestRescheduleEnvelope(
+  actorAccountId: typeof linkAccountId | typeof unrelatedAccountId | typeof accountId,
+  idempotencyKey: string,
+  expectedRevision = 1
+): CommandEnvelope<'reschedule_booking'> {
+  return {
+    kind: 'reschedule_booking',
+    context: accountContext('account_owner', actorAccountId, idempotencyKey, expectedRevision, {
+      localDate: '2026-01-16',
+      localTime: '11:00',
+      durationMinutes: 60,
+    }),
+    intent: { bookingId: guestBookingId },
+  };
+}
+
+describe('linked guest-origin reschedule authorization', () => {
+  it('forbids unrelated account from rescheduling unlinked confirmed guest-origin booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+    await seedConfirmedGuestBooking(executor);
+    const commands = guestCommands(executor);
+    const result = await commands.execute(
+      guestRescheduleEnvelope(unrelatedAccountId, 'guest-unlinked-unrelated')
+    );
+    expect(result.status).toBe('error');
+    expect(
+      executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence.occurrenceId
+    ).toBe(guestInitialOccurrenceId);
+  });
+
+  it('forbids guest_callable reschedule on confirmed guest-origin booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+    await seedConfirmedGuestBooking(executor);
+    const commands = guestCommands(executor);
+    const result = await commands.execute({
+      kind: 'reschedule_booking',
+      context: {
+        actor: guestCommandActor(guestSubjectId),
+        exercisedCapability: 'guest',
+        idempotencyKey: 'guest-callable-reschedule',
+        correlationId,
+        source: 'guest_callable',
+        calendarInput: {
+          localDate: '2026-01-16',
+          localTime: '11:00',
+          durationMinutes: 60,
+        },
+        timezone: 'Asia/Almaty',
+        expectedRevision: AggregateRevisionSchema.parse(2),
+      },
+      intent: { bookingId: guestBookingId },
+    });
+    expect(result.status).toBe('error');
+  });
+
+  it('allows linked guest-origin booking reschedule for authorized manager and preserves provenance', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+    await seedConfirmedGuestBooking(executor);
+    await linkGuestBookingToAccount(executor);
+
+    const startsAt = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence
+      .interval.startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS
+    );
+    const commands = guestCommands(executor, isoFromTimestamp(requestAt));
+    const envelope = guestRescheduleEnvelope(linkAccountId, 'guest-linked-authorized', 3);
+    const result = await commands.execute(envelope);
+    expect(result.status).toBe('success');
+
+    const booking = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data;
+    expect(booking?.attribution).toEqual({
+      bookingOrigin: 'guest',
+      bookedBy: { kind: 'guest', guestSubjectId },
+    });
+    expect(booking?.occurrence.occurrenceId).toBe(
+      bookingOccurrenceIdFromScheduleRevision(guestBookingId, 2)
+    );
+    expect(booking?.clientSelfServiceRescheduleConsumedAt).toBeDefined();
+    expect(executor.snapshot().docs.get(`payments/${guestPaymentId}`)?.data.price).toBe(12_000);
+
+    const replay = await commands.execute(envelope);
+    expect(replay.status).toBe('success');
+    expect(
+      executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence.occurrenceId
+    ).toBe(bookingOccurrenceIdFromScheduleRevision(guestBookingId, 2));
+  });
+
+  it('forbids linked guest-origin booking reschedule for unauthorized account', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+    await seedConfirmedGuestBooking(executor);
+    await linkGuestBookingToAccount(executor);
+
+    const startsAt = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence
+      .interval.startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS
+    );
+    const commands = guestCommands(executor, isoFromTimestamp(requestAt));
+    const result = await commands.execute(
+      guestRescheduleEnvelope(unrelatedAccountId, 'guest-linked-unauthorized', 3)
+    );
+    expect(result.status).toBe('error');
+    expect(
+      executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence.occurrenceId
+    ).toBe(guestInitialOccurrenceId);
+  });
+
+  it('forbids linked guest-origin booking reschedule when participant management is revoked', async () => {
+    const setupExecutor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+    await seedConfirmedGuestBooking(setupExecutor);
+    await linkGuestBookingToAccount(setupExecutor);
+
+    const managementId = participantManagementIdFromGuestLink({
+      participantId: guestParticipantId,
+      accountId: linkAccountId,
+    });
+    const revokedDocs: Record<string, Record<string, unknown>> = {};
+    for (const [path, doc] of setupExecutor.snapshot().docs.entries()) {
+      revokedDocs[path] = { ...doc.data };
+    }
+    revokedDocs[`participant_management/${managementId}`] = {
+      ...revokedDocs[`participant_management/${managementId}`],
+      status: 'ended',
+    };
+
+    const executor = createInMemoryCanonicalTransactionExecutor(revokedDocs);
+    const startsAt = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence
+      .interval.startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS
+    );
+    const commands = guestCommands(executor, isoFromTimestamp(requestAt));
+    const bookingRevision = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.revision;
+    const result = await commands.execute(
+      guestRescheduleEnvelope(linkAccountId, 'guest-revoked-management', bookingRevision)
+    );
+    expect(result.status).toBe('error');
+    expect(
+      executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence.occurrenceId
+    ).toBe(guestInitialOccurrenceId);
+  });
+
+  it('does not grant reschedule authority from payerAccountId without participant management', async () => {
+    const setupExecutor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+    await seedConfirmedGuestBooking(setupExecutor);
+    await linkGuestBookingToAccount(setupExecutor);
+
+    const linkedDocs: Record<string, Record<string, unknown>> = {};
+    for (const [path, doc] of setupExecutor.snapshot().docs.entries()) {
+      linkedDocs[path] = { ...doc.data };
+    }
+    linkedDocs[`payments/${guestPaymentId}`] = {
+      ...linkedDocs[`payments/${guestPaymentId}`],
+      payerAccountId: unrelatedAccountId,
+    };
+
+    const executor = createInMemoryCanonicalTransactionExecutor(linkedDocs);
+    const startsAt = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence
+      .interval.startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS
+    );
+    const commands = guestCommands(executor, isoFromTimestamp(requestAt));
+    const unauthorized = await commands.execute(
+      guestRescheduleEnvelope(unrelatedAccountId, 'guest-payer-no-mgmt', 3)
+    );
+    expect(unauthorized.status).toBe('error');
+
+    const authorized = await commands.execute(
+      guestRescheduleEnvelope(linkAccountId, 'guest-payer-authorized', 3)
+    );
+    expect(authorized.status).toBe('success');
+  });
+
+  it('allows admin to reschedule unlinked confirmed guest-origin booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(guestFixture());
+    await seedConfirmedGuestBooking(executor);
+    const commands = guestCommands(executor, '2026-01-14T09:00:01.000Z');
+    const result = await commands.execute({
+      kind: 'reschedule_booking',
+      context: accountContext('administrator', adminAccountId, 'guest-admin-reschedule', 2, {
+        localDate: '2026-01-16',
+        localTime: '11:00',
+        durationMinutes: 60,
+      }),
+      intent: {
+        bookingId: guestBookingId,
+        reasonExplanation: 'Admin reschedule guest booking',
+      },
+    });
+    expect(result.status).toBe('success');
+    expect(
+      executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.attribution.bookingOrigin
+    ).toBe('guest');
+    expect(
+      executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.clientSelfServiceRescheduleConsumedAt
+    ).toBeUndefined();
   });
 });

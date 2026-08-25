@@ -2,6 +2,7 @@ import {
   AggregateRevisionSchema,
   BookingSchema,
   CanonicalCommandError,
+  administratorCapabilityExercisedByAccount,
   bookingOccurrenceIdFromScheduleRevision,
   calculateIndividualBookingPriceKzt,
   commandSuccessResult,
@@ -23,6 +24,7 @@ import {
   type CommandResult,
   type InstructorId,
   type Payment,
+  type ParticipantManagement,
   type TimeInterval,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
@@ -40,6 +42,7 @@ import {
   participantManagementPath,
   participantPath,
 } from '../participantAccess/participantAccessStore';
+import { requireAccountActor } from '../participantAccess/participantAccessAuthorization';
 import {
   commitPlannedBookingOccurrenceClaimSwap,
   planSwapBookingOccurrenceClaims,
@@ -166,26 +169,9 @@ function rescheduleBookingHandler(
         envelope,
         parseParticipant(participantRead.exists ? participantRead.data : undefined)
       );
-      if (participant.management.kind !== 'managed') {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
-        });
-      }
-      const managementDocumentPath = participantManagementPath(
-        participant.management.participantManagementId
-      );
-      const managementRead = await session.tx.get({ path: managementDocumentPath });
-      session.plan.planRead({ path: managementDocumentPath, category: 'aggregate' });
-      const management = parseParticipantManagement(
-        managementRead.exists ? managementRead.data : undefined
-      );
-      if (!management || management.status !== 'active') {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
-        });
-      }
 
-      const accountDocumentPath = accountPath(management.accountId);
+      const actor = requireAccountActor(envelope);
+      const accountDocumentPath = accountPath(actor.accountId);
       const accountRead = await session.tx.get({ path: accountDocumentPath });
       session.plan.planRead({ path: accountDocumentPath, category: 'authorization_check' });
       const account = parseAccount(accountRead.exists ? accountRead.data : undefined);
@@ -193,6 +179,33 @@ function rescheduleBookingHandler(
         throw new CanonicalCommandError('forbidden', {
           correlationId: envelope.context.correlationId,
         });
+      }
+
+      let management: ParticipantManagement | undefined;
+      if (participant.management.kind === 'managed') {
+        const managementDocumentPath = participantManagementPath(
+          participant.management.participantManagementId
+        );
+        const managementRead = await session.tx.get({ path: managementDocumentPath });
+        session.plan.planRead({ path: managementDocumentPath, category: 'aggregate' });
+        management = parseParticipantManagement(
+          managementRead.exists ? managementRead.data : undefined
+        );
+        if (management?.status === 'active') {
+          notificationAccountId = management.accountId;
+        }
+      }
+
+      const isAdministratorReschedule =
+        administratorCapabilityExercisedByAccount(envelope.context) &&
+        envelope.context.source === 'admin_callable';
+
+      if (!isAdministratorReschedule) {
+        if (participant.management.kind !== 'managed' || !management || management.status !== 'active') {
+          throw new CanonicalCommandError('forbidden', {
+            correlationId: envelope.context.correlationId,
+          });
+        }
       }
 
       mode = resolveBookingRescheduleAuthorization(envelope, {
@@ -245,7 +258,6 @@ function rescheduleBookingHandler(
         participantBlocks,
       }, targetInstructorId);
 
-      notificationAccountId = management.accountId;
       plannedBookingRevision = nextAggregateRevision(booking.revision);
 
       const newOccurrenceId = bookingOccurrenceIdFromScheduleRevision(

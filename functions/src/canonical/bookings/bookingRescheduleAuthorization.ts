@@ -40,7 +40,7 @@ export function resolveBookingRescheduleAuthorization(
   input: Readonly<{
     account: Account;
     participant: Participant;
-    management: ParticipantManagement;
+    management?: ParticipantManagement;
     booking: Booking;
   }>
 ): BookingRescheduleMode {
@@ -74,9 +74,19 @@ export function resolveBookingRescheduleAuthorization(
     });
   }
 
+  if (!input.management) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
+
   const access = assertAuthorizedParticipantManager(
     envelope,
-    input,
+    {
+      account: input.account,
+      participant: input.participant,
+      management: input.management,
+    },
     input.participant.participantId
   );
   if (!access.allowed) {
@@ -93,12 +103,6 @@ export function resolveBookingRescheduleAuthorization(
     access.authority === 'parent_guardian' &&
     envelope.context.exercisedCapability !== 'parent_guardian'
   ) {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
-
-  if (input.booking.attribution.bookingOrigin === 'guest') {
     throw new CanonicalCommandError('forbidden', {
       correlationId: envelope.context.correlationId,
     });
@@ -165,7 +169,7 @@ export function assertNoActiveServiceBlockForReschedule(
   input: Readonly<{
     account: Account;
     participant: Participant;
-    management: ParticipantManagement;
+    management?: ParticipantManagement;
     participantBlocks: readonly import('@ski-academy/shared-domain').ParticipantBlock[];
   }>,
   instructorId: import('@ski-academy/shared-domain').InstructorId
@@ -173,7 +177,7 @@ export function assertNoActiveServiceBlockForReschedule(
   const topology = buildParticipantAccessTopology({
     account: input.account,
     participant: input.participant,
-    management: input.management,
+    ...(input.management === undefined ? {} : { management: input.management }),
     additionalBlocks: input.participantBlocks,
   });
   if (evaluateNewServiceBlocked(topology, input.participant.participantId, instructorId)) {

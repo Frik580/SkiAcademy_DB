@@ -273,9 +273,10 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
     'replays admin confirmation without duplicate audit records',
     async () => {
       const createCommandsAt = createCommands('2026-01-01T10:00:00.000Z');
-      await createCommandsAt.execute(
+      const createResult = await createCommandsAt.execute(
         guestCreateEnvelope({ bookingId, idempotencyKey: 'guest-confirm-replay-seed' })
       );
+      expect(createResult.status).toBe('success');
 
       const confirmEnvelope: CommandEnvelope<'confirm_guest_booking'> = {
         kind: 'confirm_guest_booking',
@@ -285,15 +286,23 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
           idempotencyKey: 'guest-confirm-replay-01',
           correlationId,
           source: 'admin_callable',
+          expectedRevision: AggregateRevisionSchema.parse(1),
         },
         intent: { bookingId },
       };
       const confirmCommands = createCommands('2026-01-01T10:30:00.000Z');
-      await confirmCommands.execute(confirmEnvelope);
-      await confirmCommands.execute(confirmEnvelope);
+      const firstConfirm = await confirmCommands.execute(confirmEnvelope);
+      const replayConfirm = await confirmCommands.execute(confirmEnvelope);
+      expect(firstConfirm.status).toBe('success');
+      expect(replayConfirm.status).toBe('success');
 
       const activityLogs = await firestore.collection('activity_logs').get();
       expect(activityLogs.size).toBe(2);
+
+      const kinds = activityLogs.docs
+        .map((doc) => doc.data().command?.kind)
+        .sort();
+      expect(kinds).toEqual(['confirm_guest_booking', 'create_guest_booking_request']);
     },
     30_000
   );

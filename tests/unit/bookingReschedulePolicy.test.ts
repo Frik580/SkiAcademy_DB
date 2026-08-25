@@ -22,18 +22,18 @@ describe('booking reschedule policy', () => {
       -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS + 1
     );
 
-    expect(
-      evaluateClientSelfServiceRescheduleTiming({ requestAt: exactly24h, startAt })
-    ).toBe('allowed');
-    expect(
-      evaluateClientSelfServiceRescheduleTiming({ requestAt: oneMsUnder, startAt })
-    ).toBe('inside_window_rejected');
+    expect(evaluateClientSelfServiceRescheduleTiming({ requestAt: exactly24h, startAt })).toBe(
+      'allowed'
+    );
+    expect(evaluateClientSelfServiceRescheduleTiming({ requestAt: oneMsUnder, startAt })).toBe(
+      'inside_window_rejected'
+    );
   });
 
   it('rejects client self-service reschedule at or after startAt', () => {
-    expect(
-      evaluateClientSelfServiceRescheduleTiming({ requestAt: startAt, startAt })
-    ).toBe('after_start_rejected');
+    expect(evaluateClientSelfServiceRescheduleTiming({ requestAt: startAt, startAt })).toBe(
+      'after_start_rejected'
+    );
   });
 
   it('tracks one lifetime self-service allowance via consumed timestamp', () => {
@@ -45,7 +45,9 @@ describe('booking reschedule policy', () => {
 
     const consumed = BookingSchema.parse({
       ...booking,
-      clientSelfServiceRescheduleConsumedAt: timestampFromDate(new Date('2026-01-02T00:00:00.000Z')),
+      clientSelfServiceRescheduleConsumedAt: timestampFromDate(
+        new Date('2026-01-02T00:00:00.000Z')
+      ),
     });
     expect(isClientSelfServiceRescheduleAllowanceAvailable(consumed)).toBe(false);
   });

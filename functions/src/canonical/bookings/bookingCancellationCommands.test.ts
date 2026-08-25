@@ -38,7 +38,6 @@ const bookingId = BookingIdSchema.parse('booking_cancel_cmd_01');
 const paymentId = paymentIdFromBookingId(bookingId);
 const occurrenceId = initialBookingOccurrenceIdFromBookingId(bookingId);
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
-const lessonStartAt = timestampFromDate(new Date('2026-01-15T09:00:00.000Z'));
 const lessonEndsAt = timestampFromDate(new Date('2026-01-15T10:00:00.000Z'));
 
 function environment(at: string) {

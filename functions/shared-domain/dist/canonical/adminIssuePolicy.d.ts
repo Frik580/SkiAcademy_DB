@@ -65,7 +65,17 @@ export interface ResolveOrDismissAdminIssueInput {
     readonly actor: AdminIssueLifecycleActor;
     readonly coupledDomainCommand: boolean;
 }
+export interface OwnerWithdrawalUnresolvedPendingCancellationResolutionInput {
+    readonly expectedRevision: AdminIssue['revision'];
+    readonly now: CanonicalTimestamp;
+    readonly correlationId: CorrelationId;
+    readonly commandId: string;
+    readonly reason: string;
+    readonly actor: AdminIssueLifecycleActor;
+    readonly bookingId: BookingId;
+}
 export declare function resolveAdminIssue(existing: AdminIssue, input: ResolveOrDismissAdminIssueInput): AdminIssue;
+export declare function resolveUnresolvedPendingCancellationForOwnerWithdrawal(existing: AdminIssue, input: OwnerWithdrawalUnresolvedPendingCancellationResolutionInput): AdminIssue;
 export declare function dismissAdminIssue(existing: AdminIssue, input: ResolveOrDismissAdminIssueInput): AdminIssue;
 export interface SanitizedPaymentStartGateInstructorView {
     readonly restriction: 'payment_required_at_start';

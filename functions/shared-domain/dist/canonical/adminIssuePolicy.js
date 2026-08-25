@@ -10,6 +10,7 @@ exports.createOpenAdminIssue = createOpenAdminIssue;
 exports.reuseOrReopenAdminIssue = reuseOrReopenAdminIssue;
 exports.assertAdministratorMayMutateAdminIssue = assertAdministratorMayMutateAdminIssue;
 exports.resolveAdminIssue = resolveAdminIssue;
+exports.resolveUnresolvedPendingCancellationForOwnerWithdrawal = resolveUnresolvedPendingCancellationForOwnerWithdrawal;
 exports.dismissAdminIssue = dismissAdminIssue;
 exports.sanitizePaymentStartGateForInstructor = sanitizePaymentStartGateForInstructor;
 exports.sanitizedInstructorViewOmitsFinancialFields = sanitizedInstructorViewOmitsFinancialFields;
@@ -218,14 +219,25 @@ function assertAdministratorMayMutateAdminIssue(correlationId, actor) {
     }
     return actor.actor.accountId;
 }
-function resolveIssueActorAccountId(correlationId, input) {
-    if (input.coupledDomainCommand) {
-        if (input.actor.actor.kind !== 'account') {
-            throw new errors_1.CanonicalCommandError('forbidden', { correlationId });
-        }
-        return input.actor.actor.accountId;
+function resolveIssueActorAccountId(correlationId, actor) {
+    return assertAdministratorMayMutateAdminIssue(correlationId, actor);
+}
+function assertOwnerMayResolveUnresolvedPendingCancellation(correlationId, existing, input) {
+    if (existing.kind !== 'unresolved_pending_cancellation') {
+        throw new errors_1.CanonicalCommandError('forbidden', { correlationId });
     }
-    return assertAdministratorMayMutateAdminIssue(correlationId, input.actor);
+    if (existing.subjectRef.subjectKind !== 'booking' ||
+        existing.subjectRef.bookingId !== input.bookingId) {
+        throw new errors_1.CanonicalCommandError('forbidden', { correlationId });
+    }
+    if (input.actor.actor.kind !== 'account') {
+        throw new errors_1.CanonicalCommandError('forbidden', { correlationId });
+    }
+    if (input.actor.exercisedCapability !== 'account_owner' &&
+        input.actor.exercisedCapability !== 'parent_guardian') {
+        throw new errors_1.CanonicalCommandError('forbidden', { correlationId });
+    }
+    return input.actor.actor.accountId;
 }
 function assertOpenIssue(correlationId, issue) {
     if (issue.lifecycle.status !== 'open') {
@@ -235,8 +247,7 @@ function assertOpenIssue(correlationId, issue) {
         });
     }
 }
-function applyTerminalIssueLifecycle(existing, input, status) {
-    const resolvedByAccountId = resolveIssueActorAccountId(input.correlationId, input);
+function applyTerminalIssueLifecycle(existing, input, status, resolvedByAccountId) {
     (0, revisionConcurrency_1.assertExpectedRevision)({
         correlationId: input.correlationId,
         expectedRevision: input.expectedRevision,
@@ -283,7 +294,12 @@ function resolveAdminIssue(existing, input) {
             details: { reason: 'unsupported' },
         });
     }
-    return applyTerminalIssueLifecycle(existing, input, 'resolved');
+    const resolvedByAccountId = resolveIssueActorAccountId(input.correlationId, input.actor);
+    return applyTerminalIssueLifecycle(existing, input, 'resolved', resolvedByAccountId);
+}
+function resolveUnresolvedPendingCancellationForOwnerWithdrawal(existing, input) {
+    const resolvedByAccountId = assertOwnerMayResolveUnresolvedPendingCancellation(input.correlationId, existing, input);
+    return applyTerminalIssueLifecycle(existing, input, 'resolved', resolvedByAccountId);
 }
 function dismissAdminIssue(existing, input) {
     const policy = adminIssueKindPolicy(existing.kind);
@@ -293,7 +309,8 @@ function dismissAdminIssue(existing, input) {
             details: { reason: 'unsupported' },
         });
     }
-    return applyTerminalIssueLifecycle(existing, input, 'dismissed');
+    const resolvedByAccountId = resolveIssueActorAccountId(input.correlationId, input.actor);
+    return applyTerminalIssueLifecycle(existing, input, 'dismissed', resolvedByAccountId);
 }
 function sanitizePaymentStartGateForInstructor(issue) {
     if (issue.kind !== 'payment_required_at_start' ||

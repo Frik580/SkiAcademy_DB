@@ -23,18 +23,18 @@ describe('booking cancellation policy', () => {
       -INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS + 1
     );
 
-    expect(
-      evaluateClientCancellationTiming({ requestAt: exactly24h, startAt })
-    ).toBe('direct_cancel');
-    expect(
-      evaluateClientCancellationTiming({ requestAt: oneMsUnder, startAt })
-    ).toBe('pending_request');
+    expect(evaluateClientCancellationTiming({ requestAt: exactly24h, startAt })).toBe(
+      'direct_cancel'
+    );
+    expect(evaluateClientCancellationTiming({ requestAt: oneMsUnder, startAt })).toBe(
+      'pending_request'
+    );
   });
 
   it('rejects client cancellation at or after startAt', () => {
-    expect(
-      evaluateClientCancellationTiming({ requestAt: startAt, startAt })
-    ).toBe('after_start_rejected');
+    expect(evaluateClientCancellationTiming({ requestAt: startAt, startAt })).toBe(
+      'after_start_rejected'
+    );
     expect(
       evaluateClientCancellationTiming({
         requestAt: addMillisecondsToCanonicalTimestamp(startAt, 1),

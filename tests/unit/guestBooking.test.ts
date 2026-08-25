@@ -7,10 +7,12 @@ import {
   resolveGuestLessonReservationExpiresAt,
   signGuestActionCredential,
   timestampFromDate,
-  verifyGuestActionCredentialParts,
-  verifyGuestActionToken,
   GuestSubjectIdSchema,
 } from '@ski-academy/shared-domain';
+import {
+  verifyGuestActionCredentialPartsAuthoritative,
+  verifyGuestActionTokenAuthoritative,
+} from '../../functions/src/canonical/bookings/guestCredentialVerification';
 
 const bookingId = BookingIdSchema.parse('booking_guest_unit_01');
 const guestSubjectId = guestSubjectIdFromBookingId(bookingId);
@@ -55,7 +57,7 @@ describe('guest action token', () => {
         nonce: createGuestActionTokenNonce(),
       },
     });
-    const verification = verifyGuestActionToken({
+    const verification = verifyGuestActionTokenAuthoritative({
       secret,
       token,
       now,
@@ -78,7 +80,7 @@ describe('guest action token', () => {
         nonce: createGuestActionTokenNonce(),
       },
     });
-    const verification = verifyGuestActionToken({
+    const verification = verifyGuestActionTokenAuthoritative({
       secret,
       token: `${token}x`,
       now,
@@ -102,7 +104,7 @@ describe('guest action token', () => {
         nonce: createGuestActionTokenNonce(),
       },
     });
-    const verification = verifyGuestActionToken({
+    const verification = verifyGuestActionTokenAuthoritative({
       secret,
       token,
       now,
@@ -125,7 +127,7 @@ describe('guest action token', () => {
         nonce: createGuestActionTokenNonce(),
       },
     });
-    const verification = verifyGuestActionToken({
+    const verification = verifyGuestActionTokenAuthoritative({
       secret,
       token,
       now: timestampFromDate(new Date('2026-01-01T12:00:00.000Z')),
@@ -148,7 +150,7 @@ describe('guest action credential signature verification', () => {
   const nonce = createGuestActionTokenNonce();
 
   function credentialParts(signature: string) {
-    return verifyGuestActionCredentialParts({
+    return verifyGuestActionCredentialPartsAuthoritative({
       secret,
       nonce,
       signature,
@@ -239,7 +241,7 @@ describe('guest action credential signature verification', () => {
     const separatorIndex = token.lastIndexOf('.');
     const tampered = `${token.slice(0, separatorIndex + 1)}${'g'.repeat(64)}`;
     expect(
-      verifyGuestActionToken({
+      verifyGuestActionTokenAuthoritative({
         secret,
         token: tampered,
         now,

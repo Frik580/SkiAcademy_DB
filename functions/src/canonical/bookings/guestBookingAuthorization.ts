@@ -4,7 +4,6 @@ import {
   GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
   administratorCapabilityExercisedByAccount,
   guestSubjectIdFromBookingId,
-  verifyGuestActionCredentialParts,
   type Booking,
   type BookingCancellationReasonCode,
   type CanonicalTimestamp,
@@ -18,6 +17,7 @@ import {
   requireAccountActor,
 } from '../participantAccess/participantAccessAuthorization';
 import { parseParticipant } from '../participantAccess/participantAccessStore';
+import { verifyGuestActionCredentialPartsAuthoritative } from './guestCredentialVerification';
 
 export function requireGuestActor(
   envelope: CommandEnvelope
@@ -183,7 +183,7 @@ export function resolvePendingGuestCancellationAuthorization(
     });
   }
 
-  const verification = verifyGuestActionCredentialParts({
+  const verification = verifyGuestActionCredentialPartsAuthoritative({
     secret: guestActionSecret,
     nonce,
     signature,

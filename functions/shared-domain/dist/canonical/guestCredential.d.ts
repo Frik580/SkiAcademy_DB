@@ -18,6 +18,8 @@ declare const GuestActionTokenPayloadSchema: z.ZodObject<{
     nonce: z.ZodString;
 }, z.core.$strict>;
 export type GuestActionTokenPayload = Readonly<z.output<typeof GuestActionTokenPayloadSchema>>;
+export declare function decodeHmacSha256HexSignature(signature: string): Uint8Array | undefined;
+export type CompareHmacSha256Signatures = (expectedHex: string, providedSignature: string) => boolean;
 export declare function signGuestActionCredential(secret: string, payload: GuestActionTokenPayload): string;
 export declare function verifyGuestActionCredentialParts(input: {
     readonly secret: string;
@@ -28,6 +30,7 @@ export declare function verifyGuestActionCredentialParts(input: {
     readonly expectedGuestSubjectId: GuestSubjectId;
     readonly expectedPurpose: GuestActionTokenPurpose;
     readonly expiresAt: CanonicalTimestamp;
+    readonly compareSignatures: CompareHmacSha256Signatures;
 }): GuestActionTokenVerificationResult;
 export declare function issueGuestActionToken(input: {
     readonly secret: string;
@@ -47,6 +50,7 @@ export declare function verifyGuestActionToken(input: {
     readonly expectedBookingId: BookingId;
     readonly expectedGuestSubjectId: GuestSubjectId;
     readonly expectedPurpose: GuestActionTokenPurpose;
+    readonly compareSignatures: CompareHmacSha256Signatures;
 }): GuestActionTokenVerificationResult;
 export declare function createGuestActionTokenNonce(): string;
 export {};

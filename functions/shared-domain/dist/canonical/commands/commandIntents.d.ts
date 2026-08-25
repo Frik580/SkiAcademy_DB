@@ -57,6 +57,13 @@ export declare const CommandIntentSchemaByKind: {
     }, z.core.$strict>;
     change_booking_party: z.ZodObject<{
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+        participantIdsToAdd: z.ZodOptional<z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>>>;
+        participantIdsToRemove: z.ZodOptional<z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>>>;
+        refundPercentBasisPoints: z.ZodOptional<z.ZodNumber>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict>;
+    rollback_unpaid_booking_party_additions: z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
     }, z.core.$strict>;
     complete_booking: z.ZodObject<{
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;

@@ -49,12 +49,63 @@ export function bookingClaimIdentities(input: {
 }
 
 export function bookingClaimIds(booking: Booking) {
-  const participantId = booking.party.participantIds[0]!;
-  return bookingClaimIdentities({
+  return booking.party.participantIds.map((participantId) =>
+    bookingClaimIdentities({
+      bookingId: booking.bookingId,
+      occurrenceId: booking.occurrence.occurrenceId,
+      instructorId: booking.occurrence.instructorId,
+      participantId,
+    })
+  );
+}
+
+export async function planReleaseParticipantBookingClaim(
+  session: Parameters<typeof readAndPlanReleaseResourceClaim>[0],
+  booking: Booking,
+  participantId: ParticipantId,
+  metadata: {
+    readonly correlationId: CorrelationId;
+    readonly commandId: CommandId;
+  },
+  decidedAt: Date
+) {
+  const identities = bookingClaimIdentities({
     bookingId: booking.bookingId,
     occurrenceId: booking.occurrence.occurrenceId,
     instructorId: booking.occurrence.instructorId,
     participantId,
+  });
+  return readAndPlanReleaseResourceClaim(session, {
+    correlationId: metadata.correlationId,
+    commandId: metadata.commandId,
+    decidedAt,
+    claimId: identities.participantClaimId,
+  });
+}
+
+export async function planAcquireParticipantBookingClaim(
+  session: Parameters<typeof readAndPlanAcquireResourceClaim>[0],
+  input: {
+    readonly booking: Booking;
+    readonly participantId: ParticipantId;
+    readonly correlationId: CorrelationId;
+    readonly commandId: CommandId;
+    readonly decidedAt: Date;
+  }
+) {
+  const identities = bookingClaimIdentities({
+    bookingId: input.booking.bookingId,
+    occurrenceId: input.booking.occurrence.occurrenceId,
+    instructorId: input.booking.occurrence.instructorId,
+    participantId: input.participantId,
+  });
+  return readAndPlanAcquireResourceClaim(session, {
+    correlationId: input.correlationId,
+    commandId: input.commandId,
+    decidedAt: input.decidedAt,
+    identity: identities.participantIdentity,
+    interval: input.booking.occurrence.interval,
+    replacementIgnore: replacementIgnoreForBookingOccurrence(input.booking),
   });
 }
 
@@ -83,12 +134,24 @@ export async function planReleaseBookingClaims(
     commandId: metadata.commandId,
     decidedAt,
   };
+  const instructorClaimId = bookingClaimIdentities({
+    bookingId: booking.bookingId,
+    occurrenceId: booking.occurrence.occurrenceId,
+    instructorId: booking.occurrence.instructorId,
+    participantId: booking.party.participantIds[0]!,
+  }).instructorClaimId;
   const plans = [];
-  for (const claimId of [claimIds.instructorClaimId, claimIds.participantClaimId]) {
+  plans.push(
+    await readAndPlanReleaseResourceClaim(session, {
+      ...claimMetadata,
+      claimId: instructorClaimId,
+    })
+  );
+  for (const claimIdentity of claimIds) {
     plans.push(
       await readAndPlanReleaseResourceClaim(session, {
         ...claimMetadata,
-        claimId,
+        claimId: claimIdentity.participantClaimId,
       })
     );
   }

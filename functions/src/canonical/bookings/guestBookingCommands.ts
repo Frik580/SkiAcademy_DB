@@ -50,6 +50,7 @@ import {
 } from '../resourceClaims/resourceClaimEngine';
 import {
   bookingClaimIds,
+  bookingClaimIdentities,
   commitPlannedReleaseBookingClaims,
   planReleaseBookingClaims,
 } from './bookingClaimOperations';
@@ -462,7 +463,16 @@ function confirmGuestBookingHandler(
       }
 
       const claimIds = bookingClaimIds(booking);
-      for (const claimId of [claimIds.instructorClaimId, claimIds.participantClaimId]) {
+      const instructorClaimId = bookingClaimIdentities({
+        bookingId: booking.bookingId,
+        occurrenceId: booking.occurrence.occurrenceId,
+        instructorId: booking.occurrence.instructorId,
+        participantId: booking.party.participantIds[0]!,
+      }).instructorClaimId;
+      for (const claimId of [
+        instructorClaimId,
+        ...claimIds.map((identity) => identity.participantClaimId),
+      ]) {
         const claimPath = `resource_claims/${claimId}`;
         const claimRead = await session.tx.get({ path: claimPath });
         session.plan.planRead({ path: claimPath, category: 'resource_claim' });

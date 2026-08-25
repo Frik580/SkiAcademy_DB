@@ -33,6 +33,8 @@ const COMMAND_KIND_REASON_CODES = {
     reschedule_booking: ['self_service_booking', 'manual_override', 'other'],
     change_booking_instructor: ['manual_override', 'other'],
     change_booking_duration: ['manual_override', 'other'],
+    change_booking_party: ['self_service_booking', 'manual_override', 'other'],
+    rollback_unpaid_booking_party_additions: ['scheduled_system_action', 'manual_override'],
     expire_guest_reservation: ['scheduled_system_action'],
     enforce_payment_start_gate: ['scheduled_system_action', 'manual_override'],
     record_manual_wallet_funding: ['manual_financial_correction', 'manual_override', 'other'],

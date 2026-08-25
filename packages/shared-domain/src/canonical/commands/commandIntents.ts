@@ -254,7 +254,45 @@ export const CommandIntentSchemaByKind = {
         });
       }
     }),
-  change_booking_party: bookingTargetIntent,
+  change_booking_party: z
+    .object({
+      bookingId: BookingIdSchema,
+      participantIdsToAdd: z.array(ParticipantIdSchema).max(7).optional(),
+      participantIdsToRemove: z.array(ParticipantIdSchema).max(7).optional(),
+      refundPercentBasisPoints: z.number().int().min(0).max(10_000).optional(),
+      reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
+    })
+    .strict()
+    .superRefine((intent, context) => {
+      const addCount = intent.participantIdsToAdd?.length ?? 0;
+      const removeCount = intent.participantIdsToRemove?.length ?? 0;
+      if (addCount === 0 && removeCount === 0) {
+        context.addIssue({
+          code: 'custom',
+          path: [],
+          message: 'At least one participant add or remove must be provided',
+        });
+      }
+      const addSet = new Set(intent.participantIdsToAdd ?? []);
+      const removeSet = new Set(intent.participantIdsToRemove ?? []);
+      for (const participantId of addSet) {
+        if (removeSet.has(participantId)) {
+          context.addIssue({
+            code: 'custom',
+            path: ['participantIdsToAdd'],
+            message: 'Participant cannot be both added and removed in one command',
+          });
+        }
+      }
+      if (intent.refundPercentBasisPoints !== undefined && removeCount === 0) {
+        context.addIssue({
+          code: 'custom',
+          path: ['refundPercentBasisPoints'],
+          message: 'refundPercentBasisPoints is only valid for participant removal',
+        });
+      }
+    }),
+  rollback_unpaid_booking_party_additions: bookingTargetIntent,
   complete_booking: bookingTargetIntent,
   record_booking_no_show: bookingTargetIntent,
   create_course_enrollments: z

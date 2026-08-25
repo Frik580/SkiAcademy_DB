@@ -37,7 +37,8 @@ export interface ResourceClaimCommandMetadata {
   readonly decidedAt: Date;
 }
 
-export interface InTransactionGuardOverlay extends Map<string, ResourceClaimGuardEntry[]> {}
+export type InTransactionGuardOverlay =
+  Map<string, ResourceClaimGuardEntry[]>;
 
 export interface AcquireResourceClaimInput extends ResourceClaimCommandMetadata {
   readonly identity: ResourceClaimIdentityInput;

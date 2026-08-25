@@ -8,6 +8,9 @@ exports.participantBlockIdFromDirection = participantBlockIdFromDirection;
 exports.instructorRelationshipIdFromPair = instructorRelationshipIdFromPair;
 exports.bookingIdFromAcceptedProposal = bookingIdFromAcceptedProposal;
 exports.paymentIdFromBookingId = paymentIdFromBookingId;
+exports.courseEnrollmentIdFromCommandParticipant = courseEnrollmentIdFromCommandParticipant;
+exports.paymentIdFromCourseEnrollmentId = paymentIdFromCourseEnrollmentId;
+exports.courseEnrollmentSeatOccurrenceId = courseEnrollmentSeatOccurrenceId;
 exports.guestSubjectIdFromBookingId = guestSubjectIdFromBookingId;
 exports.participantManagementIdFromGuestLink = participantManagementIdFromGuestLink;
 exports.bookingOccurrenceIdFromScheduleRevision = bookingOccurrenceIdFromScheduleRevision;
@@ -52,6 +55,19 @@ function bookingIdFromAcceptedProposal(proposalId) {
 }
 function paymentIdFromBookingId(bookingId) {
     return identifiers_1.PaymentIdSchema.parse(canonicalDeterministicHash(['payment:v1', 'booking', bookingId]));
+}
+function courseEnrollmentIdFromCommandParticipant(input) {
+    return identifiers_1.CourseEnrollmentIdSchema.parse(canonicalDeterministicHash([
+        'course_enrollment:v1',
+        input.commandId,
+        input.participantId,
+    ]));
+}
+function paymentIdFromCourseEnrollmentId(enrollmentId) {
+    return identifiers_1.PaymentIdSchema.parse(canonicalDeterministicHash(['payment:v1', 'course_enrollment', enrollmentId]));
+}
+function courseEnrollmentSeatOccurrenceId(enrollmentId) {
+    return identifiers_1.OccurrenceIdSchema.parse(canonicalDeterministicHash(['occurrence:v1', 'course_seat', enrollmentId]));
 }
 function guestSubjectIdFromBookingId(bookingId) {
     return identifiers_1.GuestSubjectIdSchema.parse(canonicalDeterministicHash(['guest_subject:v1', 'booking', bookingId]));

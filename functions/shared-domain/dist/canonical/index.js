@@ -40,6 +40,7 @@ __exportStar(require("./bookingProposalPolicy"), exports);
 __exportStar(require("./bookingChangeRequestPolicy"), exports);
 __exportStar(require("./guestCredential"), exports);
 __exportStar(require("./courseEnrollmentAttendanceAdminIssue"), exports);
+__exportStar(require("./courseEnrollmentCreation"), exports);
 __exportStar(require("./courseDayScheduling"), exports);
 __exportStar(require("./adminIssuePolicy"), exports);
 __exportStar(require("./deterministicIdentity"), exports);

@@ -3,6 +3,7 @@ import { sha256Hex } from './sha256Hex';
 import {
   ActivityLogIdSchema,
   BookingIdSchema,
+  CourseEnrollmentIdSchema,
   DomainOutboxIdSchema,
   GuestSubjectIdSchema,
   InstructorRelationshipIdSchema,
@@ -17,6 +18,7 @@ import {
   type BookingProposalId,
   type CommandId,
   type CourseDayId,
+  type CourseEnrollmentId,
   type DomainOutboxId,
   type GuestSubjectId,
   type InstructorId,
@@ -95,6 +97,35 @@ export function bookingIdFromAcceptedProposal(proposalId: BookingProposalId): Bo
 export function paymentIdFromBookingId(bookingId: BookingId): PaymentId {
   return PaymentIdSchema.parse(
     canonicalDeterministicHash(['payment:v1', 'booking', bookingId])
+  );
+}
+
+export function courseEnrollmentIdFromCommandParticipant(input: {
+  readonly commandId: CommandId;
+  readonly participantId: ParticipantId;
+}): CourseEnrollmentId {
+  return CourseEnrollmentIdSchema.parse(
+    canonicalDeterministicHash([
+      'course_enrollment:v1',
+      input.commandId,
+      input.participantId,
+    ])
+  );
+}
+
+export function paymentIdFromCourseEnrollmentId(
+  enrollmentId: CourseEnrollmentId
+): PaymentId {
+  return PaymentIdSchema.parse(
+    canonicalDeterministicHash(['payment:v1', 'course_enrollment', enrollmentId])
+  );
+}
+
+export function courseEnrollmentSeatOccurrenceId(
+  enrollmentId: CourseEnrollmentId
+): OccurrenceId {
+  return OccurrenceIdSchema.parse(
+    canonicalDeterministicHash(['occurrence:v1', 'course_seat', enrollmentId])
   );
 }
 

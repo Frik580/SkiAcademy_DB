@@ -22,7 +22,9 @@ describe('bookingProposalPolicy', () => {
   it('expires at service start when start is sooner than 24h', () => {
     const createdAt = ts('2026-01-01T00:00:00.000Z');
     const startAt = ts('2026-01-01T06:00:00.000Z');
-    expect(resolveBookingProposalExpiresAt({ createdAt, serviceStartsAt: startAt })).toEqual(startAt);
+    expect(resolveBookingProposalExpiresAt({ createdAt, serviceStartsAt: startAt })).toEqual(
+      startAt
+    );
   });
 
   it('treats expiry boundary as expired', () => {

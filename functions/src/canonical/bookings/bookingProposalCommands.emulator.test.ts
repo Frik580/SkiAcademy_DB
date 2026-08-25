@@ -45,7 +45,6 @@ const relationshipIdParticipantB = instructorRelationshipIdFromPair({
   instructorId: instructorIdB,
 });
 const bookingId = bookingIdFromAcceptedProposal(proposalId);
-const bookingIdB = bookingIdFromAcceptedProposal(proposalIdB);
 const paymentId = paymentIdFromBookingId(bookingId);
 const systemActorId = SystemActorIdSchema.parse('system_proposal_emulator_01');
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));

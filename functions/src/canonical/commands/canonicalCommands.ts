@@ -19,6 +19,7 @@ import { createFinanceCommandHandlers } from '../finance';
 import { createParticipantAccessCommandHandlers } from '../participantAccess';
 import { createBookingCommandHandlers } from '../bookings';
 import { createGuestBookingCommandHandlers } from '../bookings/guestBookingCommands';
+import { createBookingRescheduleCommandHandlers } from '../bookings/bookingRescheduleCommands';
 import { createBookingCancellationCommandHandlers } from '../bookings/bookingCancellationCommands';
 import type { GuestBookingCommandEnvironment } from '../bookings/guestBookingCommands';
 
@@ -152,6 +153,7 @@ export function createProductionCanonicalCommands(
       ...createParticipantAccessCommandHandlers(executor),
       ...createFinanceCommandHandlers(executor),
       ...createBookingCommandHandlers(executor),
+      ...createBookingRescheduleCommandHandlers(executor),
       ...createGuestBookingCommandHandlers(executor, options.guestActionTokenSecret),
       ...createBookingCancellationCommandHandlers(executor, guestEnvironmentFactory),
     },

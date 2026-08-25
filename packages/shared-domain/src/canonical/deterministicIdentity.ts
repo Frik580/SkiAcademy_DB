@@ -109,10 +109,29 @@ export function participantManagementIdFromGuestLink(input: {
   );
 }
 
-export function initialBookingOccurrenceIdFromBookingId(bookingId: BookingId): OccurrenceId {
+export function bookingOccurrenceIdFromScheduleRevision(
+  bookingId: BookingId,
+  scheduleRevision: number
+): OccurrenceId {
+  if (!Number.isInteger(scheduleRevision) || scheduleRevision < 1) {
+    throw new Error('scheduleRevision must be a positive integer');
+  }
   return OccurrenceIdSchema.parse(
-    canonicalDeterministicHash(['occurrence:v1', 'booking', bookingId, '1'])
+    canonicalDeterministicHash(['occurrence:v1', 'booking', bookingId, String(scheduleRevision)])
   );
+}
+
+export function initialBookingOccurrenceIdFromBookingId(bookingId: BookingId): OccurrenceId {
+  return bookingOccurrenceIdFromScheduleRevision(bookingId, 1);
+}
+
+export function nextBookingScheduleRevision(
+  currentScheduleRevision: number
+): number {
+  if (!Number.isInteger(currentScheduleRevision) || currentScheduleRevision < 1) {
+    throw new Error('currentScheduleRevision must be a positive integer');
+  }
+  return currentScheduleRevision + 1;
 }
 
 const PERSONAL_DATA_PATTERNS = [

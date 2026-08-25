@@ -9,7 +9,9 @@ exports.instructorRelationshipIdFromPair = instructorRelationshipIdFromPair;
 exports.paymentIdFromBookingId = paymentIdFromBookingId;
 exports.guestSubjectIdFromBookingId = guestSubjectIdFromBookingId;
 exports.participantManagementIdFromGuestLink = participantManagementIdFromGuestLink;
+exports.bookingOccurrenceIdFromScheduleRevision = bookingOccurrenceIdFromScheduleRevision;
 exports.initialBookingOccurrenceIdFromBookingId = initialBookingOccurrenceIdFromBookingId;
+exports.nextBookingScheduleRevision = nextBookingScheduleRevision;
 exports.validateDeterministicIdentityInputs = validateDeterministicIdentityInputs;
 const sha256Hex_1 = require("./sha256Hex");
 const identifiers_1 = require("./identifiers");
@@ -56,8 +58,20 @@ function participantManagementIdFromGuestLink(input) {
         input.accountId,
     ]));
 }
+function bookingOccurrenceIdFromScheduleRevision(bookingId, scheduleRevision) {
+    if (!Number.isInteger(scheduleRevision) || scheduleRevision < 1) {
+        throw new Error('scheduleRevision must be a positive integer');
+    }
+    return identifiers_1.OccurrenceIdSchema.parse(canonicalDeterministicHash(['occurrence:v1', 'booking', bookingId, String(scheduleRevision)]));
+}
 function initialBookingOccurrenceIdFromBookingId(bookingId) {
-    return identifiers_1.OccurrenceIdSchema.parse(canonicalDeterministicHash(['occurrence:v1', 'booking', bookingId, '1']));
+    return bookingOccurrenceIdFromScheduleRevision(bookingId, 1);
+}
+function nextBookingScheduleRevision(currentScheduleRevision) {
+    if (!Number.isInteger(currentScheduleRevision) || currentScheduleRevision < 1) {
+        throw new Error('currentScheduleRevision must be a positive integer');
+    }
+    return currentScheduleRevision + 1;
 }
 const PERSONAL_DATA_PATTERNS = [
     /@/,

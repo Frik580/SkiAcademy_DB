@@ -19,5 +19,7 @@ export declare function participantManagementIdFromGuestLink(input: {
     readonly participantId: ParticipantId;
     readonly accountId: AccountId;
 }): ParticipantManagementId;
+export declare function bookingOccurrenceIdFromScheduleRevision(bookingId: BookingId, scheduleRevision: number): OccurrenceId;
 export declare function initialBookingOccurrenceIdFromBookingId(bookingId: BookingId): OccurrenceId;
+export declare function nextBookingScheduleRevision(currentScheduleRevision: number): number;
 export declare function validateDeterministicIdentityInputs(inputs: Readonly<Record<string, string>>, context: z.RefinementCtx): void;

@@ -285,6 +285,10 @@ export declare const BookingSchema: z.ZodObject<{
     }, z.core.$strict>], "status">;
     paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"payment">, string>>;
     payerAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"account">, string>>>;
+    clientSelfServiceRescheduleConsumedAt: z.ZodOptional<z.ZodObject<{
+        seconds: z.ZodNumber;
+        nanoseconds: z.ZodNumber;
+    }, z.core.$strict>>;
     archival: z.ZodOptional<z.ZodObject<{
         isDeleted: z.ZodLiteral<true>;
         deletedAt: z.ZodObject<{

@@ -29,6 +29,7 @@ __exportStar(require("./auditReasonRegistry"), exports);
 __exportStar(require("./auditOutboxStaging"), exports);
 __exportStar(require("./bookingOccurrenceProposalChange"), exports);
 __exportStar(require("./bookingCancellationPolicy"), exports);
+__exportStar(require("./bookingReschedulePolicy"), exports);
 __exportStar(require("./bookingCreation"), exports);
 __exportStar(require("./guestBooking"), exports);
 __exportStar(require("./guestCredential"), exports);

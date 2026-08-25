@@ -434,6 +434,7 @@ export const BookingSchema = z
     lifecycle: BookingLifecycleSchema,
     paymentId: PaymentIdSchema,
     payerAccountId: AccountIdSchema.optional(),
+    clientSelfServiceRescheduleConsumedAt: CanonicalTimestampSchema.optional(),
     archival: BookingArchivalSchema.optional(),
     revision: PersistedAggregateRevisionSchema,
     createdAt: CanonicalTimestampSchema,

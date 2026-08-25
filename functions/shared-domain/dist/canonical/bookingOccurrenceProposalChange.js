@@ -341,6 +341,7 @@ exports.BookingSchema = zod_1.z
     lifecycle: BookingLifecycleSchema,
     paymentId: identifiers_1.PaymentIdSchema,
     payerAccountId: identifiers_1.AccountIdSchema.optional(),
+    clientSelfServiceRescheduleConsumedAt: primitives_1.CanonicalTimestampSchema.optional(),
     archival: BookingArchivalSchema.optional(),
     revision: PersistedAggregateRevisionSchema,
     createdAt: primitives_1.CanonicalTimestampSchema,

@@ -183,9 +183,62 @@ exports.CommandIntentSchemaByKind = {
             });
         }
     }),
-    reschedule_booking: bookingTargetIntent,
-    change_booking_instructor: bookingTargetIntent,
-    change_booking_duration: bookingTargetIntent,
+    reschedule_booking: zod_1.z
+        .object({
+        bookingId: identifiers_1.BookingIdSchema,
+        reasonExplanation: zod_1.z.string().trim().min(1).max(1_000).optional(),
+    })
+        .strict(),
+    change_booking_instructor: zod_1.z
+        .object({
+        bookingId: identifiers_1.BookingIdSchema,
+        instructorId: identifiers_1.InstructorIdSchema,
+        fundingAmount: primitives_1.KztMinorUnitsSchema.optional(),
+        walletAccountId: identifiers_1.AccountIdSchema.optional(),
+        reasonExplanation: zod_1.z.string().trim().min(1).max(1_000).optional(),
+    })
+        .strict()
+        .superRefine((intent, context) => {
+        if (intent.fundingAmount !== undefined && intent.fundingAmount <= 0) {
+            context.addIssue({
+                code: 'custom',
+                path: ['fundingAmount'],
+                message: 'fundingAmount must be positive when provided',
+            });
+        }
+        if (intent.fundingAmount !== undefined && intent.walletAccountId === undefined) {
+            context.addIssue({
+                code: 'custom',
+                path: ['walletAccountId'],
+                message: 'walletAccountId is required when fundingAmount is provided',
+            });
+        }
+    }),
+    change_booking_duration: zod_1.z
+        .object({
+        bookingId: identifiers_1.BookingIdSchema,
+        durationMinutes: zod_1.z.number().finite().int().positive().max(24 * 60),
+        fundingAmount: primitives_1.KztMinorUnitsSchema.optional(),
+        walletAccountId: identifiers_1.AccountIdSchema.optional(),
+        reasonExplanation: zod_1.z.string().trim().min(1).max(1_000).optional(),
+    })
+        .strict()
+        .superRefine((intent, context) => {
+        if (intent.fundingAmount !== undefined && intent.fundingAmount <= 0) {
+            context.addIssue({
+                code: 'custom',
+                path: ['fundingAmount'],
+                message: 'fundingAmount must be positive when provided',
+            });
+        }
+        if (intent.fundingAmount !== undefined && intent.walletAccountId === undefined) {
+            context.addIssue({
+                code: 'custom',
+                path: ['walletAccountId'],
+                message: 'walletAccountId is required when fundingAmount is provided',
+            });
+        }
+    }),
     change_booking_party: bookingTargetIntent,
     complete_booking: bookingTargetIntent,
     record_booking_no_show: bookingTargetIntent,

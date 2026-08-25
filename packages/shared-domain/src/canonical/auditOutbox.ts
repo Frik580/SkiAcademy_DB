@@ -72,6 +72,8 @@ export const AUDIT_EFFECT_KINDS = [
   'payment_state_changed',
   'wallet_balance_changed',
   'booking_lifecycle_changed',
+  'booking_schedule_changed',
+  'booking_service_changed',
   'course_enrollment_lifecycle_changed',
   'resource_claim_changed',
   'attendance_recorded',

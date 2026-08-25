@@ -218,6 +218,15 @@ function assertAdministratorMayMutateAdminIssue(correlationId, actor) {
     }
     return actor.actor.accountId;
 }
+function resolveIssueActorAccountId(correlationId, input) {
+    if (input.coupledDomainCommand) {
+        if (input.actor.actor.kind !== 'account') {
+            throw new errors_1.CanonicalCommandError('forbidden', { correlationId });
+        }
+        return input.actor.actor.accountId;
+    }
+    return assertAdministratorMayMutateAdminIssue(correlationId, input.actor);
+}
 function assertOpenIssue(correlationId, issue) {
     if (issue.lifecycle.status !== 'open') {
         throw new errors_1.CanonicalCommandError('invalid_transition', {
@@ -227,7 +236,7 @@ function assertOpenIssue(correlationId, issue) {
     }
 }
 function applyTerminalIssueLifecycle(existing, input, status) {
-    const resolvedByAccountId = assertAdministratorMayMutateAdminIssue(input.correlationId, input.actor);
+    const resolvedByAccountId = resolveIssueActorAccountId(input.correlationId, input);
     (0, revisionConcurrency_1.assertExpectedRevision)({
         correlationId: input.correlationId,
         expectedRevision: input.expectedRevision,

@@ -28,12 +28,17 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'admin_issue_opened',
     'outbox_obligation_created',
   ],
-  withdraw_booking_cancellation_request: ['booking_lifecycle_changed', 'outbox_obligation_created'],
+  withdraw_booking_cancellation_request: [
+    'booking_lifecycle_changed',
+    'admin_issue_resolved',
+    'outbox_obligation_created',
+  ],
   resolve_booking_cancellation: [
     'booking_lifecycle_changed',
     'payment_state_changed',
     'resource_claim_changed',
     'admin_issue_opened',
+    'admin_issue_resolved',
     'outbox_obligation_created',
   ],
   expire_guest_reservation: ['booking_lifecycle_changed', 'resource_claim_changed'],

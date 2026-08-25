@@ -303,6 +303,19 @@ export function assertAdministratorMayMutateAdminIssue(
   return actor.actor.accountId;
 }
 
+function resolveIssueActorAccountId(
+  correlationId: CorrelationId,
+  input: ResolveOrDismissAdminIssueInput
+): AccountId {
+  if (input.coupledDomainCommand) {
+    if (input.actor.actor.kind !== 'account') {
+      throw new CanonicalCommandError('forbidden', { correlationId });
+    }
+    return input.actor.actor.accountId;
+  }
+  return assertAdministratorMayMutateAdminIssue(correlationId, input.actor);
+}
+
 export interface ResolveOrDismissAdminIssueInput {
   readonly expectedRevision: AdminIssue['revision'];
   readonly now: CanonicalTimestamp;
@@ -327,10 +340,7 @@ function applyTerminalIssueLifecycle(
   input: ResolveOrDismissAdminIssueInput,
   status: 'resolved' | 'dismissed'
 ): AdminIssue {
-  const resolvedByAccountId = assertAdministratorMayMutateAdminIssue(
-    input.correlationId,
-    input.actor
-  );
+  const resolvedByAccountId = resolveIssueActorAccountId(input.correlationId, input);
   assertExpectedRevision({
     correlationId: input.correlationId,
     expectedRevision: input.expectedRevision,

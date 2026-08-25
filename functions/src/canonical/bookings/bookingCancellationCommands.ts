@@ -53,6 +53,11 @@ import {
   assertConfirmedGuestCannotSelfCancel,
   assertResolveBookingCancellationAuthorization,
 } from './bookingCancellationAuthorization';
+import {
+  commitPlannedAdminIssueUpdate,
+  planResolveOpenUnresolvedPendingCancellationIssue,
+  type PlannedUnresolvedPendingCancellationResolution,
+} from './bookingCancellationAdminIssues';
 import { requireAccountActor } from '../participantAccess/participantAccessAuthorization';
 import {
   buildDirectClientCancellationAuditPlan,
@@ -349,6 +354,7 @@ function withdrawBookingCancellationRequestHandler(
 
   let booking!: Booking;
   let plannedBookingRevision = AggregateRevisionSchema.parse(1);
+  let plannedResolvedIssue: PlannedUnresolvedPendingCancellationResolution | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'withdraw_booking_cancellation_request'> =
     {
@@ -412,12 +418,29 @@ function withdrawBookingCancellationRequestHandler(
           category: 'aggregate',
           estimatedPayloadBytes: BOOKING_PLANNING_ESTIMATES.bookingBytes,
         });
+
+        const now = timestampFromDate(environment.clock.decidedAt());
+        plannedResolvedIssue = await planResolveOpenUnresolvedPendingCancellationIssue(session, {
+          booking,
+          correlationId: metadata.correlationId,
+          commandId: metadata.commandId,
+          now,
+          reason: 'Cancellation request withdrawn',
+          envelope,
+        });
       },
       planAuditOutbox: async () =>
         buildWithdrawCancellationRequestAuditPlan({
           envelope,
           bookingId: envelope.intent.bookingId,
           bookingRevision: plannedBookingRevision,
+          resolvedIssue:
+            plannedResolvedIssue === undefined
+              ? undefined
+              : {
+                  issueId: plannedResolvedIssue.issue.issueId,
+                  revision: plannedResolvedIssue.issue.revision,
+                },
         }),
       execute: async (session, context) => {
         const decidedAt = timestampFromDate(context.decidedAt);
@@ -436,6 +459,9 @@ function withdrawBookingCancellationRequestHandler(
           { path: bookingDocumentPath },
           toFirestoreWritePayload(updatedBooking as Record<string, unknown>)
         );
+        if (plannedResolvedIssue !== undefined) {
+          commitPlannedAdminIssueUpdate(session, plannedResolvedIssue, toAdminIssueWritePayload);
+        }
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
       },
     };
@@ -470,6 +496,7 @@ function resolveBookingCancellationHandler(
   let lateOutcome: ReturnType<typeof resolveLateRejectionOutcome> | undefined;
   let auditSummary = '';
   let paymentEffectSummary: string | undefined;
+  let plannedResolvedPendingIssue: PlannedUnresolvedPendingCancellationResolution | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'resolve_booking_cancellation'> = {
     read: async (session) => {
@@ -525,6 +552,18 @@ function resolveBookingCancellationHandler(
           details: { resourceKind: 'booking', reason: 'unsupported' },
         });
       }
+
+      plannedResolvedPendingIssue = await planResolveOpenUnresolvedPendingCancellationIssue(session, {
+        booking,
+        correlationId: metadata.correlationId,
+        commandId: metadata.commandId,
+        now,
+        reason:
+          decision === 'approve'
+            ? 'Administrator approved cancellation'
+            : 'Administrator rejected cancellation',
+        envelope,
+      });
 
       if (decision === 'approve') {
         const refundAmount = KztMinorUnitsSchema.parse(envelope.intent.refundAmount!);
@@ -596,6 +635,13 @@ function resolveBookingCancellationHandler(
                 revision: plannedIssue.revision,
                 effect: issueMutationKind === 'create' ? 'opened' : 'reused',
               },
+        resolvedPendingIssue:
+          plannedResolvedPendingIssue === undefined
+            ? undefined
+            : {
+                issueId: plannedResolvedPendingIssue.issue.issueId,
+                revision: plannedResolvedPendingIssue.issue.revision,
+              },
         summary: auditSummary,
         paymentEffectSummary,
       }),
@@ -650,6 +696,14 @@ function resolveBookingCancellationHandler(
         } else {
           session.tx.update({ path: issueDocumentPath }, payload);
         }
+      }
+
+      if (plannedResolvedPendingIssue !== undefined) {
+        commitPlannedAdminIssueUpdate(
+          session,
+          plannedResolvedPendingIssue,
+          toAdminIssueWritePayload
+        );
       }
 
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);

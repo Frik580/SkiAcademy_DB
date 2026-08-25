@@ -189,8 +189,13 @@ export function buildWithdrawCancellationRequestAuditPlan(input: {
   envelope: CommandEnvelope<'withdraw_booking_cancellation_request'>;
   bookingId: BookingId;
   bookingRevision: number;
+  resolvedIssue?: { readonly issueId: AdminIssueId; readonly revision: number };
 }): AuditOutboxStagingPlan {
   const bookingRef = canonicalReference('booking', input.bookingId);
+  const issueRef =
+    input.resolvedIssue === undefined
+      ? undefined
+      : canonicalReference('admin_issue', input.resolvedIssue.issueId);
 
   return {
     activityLog: {
@@ -203,13 +208,22 @@ export function buildWithdrawCancellationRequestAuditPlan(input: {
         id: input.bookingId,
         subjectKey: `booking:${input.bookingId}`,
       },
-      affectedSubjects: [bookingRef],
+      affectedSubjects: issueRef === undefined ? [bookingRef] : [bookingRef, issueRef],
       effects: [
         {
           kind: 'booking_lifecycle_changed',
           subjectRef: bookingRef,
           summary: 'Cancellation request withdrawn',
         },
+        ...(issueRef === undefined
+          ? []
+          : [
+              {
+                kind: 'admin_issue_resolved' as const,
+                subjectRef: issueRef,
+                summary: 'Unresolved pending cancellation issue resolved',
+              },
+            ]),
         {
           kind: 'outbox_obligation_created',
           subjectRef: bookingRef,
@@ -217,12 +231,20 @@ export function buildWithdrawCancellationRequestAuditPlan(input: {
         },
       ],
       monetaryEventIds: [],
-      adminIssueIds: [],
+      adminIssueIds: input.resolvedIssue === undefined ? [] : [input.resolvedIssue.issueId],
       resultingRevisions: [
         {
           subject: bookingRef,
           revision: AggregateRevisionSchema.parse(input.bookingRevision),
         },
+        ...(issueRef && input.resolvedIssue
+          ? [
+              {
+                subject: issueRef,
+                revision: AggregateRevisionSchema.parse(input.resolvedIssue.revision),
+              },
+            ]
+          : []),
       ],
     },
     outboxObligations: [
@@ -255,6 +277,7 @@ export function buildResolveCancellationAuditPlan(input: {
   walletRevision?: number;
   walletAccountId?: AccountId;
   issue?: { readonly issueId: AdminIssueId; readonly revision: number; readonly effect: 'opened' | 'reused' };
+  resolvedPendingIssue?: { readonly issueId: AdminIssueId; readonly revision: number };
   summary: string;
   paymentEffectSummary?: string;
 }): AuditOutboxStagingPlan {
@@ -263,6 +286,10 @@ export function buildResolveCancellationAuditPlan(input: {
     input.paymentId === undefined ? undefined : canonicalReference('payment', input.paymentId);
   const issueRef =
     input.issue === undefined ? undefined : canonicalReference('admin_issue', input.issue.issueId);
+  const resolvedPendingRef =
+    input.resolvedPendingIssue === undefined
+      ? undefined
+      : canonicalReference('admin_issue', input.resolvedPendingIssue.issueId);
 
   const effects: Array<AuditOutboxStagingPlan['activityLog']['effects'][number]> = [
     {
@@ -299,6 +326,14 @@ export function buildResolveCancellationAuditPlan(input: {
     });
   }
 
+  if (resolvedPendingRef) {
+    effects.push({
+      kind: 'admin_issue_resolved',
+      subjectRef: resolvedPendingRef,
+      summary: 'Unresolved pending cancellation issue resolved',
+    });
+  }
+
   return {
     activityLog: {
       reason: {
@@ -311,10 +346,18 @@ export function buildResolveCancellationAuditPlan(input: {
         id: input.bookingId,
         subjectKey: `booking:${input.bookingId}`,
       },
-      affectedSubjects: [bookingRef, ...(paymentRef ? [paymentRef] : []), ...(issueRef ? [issueRef] : [])],
+      affectedSubjects: [
+        bookingRef,
+        ...(paymentRef ? [paymentRef] : []),
+        ...(issueRef ? [issueRef] : []),
+        ...(resolvedPendingRef ? [resolvedPendingRef] : []),
+      ],
       effects,
       monetaryEventIds: [...input.monetaryEventIds],
-      adminIssueIds: input.issue === undefined ? [] : [input.issue.issueId],
+      adminIssueIds: [
+        ...(input.resolvedPendingIssue === undefined ? [] : [input.resolvedPendingIssue.issueId]),
+        ...(input.issue === undefined ? [] : [input.issue.issueId]),
+      ],
       resultingRevisions: [
         {
           subject: bookingRef,
@@ -341,6 +384,14 @@ export function buildResolveCancellationAuditPlan(input: {
               {
                 subject: issueRef,
                 revision: AggregateRevisionSchema.parse(input.issue.revision),
+              },
+            ]
+          : []),
+        ...(resolvedPendingRef && input.resolvedPendingIssue
+          ? [
+              {
+                subject: resolvedPendingRef,
+                revision: AggregateRevisionSchema.parse(input.resolvedPendingIssue.revision),
               },
             ]
           : []),

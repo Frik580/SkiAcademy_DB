@@ -77,7 +77,11 @@ export function assertConfirmedGuestCannotSelfCancel(
   envelope: CommandEnvelope<'request_booking_cancellation'>,
   booking: Booking
 ): void {
-  if (booking.attribution.bookingOrigin === 'guest' && booking.lifecycle.status === 'confirmed') {
+  if (
+    envelope.context.source === 'guest_callable' &&
+    booking.attribution.bookingOrigin === 'guest' &&
+    booking.lifecycle.status === 'confirmed'
+  ) {
     throw new CanonicalCommandError('forbidden', {
       correlationId: envelope.context.correlationId,
       details: { resourceKind: 'booking', reason: 'unsupported' },

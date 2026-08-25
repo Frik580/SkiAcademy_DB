@@ -15,6 +15,7 @@ export * from './bookingOccurrenceProposalChange';
 export * from './bookingCancellationPolicy';
 export * from './bookingReschedulePolicy';
 export * from './bookingPartyPolicy';
+export * from './bookingAttendancePolicy';
 export * from './bookingPartyFinance';
 export * from './familyGroupTariff';
 export * from './bookingCreation';

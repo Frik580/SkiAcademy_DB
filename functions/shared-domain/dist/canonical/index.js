@@ -31,6 +31,7 @@ __exportStar(require("./bookingOccurrenceProposalChange"), exports);
 __exportStar(require("./bookingCancellationPolicy"), exports);
 __exportStar(require("./bookingReschedulePolicy"), exports);
 __exportStar(require("./bookingPartyPolicy"), exports);
+__exportStar(require("./bookingAttendancePolicy"), exports);
 __exportStar(require("./bookingPartyFinance"), exports);
 __exportStar(require("./familyGroupTariff"), exports);
 __exportStar(require("./bookingCreation"), exports);

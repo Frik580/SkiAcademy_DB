@@ -74,6 +74,8 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'resource_claim_changed',
     'outbox_obligation_created',
   ],
+  record_booking_attendance: ['attendance_recorded', 'booking_lifecycle_changed', 'admin_issue_opened'],
+  resolve_attendance_outcome: ['booking_lifecycle_changed', 'admin_issue_opened', 'admin_issue_resolved'],
   expire_guest_reservation: ['booking_lifecycle_changed', 'resource_claim_changed'],
   enforce_payment_start_gate: ['admin_issue_opened'],
   record_manual_wallet_funding: ['wallet_balance_changed', 'financial_correction_recorded'],

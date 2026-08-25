@@ -4,6 +4,7 @@ exports.CommandIntentSchemaByKind = void 0;
 exports.parseCommandIntent = parseCommandIntent;
 const zod_1 = require("zod");
 const identifiers_1 = require("../identifiers");
+const courseEnrollmentAttendanceAdminIssue_1 = require("../courseEnrollmentAttendanceAdminIssue");
 const primitives_1 = require("../primitives");
 const bookingTargetIntent = zod_1.z.object({ bookingId: identifiers_1.BookingIdSchema }).strict();
 const courseEnrollmentTargetIntent = zod_1.z
@@ -278,6 +279,15 @@ exports.CommandIntentSchemaByKind = {
         }
     }),
     rollback_unpaid_booking_party_additions: bookingTargetIntent,
+    record_booking_attendance: zod_1.z
+        .object({
+        bookingId: identifiers_1.BookingIdSchema,
+        participantId: identifiers_1.ParticipantIdSchema,
+        attendanceStatus: courseEnrollmentAttendanceAdminIssue_1.AttendanceStatusSchema,
+        expectedAttendanceRevision: primitives_1.AggregateRevisionSchema.optional(),
+        reasonExplanation: zod_1.z.string().trim().min(1).max(2_000).optional(),
+    })
+        .strict(),
     complete_booking: bookingTargetIntent,
     record_booking_no_show: bookingTargetIntent,
     create_course_enrollments: zod_1.z

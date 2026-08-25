@@ -4,3 +4,4 @@ export * from './bookingStore';
 export * from './bookingAuthorization';
 export * from './bookingAudit';
 export * from './paymentStartGate';
+export * from './bookingAttendanceCommands';

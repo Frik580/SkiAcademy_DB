@@ -24,6 +24,7 @@ import { createBookingCancellationCommandHandlers } from '../bookings/bookingCan
 import { createBookingPartyCommandHandlers } from '../bookings/bookingPartyCommands';
 import { createBookingProposalCommandHandlers } from '../bookings/bookingProposalCommands';
 import { createBookingChangeRequestCommandHandlers } from '../bookings/bookingChangeRequestCommands';
+import { createBookingAttendanceCommandHandlers } from '../bookings/bookingAttendanceCommands';
 import type { GuestBookingCommandEnvironment } from '../bookings/guestBookingCommands';
 
 export type CommandHandler<Kind extends CommandKind> = (
@@ -162,6 +163,7 @@ export function createProductionCanonicalCommands(
       ...createBookingPartyCommandHandlers(executor),
       ...createBookingProposalCommandHandlers(executor),
       ...createBookingChangeRequestCommandHandlers(executor),
+      ...createBookingAttendanceCommandHandlers(executor),
     },
     environment
   );

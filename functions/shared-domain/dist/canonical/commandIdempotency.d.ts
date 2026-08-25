@@ -24,6 +24,7 @@ export declare const StoredCommandResultSchema: z.ZodDiscriminatedUnion<[z.ZodOb
         change_booking_duration: "change_booking_duration";
         change_booking_party: "change_booking_party";
         rollback_unpaid_booking_party_additions: "rollback_unpaid_booking_party_additions";
+        record_booking_attendance: "record_booking_attendance";
         complete_booking: "complete_booking";
         record_booking_no_show: "record_booking_no_show";
         create_course_enrollments: "create_course_enrollments";
@@ -73,6 +74,7 @@ export declare const StoredCommandResultSchema: z.ZodDiscriminatedUnion<[z.ZodOb
         change_booking_duration: "change_booking_duration";
         change_booking_party: "change_booking_party";
         rollback_unpaid_booking_party_additions: "rollback_unpaid_booking_party_additions";
+        record_booking_attendance: "record_booking_attendance";
         complete_booking: "complete_booking";
         record_booking_no_show: "record_booking_no_show";
         create_course_enrollments: "create_course_enrollments";
@@ -109,7 +111,9 @@ export declare const StoredCommandResultSchema: z.ZodDiscriminatedUnion<[z.ZodOb
     correlationId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"correlation">, string>>;
     error: z.ZodObject<{
         code: z.ZodEnum<{
+            expired: "expired";
             unauthorized: "unauthorized";
+            unavailable: "unavailable";
             forbidden: "forbidden";
             validation: "validation";
             insufficient_funds: "insufficient_funds";
@@ -123,8 +127,6 @@ export declare const StoredCommandResultSchema: z.ZodDiscriminatedUnion<[z.ZodOb
             concurrent_modification: "concurrent_modification";
             invalid_transition: "invalid_transition";
             blocked_relationship: "blocked_relationship";
-            expired: "expired";
-            unavailable: "unavailable";
             idempotency_conflict: "idempotency_conflict";
             operation_too_large: "operation_too_large";
             audit_integrity_violation: "audit_integrity_violation";
@@ -170,6 +172,7 @@ export declare const CommandIdempotencyRecordSchema: z.ZodObject<{
         change_booking_duration: "change_booking_duration";
         change_booking_party: "change_booking_party";
         rollback_unpaid_booking_party_additions: "rollback_unpaid_booking_party_additions";
+        record_booking_attendance: "record_booking_attendance";
         complete_booking: "complete_booking";
         record_booking_no_show: "record_booking_no_show";
         create_course_enrollments: "create_course_enrollments";
@@ -223,6 +226,7 @@ export declare const CommandIdempotencyRecordSchema: z.ZodObject<{
             change_booking_duration: "change_booking_duration";
             change_booking_party: "change_booking_party";
             rollback_unpaid_booking_party_additions: "rollback_unpaid_booking_party_additions";
+            record_booking_attendance: "record_booking_attendance";
             complete_booking: "complete_booking";
             record_booking_no_show: "record_booking_no_show";
             create_course_enrollments: "create_course_enrollments";
@@ -272,6 +276,7 @@ export declare const CommandIdempotencyRecordSchema: z.ZodObject<{
             change_booking_duration: "change_booking_duration";
             change_booking_party: "change_booking_party";
             rollback_unpaid_booking_party_additions: "rollback_unpaid_booking_party_additions";
+            record_booking_attendance: "record_booking_attendance";
             complete_booking: "complete_booking";
             record_booking_no_show: "record_booking_no_show";
             create_course_enrollments: "create_course_enrollments";
@@ -308,7 +313,9 @@ export declare const CommandIdempotencyRecordSchema: z.ZodObject<{
         correlationId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"correlation">, string>>;
         error: z.ZodObject<{
             code: z.ZodEnum<{
+                expired: "expired";
                 unauthorized: "unauthorized";
+                unavailable: "unavailable";
                 forbidden: "forbidden";
                 validation: "validation";
                 insufficient_funds: "insufficient_funds";
@@ -322,8 +329,6 @@ export declare const CommandIdempotencyRecordSchema: z.ZodObject<{
                 concurrent_modification: "concurrent_modification";
                 invalid_transition: "invalid_transition";
                 blocked_relationship: "blocked_relationship";
-                expired: "expired";
-                unavailable: "unavailable";
                 idempotency_conflict: "idempotency_conflict";
                 operation_too_large: "operation_too_large";
                 audit_integrity_violation: "audit_integrity_violation";

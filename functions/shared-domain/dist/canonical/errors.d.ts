@@ -4,7 +4,9 @@ import { type CorrelationId } from './identifiers';
 export declare const COMMAND_ERROR_CODES: readonly ["unauthorized", "forbidden", "validation", "insufficient_funds", "payment_required", "resource_conflict", "participant_conflict", "instructor_conflict", "course_full", "duplicate_active_enrollment", "stale_version", "concurrent_modification", "invalid_transition", "blocked_relationship", "expired", "unavailable", "idempotency_conflict", "operation_too_large", "audit_integrity_violation", "internal"];
 export type CommandErrorCode = (typeof COMMAND_ERROR_CODES)[number];
 export declare const CommandErrorCodeSchema: z.ZodEnum<{
+    expired: "expired";
     unauthorized: "unauthorized";
+    unavailable: "unavailable";
     forbidden: "forbidden";
     validation: "validation";
     insufficient_funds: "insufficient_funds";
@@ -18,8 +20,6 @@ export declare const CommandErrorCodeSchema: z.ZodEnum<{
     concurrent_modification: "concurrent_modification";
     invalid_transition: "invalid_transition";
     blocked_relationship: "blocked_relationship";
-    expired: "expired";
-    unavailable: "unavailable";
     idempotency_conflict: "idempotency_conflict";
     operation_too_large: "operation_too_large";
     audit_integrity_violation: "audit_integrity_violation";
@@ -127,7 +127,9 @@ export declare const CommandErrorDetailsSchema: z.ZodObject<{
 export type CommandErrorDetails = z.output<typeof CommandErrorDetailsSchema>;
 export declare const CommandErrorTransportSchema: z.ZodObject<{
     code: z.ZodEnum<{
+        expired: "expired";
         unauthorized: "unauthorized";
+        unavailable: "unavailable";
         forbidden: "forbidden";
         validation: "validation";
         insufficient_funds: "insufficient_funds";
@@ -141,8 +143,6 @@ export declare const CommandErrorTransportSchema: z.ZodObject<{
         concurrent_modification: "concurrent_modification";
         invalid_transition: "invalid_transition";
         blocked_relationship: "blocked_relationship";
-        expired: "expired";
-        unavailable: "unavailable";
         idempotency_conflict: "idempotency_conflict";
         operation_too_large: "operation_too_large";
         audit_integrity_violation: "audit_integrity_violation";

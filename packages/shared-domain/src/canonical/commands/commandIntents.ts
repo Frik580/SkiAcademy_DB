@@ -14,7 +14,8 @@ import {
   ParticipantManagementIdSchema,
   PaymentIdSchema,
 } from '../identifiers';
-import { KztMinorUnitsSchema } from '../primitives';
+import { AttendanceStatusSchema } from '../courseEnrollmentAttendanceAdminIssue';
+import { AggregateRevisionSchema, KztMinorUnitsSchema } from '../primitives';
 import type { CommandKind } from './commandKinds';
 
 const bookingTargetIntent = z.object({ bookingId: BookingIdSchema }).strict();
@@ -293,6 +294,15 @@ export const CommandIntentSchemaByKind = {
       }
     }),
   rollback_unpaid_booking_party_additions: bookingTargetIntent,
+  record_booking_attendance: z
+    .object({
+      bookingId: BookingIdSchema,
+      participantId: ParticipantIdSchema,
+      attendanceStatus: AttendanceStatusSchema,
+      expectedAttendanceRevision: AggregateRevisionSchema.optional(),
+      reasonExplanation: z.string().trim().min(1).max(2_000).optional(),
+    })
+    .strict(),
   complete_booking: bookingTargetIntent,
   record_booking_no_show: bookingTargetIntent,
   create_course_enrollments: z

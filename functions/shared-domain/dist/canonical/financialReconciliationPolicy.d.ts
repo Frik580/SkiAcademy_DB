@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { AdminIssueDedupeIdentityInput } from './courseEnrollmentAttendanceAdminIssue';
-import type { BookingId, CourseEnrollmentId } from './identifiers';
+import type { BookingId, CorrelationId, CourseEnrollmentId } from './identifiers';
 import { type MonetaryEvent, type Payment, type PaymentAccountingFields, type Wallet } from './paymentWallet';
 import { type KztMinorUnits } from './primitives';
 export declare const FINANCIAL_RECONCILIATION_SCOPES: readonly ["payment_projection", "payment_invariants", "wallet_balance", "incremental_requirements"];
@@ -44,3 +44,15 @@ export declare function rebuildWalletProjectionFromEvents(events: readonly Monet
     readonly balance: KztMinorUnits;
     readonly eventRevision: number;
 };
+export declare function maxPaymentEventRevisionFromEvents(events: readonly MonetaryEvent[]): number;
+export declare function maxWalletEventRevisionFromEvents(events: readonly MonetaryEvent[]): number;
+export declare function assertMonetaryEventHistoryCoversPaymentRevision(input: {
+    readonly payment: Payment;
+    readonly paymentEvents: readonly MonetaryEvent[];
+    readonly correlationId: CorrelationId;
+}): void;
+export declare function assertMonetaryEventHistoryCoversWalletRevision(input: {
+    readonly wallet: Wallet;
+    readonly walletEvents: readonly MonetaryEvent[];
+    readonly correlationId: CorrelationId;
+}): void;

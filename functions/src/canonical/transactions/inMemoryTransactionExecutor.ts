@@ -8,10 +8,12 @@ import {
   assertReadPhase,
   assertWritePhase,
   applyCanonicalDocumentUpdate,
+  type CanonicalTransactionCollectionQuery,
   type CanonicalTransactionDocumentRef,
   type CanonicalTransactionOperations,
   type CanonicalTransactionOperationsInternal,
   type CanonicalTransactionPhase,
+  type CanonicalTransactionQueryDocumentResult,
   type CanonicalTransactionReadResult,
 } from './transactionExecution';
 import {
@@ -51,6 +53,46 @@ class InMemoryCanonicalTransactionOperations implements CanonicalTransactionOper
         return { exists: false as const };
       }
       return { exists: true as const, data: { ...existing.data } };
+    });
+    this.pendingReads.add(readPromise);
+    try {
+      return await readPromise;
+    } finally {
+      this.pendingReads.delete(readPromise);
+    }
+  }
+
+  async query(
+    input: CanonicalTransactionCollectionQuery
+  ): Promise<readonly CanonicalTransactionQueryDocumentResult[]> {
+    assertReadPhase(this, 'read');
+    const readPromise = Promise.resolve().then(() => {
+      const prefix = `${input.collection}/`;
+      const results: CanonicalTransactionQueryDocumentResult[] = [];
+      for (const [path, document] of this.docs.entries()) {
+        if (!path.startsWith(prefix)) continue;
+        const fieldValue: unknown = document.data[input.where.field];
+        const compareValue: unknown = input.where.value;
+        const matchesFilter =
+          input.where.op === '=='
+            ? Object.is(fieldValue, compareValue)
+            : typeof fieldValue === 'number' && typeof compareValue === 'number'
+              ? input.where.op === '<'
+                ? fieldValue < compareValue
+                : input.where.op === '<='
+                  ? fieldValue <= compareValue
+                  : input.where.op === '>'
+                    ? fieldValue > compareValue
+                    : fieldValue >= compareValue
+              : false;
+        if (!matchesFilter) continue;
+        results.push({
+          path,
+          exists: true,
+          data: { ...document.data },
+        });
+      }
+      return results;
     });
     this.pendingReads.add(readPromise);
     try {

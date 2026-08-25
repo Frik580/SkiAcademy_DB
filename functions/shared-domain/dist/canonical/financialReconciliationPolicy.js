@@ -9,8 +9,13 @@ exports.primaryReconciliationScopeForMismatches = primaryReconciliationScopeForM
 exports.financialReconciliationMismatchIdentity = financialReconciliationMismatchIdentity;
 exports.rebuildPaymentProjectionFromEvents = rebuildPaymentProjectionFromEvents;
 exports.rebuildWalletProjectionFromEvents = rebuildWalletProjectionFromEvents;
+exports.maxPaymentEventRevisionFromEvents = maxPaymentEventRevisionFromEvents;
+exports.maxWalletEventRevisionFromEvents = maxWalletEventRevisionFromEvents;
+exports.assertMonetaryEventHistoryCoversPaymentRevision = assertMonetaryEventHistoryCoversPaymentRevision;
+exports.assertMonetaryEventHistoryCoversWalletRevision = assertMonetaryEventHistoryCoversWalletRevision;
 const zod_1 = require("zod");
 const courseEnrollmentAttendanceAdminIssue_1 = require("./courseEnrollmentAttendanceAdminIssue");
+const errors_1 = require("./errors");
 const paymentWallet_1 = require("./paymentWallet");
 const primitives_1 = require("./primitives");
 exports.FINANCIAL_RECONCILIATION_SCOPES = [
@@ -266,4 +271,28 @@ function rebuildWalletProjectionFromEvents(events) {
     const balance = foldWalletBalanceFromEvents(events);
     const eventRevision = events.reduce((max, event) => Math.max(max, event.walletEventRevision ?? 0), 0);
     return { balance, eventRevision };
+}
+function maxPaymentEventRevisionFromEvents(events) {
+    return events.reduce((max, event) => Math.max(max, event.paymentEventRevision ?? 0), 0);
+}
+function maxWalletEventRevisionFromEvents(events) {
+    return events.reduce((max, event) => Math.max(max, event.walletEventRevision ?? 0), 0);
+}
+function assertMonetaryEventHistoryCoversPaymentRevision(input) {
+    const maxRevision = maxPaymentEventRevisionFromEvents(input.paymentEvents);
+    if (input.payment.eventRevision > maxRevision) {
+        throw new errors_1.CanonicalCommandError('validation', {
+            correlationId: input.correlationId,
+            details: { reason: 'conflict', field: 'eventRevision' },
+        });
+    }
+}
+function assertMonetaryEventHistoryCoversWalletRevision(input) {
+    const maxRevision = maxWalletEventRevisionFromEvents(input.walletEvents);
+    if (input.wallet.eventRevision > maxRevision) {
+        throw new errors_1.CanonicalCommandError('validation', {
+            correlationId: input.correlationId,
+            details: { reason: 'conflict', field: 'eventRevision' },
+        });
+    }
 }

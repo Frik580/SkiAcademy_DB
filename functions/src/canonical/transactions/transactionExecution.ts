@@ -11,9 +11,27 @@ export interface CanonicalTransactionReadResult {
   readonly data?: Record<string, unknown>;
 }
 
+export interface CanonicalTransactionQueryFilter {
+  readonly field: string;
+  readonly op: '==' | '<' | '<=' | '>' | '>=';
+  readonly value: unknown;
+}
+
+export interface CanonicalTransactionCollectionQuery {
+  readonly collection: string;
+  readonly where: CanonicalTransactionQueryFilter;
+}
+
+export interface CanonicalTransactionQueryDocumentResult extends CanonicalTransactionReadResult {
+  readonly path: string;
+}
+
 export interface CanonicalTransactionOperations {
   readonly phase: CanonicalTransactionPhase;
   get(ref: CanonicalTransactionDocumentRef): Promise<CanonicalTransactionReadResult>;
+  query(
+    input: CanonicalTransactionCollectionQuery
+  ): Promise<readonly CanonicalTransactionQueryDocumentResult[]>;
   create(ref: CanonicalTransactionDocumentRef, data: Record<string, unknown>): void;
   update(ref: CanonicalTransactionDocumentRef, data: Record<string, unknown>): void;
   delete(ref: CanonicalTransactionDocumentRef): void;

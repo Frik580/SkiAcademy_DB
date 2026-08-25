@@ -10,10 +10,12 @@ import {
   assertReadPhase,
   assertWritePhase,
   isCanonicalFieldDelete,
+  type CanonicalTransactionCollectionQuery,
   type CanonicalTransactionDocumentRef,
   type CanonicalTransactionOperations,
   type CanonicalTransactionOperationsInternal,
   type CanonicalTransactionPhase,
+  type CanonicalTransactionQueryDocumentResult,
   type CanonicalTransactionReadResult,
 } from './transactionExecution';
 import {
@@ -56,6 +58,28 @@ class FirestoreCanonicalTransactionOperations implements CanonicalTransactionOpe
         exists: snapshot.exists,
         ...(snapshot.exists ? { data: snapshot.data() as Record<string, unknown> } : {}),
       }));
+    this.pendingReads.add(readPromise);
+    try {
+      return await readPromise;
+    } finally {
+      this.pendingReads.delete(readPromise);
+    }
+  }
+
+  async query(
+    input: CanonicalTransactionCollectionQuery
+  ): Promise<readonly CanonicalTransactionQueryDocumentResult[]> {
+    assertReadPhase(this, 'read');
+    const collectionQuery = this.firestore
+      .collection(input.collection)
+      .where(input.where.field, input.where.op, input.where.value);
+    const readPromise = this.transaction.get(collectionQuery).then((snapshot) =>
+      snapshot.docs.map((doc) => ({
+        path: doc.ref.path,
+        exists: true as const,
+        data: doc.data() as Record<string, unknown>,
+      }))
+    );
     this.pendingReads.add(readPromise);
     try {
       return await readPromise;

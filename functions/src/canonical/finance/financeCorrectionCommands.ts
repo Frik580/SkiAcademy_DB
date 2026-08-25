@@ -19,8 +19,11 @@ import {
   resolveFinancialAdminIssueForCorrection,
   assertFinancialCorrectionHasEffect,
   assertFinancialCorrectionIssueSubjectMatchesPayment,
+  assertMonetaryEventHistoryCoversPaymentRevision,
+  assertMonetaryEventHistoryCoversWalletRevision,
   assertWalletCorrectionDoesNotOverdraw,
   applyWalletCorrectionDelta,
+  maxPaymentEventRevisionFromEvents,
   timestampFromDate,
   type AdminIssue,
   type CommandEnvelope,
@@ -69,10 +72,61 @@ import {
   walletPath,
 } from './financeStore';
 
-export type MonetaryEventLoader = (input: {
-  readonly paymentId?: Payment['paymentId'];
-  readonly walletAccountId?: Wallet['accountId'];
-}) => Promise<readonly MonetaryEvent[]>;
+export type MonetaryEventLoaderSession = Pick<
+  CanonicalAtomicTransactionSession,
+  'tx' | 'plan' | 'correlationId'
+>;
+
+export type MonetaryEventLoader = (
+  session: MonetaryEventLoaderSession,
+  filter: {
+    readonly paymentId?: Payment['paymentId'];
+    readonly walletAccountId?: Wallet['accountId'];
+  }
+) => Promise<readonly MonetaryEvent[]>;
+
+async function loadMonetaryEventsInTransaction(
+  session: MonetaryEventLoaderSession,
+  filter: {
+    readonly paymentId?: Payment['paymentId'];
+    readonly walletAccountId?: Wallet['accountId'];
+  }
+): Promise<MonetaryEvent[]> {
+  const events: MonetaryEvent[] = [];
+  const seenEventIds = new Set<string>();
+
+  if (filter.paymentId !== undefined) {
+    const docs = await session.tx.query({
+      collection: 'monetary_events',
+      where: { field: 'paymentId', op: '==', value: filter.paymentId },
+    });
+    for (const doc of docs) {
+      session.plan.planRead({ path: doc.path, category: 'payment_wallet' });
+      const parsed = parseMonetaryEvent(doc.data);
+      if (parsed && !seenEventIds.has(parsed.eventId)) {
+        seenEventIds.add(parsed.eventId);
+        events.push(parsed);
+      }
+    }
+  }
+
+  if (filter.walletAccountId !== undefined) {
+    const docs = await session.tx.query({
+      collection: 'monetary_events',
+      where: { field: 'walletAccountId', op: '==', value: filter.walletAccountId },
+    });
+    for (const doc of docs) {
+      session.plan.planRead({ path: doc.path, category: 'payment_wallet' });
+      const parsed = parseMonetaryEvent(doc.data);
+      if (parsed && !seenEventIds.has(parsed.eventId)) {
+        seenEventIds.add(parsed.eventId);
+        events.push(parsed);
+      }
+    }
+  }
+
+  return events;
+}
 
 function metadataFromEnvelope(envelope: CommandEnvelope) {
   const identity = resolveCommandIdempotencyIdentity(envelope);
@@ -608,7 +662,7 @@ function recordAuditCorrectionHandler(
           }
         } else {
         payment = parsedPayment;
-        paymentEvents = await eventLoader({ paymentId: payment.paymentId });
+        paymentEvents = await eventLoader(session, { paymentId: payment.paymentId });
 
         if (envelope.intent.operation === 'rebuild_payment_projection') {
           assertExpectedRevision({
@@ -616,6 +670,11 @@ function recordAuditCorrectionHandler(
             expectedRevision: envelope.intent.expectedPaymentRevision,
             currentRevision: payment.revision,
             requireExpectedRevision: true,
+          });
+          assertMonetaryEventHistoryCoversPaymentRevision({
+            payment,
+            paymentEvents,
+            correlationId: envelope.context.correlationId,
           });
           plannedPaymentRevision = nextAggregateRevision(payment.revision);
           session.plan.planMutation({
@@ -673,7 +732,7 @@ function recordAuditCorrectionHandler(
           });
         }
         wallet = parsedWallet;
-        walletEvents = await eventLoader({ walletAccountId: wallet.accountId });
+        walletEvents = await eventLoader(session, { walletAccountId: wallet.accountId });
 
         if (envelope.intent.operation === 'rebuild_wallet_projection') {
           assertExpectedRevision({
@@ -681,6 +740,11 @@ function recordAuditCorrectionHandler(
             expectedRevision: envelope.intent.expectedWalletRevision,
             currentRevision: wallet.revision,
             requireExpectedRevision: true,
+          });
+          assertMonetaryEventHistoryCoversWalletRevision({
+            wallet,
+            walletEvents,
+            correlationId: envelope.context.correlationId,
           });
           plannedWalletRevision = nextAggregateRevision(wallet.revision);
           session.plan.planMutation({
@@ -723,10 +787,7 @@ function recordAuditCorrectionHandler(
         const updatedPayment = mergePaymentProjection(payment, rebuilt, {
           revision: plannedPaymentRevision,
           eventRevision: AggregateRevisionSchema.parse(
-            paymentEvents.reduce<number>(
-              (max, event) => Math.max(max, event.paymentEventRevision ?? 0),
-              0
-            ) || payment.eventRevision
+            maxPaymentEventRevisionFromEvents(paymentEvents) || payment.eventRevision
           ),
           updatedAt: decidedAt,
         });
@@ -782,7 +843,7 @@ function recordAuditCorrectionHandler(
 
 export function createFinanceCorrectionCommandHandlers(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'],
-  eventLoader: MonetaryEventLoader = async () => []
+  eventLoader: MonetaryEventLoader = loadMonetaryEventsInTransaction
 ): Partial<CommandHandlerMap> {
   return {
     record_financial_correction: (envelope, environment) =>
@@ -795,44 +856,17 @@ export function createFinanceCorrectionCommandHandlers(
 export function createSnapshotMonetaryEventLoader(
   docs: Iterable<readonly [string, Record<string, unknown> | undefined]>
 ): MonetaryEventLoader {
-  return async (filter) => collectMonetaryEventsFromDocs(docs, filter);
+  return async (session, filter) => {
+    const fromQuery = await loadMonetaryEventsInTransaction(session, filter);
+    if (fromQuery.length > 0) {
+      return fromQuery;
+    }
+    return collectMonetaryEventsFromDocs(docs, filter);
+  };
 }
 
 export function createFirestoreMonetaryEventLoader(
-  firestore: {
-    collection(name: string): {
-      where(
-        field: string,
-        op: string,
-        value: unknown
-      ): { get(): Promise<{ docs: Array<{ data(): Record<string, unknown> }> }> };
-    };
-  }
+  _firestore?: unknown
 ): MonetaryEventLoader {
-  return async (filter) => {
-    const events: MonetaryEvent[] = [];
-    if (filter.paymentId !== undefined) {
-      const snapshot = await firestore
-        .collection('monetary_events')
-        .where('paymentId', '==', filter.paymentId)
-        .get();
-      for (const doc of snapshot.docs) {
-        const parsed = parseMonetaryEvent(doc.data());
-        if (parsed) events.push(parsed);
-      }
-    }
-    if (filter.walletAccountId !== undefined) {
-      const snapshot = await firestore
-        .collection('monetary_events')
-        .where('walletAccountId', '==', filter.walletAccountId)
-        .get();
-      for (const doc of snapshot.docs) {
-        const parsed = parseMonetaryEvent(doc.data());
-        if (parsed && !events.some((event) => event.eventId === parsed.eventId)) {
-          events.push(parsed);
-        }
-      }
-    }
-    return events;
-  };
+  return loadMonetaryEventsInTransaction;
 }

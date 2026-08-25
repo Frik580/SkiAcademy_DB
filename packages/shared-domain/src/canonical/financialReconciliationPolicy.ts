@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION } from './courseEnrollmentAttendanceAdminIssue';
 import type { AdminIssueDedupeIdentityInput } from './courseEnrollmentAttendanceAdminIssue';
-import type { BookingId, CourseEnrollmentId } from './identifiers';
+import { CanonicalCommandError } from './errors';
+import type { BookingId, CorrelationId, CourseEnrollmentId } from './identifiers';
 import {
   derivePaymentStatus,
   deriveRetainedAmount,
@@ -374,4 +375,42 @@ export function rebuildWalletProjectionFromEvents(
     0
   );
   return { balance, eventRevision };
+}
+
+export function maxPaymentEventRevisionFromEvents(
+  events: readonly MonetaryEvent[]
+): number {
+  return events.reduce((max, event) => Math.max(max, event.paymentEventRevision ?? 0), 0);
+}
+
+export function maxWalletEventRevisionFromEvents(events: readonly MonetaryEvent[]): number {
+  return events.reduce((max, event) => Math.max(max, event.walletEventRevision ?? 0), 0);
+}
+
+export function assertMonetaryEventHistoryCoversPaymentRevision(input: {
+  readonly payment: Payment;
+  readonly paymentEvents: readonly MonetaryEvent[];
+  readonly correlationId: CorrelationId;
+}): void {
+  const maxRevision = maxPaymentEventRevisionFromEvents(input.paymentEvents);
+  if (input.payment.eventRevision > maxRevision) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: input.correlationId,
+      details: { reason: 'conflict', field: 'eventRevision' },
+    });
+  }
+}
+
+export function assertMonetaryEventHistoryCoversWalletRevision(input: {
+  readonly wallet: Wallet;
+  readonly walletEvents: readonly MonetaryEvent[];
+  readonly correlationId: CorrelationId;
+}): void {
+  const maxRevision = maxWalletEventRevisionFromEvents(input.walletEvents);
+  if (input.wallet.eventRevision > maxRevision) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: input.correlationId,
+      details: { reason: 'conflict', field: 'eventRevision' },
+    });
+  }
 }

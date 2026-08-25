@@ -14,7 +14,6 @@ import {
   activityLogIdFromCommandId,
   calculateFamilyGroupBookingPriceKzt,
   incrementalRequirementIdFromPartyAddition,
-  monetaryEventIdFromCommandEffect,
   paymentIdFromBookingId,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
@@ -36,7 +35,6 @@ const instructorId = InstructorIdSchema.parse('instructor_party_emulator_01');
 const bookingId = BookingIdSchema.parse('booking_party_emulator_01');
 const bookingTwoId = BookingIdSchema.parse('booking_party_emulator_02');
 const paymentId = paymentIdFromBookingId(bookingId);
-const paymentTwoId = paymentIdFromBookingId(bookingTwoId);
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 const LESSON_PRICE = KztMinorUnitsSchema.parse(12_000);
 

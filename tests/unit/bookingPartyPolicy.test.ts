@@ -59,9 +59,7 @@ describe('bookingPartyPolicy', () => {
         ),
       ])
     ).toThrow();
-    expect(() =>
-      validatePartyParticipantIds([one[0]!, one[0]!])
-    ).toThrow();
+    expect(() => validatePartyParticipantIds([one[0]!, one[0]!])).toThrow();
     expect(() => validatePartyParticipantIds([])).toThrow();
     expect(BOOKING_PARTY_MIN).toBe(1);
     expect(BOOKING_PARTY_MAX).toBe(8);

@@ -88,6 +88,26 @@ const COMMAND_KIND_ALLOWED_EFFECTS = {
     revoke_instructor_relationship: ['participant_access_changed'],
     block_participant: ['participant_access_changed'],
     unblock_participant: ['participant_access_changed'],
+    create_booking_proposal: ['outbox_obligation_created'],
+    accept_booking_proposal: [
+        'booking_lifecycle_changed',
+        'payment_state_changed',
+        'wallet_balance_changed',
+        'resource_claim_changed',
+        'outbox_obligation_created',
+    ],
+    cancel_booking_proposal: ['outbox_obligation_created'],
+    expire_booking_proposal: ['outbox_obligation_created'],
+    create_booking_change_request: ['outbox_obligation_created'],
+    withdraw_booking_change_request: ['outbox_obligation_created'],
+    resolve_booking_change_request: [
+        'booking_lifecycle_changed',
+        'booking_schedule_changed',
+        'payment_state_changed',
+        'wallet_balance_changed',
+        'resource_claim_changed',
+        'outbox_obligation_created',
+    ],
 };
 function hasAuditEffectRegistryEntry(commandKind) {
     return COMMAND_KIND_ALLOWED_EFFECTS[commandKind] !== undefined;

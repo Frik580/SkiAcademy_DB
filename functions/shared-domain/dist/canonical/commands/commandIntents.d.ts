@@ -104,12 +104,20 @@ export declare const CommandIntentSchemaByKind: {
     create_booking_change_request: z.ZodObject<{
         bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking_change_request">, string>>;
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+        reason: z.ZodString;
     }, z.core.$strict>;
     withdraw_booking_change_request: z.ZodObject<{
         bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking_change_request">, string>>;
     }, z.core.$strict>;
     resolve_booking_change_request: z.ZodObject<{
         bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking_change_request">, string>>;
+        resolution: z.ZodEnum<{
+            rescheduled: "rescheduled";
+            booking_cancelled: "booking_cancelled";
+            no_change: "no_change";
+        }>;
+        refundAmount: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").KztMinorUnits, number>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>;
     expire_guest_reservation: z.ZodObject<{
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;

@@ -1,0 +1,561 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { initializeApp, getApps, deleteApp, type App } from 'firebase-admin/app';
+import { getFirestore, type Firestore } from 'firebase-admin/firestore';
+import {
+  AccountIdSchema,
+  AccountSchema,
+  AggregateRevisionSchema,
+  BookingIdSchema,
+  BookingProposalIdSchema,
+  CorrelationIdSchema,
+  InstructorIdSchema,
+  ParticipantIdSchema,
+  ParticipantManagementIdSchema,
+  SystemActorIdSchema,
+  WalletSchema,
+  accountCommandActor,
+  bookingIdFromAcceptedProposal,
+  instructorRelationshipExpiresAt,
+  instructorRelationshipIdFromPair,
+  paymentIdFromBookingId,
+  systemCommandActor,
+  timestampFromDate,
+  type CommandEnvelope,
+} from '@ski-academy/shared-domain';
+import { createAuthoritativeCommandClock } from '../commands/commandClock';
+import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
+import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
+
+const PROJECT_ID = 'ski-academy-proposal-emulator-test';
+const correlationId = CorrelationIdSchema.parse('correlation_proposal_emulator_01');
+const accountId = AccountIdSchema.parse('account_proposal_emulator_01');
+const instructorAccountId = AccountIdSchema.parse('account_proposal_emulator_instructor_01');
+const participantId = ParticipantIdSchema.parse('participant_proposal_emulator_01');
+const participantIdB = ParticipantIdSchema.parse('participant_proposal_emulator_02');
+const managementId = ParticipantManagementIdSchema.parse('management_proposal_emulator_01');
+const managementIdB = ParticipantManagementIdSchema.parse('management_proposal_emulator_02');
+const instructorId = InstructorIdSchema.parse('instructor_proposal_emulator_01');
+const proposalId = BookingProposalIdSchema.parse('booking_proposal_emulator_01');
+const relationshipId = instructorRelationshipIdFromPair({ participantId, instructorId });
+const bookingId = bookingIdFromAcceptedProposal(proposalId);
+const paymentId = paymentIdFromBookingId(bookingId);
+const systemActorId = SystemActorIdSchema.parse('system_proposal_emulator_01');
+const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+
+const BOOKING_PRICE_KZT = 12_000;
+const WALLET_START_KZT = 50_000;
+
+const calendarInput = {
+  localDate: '2026-01-15',
+  localTime: '09:00',
+  durationMinutes: 60,
+} as const;
+
+const runsOnFirestoreEmulator = Boolean(
+  process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
+);
+
+const COLLECTIONS_TO_CLEAR = [
+  'users',
+  'participants',
+  'participant_management',
+  'instructor_relationships',
+  'instructors',
+  'booking_proposals',
+  'bookings',
+  'payments',
+  'monetary_events',
+  'resource_claims',
+  'resource_claim_guards',
+  'activity_logs',
+  'domain_outbox',
+  'command_idempotency',
+] as const;
+
+let app: App;
+let firestore: Firestore;
+
+function environment(at = '2026-01-01T00:00:00.000Z') {
+  return { clock: createAuthoritativeCommandClock(new Date(at)) };
+}
+
+function createCommands(at = '2026-01-01T00:00:00.000Z') {
+  const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+  return createProductionCanonicalCommands(environment(at), executor);
+}
+
+function seedAccount(account = accountId) {
+  return AccountSchema.parse({
+    accountId: account,
+    lifecycle: { status: 'active' },
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'seed',
+      lastChangedByCommandId: 'seed',
+      correlationId,
+    },
+  });
+}
+
+function seedWallet(balance: number) {
+  return WalletSchema.parse({
+    accountId,
+    currency: 'KZT',
+    balance,
+    revision: 1,
+    eventRevision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+  });
+}
+
+function seedParticipantRecord(input: {
+  participantId: typeof participantId;
+  managementId: typeof managementId;
+}) {
+  return {
+    participantId: input.participantId,
+    displayName: `Emulator Participant ${input.participantId}`,
+    age: { kind: 'age_years', years: 20 },
+    skillLevel: 'intermediate',
+    discipline: 'ski',
+    management: { kind: 'managed', participantManagementId: input.managementId },
+    lifecycle: { status: 'active' },
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'seed',
+      lastChangedByCommandId: 'seed',
+      correlationId,
+    },
+  };
+}
+
+function seedManagementRecord(input: {
+  managementId: typeof managementId;
+  participantId: typeof participantId;
+}) {
+  return {
+    participantManagementId: input.managementId,
+    participantId: input.participantId,
+    accountId,
+    role: 'owner',
+    authority: 'self',
+    status: 'active',
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'seed',
+      lastChangedByCommandId: 'seed',
+      correlationId,
+    },
+  };
+}
+
+function seedRelationship() {
+  return {
+    instructorRelationshipId: relationshipId,
+    participantId,
+    instructorId,
+    basis: {
+      kind: 'guardian_permission',
+      participantManagementId: managementId,
+      grantedByAccountId: accountId,
+    },
+    validFrom: decidedAt,
+    expiresAt: instructorRelationshipExpiresAt(decidedAt),
+    status: 'active',
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'seed',
+      lastChangedByCommandId: 'seed',
+      correlationId,
+    },
+  };
+}
+
+async function clearCollections(collections: readonly string[]): Promise<void> {
+  for (const collection of collections) {
+    const snapshot = await firestore.collection(collection).get();
+    if (snapshot.empty) continue;
+    const batch = firestore.batch();
+    for (const doc of snapshot.docs) {
+      batch.delete(doc.ref);
+    }
+    await batch.commit();
+  }
+}
+
+async function seedInstructor(
+  id: typeof instructorId,
+  tariff: Readonly<{ pricePerHourKZT?: number; pricePerHour?: number }>
+): Promise<void> {
+  await firestore.collection('instructors').doc(id).set({
+    id,
+    name: `Emulator Instructor ${id}`,
+    isAvailable: true,
+    ...tariff,
+  });
+}
+
+async function seedSharedFixture(walletBalance = WALLET_START_KZT): Promise<void> {
+  await firestore.collection('users').doc(accountId).set(seedAccount());
+  await firestore.collection('users').doc(instructorAccountId).set(seedAccount(instructorAccountId));
+  await firestore
+    .collection('users')
+    .doc(accountId)
+    .collection('wallet')
+    .doc('state')
+    .set(seedWallet(walletBalance));
+
+  await firestore.collection('participants').doc(participantId).set(
+    seedParticipantRecord({ participantId, managementId })
+  );
+  await firestore.collection('participants').doc(participantIdB).set(
+    seedParticipantRecord({ participantId: participantIdB, managementId: managementIdB })
+  );
+
+  await firestore.collection('participant_management').doc(managementId).set(
+    seedManagementRecord({ managementId, participantId })
+  );
+  await firestore.collection('participant_management').doc(managementIdB).set(
+    seedManagementRecord({ managementId: managementIdB, participantId: participantIdB })
+  );
+
+  await firestore.collection('instructor_relationships').doc(relationshipId).set(seedRelationship());
+  await seedInstructor(instructorId, { pricePerHourKZT: BOOKING_PRICE_KZT });
+}
+
+function instructorContext(idempotencyKey: string) {
+  return {
+    actor: accountCommandActor(instructorAccountId),
+    exercisedCapability: 'instructor' as const,
+    idempotencyKey,
+    correlationId,
+    source: 'client_callable' as const,
+    calendarInput,
+    timezone: 'Asia/Almaty' as const,
+    transportMetadata: { instructor_id: instructorId },
+  };
+}
+
+function ownerContext(idempotencyKey: string, expectedRevision?: number) {
+  return {
+    actor: accountCommandActor(accountId),
+    exercisedCapability: 'account_owner' as const,
+    idempotencyKey,
+    correlationId,
+    source: 'client_callable' as const,
+    ...(expectedRevision === undefined
+      ? {}
+      : { expectedRevision: AggregateRevisionSchema.parse(expectedRevision) }),
+  };
+}
+
+function createProposalEnvelope(
+  idempotencyKey = 'proposal-create-emulator'
+): CommandEnvelope<'create_booking_proposal'> {
+  return {
+    kind: 'create_booking_proposal',
+    context: instructorContext(idempotencyKey),
+    intent: {
+      bookingProposalId: proposalId,
+      instructorId,
+      participantId,
+    },
+  };
+}
+
+function acceptProposalEnvelope(
+  idempotencyKey: string,
+  expectedRevision = 1
+): CommandEnvelope<'accept_booking_proposal'> {
+  return {
+    kind: 'accept_booking_proposal',
+    context: ownerContext(idempotencyKey, expectedRevision),
+    intent: { bookingProposalId: proposalId },
+  };
+}
+
+function declineProposalEnvelope(
+  idempotencyKey: string,
+  expectedRevision = 1
+): CommandEnvelope<'cancel_booking_proposal'> {
+  return {
+    kind: 'cancel_booking_proposal',
+    context: ownerContext(idempotencyKey, expectedRevision),
+    intent: { bookingProposalId: proposalId },
+  };
+}
+
+function expireProposalEnvelope(
+  idempotencyKey: string,
+  expectedRevision = 1
+): CommandEnvelope<'expire_booking_proposal'> {
+  return {
+    kind: 'expire_booking_proposal',
+    context: {
+      actor: systemCommandActor(systemActorId),
+      exercisedCapability: 'system',
+      idempotencyKey,
+      correlationId,
+      source: 'scheduler',
+      expectedRevision: AggregateRevisionSchema.parse(expectedRevision),
+    },
+    intent: { bookingProposalId: proposalId },
+  };
+}
+
+async function createOpenProposal(
+  commands: ReturnType<typeof createCommands>,
+  idempotencyKey = 'proposal-create-emulator'
+): Promise<void> {
+  const result = await commands.execute(createProposalEnvelope(idempotencyKey));
+  expect(result.status).toBe('success');
+}
+
+async function durableCounts() {
+  const [bookings, payments, monetaryEvents, activityLogs, idempotency, claims, proposals, wallet] =
+    await Promise.all([
+      firestore.collection('bookings').get(),
+      firestore.collection('payments').get(),
+      firestore.collection('monetary_events').get(),
+      firestore.collection('activity_logs').get(),
+      firestore.collection('command_idempotency').get(),
+      firestore.collection('resource_claims').get(),
+      firestore.collection('booking_proposals').get(),
+      firestore.doc(`users/${accountId}/wallet/state`).get(),
+    ]);
+
+  const successfulIdempotency = idempotency.docs.filter(
+    (doc) => doc.data().completionState === 'completed'
+  );
+
+  return {
+    bookings: bookings.size,
+    payments: payments.size,
+    monetaryEvents: monetaryEvents.size,
+    activityLogs: activityLogs.size,
+    successfulIdempotency: successfulIdempotency.length,
+    claims: claims.size,
+    proposals: proposals.size,
+    walletBalance: wallet.data()?.balance as number | undefined,
+    bookingIds: bookings.docs.map((doc) => doc.id),
+  };
+}
+
+describe.skipIf(!runsOnFirestoreEmulator)('booking proposal emulator races', () => {
+  beforeAll(() => {
+    process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
+    app = getApps().length > 0 ? getApps()[0]! : initializeApp({ projectId: PROJECT_ID });
+    firestore = getFirestore(app);
+  }, 30_000);
+
+  afterAll(async () => {
+    if (app) {
+      await deleteApp(app);
+    }
+  });
+
+  beforeEach(async () => {
+    await clearCollections([...COLLECTIONS_TO_CLEAR]);
+    await seedSharedFixture();
+  }, 30_000);
+
+  it(
+    'A. proposal creation reserves nothing (no booking/payment/claims/wallet change)',
+    async () => {
+      const commands = createCommands();
+      const result = await commands.execute(createProposalEnvelope());
+      expect(result.status).toBe('success');
+
+      const state = await durableCounts();
+      const proposal = (await firestore.doc(`booking_proposals/${proposalId}`).get()).data();
+
+      expect(proposal?.lifecycle).toEqual({ status: 'open' });
+      expect(state.bookings).toBe(0);
+      expect(state.payments).toBe(0);
+      expect(state.monetaryEvents).toBe(0);
+      expect(state.claims).toBe(0);
+      expect(state.walletBalance).toBe(WALLET_START_KZT);
+      expect(state.proposals).toBe(1);
+      expect(state.activityLogs).toBe(1);
+      expect(state.successfulIdempotency).toBe(1);
+    },
+    30_000
+  );
+
+  it(
+    'B. accept vs decline concurrent - one wins',
+    async () => {
+      const commands = createCommands();
+      await createOpenProposal(commands);
+
+      const results = await Promise.allSettled([
+        commands.execute(acceptProposalEnvelope('proposal-accept-race-01')),
+        commands.execute(declineProposalEnvelope('proposal-decline-race-01')),
+      ]);
+      const statuses = results.map((result) =>
+        result.status === 'fulfilled' ? result.value.status : 'rejected'
+      );
+      expect(statuses.filter((status) => status === 'success').length).toBe(1);
+
+      const proposal = (await firestore.doc(`booking_proposals/${proposalId}`).get()).data();
+      const state = await durableCounts();
+      const terminalStatus = proposal?.lifecycle?.status;
+
+      if (terminalStatus === 'accepted') {
+        expect(state.bookings).toBe(1);
+        expect(state.payments).toBe(1);
+        expect(state.claims).toBe(2);
+        expect(proposal?.lifecycle?.resultingBookingId).toBe(bookingId);
+      } else {
+        expect(terminalStatus).toBe('declined');
+        expect(state.bookings).toBe(0);
+        expect(state.payments).toBe(0);
+        expect(state.claims).toBe(0);
+      }
+
+      expect(
+        terminalStatus === 'accepted' && proposal?.lifecycle?.status === 'declined'
+      ).toBe(false);
+    },
+    30_000
+  );
+
+  it(
+    'C. double accept - one booking',
+    async () => {
+      const commands = createCommands();
+      await createOpenProposal(commands);
+
+      const results = await Promise.allSettled([
+        commands.execute(acceptProposalEnvelope('proposal-double-accept-01')),
+        commands.execute(acceptProposalEnvelope('proposal-double-accept-02')),
+      ]);
+      const statuses = results.map((result) =>
+        result.status === 'fulfilled' ? result.value.status : 'rejected'
+      );
+      expect(statuses.filter((status) => status === 'success').length).toBeGreaterThanOrEqual(1);
+
+      const state = await durableCounts();
+      expect(state.bookings).toBe(1);
+      expect(state.payments).toBe(1);
+      expect(state.monetaryEvents).toBe(1);
+      expect(state.claims).toBe(2);
+      expect(state.bookingIds).toEqual([bookingId]);
+    },
+    30_000
+  );
+
+  it(
+    'D. accept vs instructor contention',
+    async () => {
+      const commands = createCommands();
+      await createOpenProposal(commands);
+
+      const conflictingBookingId = BookingIdSchema.parse('booking_proposal_emulator_conflict');
+      const bookingEnvelope: CommandEnvelope<'create_confirmed_booking'> = {
+        kind: 'create_confirmed_booking',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'proposal-contention-booking',
+          correlationId,
+          source: 'client_callable',
+          calendarInput,
+          timezone: 'Asia/Almaty',
+        },
+        intent: {
+          bookingId: conflictingBookingId,
+          instructorId,
+          participantIds: [participantId],
+        },
+      };
+
+      const results = await Promise.allSettled([
+        commands.execute(acceptProposalEnvelope('proposal-contention-accept')),
+        commands.execute(bookingEnvelope),
+      ]);
+      const statuses = results.map((result) =>
+        result.status === 'fulfilled' ? result.value.status : 'rejected'
+      );
+      expect(statuses.filter((status) => status === 'success').length).toBeGreaterThanOrEqual(1);
+
+      const state = await durableCounts();
+      const proposal = (await firestore.doc(`booking_proposals/${proposalId}`).get()).data();
+
+      expect(state.bookings).toBeLessThanOrEqual(2);
+      if (proposal?.lifecycle?.status === 'accepted') {
+        expect(state.bookings).toBe(1);
+        expect(state.bookingIds).toContain(bookingId);
+      } else {
+        expect(['unavailable', 'open']).toContain(proposal?.lifecycle?.status);
+        expect(state.bookings).toBeGreaterThanOrEqual(1);
+      }
+    },
+    30_000
+  );
+
+  it(
+    'E. accept replay - no duplicate booking',
+    async () => {
+      const commands = createCommands();
+      await createOpenProposal(commands);
+
+      const envelope = acceptProposalEnvelope('proposal-accept-replay');
+      const first = await commands.execute(envelope);
+      const second = await commands.execute(envelope);
+      expect(first.status).toBe('success');
+      expect(second.status).toBe('success');
+
+      const state = await durableCounts();
+      expect(state.bookings).toBe(1);
+      expect(state.payments).toBe(1);
+      expect(state.monetaryEvents).toBe(1);
+      expect(state.claims).toBe(2);
+      expect(state.walletBalance).toBe(WALLET_START_KZT - BOOKING_PRICE_KZT);
+      expect((await firestore.doc(`payments/${paymentId}`).get()).exists).toBe(true);
+    },
+    30_000
+  );
+
+  it(
+    'F. accept vs expire if practical',
+    async () => {
+      const createCommandsAt = createCommands('2026-01-01T00:00:00.000Z');
+      await createOpenProposal(createCommandsAt, 'proposal-expire-race-create');
+
+      const commands = createCommands('2026-01-03T00:00:00.000Z');
+      const results = await Promise.allSettled([
+        commands.execute(acceptProposalEnvelope('proposal-expire-race-accept')),
+        commands.execute(expireProposalEnvelope('proposal-expire-race-expire')),
+      ]);
+      const statuses = results.map((result) =>
+        result.status === 'fulfilled' ? result.value.status : 'rejected'
+      );
+      expect(statuses.filter((status) => status === 'success').length).toBe(1);
+
+      const proposal = (await firestore.doc(`booking_proposals/${proposalId}`).get()).data();
+      const state = await durableCounts();
+      const terminalStatus = proposal?.lifecycle?.status;
+
+      if (terminalStatus === 'accepted') {
+        expect(state.bookings).toBe(1);
+        expect(state.payments).toBe(1);
+      } else {
+        expect(terminalStatus).toBe('expired');
+        expect(state.bookings).toBe(0);
+        expect(state.payments).toBe(0);
+        expect(state.claims).toBe(0);
+      }
+    },
+    30_000
+  );
+});

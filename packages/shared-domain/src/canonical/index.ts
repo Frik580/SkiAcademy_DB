@@ -19,6 +19,8 @@ export * from './bookingPartyFinance';
 export * from './familyGroupTariff';
 export * from './bookingCreation';
 export * from './guestBooking';
+export * from './bookingProposalPolicy';
+export * from './bookingChangeRequestPolicy';
 export * from './guestCredential';
 export * from './courseEnrollmentAttendanceAdminIssue';
 export * from './adminIssuePolicy';

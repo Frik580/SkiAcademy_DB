@@ -304,10 +304,47 @@ exports.CommandIntentSchemaByKind = {
         .object({
         bookingChangeRequestId: identifiers_1.BookingChangeRequestIdSchema,
         bookingId: identifiers_1.BookingIdSchema,
+        reason: zod_1.z.string().trim().min(1).max(2_000),
     })
         .strict(),
     withdraw_booking_change_request: bookingChangeRequestTargetIntent,
-    resolve_booking_change_request: bookingChangeRequestTargetIntent,
+    resolve_booking_change_request: zod_1.z
+        .object({
+        bookingChangeRequestId: identifiers_1.BookingChangeRequestIdSchema,
+        resolution: zod_1.z.enum(['rescheduled', 'booking_cancelled', 'no_change']),
+        refundAmount: primitives_1.KztMinorUnitsSchema.optional(),
+        reasonExplanation: zod_1.z.string().trim().min(1).max(1_000).optional(),
+    })
+        .strict()
+        .superRefine((intent, context) => {
+        if (intent.resolution === 'booking_cancelled' && intent.refundAmount === undefined) {
+            context.addIssue({
+                code: 'custom',
+                path: ['refundAmount'],
+                message: 'refundAmount is required when cancelling the booking',
+            });
+        }
+        if (intent.resolution === 'booking_cancelled') {
+            const explanation = intent.reasonExplanation?.trim();
+            if (!explanation) {
+                context.addIssue({
+                    code: 'custom',
+                    path: ['reasonExplanation'],
+                    message: 'reasonExplanation is required when cancelling the booking',
+                });
+            }
+        }
+        if (intent.resolution === 'rescheduled') {
+            const explanation = intent.reasonExplanation?.trim();
+            if (!explanation) {
+                context.addIssue({
+                    code: 'custom',
+                    path: ['reasonExplanation'],
+                    message: 'reasonExplanation is required when rescheduling the booking',
+                });
+            }
+        }
+    }),
     expire_guest_reservation: bookingTargetIntent,
     enforce_payment_start_gate: zod_1.z
         .object({

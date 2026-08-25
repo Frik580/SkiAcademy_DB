@@ -35,6 +35,8 @@ __exportStar(require("./bookingPartyFinance"), exports);
 __exportStar(require("./familyGroupTariff"), exports);
 __exportStar(require("./bookingCreation"), exports);
 __exportStar(require("./guestBooking"), exports);
+__exportStar(require("./bookingProposalPolicy"), exports);
+__exportStar(require("./bookingChangeRequestPolicy"), exports);
 __exportStar(require("./guestCredential"), exports);
 __exportStar(require("./courseEnrollmentAttendanceAdminIssue"), exports);
 __exportStar(require("./adminIssuePolicy"), exports);

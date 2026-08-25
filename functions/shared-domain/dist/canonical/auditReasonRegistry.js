@@ -48,6 +48,13 @@ const COMMAND_KIND_REASON_CODES = {
     revoke_instructor_relationship: ['participant_management', 'manual_override', 'other'],
     block_participant: ['participant_access_control', 'other'],
     unblock_participant: ['participant_access_control', 'other'],
+    create_booking_proposal: ['other'],
+    accept_booking_proposal: ['self_service_booking', 'other'],
+    cancel_booking_proposal: ['other'],
+    expire_booking_proposal: ['scheduled_system_action'],
+    create_booking_change_request: ['other'],
+    withdraw_booking_change_request: ['other'],
+    resolve_booking_change_request: ['manual_override', 'other'],
 };
 function hasAuditReasonRegistryEntry(commandKind) {
     return COMMAND_KIND_REASON_CODES[commandKind] !== undefined;

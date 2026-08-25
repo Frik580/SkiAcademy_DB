@@ -319,10 +319,47 @@ export const CommandIntentSchemaByKind = {
     .object({
       bookingChangeRequestId: BookingChangeRequestIdSchema,
       bookingId: BookingIdSchema,
+      reason: z.string().trim().min(1).max(2_000),
     })
     .strict(),
   withdraw_booking_change_request: bookingChangeRequestTargetIntent,
-  resolve_booking_change_request: bookingChangeRequestTargetIntent,
+  resolve_booking_change_request: z
+    .object({
+      bookingChangeRequestId: BookingChangeRequestIdSchema,
+      resolution: z.enum(['rescheduled', 'booking_cancelled', 'no_change']),
+      refundAmount: KztMinorUnitsSchema.optional(),
+      reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
+    })
+    .strict()
+    .superRefine((intent, context) => {
+      if (intent.resolution === 'booking_cancelled' && intent.refundAmount === undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['refundAmount'],
+          message: 'refundAmount is required when cancelling the booking',
+        });
+      }
+      if (intent.resolution === 'booking_cancelled') {
+        const explanation = intent.reasonExplanation?.trim();
+        if (!explanation) {
+          context.addIssue({
+            code: 'custom',
+            path: ['reasonExplanation'],
+            message: 'reasonExplanation is required when cancelling the booking',
+          });
+        }
+      }
+      if (intent.resolution === 'rescheduled') {
+        const explanation = intent.reasonExplanation?.trim();
+        if (!explanation) {
+          context.addIssue({
+            code: 'custom',
+            path: ['reasonExplanation'],
+            message: 'reasonExplanation is required when rescheduling the booking',
+          });
+        }
+      }
+    }),
   expire_guest_reservation: bookingTargetIntent,
   enforce_payment_start_gate: z
     .object({

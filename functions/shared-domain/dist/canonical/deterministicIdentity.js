@@ -6,6 +6,7 @@ exports.domainOutboxIdFromCommand = domainOutboxIdFromCommand;
 exports.monetaryEventIdFromCommandEffect = monetaryEventIdFromCommandEffect;
 exports.participantBlockIdFromDirection = participantBlockIdFromDirection;
 exports.instructorRelationshipIdFromPair = instructorRelationshipIdFromPair;
+exports.bookingIdFromAcceptedProposal = bookingIdFromAcceptedProposal;
 exports.paymentIdFromBookingId = paymentIdFromBookingId;
 exports.guestSubjectIdFromBookingId = guestSubjectIdFromBookingId;
 exports.participantManagementIdFromGuestLink = participantManagementIdFromGuestLink;
@@ -43,6 +44,9 @@ function instructorRelationshipIdFromPair(input) {
         input.participantId,
         input.instructorId,
     ]));
+}
+function bookingIdFromAcceptedProposal(proposalId) {
+    return identifiers_1.BookingIdSchema.parse(canonicalDeterministicHash(['booking:v1', 'proposal_acceptance', proposalId]));
 }
 function paymentIdFromBookingId(bookingId) {
     return identifiers_1.PaymentIdSchema.parse(canonicalDeterministicHash(['payment:v1', 'booking', bookingId]));

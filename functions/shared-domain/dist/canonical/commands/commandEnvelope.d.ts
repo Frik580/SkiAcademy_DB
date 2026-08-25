@@ -199,6 +199,16 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
     }, z.core.$strict> | z.ZodObject<{
         bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking_change_request">, string>>;
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
+        reason: z.ZodString;
+    }, z.core.$strict> | z.ZodObject<{
+        bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking_change_request">, string>>;
+        resolution: z.ZodEnum<{
+            rescheduled: "rescheduled";
+            booking_cancelled: "booking_cancelled";
+            no_change: "no_change";
+        }>;
+        refundAmount: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         subjectKind: z.ZodEnum<{
             booking: "booking";
@@ -410,6 +420,16 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
     }, z.core.$strict> | z.ZodObject<{
         bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking_change_request">, string>>;
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
+        reason: z.ZodString;
+    }, z.core.$strict> | z.ZodObject<{
+        bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking_change_request">, string>>;
+        resolution: z.ZodEnum<{
+            rescheduled: "rescheduled";
+            booking_cancelled: "booking_cancelled";
+            no_change: "no_change";
+        }>;
+        refundAmount: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         subjectKind: z.ZodEnum<{
             booking: "booking";
@@ -621,6 +641,16 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
     }, z.core.$strict> | z.ZodObject<{
         bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking_change_request">, string>>;
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
+        reason: z.ZodString;
+    }, z.core.$strict> | z.ZodObject<{
+        bookingChangeRequestId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking_change_request">, string>>;
+        resolution: z.ZodEnum<{
+            rescheduled: "rescheduled";
+            booking_cancelled: "booking_cancelled";
+            no_change: "no_change";
+        }>;
+        refundAmount: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         subjectKind: z.ZodEnum<{
             booking: "booking";

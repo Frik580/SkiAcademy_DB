@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { sha256Hex } from './sha256Hex';
 import {
   ActivityLogIdSchema,
+  BookingIdSchema,
   DomainOutboxIdSchema,
   GuestSubjectIdSchema,
   InstructorRelationshipIdSchema,
@@ -13,6 +14,7 @@ import {
   type AccountId,
   type ActivityLogId,
   type BookingId,
+  type BookingProposalId,
   type CommandId,
   type DomainOutboxId,
   type GuestSubjectId,
@@ -80,6 +82,12 @@ export function instructorRelationshipIdFromPair(input: {
       input.participantId,
       input.instructorId,
     ])
+  );
+}
+
+export function bookingIdFromAcceptedProposal(proposalId: BookingProposalId): BookingId {
+  return BookingIdSchema.parse(
+    canonicalDeterministicHash(['booking:v1', 'proposal_acceptance', proposalId])
   );
 }
 

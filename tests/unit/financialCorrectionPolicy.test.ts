@@ -5,8 +5,10 @@ import {
   planAdminRefundCorrection,
   planWriteOffCorrection,
   planCompensatingEventCorrection,
+  assertFinancialCorrectionIssueSubjectMatchesPayment,
   resolveFinancialAdminIssueForCorrection,
   AdminIssueSchema,
+  PaymentSchema,
   adminIssueIdFromDedupeKey,
   adminIssueDedupeKeyFromIdentity,
   financialReconciliationMismatchIdentity,
@@ -127,5 +129,61 @@ describe('financialCorrectionPolicy', () => {
     });
     expect(plan.monetaryEvents[0]?.correctsEventId).toBe('monetary_event_bad_01');
     expect(plan.monetaryEvents[0]?.eventKind).toBe('correction');
+  });
+
+  it('rejects unrelated admin issue subject for payment correction', () => {
+    const identity = financialReconciliationMismatchIdentity({
+      subjectKind: 'booking',
+      subjectId: 'booking_other_01',
+      reconciliationScope: 'payment_projection',
+    });
+    const issue = AdminIssueSchema.parse({
+      issueId: adminIssueIdFromDedupeKey(adminIssueDedupeKeyFromIdentity(identity)),
+      kind: 'financial_reconciliation_mismatch',
+      subjectRef: { subjectKind: 'booking', bookingId: 'booking_other_01' },
+      reconciliationScope: 'payment_projection',
+      lifecycle: { status: 'open', openedAt: decidedAt, lastDetectedAt: decidedAt },
+      severity: 'urgent',
+      blocksOutcome: false,
+      blocksDelivery: false,
+      dedupeKey: adminIssueDedupeKeyFromIdentity(identity),
+      revision: 1,
+      correlationId: 'correlation_issue',
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_issue',
+        lastChangedByCommandId: 'command_issue',
+        correlationId: 'correlation_issue',
+      },
+    });
+    const payment = PaymentSchema.parse({
+      paymentId: 'payment_fin_01',
+      subjectType: 'booking',
+      subjectId: 'booking_fin_01',
+      currency: 'KZT',
+      originalPrice: 100_000,
+      price: 100_000,
+      paidAmount: 100_000,
+      refundedAmount: 0,
+      retainedAmount: 100_000,
+      settledAmount: 100_000,
+      writtenOffAmount: 0,
+      outstandingAmount: 0,
+      paymentStatus: 'paid',
+      incrementalRequirements: [],
+      revision: 1,
+      eventRevision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+    });
+
+    expect(() =>
+      assertFinancialCorrectionIssueSubjectMatchesPayment(
+        'correlation_resolve',
+        issue,
+        payment
+      )
+    ).toThrow();
   });
 });

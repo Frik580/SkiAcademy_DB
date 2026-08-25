@@ -5,14 +5,26 @@ import {
   AccountSchema,
   AggregateRevisionSchema,
   CorrelationIdSchema,
+  INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS,
+  ParticipantIdSchema,
+  ParticipantManagementIdSchema,
+  InstructorIdSchema,
   PaymentSchema,
   WalletSchema,
+  addMillisecondsToCanonicalTimestamp,
   accountCommandActor,
   adminIssueIdFromDedupeKey,
   adminIssueDedupeKeyFromIdentity,
+  attendancePaymentConflictIdentity,
+  attendanceIdFromBookingIdentity,
+  ATTENDANCE_IDENTITY_STRATEGY_VERSION,
   financialReconciliationMismatchIdentity,
+  initialBookingOccurrenceIdFromBookingId,
   monetaryEventIdFromCommandEffect,
+  paymentIdFromBookingId,
   resolveCommandIdempotencyIdentity,
+  systemCommandActor,
+  activityLogIdFromCommandId,
   timestampFromDate,
   type CommandEnvelope,
   type Payment,
@@ -28,6 +40,14 @@ const correlationIdB = CorrelationIdSchema.parse('correlation_fin_corr_emulator_
 const accountId = 'account_fin_corr_emulator_01';
 const paymentId = 'payment_fin_corr_emulator_01';
 const bookingId = 'booking_fin_corr_emulator_01';
+const raceBookingId = 'booking_fin_corr_race_01';
+const racePaymentId = paymentIdFromBookingId(raceBookingId);
+const raceParticipantId = ParticipantIdSchema.parse('participant_fin_corr_race_01');
+const raceManagementId = ParticipantManagementIdSchema.parse('management_fin_corr_race_01');
+const raceInstructorId = InstructorIdSchema.parse('instructor_fin_corr_race_01');
+const raceOccurrenceId = initialBookingOccurrenceIdFromBookingId(raceBookingId);
+const BOOKING_PRICE_KZT = 12_000;
+const WALLET_START_KZT = 50_000;
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 
 let app: App;
@@ -561,6 +581,527 @@ describe.skipIf(!runsOnFirestoreEmulator)('finance correction commands emulator'
       expect(
         (await firestore.collection('payments').doc(paymentId).get()).data()?.writtenOffAmount
       ).toBe(10_000);
+    },
+    30_000
+  );
+
+  it(
+    'F. correction vs cancellation refund serializes without impossible finance state',
+    async () => {
+      await clearCollections([
+        'users',
+        'participants',
+        'participant_management',
+        'instructors',
+        'bookings',
+        'payments',
+        'monetary_events',
+        'admin_issues',
+        'activity_logs',
+        'command_idempotency',
+        'resource_claims',
+        'attendance',
+      ]);
+      await firestore.collection('users').doc(accountId).set(seedAccount());
+      await firestore.collection('users').doc(accountId).collection('wallet').doc('state').set(
+        seedWallet(WALLET_START_KZT)
+      );
+      await firestore.doc(`participants/${raceParticipantId}`).set({
+        participantId: raceParticipantId,
+        displayName: 'Race Participant',
+        age: { kind: 'age_years', years: 20 },
+        skillLevel: 'intermediate',
+        discipline: 'ski',
+        management: { kind: 'managed', participantManagementId: raceManagementId },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'seed',
+          lastChangedByCommandId: 'seed',
+          correlationId,
+        },
+      });
+      await firestore.doc(`participant_management/${raceManagementId}`).set({
+        participantManagementId: raceManagementId,
+        participantId: raceParticipantId,
+        accountId,
+        role: 'owner',
+        authority: 'self',
+        status: 'active',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'seed',
+          lastChangedByCommandId: 'seed',
+          correlationId,
+        },
+      });
+      await firestore.doc(`instructors/${raceInstructorId}`).set({
+        id: raceInstructorId,
+        name: 'Race Coach',
+        pricePerHourKZT: BOOKING_PRICE_KZT,
+        isAvailable: true,
+      });
+
+      const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+      const createResult = await setupCommands.execute({
+        kind: 'create_confirmed_booking',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'create-race-booking-f',
+          correlationId,
+          source: 'client_callable',
+          calendarInput: {
+            localDate: '2026-01-15',
+            localTime: '09:00',
+            durationMinutes: 60,
+          },
+          timezone: 'Asia/Almaty',
+        },
+        intent: {
+          bookingId: raceBookingId,
+          instructorId: raceInstructorId,
+          participantIds: [raceParticipantId],
+        },
+      });
+      expect(createResult.status).toBe('success');
+
+      const bookingDoc = await firestore.doc(`bookings/${raceBookingId}`).get();
+      const startsAt = bookingDoc.data()?.occurrence.interval.startsAt;
+      const requestAt = addMillisecondsToCanonicalTimestamp(
+        startsAt,
+        -INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS
+      );
+      const requestIso = new Date(
+        requestAt.seconds * 1000 + requestAt.nanoseconds / 1_000_000
+      ).toISOString();
+      const commands = createCommands(requestIso);
+      const bookingRevision = AggregateRevisionSchema.parse(bookingDoc.data()?.revision ?? 1);
+
+      const cancelEnvelope: CommandEnvelope<'request_booking_cancellation'> = {
+        kind: 'request_booking_cancellation',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'cancel-race-f',
+          correlationId,
+          source: 'client_callable',
+          expectedRevision: bookingRevision,
+          calendarInput: {
+            localDate: '2026-01-15',
+            localTime: '09:00',
+            durationMinutes: 60,
+          },
+          timezone: 'Asia/Almaty',
+        },
+        intent: { bookingId: raceBookingId },
+      };
+      const paymentBefore = (await firestore.doc(`payments/${racePaymentId}`).get()).data();
+      const paymentRevision = AggregateRevisionSchema.parse(paymentBefore?.revision ?? 1);
+      const correctionEnvelope: CommandEnvelope<'record_financial_correction'> = {
+        kind: 'record_financial_correction',
+        context: adminContext('corr-race-f', correlationIdB),
+        intent: {
+          correctionKind: 'admin_refund',
+          paymentId: racePaymentId,
+          amount: 4_000,
+          expectedPaymentRevision: paymentRevision,
+          walletAccountId: accountId,
+          expectedWalletRevision: 1,
+          reasonExplanation: 'Concurrent correction refund',
+        },
+      };
+
+      const settled = await Promise.allSettled([
+        commands.execute(cancelEnvelope),
+        commands.execute(correctionEnvelope),
+      ]);
+      expect(settled.every((outcome) => outcome.status === 'fulfilled')).toBe(true);
+
+      const payment = (await firestore.doc(`payments/${racePaymentId}`).get()).data();
+      const booking = (await firestore.doc(`bookings/${raceBookingId}`).get()).data();
+      expect(payment?.refundedAmount).toBeLessThanOrEqual(payment?.paidAmount ?? 0);
+      expect(payment?.retainedAmount).toBe(
+        (payment?.paidAmount ?? 0) - (payment?.refundedAmount ?? 0)
+      );
+      expect(payment?.price).toBe(
+        (payment?.settledAmount ?? 0) +
+          (payment?.writtenOffAmount ?? 0) +
+          (payment?.outstandingAmount ?? 0)
+      );
+      expect(booking?.lifecycle.status === 'cancelled' || (payment?.refundedAmount ?? 0) > 0).toBe(
+        true
+      );
+      const refundEvents = (await firestore.collection('monetary_events').get()).docs.filter(
+        (doc) => doc.data().eventKind === 'refund_to_wallet'
+      );
+      expect(refundEvents.length).toBeLessThanOrEqual(2);
+    },
+    30_000
+  );
+
+  it(
+    'I. attendance_payment_conflict correction resolves issue without mutating attendance',
+    async () => {
+      await clearCollections([
+        'users',
+        'participants',
+        'participant_management',
+        'instructors',
+        'bookings',
+        'payments',
+        'monetary_events',
+        'admin_issues',
+        'activity_logs',
+        'command_idempotency',
+        'resource_claims',
+        'attendance',
+      ]);
+      await firestore.collection('users').doc(accountId).set(seedAccount());
+      await firestore.collection('users').doc(accountId).collection('wallet').doc('state').set(
+        seedWallet(WALLET_START_KZT)
+      );
+      await firestore.doc(`participants/${raceParticipantId}`).set({
+        participantId: raceParticipantId,
+        displayName: 'Conflict Participant',
+        age: { kind: 'age_years', years: 20 },
+        skillLevel: 'intermediate',
+        discipline: 'ski',
+        management: { kind: 'managed', participantManagementId: raceManagementId },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'seed',
+          lastChangedByCommandId: 'seed',
+          correlationId,
+        },
+      });
+      await firestore.doc(`participant_management/${raceManagementId}`).set({
+        participantManagementId: raceManagementId,
+        participantId: raceParticipantId,
+        accountId,
+        role: 'owner',
+        authority: 'self',
+        status: 'active',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'seed',
+          lastChangedByCommandId: 'seed',
+          correlationId,
+        },
+      });
+      await firestore.doc(`instructors/${raceInstructorId}`).set({
+        id: raceInstructorId,
+        name: 'Conflict Coach',
+        pricePerHourKZT: BOOKING_PRICE_KZT,
+        isAvailable: true,
+      });
+
+      const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+      await setupCommands.execute({
+        kind: 'create_confirmed_booking',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability: 'account_owner',
+          idempotencyKey: 'create-conflict-booking-i',
+          correlationId,
+          source: 'client_callable',
+          calendarInput: {
+            localDate: '2026-01-15',
+            localTime: '09:00',
+            durationMinutes: 60,
+          },
+          timezone: 'Asia/Almaty',
+        },
+        intent: {
+          bookingId: raceBookingId,
+          instructorId: raceInstructorId,
+          participantIds: [raceParticipantId],
+        },
+      });
+      await setupCommands.execute({
+        kind: 'rollback_unpaid_booking_party_additions',
+        context: {
+          actor: systemCommandActor('system_freeze_conflict_i'),
+          exercisedCapability: 'system',
+          idempotencyKey: 'freeze-conflict-i',
+          correlationId,
+          source: 'scheduler',
+        },
+        intent: { bookingId: raceBookingId },
+      });
+      await firestore.doc('users/account_instructor_fin_corr_race').set(
+        AccountSchema.parse({
+          accountId: 'account_instructor_fin_corr_race',
+          lifecycle: { status: 'active' },
+          revision: 1,
+          createdAt: decidedAt,
+          updatedAt: decidedAt,
+          audit: {
+            createdByCommandId: 'seed',
+            lastChangedByCommandId: 'seed',
+            correlationId,
+          },
+        })
+      );
+
+      await firestore.doc(`payments/${racePaymentId}`).update({
+        paidAmount: 0,
+        retainedAmount: 0,
+        settledAmount: 0,
+        outstandingAmount: BOOKING_PRICE_KZT,
+        paymentStatus: 'unpaid',
+      });
+
+      const lessonEndIso = '2026-01-15T10:00:00.000Z';
+      const attendanceCommands = createCommands(lessonEndIso);
+      await attendanceCommands.execute({
+        kind: 'enforce_payment_start_gate',
+        context: {
+          actor: systemCommandActor('system_gate_i'),
+          exercisedCapability: 'system',
+          idempotencyKey: 'gate-i',
+          correlationId,
+          source: 'scheduler',
+        },
+        intent: { subjectKind: 'booking', subjectId: raceBookingId },
+      });
+      const presentEnvelope: CommandEnvelope<'record_booking_attendance'> = {
+        kind: 'record_booking_attendance',
+        context: {
+          actor: accountCommandActor('account_instructor_fin_corr_race'),
+          exercisedCapability: 'instructor',
+          idempotencyKey: 'present-conflict-i',
+          correlationId,
+          source: 'client_callable',
+          transportMetadata: { instructor_id: raceInstructorId },
+        },
+        intent: {
+          bookingId: raceBookingId,
+          participantId: raceParticipantId,
+          attendanceStatus: 'present',
+        },
+      };
+      expect((await attendanceCommands.execute(presentEnvelope)).status).toBe('success');
+
+      const attendanceId = attendanceIdFromBookingIdentity({
+        strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+        subjectKind: 'booking',
+        occurrenceId: raceOccurrenceId,
+        participantId: raceParticipantId,
+      });
+      const attendanceBefore = (await firestore.doc(`attendance/${attendanceId}`).get()).data();
+      const conflictIssueId = adminIssueIdFromDedupeKey(
+        adminIssueDedupeKeyFromIdentity(
+          attendancePaymentConflictIdentity({
+            bookingId: raceBookingId,
+            occurrenceId: raceOccurrenceId,
+            participantId: raceParticipantId,
+          })
+        )
+      );
+      const unrelatedIssueId = adminIssueIdFromDedupeKey(
+        adminIssueDedupeKeyFromIdentity(
+          financialReconciliationMismatchIdentity({
+            subjectKind: 'booking',
+            subjectId: raceBookingId,
+            reconciliationScope: 'payment_invariants',
+          })
+        )
+      );
+      await firestore.collection('admin_issues').doc(unrelatedIssueId).set({
+        issueId: unrelatedIssueId,
+        kind: 'financial_reconciliation_mismatch',
+        subjectRef: { subjectKind: 'booking', bookingId: raceBookingId },
+        reconciliationScope: 'payment_invariants',
+        lifecycle: { status: 'open', openedAt: decidedAt, lastDetectedAt: decidedAt },
+        severity: 'urgent',
+        blocksOutcome: false,
+        blocksDelivery: false,
+        dedupeKey: adminIssueDedupeKeyFromIdentity(
+          financialReconciliationMismatchIdentity({
+            subjectKind: 'booking',
+            subjectId: raceBookingId,
+            reconciliationScope: 'payment_invariants',
+          })
+        ),
+        revision: 1,
+        correlationId: 'correlation_unrelated_issue',
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'seed_unrelated',
+          lastChangedByCommandId: 'seed_unrelated',
+          correlationId: 'correlation_unrelated_issue',
+        },
+      });
+
+      const historicalEventId = 'monetary_event_conflict_i_seed';
+      await firestore.collection('monetary_events').doc(historicalEventId).set({
+        eventId: historicalEventId,
+        eventKind: 'wallet_debit',
+        currency: 'KZT',
+        paymentId: racePaymentId,
+        subjectType: 'booking',
+        subjectId: raceBookingId,
+        paymentEffect: {
+          paidAmountDelta: 0,
+          settledAmountDelta: 0,
+          outstandingAmountDelta: 0,
+        },
+        sourceKind: 'wallet',
+        actor: { kind: 'system', systemActorId: 'seed' },
+        commandId: 'command_seed_event_i',
+        correlationId: 'correlation_seed_event_i',
+        paymentEventRevision: 1,
+        occurredAt: decidedAt,
+        recordedAt: decidedAt,
+      });
+
+      const paymentRevision = AggregateRevisionSchema.parse(
+        (await firestore.doc(`payments/${racePaymentId}`).get()).data()?.revision ?? 1
+      );
+      const conflictIssueRevision = AggregateRevisionSchema.parse(
+        (await firestore.doc(`admin_issues/${conflictIssueId}`).get()).data()?.revision ?? 1
+      );
+      const correctionEnvelope: CommandEnvelope<'record_financial_correction'> = {
+        kind: 'record_financial_correction',
+        context: adminContext('corr-conflict-i'),
+        intent: {
+          correctionKind: 'compensating_event',
+          paymentId: racePaymentId,
+          correctsEventId: historicalEventId,
+          paymentEffect: {
+            paidAmountDelta: BOOKING_PRICE_KZT,
+            settledAmountDelta: BOOKING_PRICE_KZT,
+            outstandingAmountDelta: -BOOKING_PRICE_KZT,
+          },
+          expectedPaymentRevision: paymentRevision,
+          adminIssueId: conflictIssueId,
+          expectedAdminIssueRevision: conflictIssueRevision,
+          reasonExplanation: 'Fund attendance conflict booking',
+        },
+      };
+
+      const commands = createCommands(lessonEndIso);
+      const result = await commands.execute(correctionEnvelope);
+      expect(result.status).toBe('success');
+      await commands.execute(correctionEnvelope);
+
+      const attendanceAfter = (await firestore.doc(`attendance/${attendanceId}`).get()).data();
+      expect(attendanceAfter).toEqual(attendanceBefore);
+      expect(attendanceAfter?.attendanceStatus).toBe('present');
+
+      const payment = (await firestore.doc(`payments/${racePaymentId}`).get()).data();
+      expect(payment?.paidAmount).toBe(BOOKING_PRICE_KZT);
+      expect(payment?.outstandingAmount).toBe(0);
+
+      const conflictIssue = (await firestore.doc(`admin_issues/${conflictIssueId}`).get()).data();
+      expect(conflictIssue?.lifecycle?.status).toBe('resolved');
+      const unrelatedIssue = (await firestore.doc(`admin_issues/${unrelatedIssueId}`).get()).data();
+      expect(unrelatedIssue?.lifecycle?.status).toBe('open');
+
+      const historicalAfter = (
+        await firestore.collection('monetary_events').doc(historicalEventId).get()
+      ).data();
+      expect(historicalAfter?.eventId).toBe(historicalEventId);
+      const correctionIdentity = resolveCommandIdempotencyIdentity(correctionEnvelope);
+      const correctionEventId = monetaryEventIdFromCommandEffect(correctionIdentity.commandKey, 0);
+      expect((await firestore.collection('monetary_events').doc(correctionEventId).get()).exists).toBe(
+        true
+      );
+      expect(
+        (await firestore.doc(`activity_logs/${activityLogIdFromCommandId(correctionIdentity.commandKey)}`).get())
+          .exists
+      ).toBe(true);
+    },
+    30_000
+  );
+
+  it(
+    'O. rebuild_payment_projection vs provider event serializes with consistent eventRevision',
+    async () => {
+      await seedCorrectionFixture();
+      const seedEventId = 'monetary_event_rebuild_o_seed';
+      await firestore.collection('monetary_events').doc(seedEventId).set({
+        eventId: seedEventId,
+        eventKind: 'external_payment',
+        currency: 'KZT',
+        paymentId,
+        subjectType: 'booking',
+        subjectId: bookingId,
+        paymentEffect: {
+          paidAmountDelta: 100_000,
+          settledAmountDelta: 100_000,
+          outstandingAmountDelta: -100_000,
+        },
+        sourceKind: 'manual_external',
+        manualReference: 'seed-rebuild-o',
+        actor: { kind: 'system', systemActorId: 'seed' },
+        commandId: 'command_seed_rebuild_o',
+        correlationId: 'correlation_seed_rebuild_o',
+        paymentEventRevision: 1,
+        occurredAt: decidedAt,
+        recordedAt: decidedAt,
+      });
+      await firestore.collection('payments').doc(paymentId).set(
+        seedPayment({
+          paidAmount: 80_000,
+          retainedAmount: 80_000,
+          settledAmount: 80_000,
+          outstandingAmount: 20_000,
+          paymentStatus: 'partially_paid',
+          eventRevision: 1,
+        })
+      );
+
+      const commands = createCommands();
+      const paymentRevision = 1;
+      const rebuildEnvelope: CommandEnvelope<'record_audit_correction'> = {
+        kind: 'record_audit_correction',
+        context: adminContext('rebuild-race-o', correlationIdB),
+        intent: {
+          operation: 'rebuild_payment_projection',
+          paymentId,
+          expectedPaymentRevision: paymentRevision,
+        },
+      };
+      const providerEnvelope: CommandEnvelope<'record_provider_payment_event'> = {
+        kind: 'record_provider_payment_event',
+        context: adminContext('provider-race-o'),
+        intent: {
+          paymentId,
+          amount: 10_000,
+          sourceKind: 'manual_external',
+          manualReference: 'bank-transfer-race-o',
+        },
+      };
+
+      const settled = await Promise.allSettled([
+        commands.execute(rebuildEnvelope),
+        commands.execute(providerEnvelope),
+      ]);
+      expect(settled.every((outcome) => outcome.status === 'fulfilled')).toBe(true);
+
+      const payment = (await firestore.collection('payments').doc(paymentId).get()).data();
+      const events = await firestore.collection('monetary_events').get();
+      const maxEventRevision = events.docs.reduce(
+        (max, doc) => Math.max(max, doc.data().paymentEventRevision ?? 0),
+        0
+      );
+      expect(payment?.eventRevision).toBe(maxEventRevision);
+      expect(payment?.paidAmount).toBeGreaterThanOrEqual(80_000);
+      expect(payment?.retainedAmount).toBe(
+        (payment?.paidAmount ?? 0) - (payment?.refundedAmount ?? 0)
+      );
     },
     30_000
   );

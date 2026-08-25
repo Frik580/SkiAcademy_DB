@@ -25,7 +25,7 @@ import {
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
-import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
+import { createInMemoryCanonicalTransactionExecutor, type CanonicalTransactionExecutor } from '../transactions';
 
 const correlationId = CorrelationIdSchema.parse('correlation_party_cmd_01');
 const accountId = AccountIdSchema.parse('account_party_cmd_01');
@@ -192,6 +192,30 @@ function seedBase(walletBalance = 50_000) {
 
 function isoFromTimestamp(timestamp: { seconds: number; nanoseconds: number }) {
   return new Date(canonicalTimestampToEpochMs(timestamp)).toISOString();
+}
+
+function createAbortFirstTransactionCallbackExecutor(
+  inner: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>
+): CanonicalTransactionExecutor & {
+  snapshot: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>['snapshot'];
+} {
+  let callbackInvocations = 0;
+  return {
+    snapshot: () => inner.snapshot(),
+    async runAtomic(input) {
+      return inner.runAtomic({
+        ...input,
+        run: async (session) => {
+          callbackInvocations += 1;
+          const result = await input.run(session);
+          if (callbackInvocations === 1) {
+            throw new Error('TRANSACTION_ABORTED');
+          }
+          return result;
+        },
+      });
+    },
+  };
 }
 
 async function createConfirmedBooking(
@@ -452,6 +476,29 @@ describe('booking party commands', () => {
     expect(booking?.party.participantIds).toEqual([participantId]);
     expect(booking?.occurrence.serviceParty.frozenAt).toBeDefined();
     expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data.price).toBe(12_000);
+  });
+
+  it('does not duplicate participant claim creates when transaction callback is retried', async () => {
+    const inner = createInMemoryCanonicalTransactionExecutor(seedBase(), { simulateRetry: true });
+    const executor = createAbortFirstTransactionCallbackExecutor(inner);
+    await createConfirmedBooking(executor);
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.interval
+      .startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS
+    );
+    const commands = createProductionCanonicalCommands(environment(isoFromTimestamp(requestAt)), executor);
+    const result = await commands.execute(
+      partyEnvelope({
+        idempotencyKey: 'party-retry-claim-safe',
+        participantIdsToAdd: [participantTwoId],
+      })
+    );
+    expect(result.status).toBe('success');
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('resource_claims/')).length
+    ).toBe(3);
   });
 
   it('replays successful party add without duplicate refund or claim', async () => {

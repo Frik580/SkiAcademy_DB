@@ -175,6 +175,8 @@ function changeBookingPartyHandler(
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'change_booking_party'> = {
     read: async (session) => {
+      acquireClaimPlans = [];
+      releaseClaimPlans = [];
       const decidedAt = timestampFromDate(environment.clock.now());
       const bookingRead = await session.tx.get({ path: bookingDocumentPath });
       session.plan.planRead({ path: bookingDocumentPath, category: 'aggregate' });
@@ -779,6 +781,8 @@ function rollbackUnpaidBookingPartyAdditionsHandler(
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'rollback_unpaid_booking_party_additions'> =
     {
       read: async (session) => {
+        releaseClaimPlans = [];
+        freezeOnly = false;
         const bookingRead = await session.tx.get({ path: bookingDocumentPath });
         session.plan.planRead({ path: bookingDocumentPath, category: 'aggregate' });
         const parsedBooking = parseBooking(bookingRead.exists ? bookingRead.data : undefined);

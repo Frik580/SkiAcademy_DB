@@ -25,6 +25,41 @@ const GuestActionTokenPayloadSchema = zod_1.z
     nonce: zod_1.z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
 })
     .strict();
+const HMAC_SHA256_HEX_LENGTH = 64;
+const HMAC_SHA256_BYTE_LENGTH = 32;
+function parseFixedLengthHexSignature(signature) {
+    if (signature.length !== HMAC_SHA256_HEX_LENGTH) {
+        return undefined;
+    }
+    if (!/^[0-9a-fA-F]{64}$/.test(signature)) {
+        return undefined;
+    }
+    try {
+        const bytes = (0, utils_js_1.hexToBytes)(signature.toLowerCase());
+        return bytes.length === HMAC_SHA256_BYTE_LENGTH ? bytes : undefined;
+    }
+    catch {
+        return undefined;
+    }
+}
+function timingSafeEqualBytes(left, right) {
+    if (left.length !== right.length) {
+        return false;
+    }
+    let diff = 0;
+    for (let index = 0; index < left.length; index += 1) {
+        diff |= left[index] ^ right[index];
+    }
+    return diff === 0;
+}
+function hmacSignaturesMatch(expectedHex, providedSignature) {
+    const expectedBytes = parseFixedLengthHexSignature(expectedHex);
+    const providedBytes = parseFixedLengthHexSignature(providedSignature);
+    if (expectedBytes === undefined || providedBytes === undefined) {
+        return false;
+    }
+    return timingSafeEqualBytes(expectedBytes, providedBytes);
+}
 function base64UrlEncode(bytes) {
     if (typeof Buffer !== 'undefined') {
         return Buffer.from(bytes).toString('base64url');
@@ -70,7 +105,7 @@ function verifyGuestActionCredentialParts(input) {
         nonce: input.nonce,
     });
     const expectedSignature = signPayload(input.secret, payload);
-    if (expectedSignature.toLowerCase() !== input.signature.toLowerCase()) {
+    if (!hmacSignaturesMatch(expectedSignature, input.signature)) {
         return { valid: false, reason: 'invalid_signature' };
     }
     if ((0, primitives_1.compareCanonicalTimestamps)(input.now, payload.expiresAt) >= 0) {
@@ -91,7 +126,7 @@ function verifyGuestActionToken(input) {
     }
     const encodedPayload = input.token.slice(0, separatorIndex);
     const providedSignature = input.token.slice(separatorIndex + 1);
-    if (!/^[0-9a-f]{64}$/i.test(providedSignature)) {
+    if (parseFixedLengthHexSignature(providedSignature) === undefined) {
         return { valid: false, reason: 'malformed' };
     }
     let parsedJson;
@@ -107,7 +142,7 @@ function verifyGuestActionToken(input) {
     }
     const payload = parsedPayload.data;
     const expectedSignature = signPayload(input.secret, payload);
-    if (expectedSignature.toLowerCase() !== providedSignature.toLowerCase()) {
+    if (!hmacSignaturesMatch(expectedSignature, providedSignature)) {
         return { valid: false, reason: 'invalid_signature' };
     }
     if (payload.bookingId !== input.expectedBookingId) {

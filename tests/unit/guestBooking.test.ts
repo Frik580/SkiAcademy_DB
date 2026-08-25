@@ -5,7 +5,9 @@ import {
   guestSubjectIdFromBookingId,
   issueGuestActionToken,
   resolveGuestLessonReservationExpiresAt,
+  signGuestActionCredential,
   timestampFromDate,
+  verifyGuestActionCredentialParts,
   verifyGuestActionToken,
   GuestSubjectIdSchema,
 } from '@ski-academy/shared-domain';
@@ -137,5 +139,114 @@ describe('guest action token', () => {
   it('derives guest subject identity from booking id', () => {
     expect(GuestSubjectIdSchema.safeParse(guestSubjectId).success).toBe(true);
     expect(guestSubjectIdFromBookingId(bookingId)).toBe(guestSubjectId);
+  });
+});
+
+describe('guest action credential signature verification', () => {
+  const expiresAt = timestampFromDate(new Date('2026-01-01T12:00:00.000Z'));
+  const now = timestampFromDate(new Date('2026-01-01T11:00:00.000Z'));
+  const nonce = createGuestActionTokenNonce();
+
+  function credentialParts(signature: string) {
+    return verifyGuestActionCredentialParts({
+      secret,
+      nonce,
+      signature,
+      now,
+      expectedBookingId: bookingId,
+      expectedGuestSubjectId: guestSubjectId,
+      expectedPurpose: 'cancel_pending_reservation',
+      expiresAt,
+    });
+  }
+
+  function validSignature(): string {
+    return signGuestActionCredential(secret, {
+      version: 'guest-token:v1',
+      bookingId,
+      guestSubjectId,
+      purpose: 'cancel_pending_reservation',
+      expiresAt,
+      nonce,
+    });
+  }
+
+  it('accepts a valid signature', () => {
+    expect(credentialParts(validSignature())).toEqual({
+      valid: true,
+      payload: {
+        version: 'guest-token:v1',
+        bookingId,
+        guestSubjectId,
+        purpose: 'cancel_pending_reservation',
+        expiresAt,
+        nonce,
+      },
+    });
+  });
+
+  it('rejects a same-length wrong signature', () => {
+    const signature = validSignature();
+    const wrongSignature = `${signature.slice(0, -1)}${signature.endsWith('a') ? 'b' : 'a'}`;
+    expect(credentialParts(wrongSignature)).toEqual({ valid: false, reason: 'invalid_signature' });
+  });
+
+  it('rejects a one-byte-short signature', () => {
+    expect(credentialParts(validSignature().slice(0, -1))).toEqual({
+      valid: false,
+      reason: 'invalid_signature',
+    });
+  });
+
+  it('rejects a one-byte-long signature', () => {
+    expect(credentialParts(`${validSignature()}a`)).toEqual({
+      valid: false,
+      reason: 'invalid_signature',
+    });
+  });
+
+  it('rejects malformed non-hex signatures', () => {
+    const signature = validSignature();
+    const malformed = `z${signature.slice(1)}`;
+    expect(credentialParts(malformed)).toEqual({ valid: false, reason: 'invalid_signature' });
+  });
+
+  it('rejects credentials scoped to another booking', () => {
+    const otherBookingId = BookingIdSchema.parse('booking_guest_unit_02');
+    const otherSignature = signGuestActionCredential(secret, {
+      version: 'guest-token:v1',
+      bookingId: otherBookingId,
+      guestSubjectId: guestSubjectIdFromBookingId(otherBookingId),
+      purpose: 'cancel_pending_reservation',
+      expiresAt,
+      nonce,
+    });
+    expect(credentialParts(otherSignature)).toEqual({ valid: false, reason: 'invalid_signature' });
+  });
+
+  it('rejects malformed token signatures without throwing', () => {
+    const token = issueGuestActionToken({
+      secret,
+      payload: {
+        version: 'guest-token:v1',
+        bookingId,
+        guestSubjectId,
+        purpose: 'cancel_pending_reservation',
+        expiresAt,
+        nonce: createGuestActionTokenNonce(),
+      },
+    });
+    const separatorIndex = token.lastIndexOf('.');
+    const tampered = `${token.slice(0, separatorIndex + 1)}${'g'.repeat(64)}`;
+    expect(
+      verifyGuestActionToken({
+        secret,
+        token: tampered,
+        now,
+        expectedBookingId: bookingId,
+        expectedGuestSubjectId: guestSubjectId,
+        expectedPurpose: 'cancel_pending_reservation',
+      })
+    ).toEqual({ valid: false, reason: 'malformed' });
   });
 });

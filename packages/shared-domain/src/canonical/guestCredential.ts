@@ -1,6 +1,6 @@
 import { hmac } from '@noble/hashes/hmac.js';
 import { sha256 } from '@noble/hashes/sha2.js';
-import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js';
 import { z } from 'zod';
 import { canonicalJsonStringify } from './canonicalJson';
 import {
@@ -28,6 +28,44 @@ const GuestActionTokenPayloadSchema = z
   .strict();
 
 export type GuestActionTokenPayload = Readonly<z.output<typeof GuestActionTokenPayloadSchema>>;
+
+const HMAC_SHA256_HEX_LENGTH = 64;
+const HMAC_SHA256_BYTE_LENGTH = 32;
+
+function parseFixedLengthHexSignature(signature: string): Uint8Array | undefined {
+  if (signature.length !== HMAC_SHA256_HEX_LENGTH) {
+    return undefined;
+  }
+  if (!/^[0-9a-fA-F]{64}$/.test(signature)) {
+    return undefined;
+  }
+  try {
+    const bytes = hexToBytes(signature.toLowerCase());
+    return bytes.length === HMAC_SHA256_BYTE_LENGTH ? bytes : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function timingSafeEqualBytes(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    diff |= left[index]! ^ right[index]!;
+  }
+  return diff === 0;
+}
+
+function hmacSignaturesMatch(expectedHex: string, providedSignature: string): boolean {
+  const expectedBytes = parseFixedLengthHexSignature(expectedHex);
+  const providedBytes = parseFixedLengthHexSignature(providedSignature);
+  if (expectedBytes === undefined || providedBytes === undefined) {
+    return false;
+  }
+  return timingSafeEqualBytes(expectedBytes, providedBytes);
+}
 
 function base64UrlEncode(bytes: Uint8Array): string {
   if (typeof Buffer !== 'undefined') {
@@ -91,7 +129,7 @@ export function verifyGuestActionCredentialParts(input: {
     nonce: input.nonce,
   });
   const expectedSignature = signPayload(input.secret, payload);
-  if (expectedSignature.toLowerCase() !== input.signature.toLowerCase()) {
+  if (!hmacSignaturesMatch(expectedSignature, input.signature)) {
     return { valid: false, reason: 'invalid_signature' };
   }
   if (compareCanonicalTimestamps(input.now, payload.expiresAt) >= 0) {
@@ -129,7 +167,7 @@ export function verifyGuestActionToken(input: {
 
   const encodedPayload = input.token.slice(0, separatorIndex);
   const providedSignature = input.token.slice(separatorIndex + 1);
-  if (!/^[0-9a-f]{64}$/i.test(providedSignature)) {
+  if (parseFixedLengthHexSignature(providedSignature) === undefined) {
     return { valid: false, reason: 'malformed' };
   }
 
@@ -147,7 +185,7 @@ export function verifyGuestActionToken(input: {
 
   const payload = parsedPayload.data;
   const expectedSignature = signPayload(input.secret, payload);
-  if (expectedSignature.toLowerCase() !== providedSignature.toLowerCase()) {
+  if (!hmacSignaturesMatch(expectedSignature, providedSignature)) {
     return { valid: false, reason: 'invalid_signature' };
   }
 

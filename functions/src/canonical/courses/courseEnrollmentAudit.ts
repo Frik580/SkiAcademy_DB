@@ -43,7 +43,8 @@ export function buildCreateCourseEnrollmentsAuditPlan(input: {
         : ('self_service_booking' as const);
   const explanation =
     reasonCode === 'manual_override'
-      ? 'Administrator course enrollment with temporary underpayment'
+      ? input.envelope.intent.reasonExplanation?.trim() ??
+        'Administrator course enrollment with temporary underpayment'
       : reasonCode === 'other'
         ? 'Guest course enrollment request'
         : undefined;

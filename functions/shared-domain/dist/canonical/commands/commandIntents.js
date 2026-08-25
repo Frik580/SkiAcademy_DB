@@ -376,6 +376,7 @@ exports.CommandIntentSchemaByKind = {
         .object({
         courseId: identifiers_1.CourseIdSchema,
         participantIds: zod_1.z.array(identifiers_1.ParticipantIdSchema).min(1).max(8),
+        reasonExplanation: zod_1.z.string().trim().min(1).max(1_000).optional(),
     })
         .strict(),
     transfer_course_enrollment: courseEnrollmentTargetIntent,

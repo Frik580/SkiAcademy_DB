@@ -260,6 +260,7 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
     }, z.core.$strict> | z.ZodObject<{
         courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course">, string>>;
         participantIds: z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         bookingProposalId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking_proposal">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
@@ -553,6 +554,7 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
     }, z.core.$strict> | z.ZodObject<{
         courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course">, string>>;
         participantIds: z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         bookingProposalId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking_proposal">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
@@ -846,6 +848,7 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
     }, z.core.$strict> | z.ZodObject<{
         courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course">, string>>;
         participantIds: z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         bookingProposalId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking_proposal">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;

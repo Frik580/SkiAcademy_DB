@@ -134,6 +134,22 @@ export function resolveManagedEnrollmentAuthorization(
   };
 }
 
+export function assertAdminEnrollmentUnderpaymentReason(
+  envelope: CommandEnvelope<'create_course_enrollments'>,
+  outstandingAmount: number
+): void {
+  if (outstandingAmount <= 0) {
+    return;
+  }
+  const explanation = envelope.intent.reasonExplanation?.trim();
+  if (!explanation) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'reasonExplanation', reason: 'required' },
+    });
+  }
+}
+
 export function assertManagedParticipantRecord(
   envelope: CommandEnvelope<'create_course_enrollments'>,
   participant: Participant | undefined

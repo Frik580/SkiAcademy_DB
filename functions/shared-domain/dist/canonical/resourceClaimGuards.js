@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ActiveCourseEnrollmentGuardSchema = exports.RESOURCE_GUARD_MAX_ENTRIES_PER_BUCKET = exports.RESOURCE_CLAIM_PLANNING_ESTIMATES = exports.RESOURCE_GUARD_BUCKET_SECONDS = void 0;
+exports.shouldSkipGuardEntryForAcquireConflict = shouldSkipGuardEntryForAcquireConflict;
 exports.utcBucketStartSecondsForInstant = utcBucketStartSecondsForInstant;
 exports.canonicalTimestampForUtcBucketStart = canonicalTimestampForUtcBucketStart;
 exports.expandUtcGuardBuckets = expandUtcGuardBuckets;
@@ -23,6 +24,12 @@ const deterministicIdentity_1 = require("./deterministicIdentity");
 const errors_1 = require("./errors");
 const primitives_1 = require("./primitives");
 const resourceClaims_1 = require("./resourceClaims");
+function shouldSkipGuardEntryForAcquireConflict(entry, scope) {
+    return (scope?.resourceKind === 'course' &&
+        scope?.claimKind === 'course_seat_pre_start' &&
+        entry.ownerKind === 'course_enrollment' &&
+        guardEntryParticipatesInConflict(entry));
+}
 const PersistedAggregateRevisionSchema = primitives_1.AggregateRevisionSchema.refine((revision) => revision >= 1, 'Persisted aggregate revision must be at least one');
 exports.RESOURCE_GUARD_BUCKET_SECONDS = resourceClaims_1.RESOURCE_GUARD_BUCKET_HOURS * 60 * 60;
 exports.RESOURCE_CLAIM_PLANNING_ESTIMATES = {
@@ -94,13 +101,16 @@ function shouldIgnoreGuardEntry(entry, ignore) {
     }
     return false;
 }
-function findGuardIntervalConflict(candidate, entries, ignore) {
+function findGuardIntervalConflict(candidate, entries, ignore, scope) {
     primitives_1.TimeIntervalSchema.parse(candidate);
     for (const entry of entries) {
         if (!guardEntryParticipatesInConflict(entry)) {
             continue;
         }
         if (shouldIgnoreGuardEntry(entry, ignore)) {
+            continue;
+        }
+        if (shouldSkipGuardEntryForAcquireConflict(entry, scope)) {
             continue;
         }
         if ((0, resourceClaims_1.intervalsConflict)(candidate, entry.interval)) {

@@ -84,6 +84,7 @@ export declare const CommandIntentSchemaByKind: {
     create_course_enrollments: z.ZodObject<{
         courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course">, string>>;
         participantIds: z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>;
     transfer_course_enrollment: z.ZodObject<{
         courseEnrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_enrollment">, string>>;

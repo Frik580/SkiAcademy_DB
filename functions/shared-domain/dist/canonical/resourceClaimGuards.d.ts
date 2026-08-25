@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { CommandIdSchema, CorrelationIdSchema, type CorrelationId, type CourseEnrollmentId, type CourseId, type ParticipantId, type ResourceClaimGuardId, type ResourceClaimId, type ActiveCourseEnrollmentGuardKey } from './identifiers';
 import { type CanonicalTimestamp, type TimeInterval } from './primitives';
-import { ResourceClaimGuardBucketIdentityInputSchema, type ResourceClaimGuardEntry, type ResourceClaimGuardBucketIdentityInput, type ResourceKind } from './resourceClaims';
+import { ResourceClaimGuardBucketIdentityInputSchema, type ResourceClaimGuardEntry, type ResourceClaimGuardBucketIdentityInput, type ResourceClaimKind, type ResourceKind } from './resourceClaims';
+export interface GuardIntervalConflictScope {
+    readonly resourceKind: ResourceKind;
+    readonly claimKind?: ResourceClaimKind;
+}
+export declare function shouldSkipGuardEntryForAcquireConflict(entry: ResourceClaimGuardEntry, scope: GuardIntervalConflictScope | undefined): boolean;
 export declare const RESOURCE_GUARD_BUCKET_SECONDS: number;
 export declare const RESOURCE_CLAIM_PLANNING_ESTIMATES: {
     readonly claimDocumentBytes: 512;
@@ -30,7 +35,7 @@ export declare function resourceClaimGuardIdFromBucketKey(bucketKey: string): Re
 export declare function resourceClaimGuardIdFromBucketIdentity(input: ResourceClaimGuardBucketIdentityInput): ResourceClaimGuardId;
 export declare function guardEntryParticipatesInConflict(entry: ResourceClaimGuardEntry): boolean;
 export declare function shouldIgnoreGuardEntry(entry: ResourceClaimGuardEntry, ignore: ResourceClaimReplacementIgnore | undefined): boolean;
-export declare function findGuardIntervalConflict(candidate: TimeInterval, entries: readonly ResourceClaimGuardEntry[], ignore: ResourceClaimReplacementIgnore | undefined): ResourceClaimGuardEntry | undefined;
+export declare function findGuardIntervalConflict(candidate: TimeInterval, entries: readonly ResourceClaimGuardEntry[], ignore: ResourceClaimReplacementIgnore | undefined, scope?: GuardIntervalConflictScope): ResourceClaimGuardEntry | undefined;
 export declare function conflictErrorCodeForResourceKind(resourceKind: ResourceKind): 'instructor_conflict' | 'participant_conflict' | 'resource_conflict';
 export declare function estimateGuardMutationBytes(entryCount: number): number;
 export declare function assertGuardBucketEntryCapacity(correlationId: CorrelationId, entryCount: number): void;

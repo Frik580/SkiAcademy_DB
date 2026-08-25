@@ -33,8 +33,26 @@ import {
   resourceClaimGuardBucketKeyFromIdentity,
   type ResourceClaimGuardEntry,
   type ResourceClaimGuardBucketIdentityInput,
+  type ResourceClaimKind,
   type ResourceKind,
 } from './resourceClaims';
+
+export interface GuardIntervalConflictScope {
+  readonly resourceKind: ResourceKind;
+  readonly claimKind?: ResourceClaimKind;
+}
+
+export function shouldSkipGuardEntryForAcquireConflict(
+  entry: ResourceClaimGuardEntry,
+  scope: GuardIntervalConflictScope | undefined
+): boolean {
+  return (
+    scope?.resourceKind === 'course' &&
+    scope?.claimKind === 'course_seat_pre_start' &&
+    entry.ownerKind === 'course_enrollment' &&
+    guardEntryParticipatesInConflict(entry)
+  );
+}
 
 const PersistedAggregateRevisionSchema = AggregateRevisionSchema.refine(
   (revision) => revision >= 1,
@@ -159,7 +177,8 @@ export function shouldIgnoreGuardEntry(
 export function findGuardIntervalConflict(
   candidate: TimeInterval,
   entries: readonly ResourceClaimGuardEntry[],
-  ignore: ResourceClaimReplacementIgnore | undefined
+  ignore: ResourceClaimReplacementIgnore | undefined,
+  scope?: GuardIntervalConflictScope
 ): ResourceClaimGuardEntry | undefined {
   TimeIntervalSchema.parse(candidate);
 
@@ -168,6 +187,9 @@ export function findGuardIntervalConflict(
       continue;
     }
     if (shouldIgnoreGuardEntry(entry, ignore)) {
+      continue;
+    }
+    if (shouldSkipGuardEntryForAcquireConflict(entry, scope)) {
       continue;
     }
     if (intervalsConflict(candidate, entry.interval)) {

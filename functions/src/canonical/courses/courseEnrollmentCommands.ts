@@ -78,6 +78,8 @@ import {
 import {
   commitResourceClaimPlan,
   readAndPlanAcquireResourceClaim,
+  registerResourceClaimPlanInGuardOverlay,
+  type InTransactionGuardOverlay,
   type ResourceClaimOperationPlan,
 } from '../resourceClaims/resourceClaimEngine';
 import {
@@ -89,6 +91,7 @@ import {
   COURSE_PLANNING_ESTIMATES,
 } from './courseStore';
 import {
+  assertAdminEnrollmentUnderpaymentReason,
   assertManagedParticipantRecord,
   resolveCourseEnrollmentCreationAuthorization,
   resolveManagedEnrollmentAuthorization,
@@ -354,6 +357,7 @@ function createCourseEnrollmentsHandler(
       });
 
       const nextPlanned: PlannedParticipantEnrollment[] = [];
+      const resourceClaimGuardOverlay: InTransactionGuardOverlay = new Map();
 
       for (const [index, participantId] of envelope.intent.participantIds.entries()) {
         const enrollmentId = enrollmentIds[index]!;
@@ -491,7 +495,9 @@ function createCourseEnrollmentsHandler(
           ...claimMetadata,
           identity: seatIdentity.identity,
           interval: seatInterval,
+          inTransactionGuardOverlay: resourceClaimGuardOverlay,
         });
+        registerResourceClaimPlanInGuardOverlay(resourceClaimGuardOverlay, seatClaimPlan);
 
         const dayClaimPlans: ResourceClaimOperationPlan[] = [];
         for (const courseDay of courseDays) {
@@ -504,7 +510,9 @@ function createCourseEnrollmentsHandler(
             ...claimMetadata,
             identity: dayIdentity.identity,
             interval: courseDay.interval,
+            inTransactionGuardOverlay: resourceClaimGuardOverlay,
           });
+          registerResourceClaimPlanInGuardOverlay(resourceClaimGuardOverlay, dayClaimPlan);
           dayClaimPlans.push(dayClaimPlan);
         }
 
@@ -613,6 +621,10 @@ function createCourseEnrollmentsHandler(
         walletFunding = KztMinorUnitsSchema.parse((walletRecord?.balance ?? 0) - remainingWallet);
         underfunded = paymentProjections.some(
           (projection) => projection.outstandingAmount > 0
+        );
+        assertAdminEnrollmentUnderpaymentReason(
+          envelope,
+          Math.max(...paymentProjections.map((projection) => projection.outstandingAmount))
         );
         plannedEnrollments = nextPlanned.map((planned, index) => ({
           ...planned,

@@ -37,10 +37,13 @@ export interface ResourceClaimCommandMetadata {
   readonly decidedAt: Date;
 }
 
+export interface InTransactionGuardOverlay extends Map<string, ResourceClaimGuardEntry[]> {}
+
 export interface AcquireResourceClaimInput extends ResourceClaimCommandMetadata {
   readonly identity: ResourceClaimIdentityInput;
   readonly interval: TimeInterval;
   readonly replacementIgnore?: ResourceClaimReplacementIgnore;
+  readonly inTransactionGuardOverlay?: InTransactionGuardOverlay;
 }
 
 export interface MoveResourceClaimInput extends ResourceClaimCommandMetadata {
@@ -256,11 +259,13 @@ function assertNoIntervalConflict(
   resourceKind: ResourceClaim['resourceKind'],
   candidate: TimeInterval,
   buckets: readonly LoadedGuardBucket[],
-  ignore: ResourceClaimReplacementIgnore | undefined
+  ignore: ResourceClaimReplacementIgnore | undefined,
+  claimKind?: ResourceClaim['claimKind']
 ): void {
+  const scope = { resourceKind, claimKind };
   for (const bucket of buckets) {
     const entries = bucket.conflictEntries;
-    const conflict = findGuardIntervalConflict(candidate, entries, ignore);
+    const conflict = findGuardIntervalConflict(candidate, entries, ignore, scope);
     if (conflict) {
       throw new CanonicalCommandError(conflictErrorCodeForResourceKind(resourceKind), {
         correlationId,
@@ -302,16 +307,59 @@ function buildClaimDocument(
   });
 }
 
+function applyInTransactionGuardOverlay(
+  buckets: readonly LoadedGuardBucket[],
+  overlay: InTransactionGuardOverlay | undefined,
+  correlationId: CorrelationId
+): LoadedGuardBucket[] {
+  if (!overlay || overlay.size === 0) {
+    return [...buckets];
+  }
+
+  return buckets.map((bucket) => {
+    const overlayEntries = overlay.get(bucket.path);
+    if (!overlayEntries || overlayEntries.length === 0) {
+      return bucket;
+    }
+
+    let conflictEntries = [...bucket.conflictEntries];
+    for (const entry of overlayEntries) {
+      conflictEntries = mergeGuardEntries(conflictEntries, entry, correlationId);
+    }
+
+    return {
+      ...bucket,
+      conflictEntries,
+      documentExists: bucket.documentExists || overlay.has(bucket.path),
+    };
+  });
+}
+
+export function registerResourceClaimPlanInGuardOverlay(
+  overlay: InTransactionGuardOverlay,
+  plan: ResourceClaimOperationPlan
+): void {
+  for (const guardWrite of plan.guardWrites) {
+    if (guardWrite.mutationKind === 'delete') {
+      overlay.delete(guardWrite.path);
+      continue;
+    }
+    overlay.set(guardWrite.path, [...guardWrite.entries]);
+  }
+}
+
 function planGuardWritesForAcquire(
   claim: ResourceClaim,
   buckets: readonly LoadedGuardBucket[],
-  correlationId: CorrelationId
+  correlationId: CorrelationId,
+  overlay: InTransactionGuardOverlay | undefined
 ): ResourceClaimOperationPlan['guardWrites'] {
   const entry = buildGuardEntry(claim);
 
   return buckets.map((bucket) => {
     const mergedEntries = mergeGuardEntries(bucket.conflictEntries, entry, correlationId);
-    const mutationKind = bucket.documentExists ? 'update' : 'create';
+    const mutationKind =
+      bucket.documentExists || overlay?.has(bucket.path) ? 'update' : 'create';
 
     return {
       bucket: bucket.bucket,
@@ -377,9 +425,13 @@ export async function readAndPlanAcquireResourceClaim(
   const existingClaim = claimSnapshot.exists ? parseClaim(claimSnapshot.data) : undefined;
 
   if (existingClaim && activeClaimMatches(existingClaim, input.identity, input.interval)) {
-    const buckets = await loadGuardBuckets(
-      session,
-      expandUtcGuardBuckets(input.identity.resourceKind, input.identity.resourceId, input.interval)
+    const buckets = applyInTransactionGuardOverlay(
+      await loadGuardBuckets(
+        session,
+        expandUtcGuardBuckets(input.identity.resourceKind, input.identity.resourceId, input.interval)
+      ),
+      input.inTransactionGuardOverlay,
+      input.correlationId
     );
     if (guardOccupancyMatchesClaim(buckets, existingClaim)) {
       return {
@@ -394,7 +446,8 @@ export async function readAndPlanAcquireResourceClaim(
     const repairWrites = planGuardWritesForAcquire(
       existingClaim,
       buckets,
-      input.correlationId
+      input.correlationId,
+      input.inTransactionGuardOverlay
     );
     return {
       claim: existingClaim,
@@ -442,14 +495,19 @@ export async function readAndPlanAcquireResourceClaim(
   for (const bucket of [...oldBuckets, ...newBuckets]) {
     bucketMap.set(bucket.bucketKey, bucket);
   }
-  const buckets = await loadGuardBuckets(session, [...bucketMap.values()]);
+  const buckets = applyInTransactionGuardOverlay(
+    await loadGuardBuckets(session, [...bucketMap.values()]),
+    input.inTransactionGuardOverlay,
+    input.correlationId
+  );
 
   assertNoIntervalConflict(
     input.correlationId,
     input.identity.resourceKind,
     input.interval,
     buckets,
-    replacementIgnore
+    replacementIgnore,
+    input.identity.claimKind
   );
 
   const claim = buildClaimDocument(input, existingClaim);
@@ -485,7 +543,10 @@ export async function readAndPlanAcquireResourceClaim(
           : undefined;
       }
 
-      const mutationKind = bucket.documentExists ? ('update' as const) : ('create' as const);
+      const mutationKind =
+        bucket.documentExists || input.inTransactionGuardOverlay?.has(bucket.path)
+          ? ('update' as const)
+          : ('create' as const);
       return {
         bucket: bucket.bucket,
         guardId: bucket.guardId,
@@ -624,7 +685,8 @@ export async function readAndPlanMoveResourceClaim(
     existingClaim.resourceKind,
     input.newInterval,
     loadedBuckets,
-    ignore
+    ignore,
+    existingClaim.claimKind
   );
 
   const decidedAt = timestampFromDate(input.decidedAt);

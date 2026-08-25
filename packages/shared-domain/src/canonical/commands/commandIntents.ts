@@ -393,6 +393,7 @@ export const CommandIntentSchemaByKind = {
     .object({
       courseId: CourseIdSchema,
       participantIds: z.array(ParticipantIdSchema).min(1).max(8),
+      reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
     })
     .strict(),
   transfer_course_enrollment: courseEnrollmentTargetIntent,

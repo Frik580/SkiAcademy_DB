@@ -865,8 +865,6 @@ export function createSnapshotMonetaryEventLoader(
   };
 }
 
-export function createFirestoreMonetaryEventLoader(
-  _firestore?: unknown
-): MonetaryEventLoader {
+export function createFirestoreMonetaryEventLoader(): MonetaryEventLoader {
   return loadMonetaryEventsInTransaction;
 }

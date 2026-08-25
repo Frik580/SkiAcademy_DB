@@ -16,13 +16,19 @@ import {
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
-import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
+import {
+  createInMemoryCanonicalTransactionExecutor,
+  type CanonicalTransactionExecutor,
+} from '../transactions';
 
 const correlationId = CorrelationIdSchema.parse('correlation_attendance_unit_01');
 const bookingId = BookingIdSchema.parse('booking_attendance_unit_01');
 const occurrenceId = OccurrenceIdSchema.parse('occurrence_attendance_unit_01');
 const participantId = ParticipantIdSchema.parse('participant_attendance_unit_01');
+const participantTwoId = ParticipantIdSchema.parse('participant_attendance_unit_02');
+const participantThreeId = ParticipantIdSchema.parse('participant_attendance_unit_03');
 const instructorId = InstructorIdSchema.parse('instructor_attendance_unit_01');
+const adminAccountId = 'account_attendance_unit_admin';
 const startsAt = timestampFromDate(new Date('2026-01-15T09:00:00.000Z'));
 const endsAt = timestampFromDate(new Date('2026-01-15T10:00:00.000Z'));
 const createdAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
@@ -60,10 +66,53 @@ function booking() {
   });
 }
 
+function groupBooking() {
+  const base = booking();
+  return BookingSchema.parse({
+    ...base,
+    party: {
+      kind: 'family_group',
+      participantIds: [participantId, participantTwoId, participantThreeId],
+    },
+    occurrence: {
+      ...base.occurrence,
+      serviceParty: {
+        participantIds: [participantId, participantTwoId, participantThreeId],
+        frozenAt: startsAt,
+      },
+    },
+  });
+}
+
+function createAbortFirstTransactionCallbackExecutor(
+  inner: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>
+): CanonicalTransactionExecutor & {
+  snapshot: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>['snapshot'];
+} {
+  let callbackInvocations = 0;
+  return {
+    snapshot: () => inner.snapshot(),
+    async runAtomic(input) {
+      return inner.runAtomic({
+        ...input,
+        run: async (session) => {
+          callbackInvocations += 1;
+          const result = await input.run(session);
+          if (callbackInvocations === 1) {
+            throw new Error('TRANSACTION_ABORTED');
+          }
+          return result;
+        },
+      });
+    },
+  };
+}
+
 function instructorEnvelope(
   idempotencyKey: string,
   at: string,
-  attendanceStatus: 'present' | 'absent'
+  attendanceStatus: 'present' | 'absent',
+  targetParticipantId: typeof participantId = participantId
 ): CommandEnvelope<'record_booking_attendance'> {
   return {
     kind: 'record_booking_attendance',
@@ -75,7 +124,30 @@ function instructorEnvelope(
       source: 'client_callable',
       transportMetadata: { instructor_id: instructorId },
     },
-    intent: { bookingId, participantId, attendanceStatus },
+    intent: { bookingId, participantId: targetParticipantId, attendanceStatus },
+  };
+}
+
+function adminEnvelope(
+  idempotencyKey: string,
+  attendanceStatus: 'present' | 'absent',
+  input: { reasonExplanation?: string; targetParticipantId?: typeof participantId } = {}
+): CommandEnvelope<'record_booking_attendance'> {
+  return {
+    kind: 'record_booking_attendance',
+    context: {
+      actor: accountCommandActor(adminAccountId),
+      exercisedCapability: 'administrator',
+      idempotencyKey,
+      correlationId,
+      source: 'admin_callable',
+    },
+    intent: {
+      bookingId,
+      participantId: input.targetParticipantId ?? participantId,
+      attendanceStatus,
+      ...(input.reasonExplanation ? { reasonExplanation: input.reasonExplanation } : {}),
+    },
   };
 }
 
@@ -216,5 +288,146 @@ describe('bookingAttendanceCommands', () => {
       participantId,
     });
     expect(executor.snapshot().docs.get(`attendance/${attendanceId}`)?.data.revision).toBe(1);
+  });
+
+  it('does not no_show a group booking when only one participant is absent and others are missing', async () => {
+    const seededBooking = groupBooking();
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      instructorEnvelope('group-single-absent', '2026-01-15T10:00:00.000Z', 'absent', participantId)
+    );
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle).toEqual({
+      status: 'confirmed',
+    });
+  });
+
+  it('completes a group booking when any participant is present after endsAt', async () => {
+    const seededBooking = groupBooking();
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      instructorEnvelope(
+        'group-any-present',
+        '2026-01-15T10:00:00.000Z',
+        'present',
+        participantTwoId
+      )
+    );
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'completed'
+    );
+  });
+
+  it('forbids administrator attendance before service start', async () => {
+    const seededBooking = booking();
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T08:59:59.999Z'),
+      executor
+    );
+    const result = await commands.execute(
+      adminEnvelope('admin-before-start', 'present', { reasonExplanation: 'Correction' })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('invalid_transition');
+    }
+  });
+
+  it('requires administrator reason when correcting existing attendance', async () => {
+    const seededBooking = booking();
+    const attendanceId = attendanceIdFromBookingIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'booking',
+      occurrenceId,
+      participantId,
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      [`attendance/${attendanceId}`]: {
+        attendanceId,
+        subject: {
+          subjectKind: 'booking',
+          bookingId,
+          occurrenceId,
+          participantId,
+        },
+        attendanceStatus: 'absent',
+        recordedBy: { kind: 'instructor', instructorId },
+        recordedAt: endsAt,
+        lastChangedBy: { kind: 'instructor', instructorId },
+        updatedAt: endsAt,
+        revision: 1,
+        correlationId,
+      },
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T11:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(adminEnvelope('admin-no-reason', 'present'));
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('validation');
+    }
+  });
+
+  it('forbids attendance mutation on terminal completed bookings', async () => {
+    const seededBooking = BookingSchema.parse({
+      ...booking(),
+      lifecycle: { status: 'completed', completedAt: endsAt },
+      updatedAt: endsAt,
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T11:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      adminEnvelope('admin-terminal', 'absent', { reasonExplanation: 'Too late' })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('invalid_transition');
+    }
+  });
+
+  it('does not duplicate missing_attendance issues when transaction callback retries', async () => {
+    const seededBooking = groupBooking();
+    const inner = createInMemoryCanonicalTransactionExecutor(
+      {
+        [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      },
+      { simulateRetry: true }
+    );
+    const executor = createAbortFirstTransactionCallbackExecutor(inner);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-16T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(systemResolveEnvelope('retry-missing-issue'));
+    expect(result.status).toBe('success');
+    const issues = [...executor.snapshot().docs.entries()].filter(([path]) =>
+      path.startsWith('admin_issues/')
+    );
+    expect(issues).toHaveLength(3);
+    expect(new Set(issues.map(([path]) => path)).size).toBe(3);
   });
 });

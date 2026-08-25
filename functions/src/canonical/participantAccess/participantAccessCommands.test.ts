@@ -3,6 +3,7 @@ import {
   AccountIdSchema,
   AccountSchema,
   AggregateRevisionSchema,
+  BookingProposalIdSchema,
   CorrelationIdSchema,
   InstructorIdSchema,
   ParticipantIdSchema,
@@ -18,6 +19,7 @@ import {
   timestampFromDate,
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
+import { bookingProposalOpenIndexPath } from '../bookings/bookingProposalOpenIndex';
 import { accountCommandActor } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
@@ -30,6 +32,7 @@ const participantId = ParticipantIdSchema.parse('participant_participant_cmd_01'
 const managementId = ParticipantManagementIdSchema.parse('management_participant_cmd_01');
 const instructorId = InstructorIdSchema.parse('instructor_participant_cmd_01');
 const relationshipId = instructorRelationshipIdFromPair({ participantId, instructorId });
+const proposalId = BookingProposalIdSchema.parse('booking_proposal_participant_block_01');
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 
 function environment(at = '2026-01-01T00:00:00.000Z') {
@@ -399,6 +402,101 @@ describe('participant access commands', () => {
     expect(executor.snapshot().docs.get(`participant_blocks/${instructorBlockId}`)?.data.status).toBe(
       'active'
     );
+  });
+
+  it('cancels open booking proposals when a parent/guardian block is created', async () => {
+    const managerBlockId = participantBlockIdFromDirection({
+      participantId,
+      instructorId,
+      createdByKind: 'participant_manager',
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: seedAccount(),
+      [`participants/${participantId}`]: {
+        participantId,
+        displayName: 'Blocked Participant',
+        age: { kind: 'age_years', years: 12 },
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        management: { kind: 'managed', participantManagementId: managementId },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_participant',
+          lastChangedByCommandId: 'command_seed_participant',
+          correlationId,
+        },
+      },
+      [`participant_management/${managementId}`]: {
+        participantManagementId: managementId,
+        accountId,
+        participantId,
+        role: 'owner',
+        authority: 'parent_guardian',
+        status: 'active',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_management',
+          lastChangedByCommandId: 'command_seed_management',
+          correlationId,
+        },
+      },
+      [`booking_proposals/${proposalId}`]: {
+        proposalId,
+        participantId,
+        instructorId,
+        proposedService: {
+          interval: {
+            startsAt: timestampFromDate(new Date('2026-01-15T09:00:00.000Z')),
+            endsAt: timestampFromDate(new Date('2026-01-15T10:00:00.000Z')),
+          },
+          timeZone: 'Asia/Almaty',
+        },
+        lifecycle: { status: 'open' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_proposal',
+          lastChangedByCommandId: 'command_seed_proposal',
+          correlationId,
+        },
+      },
+      [bookingProposalOpenIndexPath({ participantId, instructorId })]: {
+        participantId,
+        instructorId,
+        openProposalIds: [proposalId],
+        revision: 1,
+        updatedAt: decidedAt,
+      },
+    });
+
+    const blockEnvelope: CommandEnvelope<'block_participant'> = {
+      kind: 'block_participant',
+      context: { ...accountContext('parent_guardian'), idempotencyKey: 'block-cancel-proposals-01' },
+      intent: {
+        participantBlockId: managerBlockId,
+        participantId,
+        instructorId,
+        reason: 'Owner block cancels proposals',
+      },
+    };
+
+    expect((await runCommand(executor, blockEnvelope)).status).toBe('success');
+
+    const proposal = executor.snapshot().docs.get(`booking_proposals/${proposalId}`)?.data;
+    expect(proposal?.lifecycle).toEqual({
+      status: 'cancelled',
+      cancelledAt: expect.anything(),
+      reasonCode: 'instructor_blocked_by_owner',
+    });
+    expect(
+      executor.snapshot().docs.has(bookingProposalOpenIndexPath({ participantId, instructorId }))
+    ).toBe(false);
   });
 
   it('rejects administrator block removal and stale profile revisions', async () => {

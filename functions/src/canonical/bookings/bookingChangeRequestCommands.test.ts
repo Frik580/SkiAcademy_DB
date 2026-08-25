@@ -440,6 +440,65 @@ describe('booking change request commands', () => {
     }
   });
 
+  it('rejects resolve when booking revision is stale via transport metadata', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    await createOpenChangeRequest(executor);
+
+    const commands = createProductionCanonicalCommands(environment('2026-01-03T00:00:00.000Z'), executor);
+    const rescheduleResult = await commands.execute({
+      kind: 'reschedule_booking',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'stale-change-request-reschedule',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+        calendarInput: {
+          localDate: '2026-01-16',
+          localTime: '10:00',
+          durationMinutes: 60,
+        },
+        timezone: 'Asia/Almaty',
+      },
+      intent: {
+        bookingId,
+        reasonExplanation: 'Admin reschedule before stale change-request resolve',
+      },
+    });
+    expect(rescheduleResult.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.revision).toBe(2);
+
+    const handlers = createBookingChangeRequestCommandHandlers(executor);
+    const resolveResult = await handlers.resolve_booking_change_request(
+      {
+        kind: 'resolve_booking_change_request',
+        context: adminContext('resolve-stale-booking-rev', 1, undefined, {
+          [BOOKING_REVISION_TRANSPORT_KEY]: '1',
+        }),
+        intent: {
+          bookingChangeRequestId: changeRequestId,
+          resolution: 'booking_cancelled',
+          refundAmount: 12_000,
+          reasonExplanation: 'Client agreed to cancel after instructor unavailability.',
+        },
+      },
+      environment('2026-01-04T00:00:00.000Z')
+    );
+    expect(resolveResult.status).toBe('error');
+    if (resolveResult.status === 'error') {
+      expect(resolveResult.error.code).toBe('stale_version');
+    }
+
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.revision).toBe(2);
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('confirmed');
+    expect(snapshot.docs.get(`booking_change_requests/${changeRequestId}`)?.data.lifecycle.status).toBe(
+      'open'
+    );
+  });
+
   it('replays idempotent create successfully', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);

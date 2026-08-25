@@ -207,6 +207,28 @@ function bookingCommands(
   return createCanonicalCommands(createBookingCommandHandlers(executor), environment(at));
 }
 
+function createAbortFirstTransactionCallbackExecutor(
+  inner: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>
+) {
+  let callbackInvocations = 0;
+  return {
+    snapshot: () => inner.snapshot(),
+    async runAtomic(input: Parameters<typeof inner.runAtomic>[0]) {
+      return inner.runAtomic({
+        ...input,
+        run: async (session) => {
+          callbackInvocations += 1;
+          const result = await input.run(session);
+          if (callbackInvocations === 1) {
+            throw new Error('TRANSACTION_ABORTED');
+          }
+          return result;
+        },
+      });
+    },
+  };
+}
+
 function createProposalEnvelope(
   overrides: Partial<CommandEnvelope<'create_booking_proposal'>> = {}
 ): CommandEnvelope<'create_booking_proposal'> {
@@ -502,6 +524,22 @@ describe('booking proposal commands', () => {
     expect(executor.snapshot().docs.get(`booking_proposals/${proposalId}`)?.data.lifecycle.status).toBe(
       'expired'
     );
+  });
+
+  it('does not duplicate booking creates when accept transaction callback is retried', async () => {
+    const inner = createInMemoryCanonicalTransactionExecutor(baseFixture(), { simulateRetry: true });
+    const executor = createAbortFirstTransactionCallbackExecutor(inner);
+    await createOpenProposal(inner);
+    const result = await proposalCommands(executor).execute(acceptProposalEnvelope());
+    expect(result.status).toBe('success');
+    expect(inner.snapshot().docs.has(`bookings/${bookingId}`)).toBe(true);
+    expect(inner.snapshot().docs.has(`payments/${paymentId}`)).toBe(true);
+    expect(
+      [...inner.snapshot().docs.keys()].filter((path) => path.startsWith('resource_claims/')).length
+    ).toBe(2);
+    expect(
+      [...inner.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/')).length
+    ).toBe(1);
   });
 });
 

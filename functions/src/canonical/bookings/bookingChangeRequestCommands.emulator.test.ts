@@ -573,4 +573,115 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking change request emulator races
     },
     30_000
   );
+
+  it(
+    'N. direct T17 reschedule vs change-request resolution race',
+    async () => {
+      const commands = createCommands('2026-01-01T00:00:00.000Z');
+      await createConfirmedBooking(commands, {
+        bookingId,
+        instructorId,
+        participantIds: [participantId],
+        idempotencyKey: 'seed-booking-t17-race',
+      });
+      await createOpenChangeRequest(commands, 'create-change-request-t17-race');
+
+      const rescheduleEnvelope: CommandEnvelope<'reschedule_booking'> = {
+        kind: 'reschedule_booking',
+        context: adminContext('admin-reschedule-race', 1, {
+          localDate: '2026-01-16',
+          localTime: '10:00',
+          durationMinutes: 60,
+        }),
+        intent: {
+          bookingId,
+          reasonExplanation: 'Admin reschedule concurrent with change-request resolution',
+        },
+      };
+      const resolveEnvelope: CommandEnvelope<'resolve_booking_change_request'> = {
+        kind: 'resolve_booking_change_request',
+        context: adminContext('resolve-reschedule-race-n', 1, {
+          localDate: '2026-01-16',
+          localTime: '11:00',
+          durationMinutes: 60,
+        }, {
+          [BOOKING_REVISION_TRANSPORT_KEY]: '1',
+        }),
+        intent: {
+          bookingChangeRequestId: changeRequestId,
+          resolution: 'rescheduled',
+          reasonExplanation: 'Client agreed to reschedule after instructor unavailability.',
+        },
+      };
+
+      const results = await Promise.allSettled([
+        commands.execute(rescheduleEnvelope),
+        commands.execute(resolveEnvelope),
+      ]);
+      const outcomes = results.map((result) =>
+        result.status === 'fulfilled' ? result.value : undefined
+      );
+      const successes = outcomes.filter((outcome) => outcome?.status === 'success');
+      const staleOutcomes = outcomes.filter(
+        (outcome) => outcome?.status === 'error' && outcome.error.code === 'stale_version'
+      );
+
+      expect(successes.length).toBe(1);
+      expect(successes.length + staleOutcomes.length).toBe(2);
+
+      const booking = (await firestore.doc(`bookings/${bookingId}`).get()).data();
+      const request = (await firestore.doc(`booking_change_requests/${changeRequestId}`).get()).data();
+      const claims = await firestore.collection('resource_claims').get();
+      const activeClaims = claims.docs.filter((doc) => doc.data().lifecycle?.status === 'active');
+
+      if (request?.lifecycle.status === 'resolved') {
+        expect(request.lifecycle.resolution).toBe('rescheduled');
+        expect(booking?.revision).toBe(2);
+      } else {
+        expect(request?.lifecycle.status).toBe('open');
+        expect(booking?.revision).toBe(2);
+      }
+      expect(activeClaims.length).toBe(2);
+    },
+    30_000
+  );
+
+  it(
+    'O. undefined serialization boundary for change request persistence',
+    async () => {
+      const commands = createCommands('2026-01-01T00:00:00.000Z');
+      await createConfirmedBooking(commands, {
+        bookingId,
+        instructorId,
+        participantIds: [participantId],
+        idempotencyKey: 'seed-booking-undefined-boundary',
+      });
+
+      const createResult = await commands.execute({
+        kind: 'create_booking_change_request',
+        context: instructorContext('create-change-request-undefined', 1),
+        intent: {
+          bookingChangeRequestId: changeRequestId,
+          bookingId,
+          reason: 'Instructor cannot deliver the confirmed occurrence.',
+        },
+      });
+      expect(createResult.status).toBe('success');
+
+      const requestDoc = await firestore.doc(`booking_change_requests/${changeRequestId}`).get();
+      expect(requestDoc.exists).toBe(true);
+      expect(Object.values(requestDoc.data() ?? {}).includes(undefined)).toBe(false);
+
+      const resolveResult = await commands.execute({
+        kind: 'resolve_booking_change_request',
+        context: adminContext('resolve-no-change-undefined', 1),
+        intent: {
+          bookingChangeRequestId: changeRequestId,
+          resolution: 'no_change',
+        },
+      });
+      expect(resolveResult.status).toBe('success');
+    },
+    30_000
+  );
 });

@@ -62,6 +62,7 @@ const COLLECTIONS_TO_CLEAR = [
   'instructor_relationships',
   'instructors',
   'booking_proposals',
+  'booking_proposal_open_index',
   'bookings',
   'payments',
   'monetary_events',
@@ -504,30 +505,38 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking proposal emulator races', () 
   );
 
   it(
-    'E. accept replay - no duplicate booking',
+    'G. successful accept replay - no duplicate durable state',
     async () => {
       const commands = createCommands();
       await createOpenProposal(commands);
 
-      const envelope = acceptProposalEnvelope('proposal-accept-replay');
+      const envelope = acceptProposalEnvelope('proposal-accept-replay-g');
       const first = await commands.execute(envelope);
       const second = await commands.execute(envelope);
       expect(first.status).toBe('success');
       expect(second.status).toBe('success');
 
       const state = await durableCounts();
+      const proposal = (await firestore.doc(`booking_proposals/${proposalId}`).get()).data();
+      const outbox = await firestore.collection('domain_outbox').get();
+
+      expect(proposal?.lifecycle.status).toBe('accepted');
+      expect(proposal?.lifecycle.resultingBookingId).toBe(bookingId);
       expect(state.bookings).toBe(1);
       expect(state.payments).toBe(1);
       expect(state.monetaryEvents).toBe(1);
       expect(state.claims).toBe(2);
       expect(state.walletBalance).toBe(WALLET_START_KZT - BOOKING_PRICE_KZT);
+      expect(state.successfulIdempotency).toBe(2);
+      expect(state.activityLogs).toBe(2);
+      expect(outbox.size).toBeGreaterThanOrEqual(1);
       expect((await firestore.doc(`payments/${paymentId}`).get()).exists).toBe(true);
     },
     30_000
   );
 
   it(
-    'F. accept vs expire if practical',
+    'H. accept vs expire race - exactly one terminal outcome',
     async () => {
       const createCommandsAt = createCommands('2026-01-01T00:00:00.000Z');
       await createOpenProposal(createCommandsAt, 'proposal-expire-race-create');
@@ -549,12 +558,17 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking proposal emulator races', () 
       if (terminalStatus === 'accepted') {
         expect(state.bookings).toBe(1);
         expect(state.payments).toBe(1);
+        expect(proposal?.lifecycle.resultingBookingId).toBe(bookingId);
       } else {
         expect(terminalStatus).toBe('expired');
         expect(state.bookings).toBe(0);
         expect(state.payments).toBe(0);
         expect(state.claims).toBe(0);
+        expect(state.walletBalance).toBe(WALLET_START_KZT);
       }
+      expect(proposal?.lifecycle.status === 'accepted' && proposal?.lifecycle?.status === 'expired').toBe(
+        false
+      );
     },
     30_000
   );

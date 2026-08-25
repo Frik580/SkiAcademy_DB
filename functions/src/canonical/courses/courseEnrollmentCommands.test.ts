@@ -330,4 +330,57 @@ describe('create_course_enrollments command', () => {
       [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/')).length
     ).toBe(1);
   });
+
+  it('does not duplicate writes when the transaction callback retries', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture(), {
+      simulateRetry: true,
+    });
+    const result = await runCommand(executor, createEnvelope());
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('course_enrollments/')).length
+    ).toBe(1);
+    expect([...snapshot.docs.keys()].filter((path) => path.startsWith('payments/')).length).toBe(1);
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('resource_claims/')).length
+    ).toBe(2);
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('monetary_events/')).length
+    ).toBe(1);
+  });
+
+  it('commits multi-child enrollment atomically when fully funded', async () => {
+    const participantTwoId = ParticipantIdSchema.parse('participant_course_enrollment_cmd_02');
+    const managementTwoId = ParticipantManagementIdSchema.parse('management_course_enrollment_cmd_02');
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        [`participants/${participantTwoId}`]: {
+          ...seedParticipant(),
+          participantId: participantTwoId,
+          displayName: 'Second Enrollment Participant',
+          management: { kind: 'managed', participantManagementId: managementTwoId },
+        },
+        [`participant_management/${managementTwoId}`]: {
+          ...seedManagement(),
+          participantManagementId: managementTwoId,
+          participantId: participantTwoId,
+        },
+        [`users/${accountId}/wallet/state`]: seedWallet(COURSE_PRICE_KZT * 2),
+      })
+    );
+    const result = await runCommand(
+      executor,
+      createEnvelope({
+        intent: { courseId, participantIds: [participantId, participantTwoId] },
+      })
+    );
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('course_enrollments/')).length
+    ).toBe(2);
+    expect([...snapshot.docs.keys()].filter((path) => path.startsWith('payments/')).length).toBe(2);
+    expect(snapshot.docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(6);
+  });
 });

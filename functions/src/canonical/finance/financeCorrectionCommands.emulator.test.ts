@@ -367,6 +367,37 @@ describe.skipIf(!runsOnFirestoreEmulator)('finance correction commands emulator'
   );
 
   it(
+    'G. correction vs price adjustment serializes without lost payment revision',
+    async () => {
+      await seedCorrectionFixture();
+      const commands = createCommands();
+      const priceEnvelope: CommandEnvelope<'adjust_service_price'> = {
+        kind: 'adjust_service_price',
+        context: adminContext('price-race-g', correlationIdB),
+        intent: {
+          paymentId,
+          newPrice: 110_000,
+          fundingAmount: 5_000,
+          walletAccountId: accountId,
+          reasonExplanation: 'Concurrent repricing',
+        },
+      };
+      const correctionEnvelope = refundCorrectionEnvelope('corr-race-g', 5_000);
+
+      const settled = await Promise.allSettled([
+        commands.execute(priceEnvelope),
+        commands.execute(correctionEnvelope),
+      ]);
+      expect(settled.every((outcome) => outcome.status === 'fulfilled')).toBe(true);
+
+      const payment = (await firestore.collection('payments').doc(paymentId).get()).data();
+      expect(payment?.revision).toBeGreaterThanOrEqual(2);
+      expect(payment?.refundedAmount).toBeLessThanOrEqual(payment?.paidAmount ?? 0);
+    },
+    30_000
+  );
+
+  it(
     'H. incremental requirement inconsistency opens deterministic AdminIssue without party mutation',
     async () => {
       await seedCorrectionFixture();

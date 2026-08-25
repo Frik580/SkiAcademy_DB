@@ -34,6 +34,10 @@ import {
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
 import {
+  createFinanceCorrectionCommandHandlers,
+  type MonetaryEventLoader,
+} from './financeCorrectionCommands';
+import {
   assertFinanceAuthorization,
   mapFinanceDomainError,
 } from './financeAuthorization';
@@ -639,7 +643,8 @@ function adjustServicePriceHandler(
 }
 
 export function createFinanceCommandHandlers(
-  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'],
+  eventLoader?: MonetaryEventLoader
 ): Partial<CommandHandlerMap> {
   return {
     record_manual_wallet_funding: (envelope, environment) =>
@@ -648,5 +653,6 @@ export function createFinanceCommandHandlers(
       recordProviderPaymentEventHandler(envelope, environment, executor),
     adjust_service_price: (envelope, environment) =>
       adjustServicePriceHandler(envelope, environment, executor),
+    ...createFinanceCorrectionCommandHandlers(executor, eventLoader),
   };
 }

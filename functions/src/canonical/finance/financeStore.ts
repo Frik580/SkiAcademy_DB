@@ -151,6 +151,30 @@ export function mergeWalletBalance(
   });
 }
 
+export function collectMonetaryEventsFromDocs(
+  docs: Iterable<readonly [string, Record<string, unknown> | undefined]>,
+  filter: {
+    readonly paymentId?: Payment['paymentId'];
+    readonly walletAccountId?: Wallet['accountId'];
+  }
+): MonetaryEvent[] {
+  const events: MonetaryEvent[] = [];
+  for (const [path, data] of docs) {
+    if (!path.startsWith('monetary_events/')) continue;
+    const parsed = parseMonetaryEvent(data);
+    if (!parsed) continue;
+    if (filter.paymentId !== undefined && parsed.paymentId !== filter.paymentId) continue;
+    if (
+      filter.walletAccountId !== undefined &&
+      parsed.walletAccountId !== filter.walletAccountId
+    ) {
+      continue;
+    }
+    events.push(parsed);
+  }
+  return events;
+}
+
 export function initialWallet(accountId: Wallet['accountId'], decidedAt: Wallet['createdAt']): Wallet {
   return WalletSchema.parse({
     accountId,

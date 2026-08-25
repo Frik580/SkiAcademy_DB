@@ -47,6 +47,8 @@ __exportStar(require("./identifiers"), exports);
 __exportStar(require("./paths"), exports);
 __exportStar(require("./paymentWallet"), exports);
 __exportStar(require("./paymentWalletOperations"), exports);
+__exportStar(require("./financialReconciliationPolicy"), exports);
+__exportStar(require("./financialCorrectionPolicy"), exports);
 __exportStar(require("./providerEventReceipt"), exports);
 __exportStar(require("./primitives"), exports);
 __exportStar(require("./firestoreSerialization"), exports);

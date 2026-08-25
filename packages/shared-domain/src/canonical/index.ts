@@ -31,6 +31,8 @@ export * from './identifiers';
 export * from './paths';
 export * from './paymentWallet';
 export * from './paymentWalletOperations';
+export * from './financialReconciliationPolicy';
+export * from './financialCorrectionPolicy';
 export * from './providerEventReceipt';
 export * from './primitives';
 export * from './firestoreSerialization';

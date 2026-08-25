@@ -15,7 +15,7 @@ import {
 const MALFORMED_ENVELOPE_CORRELATION_ID = CorrelationIdSchema.parse('correlation_malformed_envelope');
 
 import type { CanonicalTransactionExecutor } from '../transactions';
-import { createFinanceCommandHandlers } from '../finance';
+import { createFinanceCommandHandlers, type MonetaryEventLoader } from '../finance';
 import { createParticipantAccessCommandHandlers } from '../participantAccess';
 import { createBookingCommandHandlers } from '../bookings';
 import { createGuestBookingCommandHandlers } from '../bookings/guestBookingCommands';
@@ -143,7 +143,10 @@ export function createCanonicalCommands(
 export function createProductionCanonicalCommands(
   environment: CommandExecutionEnvironment,
   executor: CanonicalTransactionExecutor,
-  options: { readonly guestActionTokenSecret?: string } = {}
+  options: {
+    readonly guestActionTokenSecret?: string;
+    readonly monetaryEventLoader?: MonetaryEventLoader;
+  } = {}
 ): CanonicalCommands {
   const guestEnvironmentFactory = (
     base: CommandExecutionEnvironment
@@ -155,7 +158,7 @@ export function createProductionCanonicalCommands(
   return createCanonicalCommands(
     {
       ...createParticipantAccessCommandHandlers(executor),
-      ...createFinanceCommandHandlers(executor),
+      ...createFinanceCommandHandlers(executor, options.monetaryEventLoader),
       ...createBookingCommandHandlers(executor),
       ...createBookingRescheduleCommandHandlers(executor),
       ...createGuestBookingCommandHandlers(executor, options.guestActionTokenSecret),

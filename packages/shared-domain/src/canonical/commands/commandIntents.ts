@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   AccountIdSchema,
+  AdminIssueIdSchema,
   BookingChangeRequestIdSchema,
   BookingIdSchema,
   BookingProposalIdSchema,
@@ -9,12 +10,14 @@ import {
   CourseIdSchema,
   InstructorIdSchema,
   InstructorRelationshipIdSchema,
+  MonetaryEventIdSchema,
   ParticipantBlockIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
   PaymentIdSchema,
 } from '../identifiers';
 import { AttendanceStatusSchema } from '../courseEnrollmentAttendanceAdminIssue';
+import { MonetaryPaymentEffectSchema } from '../paymentWallet';
 import { AggregateRevisionSchema, KztMinorUnitsSchema } from '../primitives';
 import type { CommandKind } from './commandKinds';
 
@@ -69,7 +72,6 @@ const instructorRelationshipBasisIntent = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('guardian_permission') }).strict(),
   z.object({ kind: z.literal('administration_assignment') }).strict(),
 ]);
-const paymentTargetIntent = z.object({ paymentId: PaymentIdSchema }).strict();
 const positiveKztIntent = KztMinorUnitsSchema.refine((value) => value > 0, 'Amount must be positive');
 const providerPaymentSourceKindIntent = z.enum(['provider', 'manual_external', 'cash', 'bank_transfer']);
 const recordProviderPaymentEventIntent = z
@@ -142,7 +144,90 @@ const adjustServicePriceIntent = z
     }
   });
 const courseDayTargetIntent = z.object({ courseDayId: CourseDayIdSchema }).strict();
-const emptyIntent = z.object({}).strict();
+const financialCorrectionReasonIntent = z.string().trim().min(1).max(1_000);
+const recordFinancialCorrectionIntent = z.discriminatedUnion('correctionKind', [
+  z
+    .object({
+      correctionKind: z.literal('admin_refund'),
+      paymentId: PaymentIdSchema,
+      amount: positiveKztIntent,
+      expectedPaymentRevision: AggregateRevisionSchema,
+      walletAccountId: AccountIdSchema.optional(),
+      expectedWalletRevision: AggregateRevisionSchema.optional(),
+      manualExternalReference: z.string().trim().min(1).max(128).optional(),
+      adminIssueId: AdminIssueIdSchema.optional(),
+      expectedAdminIssueRevision: AggregateRevisionSchema.optional(),
+      reasonExplanation: financialCorrectionReasonIntent,
+    })
+    .strict(),
+  z
+    .object({
+      correctionKind: z.literal('write_off'),
+      paymentId: PaymentIdSchema,
+      amount: positiveKztIntent,
+      expectedPaymentRevision: AggregateRevisionSchema,
+      adminIssueId: AdminIssueIdSchema.optional(),
+      expectedAdminIssueRevision: AggregateRevisionSchema.optional(),
+      reasonExplanation: financialCorrectionReasonIntent,
+    })
+    .strict(),
+  z
+    .object({
+      correctionKind: z.literal('reverse_write_off'),
+      paymentId: PaymentIdSchema,
+      amount: positiveKztIntent,
+      expectedPaymentRevision: AggregateRevisionSchema,
+      adminIssueId: AdminIssueIdSchema.optional(),
+      expectedAdminIssueRevision: AggregateRevisionSchema.optional(),
+      reasonExplanation: financialCorrectionReasonIntent,
+    })
+    .strict(),
+  z
+    .object({
+      correctionKind: z.literal('compensating_event'),
+      paymentId: PaymentIdSchema,
+      correctsEventId: MonetaryEventIdSchema,
+      paymentEffect: MonetaryPaymentEffectSchema,
+      expectedPaymentRevision: AggregateRevisionSchema,
+      walletBalanceDelta: z.number().finite().int().optional(),
+      walletAccountId: AccountIdSchema.optional(),
+      expectedWalletRevision: AggregateRevisionSchema.optional(),
+      adminIssueId: AdminIssueIdSchema.optional(),
+      expectedAdminIssueRevision: AggregateRevisionSchema.optional(),
+      reasonExplanation: financialCorrectionReasonIntent,
+    })
+    .strict(),
+]);
+const recordAuditCorrectionIntent = z.discriminatedUnion('operation', [
+  z
+    .object({
+      operation: z.literal('reconcile_payment'),
+      paymentId: PaymentIdSchema,
+    })
+    .strict(),
+  z
+    .object({
+      operation: z.literal('reconcile_wallet'),
+      accountId: AccountIdSchema,
+    })
+    .strict(),
+  z
+    .object({
+      operation: z.literal('rebuild_payment_projection'),
+      paymentId: PaymentIdSchema,
+      expectedPaymentRevision: AggregateRevisionSchema,
+      reasonExplanation: financialCorrectionReasonIntent,
+    })
+    .strict(),
+  z
+    .object({
+      operation: z.literal('rebuild_wallet_projection'),
+      accountId: AccountIdSchema,
+      expectedWalletRevision: AggregateRevisionSchema,
+      reasonExplanation: financialCorrectionReasonIntent,
+    })
+    .strict(),
+]);
 
 export const CommandIntentSchemaByKind = {
   create_confirmed_booking: z
@@ -435,8 +520,8 @@ export const CommandIntentSchemaByKind = {
   record_provider_payment_event: recordProviderPaymentEventIntent,
   record_manual_wallet_funding: recordManualWalletFundingIntent,
   adjust_service_price: adjustServicePriceIntent,
-  record_financial_correction: paymentTargetIntent,
-  record_audit_correction: emptyIntent,
+  record_financial_correction: recordFinancialCorrectionIntent,
+  record_audit_correction: recordAuditCorrectionIntent,
   create_course_day: z
     .object({
       courseDayId: CourseDayIdSchema,

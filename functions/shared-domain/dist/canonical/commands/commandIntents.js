@@ -5,6 +5,7 @@ exports.parseCommandIntent = parseCommandIntent;
 const zod_1 = require("zod");
 const identifiers_1 = require("../identifiers");
 const courseEnrollmentAttendanceAdminIssue_1 = require("../courseEnrollmentAttendanceAdminIssue");
+const paymentWallet_1 = require("../paymentWallet");
 const primitives_1 = require("../primitives");
 const bookingTargetIntent = zod_1.z.object({ bookingId: identifiers_1.BookingIdSchema }).strict();
 const courseEnrollmentTargetIntent = zod_1.z
@@ -56,7 +57,6 @@ const instructorRelationshipBasisIntent = zod_1.z.discriminatedUnion('kind', [
     zod_1.z.object({ kind: zod_1.z.literal('guardian_permission') }).strict(),
     zod_1.z.object({ kind: zod_1.z.literal('administration_assignment') }).strict(),
 ]);
-const paymentTargetIntent = zod_1.z.object({ paymentId: identifiers_1.PaymentIdSchema }).strict();
 const positiveKztIntent = primitives_1.KztMinorUnitsSchema.refine((value) => value > 0, 'Amount must be positive');
 const providerPaymentSourceKindIntent = zod_1.z.enum(['provider', 'manual_external', 'cash', 'bank_transfer']);
 const recordProviderPaymentEventIntent = zod_1.z
@@ -129,7 +129,90 @@ const adjustServicePriceIntent = zod_1.z
     }
 });
 const courseDayTargetIntent = zod_1.z.object({ courseDayId: identifiers_1.CourseDayIdSchema }).strict();
-const emptyIntent = zod_1.z.object({}).strict();
+const financialCorrectionReasonIntent = zod_1.z.string().trim().min(1).max(1_000);
+const recordFinancialCorrectionIntent = zod_1.z.discriminatedUnion('correctionKind', [
+    zod_1.z
+        .object({
+        correctionKind: zod_1.z.literal('admin_refund'),
+        paymentId: identifiers_1.PaymentIdSchema,
+        amount: positiveKztIntent,
+        expectedPaymentRevision: primitives_1.AggregateRevisionSchema,
+        walletAccountId: identifiers_1.AccountIdSchema.optional(),
+        expectedWalletRevision: primitives_1.AggregateRevisionSchema.optional(),
+        manualExternalReference: zod_1.z.string().trim().min(1).max(128).optional(),
+        adminIssueId: identifiers_1.AdminIssueIdSchema.optional(),
+        expectedAdminIssueRevision: primitives_1.AggregateRevisionSchema.optional(),
+        reasonExplanation: financialCorrectionReasonIntent,
+    })
+        .strict(),
+    zod_1.z
+        .object({
+        correctionKind: zod_1.z.literal('write_off'),
+        paymentId: identifiers_1.PaymentIdSchema,
+        amount: positiveKztIntent,
+        expectedPaymentRevision: primitives_1.AggregateRevisionSchema,
+        adminIssueId: identifiers_1.AdminIssueIdSchema.optional(),
+        expectedAdminIssueRevision: primitives_1.AggregateRevisionSchema.optional(),
+        reasonExplanation: financialCorrectionReasonIntent,
+    })
+        .strict(),
+    zod_1.z
+        .object({
+        correctionKind: zod_1.z.literal('reverse_write_off'),
+        paymentId: identifiers_1.PaymentIdSchema,
+        amount: positiveKztIntent,
+        expectedPaymentRevision: primitives_1.AggregateRevisionSchema,
+        adminIssueId: identifiers_1.AdminIssueIdSchema.optional(),
+        expectedAdminIssueRevision: primitives_1.AggregateRevisionSchema.optional(),
+        reasonExplanation: financialCorrectionReasonIntent,
+    })
+        .strict(),
+    zod_1.z
+        .object({
+        correctionKind: zod_1.z.literal('compensating_event'),
+        paymentId: identifiers_1.PaymentIdSchema,
+        correctsEventId: identifiers_1.MonetaryEventIdSchema,
+        paymentEffect: paymentWallet_1.MonetaryPaymentEffectSchema,
+        expectedPaymentRevision: primitives_1.AggregateRevisionSchema,
+        walletBalanceDelta: zod_1.z.number().finite().int().optional(),
+        walletAccountId: identifiers_1.AccountIdSchema.optional(),
+        expectedWalletRevision: primitives_1.AggregateRevisionSchema.optional(),
+        adminIssueId: identifiers_1.AdminIssueIdSchema.optional(),
+        expectedAdminIssueRevision: primitives_1.AggregateRevisionSchema.optional(),
+        reasonExplanation: financialCorrectionReasonIntent,
+    })
+        .strict(),
+]);
+const recordAuditCorrectionIntent = zod_1.z.discriminatedUnion('operation', [
+    zod_1.z
+        .object({
+        operation: zod_1.z.literal('reconcile_payment'),
+        paymentId: identifiers_1.PaymentIdSchema,
+    })
+        .strict(),
+    zod_1.z
+        .object({
+        operation: zod_1.z.literal('reconcile_wallet'),
+        accountId: identifiers_1.AccountIdSchema,
+    })
+        .strict(),
+    zod_1.z
+        .object({
+        operation: zod_1.z.literal('rebuild_payment_projection'),
+        paymentId: identifiers_1.PaymentIdSchema,
+        expectedPaymentRevision: primitives_1.AggregateRevisionSchema,
+        reasonExplanation: financialCorrectionReasonIntent,
+    })
+        .strict(),
+    zod_1.z
+        .object({
+        operation: zod_1.z.literal('rebuild_wallet_projection'),
+        accountId: identifiers_1.AccountIdSchema,
+        expectedWalletRevision: primitives_1.AggregateRevisionSchema,
+        reasonExplanation: financialCorrectionReasonIntent,
+    })
+        .strict(),
+]);
 exports.CommandIntentSchemaByKind = {
     create_confirmed_booking: zod_1.z
         .object({
@@ -420,8 +503,8 @@ exports.CommandIntentSchemaByKind = {
     record_provider_payment_event: recordProviderPaymentEventIntent,
     record_manual_wallet_funding: recordManualWalletFundingIntent,
     adjust_service_price: adjustServicePriceIntent,
-    record_financial_correction: paymentTargetIntent,
-    record_audit_correction: emptyIntent,
+    record_financial_correction: recordFinancialCorrectionIntent,
+    record_audit_correction: recordAuditCorrectionIntent,
     create_course_day: zod_1.z
         .object({
         courseDayId: identifiers_1.CourseDayIdSchema,

@@ -218,9 +218,9 @@ export declare const CommandIntentSchemaByKind: {
         amount: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").KztMinorUnits, number>>;
         sourceKind: z.ZodEnum<{
             provider: "provider";
-            manual_external: "manual_external";
             cash: "cash";
             bank_transfer: "bank_transfer";
+            manual_external: "manual_external";
         }>;
         providerKind: z.ZodOptional<z.ZodString>;
         providerEventId: z.ZodOptional<z.ZodString>;
@@ -240,10 +240,70 @@ export declare const CommandIntentSchemaByKind: {
         walletAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"account">, string>>>;
         reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>;
-    record_financial_correction: z.ZodObject<{
+    record_financial_correction: z.ZodDiscriminatedUnion<[z.ZodObject<{
+        correctionKind: z.ZodLiteral<"admin_refund">;
         paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"payment">, string>>;
-    }, z.core.$strict>;
-    record_audit_correction: z.ZodObject<{}, z.core.$strict>;
+        amount: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").KztMinorUnits, number>>;
+        expectedPaymentRevision: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>;
+        walletAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"account">, string>>>;
+        expectedWalletRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>>;
+        manualExternalReference: z.ZodOptional<z.ZodString>;
+        adminIssueId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"admin_issue">, string>>>;
+        expectedAdminIssueRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>>;
+        reasonExplanation: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        correctionKind: z.ZodLiteral<"write_off">;
+        paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"payment">, string>>;
+        amount: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").KztMinorUnits, number>>;
+        expectedPaymentRevision: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>;
+        adminIssueId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"admin_issue">, string>>>;
+        expectedAdminIssueRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>>;
+        reasonExplanation: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        correctionKind: z.ZodLiteral<"reverse_write_off">;
+        paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"payment">, string>>;
+        amount: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").KztMinorUnits, number>>;
+        expectedPaymentRevision: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>;
+        adminIssueId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"admin_issue">, string>>>;
+        expectedAdminIssueRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>>;
+        reasonExplanation: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        correctionKind: z.ZodLiteral<"compensating_event">;
+        paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"payment">, string>>;
+        correctsEventId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"monetary_event">, string>>;
+        paymentEffect: z.ZodObject<{
+            priceDelta: z.ZodOptional<z.ZodNumber>;
+            paidAmountDelta: z.ZodOptional<z.ZodNumber>;
+            refundedAmountDelta: z.ZodOptional<z.ZodNumber>;
+            settledAmountDelta: z.ZodOptional<z.ZodNumber>;
+            writtenOffAmountDelta: z.ZodOptional<z.ZodNumber>;
+            outstandingAmountDelta: z.ZodOptional<z.ZodNumber>;
+        }, z.core.$strict>;
+        expectedPaymentRevision: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>;
+        walletBalanceDelta: z.ZodOptional<z.ZodNumber>;
+        walletAccountId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"account">, string>>>;
+        expectedWalletRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>>;
+        adminIssueId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"admin_issue">, string>>>;
+        expectedAdminIssueRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>>;
+        reasonExplanation: z.ZodString;
+    }, z.core.$strict>], "correctionKind">;
+    record_audit_correction: z.ZodDiscriminatedUnion<[z.ZodObject<{
+        operation: z.ZodLiteral<"reconcile_payment">;
+        paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"payment">, string>>;
+    }, z.core.$strict>, z.ZodObject<{
+        operation: z.ZodLiteral<"reconcile_wallet">;
+        accountId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"account">, string>>;
+    }, z.core.$strict>, z.ZodObject<{
+        operation: z.ZodLiteral<"rebuild_payment_projection">;
+        paymentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"payment">, string>>;
+        expectedPaymentRevision: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>;
+        reasonExplanation: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        operation: z.ZodLiteral<"rebuild_wallet_projection">;
+        accountId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"account">, string>>;
+        expectedWalletRevision: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>;
+        reasonExplanation: z.ZodString;
+    }, z.core.$strict>], "operation">;
     create_course_day: z.ZodObject<{
         courseDayId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_day">, string>>;
         courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course">, string>>;

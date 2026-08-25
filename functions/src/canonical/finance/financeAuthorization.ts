@@ -7,7 +7,11 @@ import {
 
 export function assertAdministratorFinanceAccess(
   envelope: CommandEnvelope<
-    'record_manual_wallet_funding' | 'record_provider_payment_event' | 'adjust_service_price'
+    | 'record_manual_wallet_funding'
+    | 'record_provider_payment_event'
+    | 'adjust_service_price'
+    | 'record_financial_correction'
+    | 'record_audit_correction'
   >
 ): void {
   if (!administratorCapabilityExercisedByAccount(envelope.context)) {
@@ -33,7 +37,11 @@ export function assertProviderCallbackFinanceAccess(
 
 export function assertFinanceAuthorization(
   envelope: CommandEnvelope<
-    'record_manual_wallet_funding' | 'record_provider_payment_event' | 'adjust_service_price'
+    | 'record_manual_wallet_funding'
+    | 'record_provider_payment_event'
+    | 'adjust_service_price'
+    | 'record_financial_correction'
+    | 'record_audit_correction'
   >
 ): void {
   if (
@@ -47,6 +55,41 @@ export function assertFinanceAuthorization(
     return;
   }
   assertAdministratorFinanceAccess(envelope);
+}
+
+export function assertFinancialCorrectionAuthorization(
+  envelope: CommandEnvelope<'record_financial_correction' | 'record_audit_correction'>
+): void {
+  if (envelope.kind === 'record_financial_correction') {
+    assertAdministratorFinanceAccess(envelope);
+    return;
+  }
+
+  const auditEnvelope = envelope as CommandEnvelope<'record_audit_correction'>;
+  if (
+    auditEnvelope.intent.operation === 'reconcile_payment' ||
+    auditEnvelope.intent.operation === 'reconcile_wallet'
+  ) {
+    assertReconciliationAuthorization(auditEnvelope);
+    return;
+  }
+
+  assertAdministratorFinanceAccess(auditEnvelope);
+}
+
+export function assertReconciliationAuthorization(
+  envelope: CommandEnvelope<'record_audit_correction'>
+): void {
+  const { actor, exercisedCapability, source } = envelope.context;
+  if (
+    actor.kind !== 'system' ||
+    exercisedCapability !== 'system' ||
+    source !== 'system_reconciliation'
+  ) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
 }
 
 export function mapFinanceDomainError(

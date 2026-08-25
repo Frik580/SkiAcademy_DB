@@ -43,6 +43,8 @@ const COMMAND_KIND_REASON_CODES = {
     record_manual_wallet_funding: ['manual_financial_correction', 'manual_override', 'other'],
     record_provider_payment_event: ['provider_callback_processed', 'manual_override', 'other'],
     adjust_service_price: ['manual_override', 'other'],
+    record_financial_correction: ['manual_financial_correction', 'manual_override', 'other'],
+    record_audit_correction: ['audit_correction', 'scheduled_system_action', 'manual_override', 'other'],
     create_participant: ['participant_management', 'other'],
     update_participant_profile: ['participant_management', 'other'],
     assign_participant_management: ['participant_management', 'other'],

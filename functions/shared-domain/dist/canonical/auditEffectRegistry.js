@@ -82,6 +82,18 @@ const COMMAND_KIND_ALLOWED_EFFECTS = {
     record_manual_wallet_funding: ['wallet_balance_changed', 'financial_correction_recorded'],
     record_provider_payment_event: ['payment_state_changed'],
     adjust_service_price: ['payment_state_changed', 'wallet_balance_changed'],
+    record_financial_correction: [
+        'payment_state_changed',
+        'wallet_balance_changed',
+        'financial_correction_recorded',
+        'admin_issue_resolved',
+    ],
+    record_audit_correction: [
+        'audit_correction_recorded',
+        'admin_issue_opened',
+        'payment_state_changed',
+        'wallet_balance_changed',
+    ],
     create_participant: ['participant_access_changed'],
     update_participant_profile: ['participant_access_changed'],
     assign_participant_management: ['participant_access_changed'],

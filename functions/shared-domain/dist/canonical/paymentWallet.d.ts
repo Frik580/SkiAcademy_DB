@@ -193,10 +193,10 @@ export declare const MonetaryEventSchema: z.ZodObject<{
         admin_adjustment: "admin_adjustment";
         provider: "provider";
         system: "system";
-        manual_external: "manual_external";
+        wallet: "wallet";
         cash: "cash";
         bank_transfer: "bank_transfer";
-        wallet: "wallet";
+        manual_external: "manual_external";
     }>;
     payerAccountIdAtEvent: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"account">, string>>>;
     providerKind: z.ZodOptional<z.ZodString>;
@@ -204,8 +204,8 @@ export declare const MonetaryEventSchema: z.ZodObject<{
     providerTransactionRef: z.ZodOptional<z.ZodString>;
     manualReference: z.ZodOptional<z.ZodString>;
     refundDestinationKind: z.ZodOptional<z.ZodEnum<{
-        manual_external: "manual_external";
         wallet: "wallet";
+        manual_external: "manual_external";
     }>>;
     refundAccountIdAtEvent: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"account">, string>>>;
     incrementalRequirementId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"incremental_requirement">, string>>>;

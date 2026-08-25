@@ -19,6 +19,8 @@ import { createFinanceCommandHandlers } from '../finance';
 import { createParticipantAccessCommandHandlers } from '../participantAccess';
 import { createBookingCommandHandlers } from '../bookings';
 import { createGuestBookingCommandHandlers } from '../bookings/guestBookingCommands';
+import { createBookingCancellationCommandHandlers } from '../bookings/bookingCancellationCommands';
+import type { GuestBookingCommandEnvironment } from '../bookings/guestBookingCommands';
 
 export type CommandHandler<Kind extends CommandKind> = (
   envelope: CommandEnvelope<Kind>,
@@ -138,12 +140,20 @@ export function createProductionCanonicalCommands(
   executor: CanonicalTransactionExecutor,
   options: { readonly guestActionTokenSecret?: string } = {}
 ): CanonicalCommands {
+  const guestEnvironmentFactory = (
+    base: CommandExecutionEnvironment
+  ): GuestBookingCommandEnvironment => ({
+    ...base,
+    guestActionTokenSecret: options.guestActionTokenSecret,
+  });
+
   return createCanonicalCommands(
     {
       ...createParticipantAccessCommandHandlers(executor),
       ...createFinanceCommandHandlers(executor),
       ...createBookingCommandHandlers(executor),
       ...createGuestBookingCommandHandlers(executor, options.guestActionTokenSecret),
+      ...createBookingCancellationCommandHandlers(executor, guestEnvironmentFactory),
     },
     environment
   );

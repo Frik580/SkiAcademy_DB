@@ -155,7 +155,34 @@ exports.CommandIntentSchemaByKind = {
         .strict(),
     request_booking_cancellation: bookingTargetIntent,
     withdraw_booking_cancellation_request: bookingTargetIntent,
-    resolve_booking_cancellation: bookingTargetIntent,
+    resolve_booking_cancellation: zod_1.z
+        .object({
+        bookingId: identifiers_1.BookingIdSchema,
+        decision: zod_1.z.enum(['approve', 'reject', 'direct_cancel']),
+        refundAmount: primitives_1.KztMinorUnitsSchema.optional(),
+        reasonExplanation: zod_1.z.string().trim().min(1).max(1_000).optional(),
+        manualExternalReference: zod_1.z.string().trim().min(1).max(128).optional(),
+    })
+        .strict()
+        .superRefine((intent, context) => {
+        if (intent.decision === 'reject') {
+            if (intent.refundAmount !== undefined) {
+                context.addIssue({
+                    code: 'custom',
+                    path: ['refundAmount'],
+                    message: 'refundAmount is not allowed when rejecting cancellation',
+                });
+            }
+            return;
+        }
+        if (intent.refundAmount === undefined) {
+            context.addIssue({
+                code: 'custom',
+                path: ['refundAmount'],
+                message: 'refundAmount is required for approve and direct_cancel',
+            });
+        }
+    }),
     reschedule_booking: bookingTargetIntent,
     change_booking_instructor: bookingTargetIntent,
     change_booking_duration: bookingTargetIntent,

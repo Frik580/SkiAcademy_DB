@@ -24,7 +24,6 @@ import {
   resolveInstructorHourlyRateKzt,
   timestampFromDate,
   type Booking,
-  type BookingCancellationReasonCode,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
   type CommandResult,
@@ -48,9 +47,12 @@ import {
 import {
   commitResourceClaimPlan,
   readAndPlanAcquireResourceClaim,
-  readAndPlanReleaseResourceClaim,
 } from '../resourceClaims/resourceClaimEngine';
-import { resourceClaimIdFromIdentity } from '@ski-academy/shared-domain';
+import {
+  bookingClaimIds,
+  commitPlannedReleaseBookingClaims,
+  planReleaseBookingClaims,
+} from './bookingClaimOperations';
 import { CANONICAL_FIELD_DELETE } from '../transactions/transactionExecution';
 import {
   assertAccountActive,
@@ -88,14 +90,12 @@ import {
   assertGuestPendingBooking,
   assertLinkGuestBookingAuthorization,
   requireGuestActor,
-  resolvePendingGuestCancellationAuthorization,
 } from './guestBookingAuthorization';
 import {
   buildConfirmGuestBookingAuditPlan,
   buildCreateGuestBookingRequestAuditPlan,
   buildExpireGuestReservationAuditPlan,
   buildLinkGuestBookingAuditPlan,
-  buildPendingGuestCancellationAuditPlan,
 } from './guestBookingAudit';
 
 export interface GuestBookingCommandEnvironment extends CommandExecutionEnvironment {
@@ -121,72 +121,6 @@ function revisionAuditLink(envelope: CommandEnvelope, metadata: CommandMetadata)
     lastChangedByCommandId: metadata.commandId,
     correlationId: metadata.correlationId,
   };
-}
-
-function bookingClaimIds(booking: Booking) {
-  const occurrenceId = booking.occurrence.occurrenceId;
-  const instructorIdentity = ResourceClaimIdentityInputSchema.parse({
-    strategyVersion: 'claim:v1',
-    claimKind: 'instructor_booking_occurrence',
-    resourceKind: 'instructor',
-    resourceId: booking.occurrence.instructorId,
-    ownerKind: 'booking',
-    ownerId: booking.bookingId,
-    occurrenceId,
-  });
-  const participantIdentity = ResourceClaimIdentityInputSchema.parse({
-    strategyVersion: 'claim:v1',
-    claimKind: 'participant_booking_occurrence',
-    resourceKind: 'participant',
-    resourceId: booking.party.participantIds[0]!,
-    ownerKind: 'booking',
-    ownerId: booking.bookingId,
-    occurrenceId,
-  });
-  return {
-    instructorClaimId: resourceClaimIdFromIdentity(instructorIdentity),
-    participantClaimId: resourceClaimIdFromIdentity(participantIdentity),
-  };
-}
-
-async function planReleaseBookingClaims(
-  session: Parameters<typeof readAndPlanReleaseResourceClaim>[0],
-  booking: Booking,
-  metadata: CommandMetadata,
-  decidedAt: Date
-) {
-  const claimIds = bookingClaimIds(booking);
-  const claimMetadata = {
-    correlationId: metadata.correlationId,
-    commandId: metadata.commandId,
-    decidedAt,
-  };
-  const plans = [];
-  for (const claimId of [claimIds.instructorClaimId, claimIds.participantClaimId]) {
-    plans.push(
-      await readAndPlanReleaseResourceClaim(session, {
-        ...claimMetadata,
-        claimId,
-      })
-    );
-  }
-  return plans;
-}
-
-function commitPlannedReleaseBookingClaims(
-  session: Parameters<typeof commitResourceClaimPlan>[0],
-  plans: Awaited<ReturnType<typeof planReleaseBookingClaims>>,
-  metadata: CommandMetadata,
-  decidedAt: Date
-): void {
-  const claimMetadata = {
-    correlationId: metadata.correlationId,
-    commandId: metadata.commandId,
-    decidedAt,
-  };
-  for (const plan of plans) {
-    commitResourceClaimPlan(session, plan, claimMetadata);
-  }
 }
 
 function createGuestBookingRequestHandler(
@@ -700,116 +634,6 @@ function expireGuestReservationHandler(
   });
 }
 
-function requestPendingGuestCancellationHandler(
-  envelope: CommandEnvelope<'request_booking_cancellation'>,
-  environment: GuestBookingCommandEnvironment,
-  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
-): Promise<CommandResult<'request_booking_cancellation'>> {
-  const metadata = metadataFromEnvelope(envelope);
-  const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
-
-  let booking!: Booking;
-  let reasonCode!: BookingCancellationReasonCode;
-  let plannedRevision = AggregateRevisionSchema.parse(1);
-  let plannedReleaseClaims: Awaited<ReturnType<typeof planReleaseBookingClaims>> = [];
-
-  const handler: AuthoritativeIdempotentCanonicalCommandHandler<'request_booking_cancellation'> = {
-    read: async (session) => {
-      const bookingRead = await session.tx.get({ path: bookingDocumentPath });
-      session.plan.planRead({ path: bookingDocumentPath, category: 'aggregate' });
-      const parsed = parseBooking(bookingRead.exists ? bookingRead.data : undefined);
-      if (!parsed) {
-        throw new CanonicalCommandError('validation', {
-          correlationId: envelope.context.correlationId,
-          details: { field: 'bookingId', reason: 'conflict' },
-        });
-      }
-      booking = parsed;
-      const now = timestampFromDate(environment.clock.now());
-      reasonCode = resolvePendingGuestCancellationAuthorization(
-        envelope,
-        booking,
-        environment.guestActionTokenSecret,
-        now
-      );
-
-      if (
-        reasonCode === 'guest_cancelled' &&
-        isGuestReservationExpired({
-          now,
-          reservationExpiresAt:
-            booking.lifecycle.status === 'pending'
-              ? booking.lifecycle.reservationExpiresAt
-              : now,
-        })
-      ) {
-        throw new CanonicalCommandError('invalid_transition', {
-          correlationId: envelope.context.correlationId,
-          details: { field: 'reservationExpiresAt', reason: 'out_of_range' },
-        });
-      }
-
-      plannedRevision = nextAggregateRevision(booking.revision);
-      plannedReleaseClaims = await planReleaseBookingClaims(
-        session,
-        booking,
-        metadata,
-        environment.clock.decidedAt()
-      );
-      session.plan.planMutation({
-        path: bookingDocumentPath,
-        kind: 'update',
-        category: 'aggregate',
-        estimatedPayloadBytes: BOOKING_PLANNING_ESTIMATES.bookingBytes,
-      });
-    },
-    planAuditOutbox: async () =>
-      buildPendingGuestCancellationAuditPlan({
-        envelope,
-        bookingId: envelope.intent.bookingId,
-        bookingRevision: plannedRevision,
-        reasonCode,
-      }),
-    execute: async (session, context) => {
-      const decidedAt = timestampFromDate(context.decidedAt);
-      const updatedBooking = BookingSchema.parse({
-        ...booking,
-        lifecycle: {
-          status: 'cancelled',
-          cancelledAt: decidedAt,
-          reasonCode,
-        },
-        revision: plannedRevision,
-        updatedAt: decidedAt,
-        audit: {
-          ...booking.audit,
-          lastChangedByCommandId: metadata.commandId,
-          correlationId: metadata.correlationId,
-        },
-      });
-      session.tx.update(
-        { path: bookingDocumentPath },
-        toFirestoreWritePayload(updatedBooking as Record<string, unknown>)
-      );
-      commitPlannedReleaseBookingClaims(
-        session,
-        plannedReleaseClaims,
-        metadata,
-        context.decidedAt
-      );
-      return commandSuccessResult(envelope.kind, envelope.context.correlationId);
-    },
-  };
-
-  return executeAuthoritativeIdempotentCanonicalCommand({
-    envelope,
-    environment,
-    executor,
-    revisionTarget: { ref: { path: bookingDocumentPath }, requireExpectedRevision: true },
-    handler,
-  });
-}
-
 function linkGuestBookingToAccountHandler(
   envelope: CommandEnvelope<'link_guest_booking_to_account'>,
   environment: CommandExecutionEnvironment,
@@ -1066,7 +890,6 @@ export function createGuestBookingCommandHandlers(
   | 'confirm_guest_booking'
   | 'expire_guest_reservation'
   | 'link_guest_booking_to_account'
-  | 'request_booking_cancellation'
 > {
   const environmentBase = (environment: CommandExecutionEnvironment): GuestBookingCommandEnvironment => ({
     ...environment,
@@ -1082,7 +905,5 @@ export function createGuestBookingCommandHandlers(
       expireGuestReservationHandler(envelope, environment, executor),
     link_guest_booking_to_account: (envelope, environment) =>
       linkGuestBookingToAccountHandler(envelope, environment, executor),
-    request_booking_cancellation: (envelope, environment) =>
-      requestPendingGuestCancellationHandler(envelope, environmentBase(environment), executor),
   };
 }

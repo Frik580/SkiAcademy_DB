@@ -28,6 +28,14 @@ export declare const CommandIntentSchemaByKind: {
     }, z.core.$strict>;
     resolve_booking_cancellation: z.ZodObject<{
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+        decision: z.ZodEnum<{
+            approve: "approve";
+            reject: "reject";
+            direct_cancel: "direct_cancel";
+        }>;
+        refundAmount: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").KztMinorUnits, number>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
+        manualExternalReference: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>;
     reschedule_booking: z.ZodObject<{
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;

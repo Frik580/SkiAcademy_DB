@@ -12,6 +12,7 @@ export * from './auditEffectRegistry';
 export * from './auditReasonRegistry';
 export * from './auditOutboxStaging';
 export * from './bookingOccurrenceProposalChange';
+export * from './bookingCancellationPolicy';
 export * from './bookingCreation';
 export * from './guestBooking';
 export * from './guestCredential';

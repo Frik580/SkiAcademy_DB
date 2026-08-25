@@ -158,6 +158,16 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
     }, z.core.$strict> | z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
+        decision: z.ZodEnum<{
+            approve: "approve";
+            reject: "reject";
+            direct_cancel: "direct_cancel";
+        }>;
+        refundAmount: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
+        manualExternalReference: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict> | z.ZodObject<{
         courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course">, string>>;
         participantIds: z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>>;
     }, z.core.$strict> | z.ZodObject<{
@@ -338,6 +348,16 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
     }, z.core.$strict> | z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
+        decision: z.ZodEnum<{
+            approve: "approve";
+            reject: "reject";
+            direct_cancel: "direct_cancel";
+        }>;
+        refundAmount: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
+        manualExternalReference: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict> | z.ZodObject<{
         courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course">, string>>;
         participantIds: z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>>;
     }, z.core.$strict> | z.ZodObject<{
@@ -517,6 +537,16 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
     }, z.core.$strict> | z.ZodObject<{
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+    }, z.core.$strict> | z.ZodObject<{
+        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"booking">, string>>;
+        decision: z.ZodEnum<{
+            approve: "approve";
+            reject: "reject";
+            direct_cancel: "direct_cancel";
+        }>;
+        refundAmount: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").KztMinorUnits, number>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
+        manualExternalReference: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course">, string>>;
         participantIds: z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>>;

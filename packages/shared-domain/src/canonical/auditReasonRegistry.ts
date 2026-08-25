@@ -30,6 +30,8 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
   confirm_guest_booking: ['manual_override', 'other'],
   link_guest_booking_to_account: ['participant_management', 'other'],
   request_booking_cancellation: ['self_service_booking', 'manual_override', 'other'],
+  withdraw_booking_cancellation_request: ['self_service_booking', 'other'],
+  resolve_booking_cancellation: ['manual_override', 'other'],
   expire_guest_reservation: ['scheduled_system_action'],
   enforce_payment_start_gate: ['scheduled_system_action', 'manual_override'],
   record_manual_wallet_funding: ['manual_financial_correction', 'manual_override', 'other'],

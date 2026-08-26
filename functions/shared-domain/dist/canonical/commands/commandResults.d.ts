@@ -17,6 +17,7 @@ export declare const CommandSuccessResultSchema: z.ZodObject<{
         change_booking_party: "change_booking_party";
         rollback_unpaid_booking_party_additions: "rollback_unpaid_booking_party_additions";
         record_booking_attendance: "record_booking_attendance";
+        record_course_day_attendance: "record_course_day_attendance";
         complete_booking: "complete_booking";
         record_booking_no_show: "record_booking_no_show";
         create_course_enrollments: "create_course_enrollments";

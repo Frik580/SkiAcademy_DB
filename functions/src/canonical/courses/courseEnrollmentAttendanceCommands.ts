@@ -7,9 +7,11 @@ import {
   applyAttendanceSummaryDelta,
   attendanceIdFromCourseDayIdentity,
   ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+  buildCourseEnrollmentAttendanceSummaryFromCurrentEvidence,
   commandSuccessResult,
   courseDayOccurrenceId,
   courseScheduleIsComplete,
+  courseDayAttendanceMatchesCurrentOccurrence,
   evaluateCourseEnrollmentOutcomeCalculator,
   findCourseDayForEnrollment,
   missingCourseDayAttendanceIssueIdentity,
@@ -161,6 +163,7 @@ function recordCourseDayAttendanceHandler(
   let courseDays: CourseDay[] = [];
   let courseDay!: CourseDay;
   let existingAttendance: Attendance | undefined;
+  let effectiveExistingAttendance: Attendance | undefined;
   let plannedAttendance!: Attendance;
   let attendanceDocumentPath = '';
   let attendanceMutation: 'create' | 'update' = 'create';
@@ -176,6 +179,7 @@ function recordCourseDayAttendanceHandler(
       plannedEnrollmentRevision = undefined;
       plannedClaimRelease = undefined;
       auditSummary = undefined;
+      effectiveExistingAttendance = undefined;
 
       const enrollmentRead = await session.tx.get({ path: enrollmentDocumentPath });
       session.plan.planRead({ path: enrollmentDocumentPath, category: 'aggregate' });
@@ -228,10 +232,15 @@ function recordCourseDayAttendanceHandler(
         enrollment,
         envelope.intent.courseDayId
       );
+      effectiveExistingAttendance =
+        existingAttendance &&
+        courseDayAttendanceMatchesCurrentOccurrence(existingAttendance, courseDay)
+          ? existingAttendance
+          : undefined;
       actorMode = assertRecordCourseDayAttendanceAuthorization(envelope, {
         enrollment,
         courseDay,
-        existingAttendance,
+        existingAttendance: effectiveExistingAttendance,
         now,
       });
 
@@ -243,15 +252,15 @@ function recordCourseDayAttendanceHandler(
       });
       attendanceDocumentPath = attendancePath(attendanceId);
 
-      if (existingAttendance) {
+      if (effectiveExistingAttendance) {
         assertExpectedRevision({
           correlationId: envelope.context.correlationId,
           expectedRevision: envelope.intent.expectedAttendanceRevision,
-          currentRevision: existingAttendance.revision,
+          currentRevision: effectiveExistingAttendance.revision,
           requireExpectedRevision: true,
         });
-        if (existingAttendance.attendanceStatus === envelope.intent.attendanceStatus) {
-          plannedAttendance = existingAttendance;
+        if (effectiveExistingAttendance.attendanceStatus === envelope.intent.attendanceStatus) {
+          plannedAttendance = effectiveExistingAttendance;
           attendanceMutation = 'update';
         } else {
           attendanceMutation = 'update';
@@ -264,18 +273,17 @@ function recordCourseDayAttendanceHandler(
       } else {
         const collisionRead = await session.tx.get({ path: attendanceDocumentPath });
         if (collisionRead.exists) {
-          throw new CanonicalCommandError('stale_version', {
-            correlationId: envelope.context.correlationId,
-            currentRevision: AggregateRevisionSchema.parse(1),
-          });
+          attendanceMutation = 'update';
+        } else {
+          attendanceMutation = 'create';
         }
-        attendanceMutation = 'create';
       }
 
       const instructorId = courseDay.actualInstructorIds[0]!;
       const recorder = buildAttendanceRecorder(actorMode, envelope, instructorId);
-      const nextAttendanceRevision = existingAttendance
-        ? nextAggregateRevision(existingAttendance.revision)
+      const revisionBase = effectiveExistingAttendance ?? existingAttendance;
+      const nextAttendanceRevision = revisionBase
+        ? nextAggregateRevision(revisionBase.revision)
         : AggregateRevisionSchema.parse(1);
       plannedAttendance = AttendanceSchema.parse({
         attendanceId,
@@ -284,11 +292,12 @@ function recordCourseDayAttendanceHandler(
           enrollmentId: enrollment.enrollmentId,
           courseId: enrollment.courseId,
           courseDayId: envelope.intent.courseDayId,
+          occurrenceId: courseDayOccurrenceId(courseDay),
           participantId: enrollment.participantId,
         },
         attendanceStatus: envelope.intent.attendanceStatus,
-        recordedBy: existingAttendance?.recordedBy ?? recorder,
-        recordedAt: existingAttendance?.recordedAt ?? now,
+        recordedBy: effectiveExistingAttendance?.recordedBy ?? recorder,
+        recordedAt: effectiveExistingAttendance?.recordedAt ?? now,
         lastChangedBy: recorder,
         updatedAt: now,
         revision: nextAttendanceRevision,
@@ -303,7 +312,7 @@ function recordCourseDayAttendanceHandler(
         estimatedPayloadBytes: ATTENDANCE_PLANNING_ESTIMATES.attendanceBytes,
       });
 
-      const previousStatus = existingAttendance?.attendanceStatus;
+      const previousStatus = effectiveExistingAttendance?.attendanceStatus;
       const nextSummary = applyAttendanceSummaryDelta({
         existing: enrollment.attendanceSummary,
         previousStatus,
@@ -316,7 +325,7 @@ function recordCourseDayAttendanceHandler(
           day.courseDayId === envelope.intent.courseDayId
             ? plannedAttendance
             : await readAttendanceForCourseDay(session, enrollment, day.courseDayId);
-        if (current) {
+        if (current && courseDayAttendanceMatchesCurrentOccurrence(current, day)) {
           attendancesByCourseDayId.set(day.courseDayId, current);
         }
       }
@@ -380,11 +389,10 @@ function recordCourseDayAttendanceHandler(
           now,
           releaseSeat: false,
           releaseFutureDayClaimsOnly: false,
-          skipMissingClaims: true,
         });
       } else if (
         previousStatus !== envelope.intent.attendanceStatus ||
-        !existingAttendance
+        !effectiveExistingAttendance
       ) {
         plannedEnrollmentRevision = nextAggregateRevision(enrollment.revision);
         plannedEnrollment = CourseEnrollmentSchema.parse({
@@ -418,8 +426,8 @@ function recordCourseDayAttendanceHandler(
       }),
     execute: async (session) => {
       if (
-        !existingAttendance ||
-        existingAttendance.attendanceStatus !== envelope.intent.attendanceStatus
+        !effectiveExistingAttendance ||
+        effectiveExistingAttendance.attendanceStatus !== envelope.intent.attendanceStatus
       ) {
         if (attendanceMutation === 'update') {
           session.tx.update(
@@ -525,7 +533,7 @@ export function resolveCourseEnrollmentAttendanceOutcomeHandler(
       const attendancesByCourseDayId = new Map<CourseDayId, Attendance>();
       for (const day of courseDays) {
         const attendance = await readAttendanceForCourseDay(session, enrollment, day.courseDayId);
-        if (attendance) {
+        if (attendance && courseDayAttendanceMatchesCurrentOccurrence(attendance, day)) {
           attendancesByCourseDayId.set(day.courseDayId, attendance);
         }
       }
@@ -583,13 +591,15 @@ export function resolveCourseEnrollmentAttendanceOutcomeHandler(
           now,
           releaseSeat: false,
           releaseFutureDayClaimsOnly: false,
-          skipMissingClaims: true,
         });
       }
 
       if (outcomeDecision.outcome === 'unresolved') {
-        const sufficiency = enrollment.attendanceSummary;
-        const hasPresent = (sufficiency?.presentDayCount ?? 0) >= 1;
+        const effectiveSummary = buildCourseEnrollmentAttendanceSummaryFromCurrentEvidence({
+          courseDays,
+          attendancesByCourseDayId,
+        });
+        const hasPresent = effectiveSummary.presentDayCount >= 1;
         if (!hasPresent) {
           for (const courseDayId of outcomeDecision.missingCourseDayIds) {
             const courseDay = courseDays.find((day) => day.courseDayId === courseDayId);

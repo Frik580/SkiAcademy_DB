@@ -583,7 +583,12 @@ export function commitResourceClaimPlan(
   plan: ResourceClaimOperationPlan,
   metadata: ResourceClaimCommandMetadata
 ): void {
-  if (plan.guardWrites.length === 0 && plan.claimMutationKind === 'update') {
+  // Idempotent replay for an already-released claim plans no guard bucket reads/writes.
+  if (
+    plan.claimMutationKind === 'update' &&
+    plan.guardWrites.length === 0 &&
+    plan.guardBuckets.length === 0
+  ) {
     return;
   }
 

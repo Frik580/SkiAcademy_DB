@@ -11,8 +11,14 @@ import {
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
   WalletSchema,
+  ResourceClaimSchema,
   attendanceIdFromCourseDayIdentity,
   ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+  buildActiveCourseEnrollmentGuard,
+  buildCourseSeatClaimIdentity,
+  buildParticipantCourseDayEnrollmentClaimIdentity,
+  canonicalPaths,
+  courseEnrollmentSeatOccurrenceId,
   paymentIdFromCourseEnrollmentId,
   systemCommandActor,
   timestampFromDate,
@@ -143,6 +149,75 @@ function seedCourseDay(courseDayId: typeof courseDayOneId, dayOrder: 1 | 2 | 3) 
   };
 }
 
+function enrollmentClaimDocs(): Record<string, unknown> {
+  const docs: Record<string, unknown> = {};
+  const seatIdentity = buildCourseSeatClaimIdentity({
+    courseId,
+    enrollmentId,
+    occurrenceId: courseEnrollmentSeatOccurrenceId(enrollmentId),
+  });
+  docs[`resource_claims/${seatIdentity.claimId}`] = ResourceClaimSchema.parse({
+    claimId: seatIdentity.claimId,
+    strategyVersion: 'claim:v1',
+    claimKind: 'course_seat_pre_start',
+    resourceKind: 'course',
+    resourceId: courseId,
+    ownerKind: 'course_enrollment',
+    ownerId: enrollmentId,
+    occurrenceId: seatIdentity.identity.occurrenceId,
+    interval: { startsAt: dayOneStart, endsAt: dayThreeEnd },
+    lifecycle: { status: 'active' },
+    revision: 1,
+    correlationId,
+    lastChangedByCommandId: 'seed',
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+  });
+
+  for (const [courseDayId, dayOrder] of [
+    [courseDayOneId, 1],
+    [courseDayTwoId, 2],
+    [courseDayThreeId, 3],
+  ] as const) {
+    const courseDay = seedCourseDay(courseDayId, dayOrder);
+    const dayIdentity = buildParticipantCourseDayEnrollmentClaimIdentity({
+      participantId,
+      enrollmentId,
+      courseDay,
+    });
+    docs[`resource_claims/${dayIdentity.claimId}`] = ResourceClaimSchema.parse({
+      claimId: dayIdentity.claimId,
+      strategyVersion: 'claim:v1',
+      claimKind: 'participant_course_day_enrollment',
+      resourceKind: 'participant',
+      resourceId: participantId,
+      ownerKind: 'course_enrollment',
+      ownerId: enrollmentId,
+      occurrenceId: dayIdentity.occurrenceId,
+      interval: courseDay.interval,
+      lifecycle: { status: 'active' },
+      revision: 1,
+      correlationId,
+      lastChangedByCommandId: 'seed',
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+    });
+  }
+
+  const guard = buildActiveCourseEnrollmentGuard({
+    participantId,
+    courseId,
+    courseEnrollmentId: enrollmentId,
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    lastChangedByCommandId: 'seed',
+    correlationId,
+  });
+  docs[canonicalPaths.activeCourseEnrollmentGuard(participantId, courseId).slice(1)] = guard;
+  return docs;
+}
+
 function baseFixture(extra: Record<string, unknown> = {}) {
   return {
     [`users/${accountId}`]: AccountSchema.parse({
@@ -253,6 +328,7 @@ function baseFixture(extra: Record<string, unknown> = {}) {
       createdAt: decidedAt,
       updatedAt: decidedAt,
     }),
+    ...enrollmentClaimDocs(),
     ...extra,
   };
 }
@@ -365,6 +441,15 @@ describe('courseEnrollmentAttendanceCommands', () => {
 
   it('resolves no_show when all days are absent after final day', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const dayOneIdentity = buildParticipantCourseDayEnrollmentClaimIdentity({
+      participantId,
+      enrollmentId,
+      courseDay: seedCourseDay(courseDayOneId, 1),
+    });
+    expect(
+      executor.snapshot().docs.get(`resource_claims/${dayOneIdentity.claimId}`)?.data.lifecycle
+        .status
+    ).toBe('active');
     const dayOneCommands = createProductionCanonicalCommands(
       environment('2026-02-01T04:00:00.000Z'),
       executor
@@ -386,6 +471,13 @@ describe('courseEnrollmentAttendanceCommands', () => {
     expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe(
       'no_show'
     );
+    const releasedClaims = [...executor.snapshot().docs.entries()].filter(
+      ([path, doc]) =>
+        path.startsWith('resource_claims/') &&
+        doc.data.ownerId === enrollmentId &&
+        doc.data.lifecycle?.status === 'released'
+    );
+    expect(releasedClaims.length).toBeGreaterThanOrEqual(3);
   });
 
   it('blocks generic resolver terminalization for pending_cancellation', async () => {
@@ -454,6 +546,71 @@ describe('courseEnrollmentAttendanceCommands', () => {
       recordEnvelope(courseDayOneId, 'present', 'idem-course-attendance-before-start')
     );
     expect(result.status).toBe('error');
+  });
+
+  it('blocks admin correction that contradicts terminal no_show outcome', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const dayOneCommands = createProductionCanonicalCommands(
+      environment('2026-02-01T04:00:00.000Z'),
+      executor
+    );
+    const dayTwoCommands = createProductionCanonicalCommands(
+      environment('2026-02-02T04:00:00.000Z'),
+      executor
+    );
+    const dayThreeCommands = createProductionCanonicalCommands(
+      environment('2026-02-03T06:00:00.000Z'),
+      executor
+    );
+    await dayOneCommands.execute(recordEnvelope(courseDayOneId, 'absent', 'idem-terminal-ns-a'));
+    await dayTwoCommands.execute(recordEnvelope(courseDayTwoId, 'absent', 'idem-terminal-ns-b'));
+    await dayThreeCommands.execute(recordEnvelope(courseDayThreeId, 'absent', 'idem-terminal-ns-c'));
+    expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe(
+      'no_show'
+    );
+    const adminCommands = createProductionCanonicalCommands(
+      environment('2026-02-04T04:00:00.000Z'),
+      executor
+    );
+    const result = await adminCommands.execute({
+      kind: 'record_course_day_attendance',
+      context: adminContext('idem-terminal-correction'),
+      intent: {
+        courseEnrollmentId: enrollmentId,
+        courseDayId: courseDayThreeId,
+        attendanceStatus: 'present',
+        expectedAttendanceRevision: AggregateRevisionSchema.parse(1),
+        reasonExplanation: 'attempted contradiction',
+      },
+    });
+    expect(result.status).toBe('error');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status).toBe('no_show');
+    const attendanceId = attendanceIdFromCourseDayIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'course_enrollment',
+      enrollmentId,
+      courseDayId: courseDayThreeId,
+    });
+    expect(snapshot.docs.get(`attendance/${attendanceId}`)?.data.attendanceStatus).toBe('absent');
+  });
+
+  it('survives simulateRetry without duplicating attendance writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture(), {
+      simulateRetry: true,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-02-01T04:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      recordEnvelope(courseDayOneId, 'present', 'idem-course-attendance-retry')
+    );
+    expect(result.status).toBe('success');
+    const attendanceDocs = [...executor.snapshot().docs.keys()].filter((path) =>
+      path.startsWith('attendance/')
+    );
+    expect(attendanceDocs).toHaveLength(1);
   });
 
   it('requires admin reason when correcting attendance', async () => {

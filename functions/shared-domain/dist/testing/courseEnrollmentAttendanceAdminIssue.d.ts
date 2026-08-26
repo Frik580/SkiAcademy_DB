@@ -264,6 +264,7 @@ export declare const canonicalCourseDeliveryFixtures: Readonly<{
             enrollmentId: import("../canonical/identifiers").CanonicalId<"course_enrollment">;
             courseId: import("../canonical/identifiers").CanonicalId<"course">;
             courseDayId: import("../canonical/identifiers").CanonicalId<"course_day">;
+            occurrenceId: import("../canonical/identifiers").CanonicalId<"occurrence">;
             participantId: import("../canonical/identifiers").CanonicalId<"participant">;
         };
         attendanceStatus: "present" | "absent";
@@ -305,6 +306,7 @@ export declare const canonicalCourseDeliveryFixtures: Readonly<{
             enrollmentId: import("../canonical/identifiers").CanonicalId<"course_enrollment">;
             courseId: import("../canonical/identifiers").CanonicalId<"course">;
             courseDayId: import("../canonical/identifiers").CanonicalId<"course_day">;
+            occurrenceId: import("../canonical/identifiers").CanonicalId<"occurrence">;
             participantId: import("../canonical/identifiers").CanonicalId<"participant">;
         };
         attendanceStatus: "present" | "absent";

@@ -10,6 +10,8 @@ exports.courseDayOccurrenceId = courseDayOccurrenceId;
 exports.findCourseDayForEnrollment = findCourseDayForEnrollment;
 exports.instructorAssignedToCourseDay = instructorAssignedToCourseDay;
 exports.applyAttendanceSummaryDelta = applyAttendanceSummaryDelta;
+exports.courseDayAttendanceMatchesCurrentOccurrence = courseDayAttendanceMatchesCurrentOccurrence;
+exports.buildCourseEnrollmentAttendanceSummaryFromCurrentEvidence = buildCourseEnrollmentAttendanceSummaryFromCurrentEvidence;
 exports.resolveMissingCourseDayIds = resolveMissingCourseDayIds;
 exports.evaluateCourseEnrollmentOutcomeCalculator = evaluateCourseEnrollmentOutcomeCalculator;
 exports.attendanceCorrectionWouldContradictTerminalOutcome = attendanceCorrectionWouldContradictTerminalOutcome;
@@ -104,9 +106,42 @@ function applyAttendanceSummaryDelta(input) {
         projectionRevision: primitives_1.AggregateRevisionSchema.parse(existing.projectionRevision + 1),
     };
 }
+function courseDayAttendanceMatchesCurrentOccurrence(attendance, courseDay) {
+    if (attendance.subject.subjectKind !== 'course_enrollment') {
+        return false;
+    }
+    return attendance.subject.occurrenceId === courseDayOccurrenceId(courseDay);
+}
+function buildCourseEnrollmentAttendanceSummaryFromCurrentEvidence(input) {
+    let recordedDayCount = 0;
+    let presentDayCount = 0;
+    let absentDayCount = 0;
+    for (const courseDay of input.courseDays) {
+        const attendance = input.attendancesByCourseDayId.get(courseDay.courseDayId);
+        if (!attendance || !courseDayAttendanceMatchesCurrentOccurrence(attendance, courseDay)) {
+            continue;
+        }
+        recordedDayCount += 1;
+        if (attendance.attendanceStatus === 'present') {
+            presentDayCount += 1;
+        }
+        else {
+            absentDayCount += 1;
+        }
+    }
+    return {
+        recordedDayCount,
+        presentDayCount,
+        absentDayCount,
+        projectionRevision: primitives_1.AggregateRevisionSchema.parse(0),
+    };
+}
 function resolveMissingCourseDayIds(input) {
     return input.courseDays
-        .filter((courseDay) => !input.attendancesByCourseDayId.has(courseDay.courseDayId))
+        .filter((courseDay) => {
+        const attendance = input.attendancesByCourseDayId.get(courseDay.courseDayId);
+        return !attendance || !courseDayAttendanceMatchesCurrentOccurrence(attendance, courseDay);
+    })
         .map((courseDay) => courseDay.courseDayId);
 }
 function evaluateCourseEnrollmentOutcomeCalculator(input) {
@@ -136,9 +171,13 @@ function evaluateCourseEnrollmentOutcomeCalculator(input) {
     if (blockingIssue) {
         return { outcome: 'blocked_outcome_issue', issueKind: blockingIssue.kind };
     }
+    const effectiveSummary = buildCourseEnrollmentAttendanceSummaryFromCurrentEvidence({
+        courseDays: input.courseDays,
+        attendancesByCourseDayId: input.attendancesByCourseDayId,
+    });
     const sufficiency = deriveCourseEnrollmentAttendanceSufficiency({
         courseDayCount: input.course.scheduleProjection.courseDayCount,
-        attendanceSummary: input.enrollment.attendanceSummary,
+        attendanceSummary: effectiveSummary,
     });
     if (sufficiency === 'completed') {
         return { outcome: 'resolve', lifecycle: 'completed' };

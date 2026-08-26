@@ -674,6 +674,7 @@ export const CourseEnrollmentAttendanceSubjectRefSchema = z
     enrollmentId: CourseEnrollmentIdSchema,
     courseId: CourseIdSchema,
     courseDayId: CourseDayIdSchema,
+    occurrenceId: OccurrenceIdSchema,
     participantId: ParticipantIdSchema,
   })
   .strict();

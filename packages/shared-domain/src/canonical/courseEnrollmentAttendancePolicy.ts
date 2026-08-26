@@ -171,12 +171,54 @@ export function applyAttendanceSummaryDelta(input: {
   };
 }
 
+export function courseDayAttendanceMatchesCurrentOccurrence(
+  attendance: Attendance,
+  courseDay: CourseDay
+): boolean {
+  if (attendance.subject.subjectKind !== 'course_enrollment') {
+    return false;
+  }
+  return attendance.subject.occurrenceId === courseDayOccurrenceId(courseDay);
+}
+
+export function buildCourseEnrollmentAttendanceSummaryFromCurrentEvidence(input: {
+  readonly courseDays: readonly CourseDay[];
+  readonly attendancesByCourseDayId: ReadonlyMap<CourseDayId, Attendance>;
+}): CourseEnrollmentAttendanceSummary {
+  let recordedDayCount = 0;
+  let presentDayCount = 0;
+  let absentDayCount = 0;
+
+  for (const courseDay of input.courseDays) {
+    const attendance = input.attendancesByCourseDayId.get(courseDay.courseDayId);
+    if (!attendance || !courseDayAttendanceMatchesCurrentOccurrence(attendance, courseDay)) {
+      continue;
+    }
+    recordedDayCount += 1;
+    if (attendance.attendanceStatus === 'present') {
+      presentDayCount += 1;
+    } else {
+      absentDayCount += 1;
+    }
+  }
+
+  return {
+    recordedDayCount,
+    presentDayCount,
+    absentDayCount,
+    projectionRevision: AggregateRevisionSchema.parse(0),
+  };
+}
+
 export function resolveMissingCourseDayIds(input: {
   readonly courseDays: readonly CourseDay[];
   readonly attendancesByCourseDayId: ReadonlyMap<CourseDayId, Attendance>;
 }): readonly CourseDayId[] {
   return input.courseDays
-    .filter((courseDay) => !input.attendancesByCourseDayId.has(courseDay.courseDayId))
+    .filter((courseDay) => {
+      const attendance = input.attendancesByCourseDayId.get(courseDay.courseDayId);
+      return !attendance || !courseDayAttendanceMatchesCurrentOccurrence(attendance, courseDay);
+    })
     .map((courseDay) => courseDay.courseDayId);
 }
 
@@ -222,9 +264,14 @@ export function evaluateCourseEnrollmentOutcomeCalculator(input: {
     return { outcome: 'blocked_outcome_issue', issueKind: blockingIssue.kind };
   }
 
+  const effectiveSummary = buildCourseEnrollmentAttendanceSummaryFromCurrentEvidence({
+    courseDays: input.courseDays,
+    attendancesByCourseDayId: input.attendancesByCourseDayId,
+  });
+
   const sufficiency = deriveCourseEnrollmentAttendanceSufficiency({
     courseDayCount: input.course.scheduleProjection.courseDayCount,
-    attendanceSummary: input.enrollment.attendanceSummary,
+    attendanceSummary: effectiveSummary,
   });
 
   if (sufficiency === 'completed') {

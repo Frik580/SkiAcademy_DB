@@ -9,6 +9,7 @@ import {
   attendanceIdFromBookingIdentity,
   attendanceIdFromCourseDayIdentity,
 } from '../canonical/courseEnrollmentAttendanceAdminIssue';
+import { initialCourseDayOccurrenceId } from '../canonical/deterministicIdentity';
 import {
   AccountIdSchema,
   CourseDayIdSchema,
@@ -160,6 +161,7 @@ const presentCourseDayAttendance = AttendanceSchema.parse({
     enrollmentId,
     courseId,
     courseDayId: courseDayOneId,
+    occurrenceId: initialCourseDayOccurrenceId(courseDayOneId),
     participantId,
   },
   attendanceStatus: 'present',

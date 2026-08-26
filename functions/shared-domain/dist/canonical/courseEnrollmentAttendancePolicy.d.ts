@@ -49,6 +49,11 @@ export declare function applyAttendanceSummaryDelta(input: {
     readonly previousStatus: AttendanceStatus | undefined;
     readonly nextStatus: AttendanceStatus;
 }): CourseEnrollmentAttendanceSummary;
+export declare function courseDayAttendanceMatchesCurrentOccurrence(attendance: Attendance, courseDay: CourseDay): boolean;
+export declare function buildCourseEnrollmentAttendanceSummaryFromCurrentEvidence(input: {
+    readonly courseDays: readonly CourseDay[];
+    readonly attendancesByCourseDayId: ReadonlyMap<CourseDayId, Attendance>;
+}): CourseEnrollmentAttendanceSummary;
 export declare function resolveMissingCourseDayIds(input: {
     readonly courseDays: readonly CourseDay[];
     readonly attendancesByCourseDayId: ReadonlyMap<CourseDayId, Attendance>;

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.canonicalCourseDeliveryFixtures = void 0;
 const courseEnrollmentAttendanceAdminIssue_1 = require("../canonical/courseEnrollmentAttendanceAdminIssue");
+const deterministicIdentity_1 = require("../canonical/deterministicIdentity");
 const identifiers_1 = require("../canonical/identifiers");
 const primitives_1 = require("../canonical/primitives");
 const primitives_2 = require("./primitives");
@@ -132,6 +133,7 @@ const presentCourseDayAttendance = courseEnrollmentAttendanceAdminIssue_1.Attend
         enrollmentId,
         courseId,
         courseDayId: courseDayOneId,
+        occurrenceId: (0, deterministicIdentity_1.initialCourseDayOccurrenceId)(courseDayOneId),
         participantId,
     },
     attendanceStatus: 'present',

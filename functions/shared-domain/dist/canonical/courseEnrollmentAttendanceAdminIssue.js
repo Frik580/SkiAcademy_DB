@@ -508,6 +508,7 @@ exports.CourseEnrollmentAttendanceSubjectRefSchema = zod_1.z
     enrollmentId: identifiers_1.CourseEnrollmentIdSchema,
     courseId: identifiers_1.CourseIdSchema,
     courseDayId: identifiers_1.CourseDayIdSchema,
+    occurrenceId: identifiers_1.OccurrenceIdSchema,
     participantId: identifiers_1.ParticipantIdSchema,
 })
     .strict();

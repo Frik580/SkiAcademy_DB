@@ -9,6 +9,9 @@ import { timestampFromDate } from './guestBooking';
 import type { Attendance } from './courseEnrollmentAttendanceAdminIssue';
 import {
   applyAttendanceSummaryDelta,
+  buildCourseEnrollmentAttendanceSummaryFromCurrentEvidence,
+  courseDayAttendanceMatchesCurrentOccurrence,
+  courseDayOccurrenceId,
   deriveCourseEnrollmentAttendanceSufficiency,
   evaluateCourseEnrollmentAutomationEligibility,
   evaluateCourseEnrollmentOutcomeCalculator,
@@ -96,6 +99,33 @@ function courseDay(courseDayId: typeof courseDayOneId, dayOrder: number): Course
       lastChangedByCommandId: 'seed',
       correlationId: 'correlation_attendance_policy_01',
     },
+  };
+}
+
+function courseAttendance(
+  courseDayId: typeof courseDayOneId,
+  dayOrder: number,
+  status: 'present' | 'absent',
+  occurrenceRevision = 1
+): Attendance {
+  const day = courseDay(courseDayId, dayOrder);
+  return {
+    attendanceId: `attendance_policy_${courseDayId}` as Attendance['attendanceId'],
+    subject: {
+      subjectKind: 'course_enrollment',
+      enrollmentId,
+      courseId: 'course_attendance_policy_01' as CourseEnrollment['courseId'],
+      courseDayId,
+      occurrenceId: courseDayOccurrenceId({ ...day, revision: occurrenceRevision }),
+      participantId,
+    },
+    attendanceStatus: status,
+    recordedBy: { kind: 'instructor', instructorId: day.actualInstructorIds[0]! },
+    recordedAt: day.interval.endsAt,
+    lastChangedBy: { kind: 'instructor', instructorId: day.actualInstructorIds[0]! },
+    updatedAt: day.interval.endsAt,
+    revision: 1,
+    correlationId: 'correlation_attendance_policy_01',
   };
 }
 
@@ -192,17 +222,16 @@ describe('courseEnrollmentAttendancePolicy', () => {
   });
 
   it('resolves completed after final day with any present', () => {
+    const days = [courseDay(courseDayOneId, 1), courseDay(courseDayTwoId, 2), courseDay(courseDayThreeId, 3)];
+    const attendances = new Map([
+      [courseDayTwoId, courseAttendance(courseDayTwoId, 2, 'present')],
+    ]);
     const decision = evaluateCourseEnrollmentOutcomeCalculator({
       now: timestampFromDate(new Date('2026-02-03T06:00:00.000Z')),
-      enrollment: enrollment({
-        recordedDayCount: 2,
-        presentDayCount: 1,
-        absentDayCount: 1,
-        projectionRevision: 2,
-      }),
+      enrollment: enrollment(),
       course: course(),
-      courseDays: [courseDay(courseDayOneId, 1), courseDay(courseDayTwoId, 2), courseDay(courseDayThreeId, 3)],
-      attendancesByCourseDayId: new Map(),
+      courseDays: days,
+      attendancesByCourseDayId: attendances,
       openAdminIssues: [],
       automationOnly: false,
     });
@@ -280,9 +309,26 @@ describe('courseEnrollmentAttendancePolicy', () => {
     const missing = resolveMissingCourseDayIds({
       courseDays: days,
       attendancesByCourseDayId: new Map([
-        [courseDayOneId, { attendanceStatus: 'present' } as Attendance],
+        [courseDayOneId, courseAttendance(courseDayOneId, 1, 'present')],
       ]),
     });
     expect(missing).toEqual([courseDayTwoId]);
+  });
+
+  it('ignores stale occurrence attendance when resolving missing days', () => {
+    const day = courseDay(courseDayOneId, 1);
+    const stale = courseAttendance(courseDayOneId, 1, 'present', 1);
+    const rotatedDay = { ...day, revision: 2 };
+    expect(courseDayAttendanceMatchesCurrentOccurrence(stale, rotatedDay)).toBe(false);
+    const missing = resolveMissingCourseDayIds({
+      courseDays: [rotatedDay],
+      attendancesByCourseDayId: new Map([[courseDayOneId, stale]]),
+    });
+    expect(missing).toEqual([courseDayOneId]);
+    const summary = buildCourseEnrollmentAttendanceSummaryFromCurrentEvidence({
+      courseDays: [rotatedDay],
+      attendancesByCourseDayId: new Map([[courseDayOneId, stale]]),
+    });
+    expect(summary.presentDayCount).toBe(0);
   });
 });

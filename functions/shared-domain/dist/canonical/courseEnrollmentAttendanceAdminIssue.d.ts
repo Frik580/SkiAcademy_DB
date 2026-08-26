@@ -498,6 +498,7 @@ export declare const CourseEnrollmentAttendanceSubjectRefSchema: z.ZodObject<{
     enrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"course_enrollment">, string>>;
     courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"course">, string>>;
     courseDayId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"course_day">, string>>;
+    occurrenceId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"occurrence">, string>>;
     participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"participant">, string>>;
 }, z.core.$strict>;
 export declare const AttendanceSubjectRefSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
@@ -510,6 +511,7 @@ export declare const AttendanceSubjectRefSchema: z.ZodDiscriminatedUnion<[z.ZodO
     enrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"course_enrollment">, string>>;
     courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"course">, string>>;
     courseDayId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"course_day">, string>>;
+    occurrenceId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"occurrence">, string>>;
     participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"participant">, string>>;
 }, z.core.$strict>], "subjectKind">;
 export type AttendanceSubjectRef = Readonly<z.output<typeof AttendanceSubjectRefSchema>>;
@@ -550,6 +552,7 @@ export declare const AttendanceSchema: z.ZodObject<{
         enrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"course_enrollment">, string>>;
         courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"course">, string>>;
         courseDayId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"course_day">, string>>;
+        occurrenceId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"occurrence">, string>>;
         participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"participant">, string>>;
     }, z.core.$strict>], "subjectKind">;
     attendanceStatus: z.ZodEnum<{

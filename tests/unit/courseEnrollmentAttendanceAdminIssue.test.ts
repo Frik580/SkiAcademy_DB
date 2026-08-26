@@ -446,6 +446,7 @@ describe('Attendance contracts', () => {
           enrollmentId,
           courseId,
           courseDayId,
+          occurrenceId,
           participantId,
         },
         attendanceStatus: 'present',

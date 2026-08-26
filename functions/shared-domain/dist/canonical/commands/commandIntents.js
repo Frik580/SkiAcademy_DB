@@ -379,10 +379,43 @@ exports.CommandIntentSchemaByKind = {
         reasonExplanation: zod_1.z.string().trim().min(1).max(1_000).optional(),
     })
         .strict(),
-    transfer_course_enrollment: courseEnrollmentTargetIntent,
+    transfer_course_enrollment: zod_1.z
+        .object({
+        courseEnrollmentId: identifiers_1.CourseEnrollmentIdSchema,
+        targetCourseId: identifiers_1.CourseIdSchema,
+        reasonExplanation: zod_1.z.string().trim().min(1).max(1_000).optional(),
+    })
+        .strict(),
     withdraw_course_enrollment: courseEnrollmentTargetIntent,
     request_course_enrollment_cancellation: courseEnrollmentTargetIntent,
-    resolve_course_enrollment_cancellation: courseEnrollmentTargetIntent,
+    resolve_course_enrollment_cancellation: zod_1.z
+        .object({
+        courseEnrollmentId: identifiers_1.CourseEnrollmentIdSchema,
+        decision: zod_1.z.enum(['approve', 'reject', 'direct_cancel']),
+        refundAmount: primitives_1.KztMinorUnitsSchema.optional(),
+        reasonExplanation: zod_1.z.string().trim().min(1).max(1_000).optional(),
+        manualExternalReference: zod_1.z.string().trim().min(1).max(128).optional(),
+    })
+        .strict()
+        .superRefine((intent, context) => {
+        if (intent.decision === 'reject') {
+            if (intent.refundAmount !== undefined) {
+                context.addIssue({
+                    code: 'custom',
+                    path: ['refundAmount'],
+                    message: 'refundAmount is not allowed when rejecting cancellation',
+                });
+            }
+            return;
+        }
+        if (intent.refundAmount === undefined) {
+            context.addIssue({
+                code: 'custom',
+                path: ['refundAmount'],
+                message: 'refundAmount is required for approve and direct_cancel',
+            });
+        }
+    }),
     create_booking_proposal: zod_1.z
         .object({
         bookingProposalId: identifiers_1.BookingProposalIdSchema,
@@ -438,7 +471,23 @@ exports.CommandIntentSchemaByKind = {
             }
         }
     }),
-    expire_guest_reservation: bookingTargetIntent,
+    expire_guest_reservation: zod_1.z
+        .object({
+        bookingId: identifiers_1.BookingIdSchema.optional(),
+        courseEnrollmentId: identifiers_1.CourseEnrollmentIdSchema.optional(),
+    })
+        .strict()
+        .superRefine((intent, context) => {
+        const hasBooking = intent.bookingId !== undefined;
+        const hasEnrollment = intent.courseEnrollmentId !== undefined;
+        if (hasBooking === hasEnrollment) {
+            context.addIssue({
+                code: 'custom',
+                path: ['bookingId'],
+                message: 'Exactly one of bookingId or courseEnrollmentId is required',
+            });
+        }
+    }),
     enforce_payment_start_gate: zod_1.z
         .object({
         subjectKind: zod_1.z.enum(['booking', 'course_enrollment']),

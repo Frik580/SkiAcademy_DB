@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { type BookingId, type GuestSubjectId } from './identifiers';
+import { type BookingId, type CourseEnrollmentId, type GuestSubjectId } from './identifiers';
 import { type CanonicalTimestamp } from './primitives';
 export declare const GUEST_ACTION_TOKEN_VERSION: "guest-token:v1";
 export declare const GUEST_ACTION_TOKEN_PURPOSES: readonly ["cancel_pending_reservation"];
@@ -18,6 +18,20 @@ declare const GuestActionTokenPayloadSchema: z.ZodObject<{
     nonce: z.ZodString;
 }, z.core.$strict>;
 export type GuestActionTokenPayload = Readonly<z.output<typeof GuestActionTokenPayloadSchema>>;
+declare const GuestCourseEnrollmentActionTokenPayloadSchema: z.ZodObject<{
+    version: z.ZodLiteral<"guest-token:v1">;
+    enrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"course_enrollment">, string>>;
+    guestSubjectId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"guest_subject">, string>>;
+    purpose: z.ZodEnum<{
+        cancel_pending_reservation: "cancel_pending_reservation";
+    }>;
+    expiresAt: z.ZodObject<{
+        seconds: z.ZodNumber;
+        nanoseconds: z.ZodNumber;
+    }, z.core.$strict>;
+    nonce: z.ZodString;
+}, z.core.$strict>;
+export type GuestCourseEnrollmentActionTokenPayload = Readonly<z.output<typeof GuestCourseEnrollmentActionTokenPayloadSchema>>;
 export declare function decodeHmacSha256HexSignature(signature: string): Uint8Array | undefined;
 export type CompareHmacSha256Signatures = (expectedHex: string, providedSignature: string) => boolean;
 export declare function signGuestActionCredential(secret: string, payload: GuestActionTokenPayload): string;
@@ -32,6 +46,17 @@ export declare function verifyGuestActionCredentialParts(input: {
     readonly expiresAt: CanonicalTimestamp;
     readonly compareSignatures: CompareHmacSha256Signatures;
 }): GuestActionTokenVerificationResult;
+export declare function verifyGuestCourseEnrollmentActionCredentialParts(input: {
+    readonly secret: string;
+    readonly nonce: string;
+    readonly signature: string;
+    readonly now: CanonicalTimestamp;
+    readonly expectedEnrollmentId: CourseEnrollmentId;
+    readonly expectedGuestSubjectId: GuestSubjectId;
+    readonly expectedPurpose: GuestActionTokenPurpose;
+    readonly expiresAt: CanonicalTimestamp;
+    readonly compareSignatures: CompareHmacSha256Signatures;
+}): GuestCourseEnrollmentActionTokenVerificationResult;
 export declare function issueGuestActionToken(input: {
     readonly secret: string;
     readonly payload: GuestActionTokenPayload;
@@ -42,6 +67,13 @@ export type GuestActionTokenVerificationResult = Readonly<{
 }> | Readonly<{
     valid: false;
     reason: 'malformed' | 'invalid_signature' | 'expired' | 'purpose_mismatch' | 'booking_mismatch' | 'guest_mismatch';
+}>;
+export type GuestCourseEnrollmentActionTokenVerificationResult = Readonly<{
+    valid: true;
+    payload: GuestCourseEnrollmentActionTokenPayload;
+}> | Readonly<{
+    valid: false;
+    reason: 'malformed' | 'invalid_signature' | 'expired' | 'purpose_mismatch' | 'enrollment_mismatch' | 'guest_mismatch';
 }>;
 export declare function verifyGuestActionToken(input: {
     readonly secret: string;

@@ -11,6 +11,7 @@ exports.reuseOrReopenAdminIssue = reuseOrReopenAdminIssue;
 exports.assertAdministratorMayMutateAdminIssue = assertAdministratorMayMutateAdminIssue;
 exports.resolveAdminIssue = resolveAdminIssue;
 exports.resolveUnresolvedPendingCancellationForOwnerWithdrawal = resolveUnresolvedPendingCancellationForOwnerWithdrawal;
+exports.resolveUnresolvedCourseEnrollmentPendingCancellationForOwnerWithdrawal = resolveUnresolvedCourseEnrollmentPendingCancellationForOwnerWithdrawal;
 exports.dismissAdminIssue = dismissAdminIssue;
 exports.sanitizePaymentStartGateForInstructor = sanitizePaymentStartGateForInstructor;
 exports.sanitizedInstructorViewOmitsFinancialFields = sanitizedInstructorViewOmitsFinancialFields;
@@ -239,6 +240,23 @@ function assertOwnerMayResolveUnresolvedPendingCancellation(correlationId, exist
     }
     return input.actor.actor.accountId;
 }
+function assertOwnerMayResolveUnresolvedCourseEnrollmentPendingCancellation(correlationId, existing, input) {
+    if (existing.kind !== 'unresolved_pending_cancellation') {
+        throw new errors_1.CanonicalCommandError('forbidden', { correlationId });
+    }
+    if (existing.subjectRef.subjectKind !== 'course_enrollment' ||
+        existing.subjectRef.enrollmentId !== input.enrollmentId) {
+        throw new errors_1.CanonicalCommandError('forbidden', { correlationId });
+    }
+    if (input.actor.actor.kind !== 'account') {
+        throw new errors_1.CanonicalCommandError('forbidden', { correlationId });
+    }
+    if (input.actor.exercisedCapability !== 'account_owner' &&
+        input.actor.exercisedCapability !== 'parent_guardian') {
+        throw new errors_1.CanonicalCommandError('forbidden', { correlationId });
+    }
+    return input.actor.actor.accountId;
+}
 function assertOpenIssue(correlationId, issue) {
     if (issue.lifecycle.status !== 'open') {
         throw new errors_1.CanonicalCommandError('invalid_transition', {
@@ -299,6 +317,10 @@ function resolveAdminIssue(existing, input) {
 }
 function resolveUnresolvedPendingCancellationForOwnerWithdrawal(existing, input) {
     const resolvedByAccountId = assertOwnerMayResolveUnresolvedPendingCancellation(input.correlationId, existing, input);
+    return applyTerminalIssueLifecycle(existing, input, 'resolved', resolvedByAccountId);
+}
+function resolveUnresolvedCourseEnrollmentPendingCancellationForOwnerWithdrawal(existing, input) {
+    const resolvedByAccountId = assertOwnerMayResolveUnresolvedCourseEnrollmentPendingCancellation(input.correlationId, existing, input);
     return applyTerminalIssueLifecycle(existing, input, 'resolved', resolvedByAccountId);
 }
 function dismissAdminIssue(existing, input) {

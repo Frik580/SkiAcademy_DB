@@ -396,10 +396,44 @@ export const CommandIntentSchemaByKind = {
       reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
     })
     .strict(),
-  transfer_course_enrollment: courseEnrollmentTargetIntent,
+  transfer_course_enrollment: z
+    .object({
+      courseEnrollmentId: CourseEnrollmentIdSchema,
+      targetCourseId: CourseIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
+    })
+    .strict(),
   withdraw_course_enrollment: courseEnrollmentTargetIntent,
   request_course_enrollment_cancellation: courseEnrollmentTargetIntent,
-  resolve_course_enrollment_cancellation: courseEnrollmentTargetIntent,
+  resolve_course_enrollment_cancellation: z
+    .object({
+      courseEnrollmentId: CourseEnrollmentIdSchema,
+      decision: z.enum(['approve', 'reject', 'direct_cancel']),
+      refundAmount: KztMinorUnitsSchema.optional(),
+      reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
+      manualExternalReference: z.string().trim().min(1).max(128).optional(),
+    })
+    .strict()
+    .superRefine((intent, context) => {
+      if (intent.decision === 'reject') {
+        if (intent.refundAmount !== undefined) {
+          context.addIssue({
+            code: 'custom',
+            path: ['refundAmount'],
+            message: 'refundAmount is not allowed when rejecting cancellation',
+          });
+        }
+        return;
+      }
+
+      if (intent.refundAmount === undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['refundAmount'],
+          message: 'refundAmount is required for approve and direct_cancel',
+        });
+      }
+    }),
   create_booking_proposal: z
     .object({
       bookingProposalId: BookingProposalIdSchema,
@@ -455,7 +489,23 @@ export const CommandIntentSchemaByKind = {
         }
       }
     }),
-  expire_guest_reservation: bookingTargetIntent,
+  expire_guest_reservation: z
+    .object({
+      bookingId: BookingIdSchema.optional(),
+      courseEnrollmentId: CourseEnrollmentIdSchema.optional(),
+    })
+    .strict()
+    .superRefine((intent, context) => {
+      const hasBooking = intent.bookingId !== undefined;
+      const hasEnrollment = intent.courseEnrollmentId !== undefined;
+      if (hasBooking === hasEnrollment) {
+        context.addIssue({
+          code: 'custom',
+          path: ['bookingId'],
+          message: 'Exactly one of bookingId or courseEnrollmentId is required',
+        });
+      }
+    }),
   enforce_payment_start_gate: z
     .object({
       subjectKind: z.enum(['booking', 'course_enrollment']),

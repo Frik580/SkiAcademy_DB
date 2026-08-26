@@ -1,5 +1,5 @@
 import { type AdminIssue, type AdminIssueDedupeIdentityInput, type AdminIssueKind, type AdminIssueSeverity } from './courseEnrollmentAttendanceAdminIssue';
-import type { AccountId, BookingId, CorrelationId, OccurrenceId } from './identifiers';
+import type { AccountId, BookingId, CorrelationId, CourseEnrollmentId, OccurrenceId } from './identifiers';
 import { type Payment } from './paymentWallet';
 import { type CanonicalTimestamp } from './primitives';
 import type { Booking } from './bookingOccurrenceProposalChange';
@@ -74,8 +74,18 @@ export interface OwnerWithdrawalUnresolvedPendingCancellationResolutionInput {
     readonly actor: AdminIssueLifecycleActor;
     readonly bookingId: BookingId;
 }
+export interface OwnerWithdrawalUnresolvedCourseEnrollmentPendingCancellationResolutionInput {
+    readonly expectedRevision: AdminIssue['revision'];
+    readonly now: CanonicalTimestamp;
+    readonly correlationId: CorrelationId;
+    readonly commandId: string;
+    readonly reason: string;
+    readonly actor: AdminIssueLifecycleActor;
+    readonly enrollmentId: CourseEnrollmentId;
+}
 export declare function resolveAdminIssue(existing: AdminIssue, input: ResolveOrDismissAdminIssueInput): AdminIssue;
 export declare function resolveUnresolvedPendingCancellationForOwnerWithdrawal(existing: AdminIssue, input: OwnerWithdrawalUnresolvedPendingCancellationResolutionInput): AdminIssue;
+export declare function resolveUnresolvedCourseEnrollmentPendingCancellationForOwnerWithdrawal(existing: AdminIssue, input: OwnerWithdrawalUnresolvedCourseEnrollmentPendingCancellationResolutionInput): AdminIssue;
 export declare function dismissAdminIssue(existing: AdminIssue, input: ResolveOrDismissAdminIssueInput): AdminIssue;
 export interface SanitizedPaymentStartGateInstructorView {
     readonly restriction: 'payment_required_at_start';

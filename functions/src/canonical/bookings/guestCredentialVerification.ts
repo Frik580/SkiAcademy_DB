@@ -3,8 +3,10 @@ import {
   decodeHmacSha256HexSignature,
   verifyGuestActionCredentialParts,
   verifyGuestActionToken,
+  verifyGuestCourseEnrollmentActionCredentialParts,
   type CompareHmacSha256Signatures,
   type GuestActionTokenVerificationResult,
+  type GuestCourseEnrollmentActionTokenVerificationResult,
 } from '@ski-academy/shared-domain';
 
 export const timingSafeCompareHmacSha256HexSignatures: CompareHmacSha256Signatures = (
@@ -29,6 +31,18 @@ export function verifyGuestActionCredentialPartsAuthoritative(
   input: Omit<VerifyGuestActionCredentialPartsInput, 'compareSignatures'>
 ): GuestActionTokenVerificationResult {
   return verifyGuestActionCredentialParts({
+    ...input,
+    compareSignatures: timingSafeCompareHmacSha256HexSignatures,
+  });
+}
+
+export function verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative(
+  input: Omit<
+    Parameters<typeof verifyGuestCourseEnrollmentActionCredentialParts>[0],
+    'compareSignatures'
+  >
+): GuestCourseEnrollmentActionTokenVerificationResult {
+  return verifyGuestCourseEnrollmentActionCredentialParts({
     ...input,
     compareSignatures: timingSafeCompareHmacSha256HexSignatures,
   });

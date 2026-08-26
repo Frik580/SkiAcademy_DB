@@ -5,8 +5,10 @@ import { z } from 'zod';
 import { canonicalJsonStringify } from './canonicalJson';
 import {
   BookingIdSchema,
+  CourseEnrollmentIdSchema,
   GuestSubjectIdSchema,
   type BookingId,
+  type CourseEnrollmentId,
   type GuestSubjectId,
 } from './identifiers';
 import { CanonicalTimestampSchema, compareCanonicalTimestamps, type CanonicalTimestamp } from './primitives';
@@ -28,6 +30,21 @@ const GuestActionTokenPayloadSchema = z
   .strict();
 
 export type GuestActionTokenPayload = Readonly<z.output<typeof GuestActionTokenPayloadSchema>>;
+
+const GuestCourseEnrollmentActionTokenPayloadSchema = z
+  .object({
+    version: z.literal(GUEST_ACTION_TOKEN_VERSION),
+    enrollmentId: CourseEnrollmentIdSchema,
+    guestSubjectId: GuestSubjectIdSchema,
+    purpose: z.enum(GUEST_ACTION_TOKEN_PURPOSES),
+    expiresAt: CanonicalTimestampSchema,
+    nonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
+  })
+  .strict();
+
+export type GuestCourseEnrollmentActionTokenPayload = Readonly<
+  z.output<typeof GuestCourseEnrollmentActionTokenPayloadSchema>
+>;
 
 const HMAC_SHA256_HEX_LENGTH = 64;
 const HMAC_SHA256_BYTE_LENGTH = 32;
@@ -87,6 +104,15 @@ function signPayload(secret: string, payload: GuestActionTokenPayload): string {
   return bytesToHex(hmac(sha256, signingKeyBytes(secret), utf8ToBytes(canonicalPayload)));
 }
 
+function signGuestCourseEnrollmentPayload(
+  secret: string,
+  payload: GuestCourseEnrollmentActionTokenPayload
+): string {
+  const parsedPayload = GuestCourseEnrollmentActionTokenPayloadSchema.parse(payload);
+  const canonicalPayload = canonicalJsonStringify(parsedPayload);
+  return bytesToHex(hmac(sha256, signingKeyBytes(secret), utf8ToBytes(canonicalPayload)));
+}
+
 export function signGuestActionCredential(
   secret: string,
   payload: GuestActionTokenPayload
@@ -124,6 +150,35 @@ export function verifyGuestActionCredentialParts(input: {
   return { valid: true, payload };
 }
 
+export function verifyGuestCourseEnrollmentActionCredentialParts(input: {
+  readonly secret: string;
+  readonly nonce: string;
+  readonly signature: string;
+  readonly now: CanonicalTimestamp;
+  readonly expectedEnrollmentId: CourseEnrollmentId;
+  readonly expectedGuestSubjectId: GuestSubjectId;
+  readonly expectedPurpose: GuestActionTokenPurpose;
+  readonly expiresAt: CanonicalTimestamp;
+  readonly compareSignatures: CompareHmacSha256Signatures;
+}): GuestCourseEnrollmentActionTokenVerificationResult {
+  const payload = GuestCourseEnrollmentActionTokenPayloadSchema.parse({
+    version: GUEST_ACTION_TOKEN_VERSION,
+    enrollmentId: input.expectedEnrollmentId,
+    guestSubjectId: input.expectedGuestSubjectId,
+    purpose: input.expectedPurpose,
+    expiresAt: input.expiresAt,
+    nonce: input.nonce,
+  });
+  const expectedSignature = signGuestCourseEnrollmentPayload(input.secret, payload);
+  if (!input.compareSignatures(expectedSignature, input.signature)) {
+    return { valid: false, reason: 'invalid_signature' };
+  }
+  if (compareCanonicalTimestamps(input.now, payload.expiresAt) >= 0) {
+    return { valid: false, reason: 'expired' };
+  }
+  return { valid: true, payload };
+}
+
 export function issueGuestActionToken(input: {
   readonly secret: string;
   readonly payload: GuestActionTokenPayload;
@@ -137,6 +192,10 @@ export function issueGuestActionToken(input: {
 export type GuestActionTokenVerificationResult =
   | Readonly<{ valid: true; payload: GuestActionTokenPayload }>
   | Readonly<{ valid: false; reason: 'malformed' | 'invalid_signature' | 'expired' | 'purpose_mismatch' | 'booking_mismatch' | 'guest_mismatch' }>;
+
+export type GuestCourseEnrollmentActionTokenVerificationResult =
+  | Readonly<{ valid: true; payload: GuestCourseEnrollmentActionTokenPayload }>
+  | Readonly<{ valid: false; reason: 'malformed' | 'invalid_signature' | 'expired' | 'purpose_mismatch' | 'enrollment_mismatch' | 'guest_mismatch' }>;
 
 export function verifyGuestActionToken(input: {
   readonly secret: string;

@@ -336,6 +336,32 @@ function assertOwnerMayResolveUnresolvedPendingCancellation(
   return input.actor.actor.accountId;
 }
 
+function assertOwnerMayResolveUnresolvedCourseEnrollmentPendingCancellation(
+  correlationId: CorrelationId,
+  existing: AdminIssue,
+  input: OwnerWithdrawalUnresolvedCourseEnrollmentPendingCancellationResolutionInput
+): AccountId {
+  if (existing.kind !== 'unresolved_pending_cancellation') {
+    throw new CanonicalCommandError('forbidden', { correlationId });
+  }
+  if (
+    existing.subjectRef.subjectKind !== 'course_enrollment' ||
+    existing.subjectRef.enrollmentId !== input.enrollmentId
+  ) {
+    throw new CanonicalCommandError('forbidden', { correlationId });
+  }
+  if (input.actor.actor.kind !== 'account') {
+    throw new CanonicalCommandError('forbidden', { correlationId });
+  }
+  if (
+    input.actor.exercisedCapability !== 'account_owner' &&
+    input.actor.exercisedCapability !== 'parent_guardian'
+  ) {
+    throw new CanonicalCommandError('forbidden', { correlationId });
+  }
+  return input.actor.actor.accountId;
+}
+
 export interface ResolveOrDismissAdminIssueInput {
   readonly expectedRevision: AdminIssue['revision'];
   readonly now: CanonicalTimestamp;
@@ -354,6 +380,16 @@ export interface OwnerWithdrawalUnresolvedPendingCancellationResolutionInput {
   readonly reason: string;
   readonly actor: AdminIssueLifecycleActor;
   readonly bookingId: BookingId;
+}
+
+export interface OwnerWithdrawalUnresolvedCourseEnrollmentPendingCancellationResolutionInput {
+  readonly expectedRevision: AdminIssue['revision'];
+  readonly now: CanonicalTimestamp;
+  readonly correlationId: CorrelationId;
+  readonly commandId: string;
+  readonly reason: string;
+  readonly actor: AdminIssueLifecycleActor;
+  readonly enrollmentId: CourseEnrollmentId;
 }
 
 function assertOpenIssue(correlationId: CorrelationId, issue: AdminIssue): void {
@@ -438,6 +474,18 @@ export function resolveUnresolvedPendingCancellationForOwnerWithdrawal(
   input: OwnerWithdrawalUnresolvedPendingCancellationResolutionInput
 ): AdminIssue {
   const resolvedByAccountId = assertOwnerMayResolveUnresolvedPendingCancellation(
+    input.correlationId,
+    existing,
+    input
+  );
+  return applyTerminalIssueLifecycle(existing, input, 'resolved', resolvedByAccountId);
+}
+
+export function resolveUnresolvedCourseEnrollmentPendingCancellationForOwnerWithdrawal(
+  existing: AdminIssue,
+  input: OwnerWithdrawalUnresolvedCourseEnrollmentPendingCancellationResolutionInput
+): AdminIssue {
+  const resolvedByAccountId = assertOwnerMayResolveUnresolvedCourseEnrollmentPendingCancellation(
     input.correlationId,
     existing,
     input

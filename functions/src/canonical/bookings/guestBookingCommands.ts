@@ -38,6 +38,7 @@ import {
   executeAuthoritativeIdempotentCanonicalCommand,
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
+import { expireGuestCourseEnrollmentReservation } from '../courses/guestCourseEnrollmentLifecycle';
 import { toFirestoreWritePayload as financeToFirestoreWritePayload } from '../finance/financeStore';
 import { FINANCE_PLANNING_ESTIMATES, paymentPath } from '../finance/financeStore';
 import {
@@ -136,7 +137,7 @@ function createGuestBookingRequestHandler(
   assertGuestActorMatchesBooking(envelope, envelope.intent.bookingId, guestActor.guestSubjectId);
 
   const participantId = envelope.intent.participantIds[0]!;
-  const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
+  const bookingDocumentPath = bookingPath(envelope.intent.bookingId!);
   const paymentId = paymentIdFromBookingId(envelope.intent.bookingId);
   const paymentPathValue = paymentPath(paymentId);
   const occurrenceId = initialBookingOccurrenceIdFromBookingId(envelope.intent.bookingId);
@@ -394,7 +395,7 @@ function confirmGuestBookingHandler(
 ): Promise<CommandResult<'confirm_guest_booking'>> {
   const metadata = metadataFromEnvelope(envelope);
   assertConfirmGuestBookingAuthorization(envelope);
-  const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
+  const bookingDocumentPath = bookingPath(envelope.intent.bookingId!);
 
   let booking!: Booking;
   let plannedRevision = AggregateRevisionSchema.parse(1);
@@ -539,9 +540,20 @@ function expireGuestReservationHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'expire_guest_reservation'>> {
+  if (envelope.intent.courseEnrollmentId !== undefined) {
+    return expireGuestCourseEnrollmentReservation(envelope, environment, executor);
+  }
+  return expireGuestBookingReservationHandler(envelope, environment, executor);
+}
+
+function expireGuestBookingReservationHandler(
+  envelope: CommandEnvelope<'expire_guest_reservation'>,
+  environment: CommandExecutionEnvironment,
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
+): Promise<CommandResult<'expire_guest_reservation'>> {
   const metadata = metadataFromEnvelope(envelope);
   assertExpireGuestReservationAuthorization(envelope);
-  const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
+  const bookingDocumentPath = bookingPath(envelope.intent.bookingId!);
 
   let booking!: Booking;
   let plannedRevision = AggregateRevisionSchema.parse(1);
@@ -601,7 +613,7 @@ function expireGuestReservationHandler(
     },
     planAuditOutbox: async () =>
       buildExpireGuestReservationAuditPlan({
-        bookingId: envelope.intent.bookingId,
+        bookingId: envelope.intent.bookingId!,
         bookingRevision: plannedRevision,
       }),
     execute: async (session, context) => {
@@ -652,7 +664,7 @@ function linkGuestBookingToAccountHandler(
   const metadata = metadataFromEnvelope(envelope);
   assertLinkGuestBookingAuthorization(envelope);
   const actor = requireAccountActor(envelope);
-  const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
+  const bookingDocumentPath = bookingPath(envelope.intent.bookingId!);
   const participantDocumentPath = participantPath(envelope.intent.participantId);
   const managementId = participantManagementIdFromGuestLink({
     participantId: envelope.intent.participantId,

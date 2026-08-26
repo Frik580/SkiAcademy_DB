@@ -63,6 +63,10 @@ const COMMAND_KIND_REASON_CODES = {
     create_course_day: ['manual_override', 'other'],
     reassign_course_day_instructor: ['manual_override', 'other'],
     create_course_enrollments: ['self_service_booking', 'manual_override', 'other'],
+    transfer_course_enrollment: ['manual_override', 'other'],
+    withdraw_course_enrollment: ['self_service_booking', 'other'],
+    request_course_enrollment_cancellation: ['self_service_booking', 'manual_override', 'other'],
+    resolve_course_enrollment_cancellation: ['manual_override', 'other'],
 };
 function hasAuditReasonRegistryEntry(commandKind) {
     return COMMAND_KIND_REASON_CODES[commandKind] !== undefined;

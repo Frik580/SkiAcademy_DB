@@ -88,6 +88,8 @@ export declare const CommandIntentSchemaByKind: {
     }, z.core.$strict>;
     transfer_course_enrollment: z.ZodObject<{
         courseEnrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_enrollment">, string>>;
+        targetCourseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course">, string>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>;
     withdraw_course_enrollment: z.ZodObject<{
         courseEnrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_enrollment">, string>>;
@@ -97,6 +99,14 @@ export declare const CommandIntentSchemaByKind: {
     }, z.core.$strict>;
     resolve_course_enrollment_cancellation: z.ZodObject<{
         courseEnrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_enrollment">, string>>;
+        decision: z.ZodEnum<{
+            approve: "approve";
+            reject: "reject";
+            direct_cancel: "direct_cancel";
+        }>;
+        refundAmount: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").KztMinorUnits, number>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
+        manualExternalReference: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>;
     create_booking_proposal: z.ZodObject<{
         bookingProposalId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking_proposal">, string>>;
@@ -131,7 +141,8 @@ export declare const CommandIntentSchemaByKind: {
         reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>;
     expire_guest_reservation: z.ZodObject<{
-        bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
+        bookingId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>>;
+        courseEnrollmentId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_enrollment">, string>>>;
     }, z.core.$strict>;
     enforce_payment_start_gate: z.ZodObject<{
         subjectKind: z.ZodEnum<{

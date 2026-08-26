@@ -4,6 +4,7 @@ exports.GUEST_ACTION_TOKEN_PURPOSES = exports.GUEST_ACTION_TOKEN_VERSION = void 
 exports.decodeHmacSha256HexSignature = decodeHmacSha256HexSignature;
 exports.signGuestActionCredential = signGuestActionCredential;
 exports.verifyGuestActionCredentialParts = verifyGuestActionCredentialParts;
+exports.verifyGuestCourseEnrollmentActionCredentialParts = verifyGuestCourseEnrollmentActionCredentialParts;
 exports.issueGuestActionToken = issueGuestActionToken;
 exports.verifyGuestActionToken = verifyGuestActionToken;
 exports.createGuestActionTokenNonce = createGuestActionTokenNonce;
@@ -20,6 +21,16 @@ const GuestActionTokenPayloadSchema = zod_1.z
     .object({
     version: zod_1.z.literal(exports.GUEST_ACTION_TOKEN_VERSION),
     bookingId: identifiers_1.BookingIdSchema,
+    guestSubjectId: identifiers_1.GuestSubjectIdSchema,
+    purpose: zod_1.z.enum(exports.GUEST_ACTION_TOKEN_PURPOSES),
+    expiresAt: primitives_1.CanonicalTimestampSchema,
+    nonce: zod_1.z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
+})
+    .strict();
+const GuestCourseEnrollmentActionTokenPayloadSchema = zod_1.z
+    .object({
+    version: zod_1.z.literal(exports.GUEST_ACTION_TOKEN_VERSION),
+    enrollmentId: identifiers_1.CourseEnrollmentIdSchema,
     guestSubjectId: identifiers_1.GuestSubjectIdSchema,
     purpose: zod_1.z.enum(exports.GUEST_ACTION_TOKEN_PURPOSES),
     expiresAt: primitives_1.CanonicalTimestampSchema,
@@ -74,6 +85,11 @@ function signPayload(secret, payload) {
     const canonicalPayload = (0, canonicalJson_1.canonicalJsonStringify)(payload);
     return (0, utils_js_1.bytesToHex)((0, hmac_js_1.hmac)(sha2_js_1.sha256, signingKeyBytes(secret), (0, utils_js_1.utf8ToBytes)(canonicalPayload)));
 }
+function signGuestCourseEnrollmentPayload(secret, payload) {
+    const parsedPayload = GuestCourseEnrollmentActionTokenPayloadSchema.parse(payload);
+    const canonicalPayload = (0, canonicalJson_1.canonicalJsonStringify)(parsedPayload);
+    return (0, utils_js_1.bytesToHex)((0, hmac_js_1.hmac)(sha2_js_1.sha256, signingKeyBytes(secret), (0, utils_js_1.utf8ToBytes)(canonicalPayload)));
+}
 function signGuestActionCredential(secret, payload) {
     const parsedPayload = GuestActionTokenPayloadSchema.parse(payload);
     return signPayload(secret, parsedPayload);
@@ -88,6 +104,24 @@ function verifyGuestActionCredentialParts(input) {
         nonce: input.nonce,
     });
     const expectedSignature = signPayload(input.secret, payload);
+    if (!input.compareSignatures(expectedSignature, input.signature)) {
+        return { valid: false, reason: 'invalid_signature' };
+    }
+    if ((0, primitives_1.compareCanonicalTimestamps)(input.now, payload.expiresAt) >= 0) {
+        return { valid: false, reason: 'expired' };
+    }
+    return { valid: true, payload };
+}
+function verifyGuestCourseEnrollmentActionCredentialParts(input) {
+    const payload = GuestCourseEnrollmentActionTokenPayloadSchema.parse({
+        version: exports.GUEST_ACTION_TOKEN_VERSION,
+        enrollmentId: input.expectedEnrollmentId,
+        guestSubjectId: input.expectedGuestSubjectId,
+        purpose: input.expectedPurpose,
+        expiresAt: input.expiresAt,
+        nonce: input.nonce,
+    });
+    const expectedSignature = signGuestCourseEnrollmentPayload(input.secret, payload);
     if (!input.compareSignatures(expectedSignature, input.signature)) {
         return { valid: false, reason: 'invalid_signature' };
     }

@@ -310,27 +310,21 @@ function buildClaimDocument(
 
 function applyInTransactionGuardOverlay(
   buckets: readonly LoadedGuardBucket[],
-  overlay: InTransactionGuardOverlay | undefined,
-  correlationId: CorrelationId
+  overlay: InTransactionGuardOverlay | undefined
 ): LoadedGuardBucket[] {
   if (!overlay || overlay.size === 0) {
     return [...buckets];
   }
 
   return buckets.map((bucket) => {
-    const overlayEntries = overlay.get(bucket.path);
-    if (!overlayEntries || overlayEntries.length === 0) {
+    if (!overlay.has(bucket.path)) {
       return bucket;
     }
 
-    let conflictEntries = [...bucket.conflictEntries];
-    for (const entry of overlayEntries) {
-      conflictEntries = mergeGuardEntries(conflictEntries, entry, correlationId);
-    }
-
+    const overlayEntries = overlay.get(bucket.path) ?? [];
     return {
       ...bucket,
-      conflictEntries,
+      conflictEntries: [...overlayEntries],
       documentExists: bucket.documentExists || overlay.has(bucket.path),
     };
   });
@@ -342,7 +336,7 @@ export function registerResourceClaimPlanInGuardOverlay(
 ): void {
   for (const guardWrite of plan.guardWrites) {
     if (guardWrite.mutationKind === 'delete') {
-      overlay.delete(guardWrite.path);
+      overlay.set(guardWrite.path, []);
       continue;
     }
     overlay.set(guardWrite.path, [...guardWrite.entries]);
@@ -431,8 +425,7 @@ export async function readAndPlanAcquireResourceClaim(
         session,
         expandUtcGuardBuckets(input.identity.resourceKind, input.identity.resourceId, input.interval)
       ),
-      input.inTransactionGuardOverlay,
-      input.correlationId
+      input.inTransactionGuardOverlay
     );
     if (guardOccupancyMatchesClaim(buckets, existingClaim)) {
       return {
@@ -498,8 +491,7 @@ export async function readAndPlanAcquireResourceClaim(
   }
   const buckets = applyInTransactionGuardOverlay(
     await loadGuardBuckets(session, [...bucketMap.values()]),
-    input.inTransactionGuardOverlay,
-    input.correlationId
+    input.inTransactionGuardOverlay
   );
 
   assertNoIntervalConflict(
@@ -823,12 +815,11 @@ export async function readAndPlanReleaseResourceClaim(
       if (!bucket.documentExists) {
         return undefined;
       }
-      const mutationKind: 'delete' | 'update' = entries.length === 0 ? 'delete' : 'update';
       return {
         bucket: bucket.bucket,
         guardId: bucket.guardId,
         path: bucket.path,
-        mutationKind,
+        mutationKind: 'update' as const,
         entries,
         revision: bucket.existing ? nextAggregateRevision(bucket.existing.revision) : 1,
       };

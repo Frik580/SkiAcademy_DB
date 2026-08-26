@@ -387,6 +387,15 @@ export const CommandIntentSchemaByKind = {
       reasonExplanation: z.string().trim().min(1).max(2_000).optional(),
     })
     .strict(),
+  record_course_day_attendance: z
+    .object({
+      courseEnrollmentId: CourseEnrollmentIdSchema,
+      courseDayId: CourseDayIdSchema,
+      attendanceStatus: AttendanceStatusSchema,
+      expectedAttendanceRevision: AggregateRevisionSchema.optional(),
+      reasonExplanation: z.string().trim().min(1).max(2_000).optional(),
+    })
+    .strict(),
   complete_booking: bookingTargetIntent,
   record_booking_no_show: bookingTargetIntent,
   create_course_enrollments: z

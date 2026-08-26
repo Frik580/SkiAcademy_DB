@@ -370,6 +370,15 @@ exports.CommandIntentSchemaByKind = {
         reasonExplanation: zod_1.z.string().trim().min(1).max(2_000).optional(),
     })
         .strict(),
+    record_course_day_attendance: zod_1.z
+        .object({
+        courseEnrollmentId: identifiers_1.CourseEnrollmentIdSchema,
+        courseDayId: identifiers_1.CourseDayIdSchema,
+        attendanceStatus: courseEnrollmentAttendanceAdminIssue_1.AttendanceStatusSchema,
+        expectedAttendanceRevision: primitives_1.AggregateRevisionSchema.optional(),
+        reasonExplanation: zod_1.z.string().trim().min(1).max(2_000).optional(),
+    })
+        .strict(),
     complete_booking: bookingTargetIntent,
     record_booking_no_show: bookingTargetIntent,
     create_course_enrollments: zod_1.z

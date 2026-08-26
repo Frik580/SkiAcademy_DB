@@ -76,7 +76,19 @@ const COMMAND_KIND_ALLOWED_EFFECTS = {
         'outbox_obligation_created',
     ],
     record_booking_attendance: ['attendance_recorded', 'booking_lifecycle_changed', 'admin_issue_opened'],
-    resolve_attendance_outcome: ['booking_lifecycle_changed', 'admin_issue_opened', 'admin_issue_resolved'],
+    record_course_day_attendance: [
+        'attendance_recorded',
+        'course_enrollment_lifecycle_changed',
+        'admin_issue_opened',
+        'resource_claim_changed',
+    ],
+    resolve_attendance_outcome: [
+        'booking_lifecycle_changed',
+        'course_enrollment_lifecycle_changed',
+        'admin_issue_opened',
+        'admin_issue_resolved',
+        'resource_claim_changed',
+    ],
     expire_guest_reservation: [
         'booking_lifecycle_changed',
         'course_enrollment_lifecycle_changed',

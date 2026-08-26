@@ -18,6 +18,7 @@ import {
   commitResourceClaimPlan,
   readAndPlanAcquireResourceClaim,
   readAndPlanReleaseResourceClaim,
+  readAndPlanReleaseResourceClaimIfPresent,
   registerResourceClaimPlanInGuardOverlay,
   type InTransactionGuardOverlay,
   type ResourceClaimOperationPlan,
@@ -46,6 +47,7 @@ export async function planReleaseCourseEnrollmentClaims(
     readonly now: CanonicalTimestamp;
     readonly releaseSeat: boolean;
     readonly releaseFutureDayClaimsOnly: boolean;
+    readonly skipMissingClaims?: boolean;
   }
 ): Promise<PlannedCourseEnrollmentClaimRelease> {
   const claimMetadata = {
@@ -53,6 +55,9 @@ export async function planReleaseCourseEnrollmentClaims(
     commandId: input.metadata.commandId,
     decidedAt: input.metadata.decidedAt,
   };
+  const planRelease = input.skipMissingClaims
+    ? readAndPlanReleaseResourceClaimIfPresent
+    : readAndPlanReleaseResourceClaim;
 
   let seatClaimPlan: ResourceClaimOperationPlan | undefined;
   if (input.releaseSeat) {
@@ -61,7 +66,7 @@ export async function planReleaseCourseEnrollmentClaims(
       enrollmentId: input.enrollment.enrollmentId,
       occurrenceId: courseEnrollmentSeatOccurrenceId(input.enrollment.enrollmentId),
     });
-    seatClaimPlan = await readAndPlanReleaseResourceClaim(session, {
+    seatClaimPlan = await planRelease(session, {
       ...claimMetadata,
       claimId: seatIdentity.claimId,
     });
@@ -80,12 +85,13 @@ export async function planReleaseCourseEnrollmentClaims(
       enrollmentId: input.enrollment.enrollmentId,
       courseDay,
     });
-    dayClaimPlans.push(
-      await readAndPlanReleaseResourceClaim(session, {
-        ...claimMetadata,
-        claimId: dayIdentity.claimId,
-      })
-    );
+    const dayClaimPlan = await planRelease(session, {
+      ...claimMetadata,
+      claimId: dayIdentity.claimId,
+    });
+    if (dayClaimPlan) {
+      dayClaimPlans.push(dayClaimPlan);
+    }
   }
 
   const releaseActiveGuard = await readAndPlanReleaseActiveCourseEnrollmentGuard(session, {

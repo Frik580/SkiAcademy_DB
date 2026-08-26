@@ -75,6 +75,16 @@ export declare const CommandIntentSchemaByKind: {
         expectedAttendanceRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>>;
         reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>;
+    record_course_day_attendance: z.ZodObject<{
+        courseEnrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_enrollment">, string>>;
+        courseDayId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_day">, string>>;
+        attendanceStatus: z.ZodEnum<{
+            present: "present";
+            absent: "absent";
+        }>;
+        expectedAttendanceRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>>;
+        reasonExplanation: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict>;
     complete_booking: z.ZodObject<{
         bookingId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"booking">, string>>;
     }, z.core.$strict>;

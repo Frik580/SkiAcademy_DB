@@ -37,6 +37,7 @@ const COMMAND_KIND_REASON_CODES = {
     change_booking_party: ['self_service_booking', 'manual_override', 'other'],
     rollback_unpaid_booking_party_additions: ['scheduled_system_action', 'manual_override'],
     record_booking_attendance: ['scheduled_system_action', 'attendance_correction', 'instructor_attendance', 'manual_override', 'other'],
+    record_course_day_attendance: ['scheduled_system_action', 'attendance_correction', 'instructor_attendance', 'manual_override', 'other'],
     resolve_attendance_outcome: ['scheduled_system_action', 'manual_override'],
     expire_guest_reservation: ['scheduled_system_action'],
     enforce_payment_start_gate: ['scheduled_system_action', 'manual_override'],

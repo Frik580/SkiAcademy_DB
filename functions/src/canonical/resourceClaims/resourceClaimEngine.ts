@@ -838,6 +838,20 @@ export async function readAndPlanReleaseResourceClaim(
   return plan;
 }
 
+export async function readAndPlanReleaseResourceClaimIfPresent(
+  session: CanonicalAtomicTransactionSession,
+  input: ReleaseResourceClaimInput
+): Promise<ResourceClaimOperationPlan | undefined> {
+  const claimPath = claimPathFor(input.claimId);
+  session.plan.planRead({ path: claimPath, category: 'resource_claim' });
+  const claimSnapshot = await session.tx.get({ path: claimPath });
+  const existingClaim = parseClaim(claimSnapshot.data);
+  if (!existingClaim) {
+    return undefined;
+  }
+  return readAndPlanReleaseResourceClaim(session, input);
+}
+
 export async function releaseResourceClaim(
   session: CanonicalAtomicTransactionSession,
   input: ReleaseResourceClaimInput

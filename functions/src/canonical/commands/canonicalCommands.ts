@@ -25,7 +25,7 @@ import { createBookingPartyCommandHandlers } from '../bookings/bookingPartyComma
 import { createBookingProposalCommandHandlers } from '../bookings/bookingProposalCommands';
 import { createBookingChangeRequestCommandHandlers } from '../bookings/bookingChangeRequestCommands';
 import { createBookingAttendanceCommandHandlers } from '../bookings/bookingAttendanceCommands';
-import { createCourseDayCommandHandlers, createCourseEnrollmentCommandHandlers, createCourseEnrollmentLifecycleCommandHandlers } from '../courses';
+import { createCourseDayCommandHandlers, createCourseEnrollmentCommandHandlers, createCourseEnrollmentLifecycleCommandHandlers, createCourseEnrollmentAttendanceCommandHandlers } from '../courses';
 import type { GuestBookingCommandEnvironment } from '../bookings/guestBookingCommands';
 import type { GuestCourseEnrollmentCommandEnvironment } from '../courses/guestCourseEnrollmentLifecycle';
 
@@ -182,6 +182,7 @@ export function createProductionCanonicalCommands(
         executor,
         guestCourseEnrollmentEnvironmentFactory
       ),
+      ...createCourseEnrollmentAttendanceCommandHandlers(executor),
     },
     environment
   );

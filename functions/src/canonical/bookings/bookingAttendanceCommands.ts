@@ -55,6 +55,7 @@ import {
 } from './attendanceStore';
 import { BOOKING_PLANNING_ESTIMATES, bookingPath, parseBooking, toFirestoreWritePayload } from './bookingStore';
 import type { CanonicalAtomicTransactionSession } from '../transactions';
+import { resolveCourseEnrollmentAttendanceOutcomeHandler } from '../courses/courseEnrollmentAttendanceCommands';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -392,6 +393,9 @@ function resolveAttendanceOutcomeHandler(
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'resolve_attendance_outcome'>> {
+  if (envelope.intent.subjectKind === 'course_enrollment') {
+    return resolveCourseEnrollmentAttendanceOutcomeHandler(envelope, environment, executor);
+  }
   if (envelope.intent.subjectKind !== 'booking') {
     throw new CanonicalCommandError('validation', {
       correlationId: envelope.context.correlationId,

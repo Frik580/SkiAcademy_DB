@@ -2,8 +2,10 @@ import {
   CanonicalCommandError,
   assertCourseDayInstructorAttendanceWindow,
   attendanceCorrectionWouldContradictTerminalOutcome,
+  assertExpectedRevision,
   instructorAssignedToCourseDay,
   instructorMayCorrectAttendance,
+  isTerminalCourseEnrollmentLifecycle,
   type Attendance,
   type CommandEnvelope,
   type CourseDay,
@@ -15,7 +17,11 @@ import {
   requireAccountActor,
 } from '../participantAccess/participantAccessAuthorization';
 
-export type CourseEnrollmentAttendanceActorMode = 'instructor' | 'administrator';
+export type CourseEnrollmentAttendanceActorMode =
+  | 'instructor'
+  | 'administrator'
+  | 'admin_terminal_correction'
+  | 'instructor_outcome_correction_required';
 
 export function resolveCourseEnrollmentAttendanceActorMode(
   envelope: CommandEnvelope<'record_course_day_attendance'>
@@ -43,10 +49,69 @@ export function assertRecordCourseDayAttendanceAuthorization(
     now: import('@ski-academy/shared-domain').CanonicalTimestamp;
   }>
 ): CourseEnrollmentAttendanceActorMode {
-  const mode = resolveCourseEnrollmentAttendanceActorMode(envelope);
+  const baseMode = resolveCourseEnrollmentAttendanceActorMode(envelope);
   const { enrollment, courseDay } = input;
+  const contradictsTerminal = attendanceCorrectionWouldContradictTerminalOutcome({
+    enrollment,
+    nextStatus: envelope.intent.attendanceStatus,
+  });
 
-  if (
+  if (courseDay.courseDayId !== envelope.intent.courseDayId) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'courseDayId', reason: 'conflict' },
+    });
+  }
+
+  if (isTerminalCourseEnrollmentLifecycle(enrollment)) {
+    if (baseMode === 'instructor') {
+      const instructorId = courseDay.actualInstructorIds[0]!;
+      assertInstructorCapability(envelope, instructorId);
+      if (!instructorAssignedToCourseDay(courseDay, instructorId)) {
+        throw new CanonicalCommandError('forbidden', {
+          correlationId: envelope.context.correlationId,
+        });
+      }
+      const window = assertCourseDayInstructorAttendanceWindow({
+        now: input.now,
+        courseDay,
+      });
+      if (window === 'before_start' || window === 'after_instructor_window') {
+        throw new CanonicalCommandError('invalid_transition', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'startsAt', reason: 'out_of_range' },
+        });
+      }
+      if (contradictsTerminal) {
+        return 'instructor_outcome_correction_required';
+      }
+      throw new CanonicalCommandError('invalid_transition', {
+        correlationId: envelope.context.correlationId,
+        details: { resourceKind: 'course_enrollment', reason: 'unsupported' },
+      });
+    }
+
+    if (!contradictsTerminal) {
+      throw new CanonicalCommandError('invalid_transition', {
+        correlationId: envelope.context.correlationId,
+        details: { resourceKind: 'course_enrollment', reason: 'unsupported' },
+      });
+    }
+
+    const explanation = envelope.intent.reasonExplanation?.trim();
+    if (!explanation) {
+      throw new CanonicalCommandError('validation', {
+        correlationId: envelope.context.correlationId,
+        details: { field: 'reasonExplanation', reason: 'required' },
+      });
+    }
+    assertExpectedRevision({
+      correlationId: envelope.context.correlationId,
+      expectedRevision: envelope.intent.expectedEnrollmentRevision,
+      currentRevision: enrollment.revision,
+      requireExpectedRevision: true,
+    });
+  } else if (
     enrollment.lifecycle.status !== 'confirmed' &&
     enrollment.lifecycle.status !== 'pending_cancellation'
   ) {
@@ -56,26 +121,7 @@ export function assertRecordCourseDayAttendanceAuthorization(
     });
   }
 
-  if (courseDay.courseDayId !== envelope.intent.courseDayId) {
-    throw new CanonicalCommandError('validation', {
-      correlationId: envelope.context.correlationId,
-      details: { field: 'courseDayId', reason: 'conflict' },
-    });
-  }
-
-  if (
-    attendanceCorrectionWouldContradictTerminalOutcome({
-      enrollment,
-      nextStatus: envelope.intent.attendanceStatus,
-    })
-  ) {
-    throw new CanonicalCommandError('invalid_transition', {
-      correlationId: envelope.context.correlationId,
-      details: { resourceKind: 'course_enrollment', reason: 'unsupported' },
-    });
-  }
-
-  if (mode === 'instructor') {
+  if (baseMode === 'instructor') {
     const instructorId = courseDay.actualInstructorIds[0]!;
     assertInstructorCapability(envelope, instructorId);
     if (!instructorAssignedToCourseDay(courseDay, instructorId)) {
@@ -104,7 +150,7 @@ export function assertRecordCourseDayAttendanceAuthorization(
         correlationId: envelope.context.correlationId,
       });
     }
-    return mode;
+    return baseMode;
   }
 
   const explanation = envelope.intent.reasonExplanation?.trim();
@@ -125,5 +171,10 @@ export function assertRecordCourseDayAttendanceAuthorization(
       details: { field: 'startsAt', reason: 'out_of_range' },
     });
   }
-  return mode;
+
+  if (isTerminalCourseEnrollmentLifecycle(enrollment) && contradictsTerminal) {
+    return 'admin_terminal_correction';
+  }
+
+  return baseMode;
 }

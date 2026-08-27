@@ -266,6 +266,7 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
             absent: "absent";
         }>;
         expectedAttendanceRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").AggregateRevision, number>>>;
+        expectedEnrollmentRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").AggregateRevision, number>>>;
         reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course">, string>>;
@@ -586,6 +587,7 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
             absent: "absent";
         }>;
         expectedAttendanceRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").AggregateRevision, number>>>;
+        expectedEnrollmentRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").AggregateRevision, number>>>;
         reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course">, string>>;
@@ -906,6 +908,7 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
             absent: "absent";
         }>;
         expectedAttendanceRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").AggregateRevision, number>>>;
+        expectedEnrollmentRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").AggregateRevision, number>>>;
         reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict> | z.ZodObject<{
         courseId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course">, string>>;

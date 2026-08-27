@@ -79,6 +79,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'attendance_recorded',
     'course_enrollment_lifecycle_changed',
     'admin_issue_opened',
+    'admin_issue_resolved',
     'resource_claim_changed',
   ],
   resolve_attendance_outcome: [

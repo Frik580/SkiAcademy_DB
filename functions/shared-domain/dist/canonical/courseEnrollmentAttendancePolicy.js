@@ -6,6 +6,9 @@ exports.evaluateCourseEnrollmentOutcomeEligibility = evaluateCourseEnrollmentOut
 exports.evaluateCourseEnrollmentAutomationEligibility = evaluateCourseEnrollmentAutomationEligibility;
 exports.deriveCourseEnrollmentAttendanceSufficiency = deriveCourseEnrollmentAttendanceSufficiency;
 exports.missingCourseDayAttendanceIssueIdentity = missingCourseDayAttendanceIssueIdentity;
+exports.courseEnrollmentAttendancePaymentConflictIdentity = courseEnrollmentAttendancePaymentConflictIdentity;
+exports.outcomeCorrectionRequiredIdentity = outcomeCorrectionRequiredIdentity;
+exports.deriveCourseEnrollmentLifecycleFromEvidenceCorrection = deriveCourseEnrollmentLifecycleFromEvidenceCorrection;
 exports.courseDayOccurrenceId = courseDayOccurrenceId;
 exports.findCourseDayForEnrollment = findCourseDayForEnrollment;
 exports.instructorAssignedToCourseDay = instructorAssignedToCourseDay;
@@ -60,6 +63,36 @@ function missingCourseDayAttendanceIssueIdentity(input) {
         participantId: input.participantId,
         occurrenceId: input.occurrenceId,
     };
+}
+function courseEnrollmentAttendancePaymentConflictIdentity(input) {
+    return {
+        strategyVersion: courseEnrollmentAttendanceAdminIssue_1.ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION,
+        kind: 'attendance_payment_conflict',
+        subjectKind: 'course_enrollment',
+        subjectId: input.enrollmentId,
+        occurrenceId: input.occurrenceId,
+        participantId: input.participantId,
+    };
+}
+function outcomeCorrectionRequiredIdentity(input) {
+    return {
+        strategyVersion: courseEnrollmentAttendanceAdminIssue_1.ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION,
+        kind: 'outcome_correction_required',
+        subjectKind: 'course_enrollment',
+        subjectId: input.enrollmentId,
+        courseDayId: input.courseDayId,
+        participantId: input.participantId,
+        occurrenceId: input.occurrenceId,
+    };
+}
+function deriveCourseEnrollmentLifecycleFromEvidenceCorrection(input) {
+    if (input.sufficiency === 'completed') {
+        return 'completed';
+    }
+    if (input.sufficiency === 'no_show') {
+        return 'no_show';
+    }
+    return 'confirmed';
 }
 function courseDayOccurrenceId(courseDay) {
     return (0, deterministicIdentity_1.courseDayOccurrenceIdFromRevision)(courseDay.courseDayId, courseDay.revision);
@@ -166,6 +199,9 @@ function evaluateCourseEnrollmentOutcomeCalculator(input) {
         });
     if (eligibility === 'not_yet_eligible') {
         return { outcome: 'not_yet_eligible' };
+    }
+    if (input.justRecordedPresentWithPaymentConflict) {
+        return { outcome: 'recorded_with_issue', issueKind: 'attendance_payment_conflict' };
     }
     const blockingIssue = (0, bookingAttendancePolicy_1.hasOpenOutcomeBlockingAdminIssue)(input.openAdminIssues);
     if (blockingIssue) {

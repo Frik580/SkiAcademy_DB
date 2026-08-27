@@ -111,18 +111,40 @@ export function buildCreateConfirmedBookingAuditPlan(input: {
   };
 }
 
-export function buildPaymentStartGateAuditPlan(input: {
-  bookingId: BookingId;
-  mode: PaymentStartGateActorMode;
-  issue:
+export function buildPaymentStartGateAuditPlan(
+  input: {
+    readonly mode: PaymentStartGateActorMode;
+    readonly issue:
+      | {
+          readonly issueId: AdminIssueId;
+          readonly revision: number;
+          readonly effect: 'opened' | 'reused';
+        }
+      | undefined;
+  } & (
+    | { readonly subjectKind: 'booking'; readonly bookingId: BookingId }
     | {
-        readonly issueId: AdminIssueId;
-        readonly revision: number;
-        readonly effect: 'opened' | 'reused';
+        readonly subjectKind: 'course_enrollment';
+        readonly enrollmentId: import('@ski-academy/shared-domain').CourseEnrollmentId;
       }
-    | undefined;
-}): AuditOutboxStagingPlan {
-  const bookingRef = canonicalReference('booking', input.bookingId);
+  )
+): AuditOutboxStagingPlan {
+  const subjectRef =
+    input.subjectKind === 'booking'
+      ? canonicalReference('booking', input.bookingId)
+      : canonicalReference('course_enrollment', input.enrollmentId);
+  const primarySubject =
+    input.subjectKind === 'booking'
+      ? {
+          kind: 'booking' as const,
+          id: input.bookingId,
+          subjectKey: `booking:${input.bookingId}`,
+        }
+      : {
+          kind: 'course_enrollment' as const,
+          id: input.enrollmentId,
+          subjectKey: `course_enrollment:${input.enrollmentId}`,
+        };
   const reasonCode =
     input.mode === 'administrator'
       ? ('manual_override' as const)
@@ -153,12 +175,8 @@ export function buildPaymentStartGateAuditPlan(input: {
         reasonCode,
         ...(explanation === undefined ? {} : { explanation }),
       },
-      primarySubject: {
-        kind: 'booking',
-        id: input.bookingId,
-        subjectKey: `booking:${input.bookingId}`,
-      },
-      affectedSubjects: issueRef === undefined ? [bookingRef] : [bookingRef, issueRef],
+      primarySubject,
+      affectedSubjects: issueRef === undefined ? [subjectRef] : [subjectRef, issueRef],
       effects,
       monetaryEventIds: [],
       adminIssueIds: input.issue === undefined ? [] : [input.issue.issueId],

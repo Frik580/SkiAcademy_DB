@@ -2,6 +2,7 @@ import {
   AUDIT_REASON_REGISTRY_VERSION,
   AggregateRevisionSchema,
   canonicalReference,
+  type AdminIssue,
   type AdminIssueId,
   type AttendanceId,
   type AuditOutboxStagingPlan,
@@ -19,11 +20,12 @@ export function buildRecordCourseDayAttendanceAuditPlan(input: {
   readonly issues?: readonly {
     readonly issueId: AdminIssueId;
     readonly revision: number;
-    readonly effect: 'opened' | 'reused';
-    readonly kind: 'missing_attendance';
+    readonly effect: 'opened' | 'reused' | 'resolved';
+    readonly kind: AdminIssue['kind'];
   }[];
   readonly lifecycleSummary?: string;
   readonly actorMode: CourseEnrollmentAttendanceActorMode;
+  readonly skipAttendanceRecording?: boolean;
 }): AuditOutboxStagingPlan {
   const enrollmentRef = canonicalReference('course_enrollment', input.enrollmentId);
   const attendanceRef = canonicalReference('attendance', input.attendanceId);
@@ -37,11 +39,15 @@ export function buildRecordCourseDayAttendanceAuditPlan(input: {
       : undefined;
 
   const effects: AuditOutboxStagingPlan['activityLog']['effects'] = [
-    {
-      kind: 'attendance_recorded',
-      subjectRef: attendanceRef,
-      summary: `Attendance marked ${input.envelope.intent.attendanceStatus}`,
-    },
+    ...(input.skipAttendanceRecording
+      ? []
+      : [
+          {
+            kind: 'attendance_recorded' as const,
+            subjectRef: attendanceRef,
+            summary: `Attendance marked ${input.envelope.intent.attendanceStatus}`,
+          },
+        ]),
     ...(input.lifecycleSummary
       ? [
           {
@@ -52,12 +58,17 @@ export function buildRecordCourseDayAttendanceAuditPlan(input: {
         ]
       : []),
     ...(input.issues ?? []).map((issue) => ({
-      kind: 'admin_issue_opened' as const,
+      kind:
+        issue.effect === 'resolved'
+          ? ('admin_issue_resolved' as const)
+          : ('admin_issue_opened' as const),
       subjectRef: canonicalReference('admin_issue', issue.issueId),
       summary:
-        issue.effect === 'opened'
-          ? `${issue.kind} issue opened`
-          : `${issue.kind} issue reused`,
+        issue.effect === 'resolved'
+          ? `${issue.kind} issue resolved`
+          : issue.effect === 'opened'
+            ? `${issue.kind} issue opened`
+            : `${issue.kind} issue reused`,
     })),
   ];
 

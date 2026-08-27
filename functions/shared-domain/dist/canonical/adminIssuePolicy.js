@@ -3,7 +3,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ADMIN_ISSUE_KIND_POLICIES = exports.PAYMENT_REQUIRED_AT_START_INSTRUCTOR_INSTRUCTION = void 0;
 exports.adminIssueKindPolicy = adminIssueKindPolicy;
 exports.paymentRequiredAtStartIdentity = paymentRequiredAtStartIdentity;
+exports.paymentRequiredAtStartCourseEnrollmentIdentity = paymentRequiredAtStartCourseEnrollmentIdentity;
+exports.paymentRequiredAtStartCourseEnrollmentIdentityFromEnrollment = paymentRequiredAtStartCourseEnrollmentIdentityFromEnrollment;
 exports.evaluateIndividualBookingPaymentStartGate = evaluateIndividualBookingPaymentStartGate;
+exports.evaluateCourseEnrollmentPaymentStartGate = evaluateCourseEnrollmentPaymentStartGate;
+exports.isCourseEnrollmentPaymentStartRestrictionActive = isCourseEnrollmentPaymentStartRestrictionActive;
+exports.assertCourseEnrollmentPaymentIdentity = assertCourseEnrollmentPaymentIdentity;
 exports.assertBookingPaymentIdentity = assertBookingPaymentIdentity;
 exports.assertCompatibleAdminIssueIdentity = assertCompatibleAdminIssueIdentity;
 exports.createOpenAdminIssue = createOpenAdminIssue;
@@ -85,6 +90,21 @@ function paymentRequiredAtStartIdentity(input) {
         occurrenceId: input.occurrenceId,
     };
 }
+function paymentRequiredAtStartCourseEnrollmentIdentity(input) {
+    return {
+        strategyVersion: courseEnrollmentAttendanceAdminIssue_1.ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION,
+        kind: 'payment_required_at_start',
+        subjectKind: 'course_enrollment',
+        subjectId: input.enrollmentId,
+        occurrenceId: input.occurrenceId,
+    };
+}
+function paymentRequiredAtStartCourseEnrollmentIdentityFromEnrollment(enrollmentId) {
+    return paymentRequiredAtStartCourseEnrollmentIdentity({
+        enrollmentId,
+        occurrenceId: (0, deterministicIdentity_1.courseEnrollmentSeatOccurrenceId)(enrollmentId),
+    });
+}
 function evaluateIndividualBookingPaymentStartGate(input) {
     if (input.subjectKind !== 'booking') {
         return { outcome: 'unsupported_subject' };
@@ -108,6 +128,49 @@ function evaluateIndividualBookingPaymentStartGate(input) {
     return (0, paymentWallet_1.isPaymentFullyFundedForService)(input.payment)
         ? { outcome: 'fully_funded' }
         : { outcome: 'underfunded' };
+}
+function evaluateCourseEnrollmentPaymentStartGate(input) {
+    const status = input.enrollment.lifecycle.status;
+    if (status === 'cancelled' ||
+        status === 'withdrawn' ||
+        status === 'completed' ||
+        status === 'no_show') {
+        return { outcome: 'ineligible_terminal' };
+    }
+    if (status !== 'confirmed') {
+        return { outcome: 'ineligible_not_confirmed' };
+    }
+    if ((0, primitives_1.compareCanonicalTimestamps)(input.now, input.course.startAt) < 0) {
+        return { outcome: 'too_early' };
+    }
+    return (0, paymentWallet_1.isPaymentFullyFundedForService)(input.payment)
+        ? { outcome: 'fully_funded' }
+        : { outcome: 'underfunded' };
+}
+function isCourseEnrollmentPaymentStartRestrictionActive(input) {
+    if (input.openPaymentRequiredAtStartIssue) {
+        return true;
+    }
+    return (evaluateCourseEnrollmentPaymentStartGate({
+        now: input.now,
+        enrollment: input.enrollment,
+        course: input.course,
+        payment: input.payment,
+    }).outcome === 'underfunded');
+}
+function assertCourseEnrollmentPaymentIdentity(correlationId, enrollment, payment) {
+    const expectedPaymentId = (0, deterministicIdentity_1.paymentIdFromCourseEnrollmentId)(enrollment.enrollmentId);
+    if (enrollment.paymentId !== payment.paymentId ||
+        payment.paymentId !== expectedPaymentId ||
+        !(0, paymentWallet_1.paymentIdMatchesSubject)(payment, {
+            subjectType: 'course_enrollment',
+            subjectId: enrollment.enrollmentId,
+        })) {
+        throw new errors_1.CanonicalCommandError('validation', {
+            correlationId,
+            details: { field: 'paymentId', reason: 'conflict', resourceKind: 'course_enrollment' },
+        });
+    }
 }
 function assertBookingPaymentIdentity(correlationId, booking, payment) {
     const expectedPaymentId = (0, deterministicIdentity_1.paymentIdFromBookingId)(booking.bookingId);

@@ -25,7 +25,8 @@ import {
 import { compareCanonicalTimestamps, type CanonicalTimestamp } from './primitives';
 import { assertExpectedRevision, nextAggregateRevision } from './revisionConcurrency';
 import type { Booking } from './bookingOccurrenceProposalChange';
-import { paymentIdFromBookingId } from './deterministicIdentity';
+import type { Course, CourseEnrollment } from './courseEnrollmentAttendanceAdminIssue';
+import { courseEnrollmentSeatOccurrenceId, paymentIdFromBookingId, paymentIdFromCourseEnrollmentId } from './deterministicIdentity';
 import type { CommandActor } from './commands/actors';
 import type { ExercisedCapability } from './commands/capabilities';
 
@@ -109,6 +110,28 @@ export function paymentRequiredAtStartIdentity(input: {
   };
 }
 
+export function paymentRequiredAtStartCourseEnrollmentIdentity(input: {
+  readonly enrollmentId: CourseEnrollmentId;
+  readonly occurrenceId: OccurrenceId;
+}): AdminIssueDedupeIdentityInput {
+  return {
+    strategyVersion: ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION,
+    kind: 'payment_required_at_start',
+    subjectKind: 'course_enrollment',
+    subjectId: input.enrollmentId,
+    occurrenceId: input.occurrenceId,
+  };
+}
+
+export function paymentRequiredAtStartCourseEnrollmentIdentityFromEnrollment(
+  enrollmentId: CourseEnrollmentId
+): AdminIssueDedupeIdentityInput {
+  return paymentRequiredAtStartCourseEnrollmentIdentity({
+    enrollmentId,
+    occurrenceId: courseEnrollmentSeatOccurrenceId(enrollmentId),
+  });
+}
+
 export type PaymentStartGateDecision =
   | { readonly outcome: 'too_early' }
   | { readonly outcome: 'ineligible_terminal' }
@@ -150,6 +173,73 @@ export function evaluateIndividualBookingPaymentStartGate(input: {
   return isPaymentFullyFundedForService(input.payment)
     ? { outcome: 'fully_funded' }
     : { outcome: 'underfunded' };
+}
+
+export function evaluateCourseEnrollmentPaymentStartGate(input: {
+  readonly now: CanonicalTimestamp;
+  readonly enrollment: CourseEnrollment;
+  readonly course: Course;
+  readonly payment: Payment;
+}): PaymentStartGateDecision {
+  const status = input.enrollment.lifecycle.status;
+  if (
+    status === 'cancelled' ||
+    status === 'withdrawn' ||
+    status === 'completed' ||
+    status === 'no_show'
+  ) {
+    return { outcome: 'ineligible_terminal' };
+  }
+  if (status !== 'confirmed') {
+    return { outcome: 'ineligible_not_confirmed' };
+  }
+  if (compareCanonicalTimestamps(input.now, input.course.startAt) < 0) {
+    return { outcome: 'too_early' };
+  }
+  return isPaymentFullyFundedForService(input.payment)
+    ? { outcome: 'fully_funded' }
+    : { outcome: 'underfunded' };
+}
+
+export function isCourseEnrollmentPaymentStartRestrictionActive(input: {
+  readonly now: CanonicalTimestamp;
+  readonly enrollment: CourseEnrollment;
+  readonly course: Course;
+  readonly payment: Payment;
+  readonly openPaymentRequiredAtStartIssue: boolean;
+}): boolean {
+  if (input.openPaymentRequiredAtStartIssue) {
+    return true;
+  }
+  return (
+    evaluateCourseEnrollmentPaymentStartGate({
+      now: input.now,
+      enrollment: input.enrollment,
+      course: input.course,
+      payment: input.payment,
+    }).outcome === 'underfunded'
+  );
+}
+
+export function assertCourseEnrollmentPaymentIdentity(
+  correlationId: CorrelationId,
+  enrollment: CourseEnrollment,
+  payment: Payment
+): void {
+  const expectedPaymentId = paymentIdFromCourseEnrollmentId(enrollment.enrollmentId);
+  if (
+    enrollment.paymentId !== payment.paymentId ||
+    payment.paymentId !== expectedPaymentId ||
+    !paymentIdMatchesSubject(payment, {
+      subjectType: 'course_enrollment',
+      subjectId: enrollment.enrollmentId,
+    })
+  ) {
+    throw new CanonicalCommandError('validation', {
+      correlationId,
+      details: { field: 'paymentId', reason: 'conflict', resourceKind: 'course_enrollment' },
+    });
+  }
 }
 
 export function assertBookingPaymentIdentity(

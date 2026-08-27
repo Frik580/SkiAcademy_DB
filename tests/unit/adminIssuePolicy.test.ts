@@ -5,6 +5,10 @@ import {
   AggregateRevisionSchema,
   BookingIdSchema,
   BookingSchema,
+  CourseEnrollmentIdSchema,
+  CourseIdSchema,
+  CourseSchema,
+  CourseEnrollmentSchema,
   CanonicalCommandError,
   CorrelationIdSchema,
   OccurrenceIdSchema,
@@ -16,10 +20,13 @@ import {
   createOpenAdminIssue,
   dismissAdminIssue,
   evaluateIndividualBookingPaymentStartGate,
+  evaluateCourseEnrollmentPaymentStartGate,
   hasAuditEffectRegistryEntry,
   hasAuditReasonRegistryEntry,
+  isCourseEnrollmentPaymentStartRestrictionActive,
   isPaymentFullyFundedForService,
   paymentIdFromBookingId,
+  paymentIdFromCourseEnrollmentId,
   paymentRequiredAtStartIdentity,
   resolveAdminIssue,
   resolveUnresolvedPendingCancellationForOwnerWithdrawal,
@@ -538,6 +545,107 @@ describe('payment-at-start eligibility', () => {
     const view = sanitizePaymentStartGateForInstructor(opened);
     expect(view?.instruction).toBe('Payment required—do not start');
     expect(view && sanitizedInstructorViewOmitsFinancialFields(view)).toBe(true);
+  });
+
+  it('detects course enrollment payment restriction from Payment when gate issue is absent', () => {
+    const enrollmentId = CourseEnrollmentIdSchema.parse('enrollment_admin_issue_policy_01');
+    const courseId = CourseIdSchema.parse('course_admin_issue_policy_01');
+    const enrollment = CourseEnrollmentSchema.parse({
+      enrollmentId,
+      participantId: 'participant_admin_issue_policy_01',
+      courseId,
+      originalCourseId: courseId,
+      paymentId: paymentIdFromCourseEnrollmentId(enrollmentId),
+      payerAccountId: 'account_admin_issue_policy_01',
+      attribution: {
+        bookingOrigin: 'admin',
+        bookedBy: { kind: 'account', accountId: 'account_admin_issue_policy_01' },
+      },
+      lifecycle: { status: 'confirmed' },
+      revision: 1,
+      createdAt: now,
+      updatedAt: now,
+      audit: {
+        createdByCommandId: commandId,
+        lastChangedByCommandId: commandId,
+        correlationId,
+      },
+    });
+    const course = CourseSchema.parse({
+      courseId,
+      title: 'Policy Course',
+      price: 100_000,
+      capacity: { totalSeats: 8, availableSeats: 7 },
+      instructorRosterIds: ['instructor_admin_issue_policy_01'],
+      startAt: now,
+      scheduleProjection: {
+        courseDayCount: 1,
+        finalCourseDayEndsAt: timestampFromDate(new Date('2026-01-15T05:00:00.000Z')),
+        courseScheduleRevision: 1,
+      },
+      revision: 1,
+      createdAt: now,
+      updatedAt: now,
+      audit: {
+        createdByCommandId: commandId,
+        lastChangedByCommandId: commandId,
+        correlationId,
+      },
+    });
+    const payment = PaymentSchema.parse({
+      paymentId: paymentIdFromCourseEnrollmentId(enrollmentId),
+      subjectType: 'course_enrollment',
+      subjectId: enrollmentId,
+      currency: 'KZT',
+      originalPrice: 100_000,
+      price: 100_000,
+      paidAmount: 0,
+      refundedAmount: 0,
+      retainedAmount: 0,
+      settledAmount: 0,
+      writtenOffAmount: 0,
+      outstandingAmount: 100_000,
+      paymentStatus: 'unpaid',
+      incrementalRequirements: [],
+      revision: 1,
+      eventRevision: 1,
+      payerAccountId: 'account_admin_issue_policy_01',
+      createdAt: now,
+      updatedAt: now,
+    });
+    expect(
+      isCourseEnrollmentPaymentStartRestrictionActive({
+        now,
+        enrollment,
+        course,
+        payment,
+        openPaymentRequiredAtStartIssue: false,
+      })
+    ).toBe(true);
+    expect(
+      evaluateCourseEnrollmentPaymentStartGate({
+        now,
+        enrollment,
+        course,
+        payment,
+      })
+    ).toEqual({ outcome: 'underfunded' });
+    expect(
+      isCourseEnrollmentPaymentStartRestrictionActive({
+        now,
+        enrollment,
+        course,
+        payment: {
+          ...payment,
+          paidAmount: 100_000,
+          retainedAmount: 100_000,
+          settledAmount: 100_000,
+          outstandingAmount: 0,
+          paymentStatus: 'paid',
+        },
+        openPaymentRequiredAtStartIssue: false,
+      })
+    ).toBe(false);
   });
 });
 

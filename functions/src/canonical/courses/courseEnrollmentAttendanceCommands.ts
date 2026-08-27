@@ -12,11 +12,22 @@ import {
   courseDayOccurrenceId,
   courseScheduleIsComplete,
   courseDayAttendanceMatchesCurrentOccurrence,
+  courseEnrollmentAttendancePaymentConflictIdentity,
+  courseEnrollmentSeatOccurrenceId,
+  deriveCourseEnrollmentAttendanceSufficiency,
+  deriveCourseEnrollmentLifecycleFromEvidenceCorrection,
   evaluateCourseEnrollmentOutcomeCalculator,
   findCourseDayForEnrollment,
   missingCourseDayAttendanceIssueIdentity,
   nextAggregateRevision,
+  outcomeCorrectionRequiredIdentity,
+  assertCourseEnrollmentPaymentIdentity,
+  evaluateCourseEnrollmentPaymentStartGate,
+  isCourseEnrollmentPaymentStartRestrictionActive,
+  paymentRequiredAtStartCourseEnrollmentIdentityFromEnrollment,
+  resolveAdminIssue,
   resolveCommandIdempotencyIdentity,
+  shouldCreateAttendancePaymentConflict,
   sortedCourseDays,
   timestampFromDate,
   assertExpectedRevision,
@@ -30,6 +41,7 @@ import {
   type CommandEnvelope,
   type CommandExecutionEnvironment,
   type CommandResult,
+  type Payment,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
 import {
@@ -59,6 +71,7 @@ import {
   buildRecordCourseDayAttendanceAuditPlan,
   buildResolveCourseEnrollmentAttendanceOutcomeAuditPlan,
 } from './courseEnrollmentAttendanceAudit';
+import { parsePayment, paymentPath } from '../finance/financeStore';
 import {
   commitPlannedCourseEnrollmentClaimRelease,
   planReleaseCourseEnrollmentClaims,
@@ -140,7 +153,7 @@ function buildAttendanceRecorder(
   envelope: CommandEnvelope<'record_course_day_attendance'>,
   instructorId: import('@ski-academy/shared-domain').InstructorId
 ): import('@ski-academy/shared-domain').AttendanceRecorder {
-  if (mode === 'instructor') {
+  if (mode === 'instructor' || mode === 'instructor_outcome_correction_required') {
     return { kind: 'instructor', instructorId };
   }
   const actor = envelope.context.actor;
@@ -148,6 +161,57 @@ function buildAttendanceRecorder(
     throw new CanonicalCommandError('forbidden', { correlationId: envelope.context.correlationId });
   }
   return { kind: 'administrator', accountId: actor.accountId };
+}
+
+type PlannedAdminIssueMutation = {
+  issue: AdminIssue;
+  mutationKind: 'create' | 'update';
+  documentPath: string;
+  auditEffect: 'opened' | 'reused' | 'resolved';
+  kind: AdminIssue['kind'];
+};
+
+async function planResolveOpenAdminIssue(
+  session: CanonicalAtomicTransactionSession,
+  input: {
+    readonly correlationId: CommandMetadata['correlationId'];
+    readonly commandId: string;
+    readonly now: import('@ski-academy/shared-domain').CanonicalTimestamp;
+    readonly identity: Parameters<typeof plannedAdminIssuePath>[0];
+    readonly envelope: CommandEnvelope<'record_course_day_attendance'>;
+    readonly reason: string;
+  }
+): Promise<PlannedAdminIssueMutation | undefined> {
+  const documentPath = plannedAdminIssuePath(input.identity);
+  const existing = await readOpenAdminIssue(session, input.correlationId, input.identity);
+  if (!existing || existing.lifecycle.status !== 'open') {
+    return undefined;
+  }
+  const resolved = resolveAdminIssue(existing, {
+    expectedRevision: existing.revision,
+    now: input.now,
+    correlationId: input.correlationId,
+    commandId: input.commandId,
+    reason: input.reason,
+    actor: {
+      actor: input.envelope.context.actor,
+      exercisedCapability: input.envelope.context.exercisedCapability,
+    },
+    coupledDomainCommand: true,
+  });
+  session.plan.planMutation({
+    path: documentPath,
+    kind: 'update',
+    category: 'aggregate',
+    estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+  });
+  return {
+    issue: resolved,
+    mutationKind: 'update',
+    documentPath,
+    auditEffect: 'resolved',
+    kind: existing.kind,
+  };
 }
 
 function recordCourseDayAttendanceHandler(
@@ -172,6 +236,9 @@ function recordCourseDayAttendanceHandler(
   let plannedEnrollmentRevision: number | undefined;
   let plannedClaimRelease: PlannedCourseEnrollmentClaimRelease | undefined;
   let auditSummary: string | undefined;
+  let payment!: Payment;
+  let plannedIssueMutations: PlannedAdminIssueMutation[] = [];
+  let skipAttendanceMutation = false;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'record_course_day_attendance'> = {
     read: async (session) => {
@@ -180,6 +247,8 @@ function recordCourseDayAttendanceHandler(
       plannedClaimRelease = undefined;
       auditSummary = undefined;
       effectiveExistingAttendance = undefined;
+      plannedIssueMutations = [];
+      skipAttendanceMutation = false;
 
       const enrollmentRead = await session.tx.get({ path: enrollmentDocumentPath });
       session.plan.planRead({ path: enrollmentDocumentPath, category: 'aggregate' });
@@ -243,6 +312,62 @@ function recordCourseDayAttendanceHandler(
         existingAttendance: effectiveExistingAttendance,
         now,
       });
+
+      if (actorMode === 'instructor_outcome_correction_required') {
+        skipAttendanceMutation = true;
+        const identity = outcomeCorrectionRequiredIdentity({
+          enrollmentId: enrollment.enrollmentId,
+          courseDayId: envelope.intent.courseDayId,
+          participantId: enrollment.participantId,
+          occurrenceId: courseDayOccurrenceId(courseDay),
+        });
+        const documentPath = plannedAdminIssuePath(identity);
+        const existing = await readOpenAdminIssue(session, metadata.correlationId, identity);
+        const opened = openOrReuseAdminIssue({
+          existing,
+          identity,
+          now,
+          correlationId: metadata.correlationId,
+          commandId: metadata.commandId,
+        });
+        plannedIssueMutations.push({
+          issue: opened.issue,
+          mutationKind: opened.mutationKind,
+          documentPath,
+          auditEffect: opened.mutationKind === 'create' ? 'opened' : 'reused',
+          kind: 'outcome_correction_required',
+        });
+        session.plan.planMutation({
+          path: documentPath,
+          kind: opened.mutationKind,
+          category: 'aggregate',
+          estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+        });
+        plannedAttendance = effectiveExistingAttendance ?? existingAttendance ?? AttendanceSchema.parse({
+          attendanceId: attendanceIdFromCourseDayIdentity({
+            strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+            subjectKind: 'course_enrollment',
+            enrollmentId: enrollment.enrollmentId,
+            courseDayId: envelope.intent.courseDayId,
+          }),
+          subject: {
+            subjectKind: 'course_enrollment',
+            enrollmentId: enrollment.enrollmentId,
+            courseId: enrollment.courseId,
+            courseDayId: envelope.intent.courseDayId,
+            occurrenceId: courseDayOccurrenceId(courseDay),
+            participantId: enrollment.participantId,
+          },
+          attendanceStatus: envelope.intent.attendanceStatus,
+          recordedBy: { kind: 'instructor', instructorId: courseDay.actualInstructorIds[0]! },
+          recordedAt: now,
+          lastChangedBy: { kind: 'instructor', instructorId: courseDay.actualInstructorIds[0]! },
+          updatedAt: now,
+          revision: AggregateRevisionSchema.parse(1),
+          correlationId: metadata.correlationId,
+        });
+        return;
+      }
 
       const attendanceId = attendanceIdFromCourseDayIdentity({
         strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
@@ -330,6 +455,23 @@ function recordCourseDayAttendanceHandler(
         }
       }
 
+      const paymentDocumentPath = paymentPath(enrollment.paymentId);
+      const paymentRead = await session.tx.get({ path: paymentDocumentPath });
+      session.plan.planRead({ path: paymentDocumentPath, category: 'payment_wallet' });
+      const parsedPayment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
+      if (!parsedPayment) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'paymentId', reason: 'conflict', resourceKind: 'course_enrollment' },
+        });
+      }
+      payment = parsedPayment;
+      assertCourseEnrollmentPaymentIdentity(
+        envelope.context.correlationId,
+        enrollment,
+        payment
+      );
+
       const pendingCancellationIssue = await readOpenAdminIssue(
         session,
         metadata.correlationId,
@@ -337,9 +479,157 @@ function recordCourseDayAttendanceHandler(
           enrollmentId: enrollment.enrollmentId,
         })
       );
+
+      const paymentStartIdentity = paymentRequiredAtStartCourseEnrollmentIdentityFromEnrollment(
+        enrollment.enrollmentId
+      );
+      const paymentStartDocumentPath = plannedAdminIssuePath(paymentStartIdentity);
+      let paymentIssue = await readOpenAdminIssue(
+        session,
+        metadata.correlationId,
+        paymentStartIdentity
+      );
+      const gateDecision = evaluateCourseEnrollmentPaymentStartGate({
+        now,
+        enrollment,
+        course,
+        payment,
+      });
+      let plannedPaymentStartIssue: AdminIssue | undefined;
+      if (gateDecision.outcome === 'underfunded') {
+        const opened = openOrReuseAdminIssue({
+          existing: paymentIssue,
+          identity: paymentStartIdentity,
+          now,
+          correlationId: metadata.correlationId,
+          commandId: metadata.commandId,
+        });
+        plannedPaymentStartIssue = opened.issue;
+        paymentIssue = opened.issue;
+        plannedIssueMutations.push({
+          issue: opened.issue,
+          mutationKind: opened.mutationKind,
+          documentPath: paymentStartDocumentPath,
+          auditEffect: opened.mutationKind === 'create' ? 'opened' : 'reused',
+          kind: 'payment_required_at_start',
+        });
+        session.plan.planMutation({
+          path: paymentStartDocumentPath,
+          kind: opened.mutationKind,
+          category: 'aggregate',
+          estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+        });
+      }
+      const paymentStartRestrictionActive = isCourseEnrollmentPaymentStartRestrictionActive({
+        now,
+        enrollment,
+        course,
+        payment,
+        openPaymentRequiredAtStartIssue:
+          (plannedPaymentStartIssue ?? paymentIssue)?.lifecycle.status === 'open',
+      });
+
+      let plannedPaymentConflictIssue: AdminIssue | undefined;
+      let paymentConflictDocumentPath = '';
+      if (
+        shouldCreateAttendancePaymentConflict({
+          attendanceStatus: envelope.intent.attendanceStatus,
+          openPaymentRequiredAtStart: paymentStartRestrictionActive,
+        })
+      ) {
+        const identity = courseEnrollmentAttendancePaymentConflictIdentity({
+          enrollmentId: enrollment.enrollmentId,
+          occurrenceId: courseEnrollmentSeatOccurrenceId(enrollment.enrollmentId),
+          participantId: enrollment.participantId,
+        });
+        paymentConflictDocumentPath = plannedAdminIssuePath(identity);
+        const existing = await readOpenAdminIssue(session, metadata.correlationId, identity);
+        const opened = openOrReuseAdminIssue({
+          existing,
+          identity,
+          now,
+          correlationId: metadata.correlationId,
+          commandId: metadata.commandId,
+        });
+        plannedPaymentConflictIssue = opened.issue;
+        plannedIssueMutations.push({
+          issue: opened.issue,
+          mutationKind: opened.mutationKind,
+          documentPath: paymentConflictDocumentPath,
+          auditEffect: opened.mutationKind === 'create' ? 'opened' : 'reused',
+          kind: 'attendance_payment_conflict',
+        });
+        session.plan.planMutation({
+          path: paymentConflictDocumentPath,
+          kind: opened.mutationKind,
+          category: 'aggregate',
+          estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+        });
+      }
+
       const openIssues = [
         ...(pendingCancellationIssue?.lifecycle.status === 'open' ? [pendingCancellationIssue] : []),
+        ...(paymentIssue?.lifecycle.status === 'open' ? [paymentIssue] : []),
+        ...(plannedPaymentConflictIssue ? [plannedPaymentConflictIssue] : []),
       ];
+
+      if (actorMode === 'admin_terminal_correction') {
+        const effectiveSummary = buildCourseEnrollmentAttendanceSummaryFromCurrentEvidence({
+          courseDays,
+          attendancesByCourseDayId,
+        });
+        const sufficiency = deriveCourseEnrollmentAttendanceSufficiency({
+          courseDayCount: course.scheduleProjection.courseDayCount,
+          attendanceSummary: effectiveSummary,
+        });
+        const correctedLifecycle = deriveCourseEnrollmentLifecycleFromEvidenceCorrection({
+          sufficiency,
+        });
+        plannedEnrollmentRevision = nextAggregateRevision(enrollment.revision);
+        plannedEnrollment = CourseEnrollmentSchema.parse({
+          ...enrollment,
+          attendanceSummary: effectiveSummary,
+          lifecycle:
+            correctedLifecycle === 'completed'
+              ? { status: 'completed', completedAt: now }
+              : correctedLifecycle === 'no_show'
+                ? { status: 'no_show', noShowAt: now }
+                : { status: 'confirmed' },
+          revision: plannedEnrollmentRevision,
+          updatedAt: now,
+          audit: {
+            ...enrollment.audit,
+            lastChangedByCommandId: metadata.commandId,
+            correlationId: metadata.correlationId,
+          },
+        });
+        auditSummary = `CourseEnrollment marked ${correctedLifecycle}`;
+        session.plan.planMutation({
+          path: enrollmentDocumentPath,
+          kind: 'update',
+          category: 'aggregate',
+          estimatedPayloadBytes: COURSE_ENROLLMENT_PLANNING_ESTIMATES.enrollmentBytes,
+        });
+
+        const correctionReason = envelope.intent.reasonExplanation?.trim() ?? 'Terminal attendance correction';
+        const resolvedOutcomeIssue = await planResolveOpenAdminIssue(session, {
+          correlationId: metadata.correlationId,
+          commandId: metadata.commandId,
+          now,
+          identity: outcomeCorrectionRequiredIdentity({
+            enrollmentId: enrollment.enrollmentId,
+            courseDayId: envelope.intent.courseDayId,
+            participantId: enrollment.participantId,
+            occurrenceId: courseDayOccurrenceId(courseDay),
+          }),
+          envelope,
+          reason: correctionReason,
+        });
+        if (resolvedOutcomeIssue) {
+          plannedIssueMutations.push(resolvedOutcomeIssue);
+        }
+        return;
+      }
 
       const projectedEnrollment: CourseEnrollment = {
         ...enrollment,
@@ -354,6 +644,7 @@ function recordCourseDayAttendanceHandler(
         attendancesByCourseDayId,
         openAdminIssues: openIssues,
         automationOnly: false,
+        ...(plannedPaymentConflictIssue ? { justRecordedPresentWithPaymentConflict: true } : {}),
       });
 
       if (outcomeDecision.outcome === 'resolve') {
@@ -422,12 +713,20 @@ function recordCourseDayAttendanceHandler(
         attendanceRevision: plannedAttendance.revision,
         enrollmentRevision: plannedEnrollmentRevision,
         actorMode,
+        ...(skipAttendanceMutation ? { skipAttendanceRecording: true } : {}),
+        issues: plannedIssueMutations.map((issue) => ({
+          issueId: issue.issue.issueId,
+          revision: issue.issue.revision,
+          effect: issue.auditEffect,
+          kind: issue.kind,
+        })),
         ...(auditSummary ? { lifecycleSummary: auditSummary } : {}),
       }),
     execute: async (session) => {
       if (
-        !effectiveExistingAttendance ||
-        effectiveExistingAttendance.attendanceStatus !== envelope.intent.attendanceStatus
+        !skipAttendanceMutation &&
+        (!effectiveExistingAttendance ||
+          effectiveExistingAttendance.attendanceStatus !== envelope.intent.attendanceStatus)
       ) {
         if (attendanceMutation === 'update') {
           session.tx.update(
@@ -438,6 +737,19 @@ function recordCourseDayAttendanceHandler(
           session.tx.create(
             { path: attendanceDocumentPath },
             toAttendanceWritePayload(plannedAttendance as Record<string, unknown>)
+          );
+        }
+      }
+      for (const plannedIssue of plannedIssueMutations) {
+        if (plannedIssue.mutationKind === 'update') {
+          session.tx.update(
+            { path: plannedIssue.documentPath },
+            toAdminIssueWritePayload(plannedIssue.issue as Record<string, unknown>)
+          );
+        } else {
+          session.tx.create(
+            { path: plannedIssue.documentPath },
+            toAdminIssueWritePayload(plannedIssue.issue as Record<string, unknown>)
           );
         }
       }

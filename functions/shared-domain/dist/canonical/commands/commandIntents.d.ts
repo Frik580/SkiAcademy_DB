@@ -83,6 +83,7 @@ export declare const CommandIntentSchemaByKind: {
             absent: "absent";
         }>;
         expectedAttendanceRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>>;
+        expectedEnrollmentRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>>;
         reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>;
     complete_booking: z.ZodObject<{

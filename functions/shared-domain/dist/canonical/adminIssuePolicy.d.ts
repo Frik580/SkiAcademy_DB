@@ -3,6 +3,7 @@ import type { AccountId, BookingId, CorrelationId, CourseEnrollmentId, Occurrenc
 import { type Payment } from './paymentWallet';
 import { type CanonicalTimestamp } from './primitives';
 import type { Booking } from './bookingOccurrenceProposalChange';
+import type { Course, CourseEnrollment } from './courseEnrollmentAttendanceAdminIssue';
 import type { CommandActor } from './commands/actors';
 import type { ExercisedCapability } from './commands/capabilities';
 export declare const PAYMENT_REQUIRED_AT_START_INSTRUCTOR_INSTRUCTION: "Payment required\u2014do not start";
@@ -19,6 +20,11 @@ export declare function paymentRequiredAtStartIdentity(input: {
     readonly bookingId: BookingId;
     readonly occurrenceId: OccurrenceId;
 }): AdminIssueDedupeIdentityInput;
+export declare function paymentRequiredAtStartCourseEnrollmentIdentity(input: {
+    readonly enrollmentId: CourseEnrollmentId;
+    readonly occurrenceId: OccurrenceId;
+}): AdminIssueDedupeIdentityInput;
+export declare function paymentRequiredAtStartCourseEnrollmentIdentityFromEnrollment(enrollmentId: CourseEnrollmentId): AdminIssueDedupeIdentityInput;
 export type PaymentStartGateDecision = {
     readonly outcome: 'too_early';
 } | {
@@ -40,6 +46,20 @@ export declare function evaluateIndividualBookingPaymentStartGate(input: {
     readonly booking?: Booking;
     readonly payment?: Payment;
 }): PaymentStartGateDecision;
+export declare function evaluateCourseEnrollmentPaymentStartGate(input: {
+    readonly now: CanonicalTimestamp;
+    readonly enrollment: CourseEnrollment;
+    readonly course: Course;
+    readonly payment: Payment;
+}): PaymentStartGateDecision;
+export declare function isCourseEnrollmentPaymentStartRestrictionActive(input: {
+    readonly now: CanonicalTimestamp;
+    readonly enrollment: CourseEnrollment;
+    readonly course: Course;
+    readonly payment: Payment;
+    readonly openPaymentRequiredAtStartIssue: boolean;
+}): boolean;
+export declare function assertCourseEnrollmentPaymentIdentity(correlationId: CorrelationId, enrollment: CourseEnrollment, payment: Payment): void;
 export declare function assertBookingPaymentIdentity(correlationId: CorrelationId, booking: Booking, payment: Payment): void;
 export declare function assertCompatibleAdminIssueIdentity(correlationId: CorrelationId, existing: AdminIssue, identity: AdminIssueDedupeIdentityInput): void;
 export interface OpenAdminIssueInput {

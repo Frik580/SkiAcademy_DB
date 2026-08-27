@@ -43,6 +43,7 @@ export type CourseEnrollmentOutcomeCalculatorDecision =
   | { readonly outcome: 'blocked_pending_cancellation' }
   | { readonly outcome: 'blocked_terminal_lifecycle' }
   | { readonly outcome: 'blocked_outcome_issue'; readonly issueKind: AdminIssue['kind'] }
+  | { readonly outcome: 'recorded_with_issue'; readonly issueKind: 'attendance_payment_conflict' }
   | { readonly outcome: 'resolve'; readonly lifecycle: 'completed' | 'no_show' }
   | {
       readonly outcome: 'unresolved';
@@ -107,6 +108,50 @@ export function missingCourseDayAttendanceIssueIdentity(input: {
     participantId: input.participantId,
     occurrenceId: input.occurrenceId,
   };
+}
+
+export function courseEnrollmentAttendancePaymentConflictIdentity(input: {
+  readonly enrollmentId: CourseEnrollmentId;
+  readonly occurrenceId: OccurrenceId;
+  readonly participantId: ParticipantId;
+}): import('./courseEnrollmentAttendanceAdminIssue').AdminIssueDedupeIdentityInput {
+  return {
+    strategyVersion: ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION,
+    kind: 'attendance_payment_conflict',
+    subjectKind: 'course_enrollment',
+    subjectId: input.enrollmentId,
+    occurrenceId: input.occurrenceId,
+    participantId: input.participantId,
+  };
+}
+
+export function outcomeCorrectionRequiredIdentity(input: {
+  readonly enrollmentId: CourseEnrollmentId;
+  readonly courseDayId: CourseDayId;
+  readonly participantId: ParticipantId;
+  readonly occurrenceId: OccurrenceId;
+}): import('./courseEnrollmentAttendanceAdminIssue').AdminIssueDedupeIdentityInput {
+  return {
+    strategyVersion: ADMIN_ISSUE_DEDUPE_STRATEGY_VERSION,
+    kind: 'outcome_correction_required',
+    subjectKind: 'course_enrollment',
+    subjectId: input.enrollmentId,
+    courseDayId: input.courseDayId,
+    participantId: input.participantId,
+    occurrenceId: input.occurrenceId,
+  };
+}
+
+export function deriveCourseEnrollmentLifecycleFromEvidenceCorrection(input: {
+  readonly sufficiency: CourseEnrollmentAttendanceSufficiencyOutcome;
+}): 'completed' | 'no_show' | 'confirmed' {
+  if (input.sufficiency === 'completed') {
+    return 'completed';
+  }
+  if (input.sufficiency === 'no_show') {
+    return 'no_show';
+  }
+  return 'confirmed';
 }
 
 export function courseDayOccurrenceId(courseDay: CourseDay): OccurrenceId {
@@ -230,6 +275,7 @@ export function evaluateCourseEnrollmentOutcomeCalculator(input: {
   readonly attendancesByCourseDayId: ReadonlyMap<CourseDayId, Attendance>;
   readonly openAdminIssues: readonly AdminIssue[];
   readonly automationOnly: boolean;
+  readonly justRecordedPresentWithPaymentConflict?: boolean;
 }): CourseEnrollmentOutcomeCalculatorDecision {
   const status = input.enrollment.lifecycle.status;
 
@@ -257,6 +303,10 @@ export function evaluateCourseEnrollmentOutcomeCalculator(input: {
 
   if (eligibility === 'not_yet_eligible') {
     return { outcome: 'not_yet_eligible' };
+  }
+
+  if (input.justRecordedPresentWithPaymentConflict) {
+    return { outcome: 'recorded_with_issue', issueKind: 'attendance_payment_conflict' };
   }
 
   const blockingIssue = hasOpenOutcomeBlockingAdminIssue(input.openAdminIssues);

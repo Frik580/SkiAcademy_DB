@@ -376,6 +376,7 @@ exports.CommandIntentSchemaByKind = {
         courseDayId: identifiers_1.CourseDayIdSchema,
         attendanceStatus: courseEnrollmentAttendanceAdminIssue_1.AttendanceStatusSchema,
         expectedAttendanceRevision: primitives_1.AggregateRevisionSchema.optional(),
+        expectedEnrollmentRevision: primitives_1.AggregateRevisionSchema.optional(),
         reasonExplanation: zod_1.z.string().trim().min(1).max(2_000).optional(),
     })
         .strict(),

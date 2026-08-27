@@ -393,6 +393,7 @@ export const CommandIntentSchemaByKind = {
       courseDayId: CourseDayIdSchema,
       attendanceStatus: AttendanceStatusSchema,
       expectedAttendanceRevision: AggregateRevisionSchema.optional(),
+      expectedEnrollmentRevision: AggregateRevisionSchema.optional(),
       reasonExplanation: z.string().trim().min(1).max(2_000).optional(),
     })
     .strict(),

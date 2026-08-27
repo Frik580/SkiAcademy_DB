@@ -15,6 +15,9 @@ export type CourseEnrollmentOutcomeCalculatorDecision = {
     readonly outcome: 'blocked_outcome_issue';
     readonly issueKind: AdminIssue['kind'];
 } | {
+    readonly outcome: 'recorded_with_issue';
+    readonly issueKind: 'attendance_payment_conflict';
+} | {
     readonly outcome: 'resolve';
     readonly lifecycle: 'completed' | 'no_show';
 } | {
@@ -41,6 +44,20 @@ export declare function missingCourseDayAttendanceIssueIdentity(input: {
     readonly participantId: ParticipantId;
     readonly occurrenceId: OccurrenceId;
 }): import('./courseEnrollmentAttendanceAdminIssue').AdminIssueDedupeIdentityInput;
+export declare function courseEnrollmentAttendancePaymentConflictIdentity(input: {
+    readonly enrollmentId: CourseEnrollmentId;
+    readonly occurrenceId: OccurrenceId;
+    readonly participantId: ParticipantId;
+}): import('./courseEnrollmentAttendanceAdminIssue').AdminIssueDedupeIdentityInput;
+export declare function outcomeCorrectionRequiredIdentity(input: {
+    readonly enrollmentId: CourseEnrollmentId;
+    readonly courseDayId: CourseDayId;
+    readonly participantId: ParticipantId;
+    readonly occurrenceId: OccurrenceId;
+}): import('./courseEnrollmentAttendanceAdminIssue').AdminIssueDedupeIdentityInput;
+export declare function deriveCourseEnrollmentLifecycleFromEvidenceCorrection(input: {
+    readonly sufficiency: CourseEnrollmentAttendanceSufficiencyOutcome;
+}): 'completed' | 'no_show' | 'confirmed';
 export declare function courseDayOccurrenceId(courseDay: CourseDay): OccurrenceId;
 export declare function findCourseDayForEnrollment(courseDays: readonly CourseDay[], courseDayId: CourseDayId, courseId: Course['courseId']): CourseDay | undefined;
 export declare function instructorAssignedToCourseDay(courseDay: CourseDay, instructorId: InstructorId): boolean;
@@ -66,6 +83,7 @@ export declare function evaluateCourseEnrollmentOutcomeCalculator(input: {
     readonly attendancesByCourseDayId: ReadonlyMap<CourseDayId, Attendance>;
     readonly openAdminIssues: readonly AdminIssue[];
     readonly automationOnly: boolean;
+    readonly justRecordedPresentWithPaymentConflict?: boolean;
 }): CourseEnrollmentOutcomeCalculatorDecision;
 export declare function attendanceCorrectionWouldContradictTerminalOutcome(input: {
     readonly enrollment: CourseEnrollment;

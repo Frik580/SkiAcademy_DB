@@ -5,7 +5,7 @@ import {
   OccurrenceIdSchema,
   ParticipantIdSchema,
 } from './identifiers';
-import { timestampFromDate } from './guestBooking';
+import { timestampFromDate } from './primitives';
 import type { Attendance } from './courseEnrollmentAttendanceAdminIssue';
 import {
   applyAttendanceSummaryDelta,

@@ -15,6 +15,9 @@ import { updateBookingScheduleHandler } from './bookings/updateBookingSchedule';
 import { createGuestCourseEnrollmentHandler } from './courses/createGuestCourseEnrollment';
 import { enrollInCourseHandler } from './courses/enrollInCourse';
 import { purgeExpiredNotifications } from './purgeExpiredNotifications';
+import { createExecuteCanonicalCommandHandler } from './canonical/commands/executeCanonicalCommandCallable';
+import { createExecuteGuestCanonicalCommandHandler } from './canonical/commands/executeGuestCanonicalCommandCallable';
+import { createQueryLessonBookingReadModelsHandler } from './canonical/readModels/queryLessonBookingReadModelsCallable';
 
 export { optimizeImage } from './images/optimizeImageHttp';
 
@@ -64,6 +67,18 @@ export const createGuestCourseEnrollment = onCall({ region: 'us-central1' }, asy
 
 export const enrollInCourse = onCall({ region: 'us-central1' }, async (request) =>
   enrollInCourseHandler(getAdminFirestore())(request)
+);
+
+export const executeCanonicalCommand = onCall({ region: 'us-central1' }, async (request) =>
+  createExecuteCanonicalCommandHandler(getAdminFirestore())(request)
+);
+
+export const executeGuestCanonicalCommand = onCall({ region: 'us-central1' }, async (request) =>
+  createExecuteGuestCanonicalCommandHandler(getAdminFirestore())(request)
+);
+
+export const queryLessonBookingReadModels = onCall({ region: 'us-central1' }, async (request) =>
+  createQueryLessonBookingReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const scheduledAutoCompleteBookings = onSchedule(

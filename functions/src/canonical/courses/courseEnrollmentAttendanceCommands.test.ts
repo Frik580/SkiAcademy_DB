@@ -10,6 +10,7 @@ import {
   InstructorIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
+  PaymentSchema,
   WalletSchema,
   ResourceClaimSchema,
   attendanceIdFromCourseDayIdentity,
@@ -301,24 +302,27 @@ function baseFixture(extra: Record<string, unknown> = {}) {
     [`courses/${courseId}/days/${courseDayTwoId}`]: seedCourseDay(courseDayTwoId, 2),
     [`courses/${courseId}/days/${courseDayThreeId}`]: seedCourseDay(courseDayThreeId, 3),
     [`course_enrollments/${enrollmentId}`]: seedEnrollment(),
-    [`payments/${paymentIdFromCourseEnrollmentId(enrollmentId)}`]: {
+    [`payments/${paymentIdFromCourseEnrollmentId(enrollmentId)}`]: PaymentSchema.parse({
       paymentId: paymentIdFromCourseEnrollmentId(enrollmentId),
-      subject: { subjectType: 'course_enrollment', subjectId: enrollmentId },
+      subjectType: 'course_enrollment',
+      subjectId: enrollmentId,
+      currency: 'KZT',
+      originalPrice: COURSE_PRICE_KZT,
       price: COURSE_PRICE_KZT,
       paidAmount: COURSE_PRICE_KZT,
       refundedAmount: 0,
+      retainedAmount: COURSE_PRICE_KZT,
       settledAmount: COURSE_PRICE_KZT,
+      writtenOffAmount: 0,
       outstandingAmount: 0,
-      payerAccountId: accountId,
+      paymentStatus: 'paid',
+      incrementalRequirements: [],
       revision: 1,
+      eventRevision: 1,
+      payerAccountId: accountId,
       createdAt: decidedAt,
       updatedAt: decidedAt,
-      audit: {
-        createdByCommandId: 'seed',
-        lastChangedByCommandId: 'seed',
-        correlationId,
-      },
-    },
+    }),
     [`users/${accountId}/wallet/state`]: WalletSchema.parse({
       accountId,
       currency: 'KZT',
@@ -548,7 +552,7 @@ describe('courseEnrollmentAttendanceCommands', () => {
     expect(result.status).toBe('error');
   });
 
-  it('blocks admin correction that contradicts terminal no_show outcome', async () => {
+  it('blocks admin correction that contradicts terminal no_show outcome without expected enrollment revision', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
     const dayOneCommands = createProductionCanonicalCommands(
       environment('2026-02-01T04:00:00.000Z'),
@@ -580,7 +584,7 @@ describe('courseEnrollmentAttendanceCommands', () => {
         courseDayId: courseDayThreeId,
         attendanceStatus: 'present',
         expectedAttendanceRevision: AggregateRevisionSchema.parse(1),
-        reasonExplanation: 'attempted contradiction',
+        reasonExplanation: 'attempted contradiction without enrollment revision',
       },
     });
     expect(result.status).toBe('error');

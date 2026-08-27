@@ -13,6 +13,7 @@ import {
   InstructorIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
+  PaymentSchema,
   ResourceClaimSchema,
   WalletSchema,
   adminIssueDedupeKeyFromIdentity,
@@ -567,24 +568,29 @@ async function seedCourseAttendanceFixture(
     ...enrollmentOverrides,
   });
 
-  await database.doc(`payments/${paymentId}`).set({
-    paymentId,
-    subject: { subjectType: 'course_enrollment', subjectId: enrollmentId },
-    price: COURSE_PRICE_KZT,
-    paidAmount: COURSE_PRICE_KZT,
-    refundedAmount: 0,
-    settledAmount: COURSE_PRICE_KZT,
-    outstandingAmount: 0,
-    payerAccountId: accountId,
-    revision: 1,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-    audit: {
-      createdByCommandId: 'seed',
-      lastChangedByCommandId: 'seed',
-      correlationId,
-    },
-  });
+  await database.doc(`payments/${paymentId}`).set(
+    PaymentSchema.parse({
+      paymentId,
+      subjectType: 'course_enrollment',
+      subjectId: enrollmentId,
+      currency: 'KZT',
+      originalPrice: COURSE_PRICE_KZT,
+      price: COURSE_PRICE_KZT,
+      paidAmount: COURSE_PRICE_KZT,
+      refundedAmount: 0,
+      retainedAmount: COURSE_PRICE_KZT,
+      settledAmount: COURSE_PRICE_KZT,
+      writtenOffAmount: 0,
+      outstandingAmount: 0,
+      paymentStatus: 'paid',
+      incrementalRequirements: [],
+      revision: 1,
+      eventRevision: 1,
+      payerAccountId: accountId,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+    })
+  );
 
   await seedEnrollmentResourceClaims(database);
 }
@@ -1143,7 +1149,7 @@ describeEmulator('courseEnrollmentAttendanceCommands emulator', () => {
     expect(enrollment?.lifecycle.status).toBe('confirmed');
   }, 30_000);
 
-  it('terminal correction: admin D3 absent->present without T26 fails; attendance stays absent; lifecycle no_show', async () => {
+  it('terminal correction: admin D3 absent->present repairs no_show to completed atomically', async () => {
     await clearCollections(firestore);
     await seedCourseAttendanceFixture(firestore, {
       lifecycle: { status: 'no_show', noShowAt: decidedAt },
@@ -1163,21 +1169,23 @@ describeEmulator('courseEnrollmentAttendanceCommands emulator', () => {
     const commands = createCommands(isoAfterFinalCourseDayEnd());
     const adminAttempt = await commands.execute({
       kind: 'record_course_day_attendance',
-      context: adminContext('terminal-correction-forbidden'),
+      context: adminContext('terminal-correction-success'),
       intent: {
         courseEnrollmentId: enrollmentId,
         courseDayId: courseDayThreeId,
         attendanceStatus: 'present',
         expectedAttendanceRevision: AggregateRevisionSchema.parse(1),
+        expectedEnrollmentRevision: AggregateRevisionSchema.parse(2),
+        reasonExplanation: 'D3 was actually present',
       },
     });
-    expect(adminAttempt.status).toBe('error');
+    expect(adminAttempt.status).toBe('success');
 
     const attendance = (await firestore.doc(`attendance/${attendanceIdFor(courseDayThreeId)}`).get())
       .data();
-    expect(attendance?.attendanceStatus).toBe('absent');
+    expect(attendance?.attendanceStatus).toBe('present');
 
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
-    expect(enrollment?.lifecycle.status).toBe('no_show');
+    expect(enrollment?.lifecycle.status).toBe('completed');
   }, 30_000);
 });

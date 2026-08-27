@@ -21,10 +21,16 @@ import { useUiStore } from '../../shell/uiStore';
 import { useBookingsStore } from '../bookingsStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
 import { getBookingHistoryPage, type BookingHistoryScope } from '../bookingHistoryService';
-import { getRealtimeBookingsQuery, type RealtimeBookingsScope } from '../bookingRealtimeService';
+import { getRealtimeBookingsQuery, getStudentCourseBookingsQuery, type RealtimeBookingsScope } from '../bookingRealtimeService';
 
 export const useBookingsSync = () => {
-  const { catalogueScope, shouldSyncReviews, shouldLoadBookingHistory } = useDataSyncScope();
+  const {
+    catalogueScope,
+    shouldSyncReviews,
+    shouldLoadBookingHistory,
+    shouldUseCanonicalLessonBookings,
+    shouldLoadLegacyCourseBookings,
+  } = useDataSyncScope();
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const userProfile = useProfileStore((s) => s.userProfile);
   const firebaseUserId = firebaseUser?.uid;
@@ -188,6 +194,33 @@ export const useBookingsSync = () => {
       return;
     }
 
+    const isCustomerCanonicalLessonPath =
+      shouldUseCanonicalLessonBookings && userProfile?.role === 'user' && !userProfile?.instructorId;
+
+    if (isCustomerCanonicalLessonPath) {
+      useBookingsStore.getState().setBookingsLoaded(true);
+      if (!shouldLoadLegacyCourseBookings) {
+        useBookingsStore.getState().setBookings([]);
+        useBookingsStore.getState().setBookingsHasMore(false);
+        return;
+      }
+
+      const courseBookingsQuery = getStudentCourseBookingsQuery(db, firebaseUser.uid);
+      return onSnapshot(
+        courseBookingsQuery,
+        (snapshot) => {
+          const list = snapshot.docs.flatMap((bookingDoc) => {
+            const booking = toBooking(bookingDoc.id, bookingDoc.data());
+            return booking ? [booking] : [];
+          });
+          hotBookingsRef.current = list;
+          useBookingsStore.getState().setBookings(list);
+          useBookingsStore.getState().setBookingsLoaded(true);
+        },
+        (error) => handleFirestoreError(error, OperationType.LIST, 'bookings')
+      );
+    }
+
     useBookingsStore.getState().setBookingsLoaded(false);
     const realtimeScope: RealtimeBookingsScope =
       userProfile?.role === 'admin'
@@ -218,7 +251,13 @@ export const useBookingsSync = () => {
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'bookings')
     );
-  }, [firebaseUser, userProfile?.instructorId, userProfile?.role]);
+  }, [
+    firebaseUser,
+    userProfile?.instructorId,
+    userProfile?.role,
+    shouldLoadLegacyCourseBookings,
+    shouldUseCanonicalLessonBookings,
+  ]);
 
   // Deleted completed stats (admin)
   useEffect(() => {

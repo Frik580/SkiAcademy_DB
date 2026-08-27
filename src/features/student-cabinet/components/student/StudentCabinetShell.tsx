@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Booking,
@@ -9,6 +9,7 @@ import {
   ActivityLog,
   WalletLedgerEntry,
 } from '../../../../types';
+import { cabinetItemToLegacyPresentation } from '../../../../features/lesson-bookings/mergeCabinetBookings';
 import {
   SkillConfig,
   DEFAULT_SKILL_CONFIG,
@@ -82,7 +83,7 @@ const getSwipeNeighborSequence = (
 
 export interface StudentCabinetShellProps {
   userProfile: UserProfile;
-  bookings: Booking[];
+  bookings: import('./studentCabinetContracts').StudentBooking[];
   courses: Course[];
   instructors: Instructor[];
   reviews: Review[];
@@ -91,13 +92,13 @@ export interface StudentCabinetShellProps {
   skillConfig?: SkillConfig;
   achievementsConfig?: AchievementsConfig;
   dismissedReviewIds?: string[];
-  unreviewedCompletedBookings: Booking[];
+  unreviewedCompletedBookings: import('./studentCabinetContracts').StudentBooking[];
   onDismissReview?: (id: string) => void;
-  onCancel: (booking: Booking) => void;
-  onChat: (booking: Booking) => void;
+  onCancel: (booking: import('./studentCabinetContracts').StudentBooking) => void;
+  onChat: (booking: import('./studentCabinetContracts').StudentBooking) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
-  onOpenLesson: (booking: Booking) => void;
-  onWriteReview: (booking: Booking) => void;
+  onOpenLesson: (booking: import('./studentCabinetContracts').StudentBooking) => void;
+  onWriteReview: (booking: import('./studentCabinetContracts').StudentBooking) => void;
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
   onPinSkillsToday?: (skillItemIds: string[]) => void | Promise<void>;
@@ -163,9 +164,17 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     props.skillConfig?.passPercentage ?? 80
   );
 
+  const legacyBookings = useMemo(
+    () =>
+      props.bookings.map((booking) =>
+        cabinetItemToLegacyPresentation(booking, props.userProfile.uid)
+      ),
+    [props.bookings, props.userProfile.uid]
+  );
+
   const ctx = {
     userProfile: props.userProfile,
-    bookings: props.bookings,
+    bookings: legacyBookings,
     courses: props.courses,
     instructors: props.instructors,
     reviews: props.reviews,
@@ -173,9 +182,18 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     dismissedReviewIds: props.dismissedReviewIds ?? [],
     skillConfig: props.skillConfig,
     achievementsConfig: props.achievementsConfig,
-    onOpenSession: (booking: Booking) => props.onChat(booking),
-    onOpenLesson: props.onOpenLesson,
-    onWriteReview: props.onWriteReview,
+    onOpenSession: (booking: Booking) => {
+      const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
+      if (cabinetBooking) props.onChat(cabinetBooking);
+    },
+    onOpenLesson: (booking: Booking) => {
+      const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
+      if (cabinetBooking) props.onOpenLesson(cabinetBooking);
+    },
+    onWriteReview: (booking: Booking) => {
+      const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
+      if (cabinetBooking) props.onWriteReview(cabinetBooking);
+    },
     onDismissReview: props.onDismissReview,
     onGoToTab: goToTab,
     onOpenDevelopmentSection: () => goToTab('development'),
@@ -199,9 +217,11 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
 
   const panelProps = {
     ...ctx,
-    onCancel: props.onCancel,
+    bookings: props.bookings,
+    onOpenLesson: props.onOpenLesson,
     onChat: props.onChat,
     onWriteReview: props.onWriteReview,
+    onCancel: props.onCancel,
     onSignOut: props.onSignOut,
     onUpdateProfile: props.onUpdateProfile,
     onLevelBadgeClick: props.onLevelBadgeClick,
@@ -315,6 +335,19 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     };
   }, [activeTab, instructorPickerOpen, goToTab]);
 
+  const legacyPanelProps = {
+    ...panelProps,
+    bookings: legacyBookings,
+    onOpenLesson: (booking: Booking) => {
+      const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
+      if (cabinetBooking) props.onOpenLesson(cabinetBooking);
+    },
+    onWriteReview: (booking: Booking) => {
+      const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
+      if (cabinetBooking) props.onWriteReview(cabinetBooking);
+    },
+  };
+
   return (
     <div
       className="relative w-full min-w-0"
@@ -327,20 +360,29 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       {activeTab === 'history' && (
         <StudentHistoryPanel
           userProfile={props.userProfile}
-          bookings={props.bookings}
+          bookings={legacyBookings}
           courses={props.courses}
           reviews={props.reviews}
           activityLogs={props.activityLogs}
           dismissedReviewIds={props.dismissedReviewIds}
-          onOpenLesson={props.onOpenLesson}
-          onWriteReview={props.onWriteReview}
+          onOpenLesson={(booking) => {
+            const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
+            if (cabinetBooking) props.onOpenLesson(cabinetBooking);
+          }}
+          onWriteReview={(booking) => {
+            const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
+            if (cabinetBooking) props.onWriteReview(cabinetBooking);
+          }}
           onOpenDevelopment={() => goToTab('development')}
           onBack={() => goToTab('settings')}
           onToggleRecommendation={props.onToggleRecommendation}
         />
       )}
       {activeTab === 'development' && (
-        <StudentDevelopmentPanel {...panelProps} onToggleSkillToday={props.onToggleSkillToday} />
+        <StudentDevelopmentPanel
+          {...panelProps}
+          onToggleSkillToday={props.onToggleSkillToday}
+        />
       )}
       {activeTab === 'calendar' && (
         <StudentCalendarPanel
@@ -352,6 +394,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       {activeTab === 'courses' && (
         <StudentCoursesPanel
           {...panelProps}
+          courseBookings={legacyBookings}
           onViewCourseDetails={props.onViewCourseDetails}
           onRequireCourseAuth={props.onRequireCourseAuth}
           onBookCourse={props.onBookCourse}
@@ -359,7 +402,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       )}
       {(activeTab === 'coach' || activeTab === 'instructors') && (
         <StudentCoachPanel
-          bookings={props.bookings}
+          bookings={legacyBookings}
           courses={props.courses}
           instructors={props.instructors}
           userProfile={props.userProfile}
@@ -367,23 +410,29 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
           activityLogs={props.activityLogs}
           skillConfig={props.skillConfig}
           onGoToTab={goToTab}
-          onChat={props.onChat}
-          onOpenLesson={props.onOpenLesson}
+          onChat={(booking) => {
+            const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
+            if (cabinetBooking) props.onChat(cabinetBooking);
+          }}
+          onOpenLesson={(booking) => {
+            const cabinetBooking = props.bookings.find((item) => item.id === booking.id);
+            if (cabinetBooking) props.onOpenLesson(cabinetBooking);
+          }}
           onToggleRecommendation={props.onToggleRecommendation}
           onBookInstructor={props.onBookInstructor}
           onViewInstructorReviews={props.onViewInstructorReviews}
         />
       )}
       {activeTab === 'settings' && <StudentProfileHubPanel onGoToTab={goToTab} />}
-      {activeTab === 'profile_personal' && <StudentProfilePersonalPanel {...panelProps} />}
-      {activeTab === 'profile_wallet' && <StudentProfileWalletPanel {...panelProps} />}
-      {activeTab === 'profile_journey' && <StudentProfileJourneyPanel {...panelProps} />}
-      {activeTab === 'profile_skills' && <StudentProfileSkillsPanel {...panelProps} />}
-      {activeTab === 'profile_certificates' && <StudentProfileCertificatesPanel {...panelProps} />}
-      {activeTab === 'profile_achievements' && <StudentProfileAchievementsPanel {...panelProps} />}
-      {activeTab === 'profile_season' && <StudentProfileSeasonPanel {...panelProps} />}
-      {activeTab === 'profile_videos' && <StudentProfileVideosPanel {...panelProps} />}
-      {activeTab === 'profile_preferences' && <StudentProfilePreferencesPanel {...panelProps} />}
+      {activeTab === 'profile_personal' && <StudentProfilePersonalPanel {...legacyPanelProps} />}
+      {activeTab === 'profile_wallet' && <StudentProfileWalletPanel {...legacyPanelProps} />}
+      {activeTab === 'profile_journey' && <StudentProfileJourneyPanel {...legacyPanelProps} />}
+      {activeTab === 'profile_skills' && <StudentProfileSkillsPanel {...legacyPanelProps} />}
+      {activeTab === 'profile_certificates' && <StudentProfileCertificatesPanel {...legacyPanelProps} />}
+      {activeTab === 'profile_achievements' && <StudentProfileAchievementsPanel {...legacyPanelProps} />}
+      {activeTab === 'profile_season' && <StudentProfileSeasonPanel {...legacyPanelProps} />}
+      {activeTab === 'profile_videos' && <StudentProfileVideosPanel {...legacyPanelProps} />}
+      {activeTab === 'profile_preferences' && <StudentProfilePreferencesPanel {...legacyPanelProps} />}
 
       <StudentCabinetTabBar
         activeTab={activeTab}
@@ -399,7 +448,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
         open={instructorPickerOpen}
         onClose={() => setInstructorPickerOpen(false)}
         userProfile={props.userProfile}
-        bookings={props.bookings}
+        bookings={legacyBookings}
         instructors={props.instructors}
         onSelectInstructor={props.onBookInstructor}
         onBrowseCourses={() => goToTab('courses')}

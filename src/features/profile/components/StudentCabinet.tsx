@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Booking,
   Course,
   Instructor,
   Review,
@@ -8,6 +7,7 @@ import {
   ActivityLog,
   WalletLedgerEntry,
 } from '../../../types';
+import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
 import { SkillConfig } from '../../../domain/achievements';
 import { AchievementsConfig } from '../../../domain/achievements';
 import {
@@ -18,7 +18,7 @@ import {
 
 export interface StudentCabinetProps {
   userProfile: UserProfile;
-  bookings: Booking[];
+  bookings: LessonBookingCabinetItem[];
   courses?: Course[];
   instructors?: Instructor[];
   reviews?: Review[];
@@ -27,13 +27,13 @@ export interface StudentCabinetProps {
   dismissedReviewIds?: string[];
   skillConfig?: SkillConfig;
   achievementsConfig?: AchievementsConfig;
-  unreviewedCompletedBookings?: Booking[];
+  unreviewedCompletedBookings?: LessonBookingCabinetItem[];
   onDismissReview?: (id: string) => void;
-  onCancel: (booking: Booking) => void;
-  onChat: (booking: Booking) => void;
+  onCancel: (booking: LessonBookingCabinetItem) => void;
+  onChat: (booking: LessonBookingCabinetItem) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
-  onOpenLesson: (booking: Booking) => void;
-  onWriteReview: (booking: Booking) => void;
+  onOpenLesson: (booking: LessonBookingCabinetItem) => void;
+  onWriteReview: (booking: LessonBookingCabinetItem) => void;
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;
   onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
   onPinSkillsToday?: (skillItemIds: string[]) => void | Promise<void>;

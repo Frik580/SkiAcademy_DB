@@ -22,6 +22,8 @@ import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
 const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
 
+type SessionBooking = CurrentSessionsBlockInput['sessions'][number];
+
 const CountdownDigits = memo<{
   startsAtMs: number;
   lang: 'en' | 'ru';
@@ -116,7 +118,7 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
 
 const SessionCard = memo<
   Omit<CurrentSessionsBlockInput, 'sessions'> & {
-    session: import('./studentCabinetContracts').StudentBooking;
+    session: SessionBooking;
   }
 >(function SessionCard({
   session,

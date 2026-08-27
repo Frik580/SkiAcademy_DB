@@ -42,6 +42,10 @@ export interface GuestCanonicalCommandSubmission<Kind extends CommandKind> {
   readonly timezone?: CommandEnvelope<Kind>['context']['timezone'];
   readonly guestActionNonce?: string;
   readonly guestActionSignature?: string;
+  readonly guestParticipantDisplayName?: string;
+  readonly guestParticipantSkillLevel?: string;
+  readonly guestParticipantDiscipline?: 'ski' | 'snowboard';
+  readonly guestParticipantAgeYears?: number;
 }
 
 function createCorrelationId(): string {
@@ -133,6 +137,18 @@ export async function executeGuestCanonicalCommand<Kind extends CommandKind>(
     ...(submission.guestActionNonce ? { guestActionNonce: submission.guestActionNonce } : {}),
     ...(submission.guestActionSignature
       ? { guestActionSignature: submission.guestActionSignature }
+      : {}),
+    ...(submission.guestParticipantDisplayName
+      ? { guestParticipantDisplayName: submission.guestParticipantDisplayName }
+      : {}),
+    ...(submission.guestParticipantSkillLevel
+      ? { guestParticipantSkillLevel: submission.guestParticipantSkillLevel }
+      : {}),
+    ...(submission.guestParticipantDiscipline
+      ? { guestParticipantDiscipline: submission.guestParticipantDiscipline }
+      : {}),
+    ...(submission.guestParticipantAgeYears !== undefined
+      ? { guestParticipantAgeYears: submission.guestParticipantAgeYears }
       : {}),
   };
 

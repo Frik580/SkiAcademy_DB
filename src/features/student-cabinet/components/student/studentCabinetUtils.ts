@@ -9,6 +9,10 @@ export {
   type StudentCabinetTab,
 } from './studentCabinetNavigation';
 export {
+  filterBookingsByScope,
+  type BookingListScope,
+} from './studentBookingOverview';
+export {
   getTodayTaskBookingContext,
   type TodayTaskBookingContext,
 } from './studentTodayTaskContext';

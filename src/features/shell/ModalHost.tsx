@@ -3,7 +3,6 @@ import { useLanguage, translateCourse } from '../../app/providers/LanguageContex
 import { useUiStore } from './uiStore';
 import { useProfileStore } from '../profile/profileStore';
 import { useBookingsStore } from '../bookings/bookingsStore';
-import { useBookingActions } from '../bookings/useBookingActions';
 import { useCoursesStore } from '../courses/coursesStore';
 import { useCourseActions } from '../courses/useCourseActions';
 import { NotificationsPanel } from '../notifications/NotificationsPanel';
@@ -45,7 +44,6 @@ export const ModalHost: React.FC = () => {
   const bookings = useBookingsStore((s) => s.bookings);
   const reviews = useBookingsStore((s) => s.reviews);
   const instructors = useBookingsStore((s) => s.instructors);
-  const { handleBookingSuccess } = useBookingActions();
 
   const courses = useCoursesStore((s) => s.courses);
   const { handleBookCourse } = useCourseActions();
@@ -70,7 +68,6 @@ export const ModalHost: React.FC = () => {
             onClose={() => setSelectedInstructor(null)}
             instructor={selectedInstructor}
             userProfile={userProfile}
-            onBookingSuccess={handleBookingSuccess}
             courses={courses}
           />
         </LazyLoad>

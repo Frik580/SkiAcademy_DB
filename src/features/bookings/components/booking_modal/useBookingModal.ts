@@ -24,19 +24,25 @@ import {
   toAvailabilitySlot,
   toLocalDateStr,
 } from '../../../../domain/availability';
+import { getInstructorAvailabilitySlots } from '../../bookingService';
 import {
-  BookingSlotOverlapError,
-  createGuestBookingService,
-  getInstructorAvailabilitySlots,
-} from '../../bookingService';
-import { useEffectiveBalance } from '../../../wallet/walletSelectors';
+  createLogicalBookingAttemptId,
+  deriveAuthenticatedCreateIdempotencyKey,
+  deriveGuestCreateIdempotencyKey,
+  deriveGuestParticipantIdForBooking,
+  deriveExercisedCapabilityFromParticipants,
+  presentCanonicalCommandErrorWithContext,
+  resolveLessonBookingTimezone,
+  useLessonBookingCommands,
+  useManagedParticipants,
+} from '../../../lesson-bookings';
 
 export interface BookingModalInput {
   isOpen: boolean;
   onClose: () => void;
   instructor: Instructor | null;
   userProfile: UserProfile | null;
-  onBookingSuccess: (booking: Booking) => Promise<number>;
+  onBookingSuccess?: (booking: Booking) => Promise<number>;
   courses?: Course[];
   onAuthSuccess?: (profile: UserProfile) => void;
 }
@@ -46,13 +52,19 @@ export const useBookingModal = ({
   onClose,
   instructor,
   userProfile,
-  onBookingSuccess,
   courses = [],
   onAuthSuccess,
 }: BookingModalInput) => {
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
-  const effectiveBalance = useEffectiveBalance();
+  const { createAuthenticatedBooking, createGuestBooking } = useLessonBookingCommands(
+    userProfile?.uid
+  );
+  const {
+    participants: managedParticipants,
+    loading: managedParticipantsLoading,
+  } = useManagedParticipants(Boolean(userProfile?.uid));
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
 
   const [activeInstructor, setActiveInstructor] = useState<Instructor | null>(instructor);
   const targetInstructor = activeInstructor || instructor;
@@ -76,8 +88,16 @@ export const useBookingModal = ({
   useEffect(() => {
     if (!isOpen) {
       bookingAttemptIdRef.current = null;
+      setSelectedParticipantIds([]);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || managedParticipants.length === 0) return;
+    if (selectedParticipantIds.length === 0) {
+      setSelectedParticipantIds([managedParticipants[0].participantId]);
+    }
+  }, [isOpen, managedParticipants, selectedParticipantIds.length]);
 
   useEffect(() => {
     return () => {
@@ -301,8 +321,17 @@ export const useBookingModal = ({
     !!overlappingCourse;
 
   const totalCost = targetInstructor ? targetInstructor.pricePerHour * duration : 0;
-  const userBalance = effectiveBalance;
-  const hasSufficientFunds = userBalance >= totalCost;
+  const timezone = resolveLessonBookingTimezone();
+
+  const toggleParticipant = (participantId: string) => {
+    setSelectedParticipantIds((current) => {
+      if (current.includes(participantId)) {
+        return current.filter((id) => id !== participantId);
+      }
+      if (current.length >= 8) return current;
+      return [...current, participantId];
+    });
+  };
 
   const handleSubmitGuest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -339,51 +368,37 @@ export const useBookingModal = ({
 
     isSubmittingRef.current = true;
     setIsSubmitting(true);
-    const guestBooking: Booking = {
-      id: `guest_book_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      userId: `guest_${Date.now()}`,
-      instructorId: targetInstructor.id,
-      instructorName: targetInstructor.name,
-      instructorAvatar: targetInstructor.avatarUrl || '',
-      date,
-      time,
-      durationHours: duration,
-      totalPrice: totalCost,
-      status: 'pending',
-      difficulty,
-      notes: notes.trim(),
-      isGuest: true,
-      guestName: guestName.trim(),
-      guestPhone: guestPhone.trim(),
-      guestEmail: guestEmail.trim(),
-    };
+
+    const bookingId =
+      bookingAttemptIdRef.current ?? createLogicalBookingAttemptId();
+    bookingAttemptIdRef.current = bookingId;
+    const participantId = deriveGuestParticipantIdForBooking(bookingId);
 
     try {
-      await createGuestBookingService(guestBooking);
+      await createGuestBooking({
+        instructorId: targetInstructor.id,
+        participantId,
+        localDate: date,
+        localTime: time,
+        durationMinutes: duration * 60,
+        timezone,
+        identity: {
+          bookingId,
+          idempotencyKey: deriveGuestCreateIdempotencyKey(bookingId),
+        },
+        guestDisplayName: guestName.trim(),
+        guestSkillLevel: difficulty,
+        guestDiscipline: 'ski',
+        guestAgeYears: 25,
+      });
       addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       onClose();
     } catch (err) {
-      if (err instanceof BookingSlotOverlapError) {
-        addNotification(
-          'error',
-          t('slotUnavailable'),
-          `${targetInstructor.name} ${t('instructorAlreadyBooked')}`
-        );
-        return;
-      }
-      logger.error('Error submitting guest booking to Firestore:', err);
-      try {
-        const existingStr = localStorage.getItem('alpine_glide_bookings_admin');
-        const existing: Booking[] = existingStr ? JSON.parse(existingStr) : [];
-        existing.push(guestBooking);
-        localStorage.setItem('alpine_glide_bookings_admin', JSON.stringify(existing));
-        addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-        onClose();
-      } catch {
-        addNotification('error', t('bookingError'), t('bookingRecordFailed'));
-      }
+      const presented = presentCanonicalCommandErrorWithContext(err, {
+        t: t as (key: string) => string,
+      });
+      addNotification('error', t('bookingError'), presented.message);
     } finally {
       isSubmittingRef.current = false;
       setIsSubmitting(false);
@@ -405,8 +420,8 @@ export const useBookingModal = ({
       addNotification('warning', t('missingDetails'), t('bookingSelectValidDate'));
       return;
     }
-    if (!hasSufficientFunds) {
-      addNotification('error', t('insufficientFunds'), t('bookingBalanceTooLow'));
+    if (selectedParticipantIds.length === 0) {
+      addNotification('warning', t('missingDetails'), 'Select a participant');
       return;
     }
 
@@ -441,39 +456,45 @@ export const useBookingModal = ({
     }
 
     submitTimerRef.current = setTimeout(async () => {
-      const bookingId = bookingAttemptIdRef.current ?? `book_${crypto.randomUUID()}`;
+      const bookingId =
+        bookingAttemptIdRef.current ?? createLogicalBookingAttemptId();
       bookingAttemptIdRef.current = bookingId;
 
-      const newBooking: Booking = {
-        id: bookingId,
-        userId: userProfile.uid,
-        instructorId: targetInstructor.id,
-        instructorName: targetInstructor.name,
-        instructorAvatar: targetInstructor.avatarUrl || '',
-        date,
-        time,
-        durationHours: duration,
-        totalPrice: totalCost,
-        status: 'confirmed',
-        difficulty,
-        notes: notes.trim() || '',
-      };
+      const selectedAuthorities = managedParticipants
+        .filter((participant) => selectedParticipantIds.includes(participant.participantId))
+        .map((participant) => participant.authority);
 
       try {
-        const chargedAmount = await onBookingSuccess(newBooking);
+        await createAuthenticatedBooking({
+          instructorId: targetInstructor.id,
+          participantIds: selectedParticipantIds,
+          exercisedCapability: deriveExercisedCapabilityFromParticipants(selectedAuthorities),
+          localDate: date,
+          localTime: time,
+          durationMinutes: duration * 60,
+          timezone,
+          identity: {
+            bookingId,
+            idempotencyKey: deriveAuthenticatedCreateIdempotencyKey(bookingId),
+          },
+        });
         addNotification(
           'success',
           t('lessonBooked'),
-          `${t('lessonBookedPrefix')} ${targetInstructor.name} ${t('lessonScheduledFor')} ${date} ${t('lessonRescheduledAdminAt')} ${time}. $${chargedAmount} ${t('debitedSuffix')}`
+          `${t('lessonBookedPrefix')} ${targetInstructor.name} ${t('lessonScheduledFor')} ${date} ${t('lessonRescheduledAdminAt')} ${time}.`
         );
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
         onClose();
       } catch (err) {
-        addNotification('error', t('bookingError'), t('bookingRecordFailed'));
+        const presented = presentCanonicalCommandErrorWithContext(err, {
+        t: t as (key: string) => string,
+      });
+        addNotification('error', t('bookingError'), presented.message);
       } finally {
         isSubmittingRef.current = false;
         setIsSubmitting(false);
       }
-    }, 1500);
+    }, 300);
   };
 
   return {
@@ -509,8 +530,10 @@ export const useBookingModal = ({
     overlappingCourse,
     isTimeSlotOccupied,
     totalCost,
-    userBalance,
-    hasSufficientFunds,
+    managedParticipants,
+    managedParticipantsLoading,
+    selectedParticipantIds,
+    toggleParticipant,
     minBookingDateStr,
     handleSubmitGuest,
     handleSubmit,

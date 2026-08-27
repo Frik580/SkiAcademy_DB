@@ -1,9 +1,10 @@
 import React from 'react';
-import { Sparkles, ShieldAlert, Wallet, Loader2 } from 'lucide-react';
+import { Sparkles, ShieldAlert, Loader2 } from 'lucide-react';
 import { useBookingModal } from './useBookingModal';
 import { BookingSelectors } from './BookingSelectors';
 import { BookingOverlapWarnings } from './BookingOverlapWarnings';
 import { BookingPriceAccordion } from './BookingPriceAccordion';
+import { ParticipantPicker } from './ParticipantPicker';
 import { BOOKING_NOTES_FIELD_CLASS } from './bookingAppleFieldStyles';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
 
@@ -35,8 +36,10 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
     overlappingBooking,
     overlappingCourse,
     totalCost,
-    userBalance,
-    hasSufficientFunds,
+    managedParticipants,
+    managedParticipantsLoading,
+    selectedParticipantIds,
+    toggleParticipant,
     targetInstructor,
     userProfile,
     handleSubmit,
@@ -53,10 +56,10 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
 
   const isSubmitDisabled =
     isSubmitting ||
-    !hasSufficientFunds ||
     isTimeSlotOccupied ||
     !targetInstructor.isAvailable ||
-    userProfile?.isClientActive === false;
+    userProfile?.isClientActive === false ||
+    selectedParticipantIds.length === 0;
 
   return (
     <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
@@ -88,6 +91,14 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
           language={language}
         />
 
+        <ParticipantPicker
+          participants={managedParticipants}
+          selectedParticipantIds={selectedParticipantIds}
+          onToggleParticipant={toggleParticipant}
+          loading={managedParticipantsLoading}
+          t={t as (key: string) => string}
+        />
+
         <div className="space-y-1">
           <label className="flex items-center gap-1.5 text-xs text-[var(--ink-dim)]">
             {t('personalGoalsNotes')}
@@ -116,26 +127,8 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
               <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
               <span>{t('bookingAccessRestricted')}</span>
             </div>
-          ) : hasSufficientFunds ? (
-            <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
-              <Wallet className="h-3.5 w-3.5 shrink-0" />
-              <span>
-                {t('walletBalancePrefix')} <strong>{formatPrice(userBalance)}</strong>{' '}
-                {t('walletSufficient')}
-              </span>
-            </div>
           ) : (
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs font-medium text-rose-600 dark:text-rose-400">
-                <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
-                <span>
-                  {t('insufficientCreditsPrefix')} <strong>{formatPrice(userBalance)}</strong>)
-                </span>
-              </div>
-              <p className="text-[11px] text-rose-600/90 dark:text-rose-400/90">
-                {t('contactAdminForTopUp')}
-              </p>
-            </div>
+            <p className="text-xs text-[var(--ink-dim)]">Payment is confirmed server-side when you submit.</p>
           )}
 
           <button

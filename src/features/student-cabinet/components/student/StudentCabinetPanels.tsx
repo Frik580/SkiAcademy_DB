@@ -1,5 +1,6 @@
 import React from 'react';
-import { Booking, Course, Instructor } from '../../../../types';
+import { Course, Instructor } from '../../../../types';
+import type { Booking } from '../../../../types';
 import { translateInstructor } from '../../../../app/providers/LanguageContext';
 import { BookingsPanel } from '../../../../features/profile';
 import { GroupCourseCard, sortVisibleCourses } from '../../../../features/courses';
@@ -64,7 +65,7 @@ export const StudentTrainingPanel: React.FC<StudentTrainingPanelInput> = ({ onGo
 type PanelProps = StudentCabinetPanelInput;
 
 export const StudentCalendarPanel: React.FC<
-  PanelProps & { unreviewedCompletedBookings: Booking[]; onDismissReview?: (id: string) => void }
+  PanelProps & { unreviewedCompletedBookings: import('./studentCabinetContracts').StudentBooking[]; onDismissReview?: (id: string) => void }
 > = ({
   userProfile,
   bookings,
@@ -106,9 +107,11 @@ export const StudentCoursesPanel: React.FC<
     onViewCourseDetails: (course: Course) => void;
     onRequireCourseAuth: (course: Course) => void;
     onBookCourse: (courseId: string) => void;
+    courseBookings?: Booking[];
   }
 > = ({
   bookings,
+  courseBookings,
   courses,
   userProfile,
   onViewCourseDetails,
@@ -117,9 +120,10 @@ export const StudentCoursesPanel: React.FC<
   onGoToTab,
 }) => {
   const { t, language } = useStudentCabinetTranslations();
-  const myCourses = getEnrolledCourses(bookings, courses, userProfile.uid);
+  const enrollmentBookings = courseBookings ?? (bookings as unknown as Booking[]);
+  const myCourses = getEnrolledCourses(enrollmentBookings, courses, userProfile.uid);
   const availableCourses = sortVisibleCourses(
-    getAvailableCourses(bookings, courses, userProfile.uid)
+    getAvailableCourses(enrollmentBookings, courses, userProfile.uid)
   );
 
   const renderCourseGrid = (items: Course[]) => (
@@ -131,7 +135,7 @@ export const StudentCoursesPanel: React.FC<
         <GroupCourseCard
           key={rawCourse.id}
           rawCourse={rawCourse}
-          bookings={bookings}
+          bookings={enrollmentBookings}
           userProfile={userProfile}
           language={language}
           onViewDetails={onViewCourseDetails}
@@ -200,13 +204,14 @@ export const StudentInstructorsPanel: React.FC<
 }) => {
   const { t, language } = useStudentCabinetTranslations();
   const lang = language === 'ru' ? 'ru' : 'en';
-  const myInstructors = getMyInstructors(bookings, instructors, userProfile.uid).map((ins) =>
+  const instructorBookings = bookings as unknown as Booking[];
+  const myInstructors = getMyInstructors(instructorBookings, instructors, userProfile.uid).map((ins) =>
     translateInstructor(ins, lang)
   );
   const recommendedInstructors = getRecommendedInstructors(
     userProfile,
     instructors,
-    bookings,
+    instructorBookings,
     2
   ).map((ins) => translateInstructor(ins, lang));
   const myInstructorIds = new Set([

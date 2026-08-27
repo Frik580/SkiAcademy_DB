@@ -9,16 +9,20 @@ describe('resolveDataSyncScope', () => {
       shouldSyncActivityLogs: false,
       shouldSyncReviews: false,
       shouldLoadBookingHistory: false,
+      shouldUseCanonicalLessonBookings: false,
+      shouldLoadLegacyCourseBookings: false,
     });
   });
 
-  it('loads usersList and activityLogs on admin route', () => {
+  it('loads usersList and activityLogs on admin route without canonical lesson bookings', () => {
     expect(resolveDataSyncScope('/admin', false)).toEqual({
       catalogueScope: 'full',
       shouldSyncUsersList: true,
       shouldSyncActivityLogs: true,
       shouldSyncReviews: false,
       shouldLoadBookingHistory: true,
+      shouldUseCanonicalLessonBookings: false,
+      shouldLoadLegacyCourseBookings: false,
     });
   });
 
@@ -29,16 +33,20 @@ describe('resolveDataSyncScope', () => {
       shouldSyncActivityLogs: true,
       shouldSyncReviews: true,
       shouldLoadBookingHistory: true,
+      shouldUseCanonicalLessonBookings: false,
+      shouldLoadLegacyCourseBookings: false,
     });
   });
 
-  it('loads activityLogs and reviews on cabinet routes but not usersList', () => {
+  it('uses canonical lesson bookings on cabinet routes without legacy booking history', () => {
     expect(resolveDataSyncScope('/cabinet', false)).toEqual({
       catalogueScope: 'full',
       shouldSyncUsersList: false,
       shouldSyncActivityLogs: true,
       shouldSyncReviews: true,
-      shouldLoadBookingHistory: true,
+      shouldLoadBookingHistory: false,
+      shouldUseCanonicalLessonBookings: true,
+      shouldLoadLegacyCourseBookings: true,
     });
 
     expect(resolveDataSyncScope('/cabinet/history', false)).toEqual({
@@ -46,7 +54,9 @@ describe('resolveDataSyncScope', () => {
       shouldSyncUsersList: false,
       shouldSyncActivityLogs: true,
       shouldSyncReviews: true,
-      shouldLoadBookingHistory: true,
+      shouldLoadBookingHistory: false,
+      shouldUseCanonicalLessonBookings: true,
+      shouldLoadLegacyCourseBookings: true,
     });
   });
 
@@ -57,6 +67,8 @@ describe('resolveDataSyncScope', () => {
       shouldSyncActivityLogs: false,
       shouldSyncReviews: true,
       shouldLoadBookingHistory: false,
+      shouldUseCanonicalLessonBookings: false,
+      shouldLoadLegacyCourseBookings: false,
     });
   });
 });

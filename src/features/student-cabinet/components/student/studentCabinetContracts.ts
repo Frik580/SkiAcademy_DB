@@ -16,7 +16,7 @@ import type {
   TodayTask,
 } from './studentCabinetUtils';
 
-export type StudentBooking = Booking;
+export type StudentBooking = import('../../../../features/lesson-bookings/lessonBookingContracts').LessonBookingCabinetItem;
 export type StudentCourse = Course;
 export type StudentInstructor = Instructor;
 export type StudentProfile = UserProfile;
@@ -32,12 +32,12 @@ export interface SessionCountdownBlockInput {
 }
 
 export interface CurrentSessionsBlockInput {
-  sessions: StudentBooking[];
+  sessions: Booking[];
   courses: StudentCourse[];
   instructors: StudentInstructor[];
   usersList: StudentProfile[];
-  onOpenLesson: (booking: StudentBooking) => void;
-  onOpenSession: (booking: StudentBooking) => void;
+  onOpenLesson: (booking: Booking) => void;
+  onOpenSession: (booking: Booking) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
 }
 
@@ -48,14 +48,14 @@ export interface NextSessionBlockInput {
   instructors: StudentInstructor[];
   usersList: StudentProfile[];
   onGoToTab: (tab: StudentCabinetTab) => void;
-  onOpenLesson: (booking: StudentBooking) => void;
-  onOpenSession: (booking: StudentBooking) => void;
+  onOpenLesson: (booking: Booking) => void;
+  onOpenSession: (booking: Booking) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
 }
 
 export interface TodayProgressBlockInput {
   userProfile?: StudentProfile;
-  bookings: StudentBooking[];
+  bookings: Booking[];
   courses: StudentCourse[];
   reviews: StudentReview[];
   activityLogs?: StudentActivityLog[];
@@ -106,19 +106,17 @@ export type StudentProfilePanelInput = Pick<
   onUpdateProfile?: (data: Partial<StudentProfile>) => Promise<void>;
 };
 
-export type StudentCabinetPanelInput = Pick<
-  StudentCabinetHomeContext,
-  | 'userProfile'
-  | 'bookings'
-  | 'courses'
-  | 'instructors'
-  | 'usersList'
-  | 'onOpenLesson'
-  | 'onGoToTab'
-  | 'onToggleSkillToday'
-  | 'onToggleTodayTaskComplete'
-  | 'onAddCustomTodayTask'
-> & {
+export type StudentCabinetPanelInput = {
+  userProfile: StudentProfile;
+  bookings: StudentBooking[];
+  courses: StudentCourse[];
+  instructors: StudentInstructor[];
+  usersList?: StudentProfile[];
+  onOpenLesson: (booking: StudentBooking) => void;
+  onGoToTab: (tab: StudentCabinetTab) => void;
+  onToggleSkillToday?: (skillItemId: string, pinned: boolean) => void;
+  onToggleTodayTaskComplete?: (taskId: string, done: boolean) => void;
+  onAddCustomTodayTask?: (text: string) => void;
   onCancel: (booking: StudentBooking) => void;
   onChat: (booking: StudentBooking) => void;
   hasUnreadChat?: (bookingId: string) => boolean;

@@ -1,6 +1,18 @@
-import { Booking, Course } from '../../../../types';
+import type { BookingStatus } from '@ski-academy/shared-domain';
+import type { Course } from '../../../../types';
 import { parseCourseDates } from '../../../../app/providers/LanguageContext';
 import { toYMD } from './studentCabinetPresentation';
+
+export interface ScheduleBookingSlice {
+  readonly id: string;
+  readonly date: string;
+  readonly time: string;
+  readonly durationHours: number;
+  readonly status: BookingStatus;
+  readonly instructorId: string;
+  readonly isDeleted?: boolean;
+  readonly userId?: string;
+}
 
 export interface BookingTime {
   h: number;
@@ -37,14 +49,17 @@ const buildLocalDateTime = (dateStr: string, h: number, m: number): Date => {
   return new Date(y, mo - 1, d, h, m, 0, 0);
 };
 
-const getCourseSchedule = (booking: Booking, courses: Course[]) => {
+const getCourseSchedule = (booking: ScheduleBookingSlice, courses: Course[]) => {
   const courseId = booking.instructorId.substring('course_'.length);
   const course = courses.find((item) => item.id === courseId);
   return parseCourseDates(course ? course.dates : booking.date);
 };
 
 /** First day + start hour of the booking or course. */
-export const resolveBookingStartDateTime = (booking: Booking, courses: Course[]): Date | null => {
+export const resolveBookingStartDateTime = (
+  booking: ScheduleBookingSlice,
+  courses: Course[]
+): Date | null => {
   if (booking.instructorId.startsWith('course_')) {
     const schedule = getCourseSchedule(booking, courses);
     const [h, m] = schedule.startTime.split(':').map(Number);
@@ -57,7 +72,10 @@ export const resolveBookingStartDateTime = (booking: Booking, courses: Course[])
 };
 
 /** Last day + end hour of the booking or course. */
-export const resolveBookingEndDateTime = (booking: Booking, courses: Course[]): Date | null => {
+export const resolveBookingEndDateTime = (
+  booking: ScheduleBookingSlice,
+  courses: Course[]
+): Date | null => {
   if (booking.instructorId.startsWith('course_')) {
     const schedule = getCourseSchedule(booking, courses);
     const [h, m] = schedule.endTime.split(':').map(Number);
@@ -67,7 +85,11 @@ export const resolveBookingEndDateTime = (booking: Booking, courses: Course[]): 
   return endTime ? buildLocalDateTime(booking.date, endTime.h, endTime.m) : null;
 };
 
-export const isBookingPastBySchedule = (booking: Booking, courses: Course[], now = new Date()) => {
+export const isBookingPastBySchedule = (
+  booking: ScheduleBookingSlice,
+  courses: Course[],
+  now = new Date()
+) => {
   if (booking.isDeleted || booking.status === 'cancelled' || booking.status === 'completed') {
     return true;
   }
@@ -76,7 +98,7 @@ export const isBookingPastBySchedule = (booking: Booking, courses: Course[], now
 };
 
 export const isBookingUpcomingBySchedule = (
-  booking: Booking,
+  booking: ScheduleBookingSlice,
   courses: Course[],
   now = new Date()
 ) => {
@@ -88,7 +110,11 @@ export const isBookingUpcomingBySchedule = (
 };
 
 /** Started but last day/end hour not reached yet (multi-day courses included). */
-export const isBookingCurrentBySchedule = (booking: Booking, courses: Course[], now = new Date()) =>
+export const isBookingCurrentBySchedule = (
+  booking: ScheduleBookingSlice,
+  courses: Course[],
+  now = new Date()
+) =>
   !booking.isDeleted &&
   booking.status !== 'cancelled' &&
   booking.status !== 'completed' &&
@@ -96,7 +122,11 @@ export const isBookingCurrentBySchedule = (booking: Booking, courses: Course[], 
   !isBookingUpcomingBySchedule(booking, courses, now);
 
 /** True if a booking has a session on dateStr (private lesson or multi-day course). */
-export const isBookingOnDate = (booking: Booking, dateStr: string, courses: Course[]) => {
+export const isBookingOnDate = (
+  booking: ScheduleBookingSlice,
+  dateStr: string,
+  courses: Course[]
+) => {
   if (!booking || booking.isDeleted || booking.status === 'cancelled') return false;
   if (booking.userId?.startsWith('system_block_')) return false;
   if (booking.date === dateStr) return true;

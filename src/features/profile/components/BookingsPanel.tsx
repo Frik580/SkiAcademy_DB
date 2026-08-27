@@ -1,5 +1,6 @@
 import React from 'react';
-import { Booking, Course, Instructor, UserProfile } from '../../../types';
+import { Course, Instructor, UserProfile } from '../../../types';
+import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
 import { ClientBookingsList } from '../../../features/student-cabinet';
 import { ScPageIntro } from '../../../features/student-cabinet';
 import { useLanguage } from '../../../app/providers/LanguageContext';
@@ -7,24 +8,23 @@ import { StudentCabinetTab } from '../../../features/student-cabinet';
 
 export interface BookingsPanelProps {
   userProfile: UserProfile;
-  bookings: Booking[];
+  bookings: LessonBookingCabinetItem[];
   courses?: Course[];
   instructors?: Instructor[];
   usersList?: UserProfile[];
-  unreviewedCompletedBookings?: Booking[];
+  unreviewedCompletedBookings?: LessonBookingCabinetItem[];
   showWorkoutCalendar?: boolean;
   onDismissReview?: (id: string) => void;
-  onCancel: (booking: Booking) => void;
-  onChat: (booking: Booking) => void;
+  onCancel: (booking: LessonBookingCabinetItem) => void;
+  onChat: (booking: LessonBookingCabinetItem) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
-  onWriteReview: (booking: Booking) => void;
-  onOpenLesson: (booking: Booking) => void;
+  onWriteReview: (booking: LessonBookingCabinetItem) => void;
+  onOpenLesson: (booking: LessonBookingCabinetItem) => void;
   onGoToTab?: (tab: StudentCabinetTab) => void;
   showBackLink?: boolean;
 }
 
 export const BookingsPanel: React.FC<BookingsPanelProps> = ({
-  userProfile,
   bookings,
   courses = [],
   instructors = [],
@@ -41,7 +41,7 @@ export const BookingsPanel: React.FC<BookingsPanelProps> = ({
   showBackLink = true,
 }) => {
   const { t } = useLanguage();
-  const userBookings = bookings.filter((b) => b.userId === userProfile.uid && !b.isDeleted);
+  const userBookings = bookings;
 
   return (
     <div className="space-y-6 pb-24 max-w-3xl mx-auto px-4 sm:px-6 w-full min-w-0">

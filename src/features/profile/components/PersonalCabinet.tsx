@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  Booking,
   UserProfile,
   Review,
   Course,
@@ -8,9 +7,11 @@ import {
   ActivityLog,
   WalletLedgerEntry,
 } from '../../../types';
+import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
+import { cabinetItemToLegacyPresentation } from '../../../features/lesson-bookings/mergeCabinetBookings';
 import { Lock } from 'lucide-react';
 import { useNotifications } from '../../../features/notifications';
-import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../domain/achievements';
 import { AchievementsConfig } from '../../../domain/achievements';
 import { StudentCabinet } from './StudentCabinet';
@@ -22,7 +23,7 @@ import { useBookingChatUnread } from '../../../features/student-cabinet/useBooki
 
 export interface PersonalCabinetProps {
   userProfile: UserProfile;
-  bookings: Booking[];
+  bookings: LessonBookingCabinetItem[];
   reviews: Review[];
   dismissedReviewIds?: string[];
   onDismissReview?: (bookingId: string) => void;
@@ -90,15 +91,19 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   onToggleTemperatureUnit,
 }) => {
   const { addNotification } = useNotifications();
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
 
-  const bookings = useTranslatedBookings(rawBookings, courses, language);
+  const bookings = rawBookings;
+  const legacyModalBookings = useMemo(
+    () => rawBookings.map((item) => cabinetItemToLegacyPresentation(item, userProfile.uid)),
+    [rawBookings, userProfile.uid]
+  );
   const reviewFlow = useReviewFlow({ onAddReview });
 
   const [selectedChatBookingId, setSelectedChatBookingId] = useState<string | null>(null);
   const selectedChatBooking = useMemo(
-    () => bookings.find((b) => b.id === selectedChatBookingId) ?? null,
-    [bookings, selectedChatBookingId]
+    () => legacyModalBookings.find((b) => b.id === selectedChatBookingId) ?? null,
+    [legacyModalBookings, selectedChatBookingId]
   );
 
   const [levelUpModal, setLevelUpModal] = useState<{ show: boolean; level: number } | null>(null);
@@ -132,10 +137,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
   const showInstructorTab = userProfile.role === 'admin' || !!userProfile.isInstructor;
 
-  const userBookings = useMemo(
-    () => bookings.filter((b) => b.userId === userProfile.uid && !b.isDeleted),
-    [bookings, userProfile.uid]
-  );
+  const userBookings = bookings;
   const { hasUnreadChat, markBookingChatRead } = useBookingChatUnread(
     userProfile.uid,
     userBookings
@@ -160,7 +162,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     });
   }, [userBookings, reviews, userProfile.uid, dismissedReviewIds]);
 
-  const handleCancelClick = (booking: Booking) => {
+  const handleCancelClick = (booking: LessonBookingCabinetItem) => {
     const confirmationText = `${t('cancelConfirmMessage')} ${booking.instructorName}? ${t('cancelConfirmSuffix')}`;
 
     setCancelReason('');
@@ -221,7 +223,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             }}
             hasUnreadChat={hasUnreadChat}
             onOpenLesson={(booking) => setLessonDetailsId(booking.id)}
-            onWriteReview={reviewFlow.openReview}
+            onWriteReview={(booking) => reviewFlow.openReview(cabinetItemToLegacyPresentation(booking, userProfile.uid))}
             onToggleRecommendation={onToggleRecommendation}
             onToggleSkillToday={onToggleSkillToday}
             onPinSkillsToday={onPinSkillsToday}
@@ -249,7 +251,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
 
           <PersonalCabinetModals
             userProfile={userProfile}
-            rawBookings={rawBookings}
+            rawBookings={legacyModalBookings}
             courses={courses}
             instructors={instructors}
             usersList={usersList}

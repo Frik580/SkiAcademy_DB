@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('admin cancel wiring', () => {
-  it('keeps client request cancel and admin immediate cancel handlers separate', () => {
+  it('keeps canonical client cancel and admin immediate cancel handlers separate', () => {
     const cabinetRouteSource = readFileSync(
       join(process.cwd(), 'src/app/routes/CabinetRouteContainer.tsx'),
       'utf8'
@@ -17,7 +17,10 @@ describe('admin cancel wiring', () => {
       'utf8'
     );
 
-    expect(cabinetRouteSource).toContain('onCancel={handleRequestCancel}');
+    expect(cabinetRouteSource).toContain('onCancel={handleCanonicalCancel}');
+    expect(cabinetRouteSource).toContain('useLessonBookingCommands');
+    expect(cabinetRouteSource).toContain('requestCancellation');
+    expect(cabinetRouteSource).not.toContain('handleRequestCancel');
     expect(adminRouteSource).toContain('onCancelBooking={handleCancelBooking}');
     expect(bookingActionsSource).toContain('handleRequestCancel');
     expect(bookingActionsSource).toContain('handleCancel');

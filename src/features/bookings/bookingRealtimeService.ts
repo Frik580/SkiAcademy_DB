@@ -1,5 +1,5 @@
 import type { Firestore } from 'firebase/firestore';
-import { collection, orderBy, query, where } from '../../infrastructure/firebase';
+import { collection, orderBy, query, where, limit } from '../../infrastructure/firebase';
 import { QUERY_LIMITS } from '../../shared';
 
 export type RealtimeBookingsScope =
@@ -31,4 +31,15 @@ export function getRealtimeBookingsQuery(
   if (scope.kind === 'student') constraints.unshift(where('userId', '==', scope.userId));
 
   return query(collection(firestore, 'bookings'), ...constraints);
+}
+
+/** Deferred T31: legacy course enrollment rows still use instructorId `course_*`. */
+export function getStudentCourseBookingsQuery(firestore: Firestore, userId: string) {
+  return query(
+    collection(firestore, 'bookings'),
+    where('userId', '==', userId),
+    where('instructorId', '>=', 'course_'),
+    where('instructorId', '<=', 'course_\uf8ff'),
+    limit(QUERY_LIMITS.bookingsHistory)
+  );
 }

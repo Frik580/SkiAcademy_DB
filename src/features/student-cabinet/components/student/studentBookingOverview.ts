@@ -23,14 +23,16 @@ import type { RecentLesson, StudentStats } from './studentCabinetUtils';
 const isActiveBooking = (booking: Booking) =>
   !booking.isDeleted && (booking.status === 'confirmed' || booking.status === 'pending');
 
+import type { ScheduleBookingSlice } from './studentBookingSchedule';
+
 export type BookingListScope = 'upcoming' | 'current' | 'past' | 'all';
 
-export const filterBookingsByScope = (
-  bookings: Booking[],
+export const filterBookingsByScope = <T extends ScheduleBookingSlice>(
+  bookings: T[],
   scope: BookingListScope,
   courses: Course[] = [],
   now = new Date()
-): Booking[] => {
+): T[] => {
   if (scope === 'all') return bookings;
   if (scope === 'upcoming') {
     return bookings.filter((b) => isBookingUpcomingBySchedule(b, courses, now));

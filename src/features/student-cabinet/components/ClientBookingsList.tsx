@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Clock, MessageSquare, Trash2 } from 'lucide-react';
-import { Booking, Course, Instructor, UserProfile } from '../../../types';
+import { Course, Instructor, UserProfile } from '../../../types';
+import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
+import { cabinetItemToLegacyPresentation } from '../../../features/lesson-bookings/mergeCabinetBookings';
 import { BookingCallCoachButton } from './student/BookingCallCoachButton';
 import {
   useLanguage,
@@ -36,17 +38,17 @@ const LIST_SCOPE_LABEL_KEYS = {
 } as const;
 
 interface ClientBookingsListProps {
-  userBookings: Booking[];
+  userBookings: LessonBookingCabinetItem[];
   courses?: Course[];
   instructors?: Instructor[];
   usersList?: UserProfile[];
-  unreviewedCompletedBookings?: Booking[];
+  unreviewedCompletedBookings?: LessonBookingCabinetItem[];
   showWorkoutCalendar?: boolean;
   onDismissReview?: (bookingId: string) => void;
-  onWriteReview?: (booking: Booking) => void;
-  onOpenLesson?: (booking: Booking) => void;
-  onCancel: (booking: Booking) => void;
-  onChat: (booking: Booking) => void;
+  onWriteReview?: (booking: LessonBookingCabinetItem) => void;
+  onOpenLesson?: (booking: LessonBookingCabinetItem) => void;
+  onCancel: (booking: LessonBookingCabinetItem) => void;
+  onChat: (booking: LessonBookingCabinetItem) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
 }
 
@@ -373,13 +375,20 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                       <div className="space-y-1.5 min-w-0 flex-1">
                         <h4 className="text-sm font-medium text-[var(--ink)] flex items-center gap-2 flex-wrap">
                           {b.instructorName}
-                          {hasBookingRecommendations(b) && (
-                            <RecommendationIndicator pending={hasPendingRecommendations(b)} />
+                          {!b.isLessonBooking && hasBookingRecommendations(b as never) && (
+                            <RecommendationIndicator
+                              pending={hasPendingRecommendations(b as never)}
+                            />
                           )}
                         </h4>
                         <p className="text-xs text-[var(--ink-dim)]">
-                          {getDifficultyLabel(b.difficulty, language)} · {b.durationHours}{' '}
-                          {t('hrSession')}
+                          {b.difficulty
+                            ? `${getDifficultyLabel(b.difficulty, language)} · `
+                            : ''}
+                          {b.durationHours} {t('hrSession')}
+                          {b.partyKind === 'family_group' && b.participantNames.length > 1
+                            ? ` · ${b.participantNames.length}`
+                            : ''}
                         </p>
                         <div className="flex items-center gap-2 flex-wrap text-xs text-[var(--ink-dim)]">
                           <span className="inline-flex items-center gap-1">
@@ -402,7 +411,9 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                       <div>
                         <span className="text-xs text-[var(--ink-dim)] block">{t('totalFee')}</span>
                         <span className="text-lg font-serif text-[var(--ink)]">
-                          ${b.totalPrice}
+                          {b.payment.kind === 'visible' && b.totalPrice !== undefined
+                            ? `$${b.totalPrice}`
+                            : 'Payment details unavailable'}
                         </span>
                       </div>
 
@@ -425,7 +436,10 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
 
                         {b.status !== 'cancelled' && (
                           <BookingCallCoachButton
-                            booking={b}
+                            booking={cabinetItemToLegacyPresentation(
+                              b,
+                              usersList[0]?.uid ?? ''
+                            )}
                             courses={courses}
                             instructors={instructors}
                             usersList={usersList}

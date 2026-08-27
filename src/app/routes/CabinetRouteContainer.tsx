@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { AuthRoute } from '../../features/shell';
 import { useLanguage } from '../../app/providers/LanguageContext';
@@ -15,6 +15,15 @@ import { useSettingsStore } from '../../features/settings/settingsStore';
 import { useWalletStore } from '../../features/wallet/walletStore';
 import { useUiStore } from '../../features/shell/uiStore';
 import type { AppRoutesProps } from './routeTypes';
+import {
+  mergeCabinetLessonAndCourseBookings,
+  selectLessonBookingItems,
+  useLessonBookingCommands,
+  useLessonBookingStore,
+  deriveCancellationIdempotencyKey,
+  presentCanonicalCommandErrorWithContext,
+} from '../../features/lesson-bookings';
+import { useNotifications } from '../../features/notifications';
 
 const PersonalCabinet = React.lazy(loadPersonalCabinet);
 
@@ -36,11 +45,13 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
 }) => {
   const { tab } = useParams<{ tab?: string }>();
   const { t } = useLanguage();
+  const { addNotification } = useNotifications();
   const userProfile = useProfileStore((state) => state.userProfile);
   const usersList = useProfileStore((state) => state.usersList);
   const dismissedReviewIds = useProfileStore((state) => state.dismissedReviewIds);
   const activityLogs = useProfileStore((state) => state.activityLogs);
-  const bookings = useBookingsStore((state) => state.bookings);
+  const legacyBookings = useBookingsStore((state) => state.bookings);
+  const lessonBookings = useLessonBookingStore(selectLessonBookingItems);
   const reviews = useBookingsStore((state) => state.reviews);
   const instructors = useBookingsStore((state) => state.instructors);
   const courses = useCoursesStore((state) => state.courses);
@@ -56,12 +67,57 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   const handleAddCustomTodayTask = useProfileStore((state) => state.handleAddCustomTodayTask);
   const handleRemoveTodayTask = useProfileStore((state) => state.handleRemoveTodayTask);
   const handleUpdateProfile = useProfileStore((state) => state.handleUpdateProfile);
-  const { handleRequestCancel, handleAddReview, handleToggleRecommendation } = useBookingActions();
+  const { handleAddReview, handleToggleRecommendation } = useBookingActions();
+  const { requestCancellation, refetchAccountHotBookings } = useLessonBookingCommands(
+    userProfile?.uid
+  );
   const { handleBookCourse } = useCourseActions();
   const setSelectedCourseForDetails = useUiStore((state) => state.setSelectedCourseForDetails);
   const setSelectedCourseForAuth = useUiStore((state) => state.setSelectedCourseForAuth);
   const setSelectedInstructor = useUiStore((state) => state.setSelectedInstructor);
   const setReviewsInstructor = useUiStore((state) => state.setReviewsInstructor);
+
+  const bookings = useMemo(
+    () => mergeCabinetLessonAndCourseBookings(lessonBookings, legacyBookings),
+    [lessonBookings, legacyBookings]
+  );
+
+  const handleCanonicalCancel = useCallback(
+    async (bookingId: string, _reason?: string) => {
+      const booking = bookings.find((item) => item.bookingId === bookingId);
+      if (!booking) return;
+      if (!booking.isLessonBooking) {
+        throw new Error('Course cancellation remains on the legacy path until T31.');
+      }
+      const exercisedCapability =
+        booking.partyKind === 'family_group' ? 'parent_guardian' : 'account_owner';
+      try {
+        await requestCancellation({
+          bookingId: booking.bookingId,
+          expectedRevision: booking.revision,
+          idempotencyKey: deriveCancellationIdempotencyKey(booking.bookingId, booking.revision),
+          exercisedCapability,
+        });
+      } catch (error) {
+        const presented = presentCanonicalCommandErrorWithContext(error, {
+          t: t as (key: string) => string,
+        });
+        if (presented.shouldRefresh) {
+          await refetchAccountHotBookings?.();
+          addNotification('warning', t('requestFailed'), presented.message);
+          return;
+        }
+        throw error;
+      }
+    },
+    [
+      addNotification,
+      bookings,
+      refetchAccountHotBookings,
+      requestCancellation,
+      t,
+    ]
+  );
 
   if (tab && !CABINET_TABS.includes(tab as (typeof CABINET_TABS)[number])) {
     return <Navigate to="/cabinet" replace />;
@@ -78,7 +134,7 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
               reviews={reviews}
               dismissedReviewIds={dismissedReviewIds}
               onDismissReview={handleDismissReview}
-              onCancel={handleRequestCancel}
+              onCancel={handleCanonicalCancel}
               onAddReview={handleAddReview}
               onToggleRecommendation={handleToggleRecommendation}
               onToggleSkillToday={handleToggleSkillToday}

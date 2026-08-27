@@ -66,3 +66,6 @@ Thumbs.db
 .agents/
 
 .ai/
+
+# Generated shared-domain build
+functions/shared-domain/dist/

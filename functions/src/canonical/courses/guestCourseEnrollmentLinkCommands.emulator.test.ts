@@ -30,6 +30,7 @@ import {
   GUEST_ACTION_TOKEN_VERSION,
   systemCommandActor,
   timestampFromDate,
+  COURSE_CLIENT_CANCELLATION_WINDOW_2D_MS,
   type CommandEnvelope,
   type CourseEnrollmentId,
   type GuestCourseEnrollmentLinkCredential,
@@ -74,6 +75,13 @@ const dayOneStart = timestampFromDate(new Date('2026-02-01T03:00:00.000Z'));
 const dayOneEnd = timestampFromDate(new Date('2026-02-01T05:00:00.000Z'));
 const dayTwoStart = timestampFromDate(new Date('2026-02-02T03:00:00.000Z'));
 const dayTwoEnd = timestampFromDate(new Date('2026-02-02T05:00:00.000Z'));
+
+const within2dBeforeStart = new Date(
+  dayOneStart.seconds * 1000 +
+    dayOneStart.nanoseconds / 1_000_000 -
+    COURSE_CLIENT_CANCELLATION_WINDOW_2D_MS +
+    60 * 60 * 1_000
+).toISOString();
 
 const COURSE_PRICE_KZT = 50_000;
 const BOOKING_PRICE_KZT = 12_000;
@@ -707,6 +715,27 @@ async function assertRollbackState(input: {
     guestDayClaims.filter((doc) => doc.data()?.lifecycle?.status === 'active').length
   ).toBe(input.guestDayClaimsBeforeCount);
   expect(await readActiveEnrollmentGuard(courseId, input.expectedParticipantId)).toBeDefined();
+}
+
+function cancelEnrollmentEnvelope(input: {
+  enrollmentId: CourseEnrollmentId;
+  idempotencyKey: string;
+  expectedRevision: number;
+  actorAccountId?: typeof accountId;
+  correlation?: typeof correlationId;
+}): CommandEnvelope<'request_course_enrollment_cancellation'> {
+  return {
+    kind: 'request_course_enrollment_cancellation',
+    context: {
+      ...accountContext(
+        input.idempotencyKey,
+        input.actorAccountId ?? accountId,
+        input.correlation ?? correlationId
+      ),
+      expectedRevision: AggregateRevisionSchema.parse(input.expectedRevision),
+    },
+    intent: { courseEnrollmentId: input.enrollmentId },
+  };
 }
 
 async function setGuestEnrollmentLifecycleForEmulator(
@@ -1881,18 +1910,29 @@ describe.skipIf(!runsOnFirestoreEmulator)(
     );
 
     it(
-      'grants post-link account authority through idempotent link replay despite guest provenance',
+      'grants post-link account authority through request_course_enrollment_cancellation despite guest provenance',
       async () => {
-        const commands = createCommands('2026-01-15T12:00:00.000Z');
-        const guest = await createGuestEnrollment(commands, 'guest-link-authority-create');
-        const linkEnvelopeValue = linkEnvelope({
-          enrollmentId: guest.enrollmentId,
-          credential: guest.credential,
-          idempotencyKey: 'guest-link-authority-link',
-          expectedRevision: guest.revision,
-          participantTarget: { kind: 'promote_guest' },
-        });
-        const linkResult = await commands.execute(linkEnvelopeValue);
+        const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+        const guest = await createGuestEnrollment(
+          setupCommands,
+          'guest-link-lifecycle-authority-create'
+        );
+        const confirmedRevision = await setGuestEnrollmentLifecycleForEmulator(
+          guest.enrollmentId,
+          guest.revision,
+          { status: 'confirmed' }
+        );
+
+        const linkCommands = createCommands('2026-01-15T12:00:00.000Z');
+        const linkResult = await linkCommands.execute(
+          linkEnvelope({
+            enrollmentId: guest.enrollmentId,
+            credential: guest.credential,
+            idempotencyKey: 'guest-link-lifecycle-authority-link',
+            expectedRevision: confirmedRevision,
+            participantTarget: { kind: 'promote_guest' },
+          })
+        );
         expect(linkResult.status).toBe('success');
 
         const linked = await readEnrollment(guest.enrollmentId);
@@ -1900,15 +1940,49 @@ describe.skipIf(!runsOnFirestoreEmulator)(
         expect(linked?.attribution?.bookedBy).toEqual(guest.attribution.bookedBy);
         expect(linked?.guestAccountLink?.linkedAccountId).toBe(accountId);
 
-        const replayResult = await commands.execute({
-          ...linkEnvelopeValue,
-          context: {
-            ...linkEnvelopeValue.context,
-            idempotencyKey: 'guest-link-authority-replay',
-            expectedRevision: AggregateRevisionSchema.parse((linked?.revision as number) ?? 2),
-          },
+        const resolvedManagementId = participantManagementIdFromGuestLink({
+          participantId: guestParticipantId,
+          accountId,
         });
-        expect(replayResult.status).toBe('success');
+        const management = (
+          await firestore.doc(`participant_management/${resolvedManagementId}`).get()
+        ).data();
+        expect(management?.status).toBe('active');
+        expect(management?.accountId).toBe(accountId);
+        expect(management?.participantId).toBe(guestParticipantId);
+
+        await firestore.doc(`users/${accountIdB}`).set(seedAccountRecord(accountIdB));
+
+        const cancelCommands = createCommands(within2dBeforeStart);
+        const linkedRevision = AggregateRevisionSchema.parse(linked?.revision as number);
+
+        const accountBResult = await cancelCommands.execute(
+          cancelEnrollmentEnvelope({
+            enrollmentId: guest.enrollmentId,
+            idempotencyKey: 'guest-link-lifecycle-authority-cancel-b',
+            expectedRevision: linkedRevision,
+            actorAccountId: accountIdB,
+            correlation: correlationIdB,
+          })
+        );
+        expect(accountBResult.status).toBe('error');
+        if (accountBResult.status === 'error') {
+          expect(accountBResult.error.code).toBe('forbidden');
+        }
+
+        const accountAResult = await cancelCommands.execute(
+          cancelEnrollmentEnvelope({
+            enrollmentId: guest.enrollmentId,
+            idempotencyKey: 'guest-link-lifecycle-authority-cancel-a',
+            expectedRevision: linkedRevision,
+          })
+        );
+        expect(accountAResult.status).toBe('success');
+
+        const afterCancel = await readEnrollment(guest.enrollmentId);
+        expect(afterCancel?.lifecycle?.status).toBe('pending_cancellation');
+        expect(afterCancel?.attribution?.bookingOrigin).toBe('guest');
+        expect(afterCancel?.attribution?.bookedBy).toEqual(guest.attribution.bookedBy);
       },
       30_000
     );

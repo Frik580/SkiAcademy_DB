@@ -22,6 +22,9 @@ import { createQueryManagedParticipantPickerReadModelsHandler } from './canonica
 
 export { optimizeImage } from './images/optimizeImageHttp';
 
+/** Browser callables need public Cloud Run invoker; auth is enforced inside the handler. */
+const CANONICAL_CALLABLE_OPTIONS = { region: 'us-central1', invoker: 'public' as const };
+
 export const createBooking = onCall({ region: 'us-central1' }, async (request) =>
   createCreateBookingHandler(getAdminFirestore())(request)
 );
@@ -70,20 +73,20 @@ export const enrollInCourse = onCall({ region: 'us-central1' }, async (request) 
   enrollInCourseHandler(getAdminFirestore())(request)
 );
 
-export const executeCanonicalCommand = onCall({ region: 'us-central1' }, async (request) =>
+export const executeCanonicalCommand = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
   createExecuteCanonicalCommandHandler(getAdminFirestore())(request)
 );
 
-export const executeGuestCanonicalCommand = onCall({ region: 'us-central1' }, async (request) =>
+export const executeGuestCanonicalCommand = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
   createExecuteGuestCanonicalCommandHandler(getAdminFirestore())(request)
 );
 
-export const queryLessonBookingReadModels = onCall({ region: 'us-central1' }, async (request) =>
+export const queryLessonBookingReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
   createQueryLessonBookingReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryManagedParticipantPickerReadModels = onCall(
-  { region: 'us-central1' },
+  CANONICAL_CALLABLE_OPTIONS,
   async (request) =>
     createQueryManagedParticipantPickerReadModelsHandler(getAdminFirestore())(request)
 );

@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useLessonBookingStore } from '../../src/features/lesson-bookings/lessonBookingStore';
+import { renderHook, act } from '@testing-library/react';
+import {
+  selectLessonBookingItems,
+  useLessonBookingStore,
+} from '../../src/features/lesson-bookings/lessonBookingStore';
 import type { LessonBookingCabinetItem } from '../../src/features/lesson-bookings/lessonBookingContracts';
 
 function cabinetItem(
@@ -38,5 +42,44 @@ describe('lessonBookingStore', () => {
     expect(useLessonBookingStore.getState().items.get('booking_a')?.revision).toBe(4);
     store.mergeItems(new Map([['booking_a', cabinetItem('booking_a', 6)]]));
     expect(useLessonBookingStore.getState().items.get('booking_a')?.revision).toBe(6);
+  });
+
+  it('keeps a stable itemsList snapshot when mergeItems makes no revision changes', () => {
+    const store = useLessonBookingStore.getState();
+    store.mergeItems(new Map([['booking_a', cabinetItem('booking_a', 4)]]));
+    const before = useLessonBookingStore.getState();
+    store.mergeItems(new Map([['booking_a', cabinetItem('booking_a', 2)]]));
+    const after = useLessonBookingStore.getState();
+    expect(after.itemsList).toBe(before.itemsList);
+    expect(after.items).toBe(before.items);
+  });
+
+  it('selectLessonBookingItems returns the cached store snapshot', () => {
+    const store = useLessonBookingStore.getState();
+    store.mergeItems(new Map([['booking_a', cabinetItem('booking_a', 1)]]));
+    const state = useLessonBookingStore.getState();
+    expect(selectLessonBookingItems(state)).toBe(state.itemsList);
+    expect(selectLessonBookingItems(state)).toBe(selectLessonBookingItems(state));
+  });
+
+  it('subscribing with selectLessonBookingItems does not rerender on no-op merges', () => {
+    let renderCount = 0;
+    renderHook(() => {
+      renderCount += 1;
+      return useLessonBookingStore(selectLessonBookingItems);
+    });
+    expect(renderCount).toBe(1);
+    act(() => {
+      useLessonBookingStore.getState().mergeItems(
+        new Map([['booking_a', cabinetItem('booking_a', 1)]])
+      );
+    });
+    expect(renderCount).toBe(2);
+    act(() => {
+      useLessonBookingStore.getState().mergeItems(
+        new Map([['booking_a', cabinetItem('booking_a', 1)]])
+      );
+    });
+    expect(renderCount).toBe(2);
   });
 });

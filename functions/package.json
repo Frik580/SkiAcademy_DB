@@ -10,6 +10,7 @@
     "deploy": "firebase deploy --only functions"
   },
   "dependencies": {
+    "@noble/hashes": "1.8.0",
     "@ski-academy/shared-domain": "file:./shared-domain",
     "alpine-glide-bookings": "file:..",
     "firebase-admin": "^12.7.0",

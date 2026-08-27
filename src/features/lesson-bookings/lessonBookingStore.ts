@@ -3,6 +3,7 @@ import type { LessonBookingCabinetItem } from './lessonBookingContracts';
 
 interface LessonBookingStoreState {
   readonly items: ReadonlyMap<string, LessonBookingCabinetItem>;
+  readonly itemsList: readonly LessonBookingCabinetItem[];
   readonly hotLoading: boolean;
   readonly historyLoading: boolean;
   readonly historyHasMore: boolean;
@@ -22,8 +23,17 @@ interface LessonBookingStoreState {
   reset: () => void;
 }
 
+const EMPTY_ITEMS_LIST: readonly LessonBookingCabinetItem[] = [];
+
+export function buildLessonBookingItemsList(
+  items: ReadonlyMap<string, LessonBookingCabinetItem>
+): LessonBookingCabinetItem[] {
+  return [...items.values()].sort((left, right) => right.date.localeCompare(left.date));
+}
+
 const initialState = {
   items: new Map<string, LessonBookingCabinetItem>(),
+  itemsList: EMPTY_ITEMS_LIST,
   hotLoading: false,
   historyLoading: false,
   historyHasMore: true,
@@ -35,17 +45,31 @@ const initialState = {
 
 export const useLessonBookingStore = create<LessonBookingStoreState>((set) => ({
   ...initialState,
-  setItems: (items) => set({ items }),
+  setItems: (items) =>
+    set({
+      items,
+      itemsList: buildLessonBookingItemsList(items),
+    }),
   mergeItems: (items) =>
     set((state) => {
       const merged = new Map(state.items);
+      let changed = false;
       for (const [key, value] of items) {
         const cached = merged.get(key);
         if (!cached || value.revision >= cached.revision) {
-          merged.set(key, value);
+          if (!cached || cached.revision !== value.revision) {
+            merged.set(key, value);
+            changed = true;
+          }
         }
       }
-      return { items: merged };
+      if (!changed) {
+        return state;
+      }
+      return {
+        items: merged,
+        itemsList: buildLessonBookingItemsList(merged),
+      };
     }),
   setHotLoading: (hotLoading) => set({ hotLoading }),
   setHistoryLoading: (historyLoading) => set({ historyLoading }),
@@ -55,13 +79,17 @@ export const useLessonBookingStore = create<LessonBookingStoreState>((set) => ({
   setError: (error) => set({ error }),
   requestHistoryPage: () =>
     set((state) => ({ historyRequestNonce: state.historyRequestNonce + 1 })),
-  reset: () => set({ ...initialState, items: new Map() }),
+  reset: () =>
+    set({
+      ...initialState,
+      items: new Map(),
+      itemsList: EMPTY_ITEMS_LIST,
+    }),
 }));
 
-export function selectLessonBookingItems(
-  state: LessonBookingStoreState
-): LessonBookingCabinetItem[] {
-  return [...state.items.values()].sort((left, right) => right.date.localeCompare(left.date));
+/** Stable snapshot for Zustand selectors — do not sort/allocate in selector callbacks. */
+export function selectLessonBookingItems(state: LessonBookingStoreState): readonly LessonBookingCabinetItem[] {
+  return state.itemsList;
 }
 
 export function selectLessonBookingById(

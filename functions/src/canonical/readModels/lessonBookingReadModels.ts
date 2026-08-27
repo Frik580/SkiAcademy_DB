@@ -2,9 +2,12 @@ import {
   evaluateParticipantManagementAccess,
   isLessonBookingHot,
   ParticipantManagementSchema,
+  evaluateLessonBookingAuthorizedActions,
+  sanitizeParticipantProfileForInstructor,
   type Account,
   type AccountId,
   type Booking,
+  type InstructorId,
   type LessonBookingReadModel,
   type LessonBookingReadModelCursor,
   type LessonBookingReadModelInstructorProjection,
@@ -32,6 +35,7 @@ import { parseBooking, parseInstructorCatalog } from '../bookings/bookingStore';
 import { parsePayment } from '../finance/financeStore';
 import { parseAccount, parseParticipant } from '../participantAccess/participantAccessStore';
 import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
+import { loadActiveParticipantBlocksForPair } from './participantBlockReadSupport';
 
 export interface LessonBookingReadAuthorizationContext {
   readonly account?: Account;
@@ -185,11 +189,41 @@ export function buildPaymentPresentation(
   };
 }
 
+function resolveParticipantManagement(
+  context: LessonBookingReadAuthorizationContext,
+  participantId: Participant['participantId']
+): { readonly participant: Participant; readonly management: ParticipantManagement } | undefined {
+  const management = context.participantManagement.find(
+    (record) => record.participantId === participantId
+  );
+  const participant = context.participants.find(
+    (record) => record.participantId === participantId
+  );
+  if (!management || !participant) {
+    return undefined;
+  }
+  return { participant, management };
+}
+
+const INSTRUCTOR_LESSON_DENIED_ACTIONS = {
+  canRequestCancellation: false,
+  canWithdrawCancellation: false,
+  canReschedule: false,
+};
+
 export async function buildLessonBookingReadModel(
   firestore: Firestore,
   accountId: AccountId,
-  booking: Booking
+  booking: Booking,
+  options: {
+    readonly authContext?: LessonBookingReadAuthorizationContext;
+    readonly now?: CanonicalTimestamp;
+  } = {}
 ): Promise<LessonBookingReadModel | undefined> {
+  const authContext =
+    options.authContext ?? (await loadLessonBookingReadAuthorizationContext(firestore, accountId));
+  const now = options.now ?? timestampFromDate(new Date());
+
   const instructorSnap = await firestore
     .collection('instructors')
     .doc(booking.occurrence.instructorId)
@@ -203,6 +237,41 @@ export async function buildLessonBookingReadModel(
   }
 
   const participants: LessonBookingReadModelParticipantProjection[] = [];
+  let authorizedActions = INSTRUCTOR_LESSON_DENIED_ACTIONS;
+
+  const primaryParticipantId = booking.party.participantIds[0];
+  const resolvedManagement = primaryParticipantId
+    ? resolveParticipantManagement(authContext, primaryParticipantId)
+    : undefined;
+
+  if (resolvedManagement && authContext.account) {
+    const blocks = await loadActiveParticipantBlocksForPair(
+      firestore,
+      primaryParticipantId!,
+      booking.occurrence.instructorId
+    );
+    const topology = buildParticipantAccessTopology({
+      account: authContext.account,
+      participant: resolvedManagement.participant,
+      management: resolvedManagement.management,
+      additionalBlocks: blocks,
+    });
+    authorizedActions = evaluateLessonBookingAuthorizedActions({
+      actor: {
+        kind: 'account_manager',
+        accountId,
+        participantManagementId: resolvedManagement.management.participantManagementId,
+        authority: resolvedManagement.management.authority,
+      },
+      account: authContext.account,
+      participant: resolvedManagement.participant,
+      management: resolvedManagement.management,
+      booking,
+      topology,
+      now,
+    });
+  }
+
   for (const participantId of booking.party.participantIds) {
     const participantSnap = await firestore.collection('participants').doc(participantId).get();
     const participant = parseParticipant(
@@ -246,7 +315,73 @@ export async function buildLessonBookingReadModel(
     occurrence,
     lifecycle: buildLifecycleProjection(booking),
     bookingOrigin: booking.attribution.bookingOrigin,
+    authorizedActions,
     paymentPresentation: buildPaymentPresentation(accountId, booking, payment),
+    updatedAt: booking.updatedAt,
+  };
+}
+
+export async function buildInstructorLessonBookingReadModel(
+  firestore: Firestore,
+  instructorId: InstructorId,
+  booking: Booking
+): Promise<LessonBookingReadModel | undefined> {
+  if (booking.occurrence.instructorId !== instructorId) {
+    return undefined;
+  }
+
+  const instructorSnap = await firestore.collection('instructors').doc(instructorId).get();
+  const instructorCatalog = parseInstructorCatalog(
+    instructorId,
+    instructorSnap.data() as Record<string, unknown> | undefined
+  );
+  if (!instructorCatalog) {
+    return undefined;
+  }
+
+  const participants: LessonBookingReadModelParticipantProjection[] = [];
+  for (const participantId of booking.party.participantIds) {
+    const participantSnap = await firestore.collection('participants').doc(participantId).get();
+    const participant = parseParticipant(
+      participantSnap.data() as Record<string, unknown> | undefined
+    );
+    if (!participant) {
+      return undefined;
+    }
+    const sanitized = sanitizeParticipantProfileForInstructor(participant);
+    participants.push({
+      participantId: sanitized.participantId,
+      displayName: sanitized.displayName,
+    });
+  }
+
+  const instructor: LessonBookingReadModelInstructorProjection = {
+    instructorId,
+    displayName: instructorCatalog.name,
+    ...(instructorCatalog.avatarUrl ? { avatarUrl: instructorCatalog.avatarUrl } : {}),
+  };
+
+  const occurrence: LessonBookingReadModelOccurrenceProjection = {
+    startsAt: booking.occurrence.interval.startsAt,
+    endsAt: booking.occurrence.interval.endsAt,
+    timeZone: booking.occurrence.timeZone,
+    durationMinutes: durationMinutesFromInterval(
+      booking.occurrence.interval.startsAt,
+      booking.occurrence.interval.endsAt
+    ),
+  };
+
+  return {
+    bookingId: booking.bookingId,
+    revision: booking.revision,
+    partyKind: booking.party.kind,
+    participantIds: [...booking.party.participantIds],
+    participants,
+    instructor,
+    occurrence,
+    lifecycle: buildLifecycleProjection(booking),
+    bookingOrigin: booking.attribution.bookingOrigin,
+    authorizedActions: INSTRUCTOR_LESSON_DENIED_ACTIONS,
     updatedAt: booking.updatedAt,
   };
 }
@@ -273,7 +408,7 @@ function isAfterCursor(booking: Booking, cursor: LessonBookingReadModelCursor): 
   return booking.bookingId < cursor.bookingId;
 }
 
-async function loadAuthorizedAccountBookings(
+export async function loadAuthorizedAccountBookings(
   firestore: Firestore,
   accountId: AccountId
 ): Promise<Booking[]> {
@@ -310,11 +445,33 @@ async function loadAuthorizedAccountBookings(
   return [...bookingsById.values()].sort(compareBookingReadOrder);
 }
 
+export async function loadInstructorHotBookings(
+  firestore: Firestore,
+  instructorId: InstructorId
+): Promise<Booking[]> {
+  const snapshot = await firestore
+    .collection('bookings')
+    .where('occurrence.instructorId', '==', instructorId)
+    .limit(LESSON_BOOKING_READ_MODEL_PAGE_SIZE_MAX * 4)
+    .get();
+
+  const bookings: Booking[] = [];
+  for (const doc of snapshot.docs) {
+    const parsed = parseBooking(doc.data() as Record<string, unknown>);
+    if (!parsed || parsed.archival?.isDeleted) {
+      continue;
+    }
+    bookings.push(parsed);
+  }
+  return bookings.sort(compareBookingReadOrder);
+}
+
 export async function queryLessonBookingReadModels(
   firestore: Firestore,
   input: QueryLessonBookingReadModelsInput,
   options: {
     readonly accountId?: AccountId;
+    readonly instructorId?: InstructorId;
     readonly guestActionSecret?: string;
     readonly now?: Date;
   } = {}
@@ -360,12 +517,64 @@ export async function queryLessonBookingReadModels(
     };
   }
 
+  if (input.scope === 'instructor_hot') {
+    const instructorId = options.instructorId;
+    if (!instructorId) {
+      return { scope: input.scope, items: [], hasMore: false };
+    }
+
+    const instructorBookings = await loadInstructorHotBookings(firestore, instructorId);
+    const filtered = instructorBookings.filter((booking) =>
+      isLessonBookingHot({
+        lifecycleStatus: booking.lifecycle.status,
+        endsAt: booking.occurrence.interval.endsAt,
+        now,
+      })
+    );
+
+    const afterCursor = cursor
+      ? filtered.filter((booking) => isAfterCursor(booking, cursor))
+      : filtered;
+
+    const page = afterCursor.slice(0, pageSize);
+    const items: LessonBookingReadModel[] = [];
+    for (const booking of page) {
+      const readModel = await buildInstructorLessonBookingReadModel(
+        firestore,
+        instructorId,
+        booking
+      );
+      if (readModel) {
+        items.push(readModel);
+      }
+    }
+
+    const hasMore = afterCursor.length > pageSize;
+    const last = page.at(-1);
+    const nextCursor =
+      hasMore && last
+        ? encodeLessonBookingReadModelCursor({
+            updatedAtSeconds: last.updatedAt.seconds,
+            updatedAtNanoseconds: last.updatedAt.nanoseconds,
+            bookingId: last.bookingId,
+          })
+        : undefined;
+
+    return {
+      scope: input.scope,
+      items,
+      ...(nextCursor ? { nextCursor } : {}),
+      hasMore,
+    };
+  }
+
   const accountId = options.accountId;
   if (!accountId) {
     return { scope: input.scope, items: [], hasMore: false };
   }
 
   const authorizedBookings = await loadAuthorizedAccountBookings(firestore, accountId);
+  const authContext = await loadLessonBookingReadAuthorizationContext(firestore, accountId);
   const filtered = authorizedBookings.filter((booking) => {
     const hot = isLessonBookingHot({
       lifecycleStatus: booking.lifecycle.status,
@@ -382,7 +591,10 @@ export async function queryLessonBookingReadModels(
   const page = afterCursor.slice(0, pageSize);
   const items: LessonBookingReadModel[] = [];
   for (const booking of page) {
-    const readModel = await buildLessonBookingReadModel(firestore, accountId, booking);
+    const readModel = await buildLessonBookingReadModel(firestore, accountId, booking, {
+      authContext,
+      now,
+    });
     if (readModel) {
       items.push(readModel);
     }
@@ -464,6 +676,7 @@ async function buildGuestLessonBookingReadModel(
     occurrence,
     lifecycle: buildLifecycleProjection(booking),
     bookingOrigin: booking.attribution.bookingOrigin,
+    authorizedActions: INSTRUCTOR_LESSON_DENIED_ACTIONS,
     updatedAt: booking.updatedAt,
   };
 }

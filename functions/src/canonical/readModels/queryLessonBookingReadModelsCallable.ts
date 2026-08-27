@@ -7,6 +7,10 @@ import {
 } from '@ski-academy/shared-domain';
 import { queryLessonBookingReadModels } from './lessonBookingReadModels';
 import { readGuestActionTokenSecret } from '../commands/canonicalCommandRuntime';
+import {
+  readCallableAccountProfile,
+  resolveCallableInstructorId,
+} from './resolveCallableInstructorId';
 
 export function createQueryLessonBookingReadModelsHandler(firestore: Firestore) {
   return async (
@@ -19,8 +23,13 @@ export function createQueryLessonBookingReadModelsHandler(firestore: Firestore) 
 
     const input = parsed.data;
     let accountId: ReturnType<typeof AccountIdSchema.parse> | undefined;
+    let instructorId: ReturnType<typeof resolveCallableInstructorId> | undefined;
 
-    if (input.scope === 'account_hot' || input.scope === 'account_history') {
+    if (
+      input.scope === 'account_hot' ||
+      input.scope === 'account_history' ||
+      input.scope === 'instructor_hot'
+    ) {
       if (!request.auth?.uid) {
         throw new HttpsError('unauthenticated', 'Authentication is required.');
       }
@@ -29,10 +38,21 @@ export function createQueryLessonBookingReadModelsHandler(firestore: Firestore) 
         throw new HttpsError('unauthenticated', 'Authentication is required.');
       }
       accountId = parsedAccountId.data;
+
+      if (input.scope === 'instructor_hot') {
+        const userSnap = await firestore.collection('users').doc(request.auth.uid).get();
+        instructorId = resolveCallableInstructorId(
+          readCallableAccountProfile(userSnap.data() as Record<string, unknown> | undefined)
+        );
+        if (!instructorId) {
+          throw new HttpsError('permission-denied', 'This action is not permitted.');
+        }
+      }
     }
 
     return queryLessonBookingReadModels(firestore, input, {
       accountId,
+      instructorId,
       guestActionSecret: readGuestActionTokenSecret(),
     });
   };

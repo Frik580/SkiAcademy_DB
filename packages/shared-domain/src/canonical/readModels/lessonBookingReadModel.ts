@@ -7,6 +7,9 @@ import {
 } from '../bookingOccurrenceProposalChange';
 import { PaymentStatusSchema } from '../paymentWallet';
 import {
+  LessonBookingReadModelAuthorizedActionsSchema as LessonBookingAuthorizedActionsSchema,
+} from './readModelAuthorizedActions';
+import {
   AggregateRevisionSchema,
   CanonicalTimestampSchema,
   IanaTimeZoneSchema,
@@ -16,6 +19,7 @@ import {
 export const LESSON_BOOKING_READ_SCOPES = [
   'account_hot',
   'account_history',
+  'instructor_hot',
   'guest_single',
 ] as const;
 export type LessonBookingReadScope = (typeof LESSON_BOOKING_READ_SCOPES)[number];
@@ -108,6 +112,7 @@ export const LessonBookingReadModelSchema = z
     occurrence: LessonBookingReadModelOccurrenceProjectionSchema,
     lifecycle: LessonBookingReadModelLifecycleProjectionSchema,
     bookingOrigin: BookingOriginSchema,
+    authorizedActions: LessonBookingAuthorizedActionsSchema,
     paymentPresentation: LessonBookingReadModelPaymentPresentationSchema.optional(),
     updatedAt: CanonicalTimestampSchema,
   })
@@ -158,6 +163,22 @@ export const QueryLessonBookingReadModelsInputSchema = z
           code: 'custom',
           path: ['bookingId'],
           message: 'bookingId is not allowed for account scopes',
+        });
+      }
+    }
+    if (input.scope === 'instructor_hot') {
+      if (input.bookingId !== undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['bookingId'],
+          message: 'bookingId is not allowed for instructor_hot scope',
+        });
+      }
+      if (input.guestActionNonce !== undefined || input.guestActionSignature !== undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['guestActionNonce'],
+          message: 'Guest credential is not allowed for instructor_hot scope',
         });
       }
     }

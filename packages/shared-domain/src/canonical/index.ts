@@ -45,3 +45,4 @@ export * from './resourceClaims';
 export * from './resourceClaimGuards';
 export * from './validation';
 export * from './readModels';
+export * from './readModelAuthorization';

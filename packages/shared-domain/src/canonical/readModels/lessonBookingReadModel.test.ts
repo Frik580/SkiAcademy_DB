@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  QueryLessonBookingReadModelsInputSchema,
   isLessonBookingHot,
   mergeRevisionAwareReadModel,
 } from './lessonBookingReadModel';
@@ -39,5 +40,10 @@ describe('lessonBookingReadModel contracts', () => {
         now,
       })
     ).toBe(false);
+  });
+
+  it('fails closed on invalid lesson booking read scopes', () => {
+    const parsed = QueryLessonBookingReadModelsInputSchema.safeParse({ scope: 'guest_open' });
+    expect(parsed.success).toBe(false);
   });
 });

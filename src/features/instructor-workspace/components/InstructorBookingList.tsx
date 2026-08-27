@@ -2,12 +2,17 @@ import React from 'react';
 import { Calendar } from 'lucide-react';
 import { useInstructorWorkspace } from './useInstructorWorkspace';
 import { InstructorBookingCard } from './InstructorBookingCard';
+import type { useInstructorBookingCollaboration } from '../../booking-collaboration/useInstructorBookingCollaboration';
 
 interface InstructorBookingListProps {
   workspace: ReturnType<typeof useInstructorWorkspace>;
+  collaboration: ReturnType<typeof useInstructorBookingCollaboration>;
 }
 
-export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({ workspace }) => {
+export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
+  workspace,
+  collaboration,
+}) => {
   const {
     t,
     language,
@@ -94,6 +99,7 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({ wo
               onUpdateStudentLevel={handleUpdateStudentLevel}
               onOpenEval={openEvalModal}
               onSaveRecommendations={handleSaveRecommendations}
+              collaboration={collaboration}
             />
           ))}
         </div>

@@ -23,6 +23,7 @@ import { BookingListScope, filterBookingsByScope } from './student/studentCabine
 import { RecommendationIndicator } from './RecommendationIndicator';
 import { ChatUnreadIndicator } from '../../../features/chat';
 import { ApplePagination } from '../../../ui/ApplePagination';
+import { BookingCollaborationActions } from '../../../features/booking-collaboration';
 import {
   hasBookingRecommendations,
   hasPendingRecommendations,
@@ -50,6 +51,9 @@ interface ClientBookingsListProps {
   onCancel: (booking: LessonBookingCabinetItem) => void;
   onChat: (booking: LessonBookingCabinetItem) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
+  onWithdrawCancellation?: (booking: LessonBookingCabinetItem) => void | Promise<void>;
+  onRescheduleBooking?: (booking: LessonBookingCabinetItem) => void;
+  collaborationSubmittingId?: string;
 }
 
 export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
@@ -64,6 +68,9 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
   onCancel,
   onChat,
   hasUnreadChat,
+  onWithdrawCancellation,
+  onRescheduleBooking,
+  collaborationSubmittingId,
 }) => {
   const { language, t } = useLanguage();
 
@@ -462,17 +469,29 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                           </button>
                         )}
 
-                        {b.status === 'confirmed' && (
-                          <div className="flex items-center gap-1">
-                            <button
-                              id={`cancel-btn-${b.id}`}
-                              onClick={() => onCancel(b)}
-                              title={t('cancelBookingRefund')}
-                              className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                        {b.isLessonBooking && b.authorizedActions ? (
+                          <BookingCollaborationActions
+                            booking={b}
+                            onWithdrawCancellation={
+                              onWithdrawCancellation ?? (async () => undefined)
+                            }
+                            onReschedule={onRescheduleBooking ?? (() => undefined)}
+                            onCancel={onCancel}
+                            submitting={collaborationSubmittingId === b.bookingId}
+                          />
+                        ) : (
+                          b.status === 'confirmed' && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                id={`cancel-btn-${b.id}`}
+                                onClick={() => onCancel(b)}
+                                title={t('cancelBookingRefund')}
+                                className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )
                         )}
                       </div>
                     </div>

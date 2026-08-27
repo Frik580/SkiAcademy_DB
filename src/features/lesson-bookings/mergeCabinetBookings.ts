@@ -25,6 +25,7 @@ export function mapLegacyCourseBookingToCabinetItem(booking: Booking): LessonBoo
     isLessonBooking: false,
     difficulty: booking.difficulty,
     cancellationReason: booking.cancellationReason,
+    authorizedActions: undefined,
   };
 }
 

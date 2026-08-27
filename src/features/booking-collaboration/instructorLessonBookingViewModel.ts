@@ -1,60 +1,55 @@
 import type { LessonBookingReadModel } from '@ski-academy/shared-domain';
 import type { BookingStatus } from '@ski-academy/shared-domain';
-import type { LessonBookingCabinetItem } from './lessonBookingContracts';
-import { canonicalTimestampToLocalParts } from './mapCalendarInput';
+import { canonicalTimestampToLocalParts } from '../lesson-bookings/mapCalendarInput';
+import type { InstructorLessonBookingItem } from './bookingCollaborationContracts';
 
 function mapLifecycleStatus(status: LessonBookingReadModel['lifecycle']['status']): BookingStatus {
   if (status === 'no_show') return 'completed';
   return status;
 }
 
-export function mapLessonBookingReadModelToCabinetItem(
+export function mapInstructorLessonBookingReadModel(
   readModel: LessonBookingReadModel
-): LessonBookingCabinetItem {
+): InstructorLessonBookingItem {
   const { date, time } = canonicalTimestampToLocalParts(
     readModel.occurrence.startsAt.seconds,
     readModel.occurrence.startsAt.nanoseconds,
     readModel.occurrence.timeZone
   );
-  const durationHours = readModel.occurrence.durationMinutes / 60;
-  const paymentPresentation = readModel.paymentPresentation;
-  const payment =
-    paymentPresentation?.kind === 'visible'
-      ? { kind: 'visible' as const, paymentStatus: paymentPresentation.paymentStatus }
-      : { kind: 'withheld' as const };
 
   return {
-    id: readModel.bookingId,
     bookingId: readModel.bookingId,
     revision: readModel.revision,
     status: mapLifecycleStatus(readModel.lifecycle.status),
     date,
     time,
-    durationHours,
+    durationHours: readModel.occurrence.durationMinutes / 60,
     instructorId: readModel.instructor.instructorId,
     instructorName: readModel.instructor.displayName,
-    instructorAvatar: readModel.instructor.avatarUrl ?? '',
+    participantIds: readModel.participantIds,
     participantNames: readModel.participants.map((participant) => participant.displayName),
     partyKind: readModel.partyKind,
-    payment,
-    bookingOrigin: readModel.bookingOrigin,
-    isLessonBooking: true,
     authorizedActions: readModel.authorizedActions,
-    cancellationReason: readModel.lifecycle.reasonCode,
   };
 }
 
-export function mergeLessonBookingRecords(
-  existing: ReadonlyMap<string, LessonBookingCabinetItem>,
+export function mergeInstructorLessonBookingRecords(
+  existing: ReadonlyMap<string, InstructorLessonBookingItem>,
   incoming: readonly LessonBookingReadModel[]
-): Map<string, LessonBookingCabinetItem> {
+): Map<string, InstructorLessonBookingItem> {
   const merged = new Map(existing);
   for (const readModel of incoming) {
-    const item = mapLessonBookingReadModelToCabinetItem(readModel);
+    const item = mapInstructorLessonBookingReadModel(readModel);
     const cached = merged.get(item.bookingId);
     if (!cached || item.revision >= cached.revision) {
       merged.set(item.bookingId, item);
     }
   }
   return merged;
+}
+
+export function buildInstructorLessonBookingsList(
+  items: ReadonlyMap<string, InstructorLessonBookingItem>
+): InstructorLessonBookingItem[] {
+  return [...items.values()].sort((left, right) => right.date.localeCompare(left.date));
 }

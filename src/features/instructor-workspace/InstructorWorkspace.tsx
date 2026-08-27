@@ -9,6 +9,12 @@ import { InstructorDashboardHeader } from './components/InstructorDashboardHeade
 import { InstructorBookingList } from './components/InstructorBookingList';
 import { InstructorStudents } from './components/InstructorStudents';
 import { InstructorReviews } from './components/InstructorReviews';
+import { useNotifications } from '../notifications';
+import { useLanguage } from '../../app/providers/LanguageContext';
+import {
+  CreateProposalModal,
+  useInstructorBookingCollaboration,
+} from '../booking-collaboration';
 
 export interface InstructorWorkspaceProps {
   userProfile: UserProfile;
@@ -22,6 +28,14 @@ export interface InstructorWorkspaceProps {
 
 export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) => {
   const workspace = useInstructorWorkspace(props);
+  const { addNotification } = useNotifications();
+  const { t: shellT } = useLanguage();
+  const collaboration = useInstructorBookingCollaboration({
+    accountId: props.userProfile.uid,
+    instructorId: props.userProfile.instructorId,
+    onNotify: (type, title, message) => addNotification(type, title, message),
+    t: shellT as (key: string) => string,
+  });
   const {
     userProfile,
     instructors,
@@ -43,7 +57,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
   return (
     <div className="space-y-8 animate-fade-in">
       <InstructorDashboardHeader workspace={workspace} />
-      <InstructorBookingList workspace={workspace} />
+      <InstructorBookingList workspace={workspace} collaboration={collaboration} />
       <InstructorStudents workspace={workspace} />
       <InstructorReviews workspace={workspace} />
 
@@ -69,6 +83,13 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
         existingComments={evalModalState.existingComments}
         skillConfig={skillConfig}
         onSaveScores={handleSaveStudentScores}
+      />
+
+      <CreateProposalModal
+        open={collaboration.createProposalParticipant !== null}
+        participantLabel={collaboration.createProposalParticipant?.label}
+        onClose={() => collaboration.setCreateProposalParticipant(null)}
+        onSubmit={collaboration.handleCreateProposal}
       />
     </div>
   );

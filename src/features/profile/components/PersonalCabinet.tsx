@@ -20,6 +20,10 @@ import type { StudentCabinetResortSnapshot } from '../../student-cabinet/compone
 import type { TodayTaskRef } from '../../student-cabinet/todayChecklist';
 import { PersonalCabinetModals } from '../../student-cabinet/components/PersonalCabinetModals';
 import { useBookingChatUnread } from '../../../features/student-cabinet/useBookingChatUnread';
+import {
+  RescheduleBookingModal,
+  useCustomerBookingCollaboration,
+} from '../../../features/booking-collaboration';
 
 export interface PersonalCabinetProps {
   userProfile: UserProfile;
@@ -142,6 +146,11 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
     userProfile.uid,
     userBookings
   );
+  const collaboration = useCustomerBookingCollaboration({
+    accountId: userProfile.uid,
+    onNotify: (type, title, message) => addNotification(type, title, message),
+    t: t as (key: string) => string,
+  });
 
   useEffect(() => {
     if (!selectedChatBookingId) return;
@@ -249,6 +258,19 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             resortSnapshot={resortSnapshot}
             onToggleTemperatureUnit={onToggleTemperatureUnit}
             usersList={usersList}
+            collaborationProposals={collaboration.proposals}
+            onAcceptProposal={collaboration.handleAcceptProposal}
+            onDeclineProposal={collaboration.handleDeclineProposal}
+            proposalSubmittingId={collaboration.submittingId}
+            onWithdrawCancellation={collaboration.handleWithdrawCancellation}
+            onRescheduleBooking={collaboration.setRescheduleTarget}
+            collaborationSubmittingId={collaboration.submittingId}
+          />
+
+          <RescheduleBookingModal
+            booking={collaboration.rescheduleTarget}
+            onClose={() => collaboration.setRescheduleTarget(null)}
+            onSubmit={collaboration.handleRescheduleSubmit}
           />
 
           <PersonalCabinetModals

@@ -1,7 +1,9 @@
 import React from 'react';
 import { Course, Instructor, UserProfile } from '../../../types';
 import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
+import type { BookingProposalCabinetItem } from '../../../features/booking-collaboration';
 import { ClientBookingsList } from '../../../features/student-cabinet';
+import { CustomerProposalInbox } from '../../../features/booking-collaboration';
 import { ScPageIntro } from '../../../features/student-cabinet';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { StudentCabinetTab } from '../../../features/student-cabinet';
@@ -22,6 +24,13 @@ export interface BookingsPanelProps {
   onOpenLesson: (booking: LessonBookingCabinetItem) => void;
   onGoToTab?: (tab: StudentCabinetTab) => void;
   showBackLink?: boolean;
+  collaborationProposals?: readonly BookingProposalCabinetItem[];
+  onAcceptProposal?: (proposal: BookingProposalCabinetItem) => void | Promise<void>;
+  onDeclineProposal?: (proposal: BookingProposalCabinetItem) => void | Promise<void>;
+  proposalSubmittingId?: string;
+  onWithdrawCancellation?: (booking: LessonBookingCabinetItem) => void | Promise<void>;
+  onRescheduleBooking?: (booking: LessonBookingCabinetItem) => void;
+  collaborationSubmittingId?: string;
 }
 
 export const BookingsPanel: React.FC<BookingsPanelProps> = ({
@@ -39,6 +48,13 @@ export const BookingsPanel: React.FC<BookingsPanelProps> = ({
   onOpenLesson,
   onGoToTab,
   showBackLink = true,
+  collaborationProposals = [],
+  onAcceptProposal,
+  onDeclineProposal,
+  proposalSubmittingId,
+  onWithdrawCancellation,
+  onRescheduleBooking,
+  collaborationSubmittingId,
 }) => {
   const { t } = useLanguage();
   const userBookings = bookings;
@@ -52,6 +68,14 @@ export const BookingsPanel: React.FC<BookingsPanelProps> = ({
           title={t('scFullCalendar')}
         />
       </div>
+      {onAcceptProposal && onDeclineProposal && (
+        <CustomerProposalInbox
+          proposals={collaborationProposals}
+          onAccept={onAcceptProposal}
+          onDecline={onDeclineProposal}
+          submittingProposalId={proposalSubmittingId}
+        />
+      )}
       <ClientBookingsList
         userBookings={userBookings}
         courses={courses}
@@ -65,6 +89,9 @@ export const BookingsPanel: React.FC<BookingsPanelProps> = ({
         onCancel={onCancel}
         onChat={onChat}
         hasUnreadChat={hasUnreadChat}
+        onWithdrawCancellation={onWithdrawCancellation}
+        onRescheduleBooking={onRescheduleBooking}
+        collaborationSubmittingId={collaborationSubmittingId}
       />
     </div>
   );

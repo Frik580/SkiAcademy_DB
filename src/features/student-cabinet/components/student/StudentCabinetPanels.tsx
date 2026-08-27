@@ -68,6 +68,19 @@ export const StudentCalendarPanel: React.FC<
   PanelProps & {
     unreviewedCompletedBookings: import('./studentCabinetContracts').StudentBooking[];
     onDismissReview?: (id: string) => void;
+    collaborationProposals?: readonly import('../../../../features/booking-collaboration').BookingProposalCabinetItem[];
+    onAcceptProposal?: (
+      proposal: import('../../../../features/booking-collaboration').BookingProposalCabinetItem
+    ) => void | Promise<void>;
+    onDeclineProposal?: (
+      proposal: import('../../../../features/booking-collaboration').BookingProposalCabinetItem
+    ) => void | Promise<void>;
+    proposalSubmittingId?: string;
+    onWithdrawCancellation?: (
+      booking: import('./studentCabinetContracts').StudentBooking
+    ) => void | Promise<void>;
+    onRescheduleBooking?: (booking: import('./studentCabinetContracts').StudentBooking) => void;
+    collaborationSubmittingId?: string;
   }
 > = ({
   userProfile,
@@ -83,6 +96,13 @@ export const StudentCalendarPanel: React.FC<
   onWriteReview,
   onOpenLesson,
   onGoToTab,
+  collaborationProposals = [],
+  onAcceptProposal,
+  onDeclineProposal,
+  proposalSubmittingId,
+  onWithdrawCancellation,
+  onRescheduleBooking,
+  collaborationSubmittingId,
 }) => {
   return (
     <BookingsPanel
@@ -101,6 +121,13 @@ export const StudentCalendarPanel: React.FC<
       hasUnreadChat={hasUnreadChat}
       onGoToTab={onGoToTab}
       showBackLink
+      collaborationProposals={collaborationProposals}
+      onAcceptProposal={onAcceptProposal}
+      onDeclineProposal={onDeclineProposal}
+      proposalSubmittingId={proposalSubmittingId}
+      onWithdrawCancellation={onWithdrawCancellation}
+      onRescheduleBooking={onRescheduleBooking}
+      collaborationSubmittingId={collaborationSubmittingId}
     />
   );
 };

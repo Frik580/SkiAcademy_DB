@@ -1,7 +1,9 @@
+import { useLocation } from 'react-router-dom';
 import { useSessionSync } from '../features/auth/sync/useSessionSync';
 import { useSettingsSync } from '../features/settings/sync/useSettingsSync';
 import { useBookingsSync } from '../features/bookings/sync/useBookingsSync';
 import { useLessonBookingReadSync } from '../features/lesson-bookings/useLessonBookingReadSync';
+import { useBookingCollaborationReadSync } from '../features/booking-collaboration/useBookingCollaborationReadSync';
 import { useCoursesSync } from '../features/courses/sync/useCoursesSync';
 import { useNotificationsSync } from '../features/notifications/sync/useNotificationsSync';
 import { useWalletSync } from '../features/wallet/sync/useWalletSync';
@@ -13,11 +15,14 @@ import { useAuthStore } from '../features/auth/authStore';
 import { useProfileStore } from '../features/profile/profileStore';
 
 export const useStoreSync = () => {
+  const location = useLocation();
   const { shouldUseCanonicalLessonBookings } = useDataSyncScope();
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const userProfile = useProfileStore((state) => state.userProfile);
   const isCustomerCanonicalLessonPath =
     shouldUseCanonicalLessonBookings && userProfile?.role === 'user' && !userProfile?.instructorId;
+  const isInstructorCollaborationPath =
+    location.pathname === '/instructor' && Boolean(userProfile?.instructorId);
 
   useSessionSync();
   useCurrentUserProfileSync();
@@ -25,6 +30,12 @@ export const useStoreSync = () => {
   useSettingsSync();
   useBookingsSync();
   useLessonBookingReadSync(isCustomerCanonicalLessonPath, firebaseUser?.uid);
+  useBookingCollaborationReadSync({
+    customerEnabled: isCustomerCanonicalLessonPath,
+    instructorEnabled: isInstructorCollaborationPath,
+    accountId: firebaseUser?.uid,
+    instructorId: userProfile?.instructorId,
+  });
   useCoursesSync();
   useNotificationsSync();
   useWalletSync();

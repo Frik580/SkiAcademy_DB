@@ -38,6 +38,11 @@ function buildGuestReadItem(bookingId: string, revision: number) {
     },
     lifecycle: { status: 'confirmed' as const },
     bookingOrigin: 'guest' as const,
+    authorizedActions: {
+      canRequestCancellation: true,
+      canWithdrawCancellation: false,
+      canReschedule: false,
+    },
     paymentPresentation: { kind: 'withheld' as const },
     updatedAt: timestampFromDate(new Date('2026-06-01T00:00:00.000Z')),
   };

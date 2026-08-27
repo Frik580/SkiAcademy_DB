@@ -1,4 +1,5 @@
 import type { BookingStatus } from '@ski-academy/shared-domain';
+import type { LessonBookingReadModelAuthorizedActions } from '@ski-academy/shared-domain';
 import type { LessonDifficulty } from '../../types';
 import type { ClientCallableCapability } from '../../lib/canonical/canonicalCommandClient';
 
@@ -26,6 +27,7 @@ export interface LessonBookingCabinetItem {
   readonly isLessonBooking: boolean;
   readonly difficulty?: LessonDifficulty;
   readonly cancellationReason?: string;
+  readonly authorizedActions?: LessonBookingReadModelAuthorizedActions;
 }
 
 export interface LessonBookingSubmissionIdentity {

@@ -122,6 +122,19 @@ export interface StudentCabinetShellProps {
   resortSnapshot?: StudentCabinetResortSnapshot;
   onToggleTemperatureUnit?: () => void;
   usersList?: UserProfile[];
+  collaborationProposals?: readonly import('../../../../features/booking-collaboration').BookingProposalCabinetItem[];
+  onAcceptProposal?: (
+    proposal: import('../../../../features/booking-collaboration').BookingProposalCabinetItem
+  ) => void | Promise<void>;
+  onDeclineProposal?: (
+    proposal: import('../../../../features/booking-collaboration').BookingProposalCabinetItem
+  ) => void | Promise<void>;
+  proposalSubmittingId?: string;
+  onWithdrawCancellation?: (
+    booking: import('./studentCabinetContracts').StudentBooking
+  ) => void | Promise<void>;
+  onRescheduleBooking?: (booking: import('./studentCabinetContracts').StudentBooking) => void;
+  collaborationSubmittingId?: string;
 }
 
 export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) => {
@@ -386,6 +399,13 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
           {...panelProps}
           unreviewedCompletedBookings={props.unreviewedCompletedBookings}
           onDismissReview={props.onDismissReview}
+          collaborationProposals={props.collaborationProposals}
+          onAcceptProposal={props.onAcceptProposal}
+          onDeclineProposal={props.onDeclineProposal}
+          proposalSubmittingId={props.proposalSubmittingId}
+          onWithdrawCancellation={props.onWithdrawCancellation}
+          onRescheduleBooking={props.onRescheduleBooking}
+          collaborationSubmittingId={props.collaborationSubmittingId}
         />
       )}
       {activeTab === 'courses' && (

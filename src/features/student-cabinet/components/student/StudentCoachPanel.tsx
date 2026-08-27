@@ -35,6 +35,7 @@ import {
 } from './coachUtils';
 import { useInstructorBookingMessages } from './useInstructorBookingMessages';
 import { LessonRecommendationsList } from '../LessonRecommendationsList';
+import { CoachParticipantAccessPanel } from '../../../../features/booking-collaboration';
 import {
   ChevronRight,
   ClipboardList,
@@ -240,6 +241,10 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                       lessonCount={lessonCount}
                       lastLesson={lastLesson}
                       onSelect={(section) => openCoachSection(ins.id, section)}
+                    />
+                    <CoachParticipantAccessPanel
+                      accountId={userProfile.uid}
+                      instructorId={ins.id}
                     />
                   </div>
                 );

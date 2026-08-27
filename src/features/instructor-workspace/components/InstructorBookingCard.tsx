@@ -11,6 +11,11 @@ import { StatusBadge } from '../../../ui/StatusBadge';
 import { ChatUnreadIndicator } from '../../chat/components/chat/ChatUnreadIndicator';
 import { canInstructorEditRecommendations } from '../../../features/student-cabinet/lessonRecommendations';
 import { LessonRecommendation } from '../../../types';
+import {
+  InstructorCollaborationPanel,
+  type useInstructorBookingCollaboration,
+} from '../../booking-collaboration';
+import { useBookingCollaborationStore } from '../../booking-collaboration/bookingCollaborationStore';
 
 interface InstructorBookingCardProps {
   booking: DisplayBooking;
@@ -32,6 +37,7 @@ interface InstructorBookingCardProps {
     existingComments?: Record<string, string>
   ) => void;
   onSaveRecommendations: (bookingId: string, items: LessonRecommendation[]) => Promise<void>;
+  collaboration: ReturnType<typeof useInstructorBookingCollaboration>;
 }
 
 export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
@@ -46,9 +52,14 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
   onUpdateStudentLevel,
   onOpenEval,
   onSaveRecommendations,
+  collaboration,
 }) => {
   const isCourse = !('userId' in booking);
   const b = booking;
+  const canonicalLesson = useBookingCollaborationStore((state) =>
+    isCourse ? undefined : state.instructorLessonBookings.get(b.id)
+  );
+  const participantId = canonicalLesson?.participantIds[0];
 
   const canEditRecs = canInstructorEditRecommendations(b.status);
 
@@ -321,6 +332,27 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
           )}
         </div>
       </div>
+
+      {!isCourse && participantId && (
+        <InstructorCollaborationPanel
+          proposals={collaboration.proposals}
+          changeRequests={collaboration.changeRequests}
+          bookingId={b.id}
+          participantId={participantId}
+          onCreateProposal={() =>
+            collaboration.setCreateProposalParticipant({
+              participantId,
+              label: individualBooking.clientName ?? 'Student',
+            })
+          }
+          onWithdrawProposal={collaboration.handleWithdrawProposal}
+          onCreateChangeRequest={(reason: string) =>
+            collaboration.handleCreateChangeRequest(b.id, reason)
+          }
+          onWithdrawChangeRequest={collaboration.handleWithdrawChangeRequest}
+          submittingId={collaboration.submittingId}
+        />
+      )}
     </div>
   );
 };

@@ -8,6 +8,7 @@ import {
   WalletLedgerEntry,
 } from '../../../types';
 import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
+import type { BookingProposalCabinetItem } from '../../../features/booking-collaboration';
 import { SkillConfig } from '../../../domain/achievements';
 import { AchievementsConfig } from '../../../domain/achievements';
 import {
@@ -55,6 +56,13 @@ export interface StudentCabinetProps {
   resortSnapshot?: StudentCabinetResortSnapshot;
   onToggleTemperatureUnit?: () => void;
   usersList?: UserProfile[];
+  collaborationProposals?: readonly BookingProposalCabinetItem[];
+  onAcceptProposal?: (proposal: BookingProposalCabinetItem) => void | Promise<void>;
+  onDeclineProposal?: (proposal: BookingProposalCabinetItem) => void | Promise<void>;
+  proposalSubmittingId?: string;
+  onWithdrawCancellation?: (booking: LessonBookingCabinetItem) => void | Promise<void>;
+  onRescheduleBooking?: (booking: LessonBookingCabinetItem) => void;
+  collaborationSubmittingId?: string;
 }
 
 export const StudentCabinet: React.FC<StudentCabinetProps> = ({
@@ -96,6 +104,13 @@ export const StudentCabinet: React.FC<StudentCabinetProps> = ({
   resortSnapshot,
   onToggleTemperatureUnit,
   usersList = [],
+  collaborationProposals = [],
+  onAcceptProposal,
+  onDeclineProposal,
+  proposalSubmittingId,
+  onWithdrawCancellation,
+  onRescheduleBooking,
+  collaborationSubmittingId,
 }) => {
   return (
     <StudentCabinetShell
@@ -139,6 +154,13 @@ export const StudentCabinet: React.FC<StudentCabinetProps> = ({
       resortSnapshot={resortSnapshot}
       onToggleTemperatureUnit={onToggleTemperatureUnit}
       usersList={usersList}
+      collaborationProposals={collaborationProposals}
+      onAcceptProposal={onAcceptProposal}
+      onDeclineProposal={onDeclineProposal}
+      proposalSubmittingId={proposalSubmittingId}
+      onWithdrawCancellation={onWithdrawCancellation}
+      onRescheduleBooking={onRescheduleBooking}
+      collaborationSubmittingId={collaborationSubmittingId}
     />
   );
 };

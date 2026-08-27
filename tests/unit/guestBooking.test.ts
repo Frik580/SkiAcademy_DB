@@ -50,6 +50,7 @@ describe('guest action token', () => {
       secret,
       payload: {
         version: 'guest-token:v1',
+        subjectKind: 'booking',
         bookingId,
         guestSubjectId,
         purpose: 'cancel_pending_reservation',
@@ -73,6 +74,7 @@ describe('guest action token', () => {
       secret,
       payload: {
         version: 'guest-token:v1',
+        subjectKind: 'booking',
         bookingId,
         guestSubjectId,
         purpose: 'cancel_pending_reservation',
@@ -97,6 +99,7 @@ describe('guest action token', () => {
       secret,
       payload: {
         version: 'guest-token:v1',
+        subjectKind: 'booking',
         bookingId,
         guestSubjectId,
         purpose: 'cancel_pending_reservation',
@@ -120,6 +123,7 @@ describe('guest action token', () => {
       secret,
       payload: {
         version: 'guest-token:v1',
+        subjectKind: 'booking',
         bookingId,
         guestSubjectId,
         purpose: 'cancel_pending_reservation',
@@ -165,6 +169,7 @@ describe('guest action credential signature verification', () => {
   function validSignature(): string {
     return signGuestActionCredential(secret, {
       version: 'guest-token:v1',
+      subjectKind: 'booking',
       bookingId,
       guestSubjectId,
       purpose: 'cancel_pending_reservation',
@@ -178,6 +183,7 @@ describe('guest action credential signature verification', () => {
       valid: true,
       payload: {
         version: 'guest-token:v1',
+        subjectKind: 'booking',
         bookingId,
         guestSubjectId,
         purpose: 'cancel_pending_reservation',
@@ -217,6 +223,7 @@ describe('guest action credential signature verification', () => {
     const otherBookingId = BookingIdSchema.parse('booking_guest_unit_02');
     const otherSignature = signGuestActionCredential(secret, {
       version: 'guest-token:v1',
+      subjectKind: 'booking',
       bookingId: otherBookingId,
       guestSubjectId: guestSubjectIdFromBookingId(otherBookingId),
       purpose: 'cancel_pending_reservation',
@@ -231,6 +238,7 @@ describe('guest action credential signature verification', () => {
       secret,
       payload: {
         version: 'guest-token:v1',
+        subjectKind: 'booking',
         bookingId,
         guestSubjectId,
         purpose: 'cancel_pending_reservation',

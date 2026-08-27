@@ -235,6 +235,7 @@ describe('guest pending cancellation command', () => {
     const nonce = createGuestActionTokenNonce();
     const signature = signGuestActionCredential(tokenSecret, {
       version: 'guest-token:v1',
+      subjectKind: 'booking',
       bookingId,
       guestSubjectId,
       purpose: 'cancel_pending_reservation',

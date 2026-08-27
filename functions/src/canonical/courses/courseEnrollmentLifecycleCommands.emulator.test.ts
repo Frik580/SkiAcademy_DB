@@ -97,7 +97,9 @@ function environment(at = '2026-01-01T00:00:00.000Z') {
 
 function createCommands(at = '2026-01-01T00:00:00.000Z') {
   const executor = createFirestoreCanonicalTransactionExecutor(firestore);
-  return createProductionCanonicalCommands(environment(at), executor);
+  return createProductionCanonicalCommands(environment(at), executor, {
+    guestActionTokenSecret: 'guest-course-lifecycle-emulator-secret',
+  });
 }
 
 function accountContext(

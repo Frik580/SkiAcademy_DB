@@ -823,3 +823,28 @@ describe('Instructor relationship access', () => {
     ).toBe(false);
   });
 });
+
+describe('parseAccountDocument', () => {
+  it('parses canonical account fields from a dual-purpose user profile document', async () => {
+    const { parseAccountDocument } = await import('@ski-academy/shared-domain');
+    const account = parseAccountDocument({
+      uid: 'account_dual_01',
+      email: 'student@example.com',
+      displayName: 'Student',
+      role: 'user',
+      avatarUrl: '',
+      balanceUSD: 500,
+      accountId: 'account_dual_01',
+      lifecycle: { status: 'active' },
+      ...metadata,
+    });
+
+    expect(account).toEqual(
+      AccountSchema.parse({
+        accountId: 'account_dual_01',
+        lifecycle: { status: 'active' },
+        ...metadata,
+      })
+    );
+  });
+});

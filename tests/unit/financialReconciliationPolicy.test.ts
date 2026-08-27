@@ -84,9 +84,7 @@ describe('financialReconciliationPolicy', () => {
     });
     const result = reconcilePaymentState({ payment, paymentEvents: [] });
     expect(result.hasMismatch).toBe(true);
-    expect(result.mismatches.some((m) => m.kind === 'impossible_refunded_exceeds_paid')).toBe(
-      true
-    );
+    expect(result.mismatches.some((m) => m.kind === 'impossible_refunded_exceeds_paid')).toBe(true);
     expect(result.mismatches.some((m) => m.kind === 'impossible_retained_mismatch')).toBe(true);
   });
 

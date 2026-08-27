@@ -44,7 +44,12 @@ describe('financialCorrectionPolicy', () => {
   it('rejects refund beyond retained', () => {
     expect(() =>
       planAdminRefundCorrection({
-        before: { ...baseFields, paidAmount: 10_000, retainedAmount: 10_000, settledAmount: 10_000 },
+        before: {
+          ...baseFields,
+          paidAmount: 10_000,
+          retainedAmount: 10_000,
+          settledAmount: 10_000,
+        },
         refundAmount: 20_000,
         destination: 'wallet',
         walletAccountId: 'account_fin_01',
@@ -179,11 +184,7 @@ describe('financialCorrectionPolicy', () => {
     });
 
     expect(() =>
-      assertFinancialCorrectionIssueSubjectMatchesPayment(
-        'correlation_resolve',
-        issue,
-        payment
-      )
+      assertFinancialCorrectionIssueSubjectMatchesPayment('correlation_resolve', issue, payment)
     ).toThrow();
   });
 });

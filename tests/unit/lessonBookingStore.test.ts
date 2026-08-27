@@ -70,15 +70,15 @@ describe('lessonBookingStore', () => {
     });
     expect(renderCount).toBe(1);
     act(() => {
-      useLessonBookingStore.getState().mergeItems(
-        new Map([['booking_a', cabinetItem('booking_a', 1)]])
-      );
+      useLessonBookingStore
+        .getState()
+        .mergeItems(new Map([['booking_a', cabinetItem('booking_a', 1)]]));
     });
     expect(renderCount).toBe(2);
     act(() => {
-      useLessonBookingStore.getState().mergeItems(
-        new Map([['booking_a', cabinetItem('booking_a', 1)]])
-      );
+      useLessonBookingStore
+        .getState()
+        .mergeItems(new Map([['booking_a', cabinetItem('booking_a', 1)]]));
     });
     expect(renderCount).toBe(2);
   });

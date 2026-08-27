@@ -46,4 +46,12 @@ describe('lessonBookingReadModel contracts', () => {
     const parsed = QueryLessonBookingReadModelsInputSchema.safeParse({ scope: 'guest_open' });
     expect(parsed.success).toBe(false);
   });
+
+  it('accepts optional idempotencyKey injected by callable transport', () => {
+    const parsed = QueryLessonBookingReadModelsInputSchema.safeParse({
+      scope: 'account_hot',
+      idempotencyKey: 'e2e-lesson-booking-read',
+    });
+    expect(parsed.success).toBe(true);
+  });
 });

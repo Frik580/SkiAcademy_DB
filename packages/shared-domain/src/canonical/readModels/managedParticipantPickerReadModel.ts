@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IdempotencyKeySchema } from '../commands/commandContext';
 import { AccountIdSchema, ParticipantIdSchema } from '../identifiers';
 
 export const ManagedParticipantPickerAgeProjectionSchema = z.discriminatedUnion('kind', [
@@ -34,7 +35,9 @@ export const ManagedParticipantPickerItemSchema = z
 export type ManagedParticipantPickerItem = z.output<typeof ManagedParticipantPickerItemSchema>;
 
 export const QueryManagedParticipantPickerReadModelsInputSchema = z
-  .object({})
+  .object({
+    idempotencyKey: IdempotencyKeySchema.optional(),
+  })
   .strict();
 
 export type QueryManagedParticipantPickerReadModelsInput = z.output<

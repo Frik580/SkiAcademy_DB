@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IdempotencyKeySchema } from '../commands/commandContext';
 import { BookingIdSchema, InstructorIdSchema, ParticipantIdSchema } from '../identifiers';
 import {
   BookingLifecycleStatusSchema,
@@ -138,6 +139,7 @@ export const QueryLessonBookingReadModelsInputSchema = z
     bookingId: BookingIdSchema.optional(),
     guestActionNonce: z.string().trim().min(1).max(256).optional(),
     guestActionSignature: z.string().trim().min(1).max(256).optional(),
+    idempotencyKey: IdempotencyKeySchema.optional(),
   })
   .strict()
   .superRefine((input, context) => {

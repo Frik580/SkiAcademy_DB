@@ -88,7 +88,9 @@ export const useLessonBookingStore = create<LessonBookingStoreState>((set) => ({
 }));
 
 /** Stable snapshot for Zustand selectors — do not sort/allocate in selector callbacks. */
-export function selectLessonBookingItems(state: LessonBookingStoreState): readonly LessonBookingCabinetItem[] {
+export function selectLessonBookingItems(
+  state: LessonBookingStoreState
+): readonly LessonBookingCabinetItem[] {
   return state.itemsList;
 }
 

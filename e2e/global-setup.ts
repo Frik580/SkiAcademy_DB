@@ -1,11 +1,17 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, setDoc } from 'firebase/firestore';
+
+const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
+const requireRoot = createRequire(join(rootDir, 'package.json'));
+const requireFunctions = createRequire(join(rootDir, 'functions/package.json'));
+const { AccountSchema, WalletSchema, timestampFromDate } = requireRoot('@ski-academy/shared-domain');
+const { initializeApp, getApps } = requireFunctions('firebase-admin/app') as typeof import('firebase-admin/app');
+const { getFirestore } = requireFunctions('firebase-admin/firestore') as typeof import('firebase-admin/firestore');
 
 export const E2E_PROJECT_ID = 'ski-school-8f3ca';
-export const AUTH_EMULATOR_HOST = 'http://127.0.0.1:9099';
+export const AUTH_EMULATOR_HOST = 'http://127.0.0.1:9299';
 export const FUNCTIONS_EMULATOR_HOST = '127.0.0.1';
 export const FUNCTIONS_EMULATOR_PORT = 5001;
 export const FUNCTIONS_REGION = 'us-central1';
@@ -25,7 +31,7 @@ export interface E2ERuntimeConfig {
   instructorName: string;
 }
 
-const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
+const E2E_WALLET_BALANCE_KZT = 500_000;
 
 const FUNCTIONS_READINESS_PROBE = 'optimizeImage';
 const FUNCTIONS_READINESS_TIMEOUT_MS = 60_000;
@@ -65,12 +71,12 @@ async function probeFunctionsCallable(functionName: string): Promise<boolean> {
 }
 
 async function probeFunctionsRuntimeReady(): Promise<boolean> {
-  const [httpReady, guestCallableReady, bookingCallableReady] = await Promise.all([
+  const [httpReady, guestCallableReady, authCallableReady] = await Promise.all([
     probeFunctionsHttp(FUNCTIONS_READINESS_PROBE),
-    probeFunctionsCallable('createGuestBooking'),
-    probeFunctionsCallable('createBooking'),
+    probeFunctionsCallable('executeGuestCanonicalCommand'),
+    probeFunctionsCallable('executeCanonicalCommand'),
   ]);
-  return httpReady && guestCallableReady && bookingCallableReady;
+  return httpReady && guestCallableReady && authCallableReady;
 }
 
 /**
@@ -129,6 +135,7 @@ async function createAuthUser(email: string, password: string): Promise<string> 
       body: JSON.stringify({ email, password, returnSecureToken: true }),
     }
   );
+
   const signInPayload = (await signInResponse.json()) as {
     localId?: string;
     error?: { message?: string };
@@ -143,57 +150,133 @@ async function createAuthUser(email: string, password: string): Promise<string> 
   return signInPayload.localId;
 }
 
+async function seedCanonicalFirestoreFixtures(studentUid: string): Promise<void> {
+  process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
+
+  if (getApps().length === 0) {
+    initializeApp({ projectId: E2E_PROJECT_ID });
+  }
+
+  const firestore = getFirestore();
+  const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+  const metadata = {
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'command_e2e_seed',
+      lastChangedByCommandId: 'command_e2e_seed',
+      correlationId: 'correlation_e2e_seed',
+    },
+  };
+
+  const participantId = `participant_e2e_${studentUid}`;
+  const participantManagementId = `management_e2e_${studentUid}`;
+
+  await firestore.doc(`users/${studentUid}`).set({
+    ...AccountSchema.parse({
+      accountId: studentUid,
+      lifecycle: { status: 'active' },
+      ...metadata,
+    }),
+    uid: studentUid,
+    email: E2E_STUDENT_EMAIL,
+    displayName: 'E2E Student',
+    role: 'user',
+    avatarUrl: '',
+    balanceUSD: 500,
+  });
+
+  await firestore.doc(`users/${studentUid}/wallet/state`).set(
+    WalletSchema.parse({
+      accountId: studentUid,
+      currency: 'KZT',
+      balance: E2E_WALLET_BALANCE_KZT,
+      revision: 1,
+      eventRevision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+    })
+  );
+
+  await firestore.doc(`participants/${participantId}`).set({
+    participantId,
+    displayName: 'E2E Student',
+    age: { kind: 'age_years', years: 18 },
+    skillLevel: 'beginner',
+    discipline: 'ski',
+    management: {
+      kind: 'managed',
+      participantManagementId,
+    },
+    lifecycle: { status: 'active' },
+    ...metadata,
+  });
+
+  await firestore.doc(`participant_management/${participantManagementId}`).set({
+    participantManagementId,
+    participantId,
+    accountId: studentUid,
+    role: 'owner',
+    authority: 'parent_guardian',
+    status: 'active',
+    ...metadata,
+  });
+
+  await firestore.doc(`instructors/${E2E_INSTRUCTOR_ID}`).set({
+    id: E2E_INSTRUCTOR_ID,
+    name: E2E_INSTRUCTOR_NAME,
+    specialty: 'ski',
+    pricePerHour: 50,
+    pricePerHourKZT: 12_000,
+    bio: 'Playwright end-to-end instructor fixture.',
+    avatarUrl: 'https://example.com/e2e-instructor.jpg',
+    isAvailable: true,
+    rating: 5,
+    reviewsCount: 0,
+    languages: ['English'],
+    experienceYears: 5,
+  });
+
+  await firestore.doc('settings/availability_slots_migration').set({ complete: true });
+  await firestore.doc('settings/resort_config').set({
+    slides: [],
+    slideIntervalSeconds: 6,
+    slidesRandomOrder: false,
+  });
+
+  await firestore.doc('users/owner-1').set({
+    uid: 'owner-1',
+    email: 'owner@example.com',
+    displayName: 'owner-1',
+    role: 'admin',
+    systemRole: 'owner',
+    avatarUrl: '',
+    balanceUSD: 0,
+  });
+
+  const managementSnapshot = await firestore
+    .collection('participant_management')
+    .where('accountId', '==', studentUid)
+    .get();
+  if (managementSnapshot.empty) {
+    throw new Error('E2E participant_management fixture was not written to Firestore.');
+  }
+
+  const { queryManagedParticipantPickerReadModels } = requireFunctions(
+    join(rootDir, 'functions/lib/canonical/readModels/managedParticipantPickerReadModels.js')
+  );
+  const pickerItems = await queryManagedParticipantPickerReadModels(firestore, studentUid);
+  if (pickerItems.items.length === 0) {
+    throw new Error(
+      `E2E managed participant picker read model returned no items for account ${studentUid}.`
+    );
+  }
+}
+
 export default async function globalSetup(): Promise<void> {
   const studentUid = await createAuthUser(E2E_STUDENT_EMAIL, E2E_STUDENT_PASSWORD);
-
-  const testEnv = await initializeTestEnvironment({
-    projectId: E2E_PROJECT_ID,
-    firestore: {
-      rules: readFileSync(join(rootDir, 'firestore.rules'), 'utf8'),
-    },
-  });
-
-  await testEnv.withSecurityRulesDisabled(async (context) => {
-    const db = context.firestore();
-    await setDoc(doc(db, 'users', studentUid), {
-      uid: studentUid,
-      email: E2E_STUDENT_EMAIL,
-      displayName: 'E2E Student',
-      role: 'user',
-      avatarUrl: '',
-      balanceUSD: 500,
-    });
-    await setDoc(doc(db, 'instructors', E2E_INSTRUCTOR_ID), {
-      id: E2E_INSTRUCTOR_ID,
-      name: E2E_INSTRUCTOR_NAME,
-      specialty: 'ski',
-      pricePerHour: 50,
-      bio: 'Playwright end-to-end instructor fixture.',
-      avatarUrl: 'https://example.com/e2e-instructor.jpg',
-      isAvailable: true,
-      rating: 5,
-      reviewsCount: 0,
-      languages: ['English'],
-      experienceYears: 5,
-    });
-    await setDoc(doc(db, 'settings', 'availability_slots_migration'), { complete: true });
-    await setDoc(doc(db, 'settings', 'resort_config'), {
-      slides: [],
-      slideIntervalSeconds: 6,
-      slidesRandomOrder: false,
-    });
-    await setDoc(doc(db, 'users', 'owner-1'), {
-      uid: 'owner-1',
-      email: 'owner@example.com',
-      displayName: 'owner-1',
-      role: 'admin',
-      systemRole: 'owner',
-      avatarUrl: '',
-      balanceUSD: 0,
-    });
-  });
-
-  await testEnv.cleanup();
+  await seedCanonicalFirestoreFixtures(studentUid);
 
   const runtimeConfig: E2ERuntimeConfig = {
     projectId: E2E_PROJECT_ID,

@@ -17,14 +17,10 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
   t,
 }) => {
   if (loading) {
-    return (
-      <p className="text-xs text-[var(--ink-dim)]">{t('loading')}</p>
-    );
+    return <p className="text-xs text-[var(--ink-dim)]">{t('loading')}</p>;
   }
   if (participants.length === 0) {
-    return (
-      <p className="text-xs text-[var(--ink-dim)]">{t('bookingSelectParticipant')}</p>
-    );
+    return <p className="text-xs text-[var(--ink-dim)]">{t('bookingSelectParticipant')}</p>;
   }
 
   return (

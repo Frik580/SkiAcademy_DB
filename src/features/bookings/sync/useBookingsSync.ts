@@ -21,7 +21,11 @@ import { useUiStore } from '../../shell/uiStore';
 import { useBookingsStore } from '../bookingsStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
 import { getBookingHistoryPage, type BookingHistoryScope } from '../bookingHistoryService';
-import { getRealtimeBookingsQuery, getStudentCourseBookingsQuery, type RealtimeBookingsScope } from '../bookingRealtimeService';
+import {
+  getRealtimeBookingsQuery,
+  getStudentCourseBookingsQuery,
+  type RealtimeBookingsScope,
+} from '../bookingRealtimeService';
 
 export const useBookingsSync = () => {
   const {
@@ -195,7 +199,9 @@ export const useBookingsSync = () => {
     }
 
     const isCustomerCanonicalLessonPath =
-      shouldUseCanonicalLessonBookings && userProfile?.role === 'user' && !userProfile?.instructorId;
+      shouldUseCanonicalLessonBookings &&
+      userProfile?.role === 'user' &&
+      !userProfile?.instructorId;
 
     if (isCustomerCanonicalLessonPath) {
       useBookingsStore.getState().setBookingsLoaded(true);

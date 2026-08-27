@@ -23,6 +23,7 @@ import {
   timestampFromDate,
   type CanonicalTimestamp,
 } from './primitives';
+import { normalizeFirestoreDocument } from './firestoreSerialization';
 
 const PersistedAggregateRevisionSchema = AggregateRevisionSchema.refine(
   (revision) => revision >= 1,
@@ -123,6 +124,44 @@ export const AccountSchema = z
   });
 
 export type Account = Readonly<z.output<typeof AccountSchema>>;
+
+const ACCOUNT_DOCUMENT_FIELD_KEYS = [
+  'accountId',
+  'lifecycle',
+  'revision',
+  'createdAt',
+  'updatedAt',
+  'audit',
+] as const;
+
+/** Extract canonical Account fields from a dual-purpose `/users/{accountId}` document. */
+export function pickAccountDocumentFields(
+  data: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined {
+  const normalized = normalizeFirestoreDocument(data);
+  if (!normalized) {
+    return undefined;
+  }
+
+  const picked: Record<string, unknown> = {};
+  for (const key of ACCOUNT_DOCUMENT_FIELD_KEYS) {
+    if (key in normalized) {
+      picked[key] = normalized[key];
+    }
+  }
+  return picked;
+}
+
+export function parseAccountDocument(
+  data: Record<string, unknown> | undefined
+): Account | undefined {
+  const picked = pickAccountDocumentFields(data);
+  if (!picked) {
+    return undefined;
+  }
+  const parsed = AccountSchema.safeParse(picked);
+  return parsed.success ? parsed.data : undefined;
+}
 
 function isCalendarDate(value: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);

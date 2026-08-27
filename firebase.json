@@ -1,87 +1,102 @@
 {
-  "firestore": {
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
-  },
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "default",
-      "ignore": ["node_modules", ".git", "firebase-debug.log", "firebase-debug.*.log", "*.local"],
-      "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"]
-    }
-  ],
-  "storage": {
-    "rules": "storage.rules"
-  },
-  "emulators": {
-    "auth": {
-      "host": "127.0.0.1",
-      "port": 9099
-    },
-    "functions": {
-      "host": "127.0.0.1",
-      "port": 5001
-    },
-    "firestore": {
-      "host": "127.0.0.1",
-      "port": 8080
-    },
-    "storage": {
-      "host": "127.0.0.1",
-      "port": 9199
-    },
-    "ui": {
-      "enabled": false,
-      "host": "127.0.0.1",
-      "port": 4000
-    },
-    "singleProjectMode": true
-  },
-  "hosting": {
-    "public": "dist",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "headers": [
-      {
-        "source": "/index.html",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate"
-          }
-        ]
-      },
-      {
-        "source": "/assets/**",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=31536000, immutable"
-          }
-        ]
-      },
-      {
-        "source": "/api/img",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=604800, s-maxage=604800"
-          }
-        ]
-      }
-    ],
-    "rewrites": [
-      {
-        "source": "/api/img",
-        "function": {
-          "functionId": "optimizeImage",
-          "region": "us-central1"
-        }
-      },
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ]
-  }
+    "firestore":  {
+                      "rules":  "firestore.rules",
+                      "indexes":  "firestore.indexes.json"
+                  },
+    "functions":  [
+                      {
+                          "source":  "functions",
+                          "codebase":  "default",
+                          "ignore":  [
+                                         "node_modules",
+                                         ".git",
+                                         "firebase-debug.log",
+                                         "firebase-debug.*.log",
+                                         "*.local"
+                                     ],
+                          "predeploy":  [
+                                            "npm --prefix \"$RESOURCE_DIR\" run build"
+                                        ]
+                      }
+                  ],
+    "storage":  {
+                    "rules":  "storage.rules"
+                },
+    "emulators":  {
+                      "auth":  {
+                                   "host":  "127.0.0.1",
+                                   "port":  9299
+                               },
+                      "functions":  {
+                                        "host":  "127.0.0.1",
+                                        "port":  5001,
+                                        "env":  {
+                                                    "GUEST_ACTION_TOKEN_SECRET":  "e2e-guest-action-token-secret"
+                                                }
+                                    },
+                      "firestore":  {
+                                        "host":  "127.0.0.1",
+                                        "port":  8080
+                                    },
+                      "storage":  {
+                                      "host":  "127.0.0.1",
+                                      "port":  9199
+                                  },
+                      "ui":  {
+                                 "enabled":  false,
+                                 "host":  "127.0.0.1",
+                                 "port":  4000
+                             },
+                      "singleProjectMode":  true
+                  },
+    "hosting":  {
+                    "public":  "dist",
+                    "ignore":  [
+                                   "firebase.json",
+                                   "**/.*",
+                                   "**/node_modules/**"
+                               ],
+                    "headers":  [
+                                    {
+                                        "source":  "/index.html",
+                                        "headers":  [
+                                                        {
+                                                            "key":  "Cache-Control",
+                                                            "value":  "no-cache, no-store, must-revalidate"
+                                                        }
+                                                    ]
+                                    },
+                                    {
+                                        "source":  "/assets/**",
+                                        "headers":  [
+                                                        {
+                                                            "key":  "Cache-Control",
+                                                            "value":  "public, max-age=31536000, immutable"
+                                                        }
+                                                    ]
+                                    },
+                                    {
+                                        "source":  "/api/img",
+                                        "headers":  [
+                                                        {
+                                                            "key":  "Cache-Control",
+                                                            "value":  "public, max-age=604800, s-maxage=604800"
+                                                        }
+                                                    ]
+                                    }
+                                ],
+                    "rewrites":  [
+                                     {
+                                         "source":  "/api/img",
+                                         "function":  {
+                                                          "functionId":  "optimizeImage",
+                                                          "region":  "us-central1"
+                                                      }
+                                     },
+                                     {
+                                         "source":  "**",
+                                         "destination":  "/index.html"
+                                     }
+                                 ]
+                }
 }

@@ -65,7 +65,10 @@ export const StudentTrainingPanel: React.FC<StudentTrainingPanelInput> = ({ onGo
 type PanelProps = StudentCabinetPanelInput;
 
 export const StudentCalendarPanel: React.FC<
-  PanelProps & { unreviewedCompletedBookings: import('./studentCabinetContracts').StudentBooking[]; onDismissReview?: (id: string) => void }
+  PanelProps & {
+    unreviewedCompletedBookings: import('./studentCabinetContracts').StudentBooking[];
+    onDismissReview?: (id: string) => void;
+  }
 > = ({
   userProfile,
   bookings,
@@ -205,8 +208,8 @@ export const StudentInstructorsPanel: React.FC<
   const { t, language } = useStudentCabinetTranslations();
   const lang = language === 'ru' ? 'ru' : 'en';
   const instructorBookings = bookings as unknown as Booking[];
-  const myInstructors = getMyInstructors(instructorBookings, instructors, userProfile.uid).map((ins) =>
-    translateInstructor(ins, lang)
+  const myInstructors = getMyInstructors(instructorBookings, instructors, userProfile.uid).map(
+    (ins) => translateInstructor(ins, lang)
   );
   const recommendedInstructors = getRecommendedInstructors(
     userProfile,

@@ -60,10 +60,8 @@ export const useBookingModal = ({
   const { createAuthenticatedBooking, createGuestBooking } = useLessonBookingCommands(
     userProfile?.uid
   );
-  const {
-    participants: managedParticipants,
-    loading: managedParticipantsLoading,
-  } = useManagedParticipants(Boolean(userProfile?.uid));
+  const { participants: managedParticipants, loading: managedParticipantsLoading } =
+    useManagedParticipants(Boolean(userProfile?.uid));
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
 
   const [activeInstructor, setActiveInstructor] = useState<Instructor | null>(instructor);
@@ -369,8 +367,7 @@ export const useBookingModal = ({
     isSubmittingRef.current = true;
     setIsSubmitting(true);
 
-    const bookingId =
-      bookingAttemptIdRef.current ?? createLogicalBookingAttemptId();
+    const bookingId = bookingAttemptIdRef.current ?? createLogicalBookingAttemptId();
     bookingAttemptIdRef.current = bookingId;
     const participantId = deriveGuestParticipantIdForBooking(bookingId);
 
@@ -456,8 +453,7 @@ export const useBookingModal = ({
     }
 
     submitTimerRef.current = setTimeout(async () => {
-      const bookingId =
-        bookingAttemptIdRef.current ?? createLogicalBookingAttemptId();
+      const bookingId = bookingAttemptIdRef.current ?? createLogicalBookingAttemptId();
       bookingAttemptIdRef.current = bookingId;
 
       const selectedAuthorities = managedParticipants
@@ -487,8 +483,8 @@ export const useBookingModal = ({
         onClose();
       } catch (err) {
         const presented = presentCanonicalCommandErrorWithContext(err, {
-        t: t as (key: string) => string,
-      });
+          t: t as (key: string) => string,
+        });
         addNotification('error', t('bookingError'), presented.message);
       } finally {
         isSubmittingRef.current = false;

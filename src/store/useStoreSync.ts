@@ -17,9 +17,7 @@ export const useStoreSync = () => {
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const userProfile = useProfileStore((state) => state.userProfile);
   const isCustomerCanonicalLessonPath =
-    shouldUseCanonicalLessonBookings &&
-    userProfile?.role === 'user' &&
-    !userProfile?.instructorId;
+    shouldUseCanonicalLessonBookings && userProfile?.role === 'user' && !userProfile?.instructorId;
 
   useSessionSync();
   useCurrentUserProfileSync();

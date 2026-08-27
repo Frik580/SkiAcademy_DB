@@ -128,7 +128,9 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
               <span>{t('bookingAccessRestricted')}</span>
             </div>
           ) : (
-            <p className="text-xs text-[var(--ink-dim)]">Payment is confirmed server-side when you submit.</p>
+            <p className="text-xs text-[var(--ink-dim)]">
+              Payment is confirmed server-side when you submit.
+            </p>
           )}
 
           <button

@@ -19,7 +19,7 @@ function getEmulatorPort(value: string | undefined, fallback: number, name: stri
 const emulatorPorts = {
   auth: getEmulatorPort(
     import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_PORT,
-    9099,
+    9299,
     'auth emulator port'
   ),
   firestore: getEmulatorPort(

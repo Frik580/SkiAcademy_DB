@@ -8,10 +8,7 @@ export {
   resolveStudentBottomNavTab,
   type StudentCabinetTab,
 } from './studentCabinetNavigation';
-export {
-  filterBookingsByScope,
-  type BookingListScope,
-} from './studentBookingOverview';
+export { filterBookingsByScope, type BookingListScope } from './studentBookingOverview';
 export {
   getTodayTaskBookingContext,
   type TodayTaskBookingContext,

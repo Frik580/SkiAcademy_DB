@@ -382,9 +382,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                           )}
                         </h4>
                         <p className="text-xs text-[var(--ink-dim)]">
-                          {b.difficulty
-                            ? `${getDifficultyLabel(b.difficulty, language)} · `
-                            : ''}
+                          {b.difficulty ? `${getDifficultyLabel(b.difficulty, language)} · ` : ''}
                           {b.durationHours} {t('hrSession')}
                           {b.partyKind === 'family_group' && b.participantNames.length > 1
                             ? ` · ${b.participantNames.length}`
@@ -436,10 +434,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
 
                         {b.status !== 'cancelled' && (
                           <BookingCallCoachButton
-                            booking={cabinetItemToLegacyPresentation(
-                              b,
-                              usersList[0]?.uid ?? ''
-                            )}
+                            booking={cabinetItemToLegacyPresentation(b, usersList[0]?.uid ?? '')}
                             courses={courses}
                             instructors={instructors}
                             usersList={usersList}

@@ -701,6 +701,8 @@ export const translations = {
     bookingSignInDesc: 'Sign in to schedule elite instructors and track training sessions.',
     bookingSuspendedDesc: 'Your student account is suspended. You cannot book training sessions.',
     bookingSelectValidDate: 'Please select a valid coaching date.',
+    bookingSelectParticipant: 'Select a participant to book for.',
+    bookingParticipantsLabel: 'Participants',
     bookingBalanceTooLow: 'Your account balance is too low. Contact the resort admin to top up.',
     instructorUnavailable: 'Instructor Unavailable',
     instructorNotAccepting: 'is currently not accepting new bookings.',
@@ -2333,6 +2335,8 @@ export const translations = {
     bookingSignInDesc: 'Войдите, чтобы бронировать инструкторов и видеть расписание.',
     bookingSuspendedDesc: 'Ваш аккаунт ученика приостановлен. Вы не можете бронировать занятия.',
     bookingSelectValidDate: 'Пожалуйста, выберите дату занятия.',
+    bookingSelectParticipant: 'Выберите участника для бронирования.',
+    bookingParticipantsLabel: 'Участники',
     bookingBalanceTooLow:
       'Недостаточно средств. Обратитесь к администратору курорта для пополнения баланса.',
     instructorUnavailable: 'Инструктор недоступен',

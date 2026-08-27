@@ -31,7 +31,9 @@ const baseFields = {
 
 function assertPaymentEquations(fields: typeof baseFields): void {
   expect(fields.retainedAmount).toBe(fields.paidAmount - fields.refundedAmount);
-  expect(fields.price).toBe(fields.settledAmount + fields.writtenOffAmount + fields.outstandingAmount);
+  expect(fields.price).toBe(
+    fields.settledAmount + fields.writtenOffAmount + fields.outstandingAmount
+  );
   const issues: string[] = [];
   validatePaymentAccounting(fields, {
     addIssue: (issue) => {
@@ -189,7 +191,9 @@ describe('financial conservation', () => {
       },
     ];
     const folded = foldPaymentAccountingFromEvents(100_000, events);
-    expect(folded.retainedAmount).toBe(deriveRetainedAmount(folded.paidAmount, folded.refundedAmount));
+    expect(folded.retainedAmount).toBe(
+      deriveRetainedAmount(folded.paidAmount, folded.refundedAmount)
+    );
     assertPaymentEquations(folded);
 
     const payment = PaymentSchema.parse({

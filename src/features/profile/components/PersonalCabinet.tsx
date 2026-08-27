@@ -223,7 +223,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             }}
             hasUnreadChat={hasUnreadChat}
             onOpenLesson={(booking) => setLessonDetailsId(booking.id)}
-            onWriteReview={(booking) => reviewFlow.openReview(cabinetItemToLegacyPresentation(booking, userProfile.uid))}
+            onWriteReview={(booking) =>
+              reviewFlow.openReview(cabinetItemToLegacyPresentation(booking, userProfile.uid))
+            }
             onToggleRecommendation={onToggleRecommendation}
             onToggleSkillToday={onToggleSkillToday}
             onPinSkillsToday={onPinSkillsToday}

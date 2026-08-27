@@ -1,5 +1,4 @@
 import {
-  AccountSchema,
   InstructorRelationshipSchema,
   ParticipantBlockSchema,
   ParticipantManagementActiveOwnerGuardSchema,
@@ -7,6 +6,7 @@ import {
   ParticipantSchema,
   canonicalPaths,
   normalizeFirestoreDocument,
+  parseAccountDocument,
   readAggregateRevision,
   type Account,
   type InstructorRelationship,
@@ -104,10 +104,7 @@ export function parseParticipantBlock(
 }
 
 export function parseAccount(data: Record<string, unknown> | undefined): Account | undefined {
-  const normalized = normalizeFirestoreDocument(data);
-  if (!normalized) return undefined;
-  const parsed = AccountSchema.safeParse(normalized);
-  return parsed.success ? parsed.data : undefined;
+  return parseAccountDocument(data);
 }
 
 export function readRevision(data: Record<string, unknown> | undefined): number | undefined {

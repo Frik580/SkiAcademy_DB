@@ -3,6 +3,7 @@ import {
   AccountIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
+  QueryManagedParticipantPickerReadModelsInputSchema,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
@@ -125,6 +126,13 @@ function createFixtureFirestore(): Firestore {
 }
 
 describe('managed participant picker read models', () => {
+  it('accepts callable transport idempotency keys on the read-model input seam', () => {
+    const parsed = QueryManagedParticipantPickerReadModelsInputSchema.safeParse({
+      idempotencyKey: 'read:managed_participant_picker',
+    });
+    expect(parsed.success).toBe(true);
+  });
+
   it('returns only participants managed by the authenticated account', async () => {
     const result = await queryManagedParticipantPickerReadModels(
       createFixtureFirestore(),

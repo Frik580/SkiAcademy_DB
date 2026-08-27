@@ -68,7 +68,7 @@ export async function setupCallableIntegrationEnvironment() {
   const db = getFirestore(clientApp);
   const functions = getFunctions(clientApp, 'us-central1');
 
-  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectAuthEmulator(auth, 'http://127.0.0.1:9299', { disableWarnings: true });
   connectFirestoreEmulator(db, '127.0.0.1', 8080);
   connectFunctionsEmulator(functions, '127.0.0.1', 5001);
 }

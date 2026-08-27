@@ -16,7 +16,8 @@ import type {
   TodayTask,
 } from './studentCabinetUtils';
 
-export type StudentBooking = import('../../../../features/lesson-bookings/lessonBookingContracts').LessonBookingCabinetItem;
+export type StudentBooking =
+  import('../../../../features/lesson-bookings/lessonBookingContracts').LessonBookingCabinetItem;
 export type StudentCourse = Course;
 export type StudentInstructor = Instructor;
 export type StudentProfile = UserProfile;

@@ -110,13 +110,7 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
         throw error;
       }
     },
-    [
-      addNotification,
-      bookings,
-      refetchAccountHotBookings,
-      requestCancellation,
-      t,
-    ]
+    [addNotification, bookings, refetchAccountHotBookings, requestCancellation, t]
   );
 
   if (tab && !CABINET_TABS.includes(tab as (typeof CABINET_TABS)[number])) {

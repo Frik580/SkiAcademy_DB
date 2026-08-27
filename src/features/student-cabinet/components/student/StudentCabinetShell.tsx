@@ -379,10 +379,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
         />
       )}
       {activeTab === 'development' && (
-        <StudentDevelopmentPanel
-          {...panelProps}
-          onToggleSkillToday={props.onToggleSkillToday}
-        />
+        <StudentDevelopmentPanel {...panelProps} onToggleSkillToday={props.onToggleSkillToday} />
       )}
       {activeTab === 'calendar' && (
         <StudentCalendarPanel
@@ -428,11 +425,17 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       {activeTab === 'profile_wallet' && <StudentProfileWalletPanel {...legacyPanelProps} />}
       {activeTab === 'profile_journey' && <StudentProfileJourneyPanel {...legacyPanelProps} />}
       {activeTab === 'profile_skills' && <StudentProfileSkillsPanel {...legacyPanelProps} />}
-      {activeTab === 'profile_certificates' && <StudentProfileCertificatesPanel {...legacyPanelProps} />}
-      {activeTab === 'profile_achievements' && <StudentProfileAchievementsPanel {...legacyPanelProps} />}
+      {activeTab === 'profile_certificates' && (
+        <StudentProfileCertificatesPanel {...legacyPanelProps} />
+      )}
+      {activeTab === 'profile_achievements' && (
+        <StudentProfileAchievementsPanel {...legacyPanelProps} />
+      )}
       {activeTab === 'profile_season' && <StudentProfileSeasonPanel {...legacyPanelProps} />}
       {activeTab === 'profile_videos' && <StudentProfileVideosPanel {...legacyPanelProps} />}
-      {activeTab === 'profile_preferences' && <StudentProfilePreferencesPanel {...legacyPanelProps} />}
+      {activeTab === 'profile_preferences' && (
+        <StudentProfilePreferencesPanel {...legacyPanelProps} />
+      )}
 
       <StudentCabinetTabBar
         activeTab={activeTab}

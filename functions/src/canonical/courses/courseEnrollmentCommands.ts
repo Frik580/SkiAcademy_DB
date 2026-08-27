@@ -16,7 +16,12 @@ import {
   participantBlockIdFromDirection,
   courseScheduleIsComplete,
   courseSeatClaimInterval,
+  createGuestActionTokenNonce,
+  GUEST_ACTION_TOKEN_VERSION,
   guestActorRef,
+  guestSubjectIdFromCourseEnrollmentId,
+  signGuestCourseEnrollmentActionCredential,
+  type GuestCourseEnrollmentLinkCredential,
   isCourseEnrollmentAllowedBeforeStart,
   isPaymentFullyFundedForService,
   monetaryEventIdFromCommandEffect,
@@ -98,6 +103,7 @@ import {
   type CourseEnrollmentCreationAuthorization,
 } from './courseEnrollmentAuthorization';
 import { buildCreateCourseEnrollmentsAuditPlan } from './courseEnrollmentAudit';
+import type { GuestCourseEnrollmentCommandEnvironment } from './guestCourseEnrollmentLifecycle';
 import {
   COURSE_ENROLLMENT_PLANNING_ESTIMATES,
   courseEnrollmentPath,
@@ -240,7 +246,7 @@ function assertNoBlocksForCourseDays(
 
 function createCourseEnrollmentsHandler(
   envelope: CommandEnvelope<'create_course_enrollments'>,
-  environment: CommandExecutionEnvironment,
+  environment: GuestCourseEnrollmentCommandEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'create_course_enrollments'>> {
   const metadata = metadataFromEnvelope(envelope);
@@ -277,6 +283,7 @@ function createCourseEnrollmentsHandler(
   let stageMonetaryEvents = false;
   let stagedEventIds: ReturnType<typeof monetaryEventIdFromCommandEffect>[] = [];
   let underfunded = false;
+  const guestLinkCredentials: GuestCourseEnrollmentLinkCredential[] = [];
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_course_enrollments'> = {
     read: async (session) => {
@@ -733,13 +740,7 @@ function createCourseEnrollmentsHandler(
               ? {
                   bookingOrigin: 'guest' as const,
                   bookedBy: guestActorRef(
-                    envelope.context.actor.kind === 'guest'
-                      ? envelope.context.actor.guestSubjectId
-                      : (() => {
-                          throw new CanonicalCommandError('forbidden', {
-                            correlationId: envelope.context.correlationId,
-                          });
-                        })()
+                    guestSubjectIdFromCourseEnrollmentId(planned.enrollmentId)
                   ),
                 }
               : {
@@ -814,6 +815,34 @@ function createCourseEnrollmentsHandler(
           for (const dayClaimPlan of planned.dayClaimPlans) {
             commitResourceClaimPlan(session, dayClaimPlan, claimMetadata);
           }
+
+          if (mode === 'guest') {
+            const guestSubjectId = guestSubjectIdFromCourseEnrollmentId(planned.enrollmentId);
+            const nonce = createGuestActionTokenNonce();
+            const expiresAt = courseRecord.scheduleProjection.finalCourseDayEndsAt;
+            const secret = environment.guestActionTokenSecret;
+            if (!secret) {
+              throw new CanonicalCommandError('unavailable', {
+                correlationId: envelope.context.correlationId,
+              });
+            }
+            const signature = signGuestCourseEnrollmentActionCredential(secret, {
+              version: GUEST_ACTION_TOKEN_VERSION,
+              subjectKind: 'course_enrollment',
+              enrollmentId: planned.enrollmentId,
+              guestSubjectId,
+              purpose: 'link_guest_course_enrollment',
+              expiresAt,
+              nonce,
+            });
+            guestLinkCredentials.push({
+              enrollmentId: planned.enrollmentId,
+              guestSubjectId,
+              nonce,
+              signature,
+              expiresAt,
+            });
+          }
         }
 
         if (includeWalletEffect && payerAccountId) {
@@ -874,7 +903,11 @@ function createCourseEnrollmentsHandler(
           }
         }
 
-        return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+        return commandSuccessResult(
+          envelope.kind,
+          envelope.context.correlationId,
+          mode === 'guest' ? { guestLinkCredentials } : undefined
+        );
       } catch (error) {
         mapFinanceDomainError(envelope, error);
       }
@@ -894,10 +927,18 @@ function createCourseEnrollmentsHandler(
 }
 
 export function createCourseEnrollmentCommandHandlers(
-  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'],
+  guestActionTokenSecret?: string
 ): Pick<CommandHandlerMap, 'create_course_enrollments'> {
+  const environmentBase = (
+    environment: CommandExecutionEnvironment
+  ): GuestCourseEnrollmentCommandEnvironment => ({
+    ...environment,
+    guestActionTokenSecret,
+  });
+
   return {
     create_course_enrollments: (envelope, environment) =>
-      createCourseEnrollmentsHandler(envelope, environment, executor),
+      createCourseEnrollmentsHandler(envelope, environmentBase(environment), executor),
   };
 }

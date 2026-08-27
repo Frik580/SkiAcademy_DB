@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { CorrelationIdSchema } from '../identifiers';
 import type { CommandKind } from './commandKinds';
+import { CommandResultPayloadSchemaByKind, type CommandResultPayloadForKind } from './commandResultPayloads';
 export declare const CommandSuccessResultSchema: z.ZodObject<{
     status: z.ZodLiteral<"success">;
     kind: z.ZodEnum<{
@@ -51,19 +52,25 @@ export declare const CommandSuccessResultSchema: z.ZodObject<{
         create_course_day: "create_course_day";
         reassign_course_day_instructor: "reassign_course_day_instructor";
         reconcile_course_enrollment: "reconcile_course_enrollment";
+        link_guest_course_enrollment_to_account: "link_guest_course_enrollment_to_account";
     }>;
     correlationId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"correlation">, string>>;
+    payload: z.ZodOptional<z.ZodUnknown>;
 }, z.core.$strict>;
 export type CommandSuccessResult<Kind extends CommandKind = CommandKind> = Readonly<{
     status: 'success';
     kind: Kind;
     correlationId: z.output<typeof CorrelationIdSchema>;
-}>;
+}> & (Kind extends keyof typeof CommandResultPayloadSchemaByKind ? Readonly<{
+    payload?: CommandResultPayloadForKind<Kind>;
+}> : Readonly<{
+    payload?: never;
+}>);
 export type CommandResult<Kind extends CommandKind = CommandKind> = CommandSuccessResult<Kind> | Readonly<{
     status: 'error';
     kind: Kind;
     correlationId: z.output<typeof CorrelationIdSchema>;
     error: import('../errors').CommandErrorTransport;
 }>;
-export declare function commandSuccessResult<Kind extends CommandKind>(kind: Kind, correlationId: z.output<typeof CorrelationIdSchema>): CommandSuccessResult<Kind>;
+export declare function commandSuccessResult<Kind extends CommandKind>(kind: Kind, correlationId: z.output<typeof CorrelationIdSchema>, payload?: Kind extends keyof typeof CommandResultPayloadSchemaByKind ? CommandResultPayloadForKind<Kind> : never): CommandSuccessResult<Kind>;
 export declare function commandErrorResult<Kind extends CommandKind>(kind: Kind, correlationId: z.output<typeof CorrelationIdSchema>, error: import('../errors').CommandErrorTransport): CommandResult<Kind>;

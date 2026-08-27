@@ -12,6 +12,7 @@ exports.courseEnrollmentIdFromCommandParticipant = courseEnrollmentIdFromCommand
 exports.paymentIdFromCourseEnrollmentId = paymentIdFromCourseEnrollmentId;
 exports.courseEnrollmentSeatOccurrenceId = courseEnrollmentSeatOccurrenceId;
 exports.guestSubjectIdFromBookingId = guestSubjectIdFromBookingId;
+exports.guestSubjectIdFromCourseEnrollmentId = guestSubjectIdFromCourseEnrollmentId;
 exports.participantManagementIdFromGuestLink = participantManagementIdFromGuestLink;
 exports.bookingOccurrenceIdFromScheduleRevision = bookingOccurrenceIdFromScheduleRevision;
 exports.initialBookingOccurrenceIdFromBookingId = initialBookingOccurrenceIdFromBookingId;
@@ -71,6 +72,9 @@ function courseEnrollmentSeatOccurrenceId(enrollmentId) {
 }
 function guestSubjectIdFromBookingId(bookingId) {
     return identifiers_1.GuestSubjectIdSchema.parse(canonicalDeterministicHash(['guest_subject:v1', 'booking', bookingId]));
+}
+function guestSubjectIdFromCourseEnrollmentId(enrollmentId) {
+    return identifiers_1.GuestSubjectIdSchema.parse(canonicalDeterministicHash(['guest_subject:v1', 'course_enrollment', enrollmentId]));
 }
 function participantManagementIdFromGuestLink(input) {
     return identifiers_1.ParticipantManagementIdSchema.parse(canonicalDeterministicHash([

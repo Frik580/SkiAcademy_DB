@@ -57,6 +57,26 @@ const instructorRelationshipBasisIntent = zod_1.z.discriminatedUnion('kind', [
     zod_1.z.object({ kind: zod_1.z.literal('guardian_permission') }).strict(),
     zod_1.z.object({ kind: zod_1.z.literal('administration_assignment') }).strict(),
 ]);
+const linkGuestCourseEnrollmentParticipantTargetIntent = zod_1.z.discriminatedUnion('kind', [
+    zod_1.z
+        .object({
+        kind: zod_1.z.literal('existing_managed'),
+        participantId: identifiers_1.ParticipantIdSchema,
+    })
+        .strict(),
+    zod_1.z.object({ kind: zod_1.z.literal('promote_guest') }).strict(),
+    zod_1.z
+        .object({
+        kind: zod_1.z.literal('create_managed'),
+        participantId: identifiers_1.ParticipantIdSchema,
+        displayName: zod_1.z.string().trim().min(1).max(200),
+        age: participantAgeIntent,
+        skillLevel: zod_1.z.string().trim().min(1).max(64),
+        discipline: zod_1.z.enum(['ski', 'snowboard']),
+        instructorComment: zod_1.z.string().trim().min(1).max(2_000).optional(),
+    })
+        .strict(),
+]);
 const positiveKztIntent = primitives_1.KztMinorUnitsSchema.refine((value) => value > 0, 'Amount must be positive');
 const providerPaymentSourceKindIntent = zod_1.z.enum(['provider', 'manual_external', 'cash', 'bank_transfer']);
 const recordProviderPaymentEventIntent = zod_1.z
@@ -580,6 +600,18 @@ exports.CommandIntentSchemaByKind = {
     })
         .strict(),
     reconcile_course_enrollment: courseEnrollmentTargetIntent,
+    link_guest_course_enrollment_to_account: zod_1.z
+        .object({
+        enrollmentId: identifiers_1.CourseEnrollmentIdSchema,
+        guestLinkCredential: zod_1.z
+            .object({
+            nonce: zod_1.z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
+            signature: zod_1.z.string().regex(/^[0-9a-fA-F]{64}$/),
+        })
+            .strict(),
+        participantTarget: linkGuestCourseEnrollmentParticipantTargetIntent,
+    })
+        .strict(),
 };
 function parseCommandIntent(kind, input) {
     return exports.CommandIntentSchemaByKind[kind].safeParse(input);

@@ -341,6 +341,36 @@ export declare const CommandIntentSchemaByKind: {
     reconcile_course_enrollment: z.ZodObject<{
         courseEnrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_enrollment">, string>>;
     }, z.core.$strict>;
+    link_guest_course_enrollment_to_account: z.ZodObject<{
+        enrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_enrollment">, string>>;
+        guestLinkCredential: z.ZodObject<{
+            nonce: z.ZodString;
+            signature: z.ZodString;
+        }, z.core.$strict>;
+        participantTarget: z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"existing_managed">;
+            participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"promote_guest">;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"create_managed">;
+            participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"participant">, string>>;
+            displayName: z.ZodString;
+            age: z.ZodDiscriminatedUnion<[z.ZodObject<{
+                kind: z.ZodLiteral<"birth_date">;
+                birthDate: z.ZodString;
+            }, z.core.$strict>, z.ZodObject<{
+                kind: z.ZodLiteral<"age_years">;
+                years: z.ZodNumber;
+            }, z.core.$strict>], "kind">;
+            skillLevel: z.ZodString;
+            discipline: z.ZodEnum<{
+                ski: "ski";
+                snowboard: "snowboard";
+            }>;
+            instructorComment: z.ZodOptional<z.ZodString>;
+        }, z.core.$strict>], "kind">;
+    }, z.core.$strict>;
 };
 export type CommandIntentForKind<Kind extends CommandKind> = z.output<(typeof CommandIntentSchemaByKind)[Kind]>;
 export type CommandIntentMap = {

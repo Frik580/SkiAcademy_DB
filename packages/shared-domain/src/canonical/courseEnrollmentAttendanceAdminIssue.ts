@@ -384,6 +384,15 @@ export const CourseEnrollmentSchema = z
     paymentId: PaymentIdSchema,
     payerAccountId: AccountIdSchema.optional(),
     attendanceSummary: CourseEnrollmentAttendanceSummarySchema.optional(),
+    guestAccountLink: z
+      .object({
+        linkedAccountId: AccountIdSchema,
+        linkedParticipantId: ParticipantIdSchema,
+        credentialNonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
+        linkedAt: CanonicalTimestampSchema,
+      })
+      .strict()
+      .optional(),
     revision: PersistedAggregateRevisionSchema,
     createdAt: CanonicalTimestampSchema,
     updatedAt: CanonicalTimestampSchema,

@@ -22,7 +22,7 @@ export declare const EXERCISED_CAPABILITIES: readonly ["account_owner", "parent_
 export type ExercisedCapability = (typeof EXERCISED_CAPABILITIES)[number];
 export declare const COMMAND_SOURCES: readonly ["client_callable", "admin_callable", "guest_callable", "scheduler", "provider_callback", "system_reconciliation"];
 export type CommandSource = (typeof COMMAND_SOURCES)[number];
-export declare const AUDIT_EFFECT_KINDS: readonly ["payment_state_changed", "wallet_balance_changed", "booking_lifecycle_changed", "booking_schedule_changed", "booking_service_changed", "booking_party_changed", "course_enrollment_lifecycle_changed", "resource_claim_changed", "attendance_recorded", "admin_issue_opened", "admin_issue_resolved", "participant_access_changed", "audit_correction_recorded", "financial_correction_recorded", "outbox_obligation_created"];
+export declare const AUDIT_EFFECT_KINDS: readonly ["payment_state_changed", "wallet_balance_changed", "booking_lifecycle_changed", "booking_schedule_changed", "booking_service_changed", "booking_party_changed", "course_enrollment_lifecycle_changed", "resource_claim_changed", "attendance_recorded", "admin_issue_opened", "admin_issue_resolved", "participant_access_changed", "audit_correction_recorded", "financial_correction_recorded", "outbox_obligation_created", "guest_course_enrollment_linked", "payment_association_changed"];
 export type AuditEffectKind = (typeof AUDIT_EFFECT_KINDS)[number];
 export declare const FINANCIAL_ACTIVITY_LOG_EFFECT_KINDS: readonly ["payment_state_changed", "wallet_balance_changed", "financial_correction_recorded"];
 export type FinancialActivityLogEffectKind = (typeof FINANCIAL_ACTIVITY_LOG_EFFECT_KINDS)[number];
@@ -71,6 +71,8 @@ export declare const ActivityLogEffectSchema: z.ZodObject<{
         audit_correction_recorded: "audit_correction_recorded";
         financial_correction_recorded: "financial_correction_recorded";
         outbox_obligation_created: "outbox_obligation_created";
+        guest_course_enrollment_linked: "guest_course_enrollment_linked";
+        payment_association_changed: "payment_association_changed";
     }>;
     subjectRef: z.ZodOptional<z.ZodType<import("./identifiers").CanonicalReference, unknown, z.core.$ZodTypeInternals<import("./identifiers").CanonicalReference, unknown>>>;
     summary: z.ZodString;
@@ -159,6 +161,8 @@ export declare const ActivityLogSchema: z.ZodObject<{
             audit_correction_recorded: "audit_correction_recorded";
             financial_correction_recorded: "financial_correction_recorded";
             outbox_obligation_created: "outbox_obligation_created";
+            guest_course_enrollment_linked: "guest_course_enrollment_linked";
+            payment_association_changed: "payment_association_changed";
         }>;
         subjectRef: z.ZodOptional<z.ZodType<import("./identifiers").CanonicalReference, unknown, z.core.$ZodTypeInternals<import("./identifiers").CanonicalReference, unknown>>>;
         summary: z.ZodString;

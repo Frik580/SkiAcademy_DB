@@ -181,6 +181,13 @@ const COMMAND_KIND_ALLOWED_EFFECTS = {
         'admin_issue_resolved',
         'resource_claim_changed',
     ],
+    link_guest_course_enrollment_to_account: [
+        'guest_course_enrollment_linked',
+        'participant_access_changed',
+        'resource_claim_changed',
+        'payment_association_changed',
+        'outbox_obligation_created',
+    ],
 };
 function hasAuditEffectRegistryEntry(commandKind) {
     return COMMAND_KIND_ALLOWED_EFFECTS[commandKind] !== undefined;

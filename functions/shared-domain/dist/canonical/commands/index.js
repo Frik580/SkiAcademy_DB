@@ -21,5 +21,6 @@ __exportStar(require("./commandContext"), exports);
 __exportStar(require("./commandEnvelope"), exports);
 __exportStar(require("./commandIntents"), exports);
 __exportStar(require("./commandResults"), exports);
+__exportStar(require("./commandResultPayloads"), exports);
 __exportStar(require("./forbiddenFields"), exports);
 __exportStar(require("./authorization"), exports);

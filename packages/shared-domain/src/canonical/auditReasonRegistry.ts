@@ -71,6 +71,7 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
   request_course_enrollment_cancellation: ['self_service_booking', 'manual_override', 'other'],
   resolve_course_enrollment_cancellation: ['manual_override', 'other'],
   reconcile_course_enrollment: ['scheduled_system_action', 'manual_override'],
+  link_guest_course_enrollment_to_account: ['participant_management', 'other'],
 };
 
 export function hasAuditReasonRegistryEntry(commandKind: CommandKind): boolean {

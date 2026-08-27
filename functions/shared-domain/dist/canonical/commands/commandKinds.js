@@ -50,6 +50,7 @@ exports.COMMAND_KINDS = [
     'create_course_day',
     'reassign_course_day_instructor',
     'reconcile_course_enrollment',
+    'link_guest_course_enrollment_to_account',
 ];
 exports.FORBIDDEN_GENERIC_COMMAND_KINDS = [
     'setStatus',

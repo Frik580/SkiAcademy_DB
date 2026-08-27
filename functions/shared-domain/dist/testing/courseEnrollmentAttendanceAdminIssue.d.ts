@@ -173,6 +173,15 @@ export declare const canonicalCourseDeliveryFixtures: Readonly<{
             absentDayCount: number;
             projectionRevision: import("../canonical/primitives").AggregateRevision;
         } | undefined;
+        guestAccountLink?: {
+            linkedAccountId: import("../canonical/identifiers").CanonicalId<"account">;
+            linkedParticipantId: import("../canonical/identifiers").CanonicalId<"participant">;
+            credentialNonce: string;
+            linkedAt: {
+                seconds: number;
+                nanoseconds: number;
+            };
+        } | undefined;
     };
     guestPendingEnrollment: {
         enrollmentId: import("../canonical/identifiers").CanonicalId<"course_enrollment">;
@@ -250,6 +259,15 @@ export declare const canonicalCourseDeliveryFixtures: Readonly<{
             presentDayCount: number;
             absentDayCount: number;
             projectionRevision: import("../canonical/primitives").AggregateRevision;
+        } | undefined;
+        guestAccountLink?: {
+            linkedAccountId: import("../canonical/identifiers").CanonicalId<"account">;
+            linkedParticipantId: import("../canonical/identifiers").CanonicalId<"participant">;
+            credentialNonce: string;
+            linkedAt: {
+                seconds: number;
+                nanoseconds: number;
+            };
         } | undefined;
     };
     presentBookingAttendance: {

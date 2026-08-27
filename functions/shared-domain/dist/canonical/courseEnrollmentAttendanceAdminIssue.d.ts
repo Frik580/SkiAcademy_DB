@@ -251,6 +251,15 @@ export declare const CourseEnrollmentSchema: z.ZodObject<{
         absentDayCount: z.ZodNumber;
         projectionRevision: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("./primitives").AggregateRevision, number>>;
     }, z.core.$strict>>;
+    guestAccountLink: z.ZodOptional<z.ZodObject<{
+        linkedAccountId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"account">, string>>;
+        linkedParticipantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"participant">, string>>;
+        credentialNonce: z.ZodString;
+        linkedAt: z.ZodObject<{
+            seconds: z.ZodNumber;
+            nanoseconds: z.ZodNumber;
+        }, z.core.$strict>;
+    }, z.core.$strict>>;
     revision: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("./primitives").AggregateRevision, number>>;
     createdAt: z.ZodObject<{
         seconds: z.ZodNumber;
@@ -409,6 +418,15 @@ export declare const StructuredCourseDeliverySchema: z.ZodObject<{
             presentDayCount: z.ZodNumber;
             absentDayCount: z.ZodNumber;
             projectionRevision: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("./primitives").AggregateRevision, number>>;
+        }, z.core.$strict>>;
+        guestAccountLink: z.ZodOptional<z.ZodObject<{
+            linkedAccountId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"account">, string>>;
+            linkedParticipantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("./identifiers").CanonicalId<"participant">, string>>;
+            credentialNonce: z.ZodString;
+            linkedAt: z.ZodObject<{
+                seconds: z.ZodNumber;
+                nanoseconds: z.ZodNumber;
+            }, z.core.$strict>;
         }, z.core.$strict>>;
         revision: z.ZodPipe<z.ZodNumber, z.ZodTransform<import("./primitives").AggregateRevision, number>>;
         createdAt: z.ZodObject<{

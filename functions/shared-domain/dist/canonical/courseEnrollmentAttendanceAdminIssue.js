@@ -292,6 +292,15 @@ exports.CourseEnrollmentSchema = zod_1.z
     paymentId: identifiers_1.PaymentIdSchema,
     payerAccountId: identifiers_1.AccountIdSchema.optional(),
     attendanceSummary: exports.CourseEnrollmentAttendanceSummarySchema.optional(),
+    guestAccountLink: zod_1.z
+        .object({
+        linkedAccountId: identifiers_1.AccountIdSchema,
+        linkedParticipantId: identifiers_1.ParticipantIdSchema,
+        credentialNonce: zod_1.z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
+        linkedAt: primitives_1.CanonicalTimestampSchema,
+    })
+        .strict()
+        .optional(),
     revision: PersistedAggregateRevisionSchema,
     createdAt: primitives_1.CanonicalTimestampSchema,
     updatedAt: primitives_1.CanonicalTimestampSchema,

@@ -15,35 +15,49 @@ import { CanonicalTimestampSchema, compareCanonicalTimestamps, type CanonicalTim
 
 export const GUEST_ACTION_TOKEN_VERSION = 'guest-token:v1' as const;
 
-export const GUEST_ACTION_TOKEN_PURPOSES = ['cancel_pending_reservation'] as const;
+export const GUEST_ACTION_TOKEN_PURPOSES = [
+  'cancel_pending_reservation',
+  'link_guest_course_enrollment',
+] as const;
 export type GuestActionTokenPurpose = (typeof GUEST_ACTION_TOKEN_PURPOSES)[number];
 
-const GuestActionTokenPayloadSchema = z
-  .object({
-    version: z.literal(GUEST_ACTION_TOKEN_VERSION),
-    bookingId: BookingIdSchema,
-    guestSubjectId: GuestSubjectIdSchema,
-    purpose: z.enum(GUEST_ACTION_TOKEN_PURPOSES),
-    expiresAt: CanonicalTimestampSchema,
-    nonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
-  })
-  .strict();
+const guestActionNonceSchema = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
+
+const GuestActionTokenPayloadSchema = z.discriminatedUnion('subjectKind', [
+  z
+    .object({
+      version: z.literal(GUEST_ACTION_TOKEN_VERSION),
+      subjectKind: z.literal('booking'),
+      bookingId: BookingIdSchema,
+      guestSubjectId: GuestSubjectIdSchema,
+      purpose: z.literal('cancel_pending_reservation'),
+      expiresAt: CanonicalTimestampSchema,
+      nonce: guestActionNonceSchema,
+    })
+    .strict(),
+  z
+    .object({
+      version: z.literal(GUEST_ACTION_TOKEN_VERSION),
+      subjectKind: z.literal('course_enrollment'),
+      enrollmentId: CourseEnrollmentIdSchema,
+      guestSubjectId: GuestSubjectIdSchema,
+      purpose: z.enum(GUEST_ACTION_TOKEN_PURPOSES),
+      expiresAt: CanonicalTimestampSchema,
+      nonce: guestActionNonceSchema,
+    })
+    .strict(),
+]);
 
 export type GuestActionTokenPayload = Readonly<z.output<typeof GuestActionTokenPayloadSchema>>;
 
-const GuestCourseEnrollmentActionTokenPayloadSchema = z
-  .object({
-    version: z.literal(GUEST_ACTION_TOKEN_VERSION),
-    enrollmentId: CourseEnrollmentIdSchema,
-    guestSubjectId: GuestSubjectIdSchema,
-    purpose: z.enum(GUEST_ACTION_TOKEN_PURPOSES),
-    expiresAt: CanonicalTimestampSchema,
-    nonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
-  })
-  .strict();
+export type GuestBookingActionTokenPayload = Extract<
+  GuestActionTokenPayload,
+  { readonly subjectKind: 'booking' }
+>;
 
-export type GuestCourseEnrollmentActionTokenPayload = Readonly<
-  z.output<typeof GuestCourseEnrollmentActionTokenPayloadSchema>
+export type GuestCourseEnrollmentActionTokenPayload = Extract<
+  GuestActionTokenPayload,
+  { readonly subjectKind: 'course_enrollment' }
 >;
 
 const HMAC_SHA256_HEX_LENGTH = 64;
@@ -100,22 +114,22 @@ function signingKeyBytes(secret: string): Uint8Array {
 }
 
 function signPayload(secret: string, payload: GuestActionTokenPayload): string {
-  const canonicalPayload = canonicalJsonStringify(payload);
-  return bytesToHex(hmac(sha256, signingKeyBytes(secret), utf8ToBytes(canonicalPayload)));
-}
-
-function signGuestCourseEnrollmentPayload(
-  secret: string,
-  payload: GuestCourseEnrollmentActionTokenPayload
-): string {
-  const parsedPayload = GuestCourseEnrollmentActionTokenPayloadSchema.parse(payload);
+  const parsedPayload = GuestActionTokenPayloadSchema.parse(payload);
   const canonicalPayload = canonicalJsonStringify(parsedPayload);
   return bytesToHex(hmac(sha256, signingKeyBytes(secret), utf8ToBytes(canonicalPayload)));
 }
 
 export function signGuestActionCredential(
   secret: string,
-  payload: GuestActionTokenPayload
+  payload: GuestBookingActionTokenPayload
+): string {
+  const parsedPayload = GuestActionTokenPayloadSchema.parse(payload);
+  return signPayload(secret, parsedPayload);
+}
+
+export function signGuestCourseEnrollmentActionCredential(
+  secret: string,
+  payload: GuestCourseEnrollmentActionTokenPayload
 ): string {
   const parsedPayload = GuestActionTokenPayloadSchema.parse(payload);
   return signPayload(secret, parsedPayload);
@@ -128,12 +142,13 @@ export function verifyGuestActionCredentialParts(input: {
   readonly now: CanonicalTimestamp;
   readonly expectedBookingId: BookingId;
   readonly expectedGuestSubjectId: GuestSubjectId;
-  readonly expectedPurpose: GuestActionTokenPurpose;
+  readonly expectedPurpose: 'cancel_pending_reservation';
   readonly expiresAt: CanonicalTimestamp;
   readonly compareSignatures: CompareHmacSha256Signatures;
 }): GuestActionTokenVerificationResult {
   const payload = GuestActionTokenPayloadSchema.parse({
     version: GUEST_ACTION_TOKEN_VERSION,
+    subjectKind: 'booking',
     bookingId: input.expectedBookingId,
     guestSubjectId: input.expectedGuestSubjectId,
     purpose: input.expectedPurpose,
@@ -146,6 +161,9 @@ export function verifyGuestActionCredentialParts(input: {
   }
   if (compareCanonicalTimestamps(input.now, payload.expiresAt) >= 0) {
     return { valid: false, reason: 'expired' };
+  }
+  if (payload.subjectKind !== 'booking') {
+    return { valid: false, reason: 'invalid_signature' };
   }
   return { valid: true, payload };
 }
@@ -161,27 +179,31 @@ export function verifyGuestCourseEnrollmentActionCredentialParts(input: {
   readonly expiresAt: CanonicalTimestamp;
   readonly compareSignatures: CompareHmacSha256Signatures;
 }): GuestCourseEnrollmentActionTokenVerificationResult {
-  const payload = GuestCourseEnrollmentActionTokenPayloadSchema.parse({
+  const payload = GuestActionTokenPayloadSchema.parse({
     version: GUEST_ACTION_TOKEN_VERSION,
+    subjectKind: 'course_enrollment',
     enrollmentId: input.expectedEnrollmentId,
     guestSubjectId: input.expectedGuestSubjectId,
     purpose: input.expectedPurpose,
     expiresAt: input.expiresAt,
     nonce: input.nonce,
   });
-  const expectedSignature = signGuestCourseEnrollmentPayload(input.secret, payload);
+  const expectedSignature = signPayload(input.secret, payload);
   if (!input.compareSignatures(expectedSignature, input.signature)) {
     return { valid: false, reason: 'invalid_signature' };
   }
   if (compareCanonicalTimestamps(input.now, payload.expiresAt) >= 0) {
     return { valid: false, reason: 'expired' };
   }
+  if (payload.subjectKind !== 'course_enrollment') {
+    return { valid: false, reason: 'purpose_mismatch' };
+  }
   return { valid: true, payload };
 }
 
 export function issueGuestActionToken(input: {
   readonly secret: string;
-  readonly payload: GuestActionTokenPayload;
+  readonly payload: GuestBookingActionTokenPayload;
 }): string {
   const parsedPayload = GuestActionTokenPayloadSchema.parse(input.payload);
   const encodedPayload = base64UrlEncode(utf8ToBytes(canonicalJsonStringify(parsedPayload)));
@@ -190,12 +212,30 @@ export function issueGuestActionToken(input: {
 }
 
 export type GuestActionTokenVerificationResult =
-  | Readonly<{ valid: true; payload: GuestActionTokenPayload }>
-  | Readonly<{ valid: false; reason: 'malformed' | 'invalid_signature' | 'expired' | 'purpose_mismatch' | 'booking_mismatch' | 'guest_mismatch' }>;
+  | Readonly<{ valid: true; payload: GuestBookingActionTokenPayload }>
+  | Readonly<{
+      valid: false;
+      reason:
+        | 'malformed'
+        | 'invalid_signature'
+        | 'expired'
+        | 'purpose_mismatch'
+        | 'booking_mismatch'
+        | 'guest_mismatch';
+    }>;
 
 export type GuestCourseEnrollmentActionTokenVerificationResult =
   | Readonly<{ valid: true; payload: GuestCourseEnrollmentActionTokenPayload }>
-  | Readonly<{ valid: false; reason: 'malformed' | 'invalid_signature' | 'expired' | 'purpose_mismatch' | 'enrollment_mismatch' | 'guest_mismatch' }>;
+  | Readonly<{
+      valid: false;
+      reason:
+        | 'malformed'
+        | 'invalid_signature'
+        | 'expired'
+        | 'purpose_mismatch'
+        | 'enrollment_mismatch'
+        | 'guest_mismatch';
+    }>;
 
 export function verifyGuestActionToken(input: {
   readonly secret: string;
@@ -203,7 +243,7 @@ export function verifyGuestActionToken(input: {
   readonly now: CanonicalTimestamp;
   readonly expectedBookingId: BookingId;
   readonly expectedGuestSubjectId: GuestSubjectId;
-  readonly expectedPurpose: GuestActionTokenPurpose;
+  readonly expectedPurpose: 'cancel_pending_reservation';
   readonly compareSignatures: CompareHmacSha256Signatures;
 }): GuestActionTokenVerificationResult {
   const separatorIndex = input.token.lastIndexOf('.');
@@ -225,7 +265,7 @@ export function verifyGuestActionToken(input: {
   }
 
   const parsedPayload = GuestActionTokenPayloadSchema.safeParse(parsedJson);
-  if (!parsedPayload.success) {
+  if (!parsedPayload.success || parsedPayload.data.subjectKind !== 'booking') {
     return { valid: false, reason: 'malformed' };
   }
 
@@ -256,7 +296,7 @@ export function createGuestActionTokenNonce(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
     crypto.getRandomValues(bytes);
   } else {
-  for (let index = 0; index < bytes.length; index += 1) {
+    for (let index = 0; index < bytes.length; index += 1) {
       bytes[index] = Math.floor(Math.random() * 256);
     }
   }

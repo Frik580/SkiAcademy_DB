@@ -3,3 +3,4 @@ export { createCourseEnrollmentCommandHandlers } from './courseEnrollmentCommand
 export { createCourseEnrollmentLifecycleCommandHandlers } from './courseEnrollmentLifecycleCommands';
 export { createCourseEnrollmentAttendanceCommandHandlers } from './courseEnrollmentAttendanceCommands';
 export { createCourseEnrollmentReconciliationCommandHandlers } from './courseEnrollmentReconciliationCommands';
+export { createGuestCourseEnrollmentLinkCommandHandlers } from './guestCourseEnrollmentLinkCommands';

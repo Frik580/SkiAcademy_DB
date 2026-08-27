@@ -22,6 +22,7 @@ export declare function courseEnrollmentIdFromCommandParticipant(input: {
 export declare function paymentIdFromCourseEnrollmentId(enrollmentId: CourseEnrollmentId): PaymentId;
 export declare function courseEnrollmentSeatOccurrenceId(enrollmentId: CourseEnrollmentId): OccurrenceId;
 export declare function guestSubjectIdFromBookingId(bookingId: BookingId): GuestSubjectId;
+export declare function guestSubjectIdFromCourseEnrollmentId(enrollmentId: CourseEnrollmentId): GuestSubjectId;
 export declare function participantManagementIdFromGuestLink(input: {
     readonly participantId: ParticipantId;
     readonly accountId: AccountId;

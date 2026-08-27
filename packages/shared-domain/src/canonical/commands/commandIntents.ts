@@ -72,6 +72,26 @@ const instructorRelationshipBasisIntent = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('guardian_permission') }).strict(),
   z.object({ kind: z.literal('administration_assignment') }).strict(),
 ]);
+const linkGuestCourseEnrollmentParticipantTargetIntent = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('existing_managed'),
+      participantId: ParticipantIdSchema,
+    })
+    .strict(),
+  z.object({ kind: z.literal('promote_guest') }).strict(),
+  z
+    .object({
+      kind: z.literal('create_managed'),
+      participantId: ParticipantIdSchema,
+      displayName: z.string().trim().min(1).max(200),
+      age: participantAgeIntent,
+      skillLevel: z.string().trim().min(1).max(64),
+      discipline: z.enum(['ski', 'snowboard']),
+      instructorComment: z.string().trim().min(1).max(2_000).optional(),
+    })
+    .strict(),
+]);
 const positiveKztIntent = KztMinorUnitsSchema.refine((value) => value > 0, 'Amount must be positive');
 const providerPaymentSourceKindIntent = z.enum(['provider', 'manual_external', 'cash', 'bank_transfer']);
 const recordProviderPaymentEventIntent = z
@@ -598,6 +618,18 @@ export const CommandIntentSchemaByKind = {
     })
     .strict(),
   reconcile_course_enrollment: courseEnrollmentTargetIntent,
+  link_guest_course_enrollment_to_account: z
+    .object({
+      enrollmentId: CourseEnrollmentIdSchema,
+      guestLinkCredential: z
+        .object({
+          nonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
+          signature: z.string().regex(/^[0-9a-fA-F]{64}$/),
+        })
+        .strict(),
+      participantTarget: linkGuestCourseEnrollmentParticipantTargetIntent,
+    })
+    .strict(),
 } satisfies Record<CommandKind, z.ZodType>;
 
 export type CommandIntentForKind<Kind extends CommandKind> = z.output<

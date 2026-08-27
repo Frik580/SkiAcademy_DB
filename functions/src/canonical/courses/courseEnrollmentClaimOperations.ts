@@ -213,3 +213,79 @@ export function commitPlannedCourseEnrollmentClaimAcquire(
     commitResourceClaimPlan(session, dayClaimPlan, claimMetadata);
   }
 }
+
+export async function planMigrateEnrollmentParticipantCourseDayClaims(
+  session: CanonicalAtomicTransactionSession,
+  input: {
+    readonly metadata: CourseEnrollmentClaimCommandMetadata;
+    readonly enrollmentId: CourseEnrollment['enrollmentId'];
+    readonly courseDays: readonly CourseDay[];
+    readonly guestParticipantId: CourseEnrollment['participantId'];
+    readonly targetParticipantId: CourseEnrollment['participantId'];
+    readonly inTransactionGuardOverlay: InTransactionGuardOverlay;
+  }
+): Promise<{
+  readonly acquirePlans: readonly ResourceClaimOperationPlan[];
+  readonly releasePlans: readonly ResourceClaimOperationPlan[];
+}> {
+  const claimMetadata = {
+    correlationId: input.metadata.correlationId,
+    commandId: input.metadata.commandId,
+    decidedAt: input.metadata.decidedAt,
+  };
+  const acquirePlans: ResourceClaimOperationPlan[] = [];
+  for (const courseDay of input.courseDays) {
+    const dayIdentity = buildParticipantCourseDayEnrollmentClaimIdentity({
+      participantId: input.targetParticipantId,
+      enrollmentId: input.enrollmentId,
+      courseDay,
+    });
+    const acquirePlan = await readAndPlanAcquireResourceClaim(session, {
+      ...claimMetadata,
+      identity: dayIdentity.identity,
+      interval: courseDay.interval,
+      inTransactionGuardOverlay: input.inTransactionGuardOverlay,
+    });
+    registerResourceClaimPlanInGuardOverlay(input.inTransactionGuardOverlay, acquirePlan);
+    acquirePlans.push(acquirePlan);
+  }
+
+  const releasePlans: ResourceClaimOperationPlan[] = [];
+  for (const courseDay of input.courseDays) {
+    const dayIdentity = buildParticipantCourseDayEnrollmentClaimIdentity({
+      participantId: input.guestParticipantId,
+      enrollmentId: input.enrollmentId,
+      courseDay,
+    });
+    const releasePlan = await readAndPlanReleaseResourceClaim(session, {
+      ...claimMetadata,
+      claimId: dayIdentity.claimId,
+    });
+    if (releasePlan) {
+      releasePlans.push(releasePlan);
+    }
+  }
+
+  return { acquirePlans, releasePlans };
+}
+
+export function commitPlannedParticipantCourseDayClaimMigration(
+  session: CanonicalAtomicTransactionSession,
+  input: {
+    readonly metadata: CourseEnrollmentClaimCommandMetadata;
+    readonly acquirePlans: readonly ResourceClaimOperationPlan[];
+    readonly releasePlans: readonly ResourceClaimOperationPlan[];
+  }
+): void {
+  const claimMetadata = {
+    correlationId: input.metadata.correlationId,
+    commandId: input.metadata.commandId,
+    decidedAt: input.metadata.decidedAt,
+  };
+  for (const acquirePlan of input.acquirePlans) {
+    commitResourceClaimPlan(session, acquirePlan, claimMetadata);
+  }
+  for (const releasePlan of input.releasePlans) {
+    commitResourceClaimPlan(session, releasePlan, claimMetadata);
+  }
+}

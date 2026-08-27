@@ -5,5 +5,6 @@ export * from './commandContext';
 export * from './commandEnvelope';
 export * from './commandIntents';
 export * from './commandResults';
+export * from './commandResultPayloads';
 export * from './forbiddenFields';
 export * from './authorization';

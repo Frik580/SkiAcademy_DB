@@ -38,6 +38,7 @@ export declare const CommandContextSchema: z.ZodObject<{
     correlationId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"correlation">, string>>;
     causationId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"causation">, string>>>;
     expectedRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>>;
+    expectedParticipantManagementRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("../primitives").AggregateRevision, number>>>;
     source: z.ZodEnum<{
         provider_callback: "provider_callback";
         client_callable: "client_callable";

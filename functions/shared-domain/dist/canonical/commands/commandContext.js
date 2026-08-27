@@ -36,6 +36,7 @@ exports.CommandContextSchema = zod_1.z
     correlationId: identifiers_1.CorrelationIdSchema,
     causationId: identifiers_1.CausationIdSchema.optional(),
     expectedRevision: primitives_1.AggregateRevisionSchema.optional(),
+    expectedParticipantManagementRevision: primitives_1.AggregateRevisionSchema.optional(),
     source: zod_1.z.enum(auditOutbox_1.COMMAND_SOURCES),
     transportMetadata: exports.CommandTransportMetadataSchema.optional(),
     calendarInput: exports.CommandCalendarInputSchema.optional(),

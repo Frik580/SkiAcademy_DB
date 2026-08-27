@@ -135,6 +135,14 @@ export function guestSubjectIdFromBookingId(bookingId: BookingId): GuestSubjectI
   );
 }
 
+export function guestSubjectIdFromCourseEnrollmentId(
+  enrollmentId: CourseEnrollmentId
+): GuestSubjectId {
+  return GuestSubjectIdSchema.parse(
+    canonicalDeterministicHash(['guest_subject:v1', 'course_enrollment', enrollmentId])
+  );
+}
+
 export function participantManagementIdFromGuestLink(input: {
   readonly participantId: ParticipantId;
   readonly accountId: AccountId;

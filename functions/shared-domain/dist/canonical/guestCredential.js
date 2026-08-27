@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GUEST_ACTION_TOKEN_PURPOSES = exports.GUEST_ACTION_TOKEN_VERSION = void 0;
 exports.decodeHmacSha256HexSignature = decodeHmacSha256HexSignature;
 exports.signGuestActionCredential = signGuestActionCredential;
+exports.signGuestCourseEnrollmentActionCredential = signGuestCourseEnrollmentActionCredential;
 exports.verifyGuestActionCredentialParts = verifyGuestActionCredentialParts;
 exports.verifyGuestCourseEnrollmentActionCredentialParts = verifyGuestCourseEnrollmentActionCredentialParts;
 exports.issueGuestActionToken = issueGuestActionToken;
@@ -16,27 +17,35 @@ const canonicalJson_1 = require("./canonicalJson");
 const identifiers_1 = require("./identifiers");
 const primitives_1 = require("./primitives");
 exports.GUEST_ACTION_TOKEN_VERSION = 'guest-token:v1';
-exports.GUEST_ACTION_TOKEN_PURPOSES = ['cancel_pending_reservation'];
-const GuestActionTokenPayloadSchema = zod_1.z
-    .object({
-    version: zod_1.z.literal(exports.GUEST_ACTION_TOKEN_VERSION),
-    bookingId: identifiers_1.BookingIdSchema,
-    guestSubjectId: identifiers_1.GuestSubjectIdSchema,
-    purpose: zod_1.z.enum(exports.GUEST_ACTION_TOKEN_PURPOSES),
-    expiresAt: primitives_1.CanonicalTimestampSchema,
-    nonce: zod_1.z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
-})
-    .strict();
-const GuestCourseEnrollmentActionTokenPayloadSchema = zod_1.z
-    .object({
-    version: zod_1.z.literal(exports.GUEST_ACTION_TOKEN_VERSION),
-    enrollmentId: identifiers_1.CourseEnrollmentIdSchema,
-    guestSubjectId: identifiers_1.GuestSubjectIdSchema,
-    purpose: zod_1.z.enum(exports.GUEST_ACTION_TOKEN_PURPOSES),
-    expiresAt: primitives_1.CanonicalTimestampSchema,
-    nonce: zod_1.z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
-})
-    .strict();
+exports.GUEST_ACTION_TOKEN_PURPOSES = [
+    'cancel_pending_reservation',
+    'link_guest_course_enrollment',
+];
+const guestActionNonceSchema = zod_1.z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
+const GuestActionTokenPayloadSchema = zod_1.z.discriminatedUnion('subjectKind', [
+    zod_1.z
+        .object({
+        version: zod_1.z.literal(exports.GUEST_ACTION_TOKEN_VERSION),
+        subjectKind: zod_1.z.literal('booking'),
+        bookingId: identifiers_1.BookingIdSchema,
+        guestSubjectId: identifiers_1.GuestSubjectIdSchema,
+        purpose: zod_1.z.literal('cancel_pending_reservation'),
+        expiresAt: primitives_1.CanonicalTimestampSchema,
+        nonce: guestActionNonceSchema,
+    })
+        .strict(),
+    zod_1.z
+        .object({
+        version: zod_1.z.literal(exports.GUEST_ACTION_TOKEN_VERSION),
+        subjectKind: zod_1.z.literal('course_enrollment'),
+        enrollmentId: identifiers_1.CourseEnrollmentIdSchema,
+        guestSubjectId: identifiers_1.GuestSubjectIdSchema,
+        purpose: zod_1.z.enum(exports.GUEST_ACTION_TOKEN_PURPOSES),
+        expiresAt: primitives_1.CanonicalTimestampSchema,
+        nonce: guestActionNonceSchema,
+    })
+        .strict(),
+]);
 const HMAC_SHA256_HEX_LENGTH = 64;
 const HMAC_SHA256_BYTE_LENGTH = 32;
 function decodeHmacSha256HexSignature(signature) {
@@ -82,11 +91,7 @@ function signingKeyBytes(secret) {
     return (0, utils_js_1.utf8ToBytes)(secret);
 }
 function signPayload(secret, payload) {
-    const canonicalPayload = (0, canonicalJson_1.canonicalJsonStringify)(payload);
-    return (0, utils_js_1.bytesToHex)((0, hmac_js_1.hmac)(sha2_js_1.sha256, signingKeyBytes(secret), (0, utils_js_1.utf8ToBytes)(canonicalPayload)));
-}
-function signGuestCourseEnrollmentPayload(secret, payload) {
-    const parsedPayload = GuestCourseEnrollmentActionTokenPayloadSchema.parse(payload);
+    const parsedPayload = GuestActionTokenPayloadSchema.parse(payload);
     const canonicalPayload = (0, canonicalJson_1.canonicalJsonStringify)(parsedPayload);
     return (0, utils_js_1.bytesToHex)((0, hmac_js_1.hmac)(sha2_js_1.sha256, signingKeyBytes(secret), (0, utils_js_1.utf8ToBytes)(canonicalPayload)));
 }
@@ -94,9 +99,14 @@ function signGuestActionCredential(secret, payload) {
     const parsedPayload = GuestActionTokenPayloadSchema.parse(payload);
     return signPayload(secret, parsedPayload);
 }
+function signGuestCourseEnrollmentActionCredential(secret, payload) {
+    const parsedPayload = GuestActionTokenPayloadSchema.parse(payload);
+    return signPayload(secret, parsedPayload);
+}
 function verifyGuestActionCredentialParts(input) {
     const payload = GuestActionTokenPayloadSchema.parse({
         version: exports.GUEST_ACTION_TOKEN_VERSION,
+        subjectKind: 'booking',
         bookingId: input.expectedBookingId,
         guestSubjectId: input.expectedGuestSubjectId,
         purpose: input.expectedPurpose,
@@ -110,23 +120,30 @@ function verifyGuestActionCredentialParts(input) {
     if ((0, primitives_1.compareCanonicalTimestamps)(input.now, payload.expiresAt) >= 0) {
         return { valid: false, reason: 'expired' };
     }
+    if (payload.subjectKind !== 'booking') {
+        return { valid: false, reason: 'invalid_signature' };
+    }
     return { valid: true, payload };
 }
 function verifyGuestCourseEnrollmentActionCredentialParts(input) {
-    const payload = GuestCourseEnrollmentActionTokenPayloadSchema.parse({
+    const payload = GuestActionTokenPayloadSchema.parse({
         version: exports.GUEST_ACTION_TOKEN_VERSION,
+        subjectKind: 'course_enrollment',
         enrollmentId: input.expectedEnrollmentId,
         guestSubjectId: input.expectedGuestSubjectId,
         purpose: input.expectedPurpose,
         expiresAt: input.expiresAt,
         nonce: input.nonce,
     });
-    const expectedSignature = signGuestCourseEnrollmentPayload(input.secret, payload);
+    const expectedSignature = signPayload(input.secret, payload);
     if (!input.compareSignatures(expectedSignature, input.signature)) {
         return { valid: false, reason: 'invalid_signature' };
     }
     if ((0, primitives_1.compareCanonicalTimestamps)(input.now, payload.expiresAt) >= 0) {
         return { valid: false, reason: 'expired' };
+    }
+    if (payload.subjectKind !== 'course_enrollment') {
+        return { valid: false, reason: 'purpose_mismatch' };
     }
     return { valid: true, payload };
 }
@@ -154,7 +171,7 @@ function verifyGuestActionToken(input) {
         return { valid: false, reason: 'malformed' };
     }
     const parsedPayload = GuestActionTokenPayloadSchema.safeParse(parsedJson);
-    if (!parsedPayload.success) {
+    if (!parsedPayload.success || parsedPayload.data.subjectKind !== 'booking') {
         return { valid: false, reason: 'malformed' };
     }
     const payload = parsedPayload.data;

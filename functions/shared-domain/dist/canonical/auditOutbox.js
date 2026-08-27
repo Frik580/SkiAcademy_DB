@@ -66,6 +66,8 @@ exports.AUDIT_EFFECT_KINDS = [
     'audit_correction_recorded',
     'financial_correction_recorded',
     'outbox_obligation_created',
+    'guest_course_enrollment_linked',
+    'payment_association_changed',
 ];
 exports.FINANCIAL_ACTIVITY_LOG_EFFECT_KINDS = [
     'payment_state_changed',

@@ -69,6 +69,7 @@ const COMMAND_KIND_REASON_CODES = {
     request_course_enrollment_cancellation: ['self_service_booking', 'manual_override', 'other'],
     resolve_course_enrollment_cancellation: ['manual_override', 'other'],
     reconcile_course_enrollment: ['scheduled_system_action', 'manual_override'],
+    link_guest_course_enrollment_to_account: ['participant_management', 'other'],
 };
 function hasAuditReasonRegistryEntry(commandKind) {
     return COMMAND_KIND_REASON_CODES[commandKind] !== undefined;

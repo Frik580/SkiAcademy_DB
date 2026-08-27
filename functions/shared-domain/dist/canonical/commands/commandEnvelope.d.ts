@@ -50,9 +50,10 @@ export declare const CommandKindSchema: z.ZodEnum<{
     create_course_day: "create_course_day";
     reassign_course_day_instructor: "reassign_course_day_instructor";
     reconcile_course_enrollment: "reconcile_course_enrollment";
+    link_guest_course_enrollment_to_account: "link_guest_course_enrollment_to_account";
 }>;
 export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
-    kind: z.ZodLiteral<"create_confirmed_booking" | "create_guest_booking_request" | "confirm_guest_booking" | "link_guest_booking_to_account" | "request_booking_cancellation" | "withdraw_booking_cancellation_request" | "resolve_booking_cancellation" | "reschedule_booking" | "change_booking_instructor" | "change_booking_duration" | "change_booking_party" | "rollback_unpaid_booking_party_additions" | "record_booking_attendance" | "record_course_day_attendance" | "complete_booking" | "record_booking_no_show" | "create_course_enrollments" | "transfer_course_enrollment" | "withdraw_course_enrollment" | "request_course_enrollment_cancellation" | "resolve_course_enrollment_cancellation" | "create_booking_proposal" | "accept_booking_proposal" | "cancel_booking_proposal" | "expire_booking_proposal" | "create_booking_change_request" | "withdraw_booking_change_request" | "resolve_booking_change_request" | "expire_guest_reservation" | "enforce_payment_start_gate" | "resolve_attendance_outcome" | "create_participant" | "update_participant_profile" | "assign_participant_management" | "revoke_participant_management" | "create_instructor_relationship" | "revoke_instructor_relationship" | "block_participant" | "unblock_participant" | "record_provider_payment_event" | "record_manual_wallet_funding" | "adjust_service_price" | "record_financial_correction" | "record_audit_correction" | "create_course_day" | "reassign_course_day_instructor" | "reconcile_course_enrollment">;
+    kind: z.ZodLiteral<"create_confirmed_booking" | "create_guest_booking_request" | "confirm_guest_booking" | "link_guest_booking_to_account" | "request_booking_cancellation" | "withdraw_booking_cancellation_request" | "resolve_booking_cancellation" | "reschedule_booking" | "change_booking_instructor" | "change_booking_duration" | "change_booking_party" | "rollback_unpaid_booking_party_additions" | "record_booking_attendance" | "record_course_day_attendance" | "complete_booking" | "record_booking_no_show" | "create_course_enrollments" | "transfer_course_enrollment" | "withdraw_course_enrollment" | "request_course_enrollment_cancellation" | "resolve_course_enrollment_cancellation" | "create_booking_proposal" | "accept_booking_proposal" | "cancel_booking_proposal" | "expire_booking_proposal" | "create_booking_change_request" | "withdraw_booking_change_request" | "resolve_booking_change_request" | "expire_guest_reservation" | "enforce_payment_start_gate" | "resolve_attendance_outcome" | "create_participant" | "update_participant_profile" | "assign_participant_management" | "revoke_participant_management" | "create_instructor_relationship" | "revoke_instructor_relationship" | "block_participant" | "unblock_participant" | "record_provider_payment_event" | "record_manual_wallet_funding" | "adjust_service_price" | "record_financial_correction" | "record_audit_correction" | "create_course_day" | "reassign_course_day_instructor" | "reconcile_course_enrollment" | "link_guest_course_enrollment_to_account">;
     context: z.ZodObject<{
         actor: z.ZodDiscriminatedUnion<[z.ZodObject<{
             kind: z.ZodLiteral<"account">;
@@ -80,6 +81,7 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         correlationId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"correlation">, string>>;
         causationId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"causation">, string>>>;
         expectedRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").AggregateRevision, number>>>;
+        expectedParticipantManagementRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").AggregateRevision, number>>>;
         source: z.ZodEnum<{
             provider_callback: "provider_callback";
             client_callable: "client_callable";
@@ -371,9 +373,38 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         courseDayId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course_day">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
         reasonExplanation: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict> | z.ZodObject<{
+        enrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course_enrollment">, string>>;
+        guestLinkCredential: z.ZodObject<{
+            nonce: z.ZodString;
+            signature: z.ZodString;
+        }, z.core.$strict>;
+        participantTarget: z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"existing_managed">;
+            participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"promote_guest">;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"create_managed">;
+            participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+            displayName: z.ZodString;
+            age: z.ZodDiscriminatedUnion<[z.ZodObject<{
+                kind: z.ZodLiteral<"birth_date">;
+                birthDate: z.ZodString;
+            }, z.core.$strict>, z.ZodObject<{
+                kind: z.ZodLiteral<"age_years">;
+                years: z.ZodNumber;
+            }, z.core.$strict>], "kind">;
+            skillLevel: z.ZodString;
+            discipline: z.ZodEnum<{
+                ski: "ski";
+                snowboard: "snowboard";
+            }>;
+            instructorComment: z.ZodOptional<z.ZodString>;
+        }, z.core.$strict>], "kind">;
     }, z.core.$strict>;
 }, z.core.$strict>, z.ZodObject<{
-    kind: z.ZodLiteral<"create_confirmed_booking" | "create_guest_booking_request" | "confirm_guest_booking" | "link_guest_booking_to_account" | "request_booking_cancellation" | "withdraw_booking_cancellation_request" | "resolve_booking_cancellation" | "reschedule_booking" | "change_booking_instructor" | "change_booking_duration" | "change_booking_party" | "rollback_unpaid_booking_party_additions" | "record_booking_attendance" | "record_course_day_attendance" | "complete_booking" | "record_booking_no_show" | "create_course_enrollments" | "transfer_course_enrollment" | "withdraw_course_enrollment" | "request_course_enrollment_cancellation" | "resolve_course_enrollment_cancellation" | "create_booking_proposal" | "accept_booking_proposal" | "cancel_booking_proposal" | "expire_booking_proposal" | "create_booking_change_request" | "withdraw_booking_change_request" | "resolve_booking_change_request" | "expire_guest_reservation" | "enforce_payment_start_gate" | "resolve_attendance_outcome" | "create_participant" | "update_participant_profile" | "assign_participant_management" | "revoke_participant_management" | "create_instructor_relationship" | "revoke_instructor_relationship" | "block_participant" | "unblock_participant" | "record_provider_payment_event" | "record_manual_wallet_funding" | "adjust_service_price" | "record_financial_correction" | "record_audit_correction" | "create_course_day" | "reassign_course_day_instructor" | "reconcile_course_enrollment">;
+    kind: z.ZodLiteral<"create_confirmed_booking" | "create_guest_booking_request" | "confirm_guest_booking" | "link_guest_booking_to_account" | "request_booking_cancellation" | "withdraw_booking_cancellation_request" | "resolve_booking_cancellation" | "reschedule_booking" | "change_booking_instructor" | "change_booking_duration" | "change_booking_party" | "rollback_unpaid_booking_party_additions" | "record_booking_attendance" | "record_course_day_attendance" | "complete_booking" | "record_booking_no_show" | "create_course_enrollments" | "transfer_course_enrollment" | "withdraw_course_enrollment" | "request_course_enrollment_cancellation" | "resolve_course_enrollment_cancellation" | "create_booking_proposal" | "accept_booking_proposal" | "cancel_booking_proposal" | "expire_booking_proposal" | "create_booking_change_request" | "withdraw_booking_change_request" | "resolve_booking_change_request" | "expire_guest_reservation" | "enforce_payment_start_gate" | "resolve_attendance_outcome" | "create_participant" | "update_participant_profile" | "assign_participant_management" | "revoke_participant_management" | "create_instructor_relationship" | "revoke_instructor_relationship" | "block_participant" | "unblock_participant" | "record_provider_payment_event" | "record_manual_wallet_funding" | "adjust_service_price" | "record_financial_correction" | "record_audit_correction" | "create_course_day" | "reassign_course_day_instructor" | "reconcile_course_enrollment" | "link_guest_course_enrollment_to_account">;
     context: z.ZodObject<{
         actor: z.ZodDiscriminatedUnion<[z.ZodObject<{
             kind: z.ZodLiteral<"account">;
@@ -401,6 +432,7 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         correlationId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"correlation">, string>>;
         causationId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"causation">, string>>>;
         expectedRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").AggregateRevision, number>>>;
+        expectedParticipantManagementRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").AggregateRevision, number>>>;
         source: z.ZodEnum<{
             provider_callback: "provider_callback";
             client_callable: "client_callable";
@@ -692,9 +724,38 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         courseDayId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course_day">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
         reasonExplanation: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict> | z.ZodObject<{
+        enrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course_enrollment">, string>>;
+        guestLinkCredential: z.ZodObject<{
+            nonce: z.ZodString;
+            signature: z.ZodString;
+        }, z.core.$strict>;
+        participantTarget: z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"existing_managed">;
+            participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"promote_guest">;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"create_managed">;
+            participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+            displayName: z.ZodString;
+            age: z.ZodDiscriminatedUnion<[z.ZodObject<{
+                kind: z.ZodLiteral<"birth_date">;
+                birthDate: z.ZodString;
+            }, z.core.$strict>, z.ZodObject<{
+                kind: z.ZodLiteral<"age_years">;
+                years: z.ZodNumber;
+            }, z.core.$strict>], "kind">;
+            skillLevel: z.ZodString;
+            discipline: z.ZodEnum<{
+                ski: "ski";
+                snowboard: "snowboard";
+            }>;
+            instructorComment: z.ZodOptional<z.ZodString>;
+        }, z.core.$strict>], "kind">;
     }, z.core.$strict>;
 }, z.core.$strict>, ...z.ZodObject<{
-    kind: z.ZodLiteral<"create_confirmed_booking" | "create_guest_booking_request" | "confirm_guest_booking" | "link_guest_booking_to_account" | "request_booking_cancellation" | "withdraw_booking_cancellation_request" | "resolve_booking_cancellation" | "reschedule_booking" | "change_booking_instructor" | "change_booking_duration" | "change_booking_party" | "rollback_unpaid_booking_party_additions" | "record_booking_attendance" | "record_course_day_attendance" | "complete_booking" | "record_booking_no_show" | "create_course_enrollments" | "transfer_course_enrollment" | "withdraw_course_enrollment" | "request_course_enrollment_cancellation" | "resolve_course_enrollment_cancellation" | "create_booking_proposal" | "accept_booking_proposal" | "cancel_booking_proposal" | "expire_booking_proposal" | "create_booking_change_request" | "withdraw_booking_change_request" | "resolve_booking_change_request" | "expire_guest_reservation" | "enforce_payment_start_gate" | "resolve_attendance_outcome" | "create_participant" | "update_participant_profile" | "assign_participant_management" | "revoke_participant_management" | "create_instructor_relationship" | "revoke_instructor_relationship" | "block_participant" | "unblock_participant" | "record_provider_payment_event" | "record_manual_wallet_funding" | "adjust_service_price" | "record_financial_correction" | "record_audit_correction" | "create_course_day" | "reassign_course_day_instructor" | "reconcile_course_enrollment">;
+    kind: z.ZodLiteral<"create_confirmed_booking" | "create_guest_booking_request" | "confirm_guest_booking" | "link_guest_booking_to_account" | "request_booking_cancellation" | "withdraw_booking_cancellation_request" | "resolve_booking_cancellation" | "reschedule_booking" | "change_booking_instructor" | "change_booking_duration" | "change_booking_party" | "rollback_unpaid_booking_party_additions" | "record_booking_attendance" | "record_course_day_attendance" | "complete_booking" | "record_booking_no_show" | "create_course_enrollments" | "transfer_course_enrollment" | "withdraw_course_enrollment" | "request_course_enrollment_cancellation" | "resolve_course_enrollment_cancellation" | "create_booking_proposal" | "accept_booking_proposal" | "cancel_booking_proposal" | "expire_booking_proposal" | "create_booking_change_request" | "withdraw_booking_change_request" | "resolve_booking_change_request" | "expire_guest_reservation" | "enforce_payment_start_gate" | "resolve_attendance_outcome" | "create_participant" | "update_participant_profile" | "assign_participant_management" | "revoke_participant_management" | "create_instructor_relationship" | "revoke_instructor_relationship" | "block_participant" | "unblock_participant" | "record_provider_payment_event" | "record_manual_wallet_funding" | "adjust_service_price" | "record_financial_correction" | "record_audit_correction" | "create_course_day" | "reassign_course_day_instructor" | "reconcile_course_enrollment" | "link_guest_course_enrollment_to_account">;
     context: z.ZodObject<{
         actor: z.ZodDiscriminatedUnion<[z.ZodObject<{
             kind: z.ZodLiteral<"account">;
@@ -722,6 +783,7 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         correlationId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"correlation">, string>>;
         causationId: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"causation">, string>>>;
         expectedRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").AggregateRevision, number>>>;
+        expectedParticipantManagementRevision: z.ZodOptional<z.ZodPipe<z.ZodNumber, z.ZodTransform<import("..").AggregateRevision, number>>>;
         source: z.ZodEnum<{
             provider_callback: "provider_callback";
             client_callable: "client_callable";
@@ -1013,6 +1075,35 @@ export declare const CommandEnvelopeSchema: z.ZodDiscriminatedUnion<[z.ZodObject
         courseDayId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course_day">, string>>;
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"instructor">, string>>;
         reasonExplanation: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict> | z.ZodObject<{
+        enrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"course_enrollment">, string>>;
+        guestLinkCredential: z.ZodObject<{
+            nonce: z.ZodString;
+            signature: z.ZodString;
+        }, z.core.$strict>;
+        participantTarget: z.ZodDiscriminatedUnion<[z.ZodObject<{
+            kind: z.ZodLiteral<"existing_managed">;
+            participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"promote_guest">;
+        }, z.core.$strict>, z.ZodObject<{
+            kind: z.ZodLiteral<"create_managed">;
+            participantId: z.ZodPipe<z.ZodString, z.ZodTransform<import("..").CanonicalId<"participant">, string>>;
+            displayName: z.ZodString;
+            age: z.ZodDiscriminatedUnion<[z.ZodObject<{
+                kind: z.ZodLiteral<"birth_date">;
+                birthDate: z.ZodString;
+            }, z.core.$strict>, z.ZodObject<{
+                kind: z.ZodLiteral<"age_years">;
+                years: z.ZodNumber;
+            }, z.core.$strict>], "kind">;
+            skillLevel: z.ZodString;
+            discipline: z.ZodEnum<{
+                ski: "ski";
+                snowboard: "snowboard";
+            }>;
+            instructorComment: z.ZodOptional<z.ZodString>;
+        }, z.core.$strict>], "kind">;
     }, z.core.$strict>;
 }, z.core.$strict>[]], "kind">;
 export type CommandEnvelope<Kind extends CommandKind = CommandKind> = Readonly<{

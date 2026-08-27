@@ -42,6 +42,7 @@ export const CommandContextSchema = z
     correlationId: CorrelationIdSchema,
     causationId: CausationIdSchema.optional(),
     expectedRevision: AggregateRevisionSchema.optional(),
+    expectedParticipantManagementRevision: AggregateRevisionSchema.optional(),
     source: z.enum(COMMAND_SOURCES),
     transportMetadata: CommandTransportMetadataSchema.optional(),
     calendarInput: CommandCalendarInputSchema.optional(),

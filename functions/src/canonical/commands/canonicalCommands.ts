@@ -25,7 +25,14 @@ import { createBookingPartyCommandHandlers } from '../bookings/bookingPartyComma
 import { createBookingProposalCommandHandlers } from '../bookings/bookingProposalCommands';
 import { createBookingChangeRequestCommandHandlers } from '../bookings/bookingChangeRequestCommands';
 import { createBookingAttendanceCommandHandlers } from '../bookings/bookingAttendanceCommands';
-import { createCourseDayCommandHandlers, createCourseEnrollmentCommandHandlers, createCourseEnrollmentLifecycleCommandHandlers, createCourseEnrollmentAttendanceCommandHandlers, createCourseEnrollmentReconciliationCommandHandlers } from '../courses';
+import {
+  createCourseDayCommandHandlers,
+  createCourseEnrollmentCommandHandlers,
+  createCourseEnrollmentLifecycleCommandHandlers,
+  createCourseEnrollmentAttendanceCommandHandlers,
+  createCourseEnrollmentReconciliationCommandHandlers,
+  createGuestCourseEnrollmentLinkCommandHandlers,
+} from '../courses';
 import type { GuestBookingCommandEnvironment } from '../bookings/guestBookingCommands';
 import type { GuestCourseEnrollmentCommandEnvironment } from '../courses/guestCourseEnrollmentLifecycle';
 
@@ -177,13 +184,14 @@ export function createProductionCanonicalCommands(
       ...createBookingChangeRequestCommandHandlers(executor),
       ...createBookingAttendanceCommandHandlers(executor),
       ...createCourseDayCommandHandlers(executor),
-      ...createCourseEnrollmentCommandHandlers(executor),
+      ...createCourseEnrollmentCommandHandlers(executor, options.guestActionTokenSecret),
       ...createCourseEnrollmentLifecycleCommandHandlers(
         executor,
         guestCourseEnrollmentEnvironmentFactory
       ),
       ...createCourseEnrollmentAttendanceCommandHandlers(executor),
       ...createCourseEnrollmentReconciliationCommandHandlers(executor),
+      ...createGuestCourseEnrollmentLinkCommandHandlers(executor, options.guestActionTokenSecret),
     },
     environment
   );

@@ -4,10 +4,12 @@ import {
   GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
   administratorCapabilityExercisedByAccount,
   guestSubjectIdFromBookingId,
+  parseGuestParticipantProfileFromTransportMetadata,
   type Booking,
   type BookingCancellationReasonCode,
   type CanonicalTimestamp,
   type CommandEnvelope,
+  type GuestParticipantProfileFromTransport,
   type GuestSubjectId,
   type Participant,
 } from '@ski-academy/shared-domain';
@@ -200,6 +202,21 @@ export function resolvePendingGuestCancellationAuthorization(
   }
 
   return 'guest_cancelled';
+}
+
+export function resolveGuestParticipantProfileForBooking(
+  envelope: CommandEnvelope<'create_guest_booking_request'>
+): GuestParticipantProfileFromTransport {
+  const parsed = parseGuestParticipantProfileFromTransportMetadata(
+    envelope.context.transportMetadata
+  );
+  if (!parsed.success) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'transportMetadata', reason: 'required' },
+    });
+  }
+  return parsed.data;
 }
 
 export function assertGuestParticipantForBooking(

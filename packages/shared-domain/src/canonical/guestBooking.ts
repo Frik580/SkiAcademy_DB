@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { BookingId } from './identifiers';
 import {
   compareCanonicalTimestamps,
@@ -61,6 +62,49 @@ export const GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS = {
   discipline: 'participant_discipline',
   ageYears: 'participant_age_years',
 } as const;
+
+export const GuestParticipantProfileFromTransportSchema = z
+  .object({
+    displayName: z.string().trim().min(1).max(200),
+    skillLevel: z.string().trim().min(1).max(64),
+    discipline: z.enum(['ski', 'snowboard']),
+    ageYears: z.number().finite().int().min(0).max(125),
+  })
+  .strict();
+
+export type GuestParticipantProfileFromTransport = Readonly<
+  z.output<typeof GuestParticipantProfileFromTransportSchema>
+>;
+
+export function parseGuestParticipantProfileFromTransportMetadata(
+  transportMetadata: Readonly<Record<string, string>> | undefined
+): z.ZodSafeParseResult<GuestParticipantProfileFromTransport> {
+  if (!transportMetadata) {
+    return GuestParticipantProfileFromTransportSchema.safeParse(undefined);
+  }
+
+  const ageYearsRaw = transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.ageYears];
+  const parsedAgeYears =
+    ageYearsRaw === undefined ? undefined : Number.parseInt(ageYearsRaw, 10);
+
+  return GuestParticipantProfileFromTransportSchema.safeParse({
+    displayName: transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.displayName],
+    skillLevel: transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.skillLevel],
+    discipline: transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.discipline],
+    ageYears: parsedAgeYears,
+  });
+}
+
+export function guestParticipantTransportMetadataFromProfile(
+  profile: GuestParticipantProfileFromTransport
+): Readonly<Record<string, string>> {
+  return {
+    [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.displayName]: profile.displayName,
+    [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.skillLevel]: profile.skillLevel,
+    [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.discipline]: profile.discipline,
+    [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.ageYears]: String(profile.ageYears),
+  };
+}
 
 export const GUEST_ACTION_TOKEN_TRANSPORT_KEY = 'guest_action_token';
 export const GUEST_ACTION_NONCE_TRANSPORT_KEY = 'guest_action_nonce';

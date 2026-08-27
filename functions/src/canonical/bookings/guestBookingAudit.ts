@@ -16,9 +16,15 @@ export function buildCreateGuestBookingRequestAuditPlan(input: {
   paymentId: PaymentId;
   bookingRevision: number;
   paymentRevision: number;
+  participantId?: ParticipantId;
+  participantRevision?: number;
 }): AuditOutboxStagingPlan {
   const bookingRef = canonicalReference('booking', input.bookingId);
   const paymentRef = canonicalReference('payment', input.paymentId);
+  const participantRef =
+    input.participantId === undefined
+      ? undefined
+      : canonicalReference('participant', input.participantId);
 
   return {
     activityLog: {
@@ -32,7 +38,11 @@ export function buildCreateGuestBookingRequestAuditPlan(input: {
         id: input.bookingId,
         subjectKey: `booking:${input.bookingId}`,
       },
-      affectedSubjects: [bookingRef, paymentRef],
+      affectedSubjects: [
+        bookingRef,
+        paymentRef,
+        ...(participantRef ? [participantRef] : []),
+      ],
       effects: [
         {
           kind: 'booking_lifecycle_changed',
@@ -49,6 +59,15 @@ export function buildCreateGuestBookingRequestAuditPlan(input: {
           subjectRef: bookingRef,
           summary: 'Guest booking resource claims acquired',
         },
+        ...(participantRef
+          ? [
+              {
+                kind: 'participant_access_changed' as const,
+                subjectRef: participantRef,
+                summary: 'Guest participant provisioned for booking',
+              },
+            ]
+          : []),
         {
           kind: 'outbox_obligation_created',
           subjectRef: bookingRef,
@@ -66,6 +85,14 @@ export function buildCreateGuestBookingRequestAuditPlan(input: {
           subject: paymentRef,
           revision: AggregateRevisionSchema.parse(input.paymentRevision),
         },
+        ...(participantRef && input.participantRevision !== undefined
+          ? [
+              {
+                subject: participantRef,
+                revision: AggregateRevisionSchema.parse(input.participantRevision),
+              },
+            ]
+          : []),
       ],
     },
     outboxObligations: [

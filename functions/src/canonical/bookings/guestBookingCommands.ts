@@ -6,8 +6,10 @@ import {
   ResourceClaimIdentityInputSchema,
   calculateIndividualBookingPriceKzt,
   commandSuccessResult,
+  createGuestActionTokenNonce,
   deriveBookingPartyKind,
   guestActorRef,
+  GUEST_ACTION_TOKEN_VERSION,
   guestSubjectIdFromBookingId,
   initialBookingOccurrenceIdFromBookingId,
   isGuestBookingConfirmationAllowedBeforeStart,
@@ -22,11 +24,14 @@ import {
   resolveCommandIdempotencyIdentity,
   resolveGuestLessonReservationExpiresAt,
   resolveInstructorHourlyRateKzt,
+  signGuestActionCredential,
   timestampFromDate,
   type Booking,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
   type CommandResult,
+  type GuestBookingActionCredential,
+  type GuestParticipantProfileFromTransport,
   type KztMinorUnits,
   type Participant,
   type ParticipantManagement,
@@ -92,6 +97,7 @@ import {
   assertGuestPendingBooking,
   assertLinkGuestBookingAuthorization,
   requireGuestActor,
+  resolveGuestParticipantProfileForBooking,
 } from './guestBookingAuthorization';
 import {
   buildConfirmGuestBookingAuditPlan,
@@ -157,8 +163,11 @@ function createGuestBookingRequestHandler(
   let reservationExpiresAt!: ReturnType<typeof resolveGuestLessonReservationExpiresAt>;
   let instructorClaimPlan!: Awaited<ReturnType<typeof readAndPlanAcquireResourceClaim>>;
   let participantClaimPlan!: Awaited<ReturnType<typeof readAndPlanAcquireResourceClaim>>;
+  let shouldCreateGuestParticipant = false;
+  let guestParticipantProfile!: GuestParticipantProfileFromTransport;
   const plannedPaymentRevision = AggregateRevisionSchema.parse(1);
   const plannedBookingRevision = AggregateRevisionSchema.parse(1);
+  const plannedParticipantRevision = AggregateRevisionSchema.parse(1);
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_guest_booking_request'> = {
     read: async (session) => {
@@ -198,11 +207,21 @@ function createGuestBookingRequestHandler(
 
       const participantRead = await session.tx.get({ path: participantDocumentPath });
       session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-      assertGuestParticipantForBooking(
-        envelope,
-        parseParticipant(participantRead.exists ? participantRead.data : undefined),
-        participantId
+      const existingParticipant = parseParticipant(
+        participantRead.exists ? participantRead.data : undefined
       );
+      if (!existingParticipant) {
+        guestParticipantProfile = resolveGuestParticipantProfileForBooking(envelope);
+        shouldCreateGuestParticipant = true;
+        session.plan.planMutation({
+          path: participantDocumentPath,
+          kind: 'create',
+          category: 'aggregate',
+          estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.participantBytes,
+        });
+      } else {
+        assertGuestParticipantForBooking(envelope, existingParticipant, participantId);
+      }
 
       const instructorBlockRead = await session.tx.get({ path: instructorBlockPath });
       session.plan.planRead({ path: instructorBlockPath, category: 'authorization_check' });
@@ -302,11 +321,34 @@ function createGuestBookingRequestHandler(
         paymentId,
         bookingRevision: plannedBookingRevision,
         paymentRevision: plannedPaymentRevision,
+        participantId: shouldCreateGuestParticipant ? participantId : undefined,
+        participantRevision: shouldCreateGuestParticipant ? plannedParticipantRevision : undefined,
       }),
     execute: async (session, context) => {
       const decidedAt = timestampFromDate(context.decidedAt);
       const audit = revisionAuditLink(envelope, metadata);
       const partyParticipantIds = [participantId];
+
+      if (shouldCreateGuestParticipant) {
+        const participant: Participant = {
+          participantId,
+          displayName: guestParticipantProfile.displayName,
+          age: { kind: 'age_years', years: guestParticipantProfile.ageYears },
+          skillLevel: guestParticipantProfile.skillLevel,
+          discipline: guestParticipantProfile.discipline,
+          management: { kind: 'unmanaged_guest' },
+          lifecycle: { status: 'active' },
+          revision: plannedParticipantRevision,
+          createdAt: decidedAt,
+          updatedAt: decidedAt,
+          audit,
+        };
+        session.tx.create(
+          { path: participantDocumentPath },
+          participant as Record<string, unknown>
+        );
+      }
+
       const booking: Booking = BookingSchema.parse({
         bookingId: envelope.intent.bookingId,
         attribution: {
@@ -376,7 +418,34 @@ function createGuestBookingRequestHandler(
       commitResourceClaimPlan(session, instructorClaimPlan, claimMetadata);
       commitResourceClaimPlan(session, participantClaimPlan, claimMetadata);
 
-      return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+      const secret = environment.guestActionTokenSecret;
+      if (!secret) {
+        throw new CanonicalCommandError('unavailable', {
+          correlationId: envelope.context.correlationId,
+        });
+      }
+      const nonce = createGuestActionTokenNonce();
+      const guestSubjectId = guestSubjectIdFromBookingId(envelope.intent.bookingId);
+      const signature = signGuestActionCredential(secret, {
+        version: GUEST_ACTION_TOKEN_VERSION,
+        subjectKind: 'booking',
+        bookingId: envelope.intent.bookingId,
+        guestSubjectId,
+        purpose: 'cancel_pending_reservation',
+        expiresAt: reservationExpiresAt,
+        nonce,
+      });
+      const guestActionCredential: GuestBookingActionCredential = {
+        bookingId: envelope.intent.bookingId,
+        guestSubjectId,
+        nonce,
+        signature,
+        expiresAt: reservationExpiresAt,
+      };
+
+      return commandSuccessResult(envelope.kind, envelope.context.correlationId, {
+        guestActionCredential,
+      });
     },
   };
 

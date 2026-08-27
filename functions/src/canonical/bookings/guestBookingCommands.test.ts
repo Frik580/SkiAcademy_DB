@@ -10,10 +10,9 @@ import {
   ParticipantIdSchema,
   SystemActorIdSchema,
   activityLogIdFromCommandId,
-  createGuestActionTokenNonce,
   guestCommandActor,
+  guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
-  signGuestActionCredential,
   paymentIdFromBookingId,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
@@ -24,6 +23,7 @@ import {
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
+import { queryLessonBookingReadModels } from '../readModels/lessonBookingReadModels';
 
 const correlationId = CorrelationIdSchema.parse('correlation_guest_cmd_01');
 const instructorId = InstructorIdSchema.parse('instructor_guest_cmd_01');
@@ -94,6 +94,15 @@ function baseFixture(extra: Record<string, unknown> = {}) {
   };
 }
 
+function guestParticipantTransport() {
+  return guestParticipantTransportMetadataFromProfile({
+    displayName: 'Guest Participant',
+    skillLevel: 'beginner',
+    discipline: 'ski',
+    ageYears: 25,
+  });
+}
+
 function guestCreateEnvelope(
   overrides: Partial<CommandEnvelope<'create_guest_booking_request'>> = {}
 ): CommandEnvelope<'create_guest_booking_request'> {
@@ -111,6 +120,8 @@ function guestCreateEnvelope(
         durationMinutes: 60,
       },
       timezone: 'Asia/Almaty',
+      transportMetadata: guestParticipantTransport(),
+      ...overrides.context,
     },
     intent: {
       bookingId,
@@ -119,6 +130,12 @@ function guestCreateEnvelope(
     },
     ...overrides,
   };
+}
+
+function fixtureWithoutParticipant(extra: Record<string, unknown> = {}) {
+  const base = baseFixture();
+  delete base[`participants/${participantId}`];
+  return { ...base, ...extra };
 }
 
 function runCommands(
@@ -150,19 +167,146 @@ describe('create_guest_booking_request command', () => {
     expect(
       [...snapshot.docs.keys()].filter((path) => path.startsWith('resource_claims/')).length
     ).toBe(2);
+    expect(result.payload?.guestActionCredential).toMatchObject({
+      bookingId,
+      guestSubjectId,
+    });
+    expect(result.payload?.guestActionCredential?.nonce).toMatch(/^[A-Za-z0-9_-]{16,64}$/);
+    expect(result.payload?.guestActionCredential?.signature).toMatch(/^[0-9a-fA-F]{64}$/);
   });
 
-  it('replays without duplicates', async () => {
-    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+  it('provisions an unmanaged guest participant atomically when missing', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
+    const commands = runCommands(executor);
+    const result = await commands.execute(guestCreateEnvelope());
+    expect(result.status).toBe('success');
+
+    const participant = executor.snapshot().docs.get(`participants/${participantId}`)?.data;
+    expect(participant?.management).toEqual({ kind: 'unmanaged_guest' });
+    expect(participant?.displayName).toBe('Guest Participant');
+    expect(participant?.initialManagementEligibleAccountId).toBeUndefined();
+  });
+
+  it('replays without duplicates and returns the stored credential', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
     const commands = runCommands(executor);
     const envelope = guestCreateEnvelope();
-    await commands.execute(envelope);
-    await commands.execute(envelope);
+    const first = await commands.execute(envelope);
+    const second = await commands.execute(envelope);
+    expect(first.status).toBe('success');
+    expect(second.status).toBe('success');
+    expect(second.payload?.guestActionCredential).toEqual(first.payload?.guestActionCredential);
+
     const snapshot = executor.snapshot();
     expect(snapshot.docs.get(`bookings/${bookingId}`)).toBeDefined();
+    expect(snapshot.docs.get(`participants/${participantId}`)).toBeDefined();
     expect([...snapshot.docs.keys()].filter((path) => path.startsWith('activity_logs/')).length).toBe(
       1
     );
+  });
+
+  it('rejects provisioning without guest participant transport metadata', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
+    const commands = runCommands(executor);
+    const result = await commands.execute(
+      guestCreateEnvelope({
+        context: {
+          actor: guestCommandActor(guestSubjectId),
+          exercisedCapability: 'guest',
+          idempotencyKey: 'guest-create-missing-transport',
+          correlationId,
+          source: 'guest_callable',
+          calendarInput: {
+            localDate: '2026-01-15',
+            localTime: '09:00',
+            durationMinutes: 60,
+          },
+          timezone: 'Asia/Almaty',
+        },
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('validation');
+    }
+    expect(executor.snapshot().docs.has(`participants/${participantId}`)).toBe(false);
+  });
+
+  it('authorizes guest_single reads with the returned credential', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
+    const commands = runCommands(executor);
+    const createResult = await commands.execute(
+      guestCreateEnvelope({ context: { ...guestCreateEnvelope().context, idempotencyKey: 'guest-read-01' } })
+    );
+    expect(createResult.status).toBe('success');
+    const credential = createResult.payload?.guestActionCredential;
+    expect(credential).toBeDefined();
+
+    const snapshot = executor.snapshot();
+    const booking = snapshot.docs.get(`bookings/${bookingId}`)?.data;
+    const instructor = snapshot.docs.get(`instructors/${instructorId}`)?.data;
+    const participant = snapshot.docs.get(`participants/${participantId}`)?.data;
+
+    const firestore = {
+      collection: (name: string) => ({
+        doc: (id: string) => ({
+          get: async () => {
+            const path = `${name}/${id}`;
+            const data = snapshot.docs.get(path)?.data;
+            return {
+              exists: data !== undefined,
+              data: () => data,
+            };
+          },
+        }),
+        where: () => ({
+          limit: () => ({
+            get: async () => ({ docs: [] }),
+          }),
+        }),
+      }),
+    } as unknown as import('firebase-admin/firestore').Firestore;
+
+    const authorized = await queryLessonBookingReadModels(
+      firestore,
+      {
+        scope: 'guest_single',
+        bookingId,
+        guestActionNonce: credential!.nonce,
+        guestActionSignature: credential!.signature,
+      },
+      { guestActionSecret: tokenSecret, now: new Date('2026-01-01T10:30:00.000Z') }
+    );
+    expect(authorized.items).toHaveLength(1);
+    expect(authorized.items[0]?.bookingId).toBe(bookingId);
+
+    const wrongSubject = await queryLessonBookingReadModels(
+      firestore,
+      {
+        scope: 'guest_single',
+        bookingId: BookingIdSchema.parse('booking_guest_cmd_other'),
+        guestActionNonce: credential!.nonce,
+        guestActionSignature: credential!.signature,
+      },
+      { guestActionSecret: tokenSecret, now: new Date('2026-01-01T10:30:00.000Z') }
+    );
+    expect(wrongSubject.items).toHaveLength(0);
+
+    const expired = await queryLessonBookingReadModels(
+      firestore,
+      {
+        scope: 'guest_single',
+        bookingId,
+        guestActionNonce: credential!.nonce,
+        guestActionSignature: credential!.signature,
+      },
+      { guestActionSecret: tokenSecret, now: new Date('2026-01-01T12:30:00.000Z') }
+    );
+    expect(expired.items).toHaveLength(0);
+
+    expect(booking).toBeDefined();
+    expect(instructor).toBeDefined();
+    expect(participant).toBeDefined();
   });
 });
 
@@ -229,19 +373,11 @@ describe('guest pending cancellation command', () => {
   it('cancels via guest token without wallet effects', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
     const commands = runCommands(executor);
-    await commands.execute(guestCreateEnvelope());
-
-    const booking = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data;
-    const nonce = createGuestActionTokenNonce();
-    const signature = signGuestActionCredential(tokenSecret, {
-      version: 'guest-token:v1',
-      subjectKind: 'booking',
-      bookingId,
-      guestSubjectId,
-      purpose: 'cancel_pending_reservation',
-      expiresAt: booking.lifecycle.reservationExpiresAt,
-      nonce,
-    });
+    const createResult = await commands.execute(guestCreateEnvelope());
+    const credential = createResult.payload?.guestActionCredential;
+    expect(credential).toBeDefined();
+    const nonce = credential!.nonce;
+    const signature = credential!.signature;
 
     const result = await commands.execute({
       kind: 'request_booking_cancellation',

@@ -18,6 +18,7 @@ import { purgeExpiredNotifications } from './purgeExpiredNotifications';
 import { createExecuteCanonicalCommandHandler } from './canonical/commands/executeCanonicalCommandCallable';
 import { createExecuteGuestCanonicalCommandHandler } from './canonical/commands/executeGuestCanonicalCommandCallable';
 import { createQueryLessonBookingReadModelsHandler } from './canonical/readModels/queryLessonBookingReadModelsCallable';
+import { createQueryManagedParticipantPickerReadModelsHandler } from './canonical/readModels/queryManagedParticipantPickerReadModelsCallable';
 
 export { optimizeImage } from './images/optimizeImageHttp';
 
@@ -79,6 +80,12 @@ export const executeGuestCanonicalCommand = onCall({ region: 'us-central1' }, as
 
 export const queryLessonBookingReadModels = onCall({ region: 'us-central1' }, async (request) =>
   createQueryLessonBookingReadModelsHandler(getAdminFirestore())(request)
+);
+
+export const queryManagedParticipantPickerReadModels = onCall(
+  { region: 'us-central1' },
+  async (request) =>
+    createQueryManagedParticipantPickerReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const scheduledAutoCompleteBookings = onSchedule(

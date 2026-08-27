@@ -3,7 +3,10 @@ import {
   guestCommandActor,
   GUEST_ACTION_NONCE_TRANSPORT_KEY,
   GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
+  GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS,
+  guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
+  parseGuestParticipantProfileFromTransportMetadata,
   type CommandContext,
   type CommandEnvelope,
   type CommandKind,
@@ -23,6 +26,10 @@ export interface CallableGuestCommandTransportInput<Kind extends CommandKind> {
   readonly timezone?: CommandContext['timezone'];
   readonly guestActionNonce?: string;
   readonly guestActionSignature?: string;
+  readonly guestParticipantDisplayName?: string;
+  readonly guestParticipantSkillLevel?: string;
+  readonly guestParticipantDiscipline?: 'ski' | 'snowboard';
+  readonly guestParticipantAgeYears?: number;
 }
 
 export function deriveGuestSubjectIdForIntent(
@@ -48,6 +55,10 @@ export function buildGuestCommandContextFromCallable(
     | 'timezone'
     | 'guestActionNonce'
     | 'guestActionSignature'
+    | 'guestParticipantDisplayName'
+    | 'guestParticipantSkillLevel'
+    | 'guestParticipantDiscipline'
+    | 'guestParticipantAgeYears'
   >
 ): CommandContext {
   const transportMetadata: Record<string, string> = { transport: 'firebase_callable' };
@@ -56,6 +67,31 @@ export function buildGuestCommandContextFromCallable(
   }
   if (input.guestActionSignature) {
     transportMetadata[GUEST_ACTION_SIGNATURE_TRANSPORT_KEY] = input.guestActionSignature;
+  }
+
+  const guestParticipantProfile = parseGuestParticipantProfileFromTransportMetadata({
+    ...(input.guestParticipantDisplayName === undefined
+      ? {}
+      : { [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.displayName]: input.guestParticipantDisplayName }),
+    ...(input.guestParticipantSkillLevel === undefined
+      ? {}
+      : { [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.skillLevel]: input.guestParticipantSkillLevel }),
+    ...(input.guestParticipantDiscipline === undefined
+      ? {}
+      : { [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.discipline]: input.guestParticipantDiscipline }),
+    ...(input.guestParticipantAgeYears === undefined
+      ? {}
+      : {
+          [GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.ageYears]: String(
+            input.guestParticipantAgeYears
+          ),
+        }),
+  });
+  if (guestParticipantProfile.success) {
+    Object.assign(
+      transportMetadata,
+      guestParticipantTransportMetadataFromProfile(guestParticipantProfile.data)
+    );
   }
 
   return {

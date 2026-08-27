@@ -11,6 +11,7 @@ import {
   SystemActorIdSchema,
   accountCommandActor,
   guestCommandActor,
+  guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
   paymentIdFromBookingId,
   systemCommandActor,
@@ -73,6 +74,12 @@ function guestCreateEnvelope(input: {
         durationMinutes: 60,
       },
       timezone: 'Asia/Almaty',
+      transportMetadata: guestParticipantTransportMetadataFromProfile({
+        displayName: 'Guest Emulator Participant',
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        ageYears: 24,
+      }),
     },
     intent: {
       bookingId: BookingIdSchema.parse(input.bookingId),
@@ -92,6 +99,15 @@ async function clearCollections(collections: readonly string[]): Promise<void> {
     }
     await batch.commit();
   }
+}
+
+async function seedInstructorOnly(): Promise<void> {
+  await firestore.collection('instructors').doc(instructorId).set({
+    id: instructorId,
+    name: 'Guest Emulator Instructor',
+    pricePerHourKZT: 12_000,
+    isAvailable: true,
+  });
 }
 
 async function seedFixture(): Promise<void> {
@@ -245,6 +261,31 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
 
       const activityLogs = await firestore.collection('activity_logs').get();
       expect(activityLogs.size).toBeLessThanOrEqual(2);
+    },
+    30_000
+  );
+
+  it(
+    'provisions guest participant atomically and returns a guest action credential',
+    async () => {
+      await clearCollections([...COLLECTIONS_TO_CLEAR]);
+      await seedInstructorOnly();
+
+      const commands = createCommands('2026-01-01T10:00:00.000Z');
+      const first = await commands.execute(
+        guestCreateEnvelope({ bookingId, idempotencyKey: 'guest-provision-01' })
+      );
+      const replay = await commands.execute(
+        guestCreateEnvelope({ bookingId, idempotencyKey: 'guest-provision-01' })
+      );
+
+      expect(first.status).toBe('success');
+      expect(replay.status).toBe('success');
+      expect(replay.payload?.guestActionCredential).toEqual(first.payload?.guestActionCredential);
+
+      const participants = await firestore.collection('participants').get();
+      expect(participants.size).toBe(1);
+      expect(participants.docs[0]?.data().management).toEqual({ kind: 'unmanaged_guest' });
     },
     30_000
   );

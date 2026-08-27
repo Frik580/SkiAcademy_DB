@@ -17,6 +17,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'booking_lifecycle_changed',
     'payment_state_changed',
     'resource_claim_changed',
+    'participant_access_changed',
     'outbox_obligation_created',
   ],
   confirm_guest_booking: ['booking_lifecycle_changed', 'outbox_obligation_created'],

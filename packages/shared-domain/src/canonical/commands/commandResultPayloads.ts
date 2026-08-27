@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  BookingIdSchema,
   CourseEnrollmentIdSchema,
   GuestSubjectIdSchema,
 } from '../identifiers';
@@ -19,6 +20,20 @@ export type GuestCourseEnrollmentLinkCredential = Readonly<
   z.output<typeof GuestCourseEnrollmentLinkCredentialSchema>
 >;
 
+export const GuestBookingActionCredentialSchema = z
+  .object({
+    bookingId: BookingIdSchema,
+    guestSubjectId: GuestSubjectIdSchema,
+    nonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
+    signature: z.string().regex(/^[0-9a-fA-F]{64}$/),
+    expiresAt: CanonicalTimestampSchema,
+  })
+  .strict();
+
+export type GuestBookingActionCredential = Readonly<
+  z.output<typeof GuestBookingActionCredentialSchema>
+>;
+
 export const CreateCourseEnrollmentsResultPayloadSchema = z
   .object({
     guestLinkCredentials: z.array(GuestCourseEnrollmentLinkCredentialSchema).optional(),
@@ -29,8 +44,19 @@ export type CreateCourseEnrollmentsResultPayload = Readonly<
   z.output<typeof CreateCourseEnrollmentsResultPayloadSchema>
 >;
 
+export const CreateGuestBookingRequestResultPayloadSchema = z
+  .object({
+    guestActionCredential: GuestBookingActionCredentialSchema,
+  })
+  .strict();
+
+export type CreateGuestBookingRequestResultPayload = Readonly<
+  z.output<typeof CreateGuestBookingRequestResultPayloadSchema>
+>;
+
 export const CommandResultPayloadSchemaByKind = {
   create_course_enrollments: CreateCourseEnrollmentsResultPayloadSchema,
+  create_guest_booking_request: CreateGuestBookingRequestResultPayloadSchema,
 } as const;
 
 export type CommandResultPayloadForKind<Kind extends keyof typeof CommandResultPayloadSchemaByKind> =

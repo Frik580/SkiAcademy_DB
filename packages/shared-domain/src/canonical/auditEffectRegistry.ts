@@ -174,6 +174,12 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'admin_issue_resolved',
     'outbox_obligation_created',
   ],
+  reconcile_course_enrollment: [
+    'course_enrollment_lifecycle_changed',
+    'admin_issue_opened',
+    'admin_issue_resolved',
+    'resource_claim_changed',
+  ],
 };
 
 export function hasAuditEffectRegistryEntry(commandKind: CommandKind): boolean {

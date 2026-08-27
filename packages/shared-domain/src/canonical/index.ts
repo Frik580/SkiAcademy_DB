@@ -27,6 +27,7 @@ export * from './courseEnrollmentAttendanceAdminIssue';
 export * from './courseEnrollmentCreation';
 export * from './courseEnrollmentCancellationPolicy';
 export * from './courseEnrollmentAttendancePolicy';
+export * from './courseEnrollmentReconciliationPolicy';
 export * from './courseDayScheduling';
 export * from './adminIssuePolicy';
 export * from './deterministicIdentity';

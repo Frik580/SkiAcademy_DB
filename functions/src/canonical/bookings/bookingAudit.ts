@@ -118,7 +118,7 @@ export function buildPaymentStartGateAuditPlan(
       | {
           readonly issueId: AdminIssueId;
           readonly revision: number;
-          readonly effect: 'opened' | 'reused';
+          readonly effect: 'opened' | 'reused' | 'resolved';
         }
       | undefined;
   } & (
@@ -159,12 +159,17 @@ export function buildPaymentStartGateAuditPlan(
       ? []
       : [
           {
-            kind: 'admin_issue_opened',
+            kind:
+              input.issue.effect === 'resolved'
+                ? ('admin_issue_resolved' as const)
+                : ('admin_issue_opened' as const),
             subjectRef: issueRef,
             summary:
-              input.issue.effect === 'opened'
-                ? 'Payment required at start; delivery restricted'
-                : 'Payment start gate rechecked; delivery still restricted',
+              input.issue.effect === 'resolved'
+                ? 'Payment start restriction cleared'
+                : input.issue.effect === 'opened'
+                  ? 'Payment required at start; delivery restricted'
+                  : 'Payment start gate rechecked; delivery still restricted',
           },
         ];
 

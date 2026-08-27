@@ -597,6 +597,7 @@ export const CommandIntentSchemaByKind = {
       reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
     })
     .strict(),
+  reconcile_course_enrollment: courseEnrollmentTargetIntent,
 } satisfies Record<CommandKind, z.ZodType>;
 
 export type CommandIntentForKind<Kind extends CommandKind> = z.output<

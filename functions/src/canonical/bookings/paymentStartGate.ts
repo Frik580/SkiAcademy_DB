@@ -9,6 +9,7 @@ import {
   evaluateIndividualBookingPaymentStartGate,
   paymentRequiredAtStartCourseEnrollmentIdentityFromEnrollment,
   paymentRequiredAtStartIdentity,
+  resolveAdminIssueForCoupledReconciliation,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
   type AdminIssue,
@@ -311,6 +312,32 @@ function enforceCourseEnrollmentPaymentStartGateHandler(
         });
       }
 
+      if (decision.outcome === 'fully_funded') {
+        if (existingIssue?.lifecycle.status === 'open') {
+          const resolved = resolveAdminIssueForCoupledReconciliation(existingIssue, {
+            expectedRevision: existingIssue.revision,
+            now,
+            correlationId: envelope.context.correlationId,
+            commandId: identity.commandKey,
+            reason: 'Payment fully funded; payment-start restriction cleared',
+            actor: {
+              actor: envelope.context.actor,
+              exercisedCapability: envelope.context.exercisedCapability,
+            },
+            coupledDomainCommand: true,
+          });
+          plannedIssue = resolved;
+          issueMutationKind = 'update';
+          session.plan.planMutation({
+            path: issueDocumentPath,
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+          });
+        }
+        return;
+      }
+
       if (decision.outcome !== 'underfunded') {
         return;
       }
@@ -345,7 +372,12 @@ function enforceCourseEnrollmentPaymentStartGateHandler(
             : {
                 issueId: plannedIssue.issueId,
                 revision: plannedIssue.revision,
-                effect: issueMutationKind === 'create' ? 'opened' : 'reused',
+                effect:
+                  issueMutationKind === 'create'
+                    ? 'opened'
+                    : plannedIssue.lifecycle.status === 'resolved'
+                      ? 'resolved'
+                      : 'reused',
               },
       }),
     execute: async (session) => {

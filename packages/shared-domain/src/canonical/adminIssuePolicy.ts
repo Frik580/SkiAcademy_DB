@@ -17,6 +17,7 @@ import type {
   CourseEnrollmentId,
   OccurrenceId,
 } from './identifiers';
+import { AccountIdSchema } from './identifiers';
 import {
   isPaymentFullyFundedForService,
   paymentIdMatchesSubject,
@@ -544,6 +545,18 @@ function applyTerminalIssueLifecycle(
   });
 }
 
+export const SYSTEM_RECONCILIATION_ACCOUNT_ID = AccountIdSchema.parse('account_system_reconciliation');
+
+function resolveIssueActorAccountIdForCoupledCommand(
+  correlationId: CorrelationId,
+  actor: AdminIssueLifecycleActor
+): AccountId {
+  if (actor.actor.kind === 'system' && actor.exercisedCapability === 'system') {
+    return SYSTEM_RECONCILIATION_ACCOUNT_ID;
+  }
+  return resolveIssueActorAccountId(correlationId, actor);
+}
+
 export function resolveAdminIssue(
   existing: AdminIssue,
   input: ResolveOrDismissAdminIssueInput
@@ -556,6 +569,24 @@ export function resolveAdminIssue(
     });
   }
   const resolvedByAccountId = resolveIssueActorAccountId(input.correlationId, input.actor);
+  return applyTerminalIssueLifecycle(existing, input, 'resolved', resolvedByAccountId);
+}
+
+export function resolveAdminIssueForCoupledReconciliation(
+  existing: AdminIssue,
+  input: ResolveOrDismissAdminIssueInput
+): AdminIssue {
+  const policy = adminIssueKindPolicy(existing.kind);
+  if (policy.requireCoupledDomainCommandToResolve && !input.coupledDomainCommand) {
+    throw new CanonicalCommandError('invalid_transition', {
+      correlationId: input.correlationId,
+      details: { reason: 'unsupported' },
+    });
+  }
+  const resolvedByAccountId = resolveIssueActorAccountIdForCoupledCommand(
+    input.correlationId,
+    input.actor
+  );
   return applyTerminalIssueLifecycle(existing, input, 'resolved', resolvedByAccountId);
 }
 

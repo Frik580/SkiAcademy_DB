@@ -103,7 +103,9 @@ export interface OwnerWithdrawalUnresolvedCourseEnrollmentPendingCancellationRes
     readonly actor: AdminIssueLifecycleActor;
     readonly enrollmentId: CourseEnrollmentId;
 }
+export declare const SYSTEM_RECONCILIATION_ACCOUNT_ID: import("./identifiers").CanonicalId<"account">;
 export declare function resolveAdminIssue(existing: AdminIssue, input: ResolveOrDismissAdminIssueInput): AdminIssue;
+export declare function resolveAdminIssueForCoupledReconciliation(existing: AdminIssue, input: ResolveOrDismissAdminIssueInput): AdminIssue;
 export declare function resolveUnresolvedPendingCancellationForOwnerWithdrawal(existing: AdminIssue, input: OwnerWithdrawalUnresolvedPendingCancellationResolutionInput): AdminIssue;
 export declare function resolveUnresolvedCourseEnrollmentPendingCancellationForOwnerWithdrawal(existing: AdminIssue, input: OwnerWithdrawalUnresolvedCourseEnrollmentPendingCancellationResolutionInput): AdminIssue;
 export declare function dismissAdminIssue(existing: AdminIssue, input: ResolveOrDismissAdminIssueInput): AdminIssue;

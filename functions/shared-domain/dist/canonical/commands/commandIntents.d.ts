@@ -338,6 +338,9 @@ export declare const CommandIntentSchemaByKind: {
         instructorId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"instructor">, string>>;
         reasonExplanation: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>;
+    reconcile_course_enrollment: z.ZodObject<{
+        courseEnrollmentId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"course_enrollment">, string>>;
+    }, z.core.$strict>;
 };
 export type CommandIntentForKind<Kind extends CommandKind> = z.output<(typeof CommandIntentSchemaByKind)[Kind]>;
 export type CommandIntentMap = {

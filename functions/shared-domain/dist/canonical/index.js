@@ -43,6 +43,7 @@ __exportStar(require("./courseEnrollmentAttendanceAdminIssue"), exports);
 __exportStar(require("./courseEnrollmentCreation"), exports);
 __exportStar(require("./courseEnrollmentCancellationPolicy"), exports);
 __exportStar(require("./courseEnrollmentAttendancePolicy"), exports);
+__exportStar(require("./courseEnrollmentReconciliationPolicy"), exports);
 __exportStar(require("./courseDayScheduling"), exports);
 __exportStar(require("./adminIssuePolicy"), exports);
 __exportStar(require("./deterministicIdentity"), exports);

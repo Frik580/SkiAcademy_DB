@@ -45,6 +45,7 @@ export const COMMAND_KINDS = [
   'record_audit_correction',
   'create_course_day',
   'reassign_course_day_instructor',
+  'reconcile_course_enrollment',
 ] as const;
 
 export type CommandKind = (typeof COMMAND_KINDS)[number];

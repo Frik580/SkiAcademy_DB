@@ -50,6 +50,7 @@ export declare const CommandSuccessResultSchema: z.ZodObject<{
         record_audit_correction: "record_audit_correction";
         create_course_day: "create_course_day";
         reassign_course_day_instructor: "reassign_course_day_instructor";
+        reconcile_course_enrollment: "reconcile_course_enrollment";
     }>;
     correlationId: z.ZodPipe<z.ZodString, z.ZodTransform<import("../identifiers").CanonicalId<"correlation">, string>>;
 }, z.core.$strict>;

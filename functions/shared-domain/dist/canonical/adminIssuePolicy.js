@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ADMIN_ISSUE_KIND_POLICIES = exports.PAYMENT_REQUIRED_AT_START_INSTRUCTOR_INSTRUCTION = void 0;
+exports.SYSTEM_RECONCILIATION_ACCOUNT_ID = exports.ADMIN_ISSUE_KIND_POLICIES = exports.PAYMENT_REQUIRED_AT_START_INSTRUCTOR_INSTRUCTION = void 0;
 exports.adminIssueKindPolicy = adminIssueKindPolicy;
 exports.paymentRequiredAtStartIdentity = paymentRequiredAtStartIdentity;
 exports.paymentRequiredAtStartCourseEnrollmentIdentity = paymentRequiredAtStartCourseEnrollmentIdentity;
@@ -15,6 +15,7 @@ exports.createOpenAdminIssue = createOpenAdminIssue;
 exports.reuseOrReopenAdminIssue = reuseOrReopenAdminIssue;
 exports.assertAdministratorMayMutateAdminIssue = assertAdministratorMayMutateAdminIssue;
 exports.resolveAdminIssue = resolveAdminIssue;
+exports.resolveAdminIssueForCoupledReconciliation = resolveAdminIssueForCoupledReconciliation;
 exports.resolveUnresolvedPendingCancellationForOwnerWithdrawal = resolveUnresolvedPendingCancellationForOwnerWithdrawal;
 exports.resolveUnresolvedCourseEnrollmentPendingCancellationForOwnerWithdrawal = resolveUnresolvedCourseEnrollmentPendingCancellationForOwnerWithdrawal;
 exports.dismissAdminIssue = dismissAdminIssue;
@@ -22,6 +23,7 @@ exports.sanitizePaymentStartGateForInstructor = sanitizePaymentStartGateForInstr
 exports.sanitizedInstructorViewOmitsFinancialFields = sanitizedInstructorViewOmitsFinancialFields;
 const courseEnrollmentAttendanceAdminIssue_1 = require("./courseEnrollmentAttendanceAdminIssue");
 const errors_1 = require("./errors");
+const identifiers_1 = require("./identifiers");
 const paymentWallet_1 = require("./paymentWallet");
 const primitives_1 = require("./primitives");
 const revisionConcurrency_1 = require("./revisionConcurrency");
@@ -367,6 +369,13 @@ function applyTerminalIssueLifecycle(existing, input, status, resolvedByAccountI
         },
     });
 }
+exports.SYSTEM_RECONCILIATION_ACCOUNT_ID = identifiers_1.AccountIdSchema.parse('account_system_reconciliation');
+function resolveIssueActorAccountIdForCoupledCommand(correlationId, actor) {
+    if (actor.actor.kind === 'system' && actor.exercisedCapability === 'system') {
+        return exports.SYSTEM_RECONCILIATION_ACCOUNT_ID;
+    }
+    return resolveIssueActorAccountId(correlationId, actor);
+}
 function resolveAdminIssue(existing, input) {
     const policy = adminIssueKindPolicy(existing.kind);
     if (policy.requireCoupledDomainCommandToResolve && !input.coupledDomainCommand) {
@@ -376,6 +385,17 @@ function resolveAdminIssue(existing, input) {
         });
     }
     const resolvedByAccountId = resolveIssueActorAccountId(input.correlationId, input.actor);
+    return applyTerminalIssueLifecycle(existing, input, 'resolved', resolvedByAccountId);
+}
+function resolveAdminIssueForCoupledReconciliation(existing, input) {
+    const policy = adminIssueKindPolicy(existing.kind);
+    if (policy.requireCoupledDomainCommandToResolve && !input.coupledDomainCommand) {
+        throw new errors_1.CanonicalCommandError('invalid_transition', {
+            correlationId: input.correlationId,
+            details: { reason: 'unsupported' },
+        });
+    }
+    const resolvedByAccountId = resolveIssueActorAccountIdForCoupledCommand(input.correlationId, input.actor);
     return applyTerminalIssueLifecycle(existing, input, 'resolved', resolvedByAccountId);
 }
 function resolveUnresolvedPendingCancellationForOwnerWithdrawal(existing, input) {

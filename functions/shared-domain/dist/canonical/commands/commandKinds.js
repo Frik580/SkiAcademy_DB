@@ -49,6 +49,7 @@ exports.COMMAND_KINDS = [
     'record_audit_correction',
     'create_course_day',
     'reassign_course_day_instructor',
+    'reconcile_course_enrollment',
 ];
 exports.FORBIDDEN_GENERIC_COMMAND_KINDS = [
     'setStatus',

@@ -579,6 +579,7 @@ exports.CommandIntentSchemaByKind = {
         reasonExplanation: zod_1.z.string().trim().min(1).max(1_000).optional(),
     })
         .strict(),
+    reconcile_course_enrollment: courseEnrollmentTargetIntent,
 };
 function parseCommandIntent(kind, input) {
     return exports.CommandIntentSchemaByKind[kind].safeParse(input);

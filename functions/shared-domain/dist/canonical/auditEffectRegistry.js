@@ -175,6 +175,12 @@ const COMMAND_KIND_ALLOWED_EFFECTS = {
         'admin_issue_resolved',
         'outbox_obligation_created',
     ],
+    reconcile_course_enrollment: [
+        'course_enrollment_lifecycle_changed',
+        'admin_issue_opened',
+        'admin_issue_resolved',
+        'resource_claim_changed',
+    ],
 };
 function hasAuditEffectRegistryEntry(commandKind) {
     return COMMAND_KIND_ALLOWED_EFFECTS[commandKind] !== undefined;

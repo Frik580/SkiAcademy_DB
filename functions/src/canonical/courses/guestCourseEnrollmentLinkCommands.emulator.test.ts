@@ -410,24 +410,45 @@ function guestEnrollmentEnvelope(
   idempotencyKey: string,
   targetParticipantId: typeof guestParticipantId = guestParticipantId
 ): CommandEnvelope<'create_course_enrollments'> {
-  return {
+  const sharedContext = {
+    exercisedCapability: 'guest' as const,
+    idempotencyKey,
+    correlationId,
+    source: 'guest_callable' as const,
+    calendarInput: {
+      localDate: '2026-02-01',
+      localTime: '09:00',
+      durationMinutes: 120,
+    },
+    timezone: 'Asia/Almaty' as const,
+  };
+  const draft: CommandEnvelope<'create_course_enrollments'> = {
     kind: 'create_course_enrollments',
     context: {
+      ...sharedContext,
       actor: guestCommandActor(guestSubjectId),
-      exercisedCapability: 'guest',
-      idempotencyKey,
-      correlationId,
-      source: 'guest_callable',
-      calendarInput: {
-        localDate: '2026-02-01',
-        localTime: '09:00',
-        durationMinutes: 120,
-      },
-      timezone: 'Asia/Almaty',
     },
     intent: {
       courseId,
       participantIds: [targetParticipantId],
+    },
+  };
+  const identity = resolveCommandIdempotencyIdentity(draft);
+  const enrollmentId = courseEnrollmentIdFromCommandParticipant({
+    commandId: identity.commandKey,
+    participantId: targetParticipantId,
+  });
+
+  return {
+    kind: 'create_course_enrollments',
+    context: {
+      ...sharedContext,
+      actor: guestCommandActor(guestSubjectIdFromCourseEnrollmentId(enrollmentId)),
+    },
+    intent: {
+      courseId,
+      participantIds: [targetParticipantId],
+      enrollmentIds: [enrollmentId],
     },
   };
 }
@@ -545,11 +566,7 @@ async function createGuestEnrollment(
     throw new Error('guest enrollment create failed');
   }
 
-  const identity = resolveCommandIdempotencyIdentity(envelope);
-  const enrollmentId = courseEnrollmentIdFromCommandParticipant({
-    commandId: identity.commandKey,
-    participantId: targetParticipantId,
-  });
+  const enrollmentId = envelope.intent.enrollmentIds![0]!;
   const enrollmentDoc = await firestore.doc(`course_enrollments/${enrollmentId}`).get();
   const credential = result.payload?.guestLinkCredentials?.find(
     (entry) => entry.enrollmentId === enrollmentId

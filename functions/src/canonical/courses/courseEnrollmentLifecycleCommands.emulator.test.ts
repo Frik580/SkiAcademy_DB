@@ -19,6 +19,7 @@ import {
   COURSE_CLIENT_CANCELLATION_WINDOW_7D_MS,
   courseEnrollmentIdFromCommandParticipant,
   guestCommandActor,
+  guestSubjectIdFromCourseEnrollmentId,
   paymentIdFromCourseEnrollmentId,
   resolveCommandIdempotencyIdentity,
   systemCommandActor,
@@ -404,24 +405,45 @@ function enrollmentEnvelopeB(input: {
 }
 
 function guestEnrollmentEnvelope(idempotencyKey: string): CommandEnvelope<'create_course_enrollments'> {
-  return {
+  const sharedContext = {
+    exercisedCapability: 'guest' as const,
+    idempotencyKey,
+    correlationId,
+    source: 'guest_callable' as const,
+    calendarInput: {
+      localDate: '2026-02-01',
+      localTime: '09:00',
+      durationMinutes: 120,
+    },
+    timezone: 'Asia/Almaty' as const,
+  };
+  const draft: CommandEnvelope<'create_course_enrollments'> = {
     kind: 'create_course_enrollments',
     context: {
+      ...sharedContext,
       actor: guestCommandActor(guestSubjectId),
-      exercisedCapability: 'guest',
-      idempotencyKey,
-      correlationId,
-      source: 'guest_callable',
-      calendarInput: {
-        localDate: '2026-02-01',
-        localTime: '09:00',
-        durationMinutes: 120,
-      },
-      timezone: 'Asia/Almaty',
     },
     intent: {
       courseId,
       participantIds: [guestParticipantId],
+    },
+  };
+  const identity = resolveCommandIdempotencyIdentity(draft);
+  const enrollmentId = courseEnrollmentIdFromCommandParticipant({
+    commandId: identity.commandKey,
+    participantId: guestParticipantId,
+  });
+
+  return {
+    kind: 'create_course_enrollments',
+    context: {
+      ...sharedContext,
+      actor: guestCommandActor(guestSubjectIdFromCourseEnrollmentId(enrollmentId)),
+    },
+    intent: {
+      courseId,
+      participantIds: [guestParticipantId],
+      enrollmentIds: [enrollmentId],
     },
   };
 }
@@ -662,11 +684,7 @@ async function createGuestEnrollment(
   const result = await commands.execute(envelope);
   expect(result.status).toBe('success');
 
-  const identity = resolveCommandIdempotencyIdentity(envelope);
-  const enrollmentId = courseEnrollmentIdFromCommandParticipant({
-    commandId: identity.commandKey,
-    participantId: guestParticipantId,
-  });
+  const enrollmentId = envelope.intent.enrollmentIds![0]!;
   const enrollmentDoc = await firestore.doc(`course_enrollments/${enrollmentId}`).get();
   return {
     enrollmentId,

@@ -6,8 +6,8 @@ import {
   CorrelationIdSchema,
   CourseDayIdSchema,
   CourseIdSchema,
-  GuestSubjectIdSchema,
   InstructorIdSchema,
+  GuestSubjectIdSchema,
   ParticipantIdSchema,
   courseEnrollmentIdFromCommandParticipant,
   guestCommandActor,
@@ -30,8 +30,10 @@ const participantIdCreate = ParticipantIdSchema.parse('participant_guest_course_
 const instructorId = InstructorIdSchema.parse('instructor_guest_course_link_cmd_01');
 const courseId = CourseIdSchema.parse('course_guest_course_link_cmd_01');
 const courseDayId = CourseDayIdSchema.parse('course_day_guest_course_link_cmd_01');
-const guestActorSubjectId = GuestSubjectIdSchema.parse('guest_subject_guest_course_link_cmd_actor');
 const tokenSecret = 'guest-course-link-cmd-test-secret';
+const guestEnrollmentFixtureSeedSubjectId = GuestSubjectIdSchema.parse(
+  'guest_subject_guest_course_link_cmd_actor'
+);
 const COURSE_PRICE_KZT = 50_000;
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 const dayOneStart = timestampFromDate(new Date('2026-02-01T03:00:00.000Z'));
@@ -136,26 +138,48 @@ function baseFixture(extra: Record<string, unknown> = {}) {
 }
 
 function guestCreateEnvelope(
-  idempotencyKey: string
+  idempotencyKey: string,
+  targetParticipantId: typeof guestParticipantId = guestParticipantId
 ): CommandEnvelope<'create_course_enrollments'> {
-  return {
+  const sharedContext = {
+    exercisedCapability: 'guest' as const,
+    idempotencyKey,
+    correlationId,
+    source: 'guest_callable' as const,
+    calendarInput: {
+      localDate: '2026-02-01',
+      localTime: '09:00',
+      durationMinutes: 120,
+    },
+    timezone: 'Asia/Almaty' as const,
+  };
+  const draft: CommandEnvelope<'create_course_enrollments'> = {
     kind: 'create_course_enrollments',
     context: {
-      actor: guestCommandActor(guestActorSubjectId),
-      exercisedCapability: 'guest',
-      idempotencyKey,
-      correlationId,
-      source: 'guest_callable',
-      calendarInput: {
-        localDate: '2026-02-01',
-        localTime: '09:00',
-        durationMinutes: 120,
-      },
-      timezone: 'Asia/Almaty',
+      ...sharedContext,
+      actor: guestCommandActor(guestEnrollmentFixtureSeedSubjectId),
     },
     intent: {
       courseId,
-      participantIds: [guestParticipantId],
+      participantIds: [targetParticipantId],
+    },
+  };
+  const identity = resolveCommandIdempotencyIdentity(draft);
+  const enrollmentId = courseEnrollmentIdFromCommandParticipant({
+    commandId: identity.commandKey,
+    participantId: targetParticipantId,
+  });
+
+  return {
+    kind: 'create_course_enrollments',
+    context: {
+      ...sharedContext,
+      actor: guestCommandActor(guestSubjectIdFromCourseEnrollmentId(enrollmentId)),
+    },
+    intent: {
+      courseId,
+      participantIds: [targetParticipantId],
+      enrollmentIds: [enrollmentId],
     },
   };
 }
@@ -203,11 +227,7 @@ describe('link_guest_course_enrollment_to_account command', () => {
       return;
     }
 
-    const identity = resolveCommandIdempotencyIdentity(createEnvelope);
-    const enrollmentId = courseEnrollmentIdFromCommandParticipant({
-      commandId: identity.commandKey,
-      participantId: guestParticipantId,
-    });
+    const enrollmentId = createEnvelope.intent.enrollmentIds![0]!;
     const credential = createResult.payload?.guestLinkCredentials?.find(
       (entry) => entry.enrollmentId === enrollmentId
     );

@@ -10,7 +10,7 @@ import path from 'node:path';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const result = spawnSync(
   process.platform === 'win32' ? 'npx.cmd' : 'npx',
-  ['vitest', 'run', 'tests/unit/translationsParity.test.ts'],
+  ['vitest', 'run', '--config', 'vitest.config.ts', 'tests/unit/translationsParity.test.ts'],
   { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' }
 );
 

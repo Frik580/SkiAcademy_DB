@@ -30,17 +30,17 @@ export type BookingListScope = 'upcoming' | 'current' | 'past' | 'all';
 export const filterBookingsByScope = <T extends ScheduleBookingSlice>(
   bookings: T[],
   scope: BookingListScope,
-  _courses: Course[] = [],
+  courses: Course[] = [],
   now = new Date()
 ): T[] => {
   if (scope === 'all') return bookings;
   if (scope === 'upcoming') {
-    return bookings.filter((b) => isBookingUpcomingBySchedule(b, now));
+    return bookings.filter((b) => isBookingUpcomingBySchedule(b, courses, now));
   }
   if (scope === 'current') {
-    return bookings.filter((b) => isBookingCurrentBySchedule(b, now));
+    return bookings.filter((b) => isBookingCurrentBySchedule(b, courses, now));
   }
-  return bookings.filter((b) => isBookingPastBySchedule(b, now));
+  return bookings.filter((b) => isBookingPastBySchedule(b, courses, now));
 };
 
 export const getStudentStats = (
@@ -82,7 +82,7 @@ export const getSeasonBookings = (
 /** @deprecated Use hasTrainingTodayFromSessions for mixed lesson/course calendars. */
 export const hasTrainingToday = (
   bookings: Booking[],
-  _courses: Course[] = [],
+  courses: Course[] = [],
   userId?: string,
   fromDate = new Date()
 ): boolean => {
@@ -92,7 +92,7 @@ export const hasTrainingToday = (
       (!userId || b.userId === userId) &&
       !b.isDeleted &&
       b.status !== 'cancelled' &&
-      isBookingOnDate(b, todayStr)
+      isBookingOnDate(b, todayStr, courses)
   );
 };
 
@@ -181,7 +181,7 @@ export const getMiniCalendarDays = (
     d.setHours(12, 0, 0, 0);
     d.setDate(d.getDate() + i);
     const dateStr = toYMD(d);
-    const hasSession = booked.some((b) => isBookingOnDate(b, dateStr));
+    const hasSession = booked.some((b) => isBookingOnDate(b, dateStr, _courses));
     days.push({
       day: d.getDate(),
       dateStr,
@@ -202,7 +202,7 @@ export const getWeekBookedSessions = (bookings: Booking[], courses: Course[]) =>
   const rows: { booking: Booking; dateStr: string }[] = [];
   for (const b of booked) {
     for (const dateStr of weekDateSet) {
-      if (isBookingOnDate(b, dateStr)) {
+      if (isBookingOnDate(b, dateStr, courses)) {
         rows.push({ booking: b, dateStr });
       }
     }
@@ -221,10 +221,10 @@ export const getNextCalendarSession = (
 ) => {
   const next = bookings
     .filter(isActiveBooking)
-    .filter((booking) => isBookingUpcomingBySchedule(booking))
+    .filter((booking) => isBookingUpcomingBySchedule(booking, _courses))
     .sort((left, right) => {
-      const leftStart = resolveBookingStartDateTime(left)?.getTime() ?? 0;
-      const rightStart = resolveBookingStartDateTime(right)?.getTime() ?? 0;
+      const leftStart = resolveBookingStartDateTime(left, _courses)?.getTime() ?? 0;
+      const rightStart = resolveBookingStartDateTime(right, _courses)?.getTime() ?? 0;
       return leftStart - rightStart;
     })[0];
   if (!next) return null;
@@ -324,7 +324,7 @@ export const getActiveCourseEnrollment = (
         !b.isDeleted &&
         b.instructorId === `course_${course.id}` &&
         b.status !== 'cancelled' &&
-        isBookingOnDate(b, todayStr)
+        isBookingOnDate(b, todayStr, courses)
     );
     if (booking) return { course, booking };
   }

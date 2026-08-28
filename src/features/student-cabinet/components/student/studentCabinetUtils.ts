@@ -24,6 +24,7 @@ export {
 } from './studentCabinetPresentation';
 export {
   isBookingCurrentBySchedule,
+  isBookingInProgressNow,
   isBookingOnDate,
   isBookingPastBySchedule,
   isBookingUpcomingBySchedule,

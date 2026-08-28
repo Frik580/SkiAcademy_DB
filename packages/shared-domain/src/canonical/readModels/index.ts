@@ -4,3 +4,7 @@ export * from './readModelAuthorizedActions';
 export * from './bookingProposalReadModel';
 export * from './bookingChangeRequestReadModel';
 export * from './participantInstructorAccessReadModel';
+export * from './courseDayScheduleProjection';
+export * from './courseEnrollmentReadModel';
+export * from './courseCatalogReadModel';
+export * from './courseAttendanceReadModel';

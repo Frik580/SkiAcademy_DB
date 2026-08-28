@@ -20,6 +20,7 @@ export * from './bookingPartyFinance';
 export * from './familyGroupTariff';
 export * from './bookingCreation';
 export * from './guestBooking';
+export * from './guestCourseEnrollmentTransport';
 export * from './bookingProposalPolicy';
 export * from './bookingChangeRequestPolicy';
 export * from './guestCredential';

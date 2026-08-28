@@ -1,11 +1,13 @@
 import {
   BookingIdSchema,
+  CourseEnrollmentIdSchema,
   guestCommandActor,
   GUEST_ACTION_NONCE_TRANSPORT_KEY,
   GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
   GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS,
   guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
+  deriveGuestSubjectIdFromCourseEnrollmentIntent,
   parseGuestParticipantProfileFromTransportMetadata,
   type CommandContext,
   type CommandEnvelope,
@@ -13,6 +15,7 @@ import {
   type GuestSubjectId,
 } from '@ski-academy/shared-domain';
 import type { CallableRequest } from 'firebase-functions/v2/https';
+import { z } from 'zod';
 import type { CallableCommandTransportInput } from './callableTransportAdapter';
 
 export interface CallableGuestCommandTransportInput<Kind extends CommandKind> {
@@ -33,12 +36,27 @@ export interface CallableGuestCommandTransportInput<Kind extends CommandKind> {
 }
 
 export function deriveGuestSubjectIdForIntent(
-  intent: CommandEnvelope<CommandKind>['intent'] | undefined
+  intent: CommandEnvelope<CommandKind>['intent'] | undefined,
+  idempotencyKey?: CommandContext['idempotencyKey']
 ): GuestSubjectId | undefined {
   if (!intent || typeof intent !== 'object') {
     return undefined;
   }
   const record = intent as Record<string, unknown>;
+
+  const parsedEnrollmentIds = z
+    .array(CourseEnrollmentIdSchema)
+    .min(1)
+    .max(1)
+    .safeParse(record.enrollmentIds);
+  if (parsedEnrollmentIds.success && record.courseId) {
+    return deriveGuestSubjectIdFromCourseEnrollmentIntent({
+      courseId: record.courseId as never,
+      participantIds: record.participantIds as never,
+      enrollmentIds: parsedEnrollmentIds.data,
+    });
+  }
+
   const parsedBookingId = BookingIdSchema.safeParse(record.bookingId);
   if (!parsedBookingId.success) {
     return undefined;

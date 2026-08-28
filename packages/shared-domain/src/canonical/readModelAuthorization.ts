@@ -24,9 +24,27 @@ import type { CanonicalTimestamp } from './primitives';
 import type {
   BookingChangeRequestReadModelAuthorizedActions,
   BookingProposalReadModelAuthorizedActions,
+  CourseAttendanceReadModelAuthorizedActions,
+  CourseEnrollmentReadModelAuthorizedActions,
+  InstructorCourseEnrollmentRosterAuthorizedActions,
   LessonBookingReadModelAuthorizedActions,
   ParticipantInstructorAccessReadModelAuthorizedActions,
 } from './readModels/readModelAuthorizedActions';
+import {
+  evaluateClientCourseCancellationTiming,
+  isConfirmedOrPendingCourseEnrollment,
+  isCourseCapacityFrozen,
+  isPendingCancellationCourseEnrollment,
+  isTerminalCourseEnrollmentLifecycle,
+} from './courseEnrollmentCancellationPolicy';
+import { isCourseEnrollmentAllowedBeforeStart } from './courseEnrollmentCreation';
+import type { Attendance, Course, CourseDay, CourseEnrollment } from './courseEnrollmentAttendanceAdminIssue';
+import {
+  assertCourseDayInstructorAttendanceWindow,
+  courseDayAttendanceMatchesCurrentOccurrence,
+  instructorAssignedToCourseDay,
+  instructorMayCorrectAttendance,
+} from './courseEnrollmentAttendancePolicy';
 import { participantBlockIdFromDirection } from './deterministicIdentity';
 
 export type ReadModelAccountManagerActor = Readonly<{
@@ -351,4 +369,143 @@ export function sanitizeParticipantBlockReasonForReadModel(input: Readonly<{
     return undefined;
   }
   return input.block.reason;
+}
+
+export function evaluateCourseEnrollmentAuthorizedActions(input: Readonly<{
+  actor: ReadModelAccountManagerActor;
+  account: Account | undefined;
+  participant: Participant | undefined;
+  management: ParticipantManagement | undefined;
+  enrollment: CourseEnrollment;
+  course: Course;
+  topology: ParticipantAccessTopology;
+  now: CanonicalTimestamp;
+}>): CourseEnrollmentReadModelAuthorizedActions {
+  const denied = { canWithdraw: false, canRequestCancellation: false };
+
+  if (
+    !accountIsActive(input.account) ||
+    !input.participant ||
+    input.participant.lifecycle.status !== 'active' ||
+    !input.management ||
+    input.management.status !== 'active'
+  ) {
+    return denied;
+  }
+
+  if (!accountManagerAccessAllowed(input.topology, input.actor, input.participant.participantId)) {
+    return denied;
+  }
+
+  if (isTerminalCourseEnrollmentLifecycle(input.enrollment)) {
+    return denied;
+  }
+
+  const canWithdraw = isPendingCancellationCourseEnrollment(input.enrollment);
+
+  const timing = evaluateClientCourseCancellationTiming({
+    requestAt: input.now,
+    startAt: input.course.startAt,
+  });
+
+  const canRequestCancellation =
+    isConfirmedOrPendingCourseEnrollment(input.enrollment) &&
+    !isTerminalCourseEnrollmentLifecycle(input.enrollment) &&
+    timing.kind !== 'pending_request' &&
+    input.enrollment.lifecycle.status !== 'pending_cancellation';
+
+  return {
+    canWithdraw,
+    canRequestCancellation,
+  };
+}
+
+export function evaluateInstructorCourseEnrollmentRosterAuthorizedActions(input: Readonly<{
+  instructorId: InstructorId;
+  course: Course;
+  courseDays: readonly CourseDay[];
+}>): InstructorCourseEnrollmentRosterAuthorizedActions {
+  const assignedToAnyDay = input.courseDays.some((courseDay) =>
+    instructorAssignedToCourseDay(courseDay, input.instructorId)
+  );
+  const onRoster = input.course.instructorRosterIds.includes(input.instructorId);
+  return {
+    canRecordAttendance: assignedToAnyDay || onRoster,
+  };
+}
+
+export function evaluateCourseAttendanceAuthorizedActions(input: Readonly<{
+  actor: ReadModelInstructorActor;
+  enrollment: CourseEnrollment;
+  courseDay: CourseDay;
+  existingAttendance: Attendance | undefined;
+  now: CanonicalTimestamp;
+}>): CourseAttendanceReadModelAuthorizedActions {
+  const denied = { canRecordAttendance: false };
+
+  if (!instructorAssignedToCourseDay(input.courseDay, input.actor.instructorId)) {
+    return denied;
+  }
+
+  if (isTerminalCourseEnrollmentLifecycle(input.enrollment)) {
+    if (
+      input.existingAttendance &&
+      !instructorMayCorrectAttendance({
+        existing: input.existingAttendance,
+        instructorId: input.actor.instructorId,
+      })
+    ) {
+      return denied;
+    }
+    if (!input.existingAttendance) {
+      return denied;
+    }
+  } else if (
+    input.enrollment.lifecycle.status !== 'confirmed' &&
+    input.enrollment.lifecycle.status !== 'pending_cancellation'
+  ) {
+    return denied;
+  }
+
+  const window = assertCourseDayInstructorAttendanceWindow({
+    now: input.now,
+    courseDay: input.courseDay,
+  });
+  if (window === 'before_start' || window === 'after_instructor_window') {
+    return denied;
+  }
+
+  if (
+    input.existingAttendance &&
+    !courseDayAttendanceMatchesCurrentOccurrence(input.existingAttendance, input.courseDay) &&
+    !instructorMayCorrectAttendance({
+      existing: input.existingAttendance,
+      instructorId: input.actor.instructorId,
+    })
+  ) {
+    return denied;
+  }
+
+  return { canRecordAttendance: true };
+}
+
+export function evaluateCourseCatalogEnrollmentEligibility(input: Readonly<{
+  now: CanonicalTimestamp;
+  course: Course;
+}>): boolean {
+  if (input.course.capacity.availableSeats <= 0) {
+    return false;
+  }
+  if (
+    isCourseCapacityFrozen({
+      now: input.now,
+      courseStartAt: input.course.startAt,
+    })
+  ) {
+    return false;
+  }
+  return isCourseEnrollmentAllowedBeforeStart({
+    now: input.now,
+    courseStartsAt: input.course.startAt,
+  });
 }

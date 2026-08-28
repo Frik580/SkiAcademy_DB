@@ -70,6 +70,7 @@ import {
   participantBlockPath,
   participantManagementPath,
   participantPath,
+  PARTICIPANT_ACCESS_PLANNING_ESTIMATES,
 } from '../participantAccess/participantAccessStore';
 import {
   buildParticipantAccessTopology,
@@ -102,6 +103,12 @@ import {
   resolveManagedEnrollmentAuthorization,
   type CourseEnrollmentCreationAuthorization,
 } from './courseEnrollmentAuthorization';
+import {
+  assertGuestActorMatchesEnrollment,
+  assertGuestCourseEnrollmentRequestContext,
+  assertGuestParticipantForCourseEnrollment,
+  resolveGuestParticipantProfileForCourseEnrollment,
+} from './guestCourseEnrollmentAuthorization';
 import { buildCreateCourseEnrollmentsAuditPlan } from './courseEnrollmentAudit';
 import type { GuestCourseEnrollmentCommandEnvironment } from './guestCourseEnrollmentLifecycle';
 import {
@@ -124,6 +131,8 @@ interface PlannedParticipantEnrollment {
   readonly guardPlan: Awaited<ReturnType<typeof readAndPlanAcquireActiveCourseEnrollmentGuard>>;
   readonly seatClaimPlan: ResourceClaimOperationPlan;
   readonly dayClaimPlans: readonly ResourceClaimOperationPlan[];
+  readonly shouldCreateGuestParticipant?: boolean;
+  readonly guestParticipantProfile?: import('@ski-academy/shared-domain').GuestParticipantProfileFromTransport;
 }
 
 function metadataFromEnvelope(envelope: CommandEnvelope): CommandMetadata {
@@ -260,10 +269,19 @@ function createCourseEnrollmentsHandler(
   }
 
   const mode = resolveCourseEnrollmentCreationAuthorization(envelope);
-  const enrollmentIds = resolveEnrollmentIdsForCommand({
-    commandId: metadata.commandId,
-    participantIds: envelope.intent.participantIds,
-  });
+  if (mode === 'guest') {
+    assertGuestCourseEnrollmentRequestContext(envelope);
+    for (const enrollmentId of envelope.intent.enrollmentIds!) {
+      assertGuestActorMatchesEnrollment(envelope, enrollmentId);
+    }
+  }
+  const enrollmentIds =
+    mode === 'guest'
+      ? envelope.intent.enrollmentIds!
+      : resolveEnrollmentIdsForCommand({
+          commandId: metadata.commandId,
+          participantIds: envelope.intent.participantIds,
+        });
   const courseDocumentPath = coursePath(envelope.intent.courseId);
 
   let courseRecord!: Course;
@@ -392,18 +410,46 @@ function createCourseEnrollmentsHandler(
 
         const participantRead = await session.tx.get({ path: participantPath(participantId) });
         session.plan.planRead({ path: participantPath(participantId), category: 'aggregate' });
-        const participantRecord = assertManagedParticipantRecord(
-          envelope,
-          parseParticipant(participantRead.exists ? participantRead.data : undefined)
+        const existingParticipant = parseParticipant(
+          participantRead.exists ? participantRead.data : undefined
         );
 
         let authorization: CourseEnrollmentCreationAuthorization = { mode };
+        let shouldCreateGuestParticipant = false;
+        let guestParticipantProfile:
+          | import('@ski-academy/shared-domain').GuestParticipantProfileFromTransport
+          | undefined;
+        let participantRecord!: import('@ski-academy/shared-domain').Participant;
+
         if (mode === 'guest') {
-          if (participantRecord.management.kind !== 'unmanaged_guest') {
-            throw new CanonicalCommandError('forbidden', {
-              correlationId: envelope.context.correlationId,
-              details: { resourceKind: 'participant', reason: 'conflict' },
+          if (!existingParticipant) {
+            guestParticipantProfile = resolveGuestParticipantProfileForCourseEnrollment(envelope);
+            shouldCreateGuestParticipant = true;
+            session.plan.planMutation({
+              path: participantPath(participantId),
+              kind: 'create',
+              category: 'aggregate',
+              estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.participantBytes,
             });
+            participantRecord = {
+              participantId,
+              displayName: guestParticipantProfile.displayName,
+              age: { kind: 'age_years', years: guestParticipantProfile.ageYears },
+              skillLevel: guestParticipantProfile.skillLevel,
+              discipline: guestParticipantProfile.discipline,
+              management: { kind: 'unmanaged_guest' },
+              lifecycle: { status: 'active' },
+              revision: AggregateRevisionSchema.parse(1),
+              createdAt: timestampFromDate(environment.clock.now()),
+              updatedAt: timestampFromDate(environment.clock.now()),
+              audit: revisionAuditLink(envelope, metadata),
+            };
+          } else {
+            participantRecord = assertGuestParticipantForCourseEnrollment(
+              envelope,
+              existingParticipant,
+              participantId
+            );
           }
           authorization = { mode: 'guest' };
           const guestBlocks = await loadParticipantBlocksForCourseDays(session, {
@@ -416,6 +462,7 @@ function createCourseEnrollmentsHandler(
             participantBlocks: guestBlocks,
           });
         } else {
+          participantRecord = assertManagedParticipantRecord(envelope, existingParticipant);
           if (participantRecord.management.kind !== 'managed') {
             throw new CanonicalCommandError('forbidden', {
               correlationId: envelope.context.correlationId,
@@ -532,6 +579,9 @@ function createCourseEnrollmentsHandler(
           guardPlan,
           seatClaimPlan,
           dayClaimPlans,
+          ...(shouldCreateGuestParticipant && guestParticipantProfile
+            ? { shouldCreateGuestParticipant, guestParticipantProfile }
+            : {}),
         });
 
         session.plan.planMutation({
@@ -724,6 +774,26 @@ function createCourseEnrollmentsHandler(
         };
 
         for (const planned of plannedEnrollments) {
+          if (planned.shouldCreateGuestParticipant && planned.guestParticipantProfile) {
+            const guestParticipant = {
+              participantId: planned.participantId,
+              displayName: planned.guestParticipantProfile.displayName,
+              age: { kind: 'age_years', years: planned.guestParticipantProfile.ageYears },
+              skillLevel: planned.guestParticipantProfile.skillLevel,
+              discipline: planned.guestParticipantProfile.discipline,
+              management: { kind: 'unmanaged_guest' },
+              lifecycle: { status: 'active' },
+              revision: AggregateRevisionSchema.parse(1),
+              createdAt: decidedAt,
+              updatedAt: decidedAt,
+              audit,
+            };
+            session.tx.create(
+              { path: participantPath(planned.participantId) },
+              guestParticipant as Record<string, unknown>
+            );
+          }
+
           const lifecycle =
             mode === 'guest'
               ? {

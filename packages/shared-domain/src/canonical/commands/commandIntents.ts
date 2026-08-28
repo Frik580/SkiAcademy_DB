@@ -423,9 +423,19 @@ export const CommandIntentSchemaByKind = {
     .object({
       courseId: CourseIdSchema,
       participantIds: z.array(ParticipantIdSchema).min(1).max(8),
+      enrollmentIds: z.array(CourseEnrollmentIdSchema).min(1).max(8).optional(),
       reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
     })
-    .strict(),
+    .strict()
+    .superRefine((intent, context) => {
+      if (intent.enrollmentIds !== undefined && intent.enrollmentIds.length !== intent.participantIds.length) {
+        context.addIssue({
+          code: 'custom',
+          path: ['enrollmentIds'],
+          message: 'enrollmentIds length must match participantIds length',
+        });
+      }
+    }),
   transfer_course_enrollment: z
     .object({
       courseEnrollmentId: CourseEnrollmentIdSchema,

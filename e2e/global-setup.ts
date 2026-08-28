@@ -12,6 +12,7 @@ import {
   E2E_STUDENT_B_PASSWORD,
   E2E_STUDENT_EMAIL,
   E2E_STUDENT_PASSWORD,
+  FIRESTORE_EMULATOR_HOST,
   FUNCTIONS_EMULATOR_HOST,
   FUNCTIONS_EMULATOR_PORT,
   FUNCTIONS_REGION,
@@ -53,6 +54,19 @@ export interface E2ERuntimeConfig {
 }
 
 const E2E_WALLET_BALANCE_KZT = 500_000;
+
+async function clearFirestoreEmulator(): Promise<void> {
+  const response = await fetch(
+    `http://${FIRESTORE_EMULATOR_HOST}/emulator/v1/projects/${E2E_PROJECT_ID}/databases/(default)/documents`,
+    { method: 'DELETE' }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to clear the Firestore emulator before E2E setup: ${response.status} ${await response.text()}`
+    );
+  }
+}
 
 const FUNCTIONS_READINESS_PROBE = 'optimizeImage';
 const FUNCTIONS_READINESS_TIMEOUT_MS = 60_000;
@@ -374,6 +388,8 @@ async function seedCanonicalFirestoreFixtures(
 }
 
 export default async function globalSetup(): Promise<void> {
+  await clearFirestoreEmulator();
+
   const studentUid = await createAuthUser(E2E_STUDENT_EMAIL, E2E_STUDENT_PASSWORD);
   const studentBUid = await createAuthUser(E2E_STUDENT_B_EMAIL, E2E_STUDENT_B_PASSWORD);
   const participantIds = await seedCanonicalFirestoreFixtures(studentUid, studentBUid);

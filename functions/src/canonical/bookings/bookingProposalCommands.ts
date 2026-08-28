@@ -4,19 +4,23 @@ import {
   BookingSchema,
   CanonicalCommandError,
   PaymentSchema,
+  ResourceClaimGuardSchema,
   ResourceClaimIdentityInputSchema,
   accountActorRef,
   applyExternalPaymentFunding,
   bookingIdFromAcceptedProposal,
   calculateIndividualBookingPriceKzt,
+  commandErrorResult,
   commandSuccessResult,
   deriveBookingPartyKind,
   initialBookingOccurrenceIdFromBookingId,
   instructorRelationshipIdFromPair,
+  intervalsConflict,
   isPaymentFullyFundedForService,
   isSyntheticCourseInstructorId,
   monetaryEventIdFromCommandEffect,
   nextAggregateRevision,
+  normalizeFirestoreDocument,
   participantBlockIdFromDirection,
   paymentEffectFromProjectionChange,
   paymentIdFromBookingId,
@@ -42,6 +46,7 @@ import {
   KztMinorUnitsSchema,
   debitWalletBalance,
 } from '@ski-academy/shared-domain';
+import { getFirestore } from 'firebase-admin/firestore';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
 import {
   executeAuthoritativeIdempotentCanonicalCommand,
@@ -130,6 +135,97 @@ interface CommandMetadata {
 }
 
 type ClaimConflictCode = 'instructor_conflict' | 'participant_conflict' | 'resource_conflict';
+
+function participantConflictAcceptResult(
+  envelope: CommandEnvelope<'accept_booking_proposal'>
+): CommandResult<'accept_booking_proposal'> {
+  return commandErrorResult(
+    envelope.kind,
+    envelope.context.correlationId,
+    new CanonicalCommandError('participant_conflict', {
+      correlationId: envelope.context.correlationId,
+      details: { reason: 'conflict' },
+    }).toTransport()
+  );
+}
+
+function isExpectedParticipantGuardCreateCollision(
+  error: unknown,
+  participantClaimPlan: ResourceClaimOperationPlan | undefined
+): participantClaimPlan is ResourceClaimOperationPlan {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const candidate = error as Error & { code?: string | number };
+  const isAlreadyExists =
+    candidate.code === 6 ||
+    candidate.code === 'already-exists' ||
+    candidate.code === 'ALREADY_EXISTS';
+  if (!isAlreadyExists) {
+    return false;
+  }
+  if (participantClaimPlan?.claim.resourceKind !== 'participant') {
+    return false;
+  }
+  return participantClaimPlan.guardWrites.some(
+    (write) =>
+      write.mutationKind === 'create' &&
+      write.path.startsWith('resource_claim_guards/') &&
+      candidate.message.includes(write.path)
+  );
+}
+
+async function hasCompetingParticipantGuardEntry(
+  participantClaimPlan: ResourceClaimOperationPlan
+): Promise<boolean> {
+  const expectedCreatePaths = participantClaimPlan.guardWrites
+    .filter((write) => write.mutationKind === 'create')
+    .map((write) => write.path);
+  const snapshots = await Promise.all(
+    expectedCreatePaths.map((path) => getFirestore().doc(path).get())
+  );
+  return snapshots.some((snapshot) => {
+    const normalized = normalizeFirestoreDocument(
+      snapshot.exists ? (snapshot.data() as Record<string, unknown>) : undefined
+    );
+    const guard = ResourceClaimGuardSchema.safeParse(normalized);
+    return (
+      guard.success &&
+      guard.data.entries.some(
+        (entry) =>
+          entry.claimId !== participantClaimPlan.claim.claimId &&
+          (entry.lifecycleStatus === 'active' || entry.lifecycleStatus === 'frozen') &&
+          intervalsConflict(participantClaimPlan.claim.interval, entry.interval)
+      )
+    );
+  });
+}
+
+async function recoverParticipantConflictAfterGuardCreateCollision(
+  envelope: CommandEnvelope<'accept_booking_proposal'>,
+  proposalDocumentPath: string,
+  participantClaimPlan: ResourceClaimOperationPlan | undefined,
+  error: unknown
+): Promise<CommandResult<'accept_booking_proposal'>> {
+  if (!isExpectedParticipantGuardCreateCollision(error, participantClaimPlan)) {
+    throw error;
+  }
+  try {
+    const [proposalSnapshot, competingParticipantClaim] = await Promise.all([
+      getFirestore().doc(proposalDocumentPath).get(),
+      hasCompetingParticipantGuardEntry(participantClaimPlan),
+    ]);
+    const proposal = parseBookingProposal(
+      proposalSnapshot.exists ? (proposalSnapshot.data() as Record<string, unknown>) : undefined
+    );
+    if (proposal?.lifecycle.status === 'open' && competingParticipantClaim) {
+      return participantConflictAcceptResult(envelope);
+    }
+  } catch {
+    throw error;
+  }
+  throw error;
+}
 
 function metadataFromEnvelope(envelope: CommandEnvelope): CommandMetadata {
   const identity = resolveCommandIdempotencyIdentity(envelope);
@@ -973,7 +1069,14 @@ function acceptBookingProposalHandler(
     executor,
     revisionTarget: { ref: { path: proposalDocumentPath }, requireExpectedRevision: true },
     handler,
-  });
+  }).catch((error) =>
+    recoverParticipantConflictAfterGuardCreateCollision(
+      envelope,
+      proposalDocumentPath,
+      participantClaimPlan,
+      error
+    )
+  );
 }
 
 function cancelBookingProposalHandler(

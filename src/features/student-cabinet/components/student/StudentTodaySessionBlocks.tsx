@@ -1,12 +1,15 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import type { CabinetSessionItem } from '../../../../features/course-enrollments';
+import {
+  formatCabinetSessionTimeRange,
+  formatCourseDayDateLabel,
+  getCabinetSessionSubtitle,
+  getCabinetSessionTitle,
+  sessionItemKey,
+} from '../../../../features/course-enrollments/sessionScheduleHelpers';
 import {
   formatCountdownRemaining,
-  formatCourseDateRangeLabel,
   formatSessionDayLabel,
-  formatSessionTimeRange,
-  getDifficultyShort,
-  getRecentLessonInstructorLabel,
-  getRecentLessonTitle,
 } from './studentCabinetUtils';
 import { ScDivider, ScTextButton, ScTintCard } from './StudentCabinetUI';
 import { BookingCallCoachButton } from './BookingCallCoachButton';
@@ -19,10 +22,9 @@ import type {
   SessionCountdownBlockInput,
 } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
+import { cabinetItemToLegacyPresentation } from '../../../../features/lesson-bookings/mergeCabinetBookings';
 
 const SUBSECTION_LABEL = 'text-[10px] font-medium tracking-widest uppercase text-[var(--ink-dim)]';
-
-type SessionBooking = CurrentSessionsBlockInput['sessions'][number];
 
 const CountdownDigits = memo<{
   startsAtMs: number;
@@ -75,8 +77,8 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
 
     if (!visible) return null;
 
-    const { booking } = countdown;
-    const isCourse = booking.instructorId.startsWith('course_');
+    const { session } = countdown;
+    const isCourseDay = session.kind === 'course_day';
 
     return (
       <>
@@ -89,25 +91,25 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
               onExpire={() => setVisible(false)}
             />
             <p className="text-base font-medium text-[var(--ink)]">
-              {isCourse
-                ? getRecentLessonTitle(booking, courses, lang)
-                : getDifficultyShort(booking.difficulty)}
+              {getCabinetSessionTitle(session, lang)}
             </p>
             <p className="text-sm text-[var(--ink-dim)]">
-              {formatSessionTimeRange(booking)}
+              {formatCabinetSessionTimeRange(session)}
               {' · '}
-              {isCourse
-                ? formatCourseDateRangeLabel(booking, courses, lang)
-                : getRecentLessonInstructorLabel(booking, lang)}
+              {isCourseDay
+                ? formatCourseDayDateLabel(session, lang)
+                : getCabinetSessionSubtitle(session, lang)}
             </p>
-            <div className="flex flex-wrap gap-4 pt-1">
-              <BookingCallCoachButton
-                booking={booking}
-                courses={courses}
-                instructors={instructors}
-                usersList={usersList}
-              />
-            </div>
+            {session.kind === 'lesson' && (
+              <div className="flex flex-wrap gap-4 pt-1">
+                <BookingCallCoachButton
+                  booking={cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')}
+                  courses={courses}
+                  instructors={instructors}
+                  usersList={usersList}
+                />
+              </div>
+            )}
           </ScTintCard>
         </div>
         <ScDivider />
@@ -118,7 +120,7 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
 
 const SessionCard = memo<
   Omit<CurrentSessionsBlockInput, 'sessions'> & {
-    session: SessionBooking;
+    session: CabinetSessionItem;
   }
 >(function SessionCard({
   session,
@@ -127,47 +129,73 @@ const SessionCard = memo<
   usersList,
   onOpenLesson,
   onOpenSession,
+  onViewCourseDetails,
   hasUnreadChat,
 }) {
   const { t, lang } = useStudentCabinetTranslations();
-  const isCourse = session.instructorId.startsWith('course_');
+  const isCourseDay = session.kind === 'course_day';
 
   return (
     <ScTintCard tint="green" className="px-4 py-3.5 space-y-2">
       <p className="text-sm text-[var(--ink-dim)]">{t('scToday')}</p>
       <p className="text-2xl font-serif font-light text-[var(--ink)]">
-        {formatSessionTimeRange(session)}
+        {formatCabinetSessionTimeRange(session)}
       </p>
       <p className="flex items-center gap-2 flex-wrap text-base font-medium text-[var(--ink)]">
-        <span>
-          {isCourse
-            ? getRecentLessonTitle(session, courses, lang)
-            : getDifficultyShort(session.difficulty)}
-        </span>
-        {hasBookingRecommendations(session) && (
-          <RecommendationIndicator pending={hasPendingRecommendations(session)} />
+        <span>{getCabinetSessionTitle(session, lang)}</span>
+        {session.kind === 'lesson' &&
+          hasBookingRecommendations(
+            cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
+          ) && (
+          <RecommendationIndicator
+            pending={hasPendingRecommendations(
+              cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
+            )}
+          />
         )}
       </p>
       <p className="text-sm text-[var(--ink-dim)]">
-        {isCourse
-          ? formatCourseDateRangeLabel(session, courses, lang)
-          : getRecentLessonInstructorLabel(session, lang)}
+        {isCourseDay
+          ? formatCourseDayDateLabel(session, lang)
+          : getCabinetSessionSubtitle(session, lang)}
       </p>
       <div className="flex flex-wrap gap-4 pt-2">
-        <ScTextButton onClick={() => onOpenLesson(session)}>{t('scMoreDetails')}</ScTextButton>
-        <ScTextButton
-          onClick={() => onOpenSession(session)}
-          title={hasUnreadChat?.(session.id) ? t('chatNewMessages') : t('chat')}
-        >
-          {t('chat')}
-          <ChatUnreadIndicator show={hasUnreadChat?.(session.id) ?? false} />
-        </ScTextButton>
-        <BookingCallCoachButton
-          booking={session}
-          courses={courses}
-          instructors={instructors}
-          usersList={usersList}
-        />
+        {session.kind === 'lesson' ? (
+          <>
+            <ScTextButton
+              onClick={() =>
+                onOpenLesson(
+                  cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
+                )
+              }
+            >
+              {t('scMoreDetails')}
+            </ScTextButton>
+            <ScTextButton
+              onClick={() =>
+                onOpenSession(
+                  cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
+                )
+              }
+              title={hasUnreadChat?.(session.session.id) ? t('chatNewMessages') : t('chat')}
+            >
+              {t('chat')}
+              <ChatUnreadIndicator show={hasUnreadChat?.(session.session.id) ?? false} />
+            </ScTextButton>
+            <BookingCallCoachButton
+              booking={cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')}
+              courses={courses}
+              instructors={instructors}
+              usersList={usersList}
+            />
+          </>
+        ) : (
+          onViewCourseDetails && (
+            <ScTextButton onClick={() => onViewCourseDetails(session.courseId)}>
+              {t('scMoreDetails')}
+            </ScTextButton>
+          )
+        )}
       </div>
     </ScTintCard>
   );
@@ -180,6 +208,7 @@ export const CurrentSessionsBlock = memo<CurrentSessionsBlockInput>(function Cur
   usersList,
   onOpenLesson,
   onOpenSession,
+  onViewCourseDetails,
   hasUnreadChat,
 }) {
   const { t } = useStudentCabinetTranslations();
@@ -191,13 +220,14 @@ export const CurrentSessionsBlock = memo<CurrentSessionsBlockInput>(function Cur
         <div className="space-y-2">
           {sessions.map((session) => (
             <SessionCard
-              key={session.id}
+              key={sessionItemKey(session)}
               session={session}
               courses={courses}
               instructors={instructors}
               usersList={usersList}
               onOpenLesson={onOpenLesson}
               onOpenSession={onOpenSession}
+              onViewCourseDetails={onViewCourseDetails}
               hasUnreadChat={hasUnreadChat}
             />
           ))}
@@ -217,12 +247,13 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
   onGoToTab,
   onOpenLesson,
   onOpenSession,
+  onViewCourseDetails,
   hasUnreadChat,
 }) {
   const { t, lang } = useStudentCabinetTranslations();
 
   const upcomingDatesSet = useMemo(
-    () => new Set(nextSessions.map((s) => s.dateStr)),
+    () => new Set(nextSessions.map((entry) => entry.dateStr)),
     [nextSessions]
   );
 
@@ -266,51 +297,85 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
 
         {nextSessions.length > 0 ? (
           <div className="space-y-4 pt-1 border-t border-[#BF5AF2]/15 divide-y divide-[#BF5AF2]/15">
-            {nextSessions.map(({ booking, dateStr }, index) => {
-              const isNextCourse = Boolean(booking.instructorId.startsWith('course_'));
+            {nextSessions.map(({ session, dateStr }, index) => {
+              const isCourseDay = session.kind === 'course_day';
               return (
                 <div
-                  key={`${booking.id}_${dateStr}_${index}`}
+                  key={`${sessionItemKey(session)}_${dateStr}_${index}`}
                   className={index > 0 ? 'pt-3 space-y-1' : 'space-y-1'}
                 >
                   <p className="text-sm font-medium text-[var(--ink-dim)]">
                     {formatSessionDayLabel(dateStr, lang, t)}
                   </p>
                   <p className="text-2xl font-serif font-light text-[var(--ink)]">
-                    {formatSessionTimeRange(booking)}
+                    {formatCabinetSessionTimeRange(session)}
                   </p>
                   <p className="flex items-center gap-2 flex-wrap text-base font-medium text-[var(--ink)]">
-                    <span>
-                      {isNextCourse
-                        ? getRecentLessonTitle(booking, courses, lang)
-                        : getDifficultyShort(booking.difficulty)}
-                    </span>
-                    {hasBookingRecommendations(booking) && (
-                      <RecommendationIndicator pending={hasPendingRecommendations(booking)} />
-                    )}
+                    <span>{getCabinetSessionTitle(session, lang)}</span>
+                    {session.kind === 'lesson' &&
+                      hasBookingRecommendations(
+                        cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
+                      ) && (
+                        <RecommendationIndicator
+                          pending={hasPendingRecommendations(
+                            cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
+                          )}
+                        />
+                      )}
                   </p>
                   <p className="text-sm text-[var(--ink-dim)]">
-                    {isNextCourse
-                      ? formatCourseDateRangeLabel(booking, courses, lang)
-                      : getRecentLessonInstructorLabel(booking, lang)}
+                    {isCourseDay
+                      ? formatCourseDayDateLabel(session, lang)
+                      : getCabinetSessionSubtitle(session, lang)}
                   </p>
                   <div className="flex flex-wrap gap-4 pt-2">
-                    <ScTextButton onClick={() => onOpenLesson(booking)}>
-                      {t('scMoreDetails')}
-                    </ScTextButton>
-                    <ScTextButton
-                      onClick={() => onOpenSession(booking)}
-                      title={hasUnreadChat?.(booking.id) ? t('chatNewMessages') : t('chat')}
-                    >
-                      {t('chat')}
-                      <ChatUnreadIndicator show={hasUnreadChat?.(booking.id) ?? false} />
-                    </ScTextButton>
-                    <BookingCallCoachButton
-                      booking={booking}
-                      courses={courses}
-                      instructors={instructors}
-                      usersList={usersList}
-                    />
+                    {session.kind === 'lesson' ? (
+                      <>
+                        <ScTextButton
+                          onClick={() =>
+                            onOpenLesson(
+                              cabinetItemToLegacyPresentation(
+                                session.session,
+                                usersList[0]?.uid ?? ''
+                              )
+                            )
+                          }
+                        >
+                          {t('scMoreDetails')}
+                        </ScTextButton>
+                        <ScTextButton
+                          onClick={() =>
+                            onOpenSession(
+                              cabinetItemToLegacyPresentation(
+                                session.session,
+                                usersList[0]?.uid ?? ''
+                              )
+                            )
+                          }
+                          title={
+                            hasUnreadChat?.(session.session.id) ? t('chatNewMessages') : t('chat')
+                          }
+                        >
+                          {t('chat')}
+                          <ChatUnreadIndicator show={hasUnreadChat?.(session.session.id) ?? false} />
+                        </ScTextButton>
+                        <BookingCallCoachButton
+                          booking={cabinetItemToLegacyPresentation(
+                            session.session,
+                            usersList[0]?.uid ?? ''
+                          )}
+                          courses={courses}
+                          instructors={instructors}
+                          usersList={usersList}
+                        />
+                      </>
+                    ) : (
+                      onViewCourseDetails && (
+                        <ScTextButton onClick={() => onViewCourseDetails(session.courseId)}>
+                          {t('scMoreDetails')}
+                        </ScTextButton>
+                      )
+                    )}
                   </div>
                 </div>
               );

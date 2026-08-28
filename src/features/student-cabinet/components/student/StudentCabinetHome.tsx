@@ -1,13 +1,15 @@
 import React, { useMemo } from 'react';
 import { YourJourneySection } from '../../../../features/journey';
 import {
+  getMiniCalendarDaysFromSessions,
+  getNextSessionsNext7DaysFromSessions,
+  hasTrainingTodayFromSessions,
+} from '../../../../features/course-enrollments/sessionScheduleHelpers';
+import {
+  getCurrentSessions,
   getFirstName,
   getGreeting,
-  getMiniCalendarDays,
-  getNextSessionsNext7Days,
   getTodayTasks,
-  getCurrentSessions,
-  hasTrainingToday,
 } from './studentCabinetUtils';
 import { ScDivider, ScTextButton } from './StudentCabinetUI';
 import { StudentNeedsAttention } from './StudentNeedsAttention';
@@ -20,15 +22,16 @@ import {
 import type { StudentCabinetHomeContext } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 
-export type { StudentCabinetHomeContext as StudentCabinetContext } from './studentCabinetContracts';
-
 type StudentCabinetHomeProps = StudentCabinetHomeContext;
+
+export type { StudentCabinetHomeContext as StudentCabinetContext } from './studentCabinetContracts';
 
 export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => {
   const { t, lang } = useStudentCabinetTranslations();
   const {
     userProfile,
     bookings,
+    sessionItems,
     courses,
     instructors,
     reviews,
@@ -37,6 +40,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     skillConfig,
     onOpenSession,
     onOpenLesson,
+    onViewCourseDetails,
     onWriteReview,
     onDismissReview,
     onGoToTab,
@@ -53,29 +57,39 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   const hideProgress = Boolean(userProfile.hideProgressTracking);
 
   const nextSessions = useMemo(
-    () => getNextSessionsNext7Days(bookings, courses, new Date(), userProfile.uid),
-    [bookings, courses, userProfile.uid]
+    () => getNextSessionsNext7DaysFromSessions(sessionItems, new Date()),
+    [sessionItems]
   );
-  const nextSession = nextSessions[0]?.booking ?? null;
+  const nextSession = nextSessions[0]?.session ?? null;
   const currentSessions = useMemo(
-    () => getCurrentSessions(bookings, courses, new Date(), userProfile.uid),
-    [bookings, courses, userProfile.uid]
+    () => getCurrentSessions(sessionItems, new Date()),
+    [sessionItems]
   );
   const todayTasks = useMemo(
     () => getTodayTasks(userProfile, bookings, courses, lang, skillConfig),
     [userProfile, bookings, courses, lang, skillConfig]
   );
   const miniDays = useMemo(
-    () => getMiniCalendarDays(bookings, courses, lang),
-    [bookings, courses, lang]
+    () => getMiniCalendarDaysFromSessions(sessionItems, lang),
+    [sessionItems, lang]
   );
   const showWeather =
     Boolean(resortSnapshot) &&
-    (currentSessions.length > 0 || hasTrainingToday(bookings, courses, userProfile.uid));
+    (currentSessions.length > 0 || hasTrainingTodayFromSessions(sessionItems));
+
+  const viewCourseById = useMemo(
+    () =>
+      onViewCourseDetails
+        ? (courseId: string) => {
+            const course = courses.find((item) => item.id === courseId);
+            if (course) onViewCourseDetails(course);
+          }
+        : undefined,
+    [courses, onViewCourseDetails]
+  );
 
   return (
     <div className="space-y-0 pb-24 w-full min-w-0">
-      {/* Путь к мастерству (Your Journey) for authorized client — full width, no frames or card margins */}
       <div className="w-full shrink-0">
         <YourJourneySection
           skillConfig={skillConfig}
@@ -87,7 +101,6 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
       </div>
 
       <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 min-w-0">
-        {/* Hero — greeting, level, progress, skill radar */}
         <section className="py-6 space-y-2.5 min-w-0">
           <p className="text-base sm:text-lg font-medium text-[var(--ink)] leading-snug break-words">
             {getGreeting(lang, getFirstName(userProfile.displayName))}
@@ -97,6 +110,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             currentSessions={currentSessions}
             nextSession={nextSession}
             nextSessions={nextSessions}
+            sessionItems={sessionItems}
             miniDays={miniDays}
             courses={courses}
             instructors={instructors}
@@ -110,6 +124,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             skillConfig={props.skillConfig}
             onOpenSession={onOpenSession}
             onOpenLesson={onOpenLesson}
+            onViewCourseDetails={viewCourseById}
             onGoToTab={onGoToTab}
             onContinueDevelopment={onContinueDevelopment}
             onToggleRecommendation={onToggleRecommendation}
@@ -143,7 +158,6 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           )}
         </section>
 
-        {/* Needs attention — unreviewed lessons and open recommendations */}
         <StudentNeedsAttention
           bookings={bookings}
           reviews={reviews}

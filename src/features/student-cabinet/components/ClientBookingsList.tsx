@@ -3,12 +3,19 @@ import { Calendar, ChevronLeft, ChevronRight, Clock, MessageSquare, Trash2 } fro
 import { Course, Instructor, UserProfile } from '../../../types';
 import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
 import { cabinetItemToLegacyPresentation } from '../../../features/lesson-bookings/mergeCabinetBookings';
+import type { CabinetSessionItem } from '../../../features/course-enrollments';
+import {
+  filterSessionsByScope,
+  isSessionOnDate,
+  sessionDisplayDate,
+  sessionDisplayTime,
+  sessionDisplayTitle,
+  sessionItemKey,
+  type SessionListScope,
+} from '../../../features/course-enrollments/sessionScheduleHelpers';
 import { BookingCallCoachButton } from './student/BookingCallCoachButton';
 import {
   useLanguage,
-  parseCourseDates,
-  splitCourseDates,
-  getGroupScheduleLabel,
   MONTHS_EN,
   MONTHS_RU,
   WEEKDAYS_EN,
@@ -19,7 +26,6 @@ import { ToggleSwitch } from '../../../ui/ToggleSwitch';
 import { StatusBadge } from '../../../ui/StatusBadge';
 import { StateCard } from '../../../ui/StateCard';
 import { ScTextButton } from './student/StudentCabinetUI';
-import { BookingListScope, filterBookingsByScope } from './student/studentCabinetUtils';
 import { RecommendationIndicator } from './RecommendationIndicator';
 import { ChatUnreadIndicator } from '../../../features/chat';
 import { ApplePagination } from '../../../ui/ApplePagination';
@@ -28,8 +34,9 @@ import {
   hasBookingRecommendations,
   hasPendingRecommendations,
 } from '../../../features/student-cabinet/lessonRecommendations';
+import { formatCourseDayDateLabel } from '../../../features/course-enrollments/sessionScheduleHelpers';
 
-const LIST_SCOPE_FILTERS: BookingListScope[] = ['upcoming', 'current', 'past', 'all'];
+const LIST_SCOPE_FILTERS: SessionListScope[] = ['upcoming', 'current', 'past', 'all'];
 
 const LIST_SCOPE_LABEL_KEYS = {
   upcoming: 'scCalendarUpcoming',
@@ -39,6 +46,7 @@ const LIST_SCOPE_LABEL_KEYS = {
 } as const;
 
 interface ClientBookingsListProps {
+  sessionItems: readonly CabinetSessionItem[];
   userBookings: LessonBookingCabinetItem[];
   courses?: Course[];
   instructors?: Instructor[];
@@ -48,16 +56,19 @@ interface ClientBookingsListProps {
   onDismissReview?: (bookingId: string) => void;
   onWriteReview?: (booking: LessonBookingCabinetItem) => void;
   onOpenLesson?: (booking: LessonBookingCabinetItem) => void;
+  onViewCourseDetails?: (courseId: string) => void;
   onCancel: (booking: LessonBookingCabinetItem) => void;
   onChat: (booking: LessonBookingCabinetItem) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
   onWithdrawCancellation?: (booking: LessonBookingCabinetItem) => void | Promise<void>;
   onRescheduleBooking?: (booking: LessonBookingCabinetItem) => void;
+  onCourseWithdraw?: (enrollmentId: string) => void | Promise<void>;
+  onCourseRequestCancellation?: (enrollmentId: string) => void | Promise<void>;
   collaborationSubmittingId?: string;
 }
 
 export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
-  userBookings,
+  sessionItems,
   courses = [],
   instructors = [],
   usersList = [],
@@ -65,11 +76,14 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
   showWorkoutCalendar = true,
   onWriteReview,
   onOpenLesson,
+  onViewCourseDetails,
   onCancel,
   onChat,
   hasUnreadChat,
   onWithdrawCancellation,
   onRescheduleBooking,
+  onCourseWithdraw,
+  onCourseRequestCancellation,
   collaborationSubmittingId,
 }) => {
   const { language, t } = useLanguage();
@@ -80,16 +94,18 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
   });
 
   const [currentMonth, setCurrentMonth] = useState<Date>(() => {
-    const upcoming = userBookings.find((b) => b.status === 'confirmed');
-    if (upcoming) {
-      const d = new Date(upcoming.date);
+    const upcoming = sessionItems.find(
+      (item) => item.kind === 'lesson' && item.session.status === 'confirmed'
+    );
+    if (upcoming?.kind === 'lesson') {
+      const d = new Date(upcoming.session.date);
       if (!isNaN(d.getTime())) return d;
     }
     return new Date();
   });
 
   const [selectedDateFilter, setSelectedDateFilter] = useState<string | null>(null);
-  const [listScope, setListScope] = useState<BookingListScope>('upcoming');
+  const [listScope, setListScope] = useState<SessionListScope>('upcoming');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 5;
 
@@ -104,30 +120,18 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
     setCurrentPage(1);
   };
 
-  const filteredBookings = useMemo(() => {
-    return userBookings.filter((b) => {
-      if (hideCancelled && b.status === 'cancelled') return false;
-      return true;
-    });
-  }, [userBookings, hideCancelled]);
-
-  const getBookingsOnDate = (dateStr: string) => {
-    return filteredBookings.filter((b) => {
-      if (b.instructorId.startsWith('course_')) {
-        const { start, end } = parseCourseDates(b.date);
-        const checkDate = new Date(dateStr);
-        const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-        const endDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-        const currentDate = new Date(
-          checkDate.getFullYear(),
-          checkDate.getMonth(),
-          checkDate.getDate()
-        );
-        return currentDate >= startDate && currentDate <= endDate;
+  const filteredSessions = useMemo(() => {
+    return sessionItems.filter((item) => {
+      if (!hideCancelled) return true;
+      if (item.kind === 'lesson') {
+        return item.session.status !== 'cancelled';
       }
-      return b.date === dateStr;
+      return item.lifecycleStatus !== 'cancelled' && item.lifecycleStatus !== 'withdrawn';
     });
-  };
+  }, [sessionItems, hideCancelled]);
+
+  const getSessionsOnDate = (dateStr: string) =>
+    filteredSessions.filter((item) => isSessionOnDate(item, dateStr));
 
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
@@ -147,19 +151,17 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
     return `${year}-${mm}-${dd}`;
   };
 
-  const scopedBookings = useMemo(
+  const scopedSessions = useMemo(
     () =>
-      selectedDateFilter
-        ? filteredBookings
-        : filterBookingsByScope(filteredBookings, listScope, courses),
-    [filteredBookings, listScope, selectedDateFilter, courses]
+      selectedDateFilter ? filteredSessions : filterSessionsByScope(filteredSessions, listScope),
+    [filteredSessions, listScope, selectedDateFilter]
   );
 
-  const displayedBookings = selectedDateFilter
-    ? getBookingsOnDate(selectedDateFilter)
-    : scopedBookings;
+  const displayedSessions = selectedDateFilter
+    ? getSessionsOnDate(selectedDateFilter)
+    : scopedSessions;
 
-  const totalPages = Math.max(1, Math.ceil(displayedBookings.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(displayedSessions.length / ITEMS_PER_PAGE));
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -167,15 +169,23 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
     }
   }, [currentPage, totalPages]);
 
-  const paginatedBookings = useMemo(() => {
+  const paginatedSessions = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return displayedBookings.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [displayedBookings, currentPage]);
+    return displayedSessions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [displayedSessions, currentPage]);
 
   const unreviewedIds = useMemo(
     () => new Set(unreviewedCompletedBookings.map((booking) => booking.id)),
     [unreviewedCompletedBookings]
   );
+
+  const hasCancelledSessions =
+    sessionItems.some((item) => item.kind === 'lesson' && item.session.status === 'cancelled') ||
+    sessionItems.some(
+      (item) =>
+        item.kind === 'course_day' &&
+        (item.lifecycleStatus === 'cancelled' || item.lifecycleStatus === 'withdrawn')
+    );
 
   return (
     <>
@@ -188,7 +198,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-              {userBookings.some((b) => b.status === 'cancelled') && (
+              {hasCancelledSessions && (
                 <ToggleSwitch
                   checked={hideCancelled}
                   onChange={(checked) => handleToggleHideCancelled(checked)}
@@ -198,7 +208,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
             </div>
           </div>
 
-          {userBookings.length > 0 && (
+          {sessionItems.length > 0 && (
             <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] p-4 space-y-3 w-full min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap w-full min-w-0">
                 <span className="text-sm font-medium text-[var(--ink)]">
@@ -250,10 +260,10 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                   }
 
                   const dateStr = formatDateStr(day);
-                  const dayBookings = getBookingsOnDate(dateStr);
+                  const daySessions = getSessionsOnDate(dateStr);
                   const isSelected = selectedDateFilter === dateStr;
-                  const hasCourse = dayBookings.some((b) => b.instructorId.startsWith('course_'));
-                  const hasLesson = dayBookings.some((b) => !b.instructorId.startsWith('course_'));
+                  const hasCourse = daySessions.some((item) => item.kind === 'course_day');
+                  const hasLesson = daySessions.some((item) => item.kind === 'lesson');
 
                   return (
                     <button
@@ -325,13 +335,13 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
             </div>
           )}
 
-          {userBookings.length === 0 ? (
+          {sessionItems.length === 0 ? (
             <StateCard
               title={t('noSessionsScheduledYet')}
               description={t('browseInstructorsHint')}
               className="py-12"
             />
-          ) : displayedBookings.length === 0 ? (
+          ) : displayedSessions.length === 0 ? (
             <StateCard title={selectedDateFilter ? t('noSessionsOnDate') : t('allSessionsHidden')}>
               {selectedDateFilter ? (
                 <ScTextButton onClick={() => handleSelectDateFilter(null)}>
@@ -345,154 +355,225 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
             </StateCard>
           ) : (
             <div className="space-y-3">
-              {paginatedBookings.map((b) => {
-                const isCourse = b.instructorId.startsWith('course_');
-                let displayDate = b.date;
-                let displayTime = b.time;
+              {paginatedSessions.map((item) => {
+                const key = sessionItemKey(item);
+                const displayDate = sessionDisplayDate(item);
+                const displayTime = sessionDisplayTime(item);
 
-                if (
-                  isCourse &&
-                  (b.time === 'Group Schedule' ||
-                    b.time === getGroupScheduleLabel('en') ||
-                    b.time === getGroupScheduleLabel('ru'))
-                ) {
-                  const { datePart, timePart } = splitCourseDates(b.date, language);
-                  displayDate = datePart;
-                  displayTime = timePart;
+                if (item.kind === 'lesson') {
+                  const b = item.session;
+                  return (
+                    <div
+                      key={key}
+                      id={`booking-card-${b.id}`}
+                      className="p-4 rounded-lg border flex flex-col gap-4 transition border-[var(--border-subtle)] bg-[var(--profile-bg)]"
+                    >
+                      <div className="flex flex-1 items-start gap-4 min-w-0 w-full">
+                        <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-[var(--border-subtle)]">
+                          <img
+                            src={b.instructorAvatar}
+                            alt={b.instructorName}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="space-y-1.5 min-w-0 flex-1">
+                          <h4 className="text-sm font-medium text-[var(--ink)] flex items-center gap-2 flex-wrap">
+                            {b.instructorName}
+                            {hasBookingRecommendations(b as never) && (
+                              <RecommendationIndicator
+                                pending={hasPendingRecommendations(b as never)}
+                              />
+                            )}
+                          </h4>
+                          <p className="text-xs text-[var(--ink-dim)]">
+                            {b.difficulty ? `${getDifficultyLabel(b.difficulty, language)} · ` : ''}
+                            {b.durationHours} {t('hrSession')}
+                            {b.partyKind === 'family_group' && b.participantNames.length > 1
+                              ? ` · ${b.participantNames.length}`
+                              : ''}
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap text-xs text-[var(--ink-dim)]">
+                            <span className="inline-flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5 text-[var(--accent)]" /> {displayDate}
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-[var(--accent)]" /> {displayTime}
+                            </span>
+                          </div>
+                          {b.status === 'pending_cancellation' && b.cancellationReason && (
+                            <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">
+                              <span className="font-medium">{t('reason')} </span>
+                              {b.cancellationReason}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-3">
+                        <div>
+                          <span className="text-xs text-[var(--ink-dim)] block">{t('totalFee')}</span>
+                          <span className="text-lg font-serif text-[var(--ink)]">
+                            {b.payment.kind === 'visible' && b.totalPrice !== undefined
+                              ? `$${b.totalPrice}`
+                              : 'Payment details unavailable'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <StatusBadge status={b.status} />
+
+                          {b.status !== 'cancelled' && (
+                            <button
+                              onClick={() => onChat(b)}
+                              title={
+                                hasUnreadChat?.(b.id) ? t('chatNewMessages') : t('chatAboutLesson')
+                              }
+                              className="px-3 py-1.5 text-xs font-medium border border-[var(--border-subtle)] rounded-lg text-[var(--ink)] hover:border-[var(--accent)] transition flex items-center gap-1.5"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              {t('chat')}
+                              <ChatUnreadIndicator show={hasUnreadChat?.(b.id) ?? false} />
+                            </button>
+                          )}
+
+                          {b.status !== 'cancelled' && (
+                            <BookingCallCoachButton
+                              booking={cabinetItemToLegacyPresentation(b, usersList[0]?.uid ?? '')}
+                              courses={courses}
+                              instructors={instructors}
+                              usersList={usersList}
+                              variant="outline"
+                            />
+                          )}
+
+                          {b.status !== 'cancelled' && onOpenLesson && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenLesson(b)}
+                              className="px-3 py-1.5 text-xs font-medium border border-[var(--border-subtle)] rounded-lg text-[var(--ink)] hover:border-[var(--accent)] transition"
+                            >
+                              {t('scMoreDetails')}
+                            </button>
+                          )}
+
+                          {b.status === 'completed' && unreviewedIds.has(b.id) && onWriteReview && (
+                            <button
+                              type="button"
+                              onClick={() => onWriteReview(b)}
+                              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--accent)] text-white transition"
+                            >
+                              {t('writeReviewBtn')}
+                            </button>
+                          )}
+
+                          {b.authorizedActions ? (
+                            <BookingCollaborationActions
+                              booking={b}
+                              onWithdrawCancellation={
+                                onWithdrawCancellation ?? (async () => undefined)
+                              }
+                              onReschedule={onRescheduleBooking ?? (() => undefined)}
+                              onCancel={onCancel}
+                              submitting={collaborationSubmittingId === b.bookingId}
+                            />
+                          ) : (
+                            b.status === 'confirmed' && (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  id={`cancel-btn-${b.id}`}
+                                  onClick={() => onCancel(b)}
+                                  title={t('cancelBookingRefund')}
+                                  className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
                 }
 
                 return (
                   <div
-                    key={b.id}
-                    id={`booking-card-${b.id}`}
-                    className={`p-4 rounded-lg border flex flex-col gap-4 transition ${
-                      isCourse
-                        ? 'border-violet-200/80 dark:border-violet-800/40 bg-violet-50/40 dark:bg-violet-950/20'
-                        : 'border-[var(--border-subtle)] bg-[var(--profile-bg)]'
-                    }`}
+                    key={key}
+                    className="p-4 rounded-lg border flex flex-col gap-4 transition border-violet-200/80 dark:border-violet-800/40 bg-violet-50/40 dark:bg-violet-950/20"
                   >
                     <div className="flex flex-1 items-start gap-4 min-w-0 w-full">
-                      <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-[var(--border-subtle)]">
-                        <img
-                          src={b.instructorAvatar}
-                          alt={b.instructorName}
-                          className="w-full h-full object-cover"
-                        />
+                      <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center text-violet-700 dark:text-violet-300 text-xs font-medium">
+                        {t('scCourseDetailsTitle').slice(0, 2).toUpperCase()}
                       </div>
                       <div className="space-y-1.5 min-w-0 flex-1">
-                        <h4 className="text-sm font-medium text-[var(--ink)] flex items-center gap-2 flex-wrap">
-                          {b.instructorName}
-                          {!b.isLessonBooking && hasBookingRecommendations(b as never) && (
-                            <RecommendationIndicator
-                              pending={hasPendingRecommendations(b as never)}
-                            />
-                          )}
+                        <h4 className="text-sm font-medium text-[var(--ink)]">
+                          {sessionDisplayTitle(item)}
                         </h4>
                         <p className="text-xs text-[var(--ink-dim)]">
-                          {b.difficulty ? `${getDifficultyLabel(b.difficulty, language)} · ` : ''}
-                          {b.durationHours} {t('hrSession')}
-                          {b.partyKind === 'family_group' && b.participantNames.length > 1
-                            ? ` · ${b.participantNames.length}`
-                            : ''}
+                          {item.participantName} · {formatCourseDayDateLabel(item, language === 'ru' ? 'ru' : 'en')}
                         </p>
                         <div className="flex items-center gap-2 flex-wrap text-xs text-[var(--ink-dim)]">
                           <span className="inline-flex items-center gap-1">
-                            <Calendar className="w-3.5 h-3.5 text-[var(--accent)]" /> {displayDate}
+                            <Calendar className="w-3.5 h-3.5 text-violet-500" /> {displayDate}
                           </span>
                           <span className="inline-flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-[var(--accent)]" /> {displayTime}
+                            <Clock className="w-3.5 h-3.5 text-violet-500" /> {displayTime}
                           </span>
                         </div>
-                        {b.status === 'pending_cancellation' && b.cancellationReason && (
-                          <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">
-                            <span className="font-medium">{t('reason')} </span>
-                            {b.cancellationReason}
-                          </p>
-                        )}
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-violet-200/60 dark:border-violet-800/40 pt-3">
                       <div>
-                        <span className="text-xs text-[var(--ink-dim)] block">{t('totalFee')}</span>
-                        <span className="text-lg font-serif text-[var(--ink)]">
-                          {b.payment.kind === 'visible' && b.totalPrice !== undefined
-                            ? `$${b.totalPrice}`
-                            : 'Payment details unavailable'}
+                        <span className="text-xs text-[var(--ink-dim)] block">
+                          {language === 'ru' ? 'Групповой курс' : 'Group course'}
+                        </span>
+                        <span className="text-sm font-medium text-[var(--ink)]">
+                          {t('scCourseDetailsTitle')}
                         </span>
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap">
-                        <StatusBadge status={b.status} />
+                        <StatusBadge
+                          status={
+                            item.lifecycleStatus === 'pending_cancellation'
+                              ? 'pending_cancellation'
+                              : item.lifecycleStatus === 'confirmed'
+                                ? 'confirmed'
+                                : 'pending'
+                          }
+                        />
 
-                        {b.status !== 'cancelled' && (
-                          <button
-                            onClick={() => onChat(b)}
-                            title={
-                              hasUnreadChat?.(b.id) ? t('chatNewMessages') : t('chatAboutLesson')
-                            }
-                            className="px-3 py-1.5 text-xs font-medium border border-[var(--border-subtle)] rounded-lg text-[var(--ink)] hover:border-[var(--accent)] transition flex items-center gap-1.5"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            {t('chat')}
-                            <ChatUnreadIndicator show={hasUnreadChat?.(b.id) ?? false} />
-                          </button>
-                        )}
-
-                        {b.status !== 'cancelled' && (
-                          <BookingCallCoachButton
-                            booking={cabinetItemToLegacyPresentation(b, usersList[0]?.uid ?? '')}
-                            courses={courses}
-                            instructors={instructors}
-                            usersList={usersList}
-                            variant="outline"
-                          />
-                        )}
-
-                        {b.status !== 'cancelled' && onOpenLesson && (
+                        {onViewCourseDetails && (
                           <button
                             type="button"
-                            onClick={() => onOpenLesson(b)}
-                            className="px-3 py-1.5 text-xs font-medium border border-[var(--border-subtle)] rounded-lg text-[var(--ink)] hover:border-[var(--accent)] transition"
+                            onClick={() => onViewCourseDetails(item.courseId)}
+                            className="px-3 py-1.5 text-xs font-medium border border-violet-200 dark:border-violet-800 rounded-lg text-[var(--ink)] hover:border-violet-400 transition"
                           >
                             {t('scMoreDetails')}
                           </button>
                         )}
 
-                        {b.status === 'completed' && unreviewedIds.has(b.id) && onWriteReview && (
+                        {item.authorizedActions.canWithdraw && onCourseWithdraw && (
                           <button
                             type="button"
-                            onClick={() => onWriteReview(b)}
-                            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--accent)] text-white transition"
+                            onClick={() => void onCourseWithdraw(item.enrollmentId)}
+                            className="px-3 py-1.5 text-xs font-medium border border-rose-200 dark:border-rose-800 rounded-lg text-rose-600 transition"
                           >
-                            {t('writeReviewBtn')}
+                            {t('cancelBookingRefund')}
                           </button>
                         )}
 
-                        {b.isLessonBooking && b.authorizedActions ? (
-                          <BookingCollaborationActions
-                            booking={b}
-                            onWithdrawCancellation={
-                              onWithdrawCancellation ?? (async () => undefined)
-                            }
-                            onReschedule={onRescheduleBooking ?? (() => undefined)}
-                            onCancel={onCancel}
-                            submitting={collaborationSubmittingId === b.bookingId}
-                          />
-                        ) : (
-                          b.status === 'confirmed' && (
-                            <div className="flex items-center gap-1">
-                              <button
-                                id={`cancel-btn-${b.id}`}
-                                onClick={() => onCancel(b)}
-                                title={t('cancelBookingRefund')}
-                                className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          )
-                        )}
+                        {item.authorizedActions.canRequestCancellation &&
+                          onCourseRequestCancellation && (
+                            <button
+                              type="button"
+                              onClick={() => void onCourseRequestCancellation(item.enrollmentId)}
+                              className="px-3 py-1.5 text-xs font-medium border border-rose-200 dark:border-rose-800 rounded-lg text-rose-600 transition"
+                            >
+                              {t('cancellationRequested')}
+                            </button>
+                          )}
                       </div>
                     </div>
                   </div>
@@ -502,7 +583,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
               <ApplePagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                totalItems={displayedBookings.length}
+                totalItems={displayedSessions.length}
                 itemsPerPage={ITEMS_PER_PAGE}
                 onPageChange={setCurrentPage}
                 itemLabel={language === 'ru' ? 'занятий' : 'sessions'}

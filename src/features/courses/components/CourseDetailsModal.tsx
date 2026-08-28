@@ -14,6 +14,7 @@ import { CourseProgram } from './course_details/CourseProgram';
 import { CourseGallery } from './course_details/CourseGallery';
 import { CourseFAQ } from './course_details/CourseFAQ';
 import { CourseEnrollAction } from './course_details/CourseEnrollAction';
+import type { CourseCatalogOperationalState } from '../../course-enrollments';
 
 interface CourseDetailsModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ interface CourseDetailsModalProps {
   course: Course | null;
   instructors: Instructor[];
   userProfile: UserProfile | null;
+  catalogOperational?: CourseCatalogOperationalState;
   isEnrolled: boolean;
   onEnroll: (courseId: string) => void;
 }
@@ -33,6 +35,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
   course,
   instructors,
   userProfile,
+  catalogOperational,
   isEnrolled,
   onEnroll,
 }) => {
@@ -41,7 +44,9 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
   if (!isOpen || !course || !rawCourse) return null;
 
   const { datePart, timePart } = splitCourseDates(course.dates, language);
-  const seatsPercentage = Math.round((course.availableSeats / course.totalSeats) * 100);
+  const availableSeats = catalogOperational?.availableSeats ?? rawCourse.availableSeats;
+  const totalSeats = catalogOperational?.totalSeats ?? rawCourse.totalSeats;
+  const seatsPercentage = totalSeats > 0 ? Math.round((availableSeats / totalSeats) * 100) : 0;
 
   const defaultEnriched = getCourseEnrichedData(
     course.id,
@@ -190,6 +195,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                 datePart={datePart}
                 timePart={timePart}
                 seatsPercentage={seatsPercentage}
+                catalogOperational={catalogOperational}
                 userProfile={userProfile}
                 isEnrolled={isEnrolled}
                 onEnroll={onEnroll}

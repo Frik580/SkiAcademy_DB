@@ -1,6 +1,4 @@
 import type { BookingStatus } from '@ski-academy/shared-domain';
-import type { Course } from '../../../../types';
-import { parseCourseDates } from '../../../../app/providers/LanguageContext';
 import { toYMD } from './studentCabinetPresentation';
 
 export interface ScheduleBookingSlice {
@@ -49,84 +47,46 @@ const buildLocalDateTime = (dateStr: string, h: number, m: number): Date => {
   return new Date(y, mo - 1, d, h, m, 0, 0);
 };
 
-const getCourseSchedule = (booking: ScheduleBookingSlice, courses: Course[]) => {
-  const courseId = booking.instructorId.substring('course_'.length);
-  const course = courses.find((item) => item.id === courseId);
-  return parseCourseDates(course ? course.dates : booking.date);
-};
-
-/** First day + start hour of the booking or course. */
-export const resolveBookingStartDateTime = (
-  booking: ScheduleBookingSlice,
-  courses: Course[]
-): Date | null => {
-  if (booking.instructorId.startsWith('course_')) {
-    const schedule = getCourseSchedule(booking, courses);
-    const [h, m] = schedule.startTime.split(':').map(Number);
-    return buildLocalDateTime(toYMD(schedule.start), h, m);
-  }
+/** First day + start hour of a private lesson booking. */
+export const resolveBookingStartDateTime = (booking: ScheduleBookingSlice): Date | null => {
   const startTime = parseBookingStartTime(booking.time);
   return startTime
     ? buildLocalDateTime(booking.date, startTime.h, startTime.m)
     : buildLocalDateTime(booking.date, 0, 0);
 };
 
-/** Last day + end hour of the booking or course. */
-export const resolveBookingEndDateTime = (
-  booking: ScheduleBookingSlice,
-  courses: Course[]
-): Date | null => {
-  if (booking.instructorId.startsWith('course_')) {
-    const schedule = getCourseSchedule(booking, courses);
-    const [h, m] = schedule.endTime.split(':').map(Number);
-    return buildLocalDateTime(toYMD(schedule.end), h, m);
-  }
+/** Last day + end hour of a private lesson booking. */
+export const resolveBookingEndDateTime = (booking: ScheduleBookingSlice): Date | null => {
   const endTime = parseBookingEndTime(booking.time, booking.durationHours);
   return endTime ? buildLocalDateTime(booking.date, endTime.h, endTime.m) : null;
 };
 
-export const isBookingPastBySchedule = (
-  booking: ScheduleBookingSlice,
-  courses: Course[],
-  now = new Date()
-) => {
+export const isBookingPastBySchedule = (booking: ScheduleBookingSlice, now = new Date()) => {
   if (booking.isDeleted || booking.status === 'cancelled' || booking.status === 'completed') {
     return true;
   }
-  const end = resolveBookingEndDateTime(booking, courses);
+  const end = resolveBookingEndDateTime(booking);
   return end ? now >= end : false;
 };
 
-export const isBookingUpcomingBySchedule = (
-  booking: ScheduleBookingSlice,
-  courses: Course[],
-  now = new Date()
-) => {
+export const isBookingUpcomingBySchedule = (booking: ScheduleBookingSlice, now = new Date()) => {
   if (booking.isDeleted || booking.status === 'cancelled' || booking.status === 'completed') {
     return false;
   }
-  const start = resolveBookingStartDateTime(booking, courses);
+  const start = resolveBookingStartDateTime(booking);
   return start ? now < start : false;
 };
 
-/** Started but last day/end hour not reached yet (multi-day courses included). */
-export const isBookingCurrentBySchedule = (
-  booking: ScheduleBookingSlice,
-  courses: Course[],
-  now = new Date()
-) =>
+/** Started but end time not reached yet. */
+export const isBookingCurrentBySchedule = (booking: ScheduleBookingSlice, now = new Date()) =>
   !booking.isDeleted &&
   booking.status !== 'cancelled' &&
   booking.status !== 'completed' &&
-  !isBookingPastBySchedule(booking, courses, now) &&
-  !isBookingUpcomingBySchedule(booking, courses, now);
+  !isBookingPastBySchedule(booking, now) &&
+  !isBookingUpcomingBySchedule(booking, now);
 
-/** True if a booking has a session on dateStr (private lesson or multi-day course). */
-export const isBookingOnDate = (
-  booking: ScheduleBookingSlice,
-  dateStr: string,
-  courses: Course[]
-) => {
+/** True if a lesson booking occurs on dateStr. */
+export const isBookingOnDate = (booking: ScheduleBookingSlice, dateStr: string) => {
   if (!booking || booking.isDeleted || booking.status === 'cancelled') return false;
   if (booking.userId?.startsWith('system_block_')) return false;
   if (booking.date === dateStr) return true;
@@ -137,11 +97,19 @@ export const isBookingOnDate = (
     if (`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}` === dateStr) return true;
   }
 
-  if (!booking.instructorId.startsWith('course_')) return false;
-  const courseId = booking.instructorId.substring('course_'.length);
-  const course = courses.find((item) => item.id === courseId);
-  if (!course?.dates) return false;
+  return false;
+};
 
-  const schedule = parseCourseDates(course.dates);
-  return schedule.isValid && dateStr >= toYMD(schedule.start) && dateStr <= toYMD(schedule.end);
+/** @deprecated Use hasTrainingTodayFromSessions for mixed lesson/course calendars. */
+export const hasTrainingTodayFromLessons = (
+  bookings: ScheduleBookingSlice[],
+  fromDate = new Date()
+): boolean => {
+  const todayStr = toYMD(fromDate);
+  return bookings.some(
+    (booking) =>
+      !booking.isDeleted &&
+      booking.status !== 'cancelled' &&
+      isBookingOnDate(booking, todayStr)
+  );
 };

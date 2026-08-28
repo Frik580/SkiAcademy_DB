@@ -13,12 +13,16 @@ import { useTheme } from '../../hooks/useTheme';
 import { getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { useInstructorFilters } from '../../hooks/useInstructorFilters';
 import { useProfileStore } from '../../features/profile';
-import { useBookingsStore } from '../../features/bookings';
 import { useCoursesStore } from '../../features/courses';
 import { useCourseActions } from '../../features/courses';
 import { useSettingsStore } from '../../features/settings';
 import { useUiStore } from '../../features/shell';
 import { useAuthStore } from '../../features/auth';
+import {
+  selectAllCourseCatalogOperationalStates,
+  selectCourseEnrollmentItems,
+  useCourseEnrollmentStore,
+} from '../../features/course-enrollments';
 import { AppInitSkeleton } from '../../ui/Skeleton';
 import type { AppRoutesProps } from './routeTypes';
 
@@ -30,7 +34,8 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
   const profileLoading = useProfileStore((state) => state.profileLoading);
   const userProfile = useProfileStore((state) => state.userProfile);
   const courses = useCoursesStore((state) => state.courses);
-  const bookings = useBookingsStore((state) => state.bookings);
+  const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
+  const catalogByCourseId = useCourseEnrollmentStore(selectAllCourseCatalogOperationalStates);
   const filtersEnabled = useSettingsStore((state) => state.filtersEnabled);
   const skillConfig = useSettingsStore((state) => state.skillConfig);
   const { handleBookCourse } = useCourseActions();
@@ -56,8 +61,6 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
     element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  // Guests paint LCP during authLoading. Once a session is known, wait for profile
-  // instead of flashing the marketing home before the workspace redirect.
   if (!authLoading && profileLoading) {
     return <AppInitSkeleton label={t('checkingCredentials')} />;
   }
@@ -103,7 +106,13 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
             className="p-4 sm:p-8 md:p-10 lg:p-12 space-y-16 flex flex-col justify-start min-w-0"
           >
             <GroupCoursesSection
-              data={{ courses, bookings, userProfile, language }}
+              data={{
+                courses,
+                courseEnrollments,
+                catalogByCourseId,
+                userProfile,
+                language,
+              }}
               actions={{
                 onViewDetails: setSelectedCourseForDetails,
                 onRequireAuth: setSelectedCourseForAuth,

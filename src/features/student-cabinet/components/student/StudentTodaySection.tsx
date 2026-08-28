@@ -1,9 +1,6 @@
 import { memo, useMemo } from 'react';
-import {
-  getNextStepAction,
-  getTodaySessionCountdown,
-  resolveBookingStartDate,
-} from './studentCabinetUtils';
+import { sessionDisplayDate } from '../../../../features/course-enrollments/sessionScheduleHelpers';
+import { getNextStepAction, getTodaySessionCountdown } from './studentCabinetUtils';
 import { ScDivider, ScSectionTitle } from './StudentCabinetUI';
 import { StudentNextStepCard } from './StudentNextStepCard';
 import {
@@ -22,6 +19,7 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
   currentSessions,
   nextSession = null,
   nextSessions,
+  sessionItems,
   miniDays,
   courses,
   instructors = [],
@@ -35,6 +33,7 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
   skillConfig,
   onOpenSession,
   onOpenLesson,
+  onViewCourseDetails,
   onGoToTab,
   onContinueDevelopment,
   onToggleRecommendation,
@@ -49,12 +48,12 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
   const effectiveNextSessions = useMemo(() => {
     if (nextSessions) return nextSessions;
     if (!nextSession) return [];
-    return [{ booking: nextSession, dateStr: resolveBookingStartDate(nextSession, courses) }];
-  }, [nextSessions, nextSession, courses]);
+    return [{ session: nextSession, dateStr: sessionDisplayDate(nextSession) }];
+  }, [nextSessions, nextSession]);
 
   const todayCountdown = useMemo(
-    () => getTodaySessionCountdown(bookings, courses),
-    [bookings, courses]
+    () => getTodaySessionCountdown(sessionItems),
+    [sessionItems]
   );
 
   const nextStepAction = useMemo(() => {
@@ -74,11 +73,11 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
           usersList={usersList}
           onOpenLesson={onOpenLesson}
           onOpenSession={onOpenSession}
+          onViewCourseDetails={onViewCourseDetails}
           hasUnreadChat={hasUnreadChat}
         />
       )}
 
-      {/* 1. Обратный отсчёт и текущие занятия */}
       {todayCountdown && (
         <SessionCountdownBlock
           countdown={todayCountdown}
@@ -88,7 +87,6 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
         />
       )}
 
-      {/* 2. Задачи на сегодня */}
       <TodayTasksBlock
         todayTasks={todayTasks}
         bookings={bookings}
@@ -102,7 +100,6 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
 
       <ScDivider />
 
-      {/* 3. Следующий шаг */}
       {nextStepAction && (
         <>
           <div className="py-5 space-y-2">
@@ -117,7 +114,7 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
               }}
               onOpenRecommendation={(bookingId) => {
                 const booking = bookings.find((b) => b.id === bookingId);
-                if (booking) onOpenLesson(booking);
+                if (booking) onOpenLesson(booking as never);
               }}
               onContinueDevelopment={onContinueDevelopment}
             />
@@ -126,7 +123,6 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
         </>
       )}
 
-      {/* 4. Ближайшее занятие и мини-календарь */}
       <NextSessionBlock
         nextSessions={effectiveNextSessions}
         miniDays={miniDays}
@@ -136,12 +132,12 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
         onGoToTab={onGoToTab}
         onOpenLesson={onOpenLesson}
         onOpenSession={onOpenSession}
+        onViewCourseDetails={onViewCourseDetails}
         hasUnreadChat={hasUnreadChat}
       />
 
       <ScDivider />
 
-      {/* 5. Прогресс и достижения за сегодня */}
       <TodayProgressBlock
         userProfile={userProfile}
         bookings={bookings}

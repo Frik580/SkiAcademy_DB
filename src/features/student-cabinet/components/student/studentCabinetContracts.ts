@@ -15,6 +15,7 @@ import type {
   TodaySessionCountdown,
   TodayTask,
 } from './studentCabinetUtils';
+import type { CabinetSessionItem } from '../../../../features/course-enrollments';
 
 export type StudentBooking =
   import('../../../../features/lesson-bookings/lessonBookingContracts').LessonBookingCabinetItem;
@@ -33,12 +34,13 @@ export interface SessionCountdownBlockInput {
 }
 
 export interface CurrentSessionsBlockInput {
-  sessions: Booking[];
+  sessions: CabinetSessionItem[];
   courses: StudentCourse[];
   instructors: StudentInstructor[];
   usersList: StudentProfile[];
   onOpenLesson: (booking: Booking) => void;
   onOpenSession: (booking: Booking) => void;
+  onViewCourseDetails?: (courseId: string) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
 }
 
@@ -51,6 +53,7 @@ export interface NextSessionBlockInput {
   onGoToTab: (tab: StudentCabinetTab) => void;
   onOpenLesson: (booking: Booking) => void;
   onOpenSession: (booking: Booking) => void;
+  onViewCourseDetails?: (courseId: string) => void;
   hasUnreadChat?: (bookingId: string) => boolean;
 }
 
@@ -109,7 +112,7 @@ export type StudentProfilePanelInput = Pick<
 
 export type StudentCabinetPanelInput = {
   userProfile: StudentProfile;
-  bookings: StudentBooking[];
+  bookings: readonly StudentBooking[];
   courses: StudentCourse[];
   instructors: StudentInstructor[];
   usersList?: StudentProfile[];
@@ -145,6 +148,7 @@ export type StudentProfilePanelProps = StudentProfilePanelInput & {
 export interface StudentCabinetHomeContext {
   userProfile: UserProfile;
   bookings: Booking[];
+  sessionItems: readonly CabinetSessionItem[];
   courses: Course[];
   instructors: Instructor[];
   usersList?: UserProfile[];
@@ -178,9 +182,10 @@ export interface StudentCabinetHomeContext {
 
 /** Input boundary for the presentational "today" section. */
 export interface StudentTodaySectionInput {
-  currentSessions: Booking[];
-  nextSession?: Booking | null;
+  currentSessions: CabinetSessionItem[];
+  nextSession?: CabinetSessionItem | null;
   nextSessions?: NextSessionItem[];
+  sessionItems: readonly CabinetSessionItem[];
   miniDays: MiniCalendarDay[];
   courses: Course[];
   instructors?: Instructor[];
@@ -194,6 +199,7 @@ export interface StudentTodaySectionInput {
   skillConfig?: SkillConfig;
   onOpenSession: (booking: Booking) => void;
   onOpenLesson: (booking: Booking) => void;
+  onViewCourseDetails?: (courseId: string) => void;
   onGoToTab: (tab: StudentCabinetTab) => void;
   onContinueDevelopment: () => void;
   onToggleRecommendation?: (bookingId: string, recommendationId: string, checked: boolean) => void;

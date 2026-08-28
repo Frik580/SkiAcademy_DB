@@ -10,6 +10,7 @@ describe('resolveDataSyncScope', () => {
       shouldSyncReviews: false,
       shouldLoadBookingHistory: false,
       shouldUseCanonicalLessonBookings: false,
+      shouldUseCanonicalCourseEnrollments: false,
       shouldLoadLegacyCourseBookings: false,
     });
   });
@@ -22,6 +23,7 @@ describe('resolveDataSyncScope', () => {
       shouldSyncReviews: false,
       shouldLoadBookingHistory: true,
       shouldUseCanonicalLessonBookings: false,
+      shouldUseCanonicalCourseEnrollments: false,
       shouldLoadLegacyCourseBookings: false,
     });
   });
@@ -34,11 +36,12 @@ describe('resolveDataSyncScope', () => {
       shouldSyncReviews: true,
       shouldLoadBookingHistory: true,
       shouldUseCanonicalLessonBookings: false,
+      shouldUseCanonicalCourseEnrollments: false,
       shouldLoadLegacyCourseBookings: false,
     });
   });
 
-  it('uses canonical lesson bookings on cabinet routes without legacy booking history', () => {
+  it('uses canonical lesson and course enrollments on cabinet routes without legacy course bookings', () => {
     expect(resolveDataSyncScope('/cabinet', false)).toEqual({
       catalogueScope: 'full',
       shouldSyncUsersList: false,
@@ -46,7 +49,8 @@ describe('resolveDataSyncScope', () => {
       shouldSyncReviews: true,
       shouldLoadBookingHistory: false,
       shouldUseCanonicalLessonBookings: true,
-      shouldLoadLegacyCourseBookings: true,
+      shouldUseCanonicalCourseEnrollments: true,
+      shouldLoadLegacyCourseBookings: false,
     });
 
     expect(resolveDataSyncScope('/cabinet/history', false)).toEqual({
@@ -56,7 +60,8 @@ describe('resolveDataSyncScope', () => {
       shouldSyncReviews: true,
       shouldLoadBookingHistory: false,
       shouldUseCanonicalLessonBookings: true,
-      shouldLoadLegacyCourseBookings: true,
+      shouldUseCanonicalCourseEnrollments: true,
+      shouldLoadLegacyCourseBookings: false,
     });
   });
 
@@ -68,6 +73,7 @@ describe('resolveDataSyncScope', () => {
       shouldSyncReviews: true,
       shouldLoadBookingHistory: false,
       shouldUseCanonicalLessonBookings: false,
+      shouldUseCanonicalCourseEnrollments: false,
       shouldLoadLegacyCourseBookings: false,
     });
   });

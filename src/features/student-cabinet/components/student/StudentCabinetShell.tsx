@@ -83,7 +83,9 @@ const getSwipeNeighborSequence = (
 
 export interface StudentCabinetShellProps {
   userProfile: UserProfile;
-  bookings: import('./studentCabinetContracts').StudentBooking[];
+  bookings: readonly import('./studentCabinetContracts').StudentBooking[];
+  courseEnrollments?: readonly import('../../../../features/course-enrollments').CourseEnrollmentCabinetItem[];
+  sessionItems?: readonly import('../../../../features/course-enrollments').CabinetSessionItem[];
   courses: Course[];
   instructors: Instructor[];
   reviews: Review[];
@@ -135,6 +137,8 @@ export interface StudentCabinetShellProps {
   ) => void | Promise<void>;
   onRescheduleBooking?: (booking: import('./studentCabinetContracts').StudentBooking) => void;
   collaborationSubmittingId?: string;
+  onCourseWithdraw?: (enrollmentId: string) => void | Promise<void>;
+  onCourseRequestCancellation?: (enrollmentId: string) => void | Promise<void>;
 }
 
 export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) => {
@@ -188,6 +192,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
   const ctx = {
     userProfile: props.userProfile,
     bookings: legacyBookings,
+    sessionItems: props.sessionItems ?? [],
     courses: props.courses,
     instructors: props.instructors,
     reviews: props.reviews,
@@ -397,6 +402,10 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       {activeTab === 'calendar' && (
         <StudentCalendarPanel
           {...panelProps}
+          sessionItems={props.sessionItems ?? []}
+          onViewCourseDetails={props.onViewCourseDetails}
+          onCourseWithdraw={props.onCourseWithdraw}
+          onCourseRequestCancellation={props.onCourseRequestCancellation}
           unreviewedCompletedBookings={props.unreviewedCompletedBookings}
           onDismissReview={props.onDismissReview}
           collaborationProposals={props.collaborationProposals}
@@ -411,7 +420,7 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       {activeTab === 'courses' && (
         <StudentCoursesPanel
           {...panelProps}
-          courseBookings={legacyBookings}
+          courseEnrollments={props.courseEnrollments}
           onViewCourseDetails={props.onViewCourseDetails}
           onRequireCourseAuth={props.onRequireCourseAuth}
           onBookCourse={props.onBookCourse}

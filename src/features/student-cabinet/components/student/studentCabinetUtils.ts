@@ -37,7 +37,7 @@ export {
   getNextSession,
   getNextSessionsNext7Days,
   getTodaySessionCountdown,
-  isBookingInProgressNow,
+  isSessionInProgressNow,
   type NextSessionItem,
   type TodaySessionCountdown,
 } from './studentSessionSchedule';

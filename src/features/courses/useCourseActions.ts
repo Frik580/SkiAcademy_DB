@@ -1,20 +1,26 @@
 import { useCallback, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { Course, UserProfile } from '../../types';
-import { notify, t, getLanguage } from '../../store/storeContext';
+import { notify, t } from '../../store/storeContext';
 import { useAuthStore } from '../auth/authStore';
 import { getCurrentAuthenticatedUser } from '../auth/authService';
 import { useProfileStore } from '../profile/profileStore';
-import { useBookingsStore } from '../bookings/bookingsStore';
 import { withOptimisticBalance } from '../wallet/walletService';
 import { useCoursesStore } from './coursesStore';
 import {
   addCourseService,
   updateCourseService,
   deleteCourseService,
-  enrollInCourseService,
   notifyCourseModifiedService,
 } from './courseService';
+import { useBookingsStore } from '../bookings/bookingsStore';
+import { queryManagedParticipantPickerReadModels } from '../../lib/canonical/canonicalReadModelClient';
+import {
+  deriveAuthenticatedCreateEnrollmentIdempotencyKey,
+  resolveEnrollmentParticipantsForProfile,
+  useCourseEnrollmentCommands,
+} from '../course-enrollments';
+import { presentCanonicalCommandErrorWithContext, useManagedParticipants } from '../lesson-bookings';
 
 /**
  * Course use-cases belong at the feature boundary. The course store itself only
@@ -26,6 +32,8 @@ export function useCourseActions() {
   const userProfile = useProfileStore((state) => state.userProfile);
   const bookings = useBookingsStore((state) => state.bookings);
   const inFlightEnrollmentsRef = useRef<Set<string>>(new Set());
+  const { createAuthenticatedEnrollment } = useCourseEnrollmentCommands(userProfile?.uid);
+  const { participants: managedParticipants } = useManagedParticipants(Boolean(userProfile?.uid));
 
   const handleAddCourse = useCallback(async (course: Course) => {
     await addCourseService(course);
@@ -75,11 +83,35 @@ export function useCourseActions() {
         const isSelfEnrollment = activeUser.uid === activeProfile.uid && !customProfile;
         const estimatedPrice = course?.price ?? 0;
 
-        const { courseTitle } = await withOptimisticBalance(
-          isSelfEnrollment ? -estimatedPrice : 0,
-          () => enrollInCourseService(courseId, getLanguage())
+        const pickerItems =
+          managedParticipants.length > 0
+            ? managedParticipants
+            : (await queryManagedParticipantPickerReadModels({})).items.map((item) => ({
+                participantId: item.participantId,
+                displayName: item.displayName,
+                discipline: item.discipline,
+                skillLevel: item.skillLevel,
+                authority: item.authority,
+              }));
+        const { participantIds, exercisedCapability } = resolveEnrollmentParticipantsForProfile(
+          pickerItems,
+          customProfile
+        );
+        const idempotencyKey = deriveAuthenticatedCreateEnrollmentIdempotencyKey(
+          courseId,
+          participantIds
         );
 
+        await withOptimisticBalance(isSelfEnrollment ? -estimatedPrice : 0, async () => {
+          await createAuthenticatedEnrollment({
+            courseId,
+            participantIds,
+            exercisedCapability,
+            identity: { enrollmentId: '', idempotencyKey },
+          });
+        });
+
+        const courseTitle = course?.title ?? courseId;
         notify(
           'success',
           t('enrollmentConfirmed'),
@@ -87,19 +119,26 @@ export function useCourseActions() {
         );
         confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
       } catch (error) {
-        const message = error instanceof Error ? error.message : '';
-        if (message === 'ALREADY_ENROLLED') {
+        const presented = presentCanonicalCommandErrorWithContext(error, {
+          t: t as (key: string) => string,
+        });
+        if (presented.code === 'validation' && presented.message.includes('conflict')) {
           notify('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
-        } else if (message === 'COURSE_FULL' || message === 'INSUFFICIENT_FUNDS') {
+        } else if (
+          presented.code === 'resource_conflict' ||
+          presented.code === 'participant_conflict'
+        ) {
+          notify('error', t('bookingFailed'), t('bookingFailedDesc'));
+        } else if (presented.code === 'insufficient_funds') {
           notify('error', t('bookingFailed'), t('bookingFailedDesc'));
         } else {
-          notify('error', t('bookingError'), t('bookingRecordFailed'));
+          notify('error', t('bookingError'), presented.message || t('bookingRecordFailed'));
         }
       } finally {
         inFlightEnrollmentsRef.current.delete(courseId);
       }
     },
-    [courses, firebaseUser, userProfile]
+    [courses, createAuthenticatedEnrollment, firebaseUser, managedParticipants, userProfile]
   );
 
   return {

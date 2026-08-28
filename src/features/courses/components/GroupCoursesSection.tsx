@@ -1,13 +1,18 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage, type Language } from '../../../app/providers/LanguageContext';
-import { Booking, Course, UserProfile } from '../../../types';
+import { Course, UserProfile } from '../../../types';
 import { GroupCourseCard, sortVisibleCourses } from './GroupCourseCard';
+import type {
+  CourseCatalogOperationalState,
+  CourseEnrollmentCabinetItem,
+} from '../../course-enrollments';
 
 interface GroupCoursesSectionProps {
   data: {
     courses: Course[];
-    bookings: Booking[];
+    courseEnrollments: readonly CourseEnrollmentCabinetItem[];
+    catalogByCourseId: ReadonlyMap<string, CourseCatalogOperationalState>;
     userProfile: UserProfile | null;
     language: Language;
   };
@@ -19,7 +24,7 @@ interface GroupCoursesSectionProps {
 }
 
 export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
-  data: { courses, bookings, userProfile, language },
+  data: { courses, courseEnrollments, catalogByCourseId, userProfile, language },
   actions: { onViewDetails, onRequireAuth, onBookCourse },
 }) => {
   const { t } = useLanguage();
@@ -52,7 +57,8 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
           >
             <GroupCourseCard
               rawCourse={rawCourse}
-              bookings={bookings}
+              courseEnrollments={courseEnrollments}
+              catalogOperational={catalogByCourseId.get(rawCourse.id)}
               userProfile={userProfile}
               language={language}
               onViewDetails={onViewDetails}

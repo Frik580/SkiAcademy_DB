@@ -7,8 +7,8 @@ import {
   isBookingOnDate,
   isBookingPastBySchedule,
   isBookingUpcomingBySchedule,
+  resolveBookingStartDateTime,
 } from './studentBookingSchedule';
-import { getNextSession } from './studentSessionSchedule';
 import {
   formatRecentLessonDateLabel,
   getRecentLessonInstructorLabel,
@@ -30,17 +30,17 @@ export type BookingListScope = 'upcoming' | 'current' | 'past' | 'all';
 export const filterBookingsByScope = <T extends ScheduleBookingSlice>(
   bookings: T[],
   scope: BookingListScope,
-  courses: Course[] = [],
+  _courses: Course[] = [],
   now = new Date()
 ): T[] => {
   if (scope === 'all') return bookings;
   if (scope === 'upcoming') {
-    return bookings.filter((b) => isBookingUpcomingBySchedule(b, courses, now));
+    return bookings.filter((b) => isBookingUpcomingBySchedule(b, now));
   }
   if (scope === 'current') {
-    return bookings.filter((b) => isBookingCurrentBySchedule(b, courses, now));
+    return bookings.filter((b) => isBookingCurrentBySchedule(b, now));
   }
-  return bookings.filter((b) => isBookingPastBySchedule(b, courses, now));
+  return bookings.filter((b) => isBookingPastBySchedule(b, now));
 };
 
 export const getStudentStats = (
@@ -79,10 +79,10 @@ export const getSeasonBookings = (
   );
 };
 
-/** True if the student has a non-cancelled booking on today's date (private or course day). */
+/** @deprecated Use hasTrainingTodayFromSessions for mixed lesson/course calendars. */
 export const hasTrainingToday = (
   bookings: Booking[],
-  courses: Course[],
+  _courses: Course[] = [],
   userId?: string,
   fromDate = new Date()
 ): boolean => {
@@ -92,7 +92,7 @@ export const hasTrainingToday = (
       (!userId || b.userId === userId) &&
       !b.isDeleted &&
       b.status !== 'cancelled' &&
-      isBookingOnDate(b, todayStr, courses)
+      isBookingOnDate(b, todayStr)
   );
 };
 
@@ -167,7 +167,7 @@ export type MiniCalendarDay = {
 /** Next 7 days starting from today with booked sessions marked. */
 export const getMiniCalendarDays = (
   bookings: Booking[],
-  courses: Course[],
+  _courses: Course[] = [],
   language: 'en' | 'ru' = 'ru',
   fromDate = new Date()
 ): MiniCalendarDay[] => {
@@ -181,7 +181,7 @@ export const getMiniCalendarDays = (
     d.setHours(12, 0, 0, 0);
     d.setDate(d.getDate() + i);
     const dateStr = toYMD(d);
-    const hasSession = booked.some((b) => isBookingOnDate(b, dateStr, courses));
+    const hasSession = booked.some((b) => isBookingOnDate(b, dateStr));
     days.push({
       day: d.getDate(),
       dateStr,
@@ -202,7 +202,7 @@ export const getWeekBookedSessions = (bookings: Booking[], courses: Course[]) =>
   const rows: { booking: Booking; dateStr: string }[] = [];
   for (const b of booked) {
     for (const dateStr of weekDateSet) {
-      if (isBookingOnDate(b, dateStr, courses)) {
+      if (isBookingOnDate(b, dateStr)) {
         rows.push({ booking: b, dateStr });
       }
     }
@@ -216,12 +216,19 @@ export const getWeekBookedSessions = (bookings: Booking[], courses: Course[]) =>
 
 export const getNextCalendarSession = (
   bookings: Booking[],
-  courses: Course[],
+  _courses: Course[],
   language: 'en' | 'ru'
 ) => {
-  const next = getNextSession(bookings, courses);
+  const next = bookings
+    .filter(isActiveBooking)
+    .filter((booking) => isBookingUpcomingBySchedule(booking))
+    .sort((left, right) => {
+      const leftStart = resolveBookingStartDateTime(left)?.getTime() ?? 0;
+      const rightStart = resolveBookingStartDateTime(right)?.getTime() ?? 0;
+      return leftStart - rightStart;
+    })[0];
   if (!next) return null;
-  const d = new Date(`${resolveBookingStartDate(next, courses)}T12:00:00`);
+  const d = new Date(`${next.date}T12:00:00`);
   return {
     booking: next,
     label: d.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
@@ -317,7 +324,7 @@ export const getActiveCourseEnrollment = (
         !b.isDeleted &&
         b.instructorId === `course_${course.id}` &&
         b.status !== 'cancelled' &&
-        isBookingOnDate(b, todayStr, courses)
+        isBookingOnDate(b, todayStr)
     );
     if (booking) return { course, booking };
   }

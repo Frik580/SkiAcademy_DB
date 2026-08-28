@@ -7,16 +7,20 @@ import {
   useLanguage,
   type Language,
 } from '../../../app/providers/LanguageContext';
-import { Booking, Course, UserProfile } from '../../../types';
+import { Course, UserProfile } from '../../../types';
 import { courseLevelBadgeLabel, getCourseLevelCardBadgeClass } from '../../../domain/course';
 import { useCurrency } from '../../../app/providers/CurrencyContext';
 import {
-  getCourseEnrollmentBooking,
   hasBookingRecommendations,
   hasPendingRecommendations,
 } from '../../../features/student-cabinet/lessonRecommendations';
 import { RecommendationIndicator } from '../../../features/profile';
 import { optimizedImageUrl } from '../../../lib/optimizedImageUrl';
+import type {
+  CourseCatalogOperationalState,
+  CourseEnrollmentCabinetItem,
+} from '../../course-enrollments';
+import { isEnrolledInCourse } from '../../course-enrollments';
 
 const formatCourseCardDate = (datePart: string) =>
   datePart
@@ -39,7 +43,8 @@ const metaChipClass = (enrolled: boolean) =>
 
 export interface GroupCourseCardProps {
   rawCourse: Course;
-  bookings: Booking[];
+  courseEnrollments: readonly CourseEnrollmentCabinetItem[];
+  catalogOperational?: CourseCatalogOperationalState;
   userProfile: UserProfile | null;
   language: Language;
   onViewDetails: (course: Course) => void;
@@ -50,7 +55,8 @@ export interface GroupCourseCardProps {
 
 export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   rawCourse,
-  bookings,
+  courseEnrollments,
+  catalogOperational,
   userProfile,
   language,
   onViewDetails,
@@ -61,17 +67,24 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   const { t } = useLanguage();
   const { formatPrice } = useCurrency();
   const course = translateCourse(rawCourse, language);
-  const isEnrolled = bookings.some(
-    (b) =>
-      b.userId === userProfile?.uid &&
-      b.instructorId === `course_${course.id}` &&
-      b.status !== 'cancelled'
-  );
-  const { datePart } = splitCourseDates(course.dates, language);
+  const isEnrolled = isEnrolledInCourse(courseEnrollments, course.id);
+  const availableSeats = catalogOperational?.availableSeats ?? rawCourse.availableSeats;
+  const isFull = catalogOperational?.isFull ?? availableSeats === 0;
+  const isCapacityFrozen = catalogOperational?.isCapacityFrozen ?? false;
+  const isEnrollmentEligible = catalogOperational?.isEnrollmentEligible ?? !isFull;
+  const displayPriceMinorUnits = catalogOperational?.priceMinorUnits ?? rawCourse.priceKZT ?? rawCourse.price;
+  const scheduleStart = catalogOperational?.scheduleSummaryStartDate;
+  const scheduleEnd = catalogOperational?.scheduleSummaryEndDate;
+  const legacyDates = splitCourseDates(course.dates, language);
+  const datePart = scheduleStart && scheduleEnd ? `${scheduleStart} – ${scheduleEnd}` : legacyDates.datePart;
   const cardDate = datePart ? formatCourseCardDate(datePart) : '';
   const cardDuration = formatCourseCardDuration(course.duration);
-  const enrollmentBooking = getCourseEnrollmentBooking(bookings, userProfile?.uid, course.id);
+  const enrollmentBooking = undefined;
   const showRecommendations = hasBookingRecommendations(enrollmentBooking);
+
+  const enrollDisabled =
+    userProfile?.isClientActive === false ||
+    (!isEnrolled && (isFull || isCapacityFrozen || !isEnrollmentEligible));
 
   return (
     <article
@@ -154,7 +167,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
         <div className="mt-3 space-y-6 pt-1">
           <div className="flex items-baseline gap-2">
             <p className="text-4xl font-serif font-light tracking-[-0.03em] text-[var(--ink)] leading-none">
-              {formatPrice(rawCourse.price, rawCourse.priceKZT)}
+              {formatPrice(rawCourse.price, displayPriceMinorUnits)}
             </p>
             <p className="text-xs text-[var(--ink-dim)]/60 font-sans">{t('perCourse')}</p>
           </div>
@@ -169,16 +182,13 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
                   onBookCourse(course.id);
                 }
               }}
-              disabled={
-                (course.availableSeats === 0 && !isEnrolled) ||
-                userProfile?.isClientActive === false
-              }
+              disabled={enrollDisabled}
               className={`w-full min-w-0 px-3 py-2 ${
                 isEnrolled
                   ? 'btn-secondary cursor-default'
                   : userProfile?.isClientActive === false
                     ? 'border border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10 font-bold'
-                    : course.availableSeats === 0
+                    : isFull || isCapacityFrozen || !isEnrollmentEligible
                       ? 'btn-secondary cursor-not-allowed opacity-60'
                       : 'btn-primary cursor-pointer'
               }`}
@@ -190,7 +200,11 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
                 </span>
               ) : userProfile?.isClientActive === false ? (
                 t('accessSuspended')
-              ) : course.availableSeats === 0 ? (
+              ) : isCapacityFrozen ? (
+                t('courseSoldOut')
+              ) : isFull ? (
+                t('courseSoldOut')
+              ) : !isEnrollmentEligible ? (
                 t('courseSoldOut')
               ) : (
                 t('enroll')

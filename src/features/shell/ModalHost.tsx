@@ -5,6 +5,12 @@ import { useProfileStore } from '../profile/profileStore';
 import { useBookingsStore } from '../bookings/bookingsStore';
 import { useCoursesStore } from '../courses/coursesStore';
 import { useCourseActions } from '../courses/useCourseActions';
+import {
+  isEnrolledInCourse,
+  selectCourseCatalogOperationalState,
+  selectCourseEnrollmentItems,
+  useCourseEnrollmentStore,
+} from '../course-enrollments';
 import { NotificationsPanel } from '../notifications/NotificationsPanel';
 import { AuthModal } from '../../features/auth';
 import { LazyLoad } from '../../ui/LazyLoad';
@@ -41,9 +47,9 @@ export const ModalHost: React.FC = () => {
   const { t, language } = useLanguage();
 
   const userProfile = useProfileStore((s) => s.userProfile);
-  const bookings = useBookingsStore((s) => s.bookings);
   const reviews = useBookingsStore((s) => s.reviews);
   const instructors = useBookingsStore((s) => s.instructors);
+  const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
 
   const courses = useCoursesStore((s) => s.courses);
   const { handleBookCourse } = useCourseActions();
@@ -58,6 +64,12 @@ export const ModalHost: React.FC = () => {
   const setSelectedCourseForDetails = useUiStore((s) => s.setSelectedCourseForDetails);
   const reviewsInstructor = useUiStore((s) => s.reviewsInstructor);
   const setReviewsInstructor = useUiStore((s) => s.setReviewsInstructor);
+
+  const selectedCatalogOperational = useCourseEnrollmentStore((state) =>
+    selectedCourseForDetails
+      ? selectCourseCatalogOperationalState(state, selectedCourseForDetails.id)
+      : undefined
+  );
 
   return (
     <>
@@ -93,12 +105,8 @@ export const ModalHost: React.FC = () => {
             course={translateCourse(selectedCourseForDetails, language)}
             instructors={instructors}
             userProfile={userProfile}
-            isEnrolled={bookings.some(
-              (b) =>
-                b.userId === userProfile?.uid &&
-                b.instructorId === `course_${selectedCourseForDetails.id}` &&
-                b.status !== 'cancelled'
-            )}
+            catalogOperational={selectedCatalogOperational}
+            isEnrolled={isEnrolledInCourse(courseEnrollments, selectedCourseForDetails.id)}
             onEnroll={(courseId) => {
               if (!userProfile) {
                 setSelectedCourseForAuth(selectedCourseForDetails);
@@ -121,9 +129,8 @@ export const ModalHost: React.FC = () => {
         </LazyLoad>
       )}
 
-      <NotificationsPanel />
-
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <NotificationsPanel />
     </>
   );
 };

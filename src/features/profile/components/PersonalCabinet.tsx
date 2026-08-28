@@ -9,6 +9,10 @@ import {
 } from '../../../types';
 import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
 import { cabinetItemToLegacyPresentation } from '../../../features/lesson-bookings/mergeCabinetBookings';
+import type {
+  CabinetSessionItem,
+  CourseEnrollmentCabinetItem,
+} from '../../../features/course-enrollments';
 import { Lock } from 'lucide-react';
 import { useNotifications } from '../../../features/notifications';
 import { useLanguage } from '../../../app/providers/LanguageContext';
@@ -27,11 +31,15 @@ import {
 
 export interface PersonalCabinetProps {
   userProfile: UserProfile;
-  bookings: LessonBookingCabinetItem[];
+  bookings: readonly LessonBookingCabinetItem[];
+  courseEnrollments?: readonly CourseEnrollmentCabinetItem[];
+  sessionItems?: readonly CabinetSessionItem[];
   reviews: Review[];
   dismissedReviewIds?: string[];
   onDismissReview?: (bookingId: string) => void;
   onCancel: (id: string, reason?: string) => Promise<void>;
+  onCourseWithdraw?: (enrollmentId: string) => Promise<void>;
+  onCourseRequestCancellation?: (enrollmentId: string) => Promise<void>;
   onAddReview: (
     newReview: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>
   ) => Promise<void>;
@@ -66,10 +74,14 @@ export interface PersonalCabinetProps {
 export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   userProfile,
   bookings: rawBookings,
+  courseEnrollments = [],
+  sessionItems = [],
   reviews,
   dismissedReviewIds = [],
   onDismissReview,
   onCancel,
+  onCourseWithdraw,
+  onCourseRequestCancellation,
   onAddReview,
   onToggleRecommendation,
   onToggleSkillToday,
@@ -144,7 +156,7 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   const userBookings = bookings;
   const { hasUnreadChat, markBookingChatRead } = useBookingChatUnread(
     userProfile.uid,
-    userBookings
+    [...userBookings]
   );
   const collaboration = useCustomerBookingCollaboration({
     accountId: userProfile.uid,
@@ -215,6 +227,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
           <StudentCabinet
             userProfile={userProfile}
             bookings={userBookings}
+            courseEnrollments={courseEnrollments}
+            sessionItems={sessionItems}
             courses={courses}
             instructors={instructors}
             reviews={reviews}
@@ -265,6 +279,8 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             onWithdrawCancellation={collaboration.handleWithdrawCancellation}
             onRescheduleBooking={collaboration.setRescheduleTarget}
             collaborationSubmittingId={collaboration.submittingId}
+            onCourseWithdraw={onCourseWithdraw}
+            onCourseRequestCancellation={onCourseRequestCancellation}
           />
 
           <RescheduleBookingModal

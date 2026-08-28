@@ -3,6 +3,10 @@ import { useSessionSync } from '../features/auth/sync/useSessionSync';
 import { useSettingsSync } from '../features/settings/sync/useSettingsSync';
 import { useBookingsSync } from '../features/bookings/sync/useBookingsSync';
 import { useLessonBookingReadSync } from '../features/lesson-bookings/useLessonBookingReadSync';
+import {
+  useCourseCatalogReadSync,
+  useCourseEnrollmentReadSync,
+} from '../features/course-enrollments/useCourseEnrollmentReadSync';
 import { useBookingCollaborationReadSync } from '../features/booking-collaboration/useBookingCollaborationReadSync';
 import { useCoursesSync } from '../features/courses/sync/useCoursesSync';
 import { useNotificationsSync } from '../features/notifications/sync/useNotificationsSync';
@@ -16,11 +20,14 @@ import { useProfileStore } from '../features/profile/profileStore';
 
 export const useStoreSync = () => {
   const location = useLocation();
-  const { shouldUseCanonicalLessonBookings } = useDataSyncScope();
+  const { shouldUseCanonicalLessonBookings, shouldUseCanonicalCourseEnrollments } = useDataSyncScope();
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const userProfile = useProfileStore((state) => state.userProfile);
   const isCustomerCanonicalLessonPath =
     shouldUseCanonicalLessonBookings && userProfile?.role === 'user' && !userProfile?.instructorId;
+  const isCustomerCanonicalCoursePath =
+    shouldUseCanonicalCourseEnrollments && userProfile?.role === 'user' && !userProfile?.instructorId;
+  const isPublicCatalogPath = location.pathname === '/' || location.pathname.startsWith('/cabinet');
   const isInstructorCollaborationPath =
     location.pathname === '/instructor' && Boolean(userProfile?.instructorId);
 
@@ -30,6 +37,8 @@ export const useStoreSync = () => {
   useSettingsSync();
   useBookingsSync();
   useLessonBookingReadSync(isCustomerCanonicalLessonPath, firebaseUser?.uid);
+  useCourseEnrollmentReadSync(isCustomerCanonicalCoursePath, firebaseUser?.uid);
+  useCourseCatalogReadSync(isPublicCatalogPath);
   useBookingCollaborationReadSync({
     customerEnabled: isCustomerCanonicalLessonPath,
     instructorEnabled: isInstructorCollaborationPath,

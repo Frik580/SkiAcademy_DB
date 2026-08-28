@@ -4,12 +4,16 @@ import type { Booking } from '../../../../types';
 import { translateInstructor } from '../../../../app/providers/LanguageContext';
 import { BookingsPanel } from '../../../../features/profile';
 import { GroupCourseCard, sortVisibleCourses } from '../../../../features/courses';
+import {
+  getEnrolledCourseIdsFromEnrollments,
+  selectAllCourseCatalogOperationalStates,
+  useCourseEnrollmentStore,
+  type CourseEnrollmentCabinetItem,
+} from '../../../../features/course-enrollments';
 import { InstructorCard } from '../../../../features/profile';
 import { StudentDevelopmentPanel } from './StudentDevelopmentPanel';
 import { ScDivider, ScEditorialHubList, ScPageIntro, ScSectionTitle } from './StudentCabinetUI';
 import {
-  getAvailableCourses,
-  getEnrolledCourses,
   getMyInstructors,
   getRecommendedInstructors,
   StudentCabinetTab,
@@ -66,8 +70,12 @@ type PanelProps = StudentCabinetPanelInput;
 
 export const StudentCalendarPanel: React.FC<
   PanelProps & {
+    sessionItems: readonly import('../../../../features/course-enrollments').CabinetSessionItem[];
     unreviewedCompletedBookings: import('./studentCabinetContracts').StudentBooking[];
     onDismissReview?: (id: string) => void;
+    onViewCourseDetails?: (course: Course) => void;
+    onCourseWithdraw?: (enrollmentId: string) => void | Promise<void>;
+    onCourseRequestCancellation?: (enrollmentId: string) => void | Promise<void>;
     collaborationProposals?: readonly import('../../../../features/booking-collaboration').BookingProposalCabinetItem[];
     onAcceptProposal?: (
       proposal: import('../../../../features/booking-collaboration').BookingProposalCabinetItem
@@ -84,12 +92,16 @@ export const StudentCalendarPanel: React.FC<
   }
 > = ({
   userProfile,
+  sessionItems,
   bookings,
   courses,
   instructors,
   usersList = [],
   unreviewedCompletedBookings,
   onDismissReview,
+  onViewCourseDetails,
+  onCourseWithdraw,
+  onCourseRequestCancellation,
   onCancel,
   onChat,
   hasUnreadChat,
@@ -107,7 +119,8 @@ export const StudentCalendarPanel: React.FC<
   return (
     <BookingsPanel
       userProfile={userProfile}
-      bookings={bookings}
+      sessionItems={sessionItems}
+      bookings={[...bookings]}
       courses={courses}
       instructors={instructors}
       usersList={usersList}
@@ -128,6 +141,14 @@ export const StudentCalendarPanel: React.FC<
       onWithdrawCancellation={onWithdrawCancellation}
       onRescheduleBooking={onRescheduleBooking}
       collaborationSubmittingId={collaborationSubmittingId}
+      onViewCourseDetails={
+        onViewCourseDetails ? (courseId) => {
+          const course = courses.find((item) => item.id === courseId);
+          if (course) onViewCourseDetails(course);
+        } : undefined
+      }
+      onCourseWithdraw={onCourseWithdraw}
+      onCourseRequestCancellation={onCourseRequestCancellation}
     />
   );
 };
@@ -137,23 +158,23 @@ export const StudentCoursesPanel: React.FC<
     onViewCourseDetails: (course: Course) => void;
     onRequireCourseAuth: (course: Course) => void;
     onBookCourse: (courseId: string) => void;
-    courseBookings?: Booking[];
+    courseEnrollments?: readonly CourseEnrollmentCabinetItem[];
   }
 > = ({
-  bookings,
-  courseBookings,
   courses,
   userProfile,
+  courseEnrollments = [],
   onViewCourseDetails,
   onRequireCourseAuth,
   onBookCourse,
   onGoToTab,
 }) => {
   const { t, language } = useStudentCabinetTranslations();
-  const enrollmentBookings = courseBookings ?? (bookings as unknown as Booking[]);
-  const myCourses = getEnrolledCourses(enrollmentBookings, courses, userProfile.uid);
+  const catalogByCourseId = useCourseEnrollmentStore(selectAllCourseCatalogOperationalStates);
+  const enrolledCourseIds = getEnrolledCourseIdsFromEnrollments(courseEnrollments);
+  const myCourses = sortVisibleCourses(courses.filter((course) => enrolledCourseIds.has(course.id)));
   const availableCourses = sortVisibleCourses(
-    getAvailableCourses(enrollmentBookings, courses, userProfile.uid)
+    courses.filter((course) => !course.isHidden && !enrolledCourseIds.has(course.id))
   );
 
   const renderCourseGrid = (items: Course[]) => (
@@ -165,7 +186,8 @@ export const StudentCoursesPanel: React.FC<
         <GroupCourseCard
           key={rawCourse.id}
           rawCourse={rawCourse}
-          bookings={enrollmentBookings}
+          courseEnrollments={courseEnrollments}
+          catalogOperational={catalogByCourseId.get(rawCourse.id)}
           userProfile={userProfile}
           language={language}
           onViewDetails={onViewCourseDetails}

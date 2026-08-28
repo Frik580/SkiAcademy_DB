@@ -10,7 +10,13 @@ import { useNotifications } from '../../../features/notifications';
 import { Auth } from '../../../features/auth';
 import { AuthModeSliderSwitch } from '../../../features/bookings';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
-import { createGuestCourseEnrollmentViaCallable } from '../../../features/courses/createGuestCourseEnrollmentCallable';
+import {
+  createLogicalEnrollmentAttemptId,
+  deriveGuestCreateEnrollmentIdempotencyKey,
+  deriveGuestParticipantIdForEnrollment,
+  useCourseEnrollmentCommands,
+} from '../../../features/course-enrollments';
+import { presentCanonicalCommandErrorWithContext } from '../../../features/lesson-bookings';
 
 interface CourseEnrollmentModalProps {
   isOpen: boolean;
@@ -30,6 +36,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const { t, language } = useLanguage();
   const { formatPrice } = useCurrency();
   const { addNotification } = useNotifications();
+  const { createGuestEnrollment } = useCourseEnrollmentCommands(undefined);
 
   const [unauthTab, setUnauthTab] = useState<'guest' | 'auth'>('guest');
   const [guestName, setGuestName] = useState('');
@@ -60,24 +67,33 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
 
     isSubmittingRef.current = true;
     setIsSubmitting(true);
-    const idempotencyKey = guestEnrollmentAttemptKeyRef.current ?? crypto.randomUUID();
-    guestEnrollmentAttemptKeyRef.current = idempotencyKey;
+    const stableEnrollmentId =
+      guestEnrollmentAttemptKeyRef.current ?? createLogicalEnrollmentAttemptId();
+    if (!guestEnrollmentAttemptKeyRef.current) {
+      guestEnrollmentAttemptKeyRef.current = stableEnrollmentId;
+    }
+    const participantId = deriveGuestParticipantIdForEnrollment(stableEnrollmentId);
+    const idempotencyKey = deriveGuestCreateEnrollmentIdempotencyKey(stableEnrollmentId);
 
     try {
-      await createGuestCourseEnrollmentViaCallable({
+      await createGuestEnrollment({
         courseId: course.id,
-        guestName: guestName.trim(),
-        guestPhone: guestPhone.trim(),
-        guestEmail: guestEmail.trim(),
-        guestNotes: guestNotes.trim(),
-        language,
-        idempotencyKey,
+        enrollmentId: stableEnrollmentId,
+        participantId,
+        identity: { enrollmentId: stableEnrollmentId, idempotencyKey },
+        guestDisplayName: guestName.trim(),
+        guestSkillLevel: 'beginner',
+        guestDiscipline: 'ski',
+        guestAgeYears: 25,
       });
       addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       onClose();
     } catch (err) {
-      addNotification('error', t('bookingError'), t('bookingRecordFailed'));
+      const presented = presentCanonicalCommandErrorWithContext(err, {
+        t: t as (key: string) => string,
+      });
+      addNotification('error', t('bookingError'), presented.message || t('bookingRecordFailed'));
     } finally {
       isSubmittingRef.current = false;
       setIsSubmitting(false);
@@ -118,7 +134,6 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                 className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-[var(--border)] sm:hidden"
                 aria-hidden="true"
               />
-              {/* Header */}
               <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
                 <div>
                   <h3
@@ -141,7 +156,6 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                 </button>
               </div>
 
-              {/* Navigation Slider Switch */}
               <div className="px-4 py-2 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
                 <AuthModeSliderSwitch
                   unauthTab={unauthTab}
@@ -151,7 +165,6 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                 />
               </div>
 
-              {/* Modal body */}
               <div className="p-5 md:p-6 overflow-y-auto space-y-4 flex-1 min-h-0">
                 {unauthTab === 'auth' ? (
                   <div className="space-y-4">

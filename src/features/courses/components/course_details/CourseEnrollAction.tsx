@@ -3,12 +3,14 @@ import { Calendar, Clock, ShieldCheck } from 'lucide-react';
 import { Course, UserProfile } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
+import type { CourseCatalogOperationalState } from '../../../course-enrollments';
 
 interface CourseEnrollActionProps {
   course: Course;
   datePart: string;
   timePart: string;
   seatsPercentage: number;
+  catalogOperational?: CourseCatalogOperationalState;
   userProfile: UserProfile | null;
   isEnrolled: boolean;
   onEnroll: (courseId: string) => void;
@@ -20,6 +22,7 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
   datePart,
   timePart,
   seatsPercentage,
+  catalogOperational,
   userProfile,
   isEnrolled,
   onEnroll,
@@ -27,6 +30,12 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
 }) => {
   const { t } = useLanguage();
   const { formatPrice } = useCurrency();
+  const availableSeats = catalogOperational?.availableSeats ?? course.availableSeats;
+  const totalSeats = catalogOperational?.totalSeats ?? course.totalSeats;
+  const isFull = catalogOperational?.isFull ?? availableSeats === 0;
+  const isCapacityFrozen = catalogOperational?.isCapacityFrozen ?? false;
+  const isEnrollmentEligible = catalogOperational?.isEnrollmentEligible ?? !isFull;
+  const displayPriceMinorUnits = catalogOperational?.priceMinorUnits ?? course.priceKZT ?? course.price;
 
   return (
     <div className="relative">
@@ -66,20 +75,20 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
           <div className="flex items-center justify-between text-[9px] font-mono uppercase">
             <span className="text-[var(--ink-dim)]">{t('courseGroupSpace')}</span>
             <span
-              className={`font-bold ${course.availableSeats === 0 ? 'text-rose-500' : course.availableSeats <= 3 ? 'text-amber-500' : 'text-emerald-500'}`}
+              className={`font-bold ${isFull ? 'text-rose-500' : availableSeats <= 3 ? 'text-amber-500' : 'text-emerald-500'}`}
             >
-              {course.availableSeats === 0
+              {isFull
                 ? t('courseSoldOutUpper')
-                : `${course.availableSeats} ${t('courseSeatsOf')} ${course.totalSeats} ${t('courseSeatsLeft')}`}
+                : `${availableSeats} ${t('courseSeatsOf')} ${totalSeats} ${t('courseSeatsLeft')}`}
             </span>
           </div>
 
           <div className="w-full h-1.5 bg-black/10 dark:bg-white/5 border border-[var(--border)] overflow-hidden">
             <div
               className={`h-full transition-all duration-500 ${
-                course.availableSeats === 0
+                isFull
                   ? 'bg-rose-500'
-                  : course.availableSeats <= 3
+                  : availableSeats <= 3
                     ? 'bg-amber-500'
                     : 'bg-emerald-500'
               }`}
@@ -98,7 +107,7 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
             </span>
           </div>
           <span className="text-3xl font-serif text-[var(--ink)] font-light">
-            {formatPrice(course.price, course.priceKZT)}
+            {formatPrice(course.price, displayPriceMinorUnits)}
           </span>
         </div>
 
@@ -109,14 +118,15 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
               onClose();
             }}
             disabled={
-              (course.availableSeats === 0 && !isEnrolled) || userProfile?.isClientActive === false
+              (!isEnrolled && (isFull || isCapacityFrozen || !isEnrollmentEligible)) ||
+              userProfile?.isClientActive === false
             }
             className={`w-full py-3.5 font-mono text-[10px] uppercase tracking-widest transition rounded-none font-bold ${
               isEnrolled
                 ? 'bg-black/5 dark:bg-black/60 border border-[var(--border)]/60 text-[var(--ink-dim)] cursor-default'
                 : userProfile?.isClientActive === false
                   ? 'border border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10'
-                  : course.availableSeats === 0
+                  : isFull || isCapacityFrozen || !isEnrollmentEligible
                     ? 'btn-secondary cursor-not-allowed opacity-60'
                     : 'btn-primary cursor-pointer shadow-md'
             }`}
@@ -127,7 +137,7 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
               </span>
             ) : userProfile?.isClientActive === false ? (
               t('accessSuspended')
-            ) : course.availableSeats === 0 ? (
+            ) : isCapacityFrozen || isFull || !isEnrollmentEligible ? (
               t('courseSoldOut')
             ) : (
               t('courseConfirmBooking')

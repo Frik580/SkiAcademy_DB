@@ -7,7 +7,6 @@ import { useLanguage, formatShortBookingDate } from '../../../app/providers/Lang
 import {
   getDifficultyShort,
   formatBookingDayMonth,
-  getRecentLessonTitle,
 } from './student/studentCabinetUtils';
 import { LessonRecommendationsList } from './LessonRecommendationsList';
 import { Course } from '../../../types';
@@ -35,13 +34,10 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
 
   if (!booking) return null;
 
-  const isCourse = booking.instructorId.startsWith('course_');
   const dateLabel = formatBookingDayMonth(booking, courses, lang);
   const shortDate = formatShortBookingDate(booking, language, courses);
-  const modalTitle = isCourse ? getRecentLessonTitle(booking, courses, lang) : t('scLessonDetails');
-  const modalSubtitle = isCourse
-    ? t('scCourseDetailsTitle')
-    : getDifficultyShort(booking.difficulty);
+  const modalTitle = t('scLessonDetails');
+  const modalSubtitle = getDifficultyShort(booking.difficulty);
 
   return createPortal(
     <AnimatePresence>
@@ -72,9 +68,7 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
               <h3 className="text-lg font-serif font-light text-[var(--ink)] truncate">
                 {modalTitle}
               </h3>
-              {!isCourse && (
-                <p className="text-xs text-[var(--ink-dim)] mt-0.5">{t('scLessonDetails')}</p>
-              )}
+              <p className="text-xs text-[var(--ink-dim)] mt-0.5">{t('scLessonDetails')}</p>
             </div>
             <button
               type="button"

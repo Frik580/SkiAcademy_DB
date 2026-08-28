@@ -10,6 +10,7 @@ import { StudentCabinetTab } from '../../../features/student-cabinet';
 
 export interface BookingsPanelProps {
   userProfile: UserProfile;
+  sessionItems: readonly import('../../../features/course-enrollments').CabinetSessionItem[];
   bookings: LessonBookingCabinetItem[];
   courses?: Course[];
   instructors?: Instructor[];
@@ -31,9 +32,13 @@ export interface BookingsPanelProps {
   onWithdrawCancellation?: (booking: LessonBookingCabinetItem) => void | Promise<void>;
   onRescheduleBooking?: (booking: LessonBookingCabinetItem) => void;
   collaborationSubmittingId?: string;
+  onViewCourseDetails?: (courseId: string) => void;
+  onCourseWithdraw?: (enrollmentId: string) => void | Promise<void>;
+  onCourseRequestCancellation?: (enrollmentId: string) => void | Promise<void>;
 }
 
 export const BookingsPanel: React.FC<BookingsPanelProps> = ({
+  sessionItems,
   bookings,
   courses = [],
   instructors = [],
@@ -55,6 +60,9 @@ export const BookingsPanel: React.FC<BookingsPanelProps> = ({
   onWithdrawCancellation,
   onRescheduleBooking,
   collaborationSubmittingId,
+  onViewCourseDetails,
+  onCourseWithdraw,
+  onCourseRequestCancellation,
 }) => {
   const { t } = useLanguage();
   const userBookings = bookings;
@@ -77,6 +85,7 @@ export const BookingsPanel: React.FC<BookingsPanelProps> = ({
         />
       )}
       <ClientBookingsList
+        sessionItems={sessionItems}
         userBookings={userBookings}
         courses={courses}
         instructors={instructors}
@@ -92,6 +101,9 @@ export const BookingsPanel: React.FC<BookingsPanelProps> = ({
         onWithdrawCancellation={onWithdrawCancellation}
         onRescheduleBooking={onRescheduleBooking}
         collaborationSubmittingId={collaborationSubmittingId}
+        onViewCourseDetails={onViewCourseDetails}
+        onCourseWithdraw={onCourseWithdraw}
+        onCourseRequestCancellation={onCourseRequestCancellation}
       />
     </div>
   );

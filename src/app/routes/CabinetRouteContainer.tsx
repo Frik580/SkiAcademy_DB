@@ -16,13 +16,20 @@ import { useWalletStore } from '../../features/wallet/walletStore';
 import { useUiStore } from '../../features/shell/uiStore';
 import type { AppRoutesProps } from './routeTypes';
 import {
-  mergeCabinetLessonAndCourseBookings,
+  deriveCancellationIdempotencyKey,
+  presentCanonicalCommandErrorWithContext,
   selectLessonBookingItems,
   useLessonBookingCommands,
   useLessonBookingStore,
-  deriveCancellationIdempotencyKey,
-  presentCanonicalCommandErrorWithContext,
 } from '../../features/lesson-bookings';
+import {
+  buildMixedCabinetSessionItems,
+  deriveRequestCancellationIdempotencyKey,
+  deriveWithdrawEnrollmentIdempotencyKey,
+  selectCourseEnrollmentItems,
+  useCourseEnrollmentCommands,
+  useCourseEnrollmentStore,
+} from '../../features/course-enrollments';
 import { useNotifications } from '../../features/notifications';
 
 const PersonalCabinet = React.lazy(loadPersonalCabinet);
@@ -50,8 +57,8 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   const usersList = useProfileStore((state) => state.usersList);
   const dismissedReviewIds = useProfileStore((state) => state.dismissedReviewIds);
   const activityLogs = useProfileStore((state) => state.activityLogs);
-  const legacyBookings = useBookingsStore((state) => state.bookings);
   const lessonBookings = useLessonBookingStore(selectLessonBookingItems);
+  const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
   const reviews = useBookingsStore((state) => state.reviews);
   const instructors = useBookingsStore((state) => state.instructors);
   const courses = useCoursesStore((state) => state.courses);
@@ -71,24 +78,26 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   const { requestCancellation, refetchAccountHotBookings } = useLessonBookingCommands(
     userProfile?.uid
   );
+  const {
+    requestCancellation: requestCourseCancellation,
+    withdrawEnrollment,
+    refetchAccountHotEnrollments,
+  } = useCourseEnrollmentCommands(userProfile?.uid);
   const { handleBookCourse } = useCourseActions();
   const setSelectedCourseForDetails = useUiStore((state) => state.setSelectedCourseForDetails);
   const setSelectedCourseForAuth = useUiStore((state) => state.setSelectedCourseForAuth);
   const setSelectedInstructor = useUiStore((state) => state.setSelectedInstructor);
   const setReviewsInstructor = useUiStore((state) => state.setReviewsInstructor);
 
-  const bookings = useMemo(
-    () => mergeCabinetLessonAndCourseBookings(lessonBookings, legacyBookings),
-    [lessonBookings, legacyBookings]
+  const sessionItems = useMemo(
+    () => buildMixedCabinetSessionItems({ lessonBookings, courseEnrollments }),
+    [lessonBookings, courseEnrollments]
   );
 
   const handleCanonicalCancel = useCallback(
     async (bookingId: string, _reason?: string) => {
-      const booking = bookings.find((item) => item.bookingId === bookingId);
+      const booking = lessonBookings.find((item) => item.bookingId === bookingId);
       if (!booking) return;
-      if (!booking.isLessonBooking) {
-        throw new Error('Course cancellation remains on the legacy path until T31.');
-      }
       const exercisedCapability =
         booking.partyKind === 'family_group' ? 'parent_guardian' : 'account_owner';
       try {
@@ -110,7 +119,73 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
         throw error;
       }
     },
-    [addNotification, bookings, refetchAccountHotBookings, requestCancellation, t]
+    [addNotification, lessonBookings, refetchAccountHotBookings, requestCancellation, t]
+  );
+
+  const handleCourseWithdraw = useCallback(
+    async (enrollmentId: string) => {
+      const enrollment = courseEnrollments.find((item) => item.enrollmentId === enrollmentId);
+      if (!enrollment?.authorizedActions.canWithdraw) return;
+      try {
+        await withdrawEnrollment({
+          enrollmentId: enrollment.enrollmentId,
+          expectedRevision: enrollment.revision,
+          idempotencyKey: deriveWithdrawEnrollmentIdempotencyKey(
+            enrollment.enrollmentId,
+            enrollment.revision
+          ),
+          exercisedCapability: 'account_owner',
+        });
+        addNotification('success', t('cancellationRequested'), t('cancellationRequestedDesc'));
+      } catch (error) {
+        const presented = presentCanonicalCommandErrorWithContext(error, {
+          t: t as (key: string) => string,
+        });
+        if (presented.shouldRefresh) {
+          await refetchAccountHotEnrollments?.();
+          addNotification('warning', t('requestFailed'), presented.message);
+          return;
+        }
+        addNotification('error', t('requestFailed'), presented.message);
+      }
+    },
+    [addNotification, courseEnrollments, refetchAccountHotEnrollments, t, withdrawEnrollment]
+  );
+
+  const handleCourseCancellationRequest = useCallback(
+    async (enrollmentId: string) => {
+      const enrollment = courseEnrollments.find((item) => item.enrollmentId === enrollmentId);
+      if (!enrollment?.authorizedActions.canRequestCancellation) return;
+      try {
+        await requestCourseCancellation({
+          enrollmentId: enrollment.enrollmentId,
+          expectedRevision: enrollment.revision,
+          idempotencyKey: deriveRequestCancellationIdempotencyKey(
+            enrollment.enrollmentId,
+            enrollment.revision
+          ),
+          exercisedCapability: 'account_owner',
+        });
+        addNotification('success', t('cancellationRequested'), t('cancellationRequestedDesc'));
+      } catch (error) {
+        const presented = presentCanonicalCommandErrorWithContext(error, {
+          t: t as (key: string) => string,
+        });
+        if (presented.shouldRefresh) {
+          await refetchAccountHotEnrollments?.();
+          addNotification('warning', t('requestFailed'), presented.message);
+          return;
+        }
+        addNotification('error', t('requestFailed'), presented.message);
+      }
+    },
+    [
+      addNotification,
+      courseEnrollments,
+      refetchAccountHotEnrollments,
+      requestCourseCancellation,
+      t,
+    ]
   );
 
   if (tab && !CABINET_TABS.includes(tab as (typeof CABINET_TABS)[number])) {
@@ -124,11 +199,15 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
           <LazyLoad fallback={<CabinetLoadingFallback label={t('loading')} />}>
             <PersonalCabinet
               userProfile={userProfile}
-              bookings={bookings}
+              bookings={lessonBookings}
+              courseEnrollments={courseEnrollments}
+              sessionItems={sessionItems}
               reviews={reviews}
               dismissedReviewIds={dismissedReviewIds}
               onDismissReview={handleDismissReview}
               onCancel={handleCanonicalCancel}
+              onCourseWithdraw={handleCourseWithdraw}
+              onCourseRequestCancellation={handleCourseCancellationRequest}
               onAddReview={handleAddReview}
               onToggleRecommendation={handleToggleRecommendation}
               onToggleSkillToday={handleToggleSkillToday}

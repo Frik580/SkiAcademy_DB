@@ -9,6 +9,10 @@ import {
 } from '../../../types';
 import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
 import type { BookingProposalCabinetItem } from '../../../features/booking-collaboration';
+import type {
+  CabinetSessionItem,
+  CourseEnrollmentCabinetItem,
+} from '../../../features/course-enrollments';
 import { SkillConfig } from '../../../domain/achievements';
 import { AchievementsConfig } from '../../../domain/achievements';
 import {
@@ -19,7 +23,9 @@ import {
 
 export interface StudentCabinetProps {
   userProfile: UserProfile;
-  bookings: LessonBookingCabinetItem[];
+  bookings: readonly LessonBookingCabinetItem[];
+  courseEnrollments?: readonly CourseEnrollmentCabinetItem[];
+  sessionItems?: readonly CabinetSessionItem[];
   courses?: Course[];
   instructors?: Instructor[];
   reviews?: Review[];
@@ -63,11 +69,15 @@ export interface StudentCabinetProps {
   onWithdrawCancellation?: (booking: LessonBookingCabinetItem) => void | Promise<void>;
   onRescheduleBooking?: (booking: LessonBookingCabinetItem) => void;
   collaborationSubmittingId?: string;
+  onCourseWithdraw?: (enrollmentId: string) => Promise<void>;
+  onCourseRequestCancellation?: (enrollmentId: string) => Promise<void>;
 }
 
 export const StudentCabinet: React.FC<StudentCabinetProps> = ({
   userProfile,
   bookings,
+  courseEnrollments = [],
+  sessionItems = [],
   courses = [],
   instructors = [],
   reviews = [],
@@ -111,11 +121,15 @@ export const StudentCabinet: React.FC<StudentCabinetProps> = ({
   onWithdrawCancellation,
   onRescheduleBooking,
   collaborationSubmittingId,
+  onCourseWithdraw,
+  onCourseRequestCancellation,
 }) => {
   return (
     <StudentCabinetShell
       userProfile={userProfile}
       bookings={bookings}
+      courseEnrollments={courseEnrollments}
+      sessionItems={sessionItems}
       courses={courses}
       instructors={instructors}
       reviews={reviews}
@@ -161,6 +175,8 @@ export const StudentCabinet: React.FC<StudentCabinetProps> = ({
       onWithdrawCancellation={onWithdrawCancellation}
       onRescheduleBooking={onRescheduleBooking}
       collaborationSubmittingId={collaborationSubmittingId}
+      onCourseWithdraw={onCourseWithdraw}
+      onCourseRequestCancellation={onCourseRequestCancellation}
     />
   );
 };

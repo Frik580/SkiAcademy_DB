@@ -1,7 +1,7 @@
 # T30: Migrate relationships, blocks, proposals, and change-request UX
 
 **Phase:** 5 — Frontend and read-model migration  
-**Status:** ready-for-agent
+**Status:** complete (browser smoke blocked separately — see `known-canonical-read-model-callable-blocker.md`)
 
 ## What to build
 
@@ -26,9 +26,13 @@ Expose canonical Participant relationships/blocks and Booking proposal/change-re
 
 ## Acceptance criteria
 
-- [ ] Every mutation uses the relevant canonical command and expected revision.
-- [ ] Blocked/unauthorized users cannot see or perform protected actions.
-- [ ] Accepted changes surface the authoritative Booking result without local patch emulation.
+- [x] Every mutation uses the relevant canonical command and expected revision.
+- [x] Blocked/unauthorized users cannot see or perform protected actions.
+- [x] Accepted changes surface the authoritative Booking result without local patch emulation.
+
+## Known infrastructure blocker (out of scope for T30)
+
+Production browser reads for canonical callables are blocked by Cloud Run invocation permissions (`OPTIONS` → `403` before handler execution). See `known-canonical-read-model-callable-blocker.md`. Frontend must not add workarounds; fix IAM and rerun smoke tests.
 
 ## Required tests
 

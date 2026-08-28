@@ -325,30 +325,35 @@ export const Navbar: React.FC<NavbarProps> = ({
       <AnimatePresence>
         {isWorkspaceMenuOpen && workspaceItems.length > 0 && (
           <motion.div
-            ref={workspaceDropdownRef}
+            key="workspace-menu"
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.15 }}
-            role="menu"
             style={{ top: 'var(--app-navbar-height, 60px)', left: workspaceMenuLeft }}
-            className="ui-navbar-panel fixed z-50 hidden w-max py-1.5 px-1.5 lg:flex flex-col"
+            className="ui-navbar-panel fixed z-50 hidden w-max lg:flex flex-col"
           >
-            {workspaceItems.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                role="menuitem"
-                onClick={() => setIsWorkspaceMenuOpen(false)}
-                className={`px-5 py-2.5 font-sans normal-case text-xs tracking-normal no-underline whitespace-nowrap transition ${
-                  item.active
-                    ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
-                    : 'text-[var(--ink)] hover:bg-[var(--profile-bg)]'
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
+            <div
+              ref={workspaceDropdownRef}
+              role="menu"
+              className="flex flex-col py-1.5 px-1.5"
+            >
+              {workspaceItems.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  role="menuitem"
+                  onClick={() => setIsWorkspaceMenuOpen(false)}
+                  className={`px-5 py-2.5 font-sans normal-case text-xs tracking-normal no-underline whitespace-nowrap transition ${
+                    item.active
+                      ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
+                      : 'text-[var(--ink)] hover:bg-[var(--profile-bg)]'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

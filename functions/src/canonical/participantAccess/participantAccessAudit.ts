@@ -10,6 +10,7 @@ import {
 
 type ParticipantAccessCommandKind = Extract<
   CommandKind,
+  | 'provision_self_participant'
   | 'create_participant'
   | 'update_participant_profile'
   | 'assign_participant_management'
@@ -28,6 +29,8 @@ function reasonCodeForKind(kind: ParticipantAccessCommandKind): 'participant_man
 
 function summaryForKind(kind: ParticipantAccessCommandKind): string {
   switch (kind) {
+    case 'provision_self_participant':
+      return 'Canonical self Participant provisioned';
     case 'create_participant':
       return 'Participant profile created';
     case 'update_participant_profile':

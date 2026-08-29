@@ -48,6 +48,7 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
   adjust_service_price: ['manual_override', 'other'],
   record_financial_correction: ['manual_financial_correction', 'manual_override', 'other'],
   record_audit_correction: ['audit_correction', 'scheduled_system_action', 'manual_override', 'other'],
+  provision_self_participant: ['participant_management'],
   create_participant: ['participant_management', 'other'],
   update_participant_profile: ['participant_management', 'other'],
   assign_participant_management: ['participant_management', 'other'],

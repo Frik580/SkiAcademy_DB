@@ -30,6 +30,7 @@ export const COMMAND_KINDS = [
   'expire_guest_reservation',
   'enforce_payment_start_gate',
   'resolve_attendance_outcome',
+  'provision_self_participant',
   'create_participant',
   'update_participant_profile',
   'assign_participant_management',

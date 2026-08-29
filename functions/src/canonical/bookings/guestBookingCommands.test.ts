@@ -232,6 +232,17 @@ describe('create_guest_booking_request command', () => {
     expect(executor.snapshot().docs.has(`participants/${participantId}`)).toBe(false);
   });
 
+  it('fails fast when guest action token secret is not configured', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
+    const commands = createProductionCanonicalCommands(environment(), executor, {});
+    const result = await commands.execute(guestCreateEnvelope());
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('unavailable');
+      expect(result.error.details).toEqual({ field: 'guestActionTokenSecret', reason: 'required' });
+    }
+  });
+
   it('authorizes guest_single reads with the returned credential', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
     const commands = runCommands(executor);

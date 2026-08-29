@@ -7,6 +7,7 @@ import { BookingPriceAccordion } from './BookingPriceAccordion';
 import { ParticipantPicker } from './ParticipantPicker';
 import { BOOKING_NOTES_FIELD_CLASS } from './bookingAppleFieldStyles';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
+import { isAuthenticatedBookingSubmitDisabled } from './authBookingState';
 
 interface AuthBookingFormProps {
   workspace: ReturnType<typeof useBookingModal>;
@@ -54,12 +55,13 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
 
   const hourlyRateLabel = `${formatPrice(targetInstructor.pricePerHour, targetInstructor.pricePerHourKZT)} / ${t('hr')}`;
 
-  const isSubmitDisabled =
-    isSubmitting ||
-    isTimeSlotOccupied ||
-    !targetInstructor.isAvailable ||
-    userProfile?.isClientActive === false ||
-    selectedParticipantIds.length === 0;
+  const isSubmitDisabled = isAuthenticatedBookingSubmitDisabled({
+    isSubmitting,
+    isTimeSlotOccupied,
+    instructorAvailable: targetInstructor.isAvailable,
+    clientActive: userProfile?.isClientActive !== false,
+    selectedParticipantCount: selectedParticipantIds.length,
+  });
 
   return (
     <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">

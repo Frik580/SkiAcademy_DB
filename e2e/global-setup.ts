@@ -22,7 +22,13 @@ import {
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const requireRoot = createRequire(join(rootDir, 'package.json'));
 const requireFunctions = createRequire(join(rootDir, 'functions/package.json'));
-const { AccountSchema, WalletSchema, timestampFromDate } = requireRoot('@ski-academy/shared-domain');
+const {
+  AccountSchema,
+  WalletSchema,
+  accountCommandActor,
+  selfParticipantIdFromAccountId,
+  timestampFromDate,
+} = requireRoot('@ski-academy/shared-domain');
 const { initializeApp, getApps } = requireFunctions('firebase-admin/app') as typeof import('firebase-admin/app');
 const { getFirestore } = requireFunctions('firebase-admin/firestore') as typeof import('firebase-admin/firestore');
 
@@ -185,8 +191,6 @@ async function seedStudentAccount(input: {
   readonly studentUid: string;
   readonly email: string;
   readonly displayName: string;
-  readonly participantId: string;
-  readonly participantManagementId: string;
   readonly childParticipantId?: string;
   readonly childParticipantManagementId?: string;
   readonly childDisplayName?: string;
@@ -230,29 +234,25 @@ async function seedStudentAccount(input: {
     })
   );
 
-  await firestore.doc(`participants/${input.participantId}`).set({
-    participantId: input.participantId,
-    displayName: input.displayName,
-    age: { kind: 'age_years', years: 18 },
-    skillLevel: 'beginner',
-    discipline: 'ski',
-    management: {
-      kind: 'managed',
-      participantManagementId: input.participantManagementId,
-    },
-    lifecycle: { status: 'active' },
-    ...metadata,
-  });
-
-  await firestore.doc(`participant_management/${input.participantManagementId}`).set({
-    participantManagementId: input.participantManagementId,
-    participantId: input.participantId,
-    accountId: input.studentUid,
-    role: 'owner',
-    authority: 'parent_guardian',
-    status: 'active',
-    ...metadata,
-  });
+  const { createCanonicalCommandRuntime } = requireFunctions(
+    join(rootDir, 'functions/lib/canonical/commands/canonicalCommandRuntime.js')
+  ) as typeof import('../functions/src/canonical/commands/canonicalCommandRuntime');
+  const provisioned = await createCanonicalCommandRuntime(firestore)
+    .createCommands()
+    .execute({
+      kind: 'provision_self_participant',
+      context: {
+        actor: accountCommandActor(input.studentUid),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'e2e-provision-self-participant-v1',
+        correlationId: 'correlation_e2e_provision_self',
+        source: 'client_callable',
+      },
+      intent: {},
+    });
+  if (provisioned.status !== 'success') {
+    throw new Error(`E2E self Participant provisioning failed: ${provisioned.error.code}`);
+  }
 
   if (
     input.childParticipantId &&
@@ -299,19 +299,15 @@ async function seedCanonicalFirestoreFixtures(
     initializeApp({ projectId: E2E_PROJECT_ID });
   }
 
-  const studentParticipantId = `participant_e2e_${studentUid}`;
-  const studentParticipantManagementId = `management_e2e_${studentUid}`;
+  const studentParticipantId = selfParticipantIdFromAccountId(studentUid);
   const studentChildParticipantId = `participant_e2e_child_${studentUid}`;
   const studentChildParticipantManagementId = `management_e2e_child_${studentUid}`;
-  const studentBParticipantId = `participant_e2e_${studentBUid}`;
-  const studentBParticipantManagementId = `management_e2e_${studentBUid}`;
+  const studentBParticipantId = selfParticipantIdFromAccountId(studentBUid);
 
   await seedStudentAccount({
     studentUid,
     email: E2E_STUDENT_EMAIL,
     displayName: 'E2E Student',
-    participantId: studentParticipantId,
-    participantManagementId: studentParticipantManagementId,
     childParticipantId: studentChildParticipantId,
     childParticipantManagementId: studentChildParticipantManagementId,
     childDisplayName: E2E_CHILD_DISPLAY_NAME,
@@ -321,8 +317,6 @@ async function seedCanonicalFirestoreFixtures(
     studentUid: studentBUid,
     email: E2E_STUDENT_B_EMAIL,
     displayName: 'E2E Student B',
-    participantId: studentBParticipantId,
-    participantManagementId: studentBParticipantManagementId,
   });
 
   const firestore = getFirestore();

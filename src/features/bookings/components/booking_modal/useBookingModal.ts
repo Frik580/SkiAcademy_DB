@@ -36,6 +36,7 @@ import {
   useLessonBookingCommands,
   useManagedParticipants,
 } from '../../../lesson-bookings';
+import { resolveAuthenticatedParticipantSelection } from './authBookingState';
 
 export interface BookingModalInput {
   isOpen: boolean;
@@ -61,7 +62,7 @@ export const useBookingModal = ({
     userProfile?.uid
   );
   const { participants: managedParticipants, loading: managedParticipantsLoading } =
-    useManagedParticipants(Boolean(userProfile?.uid));
+    useManagedParticipants(userProfile?.uid);
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
 
   const [activeInstructor, setActiveInstructor] = useState<Instructor | null>(instructor);
@@ -93,7 +94,12 @@ export const useBookingModal = ({
   useEffect(() => {
     if (!isOpen || managedParticipants.length === 0) return;
     if (selectedParticipantIds.length === 0) {
-      setSelectedParticipantIds([managedParticipants[0].participantId]);
+      setSelectedParticipantIds(
+        resolveAuthenticatedParticipantSelection(
+          selectedParticipantIds,
+          managedParticipants.map((participant) => participant.participantId)
+        )
+      );
     }
   }, [isOpen, managedParticipants, selectedParticipantIds.length]);
 

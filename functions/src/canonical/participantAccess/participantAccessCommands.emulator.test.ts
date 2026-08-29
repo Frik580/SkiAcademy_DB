@@ -8,11 +8,14 @@ import {
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
   accountCommandActor,
+  participantManagementIdFromSelfProvisioning,
+  selfParticipantIdFromAccountId,
   timestampFromDate,
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
+import { queryManagedParticipantPickerReadModels } from '../readModels/managedParticipantPickerReadModels';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 
 const PROJECT_ID = 'ski-academy-participant-access-test';
@@ -101,6 +104,80 @@ describe.skipIf(!runsOnFirestoreEmulator)('participant access emulator concurren
       },
     });
   });
+
+  it(
+    'provisions one self Participant under concurrent retries and exposes it to the picker',
+    async () => {
+      await firestore.collection('participants').doc(participantId).delete();
+      await firestore.collection('users').doc(accountA).set({
+        uid: accountA,
+        email: 'existing@example.com',
+        displayName: 'Existing Emulator Client',
+        role: 'user',
+        isClientActive: true,
+      });
+
+      const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+      const environment = {
+        clock: createAuthoritativeCommandClock(new Date('2026-01-01T00:00:00.000Z')),
+      };
+      const commands = createProductionCanonicalCommands(environment, executor);
+      const makeEnvelope = (
+        idempotencyKey: string,
+        value: string
+      ): CommandEnvelope<'provision_self_participant'> => ({
+        kind: 'provision_self_participant',
+        context: {
+          actor: accountCommandActor(accountA),
+          exercisedCapability: 'account_owner',
+          idempotencyKey,
+          correlationId: CorrelationIdSchema.parse(value),
+          source: 'client_callable',
+        },
+        intent: {},
+      });
+
+      const [first, second] = await Promise.all([
+        commands.execute(
+          makeEnvelope('concurrent-self-provision-a', 'correlation_self_emulator_01')
+        ),
+        commands.execute(
+          makeEnvelope('concurrent-self-provision-b', 'correlation_self_emulator_02')
+        ),
+      ]);
+
+      expect(first.status).toBe('success');
+      expect(second.status).toBe('success');
+
+      const selfParticipantId = selfParticipantIdFromAccountId(accountA);
+      const selfManagementId = participantManagementIdFromSelfProvisioning(accountA);
+      const [participants, managements, guard, account, picker] = await Promise.all([
+        firestore.collection('participants').where('participantId', '==', selfParticipantId).get(),
+        firestore
+          .collection('participant_management')
+          .where('accountId', '==', accountA)
+          .where('authority', '==', 'self')
+          .get(),
+        firestore.collection('participant_management_active_owner').doc(selfParticipantId).get(),
+        firestore.collection('users').doc(accountA).get(),
+        queryManagedParticipantPickerReadModels(firestore, accountA),
+      ]);
+
+      expect(participants.docs).toHaveLength(1);
+      expect(managements.docs).toHaveLength(1);
+      expect(managements.docs[0]?.id).toBe(selfManagementId);
+      expect(guard.exists).toBe(true);
+      expect(account.data()?.accountId).toBe(accountA);
+      expect(picker.items).toEqual([
+        expect.objectContaining({
+          participantId: selfParticipantId,
+          displayName: 'Existing Emulator Client',
+          authority: 'self',
+        }),
+      ]);
+    },
+    30_000
+  );
 
   it(
     'serializes concurrent active owner acquisition for one participant',

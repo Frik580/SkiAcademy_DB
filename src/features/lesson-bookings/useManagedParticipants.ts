@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import { queryManagedParticipantPickerReadModels } from '../../lib/canonical/canonicalReadModelClient';
 import type { ManagedParticipantOption } from './lessonBookingContracts';
+import { ensureCanonicalSelfParticipant } from '../../lib/canonical/canonicalAccountProvisioningClient';
 
-export function useManagedParticipants(enabled: boolean) {
+export function useManagedParticipants(accountId: string | undefined) {
   const [participants, setParticipants] = useState<ManagedParticipantOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
   const reload = useCallback(async () => {
-    if (!enabled) {
+    if (!accountId) {
       setParticipants([]);
       return;
     }
     setLoading(true);
     setError(undefined);
     try {
+      await ensureCanonicalSelfParticipant(accountId);
       const result = await queryManagedParticipantPickerReadModels({});
       setParticipants(
         result.items.map((item) => ({
@@ -31,7 +33,7 @@ export function useManagedParticipants(enabled: boolean) {
     } finally {
       setLoading(false);
     }
-  }, [enabled]);
+  }, [accountId]);
 
   useEffect(() => {
     void reload();

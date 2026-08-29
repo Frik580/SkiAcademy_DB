@@ -558,6 +558,7 @@ export const CommandIntentSchemaByKind = {
       subjectId: z.string().min(1).max(128),
     })
     .strict(),
+  provision_self_participant: z.object({}).strict(),
   create_participant: z
     .object({
       participantId: ParticipantIdSchema,

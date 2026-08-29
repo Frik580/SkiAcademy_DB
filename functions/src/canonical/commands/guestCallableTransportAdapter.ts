@@ -8,6 +8,7 @@ import {
   guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
   deriveGuestSubjectIdFromCourseEnrollmentIntent,
+  parseCallableGuestCommandTransport,
   parseGuestParticipantProfileFromTransportMetadata,
   type CommandContext,
   type CommandEnvelope,
@@ -15,6 +16,7 @@ import {
   type GuestSubjectId,
 } from '@ski-academy/shared-domain';
 import type { CallableRequest } from 'firebase-functions/v2/https';
+import { HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
 import type { CallableCommandTransportInput } from './callableTransportAdapter';
 
@@ -144,9 +146,19 @@ export function parseCallableGuestCommandTransportInput<Kind extends CommandKind
 ): CallableGuestCommandTransportInput<Kind> {
   const data = request.data;
   if (!data || typeof data !== 'object') {
-    throw new Error('Callable payload is required.');
+    throw new HttpsError('invalid-argument', 'Callable payload is required.');
   }
-  return data as CallableGuestCommandTransportInput<Kind>;
+
+  const parsed = parseCallableGuestCommandTransport(data);
+  if (!parsed.success) {
+    throw new HttpsError('invalid-argument', 'The request is invalid.', {
+      code: 'validation',
+      retryable: false,
+      details: { reason: 'malformed_transport' },
+    });
+  }
+
+  return parsed.data as CallableGuestCommandTransportInput<Kind>;
 }
 
 export function parseAuthenticatedCallableCommandTransportInput<Kind extends CommandKind>(

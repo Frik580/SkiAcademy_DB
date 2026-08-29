@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom';
 import { useSessionSync } from '../features/auth/sync/useSessionSync';
+import { useCanonicalAccountProvisioningSync } from '../features/auth/sync/useCanonicalAccountProvisioningSync';
 import { useSettingsSync } from '../features/settings/sync/useSettingsSync';
 import { useBookingsSync } from '../features/bookings/sync/useBookingsSync';
 import { useLessonBookingReadSync } from '../features/lesson-bookings/useLessonBookingReadSync';
@@ -36,6 +37,7 @@ export const useStoreSync = () => {
 
   useSessionSync();
   useCurrentUserProfileSync();
+  useCanonicalAccountProvisioningSync();
   useUsersSync();
   useSettingsSync();
   useBookingsSync();

@@ -19,7 +19,7 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
   instructorId,
   participantId,
 }) => {
-  const { participants } = useManagedParticipants(Boolean(accountId));
+  const { participants } = useManagedParticipants(accountId);
   const resolvedParticipantId = participantId ?? participants[0]?.participantId;
   const accessKey =
     resolvedParticipantId !== undefined

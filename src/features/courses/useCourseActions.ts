@@ -36,7 +36,7 @@ export function useCourseActions() {
   const bookings = useBookingsStore((state) => state.bookings);
   const inFlightEnrollmentsRef = useRef<Set<string>>(new Set());
   const { createAuthenticatedEnrollment } = useCourseEnrollmentCommands(userProfile?.uid);
-  const { participants: managedParticipants } = useManagedParticipants(Boolean(userProfile?.uid));
+  const { participants: managedParticipants } = useManagedParticipants(userProfile?.uid);
 
   const handleAddCourse = useCallback(async (course: Course) => {
     await addCourseService(course);

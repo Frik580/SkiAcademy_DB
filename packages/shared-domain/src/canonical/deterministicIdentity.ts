@@ -10,6 +10,7 @@ import {
   MonetaryEventIdSchema,
   OccurrenceIdSchema,
   ParticipantBlockIdSchema,
+  ParticipantIdSchema,
   ParticipantManagementIdSchema,
   PaymentIdSchema,
   type AccountId,
@@ -154,6 +155,20 @@ export function participantManagementIdFromGuestLink(input: {
       input.participantId,
       input.accountId,
     ])
+  );
+}
+
+export function selfParticipantIdFromAccountId(accountId: AccountId): ParticipantId {
+  return ParticipantIdSchema.parse(
+    canonicalDeterministicHash(['participant:v1', 'account_self', accountId])
+  );
+}
+
+export function participantManagementIdFromSelfProvisioning(
+  accountId: AccountId
+): ParticipantManagementId {
+  return ParticipantManagementIdSchema.parse(
+    canonicalDeterministicHash(['participant_management:v1', 'account_self', accountId])
   );
 }
 

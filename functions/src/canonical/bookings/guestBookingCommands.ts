@@ -171,6 +171,13 @@ function createGuestBookingRequestHandler(
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_guest_booking_request'> = {
     read: async (session) => {
+      if (!environment.guestActionTokenSecret) {
+        throw new CanonicalCommandError('unavailable', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'guestActionTokenSecret', reason: 'required' },
+        });
+      }
+
       const now = timestampFromDate(environment.clock.now());
       if (
         !isGuestBookingRequestAllowedBeforeStart({

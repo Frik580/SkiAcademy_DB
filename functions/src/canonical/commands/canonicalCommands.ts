@@ -16,7 +16,10 @@ const MALFORMED_ENVELOPE_CORRELATION_ID = CorrelationIdSchema.parse('correlation
 
 import type { CanonicalTransactionExecutor } from '../transactions';
 import { createFinanceCommandHandlers, type MonetaryEventLoader } from '../finance';
-import { createParticipantAccessCommandHandlers } from '../participantAccess';
+import {
+  createParticipantAccessCommandHandlers,
+  createSelfParticipantProvisioningCommandHandlers,
+} from '../participantAccess';
 import { createBookingCommandHandlers } from '../bookings';
 import { createGuestBookingCommandHandlers } from '../bookings/guestBookingCommands';
 import { createBookingRescheduleCommandHandlers } from '../bookings/bookingRescheduleCommands';
@@ -174,6 +177,7 @@ export function createProductionCanonicalCommands(
   return createCanonicalCommands(
     {
       ...createParticipantAccessCommandHandlers(executor),
+      ...createSelfParticipantProvisioningCommandHandlers(executor),
       ...createFinanceCommandHandlers(executor, options.monetaryEventLoader),
       ...createBookingCommandHandlers(executor),
       ...createBookingRescheduleCommandHandlers(executor),

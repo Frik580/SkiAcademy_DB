@@ -1,3 +1,4 @@
+import { defineSecret } from 'firebase-functions/params';
 import { onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getAdminFirestore } from './adminFirestore';
@@ -30,6 +31,14 @@ export { optimizeImage } from './images/optimizeImageHttp';
 
 /** Browser callables need public Cloud Run invoker; auth is enforced inside the handler. */
 const CANONICAL_CALLABLE_OPTIONS = { region: 'us-central1', invoker: 'public' as const };
+
+/** Guest action credential signing/verification — only bound to callables that read it. */
+const guestActionTokenSecret = defineSecret('GUEST_ACTION_TOKEN_SECRET');
+
+const GUEST_SECRET_CALLABLE_OPTIONS = {
+  ...CANONICAL_CALLABLE_OPTIONS,
+  secrets: [guestActionTokenSecret],
+};
 
 export const createBooking = onCall({ region: 'us-central1' }, async (request) =>
   createCreateBookingHandler(getAdminFirestore())(request)
@@ -79,15 +88,15 @@ export const enrollInCourse = onCall({ region: 'us-central1' }, async (request) 
   enrollInCourseHandler(getAdminFirestore())(request)
 );
 
-export const executeCanonicalCommand = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
+export const executeCanonicalCommand = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>
   createExecuteCanonicalCommandHandler(getAdminFirestore())(request)
 );
 
-export const executeGuestCanonicalCommand = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
+export const executeGuestCanonicalCommand = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>
   createExecuteGuestCanonicalCommandHandler(getAdminFirestore())(request)
 );
 
-export const queryLessonBookingReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
+export const queryLessonBookingReadModels = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>
   createQueryLessonBookingReadModelsHandler(getAdminFirestore())(request)
 );
 
@@ -113,7 +122,7 @@ export const queryParticipantInstructorAccessReadModels = onCall(
     createQueryParticipantInstructorAccessReadModelsHandler(getAdminFirestore())(request)
 );
 
-export const queryCourseEnrollmentReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
+export const queryCourseEnrollmentReadModels = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>
   createQueryCourseEnrollmentReadModelsHandler(getAdminFirestore())(request)
 );
 

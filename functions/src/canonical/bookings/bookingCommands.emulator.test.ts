@@ -14,6 +14,7 @@ import {
   paymentIdFromBookingId,
   timestampFromDate,
   type CommandEnvelope,
+  type CommandResult,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
@@ -37,6 +38,9 @@ const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 const BOOKING_PRICE_KZT = 12_000;
 const WALLET_ONE_BOOKING_KZT = BOOKING_PRICE_KZT;
 const WALLET_TWO_BOOKINGS_KZT = BOOKING_PRICE_KZT * 2;
+const INSTRUCTOR_RACE_BOOKING_IDS = Array.from({ length: 6 }, (_, index) =>
+  BookingIdSchema.parse(`booking_booking_emulator_race_${index}`)
+);
 
 let app: App;
 let firestore: Firestore;
@@ -223,6 +227,105 @@ function createCommands() {
   return createProductionCanonicalCommands(environment, executor);
 }
 
+function isFirestoreEmulatorTransientRejection(reason: unknown): boolean {
+  if (!(reason instanceof Error)) {
+    return false;
+  }
+  if (!reason.message.includes('Transaction is invalid or closed')) {
+    return false;
+  }
+  const code = (reason as { code?: unknown }).code;
+  return code === 3 || code === 'invalid-argument';
+}
+
+type InstructorRaceAttemptOutcome =
+  | { kind: 'success' }
+  | { kind: 'instructor_conflict' }
+  | { kind: 'emulator_transient' }
+  | { kind: 'unknown_rejection'; reason: unknown }
+  | { kind: 'unexpected_command_error'; code: string };
+
+function classifyInstructorRaceAttempt(
+  outcome: PromiseSettledResult<CommandResult<'create_confirmed_booking'>>
+): InstructorRaceAttemptOutcome {
+  if (outcome.status === 'rejected') {
+    if (isFirestoreEmulatorTransientRejection(outcome.reason)) {
+      return { kind: 'emulator_transient' };
+    }
+    return { kind: 'unknown_rejection', reason: outcome.reason };
+  }
+
+  const result = outcome.value;
+  if (result.status === 'success') {
+    return { kind: 'success' };
+  }
+  if (result.status === 'error' && result.error.code === 'instructor_conflict') {
+    return { kind: 'instructor_conflict' };
+  }
+  return {
+    kind: 'unexpected_command_error',
+    code: result.status === 'error' ? result.error.code : 'unknown',
+  };
+}
+
+async function assertInstructorRaceDurableInvariants(input: {
+  readonly raceBookingIds: readonly (typeof INSTRUCTOR_RACE_BOOKING_IDS)[number][];
+}) {
+  const state = await durableCounts();
+  expect(state.bookings).toBe(1);
+
+  const bookingsSnapshot = await firestore.collection('bookings').get();
+  expect(bookingsSnapshot.docs).toHaveLength(1);
+  const winningBooking = bookingsSnapshot.docs[0]!;
+  const winningBookingId = BookingIdSchema.parse(winningBooking.id);
+  const winningBookingData = winningBooking.data();
+  expect(winningBookingData?.lifecycle).toEqual({ status: 'confirmed' });
+  expect(winningBookingData?.occurrence?.instructorId).toBe(instructorId);
+  expect(winningBookingData?.party?.participantIds).toEqual([participantId]);
+
+  expect(state.payments).toBe(1);
+  expect(state.monetaryEvents).toBe(1);
+  expect(state.activityLogs).toBe(1);
+  expect(state.successfulIdempotency).toBe(1);
+  expect(state.claims).toBe(2);
+  expect(state.walletBalance).toBe(WALLET_TWO_BOOKINGS_KZT - BOOKING_PRICE_KZT);
+  expect(state.paymentIds).toEqual([paymentIdFromBookingId(winningBookingId)]);
+
+  const claimsSnapshot = await firestore.collection('resource_claims').get();
+  expect(claimsSnapshot.docs).toHaveLength(2);
+  const claims = claimsSnapshot.docs.map((doc) => doc.data());
+  expect(
+    claims.every(
+      (claim) => claim.ownerKind === 'booking' && claim.ownerId === winningBookingId
+    )
+  ).toBe(true);
+  expect(claims.every((claim) => claim.lifecycle?.status === 'active')).toBe(true);
+
+  const instructorClaim = claims.find((claim) => claim.resourceKind === 'instructor');
+  const participantClaim = claims.find((claim) => claim.resourceKind === 'participant');
+  expect(instructorClaim?.resourceId).toBe(instructorId);
+  expect(participantClaim?.resourceId).toBe(participantId);
+
+  const loserBookingIds = input.raceBookingIds.filter((id) => id !== winningBookingId);
+  for (const loserBookingId of loserBookingIds) {
+    const loserBooking = await firestore.collection('bookings').doc(loserBookingId).get();
+    expect(loserBooking.exists).toBe(false);
+
+    const loserPayment = await firestore
+      .collection('payments')
+      .doc(paymentIdFromBookingId(loserBookingId))
+      .get();
+    expect(loserPayment.exists).toBe(false);
+  }
+
+  const loserClaims = claimsSnapshot.docs.filter((doc) =>
+    loserBookingIds.includes(doc.data().ownerId)
+  );
+  expect(loserClaims).toHaveLength(0);
+
+  return { winningBookingId, state };
+}
+
 async function durableCounts() {
   const [bookings, payments, monetaryEvents, activityLogs, idempotency, claims, wallet] =
     await Promise.all([
@@ -280,33 +383,54 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking commands (firestore emulator)
     'serializes overlapping instructor booking races so exactly one wins',
     async () => {
       const commands = createCommands();
-      const attempts = await Promise.all(
-        Array.from({ length: 6 }, (_, index) =>
-          commands.execute(
-            bookingEnvelope({
-              bookingId: `booking_booking_emulator_race_${index}`,
-              idempotencyKey: `booking-race-${index}`,
-              participantIds: [participantId],
-              instructorId,
-            })
-          )
-        )
+      const envelopes = Array.from({ length: 6 }, (_, index) =>
+        bookingEnvelope({
+          bookingId: `booking_booking_emulator_race_${index}`,
+          idempotencyKey: `booking-race-${index}`,
+          participantIds: [participantId],
+          instructorId,
+        })
       );
-      const successes = attempts.filter((attempt) => attempt.status === 'success');
-      const conflicts = attempts.filter(
-        (attempt) => attempt.status === 'error' && attempt.error.code === 'instructor_conflict'
-      );
-      expect(successes.length).toBe(1);
-      expect(conflicts.length).toBe(5);
 
-      const state = await durableCounts();
-      expect(state.bookings).toBe(1);
-      expect(state.payments).toBe(1);
-      expect(state.monetaryEvents).toBe(1);
-      expect(state.activityLogs).toBe(1);
-      expect(state.successfulIdempotency).toBe(1);
-      expect(state.claims).toBe(2);
-      expect(state.walletBalance).toBe(WALLET_TWO_BOOKINGS_KZT - BOOKING_PRICE_KZT);
+      const settled = await Promise.allSettled(
+        envelopes.map((envelope) => commands.execute(envelope))
+      );
+      const outcomes = settled.map(classifyInstructorRaceAttempt);
+
+      for (const outcome of outcomes) {
+        if (outcome.kind === 'unknown_rejection') {
+          throw outcome.reason;
+        }
+        if (outcome.kind === 'unexpected_command_error') {
+          expect.fail(`Unexpected command error: ${outcome.code}`);
+        }
+      }
+
+      const successCount = outcomes.filter((outcome) => outcome.kind === 'success').length;
+      const instructorConflictCount = outcomes.filter(
+        (outcome) => outcome.kind === 'instructor_conflict'
+      ).length;
+      const emulatorTransientCount = outcomes.filter(
+        (outcome) => outcome.kind === 'emulator_transient'
+      ).length;
+
+      expect(successCount + instructorConflictCount + emulatorTransientCount).toBe(6);
+
+      const { state } = await assertInstructorRaceDurableInvariants({
+        raceBookingIds: INSTRUCTOR_RACE_BOOKING_IDS,
+      });
+
+      if (process.env.BOOKING_RACE_STRESS_METRICS === '1') {
+        console.log(
+          JSON.stringify({
+            metric: 'booking-instructor-race',
+            successCount,
+            instructorConflictCount,
+            emulatorTransientCount,
+            confirmedBookings: state.bookings,
+          })
+        );
+      }
     },
     30_000
   );

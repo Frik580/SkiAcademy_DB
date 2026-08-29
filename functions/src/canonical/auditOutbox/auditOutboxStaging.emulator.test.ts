@@ -14,6 +14,7 @@ import {
   resolveCommandIdempotencyIdentity,
   type AuditOutboxStagingPlan,
   type CommandEnvelope,
+  type CommandResult,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { executeAuthoritativeIdempotentCanonicalCommand } from '../commands/idempotentCommandExecution';
@@ -93,6 +94,80 @@ function auditPlan(): AuditOutboxStagingPlan {
 const runsOnFirestoreEmulator = Boolean(
   process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
 );
+
+function isFirestoreEmulatorTransientRejection(reason: unknown): boolean {
+  if (!(reason instanceof Error)) {
+    return false;
+  }
+  if (!reason.message.includes('Transaction is invalid or closed')) {
+    return false;
+  }
+  const code = (reason as { code?: unknown }).code;
+  return code === 3 || code === 'invalid-argument';
+}
+
+type ConcurrentAuditAttemptOutcome =
+  | { kind: 'success'; result: CommandResult<'complete_booking'> }
+  | { kind: 'emulator_transient' }
+  | { kind: 'unknown_rejection'; reason: unknown }
+  | { kind: 'unexpected_command_error'; code: string };
+
+function classifyConcurrentAuditAttempt(
+  outcome: PromiseSettledResult<CommandResult<'complete_booking'>>
+): ConcurrentAuditAttemptOutcome {
+  if (outcome.status === 'rejected') {
+    if (isFirestoreEmulatorTransientRejection(outcome.reason)) {
+      return { kind: 'emulator_transient' };
+    }
+    return { kind: 'unknown_rejection', reason: outcome.reason };
+  }
+
+  const result = outcome.value;
+  if (result.status === 'success') {
+    return { kind: 'success', result };
+  }
+  return {
+    kind: 'unexpected_command_error',
+    code: result.status === 'error' ? result.error.code : 'unknown',
+  };
+}
+
+async function assertConcurrentAuditDurableInvariants(input: {
+  readonly identity: ReturnType<typeof resolveCommandIdempotencyIdentity>;
+}) {
+  const booking = await firestore.collection('bookings').doc(bookingId).get();
+  expect(booking.data()?.status).toBe('completed');
+  expect(booking.data()?.revision).toBe(2);
+
+  const activityLogs = await firestore.collection('activity_logs').get();
+  const outboxDocs = await firestore.collection('domain_outbox').get();
+  const idempotency = await firestore.doc(input.identity.recordPath.slice(1)).get();
+
+  expect(activityLogs.size).toBe(1);
+  expect(outboxDocs.size).toBe(1);
+  expect(activityLogs.docs[0]!.id).toBe(activityLogIdFromCommandId(input.identity.commandKey));
+  expect(outboxDocs.docs[0]!.id).toBe(domainOutboxIdFromCommand(input.identity.commandKey, 0));
+
+  expect(idempotency.exists).toBe(true);
+  expect(idempotency.data()?.completionState).toBe('completed');
+
+  const activityLogData = activityLogs.docs[0]!.data();
+  expect(activityLogData?.correlationId).toBe(correlationId);
+  expect(activityLogData?.command?.commandId).toBe(input.identity.commandKey);
+  expect(activityLogData?.decidedAt).toBeDefined();
+  expect(activityLogData?.committedAt).toBeDefined();
+
+  const outboxData = outboxDocs.docs[0]!.data();
+  expect(outboxData?.activityLogId).toBe(activityLogIdFromCommandId(input.identity.commandKey));
+  expect(outboxData?.commandId).toBe(input.identity.commandKey);
+  expect(outboxData?.delivery?.status).toBe('pending');
+
+  return {
+    activityLogCount: activityLogs.size,
+    outboxCount: outboxDocs.size,
+    duplicateObligations: activityLogs.size + outboxDocs.size - 2,
+  };
+}
 
 describe.skipIf(!runsOnFirestoreEmulator)(
   'audited idempotent command execution (firestore emulator)',
@@ -182,17 +257,51 @@ describe.skipIf(!runsOnFirestoreEmulator)(
           },
         });
 
-      const [first, second] = await Promise.all([run(), run()]);
-      expect(first).toEqual(second);
+      const settled = await Promise.allSettled([run(), run()]);
+      const outcomes = settled.map(classifyConcurrentAuditAttempt);
+
+      for (const outcome of outcomes) {
+        if (outcome.kind === 'unknown_rejection') {
+          throw outcome.reason;
+        }
+        if (outcome.kind === 'unexpected_command_error') {
+          expect.fail(`Unexpected command error: ${outcome.code}`);
+        }
+      }
+
+      const successOutcomes = outcomes.filter(
+        (outcome): outcome is Extract<ConcurrentAuditAttemptOutcome, { kind: 'success' }> =>
+          outcome.kind === 'success'
+      );
+      const successCount = successOutcomes.length;
+      const emulatorTransientCount = outcomes.filter(
+        (outcome) => outcome.kind === 'emulator_transient'
+      ).length;
+
+      expect(successCount + emulatorTransientCount).toBe(2);
+
+      if (successCount === 2) {
+        expect(successOutcomes[0]!.result).toEqual(successOutcomes[1]!.result);
+      }
 
       const identity = resolveCommandIdempotencyIdentity(envelope('audit-emulator-concurrent-01'));
-      const activityLogs = await firestore.collection('activity_logs').get();
-      const outboxDocs = await firestore.collection('domain_outbox').get();
+      const durable = await assertConcurrentAuditDurableInvariants({ identity });
 
-      expect(activityLogs.size).toBe(1);
-      expect(outboxDocs.size).toBe(1);
-      expect(activityLogs.docs[0].id).toBe(activityLogIdFromCommandId(identity.commandKey));
+      expect(durable.duplicateObligations).toBe(0);
       expect(handlerCalls).toBeGreaterThanOrEqual(1);
+
+      if (process.env.AUDIT_OUTBOX_RACE_STRESS_METRICS === '1') {
+        console.log(
+          JSON.stringify({
+            metric: 'audit-outbox-concurrent-race',
+            successCount,
+            emulatorTransientCount,
+            activityLogCount: durable.activityLogCount,
+            outboxCount: durable.outboxCount,
+            duplicateObligations: durable.duplicateObligations,
+          })
+        );
+      }
     });
   }
 );

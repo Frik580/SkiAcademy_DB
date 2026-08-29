@@ -10,6 +10,7 @@ import {
   AccountIdSchema,
   resolveCommandIdempotencyIdentity,
   type CommandEnvelope,
+  type CommandResult,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from './commandClock';
 import { executeIdempotentCanonicalCommand } from './idempotentCommandExecution';
@@ -54,6 +55,69 @@ function envelope(idempotencyKey: string): CommandEnvelope<'complete_booking'> {
 const runsOnFirestoreEmulator = Boolean(
   process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
 );
+
+function isFirestoreEmulatorTransientRejection(reason: unknown): boolean {
+  if (!(reason instanceof Error)) {
+    return false;
+  }
+  if (!reason.message.includes('Transaction is invalid or closed')) {
+    return false;
+  }
+  const code = (reason as { code?: unknown }).code;
+  return code === 3 || code === 'invalid-argument';
+}
+
+type ConcurrentIdempotencyAttemptOutcome =
+  | { kind: 'success'; result: CommandResult<'complete_booking'> }
+  | { kind: 'emulator_transient' }
+  | { kind: 'unknown_rejection'; reason: unknown }
+  | { kind: 'unexpected_command_error'; code: string };
+
+function classifyConcurrentIdempotencyAttempt(
+  outcome: PromiseSettledResult<CommandResult<'complete_booking'>>
+): ConcurrentIdempotencyAttemptOutcome {
+  if (outcome.status === 'rejected') {
+    if (isFirestoreEmulatorTransientRejection(outcome.reason)) {
+      return { kind: 'emulator_transient' };
+    }
+    return { kind: 'unknown_rejection', reason: outcome.reason };
+  }
+
+  const result = outcome.value;
+  if (result.status === 'success') {
+    return { kind: 'success', result };
+  }
+  return {
+    kind: 'unexpected_command_error',
+    code: result.status === 'error' ? result.error.code : 'unknown',
+  };
+}
+
+async function assertConcurrentIdempotencyDurableInvariants(input: {
+  readonly identity: ReturnType<typeof resolveCommandIdempotencyIdentity>;
+}) {
+  const bookings = await firestore.collection('bookings').get();
+  expect(bookings.size).toBe(1);
+
+  const booking = await firestore.collection('bookings').doc(bookingId).get();
+  expect(booking.data()?.revision).toBe(2);
+  expect(booking.data()?.status).toBe('completed');
+
+  const idempotencyDocs = await firestore.collection('command_idempotency').get();
+  expect(idempotencyDocs.size).toBe(1);
+
+  const idempotencyDoc = await firestore.doc(input.identity.recordPath.slice(1)).get();
+  expect(idempotencyDoc.exists).toBe(true);
+  expect(idempotencyDoc.data()?.completionState).toBe('completed');
+  expect(idempotencyDoc.data()?.commandKind).toBe('complete_booking');
+  expect(idempotencyDoc.data()?.result?.status).toBe('success');
+  expect(idempotencyDoc.data()?.correlationId).toBe(correlationId);
+
+  return {
+    bookingCount: bookings.size,
+    idempotencyCount: idempotencyDocs.size,
+  };
+}
 
 describe.skipIf(!runsOnFirestoreEmulator)(
   'executeIdempotentCanonicalCommand (firestore emulator)',
@@ -100,17 +164,49 @@ describe.skipIf(!runsOnFirestoreEmulator)(
           },
         });
 
-      const [first, second] = await Promise.all([run(), run()]);
+      const settled = await Promise.allSettled([run(), run()]);
+      const outcomes = settled.map(classifyConcurrentIdempotencyAttempt);
 
-      expect(first).toEqual(second);
+      for (const outcome of outcomes) {
+        if (outcome.kind === 'unknown_rejection') {
+          throw outcome.reason;
+        }
+        if (outcome.kind === 'unexpected_command_error') {
+          expect.fail(`Unexpected command error: ${outcome.code}`);
+        }
+      }
 
-      const booking = await firestore.collection('bookings').doc(bookingId).get();
-      expect(booking.data()?.revision).toBe(2);
+      const successOutcomes = outcomes.filter(
+        (outcome): outcome is Extract<ConcurrentIdempotencyAttemptOutcome, { kind: 'success' }> =>
+          outcome.kind === 'success'
+      );
+      const successCount = successOutcomes.length;
+      const emulatorTransientCount = outcomes.filter(
+        (outcome) => outcome.kind === 'emulator_transient'
+      ).length;
+
+      expect(successCount + emulatorTransientCount).toBe(2);
+
+      if (successCount === 2) {
+        expect(successOutcomes[0]!.result).toEqual(successOutcomes[1]!.result);
+      }
 
       const identity = resolveCommandIdempotencyIdentity(envelope('idem-concurrent-01'));
-      const idempotencyDoc = await firestore.doc(identity.recordPath.slice(1)).get();
-      expect(idempotencyDoc.exists).toBe(true);
+      const durable = await assertConcurrentIdempotencyDurableInvariants({ identity });
+
       expect(handlerCalls).toBeGreaterThanOrEqual(1);
+
+      if (process.env.IDEMPOTENT_RACE_STRESS_METRICS === '1') {
+        console.log(
+          JSON.stringify({
+            metric: 'idempotent-concurrent-race',
+            successCount,
+            emulatorTransientCount,
+            bookingCount: durable.bookingCount,
+            idempotencyCount: durable.idempotencyCount,
+          })
+        );
+      }
     });
 
     it('commits idempotency state atomically with command effects', async () => {

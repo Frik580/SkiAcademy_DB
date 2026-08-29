@@ -17,6 +17,7 @@ import {
   PaymentIdSchema,
 } from '../identifiers';
 import { AttendanceStatusSchema } from '../courseEnrollmentAttendanceAdminIssue';
+import { CourseProvisioningManifestSchema } from '../courseProvisioningManifest';
 import { MonetaryPaymentEffectSchema } from '../paymentWallet';
 import { AggregateRevisionSchema, KztMinorUnitsSchema } from '../primitives';
 import type { CommandKind } from './commandKinds';
@@ -618,6 +619,17 @@ export const CommandIntentSchemaByKind = {
       courseDayId: CourseDayIdSchema,
       courseId: CourseIdSchema,
       instructorId: InstructorIdSchema,
+    })
+    .strict(),
+  provision_canonical_course: z
+    .object({
+      manifest: CourseProvisioningManifestSchema,
+    })
+    .strict(),
+  apply_canonical_course_provisioning_manifest: z
+    .object({
+      manifest: CourseProvisioningManifestSchema,
+      dryRun: z.boolean(),
     })
     .strict(),
   reassign_course_day_instructor: z

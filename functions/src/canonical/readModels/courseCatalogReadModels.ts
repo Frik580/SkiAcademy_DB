@@ -1,7 +1,7 @@
 import {
   evaluateCourseCatalogEnrollmentEligibility,
   isCourseCapacityFrozen,
-  courseScheduleIsComplete,
+  isCourseOperationalForEnrollment,
   sortedCourseDays,
   timestampFromDate,
   type Course,
@@ -22,7 +22,7 @@ async function buildCourseCatalogReadModel(
   const courseDays = sortedCourseDays(
     parseCourseDays(dayDocuments.docs.map((doc) => ({ data: doc.data() as Record<string, unknown> })))
   );
-  if (!courseScheduleIsComplete(course, courseDays)) {
+  if (!isCourseOperationalForEnrollment(course, courseDays)) {
     return undefined;
   }
 

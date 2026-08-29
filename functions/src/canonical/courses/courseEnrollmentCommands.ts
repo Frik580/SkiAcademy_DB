@@ -14,7 +14,7 @@ import {
   courseEnrollmentSeatOccurrenceId,
   debitWalletBalance,
   participantBlockIdFromDirection,
-  courseScheduleIsComplete,
+  isCourseOperationalForEnrollment,
   courseSeatClaimInterval,
   createGuestActionTokenNonce,
   GUEST_ACTION_TOKEN_VERSION,
@@ -335,7 +335,7 @@ function createCourseEnrollmentsHandler(
       courseDays = sortedCourseDays(
         parseCourseDays(dayDocuments.map((document) => ({ data: document.data ?? {} })))
       );
-      if (!courseScheduleIsComplete(courseRecord, courseDays)) {
+      if (!isCourseOperationalForEnrollment(courseRecord, courseDays)) {
         throw new CanonicalCommandError('validation', {
           correlationId: envelope.context.correlationId,
           details: { field: 'courseId', reason: 'unsupported' },

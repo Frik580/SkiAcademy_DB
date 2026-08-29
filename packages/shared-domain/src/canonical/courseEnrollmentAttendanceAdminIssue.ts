@@ -30,6 +30,7 @@ import {
   validateBookingAttribution,
   type ImmutableBookingAttribution,
 } from './bookingOccurrenceProposalChange';
+import { CommandFingerprintSchema } from './commandFingerprint';
 import { canonicalDeterministicHash, validateDeterministicIdentityInputs } from './deterministicIdentity';
 import {
   AggregateRevisionSchema,
@@ -162,6 +163,12 @@ export const CourseSchema = z
     instructorRosterIds: z.array(InstructorIdSchema).min(1).max(16),
     startAt: CanonicalTimestampSchema,
     scheduleProjection: CourseScheduleProjectionSchema,
+    provisioningManifestFingerprint: CommandFingerprintSchema.optional(),
+    provisioningExpectedCourseDayIds: z
+      .array(CourseDayIdSchema)
+      .min(1)
+      .max(COURSE_DAY_MAX)
+      .optional(),
     revision: PersistedAggregateRevisionSchema,
     createdAt: CanonicalTimestampSchema,
     updatedAt: CanonicalTimestampSchema,

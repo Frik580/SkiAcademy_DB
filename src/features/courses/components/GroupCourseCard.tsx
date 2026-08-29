@@ -67,9 +67,11 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   const course = translateCourse(rawCourse, language);
   const isEnrolled = isEnrolledInCourse(courseEnrollments, course.id);
   const availableSeats = catalogOperational?.availableSeats ?? rawCourse.availableSeats;
-  const isFull = catalogOperational?.isFull ?? availableSeats === 0;
+  const isFull = catalogOperational?.isFull ?? (catalogOperational ? availableSeats === 0 : true);
   const isCapacityFrozen = catalogOperational?.isCapacityFrozen ?? false;
-  const isEnrollmentEligible = catalogOperational?.isEnrollmentEligible ?? !isFull;
+  const hasOperationalCatalog = catalogOperational !== undefined;
+  const isEnrollmentEligible =
+    hasOperationalCatalog && catalogOperational.isEnrollmentEligible === true;
   const displayPriceMinorUnits =
     catalogOperational?.priceMinorUnits ?? rawCourse.priceKZT ?? rawCourse.price;
   const scheduleStart = catalogOperational?.scheduleSummaryStartDate;
@@ -198,6 +200,8 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
                 t('courseSoldOut')
               ) : isFull ? (
                 t('courseSoldOut')
+              ) : !hasOperationalCatalog ? (
+                t('courseEnrollmentUnavailable')
               ) : !isEnrollmentEligible ? (
                 t('courseSoldOut')
               ) : (

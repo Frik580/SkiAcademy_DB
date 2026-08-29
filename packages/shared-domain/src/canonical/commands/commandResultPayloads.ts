@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   BookingIdSchema,
   CourseEnrollmentIdSchema,
+  CourseIdSchema,
   GuestSubjectIdSchema,
 } from '../identifiers';
 import { CanonicalTimestampSchema } from '../primitives';
@@ -54,9 +55,25 @@ export type CreateGuestBookingRequestResultPayload = Readonly<
   z.output<typeof CreateGuestBookingRequestResultPayloadSchema>
 >;
 
+export const ApplyCanonicalCourseProvisioningManifestResultPayloadSchema = z
+  .object({
+    dryRun: z.boolean(),
+    courseId: CourseIdSchema,
+    plannedCourseDayCount: z.number().finite().int().min(1).max(64),
+    availableSeats: z.number().finite().int().min(0).max(64),
+    scheduleComplete: z.boolean().optional(),
+  })
+  .strict();
+
+export type ApplyCanonicalCourseProvisioningManifestResultPayload = Readonly<
+  z.output<typeof ApplyCanonicalCourseProvisioningManifestResultPayloadSchema>
+>;
+
 export const CommandResultPayloadSchemaByKind = {
   create_course_enrollments: CreateCourseEnrollmentsResultPayloadSchema,
   create_guest_booking_request: CreateGuestBookingRequestResultPayloadSchema,
+  apply_canonical_course_provisioning_manifest:
+    ApplyCanonicalCourseProvisioningManifestResultPayloadSchema,
 } as const;
 
 export type CommandResultPayloadForKind<Kind extends keyof typeof CommandResultPayloadSchemaByKind> =

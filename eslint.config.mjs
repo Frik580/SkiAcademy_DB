@@ -165,6 +165,7 @@ export default tseslint.config(
       '.firebase',
       '.cursor/**',
       '.codex/**',
+      '.scratch/**',
       'coverage',
       'scripts/*.mjs',
       'e2e/**',

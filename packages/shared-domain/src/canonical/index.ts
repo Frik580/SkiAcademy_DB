@@ -26,6 +26,8 @@ export * from './bookingChangeRequestPolicy';
 export * from './guestCredential';
 export * from './courseEnrollmentAttendanceAdminIssue';
 export * from './courseEnrollmentCreation';
+export * from './courseCatalogContent';
+export * from './courseProvisioningManifest';
 export * from './courseEnrollmentCancellationPolicy';
 export * from './courseEnrollmentAttendancePolicy';
 export * from './courseEnrollmentReconciliationPolicy';

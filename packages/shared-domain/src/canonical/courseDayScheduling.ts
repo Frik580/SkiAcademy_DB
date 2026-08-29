@@ -42,8 +42,7 @@ export function assertCourseDayCountWithinLimit(existingDayCount: number): void 
 
 export function deriveCourseScheduleProjectionAfterDayAdded(
   course: Course,
-  newInterval: TimeInterval,
-  newDayCount: number
+  newInterval: TimeInterval
 ): Course['scheduleProjection'] {
   const finalCourseDayEndsAt =
     compareCanonicalTimestamps(
@@ -54,7 +53,7 @@ export function deriveCourseScheduleProjectionAfterDayAdded(
       : course.scheduleProjection.finalCourseDayEndsAt;
 
   return {
-    courseDayCount: newDayCount,
+    courseDayCount: course.scheduleProjection.courseDayCount,
     finalCourseDayEndsAt,
     courseScheduleRevision: AggregateRevisionSchema.parse(
       course.scheduleProjection.courseScheduleRevision + 1

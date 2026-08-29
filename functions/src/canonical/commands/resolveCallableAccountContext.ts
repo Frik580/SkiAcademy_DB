@@ -25,6 +25,8 @@ export const ADMINISTRATOR_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
   'enforce_payment_start_gate',
   'create_course_day',
   'reassign_course_day_instructor',
+  'provision_canonical_course',
+  'apply_canonical_course_provisioning_manifest',
   'reconcile_course_enrollment',
 ]);
 

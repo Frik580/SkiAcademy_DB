@@ -35,6 +35,7 @@ import {
   createCourseEnrollmentAttendanceCommandHandlers,
   createCourseEnrollmentReconciliationCommandHandlers,
   createGuestCourseEnrollmentLinkCommandHandlers,
+  createCourseProvisioningCommandHandlers,
 } from '../courses';
 import type { GuestBookingCommandEnvironment } from '../bookings/guestBookingCommands';
 import type { GuestCourseEnrollmentCommandEnvironment } from '../courses/guestCourseEnrollmentLifecycle';
@@ -174,29 +175,30 @@ export function createProductionCanonicalCommands(
     guestActionTokenSecret: options.guestActionTokenSecret,
   });
 
-  return createCanonicalCommands(
-    {
-      ...createParticipantAccessCommandHandlers(executor),
-      ...createSelfParticipantProvisioningCommandHandlers(executor),
-      ...createFinanceCommandHandlers(executor, options.monetaryEventLoader),
-      ...createBookingCommandHandlers(executor),
-      ...createBookingRescheduleCommandHandlers(executor),
-      ...createGuestBookingCommandHandlers(executor, options.guestActionTokenSecret),
-      ...createBookingCancellationCommandHandlers(executor, guestEnvironmentFactory),
-      ...createBookingPartyCommandHandlers(executor),
-      ...createBookingProposalCommandHandlers(executor),
-      ...createBookingChangeRequestCommandHandlers(executor),
-      ...createBookingAttendanceCommandHandlers(executor),
-      ...createCourseDayCommandHandlers(executor),
-      ...createCourseEnrollmentCommandHandlers(executor, options.guestActionTokenSecret),
-      ...createCourseEnrollmentLifecycleCommandHandlers(
-        executor,
-        guestCourseEnrollmentEnvironmentFactory
-      ),
-      ...createCourseEnrollmentAttendanceCommandHandlers(executor),
-      ...createCourseEnrollmentReconciliationCommandHandlers(executor),
-      ...createGuestCourseEnrollmentLinkCommandHandlers(executor, options.guestActionTokenSecret),
-    },
-    environment
-  );
+  const commandsRef: { current?: CanonicalCommands } = {};
+  const handlerMap: CommandHandlerMap = {
+    ...createParticipantAccessCommandHandlers(executor),
+    ...createSelfParticipantProvisioningCommandHandlers(executor),
+    ...createFinanceCommandHandlers(executor, options.monetaryEventLoader),
+    ...createBookingCommandHandlers(executor),
+    ...createBookingRescheduleCommandHandlers(executor),
+    ...createGuestBookingCommandHandlers(executor, options.guestActionTokenSecret),
+    ...createBookingCancellationCommandHandlers(executor, guestEnvironmentFactory),
+    ...createBookingPartyCommandHandlers(executor),
+    ...createBookingProposalCommandHandlers(executor),
+    ...createBookingChangeRequestCommandHandlers(executor),
+    ...createBookingAttendanceCommandHandlers(executor),
+    ...createCourseDayCommandHandlers(executor),
+    ...createCourseProvisioningCommandHandlers(executor, () => commandsRef.current!),
+    ...createCourseEnrollmentCommandHandlers(executor, options.guestActionTokenSecret),
+    ...createCourseEnrollmentLifecycleCommandHandlers(
+      executor,
+      guestCourseEnrollmentEnvironmentFactory
+    ),
+    ...createCourseEnrollmentAttendanceCommandHandlers(executor),
+    ...createCourseEnrollmentReconciliationCommandHandlers(executor),
+    ...createGuestCourseEnrollmentLinkCommandHandlers(executor, options.guestActionTokenSecret),
+  };
+  commandsRef.current = createCanonicalCommands(handlerMap, environment);
+  return commandsRef.current;
 }

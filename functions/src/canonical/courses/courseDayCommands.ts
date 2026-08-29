@@ -231,11 +231,9 @@ function createCourseDayHandler(
       }),
     execute: async (session, context) => {
       const decidedAt = timestampFromDate(context.decidedAt);
-      const newDayCount = existingDays.length + 1;
       const scheduleProjection = deriveCourseScheduleProjectionAfterDayAdded(
         course,
-        schedule.interval,
-        newDayCount
+        schedule.interval
       );
       const courseDay = CourseDaySchema.parse({
         courseId: envelope.intent.courseId,

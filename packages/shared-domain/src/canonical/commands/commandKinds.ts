@@ -46,6 +46,8 @@ export const COMMAND_KINDS = [
   'record_audit_correction',
   'create_course_day',
   'reassign_course_day_instructor',
+  'provision_canonical_course',
+  'apply_canonical_course_provisioning_manifest',
   'reconcile_course_enrollment',
   'link_guest_course_enrollment_to_account',
 ] as const;

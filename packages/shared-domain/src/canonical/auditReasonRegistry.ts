@@ -66,6 +66,8 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
   resolve_booking_change_request: ['manual_override', 'other'],
   create_course_day: ['manual_override', 'other'],
   reassign_course_day_instructor: ['manual_override', 'other'],
+  provision_canonical_course: ['manual_override', 'other'],
+  apply_canonical_course_provisioning_manifest: ['manual_override', 'other'],
   create_course_enrollments: ['self_service_booking', 'manual_override', 'other'],
   transfer_course_enrollment: ['manual_override', 'other'],
   withdraw_course_enrollment: ['self_service_booking', 'other'],

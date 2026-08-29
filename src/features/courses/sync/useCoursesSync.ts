@@ -7,46 +7,81 @@ import {
   onSnapshot,
   OperationType,
   query,
-  where,
 } from '../../../infrastructure/firebase';
-import { toCourse } from '../../../infrastructure/firebase';
 import { QUERY_LIMITS } from '../../../shared';
 import { useProfileStore } from '../../profile/profileStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
 import { useCoursesStore } from '../coursesStore';
+import { resolveCourseDocument } from '../courseDisplay';
 
 export const useCoursesSync = () => {
   const { catalogueScope } = useDataSyncScope();
   const instructorId = useProfileStore((s) => s.userProfile?.instructorId);
 
-  // The public, cabinet and admin screens need the catalogue. An instructor only needs courses
-  // to which they are assigned, so avoid subscribing to the complete collection in that workspace.
   useEffect(() => {
     if (catalogueScope === 'instructor' && !instructorId) {
       useCoursesStore.getState().setCourses([]);
       return;
     }
 
-    const coursesQuery =
-      catalogueScope === 'instructor'
-        ? query(
-            collection(db, 'courses'),
-            where('instructorIds', 'array-contains', instructorId),
-            limit(QUERY_LIMITS.courses)
-          )
-        : query(collection(db, 'courses'), limit(QUERY_LIMITS.courses));
+    let courseDocs: Array<{ id: string; data: Record<string, unknown> }> = [];
+    let catalogContentById = new Map<string, Record<string, unknown>>();
 
-    return onSnapshot(
+    const publishCourses = () => {
+      useCoursesStore.getState().setCourses(
+        courseDocs.flatMap((courseDoc) => {
+          const data = courseDoc.data;
+          if (catalogueScope === 'instructor') {
+            const roster = (data.instructorRosterIds ?? data.instructorIds) as unknown;
+            if (!Array.isArray(roster) || !roster.includes(instructorId)) {
+              return [];
+            }
+          }
+          const course = resolveCourseDocument(
+            courseDoc.id,
+            data,
+            catalogContentById.get(courseDoc.id)
+          );
+          return course ? [course] : [];
+        })
+      );
+    };
+
+    const coursesQuery = query(collection(db, 'courses'), limit(QUERY_LIMITS.courses));
+    const contentQuery = query(
+      collection(db, 'course_catalog_content'),
+      limit(QUERY_LIMITS.courses)
+    );
+
+    const unsubscribeCourses = onSnapshot(
       coursesQuery,
       (snapshot) => {
-        useCoursesStore.getState().setCourses(
-          snapshot.docs.flatMap((courseDoc) => {
-            const course = toCourse(courseDoc.id, courseDoc.data());
-            return course ? [course] : [];
-          })
-        );
+        courseDocs = snapshot.docs.map((courseDoc) => ({
+          id: courseDoc.id,
+          data: courseDoc.data() as Record<string, unknown>,
+        }));
+        publishCourses();
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'courses')
     );
+
+    const unsubscribeContent = onSnapshot(
+      contentQuery,
+      (snapshot) => {
+        catalogContentById = new Map(
+          snapshot.docs.map((contentDoc) => [
+            contentDoc.id,
+            contentDoc.data() as Record<string, unknown>,
+          ])
+        );
+        publishCourses();
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, 'course_catalog_content')
+    );
+
+    return () => {
+      unsubscribeCourses();
+      unsubscribeContent();
+    };
   }, [catalogueScope, instructorId]);
 };

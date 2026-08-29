@@ -97,7 +97,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
   ],
   enforce_payment_start_gate: ['admin_issue_opened'],
   record_manual_wallet_funding: ['wallet_balance_changed', 'financial_correction_recorded'],
-  record_provider_payment_event: ['payment_state_changed'],
+  record_provider_payment_event: ['payment_state_changed', 'admin_issue_resolved'],
   adjust_service_price: ['payment_state_changed', 'wallet_balance_changed'],
   record_financial_correction: [
     'payment_state_changed',

@@ -12,6 +12,7 @@ import {
   commandSuccessResult,
   creditWalletBalance,
   debitWalletBalance,
+  CourseEnrollmentIdSchema,
   monetaryEventIdFromCommandEffect,
   nextAggregateRevision,
   paymentEffectFromProjectionChange,
@@ -26,9 +27,16 @@ import {
   type Payment,
   type PaymentAccountingProjection,
   type Wallet,
+  type AdminIssue,
   KztMinorUnitsSchema,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
+import {
+  toFirestoreWritePayload as toAdminIssueWritePayload,
+} from '../adminIssues';
+import { planCourseEnrollmentPaymentStartIssueResolutionIfFullyFunded } from '../courses/courseEnrollmentPaymentStartIssueResolution';
+import { courseEnrollmentPath, parseCourseEnrollment } from '../courses/courseEnrollmentStore';
+import { coursePath, parseCourse } from '../courses/courseStore';
 import {
   executeAuthoritativeIdempotentCanonicalCommand,
   type AuthoritativeIdempotentCanonicalCommandHandler,
@@ -232,6 +240,9 @@ function recordProviderPaymentEventHandler(
   let plannedPaymentEventRevision!: Payment['eventRevision'];
   const stagedEventId = monetaryEventIdFromCommandEffect(metadata.commandId, 0);
   let providerReceiptPath: string | undefined;
+  let plannedPaymentStartIssueResolution:
+    | { readonly issue: AdminIssue; readonly documentPath: string }
+    | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'record_provider_payment_event'> = {
     read: async (session) => {
@@ -247,6 +258,48 @@ function recordProviderPaymentEventHandler(
       payment = parsedPayment;
       plannedPaymentRevision = nextAggregateRevision(payment.revision);
       plannedPaymentEventRevision = nextAggregateRevision(payment.eventRevision);
+
+      const before = paymentAccountingFields(payment);
+      const projection = applyExternalPaymentFunding(before, envelope.intent.amount);
+      const projectedPayment = mergePaymentProjection(payment, projection, {
+        revision: plannedPaymentRevision,
+        eventRevision: plannedPaymentEventRevision,
+        updatedAt: timestampFromDate(environment.clock.decidedAt()),
+        payerAccountId: envelope.intent.payerAccountId ?? payment.payerAccountId,
+      });
+
+      if (payment.subjectType === 'course_enrollment') {
+        const enrollmentDocumentPath = courseEnrollmentPath(
+          CourseEnrollmentIdSchema.parse(payment.subjectId)
+        );
+        const enrollmentRead = await session.tx.get({ path: enrollmentDocumentPath });
+        session.plan.planRead({ path: enrollmentDocumentPath, category: 'aggregate' });
+        const enrollment = parseCourseEnrollment(
+          enrollmentRead.exists ? enrollmentRead.data : undefined
+        );
+        if (enrollment) {
+          const courseDocumentPath = coursePath(enrollment.courseId);
+          const courseRead = await session.tx.get({ path: courseDocumentPath });
+          session.plan.planRead({ path: courseDocumentPath, category: 'aggregate' });
+          const course = parseCourse(courseRead.exists ? courseRead.data : undefined);
+          if (course) {
+            plannedPaymentStartIssueResolution =
+              await planCourseEnrollmentPaymentStartIssueResolutionIfFullyFunded({
+                session,
+                correlationId: envelope.context.correlationId,
+                commandId: metadata.commandId,
+                actor: {
+                  actor: envelope.context.actor,
+                  exercisedCapability: envelope.context.exercisedCapability,
+                },
+                decidedAt: environment.clock.decidedAt(),
+                enrollment,
+                course,
+                payment: projectedPayment,
+              });
+          }
+        }
+      }
 
       if (envelope.intent.sourceKind === 'provider') {
         const receiptId = providerEventReceiptIdFromProviderEvent({
@@ -304,6 +357,12 @@ function recordProviderPaymentEventHandler(
         monetaryEventIds: [stagedEventId],
         paymentId: envelope.intent.paymentId,
         paymentRevision: plannedPaymentRevision,
+        ...(plannedPaymentStartIssueResolution === undefined
+          ? {}
+          : {
+              resolvedAdminIssueId: plannedPaymentStartIssueResolution.issue.issueId,
+              resolvedAdminIssueRevision: plannedPaymentStartIssueResolution.issue.revision,
+            }),
       }),
     execute: async (session, context) => {
       try {
@@ -354,6 +413,13 @@ function recordProviderPaymentEventHandler(
 
         session.tx.update({ path: paymentDocumentPath }, toFirestoreWritePayload(projectedPayment as Record<string, unknown>));
         stageMonetaryEventCreate(session, monetaryEvent);
+
+        if (plannedPaymentStartIssueResolution !== undefined) {
+          session.tx.update(
+            { path: plannedPaymentStartIssueResolution.documentPath },
+            toAdminIssueWritePayload(plannedPaymentStartIssueResolution.issue as Record<string, unknown>)
+          );
+        }
 
         if (
           envelope.intent.sourceKind === 'provider' &&

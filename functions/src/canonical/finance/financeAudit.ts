@@ -118,6 +118,8 @@ export function buildProviderPaymentEventAuditPlan(input: {
   monetaryEventIds: readonly MonetaryEventId[];
   paymentId: PaymentId;
   paymentRevision: number;
+  resolvedAdminIssueId?: AdminIssueId;
+  resolvedAdminIssueRevision?: number;
 }): AuditOutboxStagingPlan {
   const subjectRef = paymentAffectedSubject(input.paymentId);
   const reason =
@@ -135,20 +137,39 @@ export function buildProviderPaymentEventAuditPlan(input: {
             'Manual external payment recorded',
         };
 
+  const adminIssueIds = input.resolvedAdminIssueId ? [input.resolvedAdminIssueId] : [];
+  const resultingRevisions: ActivityLogResultingRevisionInput[] = [
+    {
+      subject: subjectRef,
+      revision: AggregateRevisionSchema.parse(input.paymentRevision),
+    },
+  ];
+  const effects: ActivityLogEffectInput[] = [
+    ...effectsForKind('record_provider_payment_event', subjectRef),
+  ];
+
+  if (input.resolvedAdminIssueId !== undefined && input.resolvedAdminIssueRevision !== undefined) {
+    const issueSubject = canonicalReference('admin_issue', input.resolvedAdminIssueId);
+    resultingRevisions.push({
+      subject: issueSubject,
+      revision: AggregateRevisionSchema.parse(input.resolvedAdminIssueRevision),
+    });
+    effects.push({
+      kind: 'admin_issue_resolved',
+      subjectRef: issueSubject,
+      summary: 'Payment-start restriction cleared after external funding',
+    });
+  }
+
   return {
     activityLog: {
       reason,
       primarySubject: paymentPrimarySubject(input.paymentId),
       affectedSubjects: [subjectRef],
-      effects: effectsForKind('record_provider_payment_event', subjectRef),
+      effects,
       monetaryEventIds: [...input.monetaryEventIds],
-      adminIssueIds: [],
-      resultingRevisions: [
-        {
-          subject: subjectRef,
-          revision: AggregateRevisionSchema.parse(input.paymentRevision),
-        },
-      ],
+      adminIssueIds,
+      resultingRevisions,
     },
     outboxObligations: [],
   };

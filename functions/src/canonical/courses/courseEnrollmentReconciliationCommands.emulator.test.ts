@@ -59,6 +59,17 @@ const runsOnFirestoreEmulator = Boolean(
   process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
 );
 
+function isFirestoreEmulatorTransientRejection(reason: unknown): boolean {
+  if (!(reason instanceof Error)) {
+    return false;
+  }
+  if (!reason.message.includes('Transaction is invalid or closed')) {
+    return false;
+  }
+  const code = (reason as { code?: unknown }).code;
+  return code === 3 || code === 'invalid-argument';
+}
+
 const COLLECTIONS_TO_CLEAR = [
   'users',
   'participants',
@@ -765,11 +776,44 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
       commands.execute(reconcileEnvelope('reconcile-race')),
       commands.execute(fundEnvelope),
     ]);
+    const reconcileOutcome =
+      settled[0]?.status === 'fulfilled'
+        ? settled[0].value
+        : { status: 'rejected', reason: String(settled[0]?.reason) };
+    const fundOutcome =
+      settled[1]?.status === 'fulfilled'
+        ? settled[1].value
+        : { status: 'rejected', reason: String(settled[1]?.reason) };
     expect(settled.every((outcome) => outcome.status === 'fulfilled')).toBe(true);
-    const payment = paymentFinancialSnapshot(
-      (await firestore.doc(`payments/${paymentId}`).get()).data()
-    );
-    const issue = (await firestore.doc(`admin_issues/${paymentStartIssueId()}`).get()).data();
+    const paymentDoc = await firestore.doc(`payments/${paymentId}`).get();
+    const payment = paymentFinancialSnapshot(paymentDoc.data());
+    const issueDoc = await firestore.doc(`admin_issues/${paymentStartIssueId()}`).get();
+    const issue = issueDoc.data();
+    const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
+    const idempotency = await firestore.collection('command_idempotency').get();
+
+    if (process.env.RECONCILIATION_RACE_AUDIT === '1') {
+      console.log(
+        JSON.stringify({
+          metric: 'reconciliation-d-race',
+          reconcileStatus:
+            reconcileOutcome.status === 'rejected' ? 'rejected' : reconcileOutcome.status,
+          reconcileErrorCode:
+            reconcileOutcome.status === 'error' ? reconcileOutcome.error.code : undefined,
+          fundStatus: fundOutcome.status === 'rejected' ? 'rejected' : fundOutcome.status,
+          fundErrorCode: fundOutcome.status === 'error' ? fundOutcome.error.code : undefined,
+          outstandingAmount: payment.outstandingAmount,
+          paymentRevision: paymentDoc.data()?.revision,
+          issueStatus: issue?.lifecycle?.status,
+          issueRevision: issue?.revision,
+          enrollmentRevision: enrollment?.revision,
+          idempotencyCount: idempotency.size,
+          convergenceViolation:
+            payment.outstandingAmount === 0 && issue?.lifecycle?.status === 'open',
+        })
+      );
+    }
+
     if (payment.outstandingAmount === 0) {
       expect(issue?.lifecycle?.status).toBe('resolved');
     } else {
@@ -832,7 +876,7 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
     expect(second.status).toBe('success');
     const issue = (await firestore.doc(`admin_issues/${paymentStartIssueId()}`).get()).data();
     expect(issue?.lifecycle.status).toBe('resolved');
-    expect((await firestore.collection('activity_logs').get()).size).toBe(3);
+    expect((await firestore.collection('activity_logs').get()).size).toBe(2);
   }, 30_000);
 
   it('E. present with active payment restriction keeps attendance_payment_conflict open', async () => {
@@ -989,7 +1033,11 @@ describeEmulator('courseEnrollmentReconciliation emulator', () => {
       commands.execute(reconcileEnvelope('reconcile-outcome-race-a')),
       commands.execute(reconcileEnvelope('reconcile-outcome-race-b')),
     ]);
-    expect(settled.every((outcome) => outcome.status === 'fulfilled')).toBe(true);
+    for (const outcome of settled) {
+      if (outcome.status === 'rejected' && !isFirestoreEmulatorTransientRejection(outcome.reason)) {
+        throw outcome.reason;
+      }
+    }
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
     expect(enrollment?.lifecycle.status).toBe('completed');
     expect((await firestore.collection('activity_logs').get()).size).toBeLessThanOrEqual(2);

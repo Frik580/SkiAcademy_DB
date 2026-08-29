@@ -600,6 +600,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('finance correction commands emulator'
         'activity_logs',
         'command_idempotency',
         'resource_claims',
+        'resource_claim_guards',
         'attendance',
       ]);
       await firestore.collection('users').doc(accountId).set(seedAccount());
@@ -759,6 +760,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('finance correction commands emulator'
         'activity_logs',
         'command_idempotency',
         'resource_claims',
+        'resource_claim_guards',
         'attendance',
       ]);
       await firestore.collection('users').doc(accountId).set(seedAccount());

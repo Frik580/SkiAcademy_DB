@@ -226,7 +226,10 @@ describe('canonical booking after managed participant picker read model', () => 
       }),
     });
 
-    const picker = await queryManagedParticipantPickerReadModels(createFixtureFirestore(), accountId);
+    const picker = await queryManagedParticipantPickerReadModels(
+      createFixtureFirestore(),
+      accountId
+    );
     expect(picker.items).toHaveLength(2);
 
     const dependentOption = picker.items.find(

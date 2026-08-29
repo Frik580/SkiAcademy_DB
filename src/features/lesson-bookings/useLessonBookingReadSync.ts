@@ -39,7 +39,7 @@ export function useLessonBookingReadSync(enabled: boolean, accountId: string | u
     try {
       const result = await queryLessonBookingReadModels({
         scope: 'account_history',
-        cursor: state.historyCursor,
+        ...(state.historyCursor ? { cursor: state.historyCursor } : {}),
       });
       const merged = mergeLessonBookingRecords(state.items, result.items);
       useLessonBookingStore.getState().mergeItems(merged);

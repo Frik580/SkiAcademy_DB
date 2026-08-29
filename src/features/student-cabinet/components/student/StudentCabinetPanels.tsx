@@ -6,6 +6,7 @@ import { BookingsPanel } from '../../../../features/profile';
 import { GroupCourseCard, sortVisibleCourses } from '../../../../features/courses';
 import {
   getEnrolledCourseIdsFromEnrollments,
+  lookupCourseCatalogOperational,
   selectAllCourseCatalogOperationalStates,
   useCourseEnrollmentStore,
   type CourseEnrollmentCabinetItem,
@@ -189,7 +190,7 @@ export const StudentCoursesPanel: React.FC<
           key={rawCourse.id}
           rawCourse={rawCourse}
           courseEnrollments={courseEnrollments}
-          catalogOperational={catalogByCourseId.get(rawCourse.id)}
+          catalogOperational={lookupCourseCatalogOperational(catalogByCourseId, rawCourse.id)}
           userProfile={userProfile}
           language={language}
           onViewDetails={onViewCourseDetails}

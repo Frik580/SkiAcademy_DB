@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -77,7 +76,9 @@ describe('ParticipantManagementPanel', () => {
   it('creates a dependent through the canonical command flow and reloads', async () => {
     render(<ParticipantManagementPanel accountId="account_self" />);
 
-    await userEvent.click(screen.getAllByRole('button', { name: 'participantsCreateDependent' })[0]!);
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'participantsCreateDependent' })[0]!
+    );
     await userEvent.type(screen.getByLabelText('participantsDisplayNameLabel'), 'New Dependent');
     await userEvent.click(screen.getByRole('button', { name: 'saveChanges' }));
 
@@ -148,7 +149,9 @@ describe('ParticipantManagementPanel', () => {
     mocks.createDependentParticipant.mockRejectedValue(new Error('canonical command failed'));
     render(<ParticipantManagementPanel accountId="account_self" />);
 
-    await userEvent.click(screen.getAllByRole('button', { name: 'participantsCreateDependent' })[0]!);
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'participantsCreateDependent' })[0]!
+    );
     await userEvent.type(screen.getByLabelText('participantsDisplayNameLabel'), 'Broken Dependent');
     await userEvent.click(screen.getByRole('button', { name: 'saveChanges' }));
 

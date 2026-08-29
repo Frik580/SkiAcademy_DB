@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { QueryLessonBookingReadModelsInputSchema } from '@ski-academy/shared-domain';
 import {
   queryBookingChangeRequestReadModels,
   queryBookingProposalReadModels,
@@ -59,6 +60,63 @@ describe('canonicalReadModelClient', () => {
       { scope: 'account_hot' },
       expect.objectContaining({ maxAttempts: 1 })
     );
+  });
+
+  it('omits cursor from first account_history transport payload', async () => {
+    callFunctionMock.mockResolvedValueOnce({
+      scope: 'account_history',
+      items: [],
+      hasMore: false,
+    });
+
+    await queryLessonBookingReadModels({ scope: 'account_history', cursor: undefined });
+
+    const transportPayload = callFunctionMock.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(transportPayload).toEqual({ scope: 'account_history' });
+    expect(transportPayload).not.toHaveProperty('cursor');
+    expect(QueryLessonBookingReadModelsInputSchema.safeParse(transportPayload).success).toBe(true);
+  });
+
+  it('includes cursor for paginated account_history transport payload', async () => {
+    const cursor = 'cursor_page_2_fixture';
+    callFunctionMock.mockResolvedValueOnce({
+      scope: 'account_history',
+      items: [],
+      hasMore: true,
+      nextCursor: 'cursor_page_3_fixture',
+    });
+
+    await queryLessonBookingReadModels({ scope: 'account_history', cursor });
+
+    expect(callFunctionMock).toHaveBeenCalledWith(
+      QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE,
+      { scope: 'account_history', cursor },
+      expect.objectContaining({
+        idempotencyKey: `read:lesson_booking:account_history:${cursor}:none`,
+        maxAttempts: 1,
+      })
+    );
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse(callFunctionMock.mock.calls[0]?.[1]).success
+    ).toBe(true);
+  });
+
+  it('does not emit cursor: null in lesson booking transport payload', async () => {
+    callFunctionMock.mockResolvedValueOnce({
+      scope: 'account_history',
+      items: [],
+      hasMore: false,
+    });
+
+    await queryLessonBookingReadModels({
+      scope: 'account_history',
+      cursor: null as unknown as string,
+    });
+
+    const transportPayload = callFunctionMock.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(transportPayload).toEqual({ scope: 'account_history' });
+    expect(transportPayload).not.toHaveProperty('cursor');
+    expect(QueryLessonBookingReadModelsInputSchema.safeParse(transportPayload).success).toBe(true);
   });
 
   it('calls queryCourseCatalogReadModels callable with public scope', async () => {

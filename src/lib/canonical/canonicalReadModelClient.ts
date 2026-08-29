@@ -45,13 +45,36 @@ function createParticipantInstructorAccessReadModelIdempotencyKey(
   return `read:participant_instructor_access:${input.scope}:${input.participantId}:${input.instructorId}`;
 }
 
+function buildLessonBookingReadModelTransportInput(
+  input: QueryLessonBookingReadModelsInput
+): QueryLessonBookingReadModelsInput {
+  const transportInput: QueryLessonBookingReadModelsInput = { scope: input.scope };
+  if (input.pageSize !== undefined) {
+    transportInput.pageSize = input.pageSize;
+  }
+  if (input.cursor) {
+    transportInput.cursor = input.cursor;
+  }
+  if (input.bookingId !== undefined) {
+    transportInput.bookingId = input.bookingId;
+  }
+  if (input.guestActionNonce) {
+    transportInput.guestActionNonce = input.guestActionNonce;
+  }
+  if (input.guestActionSignature) {
+    transportInput.guestActionSignature = input.guestActionSignature;
+  }
+  return transportInput;
+}
+
 export async function queryLessonBookingReadModels(
   input: QueryLessonBookingReadModelsInput
 ): Promise<QueryLessonBookingReadModelsResult> {
-  const idempotencyKey = createLessonBookingReadModelIdempotencyKey(input);
+  const transportInput = buildLessonBookingReadModelTransportInput(input);
+  const idempotencyKey = createLessonBookingReadModelIdempotencyKey(transportInput);
   return callFunction<QueryLessonBookingReadModelsInput, QueryLessonBookingReadModelsResult>(
     QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE,
-    input,
+    transportInput,
     { idempotencyKey, maxAttempts: 1 }
   );
 }
@@ -113,13 +136,39 @@ function createCourseEnrollmentReadModelIdempotencyKey(
   return `read:course_enrollment:${scopePart}:${cursorPart}:${enrollmentPart}:${coursePart}`;
 }
 
+function buildCourseEnrollmentReadModelTransportInput(
+  input: QueryCourseEnrollmentReadModelsInput
+): QueryCourseEnrollmentReadModelsInput {
+  const transportInput: QueryCourseEnrollmentReadModelsInput = { scope: input.scope };
+  if (input.pageSize !== undefined) {
+    transportInput.pageSize = input.pageSize;
+  }
+  if (input.cursor) {
+    transportInput.cursor = input.cursor;
+  }
+  if (input.enrollmentId !== undefined) {
+    transportInput.enrollmentId = input.enrollmentId;
+  }
+  if (input.courseId !== undefined) {
+    transportInput.courseId = input.courseId;
+  }
+  if (input.guestActionNonce) {
+    transportInput.guestActionNonce = input.guestActionNonce;
+  }
+  if (input.guestActionSignature) {
+    transportInput.guestActionSignature = input.guestActionSignature;
+  }
+  return transportInput;
+}
+
 export async function queryCourseEnrollmentReadModels(
   input: QueryCourseEnrollmentReadModelsInput
 ): Promise<QueryCourseEnrollmentReadModelsResult> {
-  const idempotencyKey = createCourseEnrollmentReadModelIdempotencyKey(input);
+  const transportInput = buildCourseEnrollmentReadModelTransportInput(input);
+  const idempotencyKey = createCourseEnrollmentReadModelIdempotencyKey(transportInput);
   return callFunction<QueryCourseEnrollmentReadModelsInput, QueryCourseEnrollmentReadModelsResult>(
     QUERY_COURSE_ENROLLMENT_READ_MODELS_CALLABLE,
-    input,
+    transportInput,
     { idempotencyKey, maxAttempts: 1 }
   );
 }

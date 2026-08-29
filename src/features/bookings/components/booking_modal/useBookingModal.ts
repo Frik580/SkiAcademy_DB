@@ -62,8 +62,12 @@ export const useBookingModal = ({
   const { createAuthenticatedBooking, createGuestBooking } = useLessonBookingCommands(
     userProfile?.uid
   );
-  const { participants: managedParticipants, loading: managedParticipantsLoading, error: managedParticipantsError, reload: reloadManagedParticipants } =
-    useManagedParticipants(userProfile?.uid);
+  const {
+    participants: managedParticipants,
+    loading: managedParticipantsLoading,
+    error: managedParticipantsError,
+    reload: reloadManagedParticipants,
+  } = useManagedParticipants(userProfile?.uid);
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
 
   const [activeInstructor, setActiveInstructor] = useState<Instructor | null>(instructor);

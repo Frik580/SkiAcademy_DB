@@ -1,0 +1,132 @@
+{
+  "courseId": "course_1784217360616",
+  "title": "BASE — First Turns",
+  "price": 250000,
+  "totalSeats": 8,
+  "capacityPolicy": { "kind": "seed_full" },
+  "instructorRosterIds": ["ins_X9vUp3gIrbNFWUpWsEzvLCAEh7q2"],
+  "timeZone": "Asia/Almaty",
+  "days": [
+    {
+      "courseDayId": "course_day_1784217360616_01",
+      "dayOrder": 1,
+      "localDate": "2026-12-02",
+      "localTime": "09:00",
+      "durationMinutes": 240,
+      "instructorId": "ins_X9vUp3gIrbNFWUpWsEzvLCAEh7q2"
+    },
+    {
+      "courseDayId": "course_day_1784217360616_02",
+      "dayOrder": 2,
+      "localDate": "2026-12-03",
+      "localTime": "09:00",
+      "durationMinutes": 240,
+      "instructorId": "ins_X9vUp3gIrbNFWUpWsEzvLCAEh7q2"
+    },
+    {
+      "courseDayId": "course_day_1784217360616_03",
+      "dayOrder": 3,
+      "localDate": "2026-12-04",
+      "localTime": "09:00",
+      "durationMinutes": 240,
+      "instructorId": "ins_X9vUp3gIrbNFWUpWsEzvLCAEh7q2"
+    },
+    {
+      "courseDayId": "course_day_1784217360616_04",
+      "dayOrder": 4,
+      "localDate": "2026-12-05",
+      "localTime": "09:00",
+      "durationMinutes": 240,
+      "instructorId": "ins_X9vUp3gIrbNFWUpWsEzvLCAEh7q2"
+    },
+    {
+      "courseDayId": "course_day_1784217360616_05",
+      "dayOrder": 5,
+      "localDate": "2026-12-06",
+      "localTime": "09:00",
+      "durationMinutes": 240,
+      "instructorId": "ins_X9vUp3gIrbNFWUpWsEzvLCAEh7q2"
+    }
+  ],
+  "presentation": {
+    "duration": "5 дней (20 ч.)",
+    "description": "Learn to ski confidently from scratch - from your first descents to parallel skiing.",
+    "dates": "2 - 6 Декабря 2026, 09:00 - 13:00",
+    "bgImageUrl": "https://storage.yandexcloud.net/carve/courses/beginners.jpg",
+    "isHidden": false,
+    "order": 3,
+    "titleRu": "BASE — Первые повороты",
+    "shortDescription": "Learn to ski confidently from scratch - from your first descents to parallel skiing.",
+    "shortDescriptionRu": "Научитесь уверенно кататься на лыжах с нуля — от первых спусков до параллельного ведения лыж.",
+    "detailedDescription": "Master confident, safe, and technical skiing from the ground up. You'll learn proper stance, balance, braking, and turns, and gradually progress to parallel skiing on steeper slopes.",
+    "detailedDescriptionRu": "Освоите с нуля уверенное, безопасное и техничное катание. Вы научитесь правильной стойке, балансу, торможению, поворотам и постепенно перейдёте к катанию на параллельных лыжах на более крутых склонах.",
+    "badge": "",
+    "badgeRu": "",
+    "level": "beginner",
+    "videoUrl": "",
+    "benefits": [
+      "A quick and safe start without reinforcing mistakes",
+      "Mastering proper technique from the first lesson",
+      "Confident skiing on most groomed trails after completing the course"
+    ],
+    "benefitsRu": [
+      "Быстрый и безопасный старт без закрепления ошибок",
+      "Освоение правильной техники с первого занятия",
+      "Уверенное катание по большинству подготовленных трасс после прохождения курса"
+    ],
+    "program": [
+      {
+        "day": "Day 1",
+        "title": "First Confident Turns",
+        "desc": "You'll become familiar with the equipment, learn the correct stance, maintain balance, stop safely, and make your first controlled turns on a plow."
+      },
+      {
+        "day": "Day 2",
+        "title": "Speed ​​and Edge Control",
+        "desc": "Learn how to traverse and sideways, and confidently adjust your speed and ski position using your edges on slopes of varying steepness."
+      },
+      {
+        "day": "Day 3",
+        "title": "First Step to Parallel Skis",
+        "desc": "You'll progress from a plow to a KNU turn, learn how to correctly transfer pressure to your skis, and understand the basics of modern turning technique."
+      },
+      {
+        "day": "Day 4",
+        "title": "Parallel Turns",
+        "desc": "Learn how to make medium- and long-radius turns on parallel skis, learn to confidently choose a line, and maintain stability on steeper slopes."
+      },
+      {
+        "day": "Day 5",
+        "title": "Freestyle skiing on pistes",
+        "desc": "Reinforce parallel turn technique, improve the smoothness and precision of your movements, and then you'll be able to confidently and safely ski most groomed pistes independently."
+      }
+    ],
+    "programRu": [
+      {
+        "day": "День 1",
+        "title": "Первые уверенные повороты",
+        "desc": "Познакомитесь со снаряжением, освоите правильную стойку, научитесь сохранять равновесие, безопасно останавливаться и выполнять первые контролируемые повороты в плуге."
+      },
+      {
+        "day": "День 2",
+        "title": "Контроль скорости и кантов",
+        "desc": "Освоите траверс и боковое соскальзывание, научитесь уверенно регулировать скорость и положение лыж с помощью кантов на склонах разной крутизны."
+      },
+      {
+        "day": "День 3",
+        "title": "Первый шаг к параллельным лыжам",
+        "desc": "Перейдете от плуга к повороту КНУ, научитесь правильно переносить давление на лыжи и поймете основы современной техники поворота."
+      },
+      {
+        "day": "День 4",
+        "title": "Параллельные повороты",
+        "desc": "Освоите повороты на параллельных лыжах среднего и большого радиуса, научитесь уверенно выбирать траекторию и сохранять стабильность на более крутых склонах."
+      },
+      {
+        "day": "День 5",
+        "title": "Свободное катание по трассам",
+        "desc": "Закрепите технику параллельных поворотов, улучшите плавность и точность движений, после чего сможете уверенно и безопасно кататься по большинству подготовленных трасс самостоятельно."
+      }
+    ]
+  }
+}

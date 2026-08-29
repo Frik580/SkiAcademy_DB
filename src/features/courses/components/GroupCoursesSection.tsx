@@ -7,6 +7,7 @@ import type {
   CourseCatalogOperationalState,
   CourseEnrollmentCabinetItem,
 } from '../../course-enrollments';
+import { lookupCourseCatalogOperational } from '../../course-enrollments';
 
 interface GroupCoursesSectionProps {
   data: {
@@ -57,7 +58,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
             <GroupCourseCard
               rawCourse={rawCourse}
               courseEnrollments={courseEnrollments}
-              catalogOperational={catalogByCourseId.get(rawCourse.id)}
+              catalogOperational={lookupCourseCatalogOperational(catalogByCourseId, rawCourse.id)}
               userProfile={userProfile}
               language={language}
               onViewDetails={onViewDetails}

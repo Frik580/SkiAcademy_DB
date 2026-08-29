@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
 import {
   BookingIdSchema,
   GuestSubjectIdSchema,
@@ -7,7 +8,10 @@ import {
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import { useLessonBookingStore } from '../../src/features/lesson-bookings/lessonBookingStore';
-import { loadGuestSingleLessonBooking } from '../../src/features/lesson-bookings/useLessonBookingReadSync';
+import {
+  loadGuestSingleLessonBooking,
+  useLessonBookingReadSync,
+} from '../../src/features/lesson-bookings/useLessonBookingReadSync';
 import { persistGuestBookingCredential } from '../../src/features/lesson-bookings/guestCredentialStorage';
 
 const queryLessonBookingReadModelsMock = vi.fn();
@@ -86,5 +90,52 @@ describe('lessonBooking read sync integration', () => {
   it('does not fall back to legacy reads when guest credential is missing', async () => {
     await expect(loadGuestSingleLessonBooking('booking_missing_cred')).rejects.toThrow();
     expect(queryLessonBookingReadModelsMock).not.toHaveBeenCalled();
+  });
+
+  it('omits cursor on first account_history sync request', async () => {
+    queryLessonBookingReadModelsMock
+      .mockResolvedValueOnce({ scope: 'account_hot', items: [], hasMore: false })
+      .mockResolvedValueOnce({ scope: 'account_history', items: [], hasMore: false });
+
+    renderHook(() => useLessonBookingReadSync(true, 'account_fixture_01'));
+
+    await waitFor(() => {
+      expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(queryLessonBookingReadModelsMock).toHaveBeenNthCalledWith(1, { scope: 'account_hot' });
+    expect(queryLessonBookingReadModelsMock).toHaveBeenNthCalledWith(2, {
+      scope: 'account_history',
+    });
+  });
+
+  it('includes cursor on paginated account_history sync request', async () => {
+    const cursor = 'cursor_page_2_fixture';
+    queryLessonBookingReadModelsMock
+      .mockResolvedValueOnce({ scope: 'account_hot', items: [], hasMore: false })
+      .mockResolvedValueOnce({
+        scope: 'account_history',
+        items: [],
+        hasMore: true,
+        nextCursor: cursor,
+      })
+      .mockResolvedValueOnce({ scope: 'account_history', items: [], hasMore: false });
+
+    renderHook(() => useLessonBookingReadSync(true, 'account_fixture_01'));
+
+    await waitFor(() => {
+      expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(2);
+    });
+
+    useLessonBookingStore.getState().requestHistoryPage();
+
+    await waitFor(() => {
+      expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(3);
+    });
+
+    expect(queryLessonBookingReadModelsMock).toHaveBeenNthCalledWith(3, {
+      scope: 'account_history',
+      cursor,
+    });
   });
 });

@@ -45,7 +45,9 @@ describe('participantSelectionState', () => {
 
   it('requires explicit selection when more than one participant exists', () => {
     expect(requiresExplicitParticipantSelection([selfParticipant])).toBe(false);
-    expect(requiresExplicitParticipantSelection([selfParticipant, dependentParticipant])).toBe(true);
+    expect(requiresExplicitParticipantSelection([selfParticipant, dependentParticipant])).toBe(
+      true
+    );
   });
 
   it('prevents duplicate and out-of-authority selection', () => {
@@ -55,9 +57,7 @@ describe('participantSelectionState', () => {
         'participant_child',
       ])
     ).toEqual([]);
-    expect(
-      toggleParticipantSelection([], 'participant_unknown', ['participant_self'])
-    ).toEqual([]);
+    expect(toggleParticipantSelection([], 'participant_unknown', ['participant_self'])).toEqual([]);
   });
 
   it('enforces the multi-participant limit', () => {

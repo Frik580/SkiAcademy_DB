@@ -34,9 +34,7 @@ describe('course enrollment participant selection exports', () => {
   });
 
   it('maps selected participant ids to enrollment command payload', () => {
-    expect(
-      resolveSelectedParticipantCommand(participants, ['participant_child'])
-    ).toEqual({
+    expect(resolveSelectedParticipantCommand(participants, ['participant_child'])).toEqual({
       participantIds: ['participant_child'],
       exercisedCapability: 'parent_guardian',
     });

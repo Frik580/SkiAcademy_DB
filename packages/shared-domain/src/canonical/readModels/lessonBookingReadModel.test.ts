@@ -62,4 +62,21 @@ describe('lessonBookingReadModel contracts', () => {
     });
     expect(parsed.success).toBe(true);
   });
+
+  it('accepts account_history without cursor on first page', () => {
+    const parsed = QueryLessonBookingReadModelsInputSchema.safeParse({
+      scope: 'account_history',
+      idempotencyKey: 'read:lesson_booking:account_history:start:none',
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('rejects account_history with cursor: null', () => {
+    const parsed = QueryLessonBookingReadModelsInputSchema.safeParse({
+      scope: 'account_history',
+      cursor: null,
+      idempotencyKey: 'read:lesson_booking:account_history:start:none',
+    });
+    expect(parsed.success).toBe(false);
+  });
 });

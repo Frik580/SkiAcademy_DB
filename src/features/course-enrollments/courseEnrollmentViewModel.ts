@@ -196,3 +196,20 @@ export function mergeCatalogRecords(
   }
   return merged;
 }
+
+/** Resolve operational catalog by marketing course id (Firestore document id). */
+export function lookupCourseCatalogOperational(
+  catalogByCourseId: ReadonlyMap<string, CourseCatalogOperationalState>,
+  marketingCourseId: string
+): CourseCatalogOperationalState | undefined {
+  const direct = catalogByCourseId.get(marketingCourseId);
+  if (direct) {
+    return direct;
+  }
+  for (const entry of catalogByCourseId.values()) {
+    if (entry.courseId === marketingCourseId) {
+      return entry;
+    }
+  }
+  return undefined;
+}

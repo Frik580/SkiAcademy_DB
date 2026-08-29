@@ -7,7 +7,7 @@ import { useCoursesStore } from '../courses/coursesStore';
 import { useCourseActions } from '../courses/useCourseActions';
 import {
   isEnrolledInCourse,
-  selectCourseCatalogOperationalState,
+  lookupCourseCatalogOperational,
   selectCourseEnrollmentItems,
   useCourseEnrollmentStore,
 } from '../course-enrollments';
@@ -67,7 +67,7 @@ export const ModalHost: React.FC = () => {
 
   const selectedCatalogOperational = useCourseEnrollmentStore((state) =>
     selectedCourseForDetails
-      ? selectCourseCatalogOperationalState(state, selectedCourseForDetails.id)
+      ? lookupCourseCatalogOperational(state.catalogByCourseId, selectedCourseForDetails.id)
       : undefined
   );
 

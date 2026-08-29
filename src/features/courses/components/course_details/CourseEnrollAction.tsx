@@ -4,6 +4,7 @@ import { Course, UserProfile } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import type { CourseCatalogOperationalState } from '../../../course-enrollments';
+import { deriveGroupCourseEnrollmentCtaState } from '../../groupCourseEnrollmentCta';
 
 interface CourseEnrollActionProps {
   course: Course;
@@ -32,9 +33,12 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
   const { formatPrice } = useCurrency();
   const availableSeats = catalogOperational?.availableSeats ?? course.availableSeats;
   const totalSeats = catalogOperational?.totalSeats ?? course.totalSeats;
-  const isFull = catalogOperational?.isFull ?? availableSeats === 0;
-  const isCapacityFrozen = catalogOperational?.isCapacityFrozen ?? false;
-  const isEnrollmentEligible = catalogOperational?.isEnrollmentEligible ?? !isFull;
+  const cta = deriveGroupCourseEnrollmentCtaState({
+    rawCourse: course,
+    catalogOperational,
+    isEnrolled,
+    isClientActive: userProfile?.isClientActive,
+  });
   const displayPriceMinorUnits =
     catalogOperational?.priceMinorUnits ?? course.priceKZT ?? course.price;
 
@@ -76,9 +80,9 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
           <div className="flex items-center justify-between text-[9px] font-mono uppercase">
             <span className="text-[var(--ink-dim)]">{t('courseGroupSpace')}</span>
             <span
-              className={`font-bold ${isFull ? 'text-rose-500' : availableSeats <= 3 ? 'text-amber-500' : 'text-emerald-500'}`}
+              className={`font-bold ${cta.isFull ? 'text-rose-500' : availableSeats <= 3 ? 'text-amber-500' : 'text-emerald-500'}`}
             >
-              {isFull
+              {cta.isFull
                 ? t('courseSoldOutUpper')
                 : `${availableSeats} ${t('courseSeatsOf')} ${totalSeats} ${t('courseSeatsLeft')}`}
             </span>
@@ -87,7 +91,7 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
           <div className="w-full h-1.5 bg-black/10 dark:bg-white/5 border border-[var(--border)] overflow-hidden">
             <div
               className={`h-full transition-all duration-500 ${
-                isFull ? 'bg-rose-500' : availableSeats <= 3 ? 'bg-amber-500' : 'bg-emerald-500'
+                cta.isFull ? 'bg-rose-500' : availableSeats <= 3 ? 'bg-amber-500' : 'bg-emerald-500'
               }`}
               style={{ width: `${Math.max(0, Math.min(100, seatsPercentage))}%` }}
             />
@@ -114,28 +118,27 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
               onEnroll(course.id);
               onClose();
             }}
-            disabled={
-              (!isEnrolled && (isFull || isCapacityFrozen || !isEnrollmentEligible)) ||
-              userProfile?.isClientActive === false
-            }
+            disabled={cta.enrollDisabled}
             className={`w-full py-3.5 font-mono text-[10px] uppercase tracking-widest transition rounded-none font-bold ${
-              isEnrolled
+              cta.label === 'enrolled'
                 ? 'bg-black/5 dark:bg-black/60 border border-[var(--border)]/60 text-[var(--ink-dim)] cursor-default'
-                : userProfile?.isClientActive === false
+                : cta.label === 'accessSuspended'
                   ? 'border border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10'
-                  : isFull || isCapacityFrozen || !isEnrollmentEligible
-                    ? 'btn-secondary cursor-not-allowed opacity-60'
-                    : 'btn-primary cursor-pointer shadow-md'
+                  : cta.label === 'enroll'
+                    ? 'btn-primary cursor-pointer shadow-md'
+                    : 'btn-secondary cursor-not-allowed opacity-60'
             }`}
           >
-            {isEnrolled ? (
+            {cta.label === 'enrolled' ? (
               <span className="flex items-center justify-center gap-1.5 normal-case font-sans text-xs">
                 <span className="text-emerald-500 font-bold text-sm">✔</span> {t('courseEnrolled')}
               </span>
-            ) : userProfile?.isClientActive === false ? (
+            ) : cta.label === 'accessSuspended' ? (
               t('accessSuspended')
-            ) : isCapacityFrozen || isFull || !isEnrollmentEligible ? (
+            ) : cta.label === 'soldOut' ? (
               t('courseSoldOut')
+            ) : cta.label === 'unavailable' ? (
+              t('courseEnrollmentUnavailable')
             ) : (
               t('courseConfirmBooking')
             )}

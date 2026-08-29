@@ -41,7 +41,8 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
   const [editorMode, setEditorMode] = useState<EditorMode>({ kind: 'closed' });
   const [formError, setFormError] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
-  const [createForm, setCreateForm] = useState<CreateDependentParticipantInput>(DEFAULT_CREATE_FORM);
+  const [createForm, setCreateForm] =
+    useState<CreateDependentParticipantInput>(DEFAULT_CREATE_FORM);
   const [editForm, setEditForm] = useState<ManagedParticipantProfileEditState | null>(null);
 
   const selfParticipant = useMemo(
@@ -128,7 +129,9 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
     <section className="space-y-4 rounded-xl border border-[var(--border-subtle)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-[var(--ink)]">{t('participantsManageTitle')}</h3>
+          <h3 className="text-sm font-semibold text-[var(--ink)]">
+            {t('participantsManageTitle')}
+          </h3>
           <p className="mt-1 text-xs text-[var(--ink-dim)]">{t('participantsManageSubtitle')}</p>
         </div>
         <button
@@ -346,9 +349,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
             />
           </label>
 
-          {formError && (
-            <p className="text-xs text-rose-600 dark:text-rose-400">{formError}</p>
-          )}
+          {formError && <p className="text-xs text-rose-600 dark:text-rose-400">{formError}</p>}
 
           <div className="flex flex-wrap gap-2">
             <button

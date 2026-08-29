@@ -4,6 +4,7 @@ import {
   canonicalReference,
   type AuditOutboxStagingPlan,
   type CommandEnvelope,
+  type CourseDayId,
   type CourseId,
 } from '@ski-academy/shared-domain';
 
@@ -50,7 +51,7 @@ export function buildApplyCanonicalCourseProvisioningManifestAuditPlan(input: {
   readonly envelope: CommandEnvelope<'apply_canonical_course_provisioning_manifest'>;
   readonly courseId: CourseId;
   readonly courseRevision: number;
-  readonly courseDayIds: readonly string[];
+  readonly courseDayIds: readonly CourseDayId[];
 }): AuditOutboxStagingPlan {
   const courseRef = canonicalReference('course', input.courseId);
   const dayRefs = input.courseDayIds.map((courseDayId) =>

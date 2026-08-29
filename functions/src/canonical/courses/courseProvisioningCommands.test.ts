@@ -21,11 +21,12 @@ import {
   verifyProvisionedCourseSchedule,
   CourseProvisioningManifestSchema,
   type CommandEnvelope,
+  type CourseProvisioningManifest,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
-import { parseCourse, parseCourseDays, courseDaysCollectionPath } from './courseStore';
+import { parseCourse, parseCourseDays, courseDaysCollectionPath, courseDayPath } from './courseStore';
 import { parseCourseCatalogContent, courseCatalogContentPath } from './courseCatalogContentStore';
 
 const correlationId = CorrelationIdSchema.parse('correlation_course_provision_cmd_01');
@@ -36,6 +37,7 @@ const managementId = ParticipantManagementIdSchema.parse('management_course_prov
 const instructorId = InstructorIdSchema.parse('instructor_course_provision_01');
 const courseId = CourseIdSchema.parse('course_course_provision_cmd_01');
 const courseDayId = CourseDayIdSchema.parse('course_day_provision_cmd_01');
+const courseDayTwoId = CourseDayIdSchema.parse('course_day_provision_cmd_02');
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 
 const manifest = CourseProvisioningManifestSchema.parse({
@@ -177,6 +179,37 @@ function applyEnvelope(idempotencyKey: string): CommandEnvelope<'apply_canonical
   };
 }
 
+function twoDayManifest(): CourseProvisioningManifest {
+  return CourseProvisioningManifestSchema.parse({
+    ...manifest,
+    days: [
+      manifest.days[0]!,
+      {
+        courseDayId: courseDayTwoId,
+        dayOrder: 2,
+        localDate: '2026-02-02',
+        localTime: '09:00',
+        durationMinutes: 120,
+        instructorId,
+      },
+    ],
+  });
+}
+
+function applyEnvelopeWithManifest(
+  idempotencyKey: string,
+  manifestInput: CourseProvisioningManifest
+): CommandEnvelope<'apply_canonical_course_provisioning_manifest'> {
+  return {
+    kind: 'apply_canonical_course_provisioning_manifest',
+    context: adminContext(idempotencyKey),
+    intent: {
+      manifest: manifestInput,
+      dryRun: false,
+    },
+  };
+}
+
 describe('course provisioning commands', () => {
   it('dry-run validates manifest without writes', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(legacyCourseFixture());
@@ -241,6 +274,100 @@ describe('course provisioning commands', () => {
     const second = await commands.execute(envelope);
     expect(first.status).toBe('success');
     expect(second.status).toBe('success');
+  });
+
+  it('maps provision_canonical_course failure to apply manifest kind', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(legacyCourseFixture());
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    expect((await commands.execute(applyEnvelope('idem-provision-conflict-a'))).status).toBe('success');
+
+    const conflictingManifest = CourseProvisioningManifestSchema.parse({
+      ...manifest,
+      title: 'Conflicting Provision Title',
+    });
+    const result = await commands.execute(
+      applyEnvelopeWithManifest('idem-provision-conflict-b', conflictingManifest)
+    );
+
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.kind).toBe('apply_canonical_course_provisioning_manifest');
+      expect(result.correlationId).toBe(correlationId);
+      expect(result.error.code).toBe('validation');
+      expect(result.error.details).toEqual({ field: 'manifest', reason: 'conflict' });
+    }
+  });
+
+  it('maps create_course_day failure to apply manifest kind', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...legacyCourseFixture(),
+      [courseDayPath(courseId, courseDayTwoId)]: {
+        courseId,
+        courseDayId: courseDayTwoId,
+        placeholder: true,
+      },
+    });
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    const partialManifest = twoDayManifest();
+    const envelope = applyEnvelopeWithManifest('idem-provision-day-failure', partialManifest);
+    const result = await commands.execute(envelope);
+
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.kind).toBe('apply_canonical_course_provisioning_manifest');
+      expect(result.correlationId).toBe(correlationId);
+      expect(result.error.code).toBe('validation');
+      expect(result.error.details).toEqual({ field: 'courseDayId', reason: 'conflict' });
+    }
+
+    const snapshot = executor.snapshot();
+    const courseDays = parseCourseDays(
+      [...snapshot.docs.entries()]
+        .filter(([path]) => path.startsWith(`${courseDaysCollectionPath(courseId)}/`))
+        .map(([, doc]) => ({ data: doc.data ?? {} }))
+    );
+    expect(courseDays).toHaveLength(1);
+    expect(courseDays[0]?.courseDayId).toBe(courseDayId);
+  });
+
+  it('resumes partial provisioning after create_course_day blocker removal', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...legacyCourseFixture(),
+      [courseDayPath(courseId, courseDayTwoId)]: {
+        courseId,
+        courseDayId: courseDayTwoId,
+        placeholder: true,
+      },
+    });
+    const partialManifest = twoDayManifest();
+    const envelope = applyEnvelopeWithManifest('idem-provision-resume', partialManifest);
+    const commands = createProductionCanonicalCommands(environment(), executor);
+
+    const blocked = await commands.execute(envelope);
+    expect(blocked.status).toBe('error');
+    if (blocked.status === 'error') {
+      expect(blocked.kind).toBe('apply_canonical_course_provisioning_manifest');
+    }
+
+    const afterBlocked = executor.snapshot();
+    const docsWithoutStub = Object.fromEntries(
+      [...afterBlocked.docs.entries()]
+        .filter(([path]) => path !== courseDayPath(courseId, courseDayTwoId))
+        .map(([path, doc]) => [path, doc.data ?? {}])
+    );
+    const resumeExecutor = createInMemoryCanonicalTransactionExecutor(docsWithoutStub);
+    const resumeCommands = createProductionCanonicalCommands(environment(), resumeExecutor);
+    const resume = await resumeCommands.execute(envelope);
+    expect(resume.status).toBe('success');
+
+    const course = parseCourse(resumeExecutor.snapshot().docs.get(`courses/${courseId}`)?.data);
+    const courseDays = parseCourseDays(
+      [...resumeExecutor.snapshot().docs.entries()]
+        .filter(([path]) => path.startsWith(`${courseDaysCollectionPath(courseId)}/`))
+        .map(([, doc]) => ({ data: doc.data ?? {} }))
+    );
+    expect(courseDays).toHaveLength(2);
+    expect(courseScheduleIsComplete(course!, courseDays)).toBe(true);
   });
 
   it('completes provision to enrollment e2e on staging fixture', async () => {

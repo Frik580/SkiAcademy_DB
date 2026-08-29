@@ -103,18 +103,75 @@ service cloud.firestore {
         );
     }
 
+    function isCanonicalBooking(booking) {
+      return booking is map &&
+        ('party' in booking) &&
+        booking.party is map &&
+        ('participantIds' in booking.party) &&
+        booking.party.participantIds is list &&
+        ('occurrence' in booking) &&
+        booking.occurrence is map &&
+        ('instructorId' in booking.occurrence) &&
+        booking.occurrence.instructorId is string;
+    }
+
+    function isAssignedCanonicalInstructor(booking) {
+      return isInstructor() &&
+        isCanonicalBooking(booking) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId ==
+          booking.occurrence.instructorId;
+    }
+
+    function managesParticipant(participantId) {
+      return participantId is string &&
+        exists(
+          /databases/$(database)/documents/participant_management_active_owner/$(participantId)
+        ) &&
+        get(
+          /databases/$(database)/documents/participant_management_active_owner/$(participantId)
+        ).data.accountId == request.auth.uid;
+    }
+
+    function managesCanonicalBookingParticipantAt(booking, index) {
+      return isCanonicalBooking(booking) &&
+        booking.party.participantIds.size() > index &&
+        managesParticipant(booking.party.participantIds[index]);
+    }
+
+    function managesAnyCanonicalBookingParticipant(booking) {
+      return managesCanonicalBookingParticipantAt(booking, 0) ||
+        managesCanonicalBookingParticipantAt(booking, 1) ||
+        managesCanonicalBookingParticipantAt(booking, 2) ||
+        managesCanonicalBookingParticipantAt(booking, 3) ||
+        managesCanonicalBookingParticipantAt(booking, 4) ||
+        managesCanonicalBookingParticipantAt(booking, 5) ||
+        managesCanonicalBookingParticipantAt(booking, 6) ||
+        managesCanonicalBookingParticipantAt(booking, 7);
+    }
+
+    function canAccessCanonicalBookingChat(booking) {
+      return isAssignedCanonicalInstructor(booking) ||
+        managesAnyCanonicalBookingParticipant(booking);
+    }
+
+    function canAccessLegacyBookingChat(booking) {
+      return booking.userId == request.auth.uid ||
+        isAssignedInstructor(booking) ||
+        canAccessEnrollmentBookingChat(booking);
+    }
+
+    function canAccessBookingChat(booking) {
+      return isCanonicalBooking(booking)
+        ? canAccessCanonicalBookingChat(booking)
+        : canAccessLegacyBookingChat(booking);
+    }
+
     function canAccessChatMessages(threadId) {
       return isAdmin() ||
         (
           exists(/databases/$(database)/documents/bookings/$(threadId)) &&
-          (
-            get(/databases/$(database)/documents/bookings/$(threadId)).data.userId == request.auth.uid ||
-            isAssignedInstructor(
-              get(/databases/$(database)/documents/bookings/$(threadId)).data
-            ) ||
-            canAccessEnrollmentBookingChat(
-              get(/databases/$(database)/documents/bookings/$(threadId)).data
-            )
+          canAccessBookingChat(
+            get(/databases/$(database)/documents/bookings/$(threadId)).data
           )
         ) ||
         (
@@ -485,6 +542,12 @@ service cloud.firestore {
       );
     }
 
+    // Deterministic active-owner guard used by canonical booking authorization.
+    match /participant_management_active_owner/{participantId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+
     // Bookings
     match /bookings/{bookingId} {
       allow read: if isAdmin() ||
@@ -584,6 +647,13 @@ service cloud.firestore {
 
     // Courses
     match /courses/{courseId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin();
+    }
+
+    // Non-authoritative course catalog/presentation content for public UI.
+    match /course_catalog_content/{courseId} {
       allow read: if true;
       allow create, delete: if isAdmin();
       allow update: if isAdmin();

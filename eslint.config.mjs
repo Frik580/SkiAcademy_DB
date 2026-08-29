@@ -179,6 +179,13 @@ export default tseslint.config(
   reactRefresh.configs.recommended,
   jsxA11y.flatConfigs.recommended,
   {
+    files: ['functions/scripts/**/*.mjs'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: globals.node,
+    },
+  },
+  {
     files: ['functions/scripts/**/*.cjs'],
     languageOptions: {
       sourceType: 'commonjs',

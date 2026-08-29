@@ -59,7 +59,7 @@ export function useCourseEnrollmentReadSync(enabled: boolean, accountId: string 
     try {
       const result = await queryCourseEnrollmentReadModels({
         scope: 'account_history',
-        cursor: state.historyCursor,
+        ...(state.historyCursor ? { cursor: state.historyCursor } : {}),
       });
       const merged = mergeCourseEnrollmentRecords(state.items, result);
       useCourseEnrollmentStore.getState().mergeItems(merged);

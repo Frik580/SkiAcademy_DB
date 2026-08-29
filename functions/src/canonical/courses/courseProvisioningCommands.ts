@@ -4,6 +4,7 @@ import {
   CourseCatalogContentSchema,
   CourseSchema,
   buildCourseAggregateFromManifest,
+  commandErrorResult,
   commandSuccessResult,
   computeCourseProvisioningManifestFingerprint,
   deriveSchedulePlanFromManifest,
@@ -298,7 +299,11 @@ export async function applyCanonicalCourseProvisioningManifest(
     intent: { manifest },
   });
   if (provisionResult.status !== 'success') {
-    return provisionResult as CommandResult<'apply_canonical_course_provisioning_manifest'>;
+    return commandErrorResult(
+      'apply_canonical_course_provisioning_manifest',
+      provisionResult.correlationId,
+      provisionResult.error
+    );
   }
 
   const sortedDays = [...manifest.days].sort((left, right) => left.dayOrder - right.dayOrder);
@@ -314,7 +319,11 @@ export async function applyCanonicalCourseProvisioningManifest(
       )
     );
     if (dayResult.status !== 'success') {
-      return dayResult as CommandResult<'apply_canonical_course_provisioning_manifest'>;
+      return commandErrorResult(
+        'apply_canonical_course_provisioning_manifest',
+        dayResult.correlationId,
+        dayResult.error
+      );
     }
     expectedCourseRevision += 1;
   }

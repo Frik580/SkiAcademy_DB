@@ -47,6 +47,15 @@ describe('firestore.rules guardrails', () => {
     );
   });
 
+  it('authorizes canonical booking chat via active participant owner guards', () => {
+    expect(rulesSource).toContain('function isCanonicalBooking');
+    expect(rulesSource).toContain('function canAccessCanonicalBookingChat');
+    expect(rulesSource).toContain('function managesParticipant');
+    expect(rulesSource).toMatch(
+      /match \/participant_management_active_owner\/\{participantId\}[\s\S]*allow read: if isAuthenticated\(\);/
+    );
+  });
+
   it('allows users to delete their own cancelled course bookings', () => {
     expect(rulesSource).toContain('function isCancelledCourseBooking');
     expect(rulesSource).toMatch(

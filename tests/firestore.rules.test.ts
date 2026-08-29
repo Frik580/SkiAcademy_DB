@@ -14,6 +14,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   query,
   runTransaction,
   setDoc,
@@ -1040,6 +1041,290 @@ describe('booking chat messages', () => {
   });
 });
 
+const CANONICAL_CHAT_CUSTOMER_ID = 'account_canonical_chat_customer';
+const CANONICAL_CHAT_PARTICIPANT_ID = 'participant_canonical_chat_01';
+const CANONICAL_CHAT_MANAGEMENT_ID = 'management_canonical_chat_01';
+const CANONICAL_CHAT_BOOKING_ID = 'booking_canonical_chat_01';
+const CANONICAL_CHAT_INSTRUCTOR_ID = 'instructor_canonical_chat_01';
+const CANONICAL_CHAT_INSTRUCTOR_USER_ID = 'user_instructor_canonical_chat';
+
+const canonicalChatTimestamp = {
+  seconds: 1_735_689_600,
+  nanoseconds: 0,
+};
+
+function canonicalChatAudit() {
+  return {
+    createdByCommandId: 'command_canonical_chat_fixture',
+    lastChangedByCommandId: 'command_canonical_chat_fixture',
+    correlationId: 'correlation_canonical_chat_fixture',
+  };
+}
+
+function canonicalChatBookingFixture(bookingId = CANONICAL_CHAT_BOOKING_ID) {
+  return {
+    bookingId,
+    attribution: {
+      bookingOrigin: 'account',
+      bookedBy: { kind: 'account', accountId: CANONICAL_CHAT_CUSTOMER_ID },
+    },
+    party: {
+      kind: 'individual',
+      participantIds: [CANONICAL_CHAT_PARTICIPANT_ID],
+    },
+    occurrence: {
+      occurrenceId: 'occurrence_canonical_chat_fixture',
+      instructorId: CANONICAL_CHAT_INSTRUCTOR_ID,
+      interval: {
+        startsAt: canonicalChatTimestamp,
+        endsAt: { seconds: 1_735_693_200, nanoseconds: 0 },
+      },
+      timeZone: 'Asia/Almaty',
+      scheduleRevision: 1,
+      serviceParty: {
+        participantIds: [CANONICAL_CHAT_PARTICIPANT_ID],
+        frozenAt: canonicalChatTimestamp,
+      },
+    },
+    lifecycle: { status: 'confirmed' },
+    paymentId: 'payment_canonical_chat_fixture',
+    payerAccountId: CANONICAL_CHAT_CUSTOMER_ID,
+    revision: 1,
+    createdAt: canonicalChatTimestamp,
+    updatedAt: canonicalChatTimestamp,
+    audit: canonicalChatAudit(),
+  };
+}
+
+async function seedCanonicalChatFixture() {
+  await seedData(async (context) => {
+    const db = context.firestore();
+    await setDoc(doc(db, 'users', CANONICAL_CHAT_CUSTOMER_ID), {
+      accountId: CANONICAL_CHAT_CUSTOMER_ID,
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: canonicalChatTimestamp,
+      updatedAt: canonicalChatTimestamp,
+      audit: canonicalChatAudit(),
+      email: 'customer-canonical-chat@example.com',
+      displayName: 'Canonical Chat Customer',
+      role: 'user',
+    });
+    await setDoc(doc(db, 'users', CANONICAL_CHAT_INSTRUCTOR_USER_ID), {
+      ...userProfile(CANONICAL_CHAT_INSTRUCTOR_USER_ID, 'instructor-canonical-chat@example.com'),
+      instructorId: CANONICAL_CHAT_INSTRUCTOR_ID,
+    });
+    await setDoc(doc(db, 'instructors', CANONICAL_CHAT_INSTRUCTOR_ID), {
+      id: CANONICAL_CHAT_INSTRUCTOR_ID,
+      name: 'Canonical Chat Instructor',
+      pricePerHourKZT: 12_000,
+      isAvailable: true,
+    });
+    await setDoc(doc(db, 'participants', CANONICAL_CHAT_PARTICIPANT_ID), {
+      participantId: CANONICAL_CHAT_PARTICIPANT_ID,
+      displayName: 'Canonical Chat Participant',
+      age: { kind: 'age_years', years: 30 },
+      skillLevel: 'intermediate',
+      discipline: 'ski',
+      management: {
+        kind: 'managed',
+        participantManagementId: CANONICAL_CHAT_MANAGEMENT_ID,
+      },
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: canonicalChatTimestamp,
+      updatedAt: canonicalChatTimestamp,
+      audit: canonicalChatAudit(),
+    });
+    await setDoc(doc(db, 'participant_management', CANONICAL_CHAT_MANAGEMENT_ID), {
+      participantManagementId: CANONICAL_CHAT_MANAGEMENT_ID,
+      participantId: CANONICAL_CHAT_PARTICIPANT_ID,
+      accountId: CANONICAL_CHAT_CUSTOMER_ID,
+      role: 'owner',
+      authority: 'self',
+      status: 'active',
+      revision: 1,
+      createdAt: canonicalChatTimestamp,
+      updatedAt: canonicalChatTimestamp,
+      audit: canonicalChatAudit(),
+    });
+    await setDoc(doc(db, 'participant_management_active_owner', CANONICAL_CHAT_PARTICIPANT_ID), {
+      participantId: CANONICAL_CHAT_PARTICIPANT_ID,
+      accountId: CANONICAL_CHAT_CUSTOMER_ID,
+      participantManagementId: CANONICAL_CHAT_MANAGEMENT_ID,
+      managementRevision: 1,
+      updatedAt: canonicalChatTimestamp,
+      lastChangedByCommandId: 'command_canonical_chat_fixture',
+      correlationId: 'correlation_canonical_chat_fixture',
+    });
+    await setDoc(doc(db, 'bookings', CANONICAL_CHAT_BOOKING_ID), canonicalChatBookingFixture());
+  });
+}
+
+describe('canonical booking chat messages', () => {
+  beforeEach(async () => {
+    await seedCanonicalChatFixture();
+  });
+
+  it('allows managing customer accounts to list and read canonical booking messages', async () => {
+    const customerDb = testEnv
+      .authenticatedContext(CANONICAL_CHAT_CUSTOMER_ID, {
+        email: 'customer-canonical-chat@example.com',
+      })
+      .firestore();
+    const message = {
+      id: 'canonical-message-1',
+      bookingId: CANONICAL_CHAT_BOOKING_ID,
+      senderId: CANONICAL_CHAT_CUSTOMER_ID,
+      senderName: CANONICAL_CHAT_CUSTOMER_ID,
+      senderAvatar: '',
+      text: 'Canonical booking chat works',
+      timestamp: '2026-12-01T09:00:00.000Z',
+    };
+
+    await assertSucceeds(
+      setDoc(
+        doc(customerDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-1'),
+        message
+      )
+    );
+    await assertSucceeds(
+      getDocs(collection(customerDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages'))
+    );
+    await assertSucceeds(
+      getDoc(
+        doc(customerDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-1')
+      )
+    );
+  });
+
+  it('denies unrelated students from canonical booking chat', async () => {
+    const otherDb = testEnv
+      .authenticatedContext(OTHER_USER_ID, { email: 'other@example.com' })
+      .firestore();
+
+    await assertFails(
+      getDocs(collection(otherDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages'))
+    );
+    await assertFails(
+      getDoc(doc(otherDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-1'))
+    );
+    await assertFails(
+      setDoc(
+        doc(otherDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-2'),
+        {
+          id: 'canonical-message-2',
+          bookingId: CANONICAL_CHAT_BOOKING_ID,
+          senderId: OTHER_USER_ID,
+          senderName: OTHER_USER_ID,
+          senderAvatar: '',
+          text: 'Should not send',
+          timestamp: '2026-12-01T09:05:00.000Z',
+        }
+      )
+    );
+  });
+
+  it('allows assigned canonical instructors and denies unrelated instructors', async () => {
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(
+        doc(db, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-1'),
+        {
+          id: 'canonical-message-1',
+          bookingId: CANONICAL_CHAT_BOOKING_ID,
+          senderId: CANONICAL_CHAT_CUSTOMER_ID,
+          senderName: CANONICAL_CHAT_CUSTOMER_ID,
+          senderAvatar: '',
+          text: 'Canonical booking chat works',
+          timestamp: '2026-12-01T09:00:00.000Z',
+        }
+      );
+      await setDoc(doc(db, 'users', INSTRUCTOR_USER_ID), {
+        ...userProfile(INSTRUCTOR_USER_ID, 'instructor@example.com'),
+        instructorId: 'instructor-1',
+      });
+    });
+
+    const instructorDb = testEnv
+      .authenticatedContext(CANONICAL_CHAT_INSTRUCTOR_USER_ID, {
+        email: 'instructor-canonical-chat@example.com',
+      })
+      .firestore();
+    const unrelatedInstructorDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
+      .firestore();
+
+    await assertSucceeds(
+      getDoc(
+        doc(instructorDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-1')
+      )
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(
+          instructorDb,
+          'bookings',
+          CANONICAL_CHAT_BOOKING_ID,
+          'messages',
+          'canonical-message-instructor'
+        ),
+        {
+          id: 'canonical-message-instructor',
+          bookingId: CANONICAL_CHAT_BOOKING_ID,
+          senderId: CANONICAL_CHAT_INSTRUCTOR_USER_ID,
+          senderName: CANONICAL_CHAT_INSTRUCTOR_USER_ID,
+          senderAvatar: '',
+          text: 'Instructor reply',
+          timestamp: '2026-12-01T09:10:00.000Z',
+        }
+      )
+    );
+    await assertFails(
+      getDoc(
+        doc(
+          unrelatedInstructorDb,
+          'bookings',
+          CANONICAL_CHAT_BOOKING_ID,
+          'messages',
+          'canonical-message-1'
+        )
+      )
+    );
+  });
+
+  it('preserves admin management for canonical booking chat messages', async () => {
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(
+        doc(db, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-admin'),
+        {
+          id: 'canonical-message-admin',
+          bookingId: CANONICAL_CHAT_BOOKING_ID,
+          senderId: CANONICAL_CHAT_CUSTOMER_ID,
+          senderName: CANONICAL_CHAT_CUSTOMER_ID,
+          senderAvatar: '',
+          text: 'Admin-managed message',
+          timestamp: '2026-12-01T09:15:00.000Z',
+        }
+      );
+    });
+
+    const adminDb = testEnv.authenticatedContext(OWNER_ID).firestore();
+
+    await assertSucceeds(
+      getDoc(
+        doc(adminDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-admin')
+      )
+    );
+    await assertSucceeds(
+      deleteDoc(
+        doc(adminDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-admin')
+      )
+    );
+  });
+});
+
 describe('course enrollment transactions', () => {
   beforeEach(async () => {
     await seedData(async (context) => {
@@ -1292,5 +1577,87 @@ describe('course enrollment transactions', () => {
         transaction.update(courseRef, { availableSeats: 2 });
       })
     );
+  });
+});
+
+describe('course_catalog_content', () => {
+  const COURSE_ID = 'course-catalog-1';
+  const catalogContent = {
+    courseId: COURSE_ID,
+    duration: '5 days',
+    description: 'Public catalog description',
+    dates: '01.12.2026',
+    bgImageUrl: 'https://example.com/course.jpg',
+    shortDescription: 'Learn carving',
+    benefits: ['Small groups', 'Video analysis'],
+    faq: [{ q: 'What level?', a: 'Intermediate' }],
+  };
+
+  beforeEach(async () => {
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'course_catalog_content', COURSE_ID), catalogContent);
+      await setDoc(
+        doc(context.firestore(), 'users', USER_ID),
+        userProfile(USER_ID, 'user@example.com')
+      );
+      await setDoc(
+        doc(context.firestore(), 'users', ADMIN_ID),
+        userProfile(ADMIN_ID, 'admin@example.com', 'admin')
+      );
+    });
+  });
+
+  it('allows unauthenticated and authenticated reads by id and collection list', async () => {
+    const anonymousDb = testEnv.unauthenticatedContext().firestore();
+    const studentDb = testEnv
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
+
+    await assertSucceeds(getDoc(doc(anonymousDb, 'course_catalog_content', COURSE_ID)));
+    await assertSucceeds(getDoc(doc(studentDb, 'course_catalog_content', COURSE_ID)));
+    await assertSucceeds(
+      getDocs(query(collection(anonymousDb, 'course_catalog_content'), limit(50)))
+    );
+    await assertSucceeds(
+      getDocs(query(collection(studentDb, 'course_catalog_content'), limit(50)))
+    );
+  });
+
+  it('denies client create, update, and delete while keeping canonical courses protected', async () => {
+    const anonymousDb = testEnv.unauthenticatedContext().firestore();
+    const studentDb = testEnv
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+    const contentRef = doc(studentDb, 'course_catalog_content', COURSE_ID);
+    const courseRef = doc(studentDb, 'courses', COURSE_ID);
+
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'courses', COURSE_ID), {
+        title: 'Course',
+        totalSeats: 5,
+        availableSeats: 5,
+        price: 100,
+      });
+    });
+
+    await assertFails(
+      setDoc(doc(anonymousDb, 'course_catalog_content', 'course-catalog-2'), catalogContent)
+    );
+    await assertFails(setDoc(contentRef, { ...catalogContent, description: 'Tampered copy' }));
+    await assertFails(updateDoc(contentRef, { description: 'Student edit' }));
+    await assertFails(deleteDoc(contentRef));
+
+    await assertSucceeds(
+      setDoc(doc(adminDb, 'course_catalog_content', 'course-catalog-admin'), {
+        ...catalogContent,
+        courseId: 'course-catalog-admin',
+      })
+    );
+
+    await assertFails(updateDoc(courseRef, { availableSeats: 999 }));
+    await assertFails(setDoc(courseRef, { title: 'Student course write', price: 1 }));
   });
 });

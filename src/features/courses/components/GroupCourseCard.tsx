@@ -21,6 +21,7 @@ import type {
   CourseEnrollmentCabinetItem,
 } from '../../course-enrollments';
 import { isEnrolledInCourse } from '../../course-enrollments';
+import { deriveGroupCourseEnrollmentCtaState } from '../groupCourseEnrollmentCta';
 
 const formatCourseCardDate = (datePart: string) =>
   datePart
@@ -66,12 +67,12 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   const { formatPrice } = useCurrency();
   const course = translateCourse(rawCourse, language);
   const isEnrolled = isEnrolledInCourse(courseEnrollments, course.id);
-  const availableSeats = catalogOperational?.availableSeats ?? rawCourse.availableSeats;
-  const isFull = catalogOperational?.isFull ?? (catalogOperational ? availableSeats === 0 : true);
-  const isCapacityFrozen = catalogOperational?.isCapacityFrozen ?? false;
-  const hasOperationalCatalog = catalogOperational !== undefined;
-  const isEnrollmentEligible =
-    hasOperationalCatalog && catalogOperational.isEnrollmentEligible === true;
+  const cta = deriveGroupCourseEnrollmentCtaState({
+    rawCourse,
+    catalogOperational,
+    isEnrolled,
+    isClientActive: userProfile?.isClientActive,
+  });
   const displayPriceMinorUnits =
     catalogOperational?.priceMinorUnits ?? rawCourse.priceKZT ?? rawCourse.price;
   const scheduleStart = catalogOperational?.scheduleSummaryStartDate;
@@ -83,10 +84,6 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   const cardDuration = formatCourseCardDuration(course.duration);
   const enrollmentBooking = undefined;
   const showRecommendations = hasBookingRecommendations(enrollmentBooking);
-
-  const enrollDisabled =
-    userProfile?.isClientActive === false ||
-    (!isEnrolled && (isFull || isCapacityFrozen || !isEnrollmentEligible));
 
   return (
     <article
@@ -178,32 +175,28 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
             <button
               type="button"
               onClick={() => onRequireAuth(rawCourse)}
-              disabled={enrollDisabled}
+              disabled={cta.enrollDisabled}
               className={`w-full min-w-0 px-3 py-2 ${
-                isEnrolled
+                cta.label === 'enrolled'
                   ? 'btn-secondary cursor-default'
-                  : userProfile?.isClientActive === false
+                  : cta.label === 'accessSuspended'
                     ? 'border border-rose-900/40 text-rose-500 cursor-not-allowed bg-rose-950/10 font-bold'
-                    : isFull || isCapacityFrozen || !isEnrollmentEligible
-                      ? 'btn-secondary cursor-not-allowed opacity-60'
-                      : 'btn-primary cursor-pointer'
+                    : cta.label === 'enroll'
+                      ? 'btn-primary cursor-pointer'
+                      : 'btn-secondary cursor-not-allowed opacity-60'
               }`}
             >
-              {isEnrolled ? (
+              {cta.label === 'enrolled' ? (
                 <span className="flex items-center justify-center gap-1">
                   <span className="text-emerald-500 font-bold text-xs">✔</span>{' '}
                   {t('courseEnrolled')}
                 </span>
-              ) : userProfile?.isClientActive === false ? (
+              ) : cta.label === 'accessSuspended' ? (
                 t('accessSuspended')
-              ) : isCapacityFrozen ? (
+              ) : cta.label === 'soldOut' ? (
                 t('courseSoldOut')
-              ) : isFull ? (
-                t('courseSoldOut')
-              ) : !hasOperationalCatalog ? (
+              ) : cta.label === 'unavailable' ? (
                 t('courseEnrollmentUnavailable')
-              ) : !isEnrollmentEligible ? (
-                t('courseSoldOut')
               ) : (
                 t('enroll')
               )}

@@ -128,8 +128,10 @@ describe('course provisioning manifest', () => {
         correlationId: 'correlation_manifest_test' as never,
       },
     });
-    const dayOneInterval = resolveManifestDayInterval(baseManifest.days[0]!, baseManifest.timeZone)
-      .interval;
+    const dayOneInterval = resolveManifestDayInterval(
+      baseManifest.days[0]!,
+      baseManifest.timeZone
+    ).interval;
     const dayOne = CourseDaySchema.parse({
       courseId,
       courseDayId: courseDayOneId,

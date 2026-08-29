@@ -71,3 +71,5 @@ Thumbs.db
 
 # Generated shared-domain build
 functions/shared-domain/dist/
+
+.scratch/

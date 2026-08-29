@@ -140,6 +140,14 @@ describe('T31A course read model contracts', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it('accepts optional idempotencyKey injected by callable transport for course catalog reads', () => {
+    const parsed = QueryCourseCatalogReadModelsInputSchema.safeParse({
+      scope: 'public',
+      idempotencyKey: 'read:course_catalog:public:all',
+    });
+    expect(parsed.success).toBe(true);
+  });
+
   it('fails closed on invalid read scopes', () => {
     expect(
       QueryCourseEnrollmentReadModelsInputSchema.safeParse({

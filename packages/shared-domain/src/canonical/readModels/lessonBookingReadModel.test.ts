@@ -54,4 +54,12 @@ describe('lessonBookingReadModel contracts', () => {
     });
     expect(parsed.success).toBe(true);
   });
+
+  it('accepts instructor_hot scope with transport idempotencyKey from instructor panel', () => {
+    const parsed = QueryLessonBookingReadModelsInputSchema.safeParse({
+      scope: 'instructor_hot',
+      idempotencyKey: 'read:lesson_booking:instructor_hot:start:none',
+    });
+    expect(parsed.success).toBe(true);
+  });
 });

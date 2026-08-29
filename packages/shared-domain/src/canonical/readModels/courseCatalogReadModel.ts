@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IdempotencyKeySchema } from '../commands/commandContext';
 import { CourseIdSchema } from '../identifiers';
 import { CourseScheduleProjectionReadModelSchema } from './courseDayScheduleProjection';
 import {
@@ -51,6 +52,7 @@ export const QueryCourseCatalogReadModelsInputSchema = z
   .object({
     scope: CourseCatalogReadScopeSchema,
     courseId: CourseIdSchema.optional(),
+    idempotencyKey: IdempotencyKeySchema.optional(),
   })
   .strict()
   .superRefine((input, context) => {

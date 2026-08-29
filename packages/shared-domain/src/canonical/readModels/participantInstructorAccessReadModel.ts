@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IdempotencyKeySchema } from '../commands/commandContext';
 import {
   InstructorIdSchema,
   InstructorRelationshipIdSchema,
@@ -59,6 +60,7 @@ export const QueryParticipantInstructorAccessReadModelsInputSchema = z
     scope: ParticipantInstructorAccessReadScopeSchema,
     participantId: ParticipantIdSchema,
     instructorId: InstructorIdSchema,
+    idempotencyKey: IdempotencyKeySchema.optional(),
   })
   .strict();
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IdempotencyKeySchema } from '../commands/commandContext';
 import {
   BookingChangeRequestIdSchema,
   BookingIdSchema,
@@ -45,6 +46,7 @@ export type BookingChangeRequestReadModel = z.output<typeof BookingChangeRequest
 export const QueryBookingChangeRequestReadModelsInputSchema = z
   .object({
     scope: BookingChangeRequestReadScopeSchema,
+    idempotencyKey: IdempotencyKeySchema.optional(),
   })
   .strict();
 

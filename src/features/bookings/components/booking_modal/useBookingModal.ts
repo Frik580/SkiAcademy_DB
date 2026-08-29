@@ -37,6 +37,7 @@ import {
   useManagedParticipants,
 } from '../../../lesson-bookings';
 import { resolveAuthenticatedParticipantSelection } from './authBookingState';
+import { toggleParticipantSelection } from '../../../participants/participantSelectionState';
 
 export interface BookingModalInput {
   isOpen: boolean;
@@ -61,7 +62,7 @@ export const useBookingModal = ({
   const { createAuthenticatedBooking, createGuestBooking } = useLessonBookingCommands(
     userProfile?.uid
   );
-  const { participants: managedParticipants, loading: managedParticipantsLoading } =
+  const { participants: managedParticipants, loading: managedParticipantsLoading, error: managedParticipantsError, reload: reloadManagedParticipants } =
     useManagedParticipants(userProfile?.uid);
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
 
@@ -328,13 +329,13 @@ export const useBookingModal = ({
   const timezone = resolveLessonBookingTimezone();
 
   const toggleParticipant = (participantId: string) => {
-    setSelectedParticipantIds((current) => {
-      if (current.includes(participantId)) {
-        return current.filter((id) => id !== participantId);
-      }
-      if (current.length >= 8) return current;
-      return [...current, participantId];
-    });
+    setSelectedParticipantIds((current) =>
+      toggleParticipantSelection(
+        current,
+        participantId,
+        managedParticipants.map((participant) => participant.participantId)
+      )
+    );
   };
 
   const handleSubmitGuest = async (e: React.FormEvent) => {
@@ -534,6 +535,8 @@ export const useBookingModal = ({
     totalCost,
     managedParticipants,
     managedParticipantsLoading,
+    managedParticipantsError,
+    reloadManagedParticipants,
     selectedParticipantIds,
     toggleParticipant,
     minBookingDateStr,

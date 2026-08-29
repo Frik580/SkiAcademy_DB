@@ -172,7 +172,6 @@ export interface StudentCabinetHomeContext {
   onRemoveTodayTask?: (task: TodayTaskRef) => void;
   onViewCourseDetails: (course: Course) => void;
   onRequireCourseAuth: (course: Course) => void;
-  onBookCourse: (courseId: string) => void;
   onBookInstructor: (instructor: Instructor) => void;
   onViewInstructorReviews: (instructor: Instructor) => void;
   hasUnreadChat?: (bookingId: string) => boolean;

@@ -11,6 +11,12 @@ describe('authenticated booking participant state', () => {
     ]);
   });
 
+  it('does not auto-select when multiple managed participants exist', () => {
+    expect(
+      resolveAuthenticatedParticipantSelection([], ['participant_self', 'participant_child'])
+    ).toEqual([]);
+  });
+
   it('does not block submit once a provisioned Participant is selected', () => {
     expect(
       isAuthenticatedBookingSubmitDisabled({

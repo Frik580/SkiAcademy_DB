@@ -14,7 +14,6 @@ import { getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { useInstructorFilters } from '../../hooks/useInstructorFilters';
 import { useProfileStore } from '../../features/profile';
 import { useCoursesStore } from '../../features/courses';
-import { useCourseActions } from '../../features/courses';
 import { useSettingsStore } from '../../features/settings';
 import { useUiStore } from '../../features/shell';
 import { useAuthStore } from '../../features/auth';
@@ -38,7 +37,6 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
   const catalogByCourseId = useCourseEnrollmentStore(selectAllCourseCatalogOperationalStates);
   const filtersEnabled = useSettingsStore((state) => state.filtersEnabled);
   const skillConfig = useSettingsStore((state) => state.skillConfig);
-  const { handleBookCourse } = useCourseActions();
   const setSelectedInstructor = useUiStore((state) => state.setSelectedInstructor);
   const setSelectedCourseForAuth = useUiStore((state) => state.setSelectedCourseForAuth);
   const setSelectedCourseForDetails = useUiStore((state) => state.setSelectedCourseForDetails);
@@ -116,7 +114,6 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
               actions={{
                 onViewDetails: setSelectedCourseForDetails,
                 onRequireAuth: setSelectedCourseForAuth,
-                onBookCourse: handleBookCourse,
               }}
             />
 

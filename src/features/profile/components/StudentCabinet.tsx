@@ -55,7 +55,6 @@ export interface StudentCabinetProps {
   onUploadError: () => void;
   onViewCourseDetails?: (course: Course) => void;
   onRequireCourseAuth?: (course: Course) => void;
-  onBookCourse?: (courseId: string) => void;
   onBookInstructor?: (instructor: Instructor) => void;
   onViewInstructorReviews?: (instructor: Instructor) => void;
   syncTabWithRoute?: boolean;
@@ -107,7 +106,6 @@ export const StudentCabinet: React.FC<StudentCabinetProps> = ({
   onUploadError,
   onViewCourseDetails,
   onRequireCourseAuth,
-  onBookCourse,
   onBookInstructor,
   onViewInstructorReviews,
   syncTabWithRoute = true,
@@ -159,9 +157,6 @@ export const StudentCabinet: React.FC<StudentCabinetProps> = ({
       onUploadError={onUploadError}
       onViewCourseDetails={onViewCourseDetails ?? (() => {})}
       onRequireCourseAuth={onRequireCourseAuth ?? (() => {})}
-      onBookCourse={(courseId) => {
-        void onBookCourse?.(courseId);
-      }}
       onBookInstructor={onBookInstructor ?? (() => {})}
       onViewInstructorReviews={onViewInstructorReviews ?? (() => {})}
       syncTabWithRoute={syncTabWithRoute}

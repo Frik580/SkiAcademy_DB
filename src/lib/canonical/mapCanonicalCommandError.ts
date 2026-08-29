@@ -69,17 +69,45 @@ export function mapCanonicalErrorMessage(code: CommandErrorCode): string {
   }
 }
 
-function readHttpsErrorDetails(error: unknown): Record<string, unknown> | undefined {
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'details' in error &&
-    typeof (error as { details?: unknown }).details === 'object' &&
-    (error as { details?: unknown }).details !== null
-  ) {
-    return (error as { details: Record<string, unknown> }).details;
+function readFirebaseErrorMessage(error: unknown): string | undefined {
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    return typeof message === 'string' && message.trim().length > 0 ? message : undefined;
   }
   return undefined;
+}
+
+function readHttpsErrorDetails(error: unknown): Record<string, unknown> | undefined {
+  if (typeof error !== 'object' || error === null) {
+    return undefined;
+  }
+
+  const withDetails = error as { details?: unknown; cause?: unknown };
+  const nestedDetails =
+    withDetails.details && typeof withDetails.details === 'object'
+      ? (withDetails.details as Record<string, unknown>)
+      : withDetails.cause &&
+          typeof withDetails.cause === 'object' &&
+          withDetails.cause !== null &&
+          'details' in withDetails.cause &&
+          typeof (withDetails.cause as { details?: unknown }).details === 'object' &&
+          (withDetails.cause as { details?: unknown }).details !== null
+        ? ((withDetails.cause as { details: Record<string, unknown> }).details as Record<
+            string,
+            unknown
+          >)
+        : undefined;
+
+  if (!nestedDetails) {
+    return undefined;
+  }
+
+  const message = readFirebaseErrorMessage(error);
+  if (message !== undefined && nestedDetails.message === undefined) {
+    return { ...nestedDetails, message };
+  }
+
+  return nestedDetails;
 }
 
 function readFirebaseFunctionsCode(error: unknown): string | undefined {
@@ -90,7 +118,18 @@ function readFirebaseFunctionsCode(error: unknown): string | undefined {
   return undefined;
 }
 
-function mapFunctionsCodeToCanonical(code: string | undefined): CommandErrorCode {
+function mapFunctionsCodeToCanonical(
+  code: string | undefined,
+  details: Record<string, unknown> | undefined
+): CommandErrorCode {
+  const canonicalCode = details?.code;
+  if (typeof canonicalCode === 'string') {
+    const parsedCode = CommandErrorTransportSchema.shape.code.safeParse(canonicalCode);
+    if (parsedCode.success) {
+      return parsedCode.data;
+    }
+  }
+
   switch (code) {
     case 'functions/unauthenticated':
       return 'unauthorized';
@@ -99,7 +138,7 @@ function mapFunctionsCodeToCanonical(code: string | undefined): CommandErrorCode
     case 'functions/invalid-argument':
       return 'validation';
     case 'functions/failed-precondition':
-      return 'stale_version';
+      return 'internal';
     case 'functions/already-exists':
       return 'idempotency_conflict';
     case 'functions/aborted':
@@ -133,7 +172,7 @@ export function toCanonicalCommandClientError(
   }
 
   const functionsCode = readFirebaseFunctionsCode(error);
-  const code = mapFunctionsCodeToCanonical(functionsCode);
+  const code = mapFunctionsCodeToCanonical(functionsCode, details);
   const correlationId =
     typeof details?.correlationId === 'string' ? details.correlationId : fallbackCorrelationId;
   const currentRevision =

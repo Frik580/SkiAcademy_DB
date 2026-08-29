@@ -142,11 +142,13 @@ describe('managed participant picker read models', () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toEqual({
       participantId,
+      participantManagementId: managementId,
       displayName: 'Picker Child',
       discipline: 'ski',
       skillLevel: 'beginner',
       age: { kind: 'age_years', years: 12 },
       authority: 'parent_guardian',
+      revision: 1,
     });
   });
 

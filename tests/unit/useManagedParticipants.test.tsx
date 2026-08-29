@@ -24,11 +24,13 @@ describe('useManagedParticipants', () => {
       items: [
         {
           participantId: 'participant_self',
+          participantManagementId: 'management_self',
           displayName: 'Self Client',
           discipline: 'ski',
           skillLevel: 'beginner',
           age: { kind: 'age_years', years: 18 },
           authority: 'self',
+          revision: 1,
         },
       ],
     });
@@ -47,10 +49,13 @@ describe('useManagedParticipants', () => {
     expect(result.current.participants).toEqual([
       {
         participantId: 'participant_self',
+        participantManagementId: 'management_self',
         displayName: 'Self Client',
         discipline: 'ski',
         skillLevel: 'beginner',
+        age: { kind: 'age_years', years: 18 },
         authority: 'self',
+        revision: 1,
       },
     ]);
   });

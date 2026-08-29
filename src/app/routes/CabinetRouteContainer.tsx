@@ -9,7 +9,6 @@ import { loadPersonalCabinet } from '../../features/profile';
 import { useProfileStore } from '../../features/profile/profileStore';
 import { useBookingActions } from '../../features/bookings/useBookingActions';
 import { useBookingsStore } from '../../features/bookings/bookingsStore';
-import { useCourseActions } from '../../features/courses/useCourseActions';
 import { useCoursesStore } from '../../features/courses/coursesStore';
 import { useSettingsStore } from '../../features/settings/settingsStore';
 import { useWalletStore } from '../../features/wallet/walletStore';
@@ -83,7 +82,6 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
     withdrawEnrollment,
     refetchAccountHotEnrollments,
   } = useCourseEnrollmentCommands(userProfile?.uid);
-  const { handleBookCourse } = useCourseActions();
   const setSelectedCourseForDetails = useUiStore((state) => state.setSelectedCourseForDetails);
   const setSelectedCourseForAuth = useUiStore((state) => state.setSelectedCourseForAuth);
   const setSelectedInstructor = useUiStore((state) => state.setSelectedInstructor);
@@ -222,7 +220,6 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
               walletLedgerEntries={walletLedgerEntries}
               onViewCourseDetails={setSelectedCourseForDetails}
               onRequireCourseAuth={setSelectedCourseForAuth}
-              onBookCourse={handleBookCourse}
               onBookInstructor={setSelectedInstructor}
               onViewInstructorReviews={setReviewsInstructor}
               resortSnapshot={{

@@ -7,6 +7,7 @@ import {
   TrendingUp,
   Trophy,
   User,
+  Users,
   Video,
   CalendarRange,
   Wallet,
@@ -36,6 +37,7 @@ import { StudentHistoryList } from './StudentHistoryList';
 import { WalletPanel } from '../../../../features/profile';
 import type { StudentProfileHubInput, StudentProfilePanelProps } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
+import { ParticipantManagementPanel } from '../../../participants/components/ParticipantManagementPanel';
 
 type ProfileHubTab = Extract<
   StudentCabinetTab,
@@ -48,6 +50,7 @@ type ProfileHubTab = Extract<
   | 'profile_season'
   | 'profile_videos'
   | 'profile_preferences'
+  | 'profile_participants'
 >;
 
 const PROFILE_HUB_ITEMS: {
@@ -61,6 +64,12 @@ const PROFILE_HUB_ITEMS: {
     labelKey: 'scProfilePersonal',
     descKey: 'scProfilePersonalSub',
     icon: User,
+  },
+  {
+    tab: 'profile_participants',
+    labelKey: 'scProfileParticipants',
+    descKey: 'scProfileParticipantsSub',
+    icon: Users,
   },
   {
     tab: 'profile_wallet',
@@ -183,6 +192,15 @@ export const StudentProfilePersonalPanel: React.FC<ProfileSubPanelProps> = ({
       onUploadSuccess={onUploadSuccess}
       onUploadError={onUploadError}
     />
+  </ProfilePanelShell>
+);
+
+export const StudentProfileParticipantsPanel: React.FC<ProfileSubPanelProps> = ({
+  onGoToTab,
+  userProfile,
+}) => (
+  <ProfilePanelShell titleKey="scProfileParticipants" onGoToTab={onGoToTab}>
+    <ParticipantManagementPanel accountId={userProfile.uid} />
   </ProfilePanelShell>
 );
 

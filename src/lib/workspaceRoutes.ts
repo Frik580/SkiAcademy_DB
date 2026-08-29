@@ -11,6 +11,7 @@ export const CABINET_TABS: StudentCabinetTab[] = [
   'instructors',
   'settings',
   'profile_personal',
+  'profile_participants',
   'profile_wallet',
   'profile_journey',
   'profile_skills',

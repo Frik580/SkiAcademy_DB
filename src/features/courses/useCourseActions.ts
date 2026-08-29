@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { Course, UserProfile } from '../../types';
+import { Course } from '../../types';
 import { notify, t } from '../../store/storeContext';
 import { useAuthStore } from '../auth/authStore';
 import { getCurrentAuthenticatedUser } from '../auth/authService';
@@ -14,16 +14,17 @@ import {
   notifyCourseModifiedService,
 } from './courseService';
 import { useBookingsStore } from '../bookings/bookingsStore';
-import { queryManagedParticipantPickerReadModels } from '../../lib/canonical/canonicalReadModelClient';
 import {
   deriveAuthenticatedCreateEnrollmentIdempotencyKey,
-  resolveEnrollmentParticipantsForProfile,
   useCourseEnrollmentCommands,
 } from '../course-enrollments';
-import {
-  presentCanonicalCommandErrorWithContext,
-  useManagedParticipants,
-} from '../lesson-bookings';
+import { presentCanonicalCommandErrorWithContext } from '../lesson-bookings';
+import type { ClientCallableCapability } from '../../lib/canonical/canonicalCommandClient';
+
+export interface AuthenticatedCourseEnrollmentSelection {
+  readonly participantIds: readonly string[];
+  readonly exercisedCapability: ClientCallableCapability;
+}
 
 /**
  * Course use-cases belong at the feature boundary. The course store itself only
@@ -36,7 +37,6 @@ export function useCourseActions() {
   const bookings = useBookingsStore((state) => state.bookings);
   const inFlightEnrollmentsRef = useRef<Set<string>>(new Set());
   const { createAuthenticatedEnrollment } = useCourseEnrollmentCommands(userProfile?.uid);
-  const { participants: managedParticipants } = useManagedParticipants(userProfile?.uid);
 
   const handleAddCourse = useCallback(async (course: Course) => {
     await addCourseService(course);
@@ -63,12 +63,13 @@ export function useCourseActions() {
   }, []);
 
   const handleBookCourse = useCallback(
-    async (courseId: string, customProfile?: UserProfile) => {
-      if (inFlightEnrollmentsRef.current.has(courseId)) {
+    async (courseId: string, selection: AuthenticatedCourseEnrollmentSelection) => {
+      const enrollmentKey = `${courseId}:${selection.participantIds.join(',')}`;
+      if (inFlightEnrollmentsRef.current.has(enrollmentKey)) {
         return;
       }
 
-      const activeProfile = customProfile || userProfile;
+      const activeProfile = userProfile;
       const activeUser = firebaseUser || getCurrentAuthenticatedUser();
 
       if (!activeProfile || !activeUser) {
@@ -79,37 +80,25 @@ export function useCourseActions() {
         notify('error', t('bookingRestricted'), t('bookingRestrictedDesc'));
         return;
       }
+      if (selection.participantIds.length === 0) {
+        notify('warning', t('missingDetails'), t('bookingSelectParticipant'));
+        return;
+      }
 
-      inFlightEnrollmentsRef.current.add(courseId);
+      inFlightEnrollmentsRef.current.add(enrollmentKey);
       try {
         const course = courses.find((item) => item.id === courseId);
-        const isSelfEnrollment = activeUser.uid === activeProfile.uid && !customProfile;
         const estimatedPrice = course?.price ?? 0;
-
-        const pickerItems =
-          managedParticipants.length > 0
-            ? managedParticipants
-            : (await queryManagedParticipantPickerReadModels({})).items.map((item) => ({
-                participantId: item.participantId,
-                displayName: item.displayName,
-                discipline: item.discipline,
-                skillLevel: item.skillLevel,
-                authority: item.authority,
-              }));
-        const { participantIds, exercisedCapability } = resolveEnrollmentParticipantsForProfile(
-          pickerItems,
-          customProfile
-        );
         const idempotencyKey = deriveAuthenticatedCreateEnrollmentIdempotencyKey(
           courseId,
-          participantIds
+          selection.participantIds
         );
 
-        await withOptimisticBalance(isSelfEnrollment ? -estimatedPrice : 0, async () => {
+        await withOptimisticBalance(-estimatedPrice, async () => {
           await createAuthenticatedEnrollment({
             courseId,
-            participantIds,
-            exercisedCapability,
+            participantIds: selection.participantIds,
+            exercisedCapability: selection.exercisedCapability,
             identity: { enrollmentId: '', idempotencyKey },
           });
         });
@@ -138,10 +127,10 @@ export function useCourseActions() {
           notify('error', t('bookingError'), presented.message || t('bookingRecordFailed'));
         }
       } finally {
-        inFlightEnrollmentsRef.current.delete(courseId);
+        inFlightEnrollmentsRef.current.delete(enrollmentKey);
       }
     },
-    [courses, createAuthenticatedEnrollment, firebaseUser, managedParticipants, userProfile]
+    [courses, createAuthenticatedEnrollment, firebaseUser, userProfile]
   );
 
   return {

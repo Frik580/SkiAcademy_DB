@@ -1,12 +1,4 @@
-export function resolveAuthenticatedParticipantSelection(
-  selectedParticipantIds: readonly string[],
-  managedParticipantIds: readonly string[]
-): string[] {
-  if (selectedParticipantIds.length > 0 || managedParticipantIds.length === 0) {
-    return [...selectedParticipantIds];
-  }
-  return [managedParticipantIds[0]!];
-}
+export { resolveAuthenticatedParticipantSelection } from '../../../participants/participantSelectionState';
 
 export function isAuthenticatedBookingSubmitDisabled(input: {
   readonly isSubmitting: boolean;

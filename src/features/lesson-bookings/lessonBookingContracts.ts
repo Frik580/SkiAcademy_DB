@@ -1,5 +1,8 @@
-import type { BookingStatus } from '@ski-academy/shared-domain';
-import type { LessonBookingReadModelAuthorizedActions } from '@ski-academy/shared-domain';
+import type {
+  BookingStatus,
+  LessonBookingReadModelAuthorizedActions,
+  ManagedParticipantPickerAgeProjection,
+} from '@ski-academy/shared-domain';
 import type { LessonDifficulty } from '../../types';
 import type { ClientCallableCapability } from '../../lib/canonical/canonicalCommandClient';
 
@@ -62,10 +65,14 @@ export interface GuestLessonBookingInput {
 
 export interface ManagedParticipantOption {
   readonly participantId: string;
+  readonly participantManagementId: string;
   readonly displayName: string;
   readonly discipline: 'ski' | 'snowboard';
   readonly skillLevel: string;
+  readonly age: ManagedParticipantPickerAgeProjection;
   readonly authority: 'self' | 'parent_guardian';
+  readonly revision: number;
+  readonly instructorComment?: string;
 }
 
 export type LessonBookingReadSyncState = {

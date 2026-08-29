@@ -4,7 +4,7 @@ import { useBookingModal } from './useBookingModal';
 import { BookingSelectors } from './BookingSelectors';
 import { BookingOverlapWarnings } from './BookingOverlapWarnings';
 import { BookingPriceAccordion } from './BookingPriceAccordion';
-import { ParticipantPicker } from './ParticipantPicker';
+import { ParticipantPicker } from '../../../participants/components/ParticipantPicker';
 import { BOOKING_NOTES_FIELD_CLASS } from './bookingAppleFieldStyles';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import { isAuthenticatedBookingSubmitDisabled } from './authBookingState';
@@ -39,6 +39,8 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
     totalCost,
     managedParticipants,
     managedParticipantsLoading,
+    managedParticipantsError,
+    reloadManagedParticipants,
     selectedParticipantIds,
     toggleParticipant,
     targetInstructor,
@@ -98,6 +100,8 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
           selectedParticipantIds={selectedParticipantIds}
           onToggleParticipant={toggleParticipant}
           loading={managedParticipantsLoading}
+          error={managedParticipantsError}
+          onRetry={() => void reloadManagedParticipants()}
           t={t as (key: string) => string}
         />
 

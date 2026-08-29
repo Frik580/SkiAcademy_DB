@@ -91,6 +91,7 @@ export const ModalHost: React.FC = () => {
             isOpen
             onClose={() => setSelectedCourseForAuth(null)}
             course={translateCourse(selectedCourseForAuth, language)}
+            userProfile={userProfile}
             onEnroll={handleBookCourse}
           />
         </LazyLoad>
@@ -107,12 +108,8 @@ export const ModalHost: React.FC = () => {
             userProfile={userProfile}
             catalogOperational={selectedCatalogOperational}
             isEnrolled={isEnrolledInCourse(courseEnrollments, selectedCourseForDetails.id)}
-            onEnroll={(courseId) => {
-              if (!userProfile) {
-                setSelectedCourseForAuth(selectedCourseForDetails);
-              } else {
-                handleBookCourse(courseId);
-              }
+            onEnroll={() => {
+              setSelectedCourseForAuth(selectedCourseForDetails);
             }}
           />
         </LazyLoad>

@@ -21,10 +21,14 @@ export function useManagedParticipants(accountId: string | undefined) {
       setParticipants(
         result.items.map((item) => ({
           participantId: item.participantId,
+          participantManagementId: item.participantManagementId,
           displayName: item.displayName,
           discipline: item.discipline,
           skillLevel: item.skillLevel,
+          age: item.age,
           authority: item.authority,
+          revision: item.revision,
+          ...(item.instructorComment ? { instructorComment: item.instructorComment } : {}),
         }))
       );
     } catch (loadError) {

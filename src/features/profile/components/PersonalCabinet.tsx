@@ -64,7 +64,6 @@ export interface PersonalCabinetProps {
   walletLedgerEntries?: WalletLedgerEntry[];
   onViewCourseDetails?: (course: Course) => void;
   onRequireCourseAuth?: (course: Course) => void;
-  onBookCourse?: (courseId: string) => Promise<void>;
   onBookInstructor?: (instructor: Instructor) => void;
   onViewInstructorReviews?: (instructor: Instructor) => void;
   resortSnapshot?: StudentCabinetResortSnapshot;
@@ -100,7 +99,6 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   walletLedgerEntries = [],
   onViewCourseDetails,
   onRequireCourseAuth,
-  onBookCourse,
   onBookInstructor,
   onViewInstructorReviews,
   resortSnapshot,
@@ -264,7 +262,6 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
             onUploadError={() => addNotification('error', t('uploadFailed'), t('uploadFailedDesc'))}
             onViewCourseDetails={onViewCourseDetails}
             onRequireCourseAuth={onRequireCourseAuth}
-            onBookCourse={onBookCourse}
             onBookInstructor={onBookInstructor}
             onViewInstructorReviews={onViewInstructorReviews}
             syncTabWithRoute={true}

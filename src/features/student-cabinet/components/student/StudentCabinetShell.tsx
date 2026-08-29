@@ -30,6 +30,7 @@ import {
 import {
   StudentProfileHubPanel,
   StudentProfilePersonalPanel,
+  StudentProfileParticipantsPanel,
   StudentProfileWalletPanel,
   StudentProfileJourneyPanel,
   StudentProfileSkillsPanel,
@@ -117,7 +118,6 @@ export interface StudentCabinetShellProps {
   onUploadError: () => void;
   onViewCourseDetails: (course: Course) => void;
   onRequireCourseAuth: (course: Course) => void;
-  onBookCourse: (courseId: string) => void;
   onBookInstructor: (instructor: Instructor) => void;
   onViewInstructorReviews: (instructor: Instructor) => void;
   syncTabWithRoute?: boolean;
@@ -224,7 +224,6 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     onRemoveTodayTask: props.onRemoveTodayTask,
     onViewCourseDetails: props.onViewCourseDetails,
     onRequireCourseAuth: props.onRequireCourseAuth,
-    onBookCourse: props.onBookCourse,
     onBookInstructor: props.onBookInstructor,
     onViewInstructorReviews: props.onViewInstructorReviews,
     resortSnapshot: props.resortSnapshot,
@@ -423,7 +422,6 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
           courseEnrollments={props.courseEnrollments}
           onViewCourseDetails={props.onViewCourseDetails}
           onRequireCourseAuth={props.onRequireCourseAuth}
-          onBookCourse={props.onBookCourse}
         />
       )}
       {(activeTab === 'coach' || activeTab === 'instructors') && (
@@ -451,6 +449,9 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
       )}
       {activeTab === 'settings' && <StudentProfileHubPanel onGoToTab={goToTab} />}
       {activeTab === 'profile_personal' && <StudentProfilePersonalPanel {...legacyPanelProps} />}
+      {activeTab === 'profile_participants' && (
+        <StudentProfileParticipantsPanel {...legacyPanelProps} />
+      )}
       {activeTab === 'profile_wallet' && <StudentProfileWalletPanel {...legacyPanelProps} />}
       {activeTab === 'profile_journey' && <StudentProfileJourneyPanel {...legacyPanelProps} />}
       {activeTab === 'profile_skills' && <StudentProfileSkillsPanel {...legacyPanelProps} />}

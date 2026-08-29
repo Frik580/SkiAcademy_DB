@@ -49,7 +49,6 @@ export interface GroupCourseCardProps {
   language: Language;
   onViewDetails: (course: Course) => void;
   onRequireAuth: (course: Course) => void;
-  onBookCourse: (courseId: string) => void;
   className?: string;
 }
 
@@ -61,7 +60,6 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   language,
   onViewDetails,
   onRequireAuth,
-  onBookCourse,
   className = '',
 }) => {
   const { t } = useLanguage();
@@ -177,13 +175,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
           <div className="grid grid-cols-[minmax(0,7fr)_minmax(0,3fr)] gap-3 w-full">
             <button
               type="button"
-              onClick={() => {
-                if (!userProfile) {
-                  onRequireAuth(rawCourse);
-                } else {
-                  onBookCourse(course.id);
-                }
-              }}
+              onClick={() => onRequireAuth(rawCourse)}
               disabled={enrollDisabled}
               className={`w-full min-w-0 px-3 py-2 ${
                 isEnrolled

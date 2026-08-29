@@ -159,7 +159,6 @@ export const StudentCoursesPanel: React.FC<
   PanelProps & {
     onViewCourseDetails: (course: Course) => void;
     onRequireCourseAuth: (course: Course) => void;
-    onBookCourse: (courseId: string) => void;
     courseEnrollments?: readonly CourseEnrollmentCabinetItem[];
   }
 > = ({
@@ -168,7 +167,6 @@ export const StudentCoursesPanel: React.FC<
   courseEnrollments = [],
   onViewCourseDetails,
   onRequireCourseAuth,
-  onBookCourse,
   onGoToTab,
 }) => {
   const { t, language } = useStudentCabinetTranslations();
@@ -196,7 +194,6 @@ export const StudentCoursesPanel: React.FC<
           language={language}
           onViewDetails={onViewCourseDetails}
           onRequireAuth={onRequireCourseAuth}
-          onBookCourse={onBookCourse}
           className="h-full"
         />
       ))}

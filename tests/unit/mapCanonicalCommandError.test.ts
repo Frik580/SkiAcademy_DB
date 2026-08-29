@@ -47,4 +47,40 @@ describe('mapCanonicalCommandError', () => {
     expect(error.code).toBe('idempotency_conflict');
     expect(error.correlationId).toBe('correlation_idempotency');
   });
+
+  it('maps callable insufficient_funds without mislabeling stale_version', () => {
+    const error = toCanonicalCommandClientError(
+      {
+        code: 'functions/failed-precondition',
+        message: 'There are insufficient funds.',
+        details: {
+          code: 'insufficient_funds',
+          retryable: false,
+          correlationId: 'correlation_insufficient_funds',
+        },
+      },
+      'correlation_fallback'
+    );
+    expect(error.code).toBe('insufficient_funds');
+    expect(error.message).toBe('There are insufficient funds.');
+    expect(error.correlationId).toBe('correlation_insufficient_funds');
+  });
+
+  it('maps stale_version when transport includes revision mismatch details', () => {
+    const error = toCanonicalCommandClientError(
+      {
+        code: 'functions/failed-precondition',
+        message: 'The record changed; refresh it before retrying.',
+        details: {
+          code: 'stale_version',
+          retryable: false,
+          correlationId: 'correlation_stale_version',
+          currentRevision: 3,
+        },
+      },
+      'correlation_fallback'
+    );
+    expect(error.code).toBe('stale_version');
+    expect(error.currentRevision).toBe(3);
+  });
 });

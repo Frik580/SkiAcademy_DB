@@ -28,11 +28,16 @@ function toManagedParticipantPickerItem(input: {
 
   const parsed = ManagedParticipantPickerItemSchema.safeParse({
     participantId: input.participant.participantId,
+    participantManagementId: input.management.participantManagementId,
     displayName: input.participant.displayName,
     discipline: input.participant.discipline,
     skillLevel: input.participant.skillLevel,
     age: input.participant.age,
     authority: input.management.authority,
+    revision: input.participant.revision,
+    ...(input.participant.instructorComment === undefined
+      ? {}
+      : { instructorComment: input.participant.instructorComment }),
   });
   return parsed.success ? parsed.data : undefined;
 }

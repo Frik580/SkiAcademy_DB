@@ -19,13 +19,12 @@ interface GroupCoursesSectionProps {
   actions: {
     onViewDetails: (course: Course) => void;
     onRequireAuth: (course: Course) => void;
-    onBookCourse: (courseId: string) => void;
   };
 }
 
 export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
   data: { courses, courseEnrollments, catalogByCourseId, userProfile, language },
-  actions: { onViewDetails, onRequireAuth, onBookCourse },
+  actions: { onViewDetails, onRequireAuth },
 }) => {
   const { t } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
@@ -63,7 +62,6 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
               language={language}
               onViewDetails={onViewDetails}
               onRequireAuth={onRequireAuth}
-              onBookCourse={onBookCourse}
               className="h-full"
             />
           </motion.div>

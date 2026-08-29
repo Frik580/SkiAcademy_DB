@@ -24,11 +24,14 @@ export type ManagedParticipantPickerAgeProjection = z.output<
 export const ManagedParticipantPickerItemSchema = z
   .object({
     participantId: ParticipantIdSchema,
+    participantManagementId: z.string().trim().min(1).max(128),
     displayName: z.string().trim().min(1).max(200),
     discipline: z.enum(['ski', 'snowboard']),
     skillLevel: z.string().trim().min(1).max(64),
     age: ManagedParticipantPickerAgeProjectionSchema,
     authority: z.enum(['self', 'parent_guardian']),
+    revision: z.number().int().positive(),
+    instructorComment: z.string().trim().min(1).max(2_000).optional(),
   })
   .strict();
 

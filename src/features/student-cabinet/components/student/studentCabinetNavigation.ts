@@ -16,6 +16,7 @@ export type StudentCabinetTab =
   | 'profile_season'
   | 'profile_videos'
   | 'profile_preferences'
+  | 'profile_participants'
   | 'history';
 
 export const PROFILE_TABS: StudentCabinetTab[] = [
@@ -29,6 +30,7 @@ export const PROFILE_TABS: StudentCabinetTab[] = [
   'profile_season',
   'profile_videos',
   'profile_preferences',
+  'profile_participants',
 ];
 
 export const isProfileTab = (tab: StudentCabinetTab) => PROFILE_TABS.includes(tab);

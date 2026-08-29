@@ -17,19 +17,25 @@ import {
   useCourseEnrollmentCommands,
 } from '../../../features/course-enrollments';
 import { presentCanonicalCommandErrorWithContext } from '../../../features/lesson-bookings';
+import type { AuthenticatedCourseEnrollmentSelection } from '../useCourseActions';
+import { ParticipantPicker } from '../../participants/components/ParticipantPicker';
+import { useParticipantSelection } from '../../participants/useParticipantSelection';
+import { resolveSelectedParticipantCommand } from '../../participants/participantSelectionState';
 
 interface CourseEnrollmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   course: Course | null;
+  userProfile?: UserProfile | null;
   onAuthSuccess?: (profile: UserProfile) => void;
-  onEnroll: (courseId: string, customProfile?: UserProfile) => void;
+  onEnroll: (courseId: string, selection: AuthenticatedCourseEnrollmentSelection) => void;
 }
 
 export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   isOpen,
   onClose,
   course,
+  userProfile,
   onAuthSuccess,
   onEnroll,
 }) => {
@@ -39,6 +45,9 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const { createGuestEnrollment } = useCourseEnrollmentCommands(undefined);
 
   const [unauthTab, setUnauthTab] = useState<'guest' | 'auth'>('guest');
+  const [authenticatedProfile, setAuthenticatedProfile] = useState<UserProfile | null>(
+    userProfile ?? null
+  );
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
@@ -47,9 +56,33 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const isSubmittingRef = useRef(false);
   const guestEnrollmentAttemptKeyRef = useRef<string | null>(null);
 
+  const activeAccountId = authenticatedProfile?.uid;
+  const {
+    participants,
+    loading: participantsLoading,
+    error: participantsError,
+    reload: reloadParticipants,
+    selectedParticipantIds,
+    toggleParticipant,
+    resetSelection,
+  } = useParticipantSelection(activeAccountId);
+
+  useEffect(() => {
+    setAuthenticatedProfile(userProfile ?? null);
+  }, [userProfile, isOpen]);
+
   useEffect(() => {
     guestEnrollmentAttemptKeyRef.current = null;
-  }, [course?.id, isOpen]);
+    if (!isOpen) {
+      setUnauthTab(userProfile ? 'auth' : 'guest');
+    }
+  }, [course?.id, isOpen, userProfile]);
+
+  useEffect(() => {
+    if (isOpen && userProfile) {
+      setUnauthTab('auth');
+    }
+  }, [isOpen, userProfile]);
 
   if (!course || typeof document === 'undefined') return null;
 
@@ -99,6 +132,37 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       setIsSubmitting(false);
     }
   };
+
+  const handleSubmitAuthenticated = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmittingRef.current || isSubmitting || !authenticatedProfile) return;
+    if (authenticatedProfile.isClientActive === false) {
+      addNotification('error', t('accessSuspended'), t('bookingSuspendedDesc'));
+      return;
+    }
+    if (selectedParticipantIds.length === 0) {
+      addNotification('warning', t('missingDetails'), t('bookingSelectParticipant'));
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    try {
+      const selection = resolveSelectedParticipantCommand(participants, selectedParticipantIds);
+      await Promise.resolve(onEnroll(course.id, selection));
+      onClose();
+    } catch (err) {
+      const presented = presentCanonicalCommandErrorWithContext(err, {
+        t: t as (key: string) => string,
+      });
+      addNotification('error', t('bookingError'), presented.message || t('bookingRecordFailed'));
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
+  const showAuthenticatedEnrollment = Boolean(authenticatedProfile);
 
   return createPortal(
     <AnimatePresence>
@@ -156,17 +220,71 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                 </button>
               </div>
 
-              <div className="px-4 py-2 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
-                <AuthModeSliderSwitch
-                  unauthTab={unauthTab}
-                  onChange={setUnauthTab}
-                  guestLabel={t('guestBookingTab')}
-                  authLabel={t('authTab')}
-                />
-              </div>
+              {!showAuthenticatedEnrollment && (
+                <div className="px-4 py-2 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
+                  <AuthModeSliderSwitch
+                    unauthTab={unauthTab}
+                    onChange={setUnauthTab}
+                    guestLabel={t('guestBookingTab')}
+                    authLabel={t('authTab')}
+                  />
+                </div>
+              )}
 
               <div className="p-5 md:p-6 overflow-y-auto space-y-4 flex-1 min-h-0">
-                {unauthTab === 'auth' ? (
+                {showAuthenticatedEnrollment ? (
+                  <form onSubmit={handleSubmitAuthenticated} className="space-y-4">
+                    <p className="text-xs text-[var(--ink-dim)] leading-relaxed">
+                      {t('courseEnrollmentParticipantPrompt')}
+                    </p>
+
+                    <ParticipantPicker
+                      participants={participants}
+                      selectedParticipantIds={selectedParticipantIds}
+                      onToggleParticipant={toggleParticipant}
+                      loading={participantsLoading}
+                      error={participantsError}
+                      onRetry={() => void reloadParticipants()}
+                      maxParticipants={8}
+                      t={t as (key: string) => string}
+                    />
+
+                    <div className="p-3.5 border border-[var(--border)] bg-black/5 dark:bg-white/5 rounded-none rounded-[var(--radius-md)] space-y-1">
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-xs text-[var(--ink)] font-sans normal-case text-sm">
+                          {t('courseTotalTuition')}
+                        </span>
+                        <span className="text-lg font-extrabold text-[var(--accent)] font-sans">
+                          {formatPrice(course.price, course.priceKZT)}
+                        </span>
+                      </div>
+                      <div className="text-xs text-[var(--ink-dim)]">📅 {course.dates}</div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={
+                        isSubmitting ||
+                        participantsLoading ||
+                        selectedParticipantIds.length === 0 ||
+                        authenticatedProfile?.isClientActive === false
+                      }
+                      className="btn-primary w-full py-3 flex items-center justify-center gap-2"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          {t('submitting')}
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          {t('enroll')}
+                        </>
+                      )}
+                    </button>
+                  </form>
+                ) : unauthTab === 'auth' ? (
                   <div className="space-y-4">
                     <p className="text-xs text-[var(--ink-dim)] text-center leading-relaxed">
                       {t('courseEnrollmentAuthPrompt')}
@@ -176,8 +294,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       <Auth
                         onSuccess={(profile) => {
                           onAuthSuccess?.(profile);
-                          onEnroll(course.id, profile);
-                          onClose();
+                          setAuthenticatedProfile(profile);
+                          resetSelection();
                         }}
                       />
                     </div>

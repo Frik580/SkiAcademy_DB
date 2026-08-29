@@ -11,10 +11,7 @@ import { InstructorStudents } from './components/InstructorStudents';
 import { InstructorReviews } from './components/InstructorReviews';
 import { useNotifications } from '../notifications';
 import { useLanguage } from '../../app/providers/LanguageContext';
-import {
-  CreateProposalModal,
-  useInstructorBookingCollaboration,
-} from '../booking-collaboration';
+import { CreateProposalModal, useInstructorBookingCollaboration } from '../booking-collaboration';
 
 export interface InstructorWorkspaceProps {
   userProfile: UserProfile;

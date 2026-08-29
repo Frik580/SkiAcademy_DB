@@ -3,13 +3,8 @@ import type { CabinetSessionItem } from '../../../../features/course-enrollments
 import { hasTrainingTodayFromSessions } from '../../../../features/course-enrollments/sessionScheduleHelpers';
 
 /** Keeps session-related UI in sync when a lesson or course day starts or the countdown ends. */
-export const useCabinetSessionNow = (
-  sessionItems: readonly CabinetSessionItem[]
-): Date => {
-  const shouldTick = useMemo(
-    () => hasTrainingTodayFromSessions(sessionItems),
-    [sessionItems]
-  );
+export const useCabinetSessionNow = (sessionItems: readonly CabinetSessionItem[]): Date => {
+  const shouldTick = useMemo(() => hasTrainingTodayFromSessions(sessionItems), [sessionItems]);
 
   const [now, setNow] = useState(() => new Date());
 

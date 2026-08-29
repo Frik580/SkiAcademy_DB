@@ -92,6 +92,8 @@ describe('courseEnrollment commands integration', () => {
     });
 
     expect(returned).toEqual(credential);
-    expect(localStorage.getItem(`ski_academy_guest_course_enrollment_credential:${enrollmentId}`)).toBeTruthy();
+    expect(
+      localStorage.getItem(`ski_academy_guest_course_enrollment_credential:${enrollmentId}`)
+    ).toBeTruthy();
   });
 });

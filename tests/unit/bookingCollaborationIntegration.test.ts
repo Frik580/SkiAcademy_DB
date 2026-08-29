@@ -19,7 +19,8 @@ vi.mock('../../src/lib/canonical/canonicalCommandClient', () => ({
 
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryLessonBookingReadModels: (...args: unknown[]) => queryLessonBookingReadModelsMock(...args),
-  queryBookingProposalReadModels: (...args: unknown[]) => queryBookingProposalReadModelsMock(...args),
+  queryBookingProposalReadModels: (...args: unknown[]) =>
+    queryBookingProposalReadModelsMock(...args),
   queryBookingChangeRequestReadModels: (...args: unknown[]) =>
     queryBookingChangeRequestReadModelsMock(...args),
 }));
@@ -34,14 +35,20 @@ describe('booking collaboration integration', () => {
     queryLessonBookingReadModelsMock.mockReset();
     queryBookingProposalReadModelsMock.mockReset();
     queryBookingChangeRequestReadModelsMock.mockReset();
-    queryLessonBookingReadModelsMock.mockResolvedValue({ scope: 'account_hot', items: [], hasMore: false });
+    queryLessonBookingReadModelsMock.mockResolvedValue({
+      scope: 'account_hot',
+      items: [],
+      hasMore: false,
+    });
     queryBookingProposalReadModelsMock.mockResolvedValue({ scope: 'account_open', items: [] });
     queryBookingChangeRequestReadModelsMock.mockResolvedValue({ scope: 'account_open', items: [] });
   });
 
   it('withdraws cancellation with expectedRevision and refetches reads', async () => {
     executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
-    const { result } = renderHook(() => useBookingCollaborationCommands({ accountId: 'account_fixture_01' }));
+    const { result } = renderHook(() =>
+      useBookingCollaborationCommands({ accountId: 'account_fixture_01' })
+    );
     await result.current.withdrawCancellation({
       bookingId: 'booking_withdraw_01',
       expectedRevision: 5,
@@ -60,7 +67,9 @@ describe('booking collaboration integration', () => {
 
   it('reschedules via canonical command and refetches on success', async () => {
     executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
-    const { result } = renderHook(() => useBookingCollaborationCommands({ accountId: 'account_fixture_01' }));
+    const { result } = renderHook(() =>
+      useBookingCollaborationCommands({ accountId: 'account_fixture_01' })
+    );
     await result.current.rescheduleBooking({
       bookingId: 'booking_reschedule_01',
       expectedRevision: 3,
@@ -89,7 +98,9 @@ describe('booking collaboration integration', () => {
         correlationId: 'correlation_funds',
       },
     });
-    const { result } = renderHook(() => useBookingCollaborationCommands({ accountId: 'account_fixture_01' }));
+    const { result } = renderHook(() =>
+      useBookingCollaborationCommands({ accountId: 'account_fixture_01' })
+    );
     await expect(
       result.current.acceptProposal({
         proposalId: 'booking_proposal_accept_01',
@@ -104,9 +115,16 @@ describe('booking collaboration integration', () => {
     executeAuthenticatedMock
       .mockResolvedValueOnce({ status: 'success', payload: {} })
       .mockResolvedValueOnce({ status: 'success', payload: {} });
-    queryLessonBookingReadModelsMock.mockResolvedValue({ scope: 'instructor_hot', items: [], hasMore: false });
+    queryLessonBookingReadModelsMock.mockResolvedValue({
+      scope: 'instructor_hot',
+      items: [],
+      hasMore: false,
+    });
     queryBookingProposalReadModelsMock.mockResolvedValue({ scope: 'instructor_open', items: [] });
-    queryBookingChangeRequestReadModelsMock.mockResolvedValue({ scope: 'instructor_open', items: [] });
+    queryBookingChangeRequestReadModelsMock.mockResolvedValue({
+      scope: 'instructor_open',
+      items: [],
+    });
 
     const { result } = renderHook(() =>
       useBookingCollaborationCommands({
@@ -142,7 +160,9 @@ describe('booking collaboration integration', () => {
 
   it('declines proposal via cancel_booking_proposal', async () => {
     executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
-    const { result } = renderHook(() => useBookingCollaborationCommands({ accountId: 'account_fixture_01' }));
+    const { result } = renderHook(() =>
+      useBookingCollaborationCommands({ accountId: 'account_fixture_01' })
+    );
     await result.current.declineProposal({
       proposalId: 'booking_proposal_decline_01',
       expectedRevision: 2,

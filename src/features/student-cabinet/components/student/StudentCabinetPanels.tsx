@@ -142,10 +142,12 @@ export const StudentCalendarPanel: React.FC<
       onRescheduleBooking={onRescheduleBooking}
       collaborationSubmittingId={collaborationSubmittingId}
       onViewCourseDetails={
-        onViewCourseDetails ? (courseId) => {
-          const course = courses.find((item) => item.id === courseId);
-          if (course) onViewCourseDetails(course);
-        } : undefined
+        onViewCourseDetails
+          ? (courseId) => {
+              const course = courses.find((item) => item.id === courseId);
+              if (course) onViewCourseDetails(course);
+            }
+          : undefined
       }
       onCourseWithdraw={onCourseWithdraw}
       onCourseRequestCancellation={onCourseRequestCancellation}
@@ -172,7 +174,9 @@ export const StudentCoursesPanel: React.FC<
   const { t, language } = useStudentCabinetTranslations();
   const catalogByCourseId = useCourseEnrollmentStore(selectAllCourseCatalogOperationalStates);
   const enrolledCourseIds = getEnrolledCourseIdsFromEnrollments(courseEnrollments);
-  const myCourses = sortVisibleCourses(courses.filter((course) => enrolledCourseIds.has(course.id)));
+  const myCourses = sortVisibleCourses(
+    courses.filter((course) => enrolledCourseIds.has(course.id))
+  );
   const availableCourses = sortVisibleCourses(
     courses.filter((course) => !course.isHidden && !enrolledCourseIds.has(course.id))
   );

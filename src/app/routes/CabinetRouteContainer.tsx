@@ -179,13 +179,7 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
         addNotification('error', t('requestFailed'), presented.message);
       }
     },
-    [
-      addNotification,
-      courseEnrollments,
-      refetchAccountHotEnrollments,
-      requestCourseCancellation,
-      t,
-    ]
+    [addNotification, courseEnrollments, refetchAccountHotEnrollments, requestCourseCancellation, t]
   );
 
   if (tab && !CABINET_TABS.includes(tab as (typeof CABINET_TABS)[number])) {

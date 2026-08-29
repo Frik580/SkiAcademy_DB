@@ -154,10 +154,9 @@ export const PersonalCabinet: React.FC<PersonalCabinetProps> = ({
   const showInstructorTab = userProfile.role === 'admin' || !!userProfile.isInstructor;
 
   const userBookings = bookings;
-  const { hasUnreadChat, markBookingChatRead } = useBookingChatUnread(
-    userProfile.uid,
-    [...userBookings]
-  );
+  const { hasUnreadChat, markBookingChatRead } = useBookingChatUnread(userProfile.uid, [
+    ...userBookings,
+  ]);
   const collaboration = useCustomerBookingCollaboration({
     accountId: userProfile.uid,
     onNotify: (type, title, message) => addNotification(type, title, message),

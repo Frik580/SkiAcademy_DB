@@ -1,7 +1,5 @@
 import { useCallback, useState } from 'react';
-import {
-  presentCanonicalCommandErrorWithContext,
-} from './presentCollaborationError';
+import { presentCanonicalCommandErrorWithContext } from './presentCollaborationError';
 import {
   selectCollaborationChangeRequests,
   selectCollaborationProposals,
@@ -56,7 +54,11 @@ export function useInstructorBookingCollaboration(input: {
           proposalId: proposal.proposalId,
           expectedRevision: proposal.revision,
         });
-        input.onNotify('success', input.t('collabWithdrawProposal'), input.t('scheduleUpdatedDesc'));
+        input.onNotify(
+          'success',
+          input.t('collabWithdrawProposal'),
+          input.t('scheduleUpdatedDesc')
+        );
       } catch (error) {
         await handleCommandError(error);
       } finally {
@@ -91,7 +93,11 @@ export function useInstructorBookingCollaboration(input: {
       setSubmittingId(bookingId);
       try {
         await commands.createChangeRequest({ bookingId, reason });
-        input.onNotify('success', input.t('collabCreateChangeRequest'), input.t('scheduleUpdatedDesc'));
+        input.onNotify(
+          'success',
+          input.t('collabCreateChangeRequest'),
+          input.t('scheduleUpdatedDesc')
+        );
       } catch (error) {
         await handleCommandError(error);
       } finally {

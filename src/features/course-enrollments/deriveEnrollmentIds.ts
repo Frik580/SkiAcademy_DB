@@ -10,9 +10,7 @@ import {
 
 export function createLogicalEnrollmentAttemptId(): CourseEnrollmentId {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return CourseEnrollmentIdSchema.parse(
-      `enrollment_${crypto.randomUUID().replace(/-/g, '')}`
-    );
+    return CourseEnrollmentIdSchema.parse(`enrollment_${crypto.randomUUID().replace(/-/g, '')}`);
   }
   return CourseEnrollmentIdSchema.parse(
     `enrollment_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`

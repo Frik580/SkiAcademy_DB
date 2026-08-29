@@ -14,7 +14,9 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
   }),
 }));
 
-const booking = (actions: LessonBookingCabinetItem['authorizedActions']): LessonBookingCabinetItem => ({
+const booking = (
+  actions: LessonBookingCabinetItem['authorizedActions']
+): LessonBookingCabinetItem => ({
   id: 'booking_component_01',
   bookingId: 'booking_component_01',
   revision: 2,

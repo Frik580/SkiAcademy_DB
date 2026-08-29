@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
 import type { LessonBookingCabinetItem } from '../lesson-bookings/lessonBookingContracts';
+import { presentCanonicalCommandErrorWithContext } from './presentCollaborationError';
 import {
-  presentCanonicalCommandErrorWithContext,
-} from './presentCollaborationError';
-import { selectCollaborationProposals, useBookingCollaborationStore } from './bookingCollaborationStore';
+  selectCollaborationProposals,
+  useBookingCollaborationStore,
+} from './bookingCollaborationStore';
 import { useBookingCollaborationCommands } from './useBookingCollaborationCommands';
 import type { BookingProposalCabinetItem } from './bookingCollaborationContracts';
 
@@ -47,7 +48,11 @@ export function useCustomerBookingCollaboration(input: {
           expectedRevision: booking.revision,
           exercisedCapability: exercisedCapabilityForBooking(booking),
         });
-        input.onNotify('success', input.t('collabWithdrawCancellation'), input.t('scheduleUpdatedDesc'));
+        input.onNotify(
+          'success',
+          input.t('collabWithdrawCancellation'),
+          input.t('scheduleUpdatedDesc')
+        );
       } catch (error) {
         await handleCommandError(error);
       } finally {

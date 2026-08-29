@@ -112,9 +112,11 @@ describe('customer session presentation cutover', () => {
     const now = new Date('2027-03-10T12:00:00Z');
     const upcoming = getNextSessionsNext7DaysFromSessions(mixed, now);
     expect(upcoming.length).toBeGreaterThan(0);
-    expect(upcoming.every((entry) => entry.session.kind === 'lesson' || entry.session.kind === 'course_day')).toBe(
-      true
-    );
+    expect(
+      upcoming.every(
+        (entry) => entry.session.kind === 'lesson' || entry.session.kind === 'course_day'
+      )
+    ).toBe(true);
   });
 
   it('marks mini calendar days from canonical session items', () => {
@@ -125,7 +127,11 @@ describe('customer session presentation cutover', () => {
 
   it('keeps lesson-only scope filtering unchanged for lesson sessions', () => {
     const lessonOnly = mixed.filter(isLessonSession);
-    const upcoming = filterSessionsByScope(lessonOnly, 'upcoming', new Date('2027-03-10T12:00:00Z'));
+    const upcoming = filterSessionsByScope(
+      lessonOnly,
+      'upcoming',
+      new Date('2027-03-10T12:00:00Z')
+    );
     expect(upcoming.every(isLessonSession)).toBe(true);
     expect(upcoming[0]?.kind).toBe('lesson');
     if (upcoming[0]?.kind === 'lesson') {

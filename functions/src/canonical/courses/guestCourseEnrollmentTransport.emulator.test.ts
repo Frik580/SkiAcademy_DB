@@ -162,14 +162,11 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
   });
 
   it('provisions guest participant, enrolls, returns credentials, and authorizes guest_single read', async () => {
-    const derivedSubject = deriveGuestSubjectIdForIntent(
-      {
-        courseId,
-        participantIds: [participantId],
-        enrollmentIds: [enrollmentId],
-      },
-      'idem-guest-transport-01'
-    );
+    const derivedSubject = deriveGuestSubjectIdForIntent({
+      courseId,
+      participantIds: [participantId],
+      enrollmentIds: [enrollmentId],
+    });
     expect(derivedSubject).toBe(guestSubjectId);
     expect(
       deriveGuestSubjectIdFromCourseEnrollmentIntent({

@@ -36,8 +36,7 @@ export interface CallableGuestCommandTransportInput<Kind extends CommandKind> {
 }
 
 export function deriveGuestSubjectIdForIntent(
-  intent: CommandEnvelope<CommandKind>['intent'] | undefined,
-  idempotencyKey?: CommandContext['idempotencyKey']
+  intent: CommandEnvelope<CommandKind>['intent'] | undefined
 ): GuestSubjectId | undefined {
   if (!intent || typeof intent !== 'object') {
     return undefined;

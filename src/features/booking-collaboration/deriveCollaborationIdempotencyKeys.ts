@@ -9,7 +9,9 @@ import {
 
 export function createLogicalBookingProposalId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return BookingProposalIdSchema.parse(`booking_proposal_${crypto.randomUUID().replace(/-/g, '')}`);
+    return BookingProposalIdSchema.parse(
+      `booking_proposal_${crypto.randomUUID().replace(/-/g, '')}`
+    );
   }
   return BookingProposalIdSchema.parse(
     `booking_proposal_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
@@ -79,9 +81,7 @@ export function deriveWithdrawChangeRequestIdempotencyKey(
   return `withdraw-change-request:${requestId}:${expectedRevision}` as IdempotencyKey;
 }
 
-export function deriveCreateRelationshipIdempotencyKey(
-  relationshipId: string
-): IdempotencyKey {
+export function deriveCreateRelationshipIdempotencyKey(relationshipId: string): IdempotencyKey {
   return `create-relationship:${relationshipId}` as IdempotencyKey;
 }
 
@@ -103,7 +103,10 @@ export function deriveUnblockParticipantIdempotencyKey(
   return `unblock-participant:${blockId}:${expectedRevision}` as IdempotencyKey;
 }
 
-export function participantInstructorAccessKey(participantId: string, instructorId: string): string {
+export function participantInstructorAccessKey(
+  participantId: string,
+  instructorId: string
+): string {
   return `${participantId}:${instructorId}`;
 }
 

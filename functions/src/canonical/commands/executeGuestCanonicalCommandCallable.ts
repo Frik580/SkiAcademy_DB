@@ -31,7 +31,7 @@ export function createExecuteGuestCanonicalCommandHandler(firestore: Firestore) 
     request: CallableRequest<CallableGuestCommandTransportInput<CommandKind>>
   ): Promise<CommandResult<CommandKind>> => {
     const transportInput = parseCallableGuestCommandTransportInput(request);
-    const guestSubjectId = deriveGuestSubjectIdForIntent(transportInput.intent, transportInput.idempotencyKey);
+    const guestSubjectId = deriveGuestSubjectIdForIntent(transportInput.intent);
     if (!guestSubjectId) {
       throw new HttpsError('invalid-argument', 'Guest subject could not be derived from intent.');
     }

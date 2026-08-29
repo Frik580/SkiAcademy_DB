@@ -333,11 +333,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             style={{ top: 'var(--app-navbar-height, 60px)', left: workspaceMenuLeft }}
             className="ui-navbar-panel fixed z-50 hidden w-max lg:flex flex-col"
           >
-            <div
-              ref={workspaceDropdownRef}
-              role="menu"
-              className="flex flex-col py-1.5 px-1.5"
-            >
+            <div ref={workspaceDropdownRef} role="menu" className="flex flex-col py-1.5 px-1.5">
               {workspaceItems.map((item) => (
                 <Link
                   key={item.to}

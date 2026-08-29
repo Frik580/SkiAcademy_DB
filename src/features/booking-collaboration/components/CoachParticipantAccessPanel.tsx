@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { ParticipantAccessControls } from './ParticipantAccessControls';
-import { selectParticipantAccessByPair, useBookingCollaborationStore } from '../bookingCollaborationStore';
+import {
+  selectParticipantAccessByPair,
+  useBookingCollaborationStore,
+} from '../bookingCollaborationStore';
 import { participantInstructorAccessKey } from '../deriveCollaborationIdempotencyKeys';
 import { useBookingCollaborationCommands } from '../useBookingCollaborationCommands';
 import { useManagedParticipants } from '../../lesson-bookings/useManagedParticipants';
@@ -30,7 +33,11 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
 
   useEffect(() => {
     if (!resolvedParticipantId) return;
-    void commands.refetchParticipantAccessRead('account_manager', resolvedParticipantId, instructorId);
+    void commands.refetchParticipantAccessRead(
+      'account_manager',
+      resolvedParticipantId,
+      instructorId
+    );
   }, [commands, instructorId, resolvedParticipantId]);
 
   if (!resolvedParticipantId) return null;

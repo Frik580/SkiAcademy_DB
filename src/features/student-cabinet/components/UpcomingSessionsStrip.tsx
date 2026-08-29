@@ -111,7 +111,9 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
           <div className="space-y-2.5 max-h-[250px] overflow-y-auto pr-1">
             {content.sortedActiveSessions.map((item) => {
               const key =
-                item.kind === 'lesson' ? item.session.id : `${item.enrollmentId}:${item.courseDayId}`;
+                item.kind === 'lesson'
+                  ? item.session.id
+                  : `${item.enrollmentId}:${item.courseDayId}`;
               const isCourseDay = item.kind === 'course_day';
               const lessonLegacy =
                 item.kind === 'lesson' ? legacyById.get(item.session.id) : undefined;

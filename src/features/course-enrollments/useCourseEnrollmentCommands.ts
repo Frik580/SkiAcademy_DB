@@ -31,10 +31,7 @@ import {
 } from './deriveEnrollmentIds';
 import { persistGuestCourseEnrollmentCredential } from './guestCourseEnrollmentCredentialStorage';
 import { useCourseEnrollmentStore } from './courseEnrollmentStore';
-import {
-  mergeCatalogRecords,
-  mergeCourseEnrollmentRecords,
-} from './courseEnrollmentViewModel';
+import { mergeCatalogRecords, mergeCourseEnrollmentRecords } from './courseEnrollmentViewModel';
 
 async function refetchAccountHotEnrollments(): Promise<void> {
   const [enrollmentResult, catalogResult] = await Promise.all([

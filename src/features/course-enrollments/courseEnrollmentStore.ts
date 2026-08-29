@@ -35,8 +35,8 @@ const EMPTY_ENROLLMENT_LIST: readonly CourseEnrollmentCabinetItem[] = [];
 export function buildCourseEnrollmentItemsList(
   items: ReadonlyMap<string, CourseEnrollmentCabinetItem>
 ): CourseEnrollmentCabinetItem[] {
-  return [...items.values()].sort(
-    (left, right) => right.scheduleStartDate.localeCompare(left.scheduleStartDate)
+  return [...items.values()].sort((left, right) =>
+    right.scheduleStartDate.localeCompare(left.scheduleStartDate)
   );
 }
 

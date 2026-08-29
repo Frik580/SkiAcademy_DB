@@ -121,7 +121,10 @@ export function useBookingCollaborationCommands(input: {
       const result = await executeAuthenticatedCanonicalCommand(accountId, {
         kind: 'accept_booking_proposal',
         intent: { bookingProposalId: BookingProposalIdSchema.parse(params.proposalId) },
-        idempotencyKey: deriveAcceptProposalIdempotencyKey(params.proposalId, params.expectedRevision),
+        idempotencyKey: deriveAcceptProposalIdempotencyKey(
+          params.proposalId,
+          params.expectedRevision
+        ),
         expectedRevision: AggregateRevisionSchema.parse(params.expectedRevision),
         exercisedCapability: params.exercisedCapability,
       });
@@ -142,7 +145,10 @@ export function useBookingCollaborationCommands(input: {
       const result = await executeAuthenticatedCanonicalCommand(accountId, {
         kind: 'cancel_booking_proposal',
         intent: { bookingProposalId: BookingProposalIdSchema.parse(params.proposalId) },
-        idempotencyKey: deriveDeclineProposalIdempotencyKey(params.proposalId, params.expectedRevision),
+        idempotencyKey: deriveDeclineProposalIdempotencyKey(
+          params.proposalId,
+          params.expectedRevision
+        ),
         expectedRevision: AggregateRevisionSchema.parse(params.expectedRevision),
         exercisedCapability: params.exercisedCapability,
       });
@@ -189,12 +195,18 @@ export function useBookingCollaborationCommands(input: {
   );
 
   const withdrawProposal = useCallback(
-    async (params: { readonly proposalId: string; readonly expectedRevision: number }): Promise<void> => {
+    async (params: {
+      readonly proposalId: string;
+      readonly expectedRevision: number;
+    }): Promise<void> => {
       if (!accountId) throw new Error('Authentication is required.');
       const result = await executeAuthenticatedCanonicalCommand(accountId, {
         kind: 'cancel_booking_proposal',
         intent: { bookingProposalId: BookingProposalIdSchema.parse(params.proposalId) },
-        idempotencyKey: deriveWithdrawProposalIdempotencyKey(params.proposalId, params.expectedRevision),
+        idempotencyKey: deriveWithdrawProposalIdempotencyKey(
+          params.proposalId,
+          params.expectedRevision
+        ),
         expectedRevision: AggregateRevisionSchema.parse(params.expectedRevision),
         exercisedCapability: 'instructor',
       });
@@ -206,10 +218,7 @@ export function useBookingCollaborationCommands(input: {
   );
 
   const createChangeRequest = useCallback(
-    async (params: {
-      readonly bookingId: string;
-      readonly reason: string;
-    }): Promise<string> => {
+    async (params: { readonly bookingId: string; readonly reason: string }): Promise<string> => {
       if (!accountId) throw new Error('Authentication is required.');
       const requestId = createLogicalBookingChangeRequestId();
       const result = await executeAuthenticatedCanonicalCommand(accountId, {
@@ -231,7 +240,10 @@ export function useBookingCollaborationCommands(input: {
   );
 
   const withdrawChangeRequest = useCallback(
-    async (params: { readonly requestId: string; readonly expectedRevision: number }): Promise<void> => {
+    async (params: {
+      readonly requestId: string;
+      readonly expectedRevision: number;
+    }): Promise<void> => {
       if (!accountId) throw new Error('Authentication is required.');
       const result = await executeAuthenticatedCanonicalCommand(accountId, {
         kind: 'withdraw_booking_change_request',
@@ -343,7 +355,9 @@ export function useBookingCollaborationCommands(input: {
         },
         idempotencyKey: deriveBlockParticipantIdempotencyKey(blockId),
         exercisedCapability:
-          params.scope === 'instructor' ? 'instructor' : params.exercisedCapability ?? 'account_owner',
+          params.scope === 'instructor'
+            ? 'instructor'
+            : (params.exercisedCapability ?? 'account_owner'),
       });
       const error = mapCanonicalCommandResultError(result);
       if (error) throw error;
@@ -382,7 +396,9 @@ export function useBookingCollaborationCommands(input: {
         ),
         expectedRevision: AggregateRevisionSchema.parse(params.blockRevision),
         exercisedCapability:
-          params.scope === 'instructor' ? 'instructor' : params.exercisedCapability ?? 'account_owner',
+          params.scope === 'instructor'
+            ? 'instructor'
+            : (params.exercisedCapability ?? 'account_owner'),
       });
       const error = mapCanonicalCommandResultError(result);
       if (error) throw error;
@@ -413,7 +429,9 @@ export function useBookingCollaborationCommands(input: {
     revokeRelationship,
     blockParticipant,
     unblockParticipant,
-    refetchCustomerCollaborationReads: accountId ? () => refetchCustomerCollaborationReads() : undefined,
+    refetchCustomerCollaborationReads: accountId
+      ? () => refetchCustomerCollaborationReads()
+      : undefined,
     refetchInstructorCollaborationReads: accountId
       ? () => refetchInstructorCollaborationReads()
       : undefined,

@@ -20,7 +20,10 @@ import {
   resolveEnrollmentParticipantsForProfile,
   useCourseEnrollmentCommands,
 } from '../course-enrollments';
-import { presentCanonicalCommandErrorWithContext, useManagedParticipants } from '../lesson-bookings';
+import {
+  presentCanonicalCommandErrorWithContext,
+  useManagedParticipants,
+} from '../lesson-bookings';
 
 /**
  * Course use-cases belong at the feature boundary. The course store itself only

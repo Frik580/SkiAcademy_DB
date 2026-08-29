@@ -7,10 +7,7 @@ import {
   getCabinetSessionTitle,
   sessionItemKey,
 } from '../../../../features/course-enrollments/sessionScheduleHelpers';
-import {
-  formatCountdownRemaining,
-  formatSessionDayLabel,
-} from './studentCabinetUtils';
+import { formatCountdownRemaining, formatSessionDayLabel } from './studentCabinetUtils';
 import { ScDivider, ScTextButton, ScTintCard } from './StudentCabinetUI';
 import { BookingCallCoachButton } from './BookingCallCoachButton';
 import { RecommendationIndicator } from '../RecommendationIndicator';
@@ -103,7 +100,10 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
             {session.kind === 'lesson' && (
               <div className="flex flex-wrap gap-4 pt-1">
                 <BookingCallCoachButton
-                  booking={cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')}
+                  booking={cabinetItemToLegacyPresentation(
+                    session.session,
+                    usersList[0]?.uid ?? ''
+                  )}
                   courses={courses}
                   instructors={instructors}
                   usersList={usersList}
@@ -147,12 +147,12 @@ const SessionCard = memo<
           hasBookingRecommendations(
             cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
           ) && (
-          <RecommendationIndicator
-            pending={hasPendingRecommendations(
-              cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
-            )}
-          />
-        )}
+            <RecommendationIndicator
+              pending={hasPendingRecommendations(
+                cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
+              )}
+            />
+          )}
       </p>
       <p className="text-sm text-[var(--ink-dim)]">
         {isCourseDay
@@ -318,7 +318,10 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                       ) && (
                         <RecommendationIndicator
                           pending={hasPendingRecommendations(
-                            cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
+                            cabinetItemToLegacyPresentation(
+                              session.session,
+                              usersList[0]?.uid ?? ''
+                            )
                           )}
                         />
                       )}
@@ -357,7 +360,9 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                           }
                         >
                           {t('chat')}
-                          <ChatUnreadIndicator show={hasUnreadChat?.(session.session.id) ?? false} />
+                          <ChatUnreadIndicator
+                            show={hasUnreadChat?.(session.session.id) ?? false}
+                          />
                         </ScTextButton>
                         <BookingCallCoachButton
                           booking={cabinetItemToLegacyPresentation(

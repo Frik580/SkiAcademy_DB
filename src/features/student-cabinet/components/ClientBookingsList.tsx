@@ -394,7 +394,8 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                           </p>
                           <div className="flex items-center gap-2 flex-wrap text-xs text-[var(--ink-dim)]">
                             <span className="inline-flex items-center gap-1">
-                              <Calendar className="w-3.5 h-3.5 text-[var(--accent)]" /> {displayDate}
+                              <Calendar className="w-3.5 h-3.5 text-[var(--accent)]" />{' '}
+                              {displayDate}
                             </span>
                             <span className="inline-flex items-center gap-1">
                               <Clock className="w-3.5 h-3.5 text-[var(--accent)]" /> {displayTime}
@@ -411,7 +412,9 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
 
                       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-3">
                         <div>
-                          <span className="text-xs text-[var(--ink-dim)] block">{t('totalFee')}</span>
+                          <span className="text-xs text-[var(--ink-dim)] block">
+                            {t('totalFee')}
+                          </span>
                           <span className="text-lg font-serif text-[var(--ink)]">
                             {b.payment.kind === 'visible' && b.totalPrice !== undefined
                               ? `$${b.totalPrice}`
@@ -510,7 +513,8 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                           {sessionDisplayTitle(item)}
                         </h4>
                         <p className="text-xs text-[var(--ink-dim)]">
-                          {item.participantName} · {formatCourseDayDateLabel(item, language === 'ru' ? 'ru' : 'en')}
+                          {item.participantName} ·{' '}
+                          {formatCourseDayDateLabel(item, language === 'ru' ? 'ru' : 'en')}
                         </p>
                         <div className="flex items-center gap-2 flex-wrap text-xs text-[var(--ink-dim)]">
                           <span className="inline-flex items-center gap-1">

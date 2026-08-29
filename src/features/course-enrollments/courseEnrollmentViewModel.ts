@@ -36,11 +36,7 @@ export function isEnrolledInCourse(
   );
 }
 
-function timestampToDateString(
-  seconds: number,
-  nanoseconds: number,
-  timeZone: string
-): string {
+function timestampToDateString(seconds: number, nanoseconds: number, timeZone: string): string {
   return canonicalTimestampToLocalParts(seconds, nanoseconds, timeZone).date;
 }
 

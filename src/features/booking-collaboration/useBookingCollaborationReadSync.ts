@@ -5,17 +5,12 @@ import {
   queryLessonBookingReadModels,
   queryParticipantInstructorAccessReadModels,
 } from '../../lib/canonical/canonicalReadModelClient';
-import {
-  InstructorIdSchema,
-  ParticipantIdSchema,
-} from '@ski-academy/shared-domain';
+import { InstructorIdSchema, ParticipantIdSchema } from '@ski-academy/shared-domain';
 import { useBookingCollaborationStore } from './bookingCollaborationStore';
 import { mergeProposalRecords } from './proposalViewModel';
 import { mergeChangeRequestRecords } from './changeRequestViewModel';
 import { mergeInstructorLessonBookingRecords } from './instructorLessonBookingViewModel';
-import {
-  storeParticipantAccessItem,
-} from './participantAccessViewModel';
+import { storeParticipantAccessItem } from './participantAccessViewModel';
 import { participantInstructorAccessKey } from './deriveCollaborationIdempotencyKeys';
 import { mergeLessonBookingRecords } from '../lesson-bookings/lessonBookingViewModel';
 import { useLessonBookingStore } from '../lesson-bookings/lessonBookingStore';
@@ -34,7 +29,9 @@ async function loadCustomerCollaborationReads(): Promise<void> {
   ]);
   useBookingCollaborationStore
     .getState()
-    .mergeProposals(mergeProposalRecords(useBookingCollaborationStore.getState().proposals, proposals.items));
+    .mergeProposals(
+      mergeProposalRecords(useBookingCollaborationStore.getState().proposals, proposals.items)
+    );
   useBookingCollaborationStore
     .getState()
     .mergeChangeRequests(
@@ -61,7 +58,9 @@ async function loadInstructorCollaborationReads(): Promise<void> {
     );
   useBookingCollaborationStore
     .getState()
-    .mergeProposals(mergeProposalRecords(useBookingCollaborationStore.getState().proposals, proposals.items));
+    .mergeProposals(
+      mergeProposalRecords(useBookingCollaborationStore.getState().proposals, proposals.items)
+    );
   useBookingCollaborationStore
     .getState()
     .mergeChangeRequests(

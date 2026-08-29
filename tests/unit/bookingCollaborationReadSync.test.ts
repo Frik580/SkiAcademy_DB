@@ -9,7 +9,8 @@ const queryBookingChangeRequestReadModelsMock = vi.fn();
 
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryLessonBookingReadModels: (...args: unknown[]) => queryLessonBookingReadModelsMock(...args),
-  queryBookingProposalReadModels: (...args: unknown[]) => queryBookingProposalReadModelsMock(...args),
+  queryBookingProposalReadModels: (...args: unknown[]) =>
+    queryBookingProposalReadModelsMock(...args),
   queryBookingChangeRequestReadModels: (...args: unknown[]) =>
     queryBookingChangeRequestReadModelsMock(...args),
 }));

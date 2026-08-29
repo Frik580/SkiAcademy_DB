@@ -35,7 +35,8 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
   const isFull = catalogOperational?.isFull ?? availableSeats === 0;
   const isCapacityFrozen = catalogOperational?.isCapacityFrozen ?? false;
   const isEnrollmentEligible = catalogOperational?.isEnrollmentEligible ?? !isFull;
-  const displayPriceMinorUnits = catalogOperational?.priceMinorUnits ?? course.priceKZT ?? course.price;
+  const displayPriceMinorUnits =
+    catalogOperational?.priceMinorUnits ?? course.priceKZT ?? course.price;
 
   return (
     <div className="relative">
@@ -86,11 +87,7 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
           <div className="w-full h-1.5 bg-black/10 dark:bg-white/5 border border-[var(--border)] overflow-hidden">
             <div
               className={`h-full transition-all duration-500 ${
-                isFull
-                  ? 'bg-rose-500'
-                  : availableSeats <= 3
-                    ? 'bg-amber-500'
-                    : 'bg-emerald-500'
+                isFull ? 'bg-rose-500' : availableSeats <= 3 ? 'bg-amber-500' : 'bg-emerald-500'
               }`}
               style={{ width: `${Math.max(0, Math.min(100, seatsPercentage))}%` }}
             />

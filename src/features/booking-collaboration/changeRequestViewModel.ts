@@ -48,7 +48,5 @@ export function selectOpenChangeRequestForBooking(
   items: readonly BookingChangeRequestCabinetItem[],
   bookingId: string
 ): BookingChangeRequestCabinetItem | undefined {
-  return items.find(
-    (item) => item.bookingId === bookingId && item.lifecycleStatus === 'open'
-  );
+  return items.find((item) => item.bookingId === bookingId && item.lifecycleStatus === 'open');
 }

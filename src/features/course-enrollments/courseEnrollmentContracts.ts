@@ -67,8 +67,7 @@ export interface CourseDaySessionItem {
 }
 
 export type CabinetSessionItem =
-  | { readonly kind: 'lesson'; readonly session: LessonBookingCabinetItem }
-  | CourseDaySessionItem;
+  { readonly kind: 'lesson'; readonly session: LessonBookingCabinetItem } | CourseDaySessionItem;
 
 export interface CourseEnrollmentSubmissionIdentity {
   readonly enrollmentId: string;

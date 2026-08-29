@@ -37,8 +37,7 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
   const scopedProposals = useMemo(() => {
     if (!participantId) return proposals.filter((proposal) => proposal.lifecycleStatus === 'open');
     return proposals.filter(
-      (proposal) =>
-        proposal.lifecycleStatus === 'open' && proposal.participantId === participantId
+      (proposal) => proposal.lifecycleStatus === 'open' && proposal.participantId === participantId
     );
   }, [participantId, proposals]);
 

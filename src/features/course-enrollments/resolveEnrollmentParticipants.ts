@@ -6,7 +6,10 @@ import { deriveExercisedCapabilityFromParticipants } from '../lesson-bookings/us
 export function resolveEnrollmentParticipantsForProfile(
   managedParticipants: readonly ManagedParticipantOption[],
   customProfile?: UserProfile
-): { readonly participantIds: readonly string[]; readonly exercisedCapability: ClientCallableCapability } {
+): {
+  readonly participantIds: readonly string[];
+  readonly exercisedCapability: ClientCallableCapability;
+} {
   if (managedParticipants.length === 0) {
     throw new Error('No managed participants are available for enrollment.');
   }

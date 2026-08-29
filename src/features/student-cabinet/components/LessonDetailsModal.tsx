@@ -4,10 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { X, Star } from 'lucide-react';
 import { Booking } from '../../../types';
 import { useLanguage, formatShortBookingDate } from '../../../app/providers/LanguageContext';
-import {
-  getDifficultyShort,
-  formatBookingDayMonth,
-} from './student/studentCabinetUtils';
+import { getDifficultyShort, formatBookingDayMonth } from './student/studentCabinetUtils';
 import { LessonRecommendationsList } from './LessonRecommendationsList';
 import { Course } from '../../../types';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';

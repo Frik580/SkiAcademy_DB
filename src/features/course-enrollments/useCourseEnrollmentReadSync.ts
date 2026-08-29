@@ -5,10 +5,7 @@ import {
   queryCourseEnrollmentReadModels,
 } from '../../lib/canonical/canonicalReadModelClient';
 import { useCourseEnrollmentStore } from './courseEnrollmentStore';
-import {
-  mergeCatalogRecords,
-  mergeCourseEnrollmentRecords,
-} from './courseEnrollmentViewModel';
+import { mergeCatalogRecords, mergeCourseEnrollmentRecords } from './courseEnrollmentViewModel';
 import { readGuestCourseEnrollmentCredential } from './guestCourseEnrollmentCredentialStorage';
 
 export function useCourseEnrollmentReadSync(enabled: boolean, accountId: string | undefined) {

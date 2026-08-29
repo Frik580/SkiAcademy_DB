@@ -72,11 +72,13 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   const isFull = catalogOperational?.isFull ?? availableSeats === 0;
   const isCapacityFrozen = catalogOperational?.isCapacityFrozen ?? false;
   const isEnrollmentEligible = catalogOperational?.isEnrollmentEligible ?? !isFull;
-  const displayPriceMinorUnits = catalogOperational?.priceMinorUnits ?? rawCourse.priceKZT ?? rawCourse.price;
+  const displayPriceMinorUnits =
+    catalogOperational?.priceMinorUnits ?? rawCourse.priceKZT ?? rawCourse.price;
   const scheduleStart = catalogOperational?.scheduleSummaryStartDate;
   const scheduleEnd = catalogOperational?.scheduleSummaryEndDate;
   const legacyDates = splitCourseDates(course.dates, language);
-  const datePart = scheduleStart && scheduleEnd ? `${scheduleStart} – ${scheduleEnd}` : legacyDates.datePart;
+  const datePart =
+    scheduleStart && scheduleEnd ? `${scheduleStart} – ${scheduleEnd}` : legacyDates.datePart;
   const cardDate = datePart ? formatCourseCardDate(datePart) : '';
   const cardDuration = formatCourseCardDuration(course.duration);
   const enrollmentBooking = undefined;

@@ -26,15 +26,11 @@ export const ParticipantAccessControls: React.FC<ParticipantAccessControlsProps>
   const actions = access?.authorizedActions;
 
   if (!access || !actions) {
-    return loading ? (
-      <p className="text-xs text-[var(--ink-dim)]">{copy.t('loading')}</p>
-    ) : null;
+    return loading ? <p className="text-xs text-[var(--ink-dim)]">{copy.t('loading')}</p> : null;
   }
 
-  const managerBlockActive =
-    scope === 'account_manager' && access.managerBlockStatus === 'active';
-  const instructorBlockActive =
-    scope === 'instructor' && access.instructorBlockStatus === 'active';
+  const managerBlockActive = scope === 'account_manager' && access.managerBlockStatus === 'active';
+  const instructorBlockActive = scope === 'instructor' && access.instructorBlockStatus === 'active';
 
   return (
     <div className="space-y-4 rounded-xl border border-[var(--border-subtle)] p-4">
@@ -64,7 +60,9 @@ export const ParticipantAccessControls: React.FC<ParticipantAccessControlsProps>
             </button>
           )}
           {access.relationshipStatus === 'active' && !actions.canRevokeRelationship && (
-            <span className="text-xs text-[var(--ink-dim)]">{copy.t('collabRelationshipActive')}</span>
+            <span className="text-xs text-[var(--ink-dim)]">
+              {copy.t('collabRelationshipActive')}
+            </span>
           )}
         </div>
       </div>

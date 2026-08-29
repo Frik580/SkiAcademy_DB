@@ -103,7 +103,9 @@ describe('courseEnrollmentViewModel', () => {
     expect(mixed.some((item) => item.kind === 'lesson')).toBe(true);
     expect(mixed.some((item) => item.kind === 'course_day')).toBe(true);
     const keys = mixed.map((item) =>
-      item.kind === 'lesson' ? `${item.session.date}T${item.session.time}` : `${item.date}T${item.time}`
+      item.kind === 'lesson'
+        ? `${item.session.date}T${item.session.time}`
+        : `${item.date}T${item.time}`
     );
     const sorted = [...keys].sort((a, b) => b.localeCompare(a));
     expect(keys).toEqual(sorted);

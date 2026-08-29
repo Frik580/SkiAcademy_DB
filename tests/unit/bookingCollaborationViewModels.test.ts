@@ -84,9 +84,9 @@ describe('booking collaboration idempotency keys', () => {
     expect(deriveWithdrawCancellationIdempotencyKey('booking_a', 4)).toBe(
       'withdraw-cancel:booking_a:4'
     );
-    expect(
-      deriveRescheduleBookingIdempotencyKey('booking_a', 4, '2026-06-16', '10:00')
-    ).toBe('reschedule:booking_a:4:2026-06-16:10:00');
+    expect(deriveRescheduleBookingIdempotencyKey('booking_a', 4, '2026-06-16', '10:00')).toBe(
+      'reschedule:booking_a:4:2026-06-16:10:00'
+    );
     expect(deriveAcceptProposalIdempotencyKey('booking_proposal_a', 2)).toBe(
       'accept-proposal:booking_proposal_a:2'
     );

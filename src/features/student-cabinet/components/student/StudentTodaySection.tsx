@@ -51,10 +51,7 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
     return [{ session: nextSession, dateStr: sessionDisplayDate(nextSession) }];
   }, [nextSessions, nextSession]);
 
-  const todayCountdown = useMemo(
-    () => getTodaySessionCountdown(sessionItems),
-    [sessionItems]
-  );
+  const todayCountdown = useMemo(() => getTodaySessionCountdown(sessionItems), [sessionItems]);
 
   const nextStepAction = useMemo(() => {
     if (!userProfile) return null;

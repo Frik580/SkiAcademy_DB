@@ -36,9 +36,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-xl bg-[var(--card-bg)] p-5 shadow-xl space-y-4">
         <h3 className="text-lg font-serif text-[var(--ink)]">{copy.createProposal}</h3>
-        {participantLabel && (
-          <p className="text-sm text-[var(--ink-dim)]">{participantLabel}</p>
-        )}
+        {participantLabel && <p className="text-sm text-[var(--ink-dim)]">{participantLabel}</p>}
         <div className="grid grid-cols-2 gap-3">
           <label className="text-xs text-[var(--ink-dim)] space-y-1">
             <span>{copy.t('selectDate')}</span>

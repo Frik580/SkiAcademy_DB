@@ -10,6 +10,7 @@ import {
   E2E_PROJECT_ID,
   E2E_STUDENT_B_EMAIL,
   E2E_STUDENT_B_PASSWORD,
+  E2E_STUDENT_DISPLAY_NAME,
   E2E_STUDENT_EMAIL,
   E2E_STUDENT_PASSWORD,
   FIRESTORE_EMULATOR_HOST,
@@ -41,6 +42,7 @@ export {
   E2E_INSTRUCTOR_ID,
   E2E_INSTRUCTOR_NAME,
   E2E_CHILD_DISPLAY_NAME,
+  E2E_STUDENT_DISPLAY_NAME,
 };
 
 export interface E2ERuntimeConfig {
@@ -49,6 +51,7 @@ export interface E2ERuntimeConfig {
   studentPassword: string;
   studentUid: string;
   studentParticipantId: string;
+  studentDisplayName: string;
   studentChildParticipantId: string;
   studentChildDisplayName: string;
   studentBEmail: string;
@@ -307,7 +310,7 @@ async function seedCanonicalFirestoreFixtures(
   await seedStudentAccount({
     studentUid,
     email: E2E_STUDENT_EMAIL,
-    displayName: 'E2E Student',
+    displayName: E2E_STUDENT_DISPLAY_NAME,
     childParticipantId: studentChildParticipantId,
     childParticipantManagementId: studentChildParticipantManagementId,
     childDisplayName: E2E_CHILD_DISPLAY_NAME,
@@ -394,6 +397,7 @@ export default async function globalSetup(): Promise<void> {
     studentPassword: E2E_STUDENT_PASSWORD,
     studentUid,
     studentParticipantId: participantIds.studentParticipantId,
+    studentDisplayName: E2E_STUDENT_DISPLAY_NAME,
     studentChildParticipantId: participantIds.studentChildParticipantId,
     studentChildDisplayName: E2E_CHILD_DISPLAY_NAME,
     studentBEmail: E2E_STUDENT_B_EMAIL,

@@ -378,13 +378,15 @@ function recordCourseDayAttendanceHandler(
       attendanceDocumentPath = attendancePath(attendanceId);
 
       if (effectiveExistingAttendance) {
+        const attendanceStatusUnchanged =
+          effectiveExistingAttendance.attendanceStatus === envelope.intent.attendanceStatus;
         assertExpectedRevision({
           correlationId: envelope.context.correlationId,
           expectedRevision: envelope.intent.expectedAttendanceRevision,
           currentRevision: effectiveExistingAttendance.revision,
-          requireExpectedRevision: true,
+          requireExpectedRevision: !attendanceStatusUnchanged,
         });
-        if (effectiveExistingAttendance.attendanceStatus === envelope.intent.attendanceStatus) {
+        if (attendanceStatusUnchanged) {
           plannedAttendance = effectiveExistingAttendance;
           attendanceMutation = 'update';
         } else {

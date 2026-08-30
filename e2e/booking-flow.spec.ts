@@ -71,6 +71,7 @@ test.describe('booking flow', () => {
 
     await openStudentBookingModal(page, runtimeConfig);
     await fillBookingSelectors(page, uniqueDayOffset(5, testInfo), {
+      participantDisplayName: runtimeConfig.studentDisplayName,
       time: uniqueTimeSlot(testInfo),
     });
     await waitForFunctionsEmulatorReady();

@@ -32,6 +32,7 @@ test.describe('booking migration invariants', () => {
 
     await openStudentBookingModal(page, runtimeConfig);
     await fillBookingSelectors(page, uniqueDayOffset(10, testInfo), {
+      participantDisplayName: runtimeConfig.studentDisplayName,
       time: uniqueTimeSlot(testInfo),
     });
     await waitForFunctionsEmulatorReady();
@@ -55,6 +56,7 @@ test.describe('booking migration invariants', () => {
       password: runtimeConfig.studentBPassword,
       instructorId: runtimeConfig.instructorId,
       participantIds: [runtimeConfig.studentBParticipantId],
+      exercisedCapability: 'account_owner',
       localDate: authoritativeSlot!.localDate,
       localTime: authoritativeSlot!.localTime,
       timezone: authoritativeSlot!.timezone,
@@ -101,6 +103,7 @@ test.describe('booking migration invariants', () => {
 
     await openStudentBookingModal(page, runtimeConfig);
     await fillBookingSelectors(page, uniqueDayOffset(12, testInfo), {
+      participantDisplayName: runtimeConfig.studentDisplayName,
       time: uniqueTimeSlot(testInfo),
     });
     await waitForFunctionsEmulatorReady();
@@ -177,6 +180,15 @@ test.describe('booking migration invariants', () => {
     const runtimeConfig = loadRuntimeConfig();
     const blockingBefore = await countBlockingBookingsForInstructor(runtimeConfig.instructorId);
 
+    await openStudentBookingModal(page, runtimeConfig);
+    const bookingModal = page.locator('.ui-modal').filter({
+      has: page.getByRole('button', { name: 'Date', exact: true }),
+    });
+    await fillBookingSelectors(page, uniqueDayOffset(14, testInfo), {
+      participantDisplayName: runtimeConfig.studentDisplayName,
+      time: uniqueTimeSlot(testInfo),
+    });
+
     await page.route('**/*executeCanonicalCommand*', async (route) => {
       if (route.request().method() !== 'POST') {
         await route.continue();
@@ -194,13 +206,6 @@ test.describe('booking migration invariants', () => {
       });
     });
 
-    await openStudentBookingModal(page, runtimeConfig);
-    const bookingModal = page.locator('.ui-modal').filter({
-      has: page.getByRole('button', { name: 'Date', exact: true }),
-    });
-    await fillBookingSelectors(page, uniqueDayOffset(14, testInfo), {
-      time: uniqueTimeSlot(testInfo),
-    });
     await waitForFunctionsEmulatorReady();
     await page.getByRole('button', { name: /Confirm — deduct .+ from balance/ }).click();
 

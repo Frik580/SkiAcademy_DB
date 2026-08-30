@@ -9,6 +9,8 @@ import {
   type QueryCourseCatalogReadModelsResult,
   type QueryCourseEnrollmentReadModelsInput,
   type QueryCourseEnrollmentReadModelsResult,
+  type QueryInstructorCourseAssignmentReadModelsInput,
+  type QueryInstructorCourseAssignmentReadModelsResult,
   type QueryLessonBookingReadModelsInput,
   type QueryLessonBookingReadModelsResult,
   type QueryManagedParticipantPickerReadModelsInput,
@@ -29,6 +31,8 @@ export const QUERY_PARTICIPANT_INSTRUCTOR_ACCESS_READ_MODELS_CALLABLE =
 export const QUERY_COURSE_ENROLLMENT_READ_MODELS_CALLABLE = 'queryCourseEnrollmentReadModels';
 export const QUERY_COURSE_CATALOG_READ_MODELS_CALLABLE = 'queryCourseCatalogReadModels';
 export const QUERY_COURSE_ATTENDANCE_READ_MODELS_CALLABLE = 'queryCourseAttendanceReadModels';
+export const QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE =
+  'queryInstructorCourseAssignmentReadModels';
 
 function createLessonBookingReadModelIdempotencyKey(
   input: QueryLessonBookingReadModelsInput
@@ -193,4 +197,17 @@ export async function queryCourseAttendanceReadModels(
     input,
     { idempotencyKey, maxAttempts: 1 }
   );
+}
+
+export async function queryInstructorCourseAssignmentReadModels(
+  input: QueryInstructorCourseAssignmentReadModelsInput
+): Promise<QueryInstructorCourseAssignmentReadModelsResult> {
+  const idempotencyKey = `read:instructor_course_assignment:${input.scope}`;
+  return callFunction<
+    QueryInstructorCourseAssignmentReadModelsInput,
+    QueryInstructorCourseAssignmentReadModelsResult
+  >(QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE, input, {
+    idempotencyKey,
+    maxAttempts: 1,
+  });
 }

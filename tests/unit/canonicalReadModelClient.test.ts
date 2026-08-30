@@ -4,6 +4,7 @@ import {
   queryBookingChangeRequestReadModels,
   queryBookingProposalReadModels,
   queryCourseCatalogReadModels,
+  queryInstructorCourseAssignmentReadModels,
   queryLessonBookingReadModels,
   queryParticipantInstructorAccessReadModels,
 } from '../../src/lib/canonical/canonicalReadModelClient';
@@ -11,6 +12,7 @@ import {
   QUERY_BOOKING_CHANGE_REQUEST_READ_MODELS_CALLABLE,
   QUERY_BOOKING_PROPOSAL_READ_MODELS_CALLABLE,
   QUERY_COURSE_CATALOG_READ_MODELS_CALLABLE,
+  QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE,
   QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE,
   QUERY_PARTICIPANT_INSTRUCTOR_ACCESS_READ_MODELS_CALLABLE,
 } from '../../src/lib/canonical/canonicalReadModelClient';
@@ -133,6 +135,27 @@ describe('canonicalReadModelClient', () => {
       { scope: 'public' },
       expect.objectContaining({
         idempotencyKey: 'read:course_catalog:public:all',
+        maxAttempts: 1,
+      })
+    );
+  });
+
+  it('calls queryInstructorCourseAssignmentReadModels callable with instructor_assigned scope', async () => {
+    callFunctionMock.mockResolvedValueOnce({
+      scope: 'instructor_assigned',
+      items: [],
+    });
+
+    const result = await queryInstructorCourseAssignmentReadModels({
+      scope: 'instructor_assigned',
+    });
+
+    expect(result.scope).toBe('instructor_assigned');
+    expect(callFunctionMock).toHaveBeenCalledWith(
+      QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE,
+      { scope: 'instructor_assigned' },
+      expect.objectContaining({
+        idempotencyKey: 'read:instructor_course_assignment:instructor_assigned',
         maxAttempts: 1,
       })
     );

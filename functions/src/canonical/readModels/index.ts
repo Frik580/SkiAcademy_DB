@@ -14,4 +14,6 @@ export * from './courseCatalogReadModels';
 export * from './queryCourseCatalogReadModelsCallable';
 export * from './courseAttendanceReadModels';
 export * from './queryCourseAttendanceReadModelsCallable';
+export * from './instructorCourseAssignmentReadModels';
+export * from './queryInstructorCourseAssignmentReadModelsCallable';
 export * from './courseDayScheduleProjectionSupport';

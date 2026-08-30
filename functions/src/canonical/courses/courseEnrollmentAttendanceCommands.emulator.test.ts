@@ -29,6 +29,7 @@ import {
   initialCourseDayOccurrenceId,
   missingCourseDayAttendanceIssueIdentity,
   paymentIdFromCourseEnrollmentId,
+  readAggregateRevision,
   resolveCommandIdempotencyIdentity,
   canonicalPaths,
   canonicalTimestampToEpochMs,
@@ -145,6 +146,7 @@ function recordEnvelope(
   idempotencyKey: string,
   options: {
     expectedAttendanceRevision?: number;
+    expectedEnrollmentRevision?: number;
     instructorAccountId?: typeof instructorAccountId;
     instructorId?: typeof instructorId;
   } = {}
@@ -163,6 +165,13 @@ function recordEnvelope(
         : {
             expectedAttendanceRevision: AggregateRevisionSchema.parse(
               options.expectedAttendanceRevision
+            ),
+          }),
+      ...(options.expectedEnrollmentRevision === undefined
+        ? {}
+        : {
+            expectedEnrollmentRevision: AggregateRevisionSchema.parse(
+              options.expectedEnrollmentRevision
             ),
           }),
     },
@@ -218,6 +227,18 @@ function attendanceIdFor(courseDayId: typeof courseDayOneId): string {
     enrollmentId,
     courseDayId,
   });
+}
+
+async function readAttendanceRevision(
+  courseDayId: typeof courseDayOneId
+): Promise<number | undefined> {
+  const attendance = await firestore.doc(`attendance/${attendanceIdFor(courseDayId)}`).get();
+  return readAggregateRevision(attendance.data() as Record<string, unknown> | undefined);
+}
+
+async function readEnrollmentRevision(): Promise<number | undefined> {
+  const enrollment = await firestore.doc(`course_enrollments/${enrollmentId}`).get();
+  return readAggregateRevision(enrollment.data() as Record<string, unknown> | undefined);
 }
 
 function isoFromTimestamp(timestamp: { seconds: number; nanoseconds: number }): string {
@@ -683,6 +704,70 @@ describeEmulator('courseEnrollmentAttendanceCommands emulator', () => {
 
     const activityLogs = await firestore.collection('activity_logs').get();
     expect(activityLogs.size).toBeGreaterThanOrEqual(1);
+  }, 30_000);
+
+  it('C. present -> absent -> present with distinct idempotency keys', async () => {
+    const commands = createCommands('2026-02-01T04:00:00.000Z');
+    const attemptPresentA = 'attempt-present-a';
+    const attemptAbsentB = 'attempt-absent-b';
+    const attemptPresentC = 'attempt-present-c';
+
+    const envelopeA = recordEnvelope(courseDayOneId, 'present', attemptPresentA);
+    const resultA = await commands.execute(envelopeA);
+    expect(resultA.status).toBe('success');
+    expect(envelopeA.intent.expectedAttendanceRevision).toBeUndefined();
+    expect(envelopeA.intent.expectedEnrollmentRevision).toBeUndefined();
+
+    const retryA = await commands.execute(envelopeA);
+    expect(retryA.status).toBe('success');
+
+    const revisionAfterA = await readAttendanceRevision(courseDayOneId);
+    expect(revisionAfterA).toBe(1);
+    const enrollmentRevisionAfterA = await readEnrollmentRevision();
+    expect(enrollmentRevisionAfterA).toBe(2);
+
+    const envelopeB = recordEnvelope(courseDayOneId, 'absent', attemptAbsentB, {
+      expectedAttendanceRevision: revisionAfterA,
+    });
+    expect(envelopeB.intent.expectedAttendanceRevision).toBe(1);
+    expect(envelopeB.intent.expectedEnrollmentRevision).toBeUndefined();
+
+    const resultB = await commands.execute(envelopeB);
+    if (resultB.status === 'error') {
+      throw new Error(
+        `absent(B) failed: code=${resultB.error.code} details=${JSON.stringify(resultB.error.details)} currentRevision=${String(resultB.error.currentRevision)}`
+      );
+    }
+    expect(resultB.status).toBe('success');
+
+    const revisionAfterB = await readAttendanceRevision(courseDayOneId);
+    expect(revisionAfterB).toBe(2);
+    const enrollmentRevisionAfterB = await readEnrollmentRevision();
+    expect(enrollmentRevisionAfterB).toBe(3);
+
+    const envelopeC = recordEnvelope(courseDayOneId, 'present', attemptPresentC, {
+      expectedAttendanceRevision: revisionAfterB,
+    });
+    expect(envelopeC.intent.expectedAttendanceRevision).toBe(2);
+    expect(envelopeC.intent.expectedEnrollmentRevision).toBeUndefined();
+
+    const resultC = await commands.execute(envelopeC);
+    if (resultC.status === 'error') {
+      throw new Error(
+        `present(C) failed: code=${resultC.error.code} details=${JSON.stringify(resultC.error.details)} currentRevision=${String(resultC.error.currentRevision)}`
+      );
+    }
+    expect(resultC.status).toBe('success');
+
+    const attendanceId = attendanceIdFor(courseDayOneId);
+    const attendance = await firestore.doc(`attendance/${attendanceId}`).get();
+    expect(attendance.exists).toBe(true);
+    expect(attendance.data()?.attendanceStatus).toBe('present');
+    expect(attendance.data()?.revision).toBe(3);
+
+    const attendanceDocs = await firestore.collection('attendance').get();
+    expect(attendanceDocs.size).toBe(1);
+    expect(attendanceDocs.docs[0]?.id).toBe(attendanceId);
   }, 30_000);
 
   it('B. concurrent present vs absent same occurrence -> one winner, revision 1', async () => {

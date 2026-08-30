@@ -19,7 +19,8 @@ import {
   isClientSelfServiceRescheduleAllowanceAvailable,
   isRescheduleEligibleBooking,
 } from './bookingReschedulePolicy';
-import type { AccountId, InstructorId, ParticipantId, ParticipantManagementId } from './identifiers';
+import type { AccountId, CourseDayId, InstructorId, ParticipantId, ParticipantManagementId } from './identifiers';
+import { sortedCourseDays } from './courseEnrollmentCreation';
 import type { CanonicalTimestamp } from './primitives';
 import type {
   BookingChangeRequestReadModelAuthorizedActions,
@@ -420,17 +421,52 @@ export function evaluateCourseEnrollmentAuthorizedActions(input: Readonly<{
   };
 }
 
+export function resolveInstructorCourseAssignmentProjection(input: Readonly<{
+  instructorId: InstructorId;
+  course: Course;
+  courseDays: readonly CourseDay[];
+}>): { readonly allowed: boolean; readonly assignedCourseDayIds: readonly CourseDayId[] } {
+  const onRoster = input.course.instructorRosterIds.includes(input.instructorId);
+  const orderedDays = sortedCourseDays(input.courseDays);
+  if (onRoster) {
+    return {
+      allowed: true,
+      assignedCourseDayIds: orderedDays.map((courseDay) => courseDay.courseDayId),
+    };
+  }
+
+  const assignedCourseDayIds = orderedDays
+    .filter((courseDay) => instructorAssignedToCourseDay(courseDay, input.instructorId))
+    .map((courseDay) => courseDay.courseDayId);
+  return {
+    allowed: assignedCourseDayIds.length > 0,
+    assignedCourseDayIds,
+  };
+}
+
+export function evaluateInstructorCourseRosterReadAccess(input: Readonly<{
+  instructorId: InstructorId;
+  course: Course;
+  courseDays: readonly CourseDay[];
+}>): { readonly allowed: boolean } {
+  return { allowed: resolveInstructorCourseAssignmentProjection(input).allowed };
+}
+
+export function isInstructorActiveRosterEnrollment(
+  enrollment: Pick<CourseEnrollment, 'lifecycle'>
+): boolean {
+  const status = enrollment.lifecycle.status;
+  return status === 'confirmed' || status === 'pending_cancellation';
+}
+
 export function evaluateInstructorCourseEnrollmentRosterAuthorizedActions(input: Readonly<{
   instructorId: InstructorId;
   course: Course;
   courseDays: readonly CourseDay[];
 }>): InstructorCourseEnrollmentRosterAuthorizedActions {
-  const assignedToAnyDay = input.courseDays.some((courseDay) =>
-    instructorAssignedToCourseDay(courseDay, input.instructorId)
-  );
-  const onRoster = input.course.instructorRosterIds.includes(input.instructorId);
+  const access = evaluateInstructorCourseRosterReadAccess(input);
   return {
-    canRecordAttendance: assignedToAnyDay || onRoster,
+    canRecordAttendance: access.allowed,
   };
 }
 

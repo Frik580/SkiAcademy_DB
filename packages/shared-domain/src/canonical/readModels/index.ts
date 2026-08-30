@@ -8,3 +8,4 @@ export * from './courseDayScheduleProjection';
 export * from './courseEnrollmentReadModel';
 export * from './courseCatalogReadModel';
 export * from './courseAttendanceReadModel';
+export * from './instructorCourseAssignmentReadModel';

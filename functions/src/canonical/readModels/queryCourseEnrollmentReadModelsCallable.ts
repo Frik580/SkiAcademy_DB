@@ -11,6 +11,7 @@ import {
   readCallableAccountProfile,
   resolveCallableInstructorId,
 } from './resolveCallableInstructorId';
+import { ReadModelAccessDeniedError } from './readModelAccessDenied';
 
 export function createQueryCourseEnrollmentReadModelsHandler(firestore: Firestore) {
   return async (
@@ -50,10 +51,17 @@ export function createQueryCourseEnrollmentReadModelsHandler(firestore: Firestor
       }
     }
 
-    return queryCourseEnrollmentReadModels(firestore, input, {
-      accountId,
-      instructorId,
-      guestActionSecret: readGuestActionTokenSecret(),
-    });
+    try {
+      return await queryCourseEnrollmentReadModels(firestore, input, {
+        accountId,
+        instructorId,
+        guestActionSecret: readGuestActionTokenSecret(),
+      });
+    } catch (error) {
+      if (error instanceof ReadModelAccessDeniedError) {
+        throw new HttpsError('permission-denied', 'This action is not permitted.');
+      }
+      throw error;
+    }
   };
 }

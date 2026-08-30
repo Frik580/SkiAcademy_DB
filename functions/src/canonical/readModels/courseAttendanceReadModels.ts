@@ -23,6 +23,7 @@ import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
 import {
   loadCourseEnrollmentReadAuthorizationContext,
   loadInstructorRosterEnrollments,
+  assertInstructorCourseRosterReadAccess,
 } from './courseEnrollmentReadModels';
 
 async function loadAttendancesForEnrollment(
@@ -158,6 +159,7 @@ export async function queryCourseAttendanceReadModels(
       data: doc.data() as Record<string, unknown>,
     }))
   );
+  assertInstructorCourseRosterReadAccess({ instructorId, course, courseDays });
   const enrollments = await loadInstructorRosterEnrollments(firestore, courseId);
   const items: CourseAttendanceEnrollmentProjection[] = [];
 

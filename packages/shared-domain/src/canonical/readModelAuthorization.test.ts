@@ -3,6 +3,7 @@ import {
   AccountIdSchema,
   BookingIdSchema,
   BookingProposalIdSchema,
+  CourseDayIdSchema,
   InstructorIdSchema,
   OccurrenceIdSchema,
   ParticipantIdSchema,
@@ -14,8 +15,11 @@ import { BookingChangeRequestIdSchema } from './identifiers';
 import {
   evaluateBookingChangeRequestAuthorizedActions,
   evaluateBookingProposalAuthorizedActions,
+  evaluateInstructorCourseRosterReadAccess,
   evaluateLessonBookingAuthorizedActions,
   evaluateParticipantInstructorAccessAuthorizedActions,
+  isInstructorActiveRosterEnrollment,
+  resolveInstructorCourseAssignmentProjection,
   sanitizeParticipantBlockReasonForReadModel,
 } from './readModelAuthorization';
 import { canonicalParticipantAccessFixtures } from '../testing/accountParticipantAccess';
@@ -286,5 +290,114 @@ describe('readModelAuthorization', () => {
     expect(() =>
       rejectSpoofedParticipantInstructorAccessReadInput({ scope: 'account_manager', accountId })
     ).toThrow(/accountId/);
+  });
+
+  it('allows instructor roster read when instructor is on course roster', () => {
+    const access = evaluateInstructorCourseRosterReadAccess({
+      instructorId,
+      course: {
+        instructorRosterIds: [instructorId],
+      } as Parameters<typeof evaluateInstructorCourseRosterReadAccess>[0]['course'],
+      courseDays: [
+        {
+          actualInstructorIds: [InstructorIdSchema.parse('instructor_other_auth')],
+        } as Parameters<typeof evaluateInstructorCourseRosterReadAccess>[0]['courseDays'][number],
+      ],
+    });
+    expect(access.allowed).toBe(true);
+  });
+
+  it('allows instructor roster read when instructor is assigned to a course day only', () => {
+    const access = evaluateInstructorCourseRosterReadAccess({
+      instructorId,
+      course: {
+        instructorRosterIds: [InstructorIdSchema.parse('instructor_other_auth')],
+      } as Parameters<typeof evaluateInstructorCourseRosterReadAccess>[0]['course'],
+      courseDays: [
+        {
+          actualInstructorIds: [instructorId],
+        } as Parameters<typeof evaluateInstructorCourseRosterReadAccess>[0]['courseDays'][number],
+      ],
+    });
+    expect(access.allowed).toBe(true);
+  });
+
+  it('resolves assigned course day ids for roster and course-day-only instructors', () => {
+    const courseDayId = CourseDayIdSchema.parse('course_day_assignment_auth_01');
+    const otherCourseDayId = CourseDayIdSchema.parse('course_day_assignment_auth_02');
+    const courseDays = [
+      {
+        courseDayId,
+        actualInstructorIds: [instructorId],
+      },
+      {
+        courseDayId: otherCourseDayId,
+        actualInstructorIds: [InstructorIdSchema.parse('instructor_other_auth')],
+      },
+    ] as Parameters<typeof resolveInstructorCourseAssignmentProjection>[0]['courseDays'];
+
+    expect(
+      resolveInstructorCourseAssignmentProjection({
+        instructorId,
+        course: {
+          instructorRosterIds: [instructorId],
+        } as Parameters<typeof resolveInstructorCourseAssignmentProjection>[0]['course'],
+        courseDays,
+      })
+    ).toEqual({
+      allowed: true,
+      assignedCourseDayIds: [courseDayId, otherCourseDayId],
+    });
+
+    expect(
+      resolveInstructorCourseAssignmentProjection({
+        instructorId,
+        course: {
+          instructorRosterIds: [InstructorIdSchema.parse('instructor_other_auth')],
+        } as Parameters<typeof resolveInstructorCourseAssignmentProjection>[0]['course'],
+        courseDays,
+      })
+    ).toEqual({
+      allowed: true,
+      assignedCourseDayIds: [courseDayId],
+    });
+  });
+
+  it('denies instructor roster read for unrelated instructors', () => {
+    const access = evaluateInstructorCourseRosterReadAccess({
+      instructorId,
+      course: {
+        instructorRosterIds: [InstructorIdSchema.parse('instructor_other_auth')],
+      } as Parameters<typeof evaluateInstructorCourseRosterReadAccess>[0]['course'],
+      courseDays: [
+        {
+          actualInstructorIds: [InstructorIdSchema.parse('instructor_third_auth')],
+        } as Parameters<typeof evaluateInstructorCourseRosterReadAccess>[0]['courseDays'][number],
+      ],
+    });
+    expect(access.allowed).toBe(false);
+  });
+
+  it('treats confirmed and pending_cancellation enrollments as active roster participants', () => {
+    expect(
+      isInstructorActiveRosterEnrollment({
+        lifecycle: { status: 'confirmed' },
+      })
+    ).toBe(true);
+    expect(
+      isInstructorActiveRosterEnrollment({
+        lifecycle: { status: 'pending_cancellation', requestedAt: decidedAt },
+      })
+    ).toBe(true);
+    expect(
+      isInstructorActiveRosterEnrollment({
+        lifecycle: { status: 'cancelled', cancelledAt: decidedAt, reasonCode: 'administrator_cancelled' },
+      })
+    ).toBe(false);
+    expect(
+      isInstructorActiveRosterEnrollment({
+        lifecycle: { status: 'pending', reservationExpiresAt: decidedAt },
+      })
+    ).toBe(false);
   });
 });

@@ -2,8 +2,10 @@ import {
   compareCanonicalTimestamps,
   evaluateCourseEnrollmentAuthorizedActions,
   evaluateInstructorCourseEnrollmentRosterAuthorizedActions,
+  evaluateInstructorCourseRosterReadAccess,
   evaluateParticipantManagementAccess,
   isCourseEnrollmentHot,
+  isInstructorActiveRosterEnrollment,
   paymentIdFromCourseEnrollmentId,
   timestampFromDate,
   guestSubjectIdFromCourseEnrollmentId,
@@ -41,6 +43,7 @@ import {
 import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
 import { buildCourseScheduleProjectionReadModel } from './courseDayScheduleProjectionSupport';
 import { loadLessonBookingReadAuthorizationContext } from './lessonBookingReadModels';
+import { ReadModelAccessDeniedError } from './readModelAccessDenied';
 
 export interface CourseEnrollmentReadAuthorizationContext {
   readonly account?: Account;
@@ -246,6 +249,17 @@ export async function buildCourseEnrollmentReadModel(
   };
 }
 
+export function assertInstructorCourseRosterReadAccess(input: {
+  readonly instructorId: InstructorId;
+  readonly course: Course;
+  readonly courseDays: readonly CourseDay[];
+}): void {
+  const access = evaluateInstructorCourseRosterReadAccess(input);
+  if (!access.allowed) {
+    throw new ReadModelAccessDeniedError();
+  }
+}
+
 export async function buildInstructorCourseEnrollmentRosterItem(
   firestore: Firestore,
   instructorId: InstructorId,
@@ -253,11 +267,7 @@ export async function buildInstructorCourseEnrollmentRosterItem(
   course: Course,
   courseDays: readonly CourseDay[]
 ): Promise<InstructorCourseEnrollmentRosterItem | undefined> {
-  const assigned = courseDays.some((courseDay) =>
-    courseDay.actualInstructorIds.includes(instructorId)
-  );
-  const onRoster = course.instructorRosterIds.includes(instructorId);
-  if (!assigned && !onRoster) {
+  if (!isInstructorActiveRosterEnrollment(enrollment)) {
     return undefined;
   }
 
@@ -365,7 +375,7 @@ export async function loadInstructorRosterEnrollments(
   const enrollments: CourseEnrollment[] = [];
   for (const doc of snapshot.docs) {
     const parsed = parseCourseEnrollment(doc.data() as Record<string, unknown>);
-    if (parsed) {
+    if (parsed && isInstructorActiveRosterEnrollment(parsed)) {
       enrollments.push(parsed);
     }
   }
@@ -462,6 +472,7 @@ export async function queryCourseEnrollmentReadModels(
       return { scope: input.scope, items: [], hasMore: false };
     }
     const courseDays = await loadCourseDays(firestore, courseId);
+    assertInstructorCourseRosterReadAccess({ instructorId, course, courseDays });
     const enrollments = await loadInstructorRosterEnrollments(firestore, courseId);
     const items: InstructorCourseEnrollmentRosterItem[] = [];
     for (const enrollment of enrollments) {

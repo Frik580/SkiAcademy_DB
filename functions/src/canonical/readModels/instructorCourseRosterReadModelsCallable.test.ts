@@ -57,7 +57,7 @@ function createFirestore(instructor: InstructorFixture): Firestore {
     collection: (name: string) => {
       if (name === 'users') {
         return {
-          doc: (id: string) => ({
+          doc: () => ({
             get: async () => ({
               exists: true,
               data: () => ({

@@ -1726,10 +1726,7 @@ describe('courses canonical provisioning marker', () => {
   beforeEach(async () => {
     await seedData(async (context) => {
       const db = context.firestore();
-      await setDoc(
-        doc(db, 'users', ADMIN_ID),
-        userProfile(ADMIN_ID, 'admin@example.com', 'admin')
-      );
+      await setDoc(doc(db, 'users', ADMIN_ID), userProfile(ADMIN_ID, 'admin@example.com', 'admin'));
       await setDoc(doc(db, 'courses', CANONICAL_COURSE_ID), {
         courseId: CANONICAL_COURSE_ID,
         title: 'Canonical Marker Course',

@@ -723,6 +723,25 @@ export const translations = {
     instructorCourseAssignedDays: 'Assigned days',
     instructorCourseLifecycleConfirmed: 'Confirmed',
     instructorCourseLifecyclePendingCancellation: 'Pending cancellation',
+    instructorCourseDaysTitle: 'Assigned Course Days',
+    instructorCourseDaysEmpty: 'No assigned course days are available.',
+    instructorCourseDay: 'Course day',
+    instructorCourseDayAssigned: 'Assigned',
+    instructorCourseRosterCount: 'Roster',
+    instructorAttendancePresent: 'Present',
+    instructorAttendanceAbsent: 'Absent',
+    instructorAttendanceMissing: 'Not recorded',
+    instructorAttendanceWindowOpen: 'Attendance window open',
+    instructorAttendanceEditingUnavailable: 'Attendance editing unavailable',
+    instructorAttendanceUnavailableReason:
+      'The canonical attendance policy does not allow changes for this participant and course day.',
+    instructorAttendanceSaving: 'Saving attendance…',
+    instructorAttendanceRefreshing: 'Refreshing attendance…',
+    instructorAttendanceStaleRefreshed:
+      'The latest attendance was loaded. Choose a status again to submit a new change.',
+    instructorAttendanceStaleRefreshFailed:
+      'The attendance changed, but the latest state could not be loaded. Refresh before changing it again.',
+    instructorCourseReadOnly: 'Read-only in this release',
 
     // Booking Modal
     bookLessonWith: 'Book Lesson with',
@@ -2432,6 +2451,25 @@ export const translations = {
     instructorCourseAssignedDays: 'Назначенные дни',
     instructorCourseLifecycleConfirmed: 'Подтверждён',
     instructorCourseLifecyclePendingCancellation: 'Ожидает отмены',
+    instructorCourseDaysTitle: 'Назначенные дни курса',
+    instructorCourseDaysEmpty: 'Нет назначенных дней курса.',
+    instructorCourseDay: 'День курса',
+    instructorCourseDayAssigned: 'Назначен',
+    instructorCourseRosterCount: 'Участников',
+    instructorAttendancePresent: 'Присутствует',
+    instructorAttendanceAbsent: 'Отсутствует',
+    instructorAttendanceMissing: 'Не отмечено',
+    instructorAttendanceWindowOpen: 'Окно отметки посещаемости открыто',
+    instructorAttendanceEditingUnavailable: 'Редактирование посещаемости недоступно',
+    instructorAttendanceUnavailableReason:
+      'Canonical-политика посещаемости не разрешает изменения для этого участника и дня курса.',
+    instructorAttendanceSaving: 'Сохранение посещаемости…',
+    instructorAttendanceRefreshing: 'Обновление посещаемости…',
+    instructorAttendanceStaleRefreshed:
+      'Актуальная посещаемость загружена. Выберите статус ещё раз, чтобы отправить новое изменение.',
+    instructorAttendanceStaleRefreshFailed:
+      'Посещаемость изменилась, но актуальное состояние загрузить не удалось. Обновите данные перед новой попыткой.',
+    instructorCourseReadOnly: 'Только просмотр в этой версии',
 
     // Booking Modal
     bookLessonWith: 'Забронировать урок с',

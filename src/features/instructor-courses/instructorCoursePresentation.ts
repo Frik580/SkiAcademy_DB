@@ -1,6 +1,7 @@
 import type { CourseDayScheduleItem } from '@ski-academy/shared-domain';
 import { canonicalTimestampToLocalParts } from '../lesson-bookings/mapCalendarInput';
 import type { InstructorAssignedCourseRef } from './instructorCourseContracts';
+import type { InstructorCourseDayViewModel } from './instructorCourseContracts';
 
 function formatCourseDayDate(courseDay: CourseDayScheduleItem): string {
   return canonicalTimestampToLocalParts(
@@ -58,4 +59,30 @@ export function formatInstructorCourseAssignedDaysSummary(
   }
 
   return assignedDays.map((courseDay) => String(courseDay.dayOrder)).join(', ');
+}
+
+export function formatInstructorCourseDayDate(
+  courseDay: Pick<InstructorCourseDayViewModel, 'interval' | 'timeZone'>
+): string {
+  return canonicalTimestampToLocalParts(
+    courseDay.interval.startsAt.seconds,
+    courseDay.interval.startsAt.nanoseconds,
+    courseDay.timeZone
+  ).date;
+}
+
+export function formatInstructorCourseDayTimeRange(
+  courseDay: Pick<InstructorCourseDayViewModel, 'interval' | 'timeZone'>
+): string {
+  const start = canonicalTimestampToLocalParts(
+    courseDay.interval.startsAt.seconds,
+    courseDay.interval.startsAt.nanoseconds,
+    courseDay.timeZone
+  ).time;
+  const end = canonicalTimestampToLocalParts(
+    courseDay.interval.endsAt.seconds,
+    courseDay.interval.endsAt.nanoseconds,
+    courseDay.timeZone
+  ).time;
+  return `${start}–${end}`;
 }

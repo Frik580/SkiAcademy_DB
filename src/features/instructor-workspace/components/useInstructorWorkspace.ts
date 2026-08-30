@@ -1,8 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { UserProfile, Instructor, Booking, Review, Course, LessonDifficulty } from '../../../types';
-import {
-  useLanguage,
-} from '../../../app/providers/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../features/notifications';
 import { useTheme } from '../../../hooks/useTheme';
 import { logger } from '../../../shared';

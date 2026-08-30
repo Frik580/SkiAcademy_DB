@@ -7,6 +7,7 @@ import {
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 import {
+  buildInstructorCourseDayViewModels,
   buildInstructorCourseViewModel,
   mapInstructorCourseAssignmentReadModelsToAssignedCourses,
   mapRosterItemToParticipant,
@@ -125,17 +126,25 @@ describe('instructor course view model merge', () => {
   });
 
   it('uses participant displayName from canonical roster projection', () => {
-    const participant = mapRosterItemToParticipant(rosterItem, undefined, courseSchedule.courseDays);
+    const participant = mapRosterItemToParticipant(
+      rosterItem,
+      undefined,
+      courseSchedule.courseDays
+    );
     expect(participant.displayName).toBe('Canonical Student');
     expect(participant.participantId).toBe(participantId);
   });
 
   it('defaults missing attendance to factualState missing', () => {
-    const participant = mapRosterItemToParticipant(rosterItem, undefined, courseSchedule.courseDays);
-    expect(participant.days.every((day) => day.factualState === 'missing')).toBe(true);
-    expect(participant.days.every((day) => day.authorizedActions.canRecordAttendance === false)).toBe(
-      true
+    const participant = mapRosterItemToParticipant(
+      rosterItem,
+      undefined,
+      courseSchedule.courseDays
     );
+    expect(participant.days.every((day) => day.factualState === 'missing')).toBe(true);
+    expect(
+      participant.days.every((day) => day.authorizedActions.canRecordAttendance === false)
+    ).toBe(true);
   });
 
   it('passes enrollment and attendance revisions through', () => {
@@ -231,6 +240,93 @@ describe('instructor course view model merge', () => {
       courseId,
       title: 'BASE — First Turns',
       participants: [],
+    });
+  });
+
+  it('builds ordered assigned-day projections with canonical attendance summaries', () => {
+    const viewModel = buildInstructorCourseViewModel({
+      rosterItems: [rosterItem],
+      attendanceItems: [
+        {
+          enrollmentId,
+          enrollmentRevision: 7,
+          courseId,
+          participantId,
+          participantDisplayName: 'Canonical Student',
+          days: [
+            {
+              courseDayId: courseDayOneId,
+              factualState: 'present',
+              attendanceId: 'attendance_instructor_vm_03',
+              attendanceRevision: 1,
+              attendanceStatus: 'present',
+              courseDayRevision: 11,
+              authorizedActions: { canRecordAttendance: true },
+            },
+            {
+              courseDayId: courseDayTwoId,
+              factualState: 'absent',
+              attendanceId: 'attendance_instructor_vm_04',
+              attendanceRevision: 1,
+              attendanceStatus: 'absent',
+              courseDayRevision: 12,
+              authorizedActions: { canRecordAttendance: false },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(viewModel).toBeDefined();
+    const days = buildInstructorCourseDayViewModels({
+      assignment: { assignedCourseDayIds: [courseDayTwoId, courseDayOneId] },
+      course: viewModel!,
+    });
+
+    expect(days.map((day) => day.courseDayId)).toEqual([courseDayOneId, courseDayTwoId]);
+    expect(days[0]).toMatchObject({
+      title: 'BASE — First Turns',
+      assignmentState: 'assigned',
+      rosterCount: 1,
+      attendanceSummary: { present: 1, absent: 0, missing: 0 },
+      canRecordAttendance: true,
+      participants: [
+        {
+          displayName: 'Canonical Student',
+          enrollmentRevision: 7,
+          factualState: 'present',
+          attendanceRevision: 1,
+        },
+      ],
+    });
+    expect(days[1]).toMatchObject({
+      attendanceSummary: { present: 0, absent: 1, missing: 0 },
+      canRecordAttendance: false,
+      participants: [{ factualState: 'absent' }],
+    });
+  });
+
+  it('limits CourseDay-only instructor projection to assigned working days', () => {
+    const viewModel = buildInstructorCourseViewModel({
+      rosterItems: [rosterItem],
+      attendanceItems: [],
+    });
+
+    const days = buildInstructorCourseDayViewModels({
+      assignment: { assignedCourseDayIds: [courseDayTwoId] },
+      course: viewModel!,
+    });
+
+    expect(days).toHaveLength(1);
+    expect(days[0]).toMatchObject({
+      courseDayId: courseDayTwoId,
+      attendanceSummary: { present: 0, absent: 0, missing: 1 },
+      participants: [
+        {
+          displayName: 'Canonical Student',
+          factualState: 'missing',
+        },
+      ],
     });
   });
 });

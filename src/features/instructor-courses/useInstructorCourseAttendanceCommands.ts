@@ -14,41 +14,53 @@ import { useInstructorCourseStore } from './instructorCourseStore';
 import { refetchInstructorCourseReadModels } from './useInstructorCourseReadSync';
 
 export function useInstructorCourseAttendanceCommands(accountId: string | undefined) {
+  const refetchCourseAttendance = useCallback(
+    (courseId: string) => refetchInstructorCourseReadModelsForCourseId(courseId),
+    []
+  );
   const recordCourseDayAttendance = useCallback(
     async (input: RecordCourseDayAttendanceInput): Promise<void> => {
       if (!accountId) {
         throw new Error('Authentication is required.');
       }
 
-      const result = await executeAuthenticatedCanonicalCommand(accountId, {
-        kind: 'record_course_day_attendance',
-        intent: {
-          courseEnrollmentId: CourseEnrollmentIdSchema.parse(input.enrollmentId),
-          courseDayId: CourseDayIdSchema.parse(input.courseDayId),
-          attendanceStatus: input.attendanceStatus,
-          ...(input.expectedAttendanceRevision !== undefined
-            ? {
-                expectedAttendanceRevision: AggregateRevisionSchema.parse(
-                  input.expectedAttendanceRevision
-                ),
-              }
-            : {}),
-          ...(input.expectedEnrollmentRevision !== undefined
-            ? {
-                expectedEnrollmentRevision: AggregateRevisionSchema.parse(
-                  input.expectedEnrollmentRevision
-                ),
-              }
-            : {}),
-        },
-        idempotencyKey: input.idempotencyKey as never,
-        exercisedCapability: 'instructor',
-      });
+      let result;
+      try {
+        result = await executeAuthenticatedCanonicalCommand(accountId, {
+          kind: 'record_course_day_attendance',
+          intent: {
+            courseEnrollmentId: CourseEnrollmentIdSchema.parse(input.enrollmentId),
+            courseDayId: CourseDayIdSchema.parse(input.courseDayId),
+            attendanceStatus: input.attendanceStatus,
+            ...(input.expectedAttendanceRevision !== undefined
+              ? {
+                  expectedAttendanceRevision: AggregateRevisionSchema.parse(
+                    input.expectedAttendanceRevision
+                  ),
+                }
+              : {}),
+            ...(input.expectedEnrollmentRevision !== undefined
+              ? {
+                  expectedEnrollmentRevision: AggregateRevisionSchema.parse(
+                    input.expectedEnrollmentRevision
+                  ),
+                }
+              : {}),
+          },
+          idempotencyKey: input.idempotencyKey as never,
+          exercisedCapability: 'instructor',
+        });
+      } catch (error) {
+        if (isInstructorCourseAttendanceCommandError(error) && error.code === 'stale_version') {
+          await refetchAfterStaleVersion(input.courseId, error);
+        }
+        throw error;
+      }
 
       const error = mapCanonicalCommandResultError(result);
       if (error) {
         if (error.code === 'stale_version') {
-          await refetchInstructorCourseReadModelsForCourseId(input.courseId);
+          await refetchAfterStaleVersion(input.courseId, error);
         }
         throw error;
       }
@@ -58,7 +70,7 @@ export function useInstructorCourseAttendanceCommands(accountId: string | undefi
     [accountId]
   );
 
-  return { recordCourseDayAttendance };
+  return { recordCourseDayAttendance, refetchCourseAttendance };
 }
 
 async function refetchInstructorCourseReadModelsForCourseId(courseId: string): Promise<void> {
@@ -69,6 +81,39 @@ async function refetchInstructorCourseReadModelsForCourseId(courseId: string): P
     return;
   }
   await refetchInstructorCourseReadModels([assignment]);
+}
+
+async function refetchAfterStaleVersion(
+  courseId: string,
+  staleError: CanonicalCommandClientError
+): Promise<void> {
+  try {
+    await refetchInstructorCourseReadModelsForCourseId(courseId);
+  } catch (refreshError) {
+    throw new InstructorCourseStaleRefreshError(staleError, refreshError);
+  }
+}
+
+export class InstructorCourseStaleRefreshError extends CanonicalCommandClientError {
+  readonly refreshError: unknown;
+
+  constructor(staleError: CanonicalCommandClientError, refreshError: unknown) {
+    super('stale_version', {
+      correlationId: staleError.correlationId,
+      currentRevision: staleError.currentRevision,
+      details: staleError.details,
+      retryable: false,
+      cause: staleError,
+    });
+    this.name = 'InstructorCourseStaleRefreshError';
+    this.refreshError = refreshError;
+  }
+}
+
+export function isInstructorCourseStaleRefreshError(
+  error: unknown
+): error is InstructorCourseStaleRefreshError {
+  return error instanceof InstructorCourseStaleRefreshError;
 }
 
 export function isInstructorCourseAttendanceCommandError(

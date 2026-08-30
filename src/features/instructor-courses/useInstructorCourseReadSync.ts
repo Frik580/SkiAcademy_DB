@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   CourseIdSchema,
   type CourseId,
@@ -9,14 +9,61 @@ import {
   queryCourseEnrollmentReadModels,
   queryInstructorCourseAssignmentReadModels,
 } from '../../lib/canonical/canonicalReadModelClient';
-import type { InstructorAssignedCourseRef, InstructorCourseViewModel } from './instructorCourseContracts';
+import type {
+  InstructorAssignedCourseRef,
+  InstructorCourseViewModel,
+} from './instructorCourseContracts';
 import { classifyInstructorCourseReadError } from './presentInstructorCourseReadError';
 import { useInstructorCourseStore } from './instructorCourseStore';
 import {
   buildInstructorCourseViewModel,
   mapInstructorCourseAssignmentReadModelsToAssignedCourses,
-  mergeInstructorCourseViewModels,
 } from './instructorCourseViewModel';
+
+interface CourseRefetchQueueState {
+  tail: Promise<void>;
+  latestEnqueueId: number;
+}
+
+const courseRefetchStates = new Map<string, CourseRefetchQueueState>();
+
+function getCourseRefetchState(courseId: string): CourseRefetchQueueState {
+  let state = courseRefetchStates.get(courseId);
+  if (!state) {
+    state = { tail: Promise.resolve(), latestEnqueueId: 0 };
+    courseRefetchStates.set(courseId, state);
+  }
+  return state;
+}
+
+export function resetInstructorCourseRefetchQueuesForTests(): void {
+  courseRefetchStates.clear();
+}
+
+function enqueueCourseRefetch<T>(
+  courseId: string,
+  task: (isAuthoritative: () => boolean) => Promise<T>,
+  options?: { readonly supersedePending?: boolean }
+): Promise<T> {
+  const state = getCourseRefetchState(courseId);
+  const enqueueId = state.latestEnqueueId + 1;
+  state.latestEnqueueId = enqueueId;
+
+  const waitFor: Promise<void> = options?.supersedePending ? Promise.resolve() : state.tail;
+  const result = waitFor.then(async () => {
+    const isAuthoritative = () => state.latestEnqueueId === enqueueId;
+    if (!isAuthoritative()) {
+      return undefined as T;
+    }
+    return task(isAuthoritative);
+  });
+
+  state.tail = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
 
 export interface InstructorCourseReadSyncInput {
   readonly enabled: boolean;
@@ -66,34 +113,43 @@ export function resolveInstructorCourseLoadTargets(input: {
 }
 
 export async function refetchInstructorCourseReadModels(
-  targets: readonly InstructorAssignedCourseRef[]
+  targets: readonly InstructorAssignedCourseRef[],
+  shouldCommit: () => boolean = () => true,
+  options?: { readonly supersedePending?: boolean }
 ): Promise<void> {
-  const nextCourses = new Map<string, InstructorCourseViewModel>();
-
   await Promise.all(
-    targets.map(async (assignment) => {
-      const parsedCourseId = CourseIdSchema.parse(assignment.courseId);
-      const [rosterItems, attendanceResult] = await Promise.all([
-        loadInstructorRosterEnrollments(parsedCourseId),
-        queryCourseAttendanceReadModels({
-          scope: 'instructor_roster',
-          courseId: parsedCourseId,
-        }),
-      ]);
-      const viewModel = buildInstructorCourseViewModel({
-        rosterItems,
-        attendanceItems: attendanceResult.items,
-        fallback: assignment,
-      });
-      if (viewModel) {
-        nextCourses.set(assignment.courseId, viewModel);
-      }
-    })
+    targets.map((assignment) =>
+      enqueueCourseRefetch(
+        assignment.courseId,
+        async (isAuthoritative) => {
+          const parsedCourseId = CourseIdSchema.parse(assignment.courseId);
+          const [rosterItems, attendanceResult] = await Promise.all([
+            loadInstructorRosterEnrollments(parsedCourseId),
+            queryCourseAttendanceReadModels({
+              scope: 'instructor_roster',
+              courseId: parsedCourseId,
+            }),
+          ]);
+          if (!shouldCommit() || !isAuthoritative()) {
+            return;
+          }
+          const viewModel = buildInstructorCourseViewModel({
+            rosterItems,
+            attendanceItems: attendanceResult.items,
+            fallback: assignment,
+          });
+          if (viewModel) {
+            useInstructorCourseStore
+              .getState()
+              .mergeCourses(
+                new Map<string, InstructorCourseViewModel>([[assignment.courseId, viewModel]])
+              );
+          }
+        },
+        options
+      )
+    )
   );
-
-  const state = useInstructorCourseStore.getState();
-  const merged = mergeInstructorCourseViewModels(state.coursesById, nextCourses);
-  useInstructorCourseStore.getState().mergeCourses(merged);
 }
 
 export async function loadInstructorAssignedCourses(): Promise<InstructorAssignedCourseRef[]> {
@@ -105,8 +161,11 @@ export async function loadInstructorAssignedCourses(): Promise<InstructorAssigne
 
 export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput) {
   const { enabled, accountId, instructorId, selectedCourseId } = input;
+  const requestGeneration = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = ++requestGeneration.current;
+    const isCurrentRequest = () => requestGeneration.current === generation;
     if (!enabled || !accountId || !instructorId) {
       return;
     }
@@ -117,8 +176,14 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
     let assignedCourses: InstructorAssignedCourseRef[] = [];
     try {
       assignedCourses = await loadInstructorAssignedCourses();
+      if (!isCurrentRequest()) {
+        return;
+      }
       useInstructorCourseStore.getState().setAssignedCourses(assignedCourses);
     } catch (error) {
+      if (!isCurrentRequest()) {
+        return;
+      }
       const errorCode = classifyInstructorCourseReadError(error);
       useInstructorCourseStore
         .getState()
@@ -128,7 +193,9 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
         );
       return;
     } finally {
-      useInstructorCourseStore.getState().setDiscoveryLoading(false);
+      if (isCurrentRequest()) {
+        useInstructorCourseStore.getState().setDiscoveryLoading(false);
+      }
     }
 
     const targets = resolveInstructorCourseLoadTargets({
@@ -136,15 +203,25 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
       selectedCourseId,
     });
     if (targets.length === 0) {
-      useInstructorCourseStore.getState().setLoaded(true);
+      if (isCurrentRequest()) {
+        useInstructorCourseStore.getState().setLoaded(true);
+      }
       return;
     }
 
     useInstructorCourseStore.getState().setRosterLoading(true);
     try {
-      await refetchInstructorCourseReadModels(targets);
+      await refetchInstructorCourseReadModels(targets, isCurrentRequest, {
+        supersedePending: true,
+      });
+      if (!isCurrentRequest()) {
+        return;
+      }
       useInstructorCourseStore.getState().setLoaded(true);
     } catch (error) {
+      if (!isCurrentRequest()) {
+        return;
+      }
       const errorCode = classifyInstructorCourseReadError(error);
       useInstructorCourseStore
         .getState()
@@ -153,7 +230,9 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
           errorCode
         );
     } finally {
-      useInstructorCourseStore.getState().setRosterLoading(false);
+      if (isCurrentRequest()) {
+        useInstructorCourseStore.getState().setRosterLoading(false);
+      }
     }
   }, [accountId, enabled, instructorId, selectedCourseId]);
 
@@ -163,6 +242,9 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
       return;
     }
     void load();
+    return () => {
+      requestGeneration.current += 1;
+    };
   }, [accountId, enabled, instructorId, load, selectedCourseId]);
 
   return { reload: load };

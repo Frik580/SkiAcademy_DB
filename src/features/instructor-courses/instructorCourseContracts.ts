@@ -45,6 +45,35 @@ export interface InstructorCourseViewModel {
   readonly participants: readonly InstructorCourseParticipantRosterItem[];
 }
 
+export interface InstructorCourseDayParticipantViewModel {
+  readonly enrollmentId: string;
+  readonly enrollmentRevision: number;
+  readonly displayName: string;
+  readonly lifecycleStatus: CourseEnrollmentLifecycleStatus;
+  readonly factualState: CourseAttendanceFactualState;
+  readonly attendanceRevision?: number;
+  readonly canRecordAttendance: boolean;
+}
+
+export interface InstructorCourseDayAttendanceSummary {
+  readonly missing: number;
+  readonly present: number;
+  readonly absent: number;
+}
+
+export interface InstructorCourseDayViewModel {
+  readonly courseDayId: string;
+  readonly dayOrder: number;
+  readonly title: string;
+  readonly interval: CourseDayScheduleItem['interval'];
+  readonly timeZone: string;
+  readonly assignmentState: 'assigned';
+  readonly rosterCount: number;
+  readonly attendanceSummary: InstructorCourseDayAttendanceSummary;
+  readonly canRecordAttendance: boolean;
+  readonly participants: readonly InstructorCourseDayParticipantViewModel[];
+}
+
 export interface RecordCourseDayAttendanceInput {
   readonly courseId: string;
   readonly enrollmentId: string;

@@ -4,6 +4,7 @@ export * from './instructorCourseStore';
 export * from './deriveInstructorCourseIdempotencyKeys';
 export * from './useInstructorCourseReadSync';
 export * from './useInstructorCourseAttendanceCommands';
+export * from './useInstructorCourseAttendanceMutation';
 export * from './instructorCoursePresentation';
 export * from './presentInstructorCourseCommandError';
 export * from './presentInstructorCourseReadError';

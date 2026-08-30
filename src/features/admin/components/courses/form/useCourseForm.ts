@@ -244,7 +244,11 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
       resetCourseForm();
     } catch (err) {
       if (err instanceof CanonicalCourseAdminWriteBlockedError) {
-        addNotification('warning', t('canonicalCourseEditBlockedTitle'), t('canonicalCourseEditBlockedDesc'));
+        addNotification(
+          'warning',
+          t('canonicalCourseEditBlockedTitle'),
+          t('canonicalCourseEditBlockedDesc')
+        );
       } else {
         addNotification('error', t('errorTitle'), t('saveCourseFailed'));
       }
@@ -257,7 +261,9 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
     const existingSnap = await getDoc(doc(db, 'courses', course.id));
     if (
       existingSnap.exists() &&
-      isCanonicalCourseProtectedFromLegacyAdminWrites(existingSnap.data() as Record<string, unknown>)
+      isCanonicalCourseProtectedFromLegacyAdminWrites(
+        existingSnap.data() as Record<string, unknown>
+      )
     ) {
       addNotification(
         'warning',

@@ -198,9 +198,9 @@ describe('course provisioning manifest', () => {
     };
     const persisted = parseCanonicalCourseOperationalStateFromDocument(hybrid);
     expect(persisted?.capacity).toEqual({ totalSeats: 8, availableSeats: 7 });
-    expect(validatePersistedCourseOperationalStateAgainstManifest(persisted!, baseManifest)).toEqual(
-      []
-    );
+    expect(
+      validatePersistedCourseOperationalStateAgainstManifest(persisted!, baseManifest)
+    ).toEqual([]);
     const repaired = buildCourseAggregateFromShapeRepair({
       persistedOperational: persisted!,
       manifest: baseManifest,

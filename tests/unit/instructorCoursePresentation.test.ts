@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  CourseDayIdSchema,
-  CourseIdSchema,
-  timestampFromDate,
-} from '@ski-academy/shared-domain';
+import { CourseDayIdSchema, CourseIdSchema, timestampFromDate } from '@ski-academy/shared-domain';
 import {
   formatInstructorCourseAssignedDaysSummary,
   formatInstructorCourseScheduleSummary,

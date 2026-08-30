@@ -24,7 +24,10 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryCourseAttendanceReadModels: (...args: unknown[]) => queryAttendanceMock(...args),
 }));
 
-import { useInstructorCourseAttendanceCommands } from '../../src/features/instructor-courses/useInstructorCourseAttendanceCommands';
+import {
+  InstructorCourseStaleRefreshError,
+  useInstructorCourseAttendanceCommands,
+} from '../../src/features/instructor-courses/useInstructorCourseAttendanceCommands';
 import { CanonicalCommandClientError } from '../../src/lib/canonical/mapCanonicalCommandError';
 
 const courseId = CourseIdSchema.parse('course_instructor_cmd_01');
@@ -201,16 +204,13 @@ describe('instructor course attendance commands', () => {
   });
 
   it('refetches canonical read models after stale_version', async () => {
-    executeAuthenticatedMock.mockResolvedValueOnce({
-      status: 'error',
-      error: {
-        code: 'stale_version',
-        message: 'Stale version',
+    executeAuthenticatedMock.mockRejectedValueOnce(
+      new CanonicalCommandClientError('stale_version', {
         retryable: true,
         correlationId: 'correlation_stale',
         currentRevision: 10,
-      },
-    });
+      })
+    );
 
     const { result } = renderHook(() => useInstructorCourseAttendanceCommands(accountId));
     await expect(
@@ -232,6 +232,35 @@ describe('instructor course attendance commands', () => {
       scope: 'instructor_roster',
       courseId,
     });
+  });
+
+  it('preserves thrown stale_version when its canonical refetch fails', async () => {
+    const staleError = new CanonicalCommandClientError('stale_version', {
+      retryable: true,
+      correlationId: 'correlation_stale_refetch_failure',
+      currentRevision: 11,
+    });
+    executeAuthenticatedMock.mockRejectedValueOnce(staleError);
+    queryEnrollmentMock.mockRejectedValueOnce(new Error('read model unavailable'));
+
+    const { result } = renderHook(() => useInstructorCourseAttendanceCommands(accountId));
+    const submission = result.current.recordCourseDayAttendance({
+      courseId,
+      enrollmentId,
+      courseDayId,
+      attendanceStatus: 'present',
+      expectedAttendanceRevision: 4,
+      idempotencyKey: presentIdempotencyKey,
+    });
+    await expect(submission).rejects.toBeInstanceOf(InstructorCourseStaleRefreshError);
+    await expect(submission).rejects.toMatchObject({
+      code: 'stale_version',
+      correlationId: staleError.correlationId,
+      currentRevision: 11,
+    });
+
+    expect(queryEnrollmentMock).toHaveBeenCalledTimes(1);
+    expect(queryAttendanceMock).toHaveBeenCalledTimes(1);
   });
 
   it('preserves authorization and transition canonical error codes', async () => {

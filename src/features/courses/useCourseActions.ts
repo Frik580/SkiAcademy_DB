@@ -49,7 +49,11 @@ export function useCourseActions() {
         await updateCourseService(course);
       } catch (error) {
         if (error instanceof CanonicalCourseAdminWriteBlockedError) {
-          notify('warning', t('canonicalCourseEditBlockedTitle'), t('canonicalCourseEditBlockedDesc'));
+          notify(
+            'warning',
+            t('canonicalCourseEditBlockedTitle'),
+            t('canonicalCourseEditBlockedDesc')
+          );
           throw error;
         }
         throw error;

@@ -60,12 +60,17 @@ export const useInstructorCourseStore = create<InstructorCourseStoreState>((set)
           return (
             !cachedParticipant ||
             cachedParticipant.enrollmentRevision !== participant.enrollmentRevision ||
-            cachedParticipant.days.some((day, dayIndex) => {
+            cachedParticipant.authorizedActions.canRecordAttendance !==
+              participant.authorizedActions.canRecordAttendance ||
+            cachedParticipant.days.length !== participant.days.length ||
+            participant.days.some((day, dayIndex) => {
               const cachedDay = cachedParticipant.days[dayIndex];
               return (
                 !cachedDay ||
                 cachedDay.factualState !== day.factualState ||
-                cachedDay.attendanceRevision !== day.attendanceRevision
+                cachedDay.attendanceRevision !== day.attendanceRevision ||
+                cachedDay.authorizedActions.canRecordAttendance !==
+                  day.authorizedActions.canRecordAttendance
               );
             })
           );

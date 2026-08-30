@@ -8,6 +8,7 @@ import { useCourseForm } from './form/useCourseForm';
 import { CoursesManagerToolbar } from './form/CoursesManagerToolbar';
 import { CoursesTable } from './form/CoursesTable';
 import { CourseForm } from './form/CourseForm';
+import { CanonicalCourseAdminWriteBlockedError } from '../../../../features/courses/courseService';
 
 interface CoursesManagerProps {
   courses: Course[];
@@ -78,7 +79,9 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
           addNotification('success', t('deletedTitle'), t('courseDeleted'));
         }
       } catch (err) {
-        addNotification('error', t('errorTitle'), t('deleteCourseFailed'));
+        if (!(err instanceof CanonicalCourseAdminWriteBlockedError)) {
+          addNotification('error', t('errorTitle'), t('deleteCourseFailed'));
+        }
       }
     });
   };
@@ -105,7 +108,9 @@ export const CoursesManager: React.FC<CoursesManagerProps> = ({
       addNotification('success', t('successTitle'), t('courseCloned'));
     } catch (err) {
       logger.error('Failed to clone course:', err);
-      addNotification('error', t('errorTitle'), t('courseCloneFailed'));
+      if (!(err instanceof CanonicalCourseAdminWriteBlockedError)) {
+        addNotification('error', t('errorTitle'), t('courseCloneFailed'));
+      }
     }
   };
 

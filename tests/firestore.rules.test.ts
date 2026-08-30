@@ -464,6 +464,36 @@ describe('bookings', () => {
       })
     );
   });
+
+  it('denies Admin client deletion of authoritative bookings and messages', async () => {
+    const adminDb = testEnv.authenticatedContext(OWNER_ID).firestore();
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'bookings', 'booking-1', 'messages', 'message-1'), {
+        senderId: ADMIN_ID,
+        text: 'Protected history',
+      });
+    });
+
+    await assertFails(deleteDoc(doc(adminDb, 'bookings', 'booking-1', 'messages', 'message-1')));
+    await assertFails(deleteDoc(doc(adminDb, 'bookings', 'booking-1')));
+    await assertSucceeds(getDoc(doc(adminDb, 'bookings', 'booking-1')));
+  });
+
+  it('preserves owner deletion of an eligible cancelled Course booking', async () => {
+    const ownerDb = testEnv.authenticatedContext(USER_ID).firestore();
+    const bookingId = `booking_course_${USER_ID}_course-legacy`;
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'bookings', bookingId), {
+        id: bookingId,
+        userId: USER_ID,
+        courseId: 'course-legacy',
+        instructorId: 'course_course-legacy',
+        status: 'cancelled',
+      });
+    });
+
+    await assertSucceeds(deleteDoc(doc(ownerDb, 'bookings', bookingId)));
+  });
 });
 
 describe('user profiles and roles', () => {
@@ -476,6 +506,7 @@ describe('user profiles and roles', () => {
         userProfile(OTHER_USER_ID, 'other@example.com')
       );
       await setDoc(doc(db, 'users', ADMIN_ID), userProfile(ADMIN_ID, 'admin@example.com', 'admin'));
+      await setDoc(doc(db, 'settings', 'starter_credit'), { amountUsd: 250 });
     });
   });
 
@@ -528,21 +559,78 @@ describe('user profiles and roles', () => {
     );
   });
 
-  it('allows admins to increase a client balance', async () => {
+  it('denies Admin and system-owner direct monetary profile changes', async () => {
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
     const ownerDb = testEnv
       .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
       .firestore();
 
-    await assertSucceeds(updateDoc(doc(ownerDb, 'users', OTHER_USER_ID), { balanceUSD: 200 }));
+    await assertFails(updateDoc(doc(adminDb, 'users', OTHER_USER_ID), { balanceUSD: 200 }));
+    await assertFails(updateDoc(doc(ownerDb, 'users', OTHER_USER_ID), { balanceUSD: 50 }));
+    await assertFails(
+      updateDoc(doc(ownerDb, 'users', OTHER_USER_ID), {
+        walletBalances: { USD: 200 },
+        pendingWalletCredit: 100,
+        lastRefundBookingId: 'booking-forged',
+      })
+    );
   });
 
-  it('allows admins to append wallet ledger entries for other users', async () => {
+  it('constrains initial balances and denies Admin delete-recreate bypasses', async () => {
     const ownerDb = testEnv
       .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
       .firestore();
+    const newUserDb = testEnv
+      .authenticatedContext('new-user', { email: 'new-user@example.com' })
+      .firestore();
+    const claimantDb = testEnv
+      .authenticatedContext('claimed-auth-uid', { email: 'contained@example.com' })
+      .firestore();
+    const clientId = 'client_contained_wallet';
+    const clientProfile = {
+      ...userProfile(clientId, 'contained@example.com'),
+      balanceUSD: 250,
+    };
 
+    await assertFails(
+      setDoc(doc(ownerDb, 'settings', 'starter_credit'), { amountUsd: 999_999 })
+    );
+    await assertFails(
+      setDoc(doc(ownerDb, 'users', 'client_inflated_wallet'), {
+        ...userProfile('client_inflated_wallet', 'inflated@example.com'),
+        balanceUSD: 999_999,
+      })
+    );
+    await assertSucceeds(setDoc(doc(ownerDb, 'users', clientId), clientProfile));
+    await assertFails(
+      updateDoc(doc(ownerDb, 'users', clientId), { email: 'owner@example.com' })
+    );
+    await assertFails(deleteDoc(doc(ownerDb, 'users', clientId)));
+    await assertSucceeds(deleteDoc(doc(claimantDb, 'users', clientId)));
+    await assertFails(
+      setDoc(doc(newUserDb, 'users', 'new-user'), {
+        ...userProfile('new-user', 'new-user@example.com'),
+        balanceUSD: 999_999,
+      })
+    );
     await assertSucceeds(
-      setDoc(doc(ownerDb, 'wallet_ledger', 'wl_refund_booking-1'), {
+      setDoc(doc(newUserDb, 'users', 'new-user'), {
+        ...userProfile('new-user', 'new-user@example.com'),
+        balanceUSD: 250,
+      })
+    );
+  });
+
+  it('denies Admin client ledger creation and deletion', async () => {
+    const ownerDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
+    const ledgerRef = doc(ownerDb, 'wallet_ledger', 'wl_refund_booking-1');
+
+    await assertFails(
+      setDoc(ledgerRef, {
         id: 'wl_refund_booking-1',
         userId: USER_ID,
         amount: 100,
@@ -553,6 +641,31 @@ describe('user profiles and roles', () => {
         subjectName: 'Coach A',
       })
     );
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'wallet_ledger', 'wl_refund_booking-1'), {
+        id: 'wl_refund_booking-1',
+        userId: USER_ID,
+        amount: 100,
+        balanceAfter: 200,
+        type: 'refund',
+        createdAt: '2026-12-01T10:00:00.000Z',
+      });
+    });
+    await assertFails(deleteDoc(ledgerRef));
+  });
+
+  it('denies Admin client guest-wallet mutation while keeping it readable', async () => {
+    const ownerDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
+    const guestWalletRef = doc(ownerDb, 'settings', 'guest_wallet');
+
+    await assertFails(setDoc(guestWalletRef, { balanceUSD: 500 }));
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'settings', 'guest_wallet'), { balanceUSD: 100 });
+    });
+    await assertSucceeds(getDoc(guestWalletRef));
+    await assertFails(updateDoc(guestWalletRef, { balanceUSD: 0 }));
   });
 
   it('blocks users from appending wallet ledger entries for other users', async () => {
@@ -1008,7 +1121,7 @@ describe('booking chat messages', () => {
     );
   });
 
-  it('allows admins to manage chat messages and blocks participant edits', async () => {
+  it('allows Admin message edits but contains destructive message deletion', async () => {
     const ownerDb = testEnv
       .authenticatedContext(USER_ID, { email: 'user@example.com' })
       .firestore();
@@ -1035,7 +1148,7 @@ describe('booking chat messages', () => {
         text: 'Edited by admin',
       })
     );
-    await assertSucceeds(
+    await assertFails(
       deleteDoc(doc(adminDb, 'bookings', 'booking-chat-1', 'messages', 'message-admin'))
     );
   });
@@ -1293,7 +1406,7 @@ describe('canonical booking chat messages', () => {
     );
   });
 
-  it('preserves admin management for canonical booking chat messages', async () => {
+  it('preserves Admin reads while containing canonical chat deletion', async () => {
     await seedData(async (context) => {
       const db = context.firestore();
       await setDoc(
@@ -1317,7 +1430,7 @@ describe('canonical booking chat messages', () => {
         doc(adminDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-admin')
       )
     );
-    await assertSucceeds(
+    await assertFails(
       deleteDoc(
         doc(adminDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-admin')
       )
@@ -1721,34 +1834,42 @@ describe('course enrollment transactions', () => {
 
 describe('courses canonical provisioning marker', () => {
   const CANONICAL_COURSE_ID = 'course-canonical-marker-1';
+  const STRICT_COURSE_ID = 'course-strict-shape-1';
   const LEGACY_COURSE_ID = 'course-legacy-marker-1';
+  const canonicalCourseData = (courseId: string, withMarker = false) => ({
+    courseId,
+    title: 'Canonical Course',
+    price: 100_000,
+    capacity: { totalSeats: 8, availableSeats: 8 },
+    instructorRosterIds: ['instructor-1'],
+    startAt: { seconds: 1_700_000_000, nanoseconds: 0 },
+    scheduleProjection: {
+      courseDayCount: 1,
+      finalCourseDayEndsAt: { seconds: 1_700_010_000, nanoseconds: 0 },
+      courseScheduleRevision: 1,
+    },
+    revision: 1,
+    createdAt: { seconds: 1_700_000_000, nanoseconds: 0 },
+    updatedAt: { seconds: 1_700_000_000, nanoseconds: 0 },
+    audit: {
+      createdByCommandId: 'command_seed',
+      lastChangedByCommandId: 'command_seed',
+      correlationId: 'correlation_seed',
+    },
+    ...(withMarker
+      ? { provisioningManifestFingerprint: 'fingerprint_canonical_marker_course' }
+      : {}),
+  });
 
   beforeEach(async () => {
     await seedData(async (context) => {
       const db = context.firestore();
       await setDoc(doc(db, 'users', ADMIN_ID), userProfile(ADMIN_ID, 'admin@example.com', 'admin'));
-      await setDoc(doc(db, 'courses', CANONICAL_COURSE_ID), {
-        courseId: CANONICAL_COURSE_ID,
-        title: 'Canonical Marker Course',
-        price: 100_000,
-        capacity: { totalSeats: 8, availableSeats: 8 },
-        instructorRosterIds: ['instructor-1'],
-        startAt: { seconds: 1_700_000_000, nanoseconds: 0 },
-        scheduleProjection: {
-          courseDayCount: 1,
-          finalCourseDayEndsAt: { seconds: 1_700_010_000, nanoseconds: 0 },
-          courseScheduleRevision: 1,
-        },
-        revision: 1,
-        createdAt: { seconds: 1_700_000_000, nanoseconds: 0 },
-        updatedAt: { seconds: 1_700_000_000, nanoseconds: 0 },
-        audit: {
-          createdByCommandId: 'command_seed',
-          lastChangedByCommandId: 'command_seed',
-          correlationId: 'correlation_seed',
-        },
-        provisioningManifestFingerprint: 'fingerprint_canonical_marker_course',
-      });
+      await setDoc(
+        doc(db, 'courses', CANONICAL_COURSE_ID),
+        canonicalCourseData(CANONICAL_COURSE_ID, true)
+      );
+      await setDoc(doc(db, 'courses', STRICT_COURSE_ID), canonicalCourseData(STRICT_COURSE_ID));
       await setDoc(doc(db, 'courses', LEGACY_COURSE_ID), {
         title: 'Legacy Marker Course',
         totalSeats: 8,
@@ -1775,6 +1896,40 @@ describe('courses canonical provisioning marker', () => {
     );
   });
 
+  it('denies Admin client replacement and deletion of protected canonical courses', async () => {
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+
+    await assertFails(
+      setDoc(doc(adminDb, 'courses', CANONICAL_COURSE_ID), {
+        title: 'Legacy replacement',
+        totalSeats: 8,
+        availableSeats: 8,
+        price: 100,
+      })
+    );
+    await assertFails(deleteDoc(doc(adminDb, 'courses', CANONICAL_COURSE_ID)));
+    await assertFails(deleteDoc(doc(adminDb, 'courses', STRICT_COURSE_ID)));
+  });
+
+  it('denies legacy client creation of canonical identities and shapes', async () => {
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+    const newCanonicalId = 'course-client-canonical-create';
+
+    await assertFails(
+      setDoc(doc(adminDb, 'courses', newCanonicalId), canonicalCourseData(newCanonicalId, true))
+    );
+    await assertFails(
+      setDoc(
+        doc(adminDb, 'courses', `${newCanonicalId}-strict`),
+        canonicalCourseData(`${newCanonicalId}-strict`)
+      )
+    );
+  });
+
   it('allows admin client update for legacy courses without canonical marker', async () => {
     const adminDb = testEnv
       .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
@@ -1782,6 +1937,17 @@ describe('courses canonical provisioning marker', () => {
     await assertSucceeds(
       updateDoc(doc(adminDb, 'courses', LEGACY_COURSE_ID), {
         description: 'Updated legacy description',
+      })
+    );
+    await assertSucceeds(deleteDoc(doc(adminDb, 'courses', LEGACY_COURSE_ID)));
+    await assertSucceeds(
+      setDoc(doc(adminDb, 'courses', 'course-new-legacy'), {
+        id: 'course-new-legacy',
+        title: 'New legacy course',
+        totalSeats: 4,
+        availableSeats: 4,
+        price: 100,
+        dates: 'December',
       })
     );
   });

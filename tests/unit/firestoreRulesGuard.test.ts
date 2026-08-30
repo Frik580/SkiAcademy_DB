@@ -58,9 +58,8 @@ describe('firestore.rules guardrails', () => {
 
   it('allows users to delete their own cancelled course bookings', () => {
     expect(rulesSource).toContain('function isCancelledCourseBooking');
-    expect(rulesSource).toMatch(
-      /allow delete: if isAdmin\(\) \|\| \([\s\S]*isCancelledCourseBooking/
-    );
+    expect(rulesSource).toMatch(/allow delete: if \([\s\S]*isCancelledCourseBooking/);
+    expect(rulesSource).not.toContain('allow delete: if isAdmin() || (');
   });
 
   it('locks function_idempotency documents to the Admin SDK', () => {
@@ -70,10 +69,26 @@ describe('firestore.rules guardrails', () => {
     );
   });
 
-  it('allows admins to append wallet ledger entries for other users', () => {
+  it('contains direct Admin monetary and destructive writes', () => {
     expect(rulesSource).toContain('function validWalletLedgerEntryFields');
+    expect(rulesSource).toContain('function authoritativeMoneyFieldsUnchanged');
+    expect(rulesSource).toContain('function validInitialWalletAuthority');
+    expect(rulesSource).toContain('function validStarterCreditSetting');
     expect(rulesSource).toMatch(
-      /request\.resource\.data\.userId == request\.auth\.uid \|\| isAdmin\(\)/
+      /allow delete: if userId\.matches\('\^client_\.\*'\)[\s\S]*isOwnEmail\(resource\.data\.email\)/
+    );
+    expect(rulesSource).toMatch(
+      /match \/settings\/\{settingId\}[\s\S]*settingId != 'guest_wallet'/
+    );
+    expect(rulesSource).toMatch(/match \/wallet_ledger\/\{entryId\}[\s\S]*allow delete: if false;/);
+    expect(rulesSource).not.toMatch(/match \/wallet_ledger\/\{entryId\}[\s\S]*isAdmin\(\) \|\|/);
+  });
+
+  it('protects strict and provisioned canonical courses from legacy Admin writes', () => {
+    expect(rulesSource).toContain('function hasStrictCanonicalCourseTopLevelShape');
+    expect(rulesSource).toContain('function canonicalCourseProtectedFromLegacyAdminWrites');
+    expect(rulesSource).toMatch(
+      /allow update, delete: if isAdmin\(\) &&[\s\S]*legacyAdminCourseWriteAllowed\(resource\.data\)/
     );
   });
 });

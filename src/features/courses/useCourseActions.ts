@@ -27,6 +27,18 @@ export interface AuthenticatedCourseEnrollmentSelection {
   readonly exercisedCapability: ClientCallableCapability;
 }
 
+function notifyCanonicalCourseAdminWriteBlocked(
+  error: CanonicalCourseAdminWriteBlockedError
+): void {
+  const translationPrefix =
+    error.operation === 'delete'
+      ? 'canonicalCourseDeleteBlocked'
+      : error.operation === 'create'
+        ? 'canonicalCourseReplaceBlocked'
+        : 'canonicalCourseEditBlocked';
+  notify('warning', t(`${translationPrefix}Title`), t(`${translationPrefix}Desc`));
+}
+
 /**
  * Course use-cases belong at the feature boundary. The course store itself only
  * owns the cached course collection and has no dependencies on other domains.
@@ -40,7 +52,14 @@ export function useCourseActions() {
   const { createAuthenticatedEnrollment } = useCourseEnrollmentCommands(userProfile?.uid);
 
   const handleAddCourse = useCallback(async (course: Course) => {
-    await addCourseService(course);
+    try {
+      await addCourseService(course);
+    } catch (error) {
+      if (error instanceof CanonicalCourseAdminWriteBlockedError) {
+        notifyCanonicalCourseAdminWriteBlocked(error);
+      }
+      throw error;
+    }
   }, []);
 
   const handleUpdateCourse = useCallback(
@@ -49,12 +68,7 @@ export function useCourseActions() {
         await updateCourseService(course);
       } catch (error) {
         if (error instanceof CanonicalCourseAdminWriteBlockedError) {
-          notify(
-            'warning',
-            t('canonicalCourseEditBlockedTitle'),
-            t('canonicalCourseEditBlockedDesc')
-          );
-          throw error;
+          notifyCanonicalCourseAdminWriteBlocked(error);
         }
         throw error;
       }
@@ -72,7 +86,14 @@ export function useCourseActions() {
   );
 
   const handleDeleteCourse = useCallback(async (courseId: string) => {
-    await deleteCourseService(courseId);
+    try {
+      await deleteCourseService(courseId);
+    } catch (error) {
+      if (error instanceof CanonicalCourseAdminWriteBlockedError) {
+        notifyCanonicalCourseAdminWriteBlocked(error);
+      }
+      throw error;
+    }
   }, []);
 
   const handleBookCourse = useCallback(

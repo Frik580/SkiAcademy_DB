@@ -269,6 +269,8 @@ export const translations = {
     clearCancelledBookingsDone: 'Cleared {bookings} cancelled bookings.',
     resetSchoolFinancesTitle: 'Reset school finances',
     resetSchoolFinancesSub: 'Zero wallet history and keep only the registration gift balance',
+    destructiveAdminToolsDisabled:
+      'Destructive finance and booking reset tools are unavailable in the canonical production runtime.',
     resetSchoolFinancesDesc:
       'Deletes the entire wallet ledger (including guest payments), zeros the school guest cash wallet, clears KZT balances and pending credits, and sets every non-admin client wallet to the ${amount} starter gift credit. Guest bookings stay on the schedule. Registered-client lesson revenue KPIs from remaining bookings are unchanged until bookings are cleared separately. Admin account balances are not modified.',
     resetSchoolFinancesRun: 'Reset finances to starter credit',
@@ -874,6 +876,8 @@ export const translations = {
       'Hold guest cash, top up, or withdraw — operations post to school cash flow',
     guestWalletPanelHint:
       'Balance stays near zero after guest confirms (cash in + lesson charge). Cancel refunds land here until withdrawn.',
+    guestWalletMutationDisabled:
+      'Direct guest-wallet mutation has been disabled until a canonical replacement is available.',
     guestWalletBalance: 'Current balance',
     guestWalletAmountLabel: 'Amount (USD)',
     guestWalletNoteLabel: 'Note (optional)',
@@ -1182,6 +1186,10 @@ export const translations = {
     editProfile: 'Edit Profile',
     newClientRegistration: 'New Client',
     startingBalance: 'Starting Balance (USD)',
+    directBalanceEditingDisabled:
+      'Direct balance editing is disabled. Existing balances are read-only; new clients receive the configured starter credit.',
+    existingClientEmailEditingDisabled:
+      'Existing client email is read-only because it controls legacy profile ownership.',
     accessRole: 'Access Role',
     userRegularClient: 'User (Regular Client)',
     adminResortManager: 'Admin (Resort Manager)',
@@ -1213,7 +1221,13 @@ export const translations = {
     courseAdded: 'Course added successfully.',
     canonicalCourseEditBlockedTitle: 'Canonical course editing not supported',
     canonicalCourseEditBlockedDesc:
-      'This course is managed by canonical provisioning. Legacy admin editing is disabled until T32.',
+      'This course is managed by canonical provisioning. Legacy admin editing is unavailable until canonical Admin management is implemented.',
+    canonicalCourseDeleteBlockedTitle: 'Canonical course deletion unavailable',
+    canonicalCourseDeleteBlockedDesc:
+      'This course cannot be deleted through legacy Admin tools. Canonical Admin management is not implemented yet.',
+    canonicalCourseReplaceBlockedTitle: 'Canonical course replacement unavailable',
+    canonicalCourseReplaceBlockedDesc:
+      'A legacy create or clone cannot overwrite this canonical course identity.',
     saveCourseFailed: 'Failed to save course.',
     courseOrderUpdated: 'Course order updated successfully.',
     courseOrderFailed: 'Failed to update course order.',
@@ -1996,6 +2010,8 @@ export const translations = {
     clearCancelledBookingsDone: 'Удалено отменённых бронирований: {bookings}.',
     resetSchoolFinancesTitle: 'Сброс финансов школы',
     resetSchoolFinancesSub: 'Обнулить историю кошелька, оставив только призовой баланс',
+    destructiveAdminToolsDisabled:
+      'Опасные инструменты сброса финансов и бронирований недоступны в canonical production runtime.',
     resetSchoolFinancesDesc:
       'Удаляет всю историю wallet ledger (включая оплаты гостей), обнуляет школьный гостевой кошелёк, обнуляет балансы KZT и ожидающие кредиты, и выставляет каждому клиенту (не админу) призовой стартовый баланс ${amount}. Гостевые бронирования в расписании сохраняются. KPI выручки по обычным бронированиям зарегистрированных клиентов не меняются — их сбрасывает отдельная очистка бронирований. Балансы аккаунтов администраторов не трогаются.',
     resetSchoolFinancesRun: 'Сбросить финансы до призового баланса',
@@ -2605,6 +2621,8 @@ export const translations = {
       'Хранение гостевой наличности: пополнение и снятие — операции попадают в кассу',
     guestWalletPanelHint:
       'После подтверждения гостя баланс обычно 0 (приход в кассу + оплата урока). При отмене возврат остаётся здесь, пока не снимете.',
+    guestWalletMutationDisabled:
+      'Прямое изменение гостевого кошелька отключено до появления canonical-замены.',
     guestWalletBalance: 'Текущий баланс',
     guestWalletAmountLabel: 'Сумма (USD)',
     guestWalletNoteLabel: 'Комментарий (необязательно)',
@@ -2917,6 +2935,10 @@ export const translations = {
     editProfile: 'Редактирование профиля',
     newClientRegistration: 'Регистрация клиента',
     startingBalance: 'Стартовый баланс (USD)',
+    directBalanceEditingDisabled:
+      'Прямое изменение баланса отключено. Существующие балансы доступны только для чтения; новые клиенты получают настроенный стартовый кредит.',
+    existingClientEmailEditingDisabled:
+      'Email существующего клиента доступен только для чтения, так как он определяет владельца legacy-профиля.',
     accessRole: 'Роль доступа',
     userRegularClient: 'Пользователь (Обычный клиент)',
     adminResortManager: 'Администратор (Менеджер курорта)',
@@ -2948,7 +2970,13 @@ export const translations = {
     courseAdded: 'Курс успешно добавлен.',
     canonicalCourseEditBlockedTitle: 'Редактирование canonical-курса недоступно',
     canonicalCourseEditBlockedDesc:
-      'Этот курс управляется canonical provisioning. Legacy-редактирование в админке отключено до T32.',
+      'Этот курс управляется canonical provisioning. Legacy-редактирование недоступно до реализации canonical Admin management.',
+    canonicalCourseDeleteBlockedTitle: 'Удаление canonical-курса недоступно',
+    canonicalCourseDeleteBlockedDesc:
+      'Этот курс нельзя удалить через legacy-инструменты админки. Canonical Admin management ещё не реализован.',
+    canonicalCourseReplaceBlockedTitle: 'Замена canonical-курса недоступна',
+    canonicalCourseReplaceBlockedDesc:
+      'Legacy-создание или клонирование не может перезаписать identity этого canonical-курса.',
     saveCourseFailed: 'Не удалось сохранить курс.',
     courseOrderUpdated: 'Порядок курсов успешно изменен.',
     courseOrderFailed: 'Не удалось изменить порядок курсов.',

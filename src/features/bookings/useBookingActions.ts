@@ -4,12 +4,6 @@ import { isCourseBooking } from '../../domain/availability';
 import { createNotificationForUser } from '../../domain/notifications';
 import { buildNotification, translateKey } from '../../domain/notifications';
 import { Booking, Instructor, Review } from '../../types';
-import {
-  clearStudentBookings,
-  clearCancelledBookings,
-  ClearStudentBookingsResult,
-  ClearCancelledBookingsResult,
-} from '../../features/admin/clearStudentBookings';
 import { notify, t } from '../../store/storeContext';
 import { useAuthStore } from '../auth/authStore';
 import { useProfileStore } from '../profile/profileStore';
@@ -263,21 +257,6 @@ export function useBookingActions() {
     [bookings]
   );
 
-  const handleClearStudentBookings = useCallback(
-    async (onProgress?: (deleted: number) => void): Promise<ClearStudentBookingsResult> => {
-      const result = await clearStudentBookings(onProgress);
-      setDeletedCompletedStats({ revenue: 0, count: 0 });
-      return result;
-    },
-    [setDeletedCompletedStats]
-  );
-
-  const handleClearCancelledBookings = useCallback(
-    async (onProgress?: (deleted: number) => void): Promise<ClearCancelledBookingsResult> =>
-      clearCancelledBookings(onProgress),
-    []
-  );
-
   const handleAddReview = useCallback(
     async (newReviewInput: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>) => {
       if (!userProfile) return;
@@ -317,8 +296,6 @@ export function useBookingActions() {
     handleCompleteBooking,
     handleLinkGuestBooking,
     handleToggleRecommendation,
-    handleClearStudentBookings,
-    handleClearCancelledBookings,
     handleAddReview,
     handleAddInstructor,
     handleUpdateInstructor,

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CoursesManager } from '../../src/features/admin';
 import type { Course } from '../../src/types';
+import { CanonicalCourseAdminWriteBlockedError } from '../../src/features/courses/courseService';
 
 const mockAddNotification = vi.fn();
 const mockDeleteCourse = vi.fn().mockResolvedValue(undefined);
@@ -94,5 +95,31 @@ describe('CoursesManager delete course', () => {
 
     expect(mockDeleteCourse).toHaveBeenCalledWith('course-1');
     expect(mockAddNotification).toHaveBeenCalledWith('error', 'errorTitle', 'deleteCourseFailed');
+  });
+
+  it('does not replace the operation-specific canonical containment notice with a generic error', async () => {
+    mockDeleteCourse.mockRejectedValueOnce(
+      new CanonicalCourseAdminWriteBlockedError(sampleCourse.id, 'delete')
+    );
+
+    render(
+      <CoursesManager
+        courses={[sampleCourse]}
+        bookings={[]}
+        usersList={[]}
+        instructors={[]}
+        onDeleteCourse={mockDeleteCourse}
+        onRequestConfirm={onRequestConfirm}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'deleteCourse' }));
+
+    expect(mockDeleteCourse).toHaveBeenCalledWith(sampleCourse.id);
+    expect(mockAddNotification).not.toHaveBeenCalledWith(
+      'error',
+      'errorTitle',
+      'deleteCourseFailed'
+    );
   });
 });

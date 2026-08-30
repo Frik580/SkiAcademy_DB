@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, X, Edit2, Trash2, DollarSign, Check, Loader2 } from 'lucide-react';
+import { Search, Plus, X, Edit2, DollarSign, Check, Loader2 } from 'lucide-react';
 import { UserProfile, Instructor } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
@@ -15,11 +15,8 @@ interface ClientsManagerProps {
   currentUserProfile: UserProfile;
   onAddUser?: (user: UserProfile) => Promise<void>;
   onUpdateUser?: (user: UserProfile) => Promise<void>;
-  onDeleteUser?: (uid: string) => Promise<void>;
   onAddInstructor: (ins: Instructor) => Promise<void>;
   onUpdateInstructor: (ins: Instructor) => Promise<void>;
-  onDeleteInstructor: (id: string) => Promise<void>;
-  onRequestConfirm: (message: string, onConfirm: () => void | Promise<void>) => void;
 }
 
 export const ClientsManager: React.FC<ClientsManagerProps> = ({
@@ -28,11 +25,8 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
   currentUserProfile,
   onAddUser,
   onUpdateUser,
-  onDeleteUser,
   onAddInstructor,
   onUpdateInstructor,
-  onDeleteInstructor,
-  onRequestConfirm,
 }) => {
   const { t, language } = useLanguage();
   const { addNotification } = useNotifications();
@@ -48,7 +42,6 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('');
-  const [clientBalance, setClientBalance] = useState(starterCreditUsd);
   const [clientRole, setClientRole] = useState<'user' | 'admin'>('user');
   const [clientIsInstructor, setClientIsInstructor] = useState(false);
   const [clientIsActive, setClientIsActive] = useState(true);
@@ -84,7 +77,6 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
       email: (clientEmail || '').trim().toLowerCase(),
       phoneNumber: (clientPhone || '').trim() || '',
       isClientActive: clientIsActive,
-      balanceUSD: Number(clientBalance),
       role: clientRole,
       isInstructor: clientIsInstructor,
       instructorId: finalInstructorId,
@@ -99,6 +91,7 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
           ...baseData,
           uid: uId,
           avatarUrl: defaultAvatar,
+          balanceUSD: starterCreditUsd,
           level: 1,
         };
 
@@ -158,7 +151,6 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
       setClientName('');
       setClientEmail('');
       setClientPhone('');
-      setClientBalance(starterCreditUsd);
       setClientRole('user');
       setClientIsInstructor(false);
       setClientIsActive(true);
@@ -174,29 +166,12 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
     setClientName(u.displayName);
     setClientEmail(u.email);
     setClientPhone(u.phoneNumber || '');
-    setClientBalance(u.balanceUSD);
     setClientRole(u.role);
     setClientIsInstructor(u.isInstructor || false);
     setClientIsActive(u.isClientActive === undefined ? true : u.isClientActive);
     setShowClientAddForm(true);
   };
 
-  const handleDeleteClient = (u: UserProfile) => {
-    const confirmMsg = `${t('deleteClientConfirmPrefix')} ${u.displayName} (${u.email})?`;
-
-    onRequestConfirm(confirmMsg, async () => {
-      try {
-        if (u.isInstructor && u.instructorId) {
-          await onDeleteInstructor(u.instructorId);
-        }
-        if (onDeleteUser) {
-          await onDeleteUser(u.uid);
-        }
-      } catch (err) {
-        addNotification('error', t('deletionFailed'), t('deleteClientFailed'));
-      }
-    });
-  };
   return (
     <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
       <div className="flex items-center justify-end border-b border-[var(--border)] pb-3">
@@ -206,7 +181,6 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
             setClientName('');
             setClientEmail('');
             setClientPhone('');
-            setClientBalance(starterCreditUsd);
             setClientRole('user');
             setClientIsActive(true);
             setClientIsInstructor(false);
@@ -355,14 +329,6 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
                                   >
                                     <Edit2 className="w-4 h-4" />
                                   </button>
-                                  <button
-                                    disabled={isSelf}
-                                    onClick={() => handleDeleteClient(u)}
-                                    className={`p-1.5 border border-transparent rounded-none transition ${isSelf ? 'text-[var(--ink-dim)]/20 cursor-not-allowed' : 'text-rose-500 hover:text-rose-600 hover:border-rose-500/30 cursor-pointer'}`}
-                                    title={isSelf ? t('cannotDeleteSelf') : t('deleteClient')}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
                                 </div>
                               </td>
                             </tr>
@@ -450,8 +416,14 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
                   value={clientEmail}
                   onChange={(e) => setClientEmail(e.target.value)}
                   placeholder="e.g. johndoe@example.com"
-                  className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none font-mono"
+                  disabled={editingClient != null}
+                  className="w-full px-3.5 py-2 border border-[var(--border)] bg-transparent text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none font-mono disabled:opacity-60 disabled:cursor-not-allowed"
                 />
+                {editingClient && (
+                  <p className="text-[10px] font-mono text-[var(--ink-dim)] leading-relaxed">
+                    {t('existingClientEmailEditingDisabled')}
+                  </p>
+                )}
               </div>
 
               {/* Phone Number */}
@@ -473,16 +445,14 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
                 <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
                   {t('startingBalance')}
                 </label>
-                <div className="relative">
-                  <DollarSign className="w-4 h-4 text-[var(--ink-dim)] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={clientBalance}
-                    onChange={(e) => setClientBalance(Number(e.target.value))}
-                    className="w-full pl-9 pr-4 py-2 border border-[var(--border)] bg-transparent text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none font-mono"
-                  />
+                <div className="border border-[var(--border)] bg-black/5 dark:bg-white/5 p-3 space-y-1.5">
+                  <p className="flex items-center gap-1 text-xs font-mono text-[var(--ink)]">
+                    <DollarSign className="w-4 h-4 text-[var(--ink-dim)]" />
+                    {editingClient ? editingClient.balanceUSD : starterCreditUsd}
+                  </p>
+                  <p className="text-[10px] font-mono text-[var(--ink-dim)] leading-relaxed">
+                    {t('directBalanceEditingDisabled')}
+                  </p>
                 </div>
               </div>
 

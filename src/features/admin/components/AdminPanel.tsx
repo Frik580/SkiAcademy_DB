@@ -110,7 +110,6 @@ interface AdminPanelProps {
   onCancelBooking: (id: string) => Promise<void>;
   onAddUser?: (user: UserProfile) => Promise<void>;
   onUpdateUser?: (user: UserProfile) => Promise<void>;
-  onDeleteUser?: (uid: string) => Promise<void>;
   onRescheduleBooking?: (id: string, newDate: string, newTime: string) => Promise<void>;
   onReassignInstructor?: (
     id: string,
@@ -135,15 +134,6 @@ interface AdminPanelProps {
   achievementsConfig?: AchievementsConfig;
   onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
   onUpdateAchievementsConfig?: (config: AchievementsConfig) => Promise<void>;
-  onClearStudentBookings?: (
-    onProgress?: (deleted: number) => void
-  ) => Promise<import('../../../features/admin/clearStudentBookings').ClearStudentBookingsResult>;
-  onClearCancelledBookings?: (
-    onProgress?: (deleted: number) => void
-  ) => Promise<import('../../../features/admin/clearStudentBookings').ClearCancelledBookingsResult>;
-  onResetSchoolFinances?: (
-    onProgress?: (step: number) => void
-  ) => Promise<import('../../../features/admin/resetSchoolFinances').ResetSchoolFinancesResult>;
   bookingsHasMore?: boolean;
   onLoadMoreBookings?: () => void;
 }
@@ -165,7 +155,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onCancelBooking,
   onAddUser,
   onUpdateUser,
-  onDeleteUser,
   onRescheduleBooking,
   onReassignInstructor,
   onDeleteBooking,
@@ -183,9 +172,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateSkillConfig,
   achievementsConfig,
   onUpdateAchievementsConfig,
-  onClearStudentBookings,
-  onClearCancelledBookings,
-  onResetSchoolFinances,
   bookingsHasMore = false,
   onLoadMoreBookings,
 }) => {
@@ -351,11 +337,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 currentUserProfile={currentUserProfile}
                 onAddUser={onAddUser}
                 onUpdateUser={onUpdateUser}
-                onDeleteUser={onDeleteUser}
                 onAddInstructor={onAddInstructor}
                 onUpdateInstructor={onUpdateInstructor}
-                onDeleteInstructor={onDeleteInstructor}
-                onRequestConfirm={onRequestConfirm}
               />
             </AdminCollapsibleSection>
           </Suspense>
@@ -443,11 +426,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               onUpdateSkillConfig={onUpdateSkillConfig}
               achievementsConfig={achievementsConfig}
               onUpdateAchievementsConfig={onUpdateAchievementsConfig}
-              bookings={bookings}
-              onRequestConfirm={onRequestConfirm}
-              onClearStudentBookings={onClearStudentBookings}
-              onClearCancelledBookings={onClearCancelledBookings}
-              onResetSchoolFinances={onResetSchoolFinances}
             />
           </Suspense>
 

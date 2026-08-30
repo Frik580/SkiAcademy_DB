@@ -8,15 +8,33 @@ import { isCanonicalCourseProtectedFromLegacyAdminWrites } from '@ski-academy/sh
 
 export class CanonicalCourseAdminWriteBlockedError extends Error {
   readonly courseId: string;
+  readonly operation: 'create' | 'update' | 'delete';
 
-  constructor(courseId: string) {
-    super(`Canonical course ${courseId} cannot be modified via legacy admin writes`);
+  constructor(courseId: string, operation: 'create' | 'update' | 'delete') {
+    super(`Canonical course ${courseId} cannot be ${operation}d via legacy admin writes`);
     this.name = 'CanonicalCourseAdminWriteBlockedError';
     this.courseId = courseId;
+    this.operation = operation;
+  }
+}
+
+async function assertLegacyAdminCourseWriteAllowed(
+  courseId: string,
+  operation: 'create' | 'update' | 'delete'
+): Promise<void> {
+  const existing = await getDoc(doc(db, 'courses', courseId));
+  if (
+    existing.exists() &&
+    isCanonicalCourseProtectedFromLegacyAdminWrites(
+      existing.data() as Record<string, unknown>
+    )
+  ) {
+    throw new CanonicalCourseAdminWriteBlockedError(courseId, operation);
   }
 }
 
 export async function addCourseService(course: Course): Promise<void> {
+  await assertLegacyAdminCourseWriteAllowed(course.id, 'create');
   await setDoc(
     doc(db, 'courses', course.id),
     stripUndefinedFields(course as unknown as Record<string, unknown>)
@@ -25,17 +43,12 @@ export async function addCourseService(course: Course): Promise<void> {
 
 export async function updateCourseService(course: Course): Promise<void> {
   const courseRef = doc(db, 'courses', course.id);
-  const existing = await getDoc(courseRef);
-  if (
-    existing.exists() &&
-    isCanonicalCourseProtectedFromLegacyAdminWrites(existing.data() as Record<string, unknown>)
-  ) {
-    throw new CanonicalCourseAdminWriteBlockedError(course.id);
-  }
+  await assertLegacyAdminCourseWriteAllowed(course.id, 'update');
   await updateDoc(courseRef, course as unknown as Record<string, unknown>);
 }
 
 export async function deleteCourseService(courseId: string): Promise<void> {
+  await assertLegacyAdminCourseWriteAllowed(courseId, 'delete');
   await deleteDoc(doc(db, 'courses', courseId));
 }
 

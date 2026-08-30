@@ -3,21 +3,10 @@ import { isCourseBooking } from '../../domain/availability';
 import { createNotificationForUser } from '../../domain/notifications';
 import { buildNotification, translateKey } from '../../domain/notifications';
 import { Booking, Instructor } from '../../types';
-import {
-  clearStudentBookings,
-  clearCancelledBookings,
-  type ClearStudentBookingsResult,
-  type ClearCancelledBookingsResult,
-} from '../../features/admin/clearStudentBookings';
-import {
-  resetSchoolFinances,
-  type ResetSchoolFinancesResult,
-} from '../../features/admin/resetSchoolFinances';
 import { notify, t } from '../../store/storeContext';
 import { useAuthStore } from '../auth/authStore';
 import { useProfileStore } from '../profile/profileStore';
 import { useBookingsStore } from '../bookings/bookingsStore';
-import { useSettingsStore } from '../settings/settingsStore';
 import { withOptimisticBalance } from '../wallet/walletService';
 import {
   confirmBookingService,
@@ -40,7 +29,6 @@ export function useAdminActions() {
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const userProfile = useProfileStore((state) => state.userProfile);
   const bookings = useBookingsStore((state) => state.bookings);
-  const deletedCompletedStats = useBookingsStore((state) => state.deletedCompletedStats);
   const setDeletedCompletedStats = useBookingsStore((state) => state.setDeletedCompletedStats);
 
   const handleAddInstructor = useCallback(async (instructor: Instructor) => {
@@ -219,7 +207,7 @@ export function useAdminActions() {
       const result = await deleteBookingService(booking);
       if (result.newStats) setDeletedCompletedStats(result.newStats);
     },
-    [bookings, deletedCompletedStats, setDeletedCompletedStats]
+    [bookings, setDeletedCompletedStats]
   );
 
   const handleAddBooking = useCallback(
@@ -239,31 +227,6 @@ export function useAdminActions() {
     [firebaseUser?.uid]
   );
 
-  const handleClearStudentBookings = useCallback(
-    async (onProgress?: (deleted: number) => void): Promise<ClearStudentBookingsResult> => {
-      const result = await clearStudentBookings(onProgress);
-      setDeletedCompletedStats({ revenue: 0, count: 0 });
-      return result;
-    },
-    [setDeletedCompletedStats]
-  );
-
-  const handleClearCancelledBookings = useCallback(
-    async (onProgress?: (deleted: number) => void): Promise<ClearCancelledBookingsResult> =>
-      clearCancelledBookings(onProgress),
-    []
-  );
-
-  const handleResetSchoolFinances = useCallback(
-    async (onProgress?: (step: number) => void): Promise<ResetSchoolFinancesResult> => {
-      const creditUsd = useSettingsStore.getState().starterCreditUsd;
-      const result = await resetSchoolFinances(onProgress, creditUsd);
-      setDeletedCompletedStats({ revenue: 0, count: 0 });
-      return result;
-    },
-    [setDeletedCompletedStats]
-  );
-
   return {
     handleAddInstructor,
     handleUpdateInstructor,
@@ -276,8 +239,5 @@ export function useAdminActions() {
     handleReassignInstructor,
     handleDeleteBooking,
     handleAddBooking,
-    handleClearStudentBookings,
-    handleClearCancelledBookings,
-    handleResetSchoolFinances,
   };
 }

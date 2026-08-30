@@ -12,7 +12,6 @@ import {
 } from '../../infrastructure/firebase';
 import { UserProfile } from '../../types';
 import { logger } from '../../shared';
-import { updateUserWithAdminBalanceLedger } from '../../domain/wallet';
 
 export async function updateUserProfileService(
   userId: string,
@@ -51,12 +50,13 @@ export async function addUserService(newUser: UserProfile): Promise<void> {
   await setDoc(doc(db, 'users', newUser.uid), newUser);
 }
 
-export async function updateUserDataWithLedgerService(updatedUser: UserProfile): Promise<void> {
-  await updateUserWithAdminBalanceLedger(db, updatedUser);
-}
-
-export async function deleteUserService(targetUid: string): Promise<void> {
-  await deleteDoc(doc(db, 'users', targetUid));
+export async function updateUserDataWithoutMoneyService(updatedUser: UserProfile): Promise<void> {
+  const nonMonetaryProfile: Partial<UserProfile> = { ...updatedUser };
+  delete nonMonetaryProfile.balanceUSD;
+  delete nonMonetaryProfile.walletBalances;
+  delete nonMonetaryProfile.pendingWalletCredit;
+  delete nonMonetaryProfile.lastRefundBookingId;
+  await updateDoc(doc(db, 'users', updatedUser.uid), nonMonetaryProfile);
 }
 
 export async function dismissReviewService(userId: string, bookingId: string): Promise<void> {

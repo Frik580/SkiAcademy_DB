@@ -243,13 +243,7 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
       }
       resetCourseForm();
     } catch (err) {
-      if (err instanceof CanonicalCourseAdminWriteBlockedError) {
-        addNotification(
-          'warning',
-          t('canonicalCourseEditBlockedTitle'),
-          t('canonicalCourseEditBlockedDesc')
-        );
-      } else {
+      if (!(err instanceof CanonicalCourseAdminWriteBlockedError)) {
         addNotification('error', t('errorTitle'), t('saveCourseFailed'));
       }
     } finally {

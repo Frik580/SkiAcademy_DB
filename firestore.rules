@@ -45,8 +45,79 @@ service cloud.firestore {
         course.provisioningManifestFingerprint.size() > 0;
     }
 
-    function legacyAdminCourseWriteAllowed() {
-      return !hasCanonicalProvisioningMarker(resource.data);
+    function hasStrictCanonicalCourseTopLevelShape(course) {
+      return course is map &&
+        course.keys().hasAll([
+          'courseId',
+          'title',
+          'price',
+          'capacity',
+          'instructorRosterIds',
+          'startAt',
+          'scheduleProjection',
+          'revision',
+          'createdAt',
+          'updatedAt',
+          'audit'
+        ]) &&
+        course.keys().hasOnly([
+          'courseId',
+          'title',
+          'price',
+          'capacity',
+          'instructorRosterIds',
+          'startAt',
+          'scheduleProjection',
+          'provisioningManifestFingerprint',
+          'provisioningExpectedCourseDayIds',
+          'revision',
+          'createdAt',
+          'updatedAt',
+          'audit'
+        ]);
+    }
+
+    function canonicalCourseProtectedFromLegacyAdminWrites(course) {
+      return hasCanonicalProvisioningMarker(course) ||
+        hasStrictCanonicalCourseTopLevelShape(course);
+    }
+
+    function legacyAdminCourseWriteAllowed(course) {
+      return !canonicalCourseProtectedFromLegacyAdminWrites(course);
+    }
+
+    function authoritativeMoneyFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'balanceUSD',
+        'walletBalances',
+        'pendingWalletCredit',
+        'lastRefundBookingId'
+      ]);
+    }
+
+    function validInitialWalletAuthority() {
+      let starterCreditPath = /databases/$(database)/documents/settings/starter_credit;
+      return request.resource.data.balanceUSD is number &&
+        !('walletBalances' in request.resource.data) &&
+        !('pendingWalletCredit' in request.resource.data) &&
+        !('lastRefundBookingId' in request.resource.data) &&
+        (
+          (
+            exists(starterCreditPath) &&
+            request.resource.data.balanceUSD == get(starterCreditPath).data.amountUsd
+          ) ||
+          (
+            !exists(starterCreditPath) &&
+            request.resource.data.balanceUSD == 250
+          )
+        );
+    }
+
+    function validStarterCreditSetting() {
+      return request.resource.data.keys().hasOnly(['amountUsd']) &&
+        request.resource.data.amountUsd is number &&
+        request.resource.data.amountUsd >= 0 &&
+        request.resource.data.amountUsd <= 10000;
     }
 
     function isInstructor() {
@@ -454,13 +525,15 @@ service cloud.firestore {
         request.resource.data.uid == userId &&
         isOwnEmail(request.resource.data.email) &&
         request.resource.data.role == 'user' &&
-        !('systemRole' in request.resource.data)
+        !('systemRole' in request.resource.data) &&
+        validInitialWalletAuthority()
       ) || (
         isAdmin() &&
         userId.matches('^client_.*') &&
         request.resource.data.uid == userId &&
         !('systemRole' in request.resource.data) &&
-        (request.resource.data.role != 'admin' || isSystemOwner())
+        (request.resource.data.role != 'admin' || isSystemOwner()) &&
+        validInitialWalletAuthority()
       );
 
       allow update: if (
@@ -490,24 +563,24 @@ service cloud.firestore {
       ) || (
         isAdmin() &&
         (!('role' in resource.data) || resource.data.role != 'admin') &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'systemRole'])
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'role',
+          'systemRole',
+          'email'
+        ]) &&
+        authoritativeMoneyFieldsUnchanged()
       ) || (
         isSystemOwner() &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['systemRole'])
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'systemRole',
+          'email'
+        ]) &&
+        authoritativeMoneyFieldsUnchanged()
       );
 
-      allow delete: if (
-        isSystemOwner() &&
-        (!('systemRole' in resource.data) || resource.data.systemRole != 'owner')
-      ) || (
-        isAdmin() &&
-        (!('role' in resource.data) || resource.data.role != 'admin') &&
-        (!('systemRole' in resource.data) || resource.data.systemRole != 'owner')
-      ) || (
-        userId.matches('^client_.*') &&
+      allow delete: if userId.matches('^client_.*') &&
         (!('systemRole' in resource.data) || resource.data.systemRole != 'owner') &&
-        isOwnEmail(resource.data.email)
-      );
+        isOwnEmail(resource.data.email);
     }
 
     // Instructors
@@ -605,7 +678,7 @@ service cloud.firestore {
         request.resource.data.status != 'cancelled'
       );
 
-      allow delete: if isAdmin() || (
+      allow delete: if (
         isOwner(resource.data.userId) &&
         isCancelledCourseBooking(resource.data)
       );
@@ -630,7 +703,7 @@ service cloud.firestore {
             request.resource.data.homeworkForUserIds is list
           )
         );
-        allow delete: if isAdmin();
+        allow delete: if false;
       }
     }
 
@@ -652,14 +725,21 @@ service cloud.firestore {
     // Settings
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() &&
+        settingId != 'guest_wallet' &&
+        (
+          settingId != 'starter_credit' ||
+          validStarterCreditSetting()
+        );
     }
 
     // Courses
     match /courses/{courseId} {
       allow read: if true;
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() && legacyAdminCourseWriteAllowed();
+      allow create: if isAdmin() &&
+        legacyAdminCourseWriteAllowed(request.resource.data);
+      allow update, delete: if isAdmin() &&
+        legacyAdminCourseWriteAllowed(resource.data);
     }
 
     // Non-authoritative course catalog/presentation content for public UI.
@@ -701,21 +781,15 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isAuthenticated() &&
         validWalletLedgerEntryFields(entryId) &&
+        request.resource.data.userId == request.auth.uid &&
         (
-          isAdmin() ||
           (
-            request.resource.data.userId == request.auth.uid &&
-            (
-              (
-                request.resource.data.type == 'lesson_payment' ||
-                request.resource.data.type == 'course_payment'
-              ) && validPaymentLedgerCreate(entryId)
-            )
-          )
+            request.resource.data.type == 'lesson_payment' ||
+            request.resource.data.type == 'course_payment'
+          ) && validPaymentLedgerCreate(entryId)
         );
       allow update: if false;
-      // Admin-only wipe for school finance reset; ledger remains append-only for all other clients.
-      allow delete: if isAdmin();
+      allow delete: if false;
     }
 
     // Error Logs

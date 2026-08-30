@@ -53,9 +53,6 @@ export const AdminRouteContainer: React.FC = () => {
     handleReassignInstructor,
     handleDeleteBooking,
     handleAddBooking,
-    handleClearStudentBookings,
-    handleClearCancelledBookings,
-    handleResetSchoolFinances,
   } = useAdminActions();
   const handleToggleFilters = useSettingsStore((state) => state.handleToggleFilters);
   const handleSetNotificationRetentionDays = useSettingsStore(
@@ -69,7 +66,6 @@ export const AdminRouteContainer: React.FC = () => {
   const handleUpdateUserRole = useProfileStore((state) => state.handleUpdateUserRole);
   const handleAddUser = useProfileStore((state) => state.handleAddUser);
   const handleUpdateUser = useProfileStore((state) => state.handleUpdateUser);
-  const handleDeleteUser = useProfileStore((state) => state.handleDeleteUser);
 
   return (
     <AdminRoute userProfile={userProfile}>
@@ -93,7 +89,6 @@ export const AdminRouteContainer: React.FC = () => {
           onCancelBooking={handleCancelBooking}
           onAddUser={handleAddUser}
           onUpdateUser={handleUpdateUser}
-          onDeleteUser={handleDeleteUser}
           onRescheduleBooking={handleRescheduleBooking}
           onReassignInstructor={handleReassignInstructor}
           onDeleteBooking={handleDeleteBooking}
@@ -111,9 +106,6 @@ export const AdminRouteContainer: React.FC = () => {
           onUpdateSkillConfig={handleUpdateSkillConfig}
           achievementsConfig={achievementsConfig}
           onUpdateAchievementsConfig={handleUpdateAchievementsConfig}
-          onClearStudentBookings={handleClearStudentBookings}
-          onClearCancelledBookings={handleClearCancelledBookings}
-          onResetSchoolFinances={handleResetSchoolFinances}
         />
       </LazyLoad>
     </AdminRoute>

@@ -18,8 +18,7 @@ import {
   updateUserProfileService,
   updateUserRoleService,
   addUserService,
-  updateUserDataWithLedgerService,
-  deleteUserService,
+  updateUserDataWithoutMoneyService,
   dismissReviewService,
 } from './profileService';
 
@@ -53,7 +52,6 @@ export interface ProfileState {
   handleUpdateUserRole: (targetUid: string, newRole: 'admin' | 'user') => Promise<void>;
   handleAddUser: (newUser: UserProfile) => Promise<void>;
   handleUpdateUser: (updatedUser: UserProfile) => Promise<void>;
-  handleDeleteUser: (targetUid: string) => Promise<void>;
   handleDismissReview: (bookingId: string) => Promise<void>;
   handleToggleSkillToday: (skillItemId: string, pinned: boolean) => Promise<void>;
   handlePinSkillsToday: (skillItemIds: string[], skillItems: SkillItem[]) => Promise<void>;
@@ -122,11 +120,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   },
 
   handleUpdateUser: async (updatedUser) => {
-    await updateUserDataWithLedgerService(updatedUser);
-  },
-
-  handleDeleteUser: async (targetUid) => {
-    await deleteUserService(targetUid);
+    await updateUserDataWithoutMoneyService(updatedUser);
   },
 
   handleDismissReview: async (bookingId) => {

@@ -3,7 +3,6 @@ import { Settings, Award, Trophy, Bell, Trash2, Gift } from 'lucide-react';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../../domain/achievements';
 import { AchievementsConfig } from '../../../../domain/achievements';
-import { Booking } from '../../../../types';
 import {
   DEFAULT_NOTIFICATION_RETENTION_DAYS,
   MAX_NOTIFICATION_RETENTION_DAYS,
@@ -18,11 +17,6 @@ import { SkillConfigManager } from './SkillConfigManager';
 import { AchievementsManager } from './AchievementsManager';
 import { AdminCollapsibleSection } from './AdminCollapsibleSection';
 import { ToggleSwitch } from '../../../../ui/ToggleSwitch';
-import {
-  ClearStudentBookingsResult,
-  ClearCancelledBookingsResult,
-} from '../../../../features/admin/clearStudentBookings';
-import { ResetSchoolFinancesResult } from '../../../../features/admin/resetSchoolFinances';
 
 export interface AdminSystemSettingsProps {
   filtersEnabled?: boolean;
@@ -35,17 +29,6 @@ export interface AdminSystemSettingsProps {
   achievementsConfig?: AchievementsConfig;
   onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
   onUpdateAchievementsConfig?: (config: AchievementsConfig) => Promise<void>;
-  bookings?: Booking[];
-  onRequestConfirm?: (message: string, onConfirm: () => void | Promise<void>) => void;
-  onClearStudentBookings?: (
-    onProgress?: (deleted: number) => void
-  ) => Promise<ClearStudentBookingsResult>;
-  onClearCancelledBookings?: (
-    onProgress?: (deleted: number) => void
-  ) => Promise<ClearCancelledBookingsResult>;
-  onResetSchoolFinances?: (
-    onProgress?: (step: number) => void
-  ) => Promise<ResetSchoolFinancesResult>;
 }
 
 /** Preferences, gamification, and danger-zone tools for the System admin tab. */
@@ -60,36 +43,12 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
   achievementsConfig,
   onUpdateSkillConfig,
   onUpdateAchievementsConfig,
-  bookings = [],
-  onRequestConfirm,
-  onClearStudentBookings,
-  onClearCancelledBookings,
-  onResetSchoolFinances,
 }) => {
   const { t } = useLanguage();
   const [retentionInput, setRetentionInput] = useState(String(notificationRetentionDays));
   const [isSavingRetention, setIsSavingRetention] = useState(false);
   const [starterCreditInput, setStarterCreditInput] = useState(String(starterCreditUsd));
   const [isSavingStarterCredit, setIsSavingStarterCredit] = useState(false);
-  const [isClearingBookings, setIsClearingBookings] = useState(false);
-  const [clearBookingsProgress, setClearBookingsProgress] = useState(0);
-  const [clearBookingsMessage, setClearBookingsMessage] = useState<string | null>(null);
-
-  const [isClearingCancelled, setIsClearingCancelled] = useState(false);
-  const [clearCancelledProgress, setClearCancelledProgress] = useState(0);
-  const [clearCancelledMessage, setClearCancelledMessage] = useState<string | null>(null);
-
-  const [isResettingFinances, setIsResettingFinances] = useState(false);
-  const [resetFinancesProgress, setResetFinancesProgress] = useState(0);
-  const [resetFinancesMessage, setResetFinancesMessage] = useState<string | null>(null);
-
-  const studentBookingsCount = bookings.filter(
-    (booking) => !booking.userId.startsWith('system_block_')
-  ).length;
-
-  const cancelledBookingsCount = bookings.filter(
-    (booking) => booking.status === 'cancelled'
-  ).length;
 
   React.useEffect(() => {
     setRetentionInput(String(notificationRetentionDays));
@@ -139,75 +98,6 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
     } finally {
       setIsSavingStarterCredit(false);
     }
-  };
-
-  const handleClearCancelledBookingsClick = () => {
-    if (!onRequestConfirm || !onClearCancelledBookings || isClearingCancelled) return;
-
-    onRequestConfirm(t('clearCancelledBookingsConfirm'), async () => {
-      setIsClearingCancelled(true);
-      setClearCancelledMessage(null);
-      setClearCancelledProgress(0);
-      try {
-        const result = await onClearCancelledBookings(setClearCancelledProgress);
-        setClearCancelledMessage(
-          t('clearCancelledBookingsDone').replace('{bookings}', String(result.bookingsDeleted))
-        );
-      } catch {
-        setClearCancelledMessage(t('updateFailed'));
-      } finally {
-        setIsClearingCancelled(false);
-      }
-    });
-  };
-
-  const handleClearStudentBookingsClick = () => {
-    if (!onRequestConfirm || !onClearStudentBookings || isClearingBookings) return;
-
-    onRequestConfirm(t('clearStudentBookingsConfirm'), async () => {
-      setIsClearingBookings(true);
-      setClearBookingsMessage(null);
-      setClearBookingsProgress(0);
-      try {
-        const result = await onClearStudentBookings(setClearBookingsProgress);
-        setClearBookingsMessage(
-          t('clearStudentBookingsDone')
-            .replace('{bookings}', String(result.bookingsDeleted))
-            .replace('{locks}', String(result.locksDeleted))
-            .replace('{courses}', String(result.coursesReset))
-        );
-      } catch {
-        setClearBookingsMessage(t('updateFailed'));
-      } finally {
-        setIsClearingBookings(false);
-      }
-    });
-  };
-
-  const handleResetSchoolFinancesClick = () => {
-    if (!onRequestConfirm || !onResetSchoolFinances || isResettingFinances) return;
-
-    onRequestConfirm(
-      t('resetSchoolFinancesConfirm').replace('{amount}', String(starterCreditUsd)),
-      async () => {
-        setIsResettingFinances(true);
-        setResetFinancesMessage(null);
-        setResetFinancesProgress(0);
-        try {
-          const result = await onResetSchoolFinances(setResetFinancesProgress);
-          setResetFinancesMessage(
-            t('resetSchoolFinancesDone')
-              .replace('{users}', String(result.usersReset))
-              .replace('{ledger}', String(result.ledgerDeleted))
-              .replace('{credits}', String(result.starterCreditsWritten))
-          );
-        } catch {
-          setResetFinancesMessage(t('updateFailed'));
-        } finally {
-          setIsResettingFinances(false);
-        }
-      }
-    );
   };
 
   return (
@@ -378,85 +268,10 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
         icon={Trash2}
         defaultOpen={false}
       >
-        <div className="space-y-6 max-w-2xl">
-          <div className="space-y-3 border-b border-[var(--border)] pb-5">
-            <h4 className="text-xs font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
-              {t('clearCancelledBookingsTitle')}
-            </h4>
-            <p className="text-[10px] text-[var(--ink-dim)] leading-relaxed font-mono">
-              {t('clearCancelledBookingsDesc')}
-            </p>
-            {cancelledBookingsCount > 0 && (
-              <p className="text-[10px] font-mono text-[var(--ink)]">
-                {t('clearCancelledBookingsLoadedCount').replace(
-                  '{n}',
-                  String(cancelledBookingsCount)
-                )}
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={handleClearCancelledBookingsClick}
-              disabled={!onClearCancelledBookings || isClearingCancelled}
-              className="py-2 px-4 border border-amber-900/40 hover:border-amber-500 text-amber-500 hover:bg-amber-950/10 rounded-none text-xs font-mono uppercase tracking-wider transition cursor-pointer disabled:opacity-50"
-            >
-              {isClearingCancelled
-                ? t('clearCancelledBookingsRunning').replace('{n}', String(clearCancelledProgress))
-                : t('clearCancelledBookingsRun')}
-            </button>
-            {clearCancelledMessage && (
-              <p className="text-xs text-[var(--ink-dim)] font-mono">{clearCancelledMessage}</p>
-            )}
-          </div>
-
-          <div className="space-y-3 border-b border-[var(--border)] pb-5">
-            <h4 className="text-xs font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
-              {t('clearStudentBookingsTitle')}
-            </h4>
-            <p className="text-[10px] text-[var(--ink-dim)] leading-relaxed font-mono">
-              {t('clearStudentBookingsDesc')}
-            </p>
-            {studentBookingsCount > 0 && (
-              <p className="text-[10px] font-mono text-[var(--ink)]">
-                {t('clearStudentBookingsLoadedCount').replace('{n}', String(studentBookingsCount))}
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={handleClearStudentBookingsClick}
-              disabled={!onClearStudentBookings || isClearingBookings}
-              className="py-2 px-4 border border-rose-900/40 hover:border-rose-500 text-rose-500 hover:bg-rose-950/10 rounded-none text-xs font-mono uppercase tracking-wider transition cursor-pointer disabled:opacity-50"
-            >
-              {isClearingBookings
-                ? t('clearStudentBookingsRunning').replace('{n}', String(clearBookingsProgress))
-                : t('clearStudentBookingsRun')}
-            </button>
-            {clearBookingsMessage && (
-              <p className="text-xs text-[var(--ink-dim)] font-mono">{clearBookingsMessage}</p>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            <h4 className="text-xs font-mono uppercase tracking-wider text-[var(--ink)] font-bold">
-              {t('resetSchoolFinancesTitle')}
-            </h4>
-            <p className="text-[10px] text-[var(--ink-dim)] leading-relaxed font-mono">
-              {t('resetSchoolFinancesDesc').replace('{amount}', String(starterCreditUsd))}
-            </p>
-            <button
-              type="button"
-              onClick={handleResetSchoolFinancesClick}
-              disabled={!onResetSchoolFinances || isResettingFinances}
-              className="py-2 px-4 border border-rose-900/40 hover:border-rose-500 text-rose-500 hover:bg-rose-950/10 rounded-none text-xs font-mono uppercase tracking-wider transition cursor-pointer disabled:opacity-50"
-            >
-              {isResettingFinances
-                ? t('resetSchoolFinancesRunning').replace('{n}', String(resetFinancesProgress))
-                : t('resetSchoolFinancesRun')}
-            </button>
-            {resetFinancesMessage && (
-              <p className="text-xs text-[var(--ink-dim)] font-mono">{resetFinancesMessage}</p>
-            )}
-          </div>
+        <div className="max-w-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <p className="text-[11px] text-[var(--ink)] leading-relaxed font-mono">
+            {t('destructiveAdminToolsDisabled')}
+          </p>
         </div>
       </AdminCollapsibleSection>
     </div>

@@ -1325,6 +1325,145 @@ describe('canonical booking chat messages', () => {
   });
 });
 
+// Mirrors production canonical lesson bookings (minimal occurrence, no legacy userId).
+const PROD_SHAPED_ACCOUNT_ID = 'F5mwFT8KvAOkYHxlElpagT1yftr1';
+const PROD_SHAPED_SELF_PARTICIPANT_ID =
+  '29ea271f35c01d51545cd77e56c3d2fc5990712f40f49279d98a83eb127c67b2';
+const PROD_SHAPED_DEPENDENT_PARTICIPANT_ID =
+  '2df3b3f88bad9e47232a77a29813a5eb220bc2917f6495db87d3edc0d0323bd7';
+const PROD_SHAPED_SELF_BOOKING_ID = 'booking_b30f2dfe00f04cdb85d5092902bf99d4';
+const PROD_SHAPED_DEPENDENT_BOOKING_ID = 'booking_633eed84516f4459a8baba8a20af0667';
+const PROD_SHAPED_INSTRUCTOR_ID = 'ins_elena';
+
+function productionShapedCanonicalBooking(
+  bookingId: string,
+  participantId: string
+): Record<string, unknown> {
+  return {
+    bookingId,
+    payerAccountId: PROD_SHAPED_ACCOUNT_ID,
+    attribution: {
+      bookingOrigin: 'account',
+      bookedBy: { kind: 'account', accountId: PROD_SHAPED_ACCOUNT_ID },
+    },
+    party: {
+      kind: 'individual',
+      participantIds: [participantId],
+    },
+    occurrence: {
+      instructorId: PROD_SHAPED_INSTRUCTOR_ID,
+    },
+    lifecycle: { status: 'confirmed' },
+  };
+}
+
+async function seedProductionShapedCanonicalChatFixture() {
+  await seedData(async (context) => {
+    const db = context.firestore();
+    await setDoc(doc(db, 'users', PROD_SHAPED_ACCOUNT_ID), {
+      ...userProfile(PROD_SHAPED_ACCOUNT_ID, 'ksusha@test.ru'),
+      accountId: PROD_SHAPED_ACCOUNT_ID,
+    });
+    await setDoc(doc(db, 'participant_management_active_owner', PROD_SHAPED_SELF_PARTICIPANT_ID), {
+      participantId: PROD_SHAPED_SELF_PARTICIPANT_ID,
+      accountId: PROD_SHAPED_ACCOUNT_ID,
+      participantManagementId: 'management_prod_shaped_self',
+      managementRevision: 1,
+      updatedAt: canonicalChatTimestamp,
+      lastChangedByCommandId: 'command_prod_shaped_fixture',
+      correlationId: 'correlation_prod_shaped_fixture',
+    });
+    await setDoc(
+      doc(db, 'participant_management_active_owner', PROD_SHAPED_DEPENDENT_PARTICIPANT_ID),
+      {
+        participantId: PROD_SHAPED_DEPENDENT_PARTICIPANT_ID,
+        accountId: PROD_SHAPED_ACCOUNT_ID,
+        participantManagementId: 'management_prod_shaped_dependent',
+        managementRevision: 1,
+        updatedAt: canonicalChatTimestamp,
+        lastChangedByCommandId: 'command_prod_shaped_fixture',
+        correlationId: 'correlation_prod_shaped_fixture',
+      }
+    );
+    await setDoc(
+      doc(db, 'bookings', PROD_SHAPED_SELF_BOOKING_ID),
+      productionShapedCanonicalBooking(PROD_SHAPED_SELF_BOOKING_ID, PROD_SHAPED_SELF_PARTICIPANT_ID)
+    );
+    await setDoc(
+      doc(db, 'bookings', PROD_SHAPED_DEPENDENT_BOOKING_ID),
+      productionShapedCanonicalBooking(
+        PROD_SHAPED_DEPENDENT_BOOKING_ID,
+        PROD_SHAPED_DEPENDENT_PARTICIPANT_ID
+      )
+    );
+  });
+}
+
+describe('production-shaped canonical booking chat messages', () => {
+  beforeEach(async () => {
+    await seedProductionShapedCanonicalChatFixture();
+  });
+
+  it('allows ksusha account to list and read messages on both production-shaped bookings', async () => {
+    const customerDb = testEnv
+      .authenticatedContext(PROD_SHAPED_ACCOUNT_ID, { email: 'ksusha@test.ru' })
+      .firestore();
+
+    for (const bookingId of [PROD_SHAPED_SELF_BOOKING_ID, PROD_SHAPED_DEPENDENT_BOOKING_ID]) {
+      await assertSucceeds(getDocs(collection(customerDb, 'bookings', bookingId, 'messages')));
+      await assertSucceeds(
+        setDoc(doc(customerDb, 'bookings', bookingId, 'messages', `message-${bookingId}`), {
+          id: `message-${bookingId}`,
+          bookingId,
+          senderId: PROD_SHAPED_ACCOUNT_ID,
+          senderName: PROD_SHAPED_ACCOUNT_ID,
+          senderAvatar: '',
+          text: 'Production-shaped canonical chat',
+          timestamp: '2026-12-01T09:00:00.000Z',
+        })
+      );
+      await assertSucceeds(
+        getDoc(doc(customerDb, 'bookings', bookingId, 'messages', `message-${bookingId}`))
+      );
+    }
+  });
+
+  it('denies unrelated accounts on production-shaped canonical bookings', async () => {
+    const otherDb = testEnv
+      .authenticatedContext(OTHER_USER_ID, { email: 'other@example.com' })
+      .firestore();
+
+    for (const bookingId of [PROD_SHAPED_SELF_BOOKING_ID, PROD_SHAPED_DEPENDENT_BOOKING_ID]) {
+      await assertFails(getDocs(collection(otherDb, 'bookings', bookingId, 'messages')));
+    }
+  });
+
+  it('denies direct client reads of participant_management_active_owner while rule get() still authorizes chat', async () => {
+    const customerDb = testEnv
+      .authenticatedContext(PROD_SHAPED_ACCOUNT_ID, { email: 'ksusha@test.ru' })
+      .firestore();
+
+    await assertFails(
+      getDoc(
+        doc(customerDb, 'participant_management_active_owner', PROD_SHAPED_SELF_PARTICIPANT_ID)
+      )
+    );
+    await assertFails(
+      getDoc(
+        doc(customerDb, 'participant_management_active_owner', PROD_SHAPED_DEPENDENT_PARTICIPANT_ID)
+      )
+    );
+    await assertFails(getDocs(collection(customerDb, 'participant_management_active_owner')));
+
+    await assertSucceeds(
+      getDocs(collection(customerDb, 'bookings', PROD_SHAPED_SELF_BOOKING_ID, 'messages'))
+    );
+    await assertSucceeds(
+      getDocs(collection(customerDb, 'bookings', PROD_SHAPED_DEPENDENT_BOOKING_ID, 'messages'))
+    );
+  });
+});
+
 describe('course enrollment transactions', () => {
   beforeEach(async () => {
     await seedData(async (context) => {

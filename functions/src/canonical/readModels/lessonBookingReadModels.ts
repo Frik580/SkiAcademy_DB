@@ -186,6 +186,7 @@ export function buildPaymentPresentation(
     kind: 'visible',
     paymentStatus: payment.paymentStatus,
     paymentRevision: payment.revision,
+    price: payment.price,
   };
 }
 

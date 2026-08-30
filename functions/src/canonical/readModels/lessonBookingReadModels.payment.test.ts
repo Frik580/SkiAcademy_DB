@@ -82,7 +82,51 @@ describe('payment presentation without fake unpaid fallback', () => {
     ).toEqual({ kind: 'withheld' });
     expect(
       buildPaymentPresentation(otherAccountId, record as never, paymentRecord as never)
-    ).not.toEqual({ kind: 'visible', paymentStatus: 'unpaid', paymentRevision: 1 });
+    ).not.toEqual({ kind: 'visible', paymentStatus: 'unpaid', paymentRevision: 1, price: 10000 });
+  });
+
+  it('projects canonical payment price for payer-visible presentation', () => {
+    const record = booking(accountId);
+    const paymentRecord = payment(accountId);
+    expect(buildPaymentPresentation(accountId, record as never, paymentRecord as never)).toEqual({
+      kind: 'visible',
+      paymentStatus: 'paid',
+      paymentRevision: 1,
+      price: 10000,
+    });
+  });
+
+  it('projects production-like paid KZT payment fields without legacy aliases', () => {
+    const productionBookingId = BookingIdSchema.parse('booking_b30f2dfe00f04cdb85d5092902bf99d4');
+    const payerAccountId = AccountIdSchema.parse('F5mwFT8KvAOkYHxlElpagT1yftr1');
+    const productionPaymentId = paymentIdFromBookingId(productionBookingId);
+    const productionBooking = {
+      ...booking(payerAccountId),
+      bookingId: productionBookingId,
+      paymentId: productionPaymentId,
+    };
+    const productionPayment = {
+      ...payment(payerAccountId),
+      paymentId: productionPaymentId,
+      subjectId: productionBookingId,
+      currency: 'KZT' as const,
+      originalPrice: 50000,
+      price: 50000,
+      paidAmount: 50000,
+      retainedAmount: 50000,
+      settledAmount: 50000,
+      outstandingAmount: 0,
+      paymentStatus: 'paid' as const,
+    };
+
+    expect(
+      buildPaymentPresentation(payerAccountId, productionBooking as never, productionPayment as never)
+    ).toEqual({
+      kind: 'visible',
+      paymentStatus: 'paid',
+      paymentRevision: 1,
+      price: 50000,
+    });
   });
 
   it('omits payment projection when payment record is missing', () => {

@@ -425,6 +425,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('lesson booking cutover boundary (fire
       expect(payerItem?.paymentPresentation).toMatchObject({
         kind: 'visible',
         paymentStatus: 'paid',
+        price: expect.any(Number),
       });
 
       const bookingRecord = parseBooking(
@@ -444,6 +445,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('lesson booking cutover boundary (fire
       expect(buildPaymentPresentation(payerAccountId, bookingRecord!, paymentRecord)).toMatchObject({
         kind: 'visible',
         paymentStatus: 'paid',
+        price: paymentRecord!.price,
       });
       expect(
         buildPaymentPresentation(managerAccountId, bookingRecord!, paymentRecord)

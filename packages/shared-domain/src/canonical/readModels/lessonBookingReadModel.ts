@@ -14,6 +14,7 @@ import {
   AggregateRevisionSchema,
   CanonicalTimestampSchema,
   IanaTimeZoneSchema,
+  KztMinorUnitsSchema,
   type CanonicalTimestamp,
 } from '../primitives';
 
@@ -93,6 +94,7 @@ export const LessonBookingReadModelPaymentPresentationSchema = z.discriminatedUn
       kind: z.literal('visible'),
       paymentStatus: PaymentStatusSchema,
       paymentRevision: AggregateRevisionSchema,
+      price: KztMinorUnitsSchema,
     })
     .strict(),
   z.object({ kind: z.literal('withheld') }).strict(),

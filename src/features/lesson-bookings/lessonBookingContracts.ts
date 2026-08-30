@@ -9,6 +9,7 @@ import type { ClientCallableCapability } from '../../lib/canonical/canonicalComm
 export interface LessonBookingPaymentPresentation {
   readonly kind: 'visible' | 'withheld';
   readonly paymentStatus?: string;
+  readonly price?: number;
 }
 
 export interface LessonBookingCabinetItem {

@@ -52,7 +52,7 @@ describe('firestore.rules guardrails', () => {
     expect(rulesSource).toContain('function canAccessCanonicalBookingChat');
     expect(rulesSource).toContain('function managesParticipant');
     expect(rulesSource).toMatch(
-      /match \/participant_management_active_owner\/\{participantId\}[\s\S]*allow read: if isAuthenticated\(\);/
+      /match \/participant_management_active_owner\/\{participantId\}[\s\S]*allow read, write: if false;/
     );
   });
 

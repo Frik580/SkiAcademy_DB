@@ -20,8 +20,14 @@ export function mapLessonBookingReadModelToCabinetItem(
   const paymentPresentation = readModel.paymentPresentation;
   const payment =
     paymentPresentation?.kind === 'visible'
-      ? { kind: 'visible' as const, paymentStatus: paymentPresentation.paymentStatus }
+      ? {
+          kind: 'visible' as const,
+          paymentStatus: paymentPresentation.paymentStatus,
+          price: paymentPresentation.price,
+        }
       : { kind: 'withheld' as const };
+  const totalPrice =
+    paymentPresentation?.kind === 'visible' ? paymentPresentation.price : undefined;
 
   return {
     id: readModel.bookingId,
@@ -37,6 +43,7 @@ export function mapLessonBookingReadModelToCabinetItem(
     participantNames: readModel.participants.map((participant) => participant.displayName),
     partyKind: readModel.partyKind,
     payment,
+    totalPrice,
     bookingOrigin: readModel.bookingOrigin,
     isLessonBooking: true,
     authorizedActions: readModel.authorizedActions,

@@ -542,10 +542,9 @@ service cloud.firestore {
       );
     }
 
-    // Deterministic active-owner guard used by canonical booking authorization.
+    // Server-owned guard read by security rules via get()/exists(); clients cannot read directly.
     match /participant_management_active_owner/{participantId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if false;
+      allow read, write: if false;
     }
 
     // Bookings

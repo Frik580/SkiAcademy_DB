@@ -2,6 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Clock, MessageSquare, Trash2 } from 'lucide-react';
 import { Course, Instructor, UserProfile } from '../../../types';
 import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
+import {
+  lessonBookingPaymentDisplayLabel,
+  resolveLessonBookingPaymentDisplay,
+} from '../../../features/lesson-bookings/lessonBookingPaymentPresentation';
+import { formatLessonBookingParticipantLine } from '../../../features/lesson-bookings/lessonBookingParticipantPresentation';
 import { cabinetItemToLegacyPresentation } from '../../../features/lesson-bookings/mergeCabinetBookings';
 import type { CabinetSessionItem } from '../../../features/course-enrollments';
 import {
@@ -362,6 +367,13 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
 
                 if (item.kind === 'lesson') {
                   const b = item.session;
+                  const paymentDisplay = resolveLessonBookingPaymentDisplay(b, t);
+                  const paymentLabel = lessonBookingPaymentDisplayLabel(paymentDisplay, t);
+                  const participantLine = formatLessonBookingParticipantLine({
+                    participantNames: b.participantNames,
+                    participantLabel: t('bookingParticipantLabel'),
+                    participantsLabel: t('bookingParticipantsLabel'),
+                  });
                   return (
                     <div
                       key={key}
@@ -388,10 +400,8 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                           <p className="text-xs text-[var(--ink-dim)]">
                             {b.difficulty ? `${getDifficultyLabel(b.difficulty, language)} · ` : ''}
                             {b.durationHours} {t('hrSession')}
-                            {b.partyKind === 'family_group' && b.participantNames.length > 1
-                              ? ` · ${b.participantNames.length}`
-                              : ''}
                           </p>
+                          <p className="text-xs text-[var(--ink-dim)]">{participantLine}</p>
                           <div className="flex items-center gap-2 flex-wrap text-xs text-[var(--ink-dim)]">
                             <span className="inline-flex items-center gap-1">
                               <Calendar className="w-3.5 h-3.5 text-[var(--accent)]" />{' '}
@@ -415,11 +425,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                           <span className="text-xs text-[var(--ink-dim)] block">
                             {t('totalFee')}
                           </span>
-                          <span className="text-lg font-serif text-[var(--ink)]">
-                            {b.payment.kind === 'visible' && b.totalPrice !== undefined
-                              ? `$${b.totalPrice}`
-                              : 'Payment details unavailable'}
-                          </span>
+                          <span className="text-lg font-serif text-[var(--ink)]">{paymentLabel}</span>
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap">

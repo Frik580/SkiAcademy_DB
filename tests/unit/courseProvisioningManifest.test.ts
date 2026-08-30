@@ -13,6 +13,9 @@ import {
   isCanonicalCourseProtectedFromLegacyAdminWrites,
   buildCourseDocumentShapeRepairPlan,
   classifyCourseDocumentExtraKey,
+  buildCourseAggregateFromShapeRepair,
+  parseCanonicalCourseOperationalStateFromDocument,
+  validatePersistedCourseOperationalStateAgainstManifest,
   resolveProvisionedAvailableSeats,
   verifyProvisionedCourseSchedule,
   CourseProvisioningManifestSchema,
@@ -104,10 +107,10 @@ describe('course provisioning manifest', () => {
       courseId,
       courseDocument: hybrid,
       catalogContentDocument: baseManifest.presentation,
-      repairedCourseDocument: buildCourseAggregateFromManifest({
+      repairedCourseDocument: buildCourseAggregateFromShapeRepair({
+        persistedOperational: parseCanonicalCourseOperationalStateFromDocument(hybrid)!,
         manifest: baseManifest,
         revision: 7,
-        decidedAt: timestampFromDate(new Date('2026-01-01T00:00:00.000Z')),
         audit: {
           createdByCommandId: 'command_hybrid',
           lastChangedByCommandId: 'command_hybrid',
@@ -172,6 +175,101 @@ describe('course provisioning manifest', () => {
     expect(course.provisioningExpectedCourseDayIds).toEqual([courseDayOneId, courseDayTwoId]);
     expect(courseScheduleIsComplete(course, [])).toBe(false);
     expect(isCourseOperationalForEnrollment(course, [])).toBe(false);
+  });
+
+  it('preserves occupied capacity during shape repair with seed_full manifest', () => {
+    const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+    const hybrid = {
+      ...buildCourseAggregateFromManifest({
+        manifest: baseManifest,
+        revision: 7,
+        decidedAt,
+        audit: {
+          createdByCommandId: 'command_hybrid_capacity',
+          lastChangedByCommandId: 'command_hybrid_capacity',
+          correlationId: 'correlation_hybrid_capacity' as never,
+        },
+      }),
+      capacity: { totalSeats: 8, availableSeats: 7 },
+      instructorIds: [instructorId],
+      totalSeats: 8,
+      availableSeats: 7,
+      duration: '2 days',
+    };
+    const persisted = parseCanonicalCourseOperationalStateFromDocument(hybrid);
+    expect(persisted?.capacity).toEqual({ totalSeats: 8, availableSeats: 7 });
+    expect(validatePersistedCourseOperationalStateAgainstManifest(persisted!, baseManifest)).toEqual(
+      []
+    );
+    const repaired = buildCourseAggregateFromShapeRepair({
+      persistedOperational: persisted!,
+      manifest: baseManifest,
+      revision: 7,
+      audit: {
+        createdByCommandId: 'command_hybrid_capacity',
+        lastChangedByCommandId: 'command_hybrid_capacity',
+        correlationId: 'correlation_hybrid_capacity' as never,
+      },
+    });
+    expect(repaired.capacity).toEqual({ totalSeats: 8, availableSeats: 7 });
+    expect(
+      buildCourseAggregateFromManifest({
+        manifest: baseManifest,
+        revision: 7,
+        decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_full',
+          lastChangedByCommandId: 'command_seed_full',
+          correlationId: 'correlation_seed_full' as never,
+        },
+      }).capacity.availableSeats
+    ).toBe(8);
+  });
+
+  it('preserves schedule projection revision during shape repair', () => {
+    const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+    const hybrid = {
+      ...buildCourseAggregateFromManifest({
+        manifest: baseManifest,
+        revision: 6,
+        decidedAt,
+        audit: {
+          createdByCommandId: 'command_hybrid_schedule',
+          lastChangedByCommandId: 'command_hybrid_schedule',
+          correlationId: 'correlation_hybrid_schedule' as never,
+        },
+      }),
+      scheduleProjection: {
+        courseDayCount: 2,
+        finalCourseDayEndsAt: deriveSchedulePlanFromManifest(baseManifest).finalCourseDayEndsAt,
+        courseScheduleRevision: 6,
+      },
+      description: 'legacy contamination',
+    };
+    const persisted = parseCanonicalCourseOperationalStateFromDocument(hybrid);
+    const repaired = buildCourseAggregateFromShapeRepair({
+      persistedOperational: persisted!,
+      manifest: baseManifest,
+      revision: 6,
+      audit: {
+        createdByCommandId: 'command_hybrid_schedule',
+        lastChangedByCommandId: 'command_hybrid_schedule',
+        correlationId: 'correlation_hybrid_schedule' as never,
+      },
+    });
+    expect(repaired.scheduleProjection.courseScheduleRevision).toBe(6);
+    expect(
+      buildCourseAggregateFromManifest({
+        manifest: baseManifest,
+        revision: 6,
+        decidedAt,
+        audit: {
+          createdByCommandId: 'command_initial',
+          lastChangedByCommandId: 'command_initial',
+          correlationId: 'correlation_initial' as never,
+        },
+      }).scheduleProjection.courseScheduleRevision
+    ).toBe(1);
   });
 
   it('keeps planned day count while only one manifest day is committed', () => {

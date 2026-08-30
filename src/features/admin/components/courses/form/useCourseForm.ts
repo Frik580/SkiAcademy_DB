@@ -3,6 +3,9 @@ import { Course } from '../../../../../types';
 import { useLanguage } from '../../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../../features/notifications';
 import { useCourseDateRange } from '../useCourseDateRange';
+import { doc, getDoc, db } from '../../../../../infrastructure/firebase';
+import { isCanonicalCourseProtectedFromLegacyAdminWrites } from '@ski-academy/shared-domain';
+import { CanonicalCourseAdminWriteBlockedError } from '../../../../../features/courses/courseService';
 
 export interface UseCourseFormInput {
   courses: Course[];
@@ -240,13 +243,30 @@ export const useCourseForm = ({ courses, onAddCourse, onUpdateCourse }: UseCours
       }
       resetCourseForm();
     } catch (err) {
-      addNotification('error', t('errorTitle'), t('saveCourseFailed'));
+      if (err instanceof CanonicalCourseAdminWriteBlockedError) {
+        addNotification('warning', t('canonicalCourseEditBlockedTitle'), t('canonicalCourseEditBlockedDesc'));
+      } else {
+        addNotification('error', t('errorTitle'), t('saveCourseFailed'));
+      }
     } finally {
       setIsSubmittingCourse(false);
     }
   };
 
-  const startEditCourse = (course: Course) => {
+  const startEditCourse = async (course: Course) => {
+    const existingSnap = await getDoc(doc(db, 'courses', course.id));
+    if (
+      existingSnap.exists() &&
+      isCanonicalCourseProtectedFromLegacyAdminWrites(existingSnap.data() as Record<string, unknown>)
+    ) {
+      addNotification(
+        'warning',
+        t('canonicalCourseEditBlockedTitle'),
+        t('canonicalCourseEditBlockedDesc')
+      );
+      return;
+    }
+
     setEditingCourse(course);
     setCourseTitle(course.title);
     setCourseTitleRu(course.titleRu || '');

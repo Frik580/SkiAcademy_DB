@@ -22,6 +22,7 @@ import {
   verifyProvisionedCourseSchedule,
   CourseProvisioningManifestSchema,
   buildCourseAggregateFromManifest,
+  deriveSchedulePlanFromManifest,
   resolveManifestDayInterval,
   resolveInstructorCourseAssignmentProjection,
   type CommandEnvelope,
@@ -412,16 +413,24 @@ describe('course provisioning commands', () => {
 
   it('replaces hybrid canonical course document without legacy keys and preserves revision', async () => {
     const hybridRevision = 7;
-    const hybridCourse = buildCourseAggregateFromManifest({
-      manifest,
-      revision: hybridRevision,
-      decidedAt,
-      audit: {
-        createdByCommandId: 'command_hybrid_seed',
-        lastChangedByCommandId: 'command_hybrid_seed',
-        correlationId,
+    const hybridCourse = {
+      ...buildCourseAggregateFromManifest({
+        manifest,
+        revision: hybridRevision,
+        decidedAt,
+        audit: {
+          createdByCommandId: 'command_hybrid_seed',
+          lastChangedByCommandId: 'command_hybrid_seed',
+          correlationId,
+        },
+      }),
+      capacity: { totalSeats: 8, availableSeats: 7 },
+      scheduleProjection: {
+        courseDayCount: 1,
+        finalCourseDayEndsAt: deriveSchedulePlanFromManifest(manifest).finalCourseDayEndsAt,
+        courseScheduleRevision: 6,
       },
-    });
+    };
     const hybridFixture = {
       ...legacyCourseFixture(),
       [`courses/${courseId}`]: {
@@ -474,6 +483,9 @@ describe('course provisioning commands', () => {
     expect(after).not.toHaveProperty('duration');
     const course = parseCourse(after);
     expect(course?.revision).toBe(hybridRevision);
+    expect(course?.capacity.totalSeats).toBe(8);
+    expect(course?.capacity.availableSeats).toBe(7);
+    expect(course?.scheduleProjection.courseScheduleRevision).toBe(6);
     expect(course?.audit.createdByCommandId).toBe('command_hybrid_seed');
     expect(executor.snapshot().docs.has(courseDayPath(courseId, courseDayId))).toBe(true);
     const courseDays = parseCourseDays(
@@ -488,6 +500,141 @@ describe('course provisioning commands', () => {
         courseDays,
       }).allowed
     ).toBe(true);
+  });
+
+  it('preserves occupied capacity during hybrid shape repair with seed_full manifest', async () => {
+    const hybridRevision = 7;
+    const hybridCourse = {
+      ...buildCourseAggregateFromManifest({
+        manifest,
+        revision: hybridRevision,
+        decidedAt,
+        audit: {
+          createdByCommandId: 'command_hybrid_capacity_seed',
+          lastChangedByCommandId: 'command_hybrid_capacity_seed',
+          correlationId,
+        },
+      }),
+      capacity: { totalSeats: 8, availableSeats: 7 },
+      scheduleProjection: {
+        courseDayCount: 1,
+        finalCourseDayEndsAt: deriveSchedulePlanFromManifest(manifest).finalCourseDayEndsAt,
+        courseScheduleRevision: 6,
+      },
+    };
+    const enrollmentId = courseEnrollmentIdFromCommandParticipant({
+      commandId: 'command_existing_enrollment',
+      participantId,
+    });
+    const hybridFixture = {
+      ...legacyCourseFixture(),
+      [`courses/${courseId}`]: {
+        ...toFirestoreWritePayload(hybridCourse as unknown as Record<string, unknown>),
+        instructorIds: [instructorId],
+        totalSeats: 8,
+        availableSeats: 7,
+        priceKZT: 50_000,
+        duration: '1 day',
+        description: 'Hybrid description on course doc',
+      },
+      [`course_enrollments/${enrollmentId}`]: {
+        courseId,
+        participantId,
+        lifecycle: { status: 'confirmed' },
+      },
+      [courseDayPath(courseId, courseDayId)]: {
+        courseId,
+        courseDayId,
+        dayOrder: 1,
+        interval: resolveManifestDayInterval(manifest.days[0]!, manifest.timeZone).interval,
+        timeZone: manifest.timeZone,
+        actualInstructorIds: [instructorId],
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_day_seed',
+          lastChangedByCommandId: 'command_day_seed',
+          correlationId,
+        },
+      },
+    };
+
+    const executor = createInMemoryCanonicalTransactionExecutor(hybridFixture);
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    const before = executor.snapshot().docs.get(`courses/${courseId}`)?.data;
+    expect(before?.capacity).toEqual({ totalSeats: 8, availableSeats: 7 });
+
+    const result = await commands.execute({
+      kind: 'provision_canonical_course',
+      context: adminContext('idem-hybrid-shape-repair-capacity'),
+      intent: { manifest },
+    });
+    expect(result.status).toBe('success');
+
+    const after = parseCourse(executor.snapshot().docs.get(`courses/${courseId}`)?.data);
+    expect(after?.capacity).toEqual({ totalSeats: 8, availableSeats: 7 });
+    expect(executor.snapshot().docs.has(`course_enrollments/${enrollmentId}`)).toBe(true);
+    expect(executor.snapshot().docs.has(courseDayPath(courseId, courseDayId))).toBe(true);
+  });
+
+  it('preserves schedule projection revision during hybrid shape repair', async () => {
+    const hybridRevision = 6;
+    const hybridCourse = {
+      ...buildCourseAggregateFromManifest({
+        manifest,
+        revision: hybridRevision,
+        decidedAt,
+        audit: {
+          createdByCommandId: 'command_hybrid_schedule_seed',
+          lastChangedByCommandId: 'command_hybrid_schedule_seed',
+          correlationId,
+        },
+      }),
+      scheduleProjection: {
+        courseDayCount: 1,
+        finalCourseDayEndsAt: deriveSchedulePlanFromManifest(manifest).finalCourseDayEndsAt,
+        courseScheduleRevision: 6,
+      },
+    };
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...legacyCourseFixture(),
+      [`courses/${courseId}`]: {
+        ...toFirestoreWritePayload(hybridCourse as unknown as Record<string, unknown>),
+        instructorIds: [instructorId],
+        totalSeats: 8,
+        availableSeats: 8,
+        description: 'Hybrid schedule contamination',
+      },
+      [courseDayPath(courseId, courseDayId)]: {
+        courseId,
+        courseDayId,
+        dayOrder: 1,
+        interval: resolveManifestDayInterval(manifest.days[0]!, manifest.timeZone).interval,
+        timeZone: manifest.timeZone,
+        actualInstructorIds: [instructorId],
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_day_seed',
+          lastChangedByCommandId: 'command_day_seed',
+          correlationId,
+        },
+      },
+    });
+    const commands = createProductionCanonicalCommands(environment(), executor);
+
+    const result = await commands.execute({
+      kind: 'provision_canonical_course',
+      context: adminContext('idem-hybrid-shape-repair-schedule'),
+      intent: { manifest },
+    });
+    expect(result.status).toBe('success');
+
+    const after = parseCourse(executor.snapshot().docs.get(`courses/${courseId}`)?.data);
+    expect(after?.scheduleProjection.courseScheduleRevision).toBe(6);
+    expect(after?.scheduleProjection.courseDayCount).toBe(1);
   });
 
   it('reprovisions strict canonical course via update without shape replacement', async () => {

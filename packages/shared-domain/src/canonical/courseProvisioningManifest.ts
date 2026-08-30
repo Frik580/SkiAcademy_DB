@@ -282,6 +282,138 @@ export function buildCourseAggregateFromManifest(input: {
   });
 }
 
+export function pickCanonicalCourseDocumentFields(
+  data: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  const normalized = normalizeFirestoreDocument(data);
+  if (!normalized) {
+    return {};
+  }
+  const picked: Record<string, unknown> = {};
+  for (const key of CANONICAL_COURSE_DOCUMENT_FIELD_NAMES) {
+    if (key in normalized) {
+      picked[key] = normalized[key];
+    }
+  }
+  return picked;
+}
+
+/** Canonical operational fields readable from a hybrid course document (extra keys ignored). */
+export function parseCanonicalCourseOperationalStateFromDocument(
+  data: Record<string, unknown> | undefined
+): Course | undefined {
+  const picked = pickCanonicalCourseDocumentFields(data);
+  const parsed = CourseSchema.safeParse(picked);
+  return parsed.success ? parsed.data : undefined;
+}
+
+export interface CourseOperationalManifestCompatibilityIssue {
+  readonly field: string;
+  readonly reason: 'conflict' | 'missing' | 'invalid';
+}
+
+function instructorRosterIdsEqual(
+  left: readonly string[],
+  right: readonly string[]
+): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function courseDayIdsEqual(left: readonly CourseDayId[], right: readonly CourseDayId[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+export function validatePersistedCourseOperationalStateAgainstManifest(
+  persisted: Course,
+  manifest: CourseProvisioningManifest
+): readonly CourseOperationalManifestCompatibilityIssue[] {
+  const issues: CourseOperationalManifestCompatibilityIssue[] = [];
+  const schedulePlan = deriveSchedulePlanFromManifest(manifest);
+  const expectedFingerprint = computeCourseProvisioningManifestFingerprint(manifest);
+  const expectedCourseDayIds = resolveProvisioningExpectedCourseDayIds(manifest);
+
+  if (persisted.courseId !== manifest.courseId) {
+    issues.push({ field: 'courseId', reason: 'conflict' });
+  }
+  if (persisted.title !== manifest.title) {
+    issues.push({ field: 'title', reason: 'conflict' });
+  }
+  if (persisted.price !== manifest.price) {
+    issues.push({ field: 'price', reason: 'conflict' });
+  }
+  if (persisted.capacity.totalSeats !== manifest.totalSeats) {
+    issues.push({ field: 'capacity.totalSeats', reason: 'conflict' });
+  }
+  if (!instructorRosterIdsEqual(persisted.instructorRosterIds, manifest.instructorRosterIds)) {
+    issues.push({ field: 'instructorRosterIds', reason: 'conflict' });
+  }
+  if (compareCanonicalTimestamps(persisted.startAt, schedulePlan.startAt) !== 0) {
+    issues.push({ field: 'startAt', reason: 'conflict' });
+  }
+  if (persisted.scheduleProjection.courseDayCount !== schedulePlan.courseDayCount) {
+    issues.push({ field: 'scheduleProjection.courseDayCount', reason: 'conflict' });
+  }
+  if (
+    compareCanonicalTimestamps(
+      persisted.scheduleProjection.finalCourseDayEndsAt,
+      schedulePlan.finalCourseDayEndsAt
+    ) !== 0
+  ) {
+    issues.push({ field: 'scheduleProjection.finalCourseDayEndsAt', reason: 'conflict' });
+  }
+  if (
+    persisted.provisioningManifestFingerprint &&
+    persisted.provisioningManifestFingerprint !== expectedFingerprint
+  ) {
+    issues.push({ field: 'provisioningManifestFingerprint', reason: 'conflict' });
+  }
+  if (persisted.provisioningExpectedCourseDayIds) {
+    if (!courseDayIdsEqual(persisted.provisioningExpectedCourseDayIds, expectedCourseDayIds)) {
+      issues.push({ field: 'provisioningExpectedCourseDayIds', reason: 'conflict' });
+    }
+  }
+  if (persisted.capacity.availableSeats > persisted.capacity.totalSeats) {
+    issues.push({ field: 'capacity.availableSeats', reason: 'invalid' });
+  }
+
+  return issues;
+}
+
+/** Shape-only repair: preserve persisted canonical runtime state; manifest verifies identity/invariants. */
+export function buildCourseAggregateFromShapeRepair(input: {
+  readonly persistedOperational: Course;
+  readonly manifest: CourseProvisioningManifest;
+  readonly revision: number;
+  readonly audit: Course['audit'] & { readonly createdByCommandId: string };
+}): Course {
+  const expectedFingerprint = computeCourseProvisioningManifestFingerprint(input.manifest);
+  const expectedCourseDayIds = resolveProvisioningExpectedCourseDayIds(input.manifest);
+  return CourseSchema.parse({
+    courseId: input.persistedOperational.courseId,
+    title: input.persistedOperational.title,
+    price: input.persistedOperational.price,
+    capacity: {
+      totalSeats: input.persistedOperational.capacity.totalSeats,
+      availableSeats: input.persistedOperational.capacity.availableSeats,
+    },
+    instructorRosterIds: input.persistedOperational.instructorRosterIds,
+    startAt: input.persistedOperational.startAt,
+    scheduleProjection: {
+      courseDayCount: input.persistedOperational.scheduleProjection.courseDayCount,
+      finalCourseDayEndsAt: input.persistedOperational.scheduleProjection.finalCourseDayEndsAt,
+      courseScheduleRevision: input.persistedOperational.scheduleProjection.courseScheduleRevision,
+    },
+    provisioningManifestFingerprint:
+      input.persistedOperational.provisioningManifestFingerprint ?? expectedFingerprint,
+    provisioningExpectedCourseDayIds:
+      input.persistedOperational.provisioningExpectedCourseDayIds ?? expectedCourseDayIds,
+    revision: input.revision,
+    createdAt: input.persistedOperational.createdAt,
+    updatedAt: input.persistedOperational.updatedAt,
+    audit: input.audit,
+  });
+}
+
 export function verifyProvisionedCourseSchedule(
   course: Course,
   courseDays: readonly CourseDay[]

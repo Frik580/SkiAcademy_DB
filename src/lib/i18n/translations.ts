@@ -1192,6 +1192,9 @@ export const translations = {
     instructorsRequired: 'Instructors Required',
     courseUpdated: 'Course updated successfully.',
     courseAdded: 'Course added successfully.',
+    canonicalCourseEditBlockedTitle: 'Canonical course editing not supported',
+    canonicalCourseEditBlockedDesc:
+      'This course is managed by canonical provisioning. Legacy admin editing is disabled until T32.',
     saveCourseFailed: 'Failed to save course.',
     courseOrderUpdated: 'Course order updated successfully.',
     courseOrderFailed: 'Failed to update course order.',
@@ -2905,6 +2908,9 @@ export const translations = {
     instructorsRequired: 'Инструкторы обязательны',
     courseUpdated: 'Курс успешно обновлен.',
     courseAdded: 'Курс успешно добавлен.',
+    canonicalCourseEditBlockedTitle: 'Редактирование canonical-курса недоступно',
+    canonicalCourseEditBlockedDesc:
+      'Этот курс управляется canonical provisioning. Legacy-редактирование в админке отключено до T32.',
     saveCourseFailed: 'Не удалось сохранить курс.',
     courseOrderUpdated: 'Порядок курсов успешно изменен.',
     courseOrderFailed: 'Не удалось изменить порядок курсов.',

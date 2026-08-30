@@ -4,10 +4,12 @@ import {
   CourseCatalogContentSchema,
   CourseSchema,
   buildCourseAggregateFromManifest,
+  buildCourseAggregateFromShapeRepair,
   commandErrorResult,
   commandSuccessResult,
   computeCourseProvisioningManifestFingerprint,
   deriveSchedulePlanFromManifest,
+  parseCanonicalCourseOperationalStateFromDocument,
   readPersistedCourseAuditCreatedByCommandId,
   readPersistedCourseCreatedAt,
   readPersistedCourseProvisioningFingerprint,
@@ -15,6 +17,7 @@ import {
   resolveCommandIdempotencyIdentity,
   resolveProvisionedAvailableSeats,
   courseDocumentRequiresShapeReplacement,
+  validatePersistedCourseOperationalStateAgainstManifest,
   timestampFromDate,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
@@ -143,6 +146,9 @@ function provisionCanonicalCourseHandler(
 
       const decidedAt = timestampFromDate(environment.clock.decidedAt());
       const plannedFingerprint = computeCourseProvisioningManifestFingerprint(manifest);
+      const persistedOperational = courseDocumentExistsRead
+        ? parseCanonicalCourseOperationalStateFromDocument(rawCourseData)
+        : undefined;
       if (!existingCourse && courseDocumentExistsRead) {
         const rawFingerprint = readPersistedCourseProvisioningFingerprint(rawCourseData);
         if (rawFingerprint && rawFingerprint !== plannedFingerprint) {
@@ -153,12 +159,32 @@ function provisionCanonicalCourseHandler(
         }
       }
 
-      plannedCourse = buildCourseAggregateFromManifest({
-        manifest,
-        revision: persistedRevision,
-        decidedAt,
-        audit: revisionAuditLink(envelope, metadata),
-      });
+      if (requiresShapeReplacement && persistedOperational) {
+        const operationalCompatibilityIssues =
+          validatePersistedCourseOperationalStateAgainstManifest(persistedOperational, manifest);
+        if (operationalCompatibilityIssues.length > 0) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: {
+              field: operationalCompatibilityIssues[0].field,
+              reason: 'conflict',
+            },
+          });
+        }
+        plannedCourse = buildCourseAggregateFromShapeRepair({
+          persistedOperational,
+          manifest,
+          revision: persistedRevision,
+          audit: revisionAuditLink(envelope, metadata),
+        });
+      } else {
+        plannedCourse = buildCourseAggregateFromManifest({
+          manifest,
+          revision: persistedRevision,
+          decidedAt,
+          audit: revisionAuditLink(envelope, metadata),
+        });
+      }
 
       if (existingCourse) {
         if (

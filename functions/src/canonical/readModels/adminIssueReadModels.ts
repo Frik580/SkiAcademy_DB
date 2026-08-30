@@ -198,7 +198,7 @@ async function loadIssueAttendance(firestore: Firestore, issue: AdminIssue): Pro
   );
 }
 
-async function buildAdminIssueDetail(
+export async function buildAdminIssueDetail(
   firestore: Firestore,
   actor: ReadModelAdministratorActor,
   issue: AdminIssue

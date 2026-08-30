@@ -110,6 +110,26 @@
         { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },
         { "fieldPath": "issueId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "monetary_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "walletAccountId", "order": "ASCENDING" },
+        { "fieldPath": "occurredAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "occurredAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "eventId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "monetary_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "paymentId", "order": "ASCENDING" },
+        { "fieldPath": "occurredAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "occurredAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "eventId", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

@@ -594,9 +594,7 @@ describe('user profiles and roles', () => {
       balanceUSD: 250,
     };
 
-    await assertFails(
-      setDoc(doc(ownerDb, 'settings', 'starter_credit'), { amountUsd: 999_999 })
-    );
+    await assertFails(setDoc(doc(ownerDb, 'settings', 'starter_credit'), { amountUsd: 999_999 }));
     await assertFails(
       setDoc(doc(ownerDb, 'users', 'client_inflated_wallet'), {
         ...userProfile('client_inflated_wallet', 'inflated@example.com'),
@@ -604,9 +602,7 @@ describe('user profiles and roles', () => {
       })
     );
     await assertSucceeds(setDoc(doc(ownerDb, 'users', clientId), clientProfile));
-    await assertFails(
-      updateDoc(doc(ownerDb, 'users', clientId), { email: 'owner@example.com' })
-    );
+    await assertFails(updateDoc(doc(ownerDb, 'users', clientId), { email: 'owner@example.com' }));
     await assertFails(deleteDoc(doc(ownerDb, 'users', clientId)));
     await assertSucceeds(deleteDoc(doc(claimantDb, 'users', clientId)));
     await assertFails(
@@ -666,6 +662,48 @@ describe('user profiles and roles', () => {
     });
     await assertSucceeds(getDoc(guestWalletRef));
     await assertFails(updateDoc(guestWalletRef, { balanceUSD: 0 }));
+  });
+
+  it('denies direct browser access to canonical Wallet, Payment, and MonetaryEvent authority', async () => {
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'users', OTHER_USER_ID, 'wallet', 'state'), {
+        accountId: OTHER_USER_ID,
+        currency: 'KZT',
+        balance: 10_000,
+        revision: 1,
+        eventRevision: 1,
+      });
+      await setDoc(doc(db, 'payments', 'payment-rules-finance-1'), {
+        paymentId: 'payment-rules-finance-1',
+        currency: 'KZT',
+        revision: 1,
+      });
+      await setDoc(doc(db, 'monetary_events', 'event-rules-finance-1'), {
+        eventId: 'event-rules-finance-1',
+        currency: 'KZT',
+        walletBalanceDelta: 10_000,
+      });
+    });
+
+    const walletRef = doc(adminDb, 'users', OTHER_USER_ID, 'wallet', 'state');
+    const paymentRef = doc(adminDb, 'payments', 'payment-rules-finance-1');
+    const eventRef = doc(adminDb, 'monetary_events', 'event-rules-finance-1');
+    await assertFails(getDoc(walletRef));
+    await assertFails(getDoc(paymentRef));
+    await assertFails(getDoc(eventRef));
+    await assertFails(updateDoc(walletRef, { balance: 999_999 }));
+    await assertFails(updateDoc(paymentRef, { paidAmount: 999_999 }));
+    await assertFails(deleteDoc(eventRef));
+    await assertFails(
+      setDoc(doc(adminDb, 'monetary_events', 'event-rules-forged'), {
+        eventId: 'event-rules-forged',
+        walletBalanceDelta: 999_999,
+      })
+    );
   });
 
   it('blocks users from appending wallet ledger entries for other users', async () => {

@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   QueryAdminIssueReadModelsInputSchema,
+  QueryAdminFinanceReadModelsInputSchema,
   QueryLessonBookingReadModelsInputSchema,
 } from '@ski-academy/shared-domain';
 import {
   queryAdminIssueReadModels,
+  queryAdminFinanceReadModels,
   queryBookingChangeRequestReadModels,
   queryBookingProposalReadModels,
   queryCourseCatalogReadModels,
@@ -15,6 +17,7 @@ import {
 import {
   QUERY_BOOKING_CHANGE_REQUEST_READ_MODELS_CALLABLE,
   QUERY_ADMIN_ISSUE_READ_MODELS_CALLABLE,
+  QUERY_ADMIN_FINANCE_READ_MODELS_CALLABLE,
   QUERY_BOOKING_PROPOSAL_READ_MODELS_CALLABLE,
   QUERY_COURSE_CATALOG_READ_MODELS_CALLABLE,
   QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE,
@@ -76,6 +79,57 @@ describe('canonicalReadModelClient', () => {
     expect(
       QueryAdminIssueReadModelsInputSchema.safeParse(callFunctionMock.mock.calls[0]?.[1]).success
     ).toBe(true);
+  });
+
+  it('calls the canonical Admin finance read callable with target-scoped read identity', async () => {
+    callFunctionMock.mockResolvedValueOnce({
+      scope: 'admin_payment_detail',
+    });
+
+    await queryAdminFinanceReadModels({
+      scope: 'admin_payment_detail',
+      paymentId: 'payment_admin_client_test_01',
+      cursor: 'cursor_admin_finance_page_2',
+    });
+
+    expect(callFunctionMock).toHaveBeenCalledWith(
+      QUERY_ADMIN_FINANCE_READ_MODELS_CALLABLE,
+      {
+        scope: 'admin_payment_detail',
+        paymentId: 'payment_admin_client_test_01',
+        cursor: 'cursor_admin_finance_page_2',
+      },
+      expect.objectContaining({
+        idempotencyKey: expect.stringMatching(/^read:admin_finance:[a-f0-9]{64}$/),
+        maxAttempts: 1,
+      })
+    );
+    expect(callFunctionMock.mock.calls[0]?.[2].idempotencyKey.length).toBeLessThanOrEqual(200);
+    expect(
+      QueryAdminFinanceReadModelsInputSchema.safeParse(callFunctionMock.mock.calls[0]?.[1]).success
+    ).toBe(true);
+  });
+
+  it('keeps a long opaque Admin finance cursor out of the transport idempotency key', async () => {
+    callFunctionMock.mockResolvedValueOnce({ scope: 'admin_payment_detail' });
+    const cursor = Buffer.from(
+      JSON.stringify({
+        scope: 'admin_payment_detail',
+        target: 'payment_01',
+        padding: 'x'.repeat(400),
+      })
+    ).toString('base64url');
+
+    await queryAdminFinanceReadModels({
+      scope: 'admin_payment_detail',
+      paymentId: 'payment_admin_client_test_01',
+      cursor,
+    });
+
+    const options = callFunctionMock.mock.calls[0]?.[2];
+    expect(options.idempotencyKey).toMatch(/^read:admin_finance:[a-f0-9]{64}$/);
+    expect(options.idempotencyKey.length).toBeLessThanOrEqual(200);
+    expect(options.idempotencyKey).not.toContain(cursor);
   });
 
   it('calls queryLessonBookingReadModels callable without Firestore access', async () => {

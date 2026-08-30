@@ -130,7 +130,9 @@ describe('finance commands', () => {
       `activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`
     )?.data;
     expect(audit?.monetaryEventIds).toEqual([eventId]);
-    expect(JSON.stringify(audit?.effects ?? [])).not.toMatch(/\d{3,}|paidAmount|outstanding|walletBalanceDelta/i);
+    expect(JSON.stringify(audit?.effects ?? [])).not.toMatch(
+      /\d{3,}|paidAmount|outstanding|walletBalanceDelta/i
+    );
   });
 
   it('replays wallet funding without double credit', async () => {
@@ -157,6 +159,40 @@ describe('finance commands', () => {
 
     const wallet = executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data;
     expect(wallet?.balance).toBe(15_000);
+  });
+
+  it('applies two distinct wallet funding actions exactly once each', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: seedAccount(),
+      [`users/${accountId}/wallet/state`]: seedWallet(10_000),
+    });
+
+    const first: CommandEnvelope<'record_manual_wallet_funding'> = {
+      kind: 'record_manual_wallet_funding',
+      context: {
+        ...adminContext('wallet-credit-distinct-a'),
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: { accountId, amount: 5_000, reasonExplanation: 'First distinct funding' },
+    };
+    const second: CommandEnvelope<'record_manual_wallet_funding'> = {
+      kind: 'record_manual_wallet_funding',
+      context: {
+        ...adminContext('wallet-credit-distinct-b'),
+        expectedRevision: AggregateRevisionSchema.parse(2),
+      },
+      intent: { accountId, amount: 7_000, reasonExplanation: 'Second distinct funding' },
+    };
+
+    await runCommand(executor, first);
+    await runCommand(executor, second);
+    await runCommand(executor, second);
+
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data).toMatchObject({
+      balance: 22_000,
+      revision: 3,
+    });
   });
 
   it('records external payment funding on payment projection', async () => {
@@ -301,7 +337,9 @@ describe('finance commands', () => {
     });
 
     expect(result.status).toBe('success');
-    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(1_000);
+    expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
+      1_000
+    );
   });
 
   it('rejects wallet debit when funds are insufficient for funded price increase', async () => {

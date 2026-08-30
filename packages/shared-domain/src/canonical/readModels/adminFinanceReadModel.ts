@@ -1,0 +1,201 @@
+import { z } from 'zod';
+import { IdempotencyKeySchema } from '../commands/commandContext';
+import {
+  AdminIssueKindSchema,
+  AdminIssueLifecycleStatusSchema,
+} from '../courseEnrollmentAttendanceAdminIssue';
+import {
+  AccountIdSchema,
+  AdminIssueIdSchema,
+  CausationIdSchema,
+  CommandIdSchema,
+  CorrelationIdSchema,
+  MonetaryEventIdSchema,
+  PaymentIdSchema,
+} from '../identifiers';
+import {
+  MonetaryPaymentEffectSchema,
+  MonetarySourceKindSchema,
+  PaymentStatusSchema,
+  PaymentSubjectTypeSchema,
+} from '../paymentWallet';
+import {
+  AggregateRevisionSchema,
+  CanonicalTimestampSchema,
+  KztMinorUnitsSchema,
+} from '../primitives';
+
+export const ADMIN_FINANCE_READ_MODEL_PAGE_SIZE_DEFAULT = 20;
+export const ADMIN_FINANCE_READ_MODEL_PAGE_SIZE_MAX = 50;
+
+export const AdminFinanceAccountIdentitySchema = z
+  .object({
+    accountId: AccountIdSchema,
+    displayName: z.string().trim().min(1).max(200),
+    email: z.string().trim().email().max(320).optional(),
+  })
+  .strict();
+
+export type AdminFinanceAccountIdentity = z.output<typeof AdminFinanceAccountIdentitySchema>;
+
+export const AdminMonetaryEventPresentationSchema = z
+  .object({
+    eventId: MonetaryEventIdSchema,
+    eventKind: z.string().trim().min(1).max(64),
+    currency: z.literal('KZT'),
+    amount: KztMinorUnitsSchema,
+    direction: z.enum(['in', 'out', 'neutral']),
+    sourceKind: MonetarySourceKindSchema,
+    paymentId: PaymentIdSchema.optional(),
+    subjectType: PaymentSubjectTypeSchema.optional(),
+    subjectId: z.string().trim().min(1).max(128).optional(),
+    walletAccountId: AccountIdSchema.optional(),
+    walletBalanceDelta: z.number().finite().int().optional(),
+    paymentEffect: MonetaryPaymentEffectSchema.optional(),
+    reasonCode: z.string().trim().min(1).max(64).optional(),
+    providerKind: z.string().trim().min(1).max(64).optional(),
+    providerTransactionRef: z.string().trim().min(1).max(128).optional(),
+    manualReference: z.string().trim().min(1).max(128).optional(),
+    commandId: CommandIdSchema,
+    correlationId: CorrelationIdSchema,
+    causationId: CausationIdSchema.optional(),
+    correctsEventId: MonetaryEventIdSchema.optional(),
+    occurredAt: CanonicalTimestampSchema,
+    recordedAt: CanonicalTimestampSchema,
+  })
+  .strict();
+
+export type AdminMonetaryEventPresentation = z.output<typeof AdminMonetaryEventPresentationSchema>;
+
+export const AdminFinanceRelatedIssueSchema = z
+  .object({
+    issueId: AdminIssueIdSchema,
+    kind: AdminIssueKindSchema,
+    lifecycleStatus: AdminIssueLifecycleStatusSchema,
+    revision: AggregateRevisionSchema,
+    financeActionAvailable: z.boolean(),
+  })
+  .strict();
+
+export const AdminWalletActionSchema = z
+  .object({
+    kind: z.literal('record_manual_wallet_funding'),
+    expectedWalletRevision: AggregateRevisionSchema.optional(),
+  })
+  .strict();
+
+export const AdminPaymentActionSchema = z
+  .object({
+    kind: z.enum(['admin_refund', 'write_off', 'reverse_write_off', 'rebuild_payment_projection']),
+    adminIssueId: AdminIssueIdSchema,
+    expectedAdminIssueRevision: AggregateRevisionSchema,
+    expectedPaymentRevision: AggregateRevisionSchema,
+    maximumAmount: KztMinorUnitsSchema.optional(),
+    walletAccountId: AccountIdSchema.optional(),
+    expectedWalletRevision: AggregateRevisionSchema.optional(),
+    requiresReason: z.literal(true),
+  })
+  .strict();
+
+export type AdminPaymentAction = z.output<typeof AdminPaymentActionSchema>;
+
+const AdminFinanceEventPageSchema = z
+  .object({
+    events: z.array(AdminMonetaryEventPresentationSchema),
+    nextCursor: z.string().trim().min(1).max(768).optional(),
+    hasMore: z.boolean(),
+  })
+  .strict();
+
+export const AdminWalletReadModelSchema = AdminFinanceEventPageSchema.extend({
+  accountId: AccountIdSchema,
+  accountIdentity: AdminFinanceAccountIdentitySchema,
+  accountStatus: z.enum(['active', 'unavailable']),
+  exists: z.boolean(),
+  balance: KztMinorUnitsSchema,
+  currency: z.literal('KZT'),
+  revision: AggregateRevisionSchema,
+  eventRevision: AggregateRevisionSchema,
+  updatedAt: CanonicalTimestampSchema.optional(),
+  allowedActions: z.array(AdminWalletActionSchema).max(1),
+}).strict();
+
+export type AdminWalletReadModel = z.output<typeof AdminWalletReadModelSchema>;
+
+export const AdminPaymentProviderStateSchema = z
+  .object({
+    providerKind: z.string().trim().min(1).max(64).optional(),
+    providerTransactionRef: z.string().trim().min(1).max(128).optional(),
+    latestEventId: MonetaryEventIdSchema,
+    recordedAt: CanonicalTimestampSchema,
+  })
+  .strict();
+
+export const AdminPaymentDetailReadModelSchema = AdminFinanceEventPageSchema.extend({
+  paymentId: PaymentIdSchema,
+  subjectType: PaymentSubjectTypeSchema,
+  subjectId: z.string().trim().min(1).max(128),
+  payer: AdminFinanceAccountIdentitySchema.optional(),
+  currency: z.literal('KZT'),
+  originalPrice: KztMinorUnitsSchema,
+  price: KztMinorUnitsSchema,
+  paidAmount: KztMinorUnitsSchema,
+  refundedAmount: KztMinorUnitsSchema,
+  retainedAmount: KztMinorUnitsSchema,
+  settledAmount: KztMinorUnitsSchema,
+  writtenOffAmount: KztMinorUnitsSchema,
+  outstandingAmount: KztMinorUnitsSchema,
+  paymentStatus: PaymentStatusSchema,
+  revision: AggregateRevisionSchema,
+  eventRevision: AggregateRevisionSchema,
+  providerState: AdminPaymentProviderStateSchema.optional(),
+  relatedIssues: z.array(AdminFinanceRelatedIssueSchema).max(50),
+  allowedActions: z.array(AdminPaymentActionSchema).max(16),
+  createdAt: CanonicalTimestampSchema,
+  updatedAt: CanonicalTimestampSchema,
+}).strict();
+
+export type AdminPaymentDetailReadModel = z.output<typeof AdminPaymentDetailReadModelSchema>;
+
+const AdminWalletReadInputSchema = z
+  .object({
+    scope: z.literal('admin_wallet'),
+    accountId: AccountIdSchema,
+    pageSize: z.number().int().positive().max(ADMIN_FINANCE_READ_MODEL_PAGE_SIZE_MAX).optional(),
+    cursor: z.string().trim().min(1).max(768).optional(),
+    idempotencyKey: IdempotencyKeySchema.optional(),
+  })
+  .strict();
+
+const AdminPaymentDetailReadInputSchema = z
+  .object({
+    scope: z.literal('admin_payment_detail'),
+    paymentId: PaymentIdSchema,
+    pageSize: z.number().int().positive().max(ADMIN_FINANCE_READ_MODEL_PAGE_SIZE_MAX).optional(),
+    cursor: z.string().trim().min(1).max(768).optional(),
+    idempotencyKey: IdempotencyKeySchema.optional(),
+  })
+  .strict();
+
+export const QueryAdminFinanceReadModelsInputSchema = z.discriminatedUnion('scope', [
+  AdminWalletReadInputSchema,
+  AdminPaymentDetailReadInputSchema,
+]);
+
+export type QueryAdminFinanceReadModelsInput = z.output<
+  typeof QueryAdminFinanceReadModelsInputSchema
+>;
+
+export const QueryAdminFinanceReadModelsResultSchema = z.discriminatedUnion('scope', [
+  z.object({ scope: z.literal('admin_wallet'), item: AdminWalletReadModelSchema }).strict(),
+  z
+    .object({
+      scope: z.literal('admin_payment_detail'),
+      item: AdminPaymentDetailReadModelSchema.optional(),
+    })
+    .strict(),
+]);
+
+export type QueryAdminFinanceReadModelsResult = z.output<
+  typeof QueryAdminFinanceReadModelsResultSchema
+>;

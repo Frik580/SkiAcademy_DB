@@ -312,6 +312,7 @@ export const MONETARY_SOURCE_KINDS = [
   'system',
 ] as const;
 export type MonetarySourceKind = (typeof MONETARY_SOURCE_KINDS)[number];
+export const MonetarySourceKindSchema = z.enum(MONETARY_SOURCE_KINDS);
 
 export const REFUND_DESTINATION_KINDS = ['wallet', 'manual_external'] as const;
 export type RefundDestinationKind = (typeof REFUND_DESTINATION_KINDS)[number];
@@ -349,7 +350,7 @@ export const MonetaryEventSchema = z
     walletAccountId: AccountIdSchema.optional(),
     paymentEffect: MonetaryPaymentEffectSchema.optional(),
     walletBalanceDelta: z.number().finite().int().optional(),
-    sourceKind: z.enum(MONETARY_SOURCE_KINDS),
+    sourceKind: MonetarySourceKindSchema,
     payerAccountIdAtEvent: AccountIdSchema.optional(),
     providerKind: z.string().trim().min(1).max(64).optional(),
     providerEventId: z.string().trim().min(1).max(128).optional(),

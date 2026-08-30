@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const useReadModelsMock = vi.fn();
@@ -40,6 +40,11 @@ const commonItem = {
   createdAt: { seconds: 1, nanoseconds: 0 },
   updatedAt: { seconds: 2, nanoseconds: 0 },
 };
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output aria-label="location">{location.search}</output>;
+}
 
 describe('AdminIssueCenter', () => {
   beforeEach(() => {
@@ -145,6 +150,7 @@ describe('AdminIssueCenter', () => {
     render(
       <MemoryRouter initialEntries={[`/admin?tab=operations&issue=${issueId}`]}>
         <AdminIssueCenter />
+        <LocationProbe />
       </MemoryRouter>
     );
 
@@ -156,6 +162,9 @@ describe('AdminIssueCenter', () => {
     expect(screen.getByText(/attendance_component_01/)).toBeInTheDocument();
     expect(screen.getByText('adminIssueActionsDeferred')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /resolve/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'adminIssueOpenPayment' }));
+    expect(screen.getByLabelText('location')).toHaveTextContent('tab=finance');
+    expect(screen.getByLabelText('location')).toHaveTextContent('payment=payment_component_01');
   });
 
   it('shows read failure and invokes retry', () => {

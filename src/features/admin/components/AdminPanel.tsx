@@ -11,7 +11,6 @@ import {
   BookOpen,
   AlertTriangle,
   ShieldAlert,
-  ArrowLeftRight,
   Wallet,
 } from 'lucide-react';
 import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
@@ -23,19 +22,9 @@ import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import { ADMIN_TAB_QUERY_KEY, parseAdminTabId, type AdminTabId } from '../adminNavigation';
 import { AdminTabNav } from './AdminTabNav';
 
-const FinancialOverview = lazy(() =>
+const CanonicalFinancePanel = lazy(() =>
   import('./finance').then((m) => ({
-    default: m.FinancialOverview,
-  }))
-);
-const CashFlowPanel = lazy(() =>
-  import('./finance').then((m) => ({
-    default: m.CashFlowPanel,
-  }))
-);
-const GuestWalletPanel = lazy(() =>
-  import('./finance').then((m) => ({
-    default: m.GuestWalletPanel,
+    default: m.CanonicalFinancePanel,
   }))
 );
 const AdminSystemSettings = lazy(() =>
@@ -149,7 +138,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   bookings: rawBookings,
   usersList = [],
   courses = [],
-  deletedCompletedStats = { revenue: 0, count: 0 },
   currentUserProfile,
   onUpdateUserRole,
   onAddInstructor,
@@ -209,24 +197,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const adminProfile =
     usersList.find((user) => user.uid === currentUserProfile.uid) || currentUserProfile;
 
-  const totalRevenue =
-    bookings
-      .filter(
-        (b) =>
-          (b.status === 'confirmed' || b.status === 'completed') &&
-          !b.userId?.startsWith('system_block_') &&
-          !b.isDeleted
-      )
-      .reduce((sum, b) => sum + b.totalPrice, 0) + (deletedCompletedStats?.revenue || 0);
-
   const activeBookings = bookings.filter(
     (b) => b.status === 'confirmed' && !b.userId?.startsWith('system_block_') && !b.isDeleted
   ).length;
-
-  const completedBookings =
-    bookings.filter(
-      (b) => b.status === 'completed' && !b.userId?.startsWith('system_block_') && !b.isDeleted
-    ).length + (deletedCompletedStats?.count || 0);
 
   const onRequestConfirm = (message: string, onConfirm: () => void | Promise<void>) => {
     setConfirmModal({ message, onConfirm });
@@ -234,15 +207,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <Suspense fallback={<SectionLoadingFallback label={t('financialOverview')} />}>
-        <FinancialOverview
-          totalRevenue={totalRevenue}
-          activeBookings={activeBookings}
-          completedBookings={completedBookings}
-          instructorsCount={instructors.length}
-        />
-      </Suspense>
-
       <AdminTabNav activeTab={activeTab} onChange={setActiveTab} />
 
       {activeTab === 'operations' && (
@@ -312,27 +276,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {activeTab === 'finance' && (
         <div className="space-y-6">
-          <Suspense fallback={<SectionLoadingFallback label={t('guestWalletPanelTitle')} />}>
+          <Suspense fallback={<SectionLoadingFallback label={t('adminFinanceCanonicalTitle')} />}>
             <AdminCollapsibleSection
-              id="school_guest_wallet"
-              title={t('guestWalletPanelTitle')}
-              subtitle={t('guestWalletPanelSub')}
+              id="canonical_finance"
+              title={t('adminFinanceCanonicalTitle')}
+              subtitle={t('adminFinanceCanonicalSub')}
               icon={Wallet}
               defaultOpen
             >
-              <GuestWalletPanel />
-            </AdminCollapsibleSection>
-          </Suspense>
-
-          <Suspense fallback={<SectionLoadingFallback label={t('cashFlowTitle')} />}>
-            <AdminCollapsibleSection
-              id="school_cash_flow"
-              title={t('cashFlowTitle')}
-              subtitle={t('cashFlowSub')}
-              icon={ArrowLeftRight}
-              defaultOpen
-            >
-              <CashFlowPanel usersList={usersList} />
+              <CanonicalFinancePanel
+                adminAccountId={currentUserProfile.uid}
+                accounts={usersList}
+                onRequestConfirm={onRequestConfirm}
+              />
             </AdminCollapsibleSection>
           </Suspense>
         </div>

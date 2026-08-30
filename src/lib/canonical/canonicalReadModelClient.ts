@@ -1,4 +1,7 @@
 import {
+  canonicalDeterministicHash,
+  type QueryAdminFinanceReadModelsInput,
+  type QueryAdminFinanceReadModelsResult,
   type QueryAdminIssueReadModelsInput,
   type QueryAdminIssueReadModelsResult,
   type QueryBookingChangeRequestReadModelsInput,
@@ -36,6 +39,25 @@ export const QUERY_COURSE_ATTENDANCE_READ_MODELS_CALLABLE = 'queryCourseAttendan
 export const QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE =
   'queryInstructorCourseAssignmentReadModels';
 export const QUERY_ADMIN_ISSUE_READ_MODELS_CALLABLE = 'queryAdminIssueReadModels';
+export const QUERY_ADMIN_FINANCE_READ_MODELS_CALLABLE = 'queryAdminFinanceReadModels';
+
+export async function queryAdminFinanceReadModels(
+  input: QueryAdminFinanceReadModelsInput
+): Promise<QueryAdminFinanceReadModelsResult> {
+  const target = input.scope === 'admin_wallet' ? input.accountId : input.paymentId;
+  const identityHash = canonicalDeterministicHash([
+    'read:admin_finance:v1',
+    input.scope,
+    target,
+    input.cursor ?? 'start',
+  ]);
+  const idempotencyKey = `read:admin_finance:${identityHash}`;
+  return callFunction<QueryAdminFinanceReadModelsInput, QueryAdminFinanceReadModelsResult>(
+    QUERY_ADMIN_FINANCE_READ_MODELS_CALLABLE,
+    input,
+    { idempotencyKey, maxAttempts: 1 }
+  );
+}
 
 function buildAdminIssueReadModelTransportInput(
   input: QueryAdminIssueReadModelsInput

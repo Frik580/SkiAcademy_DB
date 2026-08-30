@@ -10,6 +10,8 @@ import {
   ADMIN_ISSUE_QUERY_KEY,
   ADMIN_ISSUE_SEVERITY_QUERY_KEY,
   ADMIN_ISSUE_VIEW_QUERY_KEY,
+  ADMIN_FINANCE_PAYMENT_QUERY_KEY,
+  ADMIN_TAB_QUERY_KEY,
   parseAdminIssueSeverity,
   parseAdminIssueView,
 } from '../adminNavigation';
@@ -74,12 +76,12 @@ export function AdminIssueCenter() {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(timestampDate(value));
-  const formatMoney = (minorUnits: number) =>
+  const formatMoney = (canonicalKzt: number) =>
     new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: 'KZT',
       maximumFractionDigits: 0,
-    }).format(minorUnits / 100);
+    }).format(canonicalKzt);
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]">
@@ -370,6 +372,19 @@ export function AdminIssueCenter() {
                   {formatMoney(detail.item.payment.outstandingAmount)} · rev{' '}
                   {detail.item.payment.revision}
                 </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateQuery({
+                      [ADMIN_TAB_QUERY_KEY]: 'finance',
+                      [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: detail.item!.payment!.paymentId,
+                    })
+                  }
+                  className="mt-3 inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
+                >
+                  {t('adminIssueOpenPayment')}
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
               </div>
             )}
 

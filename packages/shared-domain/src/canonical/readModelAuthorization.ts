@@ -19,7 +19,7 @@ import {
   isClientSelfServiceRescheduleAllowanceAvailable,
   isRescheduleEligibleBooking,
 } from './bookingReschedulePolicy';
-import type { AccountId, CourseDayId, InstructorId, ParticipantId, ParticipantManagementId } from './identifiers';
+import type { AccountId, AttendanceId, CourseDayId, InstructorId, ParticipantId, ParticipantManagementId } from './identifiers';
 import { sortedCourseDays } from './courseEnrollmentCreation';
 import type { CanonicalTimestamp } from './primitives';
 import type {
@@ -27,6 +27,7 @@ import type {
   BookingProposalReadModelAuthorizedActions,
   CourseAttendanceReadModelAuthorizedActions,
   CourseEnrollmentReadModelAuthorizedActions,
+  AdminIssueReadModelAuthorizedActions,
   InstructorCourseEnrollmentRosterAuthorizedActions,
   LessonBookingReadModelAuthorizedActions,
   ParticipantInstructorAccessReadModelAuthorizedActions,
@@ -39,7 +40,7 @@ import {
   isTerminalCourseEnrollmentLifecycle,
 } from './courseEnrollmentCancellationPolicy';
 import { isCourseEnrollmentAllowedBeforeStart } from './courseEnrollmentCreation';
-import type { Attendance, Course, CourseDay, CourseEnrollment } from './courseEnrollmentAttendanceAdminIssue';
+import type { AdminIssue, Attendance, Course, CourseDay, CourseEnrollment } from './courseEnrollmentAttendanceAdminIssue';
 import {
   assertCourseDayInstructorAttendanceWindow,
   courseDayAttendanceMatchesCurrentOccurrence,
@@ -61,7 +62,102 @@ export type ReadModelInstructorActor = Readonly<{
   readonly instructorId: InstructorId;
 }>;
 
+export type ReadModelAdministratorActor = Readonly<{
+  readonly kind: 'administrator';
+  readonly accountId: AccountId;
+}>;
+
 export type ReadModelActor = ReadModelAccountManagerActor | ReadModelInstructorActor;
+
+export interface AdminIssueReadAuthorizationRevisions {
+  readonly subjectRevision?: number;
+  readonly paymentRevision?: number;
+  readonly attendanceRevisions: readonly Readonly<{
+    attendanceId: AttendanceId;
+    revision: number;
+  }>[];
+}
+
+export function evaluateAdminIssueAuthorizedActions(
+  input: Readonly<{
+    actor: ReadModelAdministratorActor;
+    issue: AdminIssue;
+    revisions: AdminIssueReadAuthorizationRevisions;
+  }>
+): AdminIssueReadModelAuthorizedActions {
+  if (input.actor.kind !== 'administrator' || input.issue.lifecycle.status !== 'open') {
+    return { canResolveDirectly: false, actions: [] };
+  }
+
+  const actionKinds = (() => {
+    switch (input.issue.kind) {
+      case 'missing_attendance':
+        return ['record_attendance'] as const;
+      case 'payment_required_at_start':
+        return ['fund_payment'] as const;
+      case 'unresolved_pending_cancellation':
+        return ['resolve_cancellation'] as const;
+      case 'attendance_payment_conflict':
+        return input.issue.subjectRef.subjectKind === 'course_enrollment'
+          ? (['correct_finance', 'correct_attendance_outcome', 'reconcile_subject'] as const)
+          : (['correct_finance', 'correct_attendance_outcome'] as const);
+      case 'resource_reconciliation_mismatch':
+        return ['reconcile_subject'] as const;
+      case 'financial_reconciliation_mismatch':
+        return ['correct_finance'] as const;
+      case 'outcome_correction_required':
+        return ['correct_attendance_outcome'] as const;
+    }
+  })();
+
+  const actionsWithRequiredContext = actionKinds.filter((kind) => {
+    const hasSubject = input.revisions.subjectRevision !== undefined;
+    const hasPayment = input.revisions.paymentRevision !== undefined;
+    const hasAttendance = input.revisions.attendanceRevisions.length > 0;
+    switch (kind) {
+      case 'fund_payment':
+        return hasSubject && hasPayment;
+      case 'correct_finance':
+        return (
+          hasSubject &&
+          hasPayment &&
+          (input.issue.kind !== 'attendance_payment_conflict' || hasAttendance)
+        );
+      case 'correct_attendance_outcome':
+        return hasSubject && hasAttendance;
+      case 'reconcile_subject':
+        return (
+          hasSubject &&
+          (input.issue.kind !== 'attendance_payment_conflict' ||
+            (hasPayment && hasAttendance))
+        );
+      case 'record_attendance':
+      case 'resolve_cancellation':
+        return hasSubject;
+    }
+  });
+
+  return {
+    canResolveDirectly: false,
+    actions: actionsWithRequiredContext.map((kind) => ({
+      kind,
+      availability: 'deferred' as const,
+      requiredRevisions: {
+        issueRevision: input.issue.revision,
+        ...(input.revisions.subjectRevision === undefined
+          ? {}
+          : { subjectRevision: input.revisions.subjectRevision }),
+        ...(input.revisions.paymentRevision === undefined
+          ? {}
+          : { paymentRevision: input.revisions.paymentRevision }),
+        attendanceRevisions: [...input.revisions.attendanceRevisions],
+      },
+    })),
+    ...(actionsWithRequiredContext.length === 0
+      ? { unavailableReason: 'missing_required_context' as const }
+      : {}),
+  };
+}
 
 function accountManagerAccessAllowed(
   topology: ParticipantAccessTopology,

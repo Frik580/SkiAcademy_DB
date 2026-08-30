@@ -89,15 +89,34 @@
         { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "admin_issues",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "issueId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admin_issues",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" },
+        { "fieldPath": "severity", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "issueId", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
     {
       "collectionGroup": "days",
       "fieldPath": "actualInstructorIds",
-      "indexes": [
-        { "arrayConfig": "CONTAINS", "queryScope": "COLLECTION_GROUP" }
-      ]
+      "indexes": [{ "arrayConfig": "CONTAINS", "queryScope": "COLLECTION_GROUP" }]
     }
   ]
 }

@@ -1,4 +1,6 @@
 import {
+  type QueryAdminIssueReadModelsInput,
+  type QueryAdminIssueReadModelsResult,
   type QueryBookingChangeRequestReadModelsInput,
   type QueryBookingChangeRequestReadModelsResult,
   type QueryBookingProposalReadModelsInput,
@@ -33,6 +35,47 @@ export const QUERY_COURSE_CATALOG_READ_MODELS_CALLABLE = 'queryCourseCatalogRead
 export const QUERY_COURSE_ATTENDANCE_READ_MODELS_CALLABLE = 'queryCourseAttendanceReadModels';
 export const QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE =
   'queryInstructorCourseAssignmentReadModels';
+export const QUERY_ADMIN_ISSUE_READ_MODELS_CALLABLE = 'queryAdminIssueReadModels';
+
+function buildAdminIssueReadModelTransportInput(
+  input: QueryAdminIssueReadModelsInput
+): QueryAdminIssueReadModelsInput {
+  const transportInput: QueryAdminIssueReadModelsInput = { scope: input.scope };
+  if (input.issueId !== undefined) {
+    transportInput.issueId = input.issueId;
+  }
+  if (input.severity !== undefined) {
+    transportInput.severity = input.severity;
+  }
+  if (input.pageSize !== undefined) {
+    transportInput.pageSize = input.pageSize;
+  }
+  if (input.cursor) {
+    transportInput.cursor = input.cursor;
+  }
+  return transportInput;
+}
+
+export async function queryAdminIssueReadModels(
+  input: QueryAdminIssueReadModelsInput
+): Promise<QueryAdminIssueReadModelsResult> {
+  const transportInput = buildAdminIssueReadModelTransportInput(input);
+  const idempotencyKey = [
+    'read:admin_issue',
+    transportInput.scope,
+    transportInput.issueId ?? 'all',
+    transportInput.severity ?? 'all',
+    transportInput.cursor ?? 'start',
+  ].join(':');
+  return callFunction<QueryAdminIssueReadModelsInput, QueryAdminIssueReadModelsResult>(
+    QUERY_ADMIN_ISSUE_READ_MODELS_CALLABLE,
+    transportInput,
+    {
+      idempotencyKey,
+      maxAttempts: 1,
+    }
+  );
+}
 
 function createLessonBookingReadModelIdempotencyKey(
   input: QueryLessonBookingReadModelsInput

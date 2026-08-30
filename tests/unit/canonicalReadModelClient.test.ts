@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { QueryLessonBookingReadModelsInputSchema } from '@ski-academy/shared-domain';
 import {
+  QueryAdminIssueReadModelsInputSchema,
+  QueryLessonBookingReadModelsInputSchema,
+} from '@ski-academy/shared-domain';
+import {
+  queryAdminIssueReadModels,
   queryBookingChangeRequestReadModels,
   queryBookingProposalReadModels,
   queryCourseCatalogReadModels,
@@ -10,6 +14,7 @@ import {
 } from '../../src/lib/canonical/canonicalReadModelClient';
 import {
   QUERY_BOOKING_CHANGE_REQUEST_READ_MODELS_CALLABLE,
+  QUERY_ADMIN_ISSUE_READ_MODELS_CALLABLE,
   QUERY_BOOKING_PROPOSAL_READ_MODELS_CALLABLE,
   QUERY_COURSE_CATALOG_READ_MODELS_CALLABLE,
   QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE,
@@ -45,6 +50,32 @@ describe('canonicalReadModelClient', () => {
         maxAttempts: 1,
       })
     );
+  });
+
+  it('calls the canonical AdminIssue read callable and omits empty cursor fields', async () => {
+    callFunctionMock.mockResolvedValueOnce({
+      scope: 'admin_open',
+      items: [],
+      hasMore: false,
+    });
+
+    await queryAdminIssueReadModels({
+      scope: 'admin_open',
+      severity: 'critical',
+      cursor: undefined,
+    });
+
+    expect(callFunctionMock).toHaveBeenCalledWith(
+      QUERY_ADMIN_ISSUE_READ_MODELS_CALLABLE,
+      { scope: 'admin_open', severity: 'critical' },
+      {
+        idempotencyKey: 'read:admin_issue:admin_open:all:critical:start',
+        maxAttempts: 1,
+      }
+    );
+    expect(
+      QueryAdminIssueReadModelsInputSchema.safeParse(callFunctionMock.mock.calls[0]?.[1]).success
+    ).toBe(true);
   });
 
   it('calls queryLessonBookingReadModels callable without Firestore access', async () => {

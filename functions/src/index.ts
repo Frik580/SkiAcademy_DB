@@ -27,6 +27,7 @@ import { createQueryCourseEnrollmentReadModelsHandler } from './canonical/readMo
 import { createQueryCourseCatalogReadModelsHandler } from './canonical/readModels/queryCourseCatalogReadModelsCallable';
 import { createQueryCourseAttendanceReadModelsHandler } from './canonical/readModels/queryCourseAttendanceReadModelsCallable';
 import { createQueryInstructorCourseAssignmentReadModelsHandler } from './canonical/readModels/queryInstructorCourseAssignmentReadModelsCallable';
+import { createQueryAdminIssueReadModelsHandler } from './canonical/readModels/queryAdminIssueReadModelsCallable';
 
 export { optimizeImage } from './images/optimizeImageHttp';
 
@@ -113,8 +114,7 @@ export const queryBookingProposalReadModels = onCall(CANONICAL_CALLABLE_OPTIONS,
 
 export const queryBookingChangeRequestReadModels = onCall(
   CANONICAL_CALLABLE_OPTIONS,
-  async (request) =>
-    createQueryBookingChangeRequestReadModelsHandler(getAdminFirestore())(request)
+  async (request) => createQueryBookingChangeRequestReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryParticipantInstructorAccessReadModels = onCall(
@@ -123,8 +123,9 @@ export const queryParticipantInstructorAccessReadModels = onCall(
     createQueryParticipantInstructorAccessReadModelsHandler(getAdminFirestore())(request)
 );
 
-export const queryCourseEnrollmentReadModels = onCall(GUEST_SECRET_CALLABLE_OPTIONS, async (request) =>
-  createQueryCourseEnrollmentReadModelsHandler(getAdminFirestore())(request)
+export const queryCourseEnrollmentReadModels = onCall(
+  GUEST_SECRET_CALLABLE_OPTIONS,
+  async (request) => createQueryCourseEnrollmentReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const queryCourseCatalogReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
@@ -139,6 +140,10 @@ export const queryInstructorCourseAssignmentReadModels = onCall(
   CANONICAL_CALLABLE_OPTIONS,
   async (request) =>
     createQueryInstructorCourseAssignmentReadModelsHandler(getAdminFirestore())(request)
+);
+
+export const queryAdminIssueReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
+  createQueryAdminIssueReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const scheduledAutoCompleteBookings = onSchedule(

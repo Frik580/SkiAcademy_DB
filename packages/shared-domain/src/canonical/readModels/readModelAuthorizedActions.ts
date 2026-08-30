@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AttendanceIdSchema } from '../identifiers';
 
 export const LessonBookingReadModelAuthorizedActionsSchema = z
   .object({
@@ -76,4 +77,53 @@ export const CourseAttendanceReadModelAuthorizedActionsSchema = z
 
 export type CourseAttendanceReadModelAuthorizedActions = z.output<
   typeof CourseAttendanceReadModelAuthorizedActionsSchema
+>;
+
+export const ADMIN_ISSUE_READ_MODEL_ACTION_KINDS = [
+  'record_attendance',
+  'fund_payment',
+  'resolve_cancellation',
+  'reconcile_subject',
+  'correct_finance',
+  'correct_attendance_outcome',
+] as const;
+
+export const AdminIssueReadModelActionKindSchema = z.enum(ADMIN_ISSUE_READ_MODEL_ACTION_KINDS);
+
+export const AdminIssueReadModelRequiredRevisionsSchema = z
+  .object({
+    issueRevision: z.number().int().positive(),
+    subjectRevision: z.number().int().positive().optional(),
+    paymentRevision: z.number().int().positive().optional(),
+    attendanceRevisions: z
+      .array(
+        z
+          .object({
+            attendanceId: AttendanceIdSchema,
+            revision: z.number().int().positive(),
+          })
+          .strict()
+      )
+      .max(64),
+  })
+  .strict();
+
+export const AdminIssueReadModelAuthorizedActionSchema = z
+  .object({
+    kind: AdminIssueReadModelActionKindSchema,
+    availability: z.literal('deferred'),
+    requiredRevisions: AdminIssueReadModelRequiredRevisionsSchema,
+  })
+  .strict();
+
+export const AdminIssueReadModelAuthorizedActionsSchema = z
+  .object({
+    canResolveDirectly: z.literal(false),
+    actions: z.array(AdminIssueReadModelAuthorizedActionSchema).max(3),
+    unavailableReason: z.literal('missing_required_context').optional(),
+  })
+  .strict();
+
+export type AdminIssueReadModelAuthorizedActions = z.output<
+  typeof AdminIssueReadModelAuthorizedActionsSchema
 >;

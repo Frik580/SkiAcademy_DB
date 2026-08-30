@@ -10,6 +10,7 @@ import {
   UserCheck,
   BookOpen,
   AlertTriangle,
+  ShieldAlert,
   ArrowLeftRight,
   Wallet,
 } from 'lucide-react';
@@ -80,6 +81,11 @@ const AdminRoleManager = lazy(() =>
 const ErrorLogsPanel = lazy(() =>
   import('./settings').then((m) => ({
     default: m.ErrorLogsPanel,
+  }))
+);
+const AdminIssueCenter = lazy(() =>
+  import('../issues').then((m) => ({
+    default: m.AdminIssueCenter,
   }))
 );
 
@@ -241,6 +247,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {activeTab === 'operations' && (
         <div className="space-y-6">
+          <Suspense fallback={<SectionLoadingFallback label={t('adminIssueInboxTitle')} />}>
+            <AdminCollapsibleSection
+              id="admin_issue_inbox"
+              title={t('adminIssueInboxTitle')}
+              subtitle={t('adminIssueInboxSub')}
+              icon={ShieldAlert}
+              defaultOpen
+            >
+              <AdminIssueCenter />
+            </AdminCollapsibleSection>
+          </Suspense>
+
           <Suspense fallback={<SectionLoadingFallback label={t('scheduleBoardTitle')} />}>
             <AdminCollapsibleSection
               id="schedule_calendar"

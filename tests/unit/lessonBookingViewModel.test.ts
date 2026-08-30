@@ -122,7 +122,10 @@ describe('lessonBookingViewModel', () => {
         ParticipantIdSchema.parse('participant_fixture_02'),
       ],
       participants: [
-        { participantId: ParticipantIdSchema.parse('participant_fixture_01'), displayName: 'Ксюша' },
+        {
+          participantId: ParticipantIdSchema.parse('participant_fixture_01'),
+          displayName: 'Ксюша',
+        },
         { participantId: ParticipantIdSchema.parse('participant_fixture_02'), displayName: 'Маша' },
       ],
     });

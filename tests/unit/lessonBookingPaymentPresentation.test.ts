@@ -42,7 +42,10 @@ describe('lessonBookingPaymentPresentation', () => {
   });
 
   it('keeps withheld fallback distinct from missing payment', () => {
-    const withheld = resolveLessonBookingPaymentDisplay(lessonBooking({ kind: 'withheld' }), translate);
+    const withheld = resolveLessonBookingPaymentDisplay(
+      lessonBooking({ kind: 'withheld' }),
+      translate
+    );
     const missing = resolveLessonBookingPaymentDisplay(
       lessonBooking({ kind: 'visible' }),
       translate

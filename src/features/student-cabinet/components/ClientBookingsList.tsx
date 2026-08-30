@@ -425,7 +425,9 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                           <span className="text-xs text-[var(--ink-dim)] block">
                             {t('totalFee')}
                           </span>
-                          <span className="text-lg font-serif text-[var(--ink)]">{paymentLabel}</span>
+                          <span className="text-lg font-serif text-[var(--ink)]">
+                            {paymentLabel}
+                          </span>
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap">

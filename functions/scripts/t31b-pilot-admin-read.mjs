@@ -83,12 +83,12 @@ function decodeValue(value) {
 
 function decodeDocument(doc) {
   if (!doc) return null;
-  const id = doc.name.split('/').pop();
+  const documentId = doc.name.split('/').pop();
   const data = {};
   for (const [key, value] of Object.entries(doc.fields ?? {})) {
     data[key] = decodeValue(value);
   }
-  return { id, ...data };
+  return { documentId, data };
 }
 
 const courseDoc = await firestoreGet(`courses/${courseId}`);
@@ -142,19 +142,19 @@ const coursesList = await firestoreList('courses');
 const inventory = [];
 for (const doc of coursesList.documents ?? []) {
   const decoded = decodeDocument(doc);
-  const days = await firestoreList(`courses/${decoded.id}/days`);
+  const days = await firestoreList(`courses/${decoded.documentId}/days`);
   inventory.push({
-    courseId: decoded.id,
-    title: decoded.title,
-    legacyShape: Boolean(decoded.dates && decoded.totalSeats !== undefined),
-    canonicalShape: Boolean(decoded.courseId && decoded.scheduleProjection),
-    instructorIds: decoded.instructorIds ?? decoded.instructorRosterIds ?? [],
-    totalSeats: decoded.totalSeats ?? decoded.capacity?.totalSeats,
-    availableSeats: decoded.availableSeats ?? decoded.capacity?.availableSeats,
-    price: decoded.price,
-    priceKZT: decoded.priceKZT,
+    courseId: decoded.documentId,
+    title: decoded.data.title,
+    legacyShape: Boolean(decoded.data.dates && decoded.data.totalSeats !== undefined),
+    canonicalShape: Boolean(decoded.data.courseId && decoded.data.scheduleProjection),
+    instructorIds: decoded.data.instructorIds ?? decoded.data.instructorRosterIds ?? [],
+    totalSeats: decoded.data.totalSeats ?? decoded.data.capacity?.totalSeats,
+    availableSeats: decoded.data.availableSeats ?? decoded.data.capacity?.availableSeats,
+    price: decoded.data.price,
+    priceKZT: decoded.data.priceKZT,
     daysCount: (days.documents ?? []).length,
-    isHidden: decoded.isHidden ?? false,
+    isHidden: decoded.data.isHidden ?? false,
     proposedManifestStatus:
       (days.documents ?? []).length > 0 ? 'review_existing_days' : 'needs_reviewed_schedule',
   });
@@ -164,11 +164,15 @@ const report = {
   projectId,
   generatedAt: new Date().toISOString(),
   pilotCourseId: courseId,
-  course: decodeDocument(courseDoc),
+  course: decodeDocument(courseDoc)?.data ?? null,
+  courseDocumentId: decodeDocument(courseDoc)?.documentId ?? courseId,
   daysCount: (daysList.documents ?? []).length,
-  days: (daysList.documents ?? []).map(decodeDocument),
+  days: (daysList.documents ?? []).map((doc) => {
+    const decoded = decodeDocument(doc);
+    return decoded ? { documentId: decoded.documentId, ...decoded.data } : null;
+  }),
   catalogExists: Boolean(catalogDoc),
-  catalog: decodeDocument(catalogDoc),
+  catalog: decodeDocument(catalogDoc)?.data ?? null,
   legacyBookingsCount: Array.isArray(legacyBookings) ? legacyBookings.length : null,
   legacyBookings,
   canonicalEnrollmentsCount: Array.isArray(canonicalEnrollments)

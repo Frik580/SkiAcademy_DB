@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type {
   InstructorAssignedCourseRef,
+  InstructorCourseReadErrorCode,
   InstructorCourseViewModel,
 } from './instructorCourseContracts';
 import { buildInstructorCourseViewModelsList } from './instructorCourseStoreSelectors';
@@ -9,14 +10,17 @@ interface InstructorCourseStoreState {
   readonly assignedCourses: readonly InstructorAssignedCourseRef[];
   readonly coursesById: ReadonlyMap<string, InstructorCourseViewModel>;
   readonly coursesList: readonly InstructorCourseViewModel[];
-  readonly loading: boolean;
+  readonly discoveryLoading: boolean;
+  readonly rosterLoading: boolean;
   readonly loaded: boolean;
   readonly error?: string;
+  readonly errorCode?: InstructorCourseReadErrorCode;
   setAssignedCourses: (courses: readonly InstructorAssignedCourseRef[]) => void;
   mergeCourses: (courses: ReadonlyMap<string, InstructorCourseViewModel>) => void;
-  setLoading: (loading: boolean) => void;
+  setDiscoveryLoading: (loading: boolean) => void;
+  setRosterLoading: (loading: boolean) => void;
   setLoaded: (loaded: boolean) => void;
-  setError: (error?: string) => void;
+  setError: (error?: string, errorCode?: InstructorCourseReadErrorCode) => void;
   reset: () => void;
 }
 
@@ -26,9 +30,11 @@ const initialState = {
   assignedCourses: [] as InstructorAssignedCourseRef[],
   coursesById: new Map<string, InstructorCourseViewModel>(),
   coursesList: EMPTY_COURSES_LIST,
-  loading: false,
+  discoveryLoading: false,
+  rosterLoading: false,
   loaded: false,
   error: undefined as string | undefined,
+  errorCode: undefined as InstructorCourseReadErrorCode | undefined,
 };
 
 export const useInstructorCourseStore = create<InstructorCourseStoreState>((set) => ({
@@ -77,9 +83,10 @@ export const useInstructorCourseStore = create<InstructorCourseStoreState>((set)
         coursesList: buildInstructorCourseViewModelsList(merged),
       };
     }),
-  setLoading: (loading) => set({ loading }),
+  setDiscoveryLoading: (discoveryLoading) => set({ discoveryLoading }),
+  setRosterLoading: (rosterLoading) => set({ rosterLoading }),
   setLoaded: (loaded) => set({ loaded }),
-  setError: (error) => set({ error }),
+  setError: (error, errorCode) => set({ error, errorCode }),
   reset: () =>
     set({
       ...initialState,

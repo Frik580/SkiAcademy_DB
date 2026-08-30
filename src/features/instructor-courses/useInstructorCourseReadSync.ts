@@ -10,6 +10,7 @@ import {
   queryInstructorCourseAssignmentReadModels,
 } from '../../lib/canonical/canonicalReadModelClient';
 import type { InstructorAssignedCourseRef, InstructorCourseViewModel } from './instructorCourseContracts';
+import { classifyInstructorCourseReadError } from './presentInstructorCourseReadError';
 import { useInstructorCourseStore } from './instructorCourseStore';
 import {
   buildInstructorCourseViewModel,
@@ -65,13 +66,13 @@ export function resolveInstructorCourseLoadTargets(input: {
 }
 
 export async function refetchInstructorCourseReadModels(
-  courseIds: readonly string[]
+  targets: readonly InstructorAssignedCourseRef[]
 ): Promise<void> {
   const nextCourses = new Map<string, InstructorCourseViewModel>();
 
   await Promise.all(
-    courseIds.map(async (courseId) => {
-      const parsedCourseId = CourseIdSchema.parse(courseId);
+    targets.map(async (assignment) => {
+      const parsedCourseId = CourseIdSchema.parse(assignment.courseId);
       const [rosterItems, attendanceResult] = await Promise.all([
         loadInstructorRosterEnrollments(parsedCourseId),
         queryCourseAttendanceReadModels({
@@ -82,9 +83,10 @@ export async function refetchInstructorCourseReadModels(
       const viewModel = buildInstructorCourseViewModel({
         rosterItems,
         attendanceItems: attendanceResult.items,
+        fallback: assignment,
       });
       if (viewModel) {
-        nextCourses.set(courseId, viewModel);
+        nextCourses.set(assignment.courseId, viewModel);
       }
     })
   );
@@ -109,31 +111,49 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
       return;
     }
 
-    useInstructorCourseStore.getState().setLoading(true);
-    useInstructorCourseStore.getState().setError(undefined);
+    useInstructorCourseStore.getState().setDiscoveryLoading(true);
+    useInstructorCourseStore.getState().setRosterLoading(false);
+    useInstructorCourseStore.getState().setError(undefined, undefined);
+    let assignedCourses: InstructorAssignedCourseRef[] = [];
     try {
-      const assignedCourses = await loadInstructorAssignedCourses();
+      assignedCourses = await loadInstructorAssignedCourses();
       useInstructorCourseStore.getState().setAssignedCourses(assignedCourses);
-
-      const targets = resolveInstructorCourseLoadTargets({
-        assignedCourses,
-        selectedCourseId,
-      });
-      if (targets.length === 0) {
-        useInstructorCourseStore.getState().setLoaded(true);
-        return;
-      }
-
-      await refetchInstructorCourseReadModels(targets.map((course) => course.courseId));
-      useInstructorCourseStore.getState().setLoaded(true);
     } catch (error) {
+      const errorCode = classifyInstructorCourseReadError(error);
       useInstructorCourseStore
         .getState()
         .setError(
-          error instanceof Error ? error.message : 'Failed to load instructor course read models.'
+          error instanceof Error ? error.message : 'Failed to load instructor course read models.',
+          errorCode
+        );
+      return;
+    } finally {
+      useInstructorCourseStore.getState().setDiscoveryLoading(false);
+    }
+
+    const targets = resolveInstructorCourseLoadTargets({
+      assignedCourses,
+      selectedCourseId,
+    });
+    if (targets.length === 0) {
+      useInstructorCourseStore.getState().setLoaded(true);
+      return;
+    }
+
+    useInstructorCourseStore.getState().setRosterLoading(true);
+    try {
+      await refetchInstructorCourseReadModels(targets);
+      useInstructorCourseStore.getState().setLoaded(true);
+    } catch (error) {
+      const errorCode = classifyInstructorCourseReadError(error);
+      useInstructorCourseStore
+        .getState()
+        .setError(
+          error instanceof Error ? error.message : 'Failed to load instructor course read models.',
+          errorCode
         );
     } finally {
-      useInstructorCourseStore.getState().setLoading(false);
+      useInstructorCourseStore.getState().setRosterLoading(false);
     }
   }, [accountId, enabled, instructorId, selectedCourseId]);
 

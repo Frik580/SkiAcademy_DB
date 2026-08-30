@@ -185,6 +185,52 @@ describe('instructor course view model merge', () => {
           updatedAt: decidedAt,
         },
       ])
-    ).toEqual([{ courseId, title: 'BASE — First Turns' }]);
+    ).toEqual([
+      {
+        courseId,
+        title: 'BASE — First Turns',
+        assignedCourseDayIds: [courseDayOneId],
+        courseSchedule,
+      },
+    ]);
+  });
+
+  it('filters terminal enrollments from instructor roster participants', () => {
+    const viewModel = buildInstructorCourseViewModel({
+      rosterItems: [
+        rosterItem,
+        {
+          ...rosterItem,
+          enrollmentId: CourseEnrollmentIdSchema.parse('enrollment_instructor_vm_02'),
+          lifecycle: { status: 'cancelled' as const },
+          participant: {
+            participantId: ParticipantIdSchema.parse('participant_instructor_vm_02'),
+            displayName: 'Cancelled Student',
+          },
+        },
+      ],
+      attendanceItems: [],
+    });
+
+    expect(viewModel?.participants).toHaveLength(1);
+    expect(viewModel?.participants[0]?.displayName).toBe('Canonical Student');
+  });
+
+  it('builds an empty roster shell from assignment fallback', () => {
+    const viewModel = buildInstructorCourseViewModel({
+      rosterItems: [],
+      attendanceItems: [],
+      fallback: {
+        courseId,
+        title: 'BASE — First Turns',
+        courseSchedule,
+      },
+    });
+
+    expect(viewModel).toMatchObject({
+      courseId,
+      title: 'BASE — First Turns',
+      participants: [],
+    });
   });
 });

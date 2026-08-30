@@ -10,6 +10,7 @@ import {
   mapCanonicalCommandResultError,
 } from '../../lib/canonical/mapCanonicalCommandError';
 import type { RecordCourseDayAttendanceInput } from './instructorCourseContracts';
+import { useInstructorCourseStore } from './instructorCourseStore';
 import { refetchInstructorCourseReadModels } from './useInstructorCourseReadSync';
 
 export function useInstructorCourseAttendanceCommands(accountId: string | undefined) {
@@ -47,17 +48,27 @@ export function useInstructorCourseAttendanceCommands(accountId: string | undefi
       const error = mapCanonicalCommandResultError(result);
       if (error) {
         if (error.code === 'stale_version') {
-          await refetchInstructorCourseReadModels([input.courseId]);
+          await refetchInstructorCourseReadModelsForCourseId(input.courseId);
         }
         throw error;
       }
 
-      await refetchInstructorCourseReadModels([input.courseId]);
+      await refetchInstructorCourseReadModelsForCourseId(input.courseId);
     },
     [accountId]
   );
 
   return { recordCourseDayAttendance };
+}
+
+async function refetchInstructorCourseReadModelsForCourseId(courseId: string): Promise<void> {
+  const assignment = useInstructorCourseStore
+    .getState()
+    .assignedCourses.find((course) => course.courseId === courseId);
+  if (!assignment) {
+    return;
+  }
+  await refetchInstructorCourseReadModels([assignment]);
 }
 
 export function isInstructorCourseAttendanceCommandError(

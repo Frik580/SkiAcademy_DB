@@ -81,25 +81,53 @@ export function mapRosterItemToParticipant(
   };
 }
 
+export function isActiveInstructorCourseRosterParticipant(
+  participant: Pick<InstructorCourseParticipantRosterItem, 'lifecycleStatus'>
+): boolean {
+  return (
+    participant.lifecycleStatus === 'confirmed' ||
+    participant.lifecycleStatus === 'pending_cancellation'
+  );
+}
+
+export function selectActiveInstructorCourseRosterParticipants(
+  viewModel: InstructorCourseViewModel
+): InstructorCourseParticipantRosterItem[] {
+  return viewModel.participants.filter(isActiveInstructorCourseRosterParticipant);
+}
+
 export function buildInstructorCourseViewModel(input: {
   readonly rosterItems: readonly InstructorCourseEnrollmentRosterItem[];
   readonly attendanceItems: readonly CourseAttendanceEnrollmentProjection[];
+  readonly fallback?: Pick<InstructorAssignedCourseRef, 'courseId' | 'title' | 'courseSchedule'>;
 }): InstructorCourseViewModel | undefined {
   if (input.rosterItems.length === 0) {
-    return undefined;
+    if (!input.fallback) {
+      return undefined;
+    }
+
+    return {
+      courseId: input.fallback.courseId,
+      title: input.fallback.title,
+      courseScheduleRevision: input.fallback.courseSchedule.courseScheduleRevision,
+      courseDays: input.fallback.courseSchedule.courseDays,
+      participants: [],
+    };
   }
 
   const [firstRosterItem] = input.rosterItems;
   const courseDays = firstRosterItem.courseSchedule.courseDays;
   const attendanceByEnrollmentId = indexAttendanceByEnrollmentId(input.attendanceItems);
 
-  const participants = input.rosterItems.map((rosterItem) =>
-    mapRosterItemToParticipant(
-      rosterItem,
-      attendanceByEnrollmentId.get(rosterItem.enrollmentId),
-      courseDays
+  const participants = input.rosterItems
+    .map((rosterItem) =>
+      mapRosterItemToParticipant(
+        rosterItem,
+        attendanceByEnrollmentId.get(rosterItem.enrollmentId),
+        courseDays
+      )
     )
-  );
+    .filter(isActiveInstructorCourseRosterParticipant);
 
   return {
     courseId: firstRosterItem.courseId,
@@ -117,6 +145,8 @@ export function mapInstructorCourseAssignmentReadModelsToAssignedCourses(
     .map((item) => ({
       courseId: item.courseId,
       title: item.title,
+      assignedCourseDayIds: [...item.assignedCourseDayIds],
+      courseSchedule: item.courseSchedule,
     }))
     .sort((left, right) => left.title.localeCompare(right.title, undefined, { sensitivity: 'base' }));
 }

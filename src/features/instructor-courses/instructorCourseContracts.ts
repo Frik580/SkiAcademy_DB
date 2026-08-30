@@ -3,12 +3,17 @@ import type {
   CourseAttendanceReadModelAuthorizedActions,
   CourseDayScheduleItem,
   CourseEnrollmentLifecycleStatus,
+  CourseScheduleProjectionReadModel,
   InstructorCourseEnrollmentRosterAuthorizedActions,
 } from '@ski-academy/shared-domain';
+
+export type InstructorCourseReadErrorCode = 'permission-denied' | 'read-failed';
 
 export interface InstructorAssignedCourseRef {
   readonly courseId: string;
   readonly title: string;
+  readonly assignedCourseDayIds: readonly string[];
+  readonly courseSchedule: CourseScheduleProjectionReadModel;
 }
 
 export interface InstructorCourseDayAttendanceItem {

@@ -2,9 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { UserProfile, Instructor, Booking, Review, Course, LessonDifficulty } from '../../../types';
 import {
   useLanguage,
-  translateCourse,
-  splitCourseDates,
-  parseDurationHours,
 } from '../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../features/notifications';
 import { useTheme } from '../../../hooks/useTheme';
@@ -110,10 +107,11 @@ export const useInstructorWorkspace = ({
   const instructorBookings = useMemo<DisplayBooking[]>(() => {
     if (!userProfile.instructorId) return [];
 
-    const individualLessons = allBookings
+    return allBookings
       .filter(
         (b) =>
           b.instructorId === userProfile.instructorId &&
+          !b.instructorId.startsWith('course_') &&
           !b.userId?.startsWith('system_block_') &&
           b.status !== 'cancelled'
       )
@@ -136,80 +134,7 @@ export const useInstructorWorkspace = ({
           isGuest: b.isGuest || b.userId?.startsWith('guest_'),
         };
       });
-
-    const instructorCourseIds = courses
-      .filter((c) => c.instructorIds?.includes(userProfile.instructorId!))
-      .map((c) => c.id);
-
-    const groupedCourses = new Map<string, EnrichedCourseBooking>();
-
-    allBookings.forEach((b) => {
-      if (!b.instructorId.startsWith('course_') || b.status === 'cancelled') return;
-      const courseId = b.instructorId.replace('course_', '');
-      if (!instructorCourseIds.includes(courseId)) return;
-
-      if (!groupedCourses.has(courseId)) {
-        const course = courses.find((c) => c.id === courseId);
-        if (!course) return;
-
-        const translated = translateCourse(course, language);
-        const { datePart, timePart } = splitCourseDates(translated.dates);
-
-        groupedCourses.set(courseId, {
-          id: courseId,
-          chatId: courseId,
-          courseId,
-          instructorId: `course_${courseId}`,
-          participantBookingIds: [],
-          isCourse: true,
-          instructorName: `${translated.title} (${t('instructorGroupSuffix')})`,
-          instructorAvatar: translated.bgImageUrl || b.instructorAvatar,
-          date: datePart,
-          time: timePart,
-          durationHours: parseDurationHours(translated.duration, b.durationHours),
-          status: 'confirmed',
-          difficulty: b.difficulty,
-          notes: translated.description,
-          clients: [],
-        });
-      }
-
-      const group = groupedCourses.get(courseId)!;
-      if (!group.participantBookingIds.includes(b.id)) {
-        group.participantBookingIds.push(b.id);
-      }
-      const client = usersList.find((u) => u.uid === b.userId);
-      if (client) {
-        group.clients.push({
-          uid: client.uid,
-          name: client.displayName,
-          avatar: client.avatarUrl,
-          phone: client.phoneNumber,
-          email: client.email,
-          bookingId: b.id,
-          recommendations: b.recommendations,
-        });
-      } else {
-        const guestNameStr =
-          b.guestName ||
-          (b.isGuest || b.userId?.startsWith('guest_')
-            ? t('guestBadge') || 'Гость'
-            : t('instructorEnrolledStudent'));
-        group.clients.push({
-          uid: b.userId,
-          name: guestNameStr,
-          avatar: '',
-          phone: b.guestPhone,
-          email: b.guestEmail,
-          isGuest: true,
-          bookingId: b.id,
-          recommendations: b.recommendations,
-        });
-      }
-    });
-
-    return [...individualLessons, ...Array.from(groupedCourses.values())];
-  }, [allBookings, userProfile.instructorId, courses, language, usersList, t]);
+  }, [allBookings, userProfile.instructorId, usersList, t]);
 
   const { hasUnreadChat, markBookingChatRead } = useBookingChatUnread(
     userProfile.uid,
@@ -250,20 +175,7 @@ export const useInstructorWorkspace = ({
     >();
 
     instructorBookings.forEach((b) => {
-      const courseBooking = b as EnrichedCourseBooking;
-      if (courseBooking.isCourse) {
-        courseBooking.clients.forEach((c) => {
-          if (!c.uid) return;
-          const existing = map.get(c.uid) || {
-            uid: c.uid,
-            name: c.name,
-            avatar: c.avatar,
-            lessonsCount: 0,
-          };
-          existing.lessonsCount += 1;
-          map.set(c.uid, existing);
-        });
-      } else if (b.userId && !b.userId.startsWith('system_block_')) {
+      if (b.userId && !b.userId.startsWith('system_block_')) {
         const individual = b as EnrichedBooking;
         const existing = map.get(b.userId) || {
           uid: b.userId,

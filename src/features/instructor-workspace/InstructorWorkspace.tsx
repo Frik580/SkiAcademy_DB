@@ -7,6 +7,7 @@ import { useInstructorWorkspace } from './components/useInstructorWorkspace';
 import { InstructorNotLinked } from './components/InstructorNotLinked';
 import { InstructorDashboardHeader } from './components/InstructorDashboardHeader';
 import { InstructorBookingList } from './components/InstructorBookingList';
+import { InstructorCourseSection } from './components/InstructorCourseSection';
 import { InstructorStudents } from './components/InstructorStudents';
 import { InstructorReviews } from './components/InstructorReviews';
 import { useNotifications } from '../notifications';
@@ -54,6 +55,11 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
   return (
     <div className="space-y-8 animate-fade-in">
       <InstructorDashboardHeader workspace={workspace} />
+      <InstructorCourseSection
+        accountId={userProfile.uid}
+        instructorId={userProfile.instructorId!}
+        t={t}
+      />
       <InstructorBookingList workspace={workspace} collaboration={collaboration} />
       <InstructorStudents workspace={workspace} />
       <InstructorReviews workspace={workspace} />

@@ -12,6 +12,7 @@ import {
   updateCourseService,
   deleteCourseService,
   notifyCourseModifiedService,
+  CanonicalCourseAdminWriteBlockedError,
 } from './courseService';
 import { useBookingsStore } from '../bookings/bookingsStore';
 import {
@@ -44,7 +45,15 @@ export function useCourseActions() {
 
   const handleUpdateCourse = useCallback(
     async (course: Course) => {
-      await updateCourseService(course);
+      try {
+        await updateCourseService(course);
+      } catch (error) {
+        if (error instanceof CanonicalCourseAdminWriteBlockedError) {
+          notify('warning', t('canonicalCourseEditBlockedTitle'), t('canonicalCourseEditBlockedDesc'));
+          throw error;
+        }
+        throw error;
+      }
       if (userProfile?.role !== 'admin') return;
 
       const oldCourse = courses.find((item) => item.id === course.id);

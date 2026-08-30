@@ -15,18 +15,22 @@ import {
   courseEnrollmentIdFromCommandParticipant,
   courseScheduleIsComplete,
   legacyCourseDocumentFailsCanonicalParse,
+  courseDocumentExtraKeys,
   parseCommandResultPayload,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
   verifyProvisionedCourseSchedule,
   CourseProvisioningManifestSchema,
+  buildCourseAggregateFromManifest,
+  resolveManifestDayInterval,
+  resolveInstructorCourseAssignmentProjection,
   type CommandEnvelope,
   type CourseProvisioningManifest,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
-import { parseCourse, parseCourseDays, courseDaysCollectionPath, courseDayPath } from './courseStore';
+import { parseCourse, parseCourseDays, courseDaysCollectionPath, courseDayPath, toFirestoreWritePayload } from './courseStore';
 import { parseCourseCatalogContent, courseCatalogContentPath } from './courseCatalogContentStore';
 
 const correlationId = CorrelationIdSchema.parse('correlation_course_provision_cmd_01');
@@ -404,5 +408,122 @@ describe('course provisioning commands', () => {
     expect(
       executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data?.lifecycle
     ).toEqual({ status: 'confirmed' });
+  });
+
+  it('replaces hybrid canonical course document without legacy keys and preserves revision', async () => {
+    const hybridRevision = 7;
+    const hybridCourse = buildCourseAggregateFromManifest({
+      manifest,
+      revision: hybridRevision,
+      decidedAt,
+      audit: {
+        createdByCommandId: 'command_hybrid_seed',
+        lastChangedByCommandId: 'command_hybrid_seed',
+        correlationId,
+      },
+    });
+    const hybridFixture = {
+      ...legacyCourseFixture(),
+      [`courses/${courseId}`]: {
+        ...toFirestoreWritePayload(hybridCourse as unknown as Record<string, unknown>),
+        instructorIds: [instructorId],
+        totalSeats: 8,
+        availableSeats: 8,
+        priceKZT: 50_000,
+        duration: '1 day',
+        description: 'Hybrid description on course doc',
+        dates: '1 February',
+        bgImageUrl: 'https://example.com/hybrid.webp',
+        program: [{ day: 'Day 1', title: 'Hybrid', desc: 'Hybrid' }],
+      },
+      [courseDayPath(courseId, courseDayId)]: {
+        courseId,
+        courseDayId,
+        dayOrder: 1,
+        interval: resolveManifestDayInterval(manifest.days[0]!, manifest.timeZone).interval,
+        timeZone: manifest.timeZone,
+        actualInstructorIds: [instructorId],
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_day_seed',
+          lastChangedByCommandId: 'command_day_seed',
+          correlationId,
+        },
+      },
+    };
+
+    const executor = createInMemoryCanonicalTransactionExecutor(hybridFixture);
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    const before = executor.snapshot().docs.get(`courses/${courseId}`)?.data;
+    expect(legacyCourseDocumentFailsCanonicalParse(before)).toBe(true);
+    expect(courseDocumentExtraKeys(before)).toContain('instructorIds');
+
+    const result = await commands.execute({
+      kind: 'provision_canonical_course',
+      context: adminContext('idem-hybrid-shape-repair'),
+      intent: { manifest },
+    });
+    expect(result.status).toBe('success');
+
+    const after = executor.snapshot().docs.get(`courses/${courseId}`)?.data;
+    expect(legacyCourseDocumentFailsCanonicalParse(after)).toBe(false);
+    expect(courseDocumentExtraKeys(after)).toEqual([]);
+    expect(after).not.toHaveProperty('instructorIds');
+    expect(after).not.toHaveProperty('duration');
+    const course = parseCourse(after);
+    expect(course?.revision).toBe(hybridRevision);
+    expect(course?.audit.createdByCommandId).toBe('command_hybrid_seed');
+    expect(executor.snapshot().docs.has(courseDayPath(courseId, courseDayId))).toBe(true);
+    const courseDays = parseCourseDays(
+      [...executor.snapshot().docs.entries()]
+        .filter(([path]) => path.startsWith(`${courseDaysCollectionPath(courseId)}/`))
+        .map(([, doc]) => ({ data: doc.data ?? {} }))
+    );
+    expect(
+      resolveInstructorCourseAssignmentProjection({
+        instructorId,
+        course: course!,
+        courseDays,
+      }).allowed
+    ).toBe(true);
+  });
+
+  it('reprovisions strict canonical course via update without shape replacement', async () => {
+    const strictRevision = 3;
+    const strictCreatedAt = decidedAt;
+    const strictCourse = buildCourseAggregateFromManifest({
+      manifest,
+      revision: strictRevision,
+      decidedAt: strictCreatedAt,
+      audit: {
+        createdByCommandId: 'command_strict_seed',
+        lastChangedByCommandId: 'command_strict_seed',
+        correlationId,
+      },
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...legacyCourseFixture(),
+      [`courses/${courseId}`]: toFirestoreWritePayload(strictCourse as unknown as Record<string, unknown>),
+    });
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    const before = executor.snapshot().docs.get(`courses/${courseId}`)?.data;
+    expect(courseDocumentExtraKeys(before)).toEqual([]);
+    expect(legacyCourseDocumentFailsCanonicalParse(before)).toBe(false);
+
+    const result = await commands.execute({
+      kind: 'provision_canonical_course',
+      context: adminContext('idem-strict-canonical-reprovision'),
+      intent: { manifest },
+    });
+    expect(result.status).toBe('success');
+
+    const after = executor.snapshot().docs.get(`courses/${courseId}`)?.data;
+    expect(legacyCourseDocumentFailsCanonicalParse(after)).toBe(false);
+    expect(courseDocumentExtraKeys(after)).toEqual([]);
+    expect(after?.createdAt).toEqual(strictCreatedAt);
+    expect(after?.audit?.createdByCommandId).toBe('command_strict_seed');
+    expect(parseCourse(after)?.revision).toBe(strictRevision);
   });
 });

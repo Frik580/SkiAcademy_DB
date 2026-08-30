@@ -9,7 +9,10 @@ import {
   COURSE_DAY_MAX,
   COURSE_SEAT_MAX,
   COURSE_SEAT_MIN,
+  LEGACY_COURSE_SCHEDULE_FIELD_NAMES,
 } from './courseEnrollmentAttendanceAdminIssue';
+import { normalizeCanonicalTimestamp } from './firestoreSerialization';
+import { readAggregateRevision } from './revisionConcurrency';
 import {
   IanaTimeZoneSchema,
   KztMinorUnitsSchema,
@@ -307,4 +310,211 @@ export function legacyCourseDocumentFailsCanonicalParse(
   const normalized = normalizeFirestoreDocument(data);
   if (!normalized) return true;
   return !CourseSchema.safeParse(normalized).success;
+}
+
+/** Top-level `/courses/{courseId}` keys allowed by strict CourseSchema. */
+export const CANONICAL_COURSE_DOCUMENT_FIELD_NAMES = [
+  'courseId',
+  'title',
+  'price',
+  'capacity',
+  'instructorRosterIds',
+  'startAt',
+  'scheduleProjection',
+  'provisioningManifestFingerprint',
+  'provisioningExpectedCourseDayIds',
+  'revision',
+  'createdAt',
+  'updatedAt',
+  'audit',
+] as const;
+
+/** Legacy/admin presentation keys that belong in `course_catalog_content`. */
+export const PRESENTATION_COURSE_DOCUMENT_FIELD_NAMES = [
+  'duration',
+  'description',
+  'dates',
+  'bgImageUrl',
+  'isHidden',
+  'order',
+  'titleRu',
+  'shortDescription',
+  'shortDescriptionRu',
+  'detailedDescription',
+  'detailedDescriptionRu',
+  'badge',
+  'badgeRu',
+  'level',
+  'levelLabel',
+  'videoUrl',
+  'benefits',
+  'benefitsRu',
+  'program',
+  'programRu',
+  'faq',
+  'faqRu',
+  'galleryPhotos',
+] as const;
+
+/** Legacy operational keys that must not remain on canonical Course documents. */
+export const LEGACY_OPERATIONAL_COURSE_DOCUMENT_FIELD_NAMES = [
+  'id',
+  'instructorIds',
+  'totalSeats',
+  'availableSeats',
+  'priceKZT',
+  ...LEGACY_COURSE_SCHEDULE_FIELD_NAMES,
+] as const;
+
+export type CourseDocumentExtraKeyClassification =
+  | 'presentation'
+  | 'legacy_operational'
+  | 'unknown';
+
+export function classifyCourseDocumentExtraKey(key: string): CourseDocumentExtraKeyClassification {
+  if ((PRESENTATION_COURSE_DOCUMENT_FIELD_NAMES as readonly string[]).includes(key)) {
+    return 'presentation';
+  }
+  if ((LEGACY_OPERATIONAL_COURSE_DOCUMENT_FIELD_NAMES as readonly string[]).includes(key)) {
+    return 'legacy_operational';
+  }
+  return 'unknown';
+}
+
+export function courseDocumentExtraKeys(
+  data: Record<string, unknown> | undefined
+): readonly string[] {
+  const normalized = normalizeFirestoreDocument(data);
+  if (!normalized) return [];
+  const allowed = new Set<string>(CANONICAL_COURSE_DOCUMENT_FIELD_NAMES);
+  return Object.keys(normalized).filter((key) => !allowed.has(key));
+}
+
+export function courseDocumentHasExtraKeys(data: Record<string, unknown> | undefined): boolean {
+  return courseDocumentExtraKeys(data).length > 0;
+}
+
+/** True when the persisted document must be delete+replaced to reach strict CourseSchema shape. */
+export function courseDocumentRequiresShapeReplacement(
+  data: Record<string, unknown> | undefined
+): boolean {
+  const normalized = normalizeFirestoreDocument(data);
+  if (!normalized) return false;
+  if (legacyCourseDocumentFailsCanonicalParse(normalized)) {
+    return true;
+  }
+  return courseDocumentHasExtraKeys(normalized);
+}
+
+export function isCanonicalCourseProtectedFromLegacyAdminWrites(
+  data: Record<string, unknown> | undefined
+): boolean {
+  const normalized = normalizeFirestoreDocument(data);
+  if (!normalized) return false;
+  if (CourseSchema.safeParse(normalized).success) {
+    return true;
+  }
+  const fingerprint = normalized.provisioningManifestFingerprint;
+  return typeof fingerprint === 'string' && fingerprint.trim().length > 0;
+}
+
+export function readPersistedCourseProvisioningFingerprint(
+  data: Record<string, unknown> | undefined
+): string | undefined {
+  const normalized = normalizeFirestoreDocument(data);
+  if (!normalized) return undefined;
+  const fingerprint = normalized.provisioningManifestFingerprint;
+  return typeof fingerprint === 'string' && fingerprint.trim().length > 0 ? fingerprint : undefined;
+}
+
+export function readPersistedCourseCreatedAt(
+  data: Record<string, unknown> | undefined
+): CanonicalTimestamp | undefined {
+  const normalized = normalizeFirestoreDocument(data);
+  if (!normalized) return undefined;
+  return normalizeCanonicalTimestamp(normalized.createdAt);
+}
+
+export function readPersistedCourseAuditCreatedByCommandId(
+  data: Record<string, unknown> | undefined
+): string | undefined {
+  const normalized = normalizeFirestoreDocument(data);
+  if (!normalized) return undefined;
+  const audit = normalized.audit;
+  if (!audit || typeof audit !== 'object' || Array.isArray(audit)) {
+    return undefined;
+  }
+  const createdByCommandId = (audit as Record<string, unknown>).createdByCommandId;
+  return typeof createdByCommandId === 'string' && createdByCommandId.trim().length > 0
+    ? createdByCommandId
+    : undefined;
+}
+
+export function readPersistedCourseRevision(
+  data: Record<string, unknown> | undefined
+): number | undefined {
+  return readAggregateRevision(normalizeFirestoreDocument(data));
+}
+
+export interface CourseDocumentShapeRepairPlan {
+  readonly courseId: string;
+  readonly beforeKeys: readonly string[];
+  readonly retainedKeys: readonly string[];
+  readonly extraKeys: readonly string[];
+  readonly classifiedExtraKeys: Readonly<
+    Record<CourseDocumentExtraKeyClassification, readonly string[]>
+  >;
+  readonly keysMovedToCatalogContent: readonly string[];
+  readonly keysRemoved: readonly string[];
+  readonly catalogContentKeys: readonly string[];
+  readonly passesStrictCourseSchemaAfterRepair: boolean;
+}
+
+export function buildCourseDocumentShapeRepairPlan(input: {
+  readonly courseId: string;
+  readonly courseDocument: Record<string, unknown> | undefined;
+  readonly catalogContentDocument?: Record<string, unknown> | undefined;
+  readonly repairedCourseDocument: Record<string, unknown>;
+}): CourseDocumentShapeRepairPlan {
+  const normalizedCourse = normalizeFirestoreDocument(input.courseDocument) ?? {};
+  const beforeKeys = Object.keys(normalizedCourse);
+  const extraKeys = courseDocumentExtraKeys(normalizedCourse);
+  const classifiedExtraKeys: Record<CourseDocumentExtraKeyClassification, string[]> = {
+    presentation: [],
+    legacy_operational: [],
+    unknown: [],
+  };
+  for (const key of extraKeys) {
+    classifiedExtraKeys[classifyCourseDocumentExtraKey(key)].push(key);
+  }
+
+  const catalogKeys = new Set(
+    Object.keys(normalizeFirestoreDocument(input.catalogContentDocument) ?? {})
+  );
+  const keysMovedToCatalogContent = classifiedExtraKeys.presentation.filter((key) =>
+    catalogKeys.has(key)
+  );
+  const keysRemoved = [
+    ...classifiedExtraKeys.legacy_operational,
+    ...classifiedExtraKeys.presentation.filter((key) => !catalogKeys.has(key)),
+    ...classifiedExtraKeys.unknown,
+  ];
+
+  const retainedKeys = Object.keys(
+    normalizeFirestoreDocument(input.repairedCourseDocument) ?? {}
+  );
+
+  return {
+    courseId: input.courseId,
+    beforeKeys,
+    retainedKeys,
+    extraKeys,
+    classifiedExtraKeys,
+    keysMovedToCatalogContent,
+    keysRemoved,
+    catalogContentKeys: [...catalogKeys],
+    passesStrictCourseSchemaAfterRepair: CourseSchema.safeParse(
+      normalizeFirestoreDocument(input.repairedCourseDocument)
+    ).success,
+  };
 }

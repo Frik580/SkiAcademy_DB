@@ -38,6 +38,17 @@ service cloud.firestore {
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
     }
 
+    function hasCanonicalProvisioningMarker(course) {
+      return course is map &&
+        ('provisioningManifestFingerprint' in course) &&
+        course.provisioningManifestFingerprint is string &&
+        course.provisioningManifestFingerprint.size() > 0;
+    }
+
+    function legacyAdminCourseWriteAllowed() {
+      return !hasCanonicalProvisioningMarker(resource.data);
+    }
+
     function isInstructor() {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -648,7 +659,7 @@ service cloud.firestore {
     match /courses/{courseId} {
       allow read: if true;
       allow create, delete: if isAdmin();
-      allow update: if isAdmin();
+      allow update: if isAdmin() && legacyAdminCourseWriteAllowed();
     }
 
     // Non-authoritative course catalog/presentation content for public UI.

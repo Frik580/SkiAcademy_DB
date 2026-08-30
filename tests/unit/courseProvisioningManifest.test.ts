@@ -6,8 +6,13 @@ import {
   KztMinorUnitsSchema,
   courseScheduleIsComplete,
   isCourseOperationalForEnrollment,
+  computeCourseProvisioningManifestFingerprint,
   deriveSchedulePlanFromManifest,
   legacyCourseDocumentFailsCanonicalParse,
+  courseDocumentExtraKeys,
+  isCanonicalCourseProtectedFromLegacyAdminWrites,
+  buildCourseDocumentShapeRepairPlan,
+  classifyCourseDocumentExtraKey,
   resolveProvisionedAvailableSeats,
   verifyProvisionedCourseSchedule,
   CourseProvisioningManifestSchema,
@@ -68,6 +73,59 @@ describe('course provisioning manifest', () => {
         availableSeats: 8,
         price: 100,
         bgImageUrl: 'https://example.com/legacy.webp',
+      })
+    ).toBe(true);
+  });
+
+  it('classifies hybrid extra keys and builds repair plan', () => {
+    const hybrid = {
+      ...buildCourseAggregateFromManifest({
+        manifest: baseManifest,
+        revision: 7,
+        decidedAt: timestampFromDate(new Date('2026-01-01T00:00:00.000Z')),
+        audit: {
+          createdByCommandId: 'command_hybrid',
+          lastChangedByCommandId: 'command_hybrid',
+          correlationId: 'correlation_hybrid' as never,
+        },
+      }),
+      instructorIds: [instructorId],
+      totalSeats: 8,
+      availableSeats: 8,
+      duration: '2 days',
+      description: 'On course doc',
+      dates: 'March',
+      bgImageUrl: 'https://example.com/hybrid.webp',
+    };
+    expect(legacyCourseDocumentFailsCanonicalParse(hybrid)).toBe(true);
+    expect(classifyCourseDocumentExtraKey('duration')).toBe('presentation');
+    expect(classifyCourseDocumentExtraKey('instructorIds')).toBe('legacy_operational');
+    const plan = buildCourseDocumentShapeRepairPlan({
+      courseId,
+      courseDocument: hybrid,
+      catalogContentDocument: baseManifest.presentation,
+      repairedCourseDocument: buildCourseAggregateFromManifest({
+        manifest: baseManifest,
+        revision: 7,
+        decidedAt: timestampFromDate(new Date('2026-01-01T00:00:00.000Z')),
+        audit: {
+          createdByCommandId: 'command_hybrid',
+          lastChangedByCommandId: 'command_hybrid',
+          correlationId: 'correlation_hybrid' as never,
+        },
+      }),
+    });
+    expect(plan.extraKeys).toContain('instructorIds');
+    expect(plan.keysMovedToCatalogContent).toContain('duration');
+    expect(plan.passesStrictCourseSchemaAfterRepair).toBe(true);
+  });
+
+  it('blocks legacy admin writes when provisioning fingerprint is present', () => {
+    expect(
+      isCanonicalCourseProtectedFromLegacyAdminWrites({
+        title: 'Hybrid',
+        provisioningManifestFingerprint: computeCourseProvisioningManifestFingerprint(baseManifest),
+        instructorIds: ['ins_legacy'],
       })
     ).toBe(true);
   });

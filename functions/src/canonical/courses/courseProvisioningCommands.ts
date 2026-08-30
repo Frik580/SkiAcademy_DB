@@ -8,8 +8,13 @@ import {
   commandSuccessResult,
   computeCourseProvisioningManifestFingerprint,
   deriveSchedulePlanFromManifest,
+  readPersistedCourseAuditCreatedByCommandId,
+  readPersistedCourseCreatedAt,
+  readPersistedCourseProvisioningFingerprint,
+  readPersistedCourseRevision,
   resolveCommandIdempotencyIdentity,
   resolveProvisionedAvailableSeats,
+  courseDocumentRequiresShapeReplacement,
   timestampFromDate,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
@@ -73,10 +78,13 @@ function provisionCanonicalCourseHandler(
   const catalogContentDocumentPath = courseCatalogContentPath(manifest.courseId);
 
   let plannedCourse!: Course;
+  let existingCourse: Course | undefined;
   let shouldWriteCatalogContent = false;
   let courseDocumentExists = false;
-  let migratingLegacyCourse = false;
+  let requiresShapeReplacement = false;
   let catalogContentAlreadyExists = false;
+  let persistedCreatedAt: ReturnType<typeof readPersistedCourseCreatedAt>;
+  let persistedAuditCreatedByCommandId: string | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'provision_canonical_course'> = {
     read: async (session) => {
@@ -92,10 +100,22 @@ function provisionCanonicalCourseHandler(
 
       const courseRead = await session.tx.get({ path: courseDocumentPath });
       session.plan.planRead({ path: courseDocumentPath, category: 'aggregate' });
-      const existingCourse = parseCourse(courseRead.exists ? courseRead.data : undefined);
+      const rawCourseData = courseRead.exists
+        ? (courseRead.data as Record<string, unknown>)
+        : undefined;
+      const existingCourseRead = parseCourse(rawCourseData);
+      existingCourse = existingCourseRead;
       const courseDocumentExistsRead = courseRead.exists;
       courseDocumentExists = courseDocumentExistsRead;
-      migratingLegacyCourse = courseDocumentExistsRead && !existingCourse;
+      requiresShapeReplacement =
+        courseDocumentExistsRead && courseDocumentRequiresShapeReplacement(rawCourseData);
+      persistedCreatedAt = existingCourse?.createdAt ?? readPersistedCourseCreatedAt(rawCourseData);
+      persistedAuditCreatedByCommandId =
+        existingCourse?.audit.createdByCommandId ??
+        readPersistedCourseAuditCreatedByCommandId(rawCourseData);
+      const persistedRevision = AggregateRevisionSchema.parse(
+        existingCourse?.revision ?? readPersistedCourseRevision(rawCourseData) ?? 1
+      );
       if (existingCourse && existingCourse.courseId !== manifest.courseId) {
         throw new CanonicalCommandError('validation', {
           correlationId: envelope.context.correlationId,
@@ -122,15 +142,25 @@ function provisionCanonicalCourseHandler(
       }
 
       const decidedAt = timestampFromDate(environment.clock.decidedAt());
+      const plannedFingerprint = computeCourseProvisioningManifestFingerprint(manifest);
+      if (!existingCourse && courseDocumentExistsRead) {
+        const rawFingerprint = readPersistedCourseProvisioningFingerprint(rawCourseData);
+        if (rawFingerprint && rawFingerprint !== plannedFingerprint) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { field: 'manifest', reason: 'conflict' },
+          });
+        }
+      }
+
       plannedCourse = buildCourseAggregateFromManifest({
         manifest,
-        revision: AggregateRevisionSchema.parse(existingCourse?.revision ?? 1),
+        revision: persistedRevision,
         decidedAt,
         audit: revisionAuditLink(envelope, metadata),
       });
 
       if (existingCourse) {
-        const plannedFingerprint = computeCourseProvisioningManifestFingerprint(manifest);
         if (
           existingCourse.provisioningManifestFingerprint &&
           existingCourse.provisioningManifestFingerprint !== plannedFingerprint
@@ -164,13 +194,27 @@ function provisionCanonicalCourseHandler(
         catalogContentAlreadyExists = contentRead.exists;
       }
 
-      session.plan.planMutation({
-        path: courseDocumentPath,
-        kind: migratingLegacyCourse ? 'delete' : courseDocumentExistsRead ? 'update' : 'create',
-        category: 'aggregate',
-        estimatedPayloadBytes: COURSE_PLANNING_ESTIMATES.courseBytes,
-      });
-      if (migratingLegacyCourse) {
+      if (courseDocumentExistsRead && !requiresShapeReplacement) {
+        session.plan.planMutation({
+          path: courseDocumentPath,
+          kind: 'update',
+          category: 'aggregate',
+          estimatedPayloadBytes: COURSE_PLANNING_ESTIMATES.courseBytes,
+        });
+      } else if (courseDocumentExistsRead) {
+        session.plan.planMutation({
+          path: courseDocumentPath,
+          kind: 'delete',
+          category: 'aggregate',
+          estimatedPayloadBytes: COURSE_PLANNING_ESTIMATES.courseBytes,
+        });
+        session.plan.planMutation({
+          path: courseDocumentPath,
+          kind: 'create',
+          category: 'aggregate',
+          estimatedPayloadBytes: COURSE_PLANNING_ESTIMATES.courseBytes,
+        });
+      } else {
         session.plan.planMutation({
           path: courseDocumentPath,
           kind: 'create',
@@ -197,18 +241,27 @@ function provisionCanonicalCourseHandler(
       const decidedAt = timestampFromDate(context.decidedAt);
       const courseRecord = CourseSchema.parse({
         ...plannedCourse,
-        createdAt: decidedAt,
+        createdAt:
+          existingCourse?.createdAt ?? persistedCreatedAt ?? decidedAt,
         updatedAt: decidedAt,
+        audit: {
+          createdByCommandId:
+            existingCourse?.audit.createdByCommandId ??
+            persistedAuditCreatedByCommandId ??
+            metadata.commandId,
+          lastChangedByCommandId: metadata.commandId,
+          correlationId: metadata.correlationId,
+        },
       });
       const payload = toFirestoreWritePayload(courseRecord as unknown as Record<string, unknown>);
 
-      if (migratingLegacyCourse) {
+      if (!courseDocumentExists) {
+        session.tx.create({ path: courseDocumentPath }, payload);
+      } else if (requiresShapeReplacement) {
         session.tx.delete({ path: courseDocumentPath });
         session.tx.create({ path: courseDocumentPath }, payload);
-      } else if (courseDocumentExists) {
-        session.tx.update({ path: courseDocumentPath }, payload);
       } else {
-        session.tx.create({ path: courseDocumentPath }, payload);
+        session.tx.update({ path: courseDocumentPath }, payload);
       }
 
       if (shouldWriteCatalogContent && manifest.presentation && !catalogContentAlreadyExists) {

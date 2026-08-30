@@ -1719,6 +1719,77 @@ describe('course enrollment transactions', () => {
   });
 });
 
+describe('courses canonical provisioning marker', () => {
+  const CANONICAL_COURSE_ID = 'course-canonical-marker-1';
+  const LEGACY_COURSE_ID = 'course-legacy-marker-1';
+
+  beforeEach(async () => {
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(
+        doc(db, 'users', ADMIN_ID),
+        userProfile(ADMIN_ID, 'admin@example.com', 'admin')
+      );
+      await setDoc(doc(db, 'courses', CANONICAL_COURSE_ID), {
+        courseId: CANONICAL_COURSE_ID,
+        title: 'Canonical Marker Course',
+        price: 100_000,
+        capacity: { totalSeats: 8, availableSeats: 8 },
+        instructorRosterIds: ['instructor-1'],
+        startAt: { seconds: 1_700_000_000, nanoseconds: 0 },
+        scheduleProjection: {
+          courseDayCount: 1,
+          finalCourseDayEndsAt: { seconds: 1_700_010_000, nanoseconds: 0 },
+          courseScheduleRevision: 1,
+        },
+        revision: 1,
+        createdAt: { seconds: 1_700_000_000, nanoseconds: 0 },
+        updatedAt: { seconds: 1_700_000_000, nanoseconds: 0 },
+        audit: {
+          createdByCommandId: 'command_seed',
+          lastChangedByCommandId: 'command_seed',
+          correlationId: 'correlation_seed',
+        },
+        provisioningManifestFingerprint: 'fingerprint_canonical_marker_course',
+      });
+      await setDoc(doc(db, 'courses', LEGACY_COURSE_ID), {
+        title: 'Legacy Marker Course',
+        totalSeats: 8,
+        availableSeats: 8,
+        price: 100,
+        duration: '5 days',
+        description: 'Legacy',
+        dates: 'December',
+        bgImageUrl: 'https://example.com/legacy.jpg',
+        instructorIds: ['instructor-1'],
+      });
+    });
+  });
+
+  it('denies admin client update when canonical provisioning marker is present', async () => {
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+    await assertFails(
+      updateDoc(doc(adminDb, 'courses', CANONICAL_COURSE_ID), {
+        instructorIds: ['instructor-1'],
+        description: 'Legacy contamination attempt',
+      })
+    );
+  });
+
+  it('allows admin client update for legacy courses without canonical marker', async () => {
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+    await assertSucceeds(
+      updateDoc(doc(adminDb, 'courses', LEGACY_COURSE_ID), {
+        description: 'Updated legacy description',
+      })
+    );
+  });
+});
+
 describe('course_catalog_content', () => {
   const COURSE_ID = 'course-catalog-1';
   const catalogContent = {

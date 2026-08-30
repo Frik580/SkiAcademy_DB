@@ -1,9 +1,20 @@
-import { db, deleteDoc, doc, setDoc, updateDoc } from '../../infrastructure/firebase';
+import { db, deleteDoc, doc, getDoc, setDoc, updateDoc } from '../../infrastructure/firebase';
 import { enrollInCourseViaCallable } from '../../features/courses/enrollInCourseCallable';
 import { stripUndefinedFields } from '../../domain/course';
 import { Course, Booking } from '../../types';
 import { createNotificationForUser } from '../../domain/notifications';
 import { buildNotification, translateKey } from '../../domain/notifications';
+import { isCanonicalCourseProtectedFromLegacyAdminWrites } from '@ski-academy/shared-domain';
+
+export class CanonicalCourseAdminWriteBlockedError extends Error {
+  readonly courseId: string;
+
+  constructor(courseId: string) {
+    super(`Canonical course ${courseId} cannot be modified via legacy admin writes`);
+    this.name = 'CanonicalCourseAdminWriteBlockedError';
+    this.courseId = courseId;
+  }
+}
 
 export async function addCourseService(course: Course): Promise<void> {
   await setDoc(
@@ -13,7 +24,15 @@ export async function addCourseService(course: Course): Promise<void> {
 }
 
 export async function updateCourseService(course: Course): Promise<void> {
-  await updateDoc(doc(db, 'courses', course.id), course as unknown as Record<string, unknown>);
+  const courseRef = doc(db, 'courses', course.id);
+  const existing = await getDoc(courseRef);
+  if (
+    existing.exists() &&
+    isCanonicalCourseProtectedFromLegacyAdminWrites(existing.data() as Record<string, unknown>)
+  ) {
+    throw new CanonicalCourseAdminWriteBlockedError(course.id);
+  }
+  await updateDoc(courseRef, course as unknown as Record<string, unknown>);
 }
 
 export async function deleteCourseService(courseId: string): Promise<void> {

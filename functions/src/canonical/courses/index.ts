@@ -1,5 +1,6 @@
 export { createCourseDayCommandHandlers } from './courseDayCommands';
 export { createCourseProvisioningCommandHandlers } from './courseProvisioningCommands';
+export { createCourseAdministrationCommandHandlers } from './courseAdministrationCommands';
 export { createCourseEnrollmentCommandHandlers } from './courseEnrollmentCommands';
 export { createCourseEnrollmentLifecycleCommandHandlers } from './courseEnrollmentLifecycleCommands';
 export { createCourseEnrollmentAttendanceCommandHandlers } from './courseEnrollmentAttendanceCommands';

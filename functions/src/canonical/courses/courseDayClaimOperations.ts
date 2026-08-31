@@ -87,23 +87,28 @@ export async function planReleaseCourseDayInstructorClaim(
     readonly decidedAt: Date;
   }
 ) {
-  const instructorId = input.courseDay.actualInstructorIds[0]!;
-  const identities = courseDayInstructorClaimIdentity({
-    courseDayId: input.courseDay.courseDayId,
-    instructorId,
-    occurrenceRevision: input.courseDay.revision,
-  });
-  return readAndPlanReleaseResourceClaim(session, {
-    correlationId: input.correlationId,
-    commandId: input.commandId,
-    decidedAt: input.decidedAt,
-    claimId: identities.instructorClaimId,
-  });
+  return Promise.all(
+    input.courseDay.actualInstructorIds.map((instructorId) => {
+      const identities = courseDayInstructorClaimIdentity({
+        courseDayId: input.courseDay.courseDayId,
+        instructorId,
+        occurrenceRevision: input.courseDay.revision,
+      });
+      return readAndPlanReleaseResourceClaim(session, {
+        correlationId: input.correlationId,
+        commandId: input.commandId,
+        decidedAt: input.decidedAt,
+        claimId: identities.instructorClaimId,
+      });
+    })
+  );
 }
 
 export interface CourseDayInstructorClaimSwapPlan {
-  readonly releasePlan: Awaited<ReturnType<typeof planReleaseCourseDayInstructorClaim>>;
-  readonly acquirePlan: Awaited<ReturnType<typeof planAcquireCourseDayInstructorClaim>>;
+  readonly releasePlans: Awaited<ReturnType<typeof planReleaseCourseDayInstructorClaim>>;
+  readonly acquirePlans: ReadonlyArray<
+    Awaited<ReturnType<typeof planAcquireCourseDayInstructorClaim>>
+  >;
   readonly newOccurrenceId: OccurrenceId;
 }
 
@@ -111,7 +116,7 @@ export async function planSwapCourseDayInstructorClaim(
   session: Parameters<typeof readAndPlanReleaseResourceClaim>[0],
   input: {
     readonly courseDay: CourseDay;
-    readonly newInstructorId: InstructorId;
+    readonly newInstructorIds: readonly InstructorId[];
     readonly newOccurrenceRevision: number;
     readonly interval: TimeInterval;
     readonly correlationId: Parameters<typeof readAndPlanReleaseResourceClaim>[1]['correlationId'];
@@ -120,27 +125,31 @@ export async function planSwapCourseDayInstructorClaim(
   }
 ): Promise<CourseDayInstructorClaimSwapPlan> {
   const replacementIgnore = replacementIgnoreForCourseDayOccurrence(input.courseDay);
-  const releasePlan = await planReleaseCourseDayInstructorClaim(session, {
+  const releasePlans = await planReleaseCourseDayInstructorClaim(session, {
     courseDay: input.courseDay,
     correlationId: input.correlationId,
     commandId: input.commandId,
     decidedAt: input.decidedAt,
   });
-  const acquirePlan = await planAcquireCourseDayInstructorClaim(session, {
-    courseDayId: input.courseDay.courseDayId,
-    instructorId: input.newInstructorId,
-    occurrenceRevision: input.newOccurrenceRevision,
-    interval: input.interval,
-    replacementIgnore,
-    correlationId: input.correlationId,
-    commandId: input.commandId,
-    decidedAt: input.decidedAt,
-  });
+  const acquirePlans = await Promise.all(
+    input.newInstructorIds.map((instructorId) =>
+      planAcquireCourseDayInstructorClaim(session, {
+        courseDayId: input.courseDay.courseDayId,
+        instructorId,
+        occurrenceRevision: input.newOccurrenceRevision,
+        interval: input.interval,
+        replacementIgnore,
+        correlationId: input.correlationId,
+        commandId: input.commandId,
+        decidedAt: input.decidedAt,
+      })
+    )
+  );
   const newOccurrenceId = courseDayOccurrenceIdFromRevision(
     input.courseDay.courseDayId,
     input.newOccurrenceRevision
   );
-  return { releasePlan, acquirePlan, newOccurrenceId };
+  return { releasePlans, acquirePlans, newOccurrenceId };
 }
 
 export function commitPlannedCourseDayInstructorClaimSwap(
@@ -157,6 +166,10 @@ export function commitPlannedCourseDayInstructorClaimSwap(
     commandId: metadata.commandId,
     decidedAt,
   };
-  commitResourceClaimPlan(session, plan.releasePlan, claimMetadata);
-  commitResourceClaimPlan(session, plan.acquirePlan, claimMetadata);
+  for (const releasePlan of plan.releasePlans) {
+    commitResourceClaimPlan(session, releasePlan, claimMetadata);
+  }
+  for (const acquirePlan of plan.acquirePlans) {
+    commitResourceClaimPlan(session, acquirePlan, claimMetadata);
+  }
 }

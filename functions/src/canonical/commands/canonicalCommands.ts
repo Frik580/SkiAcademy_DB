@@ -36,6 +36,7 @@ import {
   createCourseEnrollmentReconciliationCommandHandlers,
   createGuestCourseEnrollmentLinkCommandHandlers,
   createCourseProvisioningCommandHandlers,
+  createCourseAdministrationCommandHandlers,
 } from '../courses';
 import type { GuestBookingCommandEnvironment } from '../bookings/guestBookingCommands';
 import type { GuestCourseEnrollmentCommandEnvironment } from '../courses/guestCourseEnrollmentLifecycle';
@@ -190,6 +191,7 @@ export function createProductionCanonicalCommands(
     ...createBookingAttendanceCommandHandlers(executor),
     ...createCourseDayCommandHandlers(executor),
     ...createCourseProvisioningCommandHandlers(executor, () => commandsRef.current!),
+    ...createCourseAdministrationCommandHandlers(executor),
     ...createCourseEnrollmentCommandHandlers(executor, options.guestActionTokenSecret),
     ...createCourseEnrollmentLifecycleCommandHandlers(
       executor,

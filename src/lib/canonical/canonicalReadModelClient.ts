@@ -2,6 +2,8 @@ import {
   canonicalDeterministicHash,
   type QueryAdminFinanceReadModelsInput,
   type QueryAdminFinanceReadModelsResult,
+  type QueryAdminCourseReadModelsInput,
+  type QueryAdminCourseReadModelsResult,
   type QueryAdminIssueReadModelsInput,
   type QueryAdminIssueReadModelsResult,
   type QueryBookingChangeRequestReadModelsInput,
@@ -40,6 +42,19 @@ export const QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE =
   'queryInstructorCourseAssignmentReadModels';
 export const QUERY_ADMIN_ISSUE_READ_MODELS_CALLABLE = 'queryAdminIssueReadModels';
 export const QUERY_ADMIN_FINANCE_READ_MODELS_CALLABLE = 'queryAdminFinanceReadModels';
+export const QUERY_ADMIN_COURSE_READ_MODELS_CALLABLE = 'queryAdminCourseReadModels';
+
+export async function queryAdminCourseReadModels(
+  input: QueryAdminCourseReadModelsInput
+): Promise<QueryAdminCourseReadModelsResult> {
+  const target = input.scope === 'admin_course_detail' ? input.courseId : 'list';
+  const idempotencyKey = `read:admin_course:${input.scope}:${target}`;
+  return callFunction<QueryAdminCourseReadModelsInput, QueryAdminCourseReadModelsResult>(
+    QUERY_ADMIN_COURSE_READ_MODELS_CALLABLE,
+    input,
+    { idempotencyKey, maxAttempts: 1 }
+  );
+}
 
 export async function queryAdminFinanceReadModels(
   input: QueryAdminFinanceReadModelsInput

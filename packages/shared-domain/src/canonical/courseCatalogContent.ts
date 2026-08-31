@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CourseIdSchema } from './identifiers';
+import { AggregateRevisionSchema } from './primitives';
 
 const CourseProgramSchema = z.object({ day: z.string(), title: z.string(), desc: z.string() });
 const CourseFaqSchema = z.object({ q: z.string(), a: z.string() });
@@ -11,6 +12,7 @@ const CourseFaqSchema = z.object({ q: z.string(), a: z.string() });
 export const CourseCatalogContentSchema = z
   .object({
     courseId: CourseIdSchema,
+    revision: AggregateRevisionSchema.default(AggregateRevisionSchema.parse(1)),
     duration: z.string().trim().min(1).max(200),
     description: z.string().trim().max(10_000),
     dates: z.string().trim().max(500),
@@ -41,6 +43,7 @@ export type CourseCatalogContent = Readonly<z.output<typeof CourseCatalogContent
 
 export const CourseCatalogContentInputSchema = CourseCatalogContentSchema.omit({
   courseId: true,
+  revision: true,
 }).strict();
 
 export type CourseCatalogContentInput = Readonly<z.output<typeof CourseCatalogContentInputSchema>>;

@@ -18,6 +18,7 @@ import {
 } from '../identifiers';
 import { AttendanceStatusSchema } from '../courseEnrollmentAttendanceAdminIssue';
 import { CourseProvisioningManifestSchema } from '../courseProvisioningManifest';
+import { CourseCatalogContentInputSchema } from '../courseCatalogContent';
 import { MonetaryPaymentEffectSchema } from '../paymentWallet';
 import { AggregateRevisionSchema, KztMinorUnitsSchema } from '../primitives';
 import type { CommandKind } from './commandKinds';
@@ -645,6 +646,76 @@ export const CommandIntentSchemaByKind = {
     .object({
       manifest: CourseProvisioningManifestSchema,
       dryRun: z.boolean(),
+    })
+    .strict(),
+  change_course_title: z
+    .object({
+      courseId: CourseIdSchema,
+      title: z.string().trim().min(1).max(200),
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  change_course_price: z
+    .object({
+      courseId: CourseIdSchema,
+      price: KztMinorUnitsSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  change_course_capacity: z
+    .object({
+      courseId: CourseIdSchema,
+      totalSeats: z.number().finite().int().min(1).max(64),
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  archive_course: z
+    .object({
+      courseId: CourseIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  reactivate_course: z
+    .object({
+      courseId: CourseIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  add_course_roster_instructor: z
+    .object({
+      courseId: CourseIdSchema,
+      instructorId: InstructorIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  remove_course_roster_instructor: z
+    .object({
+      courseId: CourseIdSchema,
+      instructorId: InstructorIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  reschedule_course_day: z
+    .object({
+      courseId: CourseIdSchema,
+      courseDayId: CourseDayIdSchema,
+      expectedCourseDayRevision: AggregateRevisionSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  remove_course_day: z
+    .object({
+      courseId: CourseIdSchema,
+      courseDayId: CourseDayIdSchema,
+      expectedCourseDayRevision: AggregateRevisionSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  update_course_catalog_content: z
+    .object({
+      courseId: CourseIdSchema,
+      content: CourseCatalogContentInputSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
     })
     .strict(),
   reassign_course_day_instructor: z

@@ -70,6 +70,7 @@ export type QueryManagedParticipantPickerReadModelsResult = z.output<
 
 /** Reject client-supplied account identifiers on the picker read-model seam. */
 export const FORBIDDEN_MANAGED_PARTICIPANT_PICKER_INPUT_KEYS = [
+  'accountId',
   'payerAccountId',
   'userId',
   'bookedBy',

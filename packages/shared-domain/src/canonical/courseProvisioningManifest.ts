@@ -226,6 +226,9 @@ export function isCourseOperationalForEnrollment(
   course: Course,
   courseDays: readonly CourseDay[]
 ): boolean {
+  if (course.lifecycle !== 'active') {
+    return false;
+  }
   if (!courseScheduleIsComplete(course, courseDays)) {
     return false;
   }
@@ -261,6 +264,7 @@ export function buildCourseAggregateFromManifest(input: {
   return CourseSchema.parse({
     courseId: input.manifest.courseId,
     title: input.manifest.title,
+    lifecycle: 'active',
     price: input.manifest.price,
     capacity: {
       totalSeats: input.manifest.totalSeats,
@@ -391,6 +395,7 @@ export function buildCourseAggregateFromShapeRepair(input: {
   return CourseSchema.parse({
     courseId: input.persistedOperational.courseId,
     title: input.persistedOperational.title,
+    lifecycle: input.persistedOperational.lifecycle,
     price: input.persistedOperational.price,
     capacity: {
       totalSeats: input.persistedOperational.capacity.totalSeats,
@@ -448,6 +453,7 @@ export function legacyCourseDocumentFailsCanonicalParse(
 export const CANONICAL_COURSE_DOCUMENT_FIELD_NAMES = [
   'courseId',
   'title',
+  'lifecycle',
   'price',
   'capacity',
   'instructorRosterIds',

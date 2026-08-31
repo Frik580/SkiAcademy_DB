@@ -48,6 +48,16 @@ export const COMMAND_KINDS = [
   'reassign_course_day_instructor',
   'provision_canonical_course',
   'apply_canonical_course_provisioning_manifest',
+  'change_course_title',
+  'change_course_price',
+  'change_course_capacity',
+  'archive_course',
+  'reactivate_course',
+  'add_course_roster_instructor',
+  'remove_course_roster_instructor',
+  'reschedule_course_day',
+  'remove_course_day',
+  'update_course_catalog_content',
   'reconcile_course_enrollment',
   'link_guest_course_enrollment_to_account',
 ] as const;
@@ -66,6 +76,7 @@ export const FORBIDDEN_GENERIC_COMMAND_KINDS = [
   'genericMutation',
   'transitionTo',
   'patchAggregate',
+  'update_course',
 ] as const;
 
 export function catalogExcludesGenericMutationCommands(): boolean {

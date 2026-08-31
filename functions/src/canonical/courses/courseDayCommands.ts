@@ -23,6 +23,7 @@ import {
   type InstructorId,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
+import { CANONICAL_FIELD_DELETE } from '../transactions/transactionExecution';
 import {
   executeAuthoritativeIdempotentCanonicalCommand,
   type AuthoritativeIdempotentCanonicalCommandHandler,
@@ -112,6 +113,12 @@ function createCourseDayHandler(
         });
       }
       course = parsedCourse;
+      if (course.lifecycle !== 'active') {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'courseId', reason: 'unsupported' },
+        });
+      }
 
       const courseDayRead = await session.tx.get({ path: courseDayDocumentPath });
       session.plan.planRead({ path: courseDayDocumentPath, category: 'aggregate' });
@@ -235,6 +242,9 @@ function createCourseDayHandler(
         course,
         schedule.interval
       );
+      const isProvisioningDay = course.provisioningExpectedCourseDayIds?.includes(
+        envelope.intent.courseDayId
+      ) === true;
       const courseDay = CourseDaySchema.parse({
         courseId: envelope.intent.courseId,
         courseDayId: envelope.intent.courseDayId,
@@ -263,7 +273,18 @@ function createCourseDayHandler(
         { path: courseDocumentPath },
         toFirestoreWritePayload({
           startAt: deriveCourseStartAtAfterFirstDay(course, schedule.interval, existingDays.length),
-          scheduleProjection,
+          scheduleProjection: {
+            ...scheduleProjection,
+            courseDayCount: isProvisioningDay
+              ? scheduleProjection.courseDayCount
+              : existingDays.length + 1,
+          },
+          ...(isProvisioningDay
+            ? {}
+            : {
+                provisioningManifestFingerprint: CANONICAL_FIELD_DELETE,
+                provisioningExpectedCourseDayIds: CANONICAL_FIELD_DELETE,
+              }),
           revision: plannedCourseRevision,
           updatedAt: decidedAt,
           audit: {
@@ -341,6 +362,12 @@ function reassignCourseDayInstructorHandler(
         });
       }
       course = parsedCourse;
+      if (course.lifecycle !== 'active') {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'courseId', reason: 'unsupported' },
+        });
+      }
 
       targetInstructorId = envelope.intent.instructorId;
       if (isSyntheticCourseInstructorId(targetInstructorId)) {
@@ -390,7 +417,7 @@ function reassignCourseDayInstructorHandler(
       plannedCourseDayRevision = nextAggregateRevision(courseDay.revision);
       claimSwapPlan = await planSwapCourseDayInstructorClaim(session, {
         courseDay,
-        newInstructorId: targetInstructorId,
+        newInstructorIds: [targetInstructorId],
         newOccurrenceRevision: plannedCourseDayRevision,
         interval: courseDay.interval,
         correlationId: metadata.correlationId,

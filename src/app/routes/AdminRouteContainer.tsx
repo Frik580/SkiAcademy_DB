@@ -7,7 +7,6 @@ import { CardSkeleton, Skeleton } from '../../ui/Skeleton';
 import { useProfileStore } from '../../features/profile/profileStore';
 import { useBookingsStore } from '../../features/bookings/bookingsStore';
 import { useCoursesStore } from '../../features/courses/coursesStore';
-import { useCourseActions } from '../../features/courses/useCourseActions';
 import { useSettingsStore } from '../../features/settings/settingsStore';
 import { useAdminActions } from '../../features/admin/useAdminActions';
 import { loadAdminPanel } from '../../features/admin';
@@ -37,7 +36,6 @@ export const AdminRouteContainer: React.FC = () => {
   const skillConfig = useSettingsStore((state) => state.skillConfig);
   const achievementsConfig = useSettingsStore((state) => state.achievementsConfig);
   const { translatedInstructors } = useInstructorFilters(language);
-  const { handleAddCourse, handleUpdateCourse, handleDeleteCourse } = useCourseActions();
   const { handleAddInstructor, handleUpdateInstructor, handleDeleteInstructor } = useAdminActions();
   const handleToggleFilters = useSettingsStore((state) => state.handleToggleFilters);
   const handleSetNotificationRetentionDays = useSettingsStore(
@@ -58,8 +56,8 @@ export const AdminRouteContainer: React.FC = () => {
         <AdminPanel
           instructors={translatedInstructors}
           bookings={bookings}
-          usersList={usersList}
           courses={courses}
+          usersList={usersList}
           currentUserProfile={userProfile!}
           onUpdateUserRole={handleUpdateUserRole}
           onAddInstructor={handleAddInstructor}
@@ -67,9 +65,6 @@ export const AdminRouteContainer: React.FC = () => {
           onDeleteInstructor={handleDeleteInstructor}
           onAddUser={handleAddUser}
           onUpdateUser={handleUpdateUser}
-          onAddCourse={handleAddCourse}
-          onUpdateCourse={handleUpdateCourse}
-          onDeleteCourse={handleDeleteCourse}
           filtersEnabled={filtersEnabled}
           onToggleFilters={handleToggleFilters}
           notificationRetentionDays={notificationRetentionDays}

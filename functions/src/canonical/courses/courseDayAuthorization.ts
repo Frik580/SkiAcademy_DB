@@ -6,7 +6,20 @@ import {
 import { assertAdministrator } from '../participantAccess/participantAccessAuthorization';
 
 export function assertCourseDayAdminAuthorization(
-  envelope: CommandEnvelope<'create_course_day' | 'reassign_course_day_instructor'>
+  envelope: CommandEnvelope<
+    | 'create_course_day'
+    | 'reassign_course_day_instructor'
+    | 'change_course_title'
+    | 'change_course_price'
+    | 'change_course_capacity'
+    | 'archive_course'
+    | 'reactivate_course'
+    | 'add_course_roster_instructor'
+    | 'remove_course_roster_instructor'
+    | 'reschedule_course_day'
+    | 'remove_course_day'
+    | 'update_course_catalog_content'
+  >
 ): void {
   if (envelope.context.source !== 'admin_callable') {
     throw new CanonicalCommandError('forbidden', {
@@ -22,7 +35,7 @@ export function assertCourseDayAdminAuthorization(
 }
 
 export function assertCourseDayScheduleContext(
-  envelope: CommandEnvelope<'create_course_day'>
+  envelope: CommandEnvelope<'create_course_day' | 'reschedule_course_day'>
 ): void {
   if (!envelope.context.calendarInput || !envelope.context.timezone) {
     throw new CanonicalCommandError('validation', {

@@ -19,5 +19,7 @@ export * from './queryInstructorCourseAssignmentReadModelsCallable';
 export * from './courseDayScheduleProjectionSupport';
 export * from './adminIssueReadModels';
 export * from './adminFinanceReadModels';
+export * from './adminCourseReadModels';
+export * from './queryAdminCourseReadModelsCallable';
 export * from './queryAdminIssueReadModelsCallable';
 export * from './resolveCallableAdministrator';

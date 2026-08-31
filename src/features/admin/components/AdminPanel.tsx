@@ -100,9 +100,6 @@ interface AdminPanelProps {
   starterCreditUsd?: number;
   onSetStarterCreditUsd?: (amount: number) => Promise<void>;
   courses?: Course[];
-  onAddCourse?: (course: Course) => Promise<void>;
-  onUpdateCourse?: (course: Course) => Promise<void>;
-  onDeleteCourse?: (courseId: string) => Promise<void>;
   skillConfig?: SkillConfig;
   achievementsConfig?: AchievementsConfig;
   onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
@@ -121,9 +118,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onDeleteInstructor,
   onAddUser,
   onUpdateUser,
-  onAddCourse,
-  onUpdateCourse,
-  onDeleteCourse,
   filtersEnabled = true,
   onToggleFilters,
   notificationRetentionDays,
@@ -297,17 +291,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               title={t('coursesManagerTitle')}
               subtitle={t('coursesManagerSub')}
               icon={BookOpen}
-              badge={courses.length}
               defaultOpen
             >
               <CoursesManager
-                courses={courses}
-                bookings={bookings}
-                usersList={usersList}
-                instructors={instructors}
-                onAddCourse={onAddCourse}
-                onUpdateCourse={onUpdateCourse}
-                onDeleteCourse={onDeleteCourse}
+                currentAccountId={currentUserProfile.uid}
+                instructors={instructors.map((instructor) => ({
+                  instructorId: instructor.id,
+                  name: instructor.name,
+                }))}
                 onRequestConfirm={onRequestConfirm}
               />
             </AdminCollapsibleSection>

@@ -154,10 +154,15 @@ export const CourseCapacitySchema = z
 
 export type CourseCapacity = Readonly<z.output<typeof CourseCapacitySchema>>;
 
+export const COURSE_LIFECYCLE_STATUSES = ['active', 'archived'] as const;
+export const CourseLifecycleStatusSchema = z.enum(COURSE_LIFECYCLE_STATUSES);
+export type CourseLifecycleStatus = z.output<typeof CourseLifecycleStatusSchema>;
+
 export const CourseSchema = z
   .object({
     courseId: CourseIdSchema,
     title: z.string().trim().min(1).max(200),
+    lifecycle: CourseLifecycleStatusSchema.default('active'),
     price: KztMinorUnitsSchema,
     capacity: CourseCapacitySchema,
     instructorRosterIds: z.array(InstructorIdSchema).min(1).max(16),

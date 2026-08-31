@@ -1,10 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { CallableRequest } from 'firebase-functions/v2/https';
-import { AccountIdSchema } from '@ski-academy/shared-domain';
+import {
+  AccountIdSchema,
+  AccountSchema,
+  CorrelationIdSchema,
+  timestampFromDate,
+} from '@ski-academy/shared-domain';
 import { createQueryAdminIssueReadModelsHandler } from './queryAdminIssueReadModelsCallable';
 
 const accountId = AccountIdSchema.parse('account_admin_issue_callable_01');
+const timestamp = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+const account = AccountSchema.parse({
+  accountId,
+  lifecycle: { status: 'active' },
+  revision: 1,
+  createdAt: timestamp,
+  updatedAt: timestamp,
+  audit: {
+    createdByCommandId: 'command_seed',
+    lastChangedByCommandId: 'command_seed',
+    correlationId: CorrelationIdSchema.parse('correlation_admin_issue_callable_01'),
+  },
+});
 
 function createFirestore(role: 'admin' | 'user'): Firestore {
   const query = {
@@ -20,7 +38,7 @@ function createFirestore(role: 'admin' | 'user'): Firestore {
         return {
           doc: () => ({
             get: async () => ({
-              data: () => ({ role }),
+              data: () => ({ ...account, role }),
             }),
           }),
         };

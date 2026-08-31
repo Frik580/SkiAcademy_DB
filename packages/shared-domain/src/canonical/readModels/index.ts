@@ -11,3 +11,4 @@ export * from './courseAttendanceReadModel';
 export * from './instructorCourseAssignmentReadModel';
 export * from './adminIssueReadModel';
 export * from './adminFinanceReadModel';
+export * from './adminCourseReadModel';

@@ -625,6 +625,9 @@ export function evaluateCourseCatalogEnrollmentEligibility(input: Readonly<{
   now: CanonicalTimestamp;
   course: Course;
 }>): boolean {
+  if (input.course.lifecycle !== 'active') {
+    return false;
+  }
   if (input.course.capacity.availableSeats <= 0) {
     return false;
   }

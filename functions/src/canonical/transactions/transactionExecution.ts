@@ -13,13 +13,14 @@ export interface CanonicalTransactionReadResult {
 
 export interface CanonicalTransactionQueryFilter {
   readonly field: string;
-  readonly op: '==' | '<' | '<=' | '>' | '>=';
+  readonly op: '==' | '<' | '<=' | '>' | '>=' | 'array-contains';
   readonly value: unknown;
 }
 
 export interface CanonicalTransactionCollectionQuery {
   readonly collection: string;
   readonly where: CanonicalTransactionQueryFilter;
+  readonly limit?: number;
 }
 
 export interface CanonicalTransactionQueryDocumentResult extends CanonicalTransactionReadResult {

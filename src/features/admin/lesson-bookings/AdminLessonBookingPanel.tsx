@@ -1,6 +1,6 @@
 import { BookingIdSchema, type LessonBookingReadModel } from '@ski-academy/shared-domain';
 import { AlertTriangle, ChevronRight, Loader2, RefreshCw, X } from 'lucide-react';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   ADMIN_FINANCE_PAYMENT_QUERY_KEY,
@@ -12,7 +12,6 @@ import {
 import { useAdminLessonBookingTranslations } from './useAdminLessonBookingTranslations';
 import type {
   AdminCreateLessonBookingAttempt,
-  AdminLessonAccountOption,
   AdminLessonBookingAttempt,
   AdminLessonBookingMutationDraft,
   AdminLessonBookingMutationAttempt,
@@ -22,15 +21,15 @@ import { useAdminLessonBookingCommands } from './useAdminLessonBookingCommands';
 import { useAdminLessonBookingReadModels } from './useAdminLessonBookingReadModels';
 import {
   captureAdminLessonBookingTarget,
-  collectAdminLessonParticipantOptions,
   createAdminLessonBookingAttemptId,
   createAdminLogicalBookingId,
   parseAdminLessonBookingView,
 } from './lessonBookingAdminUtils';
+import { AdminManagedParticipantPicker } from '../identity';
+import type { AdminManagedParticipantSelection } from '../identity';
 
 interface AdminLessonBookingPanelProps {
   readonly adminAccountId: string;
-  readonly accounts: readonly AdminLessonAccountOption[];
   readonly instructors: readonly AdminLessonInstructorOption[];
 }
 
@@ -71,7 +70,6 @@ function attendanceActorLabel(
 
 export function AdminLessonBookingPanel({
   adminAccountId,
-  accounts,
   instructors,
 }: AdminLessonBookingPanelProps) {
   const { language, t } = useAdminLessonBookingTranslations();
@@ -93,8 +91,7 @@ export function AdminLessonBookingPanel({
   const [confirmation, setConfirmation] = useState<Confirmation>();
   const [mutationPending, setMutationPending] = useState(false);
   const [mutationError, setMutationError] = useState<{ code: string; message: string }>();
-  const [createParticipantId, setCreateParticipantId] = useState('');
-  const [createPayerAccountId, setCreatePayerAccountId] = useState('');
+  const [createSelection, setCreateSelection] = useState<AdminManagedParticipantSelection>();
   const [createInstructorId, setCreateInstructorId] = useState('');
   const [createDate, setCreateDate] = useState('');
   const [createTime, setCreateTime] = useState('');
@@ -113,15 +110,6 @@ export function AdminLessonBookingPanel({
   const [targetInstructorId, setTargetInstructorId] = useState('');
   const [targetDuration, setTargetDuration] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
-
-  const allProjectedBookings = useMemo(
-    () => [...reads.list.items, ...(reads.detail.item ? [reads.detail.item] : [])],
-    [reads.detail.item, reads.list.items]
-  );
-  const participantOptions = useMemo(
-    () => collectAdminLessonParticipantOptions(allProjectedBookings, accounts),
-    [accounts, allProjectedBookings]
-  );
 
   useEffect(() => {
     const item = reads.detail.item;
@@ -197,8 +185,7 @@ export function AdminLessonBookingPanel({
     const duration = Number(createDuration);
     const reasonExplanation = createReason.trim();
     if (
-      !createParticipantId ||
-      !createPayerAccountId ||
+      !createSelection ||
       !createInstructorId ||
       !createDate ||
       !createTime ||
@@ -215,8 +202,8 @@ export function AdminLessonBookingPanel({
       kind: 'create_confirmed_booking',
       bookingId,
       idempotencyKey: createAdminLessonBookingAttemptId('create'),
-      participantIds: [createParticipantId],
-      payerAccountId: createPayerAccountId,
+      participantIds: [createSelection.participantId],
+      payerAccountId: createSelection.accountId,
       instructorId: createInstructorId,
       localDate: createDate,
       localTime: createTime,
@@ -242,8 +229,7 @@ export function AdminLessonBookingPanel({
     );
   };
 
-  const createUnavailable =
-    participantOptions.length === 0 || accounts.length === 0 || instructors.length === 0;
+  const createUnavailable = instructors.length === 0;
   const detail = reads.detail.item;
   const admin = detail?.admin;
 
@@ -260,40 +246,12 @@ export function AdminLessonBookingPanel({
           </p>
         ) : (
           <form onSubmit={submitCreate} className="grid gap-3 md:grid-cols-3">
-            <label className="text-xs">
-              {t('adminLessonParticipant')}
-              <select
-                aria-label="Create participant"
-                value={createParticipantId}
-                onChange={(event) => setCreateParticipantId(event.target.value)}
-                className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
-                required
-              >
-                <option value="">{t('adminLessonSelectParticipant')}</option>
-                {participantOptions.map((option) => (
-                  <option key={option.participantId} value={option.participantId}>
-                    {option.displayName} · {option.source}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-xs">
-              {t('adminLessonPayer')}
-              <select
-                aria-label="Create payer account"
-                value={createPayerAccountId}
-                onChange={(event) => setCreatePayerAccountId(event.target.value)}
-                className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
-                required
-              >
-                <option value="">{t('adminLessonSelectPayer')}</option>
-                {accounts.map((account) => (
-                  <option key={account.accountId} value={account.accountId}>
-                    {account.displayName} {account.email ? `· ${account.email}` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="md:col-span-2">
+              <AdminManagedParticipantPicker
+                selected={createSelection}
+                onChange={setCreateSelection}
+              />
+            </div>
             <label className="text-xs">
               {t('adminLessonInstructor')}
               <select

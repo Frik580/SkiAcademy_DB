@@ -90,6 +90,8 @@ describe('resolveCallableAccountContext', () => {
     'record_booking_attendance',
     'record_course_day_attendance',
     'resolve_attendance_outcome',
+    'update_participant_profile',
+    'revoke_participant_management',
   ] as const)('routes %s through explicit trusted administrator context', (commandKind) => {
     expect(
       resolveCallableAccountContext(
@@ -177,5 +179,24 @@ describe('resolveCallableAccountContext', () => {
       capability: 'account_owner',
       source: 'client_callable',
     });
+  });
+
+  it('routes identity administration command kinds through trusted Admin authority', () => {
+    expect(
+      resolveCallableAccountContext(
+        { role: 'admin' },
+        { authUid: accountId, commandKind: 'disable_account' }
+      )
+    ).toMatchObject({
+      accountId,
+      capability: 'administrator',
+      source: 'admin_callable',
+    });
+    expect(() =>
+      resolveCallableAccountContext(
+        { role: 'user' },
+        { authUid: accountId, commandKind: 'disable_account' }
+      )
+    ).toThrow('forbidden');
   });
 });

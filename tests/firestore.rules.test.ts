@@ -601,7 +601,10 @@ describe('user profiles and roles', () => {
         balanceUSD: 999_999,
       })
     );
-    await assertSucceeds(setDoc(doc(ownerDb, 'users', clientId), clientProfile));
+    await assertFails(setDoc(doc(ownerDb, 'users', clientId), clientProfile));
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'users', clientId), clientProfile);
+    });
     await assertFails(updateDoc(doc(ownerDb, 'users', clientId), { email: 'owner@example.com' }));
     await assertFails(deleteDoc(doc(ownerDb, 'users', clientId)));
     await assertSucceeds(deleteDoc(doc(claimantDb, 'users', clientId)));
@@ -778,7 +781,7 @@ describe('user profiles and roles', () => {
     );
   });
 
-  it('allows only the system owner to change another user role', async () => {
+  it('denies Admin and Owner client role mutation; role changes are command-only', async () => {
     const adminDb = testEnv
       .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
       .firestore();
@@ -787,7 +790,425 @@ describe('user profiles and roles', () => {
       .firestore();
 
     await assertFails(updateDoc(doc(adminDb, 'users', OTHER_USER_ID), { role: 'admin' }));
-    await assertSucceeds(updateDoc(doc(ownerDb, 'users', OTHER_USER_ID), { role: 'admin' }));
+    await assertFails(updateDoc(doc(ownerDb, 'users', OTHER_USER_ID), { role: 'admin' }));
+  });
+});
+
+describe('T32.8A identity authority containment', () => {
+  const catalogId = 'instructor-catalog-1';
+  const participantId = 'participant-identity-1';
+  const managementId = 'management-identity-1';
+  const blockId = 'block-identity-1';
+  const relationshipId = 'relationship-identity-1';
+
+  beforeEach(async () => {
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'users', USER_ID), {
+        ...userProfile(USER_ID, 'user@example.com'),
+        lifecycle: { status: 'active' },
+        revision: 1,
+      });
+      await setDoc(doc(db, 'users', OTHER_USER_ID), {
+        ...userProfile(OTHER_USER_ID, 'other@example.com'),
+        lifecycle: { status: 'active' },
+        revision: 1,
+      });
+      await setDoc(doc(db, 'users', ADMIN_ID), userProfile(ADMIN_ID, 'admin@example.com', 'admin'));
+      await setDoc(doc(db, 'users', INSTRUCTOR_USER_ID), {
+        ...userProfile(INSTRUCTOR_USER_ID, 'instructor@example.com'),
+        instructorId: catalogId,
+        isInstructor: true,
+      });
+      await setDoc(doc(db, 'instructors', catalogId), {
+        id: catalogId,
+        instructorId: catalogId,
+        name: 'Catalog Coach',
+        specialty: 'ski',
+        pricePerHour: 50,
+        bio: 'Canonical catalog',
+        avatarUrl: '',
+        isAvailable: true,
+        rating: 5,
+        reviewsCount: 1,
+        phoneNumber: '+10000000000',
+        revision: 1,
+      });
+      await setDoc(doc(db, 'participants', participantId), {
+        participantId,
+        displayName: 'Dependent',
+        lifecycle: { status: 'active' },
+        revision: 1,
+        management: { kind: 'unmanaged_guest' },
+      });
+      await setDoc(doc(db, 'participant_management', managementId), {
+        participantManagementId: managementId,
+        participantId,
+        accountId: OTHER_USER_ID,
+        authority: 'parent_guardian',
+        status: 'active',
+        revision: 1,
+      });
+      await setDoc(doc(db, 'participant_blocks', blockId), {
+        participantBlockId: blockId,
+        participantId,
+        instructorId: catalogId,
+        status: 'active',
+        revision: 1,
+      });
+      await setDoc(doc(db, 'instructor_relationships', relationshipId), {
+        instructorRelationshipId: relationshipId,
+        accountId: INSTRUCTOR_USER_ID,
+        instructorId: catalogId,
+        status: 'active',
+        revision: 1,
+      });
+      await setDoc(doc(db, 'settings', 'starter_credit'), { amountUsd: 250 });
+    });
+  });
+
+  it('denies Admin direct disable/enable of Account lifecycle', async () => {
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+    const ownerDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
+    const target = doc(adminDb, 'users', OTHER_USER_ID);
+
+    await assertFails(updateDoc(target, { lifecycle: { status: 'disabled' } }));
+    await assertFails(
+      updateDoc(doc(ownerDb, 'users', OTHER_USER_ID), { lifecycle: { status: 'disabled' } })
+    );
+    await assertFails(updateDoc(target, { lifecycle: { status: 'active' } }));
+  });
+
+  it('denies Owner and Admin client writes of role and systemRole', async () => {
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+    const ownerDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
+    const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+
+    await assertFails(updateDoc(doc(adminDb, 'users', OTHER_USER_ID), { role: 'admin' }));
+    await assertFails(updateDoc(doc(ownerDb, 'users', OTHER_USER_ID), { role: 'admin' }));
+    await assertFails(updateDoc(doc(userDb, 'users', USER_ID), { role: 'admin' }));
+    await assertFails(updateDoc(doc(adminDb, 'users', OTHER_USER_ID), { systemRole: 'owner' }));
+    await assertFails(updateDoc(doc(ownerDb, 'users', OTHER_USER_ID), { systemRole: 'owner' }));
+    await assertFails(updateDoc(doc(userDb, 'users', USER_ID), { systemRole: 'owner' }));
+    await assertFails(
+      setDoc(doc(userDb, 'users', USER_ID), {
+        ...userProfile(USER_ID, 'user@example.com'),
+        systemRole: 'owner',
+        balanceUSD: 250,
+      })
+    );
+  });
+
+  it('denies client writes of instructor identity fields on Account', async () => {
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+    const ownerDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
+    const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+
+    const forgedDb = testEnv
+      .authenticatedContext('user-forged-instructor', { email: 'forged@example.com' })
+      .firestore();
+
+    await assertFails(updateDoc(doc(adminDb, 'users', OTHER_USER_ID), { instructorId: catalogId }));
+    await assertFails(updateDoc(doc(ownerDb, 'users', OTHER_USER_ID), { isInstructor: true }));
+    await assertFails(updateDoc(doc(userDb, 'users', USER_ID), { instructorId: catalogId }));
+    await assertFails(
+      setDoc(doc(forgedDb, 'users', 'user-forged-instructor'), {
+        ...userProfile('user-forged-instructor', 'forged@example.com'),
+        instructorId: catalogId,
+        isInstructor: true,
+        balanceUSD: 250,
+      })
+    );
+  });
+
+  it('denies Admin client create/update/delete of Instructor catalog authority', async () => {
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+    const ownerDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
+    const catalogRef = doc(adminDb, 'instructors', catalogId);
+
+    await assertFails(
+      setDoc(doc(adminDb, 'instructors', 'instructor-forged'), {
+        id: 'instructor-forged',
+        name: 'Forged',
+        isAvailable: true,
+        rating: 5,
+        reviewsCount: 0,
+      })
+    );
+    await assertFails(updateDoc(catalogRef, { isAvailable: false }));
+    await assertFails(updateDoc(catalogRef, { name: 'Hijacked catalog' }));
+    await assertFails(updateDoc(doc(ownerDb, 'instructors', catalogId), { pricePerHour: 1 }));
+    await assertFails(deleteDoc(catalogRef));
+    await assertSucceeds(getDoc(catalogRef));
+  });
+
+  it('denies Admin client assign/revoke of ParticipantManagement and archive/block bypass', async () => {
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+    const ownerDb = testEnv
+      .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
+      .firestore();
+
+    await assertFails(
+      setDoc(doc(adminDb, 'participant_management', 'management-forged'), {
+        participantManagementId: 'management-forged',
+        participantId,
+        accountId: ADMIN_ID,
+        authority: 'parent_guardian',
+        status: 'active',
+        revision: 1,
+      })
+    );
+    await assertFails(
+      updateDoc(doc(adminDb, 'participant_management', managementId), {
+        accountId: ADMIN_ID,
+        authority: 'self',
+        revision: 99,
+      })
+    );
+    await assertFails(deleteDoc(doc(adminDb, 'participant_management', managementId)));
+    await assertFails(
+      updateDoc(doc(adminDb, 'participants', participantId), { lifecycle: { status: 'archived' } })
+    );
+    await assertFails(
+      updateDoc(doc(ownerDb, 'participants', participantId), { lifecycle: { status: 'active' } })
+    );
+    await assertFails(updateDoc(doc(adminDb, 'participant_blocks', blockId), { status: 'ended' }));
+    await assertFails(
+      setDoc(doc(adminDb, 'participant_blocks', 'block-forged'), {
+        participantBlockId: 'block-forged',
+        status: 'active',
+      })
+    );
+    await assertFails(deleteDoc(doc(adminDb, 'participant_blocks', blockId)));
+    await assertFails(
+      updateDoc(doc(adminDb, 'instructor_relationships', relationshipId), { status: 'ended' })
+    );
+    await assertFails(getDoc(doc(adminDb, 'participants', participantId)));
+    await assertFails(getDoc(doc(adminDb, 'participant_management', managementId)));
+  });
+
+  it('still allows required self-service /users and /instructors writes', async () => {
+    const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const instructorDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
+      .firestore();
+    const newUserDb = testEnv
+      .authenticatedContext('new-identity-user', { email: 'new-identity@example.com' })
+      .firestore();
+
+    await assertSucceeds(
+      updateDoc(doc(userDb, 'users', USER_ID), {
+        displayName: 'Self Service Name',
+        phoneNumber: '+15551212',
+        avatarUrl: 'https://example.com/self.jpg',
+        hideProgressTracking: true,
+        dismissedReviewIds: ['booking-review-1'],
+      })
+    );
+    await assertSucceeds(updateDoc(doc(userDb, 'users', USER_ID), { balanceUSD: 50 }));
+    await assertSucceeds(
+      updateDoc(doc(instructorDb, 'users', OTHER_USER_ID), {
+        level: 2,
+        skillScores: { carving: 4 },
+        skillComments: { carving: 'Solid' },
+      })
+    );
+    await assertSucceeds(
+      updateDoc(doc(instructorDb, 'instructors', catalogId), { phoneNumber: '+19998887777' })
+    );
+    await assertSucceeds(
+      updateDoc(doc(userDb, 'instructors', catalogId), { rating: 4.5, reviewsCount: 2 })
+    );
+    await assertSucceeds(
+      setDoc(doc(newUserDb, 'users', 'new-identity-user'), {
+        ...userProfile('new-identity-user', 'new-identity@example.com'),
+        isClientActive: true,
+        level: 1,
+        balanceUSD: 250,
+      })
+    );
+  });
+
+  it('allows an active Account to change the approved self presentation subset', async () => {
+    const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+
+    await assertSucceeds(
+      updateDoc(doc(userDb, 'users', USER_ID), {
+        displayName: 'Active Self Name',
+        phoneNumber: '+15550001111',
+        avatarUrl: 'https://example.com/active.jpg',
+        hideProgressTracking: true,
+        hasCompletedOnboarding: true,
+        todaySkillItemIds: ['skill-1'],
+        completedTodayTaskIds: ['task-1'],
+        completedTodayDate: '2026-08-31',
+        customTodayTasks: [{ id: 'custom-1', title: 'Stretch' }],
+        dismissedTodayTaskIds: ['task-2'],
+        dismissedReviewIds: ['booking-review-active'],
+      })
+    );
+    await assertSucceeds(getDoc(doc(userDb, 'users', USER_ID)));
+  });
+
+  it('denies leftover self-service writes when Account lifecycle is disabled', async () => {
+    await seedData(async (context) => {
+      await updateDoc(doc(context.firestore(), 'users', USER_ID), {
+        lifecycle: { status: 'disabled', disabledAt: '2026-08-31T00:00:00.000Z' },
+      });
+    });
+
+    const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const instructorDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
+      .firestore();
+    const profileRef = doc(userDb, 'users', USER_ID);
+
+    await assertSucceeds(getDoc(profileRef));
+    await assertFails(updateDoc(profileRef, { displayName: 'Disabled Name' }));
+    await assertFails(updateDoc(profileRef, { phoneNumber: '+15550002222' }));
+    await assertFails(updateDoc(profileRef, { avatarUrl: 'https://example.com/disabled.jpg' }));
+    await assertFails(updateDoc(profileRef, { hideProgressTracking: true }));
+    await assertFails(updateDoc(profileRef, { dismissedReviewIds: ['booking-review-disabled'] }));
+    await assertFails(updateDoc(profileRef, { completedTodayTaskIds: ['task-disabled'] }));
+    await assertFails(updateDoc(profileRef, { balanceUSD: 50 }));
+    await assertFails(updateDoc(profileRef, { lifecycle: { status: 'active' } }));
+    await assertFails(updateDoc(profileRef, { role: 'admin' }));
+    await assertFails(updateDoc(profileRef, { systemRole: 'owner' }));
+    await assertFails(updateDoc(profileRef, { instructorId: catalogId }));
+    await assertFails(updateDoc(profileRef, { isInstructor: true }));
+    await assertFails(
+      setDoc(profileRef, {
+        ...userProfile(USER_ID, 'user@example.com'),
+        displayName: 'Replaced After Disable',
+      })
+    );
+    await assertSucceeds(
+      updateDoc(doc(instructorDb, 'users', USER_ID), {
+        level: 2,
+        skillScores: { carving: 4 },
+        skillComments: { carving: 'Target disable does not freeze evaluation' },
+      })
+    );
+  });
+
+  it('fails closed for malformed or unknown Account lifecycle on self-service writes', async () => {
+    const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const profileRef = doc(userDb, 'users', USER_ID);
+
+    await seedData(async (context) => {
+      await updateDoc(doc(context.firestore(), 'users', USER_ID), {
+        lifecycle: { status: 'archived' },
+      });
+    });
+    await assertFails(updateDoc(profileRef, { displayName: 'Unknown Lifecycle' }));
+
+    await seedData(async (context) => {
+      await updateDoc(doc(context.firestore(), 'users', USER_ID), { lifecycle: {} });
+    });
+    await assertFails(updateDoc(profileRef, { phoneNumber: '+15550003333' }));
+
+    await seedData(async (context) => {
+      await updateDoc(doc(context.firestore(), 'users', USER_ID), { lifecycle: 'disabled' });
+    });
+    await assertFails(updateDoc(profileRef, { balanceUSD: 50 }));
+  });
+
+  it('restores self-service after Admin SDK enable_account and does not freeze other-actor writes', async () => {
+    await seedData(async (context) => {
+      await updateDoc(doc(context.firestore(), 'users', USER_ID), {
+        lifecycle: { status: 'disabled', disabledAt: '2026-08-31T00:00:00.000Z' },
+      });
+      await updateDoc(doc(context.firestore(), 'users', INSTRUCTOR_USER_ID), {
+        lifecycle: { status: 'disabled', disabledAt: '2026-08-31T00:00:00.000Z' },
+      });
+    });
+
+    const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const instructorDb = testEnv
+      .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
+      .firestore();
+    const reviewerDb = testEnv
+      .authenticatedContext(OTHER_USER_ID, { email: 'other@example.com' })
+      .firestore();
+
+    await assertFails(updateDoc(doc(userDb, 'users', USER_ID), { displayName: 'Still Disabled' }));
+
+    await seedData(async (context) => {
+      await updateDoc(doc(context.firestore(), 'users', USER_ID), {
+        lifecycle: { status: 'active' },
+        revision: 2,
+      });
+    });
+
+    await assertSucceeds(
+      updateDoc(doc(userDb, 'users', USER_ID), { displayName: 'Reenabled Name' })
+    );
+    await assertSucceeds(updateDoc(doc(userDb, 'users', USER_ID), { phoneNumber: '+15550004444' }));
+    await assertSucceeds(updateDoc(doc(userDb, 'users', USER_ID), { balanceUSD: 50 }));
+
+    await assertSucceeds(
+      updateDoc(doc(instructorDb, 'users', USER_ID), {
+        level: 3,
+        skillScores: { carving: 5 },
+        skillComments: { carving: 'Still evaluable' },
+      })
+    );
+    await assertSucceeds(
+      updateDoc(doc(reviewerDb, 'instructors', catalogId), { rating: 4.2, reviewsCount: 3 })
+    );
+  });
+
+  it('allows Admin SDK identity writes that canonical commands use', async () => {
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await updateDoc(doc(db, 'users', OTHER_USER_ID), {
+        lifecycle: { status: 'disabled' },
+        role: 'admin',
+        instructorId: catalogId,
+        isInstructor: true,
+        revision: 2,
+      });
+      await updateDoc(doc(db, 'instructors', catalogId), {
+        isAvailable: false,
+        name: 'Server Catalog',
+      });
+      await updateDoc(doc(db, 'participants', participantId), {
+        lifecycle: { status: 'archived' },
+      });
+      await updateDoc(doc(db, 'participant_management', managementId), { status: 'ended' });
+      await updateDoc(doc(db, 'participant_blocks', blockId), { status: 'ended' });
+      await setDoc(doc(db, 'instructors', 'instructor-server-created'), {
+        instructorId: 'instructor-server-created',
+        name: 'Server Created',
+        isAvailable: true,
+        revision: 1,
+      });
+    });
+
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+    await assertSucceeds(getDoc(doc(adminDb, 'users', OTHER_USER_ID)));
+    await assertSucceeds(getDoc(doc(adminDb, 'instructors', catalogId)));
+    await assertSucceeds(getDoc(doc(adminDb, 'instructors', 'instructor-server-created')));
   });
 });
 

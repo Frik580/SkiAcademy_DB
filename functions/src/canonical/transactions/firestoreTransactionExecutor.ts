@@ -70,9 +70,12 @@ class FirestoreCanonicalTransactionOperations implements CanonicalTransactionOpe
     input: CanonicalTransactionCollectionQuery
   ): Promise<readonly CanonicalTransactionQueryDocumentResult[]> {
     assertReadPhase(this, 'read');
-    const collectionQuery = this.firestore
+    let collectionQuery = this.firestore
       .collection(input.collection)
       .where(input.where.field, input.where.op, input.where.value);
+    if (input.limit !== undefined) {
+      collectionQuery = collectionQuery.limit(input.limit);
+    }
     const readPromise = this.transaction.get(collectionQuery).then((snapshot) =>
       snapshot.docs.map((doc) => ({
         path: doc.ref.path,

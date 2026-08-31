@@ -20,6 +20,7 @@ import {
   createParticipantAccessCommandHandlers,
   createSelfParticipantProvisioningCommandHandlers,
 } from '../participantAccess';
+import { createIdentityAdministrationCommandHandlers } from '../identity/identityAdministrationCommands';
 import { createBookingCommandHandlers } from '../bookings';
 import { createGuestBookingCommandHandlers } from '../bookings/guestBookingCommands';
 import { createBookingRescheduleCommandHandlers } from '../bookings/bookingRescheduleCommands';
@@ -180,6 +181,7 @@ export function createProductionCanonicalCommands(
   const handlerMap: CommandHandlerMap = {
     ...createParticipantAccessCommandHandlers(executor),
     ...createSelfParticipantProvisioningCommandHandlers(executor),
+    ...createIdentityAdministrationCommandHandlers(executor),
     ...createFinanceCommandHandlers(executor, options.monetaryEventLoader),
     ...createBookingCommandHandlers(executor),
     ...createBookingRescheduleCommandHandlers(executor),

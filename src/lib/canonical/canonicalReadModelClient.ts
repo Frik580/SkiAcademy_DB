@@ -8,6 +8,8 @@ import {
   type QueryAdminCourseEnrollmentReadModelsResult,
   type QueryAdminIssueReadModelsInput,
   type QueryAdminIssueReadModelsResult,
+  type QueryAdminIdentityReadModelsInput,
+  type QueryAdminIdentityReadModelsResult,
   type QueryBookingChangeRequestReadModelsInput,
   type QueryBookingChangeRequestReadModelsResult,
   type QueryBookingProposalReadModelsInput,
@@ -47,6 +49,7 @@ export const QUERY_ADMIN_FINANCE_READ_MODELS_CALLABLE = 'queryAdminFinanceReadMo
 export const QUERY_ADMIN_COURSE_READ_MODELS_CALLABLE = 'queryAdminCourseReadModels';
 export const QUERY_ADMIN_COURSE_ENROLLMENT_READ_MODELS_CALLABLE =
   'queryAdminCourseEnrollmentReadModels';
+export const QUERY_ADMIN_IDENTITY_READ_MODELS_CALLABLE = 'queryAdminIdentityReadModels';
 
 export async function queryAdminCourseEnrollmentReadModels(
   input: QueryAdminCourseEnrollmentReadModelsInput
@@ -67,6 +70,30 @@ export async function queryAdminCourseEnrollmentReadModels(
     idempotencyKey: `read:admin_course_enrollment:${identityHash}`,
     maxAttempts: 1,
   });
+}
+
+export async function queryAdminIdentityReadModels(
+  input: QueryAdminIdentityReadModelsInput
+): Promise<QueryAdminIdentityReadModelsResult> {
+  const target =
+    input.scope === 'admin_account_detail'
+      ? input.accountId
+      : input.scope === 'admin_participant_detail'
+        ? input.participantId
+        : input.scope === 'admin_instructor_detail'
+          ? input.instructorId
+          : input.scope === 'admin_eligible_participants'
+            ? input.accountId
+            : `${'search' in input ? (input.search ?? 'all') : 'all'}:${'cursor' in input ? (input.cursor ?? 'start') : 'start'}`;
+  const identityHash = canonicalDeterministicHash(['read:admin_identity:v1', input.scope, target]);
+  return callFunction<QueryAdminIdentityReadModelsInput, QueryAdminIdentityReadModelsResult>(
+    QUERY_ADMIN_IDENTITY_READ_MODELS_CALLABLE,
+    input,
+    {
+      idempotencyKey: `read:admin_identity:${identityHash}`,
+      maxAttempts: 1,
+    }
+  );
 }
 
 export async function queryAdminCourseReadModels(
@@ -191,7 +218,9 @@ export async function queryLessonBookingReadModels(
 export async function queryManagedParticipantPickerReadModels(
   input: QueryManagedParticipantPickerReadModelsInput = {}
 ): Promise<QueryManagedParticipantPickerReadModelsResult> {
-  const idempotencyKey = 'read:managed_participant_picker';
+  const idempotencyKey = input.accountId
+    ? `read:managed_participant_picker:admin:${input.accountId}`
+    : 'read:managed_participant_picker';
   return callFunction<
     QueryManagedParticipantPickerReadModelsInput,
     QueryManagedParticipantPickerReadModelsResult

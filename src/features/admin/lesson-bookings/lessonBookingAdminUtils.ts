@@ -1,14 +1,11 @@
 import {
-  AccountIdSchema,
   BookingIdSchema,
   IdempotencyKeySchema,
   canonicalDeterministicHash,
   compareCanonicalTimestamps,
-  selfParticipantIdFromAccountId,
   type LessonBookingReadModel,
 } from '@ski-academy/shared-domain';
 import type {
-  AdminLessonAccountOption,
   AdminLessonBookingTarget,
   AdminLessonBookingView,
   AdminLessonParticipantOption,
@@ -70,8 +67,7 @@ export function mergeAdminLessonBookingItems(
 }
 
 export function collectAdminLessonParticipantOptions(
-  bookings: readonly LessonBookingReadModel[],
-  accounts: readonly AdminLessonAccountOption[]
+  bookings: readonly LessonBookingReadModel[]
 ): AdminLessonParticipantOption[] {
   const byId = new Map<string, AdminLessonParticipantOption>();
   for (const booking of bookings) {
@@ -80,18 +76,6 @@ export function collectAdminLessonParticipantOptions(
         participantId: participant.participantId,
         displayName: participant.displayName,
         source: 'canonical_booking',
-      });
-    }
-  }
-  for (const account of accounts) {
-    const parsed = AccountIdSchema.safeParse(account.accountId);
-    if (!parsed.success) continue;
-    const participantId = selfParticipantIdFromAccountId(parsed.data);
-    if (!byId.has(participantId)) {
-      byId.set(participantId, {
-        participantId,
-        displayName: account.displayName,
-        source: 'account_self',
       });
     }
   }

@@ -79,7 +79,11 @@ export const FORBIDDEN_MANAGED_PARTICIPANT_PICKER_INPUT_KEYS = [
 export function rejectSpoofedManagedParticipantPickerInput(
   input: Record<string, unknown>
 ): void {
+  const administratorContext = input.administratorContext === true;
   for (const key of FORBIDDEN_MANAGED_PARTICIPANT_PICKER_INPUT_KEYS) {
+    if (key === 'accountId' && administratorContext) {
+      continue;
+    }
     if (key in input) {
       throw new Error(`Client-supplied ${key} is not allowed.`);
     }

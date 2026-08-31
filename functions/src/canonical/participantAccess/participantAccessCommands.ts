@@ -5,6 +5,7 @@ import {
   canonicalReference,
   commandErrorResult,
   commandSuccessResult,
+  evaluateAdminManagementRevocation,
   instructorRelationshipExpiresAt,
   instructorRelationshipIdFromPair,
   nextAggregateRevision,
@@ -325,23 +326,45 @@ function revokeParticipantManagementHandler(
         parseParticipant(participantRead.exists ? participantRead.data : undefined)
       );
 
-      const accountRead = await session.tx.get({ path: accountPath(managementRecord.accountId) });
-      session.plan.planRead({
-        path: accountPath(managementRecord.accountId),
-        category: 'authorization_check',
-      });
-      accountRecord = parseAccount(accountRead.exists ? accountRead.data : undefined);
-      assertAccountActive(envelope, accountRecord);
-
-      assertAuthorizedParticipantManager(
-        envelope,
-        {
-          account: accountRecord!,
-          participant: participantRecord,
-          management: managementRecord,
-        },
-        managementRecord.participantId
-      );
+      if (administratorCapabilityExercisedByAccount(envelope.context)) {
+        const admin = assertAdministrator(envelope);
+        if (!envelope.intent.reasonExplanation) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { field: 'reasonExplanation', reason: 'required' },
+          });
+        }
+        const adminAccountRead = await session.tx.get({ path: accountPath(admin.accountId) });
+        session.plan.planRead({
+          path: accountPath(admin.accountId),
+          category: 'authorization_check',
+        });
+        accountRecord = parseAccount(adminAccountRead.exists ? adminAccountRead.data : undefined);
+        assertAccountActive(envelope, accountRecord);
+        if (evaluateAdminManagementRevocation({ authority: managementRecord.authority }) !== 'allowed') {
+          throw new CanonicalCommandError('forbidden', {
+            correlationId: envelope.context.correlationId,
+            details: { resourceKind: 'participant', reason: 'conflict' },
+          });
+        }
+      } else {
+        const accountRead = await session.tx.get({ path: accountPath(managementRecord.accountId) });
+        session.plan.planRead({
+          path: accountPath(managementRecord.accountId),
+          category: 'authorization_check',
+        });
+        accountRecord = parseAccount(accountRead.exists ? accountRead.data : undefined);
+        assertAccountActive(envelope, accountRecord);
+        assertAuthorizedParticipantManager(
+          envelope,
+          {
+            account: accountRecord!,
+            participant: participantRecord,
+            management: managementRecord,
+          },
+          managementRecord.participantId
+        );
+      }
 
       session.plan.planMutation({
         path: managementDocumentPath,
@@ -466,45 +489,56 @@ function updateParticipantProfileHandler(
         parseParticipant(participantRead.exists ? participantRead.data : undefined)
       );
 
-      if (participantRecord.management.kind !== 'managed') {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
+      if (administratorCapabilityExercisedByAccount(envelope.context)) {
+        const admin = assertAdministrator(envelope);
+        const accountRead = await session.tx.get({ path: accountPath(admin.accountId) });
+        session.plan.planRead({
+          path: accountPath(admin.accountId),
+          category: 'authorization_check',
         });
-      }
+        accountRecord = parseAccount(accountRead.exists ? accountRead.data : undefined);
+        assertAccountActive(envelope, accountRecord);
+      } else {
+        if (participantRecord.management.kind !== 'managed') {
+          throw new CanonicalCommandError('forbidden', {
+            correlationId: envelope.context.correlationId,
+          });
+        }
 
-      const managementRead = await session.tx.get({
-        path: participantManagementPath(participantRecord.management.participantManagementId),
-      });
-      session.plan.planRead({
-        path: participantManagementPath(participantRecord.management.participantManagementId),
-        category: 'aggregate',
-      });
-      managementRecord = parseParticipantManagement(
-        managementRead.exists ? managementRead.data : undefined
-      );
-      if (!managementRecord || managementRecord.status !== 'active') {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
+        const managementRead = await session.tx.get({
+          path: participantManagementPath(participantRecord.management.participantManagementId),
         });
+        session.plan.planRead({
+          path: participantManagementPath(participantRecord.management.participantManagementId),
+          category: 'aggregate',
+        });
+        managementRecord = parseParticipantManagement(
+          managementRead.exists ? managementRead.data : undefined
+        );
+        if (!managementRecord || managementRecord.status !== 'active') {
+          throw new CanonicalCommandError('forbidden', {
+            correlationId: envelope.context.correlationId,
+          });
+        }
+
+        const accountRead = await session.tx.get({ path: accountPath(managementRecord.accountId) });
+        session.plan.planRead({
+          path: accountPath(managementRecord.accountId),
+          category: 'authorization_check',
+        });
+        accountRecord = parseAccount(accountRead.exists ? accountRead.data : undefined);
+        assertAccountActive(envelope, accountRecord);
+
+        assertAuthorizedParticipantManager(
+          envelope,
+          {
+            account: accountRecord!,
+            participant: participantRecord,
+            management: managementRecord!,
+          },
+          participantRecord.participantId
+        );
       }
-
-      const accountRead = await session.tx.get({ path: accountPath(managementRecord.accountId) });
-      session.plan.planRead({
-        path: accountPath(managementRecord.accountId),
-        category: 'authorization_check',
-      });
-      accountRecord = parseAccount(accountRead.exists ? accountRead.data : undefined);
-      assertAccountActive(envelope, accountRecord);
-
-      assertAuthorizedParticipantManager(
-        envelope,
-        {
-          account: accountRecord!,
-          participant: participantRecord,
-          management: managementRecord!,
-        },
-        participantRecord.participantId
-      );
 
       session.plan.planMutation({
         path: participantDocumentPath,

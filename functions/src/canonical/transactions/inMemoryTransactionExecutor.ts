@@ -30,6 +30,35 @@ interface InMemoryDocument {
   readonly data: Record<string, unknown>;
 }
 
+function readQueryField(data: Record<string, unknown>, field: string): unknown {
+  return field.split('.').reduce<unknown>((current, segment) => {
+    if (current === null || current === undefined || typeof current !== 'object') {
+      return undefined;
+    }
+    return (current as Record<string, unknown>)[segment];
+  }, data);
+}
+
+function matchesQueryFilter(
+  op: CanonicalTransactionCollectionQuery['where']['op'],
+  fieldValue: unknown,
+  compareValue: unknown
+): boolean {
+  if (op === 'array-contains') {
+    return Array.isArray(fieldValue) && fieldValue.some((item) => Object.is(item, compareValue));
+  }
+  if (op === '==') {
+    return Object.is(fieldValue, compareValue);
+  }
+  if (typeof fieldValue !== 'number' || typeof compareValue !== 'number') {
+    return false;
+  }
+  if (op === '<') return fieldValue < compareValue;
+  if (op === '<=') return fieldValue <= compareValue;
+  if (op === '>') return fieldValue > compareValue;
+  return fieldValue >= compareValue;
+}
+
 export interface InMemoryFirestoreSnapshot {
   readonly docs: ReadonlyMap<string, InMemoryDocument>;
   readonly writesAttempted: number;
@@ -71,26 +100,18 @@ class InMemoryCanonicalTransactionOperations implements CanonicalTransactionOper
       const results: CanonicalTransactionQueryDocumentResult[] = [];
       for (const [path, document] of this.docs.entries()) {
         if (!path.startsWith(prefix)) continue;
-        const fieldValue: unknown = document.data[input.where.field];
+        const fieldValue: unknown = readQueryField(document.data, input.where.field);
         const compareValue: unknown = input.where.value;
-        const matchesFilter =
-          input.where.op === '=='
-            ? Object.is(fieldValue, compareValue)
-            : typeof fieldValue === 'number' && typeof compareValue === 'number'
-              ? input.where.op === '<'
-                ? fieldValue < compareValue
-                : input.where.op === '<='
-                  ? fieldValue <= compareValue
-                  : input.where.op === '>'
-                    ? fieldValue > compareValue
-                    : fieldValue >= compareValue
-              : false;
+        const matchesFilter = matchesQueryFilter(input.where.op, fieldValue, compareValue);
         if (!matchesFilter) continue;
         results.push({
           path,
           exists: true,
           data: { ...document.data },
         });
+        if (input.limit !== undefined && results.length >= input.limit) {
+          break;
+        }
       }
       return results;
     });

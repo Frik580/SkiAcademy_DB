@@ -113,6 +113,54 @@ service cloud.firestore {
         );
     }
 
+    // T32.8A: Account/Instructor identity authority is command-only.
+    function canonicalAccountAuthorityFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'lifecycle',
+        'role',
+        'systemRole',
+        'instructorId',
+        'isInstructor',
+        'accountId',
+        'revision',
+        'audit',
+        'createdAt',
+        'updatedAt'
+      ]);
+    }
+
+    // Owner self-service is allowed only when the stored Account is proven active.
+    // Missing lifecycle is the signup/legacy dual-write shape (create forbids
+    // writing lifecycle). disable_account always writes canonical lifecycle.status.
+    // Malformed maps, non-maps, and any status other than 'active' fail closed.
+    // Uses resource.data so the client cannot bypass disable by omitting or
+    // forging lifecycle on the request.
+    function accountLifecycleAllowsSelfService() {
+      return !('lifecycle' in resource.data) ||
+        (
+          resource.data.lifecycle is map &&
+          resource.data.lifecycle.status == 'active'
+        );
+    }
+
+    function selfServiceAccountCreateHasNoCanonicalAuthority() {
+      return !('systemRole' in request.resource.data) &&
+        !('instructorId' in request.resource.data) &&
+        !('lifecycle' in request.resource.data) &&
+        !('accountId' in request.resource.data) &&
+        !('revision' in request.resource.data) &&
+        !('audit' in request.resource.data) &&
+        (!('isInstructor' in request.resource.data) || request.resource.data.isInstructor == false);
+    }
+
+    function validSelfServiceAccountCreate(userId) {
+      return request.resource.data.uid == userId &&
+        isOwnEmail(request.resource.data.email) &&
+        request.resource.data.role == 'user' &&
+        selfServiceAccountCreateHasNoCanonicalAuthority() &&
+        validInitialWalletAuthority();
+    }
+
     function validStarterCreditSetting() {
       return request.resource.data.keys().hasOnly(['amountUsd']) &&
         request.resource.data.amountUsd is number &&
@@ -516,66 +564,50 @@ service cloud.firestore {
     }
 
     // User Profiles
+    // Preserved client writes (non-authoritative only):
+    // - create: signup / guest-claim migration (Auth.tsx, migratePreExistingProfile)
+    // - update self presentation: cabinet profile, today tasks, dismissReview
+    //   (owner only, and only while stored Account lifecycle is active/absent)
+    // - update instructor skills: InstructorStudents evaluation of another Account
+    //   (does not require the *target* Account to be active)
+    // - update balanceUSD decrease: legacy client payment (denied when disabled)
+    // - delete client_* by email claimant: guest-claim migration
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin() || isInstructor();
       allow list: if isAdmin() || isInstructor() || (resource != null && isOwnEmail(resource.data.email));
 
-      allow create: if (
-        isOwner(userId) &&
-        request.resource.data.uid == userId &&
-        isOwnEmail(request.resource.data.email) &&
-        request.resource.data.role == 'user' &&
-        !('systemRole' in request.resource.data) &&
-        validInitialWalletAuthority()
-      ) || (
-        isAdmin() &&
-        userId.matches('^client_.*') &&
-        request.resource.data.uid == userId &&
-        !('systemRole' in request.resource.data) &&
-        (request.resource.data.role != 'admin' || isSystemOwner()) &&
-        validInitialWalletAuthority()
-      );
+      allow create: if isOwner(userId) && validSelfServiceAccountCreate(userId);
 
-      allow update: if (
-        isOwner(userId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'displayName',
-          'phoneNumber',
-          'avatarUrl',
-          'hideProgressTracking',
-          'hasCompletedOnboarding',
-          'todaySkillItemIds',
-          'completedTodayTaskIds',
-          'completedTodayDate',
-          'customTodayTasks',
-          'dismissedTodayTaskIds',
-          'dismissedReviewIds'
-        ])
-      ) || (
-        isOwner(userId) && validBalanceDecreaseOnly()
-      ) || (
-        isInstructor() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'level',
-          'skillScores',
-          'skillComments'
-        ])
-      ) || (
-        isAdmin() &&
-        (!('role' in resource.data) || resource.data.role != 'admin') &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'role',
-          'systemRole',
-          'email'
-        ]) &&
-        authoritativeMoneyFieldsUnchanged()
-      ) || (
-        isSystemOwner() &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'systemRole',
-          'email'
-        ]) &&
-        authoritativeMoneyFieldsUnchanged()
+      allow update: if canonicalAccountAuthorityFieldsUnchanged() && (
+        (
+          isOwner(userId) &&
+          accountLifecycleAllowsSelfService() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'displayName',
+            'phoneNumber',
+            'avatarUrl',
+            'hideProgressTracking',
+            'hasCompletedOnboarding',
+            'todaySkillItemIds',
+            'completedTodayTaskIds',
+            'completedTodayDate',
+            'customTodayTasks',
+            'dismissedTodayTaskIds',
+            'dismissedReviewIds'
+          ])
+        ) || (
+          isOwner(userId) &&
+          accountLifecycleAllowsSelfService() &&
+          validBalanceDecreaseOnly()
+        ) || (
+          isInstructor() &&
+          (!isOwner(userId) || accountLifecycleAllowsSelfService()) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'level',
+            'skillScores',
+            'skillComments'
+          ])
+        )
       );
 
       allow delete: if userId.matches('^client_.*') &&
@@ -583,11 +615,14 @@ service cloud.firestore {
         isOwnEmail(resource.data.email);
     }
 
-    // Instructors
+    // Instructor catalog. Admin create/update/delete is canonical-command only.
+    // Preserved client writes:
+    // - rating/reviewsCount: addReviewService
+    // - phoneNumber: instructor self profile (updateUserProfileService)
     match /instructors/{instructorId} {
       allow read: if true;
-      allow create: if isAdmin();
-      allow update: if isAdmin() || (
+      allow create: if false;
+      allow update: if (
         isAuthenticated() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'reviewsCount']) &&
         request.resource.data.rating >= 1 &&
@@ -598,7 +633,24 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId == instructorId &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['phoneNumber'])
       );
-      allow delete: if isAdmin();
+      allow delete: if false;
+    }
+
+    // T32.8A identity aggregates: client SDK cannot mutate; Admin SDK commands can.
+    match /participants/{participantId} {
+      allow read, write: if false;
+    }
+
+    match /participant_management/{managementId} {
+      allow read, write: if false;
+    }
+
+    match /participant_blocks/{blockId} {
+      allow read, write: if false;
+    }
+
+    match /instructor_relationships/{relationshipId} {
+      allow read, write: if false;
     }
 
     // Reviews

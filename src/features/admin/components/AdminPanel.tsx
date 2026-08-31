@@ -4,7 +4,6 @@ import { useSearchParams } from 'react-router-dom';
 import { Instructor, Booking, UserProfile, Course } from '../../../types';
 import {
   Shield,
-  Users,
   UserCheck,
   BookOpen,
   AlertTriangle,
@@ -45,24 +44,14 @@ const AdminCourseEnrollmentPanel = lazy(() =>
     default: m.AdminCourseEnrollmentPanel,
   }))
 );
-const ClientsManager = lazy(() =>
-  import('./users').then((m) => ({
-    default: m.ClientsManager,
-  }))
-);
-const CoachesManager = lazy(() =>
-  import('./users').then((m) => ({
-    default: m.CoachesManager,
+const CanonicalIdentityManager = lazy(() =>
+  import('../identity').then((m) => ({
+    default: m.CanonicalIdentityManager,
   }))
 );
 const CoursesManager = lazy(() =>
   import('./courses').then((m) => ({
     default: m.CoursesManager,
-  }))
-);
-const AdminRoleManager = lazy(() =>
-  import('./users').then((m) => ({
-    default: m.AdminRoleManager,
   }))
 );
 const ErrorLogsPanel = lazy(() =>
@@ -92,12 +81,6 @@ interface AdminPanelProps {
   bookings: Booking[];
   usersList?: UserProfile[];
   currentUserProfile: UserProfile;
-  onUpdateUserRole?: (targetUid: string, newRole: 'admin' | 'user') => Promise<void>;
-  onAddInstructor: (ins: Instructor) => Promise<void>;
-  onUpdateInstructor: (ins: Instructor) => Promise<void>;
-  onDeleteInstructor: (id: string) => Promise<void>;
-  onAddUser?: (user: UserProfile) => Promise<void>;
-  onUpdateUser?: (user: UserProfile) => Promise<void>;
   filtersEnabled?: boolean;
   onToggleFilters?: (enabled: boolean) => Promise<void>;
   notificationRetentionDays?: number;
@@ -117,12 +100,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   usersList = [],
   courses = [],
   currentUserProfile,
-  onUpdateUserRole,
-  onAddInstructor,
-  onUpdateInstructor,
-  onDeleteInstructor,
-  onAddUser,
-  onUpdateUser,
   filtersEnabled = true,
   onToggleFilters,
   notificationRetentionDays,
@@ -152,7 +129,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     [setSearchParams]
   );
 
-  const bookings = useTranslatedBookings(rawBookings, courses, language, { syncCoursePrice: true });
+  useTranslatedBookings(rawBookings, courses, language, { syncCoursePrice: true });
 
   const [confirmModal, setConfirmModal] = useState<{
     message: string;
@@ -191,11 +168,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             >
               <AdminLessonBookingPanel
                 adminAccountId={currentUserProfile.uid}
-                accounts={usersList.map((user) => ({
-                  accountId: user.uid,
-                  displayName: user.displayName,
-                  email: user.email,
-                }))}
                 instructors={instructors.map((instructor) => ({
                   instructorId: instructor.id,
                   displayName: instructor.name,
@@ -242,59 +214,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <div className="space-y-6">
           <Suspense fallback={<SectionLoadingFallback label={t('clientsManagerTitle')} />}>
             <AdminCollapsibleSection
-              id="clients_manager"
+              id="canonical_identity"
               title={t('clientsManagerTitle')}
               subtitle={t('clientsManagerSub')}
               icon={UserCheck}
-              badge={usersList.length}
               defaultOpen
             >
-              <ClientsManager
-                usersList={usersList}
-                instructors={instructors}
-                currentUserProfile={currentUserProfile}
-                onAddUser={onAddUser}
-                onUpdateUser={onUpdateUser}
-                onAddInstructor={onAddInstructor}
-                onUpdateInstructor={onUpdateInstructor}
-              />
-            </AdminCollapsibleSection>
-          </Suspense>
-
-          <Suspense fallback={<SectionLoadingFallback label={t('coachesDirectoryTitle')} />}>
-            <AdminCollapsibleSection
-              id="coaches_manager"
-              title={t('coachesDirectoryTitle')}
-              subtitle={t('coachesDirectorySub')}
-              icon={Users}
-              badge={instructors.length}
-              defaultOpen={false}
-            >
-              <CoachesManager
-                instructors={instructors}
-                bookings={bookings}
-                onAddInstructor={onAddInstructor}
-                onUpdateInstructor={onUpdateInstructor}
-                onDeleteInstructor={onDeleteInstructor}
-                onRequestConfirm={onRequestConfirm}
-              />
-            </AdminCollapsibleSection>
-          </Suspense>
-
-          <Suspense fallback={<SectionLoadingFallback label={t('adminRoleManagementTitle')} />}>
-            <AdminCollapsibleSection
-              id="admin_role_manager"
-              title={t('adminRoleManagementTitle')}
-              subtitle={t('adminRoleManagementSub')}
-              icon={Shield}
-              defaultOpen={false}
-            >
-              <AdminRoleManager
-                usersList={usersList}
-                currentUserProfile={currentUserProfile}
-                onUpdateUserRole={onUpdateUserRole}
-                onRequestConfirm={onRequestConfirm}
-              />
+              <CanonicalIdentityManager adminAccountId={currentUserProfile.uid} />
             </AdminCollapsibleSection>
           </Suspense>
         </div>

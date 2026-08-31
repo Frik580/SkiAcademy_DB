@@ -11,6 +11,7 @@ import {
 type ParticipantAccessCommandKind = Extract<
   CommandKind,
   | 'provision_self_participant'
+  | 'provision_self_participant_for_account'
   | 'create_participant'
   | 'update_participant_profile'
   | 'assign_participant_management'
@@ -31,6 +32,8 @@ function summaryForKind(kind: ParticipantAccessCommandKind): string {
   switch (kind) {
     case 'provision_self_participant':
       return 'Canonical self Participant provisioned';
+    case 'provision_self_participant_for_account':
+      return 'Self Participant provisioned for Account';
     case 'create_participant':
       return 'Participant profile created';
     case 'update_participant_profile':

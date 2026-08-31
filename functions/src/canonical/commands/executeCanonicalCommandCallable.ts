@@ -87,6 +87,11 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
       if (!account || account.lifecycle.status !== 'active') {
         throw new HttpsError('permission-denied', 'This action is not permitted.');
       }
+    } else if (accountContext.source === 'client_callable') {
+      const account = parseAccount(userData);
+      if (account?.lifecycle.status === 'disabled') {
+        throw new HttpsError('permission-denied', 'This action is not permitted.');
+      }
     }
 
     const envelope = buildCommandEnvelopeFromCallable(accountContext, transportInput);

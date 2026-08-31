@@ -84,6 +84,42 @@ describe('firestore.rules guardrails', () => {
     expect(rulesSource).not.toMatch(/match \/wallet_ledger\/\{entryId\}[\s\S]*isAdmin\(\) \|\|/);
   });
 
+  it('locks T32.8A Account/Instructor identity authority to canonical commands', () => {
+    expect(rulesSource).toContain('function canonicalAccountAuthorityFieldsUnchanged');
+    expect(rulesSource).toContain('function accountLifecycleAllowsSelfService');
+    expect(rulesSource).toContain('function validSelfServiceAccountCreate');
+    expect(rulesSource).toMatch(
+      /allow create: if isOwner\(userId\) && validSelfServiceAccountCreate\(userId\)/
+    );
+    expect(rulesSource).toMatch(
+      /allow update: if canonicalAccountAuthorityFieldsUnchanged\(\) && \([\s\S]*accountLifecycleAllowsSelfService\(\)/
+    );
+    expect(rulesSource).not.toMatch(
+      /isSystemOwner\(\) &&[\s\S]*affectedKeys\(\)\.hasAny\(\[\s*'systemRole'/
+    );
+
+    const instructorsBlock = rulesSource.match(
+      /match \/instructors\/\{instructorId\} \{[\s\S]*?\n {4}\}/
+    )?.[0];
+    expect(instructorsBlock).toContain('allow create: if false;');
+    expect(instructorsBlock).toContain('allow delete: if false;');
+    expect(instructorsBlock).not.toContain('allow create: if isAdmin()');
+    expect(instructorsBlock).not.toContain('allow delete: if isAdmin()');
+
+    expect(rulesSource).toMatch(
+      /match \/participants\/\{participantId\}[\s\S]*allow read, write: if false;/
+    );
+    expect(rulesSource).toMatch(
+      /match \/participant_management\/\{managementId\}[\s\S]*allow read, write: if false;/
+    );
+    expect(rulesSource).toMatch(
+      /match \/participant_blocks\/\{blockId\}[\s\S]*allow read, write: if false;/
+    );
+    expect(rulesSource).toMatch(
+      /match \/instructor_relationships\/\{relationshipId\}[\s\S]*allow read, write: if false;/
+    );
+  });
+
   it('protects strict and provisioned canonical courses from legacy Admin writes', () => {
     expect(rulesSource).toContain('function hasStrictCanonicalCourseTopLevelShape');
     expect(rulesSource).toContain('function canonicalCourseProtectedFromLegacyAdminWrites');

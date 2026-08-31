@@ -597,6 +597,7 @@ export const CommandIntentSchemaByKind = {
   revoke_participant_management: z
     .object({
       participantManagementId: ParticipantManagementIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
     })
     .strict(),
   create_instructor_relationship: z
@@ -737,6 +738,142 @@ export const CommandIntentSchemaByKind = {
         })
         .strict(),
       participantTarget: linkGuestCourseEnrollmentParticipantTargetIntent,
+    })
+    .strict(),
+  disable_account: z
+    .object({
+      accountId: AccountIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  enable_account: z
+    .object({
+      accountId: AccountIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  archive_participant: z
+    .object({
+      participantId: ParticipantIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  reactivate_participant: z
+    .object({
+      participantId: ParticipantIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  assign_participant_management_as_administrator: z
+    .object({
+      participantManagementId: ParticipantManagementIdSchema,
+      participantId: ParticipantIdSchema,
+      accountId: AccountIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  create_managed_dependent_participant: z
+    .object({
+      participantId: ParticipantIdSchema,
+      participantManagementId: ParticipantManagementIdSchema,
+      accountId: AccountIdSchema,
+      displayName: z.string().trim().min(1).max(200),
+      age: participantAgeIntent,
+      skillLevel: z.string().trim().min(1).max(64),
+      discipline: z.enum(['ski', 'snowboard']),
+      instructorComment: z.string().trim().min(1).max(2_000).optional(),
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  provision_self_participant_for_account: z
+    .object({
+      accountId: AccountIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  change_account_role: z
+    .object({
+      accountId: AccountIdSchema,
+      role: z.enum(['user', 'admin']),
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  create_instructor_catalog_entry: z
+    .object({
+      instructorId: InstructorIdSchema,
+      name: z.string().trim().min(1).max(200),
+      specialty: z.enum(['ski', 'snowboard', 'both']).optional(),
+      languages: z.array(z.string().trim().min(1).max(32)).max(16).optional(),
+      experienceYears: z.number().finite().int().min(0).max(80).optional(),
+      bio: z.string().trim().max(4_000).optional(),
+      avatarUrl: z.string().trim().min(1).max(2_000).optional(),
+      pricePerHourKZT: z.number().finite().int().positive(),
+      phoneNumber: z.string().trim().max(32).optional(),
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  update_instructor_catalog_profile: z
+    .object({
+      instructorId: InstructorIdSchema,
+      name: z.string().trim().min(1).max(200).optional(),
+      specialty: z.enum(['ski', 'snowboard', 'both']).optional(),
+      languages: z.array(z.string().trim().min(1).max(32)).max(16).optional(),
+      experienceYears: z.number().finite().int().min(0).max(80).optional(),
+      bio: z.string().trim().max(4_000).optional(),
+      avatarUrl: z.string().trim().min(1).max(2_000).optional(),
+      pricePerHourKZT: z.number().finite().int().positive().optional(),
+      phoneNumber: z.string().trim().max(32).optional(),
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict()
+    .superRefine((intent, context) => {
+      if (
+        intent.name === undefined &&
+        intent.specialty === undefined &&
+        intent.languages === undefined &&
+        intent.experienceYears === undefined &&
+        intent.bio === undefined &&
+        intent.avatarUrl === undefined &&
+        intent.pricePerHourKZT === undefined &&
+        intent.phoneNumber === undefined
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: [],
+          message: 'At least one catalog profile field must be provided',
+        });
+      }
+    }),
+  deactivate_instructor_catalog: z
+    .object({
+      instructorId: InstructorIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  reactivate_instructor_catalog: z
+    .object({
+      instructorId: InstructorIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  link_account_instructor_catalog: z
+    .object({
+      accountId: AccountIdSchema,
+      instructorId: InstructorIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  unlink_account_instructor_catalog: z
+    .object({
+      accountId: AccountIdSchema,
+      instructorId: InstructorIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  repair_participant_management_owner_guard: z
+    .object({
+      participantId: ParticipantIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
     })
     .strict(),
 } satisfies Record<CommandKind, z.ZodType>;

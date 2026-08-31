@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ChevronRight, RefreshCw, Users } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -23,10 +23,11 @@ import type {
 } from './adminCourseEnrollmentContracts';
 import {
   captureAdminCourseEnrollmentTarget,
-  collectAdminCourseEnrollmentParticipantOptions,
   createAdminCourseEnrollmentAttemptId,
   parseAdminCourseEnrollmentView,
 } from './adminCourseEnrollmentUtils';
+import { AdminManagedParticipantPicker } from '../identity';
+import type { AdminManagedParticipantSelection } from '../identity';
 import { useAdminCourseEnrollmentReadModels } from './useAdminCourseEnrollmentReadModels';
 import { useAdminCourseEnrollmentCommands } from './useAdminCourseEnrollmentCommands';
 import { useAdminCourseEnrollmentTranslations } from './useAdminCourseEnrollmentTranslations';
@@ -87,7 +88,7 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
   const courseGeneration = useRef(0);
   const [reason, setReason] = useState('');
   const [createCourseId, setCreateCourseId] = useState('');
-  const [createParticipantId, setCreateParticipantId] = useState('');
+  const [createSelection, setCreateSelection] = useState<AdminManagedParticipantSelection>();
   const [targetCourseId, setTargetCourseId] = useState('');
   const [refundAmount, setRefundAmount] = useState('0');
   const [confirmation, setConfirmation] = useState<{
@@ -130,11 +131,6 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
     setTargetCourseId('');
   }, [readModels.detail.item]);
 
-  const participants = useMemo(
-    () => collectAdminCourseEnrollmentParticipantOptions(readModels.list.items),
-    [readModels.list.items]
-  );
-
   const updateQuery = (updates: Record<string, string | undefined>) => {
     setSearchParams(
       (previous) => {
@@ -157,8 +153,7 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
 
   const requestCreate = () => {
     const course = courses.find((item) => item.courseId === createCourseId);
-    const participant = participants.find((item) => item.participantId === createParticipantId);
-    if (!course || !participant || !reason.trim()) return;
+    if (!course || !createSelection || !reason.trim()) return;
     setMutationError(undefined);
     setConfirmation({
       attempt: {
@@ -166,10 +161,10 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
         idempotencyKey: createAdminCourseEnrollmentAttemptId('create'),
         courseId: course.courseId,
         courseRevision: course.revision,
-        participantId: participant.participantId,
+        participantId: createSelection.participantId,
         reasonExplanation: reason.trim(),
       },
-      message: `${participant.displayName} → ${course.title} @ course rev ${course.revision}`,
+      message: `${createSelection.displayName} → ${course.title} @ course rev ${course.revision}`,
     });
   };
 
@@ -265,19 +260,10 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
                 </option>
               ))}
           </select>
-          <select
-            aria-label={t.selectParticipant}
-            value={createParticipantId}
-            onChange={(event) => setCreateParticipantId(event.target.value)}
-            className="border border-[var(--border)] bg-[var(--bg)] p-2 text-xs"
-          >
-            <option value="">{t.selectParticipant}</option>
-            {participants.map((participant) => (
-              <option key={participant.participantId} value={participant.participantId}>
-                {participant.displayName}
-              </option>
-            ))}
-          </select>
+          <AdminManagedParticipantPicker
+            selected={createSelection}
+            onChange={setCreateSelection}
+          />
           <input
             aria-label={t.reason}
             value={reason}
@@ -289,7 +275,7 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
         <p className="text-[11px] text-[var(--ink-dim)]">{t.participantLimitation}</p>
         <button
           type="button"
-          disabled={!createCourseId || !createParticipantId || !reason.trim()}
+          disabled={!createCourseId || !createSelection || !reason.trim()}
           onClick={requestCreate}
           className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
         >

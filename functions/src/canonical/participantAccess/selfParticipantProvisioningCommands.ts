@@ -9,6 +9,7 @@ import {
   selfParticipantIdFromAccountId,
   timestampFromDate,
   type Account,
+  type AccountId,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
   type CommandResult,
@@ -25,7 +26,7 @@ import {
   readAndPlanAcquireParticipantManagementActiveOwnerGuard,
 } from '../resourceClaims/uniquenessGuards';
 import { buildParticipantAccessAuditPlan } from './participantAccessAudit';
-import { requireAccountActor } from './participantAccessAuthorization';
+import { assertAdministrator, requireAccountActor } from './participantAccessAuthorization';
 import {
   PARTICIPANT_ACCESS_PLANNING_ESTIMATES,
   accountPath,
@@ -42,7 +43,9 @@ const DEFAULT_SELF_PARTICIPANT_AGE_YEARS = 18;
 const DEFAULT_SELF_PARTICIPANT_SKILL_LEVEL = 'beginner';
 const DEFAULT_SELF_PARTICIPANT_DISCIPLINE = 'ski' as const;
 
-function provisioningConflict(envelope: CommandEnvelope<'provision_self_participant'>): never {
+type SelfProvisioningKind = 'provision_self_participant' | 'provision_self_participant_for_account';
+
+function provisioningConflict(envelope: CommandEnvelope<SelfProvisioningKind>): never {
   throw new CanonicalCommandError('blocked_relationship', {
     correlationId: envelope.context.correlationId,
     details: { resourceKind: 'participant', reason: 'conflict' },
@@ -56,7 +59,7 @@ function isAlreadyExistsCommitConflict(error: unknown): boolean {
 }
 
 function readDisplayName(
-  envelope: CommandEnvelope<'provision_self_participant'>,
+  envelope: CommandEnvelope<SelfProvisioningKind>,
   profile: Record<string, unknown>
 ): string {
   const displayName = typeof profile.displayName === 'string' ? profile.displayName.trim() : '';
@@ -70,7 +73,7 @@ function readDisplayName(
 }
 
 function assertProfileCanProvision(
-  envelope: CommandEnvelope<'provision_self_participant'>,
+  envelope: CommandEnvelope<SelfProvisioningKind>,
   profile: Record<string, unknown>
 ): void {
   if (profile.isClientActive === false) {
@@ -90,23 +93,15 @@ function assertProfileCanProvision(
   }
 }
 
-export function provisionSelfParticipantHandler(
-  envelope: CommandEnvelope<'provision_self_participant'>,
+function provisionSelfForTargetAccount<Kind extends SelfProvisioningKind>(
+  envelope: CommandEnvelope<Kind>,
   environment: CommandExecutionEnvironment,
-  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
-): Promise<CommandResult<'provision_self_participant'>> {
-  const actor = requireAccountActor(envelope);
-  if (
-    envelope.context.source !== 'client_callable' ||
-    envelope.context.exercisedCapability !== 'account_owner'
-  ) {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'],
+  targetAccountId: AccountId
+): Promise<CommandResult<Kind>> {
   const identity = resolveCommandIdempotencyIdentity(envelope);
-  const deterministicParticipantId = selfParticipantIdFromAccountId(actor.accountId);
-  const deterministicManagementId = participantManagementIdFromSelfProvisioning(actor.accountId);
+  const deterministicParticipantId = selfParticipantIdFromAccountId(targetAccountId);
+  const deterministicManagementId = participantManagementIdFromSelfProvisioning(targetAccountId);
 
   let accountRecord: Account | undefined;
   let accountNeedsInitialization = false;
@@ -117,12 +112,12 @@ export function provisionSelfParticipantHandler(
   let plannedOwnerGuard:
     Awaited<ReturnType<typeof readAndPlanAcquireParticipantManagementActiveOwnerGuard>> | undefined;
 
-  const handler: AuthoritativeIdempotentCanonicalCommandHandler<'provision_self_participant'> = {
+  const handler: AuthoritativeIdempotentCanonicalCommandHandler<Kind> = {
     read: async (session) => {
       accountNeedsInitialization = false;
       shouldCreateSelfParticipant = false;
       plannedOwnerGuard = undefined;
-      const userPath = accountPath(actor.accountId);
+      const userPath = accountPath(targetAccountId);
       const accountRead = await session.tx.get({ path: userPath });
       session.plan.planRead({ path: userPath, category: 'authorization_check' });
       if (!accountRead.exists || !accountRead.data) {
@@ -151,7 +146,7 @@ export function provisionSelfParticipantHandler(
 
       const managementDocuments = await session.tx.query({
         collection: 'participant_management',
-        where: { field: 'accountId', op: '==', value: actor.accountId },
+        where: { field: 'accountId', op: '==', value: targetAccountId },
       });
       session.plan.planRead({
         path: 'participant_management/query_by_account',
@@ -172,7 +167,7 @@ export function provisionSelfParticipantHandler(
           category: 'authorization_check',
         });
         const existingManagement = parseParticipantManagement(managementDocument.data);
-        if (!existingManagement || existingManagement.accountId !== actor.accountId) {
+        if (!existingManagement || existingManagement.accountId !== targetAccountId) {
           provisioningConflict(envelope);
         }
 
@@ -208,7 +203,7 @@ export function provisionSelfParticipantHandler(
         );
         if (
           !ownerGuard ||
-          ownerGuard.accountId !== actor.accountId ||
+          ownerGuard.accountId !== targetAccountId ||
           ownerGuard.participantManagementId !== existingManagement.participantManagementId
         ) {
           provisioningConflict(envelope);
@@ -243,7 +238,7 @@ export function provisionSelfParticipantHandler(
         commandId: identity.commandKey,
         decidedAt: environment.clock.decidedAt(),
         participantId: deterministicParticipantId,
-        accountId: actor.accountId,
+        accountId: targetAccountId,
         participantManagementId: deterministicManagementId,
         managementRevision: AggregateRevisionSchema.parse(1),
       });
@@ -284,7 +279,7 @@ export function provisionSelfParticipantHandler(
       };
       managementRecord = {
         participantManagementId: deterministicManagementId,
-        accountId: actor.accountId,
+        accountId: targetAccountId,
         participantId: deterministicParticipantId,
         role: 'owner',
         authority: 'self',
@@ -310,7 +305,7 @@ export function provisionSelfParticipantHandler(
         affectedSubjects: [
           canonicalReference('participant', participantRecord.participantId),
           canonicalReference('participant_management', managementRecord.participantManagementId),
-          canonicalReference('account', actor.accountId),
+          canonicalReference('account', targetAccountId),
         ],
         resultingRevisions: [
           {
@@ -327,7 +322,7 @@ export function provisionSelfParticipantHandler(
           ...(accountNeedsInitialization
             ? [
                 {
-                  subject: canonicalReference('account', actor.accountId),
+                  subject: canonicalReference('account', targetAccountId),
                   revision: AggregateRevisionSchema.parse(1),
                 },
               ]
@@ -338,7 +333,7 @@ export function provisionSelfParticipantHandler(
       const decidedAt = timestampFromDate(context.decidedAt);
       if (accountNeedsInitialization) {
         const canonicalAccount = AccountSchema.parse({
-          accountId: actor.accountId,
+          accountId: targetAccountId,
           lifecycle: { status: 'active' },
           revision: 1,
           createdAt: decidedAt,
@@ -350,7 +345,7 @@ export function provisionSelfParticipantHandler(
           },
         });
         session.tx.update(
-          { path: accountPath(actor.accountId) },
+          { path: accountPath(targetAccountId) },
           canonicalAccount as Record<string, unknown>
         );
       }
@@ -371,7 +366,7 @@ export function provisionSelfParticipantHandler(
             commandId: identity.commandKey,
             decidedAt: context.decidedAt,
             participantId: participantRecord.participantId,
-            accountId: actor.accountId,
+            accountId: targetAccountId,
             participantManagementId: managementRecord.participantManagementId,
             managementRevision: managementRecord.revision,
           },
@@ -398,11 +393,50 @@ export function provisionSelfParticipantHandler(
   });
 }
 
+export function provisionSelfParticipantHandler(
+  envelope: CommandEnvelope<'provision_self_participant'>,
+  environment: CommandExecutionEnvironment,
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
+): Promise<CommandResult<'provision_self_participant'>> {
+  const actor = requireAccountActor(envelope);
+  if (
+    envelope.context.source !== 'client_callable' ||
+    envelope.context.exercisedCapability !== 'account_owner'
+  ) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
+  return provisionSelfForTargetAccount(envelope, environment, executor, actor.accountId);
+}
+
+export function provisionSelfParticipantForAccountHandler(
+  envelope: CommandEnvelope<'provision_self_participant_for_account'>,
+  environment: CommandExecutionEnvironment,
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
+): Promise<CommandResult<'provision_self_participant_for_account'>> {
+  assertAdministrator(envelope);
+  if (!envelope.intent.reasonExplanation) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'reasonExplanation', reason: 'required' },
+    });
+  }
+  return provisionSelfForTargetAccount(
+    envelope,
+    environment,
+    executor,
+    envelope.intent.accountId
+  );
+}
+
 export function createSelfParticipantProvisioningCommandHandlers(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Partial<CommandHandlerMap> {
   return {
     provision_self_participant: (envelope, environment) =>
       provisionSelfParticipantHandler(envelope, environment, executor),
+    provision_self_participant_for_account: (envelope, environment) =>
+      provisionSelfParticipantForAccountHandler(envelope, environment, executor),
   };
 }

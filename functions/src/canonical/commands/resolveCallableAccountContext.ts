@@ -39,6 +39,21 @@ export const ADMINISTRATOR_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
   'remove_course_day',
   'update_course_catalog_content',
   'reconcile_course_enrollment',
+  'disable_account',
+  'enable_account',
+  'archive_participant',
+  'reactivate_participant',
+  'assign_participant_management_as_administrator',
+  'create_managed_dependent_participant',
+  'provision_self_participant_for_account',
+  'change_account_role',
+  'create_instructor_catalog_entry',
+  'update_instructor_catalog_profile',
+  'deactivate_instructor_catalog',
+  'reactivate_instructor_catalog',
+  'link_account_instructor_catalog',
+  'unlink_account_instructor_catalog',
+  'repair_participant_management_owner_guard',
 ]);
 
 export const ADMINISTRATOR_CONTEXT_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
@@ -50,6 +65,8 @@ export const ADMINISTRATOR_CONTEXT_COMMAND_KINDS: ReadonlySet<CommandKind> = new
   'record_booking_attendance',
   'record_course_day_attendance',
   'resolve_attendance_outcome',
+  'update_participant_profile',
+  'revoke_participant_management',
 ]);
 
 export interface CallableAccountProfile {

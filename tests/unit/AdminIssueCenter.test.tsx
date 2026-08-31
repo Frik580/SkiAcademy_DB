@@ -167,6 +167,60 @@ describe('AdminIssueCenter', () => {
     expect(screen.getByLabelText('location')).toHaveTextContent('payment=payment_component_01');
   });
 
+  it('deep-links a booking issue to canonical booking detail', () => {
+    const bookingIssue = {
+      ...commonItem,
+      subjectRef: {
+        subjectKind: 'booking' as const,
+        bookingId: 'booking_issue_component_01',
+      },
+    };
+    useReadModelsMock.mockReturnValue({
+      list: {
+        items: [bookingIssue],
+        loading: false,
+        loadingMore: false,
+        hasMore: false,
+      },
+      detail: {
+        loading: false,
+        item: {
+          ...bookingIssue,
+          subject: {
+            availability: 'available',
+            revision: 4,
+            lifecycleStatus: 'confirmed',
+          },
+          attendance: [],
+          references: {
+            participantId: 'participant_component_01',
+            attendanceIds: [],
+          },
+          resolutionGuidance: 'record_attendance',
+          authorizedActions: {
+            canResolveDirectly: false,
+            actions: [],
+          },
+        },
+      },
+      retryList: retryListMock,
+      retryDetail: vi.fn(),
+      loadMore: vi.fn(),
+    });
+    render(
+      <MemoryRouter initialEntries={[`/admin?tab=operations&issue=${issueId}`]}>
+        <AdminIssueCenter />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open canonical booking' }));
+    expect(screen.getByLabelText('location')).toHaveTextContent('tab=operations');
+    expect(screen.getByLabelText('location')).toHaveTextContent(
+      'booking=booking_issue_component_01'
+    );
+  });
+
   it('shows read failure and invokes retry', () => {
     useReadModelsMock.mockReturnValue({
       list: {

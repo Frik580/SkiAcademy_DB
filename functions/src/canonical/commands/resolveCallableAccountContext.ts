@@ -33,6 +33,11 @@ export const ADMINISTRATOR_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
 export const ADMINISTRATOR_CONTEXT_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
   'create_confirmed_booking',
   'create_course_enrollments',
+  'reschedule_booking',
+  'change_booking_instructor',
+  'change_booking_duration',
+  'record_booking_attendance',
+  'resolve_attendance_outcome',
 ]);
 
 export interface CallableAccountProfile {

@@ -5,6 +5,7 @@ import {
   accountOwnerCancellationReasonCode,
   administratorCancellationReasonCode,
   assertBookingPaymentIdentity,
+  assertExpectedRevision,
   attendanceIdFromBookingIdentity,
   ATTENDANCE_IDENTITY_STRATEGY_VERSION,
   calculateFullPaidRefundAmount,
@@ -727,6 +728,12 @@ function resolveBookingCancellationHandler(
     }
     payment = parsedPayment;
     assertBookingPaymentIdentity(envelope.context.correlationId, booking, payment);
+    assertExpectedRevision({
+      correlationId: envelope.context.correlationId,
+      expectedRevision: envelope.intent.expectedPaymentRevision,
+      currentRevision: payment.revision,
+      requireExpectedRevision: true,
+    });
     assertRefundWithinRetained(payment, refundAmount);
     plannedFinance = await planCancellationFinance(session, {
       envelope,

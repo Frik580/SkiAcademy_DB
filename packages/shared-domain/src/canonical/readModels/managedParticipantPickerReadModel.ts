@@ -40,8 +40,19 @@ export type ManagedParticipantPickerItem = z.output<typeof ManagedParticipantPic
 export const QueryManagedParticipantPickerReadModelsInputSchema = z
   .object({
     idempotencyKey: IdempotencyKeySchema.optional(),
+    administratorContext: z.literal(true).optional(),
+    accountId: AccountIdSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((input, context) => {
+    if ((input.accountId === undefined) !== (input.administratorContext === undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['administratorContext'],
+        message: 'accountId and administratorContext must be provided together',
+      });
+    }
+  });
 
 export type QueryManagedParticipantPickerReadModelsInput = z.output<
   typeof QueryManagedParticipantPickerReadModelsInputSchema
@@ -59,7 +70,6 @@ export type QueryManagedParticipantPickerReadModelsResult = z.output<
 
 /** Reject client-supplied account identifiers on the picker read-model seam. */
 export const FORBIDDEN_MANAGED_PARTICIPANT_PICKER_INPUT_KEYS = [
-  'accountId',
   'payerAccountId',
   'userId',
   'bookedBy',

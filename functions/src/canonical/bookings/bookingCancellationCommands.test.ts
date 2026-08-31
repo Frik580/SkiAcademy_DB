@@ -251,6 +251,63 @@ describe('booking cancellation commands', () => {
     ).toBe(1);
   });
 
+  it('allows an administrator to directly cancel a confirmed lesson with captured revisions', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-14T12:00:00.000Z'),
+      executor
+    );
+
+    const result = await commands.execute({
+      kind: 'resolve_booking_cancellation',
+      context: accountContext('administrator', adminAccountId, 'admin-direct-cancel-01', 1),
+      intent: {
+        bookingId,
+        decision: 'direct_cancel',
+        refundAmount: 12_000,
+        expectedPaymentRevision: 1,
+        reasonExplanation: 'Administrator cancelled the confirmed lesson',
+      },
+    });
+
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('cancelled');
+    expect(snapshot.docs.get(`payments/${paymentId}`)?.data.refundedAmount).toBe(12_000);
+  });
+
+  it('rejects a financial cancellation when the captured Payment revision is stale', async () => {
+    const original = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(original);
+    const payment = original.snapshot().docs.get(`payments/${paymentId}`)!.data;
+    const executor = forkExecutor(original, {
+      [`payments/${paymentId}`]: { ...payment, revision: 2 },
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-14T12:00:00.000Z'),
+      executor
+    );
+
+    const result = await commands.execute({
+      kind: 'resolve_booking_cancellation',
+      context: accountContext('administrator', adminAccountId, 'admin-stale-payment-01', 1),
+      intent: {
+        bookingId,
+        decision: 'direct_cancel',
+        refundAmount: 12_000,
+        expectedPaymentRevision: 1,
+        reasonExplanation: 'Stale financial confirmation must fail',
+      },
+    });
+
+    expect(result.status).toBe('error');
+    if (result.status === 'error') expect(result.error.code).toBe('stale_version');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'confirmed'
+    );
+  });
+
   it('rejects client cancellation at or after startAt', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
@@ -315,6 +372,7 @@ describe('booking cancellation commands', () => {
         bookingId,
         decision: 'approve',
         refundAmount: 6_000,
+        expectedPaymentRevision: 1,
         reasonExplanation: 'Approved 50% refund',
       },
     });

@@ -7,6 +7,7 @@ import {
   type QueryManagedParticipantPickerReadModelsResult,
 } from '@ski-academy/shared-domain';
 import { queryManagedParticipantPickerReadModels } from './managedParticipantPickerReadModels';
+import { resolveCallableAdministratorActor } from './resolveCallableAdministrator';
 
 export function createQueryManagedParticipantPickerReadModelsHandler(firestore: Firestore) {
   return async (
@@ -22,6 +23,11 @@ export function createQueryManagedParticipantPickerReadModelsHandler(firestore: 
 
     if (!request.auth?.uid) {
       throw new HttpsError('unauthenticated', 'Authentication is required.');
+    }
+
+    if (parsed.data.accountId !== undefined) {
+      await resolveCallableAdministratorActor(firestore, request.auth.uid);
+      return queryManagedParticipantPickerReadModels(firestore, parsed.data.accountId);
     }
 
     const parsedAccountId = parseManagedParticipantPickerAccountId(request.auth.uid);

@@ -59,6 +59,15 @@
       ]
     },
     {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "bookingId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [

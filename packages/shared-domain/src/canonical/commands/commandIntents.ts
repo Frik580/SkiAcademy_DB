@@ -280,6 +280,7 @@ export const CommandIntentSchemaByKind = {
       bookingId: BookingIdSchema,
       decision: z.enum(['approve', 'reject', 'direct_cancel']),
       refundAmount: KztMinorUnitsSchema.optional(),
+      expectedPaymentRevision: AggregateRevisionSchema.optional(),
       reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
       manualExternalReference: z.string().trim().min(1).max(128).optional(),
     })
@@ -293,6 +294,13 @@ export const CommandIntentSchemaByKind = {
             message: 'refundAmount is not allowed when rejecting cancellation',
           });
         }
+        if (intent.expectedPaymentRevision !== undefined) {
+          context.addIssue({
+            code: 'custom',
+            path: ['expectedPaymentRevision'],
+            message: 'expectedPaymentRevision is not allowed when rejecting cancellation',
+          });
+        }
         return;
       }
 
@@ -301,6 +309,13 @@ export const CommandIntentSchemaByKind = {
           code: 'custom',
           path: ['refundAmount'],
           message: 'refundAmount is required for approve and direct_cancel',
+        });
+      }
+      if (intent.expectedPaymentRevision === undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['expectedPaymentRevision'],
+          message: 'expectedPaymentRevision is required for approve and direct_cancel',
         });
       }
     }),

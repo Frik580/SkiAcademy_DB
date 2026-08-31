@@ -297,6 +297,60 @@ describe.skipIf(!runsOnFirestoreEmulator)('lesson booking cutover boundary (fire
   );
 
   it(
+    'Admin hot/detail project canonical Payment, skip course_* rows, and keep guest linking deferred',
+    async () => {
+      await seedManagedParticipantFixture();
+      const adminAccountId = AccountIdSchema.parse('account_lesson_cutover_admin');
+      await firestore.doc(`users/${adminAccountId}`).set({
+        ...AccountSchema.parse({
+          accountId: adminAccountId,
+          lifecycle: { status: 'active' },
+          revision: 1,
+          createdAt: decidedAt,
+          updatedAt: decidedAt,
+          audit: {
+            createdByCommandId: 'seed',
+            lastChangedByCommandId: 'seed',
+            correlationId,
+          },
+        }),
+        role: 'admin',
+        displayName: 'Cutover Admin',
+      });
+      await firestore.collection('bookings').doc('booking_admin_legacy_course_01').set({
+        bookingId: 'booking_admin_legacy_course_01',
+        courseId: 'course_legacy_cutover_01',
+        updatedAt: timestampFromDate(new Date('2026-01-15T05:00:00.000Z')),
+      });
+      const commands = createCommands('2026-01-01T00:00:00.000Z');
+      const createResult = await commands.execute(
+        authenticatedCreateEnvelope(bookingId, 'cutover-admin-read-01')
+      );
+      expect(createResult.status).toBe('success');
+
+      const actor = { kind: 'administrator' as const, accountId: adminAccountId };
+      const hot = await queryLessonBookingReadModels(
+        firestore,
+        { scope: 'admin_hot' },
+        { administratorActor: actor, now: hotReadNow }
+      );
+      expect(hot.items.map((item) => item.bookingId)).toEqual([bookingId]);
+      expect(hot.items[0]?.admin?.payment.currency).toBe('KZT');
+      expect(hot.items[0]?.admin?.payment.paymentId).toBe(paymentIdFromBookingId(bookingId));
+      expect(hot.items[0]?.admin?.authorizedActions.canLinkGuestToAccount).toBe(false);
+
+      const detail = await queryLessonBookingReadModels(
+        firestore,
+        { scope: 'admin_detail', bookingId },
+        { administratorActor: actor, now: hotReadNow }
+      );
+      expect(detail.items[0]?.admin?.payment.paymentId).toBe(paymentIdFromBookingId(bookingId));
+      expect(detail.items[0]?.admin?.authorizedActions.canDirectCancel).toBe(true);
+    },
+    30_000
+  );
+
+  it(
     'guest create provisions participant, returns credential, and authorizes guest_single reads',
     async () => {
       await seedInstructor();

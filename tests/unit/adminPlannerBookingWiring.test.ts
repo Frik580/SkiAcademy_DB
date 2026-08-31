@@ -16,13 +16,13 @@ describe('admin interactive planner wiring', () => {
     'utf8'
   );
 
-  it('keeps planner create actions behind the admin route and addBooking handler', () => {
-    expect(adminRouteSource).toContain('onAddBooking={handleAddBooking}');
-    expect(adminActionsSource).toContain('addBookingDirect');
-    expect(adminActionsSource).toContain('handleAddBooking');
+  it('removes legacy planner creation from the active admin route', () => {
+    expect(adminRouteSource).not.toContain('onAddBooking');
+    expect(adminActionsSource).not.toContain('addBookingDirect');
+    expect(adminActionsSource).not.toContain('handleAddBooking');
   });
 
-  it('builds break, day off, and client lesson payloads for onAddBooking', () => {
+  it('leaves the inactive legacy modal implementation isolated', () => {
     expect(modalSource).toContain("userId: 'system_block_break'");
     expect(modalSource).toContain("userId: 'system_block_day_off'");
     expect(modalSource).toContain("time: '08:00'");

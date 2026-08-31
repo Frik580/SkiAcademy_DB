@@ -4,9 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Instructor, Booking, UserProfile, Course } from '../../../types';
 import {
   Shield,
-  Calendar,
   Users,
-  Clock,
   UserCheck,
   BookOpen,
   AlertTriangle,
@@ -37,14 +35,9 @@ const AdminProductSettings = lazy(() =>
     default: m.AdminProductSettings,
   }))
 );
-const ScheduleCalendar = lazy(() =>
-  import('./schedule').then((m) => ({
-    default: m.ScheduleCalendar,
-  }))
-);
-const BookingsLog = lazy(() =>
-  import('./bookings').then((m) => ({
-    default: m.BookingsLog,
+const AdminLessonBookingPanel = lazy(() =>
+  import('../lesson-bookings').then((m) => ({
+    default: m.AdminLessonBookingPanel,
   }))
 );
 const ClientsManager = lazy(() =>
@@ -93,28 +86,13 @@ interface AdminPanelProps {
   instructors: Instructor[];
   bookings: Booking[];
   usersList?: UserProfile[];
-  deletedCompletedStats?: { revenue: number; count: number };
   currentUserProfile: UserProfile;
   onUpdateUserRole?: (targetUid: string, newRole: 'admin' | 'user') => Promise<void>;
   onAddInstructor: (ins: Instructor) => Promise<void>;
   onUpdateInstructor: (ins: Instructor) => Promise<void>;
   onDeleteInstructor: (id: string) => Promise<void>;
-  onConfirmBooking: (id: string) => Promise<void>;
-  onCompleteBooking?: (id: string) => Promise<void>;
-  onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
-  onCancelBooking: (id: string) => Promise<void>;
   onAddUser?: (user: UserProfile) => Promise<void>;
   onUpdateUser?: (user: UserProfile) => Promise<void>;
-  onRescheduleBooking?: (id: string, newDate: string, newTime: string) => Promise<void>;
-  onReassignInstructor?: (
-    id: string,
-    newInstructor: Instructor,
-    newDate?: string,
-    newTime?: string,
-    options?: { allowNegativeBalance?: boolean }
-  ) => Promise<void>;
-  onDeleteBooking?: (id: string) => Promise<void>;
-  onAddBooking?: (booking: Booking) => Promise<void>;
   filtersEnabled?: boolean;
   onToggleFilters?: (enabled: boolean) => Promise<void>;
   notificationRetentionDays?: number;
@@ -129,8 +107,6 @@ interface AdminPanelProps {
   achievementsConfig?: AchievementsConfig;
   onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
   onUpdateAchievementsConfig?: (config: AchievementsConfig) => Promise<void>;
-  bookingsHasMore?: boolean;
-  onLoadMoreBookings?: () => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -143,16 +119,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onAddInstructor,
   onUpdateInstructor,
   onDeleteInstructor,
-  onConfirmBooking,
-  onCompleteBooking,
-  onLinkGuestBooking,
-  onCancelBooking,
   onAddUser,
   onUpdateUser,
-  onRescheduleBooking,
-  onReassignInstructor,
-  onDeleteBooking,
-  onAddBooking,
   onAddCourse,
   onUpdateCourse,
   onDeleteCourse,
@@ -166,8 +134,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateSkillConfig,
   achievementsConfig,
   onUpdateAchievementsConfig,
-  bookingsHasMore = false,
-  onLoadMoreBookings,
 }) => {
   const { t, language } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -194,13 +160,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     onConfirm: () => void | Promise<void>;
   } | null>(null);
 
-  const adminProfile =
-    usersList.find((user) => user.uid === currentUserProfile.uid) || currentUserProfile;
-
-  const activeBookings = bookings.filter(
-    (b) => b.status === 'confirmed' && !b.userId?.startsWith('system_block_') && !b.isDeleted
-  ).length;
-
   const onRequestConfirm = (message: string, onConfirm: () => void | Promise<void>) => {
     setConfirmModal({ message, onConfirm });
   };
@@ -223,51 +182,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </AdminCollapsibleSection>
           </Suspense>
 
-          <Suspense fallback={<SectionLoadingFallback label={t('scheduleBoardTitle')} />}>
+          <Suspense fallback={<SectionLoadingFallback label={t('adminLessonBookingsTitle')} />}>
             <AdminCollapsibleSection
-              id="schedule_calendar"
-              title={t('scheduleBoardTitle')}
-              subtitle={t('scheduleBoardSub')}
-              icon={Calendar}
+              id="canonical_lesson_bookings"
+              title={t('adminLessonBookingsTitle')}
+              subtitle={t('adminLessonBookingsSub')}
+              icon={BookOpen}
               defaultOpen
             >
-              <ScheduleCalendar
-                instructors={instructors}
-                bookings={bookings}
-                courses={courses}
-                usersList={usersList}
-                adminProfile={adminProfile}
-                onAddBooking={onAddBooking}
-                onRescheduleBooking={onRescheduleBooking}
-                onReassignInstructor={onReassignInstructor}
-                onDeleteBooking={onDeleteBooking}
-                onCancelBooking={onCancelBooking}
-                onCompleteBooking={onCompleteBooking}
-                onLinkGuestBooking={onLinkGuestBooking}
-              />
-            </AdminCollapsibleSection>
-          </Suspense>
-
-          <Suspense fallback={<SectionLoadingFallback label={t('bookingsLogTitle')} />}>
-            <AdminCollapsibleSection
-              id="bookings_log"
-              title={t('bookingsLogTitle')}
-              subtitle={t('bookingsLogSub')}
-              icon={Clock}
-              badge={activeBookings}
-              defaultOpen={false}
-            >
-              <BookingsLog
-                bookings={bookings}
-                hasMoreBookings={bookingsHasMore}
-                onLoadMoreBookings={onLoadMoreBookings}
-                usersList={usersList}
-                instructors={instructors}
-                onConfirmBooking={onConfirmBooking}
-                onCompleteBooking={onCompleteBooking}
-                onLinkGuestBooking={onLinkGuestBooking}
-                onCancelBooking={onCancelBooking}
-                onRequestConfirm={onRequestConfirm}
+              <AdminLessonBookingPanel
+                adminAccountId={currentUserProfile.uid}
+                accounts={usersList.map((user) => ({
+                  accountId: user.uid,
+                  displayName: user.displayName,
+                  email: user.email,
+                }))}
+                instructors={instructors.map((instructor) => ({
+                  instructorId: instructor.id,
+                  displayName: instructor.name,
+                }))}
               />
             </AdminCollapsibleSection>
           </Suspense>

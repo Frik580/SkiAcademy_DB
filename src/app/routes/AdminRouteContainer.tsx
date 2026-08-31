@@ -30,9 +30,6 @@ export const AdminRouteContainer: React.FC = () => {
   const userProfile = useProfileStore((state) => state.userProfile);
   const usersList = useProfileStore((state) => state.usersList);
   const bookings = useBookingsStore((state) => state.bookings);
-  const bookingsHasMore = useBookingsStore((state) => state.bookingsHasMore);
-  const loadMoreBookings = useBookingsStore((state) => state.loadMoreBookings);
-  const deletedCompletedStats = useBookingsStore((state) => state.deletedCompletedStats);
   const courses = useCoursesStore((state) => state.courses);
   const filtersEnabled = useSettingsStore((state) => state.filtersEnabled);
   const notificationRetentionDays = useSettingsStore((state) => state.notificationRetentionDays);
@@ -41,19 +38,7 @@ export const AdminRouteContainer: React.FC = () => {
   const achievementsConfig = useSettingsStore((state) => state.achievementsConfig);
   const { translatedInstructors } = useInstructorFilters(language);
   const { handleAddCourse, handleUpdateCourse, handleDeleteCourse } = useCourseActions();
-  const {
-    handleAddInstructor,
-    handleUpdateInstructor,
-    handleDeleteInstructor,
-    handleConfirmBooking,
-    handleCompleteBooking,
-    handleLinkGuestBooking,
-    handleCancelBooking,
-    handleRescheduleBooking,
-    handleReassignInstructor,
-    handleDeleteBooking,
-    handleAddBooking,
-  } = useAdminActions();
+  const { handleAddInstructor, handleUpdateInstructor, handleDeleteInstructor } = useAdminActions();
   const handleToggleFilters = useSettingsStore((state) => state.handleToggleFilters);
   const handleSetNotificationRetentionDays = useSettingsStore(
     (state) => state.handleSetNotificationRetentionDays
@@ -73,26 +58,15 @@ export const AdminRouteContainer: React.FC = () => {
         <AdminPanel
           instructors={translatedInstructors}
           bookings={bookings}
-          bookingsHasMore={bookingsHasMore}
-          onLoadMoreBookings={loadMoreBookings}
           usersList={usersList}
           courses={courses}
-          deletedCompletedStats={deletedCompletedStats}
           currentUserProfile={userProfile!}
           onUpdateUserRole={handleUpdateUserRole}
           onAddInstructor={handleAddInstructor}
           onUpdateInstructor={handleUpdateInstructor}
           onDeleteInstructor={handleDeleteInstructor}
-          onConfirmBooking={handleConfirmBooking}
-          onCompleteBooking={handleCompleteBooking}
-          onLinkGuestBooking={handleLinkGuestBooking}
-          onCancelBooking={handleCancelBooking}
           onAddUser={handleAddUser}
           onUpdateUser={handleUpdateUser}
-          onRescheduleBooking={handleRescheduleBooking}
-          onReassignInstructor={handleReassignInstructor}
-          onDeleteBooking={handleDeleteBooking}
-          onAddBooking={handleAddBooking}
           onAddCourse={handleAddCourse}
           onUpdateCourse={handleUpdateCourse}
           onDeleteCourse={handleDeleteCourse}

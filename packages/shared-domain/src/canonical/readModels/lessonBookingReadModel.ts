@@ -1,15 +1,26 @@
 import { z } from 'zod';
 import { IdempotencyKeySchema } from '../commands/commandContext';
-import { BookingIdSchema, InstructorIdSchema, ParticipantIdSchema } from '../identifiers';
+import {
+  AccountIdSchema,
+  ActorRefSchema,
+  AdminIssueIdSchema,
+  BookingIdSchema,
+  InstructorIdSchema,
+  ParticipantIdSchema,
+  PaymentIdSchema,
+} from '../identifiers';
+import {
+  AdminIssueKindSchema,
+  AdminIssueLifecycleStatusSchema,
+  AdminIssueSeveritySchema,
+} from '../courseEnrollmentAttendanceAdminIssue';
 import {
   BookingLifecycleStatusSchema,
   BookingOriginSchema,
   BookingPartyKindSchema,
 } from '../bookingOccurrenceProposalChange';
 import { PaymentStatusSchema } from '../paymentWallet';
-import {
-  LessonBookingReadModelAuthorizedActionsSchema as LessonBookingAuthorizedActionsSchema,
-} from './readModelAuthorizedActions';
+import { LessonBookingReadModelAuthorizedActionsSchema as LessonBookingAuthorizedActionsSchema } from './readModelAuthorizedActions';
 import {
   AggregateRevisionSchema,
   CanonicalTimestampSchema,
@@ -23,6 +34,9 @@ export const LESSON_BOOKING_READ_SCOPES = [
   'account_history',
   'instructor_hot',
   'guest_single',
+  'admin_hot',
+  'admin_history',
+  'admin_detail',
 ] as const;
 export type LessonBookingReadScope = (typeof LESSON_BOOKING_READ_SCOPES)[number];
 
@@ -104,6 +118,109 @@ export type LessonBookingReadModelPaymentPresentation = z.output<
   typeof LessonBookingReadModelPaymentPresentationSchema
 >;
 
+export const LessonBookingAdminParticipantProjectionSchema = z
+  .object({
+    participantId: ParticipantIdSchema,
+    displayName: z.string().trim().min(1).max(200),
+    skillLevel: z.string().trim().min(1).max(64),
+    discipline: z.enum(['ski', 'snowboard']),
+    age: z.discriminatedUnion('kind', [
+      z
+        .object({
+          kind: z.literal('birth_date'),
+          birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z.literal('age_years'),
+          years: z.number().finite().int().min(0).max(125),
+        })
+        .strict(),
+    ]),
+  })
+  .strict();
+
+export const LessonBookingAdminAccountIdentitySchema = z
+  .object({
+    accountId: AccountIdSchema,
+    displayName: z.string().trim().min(1).max(200),
+  })
+  .strict();
+
+export const LessonBookingAdminPaymentAccountingSchema = z
+  .object({
+    paymentId: PaymentIdSchema,
+    status: PaymentStatusSchema,
+    revision: AggregateRevisionSchema,
+    currency: z.literal('KZT'),
+    originalPrice: KztMinorUnitsSchema,
+    price: KztMinorUnitsSchema,
+    paid: KztMinorUnitsSchema,
+    refunded: KztMinorUnitsSchema,
+    retained: KztMinorUnitsSchema,
+    settled: KztMinorUnitsSchema,
+    writtenOff: KztMinorUnitsSchema,
+    outstanding: KztMinorUnitsSchema,
+  })
+  .strict();
+
+export const LessonBookingAdminCancellationFinancialProjectionSchema = z
+  .object({
+    timing: z.enum(['direct_cancel', 'pending_request', 'after_start_rejected']),
+    maximumRefund: KztMinorUnitsSchema,
+    suggestedRefund: KztMinorUnitsSchema,
+  })
+  .strict();
+
+export const LessonBookingAdminIssueSummarySchema = z
+  .object({
+    issueId: AdminIssueIdSchema,
+    kind: AdminIssueKindSchema,
+    severity: AdminIssueSeveritySchema,
+    lifecycleStatus: AdminIssueLifecycleStatusSchema,
+    revision: AggregateRevisionSchema,
+    blocksOutcome: z.boolean(),
+    blocksDelivery: z.boolean(),
+    updatedAt: CanonicalTimestampSchema,
+  })
+  .strict();
+
+export const LessonBookingAdminAuthorizedActionsSchema = z
+  .object({
+    canConfirmGuest: z.boolean(),
+    canDirectCancel: z.boolean(),
+    canReschedule: z.boolean(),
+    canChangeInstructor: z.boolean(),
+    canChangeDuration: z.boolean(),
+    canRecordAttendance: z.boolean(),
+    canResolveCancellation: z.boolean(),
+    canResolveAttendanceOutcome: z.boolean(),
+    canLinkGuestToAccount: z.literal(false),
+  })
+  .strict();
+
+export const LessonBookingAdminProjectionSchema = z
+  .object({
+    participants: z.array(LessonBookingAdminParticipantProjectionSchema).min(1).max(8),
+    attribution: z
+      .object({
+        bookingOrigin: BookingOriginSchema,
+        bookedBy: ActorRefSchema,
+      })
+      .strict(),
+    payer: LessonBookingAdminAccountIdentitySchema.optional(),
+    payment: LessonBookingAdminPaymentAccountingSchema,
+    cancellationFinancial: LessonBookingAdminCancellationFinancialProjectionSchema,
+    relatedIssues: z.array(LessonBookingAdminIssueSummarySchema).max(50),
+    scheduleRevision: AggregateRevisionSchema,
+    serviceParticipantIds: z.array(ParticipantIdSchema).min(1).max(8),
+    authorizedActions: LessonBookingAdminAuthorizedActionsSchema,
+  })
+  .strict();
+
+export type LessonBookingAdminProjection = z.output<typeof LessonBookingAdminProjectionSchema>;
+
 export const LessonBookingReadModelSchema = z
   .object({
     bookingId: BookingIdSchema,
@@ -117,6 +234,7 @@ export const LessonBookingReadModelSchema = z
     bookingOrigin: BookingOriginSchema,
     authorizedActions: LessonBookingAuthorizedActionsSchema,
     paymentPresentation: LessonBookingReadModelPaymentPresentationSchema.optional(),
+    admin: LessonBookingAdminProjectionSchema.optional(),
     updatedAt: CanonicalTimestampSchema,
   })
   .strict();
@@ -125,6 +243,7 @@ export type LessonBookingReadModel = z.output<typeof LessonBookingReadModelSchem
 
 export const LessonBookingReadModelCursorSchema = z
   .object({
+    scope: LessonBookingReadScopeSchema.optional(),
     updatedAtSeconds: z.number().int().nonnegative(),
     updatedAtNanoseconds: z.number().int().nonnegative().max(999_999_999),
     bookingId: BookingIdSchema,
@@ -183,6 +302,43 @@ export const QueryLessonBookingReadModelsInputSchema = z
           code: 'custom',
           path: ['guestActionNonce'],
           message: 'Guest credential is not allowed for instructor_hot scope',
+        });
+      }
+    }
+    if (input.scope === 'admin_detail') {
+      if (!input.bookingId) {
+        context.addIssue({
+          code: 'custom',
+          path: ['bookingId'],
+          message: 'bookingId is required for admin_detail scope',
+        });
+      }
+      if (
+        input.pageSize !== undefined ||
+        input.cursor !== undefined ||
+        input.guestActionNonce !== undefined ||
+        input.guestActionSignature !== undefined
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['scope'],
+          message: 'List pagination and guest credentials are not allowed for admin_detail scope',
+        });
+      }
+    }
+    if (input.scope === 'admin_hot' || input.scope === 'admin_history') {
+      if (input.bookingId !== undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['bookingId'],
+          message: 'bookingId is not allowed for Admin list scopes',
+        });
+      }
+      if (input.guestActionNonce !== undefined || input.guestActionSignature !== undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: ['guestActionNonce'],
+          message: 'Guest credentials are not allowed for Admin list scopes',
         });
       }
     }

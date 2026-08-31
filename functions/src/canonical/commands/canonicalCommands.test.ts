@@ -17,6 +17,7 @@ import {
   buildCommandEnvelopeFromCallable,
   createAuthoritativeCommandClock,
   createCanonicalCommands,
+  createProductionCanonicalCommands,
   mapCommandErrorTransportToHttpsError,
   rethrowCanonicalCommandErrorAsHttps,
 } from './index';
@@ -48,6 +49,22 @@ function accountEnvelope(
 }
 
 describe('CanonicalCommands.execute', () => {
+  it('leaves complete_booking unregistered so attendance commands own completion', async () => {
+    const commands = createProductionCanonicalCommands(
+      testEnvironment('2026-01-01T00:00:00.000Z'),
+      {
+        run: async () => {
+          throw new Error('executor must not run for an unregistered command');
+        },
+      } as never
+    );
+    const result = await commands.execute(accountEnvelope('complete_booking'));
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('unavailable');
+    }
+  });
+
   it('returns unavailable for catalog commands without registered handlers', async () => {
     const commands = createCanonicalCommands({}, testEnvironment('2026-01-01T00:00:00.000Z'));
     const result = await commands.execute(accountEnvelope());

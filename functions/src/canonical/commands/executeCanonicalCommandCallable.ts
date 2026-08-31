@@ -19,6 +19,7 @@ import {
   resolveCallableAccountContext,
   type CallableAccountProfile,
 } from './resolveCallableAccountContext';
+import { parseAccount } from '../participantAccess/participantAccessStore';
 
 function readCallableAccountProfile(
   data: Record<string, unknown> | undefined
@@ -63,9 +64,8 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
 
     const transportInput = parseAuthenticatedCallableCommandTransportInput(request);
     const userSnap = await firestore.collection('users').doc(request.auth.uid).get();
-    const profile = readCallableAccountProfile(
-      userSnap.data() as Record<string, unknown> | undefined
-    );
+    const userData = userSnap.data() as Record<string, unknown> | undefined;
+    const profile = readCallableAccountProfile(userData);
 
     let accountContext;
     try {
@@ -81,6 +81,12 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
 
     if (accountContext.capability === 'administrator' && !isAdministratorProfile(profile)) {
       throw new HttpsError('permission-denied', 'This action is not permitted.');
+    }
+    if (accountContext.capability === 'administrator') {
+      const account = parseAccount(userData);
+      if (!account || account.lifecycle.status !== 'active') {
+        throw new HttpsError('permission-denied', 'This action is not permitted.');
+      }
     }
 
     const envelope = buildCommandEnvelopeFromCallable(accountContext, transportInput);

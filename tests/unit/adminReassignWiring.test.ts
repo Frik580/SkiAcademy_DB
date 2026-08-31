@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('admin reassign instructor wiring', () => {
-  it('wires handleReassignInstructor from bookings through admin schedule modal', () => {
+  it('keeps legacy reassignment outside the active Admin route', () => {
     const bookingActionsSource = readFileSync(
       join(process.cwd(), 'src/features/bookings/useBookingActions.ts'),
       'utf8'
@@ -31,7 +31,8 @@ describe('admin reassign instructor wiring', () => {
 
     expect(bookingActionsSource).toContain('handleReassignInstructor');
     expect(bookingServiceSource + bookingActionsSource).toContain('instructorId: newInstructor.id');
-    expect(adminRouteSource).toContain('onReassignInstructor={handleReassignInstructor}');
+    expect(adminRouteSource).not.toContain('onReassignInstructor');
+    expect(adminRouteSource).not.toContain('handleReassignInstructor');
     expect(modalSource).toContain('onReassignInstructor');
     expect(moveFormSource).toContain('reassignInstructor');
   });

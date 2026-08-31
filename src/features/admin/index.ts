@@ -2,6 +2,7 @@ export const loadAdminPanel = () =>
   import('./components/AdminPanel').then(({ AdminPanel }) => ({ default: AdminPanel }));
 export { SkillConfigManager } from './components/settings/SkillConfigManager';
 export { useAdminActions } from './useAdminActions';
+export { AdminLessonBookingPanel } from './lesson-bookings';
 export { CoursesManager } from './components/courses';
 export {
   getAvailableMoveTimeSlots,
@@ -28,6 +29,8 @@ export {
   ADMIN_TAB_IDS,
   ADMIN_TAB_LABEL_KEYS,
   ADMIN_TAB_QUERY_KEY,
+  ADMIN_LESSON_BOOKING_QUERY_KEY,
+  ADMIN_LESSON_BOOKING_VIEW_QUERY_KEY,
   DEFAULT_ADMIN_TAB,
   isAdminTabId,
   parseAdminTabId,

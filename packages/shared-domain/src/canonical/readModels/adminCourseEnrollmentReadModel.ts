@@ -21,6 +21,7 @@ import {
   CourseEnrollmentLifecycleStatusSchema,
   CourseLifecycleStatusSchema,
 } from '../courseEnrollmentAttendanceAdminIssue';
+import { GuestIdentityLinkUnavailableReasonSchema } from '../guestIdentityLinkingPolicy';
 import { PaymentStatusSchema } from '../paymentWallet';
 import {
   AggregateRevisionSchema,
@@ -119,7 +120,7 @@ export const AdminCourseEnrollmentAuthorizedActionsSchema = z
     canReconcile: z.boolean(),
     canResolveAttendanceOutcome: z.boolean(),
     canApproveGuest: z.literal(false),
-    canLinkGuest: z.literal(false),
+    canLinkGuest: z.boolean(),
     canWithdraw: z.literal(false),
   })
   .strict();
@@ -145,6 +146,7 @@ export const AdminCourseEnrollmentRosterItemSchema = z
       .optional(),
     relatedIssues: z.array(AdminCourseEnrollmentIssueSummarySchema).max(32),
     authorizedActions: AdminCourseEnrollmentAuthorizedActionsSchema,
+    guestIdentityLinkUnavailableReason: GuestIdentityLinkUnavailableReasonSchema.optional(),
     updatedAt: CanonicalTimestampSchema,
   })
   .strict();

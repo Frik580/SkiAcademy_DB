@@ -17,6 +17,7 @@ import {
   AttendanceRecorderSchema,
   AttendanceStatusSchema,
 } from '../courseEnrollmentAttendanceAdminIssue';
+import { GuestIdentityLinkUnavailableReasonSchema } from '../guestIdentityLinkingPolicy';
 import {
   BookingLifecycleStatusSchema,
   BookingOriginSchema,
@@ -238,7 +239,7 @@ export const LessonBookingAdminAuthorizedActionsSchema = z
     canRecordAttendance: z.boolean(),
     canResolveCancellation: z.boolean(),
     canResolveAttendanceOutcome: z.boolean(),
-    canLinkGuestToAccount: z.literal(false),
+    canLinkGuestToAccount: z.boolean(),
   })
   .strict();
 
@@ -259,6 +260,7 @@ export const LessonBookingAdminProjectionSchema = z
     scheduleRevision: AggregateRevisionSchema,
     serviceParticipantIds: z.array(ParticipantIdSchema).min(1).max(8),
     authorizedActions: LessonBookingAdminAuthorizedActionsSchema,
+    guestIdentityLinkUnavailableReason: GuestIdentityLinkUnavailableReasonSchema.optional(),
   })
   .strict();
 

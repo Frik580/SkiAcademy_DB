@@ -38,6 +38,22 @@ const copy = {
     refund: 'Refund (whole KZT)',
     guestDeferred:
       'Guest approval/linking is read-only: no canonical Admin approval or assisted-link command exists.',
+    linkGuestTitle: 'Link guest identity',
+    linkGuest: 'Link guest identity',
+    linkGuestHint:
+      'Select the canonical Account and an eligible managed Participant. This associates the existing enrollment; it does not consume another seat, refund, or recreate Payment.',
+    linkReview:
+      'Guest {guest} will be associated with Account {account} / Participant {participant}.',
+    confirmLinkGuest:
+      'Link this guest enrollment to the selected Account and Participant? Enrollment ID, Course, capacity, paid amount, and Payment status stay the same.',
+    linkUnavailable: 'Guest identity linking is unavailable',
+    linkReasonAlreadyLinked: 'This guest enrollment is already linked.',
+    linkReasonNotGuest: 'This enrollment is not a guest reservation.',
+    linkReasonIneligible: 'The current lifecycle does not allow identity linking.',
+    linkReasonExpired: 'The guest reservation has expired.',
+    linkReasonAttendance: 'Attendance already exists for this enrollment.',
+    linkReasonCourseStarted: 'The course has already started.',
+    linkReasonAdminInactive: 'The administrator Account is not active.',
     confirmTitle: 'Confirm canonical operation',
     confirm: 'Confirm',
     cancel: 'Cancel',
@@ -82,6 +98,22 @@ const copy = {
     refund: 'Возврат (целые KZT)',
     guestDeferred:
       'Одобрение/привязка гостя доступны только для чтения: канонической Admin-команды пока нет.',
+    linkGuestTitle: 'Привязать гостевую идентичность',
+    linkGuest: 'Привязать гостевую идентичность',
+    linkGuestHint:
+      'Выберите канонический Account и подходящего managed Participant. Это связывает существующую запись; дополнительное место, возврат и новый Payment не создаются.',
+    linkReview:
+      'Гость {guest} будет связан с Account {account} / Participant {participant}.',
+    confirmLinkGuest:
+      'Привязать эту гостевую запись к выбранным Account и Participant? enrollmentId, курс, capacity, оплаченная сумма и статус Payment не меняются.',
+    linkUnavailable: 'Привязка гостевой идентичности недоступна',
+    linkReasonAlreadyLinked: 'Эта гостевая запись уже привязана.',
+    linkReasonNotGuest: 'Эта запись не является гостевой заявкой.',
+    linkReasonIneligible: 'Текущий жизненный цикл не позволяет привязку идентичности.',
+    linkReasonExpired: 'Срок гостевой заявки истёк.',
+    linkReasonAttendance: 'Для этой записи уже есть посещаемость.',
+    linkReasonCourseStarted: 'Курс уже начался.',
+    linkReasonAdminInactive: 'Account администратора неактивен.',
     confirmTitle: 'Подтвердите каноническую операцию',
     confirm: 'Подтвердить',
     cancel: 'Отмена',

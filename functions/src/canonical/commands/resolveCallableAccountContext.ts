@@ -16,6 +16,8 @@ export type ClientCallableCapability = (typeof CLIENT_CALLABLE_CAPABILITIES)[num
 
 export const ADMINISTRATOR_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
   'confirm_guest_booking',
+  'link_guest_booking_to_account_as_administrator',
+  'link_guest_course_enrollment_to_account_as_administrator',
   'resolve_booking_cancellation',
   'resolve_booking_change_request',
   'resolve_course_enrollment_cancellation',

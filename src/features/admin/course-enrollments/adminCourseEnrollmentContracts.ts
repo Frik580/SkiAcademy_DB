@@ -75,6 +75,16 @@ export type AdminCourseEnrollmentAttempt =
       readonly kind: 'resolve_attendance_outcome';
       readonly idempotencyKey: IdempotencyKey;
       readonly target: AdminCourseEnrollmentTarget;
+    }
+  | {
+      readonly kind: 'link_guest_course_enrollment_to_account_as_administrator';
+      readonly idempotencyKey: IdempotencyKey;
+      readonly target: AdminCourseEnrollmentTarget;
+      readonly targetAccountId: string;
+      readonly targetParticipantId: ParticipantId;
+      readonly targetAccountDisplayName?: string;
+      readonly targetParticipantDisplayName: string;
+      readonly reasonExplanation: string;
     };
 
 type AdminCourseEnrollmentMutationAttempt = Extract<

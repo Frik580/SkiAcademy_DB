@@ -8,7 +8,7 @@ import {
   type CourseEnrollment,
   type GuestSubjectId,
 } from '@ski-academy/shared-domain';
-import { requireAccountActor } from '../participantAccess/participantAccessAuthorization';
+import { requireAccountActor, assertAdministrator } from '../participantAccess/participantAccessAuthorization';
 import { verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative } from '../bookings/guestCredentialVerification';
 
 const LINKABLE_LIFECYCLE_STATUSES = new Set([
@@ -37,7 +37,7 @@ export function assertLinkGuestCourseEnrollmentAuthorization(
 }
 
 export function assertLinkableGuestCourseEnrollmentLifecycle(
-  envelope: CommandEnvelope<'link_guest_course_enrollment_to_account'>,
+  envelope: CommandEnvelope,
   enrollment: CourseEnrollment,
   now: ReturnType<typeof import('@ski-academy/shared-domain').timestampFromDate>
 ): void {
@@ -62,7 +62,7 @@ export function assertLinkableGuestCourseEnrollmentLifecycle(
 }
 
 export function assertDurableGuestCourseEnrollmentAttribution(
-  envelope: CommandEnvelope<'link_guest_course_enrollment_to_account'>,
+  envelope: CommandEnvelope,
   enrollment: CourseEnrollment
 ): GuestSubjectId {
   if (enrollment.attribution.bookingOrigin !== 'guest') {
@@ -137,6 +137,11 @@ export function assertGuestAccountLinkIdempotency(
   ) {
     return 'idempotent_replay';
   }
+  if (existing.credentialNonce === undefined) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
   if (existing.linkedAccountId !== actorAccountId) {
     throw new CanonicalCommandError('forbidden', {
       correlationId: envelope.context.correlationId,
@@ -157,7 +162,7 @@ export function assertGuestAccountLinkIdempotency(
 }
 
 export function assertParticipantChangingLinkAllowed(
-  envelope: CommandEnvelope<'link_guest_course_enrollment_to_account'>,
+  envelope: CommandEnvelope,
   enrollment: CourseEnrollment,
   course: Course,
   now: ReturnType<typeof import('@ski-academy/shared-domain').timestampFromDate>
@@ -190,6 +195,23 @@ export function managementAuthorityMatchesCapability(
   if (capability === 'parent_guardian' && managementAuthority !== 'parent_guardian') {
     throw new CanonicalCommandError('forbidden', {
       correlationId: envelope.context.correlationId,
+    });
+  }
+}
+
+export function assertLinkGuestCourseEnrollmentAsAdministratorAuthorization(
+  envelope: CommandEnvelope<'link_guest_course_enrollment_to_account_as_administrator'>
+): void {
+  if (envelope.context.source !== 'admin_callable') {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
+  assertAdministrator(envelope);
+  if (!envelope.intent.reasonExplanation.trim()) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'reasonExplanation', reason: 'required' },
     });
   }
 }

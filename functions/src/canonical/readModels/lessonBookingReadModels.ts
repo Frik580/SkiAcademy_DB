@@ -18,6 +18,7 @@ import {
   refundableRetainedAmount,
   evaluateLessonBookingAuthorizedActions,
   sanitizeParticipantProfileForInstructor,
+  evaluateAdminGuestBookingIdentityLinkAvailability,
   type Account,
   type AccountId,
   type AdminIssue,
@@ -282,7 +283,11 @@ function buildAdminAuthorizedActions(input: {
   readonly payment: Payment | undefined;
   readonly administratorAccount: Account | undefined;
   readonly now: CanonicalTimestamp;
-}): LessonBookingAdminProjection['authorizedActions'] {
+  readonly recordedAttendance: boolean;
+}): {
+  readonly authorizedActions: LessonBookingAdminProjection['authorizedActions'];
+  readonly guestIdentityLinkUnavailableReason: LessonBookingAdminProjection['guestIdentityLinkUnavailableReason'];
+} {
   const accountActive = input.administratorAccount?.lifecycle.status === 'active';
   const participantsActive = input.participants.every(
     (participant) => participant.lifecycle.status === 'active'
@@ -306,27 +311,43 @@ function buildAdminAuthorizedActions(input: {
     compareCanonicalTimestamps(input.now, input.booking.occurrence.interval.startsAt) >= 0;
   const ended =
     compareCanonicalTimestamps(input.now, input.booking.occurrence.interval.endsAt) >= 0;
+  const linkAvailability = evaluateAdminGuestBookingIdentityLinkAvailability({
+    bookingOrigin: input.booking.attribution.bookingOrigin,
+    lifecycleStatus: input.booking.lifecycle.status,
+    reservationExpiresAt:
+      input.booking.lifecycle.status === 'pending'
+        ? input.booking.lifecycle.reservationExpiresAt
+        : undefined,
+    now: input.now,
+    partyParticipantIds: input.booking.party.participantIds,
+    participants: input.participants,
+    recordedAttendance: input.recordedAttendance,
+    administratorAccountActive: Boolean(accountActive),
+  });
 
   return {
-    canConfirmGuest:
-      accountActive &&
-      input.booking.party.kind === 'individual' &&
-      input.booking.attribution.bookingOrigin === 'guest' &&
-      input.booking.lifecycle.status === 'pending' &&
-      compareCanonicalTimestamps(input.now, input.booking.lifecycle.reservationExpiresAt) < 0 &&
-      compareCanonicalTimestamps(input.now, input.booking.occurrence.interval.startsAt) < 0,
-    canDirectCancel:
-      accountActive && input.payment !== undefined && isConfirmedIndividualBooking(input.booking),
-    canReschedule: rescheduleEligible,
-    canChangeInstructor: managedServiceChange,
-    canChangeDuration: managedServiceChange,
-    canRecordAttendance: accountActive && attendanceLifecycle && servicePartyFrozen && started,
-    canResolveCancellation:
-      accountActive &&
-      input.payment !== undefined &&
-      isPendingCancellationIndividualBooking(input.booking),
-    canResolveAttendanceOutcome: accountActive && outcomeLifecycle && ended,
-    canLinkGuestToAccount: false,
+    authorizedActions: {
+      canConfirmGuest:
+        accountActive &&
+        input.booking.party.kind === 'individual' &&
+        input.booking.attribution.bookingOrigin === 'guest' &&
+        input.booking.lifecycle.status === 'pending' &&
+        compareCanonicalTimestamps(input.now, input.booking.lifecycle.reservationExpiresAt) < 0 &&
+        compareCanonicalTimestamps(input.now, input.booking.occurrence.interval.startsAt) < 0,
+      canDirectCancel:
+        accountActive && input.payment !== undefined && isConfirmedIndividualBooking(input.booking),
+      canReschedule: rescheduleEligible,
+      canChangeInstructor: managedServiceChange,
+      canChangeDuration: managedServiceChange,
+      canRecordAttendance: accountActive && attendanceLifecycle && servicePartyFrozen && started,
+      canResolveCancellation:
+        accountActive &&
+        input.payment !== undefined &&
+        isPendingCancellationIndividualBooking(input.booking),
+      canResolveAttendanceOutcome: accountActive && outcomeLifecycle && ended,
+      canLinkGuestToAccount: linkAvailability.canLink,
+    },
+    guestIdentityLinkUnavailableReason: linkAvailability.reason,
   };
 }
 
@@ -564,19 +585,33 @@ export async function buildAdminLessonBookingReadModel(
       attendance,
       scheduleRevision: booking.occurrence.scheduleRevision,
       serviceParticipantIds: [...booking.occurrence.serviceParty.participantIds],
-      authorizedActions: {
-        ...buildAdminAuthorizedActions({
+      ...(() => {
+        const built = buildAdminAuthorizedActions({
           booking,
           participants: participantRecords,
           payment,
           administratorAccount,
           now,
-        }),
-        canRecordAttendance: attendance.some(
-          (record) =>
-            record.authorizedActions.canRecordPresent || record.authorizedActions.canRecordAbsent
-        ),
-      },
+          recordedAttendance: attendance.some(
+            (record) =>
+              record.attendanceStatus === 'present' || record.attendanceStatus === 'absent'
+          ),
+        });
+        return {
+          authorizedActions: {
+            ...built.authorizedActions,
+            canRecordAttendance: attendance.some(
+              (record) =>
+                record.authorizedActions.canRecordPresent || record.authorizedActions.canRecordAbsent
+            ),
+          },
+          ...(built.guestIdentityLinkUnavailableReason
+            ? {
+                guestIdentityLinkUnavailableReason: built.guestIdentityLinkUnavailableReason,
+              }
+            : {}),
+        };
+      })(),
     },
     updatedAt: booking.updatedAt,
   };

@@ -76,4 +76,5 @@ export interface AdminManagedParticipantSelection {
   readonly accountId: AccountId;
   readonly participantId: ParticipantId;
   readonly displayName: string;
+  readonly accountDisplayName?: string;
 }

@@ -274,6 +274,14 @@ export const CommandIntentSchemaByKind = {
       participantId: ParticipantIdSchema,
     })
     .strict(),
+  link_guest_booking_to_account_as_administrator: z
+    .object({
+      bookingId: BookingIdSchema,
+      targetAccountId: AccountIdSchema,
+      targetParticipantId: ParticipantIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
   request_booking_cancellation: bookingTargetIntent,
   withdraw_booking_cancellation_request: bookingTargetIntent,
   resolve_booking_cancellation: z
@@ -738,6 +746,14 @@ export const CommandIntentSchemaByKind = {
         })
         .strict(),
       participantTarget: linkGuestCourseEnrollmentParticipantTargetIntent,
+    })
+    .strict(),
+  link_guest_course_enrollment_to_account_as_administrator: z
+    .object({
+      enrollmentId: CourseEnrollmentIdSchema,
+      targetAccountId: AccountIdSchema,
+      targetParticipantId: ParticipantIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
     })
     .strict(),
   disable_account: z

@@ -130,6 +130,24 @@ export function assertLinkGuestBookingAuthorization(
   requireAccountActor(envelope);
 }
 
+export function assertLinkGuestBookingAsAdministratorAuthorization(
+  envelope: CommandEnvelope<'link_guest_booking_to_account_as_administrator'>
+): void {
+  if (envelope.context.source !== 'admin_callable') {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
+  assertAdministrator(envelope);
+  const explanation = envelope.intent.reasonExplanation.trim();
+  if (!explanation) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'reasonExplanation', reason: 'required' },
+    });
+  }
+}
+
 export function resolvePendingGuestCancellationAuthorization(
   envelope: CommandEnvelope<'request_booking_cancellation'>,
   booking: Booking,

@@ -20,6 +20,44 @@ vi.mock('../../src/features/admin/lesson-bookings/useAdminLessonBookingTranslati
   useAdminLessonBookingTranslations: () => ({ language: 'en', t: (key: string) => key }),
 }));
 
+vi.mock('../../src/features/admin/identity', () => ({
+  AdminManagedParticipantPicker: ({
+    selected,
+    onChange,
+  }: {
+    selected?: {
+      accountId: string;
+      participantId: string;
+      displayName: string;
+      accountDisplayName?: string;
+    };
+    onChange: (
+      selection:
+        | {
+            accountId: string;
+            participantId: string;
+            displayName: string;
+            accountDisplayName?: string;
+          }
+        | undefined
+    ) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() =>
+        onChange({
+          accountId: 'account_link_target_01',
+          participantId: 'participant_link_target_01',
+          displayName: 'Managed Target',
+          accountDisplayName: 'Target Account',
+        })
+      }
+    >
+      {selected ? `selected:${selected.displayName}` : 'pick managed'}
+    </button>
+  ),
+}));
+
 import { AdminLessonBookingPanel } from '../../src/features/admin/lesson-bookings/AdminLessonBookingPanel';
 
 function LocationProbe() {
@@ -123,7 +161,7 @@ describe('AdminLessonBookingPanel', () => {
     runAttemptMock.mockReset();
   });
 
-  it('renders canonical accounting links, issue links, and deferred guest linking', () => {
+  it('renders canonical accounting links, issue links, and unavailable guest linking', () => {
     const item = detail();
     readMock.mockReturnValue({
       list: {
@@ -142,13 +180,6 @@ describe('AdminLessonBookingPanel', () => {
       <MemoryRouter initialEntries={['/admin?tab=operations&booking=booking_admin_panel_01']}>
         <AdminLessonBookingPanel
           adminAccountId="admin_account_01"
-          accounts={[
-            {
-              accountId: 'account_admin_panel_01',
-              displayName: 'Canonical Payer',
-              email: 'payer@example.test',
-            },
-          ]}
           instructors={[
             {
               instructorId: 'instructor_admin_panel_01',
@@ -161,8 +192,9 @@ describe('AdminLessonBookingPanel', () => {
     );
 
     expect(screen.getByText(/original/)).toHaveTextContent('25,000');
-    expect(screen.getByRole('button', { name: 'adminLessonLinkDeferred' })).toBeDisabled();
-    expect(screen.getByText('adminLessonLinkDeferredHint')).toBeVisible();
+    expect(screen.getByText(/adminLessonLinkUnavailable/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'adminLessonLinkGuest' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'adminLessonLinkDeferred' })).not.toBeInTheDocument();
     expect(screen.queryByText('complete_booking')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'adminLessonOpenPayment' }));
@@ -297,6 +329,61 @@ describe('AdminLessonBookingPanel', () => {
     expect(runAttemptMock.mock.calls[0]?.[0]).toMatchObject({
       kind: 'confirm_guest_booking',
       target: { bookingId: 'booking_admin_panel_01', revision: 5 },
+    });
+  });
+
+  it('locks Admin guest identity linking to the captured booking revision and selected Participant', async () => {
+    const item = detail();
+    const linkable = {
+      ...item,
+      admin: {
+        ...item.admin!,
+        authorizedActions: {
+          ...item.admin!.authorizedActions,
+          canLinkGuestToAccount: true,
+          canResolveCancellation: false,
+        },
+      },
+    };
+    runAttemptMock.mockResolvedValue({ status: 'success' });
+    readMock.mockReturnValue({
+      list: { items: [linkable], loading: false, loadingMore: false, hasMore: false },
+      detail: { item: linkable, loading: false },
+      retryList: vi.fn(),
+      retryDetail: vi.fn(),
+      loadMore: vi.fn(),
+      refreshBooking: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/admin?tab=operations&booking=booking_admin_panel_01']}>
+        <AdminLessonBookingPanel adminAccountId="admin_account_01" instructors={[]} />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'pick managed' }).at(-1)!);
+    fireEvent.change(screen.getByLabelText('Link reason'), {
+      target: { value: 'Existing managed identity' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonLinkGuest' }));
+    expect(
+      screen.getByText(/booking_admin_panel_01 @ rev 5 → account_link_target_01\/participant_link_target_01/)
+    ).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText('Link reason'), {
+      target: { value: 'Existing managed identity changed' },
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonLinkGuest' }));
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonConfirmSubmit' }));
+    await waitFor(() => expect(runAttemptMock).toHaveBeenCalledTimes(1));
+    expect(runAttemptMock.mock.calls[0]?.[0]).toMatchObject({
+      kind: 'link_guest_booking_to_account_as_administrator',
+      target: { bookingId: 'booking_admin_panel_01', revision: 5 },
+      targetAccountId: 'account_link_target_01',
+      targetParticipantId: 'participant_link_target_01',
+      reasonExplanation: 'Existing managed identity changed',
     });
   });
 });

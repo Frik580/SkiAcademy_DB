@@ -15,6 +15,7 @@ import {
   isActiveCourseEnrollmentLifecycle,
   isCourseEnrollmentAllowedBeforeStart,
   isTerminalCourseEnrollmentLifecycle,
+  evaluateAdminGuestCourseEnrollmentIdentityLinkAvailability,
   refundableRetainedAmount,
   resolveCourseEnrollmentRefundDestination,
   sortedCourseDays,
@@ -33,7 +34,7 @@ import {
 } from '@ski-academy/shared-domain';
 import { parseAdminIssue } from '../adminIssues/adminIssueStore';
 import { parsePayment } from '../finance/financeStore';
-import { parseParticipant } from '../participantAccess/participantAccessStore';
+import { parseAccount, parseParticipant } from '../participantAccess/participantAccessStore';
 import { parseCourse } from '../courses/courseStore';
 import { courseDaysCollectionPath, parseCourseDays } from '../courses/courseStore';
 import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
@@ -113,22 +114,43 @@ function transferDecision(enrollment: CourseEnrollment, course: Course) {
 function authorizedActions(
   enrollment: CourseEnrollment,
   course: Course,
-  canReconcile = false
-): AdminCourseEnrollmentActions {
+  canReconcile = false,
+  administratorAccountActive = true
+): {
+  readonly actions: AdminCourseEnrollmentActions;
+  readonly guestIdentityLinkUnavailableReason?: AdminCourseEnrollmentRosterItem['guestIdentityLinkUnavailableReason'];
+} {
   const transfer = transferDecision(enrollment, course);
+  const now = timestampFromDate(new Date());
+  const linkAvailability = evaluateAdminGuestCourseEnrollmentIdentityLinkAvailability({
+    bookingOrigin: enrollment.attribution.bookingOrigin,
+    guestAccountLink: enrollment.guestAccountLink,
+    lifecycleStatus: enrollment.lifecycle.status,
+    reservationExpiresAt:
+      enrollment.lifecycle.status === 'pending'
+        ? enrollment.lifecycle.reservationExpiresAt
+        : undefined,
+    now,
+    recordedDayCount: enrollment.attendanceSummary?.recordedDayCount ?? 0,
+    courseStartAt: course.startAt,
+    administratorAccountActive,
+  });
   return {
-    canResolveCancellation: enrollment.lifecycle.status === 'pending_cancellation',
-    canTransfer: transfer.eligible,
-    canReconcile,
-    canResolveAttendanceOutcome:
-      enrollment.lifecycle.status === 'confirmed' &&
-      compareCanonicalTimestamps(
-        timestampFromDate(new Date()),
-        course.scheduleProjection.finalCourseDayEndsAt
-      ) >= 0,
-    canApproveGuest: false,
-    canLinkGuest: false,
-    canWithdraw: false,
+    actions: {
+      canResolveCancellation: enrollment.lifecycle.status === 'pending_cancellation',
+      canTransfer: transfer.eligible,
+      canReconcile,
+      canResolveAttendanceOutcome:
+        enrollment.lifecycle.status === 'confirmed' &&
+        compareCanonicalTimestamps(
+          timestampFromDate(new Date()),
+          course.scheduleProjection.finalCourseDayEndsAt
+        ) >= 0,
+      canApproveGuest: false,
+      canLinkGuest: linkAvailability.canLink,
+      canWithdraw: false,
+    },
+    guestIdentityLinkUnavailableReason: linkAvailability.reason,
   };
 }
 
@@ -320,7 +342,8 @@ async function loadRelatedIssues(
 async function buildAdminCourseEnrollmentItem(
   firestore: Firestore,
   enrollment: CourseEnrollment,
-  includeOperationalDetail = false
+  includeOperationalDetail = false,
+  administratorAccountActive = true
 ): Promise<
   | {
       readonly item: AdminCourseEnrollmentRosterItem;
@@ -361,7 +384,12 @@ async function buildAdminCourseEnrollmentItem(
         ),
       ])
     : [{ eligible: false, evidenceIssueIds: [] }, [], []];
-  const actions = authorizedActions(enrollment, course, reconciliation.eligible);
+  const actions = authorizedActions(
+    enrollment,
+    course,
+    reconciliation.eligible,
+    administratorAccountActive
+  );
 
   const item: AdminCourseEnrollmentRosterItem = {
     enrollmentId: enrollment.enrollmentId,
@@ -404,7 +432,10 @@ async function buildAdminCourseEnrollmentItem(
       : {}),
     ...(enrollment.attendanceSummary ? { attendanceSummary: enrollment.attendanceSummary } : {}),
     relatedIssues: issues.map(issueSummary),
-    authorizedActions: actions,
+    authorizedActions: actions.actions,
+    ...(actions.guestIdentityLinkUnavailableReason
+      ? { guestIdentityLinkUnavailableReason: actions.guestIdentityLinkUnavailableReason }
+      : {}),
     updatedAt: enrollment.updatedAt,
   };
 
@@ -483,16 +514,26 @@ function listQuery(
 
 export async function queryAdminCourseEnrollmentReadModels(
   firestore: Firestore,
-  _actor: ReadModelAdministratorActor,
+  actor: ReadModelAdministratorActor,
   input: QueryAdminCourseEnrollmentReadModelsInput
 ): Promise<QueryAdminCourseEnrollmentReadModelsResult> {
+  const administratorSnap = await firestore.collection('users').doc(actor.accountId).get();
+  const administratorAccount = parseAccount(
+    administratorSnap.data() as Record<string, unknown> | undefined
+  );
+  const administratorAccountActive = administratorAccount?.lifecycle.status === 'active';
   if (input.scope === 'admin_enrollment_detail') {
     const snapshot = await firestore.collection('course_enrollments').doc(input.enrollmentId).get();
     const enrollment = parseCourseEnrollment(
       snapshot.data() as Record<string, unknown> | undefined
     );
     if (!enrollment) return { scope: input.scope };
-    const built = await buildAdminCourseEnrollmentItem(firestore, enrollment, true);
+    const built = await buildAdminCourseEnrollmentItem(
+      firestore,
+      enrollment,
+      true,
+      administratorAccountActive
+    );
     return { scope: input.scope, ...(built ? { item: built.detail } : {}) };
   }
 
@@ -509,7 +550,9 @@ export async function queryAdminCourseEnrollmentReadModels(
   });
   const page = enrollments.slice(0, pageSize);
   const built = await Promise.all(
-    page.map((enrollment) => buildAdminCourseEnrollmentItem(firestore, enrollment))
+    page.map((enrollment) =>
+      buildAdminCourseEnrollmentItem(firestore, enrollment, false, administratorAccountActive)
+    )
   );
   const items = built.flatMap((value) => (value ? [value.item] : []));
   const hasMore = enrollments.length > pageSize;

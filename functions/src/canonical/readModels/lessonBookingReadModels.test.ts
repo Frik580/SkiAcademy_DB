@@ -337,7 +337,10 @@ describe('Admin lesson booking read models', () => {
     });
   }
 
-  function adminFixture(bookings: readonly ReturnType<typeof canonicalBooking>[]) {
+  function adminFixture(
+    bookings: readonly ReturnType<typeof canonicalBooking>[],
+    options: { readonly unmanagedGuest?: boolean } = {}
+  ) {
     const participantDocuments: Record<string, Record<string, unknown>> = {};
     const paymentDocuments: Record<string, Record<string, unknown>> = {};
     for (const booking of bookings) {
@@ -348,10 +351,12 @@ describe('Admin lesson booking read models', () => {
         age: { kind: 'age_years', years: 17 },
         skillLevel: 'intermediate',
         discipline: 'ski',
-        management: {
-          kind: 'managed',
-          participantManagementId: `management_${booking.bookingId}`,
-        },
+        management: options.unmanagedGuest
+          ? { kind: 'unmanaged_guest' }
+          : {
+              kind: 'managed',
+              participantManagementId: `management_${booking.bookingId}`,
+            },
         lifecycle: { status: 'active' },
         revision: 1,
         createdAt: booking.createdAt,
@@ -503,7 +508,7 @@ describe('Admin lesson booking read models', () => {
     expect(model?.admin?.payment).not.toHaveProperty('paidAmount');
   });
 
-  it('authorizes canonical guest confirmation without enabling ownership linking', async () => {
+  it('authorizes canonical guest confirmation without treating a managed party as linkable', async () => {
     const base = canonicalBooking(
       'booking_admin_guest_confirm_01',
       '2026-08-01T12:00:00.000Z',
@@ -531,6 +536,40 @@ describe('Admin lesson booking read models', () => {
       canDirectCancel: false,
       canLinkGuestToAccount: false,
     });
+  });
+
+  it('authorizes Admin guest identity linking for a unique unmanaged guest Participant', async () => {
+    const base = canonicalBooking(
+      'booking_admin_guest_link_01',
+      '2026-08-01T12:00:00.000Z',
+      { status: 'confirmed' }
+    );
+    const booking = BookingSchema.parse({
+      ...base,
+      attribution: {
+        bookingOrigin: 'guest',
+        bookedBy: { kind: 'guest', guestSubjectId: 'guest_subject_admin_link_01' },
+      },
+      lifecycle: {
+        status: 'pending',
+        reservationExpiresAt: timestampFromDate(new Date('2026-08-01T13:00:00.000Z')),
+      },
+      occurrence: {
+        ...base.occurrence,
+        serviceParty: { participantIds: base.party.participantIds },
+      },
+    });
+    const { firestore } = adminFixture([booking], { unmanagedGuest: true });
+
+    const model = await buildAdminLessonBookingReadModel(firestore, adminActor, booking, {
+      now: readNow,
+    });
+
+    expect(model?.admin?.authorizedActions).toMatchObject({
+      canConfirmGuest: true,
+      canLinkGuestToAccount: true,
+    });
+    expect(model?.admin?.guestIdentityLinkUnavailableReason).toBeUndefined();
   });
 
   it('returns Admin hot/detail/history with stable bounded cursors and canonical-only rows', async () => {

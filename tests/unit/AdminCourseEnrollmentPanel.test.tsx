@@ -26,6 +26,44 @@ vi.mock('../../src/lib/canonical/canonicalCommandClient', () => ({
     executeAuthenticatedCanonicalCommand(...args),
 }));
 
+vi.mock('../../src/features/admin/identity', () => ({
+  AdminManagedParticipantPicker: ({
+    selected,
+    onChange,
+  }: {
+    selected?: {
+      accountId: string;
+      participantId: string;
+      displayName: string;
+      accountDisplayName?: string;
+    };
+    onChange: (
+      selection:
+        | {
+            accountId: string;
+            participantId: string;
+            displayName: string;
+            accountDisplayName?: string;
+          }
+        | undefined
+    ) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() =>
+        onChange({
+          accountId: 'account_link_target_01',
+          participantId: 'participant_link_target_01',
+          displayName: 'Managed Target',
+          accountDisplayName: 'Target Account',
+        })
+      }
+    >
+      {selected ? `selected:${selected.displayName}` : 'pick managed'}
+    </button>
+  ),
+}));
+
 const timestamp = { seconds: 1_788_000_000, nanoseconds: 0 };
 const rosterItem = {
   enrollmentId: 'course_enrollment_admin_component_01',
@@ -208,7 +246,7 @@ describe('AdminCourseEnrollmentPanel', () => {
     );
   });
 
-  it('keeps pending guest approval and assisted linking fail-closed', async () => {
+  it('keeps pending guest approval fail-closed and shows why linking is unavailable', async () => {
     queryAdminCourseEnrollmentReadModels.mockImplementation(async (input) => {
       const guest = {
         ...rosterItem,
@@ -227,6 +265,7 @@ describe('AdminCourseEnrollmentPanel', () => {
               ...guest,
               cancellation: undefined,
               authorizedActions: guest.authorizedActions,
+              guestIdentityLinkUnavailableReason: 'ineligible_lifecycle',
             },
           }
         : { scope: input.scope, items: [guest], hasMore: false };
@@ -236,9 +275,67 @@ describe('AdminCourseEnrollmentPanel', () => {
         <AdminCourseEnrollmentPanel adminAccountId="account_admin_component_01" />
       </MemoryRouter>
     );
-    expect(await screen.findByText(/Guest approval\/linking is read-only/)).toBeInTheDocument();
+    expect(await screen.findByText(/Guest identity linking is unavailable/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Approve guest/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Link guest/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Link guest identity' })).not.toBeInTheDocument();
+  });
+
+  it('locks Admin guest identity linking to the captured enrollment revision', async () => {
+    const user = userEvent.setup();
+    queryAdminCourseEnrollmentReadModels.mockImplementation(async (input) => {
+      const guest = {
+        ...rosterItem,
+        lifecycleStatus: 'pending',
+        guestState: 'pending_unlinked',
+        authorizedActions: {
+          ...rosterItem.authorizedActions,
+          canResolveCancellation: false,
+          canLinkGuest: true,
+        },
+      };
+      return input.scope === 'admin_enrollment_detail'
+        ? {
+            scope: 'admin_enrollment_detail',
+            item: {
+              ...detail,
+              ...guest,
+              cancellation: undefined,
+              authorizedActions: guest.authorizedActions,
+            },
+          }
+        : { scope: input.scope, items: [guest], hasMore: false };
+    });
+    executeAuthenticatedCanonicalCommand.mockResolvedValue({
+      status: 'success',
+      kind: 'link_guest_course_enrollment_to_account_as_administrator',
+      correlationId: 'correlation_admin_component_link_01',
+    });
+    render(
+      <MemoryRouter initialEntries={['/?enrollment=course_enrollment_admin_component_01']}>
+        <AdminCourseEnrollmentPanel adminAccountId="account_admin_component_01" />
+      </MemoryRouter>
+    );
+    expect(await screen.findByRole('button', { name: 'Link guest identity' })).toBeDisabled();
+    await user.click(screen.getAllByRole('button', { name: 'pick managed' }).at(-1)!);
+    await user.type(screen.getByLabelText('Link reason'), 'Existing managed identity');
+    await user.click(screen.getByRole('button', { name: 'Link guest identity' }));
+    expect(
+      screen.getByText(
+        /course_enrollment_admin_component_01 @ rev 4 → account_link_target_01\/participant_link_target_01/
+      )
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));
+    expect(executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1]).toMatchObject({
+      kind: 'link_guest_course_enrollment_to_account_as_administrator',
+      expectedRevision: 4,
+      intent: {
+        enrollmentId: 'course_enrollment_admin_component_01',
+        targetAccountId: 'account_link_target_01',
+        targetParticipantId: 'participant_link_target_01',
+        reasonExplanation: 'Existing managed identity',
+      },
+    });
   });
 
   it('captures CourseDay Attendance and Enrollment revisions for an Admin correction', async () => {

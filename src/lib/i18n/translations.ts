@@ -1035,6 +1035,22 @@ export const translations = {
     adminLessonLinkDeferred: 'Link guest booking to account — deferred',
     adminLessonLinkDeferredHint:
       'Admin ownership rewrite is intentionally unavailable. Guest linking remains a self-service workflow.',
+    adminLessonLinkGuestTitle: 'Link guest identity',
+    adminLessonLinkGuest: 'Link guest identity',
+    adminLessonLinkGuestHint:
+      'Select the canonical Account and an eligible managed Participant. This associates the existing lesson; it does not rebook, refund, or change Payment.',
+    adminLessonLinkReview:
+      'Guest {guest} will be associated with Account {account} / Participant {participant}.',
+    adminLessonConfirmLinkGuest:
+      'Link this guest lesson to the selected Account and Participant? This does not recreate the Booking, refund, rebook, or change price/Payment.',
+    adminLessonLinkUnavailable: 'Guest identity linking is unavailable',
+    adminLessonLinkReasonAlreadyLinked: 'This guest lesson is already linked.',
+    adminLessonLinkReasonNotGuest: 'This booking is not a guest reservation.',
+    adminLessonLinkReasonAmbiguous: 'The guest Participant on this booking is not unique.',
+    adminLessonLinkReasonIneligible: 'The current lifecycle does not allow identity linking.',
+    adminLessonLinkReasonExpired: 'The guest reservation has expired.',
+    adminLessonLinkReasonAttendance: 'Attendance already exists for this guest occurrence.',
+    adminLessonLinkReasonAdminInactive: 'The administrator Account is not active.',
     adminLessonGuestApprovalUnavailable:
       'Guest approval is unavailable because the Admin read projection exposes no explicit authorization for it.',
     adminLessonConfirmTitle: 'Confirm canonical booking action',
@@ -2970,6 +2986,22 @@ export const translations = {
     adminLessonLinkDeferred: 'Привязка гостевого бронирования к аккаунту — отложено',
     adminLessonLinkDeferredHint:
       'Перезапись владельца администратором намеренно недоступна. Привязка гостя остаётся самообслуживанием.',
+    adminLessonLinkGuestTitle: 'Привязать гостевую идентичность',
+    adminLessonLinkGuest: 'Привязать гостевую идентичность',
+    adminLessonLinkGuestHint:
+      'Выберите канонический Account и подходящего managed Participant. Это связывает существующий урок; повторная запись, возврат и изменение Payment не выполняются.',
+    adminLessonLinkReview:
+      'Гость {guest} будет связан с Account {account} / Participant {participant}.',
+    adminLessonConfirmLinkGuest:
+      'Привязать этот гостевой урок к выбранным Account и Participant? Booking не создаётся заново, возврат и перезапись цены/Payment не выполняются.',
+    adminLessonLinkUnavailable: 'Привязка гостевой идентичности недоступна',
+    adminLessonLinkReasonAlreadyLinked: 'Этот гостевой урок уже привязан.',
+    adminLessonLinkReasonNotGuest: 'Это бронирование не является гостевой заявкой.',
+    adminLessonLinkReasonAmbiguous: 'Гостевой Participant на этом бронировании не уникален.',
+    adminLessonLinkReasonIneligible: 'Текущий жизненный цикл не позволяет привязку идентичности.',
+    adminLessonLinkReasonExpired: 'Срок гостевой заявки истёк.',
+    adminLessonLinkReasonAttendance: 'Для этого гостевого занятия уже есть посещаемость.',
+    adminLessonLinkReasonAdminInactive: 'Account администратора неактивен.',
     adminLessonGuestApprovalUnavailable:
       'Подтверждение гостя недоступно: Admin-проекция не даёт на это явного права.',
     adminLessonConfirmTitle: 'Подтвердите каноническое действие с бронированием',

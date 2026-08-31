@@ -400,7 +400,7 @@ export const CourseEnrollmentSchema = z
       .object({
         linkedAccountId: AccountIdSchema,
         linkedParticipantId: ParticipantIdSchema,
-        credentialNonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
+        credentialNonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/).optional(),
         linkedAt: CanonicalTimestampSchema,
       })
       .strict()

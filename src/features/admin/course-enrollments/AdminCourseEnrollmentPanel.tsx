@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   CourseEnrollmentIdSchema,
   CourseIdSchema,
+  type AdminCourseEnrollmentDetailReadModel,
   type AdminCourseReadModel,
 } from '@ski-academy/shared-domain';
 import {
@@ -31,6 +32,28 @@ import type { AdminManagedParticipantSelection } from '../identity';
 import { useAdminCourseEnrollmentReadModels } from './useAdminCourseEnrollmentReadModels';
 import { useAdminCourseEnrollmentCommands } from './useAdminCourseEnrollmentCommands';
 import { useAdminCourseEnrollmentTranslations } from './useAdminCourseEnrollmentTranslations';
+
+function guestEnrollmentLinkUnavailableLabel(
+  reason: AdminCourseEnrollmentDetailReadModel['guestIdentityLinkUnavailableReason'],
+  t: ReturnType<typeof useAdminCourseEnrollmentTranslations>
+): string {
+  switch (reason) {
+    case 'already_linked':
+      return t.linkReasonAlreadyLinked;
+    case 'not_guest':
+      return t.linkReasonNotGuest;
+    case 'expired_reservation':
+      return t.linkReasonExpired;
+    case 'attendance_recorded':
+      return t.linkReasonAttendance;
+    case 'course_started':
+      return t.linkReasonCourseStarted;
+    case 'admin_account_inactive':
+      return t.linkReasonAdminInactive;
+    default:
+      return t.linkReasonIneligible;
+  }
+}
 
 function formatKzt(value: number): string {
   return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(value)} KZT`;
@@ -89,6 +112,8 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
   const [reason, setReason] = useState('');
   const [createCourseId, setCreateCourseId] = useState('');
   const [createSelection, setCreateSelection] = useState<AdminManagedParticipantSelection>();
+  const [linkSelection, setLinkSelection] = useState<AdminManagedParticipantSelection>();
+  const [linkReason, setLinkReason] = useState('');
   const [targetCourseId, setTargetCourseId] = useState('');
   const [refundAmount, setRefundAmount] = useState('0');
   const [confirmation, setConfirmation] = useState<{
@@ -130,6 +155,16 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
     setRefundAmount(String(detail.cancellation?.maximumRefund ?? 0));
     setTargetCourseId('');
   }, [readModels.detail.item]);
+
+  useEffect(() => {
+    setLinkSelection(undefined);
+    setLinkReason('');
+    setConfirmation((current) =>
+      current?.attempt.kind === 'link_guest_course_enrollment_to_account_as_administrator'
+        ? undefined
+        : current
+    );
+  }, [selectedEnrollmentId]);
 
   const updateQuery = (updates: Record<string, string | undefined>) => {
     setSearchParams(
@@ -625,10 +660,75 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
                 </button>
               )}
 
-              {detail.guestState !== 'not_guest' && (
-                <p className="flex gap-2 border border-amber-400 p-3 text-xs text-amber-700">
-                  <AlertTriangle className="h-4 w-4 shrink-0" /> {t.guestDeferred}
-                </p>
+              {detail.authorizedActions.canLinkGuest ? (
+                <div className="space-y-2 border border-[var(--border)] p-3">
+                  <p className="text-xs font-medium">{t.linkGuestTitle}</p>
+                  <p className="text-xs text-[var(--ink-dim)]">{t.linkGuestHint}</p>
+                  <AdminManagedParticipantPicker
+                    selected={linkSelection}
+                    onChange={(selection) => {
+                      setLinkSelection(selection);
+                      setConfirmation(undefined);
+                    }}
+                  />
+                  <label className="block text-xs">
+                    {t.reason}
+                    <input
+                      aria-label="Link reason"
+                      value={linkReason}
+                      onChange={(event) => {
+                        setLinkReason(event.target.value);
+                        setConfirmation(undefined);
+                      }}
+                      className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+                    />
+                  </label>
+                  {linkSelection && (
+                    <p className="text-xs text-[var(--ink-dim)]">
+                      {t.linkReview
+                        .replace('{guest}', detail.participant.displayName)
+                        .replace(
+                          '{account}',
+                          linkSelection.accountDisplayName ?? linkSelection.accountId
+                        )
+                        .replace('{participant}', linkSelection.displayName)}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    disabled={!linkSelection || !linkReason.trim()}
+                    onClick={() => {
+                      if (!linkSelection) return;
+                      requestDetailAttempt(
+                        {
+                          kind: 'link_guest_course_enrollment_to_account_as_administrator',
+                          targetAccountId: linkSelection.accountId,
+                          targetParticipantId: linkSelection.participantId,
+                          ...(linkSelection.accountDisplayName
+                            ? { targetAccountDisplayName: linkSelection.accountDisplayName }
+                            : {}),
+                          targetParticipantDisplayName: linkSelection.displayName,
+                          reasonExplanation: linkReason.trim(),
+                        },
+                        t.confirmLinkGuest
+                      );
+                    }}
+                    className="w-full border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                  >
+                    {t.linkGuest}
+                  </button>
+                </div>
+              ) : (
+                detail.guestState !== 'not_guest' && (
+                  <p className="flex gap-2 border border-amber-400 p-3 text-xs text-amber-700">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    {t.linkUnavailable}:{' '}
+                    {guestEnrollmentLinkUnavailableLabel(
+                      detail.guestIdentityLinkUnavailableReason,
+                      t
+                    )}
+                  </p>
+                )
               )}
               {!hasAnyAction && (
                 <p className="flex gap-2 text-xs text-[var(--ink-dim)]">
@@ -650,6 +750,14 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
           <div className="w-full max-w-md space-y-4 border border-[var(--border)] bg-[var(--bg)] p-5">
             <h3 className="text-sm font-medium">{t.confirmTitle}</h3>
             <p className="break-all text-xs text-[var(--ink-dim)]">{confirmation.message}</p>
+            {confirmation.attempt.kind ===
+              'link_guest_course_enrollment_to_account_as_administrator' && (
+              <p className="break-all font-mono text-[10px] text-[var(--ink-dim)]">
+                {confirmation.attempt.target.enrollmentId} @ rev{' '}
+                {confirmation.attempt.target.revision} → {confirmation.attempt.targetAccountId}/
+                {confirmation.attempt.targetParticipantId}
+              </p>
+            )}
             {mutationError && <p className="text-xs text-red-700">{mutationError}</p>}
             <div className="flex gap-2">
               <button

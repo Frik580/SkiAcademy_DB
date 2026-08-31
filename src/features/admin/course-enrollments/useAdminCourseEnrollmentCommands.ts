@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import {
   AggregateRevisionSchema,
+  AccountIdSchema,
   CourseEnrollmentIdSchema,
   CourseDayIdSchema,
   CourseIdSchema,
@@ -117,6 +118,22 @@ export async function executeAdminCourseEnrollmentAttempt(
         idempotencyKey: attempt.idempotencyKey,
         expectedRevision,
         administratorContext: true,
+      })
+    );
+    return;
+  }
+  if (attempt.kind === 'link_guest_course_enrollment_to_account_as_administrator') {
+    await assertCommandSucceeded(
+      executeAuthenticatedCanonicalCommand(adminAccountId, {
+        kind: attempt.kind,
+        intent: {
+          enrollmentId: courseEnrollmentId,
+          targetAccountId: AccountIdSchema.parse(attempt.targetAccountId),
+          targetParticipantId: ParticipantIdSchema.parse(attempt.targetParticipantId),
+          reasonExplanation: attempt.reasonExplanation,
+        },
+        idempotencyKey: attempt.idempotencyKey,
+        expectedRevision,
       })
     );
     return;

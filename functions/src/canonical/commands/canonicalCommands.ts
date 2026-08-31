@@ -23,6 +23,7 @@ import {
 import { createIdentityAdministrationCommandHandlers } from '../identity/identityAdministrationCommands';
 import { createBookingCommandHandlers } from '../bookings';
 import { createGuestBookingCommandHandlers } from '../bookings/guestBookingCommands';
+import { createAdminGuestBookingLinkCommandHandlers } from '../bookings/adminGuestBookingLinkCommands';
 import { createBookingRescheduleCommandHandlers } from '../bookings/bookingRescheduleCommands';
 import { createBookingCancellationCommandHandlers } from '../bookings/bookingCancellationCommands';
 import { createBookingPartyCommandHandlers } from '../bookings/bookingPartyCommands';
@@ -36,6 +37,7 @@ import {
   createCourseEnrollmentAttendanceCommandHandlers,
   createCourseEnrollmentReconciliationCommandHandlers,
   createGuestCourseEnrollmentLinkCommandHandlers,
+  createAdminGuestCourseEnrollmentLinkCommandHandlers,
   createCourseProvisioningCommandHandlers,
   createCourseAdministrationCommandHandlers,
 } from '../courses';
@@ -186,6 +188,7 @@ export function createProductionCanonicalCommands(
     ...createBookingCommandHandlers(executor),
     ...createBookingRescheduleCommandHandlers(executor),
     ...createGuestBookingCommandHandlers(executor, options.guestActionTokenSecret),
+    ...createAdminGuestBookingLinkCommandHandlers(executor),
     ...createBookingCancellationCommandHandlers(executor, guestEnvironmentFactory),
     ...createBookingPartyCommandHandlers(executor),
     ...createBookingProposalCommandHandlers(executor),
@@ -202,6 +205,7 @@ export function createProductionCanonicalCommands(
     ...createCourseEnrollmentAttendanceCommandHandlers(executor),
     ...createCourseEnrollmentReconciliationCommandHandlers(executor),
     ...createGuestCourseEnrollmentLinkCommandHandlers(executor, options.guestActionTokenSecret),
+    ...createAdminGuestCourseEnrollmentLinkCommandHandlers(executor),
   };
   commandsRef.current = createCanonicalCommands(handlerMap, environment);
   return commandsRef.current;

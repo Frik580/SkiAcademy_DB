@@ -38,6 +38,32 @@ interface Confirmation {
   readonly message: string;
 }
 
+function guestLinkUnavailableLabel(
+  reason: LessonBookingReadModel['admin'] extends infer Admin
+    ? Admin extends { guestIdentityLinkUnavailableReason?: infer Reason }
+      ? Reason
+      : never
+    : never,
+  t: ReturnType<typeof useAdminLessonBookingTranslations>['t']
+): string {
+  switch (reason) {
+    case 'already_linked':
+      return t('adminLessonLinkReasonAlreadyLinked');
+    case 'not_guest':
+      return t('adminLessonLinkReasonNotGuest');
+    case 'ambiguous_guest_participant':
+      return t('adminLessonLinkReasonAmbiguous');
+    case 'expired_reservation':
+      return t('adminLessonLinkReasonExpired');
+    case 'attendance_recorded':
+      return t('adminLessonLinkReasonAttendance');
+    case 'admin_account_inactive':
+      return t('adminLessonLinkReasonAdminInactive');
+    default:
+      return t('adminLessonLinkReasonIneligible');
+  }
+}
+
 function localParts(item: LessonBookingReadModel): { date: string; time: string } {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: item.occurrence.timeZone,
@@ -110,6 +136,8 @@ export function AdminLessonBookingPanel({
   const [targetInstructorId, setTargetInstructorId] = useState('');
   const [targetDuration, setTargetDuration] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
+  const [linkSelection, setLinkSelection] = useState<AdminManagedParticipantSelection>();
+  const [linkReason, setLinkReason] = useState('');
 
   useEffect(() => {
     const item = reads.detail.item;
@@ -122,6 +150,16 @@ export function AdminLessonBookingPanel({
     setRefundAmount(String(item.admin?.cancellationFinancial?.suggestedRefund ?? 0));
     setActionReason('');
   }, [reads.detail.item]);
+
+  useEffect(() => {
+    setLinkSelection(undefined);
+    setLinkReason('');
+    setConfirmation((current) =>
+      current?.attempt.kind === 'link_guest_booking_to_account_as_administrator'
+        ? undefined
+        : current
+    );
+  }, [selectedBookingId]);
 
   const updateQuery = (updates: Readonly<Record<string, string | undefined>>) => {
     setSearchParams(
@@ -917,14 +955,77 @@ export function AdminLessonBookingPanel({
               </div>
 
               <div className="space-y-2 border-t border-[var(--border)] pt-4">
-                <button
-                  type="button"
-                  disabled
-                  className="w-full border border-[var(--border)] px-3 py-2 text-xs opacity-50"
-                >
-                  {t('adminLessonLinkDeferred')}
-                </button>
-                <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonLinkDeferredHint')}</p>
+                {admin.authorizedActions.canLinkGuestToAccount ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium">{t('adminLessonLinkGuestTitle')}</p>
+                    <p className="text-xs text-[var(--ink-dim)]">
+                      {t('adminLessonLinkGuestHint')}
+                    </p>
+                    <AdminManagedParticipantPicker
+                      selected={linkSelection}
+                      onChange={(selection) => {
+                        setLinkSelection(selection);
+                        setConfirmation(undefined);
+                      }}
+                    />
+                    <label className="block text-xs">
+                      {t('adminLessonReason')}
+                      <input
+                        aria-label="Link reason"
+                        value={linkReason}
+                        onChange={(event) => {
+                          setLinkReason(event.target.value);
+                          setConfirmation(undefined);
+                        }}
+                        className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
+                      />
+                    </label>
+                    {linkSelection && (
+                      <p className="text-xs text-[var(--ink-dim)]">
+                        {t('adminLessonLinkReview')
+                          .replace('{guest}', admin.participants[0]?.displayName ?? detail.bookingId)
+                          .replace('{account}', linkSelection.accountDisplayName ?? linkSelection.accountId)
+                          .replace('{participant}', linkSelection.displayName)}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      disabled={!linkSelection || !linkReason.trim()}
+                      onClick={() => {
+                        if (!linkSelection) return;
+                        requestDetailAttempt(
+                          detail,
+                          {
+                            kind: 'link_guest_booking_to_account_as_administrator',
+                            targetAccountId: linkSelection.accountId,
+                            targetParticipantId: linkSelection.participantId,
+                            ...(linkSelection.accountDisplayName
+                              ? { targetAccountDisplayName: linkSelection.accountDisplayName }
+                              : {}),
+                            targetParticipantDisplayName: linkSelection.displayName,
+                            reasonExplanation: linkReason.trim(),
+                          },
+                          t('adminLessonConfirmLinkGuest')
+                        );
+                      }}
+                      className="w-full border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                    >
+                      {t('adminLessonLinkGuest')}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {detail.bookingOrigin === 'guest' && (
+                      <p className="text-xs text-[var(--ink-dim)]">
+                        {t('adminLessonLinkUnavailable')}:{' '}
+                        {guestLinkUnavailableLabel(
+                          admin.guestIdentityLinkUnavailableReason ?? 'ineligible_lifecycle',
+                          t
+                        )}
+                      </p>
+                    )}
+                  </>
+                )}
                 {detail.bookingOrigin === 'guest' &&
                   detail.lifecycle.status === 'pending' &&
                   !admin.authorizedActions.canConfirmGuest && (
@@ -953,7 +1054,10 @@ export function AdminLessonBookingPanel({
               Target:{' '}
               {confirmation.attempt.kind === 'create_confirmed_booking'
                 ? confirmation.attempt.bookingId
-                : `${confirmation.attempt.target.bookingId} @ rev ${confirmation.attempt.target.revision}`}
+                : confirmation.attempt.kind ===
+                    'link_guest_booking_to_account_as_administrator'
+                  ? `${confirmation.attempt.target.bookingId} @ rev ${confirmation.attempt.target.revision} → ${confirmation.attempt.targetAccountId}/${confirmation.attempt.targetParticipantId}`
+                  : `${confirmation.attempt.target.bookingId} @ rev ${confirmation.attempt.target.revision}`}
             </p>
             {mutationError && (
               <p role="alert" className="text-xs text-red-700">

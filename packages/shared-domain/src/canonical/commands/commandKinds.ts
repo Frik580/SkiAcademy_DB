@@ -3,6 +3,7 @@ export const COMMAND_KINDS = [
   'create_guest_booking_request',
   'confirm_guest_booking',
   'link_guest_booking_to_account',
+  'link_guest_booking_to_account_as_administrator',
   'request_booking_cancellation',
   'withdraw_booking_cancellation_request',
   'resolve_booking_cancellation',
@@ -75,6 +76,7 @@ export const COMMAND_KINDS = [
   'update_course_catalog_content',
   'reconcile_course_enrollment',
   'link_guest_course_enrollment_to_account',
+  'link_guest_course_enrollment_to_account_as_administrator',
 ] as const;
 
 export type CommandKind = (typeof COMMAND_KINDS)[number];

@@ -30,6 +30,7 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
   create_guest_booking_request: ['other'],
   confirm_guest_booking: ['manual_override', 'other'],
   link_guest_booking_to_account: ['participant_management', 'other'],
+  link_guest_booking_to_account_as_administrator: ['participant_management', 'manual_override'],
   request_booking_cancellation: ['self_service_booking', 'manual_override', 'other'],
   withdraw_booking_cancellation_request: ['self_service_booking', 'other'],
   resolve_booking_cancellation: ['manual_override', 'other'],
@@ -100,6 +101,10 @@ const COMMAND_KIND_REASON_CODES: Partial<Record<CommandKind, readonly AuditReaso
   resolve_course_enrollment_cancellation: ['manual_override', 'other'],
   reconcile_course_enrollment: ['scheduled_system_action', 'manual_override'],
   link_guest_course_enrollment_to_account: ['participant_management', 'other'],
+  link_guest_course_enrollment_to_account_as_administrator: [
+    'participant_management',
+    'manual_override',
+  ],
 };
 
 export function hasAuditReasonRegistryEntry(commandKind: CommandKind): boolean {

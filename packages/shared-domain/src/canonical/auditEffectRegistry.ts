@@ -22,6 +22,11 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
   ],
   confirm_guest_booking: ['booking_lifecycle_changed', 'outbox_obligation_created'],
   link_guest_booking_to_account: ['participant_access_changed', 'outbox_obligation_created'],
+  link_guest_booking_to_account_as_administrator: [
+    'booking_party_changed',
+    'resource_claim_changed',
+    'outbox_obligation_created',
+  ],
   request_booking_cancellation: [
     'booking_lifecycle_changed',
     'payment_state_changed',
@@ -229,6 +234,12 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
   link_guest_course_enrollment_to_account: [
     'guest_course_enrollment_linked',
     'participant_access_changed',
+    'resource_claim_changed',
+    'payment_association_changed',
+    'outbox_obligation_created',
+  ],
+  link_guest_course_enrollment_to_account_as_administrator: [
+    'guest_course_enrollment_linked',
     'resource_claim_changed',
     'payment_association_changed',
     'outbox_obligation_created',

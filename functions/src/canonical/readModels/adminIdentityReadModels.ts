@@ -690,6 +690,11 @@ async function queryEligibleParticipants(
   firestore: Firestore,
   accountId: AccountId
 ): Promise<AdminEligibleParticipantItem[]> {
+  const accountSnapshot = await firestore.collection('users').doc(accountId).get();
+  const account = parseAccount(accountSnapshot.data() as Record<string, unknown> | undefined);
+  if (!account || account.lifecycle.status !== 'active') {
+    return [];
+  }
   const management = await queryActiveManagementForAccount(firestore, accountId);
   const items: AdminEligibleParticipantItem[] = [];
   for (const item of management) {

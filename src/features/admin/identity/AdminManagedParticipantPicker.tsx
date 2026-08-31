@@ -100,6 +100,12 @@ export function AdminManagedParticipantPicker({
               accountId,
               participantId: participant.participantId as ParticipantId,
               displayName: participant.displayName,
+              ...(accountOptions.find((option) => option.accountId === accountId)?.displayName
+                ? {
+                    accountDisplayName: accountOptions.find((option) => option.accountId === accountId)
+                      ?.displayName,
+                  }
+                : {}),
             });
           }}
         >

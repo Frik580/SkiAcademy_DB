@@ -174,6 +174,23 @@ export async function executeAdminLessonBookingAttempt(
     return;
   }
 
+  if (attempt.kind === 'link_guest_booking_to_account_as_administrator') {
+    await assertCommandSucceeded(
+      executeAuthenticatedCanonicalCommand(adminAccountId, {
+        kind: attempt.kind,
+        intent: {
+          bookingId,
+          targetAccountId: AccountIdSchema.parse(attempt.targetAccountId),
+          targetParticipantId: ParticipantIdSchema.parse(attempt.targetParticipantId),
+          reasonExplanation: attempt.reasonExplanation,
+        },
+        idempotencyKey: attempt.idempotencyKey,
+        expectedRevision,
+      })
+    );
+    return;
+  }
+
   await assertCommandSucceeded(
     executeAuthenticatedCanonicalCommand(adminAccountId, {
       kind: 'resolve_attendance_outcome',

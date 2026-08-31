@@ -181,6 +181,53 @@ describe('resolveCallableAccountContext', () => {
     });
   });
 
+  it('routes Admin guest identity-link command kinds through trusted Admin authority', () => {
+    expect(
+      resolveCallableAccountContext(
+        { role: 'admin' },
+        {
+          authUid: accountId,
+          commandKind: 'link_guest_booking_to_account_as_administrator',
+        }
+      )
+    ).toMatchObject({
+      accountId,
+      capability: 'administrator',
+      source: 'admin_callable',
+    });
+    expect(
+      resolveCallableAccountContext(
+        { role: 'admin' },
+        {
+          authUid: accountId,
+          commandKind: 'link_guest_course_enrollment_to_account_as_administrator',
+        }
+      )
+    ).toMatchObject({
+      accountId,
+      capability: 'administrator',
+      source: 'admin_callable',
+    });
+    expect(() =>
+      resolveCallableAccountContext(
+        { role: 'user' },
+        {
+          authUid: accountId,
+          commandKind: 'link_guest_booking_to_account_as_administrator',
+        }
+      )
+    ).toThrow('forbidden');
+    expect(() =>
+      resolveCallableAccountContext(
+        { role: 'user' },
+        {
+          authUid: accountId,
+          commandKind: 'link_guest_course_enrollment_to_account_as_administrator',
+        }
+      )
+    ).toThrow('forbidden');
+  });
+
   it('routes identity administration command kinds through trusted Admin authority', () => {
     expect(
       resolveCallableAccountContext(

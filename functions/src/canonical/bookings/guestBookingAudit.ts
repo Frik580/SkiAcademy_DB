@@ -8,6 +8,7 @@ import {
   type CommandEnvelope,
   type ParticipantId,
   type PaymentId,
+  type AccountId,
 } from '@ski-academy/shared-domain';
 
 export function buildCreateGuestBookingRequestAuditPlan(input: {
@@ -310,6 +311,75 @@ export function buildLinkGuestBookingAuditPlan(input: {
         templateId: 'guest_booking_linked',
         templateVersion: 'v1',
         renderInputs: { bookingId: input.bookingId, participantId: input.participantId },
+        deliverySemantics: 'transactional',
+      },
+    ],
+  };
+}
+
+export function buildLinkGuestBookingAsAdministratorAuditPlan(input: {
+  bookingId: BookingId;
+  sourceGuestParticipantId: ParticipantId;
+  targetAccountId: AccountId;
+  targetParticipantId: ParticipantId;
+  bookingRevision: number;
+  reasonExplanation: string;
+}): AuditOutboxStagingPlan {
+  const bookingRef = canonicalReference('booking', input.bookingId);
+  const participantRef = canonicalReference('participant', input.targetParticipantId);
+  const accountRef = canonicalReference('account', input.targetAccountId);
+  return {
+    activityLog: {
+      reason: {
+        registryVersion: AUDIT_REASON_REGISTRY_VERSION,
+        reasonCode: 'participant_management',
+        explanation: input.reasonExplanation,
+      },
+      primarySubject: {
+        kind: 'booking',
+        id: input.bookingId,
+        subjectKey: `booking:${input.bookingId}`,
+      },
+      affectedSubjects: [bookingRef, participantRef, accountRef],
+      effects: [
+        {
+          kind: 'booking_party_changed',
+          subjectRef: bookingRef,
+          summary: 'Guest booking identity linked to managed participant',
+        },
+        {
+          kind: 'resource_claim_changed',
+          subjectRef: bookingRef,
+          summary: 'Participant occurrence claim migrated for guest identity link',
+        },
+        {
+          kind: 'outbox_obligation_created',
+          subjectRef: bookingRef,
+          summary: 'Guest booking identity link notification queued',
+        },
+      ],
+      monetaryEventIds: [],
+      adminIssueIds: [],
+      resultingRevisions: [
+        {
+          subject: bookingRef,
+          revision: AggregateRevisionSchema.parse(input.bookingRevision),
+        },
+      ],
+    },
+    outboxObligations: [
+      {
+        deliveryEffectOrdinal: 0,
+        recipient: { kind: 'account', id: input.targetAccountId },
+        channel: 'in_app',
+        templateId: 'guest_booking_linked',
+        templateVersion: 'v1',
+        renderInputs: {
+          bookingId: input.bookingId,
+          previousParticipantId: input.sourceGuestParticipantId,
+          participantId: input.targetParticipantId,
+          accountId: input.targetAccountId,
+        },
         deliverySemantics: 'transactional',
       },
     ],

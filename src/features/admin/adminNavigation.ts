@@ -15,6 +15,9 @@ export const ADMIN_FINANCE_ACCOUNT_QUERY_KEY = 'account';
 export const ADMIN_FINANCE_PAYMENT_QUERY_KEY = 'payment';
 export const ADMIN_LESSON_BOOKING_QUERY_KEY = 'booking';
 export const ADMIN_LESSON_BOOKING_VIEW_QUERY_KEY = 'bookingView';
+export const ADMIN_COURSE_ENROLLMENT_QUERY_KEY = 'enrollment';
+export const ADMIN_COURSE_ENROLLMENT_VIEW_QUERY_KEY = 'enrollmentView';
+export const ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY = 'enrollmentCourse';
 
 export const ADMIN_TAB_LABEL_KEYS: Record<AdminTabId, TranslationKey> = {
   operations: 'adminTabOperations',

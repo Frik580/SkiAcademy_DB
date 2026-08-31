@@ -21,5 +21,6 @@ export * from './adminIssueReadModels';
 export * from './adminFinanceReadModels';
 export * from './adminCourseReadModels';
 export * from './queryAdminCourseReadModelsCallable';
+export * from './queryAdminCourseEnrollmentReadModelsCallable';
 export * from './queryAdminIssueReadModelsCallable';
 export * from './resolveCallableAdministrator';

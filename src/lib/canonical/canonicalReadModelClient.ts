@@ -4,6 +4,8 @@ import {
   type QueryAdminFinanceReadModelsResult,
   type QueryAdminCourseReadModelsInput,
   type QueryAdminCourseReadModelsResult,
+  type QueryAdminCourseEnrollmentReadModelsInput,
+  type QueryAdminCourseEnrollmentReadModelsResult,
   type QueryAdminIssueReadModelsInput,
   type QueryAdminIssueReadModelsResult,
   type QueryBookingChangeRequestReadModelsInput,
@@ -43,6 +45,29 @@ export const QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE =
 export const QUERY_ADMIN_ISSUE_READ_MODELS_CALLABLE = 'queryAdminIssueReadModels';
 export const QUERY_ADMIN_FINANCE_READ_MODELS_CALLABLE = 'queryAdminFinanceReadModels';
 export const QUERY_ADMIN_COURSE_READ_MODELS_CALLABLE = 'queryAdminCourseReadModels';
+export const QUERY_ADMIN_COURSE_ENROLLMENT_READ_MODELS_CALLABLE =
+  'queryAdminCourseEnrollmentReadModels';
+
+export async function queryAdminCourseEnrollmentReadModels(
+  input: QueryAdminCourseEnrollmentReadModelsInput
+): Promise<QueryAdminCourseEnrollmentReadModelsResult> {
+  const target =
+    input.scope === 'admin_enrollment_detail'
+      ? input.enrollmentId
+      : `${input.courseId ?? 'all'}:${input.cursor ?? 'start'}`;
+  const identityHash = canonicalDeterministicHash([
+    'read:admin_course_enrollment:v1',
+    input.scope,
+    target,
+  ]);
+  return callFunction<
+    QueryAdminCourseEnrollmentReadModelsInput,
+    QueryAdminCourseEnrollmentReadModelsResult
+  >(QUERY_ADMIN_COURSE_ENROLLMENT_READ_MODELS_CALLABLE, input, {
+    idempotencyKey: `read:admin_course_enrollment:${identityHash}`,
+    maxAttempts: 1,
+  });
+}
 
 export async function queryAdminCourseReadModels(
   input: QueryAdminCourseReadModelsInput

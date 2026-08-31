@@ -19,6 +19,7 @@ export const ADMINISTRATOR_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
   'resolve_booking_cancellation',
   'resolve_booking_change_request',
   'resolve_course_enrollment_cancellation',
+  'transfer_course_enrollment',
   'record_financial_correction',
   'record_manual_wallet_funding',
   'record_audit_correction',

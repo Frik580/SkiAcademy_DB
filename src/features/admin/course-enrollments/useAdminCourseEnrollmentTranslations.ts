@@ -1,0 +1,83 @@
+import { useLanguage } from '../../../app/providers/LanguageContext';
+
+const copy = {
+  en: {
+    title: 'Canonical course enrollments',
+    subtitle: 'Server-authorized roster, lifecycle operations and history.',
+    roster: 'Current roster',
+    pending: 'Pending guests',
+    history: 'History',
+    allCourses: 'All courses',
+    retry: 'Retry',
+    loadMore: 'Load more',
+    loading: 'Loading enrollments…',
+    empty: 'No canonical enrollments in this view.',
+    denied: 'Administrator access is required.',
+    failed: 'Unable to load canonical enrollments.',
+    create: 'Create on behalf',
+    selectCourse: 'Select course',
+    selectParticipant: 'Select participant',
+    participantLimitation:
+      'Participant choices are limited to identities already visible in canonical enrollment projections until T32.8A.',
+    reason: 'Reason',
+    details: 'Enrollment detail',
+    close: 'Close',
+    payment: 'Open payment',
+    issue: 'Open issue',
+    approveCancel: 'Approve cancellation',
+    rejectCancel: 'Reject cancellation',
+    transfer: 'Transfer',
+    reconcile: 'Reconcile evidence',
+    refund: 'Refund (whole KZT)',
+    guestDeferred:
+      'Guest approval/linking is read-only: no canonical Admin approval or assisted-link command exists.',
+    confirmTitle: 'Confirm canonical operation',
+    confirm: 'Confirm',
+    cancel: 'Cancel',
+    submitting: 'Submitting…',
+    retrySame: 'Retry same attempt',
+    noActions: 'No server-authorized actions are currently available.',
+  },
+  ru: {
+    title: 'Канонические записи на курсы',
+    subtitle: 'Серверный roster, операции жизненного цикла и история.',
+    roster: 'Текущий состав',
+    pending: 'Ожидающие гости',
+    history: 'История',
+    allCourses: 'Все курсы',
+    retry: 'Повторить',
+    loadMore: 'Загрузить ещё',
+    loading: 'Загрузка записей…',
+    empty: 'В этом представлении нет канонических записей.',
+    denied: 'Нужны права администратора.',
+    failed: 'Не удалось загрузить канонические записи.',
+    create: 'Записать от имени клиента',
+    selectCourse: 'Выберите курс',
+    selectParticipant: 'Выберите участника',
+    participantLimitation:
+      'До T32.8A выбор ограничен участниками, уже видимыми в канонических проекциях записей.',
+    reason: 'Причина',
+    details: 'Детали записи',
+    close: 'Закрыть',
+    payment: 'Открыть платёж',
+    issue: 'Открыть проблему',
+    approveCancel: 'Одобрить отмену',
+    rejectCancel: 'Отклонить отмену',
+    transfer: 'Перевести',
+    reconcile: 'Сверить по свидетельствам',
+    refund: 'Возврат (целые KZT)',
+    guestDeferred:
+      'Одобрение/привязка гостя доступны только для чтения: канонической Admin-команды пока нет.',
+    confirmTitle: 'Подтвердите каноническую операцию',
+    confirm: 'Подтвердить',
+    cancel: 'Отмена',
+    submitting: 'Отправка…',
+    retrySame: 'Повторить ту же попытку',
+    noActions: 'Сейчас нет разрешённых сервером действий.',
+  },
+} as const;
+
+export function useAdminCourseEnrollmentTranslations() {
+  const { language } = useLanguage();
+  return copy[language === 'ru' ? 'ru' : 'en'];
+}

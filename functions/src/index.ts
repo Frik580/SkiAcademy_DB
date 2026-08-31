@@ -30,6 +30,7 @@ import { createQueryInstructorCourseAssignmentReadModelsHandler } from './canoni
 import { createQueryAdminIssueReadModelsHandler } from './canonical/readModels/queryAdminIssueReadModelsCallable';
 import { createQueryAdminFinanceReadModelsHandler } from './canonical/readModels/queryAdminFinanceReadModelsCallable';
 import { createQueryAdminCourseReadModelsHandler } from './canonical/readModels/queryAdminCourseReadModelsCallable';
+import { createQueryAdminCourseEnrollmentReadModelsHandler } from './canonical/readModels/queryAdminCourseEnrollmentReadModelsCallable';
 
 export { optimizeImage } from './images/optimizeImageHttp';
 
@@ -154,6 +155,11 @@ export const queryAdminFinanceReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, as
 
 export const queryAdminCourseReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, async (request) =>
   createQueryAdminCourseReadModelsHandler(getAdminFirestore())(request)
+);
+
+export const queryAdminCourseEnrollmentReadModels = onCall(
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryAdminCourseEnrollmentReadModelsHandler(getAdminFirestore())(request)
 );
 
 export const scheduledAutoCompleteBookings = onSchedule(

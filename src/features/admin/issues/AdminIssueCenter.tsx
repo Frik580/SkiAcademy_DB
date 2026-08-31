@@ -12,6 +12,7 @@ import {
   ADMIN_ISSUE_VIEW_QUERY_KEY,
   ADMIN_FINANCE_PAYMENT_QUERY_KEY,
   ADMIN_LESSON_BOOKING_QUERY_KEY,
+  ADMIN_COURSE_ENROLLMENT_QUERY_KEY,
   ADMIN_TAB_QUERY_KEY,
   parseAdminIssueSeverity,
   parseAdminIssueView,
@@ -86,6 +87,10 @@ export function AdminIssueCenter() {
   const detailBookingId =
     detail.item?.subjectRef.subjectKind === 'booking'
       ? detail.item.subjectRef.bookingId
+      : undefined;
+  const detailEnrollmentId =
+    detail.item?.subjectRef.subjectKind === 'course_enrollment'
+      ? detail.item.subjectRef.enrollmentId
       : undefined;
 
   return (
@@ -379,6 +384,22 @@ export function AdminIssueCenter() {
                 className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
               >
                 Open canonical booking
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            {detailEnrollmentId && (
+              <button
+                type="button"
+                onClick={() =>
+                  updateQuery({
+                    [ADMIN_TAB_QUERY_KEY]: 'operations',
+                    [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]: detailEnrollmentId,
+                  })
+                }
+                className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs font-mono uppercase tracking-wider"
+              >
+                Open canonical course enrollment
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
             )}

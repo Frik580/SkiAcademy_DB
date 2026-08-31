@@ -40,6 +40,11 @@ const AdminLessonBookingPanel = lazy(() =>
     default: m.AdminLessonBookingPanel,
   }))
 );
+const AdminCourseEnrollmentPanel = lazy(() =>
+  import('../course-enrollments').then((m) => ({
+    default: m.AdminCourseEnrollmentPanel,
+  }))
+);
 const ClientsManager = lazy(() =>
   import('./users').then((m) => ({
     default: m.ClientsManager,
@@ -196,6 +201,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   displayName: instructor.name,
                 }))}
               />
+            </AdminCollapsibleSection>
+          </Suspense>
+
+          <Suspense fallback={<SectionLoadingFallback label="Canonical course enrollments" />}>
+            <AdminCollapsibleSection
+              id="canonical_course_enrollments"
+              title="Canonical course enrollments"
+              subtitle="Server-authorized roster and lifecycle operations"
+              icon={BookOpen}
+              defaultOpen
+            >
+              <AdminCourseEnrollmentPanel adminAccountId={currentUserProfile.uid} />
             </AdminCollapsibleSection>
           </Suspense>
         </div>

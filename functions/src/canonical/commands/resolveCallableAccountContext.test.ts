@@ -57,6 +57,25 @@ describe('resolveCallableAccountContext', () => {
     ).toThrow('forbidden');
   });
 
+  it('routes transfer_course_enrollment through trusted Admin authority', () => {
+    expect(
+      resolveCallableAccountContext(
+        { role: 'admin' },
+        { authUid: accountId, commandKind: 'transfer_course_enrollment' }
+      )
+    ).toMatchObject({
+      accountId,
+      capability: 'administrator',
+      source: 'admin_callable',
+    });
+    expect(() =>
+      resolveCallableAccountContext(
+        { role: 'user' },
+        { authUid: accountId, commandKind: 'transfer_course_enrollment' }
+      )
+    ).toThrow('forbidden');
+  });
+
   it('detects administrator profile from trusted user document fields', () => {
     expect(isAdministratorProfile({ role: 'admin' })).toBe(true);
     expect(isAdministratorProfile({ role: 'user' })).toBe(false);
@@ -64,6 +83,7 @@ describe('resolveCallableAccountContext', () => {
 
   it.each([
     'create_confirmed_booking',
+    'create_course_enrollments',
     'reschedule_booking',
     'change_booking_instructor',
     'change_booking_duration',
@@ -128,6 +148,18 @@ describe('resolveCallableAccountContext', () => {
         {
           authUid: accountId,
           commandKind: 'link_guest_booking_to_account',
+        }
+      )
+    ).toMatchObject({
+      capability: 'account_owner',
+      source: 'client_callable',
+    });
+    expect(
+      resolveCallableAccountContext(
+        { role: 'admin' },
+        {
+          authUid: accountId,
+          commandKind: 'link_guest_course_enrollment_to_account',
         }
       )
     ).toMatchObject({

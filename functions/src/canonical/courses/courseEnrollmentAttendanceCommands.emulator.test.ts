@@ -31,6 +31,7 @@ import {
   paymentIdFromCourseEnrollmentId,
   readAggregateRevision,
   resolveCommandIdempotencyIdentity,
+  activityLogIdFromCommandId,
   canonicalPaths,
   canonicalTimestampToEpochMs,
   addMillisecondsToCanonicalTimestamp,
@@ -1272,5 +1273,30 @@ describeEmulator('courseEnrollmentAttendanceCommands emulator', () => {
 
     const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
     expect(enrollment?.lifecycle.status).toBe('completed');
+
+    const identity = resolveCommandIdempotencyIdentity({
+      kind: 'record_course_day_attendance',
+      context: adminContext('terminal-correction-success'),
+      intent: {
+        courseEnrollmentId: enrollmentId,
+        courseDayId: courseDayThreeId,
+        attendanceStatus: 'present',
+        expectedAttendanceRevision: AggregateRevisionSchema.parse(1),
+        expectedEnrollmentRevision: AggregateRevisionSchema.parse(2),
+        reasonExplanation: 'D3 was actually present',
+      },
+    });
+    const activityLog = (
+      await firestore.doc(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`).get()
+    ).data();
+    expect(activityLog?.reason).toMatchObject({
+      reasonCode: 'attendance_correction',
+      explanation: 'D3 was actually present',
+    });
+    expect(attendance?.recordedBy?.kind).toBe('instructor');
+    expect(attendance?.lastChangedBy).toEqual({
+      kind: 'administrator',
+      accountId: adminAccountId,
+    });
   }, 30_000);
 });

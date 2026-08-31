@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import {
   AggregateRevisionSchema,
   CourseEnrollmentIdSchema,
+  CourseDayIdSchema,
   CourseIdSchema,
   KztMinorUnitsSchema,
   ParticipantIdSchema,
@@ -79,6 +80,43 @@ export async function executeAdminCourseEnrollmentAttempt(
         },
         idempotencyKey: attempt.idempotencyKey,
         expectedRevision,
+      })
+    );
+    return;
+  }
+  if (attempt.kind === 'record_course_day_attendance') {
+    await assertCommandSucceeded(
+      executeAuthenticatedCanonicalCommand(adminAccountId, {
+        kind: attempt.kind,
+        intent: {
+          courseEnrollmentId,
+          courseDayId: CourseDayIdSchema.parse(attempt.courseDayId),
+          attendanceStatus: attempt.attendanceStatus,
+          ...(attempt.expectedAttendanceRevision === undefined
+            ? {}
+            : {
+                expectedAttendanceRevision: AggregateRevisionSchema.parse(
+                  attempt.expectedAttendanceRevision
+                ),
+              }),
+          expectedEnrollmentRevision: expectedRevision,
+          reasonExplanation: attempt.reasonExplanation,
+        },
+        idempotencyKey: attempt.idempotencyKey,
+        expectedRevision,
+        administratorContext: true,
+      })
+    );
+    return;
+  }
+  if (attempt.kind === 'resolve_attendance_outcome') {
+    await assertCommandSucceeded(
+      executeAuthenticatedCanonicalCommand(adminAccountId, {
+        kind: attempt.kind,
+        intent: { subjectKind: 'course_enrollment', subjectId: courseEnrollmentId },
+        idempotencyKey: attempt.idempotencyKey,
+        expectedRevision,
+        administratorContext: true,
       })
     );
     return;

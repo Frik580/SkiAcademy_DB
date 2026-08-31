@@ -88,6 +88,7 @@ describe('resolveCallableAccountContext', () => {
     'change_booking_instructor',
     'change_booking_duration',
     'record_booking_attendance',
+    'record_course_day_attendance',
     'resolve_attendance_outcome',
   ] as const)('routes %s through explicit trusted administrator context', (commandKind) => {
     expect(
@@ -123,6 +124,16 @@ describe('resolveCallableAccountContext', () => {
         {
           authUid: accountId,
           commandKind: 'record_booking_attendance',
+          exercisedCapability: 'instructor',
+        }
+      )
+    ).toMatchObject({ capability: 'instructor', source: 'client_callable' });
+    expect(
+      resolveCallableAccountContext(
+        { role: 'admin' },
+        {
+          authUid: accountId,
+          commandKind: 'record_course_day_attendance',
           exercisedCapability: 'instructor',
         }
       )

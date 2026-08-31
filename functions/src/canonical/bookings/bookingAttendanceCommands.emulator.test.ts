@@ -20,6 +20,7 @@ import {
   paymentIdFromBookingId,
   BOOKING_INSTRUCTOR_ATTENDANCE_WINDOW_MS,
   resolveCommandIdempotencyIdentity,
+  activityLogIdFromCommandId,
   canonicalTimestampToEpochMs,
   timestampFromDate,
   accountCommandActor,
@@ -136,6 +137,40 @@ function recordEnvelope(
       bookingId,
       participantId: input.targetParticipantId ?? participantId,
       attendanceStatus,
+    },
+  };
+}
+
+function adminRecordEnvelope(
+  idempotencyKey: string,
+  attendanceStatus: 'present' | 'absent',
+  input: {
+    expectedBookingRevision: number;
+    expectedAttendanceRevision?: number;
+    reasonExplanation: string;
+    targetParticipantId?: typeof participantId;
+  }
+): CommandEnvelope<'record_booking_attendance'> {
+  return {
+    kind: 'record_booking_attendance',
+    context: accountContext(
+      'administrator',
+      adminAccountId,
+      idempotencyKey,
+      input.expectedBookingRevision
+    ),
+    intent: {
+      bookingId,
+      participantId: input.targetParticipantId ?? participantId,
+      attendanceStatus,
+      reasonExplanation: input.reasonExplanation,
+      ...(input.expectedAttendanceRevision === undefined
+        ? {}
+        : {
+            expectedAttendanceRevision: AggregateRevisionSchema.parse(
+              input.expectedAttendanceRevision
+            ),
+          }),
     },
   };
 }
@@ -895,5 +930,164 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     expect(() => assertNoUndefinedDeep(bookingDoc.data())).not.toThrow();
     expect(() => assertNoUndefinedDeep(activityLogDoc?.data())).not.toThrow();
     expect(() => assertNoUndefinedDeep(idempotencyDoc?.data())).not.toThrow();
+  }, 30_000);
+
+  it('Q. Admin records missing attendance, closes the issue, and audits attendance_correction', async () => {
+    const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(setupCommands);
+    await freezeServiceParty(setupCommands);
+    const interval = await lessonInterval();
+    const resolveCommands = createCommands(isoAfterAutomationFallback(interval));
+    expect((await resolveCommands.execute(resolveEnvelope('admin-missing-open'))).status).toBe(
+      'success'
+    );
+    const missingBefore = (await firestore.collection('admin_issues').get()).docs.filter(
+      (doc) => doc.data().kind === 'missing_attendance' && doc.data().lifecycle?.status === 'open'
+    );
+    expect(missingBefore).toHaveLength(1);
+
+    const bookingBefore = (await firestore.doc(`bookings/${bookingId}`).get()).data();
+    const adminEnvelope = adminRecordEnvelope('admin-missing-record', 'present', {
+      expectedBookingRevision: bookingBefore!.revision,
+      reasonExplanation: 'Confirmed from signed instructor register',
+    });
+    const adminCommands = createCommands(isoAfterAutomationFallback(interval));
+    expect((await adminCommands.execute(adminEnvelope)).status).toBe('success');
+    expect((await adminCommands.execute(adminEnvelope)).status).toBe('success');
+
+    const attendanceDocs = await firestore.collection('attendance').get();
+    expect(attendanceDocs.size).toBe(1);
+    expect(attendanceDocs.docs[0]?.data().attendanceStatus).toBe('present');
+    expect(attendanceDocs.docs[0]?.data().lastChangedBy).toEqual({
+      kind: 'administrator',
+      accountId: adminAccountId,
+    });
+    const missingAfter = (await firestore.collection('admin_issues').get()).docs.filter(
+      (doc) => doc.data().kind === 'missing_attendance'
+    );
+    expect(missingAfter).toHaveLength(1);
+    expect(missingAfter[0]?.data().lifecycle?.status).toBe('resolved');
+    const bookingAfter = (await firestore.doc(`bookings/${bookingId}`).get()).data();
+    expect(bookingAfter?.lifecycle.status).toBe('completed');
+    const identity = resolveCommandIdempotencyIdentity(adminEnvelope);
+    const activityLog = (
+      await firestore.doc(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`).get()
+    ).data();
+    expect(activityLog?.reason).toMatchObject({
+      reasonCode: 'attendance_correction',
+      explanation: 'Confirmed from signed instructor register',
+    });
+  }, 30_000);
+
+  it('R. Admin completed ↔ no_show is atomic and requires exact revisions', async () => {
+    const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(setupCommands);
+    await freezeServiceParty(setupCommands);
+    const instructorCommands = createCommands(isoAfterEndsAt(await lessonInterval()));
+    expect(
+      (await instructorCommands.execute(recordEnvelope('instructor-present-terminal', 'present')))
+        .status
+    ).toBe('success');
+    const completed = (await firestore.doc(`bookings/${bookingId}`).get()).data();
+    expect(completed?.lifecycle.status).toBe('completed');
+    const attendanceId = await attendanceIdFor(completed?.occurrence.occurrenceId, participantId);
+    const attendanceBefore = (await firestore.doc(`attendance/${attendanceId}`).get()).data();
+
+    const staleBooking = await instructorCommands.execute(
+      adminRecordEnvelope('admin-stale-booking-terminal', 'absent', {
+        expectedBookingRevision: completed!.revision + 1,
+        expectedAttendanceRevision: attendanceBefore!.revision,
+        reasonExplanation: 'Verified no-show',
+      })
+    );
+    expect(staleBooking.status).toBe('error');
+    if (staleBooking.status === 'error') expect(staleBooking.error.code).toBe('stale_version');
+
+    const instructorBlocked = await instructorCommands.execute(
+      recordEnvelope('instructor-terminal-blocked', 'absent', {
+        expectedAttendanceRevision: attendanceBefore!.revision,
+      })
+    );
+    expect(instructorBlocked.status).toBe('error');
+    if (instructorBlocked.status === 'error') {
+      expect(instructorBlocked.error.code).toBe('invalid_transition');
+    }
+
+    const correction = adminRecordEnvelope('admin-terminal-noshow', 'absent', {
+      expectedBookingRevision: completed!.revision,
+      expectedAttendanceRevision: attendanceBefore!.revision,
+      reasonExplanation: 'Verified no-show',
+    });
+    expect((await instructorCommands.execute(correction)).status).toBe('success');
+    expect((await instructorCommands.execute(correction)).status).toBe('success');
+
+    const bookingAfter = (await firestore.doc(`bookings/${bookingId}`).get()).data();
+    expect(bookingAfter?.lifecycle.status).toBe('no_show');
+    const attendanceAfter = (await firestore.doc(`attendance/${attendanceId}`).get()).data();
+    expect(attendanceAfter?.attendanceStatus).toBe('absent');
+    expect(attendanceAfter?.recordedBy).toEqual(attendanceBefore?.recordedBy);
+    expect(attendanceAfter?.lastChangedBy).toEqual({
+      kind: 'administrator',
+      accountId: adminAccountId,
+    });
+    const identity = resolveCommandIdempotencyIdentity(correction);
+    const activityLog = (
+      await firestore.doc(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`).get()
+    ).data();
+    expect(activityLog?.reason).toMatchObject({
+      reasonCode: 'attendance_correction',
+      explanation: 'Verified no-show',
+    });
+
+    const restore = adminRecordEnvelope('admin-terminal-restore', 'present', {
+      expectedBookingRevision: bookingAfter!.revision,
+      expectedAttendanceRevision: attendanceAfter!.revision,
+      reasonExplanation: 'Participant was present after all',
+    });
+    expect((await instructorCommands.execute(restore)).status).toBe('success');
+    expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.lifecycle.status).toBe(
+      'completed'
+    );
+  }, 30_000);
+
+  it('S. Admin vs Admin concurrent correction serializes to one winner', async () => {
+    const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(setupCommands);
+    await freezeServiceParty(setupCommands);
+    const commands = createCommands(isoAfterEndsAt(await lessonInterval()));
+    expect((await commands.execute(recordEnvelope('seed-present-race', 'present'))).status).toBe(
+      'success'
+    );
+    const booking = (await firestore.doc(`bookings/${bookingId}`).get()).data();
+    const attendanceId = await attendanceIdFor(booking?.occurrence.occurrenceId, participantId);
+    const attendance = (await firestore.doc(`attendance/${attendanceId}`).get()).data();
+
+    const [first, second] = await Promise.allSettled([
+      commands.execute(
+        adminRecordEnvelope('admin-race-a', 'absent', {
+          expectedBookingRevision: booking!.revision,
+          expectedAttendanceRevision: attendance!.revision,
+          reasonExplanation: 'Correction A',
+        })
+      ),
+      commands.execute(
+        adminRecordEnvelope('admin-race-b', 'absent', {
+          expectedBookingRevision: booking!.revision,
+          expectedAttendanceRevision: attendance!.revision,
+          reasonExplanation: 'Correction B',
+        })
+      ),
+    ]);
+    const outcomes = [first, second].map((result) =>
+      result.status === 'fulfilled' ? result.value.status : 'rejected'
+    );
+    expect(outcomes.filter((status) => status === 'success')).toHaveLength(1);
+    expect(outcomes.filter((status) => status === 'error')).toHaveLength(1);
+    const attendanceAfter = (await firestore.doc(`attendance/${attendanceId}`).get()).data();
+    expect(attendanceAfter?.attendanceStatus).toBe('absent');
+    expect(attendanceAfter?.revision).toBe(attendance!.revision + 1);
+    expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.lifecycle.status).toBe(
+      'no_show'
+    );
   }, 30_000);
 });

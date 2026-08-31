@@ -77,12 +77,7 @@ import {
   planReleaseCourseEnrollmentClaims,
   type PlannedCourseEnrollmentClaimRelease,
 } from './courseEnrollmentClaimOperations';
-import {
-  courseDaysCollectionPath,
-  coursePath,
-  parseCourse,
-  parseCourseDays,
-} from './courseStore';
+import { courseDaysCollectionPath, coursePath, parseCourse, parseCourseDays } from './courseStore';
 import {
   courseEnrollmentPath,
   COURSE_ENROLLMENT_PLANNING_ESTIMATES,
@@ -343,29 +338,32 @@ function recordCourseDayAttendanceHandler(
           category: 'aggregate',
           estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
         });
-        plannedAttendance = effectiveExistingAttendance ?? existingAttendance ?? AttendanceSchema.parse({
-          attendanceId: attendanceIdFromCourseDayIdentity({
-            strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
-            subjectKind: 'course_enrollment',
-            enrollmentId: enrollment.enrollmentId,
-            courseDayId: envelope.intent.courseDayId,
-          }),
-          subject: {
-            subjectKind: 'course_enrollment',
-            enrollmentId: enrollment.enrollmentId,
-            courseId: enrollment.courseId,
-            courseDayId: envelope.intent.courseDayId,
-            occurrenceId: courseDayOccurrenceId(courseDay),
-            participantId: enrollment.participantId,
-          },
-          attendanceStatus: envelope.intent.attendanceStatus,
-          recordedBy: { kind: 'instructor', instructorId: courseDay.actualInstructorIds[0]! },
-          recordedAt: now,
-          lastChangedBy: { kind: 'instructor', instructorId: courseDay.actualInstructorIds[0]! },
-          updatedAt: now,
-          revision: AggregateRevisionSchema.parse(1),
-          correlationId: metadata.correlationId,
-        });
+        plannedAttendance =
+          effectiveExistingAttendance ??
+          existingAttendance ??
+          AttendanceSchema.parse({
+            attendanceId: attendanceIdFromCourseDayIdentity({
+              strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+              subjectKind: 'course_enrollment',
+              enrollmentId: enrollment.enrollmentId,
+              courseDayId: envelope.intent.courseDayId,
+            }),
+            subject: {
+              subjectKind: 'course_enrollment',
+              enrollmentId: enrollment.enrollmentId,
+              courseId: enrollment.courseId,
+              courseDayId: envelope.intent.courseDayId,
+              occurrenceId: courseDayOccurrenceId(courseDay),
+              participantId: enrollment.participantId,
+            },
+            attendanceStatus: envelope.intent.attendanceStatus,
+            recordedBy: { kind: 'instructor', instructorId: courseDay.actualInstructorIds[0]! },
+            recordedAt: now,
+            lastChangedBy: { kind: 'instructor', instructorId: courseDay.actualInstructorIds[0]! },
+            updatedAt: now,
+            revision: AggregateRevisionSchema.parse(1),
+            correlationId: metadata.correlationId,
+          });
         return;
       }
 
@@ -468,11 +466,7 @@ function recordCourseDayAttendanceHandler(
         });
       }
       payment = parsedPayment;
-      assertCourseEnrollmentPaymentIdentity(
-        envelope.context.correlationId,
-        enrollment,
-        payment
-      );
+      assertCourseEnrollmentPaymentIdentity(envelope.context.correlationId, enrollment, payment);
 
       const pendingCancellationIssue = await readOpenAdminIssue(
         session,
@@ -570,10 +564,49 @@ function recordCourseDayAttendanceHandler(
       }
 
       const openIssues = [
-        ...(pendingCancellationIssue?.lifecycle.status === 'open' ? [pendingCancellationIssue] : []),
+        ...(pendingCancellationIssue?.lifecycle.status === 'open'
+          ? [pendingCancellationIssue]
+          : []),
         ...(paymentIssue?.lifecycle.status === 'open' ? [paymentIssue] : []),
         ...(plannedPaymentConflictIssue ? [plannedPaymentConflictIssue] : []),
       ];
+
+      if (actorMode === 'administrator' || actorMode === 'admin_terminal_correction') {
+        const correctionReason = envelope.intent.reasonExplanation!.trim();
+        const resolvedMissingIssue = await planResolveOpenAdminIssue(session, {
+          correlationId: metadata.correlationId,
+          commandId: metadata.commandId,
+          now,
+          identity: missingCourseDayAttendanceIssueIdentity({
+            enrollmentId: enrollment.enrollmentId,
+            courseDayId: courseDay.courseDayId,
+            participantId: enrollment.participantId,
+            occurrenceId: courseDayOccurrenceId(courseDay),
+          }),
+          envelope,
+          reason: correctionReason,
+        });
+        if (resolvedMissingIssue) plannedIssueMutations.push(resolvedMissingIssue);
+
+        const stillHasPresent = [...attendancesByCourseDayId.values()].some(
+          (attendance) => attendance.attendanceStatus === 'present'
+        );
+        if (!stillHasPresent) {
+          const resolvedConflictIssue = await planResolveOpenAdminIssue(session, {
+            correlationId: metadata.correlationId,
+            commandId: metadata.commandId,
+            now,
+            identity: courseEnrollmentAttendancePaymentConflictIdentity({
+              enrollmentId: enrollment.enrollmentId,
+              occurrenceId: courseEnrollmentSeatOccurrenceId(enrollment.enrollmentId),
+              participantId: enrollment.participantId,
+            }),
+            envelope,
+            reason: correctionReason,
+          });
+          if (resolvedConflictIssue) plannedIssueMutations.push(resolvedConflictIssue);
+        }
+      }
 
       if (actorMode === 'admin_terminal_correction') {
         const effectiveSummary = buildCourseEnrollmentAttendanceSummaryFromCurrentEvidence({
@@ -613,7 +646,8 @@ function recordCourseDayAttendanceHandler(
           estimatedPayloadBytes: COURSE_ENROLLMENT_PLANNING_ESTIMATES.enrollmentBytes,
         });
 
-        const correctionReason = envelope.intent.reasonExplanation?.trim() ?? 'Terminal attendance correction';
+        const correctionReason =
+          envelope.intent.reasonExplanation?.trim() ?? 'Terminal attendance correction';
         const resolvedOutcomeIssue = await planResolveOpenAdminIssue(session, {
           correlationId: metadata.correlationId,
           commandId: metadata.commandId,
@@ -824,6 +858,15 @@ export function resolveCourseEnrollmentAttendanceOutcomeHandler(
       }
       enrollment = parsedEnrollment;
 
+      if (actorMode === 'administrator') {
+        assertExpectedRevision({
+          correlationId: envelope.context.correlationId,
+          expectedRevision: envelope.context.expectedRevision,
+          currentRevision: enrollment.revision,
+          requireExpectedRevision: true,
+        });
+      }
+
       const courseDocumentPath = coursePath(enrollment.courseId);
       const courseRead = await session.tx.get({ path: courseDocumentPath });
       session.plan.planRead({ path: courseDocumentPath, category: 'aggregate' });
@@ -860,7 +903,9 @@ export function resolveCourseEnrollmentAttendanceOutcomeHandler(
         })
       );
       const openIssues = [
-        ...(pendingCancellationIssue?.lifecycle.status === 'open' ? [pendingCancellationIssue] : []),
+        ...(pendingCancellationIssue?.lifecycle.status === 'open'
+          ? [pendingCancellationIssue]
+          : []),
       ];
 
       const outcomeDecision = evaluateCourseEnrollmentOutcomeCalculator({

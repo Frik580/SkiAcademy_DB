@@ -4,6 +4,7 @@ import {
   AccountIdSchema,
   ActorRefSchema,
   AdminIssueIdSchema,
+  AttendanceIdSchema,
   BookingIdSchema,
   InstructorIdSchema,
   ParticipantIdSchema,
@@ -13,6 +14,8 @@ import {
   AdminIssueKindSchema,
   AdminIssueLifecycleStatusSchema,
   AdminIssueSeveritySchema,
+  AttendanceRecorderSchema,
+  AttendanceStatusSchema,
 } from '../courseEnrollmentAttendanceAdminIssue';
 import {
   BookingLifecycleStatusSchema,
@@ -186,6 +189,45 @@ export const LessonBookingAdminIssueSummarySchema = z
   })
   .strict();
 
+export const LessonBookingAdminAttendancePresentationSchema = z
+  .object({
+    participantId: ParticipantIdSchema,
+    attendanceId: AttendanceIdSchema.optional(),
+    attendanceStatus: AttendanceStatusSchema.optional(),
+    revision: AggregateRevisionSchema.optional(),
+    recordedBy: AttendanceRecorderSchema.optional(),
+    recordedAt: CanonicalTimestampSchema.optional(),
+    lastChangedBy: AttendanceRecorderSchema.optional(),
+    updatedAt: CanonicalTimestampSchema.optional(),
+    authorizedActions: z
+      .object({
+        canRecordPresent: z.boolean(),
+        canRecordAbsent: z.boolean(),
+        reasonRequired: z.literal(true),
+      })
+      .strict(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const evidenceFields = [
+      value.attendanceId,
+      value.attendanceStatus,
+      value.revision,
+      value.recordedBy,
+      value.recordedAt,
+      value.lastChangedBy,
+      value.updatedAt,
+    ];
+    const presentCount = evidenceFields.filter((field) => field !== undefined).length;
+    if (presentCount !== 0 && presentCount !== evidenceFields.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['attendanceId'],
+        message: 'Attendance evidence must be projected completely or represented as missing',
+      });
+    }
+  });
+
 export const LessonBookingAdminAuthorizedActionsSchema = z
   .object({
     canConfirmGuest: z.boolean(),
@@ -213,6 +255,7 @@ export const LessonBookingAdminProjectionSchema = z
     payment: LessonBookingAdminPaymentAccountingSchema,
     cancellationFinancial: LessonBookingAdminCancellationFinancialProjectionSchema,
     relatedIssues: z.array(LessonBookingAdminIssueSummarySchema).max(50),
+    attendance: z.array(LessonBookingAdminAttendancePresentationSchema).min(1).max(8),
     scheduleRevision: AggregateRevisionSchema,
     serviceParticipantIds: z.array(ParticipantIdSchema).min(1).max(8),
     authorizedActions: LessonBookingAdminAuthorizedActionsSchema,

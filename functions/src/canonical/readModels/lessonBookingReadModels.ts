@@ -1,5 +1,7 @@
 import {
   BookingIdSchema,
+  ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+  attendanceIdFromBookingIdentity,
   CanonicalTimestampSchema,
   KztMinorUnitsSchema,
   calculateFullPaidRefundAmount,
@@ -48,6 +50,7 @@ import type { Firestore, Query, QueryDocumentSnapshot } from 'firebase-admin/fir
 import { parseAdminIssue } from '../adminIssues';
 import { verifyGuestActionCredentialPartsAuthoritative } from '../bookings/guestCredentialVerification';
 import { parseBooking, parseInstructorCatalog } from '../bookings/bookingStore';
+import { parseAttendance } from '../bookings/attendanceStore';
 import { parsePayment } from '../finance/financeStore';
 import { parseAccount, parseParticipant } from '../participantAccess/participantAccessStore';
 import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
@@ -294,7 +297,10 @@ function buildAdminAuthorizedActions(input: {
   const attendanceLifecycle =
     input.booking.party.kind === 'individual' &&
     (input.booking.lifecycle.status === 'confirmed' ||
-      input.booking.lifecycle.status === 'pending_cancellation');
+      input.booking.lifecycle.status === 'pending_cancellation' ||
+      input.booking.lifecycle.status === 'completed' ||
+      input.booking.lifecycle.status === 'no_show');
+  const outcomeLifecycle = input.booking.lifecycle.status === 'confirmed';
   const servicePartyFrozen = input.booking.occurrence.serviceParty.frozenAt !== undefined;
   const started =
     compareCanonicalTimestamps(input.now, input.booking.occurrence.interval.startsAt) >= 0;
@@ -319,7 +325,7 @@ function buildAdminAuthorizedActions(input: {
       accountActive &&
       input.payment !== undefined &&
       isPendingCancellationIndividualBooking(input.booking),
-    canResolveAttendanceOutcome: accountActive && attendanceLifecycle && ended,
+    canResolveAttendanceOutcome: accountActive && outcomeLifecycle && ended,
     canLinkGuestToAccount: false,
   };
 }
@@ -331,18 +337,35 @@ export async function buildAdminLessonBookingReadModel(
   options: { readonly now?: CanonicalTimestamp } = {}
 ): Promise<LessonBookingReadModel | undefined> {
   const now = options.now ?? timestampFromDate(new Date());
-  const [instructorSnap, paymentSnap, administratorSnap, relatedIssues, participantSnaps] =
-    await Promise.all([
-      firestore.collection('instructors').doc(booking.occurrence.instructorId).get(),
-      firestore.collection('payments').doc(booking.paymentId).get(),
-      firestore.collection('users').doc(actor.accountId).get(),
-      loadRelatedBookingAdminIssues(firestore, booking),
-      Promise.all(
-        booking.party.participantIds.map((participantId) =>
-          firestore.collection('participants').doc(participantId).get()
-        )
-      ),
-    ]);
+  const [
+    instructorSnap,
+    paymentSnap,
+    administratorSnap,
+    relatedIssues,
+    participantSnaps,
+    attendanceSnaps,
+  ] = await Promise.all([
+    firestore.collection('instructors').doc(booking.occurrence.instructorId).get(),
+    firestore.collection('payments').doc(booking.paymentId).get(),
+    firestore.collection('users').doc(actor.accountId).get(),
+    loadRelatedBookingAdminIssues(firestore, booking),
+    Promise.all(
+      booking.party.participantIds.map((participantId) =>
+        firestore.collection('participants').doc(participantId).get()
+      )
+    ),
+    Promise.all(
+      booking.occurrence.serviceParty.participantIds.map((participantId) => {
+        const attendanceId = attendanceIdFromBookingIdentity({
+          strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+          subjectKind: 'booking',
+          occurrenceId: booking.occurrence.occurrenceId,
+          participantId,
+        });
+        return firestore.collection('attendance').doc(attendanceId).get();
+      })
+    ),
+  ]);
 
   const instructorCatalog = parseInstructorCatalog(
     booking.occurrence.instructorId,
@@ -371,9 +394,9 @@ export async function buildAdminLessonBookingReadModel(
     booking.paymentId !== paymentIdFromBookingId(booking.bookingId) ||
     payment.paymentId !== booking.paymentId ||
     !paymentIdMatchesSubject(payment, {
-        subjectType: 'booking',
-        subjectId: booking.bookingId,
-      })
+      subjectType: 'booking',
+      subjectId: booking.bookingId,
+    })
   ) {
     throw new Error(
       `Canonical lesson Booking read integrity failure: payments/${booking.paymentId}`
@@ -400,6 +423,60 @@ export async function buildAdminLessonBookingReadModel(
     participantId: participant.participantId,
     displayName: participant.displayName,
   }));
+  const started = compareCanonicalTimestamps(now, booking.occurrence.interval.startsAt) >= 0;
+  const accountActive = administratorAccount?.lifecycle.status === 'active';
+  const attendance = booking.occurrence.serviceParty.participantIds.map((participantId, index) => {
+    const snapshot = attendanceSnaps[index]!;
+    const record = snapshot.exists
+      ? parseAttendance(snapshot.data() as Record<string, unknown>)
+      : undefined;
+    if (
+      snapshot.exists &&
+      (!record ||
+        record.attendanceId !== snapshot.id ||
+        record.subject.subjectKind !== 'booking' ||
+        record.subject.bookingId !== booking.bookingId ||
+        record.subject.occurrenceId !== booking.occurrence.occurrenceId ||
+        record.subject.participantId !== participantId)
+    ) {
+      throw new Error(`Canonical lesson Booking read integrity failure: attendance/${snapshot.id}`);
+    }
+
+    const nonterminal =
+      booking.lifecycle.status === 'confirmed' ||
+      booking.lifecycle.status === 'pending_cancellation';
+    const canRecordPresent = Boolean(
+      accountActive &&
+      started &&
+      ((nonterminal && record?.attendanceStatus !== 'present') ||
+        (booking.party.kind === 'individual' &&
+          booking.lifecycle.status === 'no_show' &&
+          record?.attendanceStatus === 'absent'))
+    );
+    const canRecordAbsent = Boolean(
+      accountActive &&
+      started &&
+      ((nonterminal && record?.attendanceStatus !== 'absent') ||
+        (booking.party.kind === 'individual' &&
+          booking.lifecycle.status === 'completed' &&
+          record?.attendanceStatus === 'present'))
+    );
+    return {
+      participantId,
+      ...(record
+        ? {
+            attendanceId: record.attendanceId,
+            attendanceStatus: record.attendanceStatus,
+            revision: record.revision,
+            recordedBy: record.recordedBy,
+            recordedAt: record.recordedAt,
+            lastChangedBy: record.lastChangedBy,
+            updatedAt: record.updatedAt,
+          }
+        : {}),
+      authorizedActions: { canRecordPresent, canRecordAbsent, reasonRequired: true as const },
+    };
+  });
   const occurrence: LessonBookingReadModelOccurrenceProjection = {
     startsAt: booking.occurrence.interval.startsAt,
     endsAt: booking.occurrence.interval.endsAt,
@@ -484,15 +561,22 @@ export async function buildAdminLessonBookingReadModel(
         blocksDelivery: issue.blocksDelivery,
         updatedAt: issue.updatedAt,
       })),
+      attendance,
       scheduleRevision: booking.occurrence.scheduleRevision,
       serviceParticipantIds: [...booking.occurrence.serviceParty.participantIds],
-      authorizedActions: buildAdminAuthorizedActions({
-        booking,
-        participants: participantRecords,
-        payment,
-        administratorAccount,
-        now,
-      }),
+      authorizedActions: {
+        ...buildAdminAuthorizedActions({
+          booking,
+          participants: participantRecords,
+          payment,
+          administratorAccount,
+          now,
+        }),
+        canRecordAttendance: attendance.some(
+          (record) =>
+            record.authorizedActions.canRecordPresent || record.authorizedActions.canRecordAbsent
+        ),
+      },
     },
     updatedAt: booking.updatedAt,
   };

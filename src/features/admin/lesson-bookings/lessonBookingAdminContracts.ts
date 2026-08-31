@@ -65,7 +65,9 @@ export type AdminLessonBookingMutationAttempt =
     })
   | (AttemptBase & {
       readonly kind: 'record_booking_attendance';
-      readonly serviceParticipantIds: readonly ParticipantId[];
+      readonly participantId: ParticipantId;
+      readonly attendanceStatus: 'present' | 'absent';
+      readonly expectedAttendanceRevision?: number;
       readonly reasonExplanation: string;
     })
   | (AttemptBase & {

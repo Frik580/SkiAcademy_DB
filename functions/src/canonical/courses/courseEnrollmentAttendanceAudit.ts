@@ -30,9 +30,9 @@ export function buildRecordCourseDayAttendanceAuditPlan(input: {
   const enrollmentRef = canonicalReference('course_enrollment', input.enrollmentId);
   const attendanceRef = canonicalReference('attendance', input.attendanceId);
   const reasonCode =
-    input.actorMode === 'administrator'
-      ? ('attendance_correction' as const)
-      : ('instructor_attendance' as const);
+    input.actorMode === 'instructor' || input.actorMode === 'instructor_outcome_correction_required'
+      ? ('instructor_attendance' as const)
+      : ('attendance_correction' as const);
   const explanation =
     reasonCode === 'attendance_correction'
       ? input.envelope.intent.reasonExplanation

@@ -8,10 +8,12 @@ import {
   ATTENDANCE_IDENTITY_STRATEGY_VERSION,
   attendancePaymentConflictIdentity,
   commandSuccessResult,
+  deriveIndividualBookingAttendanceOutcome,
   evaluateBookingOutcomeCalculator,
   missingBookingAttendanceIssueIdentity,
   nextAggregateRevision,
   paymentRequiredAtStartIdentity,
+  resolveAdminIssue,
   resolveCommandIdempotencyIdentity,
   shouldCreateAttendancePaymentConflict,
   timestampFromDate,
@@ -53,7 +55,12 @@ import {
   parseAttendance,
   toFirestoreWritePayload as toAttendanceWritePayload,
 } from './attendanceStore';
-import { BOOKING_PLANNING_ESTIMATES, bookingPath, parseBooking, toFirestoreWritePayload } from './bookingStore';
+import {
+  BOOKING_PLANNING_ESTIMATES,
+  bookingPath,
+  parseBooking,
+  toFirestoreWritePayload,
+} from './bookingStore';
 import type { CanonicalAtomicTransactionSession } from '../transactions';
 import { resolveCourseEnrollmentAttendanceOutcomeHandler } from '../courses/courseEnrollmentAttendanceCommands';
 
@@ -98,6 +105,49 @@ async function readOpenAdminIssue(
   return parseExistingAdminIssueOrCollision(correlationId, read.exists ? read.data : undefined);
 }
 
+type PlannedResolvedBookingIssue = {
+  readonly issue: AdminIssue;
+  readonly documentPath: string;
+  readonly kind: 'missing_attendance' | 'attendance_payment_conflict';
+};
+
+async function planResolveBookingAttendanceIssue(
+  session: CanonicalAtomicTransactionSession,
+  input: {
+    readonly identity: Parameters<typeof plannedAdminIssuePath>[0];
+    readonly envelope: CommandEnvelope<'record_booking_attendance'>;
+    readonly metadata: CommandMetadata;
+    readonly now: ReturnType<typeof timestampFromDate>;
+    readonly reason: string;
+  }
+): Promise<PlannedResolvedBookingIssue | undefined> {
+  const existing = await readOpenAdminIssue(session, input.metadata.correlationId, input.identity);
+  if (!existing || existing.lifecycle.status !== 'open') return undefined;
+  if (existing.kind !== 'missing_attendance' && existing.kind !== 'attendance_payment_conflict') {
+    return undefined;
+  }
+  const documentPath = plannedAdminIssuePath(input.identity);
+  const resolved = resolveAdminIssue(existing, {
+    expectedRevision: existing.revision,
+    now: input.now,
+    correlationId: input.metadata.correlationId,
+    commandId: input.metadata.commandId,
+    reason: input.reason,
+    actor: {
+      actor: input.envelope.context.actor,
+      exercisedCapability: input.envelope.context.exercisedCapability,
+    },
+    coupledDomainCommand: true,
+  });
+  session.plan.planMutation({
+    path: documentPath,
+    kind: 'update',
+    category: 'aggregate',
+    estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+  });
+  return { issue: resolved, documentPath, kind: existing.kind };
+}
+
 function buildAttendanceRecorder(
   mode: BookingAttendanceActorMode,
   envelope: CommandEnvelope<'record_booking_attendance'>,
@@ -132,6 +182,7 @@ function recordBookingAttendanceHandler(
   let plannedPaymentConflictIssue: AdminIssue | undefined;
   let paymentConflictDocumentPath = '';
   let paymentConflictMutation: 'create' | 'update' | undefined;
+  let resolvedIssues: PlannedResolvedBookingIssue[] = [];
   let auditSummary: string | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'record_booking_attendance'> = {
@@ -141,6 +192,7 @@ function recordBookingAttendanceHandler(
       plannedPaymentConflictIssue = undefined;
       paymentConflictDocumentPath = '';
       paymentConflictMutation = undefined;
+      resolvedIssues = [];
       auditSummary = undefined;
 
       const bookingRead = await session.tx.get({ path: bookingDocumentPath });
@@ -181,12 +233,13 @@ function recordBookingAttendanceHandler(
           currentRevision: existingAttendance.revision,
           requireExpectedRevision: true,
         });
+        attendanceMutation = 'update';
         if (existingAttendance.attendanceStatus === envelope.intent.attendanceStatus) {
           plannedAttendance = existingAttendance;
-          attendanceMutation = 'update';
-          return;
+          if (actorMode === 'instructor') {
+            return;
+          }
         }
-        attendanceMutation = 'update';
       } else if (envelope.intent.expectedAttendanceRevision !== undefined) {
         throw new CanonicalCommandError('stale_version', {
           correlationId: envelope.context.correlationId,
@@ -203,34 +256,39 @@ function recordBookingAttendanceHandler(
         attendanceMutation = 'create';
       }
 
-      const recorder = buildAttendanceRecorder(actorMode, envelope, booking);
-      const nextAttendanceRevision = existingAttendance
-        ? nextAggregateRevision(existingAttendance.revision)
-        : AggregateRevisionSchema.parse(1);
-      plannedAttendance = AttendanceSchema.parse({
-        attendanceId,
-        subject: {
-          subjectKind: 'booking',
-          bookingId: booking.bookingId,
-          occurrenceId: booking.occurrence.occurrenceId,
-          participantId: envelope.intent.participantId,
-        },
-        attendanceStatus: envelope.intent.attendanceStatus,
-        recordedBy: existingAttendance?.recordedBy ?? recorder,
-        recordedAt: existingAttendance?.recordedAt ?? now,
-        lastChangedBy: recorder,
-        updatedAt: now,
-        revision: nextAttendanceRevision,
-        correlationId: metadata.correlationId,
-        causationId: metadata.commandId,
-      });
+      if (
+        !existingAttendance ||
+        existingAttendance.attendanceStatus !== envelope.intent.attendanceStatus
+      ) {
+        const recorder = buildAttendanceRecorder(actorMode, envelope, booking);
+        const nextAttendanceRevision = existingAttendance
+          ? nextAggregateRevision(existingAttendance.revision)
+          : AggregateRevisionSchema.parse(1);
+        plannedAttendance = AttendanceSchema.parse({
+          attendanceId,
+          subject: {
+            subjectKind: 'booking',
+            bookingId: booking.bookingId,
+            occurrenceId: booking.occurrence.occurrenceId,
+            participantId: envelope.intent.participantId,
+          },
+          attendanceStatus: envelope.intent.attendanceStatus,
+          recordedBy: existingAttendance?.recordedBy ?? recorder,
+          recordedAt: existingAttendance?.recordedAt ?? now,
+          lastChangedBy: recorder,
+          updatedAt: now,
+          revision: nextAttendanceRevision,
+          correlationId: metadata.correlationId,
+          causationId: metadata.commandId,
+        });
 
-      session.plan.planMutation({
-        path: attendanceDocumentPath,
-        kind: attendanceMutation,
-        category: 'aggregate',
-        estimatedPayloadBytes: ATTENDANCE_PLANNING_ESTIMATES.attendanceBytes,
-      });
+        session.plan.planMutation({
+          path: attendanceDocumentPath,
+          kind: attendanceMutation,
+          category: 'aggregate',
+          estimatedPayloadBytes: ATTENDANCE_PLANNING_ESTIMATES.attendanceBytes,
+        });
+      }
 
       const paymentIssue = await readOpenAdminIssue(
         session,
@@ -283,6 +341,70 @@ function recordBookingAttendanceHandler(
         }
       }
 
+      if (actorMode === 'administrator' || actorMode === 'admin_terminal_correction') {
+        const reason = envelope.intent.reasonExplanation!.trim();
+        const resolvedMissing = await planResolveBookingAttendanceIssue(session, {
+          identity: missingBookingAttendanceIssueIdentity({
+            bookingId: booking.bookingId,
+            occurrenceId: booking.occurrence.occurrenceId,
+            participantId: envelope.intent.participantId,
+          }),
+          envelope,
+          metadata,
+          now,
+          reason,
+        });
+        if (resolvedMissing) resolvedIssues.push(resolvedMissing);
+
+        if (envelope.intent.attendanceStatus !== 'present') {
+          const resolvedConflict = await planResolveBookingAttendanceIssue(session, {
+            identity: attendancePaymentConflictIdentity({
+              bookingId: booking.bookingId,
+              occurrenceId: booking.occurrence.occurrenceId,
+              participantId: envelope.intent.participantId,
+            }),
+            envelope,
+            metadata,
+            now,
+            reason,
+          });
+          if (resolvedConflict) resolvedIssues.push(resolvedConflict);
+        }
+      }
+
+      if (actorMode === 'admin_terminal_correction') {
+        const correctedLifecycle = deriveIndividualBookingAttendanceOutcome(plannedAttendance);
+        if (correctedLifecycle === 'missing_attendance') {
+          throw new CanonicalCommandError('invalid_transition', {
+            correlationId: envelope.context.correlationId,
+            details: { resourceKind: 'booking', reason: 'unsupported' },
+          });
+        }
+        plannedBookingRevision = nextAggregateRevision(booking.revision);
+        plannedBooking = BookingSchema.parse({
+          ...booking,
+          lifecycle:
+            correctedLifecycle === 'completed'
+              ? { status: 'completed', completedAt: now }
+              : { status: 'no_show', noShowAt: now },
+          revision: plannedBookingRevision,
+          updatedAt: now,
+          audit: {
+            ...booking.audit,
+            lastChangedByCommandId: metadata.commandId,
+            correlationId: metadata.correlationId,
+          },
+        });
+        auditSummary = `Booking marked ${correctedLifecycle}`;
+        session.plan.planMutation({
+          path: bookingDocumentPath,
+          kind: 'update',
+          category: 'aggregate',
+          estimatedPayloadBytes: BOOKING_PLANNING_ESTIMATES.bookingBytes,
+        });
+        return;
+      }
+
       const outcomeDecision = evaluateBookingOutcomeCalculator({
         now,
         booking,
@@ -328,16 +450,27 @@ function recordBookingAttendanceHandler(
         attendanceRevision: plannedAttendance.revision,
         bookingRevision: plannedBookingRevision,
         actorMode,
-        ...(plannedPaymentConflictIssue && paymentConflictMutation
-          ? {
-              issue: {
-                issueId: plannedPaymentConflictIssue.issueId,
-                revision: plannedPaymentConflictIssue.revision,
-                effect: paymentConflictMutation === 'create' ? ('opened' as const) : ('reused' as const),
-                kind: 'attendance_payment_conflict' as const,
-              },
-            }
-          : {}),
+        issues: [
+          ...(plannedPaymentConflictIssue && paymentConflictMutation
+            ? [
+                {
+                  issueId: plannedPaymentConflictIssue.issueId,
+                  revision: plannedPaymentConflictIssue.revision,
+                  effect:
+                    paymentConflictMutation === 'create'
+                      ? ('opened' as const)
+                      : ('reused' as const),
+                  kind: 'attendance_payment_conflict' as const,
+                },
+              ]
+            : []),
+          ...resolvedIssues.map((entry) => ({
+            issueId: entry.issue.issueId,
+            revision: entry.issue.revision,
+            effect: 'resolved' as const,
+            kind: entry.kind,
+          })),
+        ],
         ...(auditSummary ? { lifecycleSummary: auditSummary } : {}),
       }),
     execute: async (session) => {
@@ -369,6 +502,12 @@ function recordBookingAttendanceHandler(
             toAdminIssueWritePayload(plannedPaymentConflictIssue as Record<string, unknown>)
           );
         }
+      }
+      for (const entry of resolvedIssues) {
+        session.tx.update(
+          { path: entry.documentPath },
+          toAdminIssueWritePayload(entry.issue as Record<string, unknown>)
+        );
       }
       if (plannedBooking) {
         session.tx.update(
@@ -436,6 +575,15 @@ function resolveAttendanceOutcomeHandler(
       }
       booking = parsedBooking;
 
+      if (actorMode === 'administrator') {
+        assertExpectedRevision({
+          correlationId: envelope.context.correlationId,
+          expectedRevision: envelope.context.expectedRevision,
+          currentRevision: booking.revision,
+          requireExpectedRevision: true,
+        });
+      }
+
       const now = timestampFromDate(environment.clock.decidedAt());
       const attendancesByParticipantId = new Map<ParticipantId, Attendance>();
       for (const participantId of booking.occurrence.serviceParty.participantIds) {
@@ -464,7 +612,9 @@ function resolveAttendanceOutcomeHandler(
 
       const openIssues = [
         ...(paymentIssue?.lifecycle.status === 'open' ? [paymentIssue] : []),
-        ...(pendingCancellationIssue?.lifecycle.status === 'open' ? [pendingCancellationIssue] : []),
+        ...(pendingCancellationIssue?.lifecycle.status === 'open'
+          ? [pendingCancellationIssue]
+          : []),
       ];
 
       const outcomeDecision = evaluateBookingOutcomeCalculator({

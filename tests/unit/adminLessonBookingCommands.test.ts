@@ -162,22 +162,27 @@ describe('canonical Admin lesson booking commands', () => {
       kind: 'record_booking_attendance',
       target,
       idempotencyKey: createAdminLessonBookingAttemptId('attendance'),
-      serviceParticipantIds: [
-        ParticipantIdSchema.parse('participant_admin_attendance_01'),
-        ParticipantIdSchema.parse('participant_admin_attendance_02'),
-      ],
+      participantId: ParticipantIdSchema.parse('participant_admin_attendance_01'),
+      attendanceStatus: 'absent',
+      expectedAttendanceRevision: 3,
       reasonExplanation: 'Instructor confirmed attendance',
     };
     await executeAdminLessonBookingAttempt('admin_account_01', attempt);
 
-    expect(executeMock).toHaveBeenCalledTimes(2);
+    expect(executeMock).toHaveBeenCalledTimes(1);
     const submissions = executeMock.mock.calls.map((call) => call[1]);
     expect(submissions.every((submission) => submission.kind === 'record_booking_attendance')).toBe(
       true
     );
     expect(submissions.some((submission) => submission.kind === 'complete_booking')).toBe(false);
-    expect(submissions[0].idempotencyKey).not.toBe(submissions[1].idempotencyKey);
     expect(submissions.every((submission) => submission.expectedRevision === 7)).toBe(true);
+    expect(submissions[0].intent).toEqual(
+      expect.objectContaining({
+        participantId: 'participant_admin_attendance_01',
+        attendanceStatus: 'absent',
+        expectedAttendanceRevision: 3,
+      })
+    );
   });
 
   it('sets administrator context and payer for create-on-behalf', async () => {

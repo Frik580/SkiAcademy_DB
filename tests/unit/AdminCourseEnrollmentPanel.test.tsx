@@ -63,6 +63,7 @@ const rosterItem = {
     canResolveCancellation: true,
     canTransfer: false,
     canReconcile: false,
+    canResolveAttendanceOutcome: false,
     canApproveGuest: false,
     canLinkGuest: false,
     canWithdraw: false,
@@ -83,6 +84,26 @@ const detail = {
   },
   transfer: { eligible: false, blockedReason: 'lifecycle', targetOptions: [] },
   reconciliation: { eligible: false, evidenceIssueIds: [] },
+  attendanceDays: [
+    {
+      courseDayId: 'course_day_admin_component_01',
+      startsAt: timestamp,
+      endsAt: { seconds: timestamp.seconds + 3600, nanoseconds: 0 },
+      instructorIds: ['instructor_admin_component_01'],
+      attendanceId: 'attendance_admin_component_01',
+      attendanceStatus: 'present',
+      attendanceRevision: 2,
+      recordedBy: { kind: 'instructor', instructorId: 'instructor_admin_component_01' },
+      recordedAt: timestamp,
+      lastChangedBy: { kind: 'instructor', instructorId: 'instructor_admin_component_01' },
+      updatedAt: timestamp,
+      authorizedActions: {
+        canRecordPresent: false,
+        canRecordAbsent: true,
+        reasonRequired: true,
+      },
+    },
+  ],
   auditContext: {
     bookingOrigin: 'admin',
     createdAt: timestamp,
@@ -218,6 +239,34 @@ describe('AdminCourseEnrollmentPanel', () => {
     expect(await screen.findByText(/Guest approval\/linking is read-only/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Approve guest/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Link guest/ })).not.toBeInTheDocument();
+  });
+
+  it('captures CourseDay Attendance and Enrollment revisions for an Admin correction', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/?enrollment=course_enrollment_admin_component_01']}>
+        <AdminCourseEnrollmentPanel adminAccountId="account_admin_component_01" />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Canonical attendance')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Action reason'), 'Correct instructor evidence');
+    await user.click(screen.getByRole('button', { name: 'Record absent' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));
+    expect(executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1]).toMatchObject({
+      kind: 'record_course_day_attendance',
+      expectedRevision: 4,
+      administratorContext: true,
+      intent: {
+        courseEnrollmentId: 'course_enrollment_admin_component_01',
+        courseDayId: 'course_day_admin_component_01',
+        attendanceStatus: 'absent',
+        expectedAttendanceRevision: 2,
+        expectedEnrollmentRevision: 4,
+        reasonExplanation: 'Correct instructor evidence',
+      },
+    });
   });
 
   it('does not merge a terminal detail back into a refreshed active roster', async () => {

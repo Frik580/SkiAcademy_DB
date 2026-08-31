@@ -5,6 +5,7 @@ import {
   AdminIssueLifecycleStatusSchema,
   AdminIssueSeveritySchema,
   AdminIssueSubjectRefSchema,
+  AttendanceRecorderSchema,
   AttendanceStatusSchema,
 } from '../courseEnrollmentAttendanceAdminIssue';
 import {
@@ -109,6 +110,9 @@ export const AdminIssueAttendancePresentationSchema = z
     participantId: ParticipantIdSchema,
     occurrenceId: OccurrenceIdSchema,
     courseDayId: CourseDayIdSchema.optional(),
+    recordedBy: AttendanceRecorderSchema,
+    recordedAt: CanonicalTimestampSchema,
+    lastChangedBy: AttendanceRecorderSchema,
     updatedAt: CanonicalTimestampSchema,
   })
   .strict();

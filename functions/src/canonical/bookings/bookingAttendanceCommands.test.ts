@@ -8,9 +8,14 @@ import {
   InstructorIdSchema,
   attendanceIdFromBookingIdentity,
   ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+  activityLogIdFromCommandId,
+  attendancePaymentConflictIdentity,
   paymentIdFromBookingId,
+  resolveCommandIdempotencyIdentity,
   timestampFromDate,
   accountCommandActor,
+  createOpenAdminIssue,
+  missingBookingAttendanceIssueIdentity,
   systemCommandActor,
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
@@ -131,7 +136,12 @@ function instructorEnvelope(
 function adminEnvelope(
   idempotencyKey: string,
   attendanceStatus: 'present' | 'absent',
-  input: { reasonExplanation?: string; targetParticipantId?: typeof participantId } = {}
+  input: {
+    reasonExplanation?: string;
+    targetParticipantId?: typeof participantId;
+    expectedBookingRevision?: number;
+    expectedAttendanceRevision?: number;
+  } = {}
 ): CommandEnvelope<'record_booking_attendance'> {
   return {
     kind: 'record_booking_attendance',
@@ -141,17 +151,25 @@ function adminEnvelope(
       idempotencyKey,
       correlationId,
       source: 'admin_callable',
+      ...(input.expectedBookingRevision === undefined
+        ? {}
+        : { expectedRevision: input.expectedBookingRevision }),
     },
     intent: {
       bookingId,
       participantId: input.targetParticipantId ?? participantId,
       attendanceStatus,
+      ...(input.expectedAttendanceRevision === undefined
+        ? {}
+        : { expectedAttendanceRevision: input.expectedAttendanceRevision }),
       ...(input.reasonExplanation ? { reasonExplanation: input.reasonExplanation } : {}),
     },
   };
 }
 
-function systemResolveEnvelope(idempotencyKey: string): CommandEnvelope<'resolve_attendance_outcome'> {
+function systemResolveEnvelope(
+  idempotencyKey: string
+): CommandEnvelope<'resolve_attendance_outcome'> {
   return {
     kind: 'resolve_attendance_outcome',
     context: {
@@ -387,26 +405,342 @@ describe('bookingAttendanceCommands', () => {
     }
   });
 
-  it('forbids attendance mutation on terminal completed bookings', async () => {
+  it('atomically corrects a terminal completed booking to no_show with exact revisions', async () => {
     const seededBooking = BookingSchema.parse({
       ...booking(),
       lifecycle: { status: 'completed', completedAt: endsAt },
       updatedAt: endsAt,
     });
+    const attendanceId = attendanceIdFromBookingIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'booking',
+      occurrenceId,
+      participantId,
+    });
     const executor = createInMemoryCanonicalTransactionExecutor({
       [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      [`attendance/${attendanceId}`]: {
+        attendanceId,
+        subject: { subjectKind: 'booking', bookingId, occurrenceId, participantId },
+        attendanceStatus: 'present',
+        recordedBy: { kind: 'instructor', instructorId },
+        recordedAt: endsAt,
+        lastChangedBy: { kind: 'instructor', instructorId },
+        updatedAt: endsAt,
+        revision: 1,
+        correlationId,
+      },
     });
     const commands = createProductionCanonicalCommands(
       environment('2026-01-15T11:00:00.000Z'),
       executor
     );
     const result = await commands.execute(
-      adminEnvelope('admin-terminal', 'absent', { reasonExplanation: 'Too late' })
+      adminEnvelope('admin-terminal', 'absent', {
+        reasonExplanation: 'Verified factual correction',
+        expectedBookingRevision: 1,
+        expectedAttendanceRevision: 1,
+      })
+    );
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`attendance/${attendanceId}`)?.data).toMatchObject({
+      attendanceStatus: 'absent',
+      revision: 2,
+      recordedBy: { kind: 'instructor', instructorId },
+      lastChangedBy: { kind: 'administrator', accountId: adminAccountId },
+    });
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data).toMatchObject({
+      lifecycle: { status: 'no_show' },
+      revision: 2,
+    });
+    const envelope = adminEnvelope('admin-terminal', 'absent', {
+      reasonExplanation: 'Verified factual correction',
+      expectedBookingRevision: 1,
+      expectedAttendanceRevision: 1,
+    });
+    const identity = resolveCommandIdempotencyIdentity(envelope);
+    expect(
+      snapshot.docs.get(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)?.data
+        .reason
+    ).toMatchObject({
+      reasonCode: 'attendance_correction',
+      explanation: 'Verified factual correction',
+    });
+  });
+
+  it('forbids instructor terminal correction of a completed booking', async () => {
+    const seededBooking = BookingSchema.parse({
+      ...booking(),
+      lifecycle: { status: 'completed', completedAt: endsAt },
+      updatedAt: endsAt,
+    });
+    const attendanceId = attendanceIdFromBookingIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'booking',
+      occurrenceId,
+      participantId,
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      [`attendance/${attendanceId}`]: {
+        attendanceId,
+        subject: { subjectKind: 'booking', bookingId, occurrenceId, participantId },
+        attendanceStatus: 'present',
+        recordedBy: { kind: 'instructor', instructorId },
+        recordedAt: endsAt,
+        lastChangedBy: { kind: 'instructor', instructorId },
+        updatedAt: endsAt,
+        revision: 1,
+        correlationId,
+      },
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T11:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      instructorEnvelope('instructor-terminal', '2026-01-15T11:00:00.000Z', 'absent')
     );
     expect(result.status).toBe('error');
     if (result.status === 'error') {
       expect(result.error.code).toBe('invalid_transition');
     }
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'completed'
+    );
+  });
+
+  it('closes this participant payment conflict even when another participant is still present', async () => {
+    const seededBooking = groupBooking();
+    const attendanceFor = (targetParticipantId: typeof participantId) => {
+      const attendanceId = attendanceIdFromBookingIdentity({
+        strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+        subjectKind: 'booking',
+        occurrenceId,
+        participantId: targetParticipantId,
+      });
+      return {
+        attendanceId,
+        path: `attendance/${attendanceId}`,
+        data: {
+          attendanceId,
+          subject: {
+            subjectKind: 'booking',
+            bookingId,
+            occurrenceId,
+            participantId: targetParticipantId,
+          },
+          attendanceStatus: 'present',
+          recordedBy: { kind: 'instructor', instructorId },
+          recordedAt: endsAt,
+          lastChangedBy: { kind: 'instructor', instructorId },
+          updatedAt: endsAt,
+          revision: 1,
+          correlationId,
+        },
+      };
+    };
+    const first = attendanceFor(participantId);
+    const second = attendanceFor(participantTwoId);
+    const conflict = createOpenAdminIssue({
+      identity: attendancePaymentConflictIdentity({
+        bookingId,
+        occurrenceId,
+        participantId,
+      }),
+      now: endsAt,
+      correlationId,
+      commandId: 'command_seed_payment_conflict',
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      [first.path]: first.data,
+      [second.path]: second.data,
+      [`admin_issues/${conflict.issueId}`]: conflict as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T11:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      adminEnvelope('admin-close-conflict', 'absent', {
+        reasonExplanation: 'First participant was not present',
+        expectedBookingRevision: 1,
+        expectedAttendanceRevision: 1,
+      })
+    );
+    expect(result.status).toBe('success');
+    expect(
+      executor.snapshot().docs.get(`admin_issues/${conflict.issueId}`)?.data.lifecycle.status
+    ).toBe('resolved');
+    expect(executor.snapshot().docs.get(second.path)?.data.attendanceStatus).toBe('present');
+  });
+
+  it('closes missing_attendance on a same-status Admin confirmation without bumping Attendance revision', async () => {
+    const seededBooking = booking();
+    const attendanceId = attendanceIdFromBookingIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'booking',
+      occurrenceId,
+      participantId,
+    });
+    const issue = createOpenAdminIssue({
+      identity: missingBookingAttendanceIssueIdentity({
+        bookingId,
+        occurrenceId,
+        participantId,
+      }),
+      now: endsAt,
+      correlationId,
+      commandId: 'command_seed_missing_attendance_same_status',
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      [`attendance/${attendanceId}`]: {
+        attendanceId,
+        subject: { subjectKind: 'booking', bookingId, occurrenceId, participantId },
+        attendanceStatus: 'present',
+        recordedBy: { kind: 'instructor', instructorId },
+        recordedAt: endsAt,
+        lastChangedBy: { kind: 'instructor', instructorId },
+        updatedAt: endsAt,
+        revision: 1,
+        correlationId,
+      },
+      [`admin_issues/${issue.issueId}`]: issue as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T11:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      adminEnvelope('admin-same-status-missing', 'present', {
+        reasonExplanation: 'Register already shows present',
+        expectedBookingRevision: 1,
+        expectedAttendanceRevision: 1,
+      })
+    );
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`attendance/${attendanceId}`)?.data.revision).toBe(1);
+    expect(
+      executor.snapshot().docs.get(`admin_issues/${issue.issueId}`)?.data.lifecycle.status
+    ).toBe('resolved');
+  });
+
+  it('rejects a stale Attendance revision on Admin correction', async () => {
+    const seededBooking = booking();
+    const attendanceId = attendanceIdFromBookingIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'booking',
+      occurrenceId,
+      participantId,
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      [`attendance/${attendanceId}`]: {
+        attendanceId,
+        subject: { subjectKind: 'booking', bookingId, occurrenceId, participantId },
+        attendanceStatus: 'absent',
+        recordedBy: { kind: 'instructor', instructorId },
+        recordedAt: endsAt,
+        lastChangedBy: { kind: 'instructor', instructorId },
+        updatedAt: endsAt,
+        revision: 1,
+        correlationId,
+      },
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T11:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      adminEnvelope('admin-stale-attendance', 'present', {
+        reasonExplanation: 'Verified factual correction',
+        expectedBookingRevision: 1,
+        expectedAttendanceRevision: 2,
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('stale_version');
+    }
+  });
+
+  it('resolves missing_attendance only as a consequence of the coupled Admin fact correction', async () => {
+    const seededBooking = booking();
+    const issue = createOpenAdminIssue({
+      identity: missingBookingAttendanceIssueIdentity({
+        bookingId,
+        occurrenceId,
+        participantId,
+      }),
+      now: endsAt,
+      correlationId,
+      commandId: 'command_seed_missing_attendance',
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      [`admin_issues/${issue.issueId}`]: issue as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T11:00:00.000Z'),
+      executor
+    );
+
+    const result = await commands.execute(
+      adminEnvelope('admin-resolve-missing', 'present', {
+        reasonExplanation: 'Confirmed from signed instructor register',
+        expectedBookingRevision: 1,
+      })
+    );
+
+    expect(result.status).toBe('success');
+    expect(
+      executor.snapshot().docs.get(`admin_issues/${issue.issueId}`)?.data.lifecycle
+    ).toMatchObject({
+      status: 'resolved',
+      resolution: {
+        reason: 'Confirmed from signed instructor register',
+        resolvedByAccountId: adminAccountId,
+      },
+    });
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'completed'
+    );
+  });
+
+  it('requires a reason and exact Booking revision when Admin adds missing attendance', async () => {
+    const seededBooking = booking();
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T09:30:00.000Z'),
+      executor
+    );
+    const missingReason = await commands.execute(
+      adminEnvelope('admin-missing-reason', 'present', { expectedBookingRevision: 1 })
+    );
+    expect(missingReason.status).toBe('error');
+    if (missingReason.status === 'error') expect(missingReason.error.code).toBe('validation');
+
+    const stale = await commands.execute(
+      adminEnvelope('admin-stale-booking', 'present', {
+        reasonExplanation: 'Verified participant attendance',
+        expectedBookingRevision: 2,
+      })
+    );
+    expect(stale.status).toBe('error');
+    if (stale.status === 'error') expect(stale.error.code).toBe('stale_version');
+
+    const accepted = await commands.execute(
+      adminEnvelope('admin-add-missing', 'present', {
+        reasonExplanation: 'Verified participant attendance',
+        expectedBookingRevision: 1,
+      })
+    );
+    expect(accepted.status).toBe('success');
   });
 
   it('does not duplicate missing_attendance issues when transaction callback retries', async () => {

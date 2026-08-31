@@ -154,12 +154,18 @@ export function assertRecordCourseDayAttendanceAuthorization(
   }
 
   const explanation = envelope.intent.reasonExplanation?.trim();
-  if (input.existingAttendance && !explanation) {
+  if (!explanation) {
     throw new CanonicalCommandError('validation', {
       correlationId: envelope.context.correlationId,
       details: { field: 'reasonExplanation', reason: 'required' },
     });
   }
+  assertExpectedRevision({
+    correlationId: envelope.context.correlationId,
+    expectedRevision: envelope.intent.expectedEnrollmentRevision,
+    currentRevision: enrollment.revision,
+    requireExpectedRevision: true,
+  });
   if (
     assertCourseDayInstructorAttendanceWindow({
       now: input.now,

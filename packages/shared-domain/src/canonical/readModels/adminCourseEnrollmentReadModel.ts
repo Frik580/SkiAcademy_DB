@@ -4,8 +4,11 @@ import { BookingOriginSchema } from '../bookingOccurrenceProposalChange';
 import {
   AdminIssueIdSchema,
   AccountIdSchema,
+  AttendanceIdSchema,
+  CourseDayIdSchema,
   CourseEnrollmentIdSchema,
   CourseIdSchema,
+  InstructorIdSchema,
   ParticipantIdSchema,
   PaymentIdSchema,
 } from '../identifiers';
@@ -13,6 +16,8 @@ import {
   AdminIssueKindSchema,
   AdminIssueLifecycleStatusSchema,
   AdminIssueSeveritySchema,
+  AttendanceRecorderSchema,
+  AttendanceStatusSchema,
   CourseEnrollmentLifecycleStatusSchema,
   CourseLifecycleStatusSchema,
 } from '../courseEnrollmentAttendanceAdminIssue';
@@ -84,11 +89,35 @@ export const AdminCourseEnrollmentIssueSummarySchema = z
   })
   .strict();
 
+export const AdminCourseEnrollmentAttendanceDaySchema = z
+  .object({
+    courseDayId: CourseDayIdSchema,
+    startsAt: CanonicalTimestampSchema,
+    endsAt: CanonicalTimestampSchema,
+    instructorIds: z.array(InstructorIdSchema).min(1).max(16),
+    attendanceId: AttendanceIdSchema.optional(),
+    attendanceStatus: AttendanceStatusSchema.optional(),
+    attendanceRevision: AggregateRevisionSchema.optional(),
+    recordedBy: AttendanceRecorderSchema.optional(),
+    recordedAt: CanonicalTimestampSchema.optional(),
+    lastChangedBy: AttendanceRecorderSchema.optional(),
+    updatedAt: CanonicalTimestampSchema.optional(),
+    authorizedActions: z
+      .object({
+        canRecordPresent: z.boolean(),
+        canRecordAbsent: z.boolean(),
+        reasonRequired: z.literal(true),
+      })
+      .strict(),
+  })
+  .strict();
+
 export const AdminCourseEnrollmentAuthorizedActionsSchema = z
   .object({
     canResolveCancellation: z.boolean(),
     canTransfer: z.boolean(),
     canReconcile: z.boolean(),
+    canResolveAttendanceOutcome: z.boolean(),
     canApproveGuest: z.literal(false),
     canLinkGuest: z.literal(false),
     canWithdraw: z.literal(false),
@@ -169,6 +198,7 @@ export const AdminCourseEnrollmentDetailReadModelSchema =
         evidenceIssueIds: z.array(AdminIssueIdSchema).max(32),
       })
       .strict(),
+    attendanceDays: z.array(AdminCourseEnrollmentAttendanceDaySchema).max(64),
     auditContext: z
       .object({
         bookingOrigin: BookingOriginSchema,

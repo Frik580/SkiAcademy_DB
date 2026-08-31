@@ -2,6 +2,7 @@ import type {
   AdminCourseEnrollmentDetailReadModel,
   AdminCourseEnrollmentRosterItem,
   CourseEnrollmentId,
+  CourseDayId,
   CourseId,
   IdempotencyKey,
   ParticipantId,
@@ -58,6 +59,20 @@ export type AdminCourseEnrollmentAttempt =
     }
   | {
       readonly kind: 'reconcile_course_enrollment';
+      readonly idempotencyKey: IdempotencyKey;
+      readonly target: AdminCourseEnrollmentTarget;
+    }
+  | {
+      readonly kind: 'record_course_day_attendance';
+      readonly idempotencyKey: IdempotencyKey;
+      readonly target: AdminCourseEnrollmentTarget;
+      readonly courseDayId: CourseDayId;
+      readonly attendanceStatus: 'present' | 'absent';
+      readonly expectedAttendanceRevision?: number;
+      readonly reasonExplanation: string;
+    }
+  | {
+      readonly kind: 'resolve_attendance_outcome';
       readonly idempotencyKey: IdempotencyKey;
       readonly target: AdminCourseEnrollmentTarget;
     };

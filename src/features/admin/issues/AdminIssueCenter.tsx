@@ -442,7 +442,18 @@ export function AdminIssueCenter() {
                 <ul className="mt-2 space-y-1 text-xs text-[var(--ink-dim)]">
                   {detail.item.attendance.map((record) => (
                     <li key={record.attendanceId}>
-                      {record.attendanceStatus} · {record.attendanceId} · rev {record.revision}
+                      {record.attendanceStatus} · {record.attendanceId} · rev {record.revision} ·{' '}
+                      {record.recordedBy?.kind === 'instructor'
+                        ? `instructor:${record.recordedBy.instructorId}`
+                        : record.recordedBy
+                          ? `administrator:${record.recordedBy.accountId}`
+                          : 'legacy provenance unavailable'}{' '}
+                      →{' '}
+                      {record.lastChangedBy?.kind === 'instructor'
+                        ? `instructor:${record.lastChangedBy.instructorId}`
+                        : record.lastChangedBy
+                          ? `administrator:${record.lastChangedBy.accountId}`
+                          : 'legacy provenance unavailable'}
                     </li>
                   ))}
                 </ul>
@@ -462,10 +473,42 @@ export function AdminIssueCenter() {
                       : 'adminIssueActionsDeferred'
                 )}
               </p>
-              <ul className="mt-2 space-y-1 text-xs">
+              <ul className="mt-2 space-y-2 text-xs">
                 {detail.item.authorizedActions.actions.map((action) => (
                   <li key={action.kind}>
-                    {t(ADMIN_ISSUE_GUIDANCE_KEYS[action.kind])} · {action.availability}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (action.kind === 'fund_payment' || action.kind === 'correct_finance') {
+                          if (!detail.item?.payment) return;
+                          updateQuery({
+                            [ADMIN_TAB_QUERY_KEY]: 'finance',
+                            [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: detail.item.payment.paymentId,
+                          });
+                          return;
+                        }
+                        if (detail.item?.subjectRef.subjectKind === 'booking') {
+                          updateQuery({
+                            [ADMIN_TAB_QUERY_KEY]: 'operations',
+                            [ADMIN_LESSON_BOOKING_QUERY_KEY]: detail.item.subjectRef.bookingId,
+                          });
+                          return;
+                        }
+                        if (detail.item?.subjectRef.subjectKind === 'course_enrollment') {
+                          updateQuery({
+                            [ADMIN_TAB_QUERY_KEY]: 'operations',
+                            [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]:
+                              detail.item.subjectRef.enrollmentId,
+                          });
+                        }
+                      }}
+                      className="flex w-full items-center justify-between gap-2 border border-[var(--border)] px-3 py-2 text-left"
+                    >
+                      <span>
+                        {t(ADMIN_ISSUE_GUIDANCE_KEYS[action.kind])} · {action.availability}
+                      </span>
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                    </button>
                   </li>
                 ))}
               </ul>

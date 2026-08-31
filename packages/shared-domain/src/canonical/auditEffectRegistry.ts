@@ -75,7 +75,12 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'resource_claim_changed',
     'outbox_obligation_created',
   ],
-  record_booking_attendance: ['attendance_recorded', 'booking_lifecycle_changed', 'admin_issue_opened'],
+  record_booking_attendance: [
+    'attendance_recorded',
+    'booking_lifecycle_changed',
+    'admin_issue_opened',
+    'admin_issue_resolved',
+  ],
   record_course_day_attendance: [
     'attendance_recorded',
     'course_enrollment_lifecycle_changed',
@@ -143,7 +148,10 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
   create_course_day: ['resource_claim_changed', 'outbox_obligation_created'],
   reassign_course_day_instructor: ['resource_claim_changed', 'outbox_obligation_created'],
   provision_canonical_course: ['outbox_obligation_created'],
-  apply_canonical_course_provisioning_manifest: ['resource_claim_changed', 'outbox_obligation_created'],
+  apply_canonical_course_provisioning_manifest: [
+    'resource_claim_changed',
+    'outbox_obligation_created',
+  ],
   change_course_title: ['outbox_obligation_created'],
   change_course_price: ['outbox_obligation_created'],
   change_course_capacity: ['outbox_obligation_created'],

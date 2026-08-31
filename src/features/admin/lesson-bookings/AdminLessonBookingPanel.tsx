@@ -61,6 +61,14 @@ function readableError(error: { code: string; message: string } | undefined): st
   return `${error.message} (${error.code})`;
 }
 
+function attendanceActorLabel(
+  actor: { kind: 'instructor'; instructorId: string } | { kind: 'administrator'; accountId: string }
+): string {
+  return actor.kind === 'instructor'
+    ? `instructor:${actor.instructorId}`
+    : `administrator:${actor.accountId}`;
+}
+
 export function AdminLessonBookingPanel({
   adminAccountId,
   accounts,
@@ -623,6 +631,74 @@ export function AdminLessonBookingPanel({
                 )}
               </div>
 
+              <div className="space-y-2 border-t border-[var(--border)] pt-4">
+                <h4 className="text-xs font-mono uppercase">{t('adminLessonAttendanceTitle')}</h4>
+                {(admin.attendance ?? []).map((record) => {
+                  const participant = admin.participants.find(
+                    (candidate) => candidate.participantId === record.participantId
+                  );
+                  return (
+                    <div
+                      key={record.participantId}
+                      className="space-y-2 border border-[var(--border)] p-3 text-xs"
+                    >
+                      <p className="font-medium">
+                        {participant?.displayName ?? record.participantId} ·{' '}
+                        {record.attendanceStatus ?? t('adminLessonAttendanceMissing')}
+                        {record.revision === undefined ? '' : ` · rev ${record.revision}`}
+                      </p>
+                      {record.recordedBy && record.lastChangedBy && (
+                        <p className="break-all text-[var(--ink-dim)]">
+                          {t('adminLessonAttendanceRecordedBy')}:{' '}
+                          {attendanceActorLabel(record.recordedBy)} ·{' '}
+                          {t('adminLessonAttendanceLastChangedBy')}:{' '}
+                          {attendanceActorLabel(record.lastChangedBy)}
+                        </p>
+                      )}
+                      {(record.authorizedActions.canRecordPresent ||
+                        record.authorizedActions.canRecordAbsent) && (
+                        <div className="flex gap-2">
+                          {(['present', 'absent'] as const).map((attendanceStatus) => {
+                            const allowed =
+                              attendanceStatus === 'present'
+                                ? record.authorizedActions.canRecordPresent
+                                : record.authorizedActions.canRecordAbsent;
+                            if (!allowed) return null;
+                            return (
+                              <button
+                                key={attendanceStatus}
+                                type="button"
+                                disabled={!actionReason.trim()}
+                                onClick={() =>
+                                  requestDetailAttempt(
+                                    detail,
+                                    {
+                                      kind: 'record_booking_attendance',
+                                      participantId: record.participantId,
+                                      attendanceStatus,
+                                      ...(record.revision === undefined
+                                        ? {}
+                                        : { expectedAttendanceRevision: record.revision }),
+                                      reasonExplanation: actionReason.trim(),
+                                    },
+                                    `${t('adminLessonConfirmAttendance')} ${participant?.displayName ?? record.participantId}: ${record.attendanceStatus ?? 'missing'} → ${attendanceStatus} @ booking rev ${detail.revision}${record.revision === undefined ? '' : `, attendance rev ${record.revision}`}`
+                                  )
+                                }
+                                className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
+                              >
+                                {attendanceStatus === 'present'
+                                  ? t('adminLessonRecordPresent')
+                                  : t('adminLessonRecordAbsent')}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
               <div className="space-y-3 border-t border-[var(--border)] pt-4">
                 <h4 className="text-xs font-mono uppercase">{t('adminLessonAuthorizedActions')}</h4>
                 <label className="block text-xs">
@@ -859,27 +935,6 @@ export function AdminLessonBookingPanel({
                       )}
                     </div>
                   </div>
-                )}
-
-                {admin.authorizedActions.canRecordAttendance && (
-                  <button
-                    type="button"
-                    disabled={!actionReason.trim()}
-                    onClick={() =>
-                      requestDetailAttempt(
-                        detail,
-                        {
-                          kind: 'record_booking_attendance',
-                          serviceParticipantIds: admin.serviceParticipantIds,
-                          reasonExplanation: actionReason.trim(),
-                        },
-                        t('adminLessonConfirmAttendance')
-                      )
-                    }
-                    className="w-full border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-                  >
-                    {t('adminLessonRecordAttendance')}
-                  </button>
                 )}
 
                 {admin.authorizedActions.canResolveAttendanceOutcome && (

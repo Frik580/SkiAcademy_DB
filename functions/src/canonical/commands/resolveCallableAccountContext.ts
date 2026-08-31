@@ -48,6 +48,7 @@ export const ADMINISTRATOR_CONTEXT_COMMAND_KINDS: ReadonlySet<CommandKind> = new
   'change_booking_instructor',
   'change_booking_duration',
   'record_booking_attendance',
+  'record_course_day_attendance',
   'resolve_attendance_outcome',
 ]);
 

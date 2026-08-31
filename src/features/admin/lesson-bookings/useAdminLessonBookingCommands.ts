@@ -19,7 +19,6 @@ import {
   toCanonicalCommandClientError,
 } from '../../../lib/canonical/mapCanonicalCommandError';
 import type { AdminLessonBookingAttempt } from './lessonBookingAdminContracts';
-import { deriveAttendanceIdempotencyKey } from './lessonBookingAdminUtils';
 
 async function assertCommandSucceeded<Kind extends CommandKind>(
   command: Promise<CommandResult<Kind>>
@@ -151,22 +150,27 @@ export async function executeAdminLessonBookingAttempt(
   }
 
   if (attempt.kind === 'record_booking_attendance') {
-    for (const participantId of attempt.serviceParticipantIds) {
-      await assertCommandSucceeded(
-        executeAuthenticatedCanonicalCommand(adminAccountId, {
-          kind: attempt.kind,
-          intent: {
-            bookingId,
-            participantId,
-            attendanceStatus: 'present',
-            reasonExplanation: attempt.reasonExplanation,
-          },
-          idempotencyKey: deriveAttendanceIdempotencyKey(attempt.idempotencyKey, participantId),
-          expectedRevision,
-          administratorContext: true,
-        })
-      );
-    }
+    await assertCommandSucceeded(
+      executeAuthenticatedCanonicalCommand(adminAccountId, {
+        kind: attempt.kind,
+        intent: {
+          bookingId,
+          participantId: ParticipantIdSchema.parse(attempt.participantId),
+          attendanceStatus: attempt.attendanceStatus,
+          ...(attempt.expectedAttendanceRevision === undefined
+            ? {}
+            : {
+                expectedAttendanceRevision: AggregateRevisionSchema.parse(
+                  attempt.expectedAttendanceRevision
+                ),
+              }),
+          reasonExplanation: attempt.reasonExplanation,
+        },
+        idempotencyKey: attempt.idempotencyKey,
+        expectedRevision,
+        administratorContext: true,
+      })
+    );
     return;
   }
 

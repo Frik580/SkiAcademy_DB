@@ -35,6 +35,14 @@ function formatKzt(value: number): string {
   return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(value)} KZT`;
 }
 
+function attendanceActorLabel(
+  actor: { kind: 'instructor'; instructorId: string } | { kind: 'administrator'; accountId: string }
+): string {
+  return actor.kind === 'instructor'
+    ? `instructor:${actor.instructorId}`
+    : `administrator:${actor.accountId}`;
+}
+
 function courseOptions(
   items: readonly AdminCourseReadModel[]
 ): AdminCourseEnrollmentCourseOption[] {
@@ -180,7 +188,7 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
   };
 
   const runConfirmation = async () => {
-    if (!confirmation) return;
+    if (!confirmation || mutationPending) return;
     setMutationPending(true);
     const result = await commands.runAttempt(confirmation.attempt);
     setMutationPending(false);
@@ -434,6 +442,66 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
                 ))}
               </div>
 
+              <div className="space-y-2 border-t border-[var(--border)] pt-4">
+                <h4 className="text-xs font-mono uppercase">{t.attendance}</h4>
+                {(detail.attendanceDays ?? []).map((day) => (
+                  <div
+                    key={day.courseDayId}
+                    className="space-y-2 border border-[var(--border)] p-3 text-xs"
+                  >
+                    <p className="font-medium">
+                      {new Date(day.startsAt.seconds * 1_000).toLocaleString()} ·{' '}
+                      {day.attendanceStatus ?? t.attendanceMissing}
+                      {day.attendanceRevision === undefined
+                        ? ''
+                        : ` · rev ${day.attendanceRevision}`}
+                    </p>
+                    {day.recordedBy && day.lastChangedBy && (
+                      <p className="break-all text-[var(--ink-dim)]">
+                        {t.recordedBy}: {attendanceActorLabel(day.recordedBy)} · {t.lastChangedBy}:{' '}
+                        {attendanceActorLabel(day.lastChangedBy)}
+                      </p>
+                    )}
+                    {(day.authorizedActions.canRecordPresent ||
+                      day.authorizedActions.canRecordAbsent) && (
+                      <div className="flex gap-2">
+                        {(['present', 'absent'] as const).map((attendanceStatus) => {
+                          const allowed =
+                            attendanceStatus === 'present'
+                              ? day.authorizedActions.canRecordPresent
+                              : day.authorizedActions.canRecordAbsent;
+                          if (!allowed) return null;
+                          return (
+                            <button
+                              key={attendanceStatus}
+                              type="button"
+                              disabled={!reason.trim()}
+                              onClick={() =>
+                                requestDetailAttempt(
+                                  {
+                                    kind: 'record_course_day_attendance',
+                                    courseDayId: day.courseDayId,
+                                    attendanceStatus,
+                                    ...(day.attendanceRevision === undefined
+                                      ? {}
+                                      : { expectedAttendanceRevision: day.attendanceRevision }),
+                                    reasonExplanation: reason.trim(),
+                                  },
+                                  `${detail.participant.displayName}: ${day.attendanceStatus ?? 'missing'} → ${attendanceStatus} @ enrollment rev ${detail.revision}${day.attendanceRevision === undefined ? '' : `, attendance rev ${day.attendanceRevision}`}`
+                                )
+                              }
+                              className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
+                            >
+                              {attendanceStatus === 'present' ? t.recordPresent : t.recordAbsent}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
               <label htmlFor="admin-course-enrollment-action-reason" className="block text-xs">
                 {t.reason}
                 <input
@@ -553,6 +621,21 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
                   className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 text-xs"
                 >
                   <RefreshCw className="h-3.5 w-3.5" /> {t.reconcile}
+                </button>
+              )}
+
+              {detail.authorizedActions.canResolveAttendanceOutcome && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    requestDetailAttempt(
+                      { kind: 'resolve_attendance_outcome' },
+                      `${t.resolveOutcome}: ${detail.enrollmentId} @ rev ${detail.revision}`
+                    )
+                  }
+                  className="border border-[var(--border)] px-3 py-2 text-xs"
+                >
+                  {t.resolveOutcome}
                 </button>
               )}
 

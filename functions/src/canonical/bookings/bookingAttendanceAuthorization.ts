@@ -1,6 +1,7 @@
 import {
   CanonicalCommandError,
   evaluateInstructorAttendanceWindow,
+  assertExpectedRevision,
   instructorMayCorrectAttendance,
   resolveBookingAttendanceTargets,
   type Attendance,
@@ -13,7 +14,8 @@ import {
   requireAccountActor,
 } from '../participantAccess/participantAccessAuthorization';
 
-export type BookingAttendanceActorMode = 'instructor' | 'administrator';
+export type BookingAttendanceActorMode =
+  'instructor' | 'administrator' | 'admin_terminal_correction';
 
 export function resolveBookingAttendanceActorMode(
   envelope: CommandEnvelope<'record_booking_attendance'>
@@ -43,9 +45,16 @@ export function assertRecordBookingAttendanceAuthorization(
   const mode = resolveBookingAttendanceActorMode(envelope);
   const { booking } = input;
 
+  const terminalCorrection =
+    booking.party.kind === 'individual' &&
+    input.existingAttendance !== undefined &&
+    ((booking.lifecycle.status === 'completed' && envelope.intent.attendanceStatus === 'absent') ||
+      (booking.lifecycle.status === 'no_show' && envelope.intent.attendanceStatus === 'present'));
+
   if (
     booking.lifecycle.status !== 'confirmed' &&
-    booking.lifecycle.status !== 'pending_cancellation'
+    booking.lifecycle.status !== 'pending_cancellation' &&
+    !terminalCorrection
   ) {
     throw new CanonicalCommandError('invalid_transition', {
       correlationId: envelope.context.correlationId,
@@ -68,6 +77,12 @@ export function assertRecordBookingAttendanceAuthorization(
   }
 
   if (mode === 'instructor') {
+    if (terminalCorrection) {
+      throw new CanonicalCommandError('invalid_transition', {
+        correlationId: envelope.context.correlationId,
+        details: { resourceKind: 'booking', reason: 'unsupported' },
+      });
+    }
     assertInstructorCapability(envelope, booking.occurrence.instructorId);
     const window = evaluateInstructorAttendanceWindow({
       now: input.now,
@@ -80,10 +95,13 @@ export function assertRecordBookingAttendanceAuthorization(
         details: { field: 'startsAt', reason: 'out_of_range' },
       });
     }
-    if (input.existingAttendance && !instructorMayCorrectAttendance({
-      existing: input.existingAttendance,
-      instructorId: booking.occurrence.instructorId,
-    })) {
+    if (
+      input.existingAttendance &&
+      !instructorMayCorrectAttendance({
+        existing: input.existingAttendance,
+        instructorId: booking.occurrence.instructorId,
+      })
+    ) {
       throw new CanonicalCommandError('forbidden', {
         correlationId: envelope.context.correlationId,
       });
@@ -92,7 +110,7 @@ export function assertRecordBookingAttendanceAuthorization(
   }
 
   const explanation = envelope.intent.reasonExplanation?.trim();
-  if (input.existingAttendance && !explanation) {
+  if (!explanation) {
     throw new CanonicalCommandError('validation', {
       correlationId: envelope.context.correlationId,
       details: { field: 'reasonExplanation', reason: 'required' },
@@ -110,7 +128,13 @@ export function assertRecordBookingAttendanceAuthorization(
       details: { field: 'startsAt', reason: 'out_of_range' },
     });
   }
-  return mode;
+  assertExpectedRevision({
+    correlationId: envelope.context.correlationId,
+    expectedRevision: envelope.context.expectedRevision,
+    currentRevision: booking.revision,
+    requireExpectedRevision: true,
+  });
+  return terminalCorrection ? 'admin_terminal_correction' : mode;
 }
 
 export function assertResolveAttendanceOutcomeAuthorization(

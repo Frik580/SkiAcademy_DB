@@ -16,25 +16,23 @@ export function buildRecordBookingAttendanceAuditPlan(input: {
   readonly attendanceId: AttendanceId;
   readonly attendanceRevision: number;
   readonly bookingRevision?: number;
-  readonly issue?: {
+  readonly issues?: readonly {
     readonly issueId: AdminIssueId;
     readonly revision: number;
-    readonly effect: 'opened' | 'reused';
+    readonly effect: 'opened' | 'reused' | 'resolved';
     readonly kind: 'attendance_payment_conflict' | 'missing_attendance';
-  };
+  }[];
   readonly lifecycleSummary?: string;
   readonly actorMode: BookingAttendanceActorMode;
 }): AuditOutboxStagingPlan {
   const bookingRef = canonicalReference('booking', input.bookingId);
   const attendanceRef = canonicalReference('attendance', input.attendanceId);
   const reasonCode =
-    input.actorMode === 'administrator'
-      ? ('attendance_correction' as const)
-      : ('instructor_attendance' as const);
+    input.actorMode === 'instructor'
+      ? ('instructor_attendance' as const)
+      : ('attendance_correction' as const);
   const explanation =
-    reasonCode === 'attendance_correction'
-      ? input.envelope.intent.reasonExplanation
-      : undefined;
+    reasonCode === 'attendance_correction' ? input.envelope.intent.reasonExplanation : undefined;
 
   const effects: AuditOutboxStagingPlan['activityLog']['effects'] = [
     {
@@ -51,18 +49,19 @@ export function buildRecordBookingAttendanceAuditPlan(input: {
           },
         ]
       : []),
-    ...(input.issue
-      ? [
-          {
-            kind: 'admin_issue_opened' as const,
-            subjectRef: canonicalReference('admin_issue', input.issue.issueId),
-            summary:
-              input.issue.effect === 'opened'
-                ? `${input.issue.kind} issue opened`
-                : `${input.issue.kind} issue reused`,
-          },
-        ]
-      : []),
+    ...(input.issues ?? []).map((issue) => ({
+      kind:
+        issue.effect === 'resolved'
+          ? ('admin_issue_resolved' as const)
+          : ('admin_issue_opened' as const),
+      subjectRef: canonicalReference('admin_issue', issue.issueId),
+      summary:
+        issue.effect === 'resolved'
+          ? `${issue.kind} issue resolved`
+          : issue.effect === 'opened'
+            ? `${issue.kind} issue opened`
+            : `${issue.kind} issue reused`,
+    })),
   ];
 
   return {
@@ -80,7 +79,7 @@ export function buildRecordBookingAttendanceAuditPlan(input: {
       affectedSubjects: [bookingRef, attendanceRef],
       effects,
       monetaryEventIds: [],
-      adminIssueIds: input.issue ? [input.issue.issueId] : [],
+      adminIssueIds: (input.issues ?? []).map((issue) => issue.issueId),
       resultingRevisions: [
         {
           subject: attendanceRef,
@@ -94,14 +93,10 @@ export function buildRecordBookingAttendanceAuditPlan(input: {
                 revision: AggregateRevisionSchema.parse(input.bookingRevision),
               },
             ]),
-        ...(input.issue
-          ? [
-              {
-                subject: canonicalReference('admin_issue', input.issue.issueId),
-                revision: AggregateRevisionSchema.parse(input.issue.revision),
-              },
-            ]
-          : []),
+        ...(input.issues ?? []).map((issue) => ({
+          subject: canonicalReference('admin_issue', issue.issueId),
+          revision: AggregateRevisionSchema.parse(issue.revision),
+        })),
       ],
     },
     outboxObligations: [],
@@ -135,9 +130,7 @@ export function buildResolveAttendanceOutcomeAuditPlan(input: {
       kind: 'admin_issue_opened' as const,
       subjectRef: canonicalReference('admin_issue', issue.issueId),
       summary:
-        issue.effect === 'opened'
-          ? `${issue.kind} issue opened`
-          : `${issue.kind} issue reused`,
+        issue.effect === 'opened' ? `${issue.kind} issue opened` : `${issue.kind} issue reused`,
     })),
   ];
 

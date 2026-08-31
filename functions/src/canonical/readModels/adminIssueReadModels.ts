@@ -331,6 +331,9 @@ export async function buildAdminIssueDetail(
     ...(record.subject.subjectKind === 'course_enrollment'
       ? { courseDayId: record.subject.courseDayId }
       : {}),
+    recordedBy: record.recordedBy,
+    recordedAt: record.recordedAt,
+    lastChangedBy: record.lastChangedBy,
     updatedAt: record.updatedAt,
   }));
 

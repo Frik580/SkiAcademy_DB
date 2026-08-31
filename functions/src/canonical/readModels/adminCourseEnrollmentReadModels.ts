@@ -120,10 +120,59 @@ function authorizedActions(
     canResolveCancellation: enrollment.lifecycle.status === 'pending_cancellation',
     canTransfer: transfer.eligible,
     canReconcile,
+    canResolveAttendanceOutcome:
+      enrollment.lifecycle.status === 'confirmed' &&
+      compareCanonicalTimestamps(
+        timestampFromDate(new Date()),
+        course.scheduleProjection.finalCourseDayEndsAt
+      ) >= 0,
     canApproveGuest: false,
     canLinkGuest: false,
     canWithdraw: false,
   };
+}
+
+function attendanceDayProjection(input: {
+  readonly enrollment: CourseEnrollment;
+  readonly courseDays: readonly CourseDay[];
+  readonly attendances: ReadonlyMap<CourseDayId, Attendance>;
+  readonly now: ReturnType<typeof timestampFromDate>;
+}): AdminCourseEnrollmentDetailReadModel['attendanceDays'] {
+  const nonterminal =
+    input.enrollment.lifecycle.status === 'confirmed' ||
+    input.enrollment.lifecycle.status === 'pending_cancellation';
+  return input.courseDays.map((courseDay) => {
+    const attendance = input.attendances.get(courseDay.courseDayId);
+    const started = compareCanonicalTimestamps(input.now, courseDay.interval.startsAt) >= 0;
+    const canRecordPresent =
+      started &&
+      ((nonterminal && attendance?.attendanceStatus !== 'present') ||
+        (input.enrollment.lifecycle.status === 'no_show' &&
+          attendance?.attendanceStatus === 'absent'));
+    const canRecordAbsent =
+      started &&
+      ((nonterminal && attendance?.attendanceStatus !== 'absent') ||
+        (input.enrollment.lifecycle.status === 'completed' &&
+          attendance?.attendanceStatus === 'present'));
+    return {
+      courseDayId: courseDay.courseDayId,
+      startsAt: courseDay.interval.startsAt,
+      endsAt: courseDay.interval.endsAt,
+      instructorIds: [...courseDay.actualInstructorIds],
+      ...(attendance
+        ? {
+            attendanceId: attendance.attendanceId,
+            attendanceStatus: attendance.attendanceStatus,
+            attendanceRevision: attendance.revision,
+            recordedBy: attendance.recordedBy,
+            recordedAt: attendance.recordedAt,
+            lastChangedBy: attendance.lastChangedBy,
+            updatedAt: attendance.updatedAt,
+          }
+        : {}),
+      authorizedActions: { canRecordPresent, canRecordAbsent, reasonRequired: true as const },
+    };
+  });
 }
 
 async function loadCourseDays(firestore: Firestore, courseId: Course['courseId']) {
@@ -298,12 +347,20 @@ async function buildAdminCourseEnrollmentItem(
     : undefined;
   const payerData = payerSnapshot?.data() as Record<string, unknown> | undefined;
   const transfer = transferDecision(enrollment, course);
-  const [reconciliation, targetOptions] = includeOperationalDetail
+  const [reconciliation, targetOptions, attendanceDays] = includeOperationalDetail
     ? await Promise.all([
         reconciliationProjection({ firestore, enrollment, course, payment, issues }),
         transferTargetOptions({ firestore, enrollment, sourceCourse: course }),
+        loadCourseDays(firestore, course.courseId).then(async (courseDays) =>
+          attendanceDayProjection({
+            enrollment,
+            courseDays,
+            attendances: await loadAttendances(firestore, enrollment, courseDays),
+            now: timestampFromDate(new Date()),
+          })
+        ),
       ])
-    : [{ eligible: false, evidenceIssueIds: [] }, []];
+    : [{ eligible: false, evidenceIssueIds: [] }, [], []];
   const actions = authorizedActions(enrollment, course, reconciliation.eligible);
 
   const item: AdminCourseEnrollmentRosterItem = {
@@ -374,6 +431,7 @@ async function buildAdminCourseEnrollmentItem(
       : {}),
     transfer: { ...transfer, targetOptions },
     reconciliation,
+    attendanceDays,
     auditContext: {
       bookingOrigin: enrollment.attribution.bookingOrigin,
       createdAt: enrollment.createdAt,

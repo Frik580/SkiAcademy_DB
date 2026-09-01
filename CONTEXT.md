@@ -451,6 +451,7 @@ The canonical rewrite's architecture ADRs are accepted:
 5. [ADR-0005: Audit Durability and Transaction Policy](docs/adr/0005-audit-durability-and-transaction-policy.md)
 6. [ADR-0006: Lazy Canonical Self-Participant Provisioning](docs/adr/0006-lazy-canonical-self-participant-provisioning.md)
 7. [ADR-0007: Guest Identity, Payment, and Confirmation Architecture](docs/adr/0007-guest-identity-payment-and-confirmation.md)
+8. [ADR-0008: UX Preservation During Canonical Migration](docs/adr/0008-ux-preservation-during-canonical-migration.md)
 
 ADR-0007 supersedes the earlier guest rule that an Administrator confirms pending guest requests independently of payment. Compatibility/Cutover and legacy Participant migration are not separate ADRs under the clean canonical rewrite strategy.
 
@@ -459,6 +460,18 @@ Explicitly deferred by ADR-0007 and not current supported policy:
 - `pay_on_site`, cash-at-start, deferred payment, and unpaid Admin override of a guest application;
 - partially-paid pending guest rejection or refund policy;
 - automatic cleanup of unused unmanaged guest Participants.
+
+## UX preservation during migration
+
+Canonical migration changes implementation and authority, not product capability by default.
+
+Legacy implementation is not a legacy feature.
+
+Existing useful screens, information, filters, interactions, and workflows must be preserved or restored unless explicitly superseded by a product decision. New canonical UX is additive where necessary.
+
+Before removing a legacy frontend or runtime implementation, canonical replacement and UX feature parity must be proven.
+
+Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). This does not reopen accepted domain or security decisions.
 
 ## Clean-rewrite and cutover risks
 

@@ -295,7 +295,12 @@ It is not discretionary Administrator approval. Resolving it requires a coupled 
 
 ## T32.9 boundary
 
-T32.9 still owns final removal of obsolete unreachable legacy runtime and UI, where applicable, including old bundled `confirmBooking`, old approval terminology or UI, unused legacy Guest linking UI, and other unreachable legacy Admin mutation helpers. This ADR does not delete those files.
+T32.9 is split. See [ADR-0008](./0008-ux-preservation-during-canonical-migration.md).
+
+- **T32.9A — Admin UX Restoration & Canonical Integration** recovers and preserves useful Admin UX on canonical read models and commands. It is not broad legacy UI cleanup.
+- **T32.9B — Final Legacy Write / Runtime Cleanup** may remove leftover implementation only after canonical replacement and UX parity. Unreachable leftover helpers such as old bundled `confirmBooking`, superseded unpaid-approval terminology, and unused legacy Guest linking UI remain T32.9B after that gate.
+
+This ADR does not delete those files. Unpaid Administrator guest approval remains forbidden product policy and must not be restored as “historical UX.”
 
 ## Consequences
 

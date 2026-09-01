@@ -11,6 +11,17 @@ Rules:
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
 
+## Canonical migration UX
+
+During canonical migration, preserve existing useful UX and product
+capabilities. Never delete or materially simplify an existing UX
+merely because its implementation is legacy. Inspect Git history when
+parity is uncertain. Ask the product owner in Russian before making an
+unapproved UX/product change.
+
+Authoritative policy: [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md).
+A slice is not complete without UX capability parity.
+
 ## Feature boundaries
 
 - Keep full domain models (`Booking`, `UserProfile`, `Course`, and similar) in containers, services, and domain workflows. A child UI component may receive a full model only when it genuinely renders or edits most of that model.

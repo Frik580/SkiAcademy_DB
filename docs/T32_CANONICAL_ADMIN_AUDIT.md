@@ -1,11 +1,11 @@
 # T32 Canonical Admin Audit Report
 
 Date: 2026-08-30  
-Amended: 2026-09-01 — T32.8A, T32.8B, and T32.8C PASS; guest confirmation policy recorded in [ADR-0007](adr/0007-guest-identity-payment-and-confirmation.md)
+Amended: 2026-09-01 — T32.8A, T32.8B, and T32.8C PASS; guest confirmation policy recorded in [ADR-0007](adr/0007-guest-identity-payment-and-confirmation.md); T32.9 split and global UX preservation recorded in [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md)
 
-Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007.
+Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007.
 
-## Later migration status: T32.8A–T32.8C
+## Later migration status: T32.8A–T32.8C and T32.9
 
 | Slice | Name | Status |
 |---|---|---|
@@ -21,7 +21,16 @@ Explicitly deferred after T32.8C:
 - partially-paid pending guest rejection or refund policy;
 - unused unmanaged guest Participant cleanup.
 
-T32.9 still owns final removal of obsolete unreachable legacy runtime and UI, including old bundled `confirmBooking`, old approval terminology or UI, unused legacy Guest linking UI, and other unreachable legacy Admin mutation helpers. This audit amendment does not start T32.9.
+T32.9 is split. This audit amendment does not start either slice.
+
+| Slice | Name | Status |
+|---|---|---|
+| T32.9A | Admin UX Restoration & Canonical Integration | not started |
+| T32.9B | Final Legacy Write / Runtime Cleanup | not started; blocked on T32.9A parity |
+
+T32.9A recovers missing historical Admin UX, preserves useful information and interactions, integrates new canonical functionality, proves feature parity, and identifies legacy implementations safe for later removal. It is not broad legacy UI cleanup.
+
+T32.9B may remove a leftover implementation only after its useful product capability has a canonical replacement and UX parity is proven. Unreachable leftover helpers such as old bundled `confirmBooking`, superseded unpaid-approval terminology, and unused legacy Guest linking UI remain T32.9B after that gate. See [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md).
 
 ## Executive conclusion
 
@@ -60,7 +69,7 @@ This audit covers the active Admin runtime and its dependencies. It does not:
 - modify application code or production data;
 - deploy;
 - migrate hidden legacy courses;
-- start T33 history work;
+- start T33 history work (T33 remains bound by the [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md) UX preservation contract);
 - weaken `CourseSchema.strict()`;
 - remove T31B.1 contamination guards;
 - restore `instructorIds` as canonical authority;
@@ -432,8 +441,9 @@ Canonical command kinds/handlers cover:
 - Admin guest confirmation invokes legacy `confirmBooking` instead of
   `confirm_guest_booking`. **Policy superseded by ADR-0007 / T32.8C:** the
   canonical command is a payment-funded `pending → confirmed` transition, not
-  unpaid Administrator approval. Removal of unreachable legacy `confirmBooking`
-  wiring remains T32.9.
+  unpaid Administrator approval. Removal of unreachable leftover
+  `confirmBooking` wiring remains T32.9B after T32.9A proves the useful
+  guest-confirmation capability is preserved on the canonical path.
 
 ## 7. Payments and Wallet
 
@@ -632,7 +642,7 @@ High-priority missing tests:
 | Refund/correction | Legacy booking cancellation | Exists | No | CRITICAL | Payment/Wallet/MonetaryEvent detail | T32.3 |
 | Lesson Admin list/detail | Legacy raw bookings | Commands mostly exist | No | HIGH | Admin read scope | T32.4 |
 | Admin lesson create | Legacy `addBooking` | Exists with Admin context | No | HIGH | Frontend hook and read scope | T32.4 |
-| Guest lesson pending-payment confirmation | Legacy `confirmBooking` | Payment-funded `confirm_guest_booking` (T32.8C PASS) | Partial | HIGH | Unpaid Admin override is forbidden; leftover legacy UI is T32.9 | T32.4 / T32.8C |
+| Guest lesson pending-payment confirmation | Legacy `confirmBooking` | Payment-funded `confirm_guest_booking` (T32.8C PASS) | Partial | HIGH | Unpaid Admin override is forbidden; leftover unreachable UI is T32.9B after T32.9A parity | T32.4 / T32.8C |
 | Lesson cancellation | Legacy cancel/confirm | Exists | No | CRITICAL | Canonical resolve/refund UX | T32.3/T32.4 |
 | Lesson reschedule/reassign | Legacy schedule callable | Handlers exist | No | HIGH | Admin callable routing | T32.4 |
 | Lesson completion | Legacy callable | Command kind only | No | HIGH | Missing production handler | T32.4 |
@@ -646,12 +656,12 @@ High-priority missing tests:
 | Enrollment roster/detail | Legacy course-shaped bookings | Domain exists | No | HIGH | Admin roster scope | T32.6 |
 | Enrollment cancellation | Legacy booking actions | Exists | No | CRITICAL | Canonical resolve/refund UX | T32.6 |
 | Enrollment transfer | None | Handler exists | No | HIGH | Admin callable routing | T32.6 |
-| Guest enrollment pending-payment confirmation/link | Legacy/none | Payment-funded `confirm_guest_course_enrollment` (T32.8C PASS); Admin `existing_managed` link (T32.8B PASS) | Partial | HIGH | Unpaid Admin approval is not policy; leftover UI is T32.9 | T32.6 / T32.8B / T32.8C |
+| Guest enrollment pending-payment confirmation/link | Legacy/none | Payment-funded `confirm_guest_course_enrollment` (T32.8C PASS); Admin `existing_managed` link (T32.8B PASS) | Partial | HIGH | Unpaid Admin approval is not policy; leftover unreachable UI is T32.9B after T32.9A parity | T32.6 / T32.8B / T32.8C |
 | Attendance correction | Instructor UI only | Exists | No | HIGH | Admin correction workflow | T32.7 |
 | Participant/account Admin | Direct `users` CRUD | Mostly exists | No | HIGH | Admin topology/diagnostics | T32.8 |
 | Management assignment/revoke | None | Exists | No | HIGH | Admin UI/read model | T32.8 |
 | Instructor catalog CRUD | Direct `instructors` CRUD | Missing | No | HIGH | Separate catalog commands/read model | T32.8 |
-| Resort/settings content | Direct configuration writes | Not a canonical business domain | Not required | LOW | Keep isolated | T32.9 |
+| Resort/settings content | Direct configuration writes | Not a canonical business domain | Not required | LOW | Keep isolated; leftover write cleanup is T32.9B after parity | T32.9B |
 
 ## 14. Recommended implementation slices
 
@@ -809,22 +819,55 @@ with rare divergence recovered by AdminIssue plus the idempotent
 confirm unpaid subjects. CourseEnrollment confirmation does not consume another
 seat.
 
-### T32.9 — Final legacy-write removal
+### T32.9A — Admin UX Restoration & Canonical Integration
+
+Purpose: recover missing historical Admin UX; preserve useful information and
+interactions; integrate new canonical functionality; prove feature parity;
+identify legacy implementations safe for later removal.
+
+T32.9A is **not** broad legacy UI cleanup. Specific Admin capability inventories
+belong here, not in the global [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md)
+rule.
+
+Scope:
+
+- restore useful historical Admin screens, information density, planner,
+  finance, People, monitoring, filtering, and operational workflows on
+  canonical read models and commands;
+- add new canonical UX where required (AdminIssue actions, Payment detail,
+  Account / Participant topology);
+- prove information, action, and interaction parity before any leftover
+  implementation is treated as removable;
+- record a UX parity inventory (`PASS` / `PARTIAL` / `MISSING` /
+  `NEEDS_PRODUCT_DECISION`).
+
+Reason:
+
+- Admin migration must preserve product capability while replacing legacy
+  authority. A canonical backend without the previous useful Admin UX is not
+  a finished Admin slice.
+
+### T32.9B — Final Legacy Write / Runtime Cleanup
+
+T32.9B may remove a leftover implementation only after its useful product
+capability has a canonical replacement **and** UX parity is proven. It must not
+become a product-feature deletion phase.
 
 Scope:
 
 - remove Admin dependencies on legacy booking, Course, profile, instructor, and
-  wallet wrappers;
+  wallet wrappers that T32.9A has replaced with proven-parity canonical paths;
 - tighten Firestore Rules for each migrated collection;
-- retire duplicate/dead Admin paths, including unreachable legacy guest
-  approval terminology/UI, unused legacy Guest linking UI, and old bundled
-  `confirmBooking` helpers where they remain;
+- retire unreachable leftover helpers, including superseded unpaid-approval
+  terminology/UI, unused legacy Guest linking UI, and old bundled
+  `confirmBooking` helpers where they remain after the useful confirmation
+  capability is preserved on the canonical path;
 - retain only explicitly non-canonical presentation/configuration writes.
 
 Reason:
 
-- all replacement workflows must be live and verified before final denial and
-  removal.
+- all replacement workflows must be live and UX-parity verified before final
+  denial and removal.
 
 ## 15. Start recommendation
 

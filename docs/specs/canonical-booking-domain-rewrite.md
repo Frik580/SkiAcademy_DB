@@ -1,6 +1,6 @@
 # Canonical Booking Domain Rewrite and Clean Cutover
 
-Status: approved implementation strategy; ADR-0001 through ADR-0007 accepted
+Status: approved implementation strategy; ADR-0001 through ADR-0008 accepted
 
 ## Problem Statement
 
@@ -20,7 +20,8 @@ The repository therefore requires a canonical rewrite followed by a clean mainte
 - The canonical implementation is built and verified separately while the current application remains deployable. The two implementations do not share a mutation path or synchronize records.
 - The canonical schema, Rules, Functions, scheduled jobs, and frontend are released together during a maintenance window.
 - Canonical reconciliation remains required where it is an architectural invariant: Payment/Wallet accounting, resource claims and capacity projections, idempotent commands, Activity Log completeness/integrity, and outbox delivery reliability.
-- `CONTEXT.md` is authoritative for business rules. [ADR-0001](../adr/0001-canonical-aggregate-topology.md) through [ADR-0007](../adr/0007-guest-identity-payment-and-confirmation.md) are accepted and authoritative for their respective architecture decisions. ADR-0007 supersedes earlier guest-approval-independent-of-payment language.
+- `CONTEXT.md` is authoritative for business rules. [ADR-0001](../adr/0001-canonical-aggregate-topology.md) through [ADR-0008](../adr/0008-ux-preservation-during-canonical-migration.md) are accepted and authoritative for their respective architecture decisions. ADR-0007 supersedes earlier guest-approval-independent-of-payment language. [ADR-0008](../adr/0008-ux-preservation-during-canonical-migration.md) is authoritative for the global UX preservation contract: canonical migration replaces implementation and authority, not product capability by default.
+- A migration slice is not complete merely because code compiles, tests pass, a canonical backend exists, or a legacy write is gone. Required acceptance dimensions are domain correctness, security/authority, data/runtime migration, regression tests, and UX capability parity. This applies to T32, T33, and later slices.
 
 ## Canonical model and collection layout
 
@@ -57,7 +58,7 @@ The repository therefore requires a canonical rewrite followed by a clean mainte
 | Domain Outbox                  | `/domain_outbox/{eventId}`                                  | Independently retryable asynchronous external-delivery obligations                 |
 | Notification                   | `/notifications/{notificationId}`                           | User-facing delivery state, never domain authority                                 |
 
-ADR-0001 through ADR-0007 define the accepted document, history, claim, transaction, accounting, Attendance, audit, outbox, retention, guest identity, and payment-funded confirmation boundaries. If an accepted ADR changes a physical path listed above, this specification must be updated before implementation; code must not silently diverge.
+ADR-0001 through ADR-0007 define the accepted document, history, claim, transaction, accounting, Attendance, audit, outbox, retention, guest identity, and payment-funded confirmation boundaries. [ADR-0008](../adr/0008-ux-preservation-during-canonical-migration.md) does not change those physical paths; it constrains frontend/runtime migration so useful product UX is preserved while implementation is replaced. If an accepted ADR changes a physical path listed above, this specification must be updated before implementation; code must not silently diverge.
 
 ## Delivery strategy
 
@@ -183,7 +184,7 @@ After this phase is complete, delete or replace old Course enrollment callables,
 
 ### Objective
 
-Build one frontend that consumes canonical command and read contracts only.
+Build one frontend that consumes canonical command and read contracts only, while preserving existing useful product UX per [ADR-0008](../adr/0008-ux-preservation-during-canonical-migration.md).
 
 ### Scope
 
@@ -196,6 +197,8 @@ Build one frontend that consumes canonical command and read contracts only.
 - Replace chat authorization and thread resolution with canonical Booking or CourseEnrollment subject references.
 - Remove stale persisted client stores on the canonical release boundary.
 
+Frontend replacement means swapping implementation, data source, and authority. It is not permission to delete or materially simplify existing useful screens, information, filters, interactions, or workflows. New canonical UX is additive. Legacy implementation is not a legacy feature. This applies to Admin, Student Cabinet, Instructor UI, Guest flows, History/T33, and every other existing user-facing surface.
+
 ### Tests and exit criteria
 
 - Frontend unit/contract tests use only canonical types and prepared view models.
@@ -203,6 +206,7 @@ Build one frontend that consumes canonical command and read contracts only.
 - A canonical production build contains no imports from deleted legacy transaction, availability, enrollment, or Wallet modules.
 - Hosting cache/version behavior forces an old frontend build to reload or fail closed at cutover.
 - The canonical frontend release candidate is not routed to the shared environment before Phase 7.
+- UX capability parity is PASS for migrated surfaces. Compiling, passing tests, and having a canonical backend are not sufficient if useful historical capability disappeared or materially degraded.
 
 ## Phase 6 — Firestore Rules, indexes, scheduled jobs, and release automation
 
@@ -237,7 +241,7 @@ Perform one clean cutover and leave no runtime support for the old schema.
 
 ### Pre-cutover gates
 
-- ADR-0001 through ADR-0007 are accepted and this specification matches them.
+- ADR-0001 through ADR-0008 are accepted and this specification matches them.
 - Phases 1–6 exit criteria pass on the exact release commit.
 - Canonical indexes are built.
 - Reset, seed, snapshot restore, and legacy-seed rollback are rehearsed.
@@ -270,6 +274,7 @@ Perform one clean cutover and leave no runtime support for the old schema.
 - Claims, guards, capacity, Payment/Wallet, Activity Log completeness/integrity, outbox pending/delivery/retry/dead-letter, and scheduled-job health checks pass.
 - The canonical frontend is the only supported client release.
 - Remaining legacy code, Rules, indexes, fixtures, jobs, and scripts meet the deletion criteria below and are removed.
+- UX capability parity is PASS for migrated user-facing surfaces per [ADR-0008](../adr/0008-ux-preservation-during-canonical-migration.md). Canonical backend existence without preserved useful product UX is not cutover completion.
 
 ## Firestore reset contract
 
@@ -410,11 +415,14 @@ The scan is an exit gate, not a data-migration metric. Its report records file, 
 A legacy module, Rule, index, fixture, or job may be deleted when:
 
 - its corresponding canonical vertical slice passes unit and Emulator integration tests;
+- UX capability parity for the corresponding product capability is PASS per [ADR-0008](../adr/0008-ux-preservation-during-canonical-migration.md);
 - the canonical frontend and server release no longer imports or deploys it;
 - no scheduled job, callable export, Storage Rule, Firestore Rule, or index refers to it;
 - the repository scan has no unexplained dependency on it;
 - the pre-cutover tag and recreated legacy test seed are available for operational rollback;
 - deletion does not remove a canonical domain rule or canonical reconciliation mechanism.
+
+A legacy frontend or runtime implementation must not be removed while the capability is `PARTIAL`, `MISSING`, or `NEEDS_PRODUCT_DECISION`, unless the product owner explicitly authorizes removal. T32.9B and later cleanup must not become a product-feature deletion phase.
 
 The final deletion set includes old direct Booking/Course mutations, course-shaped Enrollment code, availability slots/hour locks and migration code, legacy Wallet/guest settlement, timestamp completion, compatibility fields and mappers, legacy Rules/indexes, and old fixtures. Reference-data export logic is removed after the seed artifact is approved unless it remains useful as an explicit development reseed tool.
 
@@ -450,6 +458,20 @@ The final deletion set includes old direct Booking/Course mutations, course-shap
 - Chat/media access through canonical Booking and CourseEnrollment references.
 
 The release requires all suites to pass from an empty database seeded only by the canonical reference artifact.
+
+### UX capability parity
+
+Per [ADR-0008](../adr/0008-ux-preservation-during-canonical-migration.md), a slice is not fully complete from the product-migration perspective unless UX capability parity is PASS.
+
+```text
+domain correctness      PASS
+security/authority      PASS
+data/runtime migration  PASS
+regression tests        PASS
+UX capability parity    PASS
+```
+
+This applies globally, including T32 Admin work, T33 history work, and later slices. Before destructive frontend/runtime cleanup, record a UX parity inventory. Do not treat T32.9B or equivalent cleanup as a product-feature deletion phase.
 
 ## Canonical reconciliation and observability
 
@@ -497,8 +519,11 @@ Accepted architecture ADRs:
 5. [ADR-0005: Audit Durability and Transaction Policy](../adr/0005-audit-durability-and-transaction-policy.md)
 6. [ADR-0006: Lazy Canonical Self-Participant Provisioning](../adr/0006-lazy-canonical-self-participant-provisioning.md)
 7. [ADR-0007: Guest Identity, Payment, and Confirmation Architecture](../adr/0007-guest-identity-payment-and-confirmation.md)
+8. [ADR-0008: UX Preservation During Canonical Migration](../adr/0008-ux-preservation-during-canonical-migration.md)
 
 ADR-0007 supersedes earlier statements that Administrator approval confirms unpaid guest requests, that guest confirmation is independent of payment, that identity linking is confirmation, and that Guest CourseEnrollment approval policy is unresolved.
+
+[ADR-0008](../adr/0008-ux-preservation-during-canonical-migration.md) is the authoritative UX preservation contract. It does not change accepted domain, security, or topology decisions. Future T32, T33, and later slices must treat UX capability parity as a PASS criterion.
 
 No Compatibility/Cutover ADR or Participant legacy identity migration ADR is required.
 

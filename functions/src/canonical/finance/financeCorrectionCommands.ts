@@ -1,7 +1,11 @@
 import {
   AggregateRevisionSchema,
   CanonicalCommandError,
+  IdempotencyKeySchema,
+  SystemActorIdSchema,
   assertExpectedRevision,
+  canonicalDeterministicHash,
+  compareCanonicalTimestamps,
   commandSuccessResult,
   financialReconciliationMismatchIdentity,
   monetaryEventIdFromCommandEffect,
@@ -16,6 +20,7 @@ import {
   reconcilePaymentState,
   reconcileWalletState,
   resolveCommandIdempotencyIdentity,
+  systemCommandActor,
   resolveFinancialAdminIssueForCorrection,
   assertFinancialCorrectionHasEffect,
   assertFinancialCorrectionIssueSubjectMatchesPayment,
@@ -24,11 +29,13 @@ import {
   assertWalletCorrectionDoesNotOverdraw,
   applyWalletCorrectionDelta,
   maxPaymentEventRevisionFromEvents,
+  isPaymentFullyFundedForService,
   timestampFromDate,
   type AdminIssue,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
   type CommandResult,
+  type FinancialCorrectionPlan,
   type MonetaryEvent,
   type Payment,
   type Wallet,
@@ -53,10 +60,7 @@ import {
   assertReconciliationAuthorization,
   mapFinanceDomainError,
 } from './financeAuthorization';
-import {
-  buildAuditCorrectionAuditPlan,
-  buildFinancialCorrectionAuditPlan,
-} from './financeAudit';
+import { buildAuditCorrectionAuditPlan, buildFinancialCorrectionAuditPlan } from './financeAudit';
 import {
   FINANCE_PLANNING_ESTIMATES,
   collectMonetaryEventsFromDocs,
@@ -71,6 +75,13 @@ import {
   toFirestoreWritePayload,
   walletPath,
 } from './financeStore';
+import {
+  detectGuestPaymentConfirmationLifecycleMismatch,
+  planGuestPaymentConfirmation,
+  resolveFinanceGuestPaymentConfirmationEffect,
+  type PlannedGuestPaymentConfirmation,
+} from '../guestConfirmation/guestPaymentConfirmation';
+import { mergeGuestPaymentConfirmationAuditPlan } from '../guestConfirmation/guestPaymentConfirmationAudit';
 
 export type MonetaryEventLoaderSession = Pick<
   CanonicalAtomicTransactionSession,
@@ -150,13 +161,55 @@ function monetaryActorFromEnvelope(envelope: CommandEnvelope) {
   return { kind: 'guest' as const, guestSubjectId: actor.guestSubjectId };
 }
 
+function planFinancialCorrection(
+  envelope: CommandEnvelope<'record_financial_correction'>,
+  payment: Payment
+): FinancialCorrectionPlan {
+  const before = paymentAccountingFields(payment);
+  if (envelope.intent.correctionKind === 'admin_refund') {
+    const destination =
+      envelope.intent.walletAccountId !== undefined || payment.payerAccountId !== undefined
+        ? ('wallet' as const)
+        : ('manual_external' as const);
+    if (destination === 'manual_external' && !envelope.intent.manualExternalReference) {
+      throw new CanonicalCommandError('validation', {
+        correlationId: envelope.context.correlationId,
+        details: { reason: 'required', field: 'manualExternalReference' },
+      });
+    }
+    return planAdminRefundCorrection({
+      before,
+      refundAmount: envelope.intent.amount,
+      destination,
+      walletAccountId: envelope.intent.walletAccountId ?? payment.payerAccountId ?? undefined,
+      manualExternalReference: envelope.intent.manualExternalReference,
+    });
+  }
+  if (envelope.intent.correctionKind === 'write_off') {
+    return planWriteOffCorrection({ before, amount: envelope.intent.amount });
+  }
+  if (envelope.intent.correctionKind === 'reverse_write_off') {
+    return planReverseWriteOffCorrection({ before, amount: envelope.intent.amount });
+  }
+  return planCompensatingEventCorrection({
+    before,
+    paymentEffect: envelope.intent.paymentEffect,
+    correctsEventId: envelope.intent.correctsEventId,
+    walletBalanceDelta: envelope.intent.walletBalanceDelta,
+    walletAccountId: envelope.intent.walletAccountId ?? payment.payerAccountId,
+  });
+}
+
 function stageMonetaryEventCreate(
   session: Parameters<
     AuthoritativeIdempotentCanonicalCommandHandler<'record_financial_correction'>['execute']
   >[0],
   event: MonetaryEvent
 ): void {
-  session.tx.create({ path: monetaryEventPath(event.eventId) }, toFirestoreWritePayload(event as Record<string, unknown>));
+  session.tx.create(
+    { path: monetaryEventPath(event.eventId) },
+    toFirestoreWritePayload(event as Record<string, unknown>)
+  );
   session.plan.planMutation({
     path: monetaryEventPath(event.eventId),
     kind: 'create',
@@ -179,7 +232,9 @@ function parseOptionalAdminIssue(
 
 function reconciliationSubjectFromRawPayment(
   data: Record<string, unknown> | undefined
-): { readonly subjectKind: 'booking' | 'course_enrollment'; readonly subjectId: string } | undefined {
+):
+  | { readonly subjectKind: 'booking' | 'course_enrollment'; readonly subjectId: string }
+  | undefined {
   if (!data) return undefined;
   const subjectType = data.subjectType;
   const subjectId = data.subjectId;
@@ -209,10 +264,7 @@ function stageFinancialReconciliationIssue(input: {
   input.session.plan.planRead({ path: issueDocumentPath, category: 'aggregate' });
   const existingIssue =
     input.existingIssue ??
-    parseExistingAdminIssueOrCollision(
-      input.envelope.context.correlationId,
-      input.issueReadData
-    );
+    parseExistingAdminIssueOrCollision(input.envelope.context.correlationId, input.issueReadData);
   const now = timestampFromDate(input.environment.clock.now());
   const opened = openOrReuseAdminIssue({
     existing: existingIssue,
@@ -254,10 +306,21 @@ function recordFinancialCorrectionHandler(
   let walletDocumentPath: string | undefined;
   let issueDocumentPath: string | undefined;
   let stagedEventCount = 0;
+  let plannedCorrection: FinancialCorrectionPlan | undefined;
+  let plannedGuestConfirmation: PlannedGuestPaymentConfirmation | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'record_financial_correction'> = {
     read: async (session) => {
       stagedEventCount = 0;
+      plannedCorrection = undefined;
+      plannedGuestConfirmation = undefined;
+      wallet = undefined;
+      walletExists = false;
+      existingIssue = undefined;
+      plannedWalletRevision = undefined;
+      plannedWalletEventRevision = undefined;
+      walletDocumentPath = undefined;
+      issueDocumentPath = undefined;
       const paymentRead = await session.tx.get({ path: paymentDocumentPath });
       session.plan.planRead({ path: paymentDocumentPath, category: 'payment_wallet' });
       const parsedPayment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
@@ -275,7 +338,10 @@ function recordFinancialCorrectionHandler(
         requireExpectedRevision: true,
       });
 
-      if (envelope.intent.adminIssueId !== undefined && envelope.intent.expectedAdminIssueRevision !== undefined) {
+      if (
+        envelope.intent.adminIssueId !== undefined &&
+        envelope.intent.expectedAdminIssueRevision !== undefined
+      ) {
         issueDocumentPath = adminIssuePath(envelope.intent.adminIssueId);
         const issueRead = await session.tx.get({ path: issueDocumentPath });
         session.plan.planRead({ path: issueDocumentPath, category: 'aggregate' });
@@ -299,7 +365,7 @@ function recordFinancialCorrectionHandler(
 
       const walletAccountId =
         envelope.intent.correctionKind === 'admin_refund'
-          ? envelope.intent.walletAccountId ?? payment.payerAccountId
+          ? (envelope.intent.walletAccountId ?? payment.payerAccountId)
           : envelope.intent.correctionKind === 'compensating_event'
             ? envelope.intent.walletAccountId
             : undefined;
@@ -342,6 +408,40 @@ function recordFinancialCorrectionHandler(
 
       plannedPaymentRevision = nextAggregateRevision(payment.revision);
       plannedPaymentEventRevision = nextAggregateRevision(payment.eventRevision);
+      try {
+        plannedCorrection = planFinancialCorrection(envelope, payment);
+        assertFinancialCorrectionHasEffect(plannedCorrection);
+        if (wallet !== undefined && plannedCorrection.walletBalanceDelta !== undefined) {
+          assertWalletCorrectionDoesNotOverdraw(
+            wallet.balance,
+            plannedCorrection.walletBalanceDelta
+          );
+        }
+        const confirmationPayment = mergePaymentProjection(
+          payment,
+          plannedCorrection.paymentProjection,
+          {
+            revision: plannedPaymentRevision,
+            eventRevision: plannedPaymentEventRevision,
+            updatedAt: timestampFromDate(environment.clock.decidedAt()),
+          }
+        );
+        if (!isPaymentFullyFundedForService(payment)) {
+          const confirmationDecision = await planGuestPaymentConfirmation({
+            session,
+            payment: confirmationPayment,
+            correlationId: envelope.context.correlationId,
+            commandId: metadata.commandId,
+            now: timestampFromDate(environment.clock.now()),
+          });
+          plannedGuestConfirmation = resolveFinanceGuestPaymentConfirmationEffect(
+            confirmationDecision,
+            envelope.context.correlationId
+          );
+        }
+      } catch (error) {
+        mapFinanceDomainError(envelope, error);
+      }
       stagedEventCount =
         envelope.intent.correctionKind === 'compensating_event' ||
         envelope.intent.correctionKind === 'admin_refund' ||
@@ -358,9 +458,7 @@ function recordFinancialCorrectionHandler(
       });
       if (stagedEventCount > 0) {
         session.plan.planMutation({
-          path: monetaryEventPath(
-            monetaryEventIdFromCommandEffect(metadata.commandId, 0)
-          ),
+          path: monetaryEventPath(monetaryEventIdFromCommandEffect(metadata.commandId, 0)),
           kind: 'create',
           category: 'payment_wallet',
           estimatedPayloadBytes: FINANCE_PLANNING_ESTIMATES.monetaryEventBytes,
@@ -381,62 +479,34 @@ function recordFinancialCorrectionHandler(
       const monetaryEventIds = Array.from({ length: stagedEventCount }, (_, index) =>
         monetaryEventIdFromCommandEffect(metadata.commandId, index)
       );
-      return buildFinancialCorrectionAuditPlan({
-        envelope,
-        monetaryEventIds,
-        paymentId: envelope.intent.paymentId,
-        paymentRevision: plannedPaymentRevision,
-        walletAccountId:
-          walletDocumentPath !== undefined
-            ? wallet?.accountId
-            : undefined,
-        walletRevision: plannedWalletRevision,
-        includeWalletEffect: plannedWalletRevision !== undefined,
-        resolvedAdminIssueId:
-          envelope.intent.expectedAdminIssueRevision !== undefined
-            ? existingIssue?.issueId
-            : undefined,
-        resolvedAdminIssueRevision:
-          envelope.intent.expectedAdminIssueRevision !== undefined && existingIssue
-            ? nextAggregateRevision(existingIssue.revision)
-            : undefined,
-      });
+      return mergeGuestPaymentConfirmationAuditPlan(
+        buildFinancialCorrectionAuditPlan({
+          envelope,
+          monetaryEventIds,
+          paymentId: envelope.intent.paymentId,
+          paymentRevision: plannedPaymentRevision,
+          walletAccountId: walletDocumentPath !== undefined ? wallet?.accountId : undefined,
+          walletRevision: plannedWalletRevision,
+          includeWalletEffect: plannedWalletRevision !== undefined,
+          resolvedAdminIssueId:
+            envelope.intent.expectedAdminIssueRevision !== undefined
+              ? existingIssue?.issueId
+              : undefined,
+          resolvedAdminIssueRevision:
+            envelope.intent.expectedAdminIssueRevision !== undefined && existingIssue
+              ? nextAggregateRevision(existingIssue.revision)
+              : undefined,
+        }),
+        plannedGuestConfirmation
+      );
     },
     execute: async (session, context) => {
       try {
         const decidedAt = timestampFromDate(context.decidedAt);
-        const before = paymentAccountingFields(payment);
-        let plan;
-        if (envelope.intent.correctionKind === 'admin_refund') {
-          const destination =
-            envelope.intent.walletAccountId !== undefined || payment.payerAccountId !== undefined
-              ? ('wallet' as const)
-              : ('manual_external' as const);
-          if (destination === 'manual_external' && !envelope.intent.manualExternalReference) {
-            throw new CanonicalCommandError('validation', {
-              correlationId: envelope.context.correlationId,
-              details: { reason: 'required', field: 'manualExternalReference' },
-            });
-          }
-          plan = planAdminRefundCorrection({
-            before,
-            refundAmount: envelope.intent.amount,
-            destination,
-            walletAccountId:
-              envelope.intent.walletAccountId ?? payment.payerAccountId ?? undefined,
-            manualExternalReference: envelope.intent.manualExternalReference,
-          });
-        } else if (envelope.intent.correctionKind === 'write_off') {
-          plan = planWriteOffCorrection({ before, amount: envelope.intent.amount });
-        } else if (envelope.intent.correctionKind === 'reverse_write_off') {
-          plan = planReverseWriteOffCorrection({ before, amount: envelope.intent.amount });
-        } else {
-          plan = planCompensatingEventCorrection({
-            before,
-            paymentEffect: envelope.intent.paymentEffect,
-            correctsEventId: envelope.intent.correctsEventId,
-            walletBalanceDelta: envelope.intent.walletBalanceDelta,
-            walletAccountId: envelope.intent.walletAccountId ?? payment.payerAccountId,
+        const plan = plannedCorrection;
+        if (!plan) {
+          throw new CanonicalCommandError('internal', {
+            correlationId: envelope.context.correlationId,
           });
         }
 
@@ -454,6 +524,7 @@ function recordFinancialCorrectionHandler(
           { path: paymentDocumentPath },
           toFirestoreWritePayload(updatedPayment as Record<string, unknown>)
         );
+        plannedGuestConfirmation?.commit(session, context.decidedAt);
 
         plan.monetaryEvents.forEach((plannedEvent, index) => {
           const event: MonetaryEvent = {
@@ -572,7 +643,7 @@ function recordFinancialCorrectionHandler(
   });
 }
 
-function recordAuditCorrectionHandler(
+export function recordAuditCorrectionHandler(
   envelope: CommandEnvelope<'record_audit_correction'>,
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'],
@@ -604,6 +675,8 @@ function recordAuditCorrectionHandler(
   let walletDocumentPath = '';
   let plannedPaymentRevision: Payment['revision'] | undefined;
   let plannedWalletRevision: Wallet['revision'] | undefined;
+  let plannedRebuiltPayment: Payment | undefined;
+  let plannedGuestConfirmation: PlannedGuestPaymentConfirmation | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'record_audit_correction'> = {
     read: async (session) => {
@@ -617,17 +690,19 @@ function recordAuditCorrectionHandler(
       issueDocumentPath = '';
       plannedPaymentRevision = undefined;
       plannedWalletRevision = undefined;
+      plannedRebuiltPayment = undefined;
+      plannedGuestConfirmation = undefined;
 
-      if (envelope.intent.operation === 'reconcile_payment' || envelope.intent.operation === 'rebuild_payment_projection') {
+      if (
+        envelope.intent.operation === 'reconcile_payment' ||
+        envelope.intent.operation === 'rebuild_payment_projection'
+      ) {
         paymentDocumentPath = paymentPath(envelope.intent.paymentId);
         const paymentRead = await session.tx.get({ path: paymentDocumentPath });
         session.plan.planRead({ path: paymentDocumentPath, category: 'payment_wallet' });
         const parsedPayment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
         if (!parsedPayment) {
-          if (
-            envelope.intent.operation === 'reconcile_payment' &&
-            paymentRead.exists
-          ) {
+          if (envelope.intent.operation === 'reconcile_payment' && paymentRead.exists) {
             const subject = reconciliationSubjectFromRawPayment(paymentRead.data);
             if (!subject) {
               throw new CanonicalCommandError('validation', {
@@ -661,66 +736,104 @@ function recordAuditCorrectionHandler(
             });
           }
         } else {
-        payment = parsedPayment;
-        paymentEvents = await eventLoader(session, { paymentId: payment.paymentId });
+          payment = parsedPayment;
+          paymentEvents = await eventLoader(session, { paymentId: payment.paymentId });
 
-        if (envelope.intent.operation === 'rebuild_payment_projection') {
-          assertExpectedRevision({
-            correlationId: envelope.context.correlationId,
-            expectedRevision: envelope.intent.expectedPaymentRevision,
-            currentRevision: payment.revision,
-            requireExpectedRevision: true,
-          });
-          assertMonetaryEventHistoryCoversPaymentRevision({
-            payment,
-            paymentEvents,
-            correlationId: envelope.context.correlationId,
-          });
-          plannedPaymentRevision = nextAggregateRevision(payment.revision);
-          session.plan.planMutation({
-            path: paymentDocumentPath,
-            kind: 'update',
-            category: 'payment_wallet',
-            estimatedPayloadBytes: FINANCE_PLANNING_ESTIMATES.paymentBytes,
-          });
-        } else {
-          const reconciliation = reconcilePaymentState({ payment, paymentEvents });
-          if (reconciliation.hasMismatch) {
-            const scope = primaryReconciliationScopeForMismatches(reconciliation.mismatches);
-            const identity = financialReconciliationMismatchIdentity({
-              subjectKind: payment.subjectType,
-              subjectId: payment.subjectId,
-              reconciliationScope: scope,
-            });
-            issueDocumentPath = plannedAdminIssuePath(identity);
-            const issueRead = await session.tx.get({ path: issueDocumentPath });
-            session.plan.planRead({ path: issueDocumentPath, category: 'aggregate' });
-            existingIssue = parseExistingAdminIssueOrCollision(
-              envelope.context.correlationId,
-              issueRead.exists ? issueRead.data : undefined
-            );
-            const now = timestampFromDate(environment.clock.now());
-            const opened = openOrReuseAdminIssue({
-              existing: existingIssue,
-              identity,
-              now,
+          if (envelope.intent.operation === 'rebuild_payment_projection') {
+            assertExpectedRevision({
               correlationId: envelope.context.correlationId,
-              commandId: metadata.commandId,
+              expectedRevision: envelope.intent.expectedPaymentRevision,
+              currentRevision: payment.revision,
+              requireExpectedRevision: true,
             });
-            plannedIssue = opened.issue;
-            issueMutationKind = opened.mutationKind;
+            assertMonetaryEventHistoryCoversPaymentRevision({
+              payment,
+              paymentEvents,
+              correlationId: envelope.context.correlationId,
+            });
+            plannedPaymentRevision = nextAggregateRevision(payment.revision);
+            const rebuilt = rebuildPaymentProjectionFromEvents(payment, paymentEvents);
+            plannedRebuiltPayment = mergePaymentProjection(payment, rebuilt, {
+              revision: plannedPaymentRevision,
+              eventRevision: AggregateRevisionSchema.parse(
+                maxPaymentEventRevisionFromEvents(paymentEvents) || payment.eventRevision
+              ),
+              updatedAt: timestampFromDate(environment.clock.decidedAt()),
+            });
+            if (!isPaymentFullyFundedForService(payment)) {
+              const confirmationDecision = await planGuestPaymentConfirmation({
+                session,
+                payment: plannedRebuiltPayment,
+                correlationId: envelope.context.correlationId,
+                commandId: metadata.commandId,
+                now: timestampFromDate(environment.clock.now()),
+              });
+              plannedGuestConfirmation = resolveFinanceGuestPaymentConfirmationEffect(
+                confirmationDecision,
+                envelope.context.correlationId
+              );
+            }
             session.plan.planMutation({
-              path: issueDocumentPath,
-              kind: issueMutationKind,
-              category: 'aggregate',
-              estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+              path: paymentDocumentPath,
+              kind: 'update',
+              category: 'payment_wallet',
+              estimatedPayloadBytes: FINANCE_PLANNING_ESTIMATES.paymentBytes,
             });
+          } else {
+            const reconciliation = reconcilePaymentState({ payment, paymentEvents });
+            const guestConfirmationLifecycleMismatch =
+              await detectGuestPaymentConfirmationLifecycleMismatch({
+                session,
+                payment,
+                correlationId: envelope.context.correlationId,
+                now: timestampFromDate(environment.clock.now()),
+              });
+            if (reconciliation.hasMismatch || guestConfirmationLifecycleMismatch) {
+              const scope = reconciliation.hasMismatch
+                ? primaryReconciliationScopeForMismatches(reconciliation.mismatches)
+                : 'guest_confirmation_lifecycle';
+              const identity = financialReconciliationMismatchIdentity({
+                subjectKind: payment.subjectType,
+                subjectId: payment.subjectId,
+                reconciliationScope: scope,
+              });
+              issueDocumentPath = plannedAdminIssuePath(identity);
+              const issueRead = await session.tx.get({ path: issueDocumentPath });
+              session.plan.planRead({ path: issueDocumentPath, category: 'aggregate' });
+              existingIssue = parseExistingAdminIssueOrCollision(
+                envelope.context.correlationId,
+                issueRead.exists ? issueRead.data : undefined
+              );
+              const detectedAt = timestampFromDate(environment.clock.now());
+              const now =
+                existingIssue !== undefined &&
+                compareCanonicalTimestamps(detectedAt, existingIssue.updatedAt) < 0
+                  ? existingIssue.updatedAt
+                  : detectedAt;
+              const opened = openOrReuseAdminIssue({
+                existing: existingIssue,
+                identity,
+                now,
+                correlationId: envelope.context.correlationId,
+                commandId: metadata.commandId,
+              });
+              plannedIssue = opened.issue;
+              issueMutationKind = opened.mutationKind;
+              session.plan.planMutation({
+                path: issueDocumentPath,
+                kind: issueMutationKind,
+                category: 'aggregate',
+                estimatedPayloadBytes: ADMIN_ISSUE_PLANNING_ESTIMATES.issueBytes,
+              });
+            }
           }
-        }
         }
       }
 
-      if (envelope.intent.operation === 'reconcile_wallet' || envelope.intent.operation === 'rebuild_wallet_projection') {
+      if (
+        envelope.intent.operation === 'reconcile_wallet' ||
+        envelope.intent.operation === 'rebuild_wallet_projection'
+      ) {
         walletDocumentPath = walletPath(envelope.intent.accountId);
         const walletRead = await session.tx.get({ path: walletDocumentPath });
         session.plan.planRead({ path: walletDocumentPath, category: 'payment_wallet' });
@@ -763,18 +876,21 @@ function recordAuditCorrectionHandler(
       }
     },
     planAuditOutbox: async () =>
-      buildAuditCorrectionAuditPlan({
-        envelope,
-        paymentId: payment?.paymentId,
-        paymentRevision: plannedPaymentRevision,
-        walletAccountId: wallet?.accountId,
-        walletRevision: plannedWalletRevision,
-        openedAdminIssueId: plannedIssue?.issueId,
-        openedAdminIssueRevision: plannedIssue?.revision,
-        includePaymentEffect: plannedPaymentRevision !== undefined,
-        includeWalletEffect: plannedWalletRevision !== undefined,
-        isReconciliation,
-      }),
+      mergeGuestPaymentConfirmationAuditPlan(
+        buildAuditCorrectionAuditPlan({
+          envelope,
+          paymentId: payment?.paymentId,
+          paymentRevision: plannedPaymentRevision,
+          walletAccountId: wallet?.accountId,
+          walletRevision: plannedWalletRevision,
+          openedAdminIssueId: plannedIssue?.issueId,
+          openedAdminIssueRevision: plannedIssue?.revision,
+          includePaymentEffect: plannedPaymentRevision !== undefined,
+          includeWalletEffect: plannedWalletRevision !== undefined,
+          isReconciliation,
+        }),
+        plannedGuestConfirmation
+      ),
     execute: async (session, context) => {
       const decidedAt = timestampFromDate(context.decidedAt);
 
@@ -783,18 +899,17 @@ function recordAuditCorrectionHandler(
         payment !== undefined &&
         plannedPaymentRevision !== undefined
       ) {
-        const rebuilt = rebuildPaymentProjectionFromEvents(payment, paymentEvents);
-        const updatedPayment = mergePaymentProjection(payment, rebuilt, {
-          revision: plannedPaymentRevision,
-          eventRevision: AggregateRevisionSchema.parse(
-            maxPaymentEventRevisionFromEvents(paymentEvents) || payment.eventRevision
-          ),
-          updatedAt: decidedAt,
-        });
+        const updatedPayment = plannedRebuiltPayment;
+        if (!updatedPayment) {
+          throw new CanonicalCommandError('internal', {
+            correlationId: envelope.context.correlationId,
+          });
+        }
         session.tx.update(
           { path: paymentDocumentPath },
           toFirestoreWritePayload(updatedPayment as Record<string, unknown>)
         );
+        plannedGuestConfirmation?.commit(session, context.decidedAt);
       }
 
       if (
@@ -841,15 +956,147 @@ function recordAuditCorrectionHandler(
   });
 }
 
+export async function reconcileGuestConfirmationLifecycleMismatchAfterCommand(input: {
+  readonly correlationId: CommandEnvelope['context']['correlationId'];
+  readonly paymentId: Payment['paymentId'];
+  readonly environment: CommandExecutionEnvironment;
+  readonly executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'];
+  readonly eventLoader?: MonetaryEventLoader;
+}): Promise<void> {
+  const mismatch = await input.executor.runAtomic({
+    correlationId: input.correlationId,
+    run: async (session) => {
+      const documentPath = paymentPath(input.paymentId);
+      const paymentRead = await session.tx.get({ path: documentPath });
+      session.plan.planRead({ path: documentPath, category: 'payment_wallet' });
+      const payment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
+      if (!payment) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: input.correlationId,
+          details: { field: 'paymentId', reason: 'conflict' },
+        });
+      }
+      const detected = await detectGuestPaymentConfirmationLifecycleMismatch({
+        session,
+        payment,
+        correlationId: input.correlationId,
+        now: timestampFromDate(input.environment.clock.now()),
+      });
+      if (!detected) {
+        await session.transitionToWrites();
+        return undefined;
+      }
+      const identity = financialReconciliationMismatchIdentity({
+        subjectKind: payment.subjectType,
+        subjectId: payment.subjectId,
+        reconciliationScope: 'guest_confirmation_lifecycle',
+      });
+      const issuePath = plannedAdminIssuePath(identity);
+      const issueRead = await session.tx.get({ path: issuePath });
+      session.plan.planRead({ path: issuePath, category: 'aggregate' });
+      const issue = parseExistingAdminIssueOrCollision(
+        input.correlationId,
+        issueRead.exists ? issueRead.data : undefined
+      );
+      await session.transitionToWrites();
+      if (issue?.lifecycle.status === 'open') return undefined;
+      return {
+        paymentRevision: payment.revision,
+        subjectRevision: detected.subjectRevision,
+        issueRevision: issue?.revision ?? 0,
+      };
+    },
+  });
+  if (!mismatch) return;
+
+  const reconciliationEnvelope: CommandEnvelope<'record_audit_correction'> = {
+    kind: 'record_audit_correction',
+    context: {
+      actor: systemCommandActor(
+        SystemActorIdSchema.parse('system_guest_confirmation_reconciliation')
+      ),
+      exercisedCapability: 'system',
+      idempotencyKey: IdempotencyKeySchema.parse(
+        canonicalDeterministicHash([
+          'guest-confirmation-reconciliation:v1',
+          input.paymentId,
+          String(mismatch.paymentRevision),
+          String(mismatch.subjectRevision),
+          String(mismatch.issueRevision),
+        ])
+      ),
+      correlationId: input.correlationId,
+      source: 'system_reconciliation',
+    },
+    intent: { operation: 'reconcile_payment', paymentId: input.paymentId },
+  };
+  const runReconciliation = () =>
+    recordAuditCorrectionHandler(
+      reconciliationEnvelope,
+      input.environment,
+      input.executor,
+      input.eventLoader ?? loadMonetaryEventsInTransaction
+    );
+  let result: Awaited<ReturnType<typeof runReconciliation>>;
+  try {
+    result = await runReconciliation();
+  } catch (error) {
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? (error as { readonly code?: unknown }).code
+        : undefined;
+    const message = error instanceof Error ? error.message : '';
+    if (code !== 6 && code !== 'already-exists' && !message.includes('ALREADY_EXISTS')) {
+      throw error;
+    }
+    result = await runReconciliation();
+  }
+  if (result.status === 'error') {
+    throw new CanonicalCommandError('internal', {
+      correlationId: input.correlationId,
+    });
+  }
+}
+
 export function createFinanceCorrectionCommandHandlers(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'],
   eventLoader: MonetaryEventLoader = loadMonetaryEventsInTransaction
 ): Partial<CommandHandlerMap> {
   return {
-    record_financial_correction: (envelope, environment) =>
-      recordFinancialCorrectionHandler(envelope, environment, executor),
-    record_audit_correction: (envelope, environment) =>
-      recordAuditCorrectionHandler(envelope, environment, executor, eventLoader),
+    record_financial_correction: async (envelope, environment) => {
+      const result = await recordFinancialCorrectionHandler(envelope, environment, executor);
+      if (result.status === 'success') {
+        await reconcileGuestConfirmationLifecycleMismatchAfterCommand({
+          correlationId: envelope.context.correlationId,
+          paymentId: envelope.intent.paymentId,
+          environment,
+          executor,
+          eventLoader,
+        });
+      }
+      return result;
+    },
+    record_audit_correction: async (envelope, environment) => {
+      const result = await recordAuditCorrectionHandler(
+        envelope,
+        environment,
+        executor,
+        eventLoader
+      );
+      if (
+        result.status === 'success' &&
+        envelope.intent.operation === 'rebuild_payment_projection'
+      ) {
+        await reconcileGuestConfirmationLifecycleMismatchAfterCommand({
+          correlationId: envelope.context.correlationId,
+          paymentId: envelope.intent.paymentId,
+          environment,
+          executor,
+          eventLoader,
+        });
+      }
+      return result;
+    },
   };
 }
 

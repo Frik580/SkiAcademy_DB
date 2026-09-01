@@ -2,6 +2,7 @@ export const COMMAND_KINDS = [
   'create_confirmed_booking',
   'create_guest_booking_request',
   'confirm_guest_booking',
+  'confirm_guest_course_enrollment',
   'link_guest_booking_to_account',
   'link_guest_booking_to_account_as_administrator',
   'request_booking_cancellation',

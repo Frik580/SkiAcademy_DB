@@ -119,6 +119,7 @@ export const AdminCourseEnrollmentAuthorizedActionsSchema = z
     canTransfer: z.boolean(),
     canReconcile: z.boolean(),
     canResolveAttendanceOutcome: z.boolean(),
+    canCancelUnpaidGuest: z.boolean(),
     canApproveGuest: z.literal(false),
     canLinkGuest: z.boolean(),
     canWithdraw: z.literal(false),

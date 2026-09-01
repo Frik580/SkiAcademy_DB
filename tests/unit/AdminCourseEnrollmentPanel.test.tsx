@@ -102,6 +102,7 @@ const rosterItem = {
     canTransfer: false,
     canReconcile: false,
     canResolveAttendanceOutcome: false,
+    canCancelUnpaidGuest: false,
     canApproveGuest: false,
     canLinkGuest: false,
     canWithdraw: false,
@@ -278,6 +279,64 @@ describe('AdminCourseEnrollmentPanel', () => {
     expect(await screen.findByText(/Guest identity linking is unavailable/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Approve guest/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Link guest identity' })).not.toBeInTheDocument();
+  });
+
+  it('offers zero-refund cancellation only for a server-authorized unpaid pending guest', async () => {
+    const user = userEvent.setup();
+    queryAdminCourseEnrollmentReadModels.mockImplementation(async (input) => {
+      const guest = {
+        ...rosterItem,
+        lifecycleStatus: 'pending',
+        guestState: 'pending_unlinked',
+        payment: {
+          ...rosterItem.payment,
+          status: 'unpaid',
+          paid: 0,
+          retained: 0,
+          settled: 0,
+          outstanding: rosterItem.payment.price,
+        },
+        authorizedActions: {
+          ...rosterItem.authorizedActions,
+          canResolveCancellation: false,
+          canCancelUnpaidGuest: true,
+        },
+      };
+      return input.scope === 'admin_enrollment_detail'
+        ? {
+            scope: 'admin_enrollment_detail',
+            item: {
+              ...detail,
+              ...guest,
+              cancellation: undefined,
+              authorizedActions: guest.authorizedActions,
+            },
+          }
+        : { scope: input.scope, items: [guest], hasMore: false };
+    });
+    render(
+      <MemoryRouter initialEntries={['/?enrollment=course_enrollment_admin_component_01']}>
+        <AdminCourseEnrollmentPanel adminAccountId="account_admin_component_01" />
+      </MemoryRouter>
+    );
+
+    const cancel = await screen.findByRole('button', { name: 'Cancel unpaid guest enrollment' });
+    expect(cancel).toBeDisabled();
+    await user.type(screen.getByLabelText('Action reason'), 'Reservation remains unpaid');
+    await user.click(cancel);
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));
+    expect(executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1]).toMatchObject({
+      kind: 'resolve_course_enrollment_cancellation',
+      expectedRevision: 4,
+      intent: {
+        courseEnrollmentId: 'course_enrollment_admin_component_01',
+        decision: 'direct_cancel',
+        refundAmount: 0,
+        reasonExplanation: 'Reservation remains unpaid',
+      },
+    });
   });
 
   it('locks Admin guest identity linking to the captured enrollment revision', async () => {

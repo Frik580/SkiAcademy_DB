@@ -10,6 +10,7 @@ import {
   administratorCourseCancellationReasonCode,
   evaluateClientCourseCancellationTiming,
   isCourseEnrollmentAllowedBeforeStart,
+  isPaymentEntirelyUnpaid,
   isPendingCancellationCourseEnrollment,
   isTerminalCourseEnrollmentLifecycle,
   nextAggregateRevision,
@@ -44,7 +45,14 @@ import {
   plannedAdminIssuePath,
   toFirestoreWritePayload as toAdminIssueWritePayload,
 } from '../adminIssues';
-import { parseAccount, accountPath, parsePayment, paymentPath, parseWallet, walletPath } from '../finance/financeStore';
+import {
+  parseAccount,
+  accountPath,
+  parsePayment,
+  paymentPath,
+  parseWallet,
+  walletPath,
+} from '../finance/financeStore';
 import {
   parseParticipant,
   parseParticipantManagement,
@@ -100,9 +108,15 @@ import {
   COURSE_ENROLLMENT_PLANNING_ESTIMATES,
 } from './courseEnrollmentStore';
 import type { GuestCourseEnrollmentCommandEnvironment } from './guestCourseEnrollmentLifecycle';
-import { requestPendingGuestCourseEnrollmentCancellationHandler } from './guestCourseEnrollmentLifecycle';
+import {
+  confirmGuestCourseEnrollmentHandler,
+  requestPendingGuestCourseEnrollmentCancellationHandler,
+} from './guestCourseEnrollmentLifecycle';
 import { moveActiveCourseEnrollmentGuard } from '../resourceClaims/uniquenessGuards';
-import { registerResourceClaimPlanInGuardOverlay, type InTransactionGuardOverlay } from '../resourceClaims/resourceClaimEngine';
+import {
+  registerResourceClaimPlanInGuardOverlay,
+  type InTransactionGuardOverlay,
+} from '../resourceClaims/resourceClaimEngine';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -211,7 +225,9 @@ function requestAuthenticatedCourseEnrollmentCancellationHandler(
         }
         const participantRead = await session.tx.get({ path: participantPath(participantId) });
         session.plan.planRead({ path: participantPath(participantId), category: 'aggregate' });
-        const participant = parseParticipant(participantRead.exists ? participantRead.data : undefined);
+        const participant = parseParticipant(
+          participantRead.exists ? participantRead.data : undefined
+        );
         if (!participant || participant.management.kind !== 'managed') {
           throw new CanonicalCommandError('forbidden', {
             correlationId: envelope.context.correlationId,
@@ -295,7 +311,11 @@ function requestAuthenticatedCourseEnrollmentCancellationHandler(
             });
           }
           payment = parsedPayment;
-          assertCourseEnrollmentPaymentIdentity(envelope.context.correlationId, enrollment, payment);
+          assertCourseEnrollmentPaymentIdentity(
+            envelope.context.correlationId,
+            enrollment,
+            payment
+          );
           const refundAmount = calculatePolicyRefundAmount({
             payment,
             refundPercentBasisPoints: timing.refundPercentBasisPoints,
@@ -482,7 +502,8 @@ function withdrawCourseEnrollmentCancellationRequestHandler(
 
   let enrollment!: CourseEnrollment;
   let plannedEnrollmentRevision = AggregateRevisionSchema.parse(1);
-  let plannedResolvedIssue: PlannedUnresolvedCourseEnrollmentPendingCancellationResolution | undefined;
+  let plannedResolvedIssue:
+    PlannedUnresolvedCourseEnrollmentPendingCancellationResolution | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'withdraw_course_enrollment'> = {
     read: async (session) => {
@@ -502,7 +523,10 @@ function withdrawCourseEnrollmentCancellationRequestHandler(
       const participantId = enrollment.participantId;
       const actor = requireAccountActor(envelope);
       const accountRead = await session.tx.get({ path: accountPath(actor.accountId) });
-      session.plan.planRead({ path: accountPath(actor.accountId), category: 'authorization_check' });
+      session.plan.planRead({
+        path: accountPath(actor.accountId),
+        category: 'authorization_check',
+      });
       const account = parseAccount(accountRead.exists ? accountRead.data : undefined);
       if (!account) {
         throw new CanonicalCommandError('forbidden', {
@@ -511,7 +535,9 @@ function withdrawCourseEnrollmentCancellationRequestHandler(
       }
       const participantRead = await session.tx.get({ path: participantPath(participantId) });
       session.plan.planRead({ path: participantPath(participantId), category: 'aggregate' });
-      const participant = parseParticipant(participantRead.exists ? participantRead.data : undefined);
+      const participant = parseParticipant(
+        participantRead.exists ? participantRead.data : undefined
+      );
       if (!participant || participant.management.kind !== 'managed') {
         throw new CanonicalCommandError('forbidden', {
           correlationId: envelope.context.correlationId,
@@ -548,17 +574,15 @@ function withdrawCourseEnrollmentCancellationRequestHandler(
       });
 
       const now = timestampFromDate(environment.clock.decidedAt());
-      plannedResolvedIssue = await planResolveOpenUnresolvedCourseEnrollmentPendingCancellationIssue(
-        session,
-        {
+      plannedResolvedIssue =
+        await planResolveOpenUnresolvedCourseEnrollmentPendingCancellationIssue(session, {
           enrollment,
           correlationId: metadata.correlationId,
           commandId: metadata.commandId,
           now,
           reason: 'Cancellation request withdrawn',
           envelope,
-        }
-      );
+        });
     },
     planAuditOutbox: async () =>
       buildWithdrawCourseEnrollmentCancellationRequestAuditPlan({
@@ -630,7 +654,8 @@ function resolveCourseEnrollmentCancellationHandler(
   let plannedFinance: PlannedCourseEnrollmentCancellationFinance | undefined;
   let auditSummary = '';
   let paymentEffectSummary: string | undefined;
-  let plannedResolvedPendingIssue: PlannedUnresolvedCourseEnrollmentPendingCancellationResolution | undefined;
+  let plannedResolvedPendingIssue:
+    PlannedUnresolvedCourseEnrollmentPendingCancellationResolution | undefined;
   let terminalStatus: 'cancelled' | 'withdrawn' | 'confirmed' = 'confirmed';
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'resolve_course_enrollment_cancellation'> =
@@ -689,24 +714,41 @@ function resolveCourseEnrollmentCancellationHandler(
         });
 
         if (decision === 'direct_cancel') {
-          if (enrollment.lifecycle.status !== 'confirmed') {
+          const refundAmount = KztMinorUnitsSchema.parse(envelope.intent.refundAmount!);
+          const isPendingGuest =
+            enrollment.lifecycle.status === 'pending' &&
+            enrollment.attribution.bookingOrigin === 'guest';
+          if (enrollment.lifecycle.status !== 'confirmed' && !isPendingGuest) {
             throw new CanonicalCommandError('invalid_transition', {
               correlationId: envelope.context.correlationId,
               details: { resourceKind: 'course_enrollment', reason: 'unsupported' },
             });
           }
-          const refundAmount = KztMinorUnitsSchema.parse(envelope.intent.refundAmount!);
           await loadPaymentAndPlanCancel(session, refundAmount, now);
+          if (isPendingGuest && (refundAmount !== 0 || !isPaymentEntirelyUnpaid(payment))) {
+            throw new CanonicalCommandError('invalid_transition', {
+              correlationId: envelope.context.correlationId,
+              details: {
+                field: 'paymentId',
+                resourceKind: 'course_enrollment',
+                reason: 'unsupported',
+              },
+            });
+          }
           terminalStatus = resolveAdminCancellationApprovalTerminalStatus({
             refundAmount,
             bookingOrigin: enrollment.attribution.bookingOrigin,
           });
-          auditSummary =
-            terminalStatus === 'withdrawn'
+          auditSummary = isPendingGuest
+            ? 'Administrator cancelled unpaid pending guest course enrollment'
+            : terminalStatus === 'withdrawn'
               ? 'Administrator withdrew course enrollment participation'
               : 'Administrator cancelled course enrollment';
-          paymentEffectSummary =
-            refundAmount > 0 ? 'Administrator cancellation refund applied' : undefined;
+          paymentEffectSummary = isPendingGuest
+            ? 'Outstanding unpaid amount written off on guest cancellation'
+            : refundAmount > 0
+              ? 'Administrator cancellation refund applied'
+              : undefined;
           return;
         }
 
@@ -1130,7 +1172,8 @@ function transferCourseEnrollmentHandler(
         targetCourseRevision: plannedTargetCourseRevision,
         paymentId: plannedTransferFinance ? enrollment.paymentId : undefined,
         paymentRevision: plannedTransferFinance?.paymentRevision,
-        monetaryEventIds: plannedTransferFinance?.monetaryEvents.map((event) => event.eventId) ?? [],
+        monetaryEventIds:
+          plannedTransferFinance?.monetaryEvents.map((event) => event.eventId) ?? [],
         walletRevision: plannedTransferFinance?.wallet?.revision,
         walletAccountId: plannedTransferFinance?.payment.payerAccountId,
       }),
@@ -1243,11 +1286,14 @@ export function createCourseEnrollmentLifecycleCommandHandlers(
 ): Pick<
   CommandHandlerMap,
   | 'transfer_course_enrollment'
+  | 'confirm_guest_course_enrollment'
   | 'withdraw_course_enrollment'
   | 'request_course_enrollment_cancellation'
   | 'resolve_course_enrollment_cancellation'
 > {
   return {
+    confirm_guest_course_enrollment: (envelope, environment) =>
+      confirmGuestCourseEnrollmentHandler(envelope, environment, executor),
     transfer_course_enrollment: (envelope, environment) =>
       transferCourseEnrollmentHandler(envelope, environment, executor),
     withdraw_course_enrollment: (envelope, environment) =>

@@ -1052,7 +1052,7 @@ export const translations = {
     adminLessonLinkReasonAttendance: 'Attendance already exists for this guest occurrence.',
     adminLessonLinkReasonAdminInactive: 'The administrator Account is not active.',
     adminLessonGuestApprovalUnavailable:
-      'Guest approval is unavailable because the Admin read projection exposes no explicit authorization for it.',
+      'Pending payment. Confirmation is automatic when the required Payment is fully satisfied.',
     adminLessonConfirmTitle: 'Confirm canonical booking action',
     adminLessonConfirmCancel: 'Cancel',
     adminLessonConfirmSubmit: 'Confirm',
@@ -3003,7 +3003,7 @@ export const translations = {
     adminLessonLinkReasonAttendance: 'Для этого гостевого занятия уже есть посещаемость.',
     adminLessonLinkReasonAdminInactive: 'Account администратора неактивен.',
     adminLessonGuestApprovalUnavailable:
-      'Подтверждение гостя недоступно: Admin-проекция не даёт на это явного права.',
+      'Ожидается оплата. Подтверждение произойдёт автоматически после полного погашения обязательного платежа.',
     adminLessonConfirmTitle: 'Подтвердите каноническое действие с бронированием',
     adminLessonConfirmCancel: 'Отмена',
     adminLessonConfirmSubmit: 'Подтвердить',

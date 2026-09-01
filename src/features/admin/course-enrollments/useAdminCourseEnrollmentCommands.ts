@@ -59,7 +59,7 @@ export async function executeAdminCourseEnrollmentAttempt(
         intent: {
           courseEnrollmentId,
           decision: attempt.decision,
-          ...(attempt.decision === 'approve'
+          ...(attempt.decision !== 'reject'
             ? { refundAmount: KztMinorUnitsSchema.parse(attempt.refundAmount) }
             : {}),
           reasonExplanation: attempt.reasonExplanation,

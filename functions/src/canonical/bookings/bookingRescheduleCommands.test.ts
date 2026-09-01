@@ -68,7 +68,8 @@ function accountContext(
     exercisedCapability: capability,
     idempotencyKey,
     correlationId,
-    source: capability === 'administrator' ? ('admin_callable' as const) : ('client_callable' as const),
+    source:
+      capability === 'administrator' ? ('admin_callable' as const) : ('client_callable' as const),
     ...(expectedRevision === undefined
       ? {}
       : { expectedRevision: AggregateRevisionSchema.parse(expectedRevision) }),
@@ -167,7 +168,10 @@ function isoFromTimestamp(timestamp: { seconds: number; nanoseconds: number }) {
 async function createConfirmedBooking(
   executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>
 ) {
-  const commands = createProductionCanonicalCommands(environment('2026-01-01T00:00:00.000Z'), executor);
+  const commands = createProductionCanonicalCommands(
+    environment('2026-01-01T00:00:00.000Z'),
+    executor
+  );
   const result = await commands.execute({
     kind: 'create_confirmed_booking',
     context: {
@@ -194,7 +198,13 @@ function rescheduleEnvelope(
 ): CommandEnvelope<'reschedule_booking'> {
   return {
     kind: 'reschedule_booking',
-    context: accountContext(capability, capability === 'administrator' ? adminAccountId : accountId, idempotencyKey, expectedRevision, calendarInput),
+    context: accountContext(
+      capability,
+      capability === 'administrator' ? adminAccountId : accountId,
+      idempotencyKey,
+      expectedRevision,
+      calendarInput
+    ),
     intent: {
       bookingId,
       ...(capability === 'administrator' ? { reasonExplanation: 'Admin reschedule' } : {}),
@@ -206,13 +216,16 @@ describe('booking reschedule commands', () => {
   it('allows client self-service reschedule >=24h before start and rotates occurrenceId', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
-    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.interval
-      .startsAt;
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence
+      .interval.startsAt;
     const requestAt = addMillisecondsToCanonicalTimestamp(
       startsAt,
       -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS
     );
-    const commands = createProductionCanonicalCommands(environment(isoFromTimestamp(requestAt)), executor);
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
     const envelope = rescheduleEnvelope('reschedule-client-01');
     const result = await commands.execute(envelope);
     expect(result.status).toBe('success');
@@ -231,14 +244,14 @@ describe('booking reschedule commands', () => {
         path.startsWith('resource_claims/') && doc.data.lifecycle?.status === 'active'
     );
     expect(activeClaims.length).toBe(2);
-    expect(activeClaims.every(([, doc]) => doc.data.occurrenceId === booking?.occurrence.occurrenceId)).toBe(
-      true
-    );
+    expect(
+      activeClaims.every(([, doc]) => doc.data.occurrenceId === booking?.occurrence.occurrenceId)
+    ).toBe(true);
 
     const identity = resolveCommandIdempotencyIdentity(envelope);
-    expect(snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)).toBe(
-      true
-    );
+    expect(
+      snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
+    ).toBe(true);
     expect(
       [...snapshot.docs.keys()].filter((path) => path.startsWith('monetary_events/')).length
     ).toBe(1);
@@ -247,24 +260,30 @@ describe('booking reschedule commands', () => {
   it('rejects client self-service reschedule inside 24h', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
-    const commands = createProductionCanonicalCommands(environment('2026-01-14T09:00:01.000Z'), executor);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-14T09:00:01.000Z'),
+      executor
+    );
     const result = await commands.execute(rescheduleEnvelope('reschedule-late-01'));
     expect(result.status).toBe('error');
-    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.occurrenceId).toBe(
-      initialOccurrenceId
-    );
+    expect(
+      executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.occurrenceId
+    ).toBe(initialOccurrenceId);
   });
 
   it('rejects second client self-service reschedule', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
-    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.interval
-      .startsAt;
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence
+      .interval.startsAt;
     const requestAt = addMillisecondsToCanonicalTimestamp(
       startsAt,
       -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS
     );
-    const commands = createProductionCanonicalCommands(environment(isoFromTimestamp(requestAt)), executor);
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
     await commands.execute(rescheduleEnvelope('reschedule-first'));
     const revision = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.revision;
     const second = await commands.execute(
@@ -276,18 +295,27 @@ describe('booking reschedule commands', () => {
   it('admin reschedule does not consume client allowance', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
-    const commands = createProductionCanonicalCommands(environment('2026-01-14T09:00:01.000Z'), executor);
-    const result = await commands.execute(rescheduleEnvelope('reschedule-admin-01', 'administrator'));
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-14T09:00:01.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      rescheduleEnvelope('reschedule-admin-01', 'administrator')
+    );
     expect(result.status).toBe('success');
     expect(
-      executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.clientSelfServiceRescheduleConsumedAt
+      executor.snapshot().docs.get(`bookings/${bookingId}`)?.data
+        .clientSelfServiceRescheduleConsumedAt
     ).toBeUndefined();
   });
 
   it('admin instructor change reprices from authoritative tariff', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
-    const commands = createProductionCanonicalCommands(environment('2026-01-01T00:00:00.000Z'), executor);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-01T00:00:00.000Z'),
+      executor
+    );
     const result = await commands.execute({
       kind: 'change_booking_instructor',
       context: accountContext('administrator', adminAccountId, 'change-instructor-01', 1),
@@ -311,41 +339,51 @@ describe('booking reschedule commands', () => {
   it('rejects stale expectedRevision', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
-    const commands = createProductionCanonicalCommands(environment('2026-01-01T00:00:00.000Z'), executor);
-    const result = await commands.execute(rescheduleEnvelope('stale-revision', 'account_owner', 99));
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-01T00:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      rescheduleEnvelope('stale-revision', 'account_owner', 99)
+    );
     expect(result.status).toBe('error');
   });
 
   it('replays successful reschedule without duplicate mutation', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
-    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.interval
-      .startsAt;
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence
+      .interval.startsAt;
     const requestAt = addMillisecondsToCanonicalTimestamp(
       startsAt,
       -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS
     );
-    const commands = createProductionCanonicalCommands(environment(isoFromTimestamp(requestAt)), executor);
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
     const envelope = rescheduleEnvelope('reschedule-replay');
     await commands.execute(envelope);
     const occurrenceAfterFirst = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data
       .occurrence.occurrenceId;
     const replay = await commands.execute(envelope);
     expect(replay.status).toBe('success');
-    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.occurrenceId).toBe(
-      occurrenceAfterFirst
-    );
+    expect(
+      executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.occurrenceId
+    ).toBe(occurrenceAfterFirst);
     const identity = resolveCommandIdempotencyIdentity(envelope);
     expect(
-      [...executor.snapshot().docs.keys()].filter((path) =>
-        path.startsWith('activity_logs/')
-      ).length
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('activity_logs/'))
+        .length
     ).toBe(2);
     expect(
-      executor.snapshot().docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
+      executor
+        .snapshot()
+        .docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
     ).toBe(true);
     expect(
-      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/')).length
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/'))
+        .length
     ).toBe(1);
   });
 });
@@ -462,17 +500,23 @@ async function seedConfirmedGuestBooking(
   });
   expect(createResult.status).toBe('success');
 
+  const payment = executor.snapshot().docs.get(`payments/${guestPaymentId}`)?.data;
   const confirmResult = await commands.execute({
-    kind: 'confirm_guest_booking',
+    kind: 'record_provider_payment_event',
     context: {
       actor: accountCommandActor(adminAccountId),
       exercisedCapability: 'administrator',
-      idempotencyKey: 'guest-confirm-reschedule',
+      idempotencyKey: 'guest-fund-reschedule',
       correlationId,
       source: 'admin_callable',
       expectedRevision: AggregateRevisionSchema.parse(1),
     },
-    intent: { bookingId: guestBookingId },
+    intent: {
+      paymentId: guestPaymentId,
+      amount: payment?.price,
+      sourceKind: 'manual_external',
+      manualReference: 'guest-reschedule-full-payment',
+    },
   });
   expect(confirmResult.status).toBe('success');
 }
@@ -634,7 +678,8 @@ describe('linked guest-origin reschedule authorization', () => {
       -INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS
     );
     const commands = guestCommands(executor, isoFromTimestamp(requestAt));
-    const bookingRevision = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.revision;
+    const bookingRevision = executor.snapshot().docs.get(`bookings/${guestBookingId}`)
+      ?.data.revision;
     const result = await commands.execute(
       guestRescheduleEnvelope(linkAccountId, 'guest-revoked-management', bookingRevision)
     );
@@ -698,7 +743,8 @@ describe('linked guest-origin reschedule authorization', () => {
       executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.attribution.bookingOrigin
     ).toBe('guest');
     expect(
-      executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.clientSelfServiceRescheduleConsumedAt
+      executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data
+        .clientSelfServiceRescheduleConsumedAt
     ).toBeUndefined();
   });
 });

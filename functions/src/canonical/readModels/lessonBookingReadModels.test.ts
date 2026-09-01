@@ -509,11 +509,9 @@ describe('Admin lesson booking read models', () => {
   });
 
   it('authorizes canonical guest confirmation without treating a managed party as linkable', async () => {
-    const base = canonicalBooking(
-      'booking_admin_guest_confirm_01',
-      '2026-08-01T12:00:00.000Z',
-      { status: 'confirmed' }
-    );
+    const base = canonicalBooking('booking_admin_guest_confirm_01', '2026-08-01T12:00:00.000Z', {
+      status: 'confirmed',
+    });
     const booking = BookingSchema.parse({
       ...base,
       attribution: {
@@ -532,18 +530,16 @@ describe('Admin lesson booking read models', () => {
     });
 
     expect(model?.admin?.authorizedActions).toMatchObject({
-      canConfirmGuest: true,
+      canConfirmGuest: false,
       canDirectCancel: false,
       canLinkGuestToAccount: false,
     });
   });
 
   it('authorizes Admin guest identity linking for a unique unmanaged guest Participant', async () => {
-    const base = canonicalBooking(
-      'booking_admin_guest_link_01',
-      '2026-08-01T12:00:00.000Z',
-      { status: 'confirmed' }
-    );
+    const base = canonicalBooking('booking_admin_guest_link_01', '2026-08-01T12:00:00.000Z', {
+      status: 'confirmed',
+    });
     const booking = BookingSchema.parse({
       ...base,
       attribution: {
@@ -566,7 +562,7 @@ describe('Admin lesson booking read models', () => {
     });
 
     expect(model?.admin?.authorizedActions).toMatchObject({
-      canConfirmGuest: true,
+      canConfirmGuest: false,
       canLinkGuestToAccount: true,
     });
     expect(model?.admin?.guestIdentityLinkUnavailableReason).toBeUndefined();

@@ -32,6 +32,7 @@ import { createQueryAdminFinanceReadModelsHandler } from './canonical/readModels
 import { createQueryAdminCourseReadModelsHandler } from './canonical/readModels/queryAdminCourseReadModelsCallable';
 import { createQueryAdminCourseEnrollmentReadModelsHandler } from './canonical/readModels/queryAdminCourseEnrollmentReadModelsCallable';
 import { createQueryAdminIdentityReadModelsHandler } from './canonical/readModels/queryAdminIdentityReadModelsCallable';
+import { sweepGuestConfirmationLifecycleMismatches } from './canonical/guestConfirmation/guestConfirmationReconciliationSweep';
 
 export { optimizeImage } from './images/optimizeImageHttp';
 
@@ -189,5 +190,19 @@ export const scheduledPurgeExpiredNotifications = onSchedule(
   async () => {
     const deletedCount = await purgeExpiredNotifications(getAdminFirestore());
     console.log(`Purged ${deletedCount} expired notification(s).`);
+  }
+);
+
+export const scheduledReconcileGuestConfirmationMismatches = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    timeZone: 'UTC',
+    cpu: 'gcf_gen1',
+    memory: '256MiB',
+    maxInstances: 1,
+  },
+  async () => {
+    const result = await sweepGuestConfirmationLifecycleMismatches(getAdminFirestore());
+    console.log(`Reconciled ${result.scannedPayments} fully-paid Payment(s).`);
   }
 );

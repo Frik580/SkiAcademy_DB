@@ -46,7 +46,7 @@ export type AdminCourseEnrollmentAttempt =
       readonly kind: 'resolve_course_enrollment_cancellation';
       readonly idempotencyKey: IdempotencyKey;
       readonly target: AdminCourseEnrollmentTarget;
-      readonly decision: 'approve' | 'reject';
+      readonly decision: 'approve' | 'reject' | 'direct_cancel';
       readonly refundAmount?: number;
       readonly reasonExplanation: string;
     }

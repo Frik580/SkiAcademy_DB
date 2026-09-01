@@ -295,10 +295,7 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
                 </option>
               ))}
           </select>
-          <AdminManagedParticipantPicker
-            selected={createSelection}
-            onChange={setCreateSelection}
-          />
+          <AdminManagedParticipantPicker selected={createSelection} onChange={setCreateSelection} />
           <input
             aria-label={t.reason}
             value={reason}
@@ -415,6 +412,8 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
                 <dd>{detail.course.title}</dd>
                 <dt className="text-[var(--ink-dim)]">Lifecycle</dt>
                 <dd>{detail.lifecycleStatus}</dd>
+                <dt className="text-[var(--ink-dim)]">Guest identity</dt>
+                <dd>{detail.guestState}</dd>
                 <dt className="text-[var(--ink-dim)]">Capacity</dt>
                 <dd>
                   {detail.capacity.availableSeats}/{detail.capacity.totalSeats} available · seat{' '}
@@ -427,9 +426,14 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
               {detail.payment && (
                 <div className="space-y-2 border-t border-[var(--border)] pt-4 text-xs">
                   <p>
-                    {detail.payment.status} · {formatKzt(detail.payment.price)} · outstanding{' '}
-                    {formatKzt(detail.payment.outstanding)} · rev {detail.payment.revision}
+                    {detail.payment.status} · required {formatKzt(detail.payment.price)} · paid{' '}
+                    {formatKzt(detail.payment.paid)} · settled {formatKzt(detail.payment.settled)} ·
+                    outstanding {formatKzt(detail.payment.outstanding)} · rev{' '}
+                    {detail.payment.revision}
                   </p>
+                  {detail.lifecycleStatus === 'pending' && detail.guestState !== 'not_guest' && (
+                    <p className="text-amber-700">{t.guestDeferred}</p>
+                  )}
                   <button
                     type="button"
                     onClick={() =>
@@ -533,6 +537,27 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
                   className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
                 />
               </label>
+
+              {detail.authorizedActions.canCancelUnpaidGuest && (
+                <button
+                  type="button"
+                  disabled={!reason.trim()}
+                  onClick={() =>
+                    requestDetailAttempt(
+                      {
+                        kind: 'resolve_course_enrollment_cancellation',
+                        decision: 'direct_cancel',
+                        refundAmount: 0,
+                        reasonExplanation: reason.trim(),
+                      },
+                      `${t.cancelUnpaidGuest}: ${detail.enrollmentId} @ rev ${detail.revision}`
+                    )
+                  }
+                  className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
+                >
+                  {t.cancelUnpaidGuest}
+                </button>
+              )}
 
               {detail.authorizedActions.canResolveCancellation && detail.cancellation && (
                 <div className="space-y-2 border border-[var(--border)] p-3 text-xs">

@@ -19,6 +19,7 @@ export const FINANCIAL_RECONCILIATION_SCOPES = [
   'payment_invariants',
   'wallet_balance',
   'incremental_requirements',
+  'guest_confirmation_lifecycle',
 ] as const;
 
 export type FinancialReconciliationScope = (typeof FINANCIAL_RECONCILIATION_SCOPES)[number];

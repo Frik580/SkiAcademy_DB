@@ -65,23 +65,6 @@ describe('canonical Admin lesson booking commands', () => {
     });
   });
 
-  it('confirms a guest booking through the canonical command with the captured revision', async () => {
-    await executeAdminLessonBookingAttempt('admin_account_01', {
-      kind: 'confirm_guest_booking',
-      target,
-      idempotencyKey: createAdminLessonBookingAttemptId('confirm_guest'),
-    });
-
-    expect(executeMock).toHaveBeenCalledWith(
-      'admin_account_01',
-      expect.objectContaining({
-        kind: 'confirm_guest_booking',
-        intent: { bookingId: target.bookingId },
-        expectedRevision: target.revision,
-      })
-    );
-  });
-
   it('rejects a cancellation request without refund fields', async () => {
     await executeAdminLessonBookingAttempt('admin_account_01', {
       kind: 'resolve_booking_cancellation',

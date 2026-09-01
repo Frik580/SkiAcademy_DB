@@ -194,7 +194,9 @@ describe('AdminLessonBookingPanel', () => {
     expect(screen.getByText(/original/)).toHaveTextContent('25,000');
     expect(screen.getByText(/adminLessonLinkUnavailable/)).toBeVisible();
     expect(screen.queryByRole('button', { name: 'adminLessonLinkGuest' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'adminLessonLinkDeferred' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonLinkDeferred' })
+    ).not.toBeInTheDocument();
     expect(screen.queryByText('complete_booking')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'adminLessonOpenPayment' }));
@@ -208,7 +210,7 @@ describe('AdminLessonBookingPanel', () => {
     );
   });
 
-  it('shows guest approval only from the server-derived Admin action', () => {
+  it('shows payment-driven confirmation status without a manual approval action', () => {
     const item = detail();
     const pendingGuest = {
       ...item,
@@ -220,7 +222,7 @@ describe('AdminLessonBookingPanel', () => {
         ...item.admin!,
         authorizedActions: {
           ...item.admin!.authorizedActions,
-          canConfirmGuest: true,
+          canConfirmGuest: false,
           canResolveCancellation: false,
         },
       },
@@ -240,8 +242,10 @@ describe('AdminLessonBookingPanel', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('button', { name: 'adminLessonConfirmGuest' })).toBeVisible();
-    expect(screen.queryByText('adminLessonGuestApprovalUnavailable')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonConfirmGuest' })
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('adminLessonGuestApprovalUnavailable')).toBeVisible();
   });
 
   it('keeps server pagination reachable when a filtered page is empty', () => {
@@ -263,73 +267,6 @@ describe('AdminLessonBookingPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'adminLessonLoadNextPage' }));
     expect(loadMore).toHaveBeenCalledTimes(1);
-  });
-
-  it('keeps the captured mutation target when the selected booking changes', async () => {
-    const first = detail();
-    const second = {
-      ...first,
-      bookingId: 'booking_admin_panel_02',
-      revision: 9,
-      participants: [{ participantId: 'participant_admin_panel_02', displayName: 'Other Student' }],
-      admin: {
-        ...first.admin!,
-        participants: [
-          {
-            participantId: 'participant_admin_panel_02',
-            displayName: 'Other Student',
-            skillLevel: 'beginner',
-            discipline: 'ski' as const,
-            age: { kind: 'age_years' as const, years: 16 },
-          },
-        ],
-        authorizedActions: {
-          ...first.admin!.authorizedActions,
-          canConfirmGuest: true,
-          canResolveCancellation: false,
-        },
-      },
-    };
-    const pendingFirst = {
-      ...first,
-      admin: {
-        ...first.admin!,
-        authorizedActions: {
-          ...first.admin!.authorizedActions,
-          canConfirmGuest: true,
-          canResolveCancellation: false,
-        },
-      },
-    };
-    runAttemptMock.mockResolvedValue({ status: 'success' });
-    readMock.mockReturnValue({
-      list: { items: [pendingFirst, second], loading: false, loadingMore: false, hasMore: false },
-      detail: { item: pendingFirst, loading: false },
-      retryList: vi.fn(),
-      retryDetail: vi.fn(),
-      loadMore: vi.fn(),
-      refreshBooking: vi.fn(),
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/admin?tab=operations&booking=booking_admin_panel_01']}>
-        <AdminLessonBookingPanel adminAccountId="admin_account_01" accounts={[]} instructors={[]} />
-        <LocationProbe />
-      </MemoryRouter>
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'adminLessonConfirmGuest' }));
-    expect(screen.getByText(/booking_admin_panel_01 @ rev 5/)).toBeVisible();
-
-    fireEvent.click(screen.getByRole('button', { name: /Other Student/ }));
-    expect(screen.getByText(/booking_admin_panel_01 @ rev 5/)).toBeVisible();
-
-    fireEvent.click(screen.getByRole('button', { name: 'adminLessonConfirmSubmit' }));
-    await waitFor(() => expect(runAttemptMock).toHaveBeenCalledTimes(1));
-    expect(runAttemptMock.mock.calls[0]?.[0]).toMatchObject({
-      kind: 'confirm_guest_booking',
-      target: { bookingId: 'booking_admin_panel_01', revision: 5 },
-    });
   });
 
   it('locks Admin guest identity linking to the captured booking revision and selected Participant', async () => {
@@ -367,7 +304,9 @@ describe('AdminLessonBookingPanel', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'adminLessonLinkGuest' }));
     expect(
-      screen.getByText(/booking_admin_panel_01 @ rev 5 → account_link_target_01\/participant_link_target_01/)
+      screen.getByText(
+        /booking_admin_panel_01 @ rev 5 → account_link_target_01\/participant_link_target_01/
+      )
     ).toBeVisible();
 
     fireEvent.change(screen.getByLabelText('Link reason'), {

@@ -707,22 +707,6 @@ export function AdminLessonBookingPanel({
                   />
                 </label>
 
-                {admin.authorizedActions.canConfirmGuest && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      requestDetailAttempt(
-                        detail,
-                        { kind: 'confirm_guest_booking' },
-                        t('adminLessonConfirmGuestMessage')
-                      )
-                    }
-                    className="w-full border border-emerald-500 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300"
-                  >
-                    {t('adminLessonConfirmGuest')}
-                  </button>
-                )}
-
                 {admin.authorizedActions.canReschedule && (
                   <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
                     <input
@@ -958,9 +942,7 @@ export function AdminLessonBookingPanel({
                 {admin.authorizedActions.canLinkGuestToAccount ? (
                   <div className="space-y-2">
                     <p className="text-xs font-medium">{t('adminLessonLinkGuestTitle')}</p>
-                    <p className="text-xs text-[var(--ink-dim)]">
-                      {t('adminLessonLinkGuestHint')}
-                    </p>
+                    <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonLinkGuestHint')}</p>
                     <AdminManagedParticipantPicker
                       selected={linkSelection}
                       onChange={(selection) => {
@@ -983,8 +965,14 @@ export function AdminLessonBookingPanel({
                     {linkSelection && (
                       <p className="text-xs text-[var(--ink-dim)]">
                         {t('adminLessonLinkReview')
-                          .replace('{guest}', admin.participants[0]?.displayName ?? detail.bookingId)
-                          .replace('{account}', linkSelection.accountDisplayName ?? linkSelection.accountId)
+                          .replace(
+                            '{guest}',
+                            admin.participants[0]?.displayName ?? detail.bookingId
+                          )
+                          .replace(
+                            '{account}',
+                            linkSelection.accountDisplayName ?? linkSelection.accountId
+                          )
                           .replace('{participant}', linkSelection.displayName)}
                       </p>
                     )}
@@ -1026,14 +1014,12 @@ export function AdminLessonBookingPanel({
                     )}
                   </>
                 )}
-                {detail.bookingOrigin === 'guest' &&
-                  detail.lifecycle.status === 'pending' &&
-                  !admin.authorizedActions.canConfirmGuest && (
-                    <p className="flex gap-2 text-xs text-amber-700">
-                      <AlertTriangle className="h-4 w-4 shrink-0" />
-                      {t('adminLessonGuestApprovalUnavailable')}
-                    </p>
-                  )}
+                {detail.bookingOrigin === 'guest' && detail.lifecycle.status === 'pending' && (
+                  <p className="flex gap-2 text-xs text-amber-700">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    {t('adminLessonGuestApprovalUnavailable')}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -1054,8 +1040,7 @@ export function AdminLessonBookingPanel({
               Target:{' '}
               {confirmation.attempt.kind === 'create_confirmed_booking'
                 ? confirmation.attempt.bookingId
-                : confirmation.attempt.kind ===
-                    'link_guest_booking_to_account_as_administrator'
+                : confirmation.attempt.kind === 'link_guest_booking_to_account_as_administrator'
                   ? `${confirmation.attempt.target.bookingId} @ rev ${confirmation.attempt.target.revision} → ${confirmation.attempt.targetAccountId}/${confirmation.attempt.targetParticipantId}`
                   : `${confirmation.attempt.target.bookingId} @ rev ${confirmation.attempt.target.revision}`}
             </p>

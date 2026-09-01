@@ -27,7 +27,9 @@ const bookingTargetIntent = z.object({ bookingId: BookingIdSchema }).strict();
 const courseEnrollmentTargetIntent = z
   .object({ courseEnrollmentId: CourseEnrollmentIdSchema })
   .strict();
-const bookingProposalTargetIntent = z.object({ bookingProposalId: BookingProposalIdSchema }).strict();
+const bookingProposalTargetIntent = z
+  .object({ bookingProposalId: BookingProposalIdSchema })
+  .strict();
 const bookingChangeRequestTargetIntent = z
   .object({ bookingChangeRequestId: BookingChangeRequestIdSchema })
   .strict();
@@ -94,8 +96,16 @@ const linkGuestCourseEnrollmentParticipantTargetIntent = z.discriminatedUnion('k
     })
     .strict(),
 ]);
-const positiveKztIntent = KztMinorUnitsSchema.refine((value) => value > 0, 'Amount must be positive');
-const providerPaymentSourceKindIntent = z.enum(['provider', 'manual_external', 'cash', 'bank_transfer']);
+const positiveKztIntent = KztMinorUnitsSchema.refine(
+  (value) => value > 0,
+  'Amount must be positive'
+);
+const providerPaymentSourceKindIntent = z.enum([
+  'provider',
+  'manual_external',
+  'cash',
+  'bank_transfer',
+]);
 const recordProviderPaymentEventIntent = z
   .object({
     paymentId: PaymentIdSchema,
@@ -268,6 +278,7 @@ export const CommandIntentSchemaByKind = {
     })
     .strict(),
   confirm_guest_booking: bookingTargetIntent,
+  confirm_guest_course_enrollment: courseEnrollmentTargetIntent,
   link_guest_booking_to_account: z
     .object({
       bookingId: BookingIdSchema,
@@ -362,7 +373,12 @@ export const CommandIntentSchemaByKind = {
   change_booking_duration: z
     .object({
       bookingId: BookingIdSchema,
-      durationMinutes: z.number().finite().int().positive().max(24 * 60),
+      durationMinutes: z
+        .number()
+        .finite()
+        .int()
+        .positive()
+        .max(24 * 60),
       fundingAmount: KztMinorUnitsSchema.optional(),
       walletAccountId: AccountIdSchema.optional(),
       reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
@@ -453,7 +469,10 @@ export const CommandIntentSchemaByKind = {
     })
     .strict()
     .superRefine((intent, context) => {
-      if (intent.enrollmentIds !== undefined && intent.enrollmentIds.length !== intent.participantIds.length) {
+      if (
+        intent.enrollmentIds !== undefined &&
+        intent.enrollmentIds.length !== intent.participantIds.length
+      ) {
         context.addIssue({
           code: 'custom',
           path: ['enrollmentIds'],

@@ -59,18 +59,6 @@ export async function executeAdminLessonBookingAttempt(
   const expectedRevision = AggregateRevisionSchema.parse(attempt.target.revision);
   const bookingId = BookingIdSchema.parse(attempt.target.bookingId);
 
-  if (attempt.kind === 'confirm_guest_booking') {
-    await assertCommandSucceeded(
-      executeAuthenticatedCanonicalCommand(adminAccountId, {
-        kind: attempt.kind,
-        intent: { bookingId },
-        idempotencyKey: attempt.idempotencyKey,
-        expectedRevision,
-      })
-    );
-    return;
-  }
-
   if (attempt.kind === 'resolve_booking_cancellation') {
     await assertCommandSucceeded(
       executeAuthenticatedCanonicalCommand(adminAccountId, {

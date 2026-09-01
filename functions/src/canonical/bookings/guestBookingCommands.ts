@@ -1,5 +1,6 @@
 import {
   AggregateRevisionSchema,
+  assertBookingPaymentIdentity,
   BookingSchema,
   CanonicalCommandError,
   PaymentSchema,
@@ -12,9 +13,9 @@ import {
   GUEST_ACTION_TOKEN_VERSION,
   guestSubjectIdFromBookingId,
   initialBookingOccurrenceIdFromBookingId,
-  isGuestBookingConfirmationAllowedBeforeStart,
   isGuestBookingRequestAllowedBeforeStart,
   isGuestReservationExpired,
+  isPaymentFullyFundedForService,
   isSyntheticCourseInstructorId,
   nextAggregateRevision,
   participantBlockIdFromDirection,
@@ -44,8 +45,18 @@ import {
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
 import { expireGuestCourseEnrollmentReservation } from '../courses/guestCourseEnrollmentLifecycle';
-import { toFirestoreWritePayload as financeToFirestoreWritePayload } from '../finance/financeStore';
-import { FINANCE_PLANNING_ESTIMATES, paymentPath } from '../finance/financeStore';
+import {
+  FINANCE_PLANNING_ESTIMATES,
+  parsePayment,
+  paymentPath,
+  toFirestoreWritePayload as financeToFirestoreWritePayload,
+} from '../finance/financeStore';
+import { reconcileGuestConfirmationLifecycleMismatchAfterCommand } from '../finance/financeCorrectionCommands';
+import {
+  planGuestPaymentConfirmation,
+  type PlannedGuestPaymentConfirmation,
+} from '../guestConfirmation/guestPaymentConfirmation';
+import { buildStandaloneGuestPaymentConfirmationAuditPlan } from '../guestConfirmation/guestPaymentConfirmationAudit';
 import {
   commitAcquireParticipantManagementActiveOwnerGuard,
   readAndPlanAcquireParticipantManagementActiveOwnerGuard,
@@ -55,8 +66,6 @@ import {
   readAndPlanAcquireResourceClaim,
 } from '../resourceClaims/resourceClaimEngine';
 import {
-  bookingClaimIds,
-  bookingClaimIdentities,
   commitPlannedReleaseBookingClaims,
   planReleaseBookingClaims,
 } from './bookingClaimOperations';
@@ -94,13 +103,11 @@ import {
   assertGuestActorMatchesBooking,
   assertGuestBookingRequestContext,
   assertGuestParticipantForBooking,
-  assertGuestPendingBooking,
   assertLinkGuestBookingAuthorization,
   requireGuestActor,
   resolveGuestParticipantProfileForBooking,
 } from './guestBookingAuthorization';
 import {
-  buildConfirmGuestBookingAuditPlan,
   buildCreateGuestBookingRequestAuditPlan,
   buildExpireGuestReservationAuditPlan,
   buildLinkGuestBookingAuditPlan,
@@ -472,132 +479,70 @@ function confirmGuestBookingHandler(
   const metadata = metadataFromEnvelope(envelope);
   assertConfirmGuestBookingAuthorization(envelope);
   const bookingDocumentPath = bookingPath(envelope.intent.bookingId!);
-
-  let booking!: Booking;
-  let plannedRevision = AggregateRevisionSchema.parse(1);
+  let plannedConfirmation: PlannedGuestPaymentConfirmation | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'confirm_guest_booking'> = {
     read: async (session) => {
+      plannedConfirmation = undefined;
       const bookingRead = await session.tx.get({ path: bookingDocumentPath });
       session.plan.planRead({ path: bookingDocumentPath, category: 'aggregate' });
-      const parsed = parseBooking(bookingRead.exists ? bookingRead.data : undefined);
-      if (!parsed) {
+      const booking = parseBooking(bookingRead.exists ? bookingRead.data : undefined);
+      if (!booking) {
         throw new CanonicalCommandError('validation', {
           correlationId: envelope.context.correlationId,
           details: { field: 'bookingId', reason: 'conflict' },
         });
       }
-      booking = parsed;
-      assertGuestPendingBooking(booking);
-
-      const now = timestampFromDate(environment.clock.now());
-      if (booking.lifecycle.status !== 'pending') {
-        throw new CanonicalCommandError('invalid_transition', {
+      const paymentRead = await session.tx.get({ path: paymentPath(booking.paymentId) });
+      session.plan.planRead({ path: paymentPath(booking.paymentId), category: 'payment_wallet' });
+      const payment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
+      if (!payment) {
+        throw new CanonicalCommandError('validation', {
           correlationId: envelope.context.correlationId,
+          details: { field: 'paymentId', reason: 'conflict' },
         });
       }
-      if (
-        isGuestReservationExpired({
-          now,
-          reservationExpiresAt: booking.lifecycle.reservationExpiresAt,
-        })
-      ) {
-        throw new CanonicalCommandError('invalid_transition', {
-          correlationId: envelope.context.correlationId,
-          details: { field: 'reservationExpiresAt', reason: 'out_of_range' },
-        });
-      }
-      if (
-        !isGuestBookingConfirmationAllowedBeforeStart({
-          now,
-          serviceStartsAt: booking.occurrence.interval.startsAt,
-        })
-      ) {
-        throw new CanonicalCommandError('invalid_transition', {
-          correlationId: envelope.context.correlationId,
-          details: { field: 'startsAt', reason: 'out_of_range' },
-        });
-      }
-
-      const participantId = booking.party.participantIds[0]!;
-      const instructorBlockPath = participantBlockPath(
-        participantBlockIdFromDirection({
-          participantId,
-          instructorId: booking.occurrence.instructorId,
-          createdByKind: 'instructor',
-        })
-      );
-      const instructorBlockRead = await session.tx.get({ path: instructorBlockPath });
-      session.plan.planRead({ path: instructorBlockPath, category: 'authorization_check' });
-      const instructorBlock = parseParticipantBlock(
-        instructorBlockRead.exists ? instructorBlockRead.data : undefined
-      );
-      if (instructorBlock?.status === 'active') {
-        throw new CanonicalCommandError('blocked_relationship', {
-          correlationId: envelope.context.correlationId,
-          details: { resourceKind: 'participant', reason: 'conflict' },
-        });
-      }
-
-      const claimIds = bookingClaimIds(booking);
-      const instructorClaimId = bookingClaimIdentities({
-        bookingId: booking.bookingId,
-        occurrenceId: booking.occurrence.occurrenceId,
-        instructorId: booking.occurrence.instructorId,
-        participantId: booking.party.participantIds[0]!,
-      }).instructorClaimId;
-      for (const claimId of [
-        instructorClaimId,
-        ...claimIds.map((identity) => identity.participantClaimId),
-      ]) {
-        const claimPath = `resource_claims/${claimId}`;
-        const claimRead = await session.tx.get({ path: claimPath });
-        session.plan.planRead({ path: claimPath, category: 'resource_claim' });
-        if (!claimRead.exists) {
-          throw new CanonicalCommandError('validation', {
-            correlationId: envelope.context.correlationId,
-            details: { resourceKind: 'booking', reason: 'conflict' },
-          });
-        }
-      }
-
-      plannedRevision = nextAggregateRevision(booking.revision);
-      session.plan.planMutation({
-        path: bookingDocumentPath,
-        kind: 'update',
-        category: 'aggregate',
-        estimatedPayloadBytes: BOOKING_PLANNING_ESTIMATES.bookingBytes,
+      assertBookingPaymentIdentity(envelope.context.correlationId, booking, payment);
+      const decision = await planGuestPaymentConfirmation({
+        session,
+        payment,
+        correlationId: envelope.context.correlationId,
+        commandId: metadata.commandId,
+        now: timestampFromDate(environment.clock.now()),
       });
+      if (decision.outcome !== 'planned') {
+        throw new CanonicalCommandError('invalid_transition', {
+          correlationId: envelope.context.correlationId,
+          details: {
+            field: decision.reason === 'payment_not_fully_funded' ? 'paymentId' : 'lifecycle',
+            reason: 'conflict',
+          },
+        });
+      }
+      plannedConfirmation = decision.plan;
+      if (
+        plannedConfirmation.subjectKind !== 'booking' ||
+        plannedConfirmation.subjectId !== envelope.intent.bookingId ||
+        plannedConfirmation.paymentId !== booking.paymentId
+      ) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'paymentId', reason: 'conflict' },
+        });
+      }
     },
     planAuditOutbox: async () =>
-      buildConfirmGuestBookingAuditPlan({
-        bookingId: envelope.intent.bookingId,
-        bookingRevision: plannedRevision,
+      buildStandaloneGuestPaymentConfirmationAuditPlan({
+        envelope,
+        plan: plannedConfirmation!,
       }),
     execute: async (session, context) => {
-      const decidedAt = timestampFromDate(context.decidedAt);
-      const updatedBooking = BookingSchema.parse({
-        ...booking,
-        lifecycle: { status: 'confirmed' },
-        occurrence: {
-          ...booking.occurrence,
-          serviceParty: {
-            ...booking.occurrence.serviceParty,
-            frozenAt: decidedAt,
-          },
-        },
-        revision: plannedRevision,
-        updatedAt: decidedAt,
-        audit: {
-          ...booking.audit,
-          lastChangedByCommandId: metadata.commandId,
-          correlationId: metadata.correlationId,
-        },
-      });
-      session.tx.update(
-        { path: bookingDocumentPath },
-        toFirestoreWritePayload(updatedBooking as Record<string, unknown>)
-      );
+      if (!plannedConfirmation) {
+        throw new CanonicalCommandError('internal', {
+          correlationId: envelope.context.correlationId,
+        });
+      }
+      plannedConfirmation.commit(session, context.decidedAt);
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
   };
@@ -622,7 +567,7 @@ function expireGuestReservationHandler(
   return expireGuestBookingReservationHandler(envelope, environment, executor);
 }
 
-function expireGuestBookingReservationHandler(
+async function expireGuestBookingReservationHandler(
   envelope: CommandEnvelope<'expire_guest_reservation'>,
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
@@ -657,6 +602,24 @@ function expireGuestBookingReservationHandler(
         throw new CanonicalCommandError('invalid_transition', {
           correlationId: envelope.context.correlationId,
           details: { resourceKind: 'booking', reason: 'conflict' },
+        });
+      }
+
+      const paymentDocumentPath = paymentPath(booking.paymentId);
+      const paymentRead = await session.tx.get({ path: paymentDocumentPath });
+      session.plan.planRead({ path: paymentDocumentPath, category: 'payment_wallet' });
+      const payment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
+      if (!payment) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'paymentId', reason: 'conflict' },
+        });
+      }
+      assertBookingPaymentIdentity(envelope.context.correlationId, booking, payment);
+      if (isPaymentFullyFundedForService(payment)) {
+        throw new CanonicalCommandError('invalid_transition', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'paymentId', reason: 'conflict' },
         });
       }
 
@@ -713,23 +676,27 @@ function expireGuestBookingReservationHandler(
         { path: bookingDocumentPath },
         toFirestoreWritePayload(updatedBooking as Record<string, unknown>)
       );
-      commitPlannedReleaseBookingClaims(
-        session,
-        plannedReleaseClaims,
-        metadata,
-        context.decidedAt
-      );
+      commitPlannedReleaseBookingClaims(session, plannedReleaseClaims, metadata, context.decidedAt);
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
   };
 
-  return executeAuthoritativeIdempotentCanonicalCommand({
+  const result = await executeAuthoritativeIdempotentCanonicalCommand({
     envelope,
     environment,
     executor,
     revisionTarget: { ref: { path: bookingDocumentPath }, requireExpectedRevision: true },
     handler,
   });
+  if (result.status === 'success') {
+    await reconcileGuestConfirmationLifecycleMismatchAfterCommand({
+      correlationId: envelope.context.correlationId,
+      paymentId: paymentIdFromBookingId(envelope.intent.bookingId!),
+      environment,
+      executor,
+    });
+  }
+  return result;
 }
 
 function linkGuestBookingToAccountHandler(
@@ -763,7 +730,10 @@ function linkGuestBookingToAccountHandler(
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'link_guest_booking_to_account'> = {
     read: async (session) => {
       const accountRead = await session.tx.get({ path: accountPath(actor.accountId) });
-      session.plan.planRead({ path: accountPath(actor.accountId), category: 'authorization_check' });
+      session.plan.planRead({
+        path: accountPath(actor.accountId),
+        category: 'authorization_check',
+      });
       assertAccountActive(
         envelope,
         parseAccount(accountRead.exists ? accountRead.data : undefined)
@@ -916,7 +886,8 @@ function linkGuestBookingToAccountHandler(
           kind: 'managed',
           participantManagementId: managementId,
         },
-        initialManagementEligibleAccountId: CANONICAL_FIELD_DELETE as unknown as Participant['initialManagementEligibleAccountId'],
+        initialManagementEligibleAccountId:
+          CANONICAL_FIELD_DELETE as unknown as Participant['initialManagementEligibleAccountId'],
         revision: plannedParticipantRevision,
         updatedAt: decidedAt,
         audit: {
@@ -989,7 +960,9 @@ export function createGuestBookingCommandHandlers(
   | 'expire_guest_reservation'
   | 'link_guest_booking_to_account'
 > {
-  const environmentBase = (environment: CommandExecutionEnvironment): GuestBookingCommandEnvironment => ({
+  const environmentBase = (
+    environment: CommandExecutionEnvironment
+  ): GuestBookingCommandEnvironment => ({
     ...environment,
     guestActionTokenSecret,
   });

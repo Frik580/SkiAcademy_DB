@@ -26,6 +26,7 @@ const copy = {
     issue: 'Open issue',
     approveCancel: 'Approve cancellation',
     rejectCancel: 'Reject cancellation',
+    cancelUnpaidGuest: 'Cancel unpaid guest enrollment',
     transfer: 'Transfer',
     reconcile: 'Reconcile evidence',
     attendance: 'Canonical attendance',
@@ -37,7 +38,7 @@ const copy = {
     resolveOutcome: 'Resolve attendance outcome',
     refund: 'Refund (whole KZT)',
     guestDeferred:
-      'Guest approval/linking is read-only: no canonical Admin approval or assisted-link command exists.',
+      'Pending payment. Confirmation is automatic when the required Payment is fully satisfied; identity linking is independent.',
     linkGuestTitle: 'Link guest identity',
     linkGuest: 'Link guest identity',
     linkGuestHint:
@@ -86,6 +87,7 @@ const copy = {
     issue: 'Открыть проблему',
     approveCancel: 'Одобрить отмену',
     rejectCancel: 'Отклонить отмену',
+    cancelUnpaidGuest: 'Отменить неоплаченную гостевую запись',
     transfer: 'Перевести',
     reconcile: 'Сверить по свидетельствам',
     attendance: 'Каноническая посещаемость',
@@ -97,13 +99,12 @@ const copy = {
     resolveOutcome: 'Рассчитать результат посещаемости',
     refund: 'Возврат (целые KZT)',
     guestDeferred:
-      'Одобрение/привязка гостя доступны только для чтения: канонической Admin-команды пока нет.',
+      'Ожидается оплата. Подтверждение произойдёт автоматически после полного погашения обязательного Payment; привязка идентичности независима.',
     linkGuestTitle: 'Привязать гостевую идентичность',
     linkGuest: 'Привязать гостевую идентичность',
     linkGuestHint:
       'Выберите канонический Account и подходящего managed Participant. Это связывает существующую запись; дополнительное место, возврат и новый Payment не создаются.',
-    linkReview:
-      'Гость {guest} будет связан с Account {account} / Participant {participant}.',
+    linkReview: 'Гость {guest} будет связан с Account {account} / Participant {participant}.',
     confirmLinkGuest:
       'Привязать эту гостевую запись к выбранным Account и Participant? enrollmentId, курс, capacity, оплаченная сумма и статус Payment не меняются.',
     linkUnavailable: 'Привязка гостевой идентичности недоступна',

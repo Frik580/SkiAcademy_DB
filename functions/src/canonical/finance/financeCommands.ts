@@ -19,6 +19,7 @@ import {
   providerEventReceiptIdFromProviderEvent,
   providerReceiptMatchesEvent,
   resolveCommandIdempotencyIdentity,
+  isPaymentFullyFundedForService,
   timestampFromDate,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
@@ -31,9 +32,7 @@ import {
   KztMinorUnitsSchema,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
-import {
-  toFirestoreWritePayload as toAdminIssueWritePayload,
-} from '../adminIssues';
+import { toFirestoreWritePayload as toAdminIssueWritePayload } from '../adminIssues';
 import { planCourseEnrollmentPaymentStartIssueResolutionIfFullyFunded } from '../courses/courseEnrollmentPaymentStartIssueResolution';
 import { courseEnrollmentPath, parseCourseEnrollment } from '../courses/courseEnrollmentStore';
 import { coursePath, parseCourse } from '../courses/courseStore';
@@ -43,12 +42,10 @@ import {
 } from '../commands/idempotentCommandExecution';
 import {
   createFinanceCorrectionCommandHandlers,
+  reconcileGuestConfirmationLifecycleMismatchAfterCommand,
   type MonetaryEventLoader,
 } from './financeCorrectionCommands';
-import {
-  assertFinanceAuthorization,
-  mapFinanceDomainError,
-} from './financeAuthorization';
+import { assertFinanceAuthorization, mapFinanceDomainError } from './financeAuthorization';
 import {
   buildAdjustServicePriceAuditPlan,
   buildManualWalletFundingAuditPlan,
@@ -71,6 +68,12 @@ import {
   toFirestoreWritePayload,
   walletPath,
 } from './financeStore';
+import {
+  planGuestPaymentConfirmation,
+  resolveFinanceGuestPaymentConfirmationEffect,
+  type PlannedGuestPaymentConfirmation,
+} from '../guestConfirmation/guestPaymentConfirmation';
+import { mergeGuestPaymentConfirmationAuditPlan } from '../guestConfirmation/guestPaymentConfirmationAudit';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -105,7 +108,10 @@ function stageMonetaryEventCreate(
   >[0],
   event: MonetaryEvent
 ): void {
-  session.tx.create({ path: monetaryEventPath(event.eventId) }, toFirestoreWritePayload(event as Record<string, unknown>));
+  session.tx.create(
+    { path: monetaryEventPath(event.eventId) },
+    toFirestoreWritePayload(event as Record<string, unknown>)
+  );
   session.plan.planMutation({
     path: monetaryEventPath(event.eventId),
     kind: 'create',
@@ -200,9 +206,15 @@ function recordManualWalletFundingHandler(
         };
 
         if (walletExists) {
-          session.tx.update({ path: walletDocumentPath }, toFirestoreWritePayload(updatedWallet as Record<string, unknown>));
+          session.tx.update(
+            { path: walletDocumentPath },
+            toFirestoreWritePayload(updatedWallet as Record<string, unknown>)
+          );
         } else {
-          session.tx.create({ path: walletDocumentPath }, toFirestoreWritePayload(updatedWallet as Record<string, unknown>));
+          session.tx.create(
+            { path: walletDocumentPath },
+            toFirestoreWritePayload(updatedWallet as Record<string, unknown>)
+          );
         }
         stageMonetaryEventCreate(session, monetaryEvent);
 
@@ -241,11 +253,14 @@ function recordProviderPaymentEventHandler(
   const stagedEventId = monetaryEventIdFromCommandEffect(metadata.commandId, 0);
   let providerReceiptPath: string | undefined;
   let plannedPaymentStartIssueResolution:
-    | { readonly issue: AdminIssue; readonly documentPath: string }
-    | undefined;
+    { readonly issue: AdminIssue; readonly documentPath: string } | undefined;
+  let plannedGuestConfirmation: PlannedGuestPaymentConfirmation | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'record_provider_payment_event'> = {
     read: async (session) => {
+      plannedGuestConfirmation = undefined;
+      plannedPaymentStartIssueResolution = undefined;
+      providerReceiptPath = undefined;
       const paymentRead = await session.tx.get({ path: paymentDocumentPath });
       session.plan.planRead({ path: paymentDocumentPath, category: 'payment_wallet' });
       const parsedPayment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
@@ -267,6 +282,19 @@ function recordProviderPaymentEventHandler(
         updatedAt: timestampFromDate(environment.clock.decidedAt()),
         payerAccountId: envelope.intent.payerAccountId ?? payment.payerAccountId,
       });
+      if (!isPaymentFullyFundedForService(payment)) {
+        const confirmationDecision = await planGuestPaymentConfirmation({
+          session,
+          payment: projectedPayment,
+          correlationId: envelope.context.correlationId,
+          commandId: metadata.commandId,
+          now: timestampFromDate(environment.clock.now()),
+        });
+        plannedGuestConfirmation = resolveFinanceGuestPaymentConfirmationEffect(
+          confirmationDecision,
+          envelope.context.correlationId
+        );
+      }
 
       if (payment.subjectType === 'course_enrollment') {
         const enrollmentDocumentPath = courseEnrollmentPath(
@@ -352,18 +380,21 @@ function recordProviderPaymentEventHandler(
       });
     },
     planAuditOutbox: async () =>
-      buildProviderPaymentEventAuditPlan({
-        envelope,
-        monetaryEventIds: [stagedEventId],
-        paymentId: envelope.intent.paymentId,
-        paymentRevision: plannedPaymentRevision,
-        ...(plannedPaymentStartIssueResolution === undefined
-          ? {}
-          : {
-              resolvedAdminIssueId: plannedPaymentStartIssueResolution.issue.issueId,
-              resolvedAdminIssueRevision: plannedPaymentStartIssueResolution.issue.revision,
-            }),
-      }),
+      mergeGuestPaymentConfirmationAuditPlan(
+        buildProviderPaymentEventAuditPlan({
+          envelope,
+          monetaryEventIds: [stagedEventId],
+          paymentId: envelope.intent.paymentId,
+          paymentRevision: plannedPaymentRevision,
+          ...(plannedPaymentStartIssueResolution === undefined
+            ? {}
+            : {
+                resolvedAdminIssueId: plannedPaymentStartIssueResolution.issue.issueId,
+                resolvedAdminIssueRevision: plannedPaymentStartIssueResolution.issue.revision,
+              }),
+        }),
+        plannedGuestConfirmation
+      ),
     execute: async (session, context) => {
       try {
         const decidedAt = timestampFromDate(context.decidedAt);
@@ -411,13 +442,19 @@ function recordProviderPaymentEventHandler(
           recordedAt: decidedAt,
         };
 
-        session.tx.update({ path: paymentDocumentPath }, toFirestoreWritePayload(projectedPayment as Record<string, unknown>));
+        session.tx.update(
+          { path: paymentDocumentPath },
+          toFirestoreWritePayload(projectedPayment as Record<string, unknown>)
+        );
         stageMonetaryEventCreate(session, monetaryEvent);
+        plannedGuestConfirmation?.commit(session, context.decidedAt);
 
         if (plannedPaymentStartIssueResolution !== undefined) {
           session.tx.update(
             { path: plannedPaymentStartIssueResolution.documentPath },
-            toAdminIssueWritePayload(plannedPaymentStartIssueResolution.issue as Record<string, unknown>)
+            toAdminIssueWritePayload(
+              plannedPaymentStartIssueResolution.issue as Record<string, unknown>
+            )
           );
         }
 
@@ -436,7 +473,10 @@ function recordProviderPaymentEventHandler(
             outcome: 'applied',
             createdAt: decidedAt,
           });
-          session.tx.create({ path: providerReceiptPath }, toFirestoreWritePayload(receipt as Record<string, unknown>));
+          session.tx.create(
+            { path: providerReceiptPath },
+            toFirestoreWritePayload(receipt as Record<string, unknown>)
+          );
         }
 
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
@@ -480,9 +520,16 @@ function adjustServicePriceHandler(
   let plannedWalletEventRevision: Wallet['eventRevision'] | undefined;
   const stagedEventId = monetaryEventIdFromCommandEffect(metadata.commandId, 0);
   let walletMutationPlanned = false;
+  let plannedGuestConfirmation: PlannedGuestPaymentConfirmation | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'adjust_service_price'> = {
     read: async (session) => {
+      plannedGuestConfirmation = undefined;
+      walletMutationPlanned = false;
+      wallet = undefined;
+      walletExists = false;
+      plannedWalletRevision = undefined;
+      plannedWalletEventRevision = undefined;
       const paymentRead = await session.tx.get({ path: paymentDocumentPath });
       session.plan.planRead({ path: paymentDocumentPath, category: 'payment_wallet' });
       const parsedPayment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
@@ -541,6 +588,35 @@ function adjustServicePriceHandler(
         }
       }
 
+      let confirmationProjection: PaymentAccountingProjection;
+      if (envelope.intent.newPrice > payment.price) {
+        const delta = KztMinorUnitsSchema.parse(envelope.intent.newPrice - payment.price);
+        confirmationProjection =
+          envelope.intent.fundingAmount !== undefined && wallet !== undefined
+            ? applyPriceIncreaseWithFunding(before, delta, envelope.intent.fundingAmount)
+            : applyPriceIncrease(before, delta).payment;
+      } else {
+        confirmationProjection = applyPriceDecrease(before, envelope.intent.newPrice).payment;
+      }
+      const confirmationPayment = mergePaymentProjection(payment, confirmationProjection, {
+        revision: plannedPaymentRevision,
+        eventRevision: plannedPaymentEventRevision,
+        updatedAt: timestampFromDate(environment.clock.decidedAt()),
+      });
+      if (!isPaymentFullyFundedForService(payment)) {
+        const confirmationDecision = await planGuestPaymentConfirmation({
+          session,
+          payment: confirmationPayment,
+          correlationId: envelope.context.correlationId,
+          commandId: metadata.commandId,
+          now: timestampFromDate(environment.clock.now()),
+        });
+        plannedGuestConfirmation = resolveFinanceGuestPaymentConfirmationEffect(
+          confirmationDecision,
+          envelope.context.correlationId
+        );
+      }
+
       session.plan.planMutation({
         path: paymentDocumentPath,
         kind: 'update',
@@ -555,22 +631,26 @@ function adjustServicePriceHandler(
       });
     },
     planAuditOutbox: async () =>
-      buildAdjustServicePriceAuditPlan({
-        envelope,
-        monetaryEventIds: [stagedEventId],
-        paymentId: envelope.intent.paymentId,
-        paymentRevision: plannedPaymentRevision,
-        walletAccountId: envelope.intent.walletAccountId,
-        walletRevision: plannedWalletRevision,
-        includeWalletEffect: walletMutationPlanned,
-      }),
+      mergeGuestPaymentConfirmationAuditPlan(
+        buildAdjustServicePriceAuditPlan({
+          envelope,
+          monetaryEventIds: [stagedEventId],
+          paymentId: envelope.intent.paymentId,
+          paymentRevision: plannedPaymentRevision,
+          walletAccountId: envelope.intent.walletAccountId,
+          walletRevision: plannedWalletRevision,
+          includeWalletEffect: walletMutationPlanned,
+        }),
+        plannedGuestConfirmation
+      ),
     execute: async (session, context) => {
       try {
         const decidedAt = timestampFromDate(context.decidedAt);
         const before = paymentAccountingFields(payment);
         let projection!: PaymentAccountingProjection;
         let walletBalanceDelta: number | undefined;
-        let refundDelta: ReturnType<typeof KztMinorUnitsSchema.parse> = KztMinorUnitsSchema.parse(0);
+        let refundDelta: ReturnType<typeof KztMinorUnitsSchema.parse> =
+          KztMinorUnitsSchema.parse(0);
 
         if (envelope.intent.newPrice > payment.price) {
           const delta = KztMinorUnitsSchema.parse(envelope.intent.newPrice - payment.price);
@@ -656,8 +736,12 @@ function adjustServicePriceHandler(
           recordedAt: decidedAt,
         };
 
-        session.tx.update({ path: paymentDocumentPath }, toFirestoreWritePayload(updatedPayment as Record<string, unknown>));
+        session.tx.update(
+          { path: paymentDocumentPath },
+          toFirestoreWritePayload(updatedPayment as Record<string, unknown>)
+        );
         stageMonetaryEventCreate(session, priceEvent);
+        plannedGuestConfirmation?.commit(session, context.decidedAt);
 
         if (
           wallet !== undefined &&
@@ -676,7 +760,10 @@ function adjustServicePriceHandler(
             eventRevision: plannedWalletEventRevision,
             updatedAt: decidedAt,
           });
-          session.tx.update({ path: walletDocumentPath }, toFirestoreWritePayload(updatedWallet as Record<string, unknown>));
+          session.tx.update(
+            { path: walletDocumentPath },
+            toFirestoreWritePayload(updatedWallet as Record<string, unknown>)
+          );
         }
 
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
@@ -715,10 +802,32 @@ export function createFinanceCommandHandlers(
   return {
     record_manual_wallet_funding: (envelope, environment) =>
       recordManualWalletFundingHandler(envelope, environment, executor),
-    record_provider_payment_event: (envelope, environment) =>
-      recordProviderPaymentEventHandler(envelope, environment, executor),
-    adjust_service_price: (envelope, environment) =>
-      adjustServicePriceHandler(envelope, environment, executor),
+    record_provider_payment_event: async (envelope, environment) => {
+      const result = await recordProviderPaymentEventHandler(envelope, environment, executor);
+      if (result.status === 'success') {
+        await reconcileGuestConfirmationLifecycleMismatchAfterCommand({
+          correlationId: envelope.context.correlationId,
+          paymentId: envelope.intent.paymentId,
+          environment,
+          executor,
+          eventLoader,
+        });
+      }
+      return result;
+    },
+    adjust_service_price: async (envelope, environment) => {
+      const result = await adjustServicePriceHandler(envelope, environment, executor);
+      if (result.status === 'success') {
+        await reconcileGuestConfirmationLifecycleMismatchAfterCommand({
+          correlationId: envelope.context.correlationId,
+          paymentId: envelope.intent.paymentId,
+          environment,
+          executor,
+          eventLoader,
+        });
+      }
+      return result;
+    },
     ...createFinanceCorrectionCommandHandlers(executor, eventLoader),
   };
 }

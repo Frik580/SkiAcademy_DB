@@ -16,13 +16,17 @@ import {
   paymentIdFromBookingId,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
+  WalletSchema,
   accountCommandActor,
   systemCommandActor,
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
-import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
+import {
+  createInMemoryCanonicalTransactionExecutor,
+  type CanonicalTransactionExecutor,
+} from '../transactions';
 import { queryLessonBookingReadModels } from '../readModels/lessonBookingReadModels';
 
 const correlationId = CorrelationIdSchema.parse('correlation_guest_cmd_01');
@@ -327,7 +331,7 @@ describe('confirm_guest_booking command', () => {
     await commands.execute(guestCreateEnvelope());
   }
 
-  it('confirms a pending guest booking without wallet funding', async () => {
+  it('rejects manual confirmation while required Payment is unpaid', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
     await seedPending(executor);
     const commands = runCommands(executor);
@@ -343,10 +347,246 @@ describe('confirm_guest_booking command', () => {
       },
       intent: { bookingId },
     });
-    expect(result.status).toBe('success');
+    expect(result.status).toBe('error');
     const booking = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data;
-    expect(booking?.lifecycle?.status).toBe('confirmed');
+    expect(booking?.lifecycle?.status).toBe('pending');
     expect(booking?.attribution.bookingOrigin).toBe('guest');
+  });
+
+  it('binds direct confirmation to the requested Booking and its deterministic Payment', async () => {
+    const seedExecutor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await seedPending(seedExecutor);
+    const docs = Object.fromEntries(
+      [...seedExecutor.snapshot().docs.entries()].map(([path, document]) => [path, document.data])
+    );
+    const requestedBookingPath = `bookings/${bookingId}`;
+    const requestedBooking = docs[requestedBookingPath]!;
+    const originalPayment = docs[`payments/${paymentId}`]!;
+    const foreignBookingId = BookingIdSchema.parse('booking_guest_cmd_foreign');
+    const foreignPaymentId = paymentIdFromBookingId(foreignBookingId);
+
+    docs[requestedBookingPath] = { ...requestedBooking, paymentId: foreignPaymentId };
+    docs[`bookings/${foreignBookingId}`] = {
+      ...requestedBooking,
+      bookingId: foreignBookingId,
+      paymentId: foreignPaymentId,
+    };
+    docs[`payments/${foreignPaymentId}`] = {
+      ...originalPayment,
+      paymentId: foreignPaymentId,
+      subjectId: foreignBookingId,
+      paidAmount: 12_000,
+      retainedAmount: 12_000,
+      settledAmount: 12_000,
+      outstandingAmount: 0,
+      paymentStatus: 'paid',
+    };
+
+    const executor = createInMemoryCanonicalTransactionExecutor(docs);
+    const result = await runCommands(executor).execute({
+      kind: 'confirm_guest_booking',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-confirm-subject-mismatch',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: { bookingId },
+    });
+
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('validation');
+    expect(executor.snapshot().docs.get(requestedBookingPath)?.data.lifecycle.status).toBe(
+      'pending'
+    );
+    expect(executor.snapshot().docs.get(`bookings/${foreignBookingId}`)?.data.lifecycle.status).toBe(
+      'pending'
+    );
+  });
+
+  it('keeps partial Payment pending and confirms atomically when fully funded', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await seedPending(executor);
+
+    const partial = await runCommands(executor).execute({
+      kind: 'record_provider_payment_event',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-payment-partial-01',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        paymentId,
+        amount: 5_000,
+        sourceKind: 'manual_external',
+        manualReference: 'guest-payment-partial-ref',
+      },
+    });
+    expect(partial.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data?.lifecycle.status).toBe(
+      'pending'
+    );
+
+    const fullEnvelope: CommandEnvelope<'record_provider_payment_event'> = {
+      kind: 'record_provider_payment_event',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-payment-full-01',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(2),
+      },
+      intent: {
+        paymentId,
+        amount: 7_000,
+        sourceKind: 'manual_external',
+        manualReference: 'guest-payment-full-ref',
+      },
+    };
+    const full = await runCommands(executor).execute(fullEnvelope);
+    expect(full.status).toBe('success');
+    const confirmed = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data;
+    expect(confirmed?.lifecycle.status).toBe('confirmed');
+    expect(confirmed?.revision).toBe(2);
+    expect(confirmed?.occurrence.serviceParty.frozenAt).toBeDefined();
+
+    const replay = await runCommands(executor).execute(fullEnvelope);
+    expect(replay.status).toBe('success');
+    const replayed = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data;
+    expect(replayed?.revision).toBe(2);
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data?.paidAmount).toBe(12_000);
+  });
+
+  it('clears a stale confirmation plan when a transaction retry observes terminal lifecycle', async () => {
+    const seedExecutor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await seedPending(seedExecutor);
+    const seedDocs = Object.fromEntries(
+      [...seedExecutor.snapshot().docs.entries()].map(([path, document]) => [path, document.data])
+    );
+    const booking = seedDocs[`bookings/${bookingId}`]!;
+    const payment = seedDocs[`payments/${paymentId}`]!;
+    const wallet = WalletSchema.parse({
+      accountId: adminAccountId,
+      currency: 'KZT',
+      balance: 0,
+      revision: 1,
+      eventRevision: 0,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+    });
+
+    const firstAttempt = createInMemoryCanonicalTransactionExecutor({
+      ...seedDocs,
+      [`payments/${paymentId}`]: {
+        ...payment,
+        paidAmount: 10_000,
+        retainedAmount: 10_000,
+        settledAmount: 10_000,
+        outstandingAmount: 2_000,
+        paymentStatus: 'partially_paid',
+      },
+      [`users/${adminAccountId}/wallet/state`]: wallet,
+    });
+    const retryAttempt = createInMemoryCanonicalTransactionExecutor({
+      ...seedDocs,
+      [`bookings/${bookingId}`]: {
+        ...booking,
+        lifecycle: {
+          status: 'completed',
+          completedAt: decidedAt,
+        },
+        revision: 2,
+      },
+      [`payments/${paymentId}`]: {
+        ...payment,
+        paidAmount: 12_000,
+        retainedAmount: 12_000,
+        settledAmount: 12_000,
+        outstandingAmount: 0,
+        paymentStatus: 'paid',
+      },
+      [`users/${adminAccountId}/wallet/state`]: wallet,
+    });
+    let firstInvocation = true;
+    const retryExecutor: CanonicalTransactionExecutor & {
+      snapshot: typeof retryAttempt.snapshot;
+    } = {
+      snapshot: () => retryAttempt.snapshot(),
+      async runAtomic(input) {
+        if (firstInvocation) {
+          firstInvocation = false;
+          try {
+            await firstAttempt.runAtomic({
+              ...input,
+              run: async (session) => {
+                await input.run(session);
+                throw new Error('TRANSACTION_ABORTED');
+              },
+            });
+          } catch (error) {
+            if (!(error instanceof Error) || error.message !== 'TRANSACTION_ABORTED') throw error;
+          }
+        }
+        return retryAttempt.runAtomic(input);
+      },
+    };
+
+    const result = await createProductionCanonicalCommands(
+      environment('2026-01-01T10:30:00.000Z'),
+      retryExecutor,
+      { guestActionTokenSecret: tokenSecret }
+    ).execute({
+      kind: 'adjust_service_price',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-price-retry-clears-confirmation',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        paymentId,
+        newPrice: 10_000,
+        walletAccountId: adminAccountId,
+        reasonExplanation: 'Retry observes terminal guest booking',
+      },
+    });
+
+    expect(result.status).toBe('success');
+    const snapshot = retryExecutor.snapshot();
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('completed');
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.revision).toBe(2);
+    const log = snapshot.docs.get(
+      `activity_logs/${activityLogIdFromCommandId(
+        resolveCommandIdempotencyIdentity({
+          kind: 'adjust_service_price',
+          context: {
+            actor: accountCommandActor(adminAccountId),
+            exercisedCapability: 'administrator',
+            idempotencyKey: 'guest-price-retry-clears-confirmation',
+            correlationId,
+            source: 'admin_callable',
+            expectedRevision: AggregateRevisionSchema.parse(1),
+          },
+          intent: {
+            paymentId,
+            newPrice: 10_000,
+            walletAccountId: adminAccountId,
+            reasonExplanation: 'Retry observes terminal guest booking',
+          },
+        }).commandKey
+      )}`
+    )?.data;
+    expect(log?.effects).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ kind: 'booking_lifecycle_changed' })])
+    );
   });
 });
 
@@ -357,7 +597,7 @@ describe('expire_guest_reservation command', () => {
     await createCommands.execute(guestCreateEnvelope());
 
     const expireCommands = runCommands(executor, '2026-01-01T11:30:00.000Z');
-    const result = await expireCommands.execute({
+    const envelope: CommandEnvelope<'expire_guest_reservation'> = {
       kind: 'expire_guest_reservation',
       context: {
         actor: systemCommandActor(SystemActorIdSchema.parse('system_guest_expiry_01')),
@@ -368,8 +608,10 @@ describe('expire_guest_reservation command', () => {
         expectedRevision: AggregateRevisionSchema.parse(1),
       },
       intent: { bookingId },
-    });
+    };
+    const result = await expireCommands.execute(envelope);
     expect(result.status).toBe('success');
+    expect((await expireCommands.execute(envelope)).status).toBe('success');
     const booking = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data;
     expect(booking?.lifecycle.status).toBe('cancelled');
     expect(booking?.lifecycle.reasonCode).toBe('reservation_expired');
@@ -377,6 +619,53 @@ describe('expire_guest_reservation command', () => {
       path.startsWith('resource_claims/')
     );
     expect(claims.every(([, doc]) => doc.data.lifecycle?.status === 'released')).toBe(true);
+  });
+
+  it('rejects a late full settlement after expiry without mutating Payment', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await runCommands(executor, '2026-01-01T10:00:00.000Z').execute(guestCreateEnvelope());
+    await runCommands(executor, '2026-01-01T11:30:00.000Z').execute({
+      kind: 'expire_guest_reservation',
+      context: {
+        actor: systemCommandActor(SystemActorIdSchema.parse('system_guest_expiry_late_payment')),
+        exercisedCapability: 'system',
+        idempotencyKey: 'guest-expire-before-payment',
+        correlationId,
+        source: 'scheduler',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: { bookingId },
+    });
+
+    const result = await runCommands(executor, '2026-01-01T11:31:00.000Z').execute({
+      kind: 'record_provider_payment_event',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-late-payment-after-expiry',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        paymentId,
+        amount: 12_000,
+        sourceKind: 'manual_external',
+        manualReference: 'guest-late-payment-after-expiry-ref',
+      },
+    });
+
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('invalid_transition');
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: 0,
+      settledAmount: 0,
+      outstandingAmount: 12_000,
+      revision: 1,
+    });
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'cancelled'
+    );
   });
 });
 

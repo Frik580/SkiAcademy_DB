@@ -133,6 +133,17 @@ export function isPaymentFullyFundedForService(fields: PaymentAccountingFields):
   );
 }
 
+export function isPaymentEntirelyUnpaid(fields: PaymentAccountingFields): boolean {
+  return (
+    fields.paidAmount === 0 &&
+    fields.refundedAmount === 0 &&
+    fields.retainedAmount === 0 &&
+    fields.settledAmount === 0 &&
+    fields.writtenOffAmount === 0 &&
+    fields.outstandingAmount === fields.price
+  );
+}
+
 export function validatePaymentAccounting(
   fields: PaymentAccountingFields,
   context: z.RefinementCtx,

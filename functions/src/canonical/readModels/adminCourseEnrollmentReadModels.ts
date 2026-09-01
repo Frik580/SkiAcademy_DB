@@ -14,6 +14,7 @@ import {
   evaluateCourseEnrollmentReconciliation,
   isActiveCourseEnrollmentLifecycle,
   isCourseEnrollmentAllowedBeforeStart,
+  isPaymentEntirelyUnpaid,
   isTerminalCourseEnrollmentLifecycle,
   evaluateAdminGuestCourseEnrollmentIdentityLinkAvailability,
   refundableRetainedAmount,
@@ -28,6 +29,7 @@ import {
   type CourseDay,
   type CourseDayId,
   type CourseEnrollment,
+  type Payment,
   type QueryAdminCourseEnrollmentReadModelsInput,
   type QueryAdminCourseEnrollmentReadModelsResult,
   type ReadModelAdministratorActor,
@@ -114,6 +116,7 @@ function transferDecision(enrollment: CourseEnrollment, course: Course) {
 function authorizedActions(
   enrollment: CourseEnrollment,
   course: Course,
+  payment: Payment | undefined,
   canReconcile = false,
   administratorAccountActive = true
 ): {
@@ -146,6 +149,12 @@ function authorizedActions(
           timestampFromDate(new Date()),
           course.scheduleProjection.finalCourseDayEndsAt
         ) >= 0,
+      canCancelUnpaidGuest:
+        administratorAccountActive &&
+        enrollment.attribution.bookingOrigin === 'guest' &&
+        enrollment.lifecycle.status === 'pending' &&
+        payment !== undefined &&
+        isPaymentEntirelyUnpaid(payment),
       canApproveGuest: false,
       canLinkGuest: linkAvailability.canLink,
       canWithdraw: false,
@@ -387,6 +396,7 @@ async function buildAdminCourseEnrollmentItem(
   const actions = authorizedActions(
     enrollment,
     course,
+    payment,
     reconciliation.eligible,
     administratorAccountActive
   );

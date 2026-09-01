@@ -169,7 +169,7 @@ function enrollment(input: {
     input.status === 'pending'
       ? {
           status: 'pending' as const,
-        reservationExpiresAt: timestampFromDate(new Date('2026-11-15T00:00:00.000Z')),
+          reservationExpiresAt: timestampFromDate(new Date('2026-11-15T00:00:00.000Z')),
         }
       : input.status === 'pending_cancellation'
         ? { status: 'pending_cancellation' as const, requestedAt: updatedAt }
@@ -401,7 +401,11 @@ describe('Admin CourseEnrollment read-model callable', () => {
       items: [
         {
           guestState: 'pending_unlinked',
-          authorizedActions: { canApproveGuest: false, canLinkGuest: true },
+          authorizedActions: {
+            canApproveGuest: false,
+            canCancelUnpaidGuest: false,
+            canLinkGuest: true,
+          },
         },
       ],
     });

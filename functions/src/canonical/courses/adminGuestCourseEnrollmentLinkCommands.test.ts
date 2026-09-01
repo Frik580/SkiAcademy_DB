@@ -5,9 +5,11 @@ import {
   AggregateRevisionSchema,
   CorrelationIdSchema,
   CourseDayIdSchema,
+  CourseEnrollmentIdSchema,
   CourseIdSchema,
   GuestSubjectIdSchema,
   InstructorIdSchema,
+  MonetaryEventIdSchema,
   ParticipantIdSchema,
   accountCommandActor,
   courseEnrollmentIdFromCommandParticipant,
@@ -45,7 +47,9 @@ const dependentManagementId = participantManagementIdFromGuestLink({
   accountId: targetAccountId,
 });
 const tokenSecret = 'admin-guest-enroll-link-unit-secret';
-const guestSeedSubjectId = GuestSubjectIdSchema.parse('guest_subject_admin_guest_enroll_link_actor');
+const guestSeedSubjectId = GuestSubjectIdSchema.parse(
+  'guest_subject_admin_guest_enroll_link_actor'
+);
 const COURSE_PRICE_KZT = 50_000;
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 const dayOneStart = timestampFromDate(new Date('2026-02-01T03:00:00.000Z'));
@@ -196,9 +200,7 @@ function cloneDocs(
   return docs;
 }
 
-function guestCreateEnvelope(
-  idempotencyKey: string
-): CommandEnvelope<'create_course_enrollments'> {
+function guestCreateEnvelope(idempotencyKey: string): CommandEnvelope<'create_course_enrollments'> {
   const sharedContext = {
     exercisedCapability: 'guest' as const,
     idempotencyKey,
@@ -285,9 +287,347 @@ async function createGuestEnrollment(extra: Record<string, unknown> = {}) {
   return {
     executor,
     enrollmentId: envelope.intent.enrollmentIds![0]!,
-    credential: created.status === 'success' ? created.payload?.guestLinkCredentials?.[0] : undefined,
+    credential:
+      created.status === 'success' ? created.payload?.guestLinkCredentials?.[0] : undefined,
   };
 }
+
+describe('payment-driven guest course enrollment confirmation', () => {
+  it('keeps partial funding pending and confirms atomically on the full canonical Payment', async () => {
+    const { executor, enrollmentId } = await createGuestEnrollment();
+    const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
+    const before = executor.snapshot();
+    const claimPaths = [...before.docs.keys()].filter((path) =>
+      path.startsWith('resource_claims/')
+    );
+    const availableSeats = before.docs.get(`courses/${courseId}`)?.data.capacity.availableSeats;
+
+    const partial = await runCommands(executor).execute({
+      kind: 'record_provider_payment_event',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-course-payment-partial',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        paymentId,
+        amount: 10_000,
+        sourceKind: 'manual_external',
+        manualReference: 'guest-course-payment-partial-ref',
+      },
+    });
+    expect(partial.status).toBe('success');
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('pending');
+
+    const fullEnvelope: CommandEnvelope<'record_provider_payment_event'> = {
+      kind: 'record_provider_payment_event',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-course-payment-full',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(2),
+      },
+      intent: {
+        paymentId,
+        amount: 40_000,
+        sourceKind: 'manual_external',
+        manualReference: 'guest-course-payment-full-ref',
+      },
+    };
+    expect((await runCommands(executor).execute(fullEnvelope)).status).toBe('success');
+
+    const confirmed = executor.snapshot();
+    expect(confirmed.docs.get(`course_enrollments/${enrollmentId}`)?.data).toMatchObject({
+      lifecycle: { status: 'confirmed' },
+      revision: 2,
+    });
+    expect(confirmed.docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: COURSE_PRICE_KZT,
+      retainedAmount: COURSE_PRICE_KZT,
+      settledAmount: COURSE_PRICE_KZT,
+      writtenOffAmount: 0,
+      outstandingAmount: 0,
+    });
+    expect(confirmed.docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(
+      availableSeats
+    );
+    expect(
+      [...confirmed.docs.keys()].filter((path) => path.startsWith('resource_claims/'))
+    ).toEqual(claimPaths);
+
+    expect((await runCommands(executor).execute(fullEnvelope)).status).toBe('success');
+    expect(executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.revision).toBe(
+      2
+    );
+  });
+
+  it('rejects manual confirmation while Payment is unpaid', async () => {
+    const { executor, enrollmentId } = await createGuestEnrollment();
+    const result = await runCommands(executor).execute({
+      kind: 'confirm_guest_course_enrollment',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-course-manual-confirm-unpaid',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: { courseEnrollmentId: enrollmentId },
+    });
+    expect(result.status).toBe('error');
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('pending');
+  });
+
+  it('binds direct confirmation to the requested Enrollment and its deterministic Payment', async () => {
+    const created = await createGuestEnrollment();
+    const docs = cloneDocs(created.executor.snapshot());
+    const requestedEnrollmentPath = `course_enrollments/${created.enrollmentId}`;
+    const requestedEnrollment = docs[requestedEnrollmentPath]!;
+    const foreignEnrollmentId = CourseEnrollmentIdSchema.parse(
+      'course_enrollment_admin_guest_enroll_link_foreign'
+    );
+    const foreignPaymentId = paymentIdFromCourseEnrollmentId(foreignEnrollmentId);
+    const originalPayment = docs[`payments/${paymentIdFromCourseEnrollmentId(created.enrollmentId)}`]!;
+
+    docs[requestedEnrollmentPath] = {
+      ...requestedEnrollment,
+      paymentId: foreignPaymentId,
+    };
+    docs[`course_enrollments/${foreignEnrollmentId}`] = {
+      ...requestedEnrollment,
+      enrollmentId: foreignEnrollmentId,
+      paymentId: foreignPaymentId,
+    };
+    docs[`payments/${foreignPaymentId}`] = {
+      ...originalPayment,
+      paymentId: foreignPaymentId,
+      subjectId: foreignEnrollmentId,
+      paidAmount: COURSE_PRICE_KZT,
+      retainedAmount: COURSE_PRICE_KZT,
+      settledAmount: COURSE_PRICE_KZT,
+      outstandingAmount: 0,
+      paymentStatus: 'paid',
+    };
+
+    const executor = createInMemoryCanonicalTransactionExecutor(docs);
+    const result = await runCommands(executor).execute({
+      kind: 'confirm_guest_course_enrollment',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-course-confirm-subject-mismatch',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: { courseEnrollmentId: created.enrollmentId },
+    });
+
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('validation');
+    expect(executor.snapshot().docs.get(requestedEnrollmentPath)?.data.lifecycle.status).toBe(
+      'pending'
+    );
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${foreignEnrollmentId}`)?.data.lifecycle
+        .status
+    ).toBe('pending');
+  });
+
+  it('confirms when a canonical price correction makes the required Payment fully satisfied', async () => {
+    const { executor, enrollmentId } = await createGuestEnrollment();
+    const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
+    const result = await runCommands(executor).execute({
+      kind: 'adjust_service_price',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-course-price-satisfaction',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        paymentId,
+        newPrice: 0,
+        reasonExplanation: 'Approved full scholarship',
+      },
+    });
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      price: 0,
+      retainedAmount: 0,
+      settledAmount: 0,
+      writtenOffAmount: 0,
+      outstandingAmount: 0,
+    });
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('confirmed');
+  });
+
+  it('confirms when an audited compensating event fully funds the Payment', async () => {
+    const { executor, enrollmentId } = await createGuestEnrollment();
+    const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
+    const result = await runCommands(executor).execute({
+      kind: 'record_financial_correction',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-course-compensating-satisfaction',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        correctionKind: 'compensating_event',
+        paymentId,
+        correctsEventId: MonetaryEventIdSchema.parse('monetary_event_guest_course_seed'),
+        paymentEffect: {
+          paidAmountDelta: COURSE_PRICE_KZT,
+          settledAmountDelta: COURSE_PRICE_KZT,
+          outstandingAmountDelta: -COURSE_PRICE_KZT,
+        },
+        expectedPaymentRevision: AggregateRevisionSchema.parse(1),
+        reasonExplanation: 'Restore omitted external settlement evidence',
+      },
+    });
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: COURSE_PRICE_KZT,
+      retainedAmount: COURSE_PRICE_KZT,
+      settledAmount: COURSE_PRICE_KZT,
+      writtenOffAmount: 0,
+      outstandingAmount: 0,
+    });
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('confirmed');
+  });
+
+  it('lets an Administrator cancel only an entirely unpaid pending guest enrollment', async () => {
+    const { executor, enrollmentId } = await createGuestEnrollment();
+    const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
+    const result = await runCommands(executor).execute({
+      kind: 'resolve_course_enrollment_cancellation',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-course-cancel-unpaid',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        courseEnrollmentId: enrollmentId,
+        decision: 'direct_cancel',
+        refundAmount: 0,
+        reasonExplanation: 'Guest did not pay before the reservation deadline',
+      },
+    });
+    expect(result.status).toBe('success');
+
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle).toMatchObject({
+      status: 'cancelled',
+      reasonCode: 'administrator_cancelled',
+    });
+    expect(snapshot.docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: 0,
+      refundedAmount: 0,
+      writtenOffAmount: COURSE_PRICE_KZT,
+      outstandingAmount: 0,
+    });
+    expect(snapshot.docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(8);
+    expect(
+      [...snapshot.docs.entries()]
+        .filter(([path]) => path.startsWith('resource_claims/'))
+        .map(([, document]) => document.data.lifecycle.status)
+    ).toEqual(['released', 'released']);
+
+    await expect(
+      runCommands(executor).execute({
+        kind: 'record_provider_payment_event',
+        context: {
+          actor: accountCommandActor(adminAccountId),
+          exercisedCapability: 'administrator',
+          idempotencyKey: 'guest-course-late-payment-after-cancel',
+          correlationId,
+          source: 'admin_callable',
+          expectedRevision: AggregateRevisionSchema.parse(2),
+        },
+        intent: {
+          paymentId,
+          amount: COURSE_PRICE_KZT,
+          sourceKind: 'manual_external',
+          manualReference: 'guest-course-late-payment-after-cancel-ref',
+        },
+      })
+    ).rejects.toThrow('Unallocated funding remainder');
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('cancelled');
+  });
+
+  it('does not invent a partial-payment guest cancellation policy', async () => {
+    const { executor, enrollmentId } = await createGuestEnrollment();
+    const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
+    expect(
+      (
+        await runCommands(executor).execute({
+          kind: 'record_provider_payment_event',
+          context: {
+            actor: accountCommandActor(adminAccountId),
+            exercisedCapability: 'administrator',
+            idempotencyKey: 'guest-course-partial-before-cancel',
+            correlationId,
+            source: 'admin_callable',
+            expectedRevision: AggregateRevisionSchema.parse(1),
+          },
+          intent: {
+            paymentId,
+            amount: 10_000,
+            sourceKind: 'manual_external',
+            manualReference: 'guest-course-partial-before-cancel-ref',
+          },
+        })
+      ).status
+    ).toBe('success');
+
+    const result = await runCommands(executor).execute({
+      kind: 'resolve_course_enrollment_cancellation',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-course-reject-partial-cancel',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        courseEnrollmentId: enrollmentId,
+        decision: 'direct_cancel',
+        refundAmount: 0,
+        reasonExplanation: 'Attempt unsupported partial-payment cancellation',
+      },
+    });
+    expect(result.status).toBe('error');
+    expect(
+      executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
+    ).toBe('pending');
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data.paidAmount).toBe(10_000);
+  });
+});
 
 describe('link_guest_course_enrollment_to_account_as_administrator', () => {
   it('associates an existing managed Participant without recreating enrollment, Payment, or capacity', async () => {
@@ -403,7 +743,8 @@ describe('link_guest_course_enrollment_to_account_as_administrator', () => {
       }),
     });
     expect(
-      (await runCommands(disabled.executor).execute(adminLinkEnvelope(disabled.enrollmentId))).status
+      (await runCommands(disabled.executor).execute(adminLinkEnvelope(disabled.enrollmentId)))
+        .status
     ).toBe('error');
 
     const archived = await createGuestEnrollment({
@@ -413,7 +754,8 @@ describe('link_guest_course_enrollment_to_account_as_administrator', () => {
       },
     });
     expect(
-      (await runCommands(archived.executor).execute(adminLinkEnvelope(archived.enrollmentId))).status
+      (await runCommands(archived.executor).execute(adminLinkEnvelope(archived.enrollmentId)))
+        .status
     ).toBe('error');
 
     const unmanaged = await createGuestEnrollment({

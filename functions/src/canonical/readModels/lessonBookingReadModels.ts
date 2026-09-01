@@ -327,13 +327,7 @@ function buildAdminAuthorizedActions(input: {
 
   return {
     authorizedActions: {
-      canConfirmGuest:
-        accountActive &&
-        input.booking.party.kind === 'individual' &&
-        input.booking.attribution.bookingOrigin === 'guest' &&
-        input.booking.lifecycle.status === 'pending' &&
-        compareCanonicalTimestamps(input.now, input.booking.lifecycle.reservationExpiresAt) < 0 &&
-        compareCanonicalTimestamps(input.now, input.booking.occurrence.interval.startsAt) < 0,
+      canConfirmGuest: false,
       canDirectCancel:
         accountActive && input.payment !== undefined && isConfirmedIndividualBooking(input.booking),
       canReschedule: rescheduleEligible,
@@ -602,7 +596,8 @@ export async function buildAdminLessonBookingReadModel(
             ...built.authorizedActions,
             canRecordAttendance: attendance.some(
               (record) =>
-                record.authorizedActions.canRecordPresent || record.authorizedActions.canRecordAbsent
+                record.authorizedActions.canRecordPresent ||
+                record.authorizedActions.canRecordAbsent
             ),
           },
           ...(built.guestIdentityLinkUnavailableReason

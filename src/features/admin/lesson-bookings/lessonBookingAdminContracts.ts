@@ -35,9 +35,6 @@ interface AttemptBase {
 
 export type AdminLessonBookingMutationAttempt =
   | (AttemptBase & {
-      readonly kind: 'confirm_guest_booking';
-    })
-  | (AttemptBase & {
       readonly kind: 'resolve_booking_cancellation';
       readonly paymentId: string;
       readonly paymentRevision?: number;

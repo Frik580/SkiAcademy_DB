@@ -22,7 +22,8 @@ export type AdminIdentityAttempt =
       readonly role?: 'user' | 'admin';
     })
   | (AdminIdentityCommandBase & {
-      readonly kind: 'archive_participant' | 'reactivate_participant' | 'update_participant_profile';
+      readonly kind:
+        'archive_participant' | 'reactivate_participant' | 'update_participant_profile';
       readonly participantId: ParticipantId;
       readonly displayName?: string;
       readonly birthDate?: string;
@@ -50,7 +51,8 @@ export type AdminIdentityAttempt =
       readonly discipline: 'ski' | 'snowboard';
     })
   | (AdminIdentityCommandBase & {
-      readonly kind: 'provision_self_participant_for_account' | 'repair_participant_management_owner_guard';
+      readonly kind:
+        'provision_self_participant_for_account' | 'repair_participant_management_owner_guard';
       readonly accountId?: AccountId;
       readonly participantId?: ParticipantId;
     })

@@ -19,9 +19,7 @@ describe('T32.1 Admin safety containment wiring', () => {
     const systemSettings = readRepoFile(
       'src/features/admin/components/settings/AdminSystemSettings.tsx'
     );
-    const guestWallet = readRepoFile(
-      'src/features/admin/components/finance/GuestWalletPanel.tsx'
-    );
+    const guestWallet = readRepoFile('src/features/admin/components/finance/GuestWalletPanel.tsx');
     const clients = readRepoFile('src/features/admin/components/users/ClientsManager.tsx');
     const profileService = readRepoFile('src/features/profile/profileService.ts');
 

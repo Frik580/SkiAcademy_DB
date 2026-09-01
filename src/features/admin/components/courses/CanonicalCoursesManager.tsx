@@ -112,8 +112,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         const result = await executeAuthenticatedCanonicalCommand(currentAccountId, {
           kind: input.kind,
           intent: input.intent,
-          idempotencyKey:
-            input.idempotencyKey ?? newIdentity(`admin-course:${input.kind}`),
+          idempotencyKey: input.idempotencyKey ?? newIdentity(`admin-course:${input.kind}`),
           ...(input.expectedRevision === undefined
             ? {}
             : { expectedRevision: input.expectedRevision as never }),
@@ -158,22 +157,48 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     const expectedRevision = course.revision;
     if (kind === 'change_course_title') {
       const title = window.prompt('Operational title', course.title)?.trim();
-      if (title) await execute({ kind, expectedRevision, intent: { courseId: course.courseId, title, reasonExplanation } });
+      if (title)
+        await execute({
+          kind,
+          expectedRevision,
+          intent: { courseId: course.courseId, title, reasonExplanation },
+        });
       return;
     }
     if (kind === 'change_course_price') {
       const price = Number(window.prompt('Whole KZT price', String(course.price)));
-      if (Number.isInteger(price) && price >= 0) await execute({ kind, expectedRevision, intent: { courseId: course.courseId, price: price as never, reasonExplanation } });
+      if (Number.isInteger(price) && price >= 0)
+        await execute({
+          kind,
+          expectedRevision,
+          intent: { courseId: course.courseId, price: price as never, reasonExplanation },
+        });
       return;
     }
     if (kind === 'change_course_capacity') {
-      const totalSeats = Number(window.prompt('Total capacity', String(course.capacity.totalSeats)));
-      if (Number.isInteger(totalSeats) && totalSeats > 0) await execute({ kind, expectedRevision, intent: { courseId: course.courseId, totalSeats, reasonExplanation } });
+      const totalSeats = Number(
+        window.prompt('Total capacity', String(course.capacity.totalSeats))
+      );
+      if (Number.isInteger(totalSeats) && totalSeats > 0)
+        await execute({
+          kind,
+          expectedRevision,
+          intent: { courseId: course.courseId, totalSeats, reasonExplanation },
+        });
       return;
     }
     if (kind === 'add_course_roster_instructor' || kind === 'remove_course_roster_instructor') {
       const instructorId = window.prompt('Instructor ID', '')?.trim();
-      if (instructorId) await execute({ kind, expectedRevision, intent: { courseId: course.courseId, instructorId: instructorId as never, reasonExplanation } as never });
+      if (instructorId)
+        await execute({
+          kind,
+          expectedRevision,
+          intent: {
+            courseId: course.courseId,
+            instructorId: instructorId as never,
+            reasonExplanation,
+          } as never,
+        });
       return;
     }
     if (kind === 'archive_course' || kind === 'reactivate_course') {
@@ -190,7 +215,10 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   const createCourse = async (event: React.FormEvent) => {
     event.preventDefault();
     try {
-      const roster = createForm.roster.split(',').map((value) => value.trim()).filter(Boolean);
+      const roster = createForm.roster
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
       const attempt =
         createAttemptRef.current ??
         (() => {
@@ -251,7 +279,11 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
 
   const courseDayAction = async (
     course: AdminCourseReadModel,
-    kind: 'create_course_day' | 'reassign_course_day_instructor' | 'reschedule_course_day' | 'remove_course_day'
+    kind:
+      | 'create_course_day'
+      | 'reassign_course_day_instructor'
+      | 'reschedule_course_day'
+      | 'remove_course_day'
   ) => {
     const reasonExplanation = kind === 'create_course_day' ? '' : promptReason();
     if (kind !== 'create_course_day' && !reasonExplanation) return;
@@ -278,15 +310,39 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     const day = course.courseDays.find((candidate) => candidate.courseDayId === courseDayId);
     if (!day) return;
     if (kind === 'reassign_course_day_instructor') {
-      const instructorId = window.prompt('New instructor ID', course.instructorRosterIds[0])?.trim();
-      if (instructorId) await execute({ kind, expectedRevision: day.revision, intent: { courseId: course.courseId, courseDayId: day.courseDayId, instructorId: instructorId as never, reasonExplanation } });
+      const instructorId = window
+        .prompt('New instructor ID', course.instructorRosterIds[0])
+        ?.trim();
+      if (instructorId)
+        await execute({
+          kind,
+          expectedRevision: day.revision,
+          intent: {
+            courseId: course.courseId,
+            courseDayId: day.courseDayId,
+            instructorId: instructorId as never,
+            reasonExplanation,
+          },
+        });
       return;
     }
     if (kind === 'reschedule_course_day') {
       const localDate = window.prompt('New date YYYY-MM-DD')?.trim();
       const localTime = window.prompt('New time HH:mm')?.trim();
       const durationMinutes = Number(window.prompt('Duration minutes', '120'));
-      if (localDate && localTime) await execute({ kind, expectedRevision: course.revision, calendarInput: { localDate, localTime, durationMinutes }, timezone: day.timeZone, intent: { courseId: course.courseId, courseDayId: day.courseDayId, expectedCourseDayRevision: day.revision, reasonExplanation } });
+      if (localDate && localTime)
+        await execute({
+          kind,
+          expectedRevision: course.revision,
+          calendarInput: { localDate, localTime, durationMinutes },
+          timezone: day.timeZone,
+          intent: {
+            courseId: course.courseId,
+            courseDayId: day.courseDayId,
+            expectedCourseDayRevision: day.revision,
+            reasonExplanation,
+          },
+        });
       return;
     }
     onRequestConfirm(`remove CourseDay ${day.courseDayId}?`, async () => {
@@ -310,9 +366,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     try {
       const editableContent = current
         ? Object.fromEntries(
-            Object.entries(current).filter(
-              ([key]) => key !== 'courseId' && key !== 'revision'
-            )
+            Object.entries(current).filter(([key]) => key !== 'courseId' && key !== 'revision')
           )
         : {
             duration: '',
@@ -349,46 +403,167 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
 
   if (loading && courses.length === 0) return <p>{text.loading}</p>;
   if (error && courses.length === 0) {
-    return <div role="alert"><p>{error}</p><button type="button" onClick={() => void refresh()}>{text.retry}</button></div>;
+    return (
+      <div role="alert">
+        <p>{error}</p>
+        <button type="button" onClick={() => void refresh()}>
+          {text.retry}
+        </button>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4" aria-busy={pending !== null}>
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="ui-btn ui-btn-primary" onClick={toggleCreate}>{text.create}</button>
-        <button type="button" className="ui-btn" onClick={() => void refresh()}>{text.refresh}</button>
+        <button type="button" className="ui-btn ui-btn-primary" onClick={toggleCreate}>
+          {text.create}
+        </button>
+        <button type="button" className="ui-btn" onClick={() => void refresh()}>
+          {text.refresh}
+        </button>
         {pending && <span role="status">{text.pending}</span>}
         {stale && <span role="status">{text.stale}</span>}
         {error && <span role="alert">{error}</span>}
       </div>
 
       {showCreate && (
-        <form className="grid gap-2 rounded border border-[var(--border)] p-3 md:grid-cols-2" onSubmit={(event) => void createCourse(event)}>
-          {(['title', 'price', 'totalSeats', 'timeZone', 'roster', 'duration', 'dates', 'bgImageUrl'] as const).map((field) => (
-            <label key={field} className="grid gap-1 text-sm">{field}<input required value={createForm[field]} onChange={(event) => updateCreateField(field, event.target.value)} /></label>
+        <form
+          className="grid gap-2 rounded border border-[var(--border)] p-3 md:grid-cols-2"
+          onSubmit={(event) => void createCourse(event)}
+        >
+          {(
+            [
+              'title',
+              'price',
+              'totalSeats',
+              'timeZone',
+              'roster',
+              'duration',
+              'dates',
+              'bgImageUrl',
+            ] as const
+          ).map((field) => (
+            <label key={field} className="grid gap-1 text-sm">
+              {field}
+              <input
+                required
+                value={createForm[field]}
+                onChange={(event) => updateCreateField(field, event.target.value)}
+              />
+            </label>
           ))}
-          <label className="grid gap-1 text-sm md:col-span-2">description<textarea required value={createForm.description} onChange={(event) => updateCreateField('description', event.target.value)} /></label>
-          <label className="grid gap-1 text-sm md:col-span-2">CourseDays: one line = YYYY-MM-DD HH:mm minutes instructorId<textarea required rows={4} value={createForm.days} onChange={(event) => updateCreateField('days', event.target.value)} /></label>
-          <p className="text-xs md:col-span-2">Instructors: {[...instructorOptions.entries()].map(([id, name]) => `${name} (${id})`).join(', ')}</p>
-          <button disabled={pending !== null} className="ui-btn ui-btn-primary" type="submit">{text.create}</button>
+          <label className="grid gap-1 text-sm md:col-span-2">
+            description
+            <textarea
+              required
+              value={createForm.description}
+              onChange={(event) => updateCreateField('description', event.target.value)}
+            />
+          </label>
+          <label className="grid gap-1 text-sm md:col-span-2">
+            CourseDays: one line = YYYY-MM-DD HH:mm minutes instructorId
+            <textarea
+              required
+              rows={4}
+              value={createForm.days}
+              onChange={(event) => updateCreateField('days', event.target.value)}
+            />
+          </label>
+          <p className="text-xs md:col-span-2">
+            Instructors:{' '}
+            {[...instructorOptions.entries()].map(([id, name]) => `${name} (${id})`).join(', ')}
+          </p>
+          <button disabled={pending !== null} className="ui-btn ui-btn-primary" type="submit">
+            {text.create}
+          </button>
         </form>
       )}
 
-      {courses.length === 0 ? <p>{text.empty}</p> : courses.map((course) => (
-        <article key={course.courseId} className="space-y-3 rounded border border-[var(--border)] p-3">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div><h3 className="font-semibold">{course.title}</h3><p className="text-xs text-[var(--ink-dim)]">{course.courseId} · {course.lifecycle} · rev {course.revision} / schedule {course.scheduleRevision}</p></div>
-            <span>{course.price.toLocaleString()} KZT · {course.capacity.availableSeats}/{course.capacity.totalSeats}</span>
-          </div>
-          <p className="text-sm">Roster: {course.instructors.map((instructor) => instructor.name).join(', ') || course.instructorRosterIds.join(', ')}</p>
-          <p className="text-sm">CourseDays: {course.courseDays.length} · Enrollments: {course.activeEnrollmentCount} active / {course.totalEnrollmentCount} total · Catalog: {course.catalogContent.status} · Provisioning: {course.provisioning.status}</p>
-          <div className="flex flex-wrap gap-2">
-            {(['change_course_title', 'change_course_price', 'change_course_capacity', 'archive_course', 'reactivate_course', 'add_course_roster_instructor', 'remove_course_roster_instructor'] as const).filter((kind) => course.authorizedActions.some((action) => action.kind === kind)).map((kind) => <button key={kind} type="button" disabled={pending !== null} onClick={() => void runCourseAction(course, kind)}>{kind.replaceAll('_', ' ')}</button>)}
-            {(['create_course_day', 'reassign_course_day_instructor', 'reschedule_course_day', 'remove_course_day'] as const).filter((kind) => course.authorizedActions.some((action) => action.kind === kind)).map((kind) => <button key={kind} type="button" disabled={pending !== null} onClick={() => void courseDayAction(course, kind)}>{kind.replaceAll('_', ' ')}</button>)}
-            <button type="button" disabled={pending !== null} onClick={() => void editCatalogContent(course)}>catalog content</button>
-          </div>
-        </article>
-      ))}
+      {courses.length === 0 ? (
+        <p>{text.empty}</p>
+      ) : (
+        courses.map((course) => (
+          <article
+            key={course.courseId}
+            className="space-y-3 rounded border border-[var(--border)] p-3"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h3 className="font-semibold">{course.title}</h3>
+                <p className="text-xs text-[var(--ink-dim)]">
+                  {course.courseId} · {course.lifecycle} · rev {course.revision} / schedule{' '}
+                  {course.scheduleRevision}
+                </p>
+              </div>
+              <span>
+                {course.price.toLocaleString()} KZT · {course.capacity.availableSeats}/
+                {course.capacity.totalSeats}
+              </span>
+            </div>
+            <p className="text-sm">
+              Roster:{' '}
+              {course.instructors.map((instructor) => instructor.name).join(', ') ||
+                course.instructorRosterIds.join(', ')}
+            </p>
+            <p className="text-sm">
+              CourseDays: {course.courseDays.length} · Enrollments: {course.activeEnrollmentCount}{' '}
+              active / {course.totalEnrollmentCount} total · Catalog: {course.catalogContent.status}{' '}
+              · Provisioning: {course.provisioning.status}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  'change_course_title',
+                  'change_course_price',
+                  'change_course_capacity',
+                  'archive_course',
+                  'reactivate_course',
+                  'add_course_roster_instructor',
+                  'remove_course_roster_instructor',
+                ] as const
+              )
+                .filter((kind) => course.authorizedActions.some((action) => action.kind === kind))
+                .map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    disabled={pending !== null}
+                    onClick={() => void runCourseAction(course, kind)}
+                  >
+                    {kind.replaceAll('_', ' ')}
+                  </button>
+                ))}
+              {(
+                [
+                  'create_course_day',
+                  'reassign_course_day_instructor',
+                  'reschedule_course_day',
+                  'remove_course_day',
+                ] as const
+              )
+                .filter((kind) => course.authorizedActions.some((action) => action.kind === kind))
+                .map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    disabled={pending !== null}
+                    onClick={() => void courseDayAction(course, kind)}
+                  >
+                    {kind.replaceAll('_', ' ')}
+                  </button>
+                ))}
+              <button
+                type="button"
+                disabled={pending !== null}
+                onClick={() => void editCatalogContent(course)}
+              >
+                catalog content
+              </button>
+            </div>
+          </article>
+        ))
+      )}
     </div>
   );
 };

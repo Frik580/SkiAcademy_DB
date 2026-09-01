@@ -2,14 +2,7 @@ import React, { useCallback, useState, Suspense, lazy } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { Instructor, Booking, UserProfile, Course } from '../../../types';
-import {
-  Shield,
-  UserCheck,
-  BookOpen,
-  AlertTriangle,
-  ShieldAlert,
-  Wallet,
-} from 'lucide-react';
+import { Shield, UserCheck, BookOpen, AlertTriangle, ShieldAlert, Wallet } from 'lucide-react';
 import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../domain/achievements';
 import { AchievementsConfig } from '../../../domain/achievements';

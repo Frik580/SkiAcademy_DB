@@ -6,8 +6,5 @@ export interface AdminCourseInstructorInput {
 export interface CanonicalCoursesManagerInput {
   readonly currentAccountId: string;
   readonly instructors: readonly AdminCourseInstructorInput[];
-  readonly onRequestConfirm: (
-    message: string,
-    onConfirm: () => void | Promise<void>
-  ) => void;
+  readonly onRequestConfirm: (message: string, onConfirm: () => void | Promise<void>) => void;
 }

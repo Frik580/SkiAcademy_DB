@@ -25,9 +25,7 @@ async function assertLegacyAdminCourseWriteAllowed(
   const existing = await getDoc(doc(db, 'courses', courseId));
   if (
     existing.exists() &&
-    isCanonicalCourseProtectedFromLegacyAdminWrites(
-      existing.data() as Record<string, unknown>
-    )
+    isCanonicalCourseProtectedFromLegacyAdminWrites(existing.data() as Record<string, unknown>)
   ) {
     throw new CanonicalCourseAdminWriteBlockedError(courseId, operation);
   }

@@ -13,8 +13,12 @@ export function useAdminCourseTranslations() {
       refresh: ru ? 'Обновить' : 'Refresh',
       reason: ru ? 'Причина изменения' : 'Reason for change',
       mutationFailed: ru ? 'Операция не выполнена.' : 'The operation failed.',
-      permissionDenied: ru ? 'Недостаточно прав администратора.' : 'Administrator permission required.',
-      stale: ru ? 'Версия устарела; данные обновлены.' : 'The version was stale; data was refreshed.',
+      permissionDenied: ru
+        ? 'Недостаточно прав администратора.'
+        : 'Administrator permission required.',
+      stale: ru
+        ? 'Версия устарела; данные обновлены.'
+        : 'The version was stale; data was refreshed.',
       pending: ru ? 'Сохранение…' : 'Saving…',
     },
   };

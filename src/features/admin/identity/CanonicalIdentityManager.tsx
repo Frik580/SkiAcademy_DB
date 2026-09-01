@@ -122,7 +122,11 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
             {text[item]}
           </button>
         ))}
-        <button type="button" className="border border-[var(--border)] px-3 py-2 text-xs" onClick={() => void reads.refresh()}>
+        <button
+          type="button"
+          className="border border-[var(--border)] px-3 py-2 text-xs"
+          onClick={() => void reads.refresh()}
+        >
           <RefreshCw className="mr-1 inline h-3 w-3" />
           {text.refresh}
         </button>
@@ -142,7 +146,9 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="border border-[var(--border)] p-3">
           {list.loading ? <p className="text-xs">{text.loading}</p> : null}
-          {!list.loading && list.items.length === 0 ? <p className="text-xs">{text.empty}</p> : null}
+          {!list.loading && list.items.length === 0 ? (
+            <p className="text-xs">{text.empty}</p>
+          ) : null}
           <ul className="space-y-1">
             {directory === 'accounts'
               ? reads.accounts.items.map((item) => (
@@ -293,12 +299,23 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
           {confirmation ? (
             <div className="border border-[var(--border)] p-3 text-xs">
               <p>{confirmation.message}</p>
-              <p className="mt-1 text-[var(--ink-dim)]">rev {confirmation.attempt.expectedRevision}</p>
+              <p className="mt-1 text-[var(--ink-dim)]">
+                rev {confirmation.attempt.expectedRevision}
+              </p>
               <div className="mt-2 flex gap-2">
-                <button type="button" className="border border-[var(--ink)] px-3 py-2" onClick={() => void runConfirmation()} disabled={pending}>
+                <button
+                  type="button"
+                  className="border border-[var(--ink)] px-3 py-2"
+                  onClick={() => void runConfirmation()}
+                  disabled={pending}
+                >
                   {pending ? <Loader2 className="inline h-3 w-3 animate-spin" /> : text.confirm}
                 </button>
-                <button type="button" className="border border-[var(--border)] px-3 py-2" onClick={() => setConfirmation(undefined)}>
+                <button
+                  type="button"
+                  className="border border-[var(--border)] px-3 py-2"
+                  onClick={() => setConfirmation(undefined)}
+                >
                   {text.cancel}
                 </button>
               </div>
@@ -332,7 +349,8 @@ function AccountDetail(props: {
         {detail.role.systemRole ? ` · ${detail.role.systemRole}` : ''}
       </p>
       <p>
-        {text.managed}: {detail.managedParticipants.map((item) => item.displayName).join(', ') || '—'}
+        {text.managed}:{' '}
+        {detail.managedParticipants.map((item) => item.displayName).join(', ') || '—'}
       </p>
       {detail.diagnostics.length > 0 ? (
         <ul>
@@ -394,7 +412,9 @@ function AccountDetail(props: {
                 accountId: detail.accountId,
                 role: detail.role.role === 'admin' ? 'user' : 'admin',
                 expectedRevision: action('change_account_role')!.expectedRevision,
-                idempotencyKey: attemptKey(`role:${detail.accountId}:${detail.role.role === 'admin' ? 'user' : 'admin'}`),
+                idempotencyKey: attemptKey(
+                  `role:${detail.accountId}:${detail.role.role === 'admin' ? 'user' : 'admin'}`
+                ),
                 reasonExplanation: '',
               },
               detail.role.role === 'admin' ? text.demote : text.promote
@@ -413,7 +433,8 @@ function AccountDetail(props: {
               {
                 kind: 'provision_self_participant_for_account',
                 accountId: detail.accountId,
-                expectedRevision: action('provision_self_participant_for_account')!.expectedRevision,
+                expectedRevision: action('provision_self_participant_for_account')!
+                  .expectedRevision,
                 idempotencyKey: attemptKey(`provision_self:${detail.accountId}`),
                 reasonExplanation: '',
               },
@@ -445,7 +466,12 @@ function AccountDetail(props: {
             className="border border-[var(--border)] px-2 py-1"
             onClick={() => {
               const participantId = ParticipantIdSchema.parse(
-                canonicalDeterministicHash(['participant:v1', 'dependent', detail.accountId, entropy()])
+                canonicalDeterministicHash([
+                  'participant:v1',
+                  'dependent',
+                  detail.accountId,
+                  entropy(),
+                ])
               );
               const participantManagementId = participantManagementIdFromGuestLink({
                 participantId,
@@ -461,7 +487,8 @@ function AccountDetail(props: {
                   birthDate: props.profileBirthDate,
                   skillLevel: 'beginner',
                   discipline: 'ski',
-                  expectedRevision: action('create_managed_dependent_participant')!.expectedRevision,
+                  expectedRevision: action('create_managed_dependent_participant')!
+                    .expectedRevision,
                   idempotencyKey: attemptKey(`create_dependent:${participantId}`),
                   reasonExplanation: '',
                 },
@@ -530,7 +557,8 @@ function ParticipantDetail(props: {
       </p>
       {detail.archiveBlockedByCommitments ? <p>{text.archiveBlocked}</p> : null}
       <p>
-        {text.managers}: {detail.managers.map((item) => `${item.displayName} (${item.authority})`).join(', ') || '—'}
+        {text.managers}:{' '}
+        {detail.managers.map((item) => `${item.displayName} (${item.authority})`).join(', ') || '—'}
       </p>
       {detail.diagnostics.map((item) => (
         <p key={`${item.diagnosticType}:${item.subject}`}>
@@ -640,7 +668,8 @@ function ParticipantDetail(props: {
                   participantId: detail.participantId,
                   participantManagementId,
                   accountId,
-                  expectedRevision: action('assign_participant_management_as_administrator')!.expectedRevision,
+                  expectedRevision: action('assign_participant_management_as_administrator')!
+                    .expectedRevision,
                   idempotencyKey: attemptKey(`assign:${detail.participantId}:${accountId}`),
                   reasonExplanation: '',
                 },
@@ -712,7 +741,9 @@ function InstructorDetail(props: {
                 instructorId: detail.instructorId,
                 name: props.catalogName.trim(),
                 expectedRevision: action('update_instructor_catalog_profile')!.expectedRevision,
-                idempotencyKey: attemptKey(`catalog_update:${detail.instructorId}:${action('update_instructor_catalog_profile')!.expectedRevision}`),
+                idempotencyKey: attemptKey(
+                  `catalog_update:${detail.instructorId}:${action('update_instructor_catalog_profile')!.expectedRevision}`
+                ),
                 reasonExplanation: '',
               },
               text.updateCatalog
@@ -773,7 +804,9 @@ function InstructorDetail(props: {
                 accountId: detail.linkedAccountId!,
                 instructorId: detail.instructorId,
                 expectedRevision: action('unlink_account_instructor_catalog')!.expectedRevision,
-                idempotencyKey: attemptKey(`unlink:${detail.linkedAccountId}:${detail.instructorId}`),
+                idempotencyKey: attemptKey(
+                  `unlink:${detail.linkedAccountId}:${detail.instructorId}`
+                ),
                 reasonExplanation: '',
               },
               text.unlinkCatalog

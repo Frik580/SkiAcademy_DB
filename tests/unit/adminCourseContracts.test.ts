@@ -17,23 +17,35 @@ describe('T32.5 canonical Course contracts', () => {
       capacity: { totalSeats: 1, availableSeats: 1 },
       instructorRosterIds: ['instructor_contract_01'],
       startAt: time,
-      scheduleProjection: { courseDayCount: 1, finalCourseDayEndsAt: time, courseScheduleRevision: 1 },
+      scheduleProjection: {
+        courseDayCount: 1,
+        finalCourseDayEndsAt: time,
+        courseScheduleRevision: 1,
+      },
       revision: 1,
       createdAt: time,
       updatedAt: time,
-      audit: { createdByCommandId: 'command_seed', lastChangedByCommandId: 'command_seed', correlationId: 'correlation_seed' },
+      audit: {
+        createdByCommandId: 'command_seed',
+        lastChangedByCommandId: 'command_seed',
+        correlationId: 'correlation_seed',
+      },
     };
     expect(CourseSchema.parse(base).lifecycle).toBe('active');
-    expect(CourseSchema.safeParse({ ...base, description: 'presentation leak' }).success).toBe(false);
+    expect(CourseSchema.safeParse({ ...base, description: 'presentation leak' }).success).toBe(
+      false
+    );
   });
 
   it('catalogs only intent-specific Course commands', () => {
     expect(catalogExcludesGenericMutationCommands()).toBe(true);
     expect(COMMAND_KINDS).not.toContain('update_course');
-    expect(parseCommandIntent('change_course_capacity', {
-      courseId: 'course_contract_01',
-      totalSeats: 12,
-      reasonExplanation: 'Capacity amendment',
-    }).success).toBe(true);
+    expect(
+      parseCommandIntent('change_course_capacity', {
+        courseId: 'course_contract_01',
+        totalSeats: 12,
+        reasonExplanation: 'Capacity amendment',
+      }).success
+    ).toBe(true);
   });
 });

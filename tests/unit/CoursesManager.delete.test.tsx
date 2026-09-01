@@ -144,10 +144,7 @@ describe('Canonical CoursesManager', () => {
     await user.click(screen.getByRole('button', { name: 'Create canonical course' }));
     await user.type(screen.getByLabelText('title'), 'Canonical Retry Course');
     await user.type(screen.getByLabelText('price'), '50000');
-    await user.type(
-      screen.getByLabelText('roster'),
-      'instructor_admin_component_01'
-    );
+    await user.type(screen.getByLabelText('roster'), 'instructor_admin_component_01');
     await user.type(screen.getByLabelText('duration'), 'Two days');
     await user.type(screen.getByLabelText('dates'), '1–2 December 2026');
     await user.type(screen.getByLabelText('bgImageUrl'), 'https://example.com/retry.webp');
@@ -165,8 +162,8 @@ describe('Canonical CoursesManager', () => {
     expect(executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1].idempotencyKey).toBe(
       executeAuthenticatedCanonicalCommand.mock.calls[1]?.[1].idempotencyKey
     );
-    expect(
-      executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1].intent.manifest.courseId
-    ).toBe(executeAuthenticatedCanonicalCommand.mock.calls[1]?.[1].intent.manifest.courseId);
+    expect(executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1].intent.manifest.courseId).toBe(
+      executeAuthenticatedCanonicalCommand.mock.calls[1]?.[1].intent.manifest.courseId
+    );
   });
 });

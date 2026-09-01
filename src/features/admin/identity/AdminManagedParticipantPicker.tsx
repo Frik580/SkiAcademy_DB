@@ -102,8 +102,9 @@ export function AdminManagedParticipantPicker({
               displayName: participant.displayName,
               ...(accountOptions.find((option) => option.accountId === accountId)?.displayName
                 ? {
-                    accountDisplayName: accountOptions.find((option) => option.accountId === accountId)
-                      ?.displayName,
+                    accountDisplayName: accountOptions.find(
+                      (option) => option.accountId === accountId
+                    )?.displayName,
                   }
                 : {}),
             });

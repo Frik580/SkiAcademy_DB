@@ -176,9 +176,7 @@ export function useAdminIdentityReadModels(input: {
           participantId: input.selectedParticipantId,
         });
         if (generation !== detailGeneration.current) return;
-        setParticipantDetail(
-          result.scope === 'admin_participant_detail' ? result.item : undefined
-        );
+        setParticipantDetail(result.scope === 'admin_participant_detail' ? result.item : undefined);
       } else if (input.directory === 'instructors' && input.selectedInstructorId) {
         const result = await queryAdminIdentityReadModels({
           scope: 'admin_instructor_detail',

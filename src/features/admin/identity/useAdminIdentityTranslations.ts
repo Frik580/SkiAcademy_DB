@@ -26,8 +26,12 @@ export function useAdminIdentityTranslations() {
       confirm: ru ? 'Подтвердить' : 'Confirm',
       cancel: ru ? 'Отмена' : 'Cancel',
       pending: ru ? 'Сохранение…' : 'Saving…',
-      stale: ru ? 'Версия устарела; данные обновлены.' : 'The version was stale; data was refreshed.',
-      permissionDenied: ru ? 'Недостаточно прав администратора.' : 'Administrator permission required.',
+      stale: ru
+        ? 'Версия устарела; данные обновлены.'
+        : 'The version was stale; data was refreshed.',
+      permissionDenied: ru
+        ? 'Недостаточно прав администратора.'
+        : 'Administrator permission required.',
       mutationFailed: ru ? 'Операция не выполнена.' : 'The operation failed.',
       deactivate: ru ? 'Деактивировать' : 'Deactivate',
       activate: ru ? 'Активировать' : 'Activate',
@@ -63,7 +67,9 @@ export function useAdminIdentityTranslations() {
         : 'Archive is blocked: active or future commitments exist.',
       selectAccount: ru ? 'Сначала выберите Account' : 'Select an Account first',
       eligibleParticipants: ru ? 'Управляемые участники Account' : 'Account-managed participants',
-      noEligible: ru ? 'У этого Account нет активных управляемых участников.' : 'This Account has no active managed participants.',
+      noEligible: ru
+        ? 'У этого Account нет активных управляемых участников.'
+        : 'This Account has no active managed participants.',
       pickerAccount: ru ? 'Account для выбора участника' : 'Account for participant selection',
     },
   };

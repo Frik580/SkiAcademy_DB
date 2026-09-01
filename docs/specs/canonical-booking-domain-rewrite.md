@@ -1,6 +1,6 @@
 # Canonical Booking Domain Rewrite and Clean Cutover
 
-Status: approved implementation strategy; ADR-0001 through ADR-0005 accepted; phase implementation may proceed
+Status: approved implementation strategy; ADR-0001 through ADR-0007 accepted
 
 ## Problem Statement
 
@@ -20,7 +20,7 @@ The repository therefore requires a canonical rewrite followed by a clean mainte
 - The canonical implementation is built and verified separately while the current application remains deployable. The two implementations do not share a mutation path or synchronize records.
 - The canonical schema, Rules, Functions, scheduled jobs, and frontend are released together during a maintenance window.
 - Canonical reconciliation remains required where it is an architectural invariant: Payment/Wallet accounting, resource claims and capacity projections, idempotent commands, Activity Log completeness/integrity, and outbox delivery reliability.
-- `CONTEXT.md` is authoritative for business rules. [ADR-0001](../adr/0001-canonical-aggregate-topology.md) through [ADR-0005](../adr/0005-audit-durability-and-transaction-policy.md) are accepted and authoritative for their respective architecture decisions.
+- `CONTEXT.md` is authoritative for business rules. [ADR-0001](../adr/0001-canonical-aggregate-topology.md) through [ADR-0007](../adr/0007-guest-identity-payment-and-confirmation.md) are accepted and authoritative for their respective architecture decisions. ADR-0007 supersedes earlier guest-approval-independent-of-payment language.
 
 ## Canonical model and collection layout
 
@@ -57,7 +57,7 @@ The repository therefore requires a canonical rewrite followed by a clean mainte
 | Domain Outbox                  | `/domain_outbox/{eventId}`                                  | Independently retryable asynchronous external-delivery obligations                 |
 | Notification                   | `/notifications/{notificationId}`                           | User-facing delivery state, never domain authority                                 |
 
-ADR-0001 through ADR-0005 define the accepted document, history, claim, transaction, accounting, Attendance, audit, outbox, and retention boundaries. If an accepted ADR changes a physical path listed above, this specification must be updated before implementation; code must not silently diverge.
+ADR-0001 through ADR-0007 define the accepted document, history, claim, transaction, accounting, Attendance, audit, outbox, retention, guest identity, and payment-funded confirmation boundaries. If an accepted ADR changes a physical path listed above, this specification must be updated before implementation; code must not silently diverge.
 
 ## Delivery strategy
 
@@ -127,7 +127,7 @@ Deliver the complete canonical lesson vertical slice for authenticated, guest, a
 - Create and manage Participant and Participant Management records, including self and dependent Participants.
 - Implement Instructor Relationships and Participant Blocks with canonical access and removal rules.
 - Implement authenticated self-service Booking with atomic full Wallet payment.
-- Implement guest pending reservation, expiration deadline, administration confirmation/cancellation, secure guest action, and later account linking without changing origin or provenance.
+- Implement guest pending reservation, expiration deadline, payment-funded confirmation, secure guest action, and later account linking without changing origin or provenance. Guest confirmation requires `isPaymentFullyFundedForService` and is not unpaid Administrator approval; see [ADR-0007](../adr/0007-guest-identity-payment-and-confirmation.md).
 - Implement administration-created confirmed Booking with explicit underpayment reason and Payment State.
 - Implement BookingProposal create, revoke, expire, and accept; acceptance rechecks every invariant and creates the Booking atomically.
 - Implement Individual and Family/Group parties, tariff calculation, per-Participant claims, and all-or-nothing party changes.
@@ -157,7 +157,7 @@ Deliver the complete canonical Course vertical slice without representing Enroll
 ### Scope
 
 - Implement Course and CourseDay administration using structured timezone-safe intervals.
-- Implement authenticated, guest, and administration CourseEnrollment commands with opaque immutable IDs.
+- Implement authenticated, guest, and administration CourseEnrollment commands with opaque immutable IDs, including payment-funded `confirm_guest_course_enrollment`. Guest confirmation does not consume another seat.
 - Enforce the active Enrollment guard, pre-start seat claim, Participant CourseDay claims, and actual Instructor CourseDay claims.
 - Keep `availableSeats` as the canonical transactional admission projection with freeze behavior at `course.startAt`.
 - Implement atomic multi-Participant Course enrollment as one Enrollment per Participant.
@@ -216,7 +216,7 @@ Produce the deployable infrastructure and operational tooling required for the c
 - Reject legacy Booking payloads, Course-shaped documents in `/bookings`, synthetic Instructor identity, and direct writes to server-owned fields and collections.
 - Replace Storage Rules that authorize chat or media through legacy Booking paths.
 - Add canonical indexes for Participant membership, Booking and Enrollment lifecycle, Course, CourseDay, Payment, Attendance, relationships, proposals, requests, Admin Issues, claims, outbox, and notifications.
-- Implement guest expiration, outcome resolution, outbox processing, notification cleanup, and canonical reconciliation jobs.
+- Implement guest expiration, payment-funded guest confirmation recovery, outcome resolution, outbox processing, notification cleanup, and canonical reconciliation jobs.
 - Delete or disable old completion and availability-migration jobs before the maintenance window.
 - Implement the reset, seed, storage cleanup, and verification scripts defined below.
 - Produce one versioned release manifest identifying the Rules, indexes, Functions, jobs, frontend build, seed schema, and minimum supported client release.
@@ -237,7 +237,7 @@ Perform one clean cutover and leave no runtime support for the old schema.
 
 ### Pre-cutover gates
 
-- ADR-0001 through ADR-0005 are accepted and this specification matches them.
+- ADR-0001 through ADR-0007 are accepted and this specification matches them.
 - Phases 1–6 exit criteria pass on the exact release commit.
 - Canonical indexes are built.
 - Reset, seed, snapshot restore, and legacy-seed rollback are rehearsed.
@@ -488,17 +488,19 @@ No canonical component reads the restored old data. No old component is deployed
 
 ## Architecture ADR status
 
-All required architecture ADRs are accepted:
+Accepted architecture ADRs:
 
 1. [ADR-0001: Canonical Aggregate Topology](../adr/0001-canonical-aggregate-topology.md)
 2. [ADR-0002: Server Command, Transaction and Resource Model](../adr/0002-server-command-transaction-and-resource-model.md)
 3. [ADR-0003: Payment Accounting Source](../adr/0003-payment-accounting-source.md)
 4. [ADR-0004: Attendance, Outcome and Admin Issue Model](../adr/0004-attendance-outcome-and-admin-issue-model.md)
 5. [ADR-0005: Audit Durability and Transaction Policy](../adr/0005-audit-durability-and-transaction-policy.md)
+6. [ADR-0006: Lazy Canonical Self-Participant Provisioning](../adr/0006-lazy-canonical-self-participant-provisioning.md)
+7. [ADR-0007: Guest Identity, Payment, and Confirmation Architecture](../adr/0007-guest-identity-payment-and-confirmation.md)
 
-The canonical rewrite has no remaining blocking architecture ADRs. Implementation may proceed phase-by-phase under ADR-0001 through ADR-0005.
+ADR-0007 supersedes earlier statements that Administrator approval confirms unpaid guest requests, that guest confirmation is independent of payment, that identity linking is confirmation, and that Guest CourseEnrollment approval policy is unresolved.
 
-No Compatibility/Cutover ADR or Participant legacy identity migration ADR is required. This architecture completion does not claim that all implementation or product decisions are complete.
+No Compatibility/Cutover ADR or Participant legacy identity migration ADR is required.
 
 ### Remaining non-blocking implementation and product decisions
 
@@ -509,7 +511,10 @@ No Compatibility/Cutover ADR or Participant legacy identity migration ADR is req
 - provider adapters and downstream idempotency details;
 - legal retention review and any later archival policy;
 - measured Firestore payload and index calibration;
-- whole-Course cancellation semantics.
+- whole-Course cancellation semantics;
+- `pay_on_site`, cash-at-start, deferred payment, and unpaid Admin override of guest applications;
+- partially-paid pending guest rejection or refund policy;
+- unused unmanaged guest Participant cleanup.
 
 ## Risks
 

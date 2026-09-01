@@ -7,7 +7,7 @@ date: 2026-08-23
 
 Carve Academy will place every authoritative business mutation behind one deep server command module whose interface is `CanonicalCommands.execute`. Commands express a closed set of business intents, authorize and revalidate against current state, and commit every invariant-related state change in one Firestore transaction. Deterministic resource claims, versioned bucket guards, aggregate revisions, and durable idempotency make conflicts and retries explicit without allowing clients, transport wrappers, schedulers, or triggers to implement lifecycle policy independently.
 
-This ADR refines the canonical topology in [ADR-0001](./0001-canonical-aggregate-topology.md) and the Phase 2 direction in the [canonical rewrite specification](../specs/canonical-booking-domain-rewrite.md). It decides command, transaction, concurrency, resource-conflict, capacity, scheduling, and error mechanics. [ADR-0003](./0003-payment-accounting-source.md) resolves Payment accounting, [ADR-0004](./0004-attendance-outcome-and-admin-issue-model.md) resolves Attendance evidence and correction, and [ADR-0005](./0005-audit-durability-and-transaction-policy.md) resolves Activity Log durability, asynchronous outbox delivery, and retention within the transaction constraints established here.
+This ADR refines the canonical topology in [ADR-0001](./0001-canonical-aggregate-topology.md) and the Phase 2 direction in the [canonical rewrite specification](../specs/canonical-booking-domain-rewrite.md). It decides command, transaction, concurrency, resource-conflict, capacity, scheduling, and error mechanics. [ADR-0003](./0003-payment-accounting-source.md) resolves Payment accounting, [ADR-0004](./0004-attendance-outcome-and-admin-issue-model.md) resolves Attendance evidence and correction, [ADR-0005](./0005-audit-durability-and-transaction-policy.md) resolves Activity Log durability, asynchronous outbox delivery, and retention within the transaction constraints established here, and [ADR-0007](./0007-guest-identity-payment-and-confirmation.md) resolves guest identity linking and payment-funded confirmation.
 
 ## Decision overview
 
@@ -46,10 +46,10 @@ CanonicalCommands.execute<K extends CommandKind>(
 
 `CommandKind` is a closed discriminated union of intent-oriented operations. It includes intents in the following families:
 
-- Booking creation and guest confirmation;
+- Booking creation and payment-funded guest confirmation (`confirm_guest_booking`);
 - Booking cancellation request, withdrawal, and resolution;
 - Booking reschedule, Instructor change, duration change, party change, completion, and no-show;
-- Course Enrollment creation, transfer, withdrawal, cancellation request, and `resolveCourseEnrollmentCancellation`;
+- Course Enrollment creation, transfer, withdrawal, cancellation request, `resolveCourseEnrollmentCancellation`, and payment-funded guest confirmation (`confirm_guest_course_enrollment`);
 - Booking Proposal creation, acceptance, cancellation, and expiration;
 - Booking Change Request creation, withdrawal, and resolution;
 - guest reservation expiration, payment-start enforcement, and Attendance/outcome resolution;
@@ -256,7 +256,7 @@ Fixed one-hour locks are rejected because they cannot represent arbitrary durati
 
 ## Course capacity
 
-Before `course.startAt`, each `pending`, `confirmed`, or `pending_cancellation` Course Enrollment owns one seat claim and contributes one unit of active pre-start occupancy. `cancelled` and `withdrawn` release that claim exactly once. In the same transaction, the server maintains:
+Before `course.startAt`, each `pending`, `confirmed`, or `pending_cancellation` Course Enrollment owns one seat claim and contributes one unit of active pre-start occupancy. Guest CourseEnrollment creation therefore consumes the seat while the enrollment is still `pending`. Payment-funded confirmation does not consume another seat, recreate claims, or create another Payment; see [ADR-0007](./0007-guest-identity-payment-and-confirmation.md). `cancelled` and `withdrawn` release that claim exactly once. In the same transaction, the server maintains:
 
 ```text
 availableSeats = totalSeats - active pre-start seat occupancy
@@ -271,6 +271,8 @@ At and after `course.startAt`, normal admission is closed and capacity freezes. 
 Neither `totalSeats` nor Instructor roster size is capped by this ADR. High total capacity can create many Enrollment documents over time without making one bounded enrollment command mutate them all.
 
 ## Full-payment start gate
+
+The payment-start gate is defensive canonical protection for confirmed or otherwise start-eligible subjects that are underfunded at `startAt`, including Administrator-created confirmed underpayment and other exceptional states. It is not the normal guest-approval mechanism. The intended guest flow remains unpaid → pending, then fully funded → confirmed, as decided in [ADR-0007](./0007-guest-identity-payment-and-confirmation.md).
 
 A scheduled system adapter discovers Bookings and Course Enrollments that may have reached their applicable `startAt` while underpaid and invokes the payment-start command with a deterministic idempotency key. The command transactionally and idempotently:
 
@@ -290,7 +292,8 @@ Schedulers discover candidates only. They may query expiration, start-gate, or o
 
 The canonical patterns are:
 
-- guest reservation expiration: discover due reservations, then execute an expiration intent that rechecks lifecycle, TTL, start time, and current confirmation;
+- guest reservation expiration: discover due unpaid pending reservations, then execute an expiration intent that rechecks lifecycle, TTL, start time, current confirmation, and that Payment is not fully funded;
+- guest confirmation reconciliation: recover rare fully funded Payment / pending-or-ineligible lifecycle divergence; the sweep is not the primary confirmation path;
 - payment start gate: discover possibly due underpayment, then execute the transactional gate described above;
 - 24-hour Attendance/outcome resolution: discover due subjects, then execute a command that rechecks time, Attendance sufficiency, payment restriction, cancellation state, and unresolved Admin Issues;
 - outbox retry and notification processing: claim delivery work idempotently, perform the external effect outside the domain transaction, and transactionally record delivery outcome or escalation without rewriting domain history.

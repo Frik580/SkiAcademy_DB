@@ -1,7 +1,27 @@
 # T32 Canonical Admin Audit Report
 
 Date: 2026-08-30  
-Status: audit complete; implementation not started
+Amended: 2026-09-01 — T32.8A, T32.8B, and T32.8C PASS; guest confirmation policy recorded in [ADR-0007](adr/0007-guest-identity-payment-and-confirmation.md)
+
+Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007.
+
+## Later migration status: T32.8A–T32.8C
+
+| Slice | Name | Status |
+|---|---|---|
+| T32.8A | Canonical identity administration (Account, Participant, ParticipantManagement, Account → managed Participant selector) | PASS |
+| T32.8B | Admin-assisted guest identity linking (`existing_managed`) | PASS |
+| T32.8C | Payment-Driven Guest Confirmation | PASS |
+
+T32.8C was previously scoped as a deferred guest-approval policy review. That name and unpaid-approval reading are superseded. T32.8C implements payment-funded guest confirmation for Lesson Booking and CourseEnrollment.
+
+Explicitly deferred after T32.8C:
+
+- `pay_on_site`, cash-at-start, deferred payment, and unpaid Admin override;
+- partially-paid pending guest rejection or refund policy;
+- unused unmanaged guest Participant cleanup.
+
+T32.9 still owns final removal of obsolete unreachable legacy runtime and UI, including old bundled `confirmBooking`, old approval terminology or UI, unused legacy Guest linking UI, and other unreachable legacy Admin mutation helpers. This audit amendment does not start T32.9.
 
 ## Executive conclusion
 
@@ -325,6 +345,7 @@ Canonical `/course_enrollments` are not loaded for Admin.
 - `resolve_course_enrollment_cancellation`;
 - `transfer_course_enrollment`;
 - `link_guest_course_enrollment_to_account`;
+- `confirm_guest_course_enrollment` (added by T32.8C; payment-funded, not unpaid approval);
 - `reconcile_course_enrollment`;
 - `record_course_day_attendance`;
 - `resolve_attendance_outcome`.
@@ -342,7 +363,7 @@ Missing:
 
 - school-wide Admin roster;
 - enrollment detail by ID;
-- guest approval queue;
+- guest pending-payment queue (historical audit said “guest approval queue”; that unpaid-approval reading is superseded by ADR-0007);
 - Admin-authorized action flags;
 - cancellation/refund/reconciliation summary;
 - transfer target eligibility.
@@ -353,8 +374,13 @@ Missing:
   `admin_callable`, but the callable account-context allowlist does not route
   this command kind as an administrator command.
 - Guest enrollment linking is account-owner self-service; no canonical
-  administrator-assisted linking path exists.
+  administrator-assisted linking path exists. **Superseded after T32.8B PASS:**
+  Admin-assisted `existing_managed` linking exists and is not confirmation.
 - No explicit guest enrollment approval command/UI was found.
+  **Superseded after T32.8C PASS:** payment-funded confirmation is the
+  canonical policy, and `confirm_guest_course_enrollment` is the implemented
+  lifecycle transition. Unpaid Administrator approval is not a supported
+  command.
 - No Admin frontend wiring exists for cancellation resolution,
   reconciliation, transfer, or financial correction.
 
@@ -380,7 +406,8 @@ Canonical command kinds/handlers cover:
 
 - confirmed booking creation;
 - guest booking requests;
-- guest booking confirmation;
+- guest booking confirmation (`confirm_guest_booking` requires fully funded
+  Payment; it is not an unpaid Admin override — see ADR-0007);
 - cancellation request and resolution;
 - change-request resolution;
 - rescheduling;
@@ -398,10 +425,15 @@ Canonical command kinds/handlers cover:
   instructor-change command kinds.
 - Canonical guest linking is account-owner self-service; the current Admin
   target-account linking workflow has no equivalent canonical command.
+  **Superseded after T32.8B PASS:** Admin-assisted `existing_managed` linking
+  exists and is not confirmation.
 - Admin approval/rejection of cancellation requests invokes legacy
   cancel/confirm callables instead of `resolve_booking_cancellation`.
 - Admin guest confirmation invokes legacy `confirmBooking` instead of
-  `confirm_guest_booking`.
+  `confirm_guest_booking`. **Policy superseded by ADR-0007 / T32.8C:** the
+  canonical command is a payment-funded `pending → confirmed` transition, not
+  unpaid Administrator approval. Removal of unreachable legacy `confirmBooking`
+  wiring remains T32.9.
 
 ## 7. Payments and Wallet
 
@@ -600,11 +632,11 @@ High-priority missing tests:
 | Refund/correction | Legacy booking cancellation | Exists | No | CRITICAL | Payment/Wallet/MonetaryEvent detail | T32.3 |
 | Lesson Admin list/detail | Legacy raw bookings | Commands mostly exist | No | HIGH | Admin read scope | T32.4 |
 | Admin lesson create | Legacy `addBooking` | Exists with Admin context | No | HIGH | Frontend hook and read scope | T32.4 |
-| Guest lesson approval | Legacy `confirmBooking` | Exists | No | HIGH | Admin queue/wiring | T32.4 |
+| Guest lesson pending-payment confirmation | Legacy `confirmBooking` | Payment-funded `confirm_guest_booking` (T32.8C PASS) | Partial | HIGH | Unpaid Admin override is forbidden; leftover legacy UI is T32.9 | T32.4 / T32.8C |
 | Lesson cancellation | Legacy cancel/confirm | Exists | No | CRITICAL | Canonical resolve/refund UX | T32.3/T32.4 |
 | Lesson reschedule/reassign | Legacy schedule callable | Handlers exist | No | HIGH | Admin callable routing | T32.4 |
 | Lesson completion | Legacy callable | Command kind only | No | HIGH | Missing production handler | T32.4 |
-| Guest lesson linking | Legacy Admin callable | Self-link only | No | HIGH | Admin-assisted canonical command | T32.4 |
+| Guest lesson linking | Legacy Admin callable | Admin `existing_managed` (T32.8B PASS) | Partial | HIGH | Linking is not confirmation | T32.8B |
 | Canonical Course create | Direct `setDoc` legacy form | Provisioning exists | No | HIGH | Production Admin workflow | T32.5 |
 | Course operational amend | Direct `updateDoc` | Missing | No | HIGH | Intent-specific commands | T32.5 |
 | Catalog content edit | Mixed legacy Course payload | Missing dedicated command | No | LOW | Isolate `course_catalog_content` | T32.5 |
@@ -614,7 +646,7 @@ High-priority missing tests:
 | Enrollment roster/detail | Legacy course-shaped bookings | Domain exists | No | HIGH | Admin roster scope | T32.6 |
 | Enrollment cancellation | Legacy booking actions | Exists | No | CRITICAL | Canonical resolve/refund UX | T32.6 |
 | Enrollment transfer | None | Handler exists | No | HIGH | Admin callable routing | T32.6 |
-| Guest enrollment approval/link | Legacy/none | Partial self-link | No | HIGH | Admin approval/link policy | T32.6 |
+| Guest enrollment pending-payment confirmation/link | Legacy/none | Payment-funded `confirm_guest_course_enrollment` (T32.8C PASS); Admin `existing_managed` link (T32.8B PASS) | Partial | HIGH | Unpaid Admin approval is not policy; leftover UI is T32.9 | T32.6 / T32.8B / T32.8C |
 | Attendance correction | Instructor UI only | Exists | No | HIGH | Admin correction workflow | T32.7 |
 | Participant/account Admin | Direct `users` CRUD | Mostly exists | No | HIGH | Admin topology/diagnostics | T32.8 |
 | Management assignment/revoke | None | Exists | No | HIGH | Admin UI/read model | T32.8 |
@@ -675,11 +707,11 @@ Scope:
 
 - Admin hot/history/detail lesson projections;
 - create-on-behalf;
-- guest confirmation;
+- guest pending-payment confirmation (not unpaid Admin approval);
 - cancellation resolution;
 - reschedule and instructor change;
 - completion;
-- guest account linking;
+- guest identity linking (`existing_managed`; not confirmation);
 - fix administrator callable routing;
 - implement/register `complete_booking` or deliberately replace its contract.
 
@@ -711,7 +743,8 @@ Scope:
 
 - Admin enrollment roster/detail;
 - create-on-behalf;
-- guest approval/linking;
+- guest identity linking (`existing_managed`; not confirmation);
+- payment-funded guest confirmation (`confirm_guest_course_enrollment`; does not consume another seat);
 - cancellation resolution;
 - transfer callable routing;
 - reconciliation and related financial actions.
@@ -750,6 +783,32 @@ Reason:
 - replaces broad `users`/`instructors` permissions without conflating identity,
   management, catalog, and assignment authorities.
 
+#### T32.8A — Canonical identity administration — PASS
+
+Account administration, Participant administration, ParticipantManagement
+topology, Account → managed Participant selection, identity/instructor
+authority, and Firestore Rules containment. Guest email, phone, and display
+name remain diagnostic evidence, not identity authority.
+
+#### T32.8B — Admin-assisted guest identity linking — PASS
+
+`existing_managed` linking for Guest Lesson Booking and Guest CourseEnrollment.
+Linking is not confirmation, does not fund Payment, and does not consume or
+release capacity. Unused unmanaged guest Participant cleanup is deferred.
+
+#### T32.8C — Payment-Driven Guest Confirmation — PASS
+
+Formerly: Deferred Guest Approval Policy Review. That name and unpaid
+Administrator-approval reading are superseded.
+
+Payment-funded confirmation for Guest Lesson Booking and Guest CourseEnrollment:
+`isPaymentFullyFundedForService` in the same financial Firestore transaction,
+with rare divergence recovered by AdminIssue plus the idempotent
+`guestConfirmationReconciliationSweep`. `confirm_guest_booking` and
+`confirm_guest_course_enrollment` reuse the lifecycle transition and cannot
+confirm unpaid subjects. CourseEnrollment confirmation does not consume another
+seat.
+
 ### T32.9 — Final legacy-write removal
 
 Scope:
@@ -757,7 +816,9 @@ Scope:
 - remove Admin dependencies on legacy booking, Course, profile, instructor, and
   wallet wrappers;
 - tighten Firestore Rules for each migrated collection;
-- retire duplicate/dead Admin paths;
+- retire duplicate/dead Admin paths, including unreachable legacy guest
+  approval terminology/UI, unused legacy Guest linking UI, and old bundled
+  `confirmBooking` helpers where they remain;
 - retain only explicitly non-canonical presentation/configuration writes.
 
 Reason:

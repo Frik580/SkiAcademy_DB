@@ -17,7 +17,9 @@ resource claims and guards, immutable Activity Logs, and deterministic outbox ob
   `0 <= retainedAmount <= settledAmount <= paidAmount` and `0 <= settledAmount <= price`.
   `paymentStatus` is derived and must remain independent from service lifecycle.
 - `isPaymentFullyFundedForService` requires full retained and settled coverage with no
-  write-off or outstanding amount. A write-off never authorizes service.
+  write-off or outstanding amount. A write-off never authorizes service. Guest confirmation
+  uses this same predicate; `paymentStatus` alone is not sufficient. See
+  [ADR-0007](../../docs/adr/0007-guest-identity-payment-and-confirmation.md).
 - Incremental family/group requirements are bounded metadata inside one Payment (max seven
   active allocations). They are not independent Payments or Wallets.
 - Resource claims are server-owned enforcement records with deterministic `claimId` hashes over

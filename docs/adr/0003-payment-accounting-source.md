@@ -150,23 +150,23 @@ A canonical command rejects any plan whose final projection violates these const
 
 `settledAmount` records the portion of the current agreed price that has been satisfied by payment for obligation-accounting purposes. Later refunds do not reduce `settledAmount` unless a price decrease itself reduces the size of the current obligation.
 
-The full-payment-before-service gate uses money still retained against the current price:
+The full-payment-before-service gate and guest confirmation both use money still retained against the current price. The implemented predicate name is `isPaymentFullyFundedForService`:
 
 ```text
-isFullyFundedForService =
+isPaymentFullyFundedForService =
     retainedAmount == price
  && settledAmount == price
  && writtenOffAmount == 0
  && outstandingAmount == 0
 ```
 
-The command evaluates this predicate when deciding whether a service may start. Consequently:
+Earlier drafts of this ADR named the same predicate `isFullyFundedForService`. That name is superseded. Commands evaluate `isPaymentFullyFundedForService` when deciding whether a service may start and, for guest origin, whether a pending subject may become confirmed. Consequently:
 
-- a write-off never authorizes service;
+- a write-off never authorizes service or guest confirmation;
 - an active service refunded below its current price cannot start;
 - a legitimate price decrease followed by refund of the excess remains fully funded when both `retainedAmount` and `settledAmount` equal the new price;
 - a post-completion goodwill refund does not retroactively invalidate delivered service or change completed lifecycle state;
-- `paymentStatus` alone is never a service-start decision.
+- `paymentStatus` alone is never a service-start or guest-confirmation decision.
 
 Lifecycle eligibility is checked independently. A terminal cancelled service cannot start even if its Payment once satisfied the funding predicate.
 
@@ -319,7 +319,9 @@ The created Payment has `paidAmount = settledAmount = retainedAmount = price`, z
 
 ### Administrative underpayment
 
-Administration may create a confirmed Booking or CourseEnrollment despite insufficient funds only with a mandatory reason, one immutable Activity Log, and any required outbox obligations. If an Account Wallet is selected, the command applies at most `min(wallet.balance, price)` and never makes the Wallet negative. Manual or external funds attested in the same intent may also be applied with their own provenance event.
+Administration may create a confirmed Booking or CourseEnrollment with `bookingOrigin = admin` despite insufficient funds only with a mandatory reason, one immutable Activity Log, and any required outbox obligations. If an Account Wallet is selected, the command applies at most `min(wallet.balance, price)` and never makes the Wallet negative. Manual or external funds attested in the same intent may also be applied with their own provenance event.
+
+This administrative-creation underpayment path is not unpaid guest confirmation. Guest origin remains pending until `isPaymentFullyFundedForService` is true; unpaid Admin override of a guest application is out of scope.
 
 The Payment records the amount actually applied in `paidAmount`, `retainedAmount`, and `settledAmount`; `outstandingAmount` contains the unsatisfied price and `writtenOffAmount` remains zero while the obligation is collectible. Zero funding produces `unpaid`; some funding below price produces `partially_paid`. Outstanding debt never appears as negative Wallet value.
 
@@ -327,9 +329,11 @@ Underpayment remains temporary before `startAt`. Administrator capability, reaso
 
 ### Guest, manual, and external funding
 
-An unauthenticated guest service may have no `payerAccountId`. Administration records a manual or externally settled payment only after it has evidence that the money was received. The canonical command updates Payment and appends an `external_payment` or `manual_payment` event without changing any Wallet.
+An unauthenticated guest service may have no `payerAccountId`. Guest creation creates the subject as `pending` with an unpaid Payment. Guest confirmation is payment-driven: the required Payment must satisfy `isPaymentFullyFundedForService`. Primary confirmation occurs in the same Firestore transaction as the canonical financial mutation that makes the Payment fully funded. `confirm_guest_booking` and `confirm_guest_course_enrollment` reuse that lifecycle transition but cannot confirm an unpaid subject. See [ADR-0007](./0007-guest-identity-payment-and-confirmation.md).
 
-Historical provenance belongs to each immutable event through `sourceKind`, `payerAccountIdAtEvent`, provider/manual references, timestamps, and command/actor information. Later Account linking never rewrites those fields. A linked Account may become the destination for a later Wallet refund, which is recorded on the new refund event without changing original payment provenance.
+Administration records a manual or externally settled payment only after it has evidence that the money was received. The canonical command updates Payment and appends an `external_payment` or `manual_payment` event without changing any Wallet. When that mutation fully funds a pending guest subject, confirmation is planned in the same transaction.
+
+Historical provenance belongs to each immutable event through `sourceKind`, `payerAccountIdAtEvent`, provider/manual references, timestamps, and command/actor information. Later Account linking never rewrites those fields. A linked Account may become the destination for a later Wallet refund, which is recorded on the new refund event without changing original payment provenance. Linking does not confirm the guest subject or change Payment amounts.
 
 ## Refund model
 
@@ -372,7 +376,7 @@ Course `withdrawn -> cancelled` is permitted only when Administration later issu
 
 ## Service-start enforcement
 
-An individual Booking must satisfy `isFullyFundedForService` by its `startAt`; a CourseEnrollment must satisfy it by the first Course `startAt`. `confirmed` with `unpaid` or `partially_paid` is permitted only before that instant.
+An individual Booking must satisfy `isPaymentFullyFundedForService` by its `startAt`; a CourseEnrollment must satisfy it by the first Course `startAt`. `confirmed` with `unpaid` or `partially_paid` is permitted only before that instant, and only for Administrator-created (`bookingOrigin = admin`) or other non-guest exceptional states. Guest origin does not use confirmed-unpaid as a normal state: unpaid guest applications remain `pending` until fully funded, as decided in [ADR-0007](./0007-guest-identity-payment-and-confirmation.md).
 
 The scheduled payment-start adapter discovers candidates but the canonical command transaction reloads the subject and Payment, rechecks authoritative time, lifecycle, revisions, and the full funding predicate, then creates or reuses the deterministic payment Admin Issue and operational restriction. Payment remains financial state and does not mutate lifecycle merely because the gate failed.
 
@@ -443,7 +447,7 @@ One family/group Booking retains one Payment aggregate. The Payment may contain 
 
 These allocations are not Wallets, independent Payments, or independent financial balances. They are bounded obligation-allocation metadata inside the one Payment. Root Payment fields remain authoritative, every allocation mutation occurs in the same command as the root projection and events, and reconciliation verifies `0 <= allocatedRetainedAmount <= allocatedSettledAmount <= requiredPriceDelta`, the allocation sums do not exceed the corresponding root totals, and every referenced event agrees with the allocation. Payments are allocated deterministically to the targeted requirement; a command cannot silently take retained or settled funding allocated to an already fully funded Participant to satisfy another addition.
 
-An addition is fully funded only when both allocated settled and retained amounts equal its required price delta and no part is written off or outstanding. At the applicable `startAt`, every active addition that is not fully funded is rolled back under the approved party-change rules. Fully funded Participants are preserved. Rollback is deterministic, newest requirement first where ordering affects tariff recalculation, removes the affected Participant and claims, recalculates the pricing basis and Payment price for the remaining party, and applies the canonical price-decrease/refund rules. It does not block or penalize already fully funded Participants merely because another addition was underfunded. After all required rollbacks, the root `isFullyFundedForService` predicate is evaluated for the remaining Booking.
+An addition is fully funded only when both allocated settled and retained amounts equal its required price delta and no part is written off or outstanding. At the applicable `startAt`, every active addition that is not fully funded is rolled back under the approved party-change rules. Fully funded Participants are preserved. Rollback is deterministic, newest requirement first where ordering affects tariff recalculation, removes the affected Participant and claims, recalculates the pricing basis and Payment price for the remaining party, and applies the canonical price-decrease/refund rules. It does not block or penalize already fully funded Participants merely because another addition was underfunded. After all required rollbacks, the root `isPaymentFullyFundedForService` predicate is evaluated for the remaining Booking.
 
 ## Write-offs and corrections
 
@@ -542,7 +546,7 @@ Instructors never receive Wallet balance, outstanding amount, write-off, price, 
 The implementation is not complete without:
 
 - deterministic unit tests for every financial equation, constraint, status branch, percentage/refund boundary, integer rounding rule, and price-adjustment order;
-- explicit tests distinguishing `settledAmount` from `retainedAmount` and `isFullyFundedForService`, including post-completion goodwill refunds;
+- explicit tests distinguishing `settledAmount` from `retainedAmount` and `isPaymentFullyFundedForService`, including post-completion goodwill refunds;
 - Firestore Emulator tests proving atomic subject + Payment + Wallet + event + idempotency + Activity Log + required outbox-obligation outcomes;
 - self-service insufficient-funds and concurrent Wallet-spend races that create no partial subject;
 - administrative unpaid and partially paid creation with mandatory reason and non-negative Wallet;
@@ -570,7 +574,8 @@ Tests use `CanonicalCommands.execute` as the primary interface. Tests that mutat
 - **Refund reduces settled amount.** Rejected because it confuses returned cash with whether an obligation was previously satisfied and would make goodwill refunds rewrite settlement history.
 - **Settled amount alone authorizes service.** Rejected because refunded money may no longer fund an active service. The start gate also requires full retained money and no write-off or outstanding amount.
 - **Write-off absorbs refunded or unpaid-and-refunded price.** Rejected because write-off means only unpaid obligation explicitly waived.
-- **Payment status authorizes service.** Rejected because refund state, obligation settlement, retained funding, and service lifecycle are separate facts.
+- **Payment status authorizes service or guest confirmation.** Rejected because refund state, obligation settlement, retained funding, and service lifecycle are separate facts.
+- **Administrator confirms an unpaid guest application.** Rejected by [ADR-0007](./0007-guest-identity-payment-and-confirmation.md). Guest confirmation requires `isPaymentFullyFundedForService`.
 - **Mutable financial history or reconciliation auto-repair.** Rejected because silent history changes destroy provenance and make correction intent unauditable.
 - **Activity Log as financial ledger.** Rejected because action audit and signed economic effects have different schemas, invariants, retention, and reconciliation responsibilities.
 
@@ -585,4 +590,4 @@ Tests use `CanonicalCommands.execute` as the primary interface. Tests that mutat
 - ADR-0005 defines Activity Log and outbox constants and mechanics without duplicating monetary effects into a second ledger or permitting best-effort audit.
 - The current overlapping Wallet ledger, Booking refund, guest Wallet, optional idempotency, and mutable/best-effort Activity Log implementations are incompatible with this ADR and are replaced during the clean rewrite rather than migrated as canonical history.
 - This ADR refines the phrase “Booking/CourseEnrollment price snapshot” into service-owned pricing basis plus Payment-owned numeric `originalPrice` and `price`; it does not change the approved fixed-price business rule.
-- No contradiction with CONTEXT.md, ADR-0001, ADR-0002, or the rewrite specification is introduced. This ADR supplies the financial model those documents intentionally deferred and preserves ADR-0002 atomicity and safety budgets.
+- No contradiction with CONTEXT.md, ADR-0001, ADR-0002, ADR-0007, or the rewrite specification is introduced. This ADR supplies the financial model those documents intentionally deferred and preserves ADR-0002 atomicity and safety budgets. Guest confirmation policy lives in ADR-0007.

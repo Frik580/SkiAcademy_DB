@@ -32,8 +32,9 @@ AdminIssue records.
   Initial kinds include `missing_attendance`, `payment_required_at_start`,
   `unresolved_pending_cancellation`, `attendance_payment_conflict`,
   `resource_reconciliation_mismatch`, `financial_reconciliation_mismatch`, and
-  `outcome_correction_required`. `issueId` is derived from a versioned
-  `dedupeKey`.
+  `outcome_correction_required`. There is no generic `guest_needs_approval`
+  kind; guest confirmation policy is [ADR-0007](../../docs/adr/0007-guest-identity-payment-and-confirmation.md).
+  `issueId` is derived from a versioned `dedupeKey`.
 
 This slice contains no enrollment commands, capacity mutation, transfer
 execution, attendance recording commands, outcome calculation, AdminIssue

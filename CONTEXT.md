@@ -74,14 +74,23 @@ A `pending`, `confirmed`, or `pending_cancellation` Booking or Course Enrollment
 The independent record of whether a Participant was `present` or `absent` for an individual lesson, family/group lesson, or Course Day. Attendance—not timestamps or lifecycle guesses—is the source of truth for actual participation.
 
 **Admin Issue**:
-A blocking operational record requiring administrator resolution, such as missing Attendance or incomplete payment at service start. An unresolved Admin Issue prevents automatic completion.
+A blocking or operational record coupled to a canonical underlying condition, such as missing Attendance, incomplete payment at service start, or a rare fully funded Payment whose guest lifecycle is not durably aligned. An unresolved outcome-blocking Admin Issue prevents automatic completion. Guest confirmation is not a generic `guest_needs_approval` issue and has no generic “mark approved” action.
 
 ### Money, history, and visibility
 
 **Payment State**:
-The financial lifecycle `unpaid`, `partially_paid`, `paid`, `refunded`, or `partially_refunded`, supported by explicit `price`, `paidAmount`, `refundedAmount`, and `outstandingAmount` values. It is independent of Booking lifecycle.
+The financial lifecycle `unpaid`, `partially_paid`, `paid`, `refunded`, or `partially_refunded`, supported by explicit `price`, `paidAmount`, `refundedAmount`, `retainedAmount`, `settledAmount`, `writtenOffAmount`, and `outstandingAmount` values. It is independent of Booking lifecycle. `paymentStatus` alone is never sufficient evidence that a service is funded.
 
-The Payment aggregate owns current financial state and the numeric original and current agreed service price. Booking and Course Enrollment retain lifecycle and pricing basis but are not competing numeric price authorities.
+The Payment aggregate owns current financial state and the numeric original and current agreed service price. Booking and Course Enrollment retain lifecycle and pricing basis but are not competing numeric price authorities. Service funding is the predicate `isPaymentFullyFundedForService`.
+
+**Guest identity**:
+The unmanaged Participant and guest origin of a pending or later-linked Booking or Course Enrollment. Guest email, phone, and display name may be diagnostic evidence but are not identity authority.
+
+**Linked identity**:
+The result of replacing a guest Participant reference with an eligible Participant actively managed by a selected Account. Linking is not payment and is not confirmation.
+
+**Payment-funded confirmation**:
+The canonical guest `pending → confirmed` transition. It occurs only after the required Payment is fully funded for service. Administrator discretion, Instructor acceptance, identity linking, partial payment, and frontend state are not confirmation authority.
 
 **Wallet**:
 The Account Owner's simulated stored-value balance used for lessons and Courses. It must never become negative.
@@ -148,11 +157,25 @@ An Account Owner may create a confirmed Booking or Course Enrollment with `booki
 
 ### Guest reservation
 
-A guest request with `bookingOrigin = guest` is the only normal source of `pending`. It may be created up to `startAt` and temporarily reserves the resource until `min(createdAt + TTL, startAt)`: at most one hour for a lesson and 24 hours for a Course Enrollment. Unconfirmed expiration produces `cancelled` with `reservation_expired`.
+A guest request with `bookingOrigin = guest` is the only normal source of `pending`. It may be created up to `startAt` and temporarily reserves the resource until `min(createdAt + TTL, startAt)`: at most one hour for a lesson and 24 hours for a Course Enrollment.
 
-A guest may cancel only through a signed, booking-scoped, action-limited token that does not rely on Booking ID alone and becomes invalid after expiration, use, or status change. Guest cancellation produces `cancelled` with `guest_cancelled`.
+The authoritative guest invariant, detailed in [ADR-0007](docs/adr/0007-guest-identity-payment-and-confirmation.md), is:
 
-Only an Administrator confirms or cancels a pending guest request. Confirmation is independent of payment and sends schedule, service, price, Payment State, and account-linking information. Linking grants normal client management rights, links or creates the Participant, preserves `bookingOrigin = guest`, and does not rewrite payment provenance.
+```text
+guest application → pending → required canonical Payment fully funded for service → confirmed
+```
+
+Guest creation reserves instructor, time, and participant claims, fixes price, and creates an unpaid Payment. A Course Enrollment also consumes one seat and creates seat, day, and uniqueness guards at creation. Confirmation does not charge again, create another Payment, reacquire claims, change price, schedule, or instructor, or modify Attendance. CourseEnrollment confirmation does not consume another seat.
+
+Confirmation is payment-driven. Identity linking, Administrator discretion, Instructor acceptance, partial payment, and frontend state are not confirmation authority. Unpaid Admin override, pay-on-site, cash-at-start, and deferred payment are out of scope.
+
+The intended current guest flow is unpaid → pending, then fully funded → confirmed. Existing `payment_required_at_start` mechanisms remain defensive protection for legacy, inconsistent, or exceptional states, including Administrator-created confirmed underpayment. They are not the normal way to approve an unpaid guest request.
+
+Unconfirmed expiration of a still-unpaid pending reservation produces `cancelled` with `reservation_expired`. Payment settlement versus expiry or cancellation is serialized by canonical transaction and revision semantics. A terminal cancelled or expired subject must never be resurrected to `confirmed` by delayed settlement or reconciliation.
+
+A guest may cancel only through a signed, booking-scoped, action-limited token that does not rely on Booking ID alone and becomes invalid after expiration, use, or status change. Guest cancellation produces `cancelled` with `guest_cancelled`. Fully unpaid pending cancellation refunds nothing because nothing was paid and releases the applicable reservation, claims, and, for Course Enrollment, the seat exactly once.
+
+Admin-assisted identity linking uses `existing_managed` semantics: an Administrator selects a canonical Account and an eligible Participant actively managed by that Account, then replaces the guest Participant reference. Linking preserves `bookingOrigin = guest`, does not rewrite payment provenance or Payment amounts, and does not confirm. Already-linked records cannot be silently relinked. The original unmanaged guest Participant may become unreferenced and is not automatically cleaned up.
 
 ### Administrator creation
 
@@ -182,7 +205,7 @@ An Instructor never charges a Wallet or directly creates a confirmed client Book
 | —                      | `confirmed`              | Account Owner                      | Full payment, all Participant and instructor checks pass                                                                          |
 | —                      | `confirmed`              | Administrator                      | Checks pass; underpayment allowed separately with reason and audit                                                                |
 | —                      | `confirmed`              | Account Owner accepting a proposal | Proposal checks and full charge succeed; origin remains `instructor`                                                              |
-| `pending`              | `confirmed`              | Administrator                      | Guest request accepted; payment is independent                                                                                    |
+| `pending`              | `confirmed`              | System or lifecycle command        | Payment-funded guest confirmation: pending + `isPaymentFullyFundedForService` + time/lifecycle guards; unpaid Admin override is forbidden |
 | `pending`              | `cancelled`              | Guest, Administrator, System       | Token cancellation, admin decision, or TTL/start expiration with explicit reason                                                  |
 | `confirmed`            | `cancelled`              | Account Owner                      | At least 24 hours before `startAt`; refund 100% of actually paid amount                                                           |
 | `confirmed`            | `cancelled`              | Administrator                      | Approved Booking Change Request or incomplete-payment resolution; required reason, audit, and refund no greater than `paidAmount` |
@@ -241,7 +264,7 @@ Each Participant has a separate Course Enrollment. Enrolling several Participant
 | —                      | `pending`                | Guest                        | Reserve one seat until course TTL or first `startAt`                                                   |
 | —                      | `confirmed`              | Account Owner                | Seats, Course Day conflicts, blocks, and full payment pass                                             |
 | —                      | `confirmed`              | Administrator                | Same nonfinancial checks; temporary underpayment allowed with reason and audit                         |
-| `pending`              | `confirmed`              | Administrator                | Guest request accepted; payment independent                                                            |
+| `pending`              | `confirmed`              | System or lifecycle command  | Payment-funded guest confirmation; seat already reserved at creation; unpaid Admin override is forbidden |
 | `pending`              | `cancelled`              | Guest, Administrator, System | Token cancellation, admin decision, or TTL/start expiration                                            |
 | `confirmed`            | `cancelled`              | Account Owner                | At least 7 days before `startAt`; refund 100% of actually paid amount                                  |
 | `confirmed`            | `cancelled`              | Account Owner                | From exactly 2 days to less than 7 days before `startAt`; refund 50% of actually paid amount           |
@@ -305,6 +328,8 @@ School/instructor rescheduling never consumes the Account Owner's self-service r
 ## Payment model and service-start gate
 
 - Payment State and Booking lifecycle change independently but atomically when one business event affects both.
+- For guest origin, confirmation is payment-driven: a pending guest subject becomes confirmed only when `isPaymentFullyFundedForService` is true. Primary confirmation occurs in the same financial Firestore transaction. A rare funding/lifecycle divergence produces a coupled AdminIssue and an idempotent reconciliation sweep; the sweep is recovery, not the primary confirmation mechanism.
+- `paymentStatus` alone never authorizes service or guest confirmation. Whole-KZT accounting fields are authoritative.
 - Refund percentages apply to `paidAmount`, never to nominal price, and total refunds never exceed money actually paid.
 - Refunds go to the Account Wallet. An unlinked guest refund is handled manually outside the system and recorded; after linking, the account may receive future Wallet refunds without changing historical payer provenance.
 - `cancelled` writes off unpaid remainder after the selected refund. `withdrawn` and `no_show` retain paid money, refund zero, and write off unpaid remainder.
@@ -312,7 +337,7 @@ School/instructor rescheduling never consumes the Account Owner's self-service r
 - Global tariff changes never alter an existing price snapshot; only an explicit audited modification recalculates it.
 - An Administrator may create temporary underpayment but never a negative Wallet.
 
-A Participant cannot attend unless the Booking or Course Enrollment is fully paid by its applicable `startAt`. Underpayment at that instant creates an Admin Issue, blocks service and automation, and exposes only a “Payment required—do not start” message to the Instructor.
+A Participant cannot attend unless the Booking or Course Enrollment is fully paid by its applicable `startAt`. Underpayment at that instant creates an Admin Issue, blocks service and automation, and exposes only a “Payment required—do not start” message to the Instructor. This payment-start gate is defensive protection for confirmed or otherwise start-eligible underfunded states. It is not the normal mechanism used to approve unpaid guest requests; those remain `pending` until `isPaymentFullyFundedForService`.
 
 Full payment received before `startAt` clears the payment restriction automatically.
 
@@ -338,7 +363,8 @@ When administration cancels for incomplete payment at `startAt`, it selects a re
 | Manage Participant profiles      | Own account                                  | No                     | Authorized learning fields only          | Operational administration      | No                                                        |
 | Create lesson                    | Confirmed, fully paid                        | Pending request        | Proposal only                            | Confirmed; underpayment allowed | No independent authority                                  |
 | Create Course Enrollment         | Confirmed, fully paid                        | Pending request        | No                                       | Confirmed; underpayment allowed | No                                                        |
-| Confirm guest request            | No                                           | No                     | No                                       | Yes                             | No                                                        |
+| Confirm guest request            | No                                           | No                     | No                                       | Lifecycle command only after Payment is fully funded; unpaid override forbidden | Same-transaction payment confirmation; rare reconciliation |
+| Link guest identity              | Self-service where already authorized        | No                     | No                                       | `existing_managed` to an eligible managed Participant; does not confirm | No                                                        |
 | Cancel guest pending             | No                                           | Through secure token   | No                                       | Yes                             | On expiry                                                 |
 | Cancel/request cancellation      | Policy-bound owned records                   | Pending token only     | No                                       | Decide/correct with audit       | Expiry only                                               |
 | Record Attendance                | No                                           | No                     | Assigned/authorized training             | Yes/correct                     | No guessing                                               |
@@ -354,6 +380,8 @@ When administration cancels for incomplete payment at `startAt`, it selects a re
 | Archive terminal record          | No                                           | No                     | No                                       | Yes                             | No                                                        |
 
 Instructor capability and administrative role are independent dimensions and may coexist. When one person has both, each action is still authorized and audited under the capability used.
+
+Administrator-created confirmed underpayment applies only to `bookingOrigin = admin` creation. It is not unpaid guest confirmation. Guest confirmation remains payment-funded as defined in ADR-0007.
 
 ## Archival, terminal states, and audit
 
@@ -372,8 +400,10 @@ Future `$implement` and `$code-review` work must verify:
 - Participant-owned progress and Attendance never attach to the Account Owner merely because the owner paid.
 - The server owns every lifecycle transition; unprivileged clients submit intent, not target status.
 - Active Participant, instructor, Course Day, and block conflicts are checked atomically and cannot be overridden.
-- Account self-service creation is confirmed and fully paid; normal pending is guest-only and expires safely.
-- Wallet balance never becomes negative; underpayment is explicit and blocks service at `startAt`.
+- Account self-service creation is confirmed and fully paid; normal pending is guest-only, expires safely while unpaid, and becomes confirmed only when the required Payment is fully funded.
+- Identity linking, Payment, and confirmation remain distinct. Linking a guest record does not confirm it or fund it.
+- Wallet balance never becomes negative; underpayment is explicit and blocks service at `startAt`. Administrator-created confirmed underpayment is not an unpaid guest-approval path.
+- A terminal cancelled or expired guest subject is never resurrected to confirmed by delayed settlement or reconciliation.
 - An unresolved Attendance or payment Admin Issue blocks automatic completion.
 - Automation waits 24 hours, never guesses Attendance, and never auto-completes `pending_cancellation`.
 - Attendance sufficient for the service determines `completed` versus `no_show`.
@@ -391,7 +421,7 @@ Future `$implement` and `$code-review` work must verify:
 
 ## Current implementation gaps
 
-The following gaps are verified in the current repository and must not be mistaken for canonical behavior:
+The following gaps were verified against the pre-canonical repository and must not be mistaken for canonical behavior. They are not current guest-confirmation, identity-linking, or Payment-authority policy; see ADR-0007 and the accepted ADRs above.
 
 - Booking supports only `pending`, `confirmed`, `pending_cancellation`, `cancelled`, and `completed`; `no_show`, `withdrawn`, Attendance, Admin Issues, and terminal correction rules are absent.
 - `Booking.userId` conflates owner, Participant, and payer. `bookingOrigin`, `bookedBy`, Participant references, and `payerAccountId` are absent; guest linking overwrites identity markers and loses origin.
@@ -412,15 +442,23 @@ The following gaps are verified in the current repository and must not be mistak
 
 ## Architecture decision status
 
-The canonical rewrite's complete required ADR set is accepted:
+The canonical rewrite's architecture ADRs are accepted:
 
 1. [ADR-0001: Canonical Aggregate Topology](docs/adr/0001-canonical-aggregate-topology.md)
 2. [ADR-0002: Server Command, Transaction and Resource Model](docs/adr/0002-server-command-transaction-and-resource-model.md)
 3. [ADR-0003: Payment Accounting Source](docs/adr/0003-payment-accounting-source.md)
 4. [ADR-0004: Attendance, Outcome and Admin Issue Model](docs/adr/0004-attendance-outcome-and-admin-issue-model.md)
 5. [ADR-0005: Audit Durability and Transaction Policy](docs/adr/0005-audit-durability-and-transaction-policy.md)
+6. [ADR-0006: Lazy Canonical Self-Participant Provisioning](docs/adr/0006-lazy-canonical-self-participant-provisioning.md)
+7. [ADR-0007: Guest Identity, Payment, and Confirmation Architecture](docs/adr/0007-guest-identity-payment-and-confirmation.md)
 
-There are no remaining blocking architecture ADRs for the canonical rewrite. Compatibility/Cutover and legacy Participant migration are not separate ADRs under the clean canonical rewrite strategy.
+ADR-0007 supersedes the earlier guest rule that an Administrator confirms pending guest requests independently of payment. Compatibility/Cutover and legacy Participant migration are not separate ADRs under the clean canonical rewrite strategy.
+
+Explicitly deferred by ADR-0007 and not current supported policy:
+
+- `pay_on_site`, cash-at-start, deferred payment, and unpaid Admin override of a guest application;
+- partially-paid pending guest rejection or refund policy;
+- automatic cleanup of unused unmanaged guest Participants.
 
 ## Clean-rewrite and cutover risks
 

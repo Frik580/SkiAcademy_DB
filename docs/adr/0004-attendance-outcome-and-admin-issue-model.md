@@ -7,7 +7,7 @@ date: 2026-08-23
 
 Carve Academy will store one independent, deterministic `Attendance` aggregate for each Participant occurrence and derive `completed` or `no_show` only from sufficient factual Attendance after delivery. Actor-driven commands and the delayed scheduler will use one internal outcome calculator, while missing or conflicting evidence remains unresolved through deterministic `AdminIssue` records rather than timestamp guesses. Current Attendance may be corrected, but every consequential correction is revision-checked and atomically coupled to lifecycle, Payment, issue, idempotency, one immutable Activity Log, and any required outbox obligations.
 
-This ADR completes the Attendance decision deferred by [ADR-0001](./0001-canonical-aggregate-topology.md), uses the command and transaction model in [ADR-0002](./0002-server-command-transaction-and-resource-model.md), and preserves the Payment source and start gate in [ADR-0003](./0003-payment-accounting-source.md). It preserves the business language and lifecycle rules in [CONTEXT.md](../../CONTEXT.md) and refines the Attendance work in the [canonical rewrite specification](../specs/canonical-booking-domain-rewrite.md). [ADR-0005](./0005-audit-durability-and-transaction-policy.md) resolves the physical Activity Log, asynchronous outbox, and retention policy while satisfying the atomic audit obligations established here.
+This ADR completes the Attendance decision deferred by [ADR-0001](./0001-canonical-aggregate-topology.md), uses the command and transaction model in [ADR-0002](./0002-server-command-transaction-and-resource-model.md), and preserves the Payment source and start gate in [ADR-0003](./0003-payment-accounting-source.md). It preserves the business language and lifecycle rules in [CONTEXT.md](../../CONTEXT.md) and refines the Attendance work in the [canonical rewrite specification](../specs/canonical-booking-domain-rewrite.md). [ADR-0005](./0005-audit-durability-and-transaction-policy.md) resolves the physical Activity Log, asynchronous outbox, and retention policy while satisfying the atomic audit obligations established here. Guest confirmation is not an Attendance or generic-approval issue; [ADR-0007](./0007-guest-identity-payment-and-confirmation.md) owns that policy.
 
 ## Context and scope
 
@@ -415,7 +415,9 @@ Initial issue kinds are:
 - `financial_reconciliation_mismatch`;
 - `outcome_correction_required`.
 
-Each issue has a deterministic, versioned dedupe identity. The `issueId` is derived from a versioned `dedupeKey` containing the kind, canonical subject, and the narrowest applicable occurrence, Participant, CourseDay, schedule revision, or reconciliation scope. Repeated detection updates or reopens that logical issue rather than creating a duplicate. Reopening preserves the original `openedAt`, records `reopenedAt`, advances `lastDetectedAt` and `revision`, writes the required immutable Activity Log, and creates any required outbox obligations.
+There is no generic `guest_needs_approval` kind and no generic AdminIssue “mark approved” action. Guest confirmation is payment-driven under [ADR-0007](./0007-guest-identity-payment-and-confirmation.md). A rare fully funded Payment whose guest lifecycle is not durably aligned uses `financial_reconciliation_mismatch` with reconciliation scope `guest_confirmation_lifecycle`. That issue represents a funding/lifecycle mismatch, not discretionary Administrator approval.
+
+Each issue has a deterministic, versioned dedupe identity. The `issueId` is derived from a versioned `dedupeKey` containing the kind, canonical subject, and the narrowest applicable occurrence, Participant, CourseDay, schedule revision, or reconciliation scope. Repeated detection updates or reopens that logical issue rather than creating a duplicate. Reopening preserves the original `openedAt`, records `reopenedAt`, advances `lastDetectedAt` and `revision`, writes the required immutable Activity Log, and creates any required outbox obligations. A resolved guest-confirmation mismatch issue is reopened only if the underlying mismatch genuinely reappears.
 
 Issue severity and blocking flags are explicit operational policy. They are not inferred by clients from issue age or kind labels.
 
@@ -435,6 +437,10 @@ An issue-resolution command validates that its expected issue and subject revisi
 When a Booking or CourseEnrollment enters `pending_cancellation`, the lifecycle command creates or reuses `unresolved_pending_cancellation`. It begins at normal severity and may become urgent after service end. It never times out.
 
 Approval, rejection, or owner withdrawal resolves the issue atomically with the corresponding canonical lifecycle command. Lifecycle must never be mutated merely to clear the issue.
+
+### Guest confirmation mismatch issue
+
+`financial_reconciliation_mismatch` with scope `guest_confirmation_lifecycle` is opened when Payment is fully funded but the guest subject is not durably confirmed, or when confirmation is ineligible because the subject is already cancelled, expired, or otherwise terminal. The issue is not an unpaid-approval queue. Resolving it requires a coupled canonical command. Confirmation of a cancelled or expired subject remains forbidden.
 
 ## Resource-claim release
 
@@ -510,7 +516,8 @@ Reconciliation is read-only and must detect at least:
 - a confirmed service long after its outcome deadline;
 - an open AdminIssue whose underlying inconsistency no longer exists;
 - a resolved AdminIssue while its inconsistency still exists;
-- exceptional `cancelled + present` without the required `attendance_payment_conflict` resolution trail.
+- exceptional `cancelled + present` without the required `attendance_payment_conflict` resolution trail;
+- a fully funded guest Payment whose pending or terminal lifecycle is not durably aligned, using `financial_reconciliation_mismatch` / `guest_confirmation_lifecycle` rather than a generic approval issue.
 
 Reconciliation never silently repairs Attendance or lifecycle history. It creates or reuses deterministic Admin Issues where appropriate, or reports the mismatch for an explicit Admin correction command.
 

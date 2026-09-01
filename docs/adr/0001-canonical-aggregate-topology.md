@@ -53,6 +53,7 @@ This ADR deliberately does not decide the mechanics now resolved by these accept
 - Attendance evidence, sufficiency, and correction mechanics: [ADR-0004](./0004-attendance-outcome-and-admin-issue-model.md).
 - Resource-claim bucketing, Firestore transaction sizing, and conflict-guard mechanics: [ADR-0002](./0002-server-command-transaction-and-resource-model.md).
 - Audit durability, immutable Activity Log, asynchronous outbox, and retention policy: [ADR-0005](./0005-audit-durability-and-transaction-policy.md).
+- Guest identity linking, payment-funded confirmation, and confirmation/payment divergence recovery: [ADR-0007](./0007-guest-identity-payment-and-confirmation.md).
 
 ## Decision overview
 
@@ -142,7 +143,7 @@ CourseEnrollment preserves immutable `originalCourseId`. Every transfer Activity
 
 ### Canonical v1 Participant management cardinality
 
-A dependent Participant may have exactly one active managing owner Account. A self-Participant is explicitly linked to their Account through the same relationship model. A guest Participant may temporarily have no managing owner until an authorized linking workflow succeeds.
+A dependent Participant may have exactly one active managing owner Account. A self-Participant is explicitly linked to their Account through the same relationship model. A guest Participant may temporarily have no managing owner until an authorized linking workflow succeeds. Admin-assisted guest linking uses `existing_managed` semantics and does not confirm the Booking or CourseEnrollment, fund Payment, consume or release capacity, or create ParticipantManagement; see [ADR-0007](./0007-guest-identity-payment-and-confirmation.md).
 
 Administrator capability to manage a Participant operationally does not create a Participant management owner relationship. Multiple guardian Accounts are not permitted in canonical v1. The relationship collection is intentionally extensible so a future ADR can introduce additional guardian roles or multiple active grants without replacing Participant or relationship document identity; such support requires an explicit policy change and cannot be enabled by merely writing another active relationship.
 
@@ -268,9 +269,11 @@ The implementation must preflight bounded operation size. Canonical v1 Booking p
 
 ## Accepted follow-up decisions
 
-The four required follow-up architecture decisions are accepted, and no blocking architecture ADR remains:
+The accepted follow-up architecture decisions are:
 
 - [ADR-0002: Server Command, Transaction and Resource Model](./0002-server-command-transaction-and-resource-model.md).
 - [ADR-0003: Payment Accounting Source](./0003-payment-accounting-source.md).
 - [ADR-0004: Attendance, Outcome and Admin Issue Model](./0004-attendance-outcome-and-admin-issue-model.md).
 - [ADR-0005: Audit Durability and Transaction Policy](./0005-audit-durability-and-transaction-policy.md).
+- [ADR-0006: Lazy Canonical Self-Participant Provisioning](./0006-lazy-canonical-self-participant-provisioning.md).
+- [ADR-0007: Guest Identity, Payment, and Confirmation Architecture](./0007-guest-identity-payment-and-confirmation.md).

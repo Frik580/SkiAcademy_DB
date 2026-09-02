@@ -183,6 +183,15 @@
         { "fieldPath": "occurredAt.nanoseconds", "order": "DESCENDING" },
         { "fieldPath": "eventId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "monetary_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "occurredAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "occurredAt.nanoseconds", "order": "DESCENDING" },
+        { "fieldPath": "eventId", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
@@ -190,6 +199,11 @@
       "collectionGroup": "days",
       "fieldPath": "actualInstructorIds",
       "indexes": [{ "arrayConfig": "CONTAINS", "queryScope": "COLLECTION_GROUP" }]
+    },
+    {
+      "collectionGroup": "days",
+      "fieldPath": "interval.startsAt.seconds",
+      "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }]
     }
   ]
 }

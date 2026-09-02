@@ -15,6 +15,8 @@ interface CoursesTableProps {
   onDelete: (course: Course) => void;
   onClone: (course: Course) => void;
   onMove: (course: Course, direction: 'up' | 'down') => void;
+  enrolledNamesByCourseId?: ReadonlyMap<string, readonly string[]>;
+  archiveInsteadOfDelete?: boolean;
 }
 
 export const CoursesTable: React.FC<CoursesTableProps> = ({
@@ -29,6 +31,8 @@ export const CoursesTable: React.FC<CoursesTableProps> = ({
   onDelete,
   onClone,
   onMove,
+  enrolledNamesByCourseId,
+  archiveInsteadOfDelete = false,
 }) => {
   const sortedCourses = [...courses].sort((a, b) => {
     const orderA = a.order !== undefined ? a.order : 999;
@@ -69,6 +73,8 @@ export const CoursesTable: React.FC<CoursesTableProps> = ({
               onDelete={onDelete}
               onClone={onClone}
               onMove={onMove}
+              enrolledNames={enrolledNamesByCourseId?.get(course.id)}
+              archiveInsteadOfDelete={archiveInsteadOfDelete}
             />
           ))}
           {courses.length === 0 && (

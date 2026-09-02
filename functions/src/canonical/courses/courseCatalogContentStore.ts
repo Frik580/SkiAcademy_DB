@@ -14,11 +14,14 @@ export function courseCatalogContentPath(courseId: CourseCatalogContent['courseI
 }
 
 export function parseCourseCatalogContent(
-  data: Record<string, unknown> | undefined
+  data: Record<string, unknown> | undefined,
+  courseId?: CourseCatalogContent['courseId']
 ): CourseCatalogContent | undefined {
   const normalized = normalizeFirestoreDocument(data);
   if (!normalized) return undefined;
-  const parsed = CourseCatalogContentSchema.safeParse(normalized);
+  const parsed = CourseCatalogContentSchema.safeParse(
+    courseId ? { courseId, ...normalized } : normalized
+  );
   return parsed.success ? parsed.data : undefined;
 }
 

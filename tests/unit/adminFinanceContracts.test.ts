@@ -39,6 +39,9 @@ describe('T32.3 Admin finance contracts', () => {
     expect(panel).toContain("kind: 'record_financial_correction'");
     expect(panel).not.toMatch(/setBalance|balanceUSD|wallet_ledger|updateDoc|setDoc|deleteDoc/);
     expect(activeAdmin).not.toContain('<CashFlowPanel');
-    expect(activeAdmin).not.toContain('<GuestWalletPanel');
+    expect(activeAdmin).toContain('GuestWalletPanel');
+    expect(activeAdmin).toContain('CanonicalSchoolMovementPanel');
+    expect(activeAdmin).not.toContain('adjustGuestWalletBalance');
+    expect(activeAdmin).not.toMatch(/updateDoc|setDoc|deleteDoc/);
   });
 });

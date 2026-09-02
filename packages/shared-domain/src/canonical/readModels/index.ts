@@ -14,3 +14,4 @@ export * from './adminFinanceReadModel';
 export * from './adminCourseReadModel';
 export * from './adminCourseEnrollmentReadModel';
 export * from './adminIdentityReadModel';
+export * from './adminPlannerReadModel';

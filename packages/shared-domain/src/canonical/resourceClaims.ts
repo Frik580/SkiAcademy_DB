@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import {
+  AdministrativeAvailabilityBlockIdSchema,
   BookingIdSchema,
-  CanonicalOpaqueIdSchema,
   CommandIdSchema,
   CorrelationIdSchema,
   CourseDayIdSchema,
@@ -64,10 +64,6 @@ export type ResourceOwnerKind = (typeof RESOURCE_OWNER_KINDS)[number];
 
 export const RESOURCE_CLAIM_LIFECYCLE_STATUSES = ['active', 'released', 'frozen'] as const;
 export type ResourceClaimLifecycleStatus = (typeof RESOURCE_CLAIM_LIFECYCLE_STATUSES)[number];
-
-const AdministrativeAvailabilityBlockIdSchema = CanonicalOpaqueIdSchema.describe(
-  'Administrative availability block ID'
-);
 
 function validateClaimIdentityRefs(
   input: Readonly<{
@@ -192,7 +188,10 @@ export const ResourceClaimOwnerRefSchema = z.discriminatedUnion('ownerKind', [
     })
     .strict(),
   z
-    .object({ ownerKind: z.literal('administrative_block'), ownerId: z.string().min(1).max(128) })
+    .object({
+      ownerKind: z.literal('administrative_block'),
+      ownerId: AdministrativeAvailabilityBlockIdSchema,
+    })
     .strict(),
 ]);
 
@@ -205,7 +204,7 @@ export const ResourceClaimResourceRefSchema = z.discriminatedUnion('resourceKind
   z
     .object({
       resourceKind: z.literal('administrative_block'),
-      resourceId: z.string().min(1).max(128),
+      resourceId: AdministrativeAvailabilityBlockIdSchema,
     })
     .strict(),
 ]);

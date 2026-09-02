@@ -12,6 +12,12 @@ export function hourToMinutes(hStr: string): number {
   return h * 60 + (m || 0);
 }
 
+export function normalizeScheduleTime(time: string): string {
+  const [rawHour, rawMinute = '00'] = time.split(':');
+  const hour = rawHour === '24' ? '00' : rawHour;
+  return `${hour.padStart(2, '0')}:${rawMinute.padStart(2, '0')}`;
+}
+
 export function getWeekRange(date: Date) {
   const start = new Date(date);
   const day = start.getDay();

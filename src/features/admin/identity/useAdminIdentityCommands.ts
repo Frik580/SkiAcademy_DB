@@ -182,6 +182,14 @@ export async function executeAdminIdentityAttempt(
             name: attempt.name ?? attempt.instructorId,
             pricePerHourKZT: attempt.pricePerHourKZT ?? 1,
             reasonExplanation,
+            ...(attempt.specialty === undefined ? {} : { specialty: attempt.specialty }),
+            ...(attempt.languages === undefined ? {} : { languages: [...attempt.languages] }),
+            ...(attempt.experienceYears === undefined
+              ? {}
+              : { experienceYears: attempt.experienceYears }),
+            ...(attempt.bio === undefined ? {} : { bio: attempt.bio }),
+            ...(attempt.avatarUrl === undefined ? {} : { avatarUrl: attempt.avatarUrl }),
+            ...(attempt.phoneNumber === undefined ? {} : { phoneNumber: attempt.phoneNumber }),
           },
           idempotencyKey: attempt.idempotencyKey,
         })
@@ -205,6 +213,16 @@ export async function executeAdminIdentityAttempt(
                   ...(attempt.pricePerHourKZT === undefined
                     ? {}
                     : { pricePerHourKZT: attempt.pricePerHourKZT }),
+                  ...(attempt.specialty === undefined ? {} : { specialty: attempt.specialty }),
+                  ...(attempt.languages === undefined ? {} : { languages: [...attempt.languages] }),
+                  ...(attempt.experienceYears === undefined
+                    ? {}
+                    : { experienceYears: attempt.experienceYears }),
+                  ...(attempt.bio === undefined ? {} : { bio: attempt.bio }),
+                  ...(attempt.avatarUrl === undefined ? {} : { avatarUrl: attempt.avatarUrl }),
+                  ...(attempt.phoneNumber === undefined
+                    ? {}
+                    : { phoneNumber: attempt.phoneNumber }),
                 }
               : {}),
           },

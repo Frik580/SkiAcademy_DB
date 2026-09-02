@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   AccountIdSchema,
   AdminIssueIdSchema,
+  AdministrativeAvailabilityBlockIdSchema,
   BookingChangeRequestIdSchema,
   BookingIdSchema,
   BookingProposalIdSchema,
@@ -19,6 +20,7 @@ import {
 import { AttendanceStatusSchema } from '../courseEnrollmentAttendanceAdminIssue';
 import { CourseProvisioningManifestSchema } from '../courseProvisioningManifest';
 import { CourseCatalogContentInputSchema } from '../courseCatalogContent';
+import { AdministrativeAvailabilityBlockKindSchema } from '../administrativeAvailabilityBlock';
 import { MonetaryPaymentEffectSchema } from '../paymentWallet';
 import { AggregateRevisionSchema, KztMinorUnitsSchema } from '../primitives';
 import type { CommandKind } from './commandKinds';
@@ -743,6 +745,27 @@ export const CommandIntentSchemaByKind = {
     .object({
       courseId: CourseIdSchema,
       content: CourseCatalogContentInputSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  create_administrative_availability_block: z
+    .object({
+      blockId: AdministrativeAvailabilityBlockIdSchema,
+      instructorId: InstructorIdSchema,
+      kind: AdministrativeAvailabilityBlockKindSchema,
+      notes: z.string().trim().max(1_000).optional(),
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  reschedule_administrative_availability_block: z
+    .object({
+      blockId: AdministrativeAvailabilityBlockIdSchema,
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  release_administrative_availability_block: z
+    .object({
+      blockId: AdministrativeAvailabilityBlockIdSchema,
       reasonExplanation: z.string().trim().min(1).max(1_000),
     })
     .strict(),

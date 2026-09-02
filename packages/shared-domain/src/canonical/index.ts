@@ -1,3 +1,4 @@
+export * from './administrativeAvailabilityBlock';
 export * from './commands';
 export * from './transactions';
 export * from './canonicalJson';
@@ -42,6 +43,7 @@ export * from './paymentWallet';
 export * from './paymentWalletOperations';
 export * from './financialReconciliationPolicy';
 export * from './financialCorrectionPolicy';
+export * from './financialOverviewPolicy';
 export * from './providerEventReceipt';
 export * from './primitives';
 export * from './firestoreSerialization';

@@ -295,6 +295,40 @@ describe('canonical Course administration commands', () => {
       .not.toHaveProperty('titleRu');
   });
 
+  it('updates legacy catalog docs that omit embedded courseId using document identity', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...fixture(),
+      [`course_catalog_content/${courseId}`]: {
+        duration: 'One day',
+        description: 'Presentation content',
+        dates: '1 December',
+        bgImageUrl: 'https://example.com/course.webp',
+        isHidden: false,
+        order: 2,
+      },
+    });
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    const result = await commands.execute({
+      kind: 'update_course_catalog_content',
+      context: context('idem-course-catalog-legacy', 1),
+      intent: {
+        courseId,
+        reasonExplanation: 'Admin course order',
+        content: {
+          duration: 'One day',
+          description: 'Presentation content',
+          dates: '1 December',
+          bgImageUrl: 'https://example.com/course.webp',
+          isHidden: false,
+          order: 3,
+        },
+      },
+    });
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`course_catalog_content/${courseId}`)?.data.order).toBe(3);
+    expect(executor.snapshot().docs.get(`course_catalog_content/${courseId}`)?.data.courseId).toBe(courseId);
+  });
+
   it('fails closed for CourseDay reschedule and removal while enrollment exists', async () => {
     const enrollment = {
       courseId,

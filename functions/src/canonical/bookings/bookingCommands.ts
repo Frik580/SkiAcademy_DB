@@ -355,10 +355,10 @@ function createConfirmedBookingHandler(
         stageMonetaryEvent = true;
       } else {
         walletFunding = KztMinorUnitsSchema.parse(Math.min(walletBalance, servicePrice));
-        paymentProjection = applyExternalPaymentFunding(
-          initialUnpaidPaymentFields(servicePrice),
-          walletFunding
-        );
+        paymentProjection =
+          walletFunding > 0
+            ? applyExternalPaymentFunding(initialUnpaidPaymentFields(servicePrice), walletFunding)
+            : { ...initialUnpaidPaymentFields(servicePrice), paymentStatus: 'unpaid' };
         assertAdminUnderpaymentReason(envelope, paymentProjection.outstandingAmount);
         includeWalletEffect = walletFunding > 0;
         stageMonetaryEvent = walletFunding > 0;

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Language, TranslationKey } from '../../../../app/providers/LanguageContext';
+import { parsePlannerLocalDateInput } from './scheduleDateInput';
 
 export type ScheduleViewMode = 'day' | 'week';
 
@@ -58,7 +59,7 @@ export const ScheduleToolbar: React.FC<ScheduleToolbarProps> = ({
         <input
           type="date"
           value={selectedDate}
-          onChange={(event) => onDateChange(new Date(event.target.value))}
+          onChange={(event) => onDateChange(parsePlannerLocalDateInput(event.target.value))}
           className="px-2 py-1.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] rounded-none sm:text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] max-w-[130px] sm:max-w-none shrink"
         />
       ) : (

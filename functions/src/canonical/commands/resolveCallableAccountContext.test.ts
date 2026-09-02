@@ -246,4 +246,30 @@ describe('resolveCallableAccountContext', () => {
       )
     ).toThrow('forbidden');
   });
+
+  it.each([
+    'create_administrative_availability_block',
+    'reschedule_administrative_availability_block',
+    'release_administrative_availability_block',
+  ] as const)(
+    'routes Planner availability command %s through trusted Admin authority',
+    (commandKind) => {
+      expect(
+        resolveCallableAccountContext(
+          { role: 'admin' },
+          { authUid: accountId, commandKind, administratorContext: true }
+        )
+      ).toMatchObject({
+        accountId,
+        capability: 'administrator',
+        source: 'admin_callable',
+      });
+      expect(() =>
+        resolveCallableAccountContext(
+          { role: 'user' },
+          { authUid: accountId, commandKind, administratorContext: true }
+        )
+      ).toThrow('forbidden');
+    }
+  );
 });

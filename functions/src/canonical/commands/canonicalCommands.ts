@@ -21,6 +21,7 @@ import {
   createSelfParticipantProvisioningCommandHandlers,
 } from '../participantAccess';
 import { createIdentityAdministrationCommandHandlers } from '../identity/identityAdministrationCommands';
+import { createAdministrativeAvailabilityBlockCommandHandlers } from '../availability/administrativeAvailabilityBlockCommands';
 import { createBookingCommandHandlers } from '../bookings';
 import { createGuestBookingCommandHandlers } from '../bookings/guestBookingCommands';
 import { createAdminGuestBookingLinkCommandHandlers } from '../bookings/adminGuestBookingLinkCommands';
@@ -184,6 +185,7 @@ export function createProductionCanonicalCommands(
     ...createParticipantAccessCommandHandlers(executor),
     ...createSelfParticipantProvisioningCommandHandlers(executor),
     ...createIdentityAdministrationCommandHandlers(executor),
+    ...createAdministrativeAvailabilityBlockCommandHandlers(executor),
     ...createFinanceCommandHandlers(executor, options.monetaryEventLoader),
     ...createBookingCommandHandlers(executor),
     ...createBookingRescheduleCommandHandlers(executor),

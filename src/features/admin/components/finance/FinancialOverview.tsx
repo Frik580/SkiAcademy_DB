@@ -1,26 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, BookOpenCheck, DollarSign, Users } from 'lucide-react';
+import type { AdminFinancialOverviewPeriod } from '@ski-academy/shared-domain';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import { logger } from '../../../../shared';
 import { saveUsdToKztRate } from '../../../../features/admin/adminService';
+import {
+  formatCanonicalKztForDisplay,
+  isUsdToKztDisplayRateAvailable,
+} from '../../operations/adminFinancialOverview';
+import type { AdminFinanceReadErrorCode } from './useAdminFinanceReadModels';
 
 interface FinancialOverviewProps {
-  totalRevenue: number;
+  netSettledKzt?: number;
+  settledRevenueKzt?: number;
+  refundedKzt?: number;
   activeBookings: number;
   completedBookings: number;
   instructorsCount: number;
+  period: AdminFinancialOverviewPeriod;
+  onPeriodChange: (period: AdminFinancialOverviewPeriod) => void;
+  revenueLoading?: boolean;
+  revenueError?: AdminFinanceReadErrorCode;
+  revenueTruncated?: boolean;
+  onOpenPeriodMovement?: () => void;
 }
 
 export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
-  totalRevenue,
+  netSettledKzt,
+  settledRevenueKzt,
+  refundedKzt,
   activeBookings,
   completedBookings,
   instructorsCount,
+  period,
+  onPeriodChange,
+  revenueLoading = false,
+  revenueError,
+  revenueTruncated = false,
+  onOpenPeriodMovement,
 }) => {
   const { t } = useLanguage();
-  const { currency, setCurrency, usdToKztRate, setUsdToKztRate, formatPrice } = useCurrency();
+  const { currency, setCurrency, usdToKztRate, setUsdToKztRate } = useCurrency();
   const [rateInput, setRateInput] = useState<number | string>(usdToKztRate);
+  const fxRateAvailable = isUsdToKztDisplayRateAvailable(usdToKztRate);
 
   useEffect(() => {
     setRateInput(usdToKztRate);
@@ -37,6 +60,14 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
     }
   };
 
+  const revenueReady = !revenueLoading && !revenueError && netSettledKzt !== undefined;
+  const revenueLabel =
+    revenueLoading
+      ? '…'
+      : revenueError
+        ? t('adminFinanceOverviewLoadFailed')
+        : formatCanonicalKztForDisplay(netSettledKzt ?? 0, currency, usdToKztRate);
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3 pb-1">
@@ -44,10 +75,10 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
           {t('financialOverview') || 'Финансовый обзор'}
         </h3>
         <div className="flex flex-wrap items-center gap-3">
-          {/* Exchange Rate Setting */}
+          {/* Exchange Rate Setting — display/FX presentation only; canonical money remains KZT */}
           <div
             className="flex items-center gap-2 bg-black/5 dark:bg-white/5 border border-[var(--border)] px-2.5 py-1"
-            title={t('exchangeRateDesc') || 'Курс конвертации USD → KZT'}
+            title={t('exchangeRateDisplayOnly')}
           >
             <span className="text-xs font-mono text-[var(--ink-dim)] whitespace-nowrap">1 $ =</span>
             <input
@@ -62,7 +93,27 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
             <span className="text-xs font-mono text-[var(--ink-dim)]">₸</span>
           </div>
 
-          {/* Currency Switcher */}
+          <div className="flex items-center gap-1">
+            {(['day', 'week', 'month'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onPeriodChange(value)}
+                className={`px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-wider border ${
+                  period === value
+                    ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]'
+                    : 'border-[var(--border)] text-[var(--ink)] hover:border-[var(--ink)]'
+                }`}
+              >
+                {value === 'day'
+                  ? t('adminFinancePeriodDay')
+                  : value === 'week'
+                    ? t('adminFinancePeriodWeek')
+                    : t('adminFinancePeriodMonth')}
+              </button>
+            ))}
+          </div>
+
           <div className="flex items-center gap-2">
             <span className="text-xs text-[var(--ink-dim)] font-mono uppercase tracking-wider">
               {t('currencyLabel') || 'Валюта'}:
@@ -84,9 +135,41 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
             <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">
               {t('totalRevenue')}
             </span>
-            <span className="text-2xl font-serif font-light text-[var(--ink)]">
-              {formatPrice(totalRevenue)}
+            <span
+              className={`text-2xl font-serif font-light ${
+                revenueError ? 'text-[var(--ink-dim)]' : 'text-[var(--ink)]'
+              }`}
+            >
+              {revenueLabel}
             </span>
+            {revenueReady ? (
+              <span className="text-[9px] font-mono text-[var(--ink-dim)] block">
+                {t('adminFinanceOverviewSettled')}:{' '}
+                {formatCanonicalKztForDisplay(settledRevenueKzt ?? 0, 'KZT', usdToKztRate)}
+                {' · '}
+                {t('adminFinanceOverviewRefunded')}:{' '}
+                {formatCanonicalKztForDisplay(refundedKzt ?? 0, 'KZT', usdToKztRate)}
+              </span>
+            ) : null}
+            {currency === 'USD' && !fxRateAvailable ? (
+              <span className="text-[9px] font-mono text-amber-600 dark:text-amber-400 block">
+                {t('adminFinanceOverviewFxUnavailable')}
+              </span>
+            ) : null}
+            {revenueTruncated ? (
+              <span className="text-[9px] font-mono text-amber-600 dark:text-amber-400 block">
+                {t('adminFinanceOverviewTruncated')}
+              </span>
+            ) : null}
+            {onOpenPeriodMovement ? (
+              <button
+                type="button"
+                onClick={onOpenPeriodMovement}
+                className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink)] underline underline-offset-2"
+              >
+                {t('adminFinanceOverviewOpenMovement')}
+              </button>
+            ) : null}
           </div>
           <div className="w-10 h-10 border border-[var(--border)] rounded-none flex items-center justify-center text-[var(--ink)] bg-black/5 dark:bg-white/5">
             <DollarSign className="w-4 h-4" />

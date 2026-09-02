@@ -5,7 +5,11 @@ import {
   AggregateRevisionSchema,
   KztMinorUnitsSchema,
   QueryAdminFinanceReadModelsResultSchema,
+  adminFinancialOverviewWindow,
+  eventOccurredInFinancialOverviewWindow,
+  financialOverviewTotalsFromMonetaryEffects,
   type AdminFinanceAccountIdentity,
+  type AdminFinancialOverviewReadModel,
   type AdminMonetaryEventPresentation,
   type AdminPaymentAction,
   type AdminPaymentDetailReadModel,
@@ -15,6 +19,7 @@ import {
   type QueryAdminFinanceReadModelsInput,
   type QueryAdminFinanceReadModelsResult,
   type ReadModelAdministratorActor,
+  type TimeInterval,
   type Wallet,
 } from '@ski-academy/shared-domain';
 import { parseAdminIssue } from '../adminIssues';
@@ -52,7 +57,9 @@ function decodeCursor(encoded: string): AdminFinanceEventCursor | undefined {
       unknown
     >;
     if (
-      (value.scope !== 'admin_wallet' && value.scope !== 'admin_payment_detail') ||
+      (value.scope !== 'admin_wallet' &&
+        value.scope !== 'admin_payment_detail' &&
+        value.scope !== 'admin_school_movement') ||
       typeof value.targetId !== 'string' ||
       typeof value.occurredAtSeconds !== 'number' ||
       !Number.isInteger(value.occurredAtSeconds) ||
@@ -87,11 +94,31 @@ function safeAccountIdentity(
   };
 }
 
+type AdminFinanceEventPageInput = Exclude<
+  QueryAdminFinanceReadModelsInput,
+  { scope: 'admin_financial_overview' }
+>;
+
+function schoolMovementWindow(
+  input: Extract<QueryAdminFinanceReadModelsInput, { scope: 'admin_school_movement' }>
+): TimeInterval | undefined {
+  if (!input.period || !input.localDate || !input.timeZone) return undefined;
+  return adminFinancialOverviewWindow(input.localDate, input.period, input.timeZone);
+}
+
+function schoolMovementTargetId(
+  input: Extract<QueryAdminFinanceReadModelsInput, { scope: 'admin_school_movement' }>
+): string {
+  const windowed = schoolMovementWindow(input);
+  if (!windowed || !input.period || !input.localDate || !input.timeZone) return 'school';
+  return `school:${input.period}:${input.localDate}:${input.timeZone}`;
+}
+
 function eventAmountAndDirection(
   event: MonetaryEvent,
-  scope: QueryAdminFinanceReadModelsInput['scope']
+  scope: AdminFinanceEventPageInput['scope']
 ): Pick<AdminMonetaryEventPresentation, 'amount' | 'direction'> {
-  if (scope === 'admin_wallet') {
+  if (scope === 'admin_wallet' || (scope === 'admin_school_movement' && event.walletBalanceDelta !== undefined)) {
     const delta = event.walletBalanceDelta ?? 0;
     return {
       amount: KztMinorUnitsSchema.parse(Math.abs(delta)),
@@ -131,7 +158,7 @@ function eventAmountAndDirection(
 
 function presentEvent(
   event: MonetaryEvent,
-  scope: QueryAdminFinanceReadModelsInput['scope']
+  scope: AdminFinanceEventPageInput['scope']
 ): AdminMonetaryEventPresentation {
   return {
     eventId: event.eventId,
@@ -164,7 +191,7 @@ function presentEvent(
 
 async function queryEventPage(
   firestore: Firestore,
-  input: QueryAdminFinanceReadModelsInput
+  input: AdminFinanceEventPageInput
 ): Promise<{
   readonly rawEvents: readonly MonetaryEvent[];
   readonly events: readonly AdminMonetaryEventPresentation[];
@@ -175,14 +202,42 @@ async function queryEventPage(
     input.pageSize ?? ADMIN_FINANCE_READ_MODEL_PAGE_SIZE_DEFAULT,
     ADMIN_FINANCE_READ_MODEL_PAGE_SIZE_MAX
   );
-  const targetId = input.scope === 'admin_wallet' ? input.accountId : input.paymentId;
-  const field = input.scope === 'admin_wallet' ? 'walletAccountId' : 'paymentId';
+  const movementWindow =
+    input.scope === 'admin_school_movement' ? schoolMovementWindow(input) : undefined;
+  const targetId =
+    input.scope === 'admin_wallet'
+      ? input.accountId
+      : input.scope === 'admin_school_movement'
+        ? schoolMovementTargetId(input)
+        : input.paymentId;
   let query: Query = firestore
     .collection('monetary_events')
-    .where(field, '==', targetId)
     .orderBy('occurredAt.seconds', 'desc')
     .orderBy('occurredAt.nanoseconds', 'desc')
     .orderBy('eventId', 'asc');
+  if (input.scope === 'admin_wallet') {
+    query = firestore
+      .collection('monetary_events')
+      .where('walletAccountId', '==', targetId)
+      .orderBy('occurredAt.seconds', 'desc')
+      .orderBy('occurredAt.nanoseconds', 'desc')
+      .orderBy('eventId', 'asc');
+  } else if (input.scope === 'admin_payment_detail') {
+    query = firestore
+      .collection('monetary_events')
+      .where('paymentId', '==', targetId)
+      .orderBy('occurredAt.seconds', 'desc')
+      .orderBy('occurredAt.nanoseconds', 'desc')
+      .orderBy('eventId', 'asc');
+  } else if (movementWindow) {
+    query = firestore
+      .collection('monetary_events')
+      .where('occurredAt.seconds', '>=', movementWindow.startsAt.seconds)
+      .where('occurredAt.seconds', '<=', movementWindow.endsAt.seconds)
+      .orderBy('occurredAt.seconds', 'desc')
+      .orderBy('occurredAt.nanoseconds', 'desc')
+      .orderBy('eventId', 'asc');
+  }
 
   const cursor = input.cursor ? decodeCursor(input.cursor) : undefined;
   if (input.cursor && (!cursor || cursor.scope !== input.scope || cursor.targetId !== targetId)) {
@@ -206,8 +261,11 @@ async function queryEventPage(
     }
     return event;
   });
-  const page = parsed.slice(0, pageSize);
-  const hasMore = parsed.length > pageSize;
+  const inWindow = movementWindow
+    ? parsed.filter((event) => eventOccurredInFinancialOverviewWindow(event.occurredAt, movementWindow))
+    : parsed;
+  const page = inWindow.slice(0, pageSize);
+  const hasMore = parsed.length > pageSize || inWindow.length > pageSize;
   const last = page[page.length - 1];
   return {
     rawEvents: page,
@@ -461,6 +519,69 @@ async function queryPaymentDetailReadModel(
   return result;
 }
 
+async function queryFinancialOverviewReadModel(
+  firestore: Firestore,
+  input: Extract<QueryAdminFinanceReadModelsInput, { scope: 'admin_financial_overview' }>
+): Promise<AdminFinancialOverviewReadModel> {
+  const window = adminFinancialOverviewWindow(input.localDate, input.period, input.timeZone);
+  const pageSize = 200;
+  const scanCap = 5_000;
+  const events: MonetaryEvent[] = [];
+  let truncated = false;
+  let query: Query = firestore
+    .collection('monetary_events')
+    .where('occurredAt.seconds', '>=', window.startsAt.seconds)
+    .where('occurredAt.seconds', '<=', window.endsAt.seconds)
+    .orderBy('occurredAt.seconds', 'desc')
+    .orderBy('occurredAt.nanoseconds', 'desc')
+    .orderBy('eventId', 'asc');
+
+  for (;;) {
+    const snapshot = await query.limit(pageSize).get();
+    for (const document of snapshot.docs) {
+      const event = parseMonetaryEvent(document.data() as Record<string, unknown>);
+      if (!event || event.eventId !== document.id) {
+        throw new Error(
+          `Canonical Admin finance read integrity failure: monetary_events/${document.id}`
+        );
+      }
+      events.push(event);
+    }
+    if (snapshot.docs.length < pageSize) break;
+    if (events.length >= scanCap) {
+      truncated = true;
+      break;
+    }
+    const lastEvent = events[events.length - 1];
+    if (!lastEvent) break;
+    query = firestore
+      .collection('monetary_events')
+      .where('occurredAt.seconds', '>=', window.startsAt.seconds)
+      .where('occurredAt.seconds', '<=', window.endsAt.seconds)
+      .orderBy('occurredAt.seconds', 'desc')
+      .orderBy('occurredAt.nanoseconds', 'desc')
+      .orderBy('eventId', 'asc')
+      .startAfter(
+        lastEvent.occurredAt.seconds,
+        lastEvent.occurredAt.nanoseconds,
+        lastEvent.eventId
+      );
+  }
+
+  const totals = financialOverviewTotalsFromMonetaryEffects(events, window);
+  return {
+    currency: 'KZT',
+    period: input.period,
+    localDate: input.localDate,
+    timeZone: input.timeZone,
+    window,
+    settledRevenueKzt: totals.settledRevenueKzt,
+    refundedKzt: totals.refundedKzt,
+    netSettledKzt: totals.netSettledKzt,
+    truncated,
+  };
+}
+
 export async function queryAdminFinanceReadModels(
   firestore: Firestore,
   actor: ReadModelAdministratorActor,
@@ -469,6 +590,22 @@ export async function queryAdminFinanceReadModels(
   let result: QueryAdminFinanceReadModelsResult;
   if (input.scope === 'admin_wallet') {
     result = { scope: input.scope, item: await queryWalletReadModel(firestore, input) };
+  } else if (input.scope === 'admin_school_movement') {
+    const eventPage = await queryEventPage(firestore, input);
+    result = {
+      scope: input.scope,
+      item: {
+        currency: 'KZT',
+        events: [...eventPage.events],
+        hasMore: eventPage.hasMore,
+        ...(eventPage.nextCursor === undefined ? {} : { nextCursor: eventPage.nextCursor }),
+      },
+    };
+  } else if (input.scope === 'admin_financial_overview') {
+    result = {
+      scope: input.scope,
+      item: await queryFinancialOverviewReadModel(firestore, input),
+    };
   } else {
     const item = await queryPaymentDetailReadModel(firestore, actor, input);
     result = {

@@ -921,6 +921,24 @@ export const translations = {
     adminIssueOpenPayment: 'Open canonical payment',
     adminFinanceCanonicalTitle: 'Canonical payments and wallets',
     adminFinanceCanonicalSub: 'Server-authorized KZT balances, payments, events, and corrections',
+    canonicalGuestFinanceTitle: 'Guest funds (canonical)',
+    canonicalGuestFinanceHint:
+      'Identify a guest, inspect Payment/Wallet history, and apply authorized debit or refund. History is retained after identity linking.',
+    canonicalGuestFinanceLinked: 'linked identity',
+    canonicalGuestFinanceUnlinked: 'unlinked guest',
+    canonicalIdentityTitle: 'Account and Participant topology',
+    canonicalIdentitySub: 'Canonical Account, Participant, and instructor catalog operations',
+    canonicalPaymentSettled: 'Payment settled (KZT)',
+    adminFinancePeriodDay: 'Day',
+    adminFinancePeriodWeek: 'Week',
+    adminFinancePeriodMonth: 'Month',
+    adminFinanceOverviewTruncated: 'Period scan truncated; later MonetaryEvents were not included.',
+    adminFinanceOverviewLoadFailed: 'Could not load revenue for this period.',
+    adminFinanceOverviewSettled: 'Settled',
+    adminFinanceOverviewRefunded: 'Refunded',
+    adminFinanceOverviewOpenMovement: 'Open monetary movement for this period',
+    adminFinanceOverviewFxUnavailable: 'USD display rate is unavailable; showing canonical KZT.',
+    paymentDrivenGuestConfirmation: 'Awaiting funded payment',
     adminFinanceWalletTitle: 'Account wallet',
     adminFinancePaymentTitle: 'Payment detail',
     adminFinanceAccount: 'Account',
@@ -971,6 +989,8 @@ export const translations = {
     adminFinanceApplyCorrection: 'Apply canonical action',
     adminLessonBookingsTitle: 'Canonical individual lesson administration',
     adminLessonBookingsSub: 'Server-authorized reads, revisions, and commands',
+    adminCourseEnrollmentsTitle: 'Canonical course enrollments',
+    adminCourseEnrollmentsSub: 'Server-authorized roster, attendance, and lifecycle operations',
     adminLessonCreateTitle: 'Create confirmed individual lesson',
     adminLessonCreateHint:
       'The server validates participant authority, availability, overlap, and price.',
@@ -1206,6 +1226,8 @@ export const translations = {
     configSaveErrorDesc: 'Failed to save resort configuration',
 
     // Schedule calendar
+    plannerOccupancyTruncated:
+      'Planner occupancy was truncated for this window. Narrow the day/week view if a slot is missing.',
     scheduleBoardTitle: 'Instructor Timetable & Schedule Board',
     scheduleBoardSub:
       'Manage hourly slots, set days off, add breaks, delete or reschedule lessons in real-time',
@@ -1369,6 +1391,7 @@ export const translations = {
     rejectRequest: 'Reject Request',
     decline: 'Decline',
     completeBtn: 'Complete',
+    openEnrollmentAttendance: 'Open attendance',
     finishedLabel: 'Finished',
     cancelledLabel: 'Cancelled',
     pagePrefix: 'Page',
@@ -1404,6 +1427,7 @@ export const translations = {
     adminResortManager: 'Admin (Resort Manager)',
     instructorStatusGrant: 'Instructor Status (Grants panel access)',
     cabinetAccessEnabled: 'Cabinet Access Enabled',
+    accountActivateDeactivate: 'Activate / Deactivate',
     updateProfile: 'Update Profile',
     createClient: 'Create Client',
     deleteClientConfirmPrefix: 'Are you absolutely sure you want to delete client',
@@ -1471,6 +1495,8 @@ export const translations = {
     courseTitlePlaceholder: 'e.g. Carving Mastery Pro',
     courseTitlePlaceholderRu: 'напр. Мастерство Карвинга Pro',
     cloneCourse: 'Clone course',
+    archiveCourse: 'Archive course',
+    archiveCourseConfirmPrefix: 'Archive course',
     courseCloned: 'Course cloned successfully.',
     courseCloneFailed: 'Failed to clone course.',
     durationDescription: 'Duration Description',
@@ -1958,6 +1984,8 @@ export const translations = {
     ratePerHourKztLabel: 'Rate (₸ KZT/hr)',
     exchangeRateLabel: 'USD → KZT Exchange Rate (1 $ = ? ₸)',
     exchangeRateDesc: 'Default conversion rate when a fixed KZT price is not specified.',
+    exchangeRateDisplayOnly:
+      'Display/FX configuration only. Canonical Payment and Wallet accounting stays in KZT.',
     priceKztLabel: 'Price (₸ KZT)',
   },
   ru: {
@@ -2873,6 +2901,25 @@ export const translations = {
     adminIssueOpenPayment: 'Открыть канонический платёж',
     adminFinanceCanonicalTitle: 'Канонические платежи и кошельки',
     adminFinanceCanonicalSub: 'Серверные балансы KZT, платежи, события и разрешённые исправления',
+    canonicalGuestFinanceTitle: 'Средства гостя (канонические)',
+    canonicalGuestFinanceHint:
+      'Найдите гостя, посмотрите историю Payment/Wallet и выполните разрешённое списание или возврат. История сохраняется после связывания личности.',
+    canonicalGuestFinanceLinked: 'личность связана',
+    canonicalGuestFinanceUnlinked: 'гость не связан',
+    canonicalIdentityTitle: 'Топология Account и Participant',
+    canonicalIdentitySub: 'Канонические операции Account, Participant и каталога инструкторов',
+    canonicalPaymentSettled: 'Погашено по Payment (KZT)',
+    adminFinancePeriodDay: 'День',
+    adminFinancePeriodWeek: 'Неделя',
+    adminFinancePeriodMonth: 'Месяц',
+    adminFinanceOverviewTruncated:
+      'Сканирование периода обрезано; часть MonetaryEvent не включена.',
+    adminFinanceOverviewLoadFailed: 'Не удалось загрузить выручку за выбранный период.',
+    adminFinanceOverviewSettled: 'Погашено',
+    adminFinanceOverviewRefunded: 'Возвраты',
+    adminFinanceOverviewOpenMovement: 'Открыть денежное движение за период',
+    adminFinanceOverviewFxUnavailable: 'Курс USD недоступен; показан канонический KZT.',
+    paymentDrivenGuestConfirmation: 'Ожидает оплаченный платёж',
     adminFinanceWalletTitle: 'Кошелёк аккаунта',
     adminFinancePaymentTitle: 'Детали платежа',
     adminFinanceAccount: 'Аккаунт',
@@ -2923,6 +2970,9 @@ export const translations = {
     adminFinanceApplyCorrection: 'Выполнить каноническое действие',
     adminLessonBookingsTitle: 'Каноническое администрирование индивидуальных уроков',
     adminLessonBookingsSub: 'Серверные чтения, ревизии и команды',
+    adminCourseEnrollmentsTitle: 'Канонические записи на курсы',
+    adminCourseEnrollmentsSub:
+      'Серверные операции состава, посещаемости и жизненного цикла',
     adminLessonCreateTitle: 'Создать подтверждённый индивидуальный урок',
     adminLessonCreateHint: 'Сервер проверяет права участника, доступность, пересечения и цену.',
     adminLessonCreateUnavailable:
@@ -3157,6 +3207,8 @@ export const translations = {
     configSaveErrorDesc: 'Не удалось сохранить конфигурацию курорта',
 
     // Schedule calendar
+    plannerOccupancyTruncated:
+      'Занятость планера для этого окна обрезана. Сузьте день/неделю, если слот отсутствует.',
     scheduleBoardTitle: 'Интерактивный планер и расписание инструкторов',
     scheduleBoardSub:
       'Управление почасовыми слотами, установка выходных, добавление перерывов и перенос занятий в реальном времени',
@@ -3324,6 +3376,7 @@ export const translations = {
     rejectRequest: 'Отклонить запрос',
     decline: 'Отклонить',
     completeBtn: 'Завершить',
+    openEnrollmentAttendance: 'Открыть посещаемость',
     finishedLabel: 'Завершено',
     cancelledLabel: 'Отменено',
     pagePrefix: 'Страница',
@@ -3359,6 +3412,7 @@ export const translations = {
     adminResortManager: 'Администратор (Менеджер курорта)',
     instructorStatusGrant: 'Статус инструктора (Доступ к панели)',
     cabinetAccessEnabled: 'Доступ к кабинету включен',
+    accountActivateDeactivate: 'Активировать / Деактивировать',
     updateProfile: 'Обновить профиль',
     createClient: 'Создать клиента',
     deleteClientConfirmPrefix: 'Вы абсолютно уверены, что хотите удалить клиента',
@@ -3426,6 +3480,8 @@ export const translations = {
     courseTitlePlaceholder: 'Например, Carving Mastery Pro',
     courseTitlePlaceholderRu: 'Например, Мастерство Карвинга Pro',
     cloneCourse: 'Клонировать курс',
+    archiveCourse: 'Архивировать курс',
+    archiveCourseConfirmPrefix: 'Архивировать курс',
     courseCloned: 'Курс успешно клонирован.',
     courseCloneFailed: 'Не удалось клонировать курс.',
     durationDescription: 'Продолжительность',
@@ -3913,6 +3969,8 @@ export const translations = {
     exchangeRateLabel: 'Курс конвертации USD → KZT (1 $ = ? ₸)',
     exchangeRateDesc:
       'Используется как курс по умолчанию при конвертации цен из USD в KZT, если фикс-цена в KZT не указана.',
+    exchangeRateDisplayOnly:
+      'Только отображение/FX. Канонический учёт Payment и Wallet остаётся в KZT.',
     priceKztLabel: 'Стоимость (₸ KZT)',
   },
 } as const;

@@ -631,7 +631,7 @@ async function buildInstructorListItem(
     firestore.collection('courses').where('instructorRosterIds', 'array-contains', instructorId)
   );
   const dayCount = await countQuery(
-    firestore.collectionGroup('days').where('instructorId', '==', instructorId)
+    firestore.collectionGroup('days').where('actualInstructorIds', 'array-contains', instructorId)
   );
   return {
     instructorId,

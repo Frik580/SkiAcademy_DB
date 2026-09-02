@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { IdempotencyKeySchema } from '../commands/commandContext';
+import { ADMIN_FINANCIAL_OVERVIEW_PERIODS } from '../financialOverviewPolicy';
 import {
   AdminIssueKindSchema,
   AdminIssueLifecycleStatusSchema,
@@ -22,7 +23,9 @@ import {
 import {
   AggregateRevisionSchema,
   CanonicalTimestampSchema,
+  IanaTimeZoneSchema,
   KztMinorUnitsSchema,
+  TimeIntervalSchema,
 } from '../primitives';
 
 export const ADMIN_FINANCE_READ_MODEL_PAGE_SIZE_DEFAULT = 20;
@@ -177,9 +180,55 @@ const AdminPaymentDetailReadInputSchema = z
   })
   .strict();
 
+const AdminSchoolMovementReadInputSchema = z
+  .object({
+    scope: z.literal('admin_school_movement'),
+    pageSize: z.number().int().positive().max(ADMIN_FINANCE_READ_MODEL_PAGE_SIZE_MAX).optional(),
+    cursor: z.string().trim().min(1).max(768).optional(),
+    period: z.enum(ADMIN_FINANCIAL_OVERVIEW_PERIODS).optional(),
+    localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    timeZone: IanaTimeZoneSchema.optional(),
+    idempotencyKey: IdempotencyKeySchema.optional(),
+  })
+  .strict();
+
+export const AdminSchoolMovementReadModelSchema = AdminFinanceEventPageSchema.extend({
+  currency: z.literal('KZT'),
+}).strict();
+
+export type AdminSchoolMovementReadModel = z.output<typeof AdminSchoolMovementReadModelSchema>;
+
+const AdminFinancialOverviewReadInputSchema = z
+  .object({
+    scope: z.literal('admin_financial_overview'),
+    period: z.enum(ADMIN_FINANCIAL_OVERVIEW_PERIODS),
+    localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    timeZone: IanaTimeZoneSchema,
+    idempotencyKey: IdempotencyKeySchema.optional(),
+  })
+  .strict();
+
+export const AdminFinancialOverviewReadModelSchema = z
+  .object({
+    currency: z.literal('KZT'),
+    period: z.enum(ADMIN_FINANCIAL_OVERVIEW_PERIODS),
+    localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    timeZone: IanaTimeZoneSchema,
+    window: TimeIntervalSchema,
+    settledRevenueKzt: z.number().finite().int(),
+    refundedKzt: z.number().finite().int(),
+    netSettledKzt: z.number().finite().int(),
+    truncated: z.boolean(),
+  })
+  .strict();
+
+export type AdminFinancialOverviewReadModel = z.output<typeof AdminFinancialOverviewReadModelSchema>;
+
 export const QueryAdminFinanceReadModelsInputSchema = z.discriminatedUnion('scope', [
   AdminWalletReadInputSchema,
   AdminPaymentDetailReadInputSchema,
+  AdminSchoolMovementReadInputSchema,
+  AdminFinancialOverviewReadInputSchema,
 ]);
 
 export type QueryAdminFinanceReadModelsInput = z.output<
@@ -192,6 +241,18 @@ export const QueryAdminFinanceReadModelsResultSchema = z.discriminatedUnion('sco
     .object({
       scope: z.literal('admin_payment_detail'),
       item: AdminPaymentDetailReadModelSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      scope: z.literal('admin_school_movement'),
+      item: AdminSchoolMovementReadModelSchema,
+    })
+    .strict(),
+  z
+    .object({
+      scope: z.literal('admin_financial_overview'),
+      item: AdminFinancialOverviewReadModelSchema,
     })
     .strict(),
 ]);

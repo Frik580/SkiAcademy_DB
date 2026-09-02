@@ -2,19 +2,54 @@ import React, { useCallback, useState, Suspense, lazy } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { Instructor, Booking, UserProfile, Course } from '../../../types';
-import { Shield, UserCheck, BookOpen, AlertTriangle, ShieldAlert, Wallet } from 'lucide-react';
+import { Shield, UserCheck, BookOpen, AlertTriangle, ShieldAlert, Wallet, CalendarDays, Users } from 'lucide-react';
 import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../domain/achievements';
 import { AchievementsConfig } from '../../../domain/achievements';
 import { AdminCollapsibleSection } from './settings';
 import { TableSkeleton } from '../../../ui/Skeleton';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
-import { ADMIN_TAB_QUERY_KEY, parseAdminTabId, type AdminTabId } from '../adminNavigation';
+import { ADMIN_COURSE_ENROLLMENT_QUERY_KEY, ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY, ADMIN_TAB_QUERY_KEY, parseAdminTabId, type AdminTabId } from '../adminNavigation';
 import { AdminTabNav } from './AdminTabNav';
 
 const CanonicalFinancePanel = lazy(() =>
   import('./finance').then((m) => ({
     default: m.CanonicalFinancePanel,
+  }))
+);
+const GuestWalletPanel = lazy(() =>
+  import('./finance').then((m) => ({
+    default: m.GuestWalletPanel,
+  }))
+);
+const CanonicalSchoolMovementPanel = lazy(() =>
+  import('../finance/CanonicalSchoolMovementPanel').then((m) => ({
+    default: m.CanonicalSchoolMovementPanel,
+  }))
+);
+const AdminGuestFinanceHost = lazy(() =>
+  import('../finance/AdminGuestFinanceHost').then((m) => ({
+    default: m.AdminGuestFinanceHost,
+  }))
+);
+const AdminFinancialOverviewHost = lazy(() =>
+  import('../operations/AdminFinancialOverviewHost').then((m) => ({
+    default: m.AdminFinancialOverviewHost,
+  }))
+);
+const AdminPlannerBoard = lazy(() =>
+  import('../operations/AdminPlannerBoard').then((m) => ({
+    default: m.AdminPlannerBoard,
+  }))
+);
+const AdminActiveBookingMonitor = lazy(() =>
+  import('../operations/AdminActiveBookingMonitor').then((m) => ({
+    default: m.AdminActiveBookingMonitor,
+  }))
+);
+const AdminPeopleSection = lazy(() =>
+  import('../people/AdminPeopleSection').then((m) => ({
+    default: m.AdminPeopleSection,
   }))
 );
 const AdminSystemSettings = lazy(() =>
@@ -135,17 +170,54 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <Suspense fallback={<SectionLoadingFallback label={t('financialOverview')} />}>
+        <AdminFinancialOverviewHost instructorsCount={instructors.length} />
+      </Suspense>
+
       <AdminTabNav activeTab={activeTab} onChange={setActiveTab} />
 
       {activeTab === 'operations' && (
         <div className="space-y-6">
+          <Suspense fallback={<SectionLoadingFallback label={t('scheduleBoardTitle')} />}>
+            <AdminCollapsibleSection
+              id="admin_planner"
+              title={t('scheduleBoardTitle')}
+              subtitle={t('scheduleBoardSub')}
+              icon={CalendarDays}
+              defaultOpen
+            >
+              <AdminPlannerBoard
+                adminProfile={currentUserProfile}
+                usersList={usersList}
+                fallbackInstructors={instructors}
+              />
+            </AdminCollapsibleSection>
+          </Suspense>
+
+          <Suspense fallback={<SectionLoadingFallback label={t('bookingsLogTitle')} />}>
+            <AdminCollapsibleSection
+              id="admin_booking_monitor"
+              title={t('bookingsLogTitle')}
+              subtitle={t('bookingsLogSub')}
+              icon={BookOpen}
+              defaultOpen
+            >
+              <AdminActiveBookingMonitor
+                adminAccountId={currentUserProfile.uid}
+                usersList={usersList}
+                instructors={instructors}
+                onRequestConfirm={onRequestConfirm}
+              />
+            </AdminCollapsibleSection>
+          </Suspense>
+
           <Suspense fallback={<SectionLoadingFallback label={t('adminIssueInboxTitle')} />}>
             <AdminCollapsibleSection
               id="admin_issue_inbox"
               title={t('adminIssueInboxTitle')}
               subtitle={t('adminIssueInboxSub')}
               icon={ShieldAlert}
-              defaultOpen
+              defaultOpen={false}
             >
               <AdminIssueCenter />
             </AdminCollapsibleSection>
@@ -157,7 +229,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               title={t('adminLessonBookingsTitle')}
               subtitle={t('adminLessonBookingsSub')}
               icon={BookOpen}
-              defaultOpen
+              defaultOpen={false}
             >
               <AdminLessonBookingPanel
                 adminAccountId={currentUserProfile.uid}
@@ -169,13 +241,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </AdminCollapsibleSection>
           </Suspense>
 
-          <Suspense fallback={<SectionLoadingFallback label="Canonical course enrollments" />}>
+          <Suspense fallback={<SectionLoadingFallback label={t('adminCourseEnrollmentsTitle')} />}>
             <AdminCollapsibleSection
               id="canonical_course_enrollments"
-              title="Canonical course enrollments"
-              subtitle="Server-authorized roster and lifecycle operations"
+              title={t('adminCourseEnrollmentsTitle')}
+              subtitle={t('adminCourseEnrollmentsSub')}
               icon={BookOpen}
-              defaultOpen
+              defaultOpen={false}
+              forceOpen={Boolean(searchParams.get(ADMIN_COURSE_ENROLLMENT_QUERY_KEY))}
             >
               <AdminCourseEnrollmentPanel adminAccountId={currentUserProfile.uid} />
             </AdminCollapsibleSection>
@@ -185,13 +258,54 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {activeTab === 'finance' && (
         <div className="space-y-6">
+          <Suspense fallback={<SectionLoadingFallback label={t('guestWalletPanelTitle')} />}>
+            <AdminCollapsibleSection
+              id="guest_wallet"
+              title={t('guestWalletPanelTitle')}
+              subtitle={t('guestWalletPanelSub')}
+              icon={Wallet}
+              defaultOpen
+            >
+              <GuestWalletPanel />
+            </AdminCollapsibleSection>
+          </Suspense>
+
+          <Suspense fallback={<SectionLoadingFallback label={t('canonicalGuestFinanceTitle')} />}>
+            <AdminCollapsibleSection
+              id="canonical_guest_finance"
+              title={t('canonicalGuestFinanceTitle')}
+              subtitle={t('canonicalGuestFinanceHint')}
+              icon={Wallet}
+              defaultOpen
+            >
+              <AdminGuestFinanceHost
+                adminAccountId={currentUserProfile.uid}
+                accounts={usersList}
+                onRequestConfirm={onRequestConfirm}
+              />
+            </AdminCollapsibleSection>
+          </Suspense>
+
+          <Suspense fallback={<SectionLoadingFallback label={t('cashFlowTitle')} />}>
+            <AdminCollapsibleSection
+              id="canonical_school_movement"
+              title={t('cashFlowTitle')}
+              subtitle={t('cashFlowSub')}
+              icon={Wallet}
+              defaultOpen
+              forceOpen={Boolean(searchParams.get(ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY))}
+            >
+              <CanonicalSchoolMovementPanel />
+            </AdminCollapsibleSection>
+          </Suspense>
+
           <Suspense fallback={<SectionLoadingFallback label={t('adminFinanceCanonicalTitle')} />}>
             <AdminCollapsibleSection
               id="canonical_finance"
               title={t('adminFinanceCanonicalTitle')}
               subtitle={t('adminFinanceCanonicalSub')}
               icon={Wallet}
-              defaultOpen
+              defaultOpen={false}
             >
               <CanonicalFinancePanel
                 adminAccountId={currentUserProfile.uid}
@@ -207,11 +321,71 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <div className="space-y-6">
           <Suspense fallback={<SectionLoadingFallback label={t('clientsManagerTitle')} />}>
             <AdminCollapsibleSection
-              id="canonical_identity"
+              id="admin_clients"
               title={t('clientsManagerTitle')}
               subtitle={t('clientsManagerSub')}
-              icon={UserCheck}
+              icon={Users}
               defaultOpen
+            >
+              <AdminPeopleSection
+                adminAccountId={currentUserProfile.uid}
+                currentUserProfile={currentUserProfile}
+                storeUsers={usersList}
+                storeInstructors={instructors}
+                bookings={rawBookings}
+                onRequestConfirm={onRequestConfirm}
+                surface="clients"
+              />
+            </AdminCollapsibleSection>
+          </Suspense>
+
+          <Suspense fallback={<SectionLoadingFallback label={t('coachesDirectoryTitle')} />}>
+            <AdminCollapsibleSection
+              id="admin_instructors"
+              title={t('coachesDirectoryTitle')}
+              subtitle={t('coachesDirectorySub')}
+              icon={Users}
+              defaultOpen
+            >
+              <AdminPeopleSection
+                adminAccountId={currentUserProfile.uid}
+                currentUserProfile={currentUserProfile}
+                storeUsers={usersList}
+                storeInstructors={instructors}
+                bookings={rawBookings}
+                onRequestConfirm={onRequestConfirm}
+                surface="instructors"
+              />
+            </AdminCollapsibleSection>
+          </Suspense>
+
+          <Suspense fallback={<SectionLoadingFallback label={t('adminRoleManagementTitle')} />}>
+            <AdminCollapsibleSection
+              id="admin_roles"
+              title={t('adminRoleManagementTitle')}
+              subtitle={t('adminRoleManagementSub')}
+              icon={Shield}
+              defaultOpen
+            >
+              <AdminPeopleSection
+                adminAccountId={currentUserProfile.uid}
+                currentUserProfile={currentUserProfile}
+                storeUsers={usersList}
+                storeInstructors={instructors}
+                bookings={rawBookings}
+                onRequestConfirm={onRequestConfirm}
+                surface="admins"
+              />
+            </AdminCollapsibleSection>
+          </Suspense>
+
+          <Suspense fallback={<SectionLoadingFallback label={t('canonicalIdentityTitle')} />}>
+            <AdminCollapsibleSection
+              id="canonical_identity"
+              title={t('canonicalIdentityTitle')}
+              subtitle={t('canonicalIdentitySub')}
+              icon={UserCheck}
+              defaultOpen={false}
             >
               <CanonicalIdentityManager adminAccountId={currentUserProfile.uid} />
             </AdminCollapsibleSection>

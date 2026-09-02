@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IdempotencyKeySchema } from '../commands/commandContext';
 import { CourseCatalogContentSchema } from '../courseCatalogContent';
 import {
   CourseDaySchema,
@@ -86,6 +87,7 @@ const AdminCourseListInputSchema = z
   .object({
     scope: z.literal('admin_course_list'),
     pageSize: z.number().int().positive().max(ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX).optional(),
+    idempotencyKey: IdempotencyKeySchema.optional(),
   })
   .strict();
 
@@ -93,6 +95,7 @@ const AdminCourseDetailInputSchema = z
   .object({
     scope: z.literal('admin_course_detail'),
     courseId: CourseIdSchema,
+    idempotencyKey: IdempotencyKeySchema.optional(),
   })
   .strict();
 

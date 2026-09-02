@@ -23,6 +23,8 @@ interface CourseTableRowProps {
   onDelete: (course: Course) => void;
   onClone: (course: Course) => void;
   onMove: (course: Course, direction: 'up' | 'down') => void;
+  enrolledNames?: readonly string[];
+  archiveInsteadOfDelete?: boolean;
 }
 
 export const CourseTableRow: React.FC<CourseTableRowProps> = ({
@@ -39,20 +41,27 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
   onDelete,
   onClone,
   onMove,
+  enrolledNames: enrolledNamesOverride,
+  archiveInsteadOfDelete = false,
 }) => {
   const translatedCourse = translateCourse(course, language);
 
   const levelClass = getCourseLevelBadgeClass(course.level);
 
   const courseBookings = bookings.filter(
-    (b) => b.instructorId === `course_${course.id}` && b.status !== 'cancelled' && !b.isDeleted
+    (b) =>
+      (b.instructorId === `course_${course.id}` || b.courseId === course.id) &&
+      b.status !== 'cancelled' &&
+      !b.isDeleted
   );
-  const enrolledNames = courseBookings
-    .map((b) => {
-      const u = usersList.find((usr) => usr.uid === b.userId);
-      return u?.displayName || u?.email || b.userId;
-    })
-    .filter(Boolean);
+  const enrolledNames =
+    enrolledNamesOverride ??
+    courseBookings
+      .map((b) => {
+        const u = usersList.find((usr) => usr.uid === b.userId);
+        return u?.displayName || u?.email || b.guestName || b.userId;
+      })
+      .filter(Boolean);
 
   return (
     <tr className="hover:bg-black/5 dark:hover:bg-white/5 transition">
@@ -129,10 +138,14 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
         )}
       </td>
       <td className="px-4 py-2 text-[var(--ink)] font-bold">
-        <div>${course.price}</div>
-        {course.priceKZT ? (
+        {course.priceKZT != null ? (
+          <div className="font-mono">{course.priceKZT.toLocaleString()} ₸</div>
+        ) : (
+          <div>${course.price}</div>
+        )}
+        {course.priceKZT != null && course.price > 0 ? (
           <div className="text-[10px] text-[var(--ink-dim)] font-normal font-mono">
-            {course.priceKZT.toLocaleString()} ₸
+            ${course.price}
           </div>
         ) : null}
       </td>
@@ -194,7 +207,7 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
           <button
             onClick={() => onDelete(course)}
             className="p-1.5 text-rose-500 hover:text-rose-600 hover:border-rose-500/30 border border-transparent rounded-none transition cursor-pointer"
-            title={t('deleteCourse')}
+            title={archiveInsteadOfDelete ? t('archiveCourse') : t('deleteCourse')}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>

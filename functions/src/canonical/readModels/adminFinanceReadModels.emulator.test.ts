@@ -123,4 +123,38 @@ describeEmulator('Admin finance read models', () => {
     expect(second.item.events.map((event) => event.amount)).toEqual([10_000]);
     expect(second.item.hasMore).toBe(false);
   });
+
+  it('aggregates period net revenue from MonetaryEvent settlement and refunds', async () => {
+    const commandId = 'command_admin_finance_emulator_overview';
+    const at = timestampFromDate(new Date('2026-08-10T12:00:00.000Z'));
+    const event = MonetaryEventSchema.parse({
+      eventId: monetaryEventIdFromCommandEffect(commandId, 0),
+      eventKind: 'booking_charge',
+      currency: 'KZT',
+      paymentId: 'payment_admin_finance_emulator_01',
+      subjectType: 'booking',
+      subjectId: 'booking_admin_finance_emulator_01',
+      paymentEffect: { settledAmountDelta: 45_000, paidAmountDelta: 45_000 },
+      sourceKind: 'wallet',
+      actor: { kind: 'account', accountId },
+      commandId,
+      correlationId,
+      paymentEventRevision: 1,
+      occurredAt: at,
+      recordedAt: at,
+    });
+    await firestore.collection('monetary_events').doc(event.eventId).set(event);
+
+    const result = await queryAdminFinanceReadModels(firestore, actor, {
+      scope: 'admin_financial_overview',
+      period: 'month',
+      localDate: '2026-08-15',
+      timeZone: 'UTC',
+    });
+    expect(result.scope).toBe('admin_financial_overview');
+    if (result.scope !== 'admin_financial_overview') return;
+    expect(result.item.netSettledKzt).toBe(45_000);
+    expect(result.item.settledRevenueKzt).toBe(45_000);
+    expect(result.item.refundedKzt).toBe(0);
+  });
 });

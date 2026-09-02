@@ -46,7 +46,8 @@ function accountContext(
     exercisedCapability: capability,
     idempotencyKey,
     correlationId,
-    source: capability === 'administrator' ? ('admin_callable' as const) : ('client_callable' as const),
+    source:
+      capability === 'administrator' ? ('admin_callable' as const) : ('client_callable' as const),
     calendarInput: {
       localDate: '2026-01-15',
       localTime: '09:00',
@@ -181,7 +182,9 @@ describe('create_confirmed_booking command', () => {
       bookedBy: { kind: 'account', accountId },
     });
     expect(booking?.lifecycle).toEqual({ status: 'confirmed' });
-    expect(booking?.occurrence?.occurrenceId).toBe(initialBookingOccurrenceIdFromBookingId(bookingId));
+    expect(booking?.occurrence?.occurrenceId).toBe(
+      initialBookingOccurrenceIdFromBookingId(bookingId)
+    );
     expect(snapshot.docs.has(`payments/${paymentId}`)).toBe(true);
     expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(38_000);
     expect(
@@ -189,9 +192,9 @@ describe('create_confirmed_booking command', () => {
     ).toBe(2);
 
     const identity = resolveCommandIdempotencyIdentity(envelope);
-    expect(snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)).toBe(
-      true
-    );
+    expect(
+      snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
+    ).toBe(true);
     expect(
       snapshot.docs.has(
         `monetary_events/${monetaryEventIdFromCommandEffect(identity.commandKey, 0)}`
@@ -275,9 +278,38 @@ describe('create_confirmed_booking command', () => {
     const payment = executor.snapshot().docs.get(`payments/${paymentId}`)?.data;
     expect(payment?.outstandingAmount).toBeGreaterThan(0);
     expect(payment?.paymentStatus).toBe('partially_paid');
-    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.attribution.bookingOrigin).toBe(
-      'admin'
+    expect(
+      executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.attribution.bookingOrigin
+    ).toBe('admin');
+  });
+
+  it('allows admin creation with a zero wallet without staging zero-value funding', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        [`users/${accountId}/wallet/state`]: seedWallet(0),
+      })
     );
+    const envelope = createEnvelope({
+      context: accountContext('administrator', adminAccountId, 'booking-admin-zero-wallet'),
+      intent: {
+        bookingId,
+        instructorId,
+        participantIds: [participantId],
+        reasonExplanation: 'Approved admin booking with an unpaid balance',
+      },
+    });
+
+    const result = await runCommand(executor, envelope);
+
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    const payment = snapshot.docs.get(`payments/${paymentId}`)?.data;
+    expect(payment?.paidAmount).toBe(0);
+    expect(payment?.outstandingAmount).toBe(12_000);
+    expect(payment?.paymentStatus).toBe('unpaid');
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('monetary_events/'))
+    ).toHaveLength(0);
   });
 
   it('replays the same idempotency key without duplicate writes', async () => {
@@ -293,7 +325,8 @@ describe('create_confirmed_booking command', () => {
       [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('bookings/')).length
     ).toBe(1);
     expect(
-      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/')).length
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/'))
+        .length
     ).toBe(1);
   });
 });

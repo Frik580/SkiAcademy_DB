@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronDown, ChevronUp, LucideIcon, Eye, EyeOff } from 'lucide-react';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
@@ -9,6 +9,7 @@ interface AdminCollapsibleSectionProps {
   subtitle?: string;
   icon?: LucideIcon;
   defaultOpen?: boolean;
+  forceOpen?: boolean;
   headerActions?: React.ReactNode;
   badge?: string | number;
   children: React.ReactNode;
@@ -21,6 +22,7 @@ export const AdminCollapsibleSection: React.FC<AdminCollapsibleSectionProps> = (
   subtitle,
   icon: Icon,
   defaultOpen = true,
+  forceOpen = false,
   headerActions,
   badge,
   children,
@@ -35,6 +37,10 @@ export const AdminCollapsibleSection: React.FC<AdminCollapsibleSectionProps> = (
       return defaultOpen;
     }
   });
+
+  useEffect(() => {
+    if (forceOpen) setIsOpen(true);
+  }, [forceOpen]);
 
   const toggleOpen = () => {
     setIsOpen((prev) => {

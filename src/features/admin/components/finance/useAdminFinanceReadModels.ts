@@ -7,6 +7,10 @@ import type {
   AdminPaymentView,
   AdminWalletView,
 } from './financeContracts';
+import type {
+  AdminFinancialOverviewPeriod,
+  AdminFinancialOverviewReadModel,
+} from '@ski-academy/shared-domain';
 
 export type AdminFinanceReadErrorCode = 'permission-denied' | 'read-failed';
 
@@ -165,4 +169,49 @@ export function useAdminPaymentReadModel(paymentId: AdminFinancePaymentId | unde
         ? load(state.item.nextCursor, true)
         : Promise.resolve(),
   };
+}
+
+export function useAdminFinancialOverviewReadModel(input: {
+  readonly period: AdminFinancialOverviewPeriod;
+  readonly localDate: string;
+  readonly timeZone: string;
+}) {
+  const generationRef = useRef(0);
+  const [state, setState] = useState<ReadState<AdminFinancialOverviewReadModel>>({
+    loading: false,
+    loadingMore: false,
+  });
+
+  const load = useCallback(async () => {
+    const generation = ++generationRef.current;
+    setState({ loading: true, loadingMore: false });
+    try {
+      const result = await queryAdminFinanceReadModels({
+        scope: 'admin_financial_overview',
+        period: input.period,
+        localDate: input.localDate,
+        timeZone: input.timeZone,
+      });
+      if (generationRef.current !== generation || result.scope !== 'admin_financial_overview') {
+        return;
+      }
+      setState({ item: result.item, loading: false, loadingMore: false });
+    } catch (error) {
+      if (generationRef.current !== generation) return;
+      setState({
+        loading: false,
+        loadingMore: false,
+        error: classifyAdminFinanceReadError(error),
+      });
+    }
+  }, [input.localDate, input.period, input.timeZone]);
+
+  useEffect(() => {
+    void load();
+    return () => {
+      generationRef.current += 1;
+    };
+  }, [load]);
+
+  return { ...state, refetch: () => load() };
 }

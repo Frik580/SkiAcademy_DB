@@ -96,9 +96,9 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
         };
 
     try {
-      // Логика для создания/обновления инструктора при изменении статуса
+      if (!editingClient && !onAddUser) return;
+
       if (isNowInstructor && !wasInstructor) {
-        // Статус инструктора был только что присвоен
         const exists = instructors.some((ins) => ins.id === finalInstructorId);
         if (!exists) {
           const newIns: Instructor = {
@@ -129,7 +129,6 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
           }
         }
       } else if (wasInstructor && !isNowInstructor) {
-        // Статус инструктора был снят, делаем его неактивным
         const existingIns = instructors.find((ins) => ins.id === oldInstructorId);
         if (existingIns) {
           await onUpdateInstructor({ ...existingIns, isAvailable: false });
@@ -141,13 +140,10 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
           await onUpdateUser(clientData);
         }
         setEditingClient(null);
-      } else {
-        if (onAddUser) {
-          await onAddUser(clientData);
-        }
+      } else if (onAddUser) {
+        await onAddUser(clientData);
       }
 
-      // Reset fields
       setClientName('');
       setClientEmail('');
       setClientPhone('');
@@ -174,33 +170,35 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
 
   return (
     <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
-      <div className="flex items-center justify-end border-b border-[var(--border)] pb-3">
-        <button
-          onClick={() => {
-            setEditingClient(null);
-            setClientName('');
-            setClientEmail('');
-            setClientPhone('');
-            setClientRole('user');
-            setClientIsActive(true);
-            setClientIsInstructor(false);
-            setShowClientAddForm(!showClientAddForm);
-          }}
-          className="py-1.5 px-3 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 rounded-none text-xs flex items-center gap-1 transition cursor-pointer font-mono"
-        >
-          {showClientAddForm && !editingClient ? (
-            <>
-              <X className="w-4 h-4" />
-              {t('closeForm')}
-            </>
-          ) : (
-            <>
-              <Plus className="w-4 h-4" />
-              {t('registerNewClient')}
-            </>
-          )}
-        </button>
-      </div>
+      {onAddUser ? (
+        <div className="flex items-center justify-end border-b border-[var(--border)] pb-3">
+          <button
+            onClick={() => {
+              setEditingClient(null);
+              setClientName('');
+              setClientEmail('');
+              setClientPhone('');
+              setClientRole('user');
+              setClientIsActive(true);
+              setClientIsInstructor(false);
+              setShowClientAddForm(!showClientAddForm);
+            }}
+            className="py-1.5 px-3 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 rounded-none text-xs flex items-center gap-1 transition cursor-pointer font-mono"
+          >
+            {showClientAddForm && !editingClient ? (
+              <>
+                <X className="w-4 h-4" />
+                {t('closeForm')}
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" />
+                {t('registerNewClient')}
+              </>
+            )}
+          </button>
+        </div>
+      ) : null}
 
       <div className="grid lg:grid-cols-12 gap-6 w-full min-w-0 overflow-hidden">
         {/* Left Column: Client Directory */}
@@ -498,7 +496,7 @@ export const ClientsManager: React.FC<ClientsManagerProps> = ({
                   checked={clientIsActive}
                   activeColor="bg-emerald-600"
                   onChange={(checked) => setClientIsActive(checked)}
-                  label={t('cabinetAccessEnabled')}
+                  label={t('accountActivateDeactivate')}
                 />
               </div>
 

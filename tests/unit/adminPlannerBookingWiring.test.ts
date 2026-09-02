@@ -1,10 +1,14 @@
+import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
 
 describe('admin interactive planner wiring', () => {
-  const modalSource = readFileSync(
-    join(process.cwd(), 'src/features/admin/components/schedule/ScheduleSlotActionModal.tsx'),
+  const boardSource = readFileSync(
+    join(process.cwd(), 'src/features/admin/operations/AdminPlannerBoard.tsx'),
+    'utf8'
+  );
+  const commandsSource = readFileSync(
+    join(process.cwd(), 'src/features/admin/operations/adminPlannerCommands.ts'),
     'utf8'
   );
   const adminRouteSource = readFileSync(
@@ -15,6 +19,10 @@ describe('admin interactive planner wiring', () => {
     join(process.cwd(), 'src/features/admin/useAdminActions.ts'),
     'utf8'
   );
+  const adminPanelSource = readFileSync(
+    join(process.cwd(), 'src/features/admin/components/AdminPanel.tsx'),
+    'utf8'
+  );
 
   it('removes legacy planner creation from the active admin route', () => {
     expect(adminRouteSource).not.toContain('onAddBooking');
@@ -22,13 +30,11 @@ describe('admin interactive planner wiring', () => {
     expect(adminActionsSource).not.toContain('handleAddBooking');
   });
 
-  it('leaves the inactive legacy modal implementation isolated', () => {
-    expect(modalSource).toContain("userId: 'system_block_break'");
-    expect(modalSource).toContain("userId: 'system_block_day_off'");
-    expect(modalSource).toContain("time: '08:00'");
-    expect(modalSource).toContain('durationHours: 11');
-    expect(modalSource).toContain('userId: selectedClientUid');
-    expect(modalSource).toContain('await onAddBooking(newBlock)');
-    expect(modalSource).toContain('await onAddBooking(newBooking)');
+  it('remounts the planner and routes slot actions to canonical commands', () => {
+    expect(adminPanelSource).toContain('AdminPlannerBoard');
+    expect(boardSource).toContain('createPlannerOccupancyFromLegacyBookingShape');
+    expect(commandsSource).toContain("kind: 'create_administrative_availability_block'");
+    expect(commandsSource).toContain("kind: 'create_confirmed_booking'");
+    expect(commandsSource).not.toContain('addBookingDirect');
   });
 });

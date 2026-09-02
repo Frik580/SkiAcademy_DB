@@ -615,6 +615,7 @@ function updateCourseCatalogContentHandler(
   const contentPath = courseCatalogContentPath(envelope.intent.courseId);
   let course!: Course;
   let currentContent: ReturnType<typeof parseCourseCatalogContent>;
+  let contentDocumentExists = false;
   let nextContentRevision = 1;
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'update_course_catalog_content'> = {
     read: async (session) => {
@@ -628,8 +629,10 @@ function updateCourseCatalogContentHandler(
       if (!parsed) throwConflict(envelope, 'courseId');
       course = parsed;
       await assertAccountExists(session, envelope);
+      contentDocumentExists = contentRead.exists;
       currentContent = parseCourseCatalogContent(
-        contentRead.exists ? contentRead.data : undefined
+        contentRead.exists ? contentRead.data : undefined,
+        envelope.intent.courseId
       );
       const expectedRevision = envelope.context.expectedRevision;
       if (expectedRevision === undefined) {
@@ -654,7 +657,7 @@ function updateCourseCatalogContentHandler(
       }
       session.plan.planMutation({
         path: contentPath,
-        kind: currentContent ? 'update' : 'create',
+        kind: currentContent || contentDocumentExists ? 'update' : 'create',
         category: 'aggregate',
         estimatedPayloadBytes: COURSE_CATALOG_CONTENT_PLANNING_ESTIMATES.catalogContentBytes,
       });
@@ -668,15 +671,16 @@ function updateCourseCatalogContentHandler(
         ...envelope.intent.content,
       });
       const payload = toFirestoreWritePayload(content as unknown as Record<string, unknown>);
-      if (currentContent) {
-        for (const key of Object.keys(currentContent)) {
-          if (key !== 'courseId' && key !== 'revision' && !(key in payload)) {
-            payload[key] = CANONICAL_FIELD_DELETE;
+      if (currentContent || contentDocumentExists) {
+        if (currentContent) {
+          for (const key of Object.keys(currentContent)) {
+            if (key !== 'courseId' && key !== 'revision' && !(key in payload)) {
+              payload[key] = CANONICAL_FIELD_DELETE;
+            }
           }
         }
         session.tx.update({ path: contentPath }, payload);
-      }
-      else session.tx.create({ path: contentPath }, payload);
+      } else session.tx.create({ path: contentPath }, payload);
       return commandSuccessResult('update_course_catalog_content', envelope.context.correlationId);
     },
   };

@@ -1,5 +1,10 @@
 import type { TranslationKey } from '../../lib/i18n/translations';
-import { ADMIN_ISSUE_SEVERITIES, type AdminIssueSeverity } from '@ski-academy/shared-domain';
+import {
+  ADMIN_FINANCIAL_OVERVIEW_PERIODS,
+  ADMIN_ISSUE_SEVERITIES,
+  type AdminFinancialOverviewPeriod,
+  type AdminIssueSeverity,
+} from '@ski-academy/shared-domain';
 
 export const ADMIN_TAB_IDS = ['operations', 'finance', 'people', 'product', 'system'] as const;
 
@@ -13,6 +18,8 @@ export const ADMIN_ISSUE_VIEW_QUERY_KEY = 'issueView';
 export const ADMIN_ISSUE_SEVERITY_QUERY_KEY = 'issueSeverity';
 export const ADMIN_FINANCE_ACCOUNT_QUERY_KEY = 'account';
 export const ADMIN_FINANCE_PAYMENT_QUERY_KEY = 'payment';
+export const ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY = 'movement';
+export const ADMIN_FINANCE_MOVEMENT_PERIOD_QUERY_KEY = 'movementPeriod';
 export const ADMIN_LESSON_BOOKING_QUERY_KEY = 'booking';
 export const ADMIN_LESSON_BOOKING_VIEW_QUERY_KEY = 'bookingView';
 export const ADMIN_COURSE_ENROLLMENT_QUERY_KEY = 'enrollment';
@@ -44,5 +51,14 @@ export function parseAdminIssueSeverity(
 ): AdminIssueSeverity | undefined {
   return value != null && (ADMIN_ISSUE_SEVERITIES as readonly string[]).includes(value)
     ? (value as AdminIssueSeverity)
+    : undefined;
+}
+
+export function parseAdminFinanceMovementPeriod(
+  value: string | null | undefined
+): AdminFinancialOverviewPeriod | undefined {
+  return value != null &&
+    (ADMIN_FINANCIAL_OVERVIEW_PERIODS as readonly string[]).includes(value)
+    ? (value as AdminFinancialOverviewPeriod)
     : undefined;
 }

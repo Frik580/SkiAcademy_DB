@@ -4,6 +4,10 @@ import { parseCourseDates } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { formatDateLocalYMD, hourToMinutes } from './scheduleUtils';
 import { SCHEDULE_TIME_SLOTS } from './scheduleOverlap';
+import {
+  dayViewBookingForSlot,
+  dayViewColSpanForBooking,
+} from './scheduleDayViewPlacement';
 import { ScheduleBookingCell } from './ScheduleBookingCell';
 import type {
   ScheduleBooking,
@@ -191,19 +195,10 @@ export const ScheduleTimetableCells: React.FC<ScheduleTimetableCellsProps> = ({
         </td>
       );
     } else {
-      // Find if a booking starts exactly at this slotTime
-      const b = bookings.find(
-        (book) =>
-          book.instructorId === ins.id &&
-          book.date === selectedDate &&
-          book.status !== 'cancelled' &&
-          !book.isDeleted &&
-          book.time === slotTime
-      );
+      const slotBooking = dayViewBookingForSlot(bookings, ins.id, selectedDate, slotTime, i);
 
-      if (b) {
-        // Determine how many slots it covers
-        const span = Math.min(b.durationHours, SCHEDULE_TIME_SLOTS.length - i);
+      if (slotBooking?.startsHere) {
+        const span = dayViewColSpanForBooking(slotBooking.booking, i);
         skipCount = span - 1;
 
         cells.push(
@@ -213,7 +208,7 @@ export const ScheduleTimetableCells: React.FC<ScheduleTimetableCellsProps> = ({
             className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40"
           >
             <ScheduleBookingCell
-              booking={b}
+              booking={slotBooking.booking}
               instructor={ins}
               usersList={usersList}
               onOpen={onOpenSlot}
@@ -221,67 +216,37 @@ export const ScheduleTimetableCells: React.FC<ScheduleTimetableCellsProps> = ({
             />
           </td>
         );
+      } else if (slotBooking) {
+        continue;
+      } else if (!ins.isAvailable) {
+        cells.push(
+          <td
+            key={slotTime}
+            className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40 text-center bg-slate-50/20 dark:bg-slate-950/5 select-none"
+          >
+            <div
+              className="w-full h-11 border border-slate-100/40 dark:border-slate-800/20 bg-slate-100/30 dark:bg-slate-900/10 rounded-xl flex items-center justify-center text-slate-350 dark:text-slate-650"
+              title={t('instructorUnavailableTitle')}
+            >
+              <Lock className="w-3 h-3 text-slate-300 dark:text-slate-700 opacity-60" />
+            </div>
+          </td>
+        );
       } else {
-        // Check if covered by an ongoing booking
-        const coveringB = bookings.find((book) => {
-          if (
-            book.instructorId !== ins.id ||
-            book.date !== selectedDate ||
-            book.status === 'cancelled' ||
-            book.isDeleted
-          )
-            return false;
-          const bStart = hourToMinutes(book.time);
-          const slotStart = hourToMinutes(slotTime);
-          const bEnd = bStart + book.durationHours * 60;
-          return slotStart >= bStart && slotStart < bEnd;
-        });
-
-        if (coveringB) {
-          cells.push(
-            <td
-              key={slotTime}
-              className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40"
+        cells.push(
+          <td
+            key={slotTime}
+            className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40 text-center"
+          >
+            <button
+              onClick={() => onOpenSlot(ins, slotTime)}
+              className="w-full h-11 border border-dashed border-slate-200/60 dark:border-slate-800/40 hover:border-accent hover:bg-accent-muted rounded-xl transition flex items-center justify-center cursor-pointer group animate-fade-in"
+              title={t('manageSlot')}
             >
-              <ScheduleBookingCell
-                booking={coveringB}
-                instructor={ins}
-                usersList={usersList}
-                onOpen={onOpenSlot}
-                onDelete={onDeleteSlot}
-              />
-            </td>
-          );
-        } else if (!ins.isAvailable) {
-          cells.push(
-            <td
-              key={slotTime}
-              className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40 text-center bg-slate-50/20 dark:bg-slate-950/5 select-none"
-            >
-              <div
-                className="w-full h-11 border border-slate-100/40 dark:border-slate-800/20 bg-slate-100/30 dark:bg-slate-900/10 rounded-xl flex items-center justify-center text-slate-350 dark:text-slate-650"
-                title={t('instructorUnavailableTitle')}
-              >
-                <Lock className="w-3 h-3 text-slate-300 dark:text-slate-700 opacity-60" />
-              </div>
-            </td>
-          );
-        } else {
-          cells.push(
-            <td
-              key={slotTime}
-              className="p-1 align-middle border-r border-slate-200/50 dark:border-slate-800/40 text-center"
-            >
-              <button
-                onClick={() => onOpenSlot(ins, slotTime)}
-                className="w-full h-11 border border-dashed border-slate-200/60 dark:border-slate-800/40 hover:border-accent hover:bg-accent-muted rounded-xl transition flex items-center justify-center cursor-pointer group animate-fade-in"
-                title={t('manageSlot')}
-              >
-                <Plus className="w-3.5 h-3.5 text-slate-300 dark:text-slate-700 group-hover:text-accent transition duration-200" />
-              </button>
-            </td>
-          );
-        }
+              <Plus className="w-3.5 h-3.5 text-slate-300 dark:text-slate-700 group-hover:text-accent transition duration-200" />
+            </button>
+          </td>
+        );
       }
     }
   }

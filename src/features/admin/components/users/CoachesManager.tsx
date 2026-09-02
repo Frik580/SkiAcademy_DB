@@ -10,6 +10,7 @@ import {
   Camera,
 } from 'lucide-react';
 import { Booking, Instructor } from '../../../../types';
+import { bookingsBlockingInstructorDeactivation } from '../../people/adminPeopleOccupancy';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { getSpecialtyLabel } from '../schedule/scheduleUtils';
@@ -19,6 +20,7 @@ import { logger } from '../../../../shared';
 interface CoachesManagerProps {
   instructors: Instructor[];
   bookings: Booking[];
+  occupancyTruncated?: boolean;
   onAddInstructor: (ins: Instructor) => Promise<void>;
   onUpdateInstructor: (ins: Instructor) => Promise<void>;
   onDeleteInstructor: (id: string) => Promise<void>;
@@ -28,6 +30,7 @@ interface CoachesManagerProps {
 export const CoachesManager: React.FC<CoachesManagerProps> = ({
   instructors,
   bookings,
+  occupancyTruncated = false,
   onAddInstructor,
   onUpdateInstructor,
   onDeleteInstructor,
@@ -243,9 +246,7 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
 
   const handleToggleAvailability = async (ins: Instructor) => {
     if (ins.isAvailable) {
-      const activeBookings = bookings.filter(
-        (b) => b.instructorId === ins.id && (b.status === 'pending' || b.status === 'confirmed')
-      );
+      const activeBookings = bookingsBlockingInstructorDeactivation(bookings, ins.id);
       if (activeBookings.length > 0) {
         const bookingsListStr = activeBookings
           .map((b) => `• ${b.date} @ ${b.time} (${b.durationHours}h)`)
@@ -276,6 +277,23 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
   };
 
   const handleDeleteCoach = (ins: Instructor) => {
+    const blocking = bookingsBlockingInstructorDeactivation(bookings, ins.id);
+    if (blocking.length > 0) {
+      const bookingsListStr = blocking
+        .map((b) => `• ${b.date} @ ${b.time} (${b.durationHours}h)`)
+        .join('\n');
+      const bookingsListStrRu = blocking
+        .map((b) => `• ${b.date} в ${b.time} (${b.durationHours} ч.)`)
+        .join('\n');
+      addNotification(
+        'error',
+        t('cannotMakeUnavailable'),
+        language === 'en'
+          ? `${t('instructorActiveEnPrefix')} ${ins.name} ${t('instructorActiveEnMid')} ${blocking.length} ${t('instructorActiveEnSuffix')}\n\n${bookingsListStr}`
+          : `${t('instructorActiveRuPrefix')} ${ins.name} ${t('instructorActiveRuMid')} (${blocking.length} шт.). ${t('instructorActiveRuRest')}\n\n${bookingsListStrRu}`
+      );
+      return;
+    }
     const confirmMsg = `${t('deleteInstructorConfirmPrefix')} ${ins.name} ${t('deleteInstructorConfirmSuffix')}`;
 
     onRequestConfirm(confirmMsg, async () => {
@@ -293,6 +311,12 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
   };
 
   return (
+    <div className="space-y-3 w-full min-w-0 overflow-hidden">
+      {occupancyTruncated ? (
+        <p className="text-xs font-mono text-amber-600 dark:text-amber-400">
+          {t('plannerOccupancyTruncated')}
+        </p>
+      ) : null}
     <div className="grid lg:grid-cols-12 gap-6 w-full min-w-0 overflow-hidden">
       {/* Instructors Management Table */}
       <div
@@ -633,6 +657,7 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
           </form>
         </div>
       )}
+    </div>
     </div>
   );
 };

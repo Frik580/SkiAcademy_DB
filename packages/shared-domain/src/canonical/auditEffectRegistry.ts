@@ -213,6 +213,12 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
   reschedule_course_day: ['resource_claim_changed', 'outbox_obligation_created'],
   remove_course_day: ['resource_claim_changed', 'outbox_obligation_created'],
   update_course_catalog_content: ['outbox_obligation_created'],
+  create_administrative_availability_block: ['resource_claim_changed', 'outbox_obligation_created'],
+  reschedule_administrative_availability_block: [
+    'resource_claim_changed',
+    'outbox_obligation_created',
+  ],
+  release_administrative_availability_block: ['resource_claim_changed', 'outbox_obligation_created'],
   create_course_enrollments: [
     'course_enrollment_lifecycle_changed',
     'payment_state_changed',

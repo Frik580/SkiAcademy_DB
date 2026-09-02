@@ -124,9 +124,29 @@ function seed() {
 }
 
 describe('Admin Course read-model callable', () => {
+  it('accepts transport-injected idempotencyKey from canonical read-model client', async () => {
+    const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(seed()));
+    await expect(
+      handler({
+        auth: { uid: adminId },
+        data: {
+          scope: 'admin_course_list',
+          pageSize: 50,
+          idempotencyKey: 'read:admin_course:admin_course_list:list',
+        },
+      } as never)
+    ).resolves.toMatchObject({ scope: 'admin_course_list' });
+  });
+
   it('returns list and detail projections only after server Admin authorization', async () => {
     const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(seed()));
-    const list = await handler({ auth: { uid: adminId }, data: { scope: 'admin_course_list' } } as never);
+    const list = await handler({
+      auth: { uid: adminId },
+      data: {
+        scope: 'admin_course_list',
+        idempotencyKey: 'read:admin_course:admin_course_list:list',
+      },
+    } as never);
     expect(list.scope).toBe('admin_course_list');
     if (list.scope === 'admin_course_list') {
       expect(list.items).toHaveLength(1);
@@ -138,7 +158,14 @@ describe('Admin Course read-model callable', () => {
         catalogContent: { status: 'present' },
       });
     }
-    const detail = await handler({ auth: { uid: adminId }, data: { scope: 'admin_course_detail', courseId } } as never);
+    const detail = await handler({
+      auth: { uid: adminId },
+      data: {
+        scope: 'admin_course_detail',
+        courseId,
+        idempotencyKey: `read:admin_course:admin_course_detail:${courseId}`,
+      },
+    } as never);
     expect(detail.scope).toBe('admin_course_detail');
     if (detail.scope === 'admin_course_detail') expect(detail.item?.instructors[0]?.name).toBe('Safe Coach');
   });
@@ -146,5 +173,54 @@ describe('Admin Course read-model callable', () => {
   it('denies non-admin callers', async () => {
     const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(seed()));
     await expect(handler({ auth: { uid: userId }, data: { scope: 'admin_course_list' } } as never)).rejects.toMatchObject({ code: 'permission-denied' });
+  });
+
+  it('keeps list readable when instructor presentation exceeds read-model bounds', async () => {
+    const data = seed();
+    data[`instructors/${instructorId}`] = {
+      id: instructorId,
+      name: 'X'.repeat(201),
+      pricePerHourKZT: 12_000,
+      isAvailable: true,
+    };
+    const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(data));
+    const list = await handler({
+      auth: { uid: adminId },
+      data: {
+        scope: 'admin_course_list',
+        pageSize: 50,
+        idempotencyKey: 'read:admin_course:admin_course_list:list',
+      },
+    } as never);
+    expect(list.scope).toBe('admin_course_list');
+    if (list.scope === 'admin_course_list') {
+      expect(list.items).toHaveLength(1);
+      expect(list.items[0]?.instructors).toEqual([]);
+      expect(list.items[0]?.instructorRosterIds).toEqual([instructorId]);
+    }
+  });
+
+  it('accepts legacy catalog content without embedded courseId using document identity', async () => {
+    const data = seed();
+    data[`course_catalog_content/${courseId}`] = {
+      duration: 'One day',
+      description: 'Presentation content',
+      dates: '1 December',
+      bgImageUrl: 'https://example.com/course.webp',
+    };
+    const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(data));
+    const list = await handler({
+      auth: { uid: adminId },
+      data: {
+        scope: 'admin_course_list',
+        idempotencyKey: 'read:admin_course:admin_course_list:list',
+      },
+    } as never);
+    if (list.scope === 'admin_course_list') {
+      expect(list.items[0]?.catalogContent).toMatchObject({
+        status: 'present',
+        content: { courseId, description: 'Presentation content' },
+      });
+    }
   });
 });

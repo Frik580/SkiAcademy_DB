@@ -65,6 +65,12 @@ export type AdminIdentityAttempt =
       readonly instructorId: InstructorId;
       readonly name?: string;
       readonly pricePerHourKZT?: number;
+      readonly specialty?: 'ski' | 'snowboard' | 'both';
+      readonly languages?: readonly string[];
+      readonly experienceYears?: number;
+      readonly bio?: string;
+      readonly avatarUrl?: string;
+      readonly phoneNumber?: string;
     })
   | (AdminIdentityCommandBase & {
       readonly kind: 'link_account_instructor_catalog' | 'unlink_account_instructor_catalog';

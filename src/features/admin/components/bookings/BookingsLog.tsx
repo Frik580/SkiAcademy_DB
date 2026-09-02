@@ -8,6 +8,12 @@ import { formatBookingCreatedAt } from '../../../../domain/booking';
 import { StatusBadge } from '../../../../ui/StatusBadge';
 import { LinkGuestBookingModal } from './LinkGuestBookingModal';
 import { ApplePagination } from '../../../../ui/ApplePagination';
+import {
+  filterAdminBookingMonitorRows,
+  type AdminBookingMonitorSort,
+  type AdminBookingMonitorStatusFilter,
+  type AdminBookingMonitorTypeFilter,
+} from '../../operations/adminBookingMonitorFilters';
 
 const shortenBookingId = (id: string): string => (id.length > 12 ? `${id.slice(0, 10)}…` : id);
 
@@ -22,6 +28,8 @@ interface BookingsLogProps {
   onRequestConfirm: (message: string, onConfirm: () => void | Promise<void>) => void;
   hasMoreBookings?: boolean;
   onLoadMoreBookings?: () => void;
+  hideUnpaidConfirm?: boolean;
+  onOpenEnrollment?: (enrollmentId: string) => void;
 }
 
 export const BookingsLog: React.FC<BookingsLogProps> = ({
@@ -35,21 +43,20 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
   onRequestConfirm,
   hasMoreBookings = false,
   onLoadMoreBookings,
+  hideUnpaidConfirm = false,
+  onOpenEnrollment,
 }) => {
   const { t, language } = useLanguage();
   const { formatPrice } = useCurrency();
 
   const [linkingBooking, setLinkingBooking] = useState<Booking | null>(null);
   const [monitorSearch, setMonitorSearch] = useState('');
-  const [monitorStatusFilter, setMonitorStatusFilter] = useState<
-    'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'pending_cancellation'
-  >('all');
+  const [monitorStatusFilter, setMonitorStatusFilter] =
+    useState<AdminBookingMonitorStatusFilter>('all');
   const [monitorInstructorFilter, setMonitorInstructorFilter] = useState('all');
   const [monitorClientFilter, setMonitorClientFilter] = useState('all');
-  const [monitorTypeFilter, setMonitorTypeFilter] = useState<'all' | 'courses' | 'lessons'>('all');
-  const [monitorSortBy, setMonitorSortBy] = useState<
-    'date_desc' | 'date_asc' | 'client_asc' | 'client_desc'
-  >('date_desc');
+  const [monitorTypeFilter, setMonitorTypeFilter] = useState<AdminBookingMonitorTypeFilter>('all');
+  const [monitorSortBy, setMonitorSortBy] = useState<AdminBookingMonitorSort>('date_desc');
   const [monitorPage, setMonitorPage] = useState(1);
 
   useEffect(() => {
@@ -65,68 +72,15 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
 
   const filteredBookings = useMemo(
     () =>
-      bookings
-        .filter((b) => {
-          if (b.userId?.startsWith('system_block_')) return false;
-          const client = usersList.find((u) => u.uid === b.userId);
-          const clientNameStr = (client?.displayName || '').toLowerCase();
-          const guestNameStr = (b.guestName || '').toLowerCase();
-          const guestPhoneStr = (b.guestPhone || '').toLowerCase();
-          const guestEmailStr = (b.guestEmail || '').toLowerCase();
-          const instructorNameStr = b.instructorName.toLowerCase();
-          const notesStr = (b.notes || '').toLowerCase();
-          const searchLower = monitorSearch.toLowerCase();
-          const matchesSearch =
-            !monitorSearch ||
-            clientNameStr.includes(searchLower) ||
-            guestNameStr.includes(searchLower) ||
-            guestPhoneStr.includes(searchLower) ||
-            guestEmailStr.includes(searchLower) ||
-            instructorNameStr.includes(searchLower) ||
-            notesStr.includes(searchLower) ||
-            b.id.toLowerCase().includes(searchLower);
-
-          const matchesStatus = monitorStatusFilter === 'all' || b.status === monitorStatusFilter;
-          const matchesInstructor =
-            monitorInstructorFilter === 'all' ||
-            b.instructorId === monitorInstructorFilter ||
-            b.instructorName === monitorInstructorFilter;
-          const matchesClient =
-            monitorClientFilter === 'all'
-              ? true
-              : monitorClientFilter === 'guests'
-                ? b.isGuest || b.userId?.startsWith('guest_')
-                : b.userId === monitorClientFilter;
-          const isCourse = isCourseBooking(b);
-          const matchesType =
-            monitorTypeFilter === 'all' ||
-            (monitorTypeFilter === 'courses' && isCourse) ||
-            (monitorTypeFilter === 'lessons' && !isCourse);
-
-          return (
-            matchesSearch && matchesStatus && matchesInstructor && matchesClient && matchesType
-          );
-        })
-        .sort((a, b) => {
-          if (monitorSortBy === 'date_desc') {
-            const dateA = new Date(`${a.date}T${a.time || '00:00'}`);
-            const dateB = new Date(`${b.date}T${b.time || '00:00'}`);
-            return dateB.getTime() - dateA.getTime();
-          } else if (monitorSortBy === 'date_asc') {
-            const dateA = new Date(`${a.date}T${a.time || '00:00'}`);
-            const dateB = new Date(`${b.date}T${b.time || '00:00'}`);
-            return dateA.getTime() - dateB.getTime();
-          } else if (monitorSortBy === 'client_asc') {
-            const clientA = usersList.find((u) => u.uid === a.userId)?.displayName || '';
-            const clientB = usersList.find((u) => u.uid === b.userId)?.displayName || '';
-            return clientA.localeCompare(clientB, language === 'ru' ? 'ru' : 'en');
-          } else if (monitorSortBy === 'client_desc') {
-            const clientA = usersList.find((u) => u.uid === a.userId)?.displayName || '';
-            const clientB = usersList.find((u) => u.uid === b.userId)?.displayName || '';
-            return clientB.localeCompare(clientA, language === 'ru' ? 'ru' : 'en');
-          }
-          return 0;
-        }),
+      filterAdminBookingMonitorRows(bookings, usersList, {
+        search: monitorSearch,
+        status: monitorStatusFilter,
+        instructorId: monitorInstructorFilter,
+        clientId: monitorClientFilter,
+        type: monitorTypeFilter,
+        sortBy: monitorSortBy,
+        language,
+      }),
     [
       bookings,
       usersList,
@@ -444,13 +398,19 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                     <td className="py-3 px-2 text-right font-mono">
                       {b.status === 'pending' && (
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => onConfirmBooking(b.id)}
-                            className="p-1 border border-transparent hover:border-[var(--border)] text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/5 rounded-none transition cursor-pointer"
-                            title="Confirm Booking"
-                          >
-                            <Check className="w-4 h-4" />
-                          </button>
+                          {hideUnpaidConfirm ? (
+                            <span className="text-[9px] font-mono text-amber-700 dark:text-amber-300">
+                              {t('paymentDrivenGuestConfirmation')}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => onConfirmBooking(b.id)}
+                              className="p-1 border border-transparent hover:border-[var(--border)] text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/5 rounded-none transition cursor-pointer"
+                              title="Confirm Booking"
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => onCancelBooking(b.id)}
                             className="p-1 border border-transparent hover:border-[var(--border)] text-rose-600 dark:text-rose-400 hover:bg-rose-500/5 rounded-none transition cursor-pointer"
@@ -488,12 +448,21 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                       )}
                       {b.status === 'confirmed' && (
                         <div className="flex items-center justify-end gap-1.5">
+                          {!isCourseBooking(b) ? (
                           <button
                             onClick={() => onCompleteBooking?.(b.id)}
                             className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
                           >
                             {t('completeBtn')}
                           </button>
+                          ) : onOpenEnrollment ? (
+                          <button
+                            onClick={() => onOpenEnrollment(b.id)}
+                            className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                          >
+                            {t('openEnrollmentAttendance')}
+                          </button>
+                          ) : null}
                           <button
                             onClick={() => onCancelBooking(b.id)}
                             className="px-2 py-0.5 text-[9px] font-bold border border-rose-500/30 hover:border-rose-500 text-rose-500 rounded-none transition cursor-pointer"

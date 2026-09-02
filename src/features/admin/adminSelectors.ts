@@ -5,6 +5,7 @@ import { useCoursesStore } from '../courses/coursesStore';
 
 export const selectUsersList = (): UserProfile[] => useProfileStore.getState().usersList;
 
+/** T32.9B leftover: historical revenue accumulator. FinancialOverview no longer uses this. */
 export const selectDeletedCompletedStats = (): DeletedCompletedStats =>
   useBookingsStore.getState().deletedCompletedStats;
 

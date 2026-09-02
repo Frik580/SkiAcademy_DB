@@ -43,6 +43,7 @@ export function useAdminIdentityReadModels(input: {
   readonly enabled: boolean;
   readonly directory: AdminIdentityDirectory;
   readonly search: string;
+  readonly pageSize?: number;
   readonly selectedAccountId?: AccountId;
   readonly selectedParticipantId?: ParticipantId;
   readonly selectedInstructorId?: InstructorId;
@@ -98,6 +99,7 @@ export function useAdminIdentityReadModels(input: {
         const result = await queryAdminIdentityReadModels({
           scope,
           ...(input.search.trim() ? { search: input.search.trim() } : {}),
+          ...(input.pageSize ? { pageSize: input.pageSize } : {}),
           ...(cursor ? { cursor } : {}),
         });
         if (generation !== listGeneration.current) return;
@@ -154,7 +156,7 @@ export function useAdminIdentityReadModels(input: {
         }
       }
     },
-    [input.directory, input.enabled, input.search]
+    [input.directory, input.enabled, input.pageSize, input.search]
   );
 
   const loadDetail = useCallback(async () => {
@@ -211,6 +213,16 @@ export function useAdminIdentityReadModels(input: {
     void loadDetail();
   }, [loadDetail]);
 
+  const loadMore = useCallback(() => {
+    const current =
+      input.directory === 'accounts'
+        ? accounts
+        : input.directory === 'participants'
+          ? participants
+          : instructors;
+    if (current.hasMore && current.cursor) void loadList(current.cursor, true);
+  }, [accounts, input.directory, instructors, loadList, participants]);
+
   return {
     accounts,
     participants,
@@ -220,15 +232,7 @@ export function useAdminIdentityReadModels(input: {
     instructorDetail,
     detailLoading,
     detailError,
-    loadMore: () => {
-      const current =
-        input.directory === 'accounts'
-          ? accounts
-          : input.directory === 'participants'
-            ? participants
-            : instructors;
-      if (current.hasMore && current.cursor) void loadList(current.cursor, true);
-    },
+    loadMore,
     refresh: async () => {
       await Promise.all([loadList(), loadDetail()]);
     },

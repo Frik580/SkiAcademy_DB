@@ -7,6 +7,10 @@ import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
 import { useNotifications } from '../../../../features/notifications';
 import { BookingChatModal } from '../../../../features/bookings';
 import { InsufficientFundsError } from '../../../../features/bookings/bookingTransactions';
+import {
+  CanonicalCommandClientError,
+  mapCanonicalErrorMessage,
+} from '../../../../lib/canonical/mapCanonicalCommandError';
 import { LinkGuestBookingModal } from '../bookings/LinkGuestBookingModal';
 import { ActiveSlotDetails } from './../schedule/slot-modal/ActiveSlotDetails';
 import { ActiveSlotMoveForm } from './../schedule/slot-modal/ActiveSlotMoveForm';
@@ -16,6 +20,9 @@ import {
   getAvailableScheduleDurations,
   hasScheduleOverlap,
 } from './scheduleOverlap';
+
+const mutationErrorMessage = (error: unknown, fallback: string): string =>
+  error instanceof CanonicalCommandClientError ? mapCanonicalErrorMessage(error.code) : fallback;
 
 type ReassignInstructorFn = (
   id: string,
@@ -59,6 +66,7 @@ interface ScheduleSlotActionModalProps {
   onCancelBooking: (id: string) => Promise<void>;
   onCompleteBooking?: (id: string) => Promise<void>;
   onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
+  skipLegacyBalanceGate?: boolean;
 }
 
 interface ActiveSlotDialogProps {
@@ -76,6 +84,7 @@ interface ActiveSlotDialogProps {
   onReassignInstructor?: ReassignInstructorFn;
   onCompleteBooking?: (id: string) => Promise<void>;
   onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
+  skipLegacyBalanceGate?: boolean;
 }
 
 const isReassignableBooking = (booking: Booking): boolean =>
@@ -101,6 +110,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   onReassignInstructor,
   onCompleteBooking,
   onLinkGuestBooking,
+  skipLegacyBalanceGate = false,
 }) => {
   const { addNotification } = useNotifications();
   const { t } = useLanguage();
@@ -328,7 +338,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
         const matchedClient = usersList.find((user) => user.uid === selectedClientUid);
         const bookingPrice = activeSlot.instructor.pricePerHour * bookingDuration;
 
-        if (matchedClient && matchedClient.balanceUSD < bookingPrice) {
+        if (!skipLegacyBalanceGate && matchedClient && matchedClient.balanceUSD < bookingPrice) {
           addNotification(
             'error',
             t('insufficientFunds'),
@@ -361,7 +371,11 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
       }
       onClose();
     } catch (err) {
-      addNotification('error', t('actionFailedTitle'), t('scheduleUpdateFailed'));
+      addNotification(
+        'error',
+        t('actionFailedTitle'),
+        mutationErrorMessage(err, t('scheduleUpdateFailed'))
+      );
     } finally {
       setIsSlotActionSubmitting(false);
     }
@@ -463,7 +477,11 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
       }
       onClose();
     } catch (err) {
-      addNotification('error', t('updateFailed'), t('moveSessionFailed'));
+      addNotification(
+        'error',
+        t('updateFailed'),
+        mutationErrorMessage(err, t('moveSessionFailed'))
+      );
     } finally {
       setIsSlotActionSubmitting(false);
     }
@@ -485,7 +503,11 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
       addNotification('success', t('lessonReassigned'), t('lessonReassignedDesc'));
       onClose();
     } catch (err) {
-      addNotification('error', t('updateFailed'), t('moveSessionFailed'));
+      addNotification(
+        'error',
+        t('updateFailed'),
+        mutationErrorMessage(err, t('moveSessionFailed'))
+      );
     } finally {
       setIsSlotActionSubmitting(false);
     }
@@ -656,6 +678,7 @@ export const ScheduleSlotActionModal = forwardRef<
       onCancelBooking,
       onCompleteBooking,
       onLinkGuestBooking,
+      skipLegacyBalanceGate = false,
     },
     ref
   ) => {
@@ -682,7 +705,11 @@ export const ScheduleSlotActionModal = forwardRef<
             addNotification('success', t('blockRemoved'), t('blockRemovedDesc'));
             onClose();
           } catch (err) {
-            addNotification('error', t('configSaveError'), t('removeBlockFailed'));
+            addNotification(
+              'error',
+              t('configSaveError'),
+              mutationErrorMessage(err, t('removeBlockFailed'))
+            );
           }
         },
       });
@@ -711,6 +738,7 @@ export const ScheduleSlotActionModal = forwardRef<
             onReassignInstructor={onReassignInstructor}
             onCompleteBooking={onCompleteBooking}
             onLinkGuestBooking={onLinkGuestBooking}
+            skipLegacyBalanceGate={skipLegacyBalanceGate}
           />
         )}
 

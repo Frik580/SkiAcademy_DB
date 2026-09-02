@@ -15,6 +15,7 @@ import {
   PaymentIdSchema,
   type AccountId,
   type ActivityLogId,
+  type AdministrativeAvailabilityBlockId,
   type BookingId,
   type BookingProposalId,
   type CommandId,
@@ -202,6 +203,23 @@ export function courseDayOccurrenceIdFromRevision(
 
 export function initialCourseDayOccurrenceId(courseDayId: CourseDayId): OccurrenceId {
   return courseDayOccurrenceIdFromRevision(courseDayId, 1);
+}
+
+export function administrativeAvailabilityBlockOccurrenceIdFromRevision(
+  blockId: AdministrativeAvailabilityBlockId,
+  scheduleRevision: number
+): OccurrenceId {
+  if (!Number.isInteger(scheduleRevision) || scheduleRevision < 1) {
+    throw new Error('scheduleRevision must be a positive integer');
+  }
+  return OccurrenceIdSchema.parse(
+    canonicalDeterministicHash([
+      'occurrence:v1',
+      'administrative_availability_block',
+      blockId,
+      String(scheduleRevision),
+    ])
+  );
 }
 
 export function nextBookingScheduleRevision(

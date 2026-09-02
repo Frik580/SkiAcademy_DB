@@ -1,9 +1,11 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, Clock, Lock, Plus } from 'lucide-react';
 import { Instructor, Booking, UserProfile, Course } from '../../../../types';
 import { translateCourse, parseCourseDates } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { formatDateLocalYMD, getWeekRange } from './scheduleUtils';
+import { parsePlannerLocalDateInput } from './scheduleDateInput';
+import { dayViewBookingForSlot } from './scheduleDayViewPlacement';
 import { SCHEDULE_TIME_SLOTS } from './scheduleOverlap';
 import { ScheduleBookingCell } from './ScheduleBookingCell';
 import { ScheduleInstructorCell } from './ScheduleInstructorCell';
@@ -36,6 +38,10 @@ interface ScheduleCalendarProps {
   onCancelBooking: (id: string) => Promise<void>;
   onCompleteBooking?: (id: string) => Promise<void>;
   onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
+  onWindowChange?: (localDate: string, view: ScheduleViewMode) => void;
+  skipLegacyBalanceGate?: boolean;
+  plannerDate?: string;
+  plannerView?: ScheduleViewMode;
 }
 
 export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
@@ -51,27 +57,47 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   onCancelBooking,
   onCompleteBooking,
   onLinkGuestBooking,
+  onWindowChange,
+  skipLegacyBalanceGate = false,
+  plannerDate,
+  plannerView,
 }) => {
   const { addNotification } = useNotifications();
   const { t, language } = useScheduleTranslations();
 
-  const [viewMode, setViewMode] = useState<ScheduleViewMode>('day');
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const isControlledWindow = plannerDate !== undefined && plannerView !== undefined;
+  const [internalViewMode, setInternalViewMode] = useState<ScheduleViewMode>('day');
+  const [internalCurrentDate, setInternalCurrentDate] = useState(new Date());
+  const viewMode = plannerView ?? internalViewMode;
+  const selectedDate = plannerDate ?? formatDateLocalYMD(internalCurrentDate);
+  const currentDate = useMemo(
+    () => parsePlannerLocalDateInput(selectedDate),
+    [selectedDate]
+  );
   const [activeSlotModal, setActiveSlotModal] = useState<ActiveScheduleSlot | null>(null);
   const slotActionModalRef = useRef<ScheduleSlotActionModalHandle>(null);
 
-  const selectedDate = useMemo(() => formatDateLocalYMD(currentDate), [currentDate]);
+  const updatePlannerWindow = (nextDate: string, nextView: ScheduleViewMode) => {
+    if (!isControlledWindow) {
+      setInternalViewMode(nextView);
+      setInternalCurrentDate(parsePlannerLocalDateInput(nextDate));
+    }
+    onWindowChange?.(nextDate, nextView);
+  };
+
+  useEffect(() => {
+    if (isControlledWindow) return;
+    onWindowChange?.(selectedDate, viewMode);
+  }, [isControlledWindow, onWindowChange, selectedDate, viewMode]);
 
   const adjustDate = (days: number) => {
-    setCurrentDate((prev) => {
-      const newDate = new Date(prev);
-      if (viewMode === 'week') {
-        newDate.setDate(newDate.getDate() + days * 7);
-      } else {
-        newDate.setDate(newDate.getDate() + days);
-      }
-      return newDate;
-    });
+    const nextDate = new Date(currentDate);
+    if (viewMode === 'week') {
+      nextDate.setDate(nextDate.getDate() + days * 7);
+    } else {
+      nextDate.setDate(nextDate.getDate() + days);
+    }
+    updatePlannerWindow(formatDateLocalYMD(nextDate), viewMode);
   };
 
   const handleOpenSlotAction = (
@@ -124,7 +150,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                 type="button"
                 role="tab"
                 aria-selected={isSelected}
-                onClick={() => setCurrentDate(day)}
+                onClick={() => updatePlannerWindow(formatDateLocalYMD(day), viewMode)}
                 className={`min-w-16 shrink-0 border px-2 py-2 text-center text-[10px] font-mono uppercase tracking-wide transition ${
                   isSelected
                     ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--bg)]'
@@ -181,8 +207,15 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                {SCHEDULE_TIME_SLOTS.map((time) => {
-                  const booking = dayBookings.find((item) => item.time === time);
+                {SCHEDULE_TIME_SLOTS.map((time, slotIndex) => {
+                  const slotBooking = dayViewBookingForSlot(
+                    bookings,
+                    instructor.id,
+                    selectedDate,
+                    time,
+                    slotIndex
+                  );
+                  const booking = slotBooking?.startsHere ? slotBooking.booking : undefined;
                   if (booking) {
                     return (
                       <ScheduleBookingCell
@@ -266,10 +299,12 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             weekEnd={weekEnd}
             language={language}
             t={t}
-            onViewModeChange={setViewMode}
-            onDateChange={setCurrentDate}
+            onViewModeChange={(nextView) => updatePlannerWindow(selectedDate, nextView)}
+            onDateChange={(nextDate) =>
+              updatePlannerWindow(formatDateLocalYMD(nextDate), viewMode)
+            }
             onAdjustDate={adjustDate}
-            onToday={() => setCurrentDate(new Date())}
+            onToday={() => updatePlannerWindow(formatDateLocalYMD(new Date()), viewMode)}
           />
         </div>
 
@@ -508,6 +543,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         onCancelBooking={onCancelBooking}
         onCompleteBooking={onCompleteBooking}
         onLinkGuestBooking={onLinkGuestBooking}
+        skipLegacyBalanceGate={skipLegacyBalanceGate}
       />
     </>
   );

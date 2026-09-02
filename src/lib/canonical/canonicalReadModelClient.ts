@@ -10,6 +10,8 @@ import {
   type QueryAdminIssueReadModelsResult,
   type QueryAdminIdentityReadModelsInput,
   type QueryAdminIdentityReadModelsResult,
+  type QueryAdminPlannerReadModelsInput,
+  type QueryAdminPlannerReadModelsResult,
   type QueryBookingChangeRequestReadModelsInput,
   type QueryBookingChangeRequestReadModelsResult,
   type QueryBookingProposalReadModelsInput,
@@ -50,6 +52,7 @@ export const QUERY_ADMIN_COURSE_READ_MODELS_CALLABLE = 'queryAdminCourseReadMode
 export const QUERY_ADMIN_COURSE_ENROLLMENT_READ_MODELS_CALLABLE =
   'queryAdminCourseEnrollmentReadModels';
 export const QUERY_ADMIN_IDENTITY_READ_MODELS_CALLABLE = 'queryAdminIdentityReadModels';
+export const QUERY_ADMIN_PLANNER_READ_MODELS_CALLABLE = 'queryAdminPlannerReadModels';
 
 export async function queryAdminCourseEnrollmentReadModels(
   input: QueryAdminCourseEnrollmentReadModelsInput
@@ -96,6 +99,26 @@ export async function queryAdminIdentityReadModels(
   );
 }
 
+export async function queryAdminPlannerReadModels(
+  input: QueryAdminPlannerReadModelsInput
+): Promise<QueryAdminPlannerReadModelsResult> {
+  const identityHash = canonicalDeterministicHash([
+    'read:admin_planner:v1',
+    input.localDate,
+    input.view ?? 'day',
+    input.timeZone,
+    String(input.windowDays ?? ''),
+  ]);
+  return callFunction<QueryAdminPlannerReadModelsInput, QueryAdminPlannerReadModelsResult>(
+    QUERY_ADMIN_PLANNER_READ_MODELS_CALLABLE,
+    input,
+    {
+      idempotencyKey: `read:admin_planner:${identityHash}`,
+      maxAttempts: 1,
+    }
+  );
+}
+
 export async function queryAdminCourseReadModels(
   input: QueryAdminCourseReadModelsInput
 ): Promise<QueryAdminCourseReadModelsResult> {
@@ -111,12 +134,21 @@ export async function queryAdminCourseReadModels(
 export async function queryAdminFinanceReadModels(
   input: QueryAdminFinanceReadModelsInput
 ): Promise<QueryAdminFinanceReadModelsResult> {
-  const target = input.scope === 'admin_wallet' ? input.accountId : input.paymentId;
+  const target =
+    input.scope === 'admin_wallet'
+      ? input.accountId
+      : input.scope === 'admin_school_movement'
+        ? input.period && input.localDate && input.timeZone
+          ? `school:${input.period}:${input.localDate}:${input.timeZone}`
+          : 'school'
+        : input.scope === 'admin_financial_overview'
+          ? `${input.period}:${input.localDate}:${input.timeZone}`
+          : input.paymentId;
   const identityHash = canonicalDeterministicHash([
     'read:admin_finance:v1',
     input.scope,
     target,
-    input.cursor ?? 'start',
+    input.scope === 'admin_financial_overview' ? 'overview' : (input.cursor ?? 'start'),
   ]);
   const idempotencyKey = `read:admin_finance:${identityHash}`;
   return callFunction<QueryAdminFinanceReadModelsInput, QueryAdminFinanceReadModelsResult>(

@@ -81,9 +81,51 @@ function walletEvent(index: number, amount: number): MonetaryEvent {
   });
 }
 
+function paymentEffectEvent(
+  index: number,
+  occurredAtIso: string,
+  effect: {
+    settledAmountDelta?: number;
+    writtenOffAmountDelta?: number;
+    refundedAmountDelta?: number;
+  }
+): MonetaryEvent {
+  const commandId = `command_admin_finance_pay_${index}`;
+  const at = timestampFromDate(new Date(occurredAtIso));
+  return MonetaryEventSchema.parse({
+    eventId: monetaryEventIdFromCommandEffect(commandId, 0),
+    eventKind: effect.writtenOffAmountDelta
+      ? 'write_off'
+      : effect.refundedAmountDelta
+        ? 'refund_to_wallet'
+        : 'booking_charge',
+    currency: 'KZT',
+    paymentId,
+    subjectType: 'booking',
+    subjectId: 'booking_admin_finance_read_01',
+    paymentEffect: effect,
+    sourceKind: 'wallet',
+    actor: { kind: 'account', accountId },
+    commandId,
+    correlationId,
+    paymentEventRevision: index,
+    occurredAt: at,
+    recordedAt: at,
+  });
+}
+
 interface FakeDocument {
   readonly id: string;
   readonly data: Record<string, unknown>;
+}
+
+function readPath(data: Record<string, unknown>, field: string): unknown {
+  return field.split('.').reduce<unknown>((current, part) => {
+    if (current && typeof current === 'object' && part in (current as object)) {
+      return (current as Record<string, unknown>)[part];
+    }
+    return undefined;
+  }, data);
 }
 
 function createQuery(documents: readonly FakeDocument[]) {
@@ -91,8 +133,18 @@ function createQuery(documents: readonly FakeDocument[]) {
   let after: readonly unknown[] | undefined;
   let queryLimit = Number.MAX_SAFE_INTEGER;
   const query = {
-    where: (field: string, _operator: string, value: unknown) => {
-      selected = selected.filter((document) => document.data[field] === value);
+    where: (field: string, operator: string, value: unknown) => {
+      selected = selected.filter((document) => {
+        const actual = readPath(document.data, field);
+        if (operator === '==') return actual === value;
+        if (typeof actual === 'number' && typeof value === 'number') {
+          if (operator === '>=') return actual >= value;
+          if (operator === '<=') return actual <= value;
+          if (operator === '>') return actual > value;
+          if (operator === '<') return actual < value;
+        }
+        return true;
+      });
       return query;
     },
     orderBy: () => query,
@@ -245,5 +297,84 @@ describe('Admin canonical finance read models', () => {
     if (second.scope !== 'admin_wallet') return;
     expect(second.item.events.map((event) => event.amount)).toEqual([1_000]);
     expect(second.item.hasMore).toBe(false);
+  });
+
+  it('lists school-wide MonetaryEvents without a wallet or payment equality filter', async () => {
+    const result = await queryAdminFinanceReadModels(
+      createFirestore([walletEvent(1, 4_000), walletEvent(2, 8_000)]),
+      actor,
+      { scope: 'admin_school_movement', pageSize: 10 }
+    );
+    expect(result.scope).toBe('admin_school_movement');
+    if (result.scope !== 'admin_school_movement') return;
+    expect(result.item.currency).toBe('KZT');
+    expect(result.item.events.map((event) => event.amount)).toEqual([8_000, 4_000]);
+  });
+
+  it('sums settledAmountDelta for the selected period and ignores write-offs and Payment.price', async () => {
+    const result = await queryAdminFinanceReadModels(
+      createFirestore([
+        paymentEffectEvent(1, '2026-01-10T12:00:00.000Z', { settledAmountDelta: 80_000 }),
+        paymentEffectEvent(2, '2026-01-12T12:00:00.000Z', { settledAmountDelta: -15_000 }),
+        paymentEffectEvent(3, '2026-01-14T12:00:00.000Z', { writtenOffAmountDelta: 20_000 }),
+        paymentEffectEvent(4, '2025-12-20T12:00:00.000Z', { settledAmountDelta: 50_000 }),
+        walletEvent(1, 9_000),
+      ]),
+      actor,
+      {
+        scope: 'admin_financial_overview',
+        period: 'month',
+        localDate: '2026-01-15',
+        timeZone: 'UTC',
+      }
+    );
+    expect(result.scope).toBe('admin_financial_overview');
+    if (result.scope !== 'admin_financial_overview') return;
+    expect(result.item.currency).toBe('KZT');
+    expect(result.item.settledRevenueKzt).toBe(65_000);
+    expect(result.item.refundedKzt).toBe(0);
+    expect(result.item.netSettledKzt).toBe(65_000);
+    expect(result.item.truncated).toBe(false);
+  });
+
+  it('reduces overview net revenue for a refund and ignores write-off and Payment.price', async () => {
+    const result = await queryAdminFinanceReadModels(
+      createFirestore([
+        paymentEffectEvent(1, '2026-01-10T12:00:00.000Z', { settledAmountDelta: 100_000 }),
+        paymentEffectEvent(2, '2026-01-12T12:00:00.000Z', { refundedAmountDelta: 20_000 }),
+        paymentEffectEvent(3, '2026-01-14T12:00:00.000Z', { writtenOffAmountDelta: 40_000 }),
+        paymentEffectEvent(4, '2026-01-16T12:00:00.000Z', {
+          settledAmountDelta: -10_000,
+          refundedAmountDelta: 10_000,
+        }),
+      ]),
+      actor,
+      {
+        scope: 'admin_financial_overview',
+        period: 'month',
+        localDate: '2026-01-15',
+        timeZone: 'UTC',
+      }
+    );
+    expect(result.scope).toBe('admin_financial_overview');
+    if (result.scope !== 'admin_financial_overview') return;
+    expect(result.item.settledRevenueKzt).toBe(90_000);
+    expect(result.item.refundedKzt).toBe(30_000);
+    expect(result.item.netSettledKzt).toBe(70_000);
+  });
+
+  it('returns true zero for a window with no MonetaryEvents', async () => {
+    const result = await queryAdminFinanceReadModels(createFirestore([]), actor, {
+      scope: 'admin_financial_overview',
+      period: 'day',
+      localDate: '2026-02-01',
+      timeZone: 'UTC',
+    });
+    expect(result.scope).toBe('admin_financial_overview');
+    if (result.scope !== 'admin_financial_overview') return;
+    expect(result.item.netSettledKzt).toBe(0);
+    expect(result.item.settledRevenueKzt).toBe(0);
+    expect(result.item.refundedKzt).toBe(0);
+    expect(result.item.truncated).toBe(false);
   });
 });

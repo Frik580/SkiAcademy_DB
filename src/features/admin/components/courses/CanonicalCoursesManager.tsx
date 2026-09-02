@@ -1,17 +1,33 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ADMIN_COURSE_ENROLLMENT_PAGE_SIZE_MAX,
+  ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX,
   CourseCatalogContentInputSchema,
   CourseProvisioningManifestSchema,
   IdempotencyKeySchema,
+  type AdminCourseEnrollmentRosterItem,
   type AdminCourseReadModel,
   type CommandEnvelope,
   type CommandKind,
   type CourseCatalogContentInput,
 } from '@ski-academy/shared-domain';
 import { executeAuthenticatedCanonicalCommand } from '../../../../lib/canonical/canonicalCommandClient';
-import { queryAdminCourseReadModels } from '../../../../lib/canonical/canonicalReadModelClient';
+import {
+  queryAdminCourseEnrollmentReadModels,
+  queryAdminCourseReadModels,
+} from '../../../../lib/canonical/canonicalReadModelClient';
 import type { CanonicalCoursesManagerInput } from './adminCourseContracts';
 import { useAdminCourseTranslations } from './useAdminCourseTranslations';
+import { CoursesManagerToolbar } from './form/CoursesManagerToolbar';
+import { CoursesTable } from './form/CoursesTable';
+import {
+  catalogContentInputFromCourse,
+  enrolledNamesByCourseId,
+  mapAdminCourseToTableCourse,
+} from './adminCourseTableMapping';
+import { useLanguage } from '../../../../app/providers/LanguageContext';
+import { localDateTimeFromTimestamp } from '../../operations/adminTimeZone';
+import type { Instructor } from '../../../../types';
 
 function newIdentity(prefix: string): ReturnType<typeof IdempotencyKeySchema.parse> {
   const suffix =
@@ -61,8 +77,11 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   instructors,
   onRequestConfirm,
 }) => {
-  const { text } = useAdminCourseTranslations();
+  const { language, text } = useAdminCourseTranslations();
+  const { t } = useLanguage();
   const [courses, setCourses] = useState<AdminCourseReadModel[]>([]);
+  const [roster, setRoster] = useState<AdminCourseEnrollmentRosterItem[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
@@ -75,10 +94,32 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     setLoading(true);
     setError(null);
     try {
-      const result = await queryAdminCourseReadModels({ scope: 'admin_course_list' });
-      if (result.scope === 'admin_course_list') {
-        setCourses(result.items);
+      const [courseResult, rosterItems] = await Promise.all([
+        queryAdminCourseReadModels({
+          scope: 'admin_course_list',
+          pageSize: ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX,
+        }),
+        (async () => {
+          const items: AdminCourseEnrollmentRosterItem[] = [];
+          let cursor: string | undefined;
+          for (let page = 0; page < 10; page += 1) {
+            const result = await queryAdminCourseEnrollmentReadModels({
+              scope: 'admin_course_roster',
+              pageSize: ADMIN_COURSE_ENROLLMENT_PAGE_SIZE_MAX,
+              ...(cursor ? { cursor } : {}),
+            });
+            if (result.scope === 'admin_enrollment_detail') break;
+            items.push(...result.items);
+            if (!result.hasMore || !result.nextCursor) break;
+            cursor = result.nextCursor;
+          }
+          return items;
+        })(),
+      ]);
+      if (courseResult.scope === 'admin_course_list') {
+        setCourses(courseResult.items);
       }
+      setRoster(rosterItems);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : text.mutationFailed;
       setError(message.includes('permission') ? text.permissionDenied : message);
@@ -95,6 +136,39 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     () => new Map(instructors.map((instructor) => [instructor.instructorId, instructor.name])),
     [instructors]
   );
+  const tableCourses = useMemo(() => courses.map(mapAdminCourseToTableCourse), [courses]);
+  const tableInstructors = useMemo<Instructor[]>(() => {
+    const byId = new Map<string, Instructor>();
+    const remember = (id: string, name: string, avatarUrl = '', isAvailable = true) => {
+      byId.set(id, {
+        id,
+        name,
+        specialty: 'ski',
+        rating: 0,
+        reviewsCount: 0,
+        languages: [],
+        experienceYears: 0,
+        bio: '',
+        avatarUrl,
+        pricePerHour: 0,
+        isAvailable,
+      });
+    };
+    for (const instructor of instructors) remember(instructor.instructorId, instructor.name);
+    for (const course of courses) {
+      for (const instructor of course.instructors) {
+        remember(
+          instructor.instructorId,
+          instructor.name,
+          instructor.avatarUrl ?? '',
+          instructor.isAvailable !== false
+        );
+      }
+    }
+    return [...byId.values()];
+  }, [courses, instructors]);
+  const enrolledNames = useMemo(() => enrolledNamesByCourseId(roster), [roster]);
+  const selectedCourse = courses.find((course) => course.courseId === selectedCourseId);
 
   const execute = useCallback(
     async <Kind extends CommandKind>(input: {
@@ -401,6 +475,113 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     }
   };
 
+  const updateCatalog = async (
+    course: AdminCourseReadModel,
+    content: CourseCatalogContentInput,
+    reasonExplanation: string
+  ) => {
+    const action = course.authorizedActions.find(
+      (candidate) => candidate.kind === 'update_course_catalog_content'
+    );
+    if (!action) {
+      setError(text.permissionDenied);
+      return;
+    }
+    await execute({
+      kind: 'update_course_catalog_content',
+      expectedRevision: action.expectedRevision,
+      intent: {
+        courseId: course.courseId,
+        content,
+        reasonExplanation,
+      },
+    });
+  };
+
+  const handleToggleVisibility = async (tableCourse: ReturnType<typeof mapAdminCourseToTableCourse>) => {
+    const course = courses.find((candidate) => candidate.courseId === tableCourse.id);
+    if (!course) return;
+    const content = catalogContentInputFromCourse(course);
+    await updateCatalog(course, { ...content, isHidden: !content.isHidden }, 'Admin course visibility');
+  };
+
+  const handleMove = async (
+    tableCourse: ReturnType<typeof mapAdminCourseToTableCourse>,
+    direction: 'up' | 'down'
+  ) => {
+    const sorted = [...tableCourses].sort((left, right) => {
+      const leftOrder = left.order ?? 999;
+      const rightOrder = right.order ?? 999;
+      if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+      return left.title.localeCompare(right.title);
+    });
+    const index = sorted.findIndex((candidate) => candidate.id === tableCourse.id);
+    const swapWith = sorted[direction === 'up' ? index - 1 : index + 1];
+    if (index < 0 || !swapWith) return;
+    const left = courses.find((candidate) => candidate.courseId === tableCourse.id);
+    const right = courses.find((candidate) => candidate.courseId === swapWith.id);
+    if (!left || !right) return;
+    const leftContent = catalogContentInputFromCourse(left);
+    const rightContent = catalogContentInputFromCourse(right);
+    const leftOrder = leftContent.order ?? index;
+    const rightOrder = rightContent.order ?? (direction === 'up' ? index - 1 : index + 1);
+    await updateCatalog(left, { ...leftContent, order: rightOrder }, 'Admin course order');
+    await updateCatalog(right, { ...rightContent, order: leftOrder }, 'Admin course order');
+  };
+
+  const handleArchive = (tableCourse: ReturnType<typeof mapAdminCourseToTableCourse>) => {
+    const course = courses.find((candidate) => candidate.courseId === tableCourse.id);
+    if (!course) return;
+    onRequestConfirm(`${t('archiveCourseConfirmPrefix')} "${course.title}"?`, async () => {
+      await execute({
+        kind: 'archive_course',
+        expectedRevision: course.revision,
+        intent: {
+          courseId: course.courseId,
+          reasonExplanation: 'Admin course archive',
+        },
+      });
+    });
+  };
+
+  const handleClone = async (tableCourse: ReturnType<typeof mapAdminCourseToTableCourse>) => {
+    const course = courses.find((candidate) => candidate.courseId === tableCourse.id);
+    if (!course || course.courseDays.length === 0) return;
+    const attempt = newIdentity('admin-course:clone');
+    const seed = attempt.split(':').at(-1)!;
+    const presentation = catalogContentInputFromCourse(course);
+    const days = course.courseDays.map((day, index) => {
+      const local = localDateTimeFromTimestamp(day.interval.startsAt.seconds, day.timeZone);
+      return {
+        courseDayId: `course_day_${seed}_${index + 1}`,
+        dayOrder: day.dayOrder,
+        localDate: local.date,
+        localTime: local.time,
+        durationMinutes: Math.max(
+          15,
+          Math.round((day.interval.endsAt.seconds - day.interval.startsAt.seconds) / 60)
+        ),
+        instructorId: day.actualInstructorIds[0],
+      };
+    });
+    const manifest = CourseProvisioningManifestSchema.parse({
+      courseId: `course_${seed}`,
+      title: course.title,
+      price: course.price,
+      totalSeats: course.capacity.totalSeats,
+      capacityPolicy: { kind: 'seed_full' },
+      instructorRosterIds: course.instructorRosterIds,
+      timeZone: course.courseDays[0]?.timeZone ?? 'Asia/Almaty',
+      days,
+      presentation,
+    });
+    await execute({
+      kind: 'apply_canonical_course_provisioning_manifest',
+      intent: { manifest, dryRun: false },
+      idempotencyKey: attempt,
+    });
+  };
+
   if (loading && courses.length === 0) return <p>{text.loading}</p>;
   if (error && courses.length === 0) {
     return (
@@ -415,10 +596,8 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
 
   return (
     <div className="space-y-4" aria-busy={pending !== null}>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" className="ui-btn ui-btn-primary" onClick={toggleCreate}>
-          {text.create}
-        </button>
+      <div className="flex flex-wrap items-center justify-end gap-2 border-b border-[var(--border)] pb-3">
+        <CoursesManagerToolbar t={t} showCourseForm={showCreate} onToggle={toggleCreate} />
         <button type="button" className="ui-btn" onClick={() => void refresh()}>
           {text.refresh}
         </button>
@@ -483,87 +662,90 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       {courses.length === 0 ? (
         <p>{text.empty}</p>
       ) : (
-        courses.map((course) => (
-          <article
-            key={course.courseId}
-            className="space-y-3 rounded border border-[var(--border)] p-3"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <h3 className="font-semibold">{course.title}</h3>
-                <p className="text-xs text-[var(--ink-dim)]">
-                  {course.courseId} · {course.lifecycle} · rev {course.revision} / schedule{' '}
-                  {course.scheduleRevision}
-                </p>
-              </div>
-              <span>
-                {course.price.toLocaleString()} KZT · {course.capacity.availableSeats}/
-                {course.capacity.totalSeats}
-              </span>
-            </div>
-            <p className="text-sm">
-              Roster:{' '}
-              {course.instructors.map((instructor) => instructor.name).join(', ') ||
-                course.instructorRosterIds.join(', ')}
-            </p>
-            <p className="text-sm">
-              CourseDays: {course.courseDays.length} · Enrollments: {course.activeEnrollmentCount}{' '}
-              active / {course.totalEnrollmentCount} total · Catalog: {course.catalogContent.status}{' '}
-              · Provisioning: {course.provisioning.status}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  'change_course_title',
-                  'change_course_price',
-                  'change_course_capacity',
-                  'archive_course',
-                  'reactivate_course',
-                  'add_course_roster_instructor',
-                  'remove_course_roster_instructor',
-                ] as const
-              )
-                .filter((kind) => course.authorizedActions.some((action) => action.kind === kind))
-                .map((kind) => (
-                  <button
-                    key={kind}
-                    type="button"
-                    disabled={pending !== null}
-                    onClick={() => void runCourseAction(course, kind)}
-                  >
-                    {kind.replaceAll('_', ' ')}
-                  </button>
-                ))}
-              {(
-                [
-                  'create_course_day',
-                  'reassign_course_day_instructor',
-                  'reschedule_course_day',
-                  'remove_course_day',
-                ] as const
-              )
-                .filter((kind) => course.authorizedActions.some((action) => action.kind === kind))
-                .map((kind) => (
-                  <button
-                    key={kind}
-                    type="button"
-                    disabled={pending !== null}
-                    onClick={() => void courseDayAction(course, kind)}
-                  >
-                    {kind.replaceAll('_', ' ')}
-                  </button>
-                ))}
-              <button
-                type="button"
-                disabled={pending !== null}
-                onClick={() => void editCatalogContent(course)}
-              >
-                catalog content
-              </button>
-            </div>
-          </article>
-        ))
+        <CoursesTable
+          courses={tableCourses}
+          bookings={[]}
+          usersList={[]}
+          instructors={tableInstructors}
+          language={language}
+          t={t}
+          onToggleVisibility={(course) => void handleToggleVisibility(course)}
+          onEdit={(course) => {
+            setSelectedCourseId(course.id);
+            const canonical = courses.find((candidate) => candidate.courseId === course.id);
+            if (canonical) void editCatalogContent(canonical);
+          }}
+          onDelete={handleArchive}
+          onClone={(course) => void handleClone(course)}
+          onMove={(course, direction) => void handleMove(course, direction)}
+          enrolledNamesByCourseId={enrolledNames}
+          archiveInsteadOfDelete
+        />
       )}
+
+      {selectedCourse ? (
+        <article className="space-y-3 rounded border border-[var(--border)] p-3">
+          <p className="text-xs text-[var(--ink-dim)]">
+            {selectedCourse.courseId} В· {selectedCourse.lifecycle} В·{' '}
+            {selectedCourse.activeEnrollmentCount} active / {selectedCourse.totalEnrollmentCount}{' '}
+            total enrollments В· {selectedCourse.courseDays.length} days
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                'change_course_title',
+                'change_course_price',
+                'change_course_capacity',
+                'archive_course',
+                'reactivate_course',
+                'add_course_roster_instructor',
+                'remove_course_roster_instructor',
+              ] as const
+            )
+              .filter((kind) =>
+                selectedCourse.authorizedActions.some((action) => action.kind === kind)
+              )
+              .map((kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  disabled={pending !== null}
+                  onClick={() => void runCourseAction(selectedCourse, kind)}
+                >
+                  {kind.replaceAll('_', ' ')}
+                </button>
+              ))}
+            {(
+              [
+                'create_course_day',
+                'reassign_course_day_instructor',
+                'reschedule_course_day',
+                'remove_course_day',
+              ] as const
+            )
+              .filter((kind) =>
+                selectedCourse.authorizedActions.some((action) => action.kind === kind)
+              )
+              .map((kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  disabled={pending !== null}
+                  onClick={() => void courseDayAction(selectedCourse, kind)}
+                >
+                  {kind.replaceAll('_', ' ')}
+                </button>
+              ))}
+            <button
+              type="button"
+              disabled={pending !== null}
+              onClick={() => void editCatalogContent(selectedCourse)}
+            >
+              catalog content
+            </button>
+          </div>
+        </article>
+      ) : null}
     </div>
   );
 };

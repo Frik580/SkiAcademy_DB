@@ -24,3 +24,5 @@ export * from './queryAdminCourseReadModelsCallable';
 export * from './queryAdminCourseEnrollmentReadModelsCallable';
 export * from './queryAdminIssueReadModelsCallable';
 export * from './resolveCallableAdministrator';
+export * from './adminPlannerReadModels';
+export * from './queryAdminPlannerReadModelsCallable';

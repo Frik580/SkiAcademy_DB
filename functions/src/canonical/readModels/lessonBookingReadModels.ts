@@ -217,6 +217,13 @@ export function buildPaymentPresentation(
   };
 }
 
+function lessonContentFromBooking(booking: Booking) {
+  return {
+    ...(booking.difficulty !== undefined ? { difficulty: booking.difficulty } : {}),
+    ...(booking.notes ? { notes: booking.notes } : {}),
+  };
+}
+
 function resolveParticipantManagement(
   context: LessonBookingReadAuthorizationContext,
   participantId: Participant['participantId']
@@ -527,6 +534,7 @@ export async function buildAdminLessonBookingReadModel(
     lifecycle: buildLifecycleProjection(booking),
     bookingOrigin: booking.attribution.bookingOrigin,
     authorizedActions: INSTRUCTOR_LESSON_DENIED_ACTIONS,
+    ...lessonContentFromBooking(booking),
     admin: {
       participants: participantRecords.map((participant) => ({
         participantId: participant.participantId,
@@ -718,6 +726,7 @@ export async function buildLessonBookingReadModel(
     bookingOrigin: booking.attribution.bookingOrigin,
     authorizedActions,
     paymentPresentation: buildPaymentPresentation(accountId, booking, payment),
+    ...lessonContentFromBooking(booking),
     updatedAt: booking.updatedAt,
   };
 }
@@ -783,6 +792,7 @@ export async function buildInstructorLessonBookingReadModel(
     lifecycle: buildLifecycleProjection(booking),
     bookingOrigin: booking.attribution.bookingOrigin,
     authorizedActions: INSTRUCTOR_LESSON_DENIED_ACTIONS,
+    ...lessonContentFromBooking(booking),
     updatedAt: booking.updatedAt,
   };
 }
@@ -1194,6 +1204,7 @@ async function buildGuestLessonBookingReadModel(
     lifecycle: buildLifecycleProjection(booking),
     bookingOrigin: booking.attribution.bookingOrigin,
     authorizedActions: INSTRUCTOR_LESSON_DENIED_ACTIONS,
+    ...lessonContentFromBooking(booking),
     updatedAt: booking.updatedAt,
   };
 }

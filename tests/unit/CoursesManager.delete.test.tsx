@@ -1,17 +1,29 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { TranslationKey } from '../../src/app/providers/LanguageContext';
+import { translations } from '../../src/lib/i18n/translations';
 import { CoursesManager } from '../../src/features/admin';
 
 const queryAdminCourseReadModels = vi.fn();
+const queryAdminCourseEnrollmentReadModels = vi.fn();
 const executeAuthenticatedCanonicalCommand = vi.fn();
 
-vi.mock('../../src/app/providers/LanguageContext', () => ({
-  useLanguage: () => ({ language: 'en' }),
-}));
+vi.mock('../../src/app/providers/LanguageContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/app/providers/LanguageContext')>();
+  return {
+    ...actual,
+    useLanguage: () => ({
+      t: (key: TranslationKey) => translations.en[key] ?? key,
+      language: 'en' as const,
+    }),
+  };
+});
 
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryAdminCourseReadModels: (...args: unknown[]) => queryAdminCourseReadModels(...args),
+  queryAdminCourseEnrollmentReadModels: (...args: unknown[]) =>
+    queryAdminCourseEnrollmentReadModels(...args),
 }));
 
 vi.mock('../../src/lib/canonical/canonicalCommandClient', () => ({
@@ -51,6 +63,11 @@ describe('Canonical CoursesManager', () => {
       scope: 'admin_course_list',
       items: [course],
     });
+    queryAdminCourseEnrollmentReadModels.mockResolvedValue({
+      scope: 'admin_course_roster',
+      items: [],
+      hasMore: false,
+    });
     executeAuthenticatedCanonicalCommand.mockResolvedValue({
       status: 'success',
       kind: 'archive_course',
@@ -68,11 +85,11 @@ describe('Canonical CoursesManager', () => {
       />
     );
 
-    expect(await screen.findByText('Canonical Freeride Camp')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'archive course' }));
+    expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Archive course' }));
 
     expect(onRequestConfirm).toHaveBeenCalledWith(
-      'archive course: Canonical Freeride Camp?',
+      'Archive course "Canonical Freeride Camp"?',
       expect.any(Function)
     );
     await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalled());
@@ -81,7 +98,7 @@ describe('Canonical CoursesManager', () => {
       expectedRevision: 2,
       intent: {
         courseId: 'course_admin_component_01',
-        reasonExplanation: 'Retire obsolete course',
+        reasonExplanation: 'Admin course archive',
       },
     });
   });
@@ -109,8 +126,8 @@ describe('Canonical CoursesManager', () => {
         onRequestConfirm={onRequestConfirm}
       />
     );
-    expect(await screen.findByText('Canonical Freeride Camp')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'archive course' }));
+    expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Archive course' }));
     expect(await screen.findByText('network-unavailable')).toBeInTheDocument();
   });
 
@@ -139,9 +156,9 @@ describe('Canonical CoursesManager', () => {
         onRequestConfirm={onRequestConfirm}
       />
     );
-    expect(await screen.findByText('Canonical Freeride Camp')).toBeInTheDocument();
+    expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Create canonical course' }));
+    await user.click(screen.getByRole('button', { name: 'Add Course' }));
     await user.type(screen.getByLabelText('title'), 'Canonical Retry Course');
     await user.type(screen.getByLabelText('price'), '50000');
     await user.type(screen.getByLabelText('roster'), 'instructor_admin_component_01');
@@ -154,10 +171,12 @@ describe('Canonical CoursesManager', () => {
       '2026-12-01 10:00 120 instructor_admin_component_01'
     );
 
-    const submit = screen.getAllByRole('button', { name: 'Create canonical course' })[1]!;
-    await user.click(submit);
+    const form = document.querySelector('form');
+    expect(form).not.toBeNull();
+    const submit = screen.getByRole('button', { name: 'Create canonical course' });
+    fireEvent.submit(form!);
     await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));
-    await user.click(submit);
+    fireEvent.submit(form!);
     await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(2));
     expect(executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1].idempotencyKey).toBe(
       executeAuthenticatedCanonicalCommand.mock.calls[1]?.[1].idempotencyKey

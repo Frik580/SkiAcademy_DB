@@ -6,6 +6,7 @@ import { type DifficultyLabelVariant } from '../../../../lib/i18n/bookingLabels'
 import { formatDurationLabel } from '../../../../lib/i18n/duration';
 import { BookingAppleDatePicker } from './BookingAppleDatePicker';
 import { BookingAppleWheelPicker } from './BookingAppleWheelPicker';
+import { buildBookingTimePickerOptions } from './bookingTimePickerOptions';
 
 const DIFFICULTY_OPTIONS: LessonDifficulty[] = [
   'beginner',
@@ -25,6 +26,7 @@ interface BookingSelectorsProps {
   difficulty: LessonDifficulty;
   setDifficulty: (value: LessonDifficulty) => void;
   isLoadingBookings: boolean;
+  occupancyLoadFailed?: boolean;
   availableSlots: string[];
   minBookingDateStr: string;
   t: (key: TranslationKey) => string;
@@ -47,6 +49,7 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
   difficulty,
   setDifficulty,
   isLoadingBookings,
+  occupancyLoadFailed = false,
   availableSlots,
   minBookingDateStr,
   t,
@@ -56,15 +59,16 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
 }) => {
   const labelStyle = 'mb-1.5 flex items-center gap-1.5 truncate text-xs text-[var(--ink-dim)]';
 
-  const timeOptions = useMemo(() => {
-    if (isLoadingBookings) {
-      return [{ value: '', label: `${t('loading')}...`, disabled: true }];
-    }
-    if (availableSlots.length === 0) {
-      return [{ value: '', label: t('noSlotsAvailable'), disabled: true }];
-    }
-    return availableSlots.map((slot) => ({ value: slot, label: slot }));
-  }, [availableSlots, isLoadingBookings, t]);
+  const timeOptions = useMemo(
+    () =>
+      buildBookingTimePickerOptions({
+        isLoadingBookings,
+        occupancyLoadFailed,
+        availableSlots,
+        t: t as (key: string) => string,
+      }),
+    [availableSlots, isLoadingBookings, occupancyLoadFailed, t]
+  );
 
   const durationOptions = useMemo(
     () =>
@@ -110,7 +114,7 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
           value={time}
           onChange={setTime}
           options={timeOptions}
-          disabled={isLoadingBookings || availableSlots.length === 0}
+          disabled={isLoadingBookings || occupancyLoadFailed || availableSlots.length === 0}
           placeholder={t('timeSlot')}
           aria-label={t('timeSlot')}
         />

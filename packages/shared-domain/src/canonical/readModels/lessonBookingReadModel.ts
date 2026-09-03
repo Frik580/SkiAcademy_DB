@@ -19,9 +19,11 @@ import {
 } from '../courseEnrollmentAttendanceAdminIssue';
 import { GuestIdentityLinkUnavailableReasonSchema } from '../guestIdentityLinkingPolicy';
 import {
+  BookingLessonNotesSchema,
   BookingLifecycleStatusSchema,
   BookingOriginSchema,
   BookingPartyKindSchema,
+  LessonDifficultySchema,
 } from '../bookingOccurrenceProposalChange';
 import { PaymentStatusSchema } from '../paymentWallet';
 import { LessonBookingReadModelAuthorizedActionsSchema as LessonBookingAuthorizedActionsSchema } from './readModelAuthorizedActions';
@@ -279,6 +281,8 @@ export const LessonBookingReadModelSchema = z
     bookingOrigin: BookingOriginSchema,
     authorizedActions: LessonBookingAuthorizedActionsSchema,
     paymentPresentation: LessonBookingReadModelPaymentPresentationSchema.optional(),
+    difficulty: LessonDifficultySchema.optional(),
+    notes: BookingLessonNotesSchema,
     admin: LessonBookingAdminProjectionSchema.optional(),
     updatedAt: CanonicalTimestampSchema,
   })

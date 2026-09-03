@@ -34,7 +34,7 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
   const dateLabel = formatBookingDayMonth(booking, courses, lang);
   const shortDate = formatShortBookingDate(booking, language, courses);
   const modalTitle = t('scLessonDetails');
-  const modalSubtitle = getDifficultyShort(booking.difficulty);
+  const modalSubtitle = getDifficultyShort(booking.difficulty) || t('difficultyUnspecified');
 
   return createPortal(
     <AnimatePresence>

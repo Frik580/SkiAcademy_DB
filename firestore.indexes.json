@@ -68,6 +68,22 @@
       ]
     },
     {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "occurrence.instructorId", "order": "ASCENDING" },
+        { "fieldPath": "occurrence.interval.startsAt.seconds", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "administrative_availability_blocks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "instructorId", "order": "ASCENDING" },
+        { "fieldPath": "interval.startsAt.seconds", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [

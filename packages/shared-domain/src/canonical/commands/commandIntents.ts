@@ -23,6 +23,7 @@ import { CourseCatalogContentInputSchema } from '../courseCatalogContent';
 import { AdministrativeAvailabilityBlockKindSchema } from '../administrativeAvailabilityBlock';
 import { MonetaryPaymentEffectSchema } from '../paymentWallet';
 import { AggregateRevisionSchema, KztMinorUnitsSchema } from '../primitives';
+import { BookingLessonNotesSchema, LessonDifficultySchema } from '../bookingOccurrenceProposalChange';
 import type { CommandKind } from './commandKinds';
 
 const bookingTargetIntent = z.object({ bookingId: BookingIdSchema }).strict();
@@ -269,6 +270,8 @@ export const CommandIntentSchemaByKind = {
       instructorId: InstructorIdSchema,
       participantIds: z.array(ParticipantIdSchema).min(1).max(8),
       payerAccountId: AccountIdSchema.optional(),
+      difficulty: LessonDifficultySchema.optional(),
+      notes: BookingLessonNotesSchema,
       reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
     })
     .strict(),
@@ -277,6 +280,8 @@ export const CommandIntentSchemaByKind = {
       bookingId: BookingIdSchema,
       instructorId: InstructorIdSchema,
       participantIds: z.array(ParticipantIdSchema).min(1).max(8),
+      difficulty: LessonDifficultySchema.optional(),
+      notes: BookingLessonNotesSchema,
     })
     .strict(),
   confirm_guest_booking: bookingTargetIntent,

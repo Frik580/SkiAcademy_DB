@@ -46,11 +46,13 @@ describe('lessonBooking commands integration', () => {
       localTime: '08:00',
       durationMinutes: 120,
       timezone: 'Asia/Almaty',
-      identity: {
-        bookingId,
-        idempotencyKey: `create-confirmed:${bookingId}`,
-      },
-    });
+        identity: {
+          bookingId,
+          idempotencyKey: `create-confirmed:${bookingId}`,
+        },
+        difficulty: 'intermediate',
+        notes: '  Work on carving  ',
+      });
 
     expect(executeAuthenticatedMock).toHaveBeenCalledWith(
       accountId,
@@ -59,6 +61,8 @@ describe('lessonBooking commands integration', () => {
         idempotencyKey: `create-confirmed:${bookingId}`,
         intent: expect.objectContaining({
           bookingId: BookingIdSchema.parse(bookingId),
+          difficulty: 'intermediate',
+          notes: 'Work on carving',
         }),
       })
     );
@@ -95,6 +99,8 @@ describe('lessonBooking commands integration', () => {
       guestSkillLevel: 'beginner',
       guestDiscipline: 'ski',
       guestAgeYears: 12,
+      difficulty: 'freeride',
+      notes: 'First off-piste',
     });
 
     expect(returned.nonce).toBe('nonce_fixture_16chars');
@@ -103,6 +109,11 @@ describe('lessonBooking commands integration', () => {
       expect.objectContaining({
         kind: 'create_guest_booking_request',
         guestParticipantDisplayName: 'Guest User',
+        guestParticipantSkillLevel: 'beginner',
+        intent: expect.objectContaining({
+          difficulty: 'freeride',
+          notes: 'First off-piste',
+        }),
       })
     );
   });

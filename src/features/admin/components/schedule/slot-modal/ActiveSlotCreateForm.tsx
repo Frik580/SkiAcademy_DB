@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Calendar, Check, Loader2 } from 'lucide-react';
-import type { Instructor, LessonDifficulty, UserProfile } from '../../../../../types';
+import type { Instructor, LessonDifficulty } from '../../../../../types';
 import { useLanguage } from '../../../../../app/providers/LanguageContext';
 import { formatDurationLabel } from '../../../../../lib/i18n/duration';
+import { AdminManagedParticipantPicker } from '../../../identity';
+import type { AdminManagedParticipantSelection } from '../../../identity';
+import type { AccountDirectoryOption } from '../../../identity/accountDirectorySearch';
 
 interface ActiveSlotCreateFormProps {
   instructor: Instructor;
@@ -13,9 +16,10 @@ interface ActiveSlotCreateFormProps {
   availableBreakDurations: number[];
   blockNotes: string;
   setBlockNotes: (notes: string) => void;
-  selectedClientUid: string;
-  setSelectedClientUid: (uid: string) => void;
-  usersList: UserProfile[];
+  createSelection: AdminManagedParticipantSelection | undefined;
+  setCreateSelection: (selection: AdminManagedParticipantSelection | undefined) => void;
+  onCreateAccountIdChange?: (accountId: string | undefined) => void;
+  clientAccounts?: readonly AccountDirectoryOption[];
   bookingDuration: number;
   setBookingDuration: (duration: number) => void;
   availableBookingDurations: number[];
@@ -37,9 +41,10 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
   availableBreakDurations,
   blockNotes,
   setBlockNotes,
-  selectedClientUid,
-  setSelectedClientUid,
-  usersList,
+  createSelection,
+  setCreateSelection,
+  onCreateAccountIdChange,
+  clientAccounts,
   bookingDuration,
   setBookingDuration,
   availableBookingDurations,
@@ -52,6 +57,10 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
   onClose,
 }) => {
   const { t, language } = useLanguage();
+  const [bookingIdentityReady, setBookingIdentityReady] = useState(false);
+  const submitDisabled =
+    isSlotActionSubmitting ||
+    (modalTab === 'booking' && (!instructor.isAvailable || !bookingIdentityReady));
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -146,28 +155,17 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
           )}
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
               {t('selectClient')}
-            </label>
-            <select
-              required
-              value={selectedClientUid}
-              onChange={(event) => setSelectedClientUid(event.target.value)}
-              className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer"
-            >
-              <option value="" disabled className="bg-[var(--bg)] text-[var(--ink)]">
-                {t('chooseRegisteredClient')}
-              </option>
-              {usersList.map((client) => (
-                <option
-                  key={client.uid}
-                  value={client.uid}
-                  className="bg-[var(--bg)] text-[var(--ink)] font-mono"
-                >
-                  {client.displayName} ({client.email})
-                </option>
-              ))}
-            </select>
+            </span>
+            <AdminManagedParticipantPicker
+              selected={createSelection}
+              onChange={setCreateSelection}
+              autoSelectUniqueSelf
+              onAccountIdChange={onCreateAccountIdChange}
+              onReadyChange={setBookingIdentityReady}
+              additionalAccounts={clientAccounts}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -253,7 +251,7 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
 
         <button
           type="submit"
-          disabled={isSlotActionSubmitting || (modalTab === 'booking' && !instructor.isAvailable)}
+          disabled={submitDisabled}
           className="flex-1 py-2 px-4 border border-[var(--border)] bg-[var(--ink)] hover:bg-transparent text-[var(--bg)] hover:text-[var(--ink)] disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed rounded-none text-xs font-mono uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer text-center"
         >
           {isSlotActionSubmitting ? (

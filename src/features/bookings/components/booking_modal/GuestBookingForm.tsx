@@ -33,6 +33,7 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
     guestEmail,
     setGuestEmail,
     isLoadingBookings,
+    occupancyLoadFailed,
     availableSlots,
     minBookingDateStr,
     isTimeSlotOccupied,
@@ -114,6 +115,7 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
           difficulty={difficulty}
           setDifficulty={setDifficulty}
           isLoadingBookings={isLoadingBookings}
+          occupancyLoadFailed={occupancyLoadFailed}
           availableSlots={availableSlots}
           minBookingDateStr={minBookingDateStr}
           t={t}

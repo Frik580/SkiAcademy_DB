@@ -44,7 +44,8 @@ export const formatSessionDayLabel = (
   });
 };
 
-export const getDifficultyShort = (difficulty: Booking['difficulty']) => {
+export const getDifficultyShort = (difficulty: Booking['difficulty'] | undefined) => {
+  if (!difficulty) return '';
   const labels: Record<string, string> = {
     beginner: 'BASE',
     intermediate: 'CARVE',
@@ -52,5 +53,5 @@ export const getDifficultyShort = (difficulty: Booking['difficulty']) => {
     freeride: 'FREERIDE',
     freestyle: 'PARK',
   };
-  return labels[difficulty] || 'BASE';
+  return labels[difficulty] || '';
 };

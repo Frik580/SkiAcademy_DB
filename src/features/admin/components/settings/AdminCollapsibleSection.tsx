@@ -10,6 +10,7 @@ interface AdminCollapsibleSectionProps {
   icon?: LucideIcon;
   defaultOpen?: boolean;
   forceOpen?: boolean;
+  forceOpenToken?: string;
   headerActions?: React.ReactNode;
   badge?: string | number;
   children: React.ReactNode;
@@ -23,6 +24,7 @@ export const AdminCollapsibleSection: React.FC<AdminCollapsibleSectionProps> = (
   icon: Icon,
   defaultOpen = true,
   forceOpen = false,
+  forceOpenToken,
   headerActions,
   badge,
   children,
@@ -40,7 +42,7 @@ export const AdminCollapsibleSection: React.FC<AdminCollapsibleSectionProps> = (
 
   useEffect(() => {
     if (forceOpen) setIsOpen(true);
-  }, [forceOpen]);
+  }, [forceOpen, forceOpenToken]);
 
   const toggleOpen = () => {
     setIsOpen((prev) => {

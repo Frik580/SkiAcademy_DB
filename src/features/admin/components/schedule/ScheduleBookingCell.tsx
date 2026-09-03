@@ -1,8 +1,9 @@
 import React from 'react';
 import { Calendar, Clock, Coffee, X } from 'lucide-react';
-import { getDifficultyLabel } from '../../../../app/providers/LanguageContext';
+import { formatLessonDifficultyOrUnspecified } from '../../../../app/providers/LanguageContext';
 import { isCourseBooking } from '../../../../domain/availability';
 import type { ScheduleBooking, ScheduleClient, ScheduleInstructor } from './scheduleContracts';
+import { resolveLessonBookingCellTitle } from './scheduleUtils';
 import { useScheduleTranslations } from './useScheduleTranslations';
 
 interface ScheduleBookingCellProps {
@@ -103,13 +104,14 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
             />
           )}
           <span className="truncate">
-            {client?.displayName ||
-              booking.guestName ||
-              (booking.isGuest || booking.userId?.startsWith('guest_')
-                ? booking.guestName || t('guestBadge')
-                : null) ||
-              booking.notes ||
-              t('clientLesson')}
+            {resolveLessonBookingCellTitle({
+              clientDisplayName: client?.displayName,
+              guestName: booking.guestName,
+              isGuest: booking.isGuest,
+              userId: booking.userId,
+              guestBadgeLabel: t('guestBadge'),
+              clientLessonLabel: t('clientLesson'),
+            })}
           </span>
           {isPendingCancellation && (
             <span className="ml-1 text-[9px] font-bold text-amber-600 dark:text-amber-400">
@@ -143,7 +145,12 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
             <>
               {' '}
               {' · '}
-              {getDifficultyLabel(booking.difficulty, language, 'short')}
+              {formatLessonDifficultyOrUnspecified(
+                booking.difficulty,
+                language,
+                t('difficultyUnspecified'),
+                'short'
+              )}
             </>
           )}
         </span>

@@ -1,12 +1,8 @@
 import { z } from 'zod';
+import { LessonDifficultySchema } from './canonical/bookingOccurrenceProposalChange';
 
-export const LessonDifficultySchema = z.enum([
-  'beginner',
-  'intermediate',
-  'advanced',
-  'freeride',
-  'freestyle',
-]);
+export { LessonDifficultySchema };
+
 export const BookingStatusSchema = z.enum([
   'pending',
   'confirmed',

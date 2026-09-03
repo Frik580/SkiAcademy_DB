@@ -136,6 +136,16 @@ export function getDifficultyLabel(
   return String(diff);
 }
 
+export function formatLessonDifficultyOrUnspecified(
+  difficulty: LessonDifficulty | string | undefined,
+  language: Language,
+  unspecifiedLabel: string,
+  variant: DifficultyLabelVariant = 'short'
+): string {
+  if (!difficulty) return unspecifiedLabel;
+  return getDifficultyLabel(difficulty, language, variant);
+}
+
 export function getHourSuffix(language: Language): string {
   return language === 'en' ? 'h' : 'ч';
 }

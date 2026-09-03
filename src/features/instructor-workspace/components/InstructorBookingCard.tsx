@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, Clock, MessageSquare, CheckCircle, Users } from 'lucide-react';
-import { getDifficultyLabel } from '../../../app/providers/LanguageContext';
+import { formatLessonDifficultyOrUnspecified } from '../../../app/providers/LanguageContext';
 import { UserProfile } from '../../../types';
 import { DisplayBooking, EnrichedCourseBooking, EnrichedBooking } from './useInstructorWorkspace';
 import { StudentLevelControls } from './StudentLevelControls';
@@ -281,7 +281,12 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
                 {t('instructorDifficulty')}
               </span>
               <span className="text-[var(--ink)] font-bold">
-                {getDifficultyLabel(b.difficulty, language, 'compact')}
+                {formatLessonDifficultyOrUnspecified(
+                  b.difficulty,
+                  language,
+                  t('difficultyUnspecified'),
+                  'compact'
+                )}
               </span>
             </div>
             {!isCourse && (

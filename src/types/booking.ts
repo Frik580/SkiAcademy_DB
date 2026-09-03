@@ -17,7 +17,7 @@ export interface Booking {
   durationHours: number;
   totalPrice: number;
   status: BookingStatus;
-  difficulty: LessonDifficulty;
+  difficulty?: LessonDifficulty;
   notes?: string;
   cancellationReason?: string;
   isDeleted?: boolean;

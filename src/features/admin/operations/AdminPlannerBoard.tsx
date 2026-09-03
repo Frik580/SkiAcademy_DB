@@ -1,8 +1,16 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { AdminPlannerOccupancyItem } from '@ski-academy/shared-domain';
-import type { Booking, Instructor, UserProfile } from '../../../types';
+import type { Instructor, UserProfile } from '../../../types';
 import { CanonicalCommandClientError } from '../../../lib/canonical/mapCanonicalCommandError';
+import {
+  ADMIN_LESSON_BOOKING_QUERY_KEY,
+  ADMIN_PLANNER_DATE_QUERY_KEY,
+  ADMIN_PLANNER_FOCUS_QUERY_KEY,
+  ADMIN_TAB_QUERY_KEY,
+} from '../adminNavigation';
 import { ScheduleCalendar } from '../components/schedule/ScheduleCalendar';
+import type { PlannerCreateOccupancyInput } from '../components/schedule/scheduleContracts';
 import type { ScheduleViewMode } from '../components/schedule/ScheduleToolbar';
 import { formatDateLocalYMD } from '../components/schedule/scheduleUtils';
 import { useScheduleTranslations } from '../components/schedule/useScheduleTranslations';
@@ -17,6 +25,7 @@ import {
 } from './adminPlannerDayWindow';
 import { resolveAdminTimeZone } from './adminTimeZone';
 import {
+  changePlannerOccupancyDuration,
   completePlannerLesson,
   createPlannerOccupancyFromLegacyBookingShape,
   linkPlannerGuestBooking,
@@ -57,7 +66,12 @@ export function AdminPlannerBoard({
   usersList,
   fallbackInstructors,
 }: AdminPlannerBoardProps) {
-  const [localDate, setLocalDate] = useState(() => formatDateLocalYMD(new Date()));
+  const [searchParams, setSearchParams] = useSearchParams();
+  const plannerDateParam = searchParams.get(ADMIN_PLANNER_DATE_QUERY_KEY);
+  const focusBookingId = searchParams.get(ADMIN_PLANNER_FOCUS_QUERY_KEY) ?? undefined;
+  const [localDate, setLocalDate] = useState(
+    () => plannerDateParam || formatDateLocalYMD(new Date())
+  );
   const [view, setView] = useState<ScheduleViewMode>('day');
   const fetchWindow = useMemo(() => plannerFetchWindow(localDate, view), [localDate, view]);
   const planner = useAdminPlannerReadModels({
@@ -68,6 +82,12 @@ export function AdminPlannerBoard({
   const occupancy = planner.item?.occupancy ?? EMPTY_PLANNER_OCCUPANCY;
   const plannerTimeZone = planner.item?.timeZone ?? resolveAdminTimeZone();
   const { t } = useScheduleTranslations();
+
+  useEffect(() => {
+    if (plannerDateParam && plannerDateParam !== localDate) {
+      setLocalDate(plannerDateParam);
+    }
+  }, [localDate, plannerDateParam]);
 
   const visibleOccupancy = useMemo(() => {
     if (view !== 'day') return occupancy;
@@ -95,13 +115,24 @@ export function AdminPlannerBoard({
     [localDate, occupancy, view, visibleOccupancy]
   );
 
-  const handleWindowChange = useCallback((nextDate: string, nextView: ScheduleViewMode) => {
-    setLocalDate(nextDate);
-    setView(nextView);
-  }, []);
+  const handleWindowChange = useCallback(
+    (nextDate: string, nextView: ScheduleViewMode) => {
+      setLocalDate(nextDate);
+      setView(nextView);
+      setSearchParams(
+        (previous) => {
+          const next = new URLSearchParams(previous);
+          next.set(ADMIN_PLANNER_DATE_QUERY_KEY, nextDate);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
 
   const handleAddBooking = useCallback(
-    async (booking: Booking) => {
+    async (booking: PlannerCreateOccupancyInput) => {
       await runPlannerMutation(
         () =>
           createPlannerOccupancyFromLegacyBookingShape({
@@ -142,6 +173,22 @@ export function AdminPlannerBoard({
             instructor,
             localDate: newDate,
             localTime: newTime,
+          }),
+        planner.refresh
+      );
+    },
+    [adminProfile.uid, occupancy, planner.refresh]
+  );
+
+  const handleChangeDuration = useCallback(
+    async (id: string, durationHours: number) => {
+      await runPlannerMutation(
+        () =>
+          changePlannerOccupancyDuration({
+            adminAccountId: adminProfile.uid,
+            occupancy,
+            occupancyId: id,
+            durationMinutes: Math.max(1, Math.round(durationHours * 60)),
           }),
         planner.refresh
       );
@@ -195,6 +242,33 @@ export function AdminPlannerBoard({
     [adminProfile.uid, occupancy, planner.refresh]
   );
 
+  const handleOpenLessonDetail = useCallback(
+    (bookingId: string) => {
+      setSearchParams(
+        (previous) => {
+          const next = new URLSearchParams(previous);
+          next.set(ADMIN_TAB_QUERY_KEY, 'operations');
+          next.set(ADMIN_LESSON_BOOKING_QUERY_KEY, bookingId);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
+  const handleFocusConsumed = useCallback(() => {
+    setSearchParams(
+      (previous) => {
+        if (!previous.get(ADMIN_PLANNER_FOCUS_QUERY_KEY)) return previous;
+        const next = new URLSearchParams(previous);
+        next.delete(ADMIN_PLANNER_FOCUS_QUERY_KEY);
+        return next;
+      },
+      { replace: true }
+    );
+  }, [setSearchParams]);
+
   return (
     <div className="space-y-3">
       {planner.error ? <p className="text-xs font-mono text-rose-600">{planner.error}</p> : null}
@@ -214,15 +288,19 @@ export function AdminPlannerBoard({
         adminProfile={adminProfile}
         plannerDate={localDate}
         plannerView={view}
+        focusBookingId={focusBookingId}
+        onFocusConsumed={handleFocusConsumed}
         onWindowChange={handleWindowChange}
         skipLegacyBalanceGate
         onAddBooking={handleAddBooking}
         onRescheduleBooking={handleReschedule}
         onReassignInstructor={handleReassign}
+        onChangeBookingDuration={handleChangeDuration}
         onDeleteBooking={handleRelease}
         onCancelBooking={handleRelease}
         onCompleteBooking={handleComplete}
         onLinkGuestBooking={handleLink}
+        onOpenLessonDetail={handleOpenLessonDetail}
       />
     </div>
   );

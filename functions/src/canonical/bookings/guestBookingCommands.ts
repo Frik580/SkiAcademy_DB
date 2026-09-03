@@ -17,6 +17,7 @@ import {
   isGuestReservationExpired,
   isPaymentFullyFundedForService,
   isSyntheticCourseInstructorId,
+  lessonContentFields,
   nextAggregateRevision,
   participantBlockIdFromDirection,
   participantManagementIdFromGuestLink,
@@ -388,6 +389,10 @@ function createGuestBookingRequestHandler(
           reservationExpiresAt,
         },
         paymentId,
+        ...lessonContentFields({
+          difficulty: envelope.intent.difficulty,
+          notes: envelope.intent.notes,
+        }),
         revision: plannedBookingRevision,
         createdAt: decidedAt,
         updatedAt: decidedAt,

@@ -16,6 +16,11 @@ import {
   mapPlannerOccupancyToBookings,
 } from '../../src/features/admin/operations/adminPlannerMapping';
 import {
+  isAdministrativeScheduleBlock,
+  isPlannerLessonBooking,
+  resolveLessonBookingCellTitle,
+} from '../../src/features/admin/components/schedule/scheduleUtils';
+import {
   dayViewBookingForSlot,
   scheduleBookingsForDay,
 } from '../../src/features/admin/components/schedule/scheduleDayViewPlacement';
@@ -63,6 +68,52 @@ describe('Admin Planner compatibility mapping', () => {
       }),
     ]);
     expect(mapped[0]?.userId).not.toBe(participantId);
+  });
+
+  it('does not invent beginner difficulty when occupancy has none', () => {
+    const bookingId = BookingIdSchema.parse('booking_planner_mapping_no_difficulty');
+    const item: AdminPlannerOccupancyItem = {
+      occupancyKind: 'lesson_booking',
+      occupancyId: bookingId,
+      bookingId,
+      instructorId,
+      participantId: ParticipantIdSchema.parse('participant_planner_mapping_02'),
+      payerAccountId: AccountIdSchema.parse('account_planner_mapping_02'),
+      interval: interval('2026-09-02T04:00:00.000Z', '2026-09-02T05:00:00.000Z'),
+      timeZone: 'Asia/Almaty',
+      localDate: '2026-09-02',
+      localTime: '09:00',
+      durationMinutes: 60,
+      displayTitle: 'Canonical Participant',
+      lifecycleStatus: 'confirmed',
+      revision: 1,
+    };
+    expect(mapPlannerOccupancyToBookings([item])[0]?.difficulty).toBeUndefined();
+  });
+
+  it('maps persisted lesson difficulty and notes onto the Planner adapter', () => {
+    const bookingId = BookingIdSchema.parse('booking_planner_mapping_content');
+    const item: AdminPlannerOccupancyItem = {
+      occupancyKind: 'lesson_booking',
+      occupancyId: bookingId,
+      bookingId,
+      instructorId,
+      participantId: ParticipantIdSchema.parse('participant_planner_mapping_03'),
+      payerAccountId: AccountIdSchema.parse('account_planner_mapping_03'),
+      interval: interval('2026-09-02T04:00:00.000Z', '2026-09-02T05:00:00.000Z'),
+      timeZone: 'Asia/Almaty',
+      localDate: '2026-09-02',
+      localTime: '09:00',
+      durationMinutes: 60,
+      displayTitle: 'Canonical Participant',
+      lifecycleStatus: 'confirmed',
+      revision: 1,
+      difficulty: 'advanced',
+      notes: 'Steeps today',
+    };
+    const mapped = mapPlannerOccupancyToBookings([item]);
+    expect(mapped[0]?.difficulty).toBe('advanced');
+    expect(mapped[0]?.notes).toBe('Steeps today');
   });
 
   it.each([
@@ -169,5 +220,44 @@ describe('Admin Planner compatibility mapping', () => {
     expect(
       dayViewBookingForSlot(bookings, instructorId, '2026-09-02', '12:00', 4)?.booking.userId
     ).toBe('system_block_break');
+  });
+
+  it('treats break and day-off occupancy as administrative blocks, not lessons', () => {
+    expect(
+      isAdministrativeScheduleBlock({ userId: 'system_block_break' })
+    ).toBe(true);
+    expect(
+      isAdministrativeScheduleBlock({ userId: 'system_block_day_off' })
+    ).toBe(true);
+    expect(
+      isPlannerLessonBooking({
+        userId: 'system_block_break',
+        instructorId,
+      })
+    ).toBe(false);
+    expect(
+      isPlannerLessonBooking({
+        userId: 'account_planner_mapping_01',
+        instructorId,
+      })
+    ).toBe(true);
+  });
+
+  it('does not use lesson notes as the Planner calendar identity title', () => {
+    expect(
+      resolveLessonBookingCellTitle({
+        guestBadgeLabel: 'Guest',
+        clientLessonLabel: 'Client lesson',
+      })
+    ).toBe('Client lesson');
+    expect(
+      resolveLessonBookingCellTitle({
+        guestName: 'Alex Guest',
+        isGuest: true,
+        userId: 'guest_abc',
+        guestBadgeLabel: 'Guest',
+        clientLessonLabel: 'Client lesson',
+      })
+    ).toBe('Alex Guest');
   });
 });

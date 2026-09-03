@@ -1,17 +1,19 @@
 import { BookingIdSchema, type LessonBookingReadModel } from '@ski-academy/shared-domain';
 import { AlertTriangle, ChevronRight, Loader2, RefreshCw, X } from 'lucide-react';
-import { FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { formatLessonDifficultyOrUnspecified } from '../../../app/providers/LanguageContext';
 import {
   ADMIN_FINANCE_PAYMENT_QUERY_KEY,
   ADMIN_ISSUE_QUERY_KEY,
   ADMIN_LESSON_BOOKING_QUERY_KEY,
   ADMIN_LESSON_BOOKING_VIEW_QUERY_KEY,
+  ADMIN_PLANNER_DATE_QUERY_KEY,
+  ADMIN_PLANNER_FOCUS_QUERY_KEY,
   ADMIN_TAB_QUERY_KEY,
 } from '../adminNavigation';
 import { useAdminLessonBookingTranslations } from './useAdminLessonBookingTranslations';
 import type {
-  AdminCreateLessonBookingAttempt,
   AdminLessonBookingAttempt,
   AdminLessonBookingMutationDraft,
   AdminLessonBookingMutationAttempt,
@@ -22,7 +24,6 @@ import { useAdminLessonBookingReadModels } from './useAdminLessonBookingReadMode
 import {
   captureAdminLessonBookingTarget,
   createAdminLessonBookingAttemptId,
-  createAdminLogicalBookingId,
   parseAdminLessonBookingView,
 } from './lessonBookingAdminUtils';
 import { AdminManagedParticipantPicker } from '../identity';
@@ -96,7 +97,6 @@ function attendanceActorLabel(
 
 export function AdminLessonBookingPanel({
   adminAccountId,
-  instructors,
 }: AdminLessonBookingPanelProps) {
   const { language, t } = useAdminLessonBookingTranslations();
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
@@ -117,24 +117,7 @@ export function AdminLessonBookingPanel({
   const [confirmation, setConfirmation] = useState<Confirmation>();
   const [mutationPending, setMutationPending] = useState(false);
   const [mutationError, setMutationError] = useState<{ code: string; message: string }>();
-  const [createSelection, setCreateSelection] = useState<AdminManagedParticipantSelection>();
-  const [createInstructorId, setCreateInstructorId] = useState('');
-  const [createDate, setCreateDate] = useState('');
-  const [createTime, setCreateTime] = useState('');
-  const [createDuration, setCreateDuration] = useState('60');
-  const [createTimezone, setCreateTimezone] = useState(() => {
-    try {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Almaty';
-    } catch {
-      return 'Asia/Almaty';
-    }
-  });
-  const [createReason, setCreateReason] = useState('');
   const [actionReason, setActionReason] = useState('');
-  const [rescheduleDate, setRescheduleDate] = useState('');
-  const [rescheduleTime, setRescheduleTime] = useState('');
-  const [targetInstructorId, setTargetInstructorId] = useState('');
-  const [targetDuration, setTargetDuration] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
   const [linkSelection, setLinkSelection] = useState<AdminManagedParticipantSelection>();
   const [linkReason, setLinkReason] = useState('');
@@ -142,11 +125,6 @@ export function AdminLessonBookingPanel({
   useEffect(() => {
     const item = reads.detail.item;
     if (!item) return;
-    const parts = localParts(item);
-    setRescheduleDate(parts.date);
-    setRescheduleTime(parts.time);
-    setTargetInstructorId(item.instructor.instructorId);
-    setTargetDuration(String(item.occurrence.durationMinutes));
     setRefundAmount(String(item.admin?.cancellationFinancial?.suggestedRefund ?? 0));
     setActionReason('');
   }, [reads.detail.item]);
@@ -200,56 +178,11 @@ export function AdminLessonBookingPanel({
     const result = await commands.runAttempt(confirmation.attempt);
     setMutationPending(false);
     if (result.status === 'success') {
-      const created =
-        confirmation.attempt.kind === 'create_confirmed_booking'
-          ? confirmation.attempt.bookingId
-          : undefined;
       setConfirmation(undefined);
-      if (created) {
-        updateQuery({
-          [ADMIN_LESSON_BOOKING_VIEW_QUERY_KEY]: 'hot',
-          [ADMIN_LESSON_BOOKING_QUERY_KEY]: created,
-        });
-        setCreateReason('');
-      }
       return;
     }
     setMutationError(result.error);
     if (result.error.code === 'stale_version') setConfirmation(undefined);
-  };
-
-  const submitCreate = (event: FormEvent) => {
-    event.preventDefault();
-    const duration = Number(createDuration);
-    const reasonExplanation = createReason.trim();
-    if (
-      !createSelection ||
-      !createInstructorId ||
-      !createDate ||
-      !createTime ||
-      !Number.isInteger(duration) ||
-      duration <= 0 ||
-      duration > 1440 ||
-      !createTimezone.trim() ||
-      !reasonExplanation
-    ) {
-      return;
-    }
-    const bookingId = createAdminLogicalBookingId();
-    const attempt: AdminCreateLessonBookingAttempt = {
-      kind: 'create_confirmed_booking',
-      bookingId,
-      idempotencyKey: createAdminLessonBookingAttemptId('create'),
-      participantIds: [createSelection.participantId],
-      payerAccountId: createSelection.accountId,
-      instructorId: createInstructorId,
-      localDate: createDate,
-      localTime: createTime,
-      durationMinutes: duration,
-      timezone: createTimezone.trim(),
-      reasonExplanation,
-    };
-    requestAttempt(attempt, t('adminLessonConfirmCreate'));
   };
 
   const requestDetailAttempt = (
@@ -267,111 +200,11 @@ export function AdminLessonBookingPanel({
     );
   };
 
-  const createUnavailable = instructors.length === 0;
   const detail = reads.detail.item;
   const admin = detail?.admin;
 
   return (
     <div className="space-y-6">
-      <section className="space-y-4 border border-[var(--border)] p-4">
-        <div>
-          <h3 className="text-sm font-medium">{t('adminLessonCreateTitle')}</h3>
-          <p className="mt-1 text-xs text-[var(--ink-dim)]">{t('adminLessonCreateHint')}</p>
-        </div>
-        {createUnavailable ? (
-          <p role="status" className="border border-dashed border-[var(--border)] p-4 text-xs">
-            {t('adminLessonCreateUnavailable')}
-          </p>
-        ) : (
-          <form onSubmit={submitCreate} className="grid gap-3 md:grid-cols-3">
-            <div className="md:col-span-2">
-              <AdminManagedParticipantPicker
-                selected={createSelection}
-                onChange={setCreateSelection}
-              />
-            </div>
-            <label className="text-xs">
-              {t('adminLessonInstructor')}
-              <select
-                aria-label="Create instructor"
-                value={createInstructorId}
-                onChange={(event) => setCreateInstructorId(event.target.value)}
-                className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
-                required
-              >
-                <option value="">{t('adminLessonSelectInstructor')}</option>
-                {instructors.map((instructor) => (
-                  <option key={instructor.instructorId} value={instructor.instructorId}>
-                    {instructor.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-xs">
-              {t('adminLessonDate')}
-              <input
-                aria-label="Create date"
-                type="date"
-                value={createDate}
-                onChange={(event) => setCreateDate(event.target.value)}
-                className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
-                required
-              />
-            </label>
-            <label className="text-xs">
-              {t('adminLessonTime')}
-              <input
-                aria-label="Create time"
-                type="time"
-                value={createTime}
-                onChange={(event) => setCreateTime(event.target.value)}
-                className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
-                required
-              />
-            </label>
-            <label className="text-xs">
-              {t('adminLessonDuration')}
-              <input
-                aria-label="Create duration"
-                type="number"
-                min="1"
-                max="1440"
-                value={createDuration}
-                onChange={(event) => setCreateDuration(event.target.value)}
-                className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
-                required
-              />
-            </label>
-            <label className="text-xs md:col-span-1">
-              {t('adminLessonTimezone')}
-              <input
-                aria-label="Create timezone"
-                value={createTimezone}
-                onChange={(event) => setCreateTimezone(event.target.value)}
-                className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
-                required
-              />
-            </label>
-            <label className="text-xs md:col-span-2">
-              {t('adminLessonReason')}
-              <input
-                aria-label="Create reason"
-                value={createReason}
-                onChange={(event) => setCreateReason(event.target.value)}
-                className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
-                required
-              />
-            </label>
-            <button
-              type="submit"
-              className="border border-[var(--ink)] bg-[var(--ink)] px-3 py-2 text-xs text-[var(--bg)] md:col-span-3"
-            >
-              {t('adminLessonReviewCreate')}
-            </button>
-          </form>
-        )}
-      </section>
-
       {mutationError && !confirmation && (
         <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 text-xs">
           {readableError(mutationError)}
@@ -522,13 +355,30 @@ export function AdminLessonBookingPanel({
                     {admin.participants.map((participant) => participant.displayName).join(', ')}
                   </h3>
                 </div>
-                <button
-                  type="button"
-                  aria-label={t('adminLessonCloseDetail')}
-                  onClick={() => updateQuery({ [ADMIN_LESSON_BOOKING_QUERY_KEY]: undefined })}
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    aria-label={t('openInPlanner')}
+                    onClick={() => {
+                      const parts = localParts(detail);
+                      updateQuery({
+                        [ADMIN_TAB_QUERY_KEY]: 'operations',
+                        [ADMIN_PLANNER_DATE_QUERY_KEY]: parts.date,
+                        [ADMIN_PLANNER_FOCUS_QUERY_KEY]: detail.bookingId,
+                      });
+                    }}
+                    className="border border-[var(--border)] px-3 py-2 text-xs"
+                  >
+                    {t('openInPlanner')}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={t('adminLessonCloseDetail')}
+                    onClick={() => updateQuery({ [ADMIN_LESSON_BOOKING_QUERY_KEY]: undefined })}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
 
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
@@ -546,6 +396,21 @@ export function AdminLessonBookingPanel({
                 <dd>{admin.attribution.bookingOrigin}</dd>
                 <dt className="text-[var(--ink-dim)]">{t('adminLessonLifecycle')}</dt>
                 <dd>{detail.lifecycle.status}</dd>
+                <dt className="text-[var(--ink-dim)]">{t('adminLessonDifficulty')}</dt>
+                <dd>
+                  {formatLessonDifficultyOrUnspecified(
+                    detail.difficulty,
+                    language,
+                    t('difficultyUnspecified'),
+                    'short'
+                  )}
+                </dd>
+                {detail.notes ? (
+                  <>
+                    <dt className="text-[var(--ink-dim)]">{t('adminLessonNotes')}</dt>
+                    <dd>{detail.notes}</dd>
+                  </>
+                ) : null}
                 <dt className="text-[var(--ink-dim)]">{t('adminLessonRevisions')}</dt>
                 <dd>
                   booking {detail.revision} · schedule {admin.scheduleRevision}
@@ -706,117 +571,10 @@ export function AdminLessonBookingPanel({
                     className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
                   />
                 </label>
-
-                {admin.authorizedActions.canReschedule && (
-                  <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                    <input
-                      aria-label="Reschedule date"
-                      type="date"
-                      value={rescheduleDate}
-                      onChange={(event) => setRescheduleDate(event.target.value)}
-                      className="border border-[var(--border)] bg-transparent p-2 text-xs"
-                    />
-                    <input
-                      aria-label="Reschedule time"
-                      type="time"
-                      value={rescheduleTime}
-                      onChange={(event) => setRescheduleTime(event.target.value)}
-                      className="border border-[var(--border)] bg-transparent p-2 text-xs"
-                    />
-                    <button
-                      type="button"
-                      disabled={!actionReason.trim() || !rescheduleDate || !rescheduleTime}
-                      onClick={() =>
-                        requestDetailAttempt(
-                          detail,
-                          {
-                            kind: 'reschedule_booking',
-                            localDate: rescheduleDate,
-                            localTime: rescheduleTime,
-                            durationMinutes: detail.occurrence.durationMinutes,
-                            timezone: detail.occurrence.timeZone,
-                            reasonExplanation: actionReason.trim(),
-                          },
-                          t('adminLessonConfirmReschedule')
-                        )
-                      }
-                      className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-                    >
-                      {t('adminLessonReschedule')}
-                    </button>
-                  </div>
-                )}
-
-                {admin.authorizedActions.canChangeInstructor && (
-                  <div className="grid grid-cols-[1fr_auto] gap-2">
-                    <select
-                      aria-label="Target instructor"
-                      value={targetInstructorId}
-                      onChange={(event) => setTargetInstructorId(event.target.value)}
-                      className="border border-[var(--border)] bg-[var(--bg)] p-2 text-xs"
-                    >
-                      {instructors.map((instructor) => (
-                        <option key={instructor.instructorId} value={instructor.instructorId}>
-                          {instructor.displayName}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={!actionReason.trim() || !targetInstructorId}
-                      onClick={() =>
-                        requestDetailAttempt(
-                          detail,
-                          {
-                            kind: 'change_booking_instructor',
-                            instructorId: targetInstructorId,
-                            reasonExplanation: actionReason.trim(),
-                          },
-                          t('adminLessonConfirmReassign')
-                        )
-                      }
-                      className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-                    >
-                      {t('adminLessonReassign')}
-                    </button>
-                  </div>
-                )}
-
-                {admin.authorizedActions.canChangeDuration && (
-                  <div className="grid grid-cols-[1fr_auto] gap-2">
-                    <input
-                      aria-label="Target duration"
-                      type="number"
-                      min="1"
-                      max="1440"
-                      value={targetDuration}
-                      onChange={(event) => setTargetDuration(event.target.value)}
-                      className="border border-[var(--border)] bg-transparent p-2 text-xs"
-                    />
-                    <button
-                      type="button"
-                      disabled={
-                        !actionReason.trim() ||
-                        !Number.isInteger(Number(targetDuration)) ||
-                        Number(targetDuration) <= 0 ||
-                        Number(targetDuration) > 1440
-                      }
-                      onClick={() =>
-                        requestDetailAttempt(
-                          detail,
-                          {
-                            kind: 'change_booking_duration',
-                            durationMinutes: Number(targetDuration),
-                            reasonExplanation: actionReason.trim(),
-                          },
-                          t('adminLessonConfirmDuration')
-                        )
-                      }
-                      className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-                    >
-                      {t('adminLessonChangeDuration')}
-                    </button>
-                  </div>
+                {(admin.authorizedActions.canReschedule ||
+                  admin.authorizedActions.canChangeInstructor ||
+                  admin.authorizedActions.canChangeDuration) && (
+                  <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonScheduleInPlanner')}</p>
                 )}
 
                 {(admin.authorizedActions.canResolveCancellation ||

@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   AccountIdSchema,
   AggregateRevisionSchema,
+  AdministrativeAvailabilityBlockIdSchema,
+  AccountSchema,
   BookingIdSchema,
+  CourseDayIdSchema,
+  CourseIdSchema,
   CorrelationIdSchema,
   GUEST_ACTION_NONCE_TRANSPORT_KEY,
   GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
@@ -10,6 +14,7 @@ import {
   ParticipantIdSchema,
   SystemActorIdSchema,
   activityLogIdFromCommandId,
+  accountCommandActor,
   guestCommandActor,
   guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
@@ -17,7 +22,6 @@ import {
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
   WalletSchema,
-  accountCommandActor,
   systemCommandActor,
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
@@ -189,6 +193,48 @@ describe('create_guest_booking_request command', () => {
     expect(participant?.management).toEqual({ kind: 'unmanaged_guest' });
     expect(participant?.displayName).toBe('Guest Participant');
     expect(participant?.initialManagementEligibleAccountId).toBeUndefined();
+  });
+
+  it('stores per-lesson difficulty and notes without changing guest Participant.skillLevel', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
+    const commands = runCommands(executor);
+    const result = await commands.execute(
+      guestCreateEnvelope({
+        intent: {
+          bookingId,
+          instructorId,
+          participantIds: [participantId],
+          difficulty: 'freeride',
+          notes: 'First time off-piste',
+        },
+      })
+    );
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    const booking = snapshot.docs.get(`bookings/${bookingId}`)?.data;
+    const participant = snapshot.docs.get(`participants/${participantId}`)?.data;
+    expect(booking?.difficulty).toBe('freeride');
+    expect(booking?.notes).toBe('First time off-piste');
+    expect(participant?.skillLevel).toBe('beginner');
+  });
+
+  it('does not overwrite an existing guest Participant.skillLevel from booking difficulty', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const commands = runCommands(executor);
+    const result = await commands.execute(
+      guestCreateEnvelope({
+        intent: {
+          bookingId,
+          instructorId,
+          participantIds: [participantId],
+          difficulty: 'advanced',
+        },
+      })
+    );
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data?.difficulty).toBe('advanced');
+    expect(snapshot.docs.get(`participants/${participantId}`)?.data?.skillLevel).toBe('beginner');
   });
 
   it('replays without duplicates and returns the stored credential', async () => {
@@ -729,6 +775,369 @@ describe('link_guest_booking_to_account command', () => {
       kind: 'guest',
       guestSubjectId,
     });
+  });
+});
+
+describe('guest booking schedule occupancy guards', () => {
+  const adminAccountId = AccountIdSchema.parse('account_guest_schedule_admin');
+  const otherInstructorId = InstructorIdSchema.parse('instructor_guest_schedule_other');
+  const existingBookingId = BookingIdSchema.parse('booking_guest_schedule_existing');
+  const guestBookingId = BookingIdSchema.parse('booking_guest_schedule_attempt');
+
+  function scheduleFixture(extra: Record<string, unknown> = {}) {
+    return baseFixture({
+      [`users/${adminAccountId}`]: AccountSchema.parse({
+        accountId: adminAccountId,
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_admin',
+          lastChangedByCommandId: 'command_seed_admin',
+          correlationId,
+        },
+      }),
+      [`instructors/${otherInstructorId}`]: {
+        id: otherInstructorId,
+        name: 'Other Coach',
+        pricePerHourKZT: 12_000,
+        isAvailable: true,
+      },
+      ...extra,
+    });
+  }
+
+  function guestEnvelopeForAttempt(
+    bookingIdValue: string,
+    localTime: string,
+    instructor = instructorId,
+    idempotencyKey = `guest-schedule-${bookingIdValue}-${localTime}`
+  ): CommandEnvelope<'create_guest_booking_request'> {
+    const parsedBookingId = BookingIdSchema.parse(bookingIdValue);
+    return {
+      kind: 'create_guest_booking_request',
+      context: {
+        actor: guestCommandActor(guestSubjectIdFromBookingId(parsedBookingId)),
+        exercisedCapability: 'guest',
+        idempotencyKey,
+        correlationId,
+        source: 'guest_callable',
+        calendarInput: {
+          localDate: '2026-01-15',
+          localTime,
+          durationMinutes: 60,
+        },
+        timezone: 'Asia/Almaty',
+        transportMetadata: guestParticipantTransport(),
+      },
+      intent: {
+        bookingId: parsedBookingId,
+        instructorId: instructor,
+        participantIds: [participantId],
+      },
+    };
+  }
+
+  async function seedConfirmedLesson(input: {
+    bookingId: string;
+    localTime: string;
+    instructor?: string;
+    participantIdValue?: string;
+  }) {
+    const payerAccountId = AccountIdSchema.parse('account_guest_schedule_payer');
+    const managementId = `management_${input.bookingId}`;
+    const localParticipantId = ParticipantIdSchema.parse(
+      input.participantIdValue ?? 'participant_guest_schedule_existing'
+    );
+    const docs = scheduleFixture({
+      [`users/${payerAccountId}`]: seedAccount(payerAccountId),
+      [`users/${payerAccountId}/wallet/state`]: WalletSchema.parse({
+        accountId: payerAccountId,
+        currency: 'KZT',
+        balance: 50_000,
+        revision: 1,
+        eventRevision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+      }),
+      [`participants/${localParticipantId}`]: {
+        participantId: localParticipantId,
+        displayName: 'Existing Participant',
+        age: { kind: 'age_years', years: 20 },
+        skillLevel: 'intermediate',
+        discipline: 'ski',
+        management: { kind: 'managed', participantManagementId: managementId },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_participant',
+          lastChangedByCommandId: 'command_seed_participant',
+          correlationId,
+        },
+      },
+      [`participant_management/${managementId}`]: {
+        participantManagementId: managementId,
+        participantId: localParticipantId,
+        accountId: payerAccountId,
+        role: 'owner',
+        authority: 'self',
+        status: 'active',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_management',
+          lastChangedByCommandId: 'command_seed_management',
+          correlationId,
+        },
+      },
+    });
+    const seededExecutor = createInMemoryCanonicalTransactionExecutor(docs);
+    const commands = runCommands(seededExecutor);
+    const result = await commands.execute({
+      kind: 'create_confirmed_booking',
+      context: {
+        actor: accountCommandActor(payerAccountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: `seed-confirmed-${input.bookingId}`,
+        correlationId,
+        source: 'client_callable',
+        calendarInput: {
+          localDate: '2026-01-15',
+          localTime: input.localTime,
+          durationMinutes: 60,
+        },
+        timezone: 'Asia/Almaty',
+      },
+      intent: {
+        bookingId: BookingIdSchema.parse(input.bookingId),
+        instructorId: InstructorIdSchema.parse(input.instructor ?? instructorId),
+        participantIds: [localParticipantId],
+      },
+    });
+    expect(result.status).toBe('success');
+    return seededExecutor;
+  }
+
+  async function seedAdministrativeBlock(
+    executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>,
+    input: {
+      blockId: string;
+      kind: 'break' | 'day_off';
+      localTime: string;
+      durationMinutes: number;
+    }
+  ) {
+    const commands = runCommands(executor);
+    const result = await commands.execute({
+      kind: 'create_administrative_availability_block',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: `seed-block-${input.blockId}`,
+        correlationId,
+        source: 'admin_callable',
+        calendarInput: {
+          localDate: '2026-01-15',
+          localTime: input.localTime,
+          durationMinutes: input.durationMinutes,
+        },
+        timezone: 'Asia/Almaty',
+      },
+      intent: {
+        blockId: AdministrativeAvailabilityBlockIdSchema.parse(input.blockId),
+        instructorId,
+        kind: input.kind,
+        notes: input.kind,
+        reasonExplanation: 'Guest schedule guard test',
+      },
+    });
+    expect(result.status).toBe('success');
+  }
+
+  it('allows guest booking on a free slot', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(scheduleFixture());
+    const result = await runCommands(executor).execute(
+      guestEnvelopeForAttempt(guestBookingId, '09:00')
+    );
+    expect(result.status).toBe('success');
+  });
+
+  it('rejects guest booking overlapping an existing lesson booking', async () => {
+    const executor = await seedConfirmedLesson({
+      bookingId: existingBookingId,
+      localTime: '10:00',
+    });
+    const result = await runCommands(executor).execute(
+      guestEnvelopeForAttempt(guestBookingId, '10:30')
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('instructor_conflict');
+    }
+    expect(executor.snapshot().docs.has(`bookings/${guestBookingId}`)).toBe(false);
+  });
+
+  it('rejects guest booking overlapping an active break', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(scheduleFixture());
+    await seedAdministrativeBlock(executor, {
+      blockId: 'block_guest_schedule_break',
+      kind: 'break',
+      localTime: '12:00',
+      durationMinutes: 60,
+    });
+    const result = await runCommands(executor).execute(
+      guestEnvelopeForAttempt(guestBookingId, '12:30')
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('instructor_conflict');
+    }
+  });
+
+  it('rejects guest booking overlapping an active day_off', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(scheduleFixture());
+    await seedAdministrativeBlock(executor, {
+      blockId: 'block_guest_schedule_day_off',
+      kind: 'day_off',
+      localTime: '08:00',
+      durationMinutes: 660,
+    });
+    const result = await runCommands(executor).execute(
+      guestEnvelopeForAttempt(guestBookingId, '09:00')
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('instructor_conflict');
+    }
+  });
+
+  it('rejects guest booking overlapping a CourseDay instructor occupancy', async () => {
+    const courseId = CourseIdSchema.parse('course_guest_schedule');
+    const courseDayId = CourseDayIdSchema.parse('course_day_guest_schedule');
+    const placeholderEnd = timestampFromDate(new Date('2026-01-15T03:00:00.000Z'));
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      scheduleFixture({
+        [`courses/${courseId}`]: {
+          courseId,
+          title: 'Guest Schedule Course',
+          lifecycle: 'active',
+          price: 12_000,
+          capacity: { totalSeats: 8, availableSeats: 8 },
+          instructorRosterIds: [instructorId],
+          startAt: placeholderEnd,
+          scheduleProjection: {
+            courseDayCount: 1,
+            finalCourseDayEndsAt: placeholderEnd,
+            courseScheduleRevision: 1,
+          },
+          revision: 1,
+          createdAt: decidedAt,
+          updatedAt: decidedAt,
+          audit: {
+            createdByCommandId: 'command_seed_course',
+            lastChangedByCommandId: 'command_seed_course',
+            correlationId,
+          },
+        },
+      })
+    );
+    const createDay = await runCommands(executor).execute({
+      kind: 'create_course_day',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'seed-course-day-guest-schedule',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+        calendarInput: {
+          localDate: '2026-01-15',
+          localTime: '14:00',
+          durationMinutes: 120,
+        },
+        timezone: 'Asia/Almaty',
+      },
+      intent: { courseDayId, courseId, instructorId },
+    });
+    expect(createDay.status).toBe('success');
+
+    const result = await runCommands(executor).execute(
+      guestEnvelopeForAttempt(guestBookingId, '15:00')
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('instructor_conflict');
+    }
+    expect(executor.snapshot().docs.has(`bookings/${guestBookingId}`)).toBe(false);
+  });
+
+  it('allows adjacent guest booking immediately after an existing lesson', async () => {
+    const executor = await seedConfirmedLesson({
+      bookingId: existingBookingId,
+      localTime: '09:00',
+    });
+    const result = await runCommands(executor).execute(
+      guestEnvelopeForAttempt(guestBookingId, '10:00')
+    );
+    expect(result.status).toBe('success');
+  });
+
+  it('allows the same interval for a different instructor', async () => {
+    const executor = await seedConfirmedLesson({
+      bookingId: existingBookingId,
+      localTime: '10:00',
+      instructor: instructorId,
+      participantIdValue: 'participant_guest_schedule_other_lesson',
+    });
+    const result = await runCommands(executor).execute(
+      guestEnvelopeForAttempt(guestBookingId, '10:00', otherInstructorId)
+    );
+    expect(result.status).toBe('success');
+  });
+
+  it('does not block guest booking after an administrative block is released', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(scheduleFixture());
+    const blockId = AdministrativeAvailabilityBlockIdSchema.parse('block_guest_schedule_released');
+    await seedAdministrativeBlock(executor, {
+      blockId,
+      kind: 'break',
+      localTime: '14:00',
+      durationMinutes: 60,
+    });
+    const release = await runCommands(executor).execute({
+      kind: 'release_administrative_availability_block',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-schedule-release-block',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: { blockId, reasonExplanation: 'Guest schedule guard release test' },
+    });
+    expect(release.status).toBe('success');
+    const result = await runCommands(executor).execute(
+      guestEnvelopeForAttempt(guestBookingId, '14:00')
+    );
+    expect(result.status).toBe('success');
+  });
+
+  it('replays the same guest create command without duplicate writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(scheduleFixture());
+    const envelope = guestEnvelopeForAttempt(guestBookingId, '11:00', instructorId, 'guest-idem');
+    const first = await runCommands(executor).execute(envelope);
+    const second = await runCommands(executor).execute(envelope);
+    expect(first.status).toBe('success');
+    expect(second.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${guestBookingId}`)).toBeDefined();
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('activity_logs/')).length
+    ).toBe(1);
   });
 });
 

@@ -12,6 +12,7 @@ import {
   initialBookingOccurrenceIdFromBookingId,
   isPaymentFullyFundedForService,
   isSyntheticCourseInstructorId,
+  lessonContentFields,
   monetaryEventIdFromCommandEffect,
   nextAggregateRevision,
   participantBlockIdFromDirection,
@@ -482,6 +483,10 @@ function createConfirmedBookingHandler(
           lifecycle: { status: 'confirmed' },
           paymentId,
           payerAccountId: authorization.payerAccountId,
+          ...lessonContentFields({
+            difficulty: envelope.intent.difficulty,
+            notes: envelope.intent.notes,
+          }),
           revision: plannedBookingRevision,
           createdAt: decidedAt,
           updatedAt: decidedAt,

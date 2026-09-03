@@ -33,3 +33,8 @@ export type ScheduleCourse = Pick<
   Course,
   'id' | 'title' | 'dates' | 'instructorIds' | 'availableSeats' | 'totalSeats'
 >;
+
+/** Planner create payload. `participantId` is the canonical Participant, not the payer Account. */
+export type PlannerCreateOccupancyInput = Booking & {
+  readonly participantId?: string;
+};

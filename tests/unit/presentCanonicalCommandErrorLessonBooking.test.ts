@@ -29,6 +29,15 @@ describe('presentCanonicalCommandError (lesson-bookings)', () => {
     expect(presented.message).toBe('translated:insufficientFunds');
   });
 
+  it('marks schedule conflicts as shouldRefresh for availability refetch', () => {
+    const presented = presentCanonicalCommandError(
+      new CanonicalCommandClientError('instructor_conflict', {
+        correlationId: 'correlation_conflict',
+      })
+    );
+    expect(presented.shouldRefresh).toBe(true);
+  });
+
   it('handles canonical error codes without leaking internals', () => {
     const codes = [
       'concurrent_modification',

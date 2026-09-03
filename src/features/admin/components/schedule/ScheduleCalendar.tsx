@@ -10,7 +10,11 @@ import { SCHEDULE_TIME_SLOTS } from './scheduleOverlap';
 import { ScheduleBookingCell } from './ScheduleBookingCell';
 import { ScheduleInstructorCell } from './ScheduleInstructorCell';
 import { ScheduleTimetableCells } from './ScheduleTimetableCells';
-import type { ScheduleBooking, ScheduleInstructor } from './scheduleContracts';
+import type {
+  PlannerCreateOccupancyInput,
+  ScheduleBooking,
+  ScheduleInstructor,
+} from './scheduleContracts';
 import { useScheduleTranslations } from './useScheduleTranslations';
 import { ScheduleToolbar, type ScheduleViewMode } from './ScheduleToolbar';
 import {
@@ -25,7 +29,7 @@ interface ScheduleCalendarProps {
   courses: Course[];
   usersList: UserProfile[];
   adminProfile: UserProfile;
-  onAddBooking?: (booking: Booking) => Promise<void>;
+  onAddBooking?: (booking: PlannerCreateOccupancyInput) => Promise<void>;
   onRescheduleBooking?: (id: string, newDate: string, newTime: string) => Promise<void>;
   onReassignInstructor?: (
     id: string,
@@ -34,14 +38,18 @@ interface ScheduleCalendarProps {
     newTime?: string,
     options?: { allowNegativeBalance?: boolean }
   ) => Promise<void>;
+  onChangeBookingDuration?: (id: string, durationHours: number) => Promise<void>;
   onDeleteBooking?: (id: string) => Promise<void>;
   onCancelBooking: (id: string) => Promise<void>;
   onCompleteBooking?: (id: string) => Promise<void>;
   onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
+  onOpenLessonDetail?: (bookingId: string) => void;
   onWindowChange?: (localDate: string, view: ScheduleViewMode) => void;
   skipLegacyBalanceGate?: boolean;
   plannerDate?: string;
   plannerView?: ScheduleViewMode;
+  focusBookingId?: string;
+  onFocusConsumed?: () => void;
 }
 
 export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
@@ -53,14 +61,18 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   onAddBooking,
   onRescheduleBooking,
   onReassignInstructor,
+  onChangeBookingDuration,
   onDeleteBooking,
   onCancelBooking,
   onCompleteBooking,
   onLinkGuestBooking,
+  onOpenLessonDetail,
   onWindowChange,
   skipLegacyBalanceGate = false,
   plannerDate,
   plannerView,
+  focusBookingId,
+  onFocusConsumed,
 }) => {
   const { addNotification } = useNotifications();
   const { t, language } = useScheduleTranslations();
@@ -76,6 +88,21 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   );
   const [activeSlotModal, setActiveSlotModal] = useState<ActiveScheduleSlot | null>(null);
   const slotActionModalRef = useRef<ScheduleSlotActionModalHandle>(null);
+
+  useEffect(() => {
+    if (!focusBookingId) return;
+    const booking = bookings.find((item) => item.id === focusBookingId);
+    const instructor = booking
+      ? instructors.find((item) => item.id === booking.instructorId)
+      : undefined;
+    if (!booking || !instructor) return;
+    setActiveSlotModal({
+      instructor,
+      time: booking.time,
+      booking,
+    });
+    onFocusConsumed?.();
+  }, [bookings, focusBookingId, instructors, onFocusConsumed]);
 
   const updatePlannerWindow = (nextDate: string, nextView: ScheduleViewMode) => {
     if (!isControlledWindow) {
@@ -539,10 +566,12 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
         onAddBooking={onAddBooking}
         onRescheduleBooking={onRescheduleBooking}
         onReassignInstructor={onReassignInstructor}
+        onChangeBookingDuration={onChangeBookingDuration}
         onDeleteBooking={onDeleteBooking}
         onCancelBooking={onCancelBooking}
         onCompleteBooking={onCompleteBooking}
         onLinkGuestBooking={onLinkGuestBooking}
+        onOpenLessonDetail={onOpenLessonDetail}
         skipLegacyBalanceGate={skipLegacyBalanceGate}
       />
     </>

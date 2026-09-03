@@ -329,4 +329,43 @@ describe('create_confirmed_booking command', () => {
         .length
     ).toBe(1);
   });
+
+  it('persists per-lesson difficulty and notes on create_confirmed_booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const result = await runCommand(
+      executor,
+      createEnvelope({
+        intent: {
+          bookingId,
+          instructorId,
+          participantIds: [participantId],
+          difficulty: 'intermediate',
+          notes: '  Focus on carving  ',
+        },
+      })
+    );
+    expect(result.status).toBe('success');
+    const booking = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data;
+    expect(booking?.difficulty).toBe('intermediate');
+    expect(booking?.notes).toBe('Focus on carving');
+  });
+
+  it('omits empty notes and does not invent a beginner difficulty', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const result = await runCommand(
+      executor,
+      createEnvelope({
+        intent: {
+          bookingId,
+          instructorId,
+          participantIds: [participantId],
+          notes: '   ',
+        },
+      })
+    );
+    expect(result.status).toBe('success');
+    const booking = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data;
+    expect(booking?.difficulty).toBeUndefined();
+    expect(booking?.notes).toBeUndefined();
+  });
 });

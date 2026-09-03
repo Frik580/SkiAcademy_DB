@@ -24,7 +24,10 @@ export function presentCanonicalCommandError(error: unknown): PresentedCanonical
   const shouldRefresh =
     normalized.code === 'stale_version' ||
     normalized.code === 'concurrent_modification' ||
-    normalized.code === 'idempotency_conflict';
+    normalized.code === 'idempotency_conflict' ||
+    normalized.code === 'instructor_conflict' ||
+    normalized.code === 'participant_conflict' ||
+    normalized.code === 'resource_conflict';
 
   return {
     code: normalized.code,

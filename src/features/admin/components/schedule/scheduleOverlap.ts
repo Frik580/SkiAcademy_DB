@@ -114,6 +114,7 @@ interface AvailableDurationsOptions {
   instructorId: string;
   date: string;
   time: string;
+  excludeBookingId?: string;
 }
 
 export function getAvailableScheduleDurations({
@@ -122,6 +123,7 @@ export function getAvailableScheduleDurations({
   instructorId,
   date,
   time,
+  excludeBookingId,
 }: AvailableDurationsOptions): number[] {
   const startMinutes = hourToMinutes(time);
 
@@ -136,6 +138,7 @@ export function getAvailableScheduleDurations({
       date,
       time,
       durationHours,
+      excludeBookingId,
     });
   });
 }

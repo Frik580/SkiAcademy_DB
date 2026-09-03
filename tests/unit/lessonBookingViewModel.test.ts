@@ -40,6 +40,8 @@ function buildReadModel(
     bookingOrigin: overrides.bookingOrigin ?? 'account',
     paymentPresentation: overrides.paymentPresentation,
     updatedAt: overrides.updatedAt ?? updatedAt,
+    ...(overrides.difficulty ? { difficulty: overrides.difficulty } : {}),
+    ...(overrides.notes ? { notes: overrides.notes } : {}),
   };
 }
 
@@ -64,6 +66,28 @@ describe('lessonBookingViewModel', () => {
     expect(item.totalPrice).toBe(50000);
     expect(item.isLessonBooking).toBe(true);
     expect(item.participantNames).toEqual(['Alice Student']);
+  });
+
+  it('round-trips difficulty and notes without substituting beginner', () => {
+    const withValues = mapLessonBookingReadModelToCabinetItem(
+      buildReadModel({
+        bookingId: BookingIdSchema.parse('booking_lesson_content_01'),
+        revision: 1,
+        difficulty: 'freestyle',
+        notes: 'Park session',
+      })
+    );
+    expect(withValues.difficulty).toBe('freestyle');
+    expect(withValues.notes).toBe('Park session');
+
+    const withoutValues = mapLessonBookingReadModelToCabinetItem(
+      buildReadModel({
+        bookingId: BookingIdSchema.parse('booking_lesson_content_02'),
+        revision: 1,
+      })
+    );
+    expect(withoutValues.difficulty).toBeUndefined();
+    expect(withoutValues.notes).toBeUndefined();
   });
 
   it('maps production-like paid KZT payment through calendar cabinet item', () => {

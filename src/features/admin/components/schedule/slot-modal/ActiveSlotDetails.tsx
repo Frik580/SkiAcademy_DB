@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link2, MessageSquare } from 'lucide-react';
 import type { Booking, UserProfile } from '../../../../../types';
-import { useLanguage, getDifficultyLabel } from '../../../../../app/providers/LanguageContext';
+import { useLanguage, formatLessonDifficultyOrUnspecified } from '../../../../../app/providers/LanguageContext';
 import { isCourseBooking } from '../../../../../domain/availability';
 
 interface ActiveSlotDetailsProps {
@@ -46,7 +46,12 @@ export const ActiveSlotDetails: React.FC<ActiveSlotDetailsProps> = ({
         !isCourseBooking(booking) && (
           <div className="text-xs text-[var(--ink-dim)]">
             <strong>{t('trainingLevelLabel')}:</strong>{' '}
-            {getDifficultyLabel(booking.difficulty, language, 'short')}
+            {formatLessonDifficultyOrUnspecified(
+              booking.difficulty,
+              language,
+              t('difficultyUnspecified'),
+              'short'
+            )}
           </div>
         )}
       {(booking.guestPhone || booking.guestEmail) && (

@@ -8,6 +8,7 @@ import {
   LessonDifficulty,
   Course,
 } from '../../../../types';
+import { InstructorIdSchema } from '@ski-academy/shared-domain';
 import { useNotifications } from '../../../../features/notifications';
 import {
   useLanguage,
@@ -18,13 +19,17 @@ import { logger } from '../../../../shared';
 import {
   blocksInstructorAvailability,
   DEFAULT_LESSON_TIME_SLOTS,
-  isBookingSlotInPast,
-  fitsLessonDaySchedule,
-  timeStrToMinutes,
   toAvailabilitySlot,
   toLocalDateStr,
 } from '../../../../domain/availability';
-import { getInstructorAvailabilitySlots } from '../../bookingService';
+
+import { queryInstructorOccupancyReadModels } from '../../../../lib/canonical/canonicalReadModelClient';
+import {
+  getAvailableLessonStartTimes,
+  mapInstructorOccupancyReadModelForBookingModal,
+  normalizeBookingLocalDate,
+  resolveLessonStartTimeSelection,
+} from '../../instructorOccupancyForBookingModal';
 import {
   createLogicalBookingAttemptId,
   deriveAuthenticatedCreateIdempotencyKey,
@@ -122,20 +127,13 @@ export const useBookingModal = ({
   const [guestEmail, setGuestEmail] = useState<string>('');
 
   const [instructorBookings, setInstructorBookings] = useState<AvailabilitySlot[]>([]);
+  const [occupancyCourses, setOccupancyCourses] = useState<Course[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState<boolean>(true);
+  const [occupancyLoadFailed, setOccupancyLoadFailed] = useState(false);
+  const [occupancyRefreshNonce, setOccupancyRefreshNonce] = useState(0);
+  const occupancyFetchVersionRef = useRef(0);
 
-  const normalizeDateStr = (dStr?: string | null): string => {
-    if (!dStr) return '';
-    const trimmed = dStr.trim();
-    const parts = trimmed.split('-');
-    if (parts.length === 3) {
-      const y = parts[0];
-      const m = parts[1].padStart(2, '0');
-      const d = parts[2].padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    }
-    return trimmed;
-  };
+  const normalizeDateStr = normalizeBookingLocalDate;
 
   const timeToMinutes = (tStr: string): number => {
     const [h, m] = tStr.split(':').map(Number);
@@ -159,24 +157,27 @@ export const useBookingModal = ({
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen || !targetInstructor) return;
+    if (!isOpen || !targetInstructor || !date) return;
 
-    const fetchBookings = async () => {
+    const fetchVersion = ++occupancyFetchVersionRef.current;
+
+    const fetchOccupancy = async () => {
       setIsLoadingBookings(true);
+      setOccupancyLoadFailed(false);
       try {
         const isSandbox = userProfile?.uid?.startsWith('local_') || false;
         if (!isSandbox) {
-          const slotsMap = new Map<string, AvailabilitySlot>();
-          const remoteSlots = await getInstructorAvailabilitySlots(targetInstructor.id);
-          if (remoteSlots.length > 0) {
-            remoteSlots.forEach((slot) => {
-              if (slot && (slot.bookingId || slot.instructorId)) {
-                const key = slot.bookingId || `${slot.instructorId}_${slot.date}_${slot.time}`;
-                slotsMap.set(key, slot);
-              }
-            });
-          }
-          setInstructorBookings(Array.from(slotsMap.values()));
+          const timezone = resolveLessonBookingTimezone();
+          const result = await queryInstructorOccupancyReadModels({
+            scope: 'public_instructor_day',
+            instructorId: InstructorIdSchema.parse(targetInstructor.id),
+            localDate: normalizeDateStr(date),
+            timeZone: timezone,
+          });
+          if (fetchVersion !== occupancyFetchVersionRef.current) return;
+          const mapped = mapInstructorOccupancyReadModelForBookingModal(result.item);
+          setInstructorBookings(mapped.slots);
+          setOccupancyCourses(mapped.courses);
         } else {
           const localList: Booking[] = [];
           for (let i = 0; i < localStorage.length; i++) {
@@ -202,72 +203,40 @@ export const useBookingModal = ({
               )
               .map(toAvailabilitySlot)
           );
+          setOccupancyCourses(courses);
         }
       } catch (err) {
-        logger.error('Error fetching instructor bookings:', err);
+        logger.error('Error fetching instructor occupancy:', err);
+        if (fetchVersion === occupancyFetchVersionRef.current) {
+          setInstructorBookings([]);
+          setOccupancyCourses([]);
+          setOccupancyLoadFailed(true);
+        }
       } finally {
-        setIsLoadingBookings(false);
+        if (fetchVersion === occupancyFetchVersionRef.current) {
+          setIsLoadingBookings(false);
+        }
       }
     };
 
-    fetchBookings();
-  }, [isOpen, targetInstructor?.id, userProfile?.uid]);
+    void fetchOccupancy();
+  }, [isOpen, targetInstructor?.id, date, userProfile?.uid, courses, occupancyRefreshNonce]);
 
   const availableSlots = useMemo((): string[] => {
-    const slots = [...DEFAULT_LESSON_TIME_SLOTS];
-    const normDate = normalizeDateStr(date);
-
-    return slots.filter((slot) => {
-      if (!fitsLessonDaySchedule(slot, duration)) return false;
-      if (normDate && isBookingSlotInPast(normDate, slot)) return false;
-
-      const start = timeStrToMinutes(slot);
-      const end = start + duration * 60;
-
-      if (!normDate) return true;
-
-      const hasBookingOverlap = instructorBookings.some((b) => {
-        if (normalizeDateStr(b.date) !== normDate) return false;
-        const bStart = timeToMinutes(b.time);
-        const bEnd = bStart + b.durationHours * 60;
-        return start < bEnd && end > bStart;
-      });
-
-      if (hasBookingOverlap) return false;
-
-      if (targetInstructor) {
-        const hasCourseOverlap = (courses || []).some((course) => {
-          if (!course.instructorIds || !course.instructorIds.includes(targetInstructor.id))
-            return false;
-
-          const {
-            start: cStart,
-            end: cEnd,
-            startTime: cStartTime,
-            endTime: cEndTime,
-          } = parseCourseDates(course.dates);
-          const startStr = normalizeDateStr(toYMD(cStart));
-          const endStr = normalizeDateStr(toYMD(cEnd));
-
-          if (normDate < startStr || normDate > endStr) return false;
-
-          const cStartMin = timeToMinutes(cStartTime);
-          const cEndMin = timeToMinutes(cEndTime);
-          return start < cEndMin && end > cStartMin;
-        });
-
-        if (hasCourseOverlap) return false;
-      }
-
-      return true;
+    return getAvailableLessonStartTimes({
+      candidateStarts: DEFAULT_LESSON_TIME_SLOTS,
+      durationHours: duration,
+      localDate: date,
+      instructorId: targetInstructor?.id,
+      occupancySlots: instructorBookings,
+      occupancyCourses,
     });
-  }, [date, duration, instructorBookings, courses, targetInstructor]);
+  }, [date, duration, instructorBookings, occupancyCourses, targetInstructor?.id]);
 
   useEffect(() => {
-    if (availableSlots.length > 0 && !availableSlots.includes(time)) {
-      setTime(availableSlots[0]);
-    } else if (availableSlots.length === 0) {
-      setTime('');
+    const nextTime = resolveLessonStartTimeSelection(time, availableSlots);
+    if (nextTime !== time) {
+      setTime(nextTime);
     }
   }, [availableSlots, time]);
 
@@ -290,12 +259,12 @@ export const useBookingModal = ({
   };
 
   const getOverlappingCourse = (): Course | null => {
-    if (!date || !time || !courses || !targetInstructor) return null;
+    if (!date || !time || !targetInstructor) return null;
     const normDate = normalizeDateStr(date);
     const newStart = timeToMinutes(time);
     const newEnd = newStart + duration * 60;
 
-    for (const course of courses) {
+    for (const course of occupancyCourses) {
       if (!course.instructorIds || !course.instructorIds.includes(targetInstructor.id)) continue;
 
       const {
@@ -323,6 +292,7 @@ export const useBookingModal = ({
   const overlappingCourse = getOverlappingCourse();
   const isTimeSlotOccupied =
     isLoadingBookings ||
+    occupancyLoadFailed ||
     !date ||
     !time ||
     !availableSlots.includes(time) ||
@@ -398,6 +368,8 @@ export const useBookingModal = ({
         guestSkillLevel: difficulty,
         guestDiscipline: 'ski',
         guestAgeYears: 25,
+        difficulty,
+        notes: notes.trim() || undefined,
       });
       addNotification('success', t('guestApplicationSuccess'), t('guestApplicationSuccessDesc'));
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
@@ -407,6 +379,10 @@ export const useBookingModal = ({
         t: t as (key: string) => string,
       });
       addNotification('error', t('bookingError'), presented.message);
+      if (presented.shouldRefresh) {
+        setOccupancyRefreshNonce((current) => current + 1);
+        setTime('');
+      }
     } finally {
       isSubmittingRef.current = false;
       setIsSubmitting(false);
@@ -484,6 +460,8 @@ export const useBookingModal = ({
             bookingId,
             idempotencyKey: deriveAuthenticatedCreateIdempotencyKey(bookingId),
           },
+          difficulty,
+          notes: notes.trim() || undefined,
         });
         addNotification(
           'success',
@@ -497,6 +475,10 @@ export const useBookingModal = ({
           t: t as (key: string) => string,
         });
         addNotification('error', t('bookingError'), presented.message);
+        if (presented.shouldRefresh) {
+          setOccupancyRefreshNonce((current) => current + 1);
+          setTime('');
+        }
       } finally {
         isSubmittingRef.current = false;
         setIsSubmitting(false);
@@ -532,6 +514,7 @@ export const useBookingModal = ({
     guestEmail,
     setGuestEmail,
     isLoadingBookings,
+    occupancyLoadFailed,
     availableSlots,
     overlappingBooking,
     overlappingCourse,

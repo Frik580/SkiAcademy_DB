@@ -86,6 +86,8 @@ function detail(): LessonBookingReadModel {
     },
     lifecycle: { status: 'pending_cancellation' },
     bookingOrigin: 'guest',
+    difficulty: 'freeride',
+    notes: 'Bring a helmet',
     authorizedActions: {
       canRequestCancellation: false,
       canWithdrawCancellation: false,
@@ -298,7 +300,7 @@ describe('AdminLessonBookingPanel', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'pick managed' }).at(-1)!);
+    fireEvent.click(screen.getByRole('button', { name: 'pick managed' }));
     fireEvent.change(screen.getByLabelText('Link reason'), {
       target: { value: 'Existing managed identity' },
     });
@@ -324,5 +326,104 @@ describe('AdminLessonBookingPanel', () => {
       targetParticipantId: 'participant_link_target_01',
       reasonExplanation: 'Existing managed identity changed',
     });
+  });
+
+  it('keeps lifecycle actions and hides duplicate scheduling controls', () => {
+    const item = detail();
+    const schedulingAuthorized = {
+      ...item,
+      admin: {
+        ...item.admin!,
+        attendance: [
+          {
+            participantId: 'participant_admin_panel_01',
+            attendanceStatus: 'unknown' as const,
+            revision: 1,
+            authorizedActions: { canRecordPresent: true, canRecordAbsent: true },
+          },
+        ],
+        authorizedActions: {
+          ...item.admin!.authorizedActions,
+          canReschedule: true,
+          canChangeInstructor: true,
+          canChangeDuration: true,
+          canRecordAttendance: true,
+          canResolveAttendanceOutcome: true,
+          canDirectCancel: true,
+        },
+      },
+    };
+    readMock.mockReturnValue({
+      list: { items: [schedulingAuthorized], loading: false, loadingMore: false, hasMore: false },
+      detail: { item: schedulingAuthorized, loading: false },
+      retryList: vi.fn(),
+      retryDetail: vi.fn(),
+      loadMore: vi.fn(),
+      refreshBooking: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/admin?tab=operations&booking=booking_admin_panel_01']}>
+        <AdminLessonBookingPanel
+          adminAccountId="admin_account_01"
+          instructors={[
+            { instructorId: 'instructor_admin_panel_01', displayName: 'Canonical Coach' },
+          ]}
+        />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByText('adminLessonCreateTitle')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Create instructor')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Reschedule date')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Target instructor')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Target duration')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'adminLessonReschedule' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'adminLessonReassign' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonChangeDuration' })
+    ).not.toBeInTheDocument();
+
+    expect(screen.getByText('adminLessonPaymentTitle')).toBeVisible();
+    expect(screen.getByText('adminLessonAttendanceTitle')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'adminLessonRecordPresent' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'adminLessonRecordAbsent' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'adminLessonResolveOutcome' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'adminLessonApproveCancellation' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'adminLessonDirectCancel' })).toBeVisible();
+    expect(screen.getByText(/Canonical Payer/)).toBeVisible();
+    expect(screen.getByText(/missing_attendance/)).toBeVisible();
+    expect(screen.getByText(/booking 5/)).toBeVisible();
+    expect(screen.getByText('adminLessonScheduleInPlanner')).toBeVisible();
+    expect(screen.getByText('adminLessonDifficulty')).toBeVisible();
+    expect(screen.getByText('Freeride')).toBeVisible();
+    expect(screen.getByText('Bring a helmet')).toBeVisible();
+  });
+
+  it('opens the planner on the booking date from lesson detail', () => {
+    const item = detail();
+    readMock.mockReturnValue({
+      list: { items: [item], loading: false, loadingMore: false, hasMore: false },
+      detail: { item, loading: false },
+      retryList: vi.fn(),
+      retryDetail: vi.fn(),
+      loadMore: vi.fn(),
+      refreshBooking: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/admin?tab=operations&booking=booking_admin_panel_01']}>
+        <AdminLessonBookingPanel adminAccountId="admin_account_01" instructors={[]} />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'openInPlanner' }));
+    expect(screen.getByLabelText('location')).toHaveTextContent('tab=operations');
+    expect(screen.getByLabelText('location')).toHaveTextContent('plannerDate=');
+    expect(screen.getByLabelText('location')).toHaveTextContent(
+      'plannerBooking=booking_admin_panel_01'
+    );
   });
 });

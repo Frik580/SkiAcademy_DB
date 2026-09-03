@@ -10,6 +10,7 @@ import {
   InstructorIdSchema,
   ParticipantIdSchema,
   AggregateRevisionSchema,
+  lessonContentFields,
   parseCommandResultPayload,
   type GuestBookingActionCredential,
 } from '@ski-academy/shared-domain';
@@ -46,6 +47,10 @@ export function useLessonBookingCommands(accountId: string | undefined) {
           bookingId: BookingIdSchema.parse(input.identity.bookingId),
           instructorId: InstructorIdSchema.parse(input.instructorId),
           participantIds: input.participantIds.map((id) => ParticipantIdSchema.parse(id)),
+          ...lessonContentFields({
+            difficulty: input.difficulty,
+            notes: input.notes,
+          }),
         },
         idempotencyKey: input.identity.idempotencyKey,
         calendarInput,
@@ -72,6 +77,10 @@ export function useLessonBookingCommands(accountId: string | undefined) {
           bookingId: BookingIdSchema.parse(input.identity.bookingId),
           instructorId: InstructorIdSchema.parse(input.instructorId),
           participantIds: [ParticipantIdSchema.parse(input.participantId)],
+          ...lessonContentFields({
+            difficulty: input.difficulty,
+            notes: input.notes,
+          }),
         },
         idempotencyKey: input.identity.idempotencyKey,
         calendarInput,

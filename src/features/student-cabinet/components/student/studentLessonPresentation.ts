@@ -1,5 +1,5 @@
 import { Booking, Course } from '../../../../types';
-import { getDifficultyLabel, parseCourseDates } from '../../../../app/providers/LanguageContext';
+import { formatLessonDifficultyOrUnspecified, parseCourseDates } from '../../../../app/providers/LanguageContext';
 import { translateCourse, translateInstructorName } from '../../../../lib/i18n/contentTranslation';
 import { toYMD } from './studentCabinetPresentation';
 
@@ -82,7 +82,12 @@ export const getRecentLessonTitle = (
   language: 'en' | 'ru'
 ) => {
   if (!booking.instructorId.startsWith('course_')) {
-    return getDifficultyLabel(booking.difficulty, language, 'short');
+    return formatLessonDifficultyOrUnspecified(
+      booking.difficulty,
+      language,
+      language === 'ru' ? 'Не указан' : 'Not specified',
+      'short'
+    );
   }
   const course = getCourse(booking, courses);
   if (course) return translateCourse(course, language).title;

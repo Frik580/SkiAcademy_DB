@@ -10,6 +10,7 @@ import {
   BookingProposalReservationShapeSchema,
   BookingProposalSchema,
   BookingSchema,
+  CommandIntentSchemaByKind,
   GuestSubjectIdSchema,
   ImmutableBookingAttributionSchema,
   InstructorIdSchema,
@@ -116,6 +117,65 @@ describe('canonical booking collaboration fixtures', () => {
 describe('Booking aggregate contracts', () => {
   it('accepts a valid individual Booking', () => {
     expect(BookingSchema.safeParse(baseBooking()).success).toBe(true);
+  });
+
+  it('accepts historical Bookings without difficulty or notes', () => {
+    const parsed = BookingSchema.safeParse(baseBooking());
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.difficulty).toBeUndefined();
+    expect(parsed.data.notes).toBeUndefined();
+  });
+
+  it('persists optional per-lesson difficulty and notes without defaulting difficulty', () => {
+    const parsed = BookingSchema.safeParse(
+      baseBooking({
+        difficulty: 'freeride',
+        notes: '  Bring a helmet  ',
+      })
+    );
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.difficulty).toBe('freeride');
+    expect(parsed.data.notes).toBe('Bring a helmet');
+  });
+
+  it('normalizes empty notes to an absent optional field', () => {
+    const parsed = BookingSchema.safeParse(baseBooking({ notes: '   ' }));
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.notes).toBeUndefined();
+  });
+
+  it('rejects unknown booking fields under strict schema', () => {
+    expect(
+      BookingSchema.safeParse(
+        baseBooking({
+          adminNotes: 'not canonical',
+        })
+      ).success
+    ).toBe(false);
+  });
+
+  it('does not treat canonical difficulty as a legacy Booking field', () => {
+    expect(containsLegacyBookingFields({ difficulty: 'intermediate' })).toBe(false);
+    expect(
+      CommandIntentSchemaByKind.create_confirmed_booking.safeParse({
+        bookingId,
+        instructorId,
+        participantIds: [participantOne],
+        difficulty: 'advanced',
+        notes: 'Goals for this lesson',
+      }).success
+    ).toBe(true);
+    expect(
+      CommandIntentSchemaByKind.create_confirmed_booking.safeParse({
+        bookingId,
+        instructorId,
+        participantIds: [participantOne],
+        plannerNotes: 'wrong place',
+      }).success
+    ).toBe(false);
   });
 
   it('accepts a valid family/group Booking', () => {

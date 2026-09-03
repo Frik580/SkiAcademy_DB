@@ -197,6 +197,20 @@ describe('getAvailableScheduleDurations', () => {
 
     expect(durations).toEqual([1, 2, 3, 4]);
   });
+
+  it('ignores the occupied lesson when offering a longer duration for that same booking', () => {
+    const durations = getAvailableScheduleDurations({
+      bookings: [baseBooking({ id: 'booking-1', time: '10:00', durationHours: 1 })],
+      courses: [],
+      instructorId: INSTRUCTOR_ID,
+      date: DATE,
+      time: '10:00',
+      excludeBookingId: 'booking-1',
+    });
+
+    expect(durations).toContain(1);
+    expect(durations).toContain(2);
+  });
 });
 
 describe('schedule constants', () => {

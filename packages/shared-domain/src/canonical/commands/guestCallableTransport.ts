@@ -105,6 +105,8 @@ export function buildFrontendGuestLessonBookingCallablePayload(input: {
   readonly guestSkillLevel: string;
   readonly guestDiscipline: 'ski' | 'snowboard';
   readonly guestAgeYears: number;
+  readonly difficulty?: CreateGuestBookingRequestTransport['intent']['difficulty'];
+  readonly notes?: string;
 }): FrontendGuestLessonBookingCallablePayload {
   return {
     kind: 'create_guest_booking_request',
@@ -112,6 +114,8 @@ export function buildFrontendGuestLessonBookingCallablePayload(input: {
       bookingId: input.bookingId,
       instructorId: input.instructorId,
       participantIds: [input.participantId],
+      ...(input.difficulty !== undefined ? { difficulty: input.difficulty } : {}),
+      ...(input.notes ? { notes: input.notes } : {}),
     }),
     idempotencyKey: IdempotencyKeySchema.parse(input.idempotencyKey),
     correlationId: CorrelationIdSchema.parse(input.correlationId),

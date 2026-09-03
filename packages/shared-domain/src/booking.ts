@@ -17,7 +17,7 @@ export interface BookingIdentity {
   time: string;
   durationHours: number;
   status: BookingStatus;
-  difficulty: LessonDifficulty;
+  difficulty?: LessonDifficulty;
   notes?: string;
 }
 

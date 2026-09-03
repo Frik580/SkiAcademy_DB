@@ -30,6 +30,7 @@ export interface LessonBookingCabinetItem {
   readonly bookingOrigin: 'account' | 'guest' | 'instructor' | 'admin';
   readonly isLessonBooking: boolean;
   readonly difficulty?: LessonDifficulty;
+  readonly notes?: string;
   readonly cancellationReason?: string;
   readonly authorizedActions?: LessonBookingReadModelAuthorizedActions;
 }
@@ -48,6 +49,8 @@ export interface AuthenticatedLessonBookingInput {
   readonly durationMinutes: number;
   readonly timezone: string;
   readonly identity: LessonBookingSubmissionIdentity;
+  readonly difficulty?: LessonDifficulty;
+  readonly notes?: string;
 }
 
 export interface GuestLessonBookingInput {
@@ -62,6 +65,8 @@ export interface GuestLessonBookingInput {
   readonly guestSkillLevel: string;
   readonly guestDiscipline: 'ski' | 'snowboard';
   readonly guestAgeYears: number;
+  readonly difficulty?: LessonDifficulty;
+  readonly notes?: string;
 }
 
 export interface ManagedParticipantOption {

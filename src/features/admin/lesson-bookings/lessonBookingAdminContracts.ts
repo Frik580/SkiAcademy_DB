@@ -2,6 +2,7 @@ import type {
   BookingId,
   IdempotencyKey,
   LessonBookingReadModel,
+  LessonDifficulty,
   ParticipantId,
 } from '@ski-academy/shared-domain';
 
@@ -98,6 +99,8 @@ export interface AdminCreateLessonBookingAttempt {
   readonly durationMinutes: number;
   readonly timezone: string;
   readonly reasonExplanation: string;
+  readonly difficulty?: LessonDifficulty;
+  readonly notes?: string;
 }
 
 export type AdminLessonBookingAttempt =

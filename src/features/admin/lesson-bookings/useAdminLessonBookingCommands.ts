@@ -42,6 +42,8 @@ export async function executeAdminLessonBookingAttempt(
           participantIds: attempt.participantIds.map((id) => ParticipantIdSchema.parse(id)),
           payerAccountId: AccountIdSchema.parse(attempt.payerAccountId),
           reasonExplanation: attempt.reasonExplanation,
+          ...(attempt.difficulty !== undefined ? { difficulty: attempt.difficulty } : {}),
+          ...(attempt.notes ? { notes: attempt.notes } : {}),
         },
         idempotencyKey: attempt.idempotencyKey,
         calendarInput: {

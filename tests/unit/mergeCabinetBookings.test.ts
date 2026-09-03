@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cabinetItemToLegacyPresentation,
   isCourseLegacyBooking,
   mergeCabinetLessonAndCourseBookings,
 } from '../../src/features/lesson-bookings/mergeCabinetBookings';
@@ -56,5 +57,10 @@ describe('mergeCabinetBookings', () => {
     expect(merged.find((item) => item.bookingId === 'course_enrollment_01')?.isLessonBooking).toBe(
       false
     );
+  });
+
+  it('does not invent beginner difficulty when cabinet item has none', () => {
+    const presented = cabinetItemToLegacyPresentation(lessonItem, 'user_01');
+    expect(presented.difficulty).toBeUndefined();
   });
 });

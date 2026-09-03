@@ -26,3 +26,6 @@ export * from './queryAdminIssueReadModelsCallable';
 export * from './resolveCallableAdministrator';
 export * from './adminPlannerReadModels';
 export * from './queryAdminPlannerReadModelsCallable';
+export * from './instructorOccupancyReadSupport';
+export * from './instructorOccupancyReadModels';
+export * from './queryInstructorOccupancyReadModelsCallable';

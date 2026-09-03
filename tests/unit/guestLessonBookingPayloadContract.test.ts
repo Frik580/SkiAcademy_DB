@@ -34,6 +34,8 @@ function frontendGuestLessonBookingPayload() {
     guestSkillLevel: 'beginner',
     guestDiscipline: 'ski',
     guestAgeYears: 25,
+    difficulty: 'freestyle',
+    notes: 'Park session',
   });
 }
 
@@ -42,6 +44,8 @@ describe('guest lesson booking callable transport contract', () => {
     const payload = frontendGuestLessonBookingPayload();
     expect(CreateGuestBookingRequestTransportSchema.safeParse(payload).success).toBe(true);
     expect(parseCallableGuestCommandTransport(payload).success).toBe(true);
+    expect(payload.intent.difficulty).toBe('freestyle');
+    expect(payload.intent.notes).toBe('Park session');
   });
 
   it('builds a valid command envelope for executeGuestCanonicalCommand', () => {

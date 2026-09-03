@@ -24,6 +24,8 @@ import {
   type QueryCourseEnrollmentReadModelsResult,
   type QueryInstructorCourseAssignmentReadModelsInput,
   type QueryInstructorCourseAssignmentReadModelsResult,
+  type QueryInstructorOccupancyReadModelsInput,
+  type QueryInstructorOccupancyReadModelsResult,
   type QueryLessonBookingReadModelsInput,
   type QueryLessonBookingReadModelsResult,
   type QueryManagedParticipantPickerReadModelsInput,
@@ -53,6 +55,7 @@ export const QUERY_ADMIN_COURSE_ENROLLMENT_READ_MODELS_CALLABLE =
   'queryAdminCourseEnrollmentReadModels';
 export const QUERY_ADMIN_IDENTITY_READ_MODELS_CALLABLE = 'queryAdminIdentityReadModels';
 export const QUERY_ADMIN_PLANNER_READ_MODELS_CALLABLE = 'queryAdminPlannerReadModels';
+export const QUERY_INSTRUCTOR_OCCUPANCY_READ_MODELS_CALLABLE = 'queryInstructorOccupancyReadModels';
 
 export async function queryAdminCourseEnrollmentReadModels(
   input: QueryAdminCourseEnrollmentReadModelsInput
@@ -374,6 +377,25 @@ export async function queryInstructorCourseAssignmentReadModels(
     QueryInstructorCourseAssignmentReadModelsResult
   >(QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE, input, {
     idempotencyKey,
+    maxAttempts: 1,
+  });
+}
+
+export async function queryInstructorOccupancyReadModels(
+  input: QueryInstructorOccupancyReadModelsInput
+): Promise<QueryInstructorOccupancyReadModelsResult> {
+  const identityHash = canonicalDeterministicHash([
+    'read:instructor_occupancy:v1',
+    input.instructorId,
+    input.localDate,
+    input.timeZone,
+    String(input.windowDays ?? 1),
+  ]);
+  return callFunction<
+    QueryInstructorOccupancyReadModelsInput,
+    QueryInstructorOccupancyReadModelsResult
+  >(QUERY_INSTRUCTOR_OCCUPANCY_READ_MODELS_CALLABLE, input, {
+    idempotencyKey: `read:instructor_occupancy:${identityHash}`,
     maxAttempts: 1,
   });
 }

@@ -1,5 +1,5 @@
 import { Booking, Course } from '../../../../types';
-import { getDifficultyLabel } from '../../../../app/providers/LanguageContext';
+import { formatLessonDifficultyOrUnspecified } from '../../../../app/providers/LanguageContext';
 import { translateInstructorName } from '../../../../lib/i18n/contentTranslation';
 import { formatRecentLessonDateLabel, getRecentLessonTitle } from './studentLessonPresentation';
 
@@ -21,7 +21,12 @@ export const getTodayTaskBookingContext = (
     bookingId: booking.id,
     title: isCourse
       ? getRecentLessonTitle(booking, courses, language)
-      : `${getDifficultyLabel(booking.difficulty, language, 'short')} — ${instructorName}`,
+      : `${formatLessonDifficultyOrUnspecified(
+          booking.difficulty,
+          language,
+          language === 'ru' ? 'Не указан' : 'Not specified',
+          'short'
+        )} — ${instructorName}`,
     dateLabel: formatRecentLessonDateLabel(booking, courses, language),
     isCourse,
   };

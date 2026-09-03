@@ -58,17 +58,41 @@ export function selectPlannerSelfParticipantId(
   return items.find((item) => item.authority === 'self')?.participantId;
 }
 
-async function resolvePayerParticipant(adminAccountId: string, accountId: string): Promise<string> {
+export type PlannerCreateParticipantResolution =
+  | { readonly status: 'selected'; readonly participantId: string }
+  | { readonly status: 'unique_self'; readonly participantId: string }
+  | { readonly status: 'provision_self' }
+  | { readonly status: 'needs_explicit_selection' };
+
+export function resolvePlannerCreateParticipantChoice(input: {
+  readonly eligible: readonly AdminEligibleParticipantItem[];
+  readonly selectedParticipantId?: string;
+}): PlannerCreateParticipantResolution {
+  if (input.selectedParticipantId) {
+    const match = input.eligible.find((item) => item.participantId === input.selectedParticipantId);
+    return match
+      ? { status: 'selected', participantId: match.participantId }
+      : { status: 'needs_explicit_selection' };
+  }
+  if (input.eligible.length === 0) return { status: 'provision_self' };
+  const only = input.eligible[0];
+  if (input.eligible.length === 1 && only?.authority === 'self') {
+    return { status: 'unique_self', participantId: only.participantId };
+  }
+  return { status: 'needs_explicit_selection' };
+}
+
+async function loadEligibleParticipants(accountId: string) {
   const parsedAccountId = AccountIdSchema.parse(accountId);
-  const load = async () => {
-    const result = await queryAdminIdentityReadModels({
-      scope: 'admin_eligible_participants',
-      accountId: parsedAccountId,
-    });
-    return result.scope === 'admin_eligible_participants' ? result.items : [];
-  };
-  const existingSelf = selectPlannerSelfParticipantId(await load());
-  if (existingSelf) return existingSelf;
+  const result = await queryAdminIdentityReadModels({
+    scope: 'admin_eligible_participants',
+    accountId: parsedAccountId,
+  });
+  return result.scope === 'admin_eligible_participants' ? result.items : [];
+}
+
+async function provisionSelfParticipant(adminAccountId: string, accountId: string): Promise<string> {
+  const parsedAccountId = AccountIdSchema.parse(accountId);
   await assertSucceeded(
     executeAuthenticatedCanonicalCommand(adminAccountId, {
       kind: 'provision_self_participant_for_account',
@@ -80,16 +104,41 @@ async function resolvePayerParticipant(adminAccountId: string, accountId: string
       administratorContext: true,
     })
   );
-  const provisionedSelf = selectPlannerSelfParticipantId(await load());
+  const provisionedSelf = selectPlannerSelfParticipantId(await loadEligibleParticipants(accountId));
   if (!provisionedSelf) {
     throw new Error('No self Participant is available for the selected payer Account');
   }
   return provisionedSelf;
 }
 
+async function resolveCreateParticipant(input: {
+  readonly adminAccountId: string;
+  readonly accountId: string;
+  readonly selectedParticipantId?: string;
+}): Promise<string> {
+  const eligible = await loadEligibleParticipants(input.accountId);
+  const choice = resolvePlannerCreateParticipantChoice({
+    eligible,
+    ...(input.selectedParticipantId ? { selectedParticipantId: input.selectedParticipantId } : {}),
+  });
+  if (choice.status === 'selected' || choice.status === 'unique_self') {
+    return choice.participantId;
+  }
+  if (choice.status === 'provision_self') {
+    return provisionSelfParticipant(input.adminAccountId, input.accountId);
+  }
+  throw new Error('Select the Participant for this lesson');
+}
+
+async function resolvePayerParticipant(adminAccountId: string, accountId: string): Promise<string> {
+  const existingSelf = selectPlannerSelfParticipantId(await loadEligibleParticipants(accountId));
+  if (existingSelf) return existingSelf;
+  return provisionSelfParticipant(adminAccountId, accountId);
+}
+
 export async function createPlannerOccupancyFromLegacyBookingShape(input: {
   readonly adminAccountId: string;
-  readonly booking: Booking;
+  readonly booking: Booking & { readonly participantId?: string };
 }): Promise<void> {
   const timezone = resolveAdminTimeZone();
   const durationMinutes = Math.max(1, Math.round(input.booking.durationHours * 60));
@@ -120,7 +169,11 @@ export async function createPlannerOccupancyFromLegacyBookingShape(input: {
     return;
   }
 
-  const participantId = await resolvePayerParticipant(input.adminAccountId, input.booking.userId);
+  const participantId = await resolveCreateParticipant({
+    adminAccountId: input.adminAccountId,
+    accountId: input.booking.userId,
+    ...(input.booking.participantId ? { selectedParticipantId: input.booking.participantId } : {}),
+  });
   await executeAdminLessonBookingAttempt(input.adminAccountId, {
     kind: 'create_confirmed_booking',
     idempotencyKey: plannerIdempotency('create_lesson'),
@@ -133,6 +186,8 @@ export async function createPlannerOccupancyFromLegacyBookingShape(input: {
     durationMinutes,
     timezone,
     reasonExplanation: 'Admin planner confirmed lesson',
+    ...(input.booking.difficulty ? { difficulty: input.booking.difficulty } : {}),
+    ...(input.booking.notes?.trim() ? { notes: input.booking.notes.trim() } : {}),
   });
 }
 
@@ -193,13 +248,15 @@ export async function reschedulePlannerOccupancy(input: {
     return;
   }
   if (!item.bookingId) throw new Error('Lesson occupancy is missing a booking id');
+  const booking = await loadPlannerLessonDetail(item.bookingId);
+  if (!booking) throw new Error('Lesson detail is required to reschedule');
   await executeAdminLessonBookingAttempt(input.adminAccountId, {
     kind: 'reschedule_booking',
     idempotencyKey: plannerIdempotency('reschedule_lesson'),
-    target: { bookingId: item.bookingId, revision: item.revision },
+    target: { bookingId: item.bookingId, revision: booking.revision },
     localDate: input.localDate,
     localTime: input.localTime,
-    durationMinutes: item.durationMinutes,
+    durationMinutes: booking.occurrence.durationMinutes,
     timezone,
     reasonExplanation: 'Admin planner reschedule lesson',
   });
@@ -264,6 +321,30 @@ export async function reassignPlannerOccupancy(input: {
     target: { bookingId: item.bookingId, revision: bookingRevision },
     instructorId: input.instructor.id,
     reasonExplanation: 'Admin planner reassign lesson instructor',
+  });
+}
+
+export async function changePlannerOccupancyDuration(input: {
+  readonly adminAccountId: string;
+  readonly occupancy: readonly AdminPlannerOccupancyItem[];
+  readonly occupancyId: string;
+  readonly durationMinutes: number;
+}): Promise<void> {
+  const item = occupancyForId(input.occupancy, input.occupancyId);
+  if (!item?.bookingId || item.occupancyKind !== 'lesson_booking') {
+    throw new Error('Only lesson bookings can change duration from the planner');
+  }
+  const booking = await loadPlannerLessonDetail(item.bookingId);
+  if (!booking) {
+    throw new Error('Lesson detail is required to change duration');
+  }
+  if (booking.occurrence.durationMinutes === input.durationMinutes) return;
+  await executeAdminLessonBookingAttempt(input.adminAccountId, {
+    kind: 'change_booking_duration',
+    idempotencyKey: plannerIdempotency('duration_lesson'),
+    target: { bookingId: item.bookingId, revision: booking.revision },
+    durationMinutes: input.durationMinutes,
+    reasonExplanation: 'Admin planner change lesson duration',
   });
 }
 

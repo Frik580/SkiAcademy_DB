@@ -304,14 +304,14 @@ describe('T32.9A Admin UX parity behavior', () => {
     ] as unknown as AdminPlannerOccupancyItem[]);
     expect(sharedDay.map((row) => row.id)).toEqual(['day_shared:ins_1', 'day_shared:ins_2']);
     expect(sharedDay.map((row) => row.instructorIds[0])).toEqual(['ins_1', 'ins_2']);
-    expect(readRepoFile('functions/src/canonical/readModels/adminPlannerReadModels.ts')).toContain(
-      'occurrence.interval.startsAt.seconds'
-    );
-    expect(readRepoFile('functions/src/canonical/readModels/adminPlannerReadModels.ts')).toContain(
-      "collectionGroup('days')"
-    );
     expect(
-      readRepoFile('functions/src/canonical/readModels/adminPlannerReadModels.ts')
+      readRepoFile('functions/src/canonical/readModels/instructorOccupancyReadSupport.ts')
+    ).toContain('occurrence.interval.startsAt.seconds');
+    expect(
+      readRepoFile('functions/src/canonical/readModels/instructorOccupancyReadSupport.ts')
+    ).toContain("collectionGroup('days')");
+    expect(
+      readRepoFile('functions/src/canonical/readModels/instructorOccupancyReadSupport.ts')
     ).not.toContain('PLANNER_BOOKING_SCAN_LIMIT');
   });
 
@@ -452,9 +452,9 @@ describe('T32.9A Admin UX parity behavior', () => {
     expect(
       readRepoFile('src/features/admin/components/courses/CanonicalCoursesManager.tsx')
     ).toContain('enrolledNamesByCourseId');
-    expect(readRepoFile('functions/src/canonical/readModels/adminPlannerReadModels.ts')).toContain(
-      '`${day.courseDayId}:${instructorId}`'
-    );
+    expect(
+      readRepoFile('functions/src/canonical/readModels/instructorOccupancyReadSupport.ts')
+    ).toContain('`${day.courseDayId}:${instructorId}`');
   });
 
   it('maps canonical course rows and enrollment names into the historical table density', () => {

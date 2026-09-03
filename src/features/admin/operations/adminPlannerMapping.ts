@@ -95,8 +95,7 @@ export function mapPlannerOccupancyToBookings(
           durationHours: durationHours(presentation.durationMinutes),
           totalPrice: 0,
           status: 'confirmed',
-          difficulty: 'beginner',
-          notes: item.notes,
+          ...(item.notes ? { notes: item.notes } : {}),
         },
       ];
     }
@@ -115,8 +114,8 @@ export function mapPlannerOccupancyToBookings(
         durationHours: durationHours(presentation.durationMinutes),
         totalPrice: 0,
         status,
-        difficulty: 'beginner',
-        notes: item.notes,
+        ...(item.difficulty ? { difficulty: item.difficulty } : {}),
+        ...(item.notes ? { notes: item.notes } : {}),
         isGuest: item.isGuest,
         guestName: item.isGuest ? item.displayTitle : undefined,
       },

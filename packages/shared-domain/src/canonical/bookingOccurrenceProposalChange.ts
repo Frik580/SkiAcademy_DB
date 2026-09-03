@@ -111,7 +111,6 @@ export const LEGACY_BOOKING_FIELD_NAMES = [
   'coursePrice',
   'instructorName',
   'instructorAvatar',
-  'difficulty',
   'totalPrice',
   'enrollmentId',
   'availableSeats',
@@ -425,6 +424,39 @@ const BookingArchivalSchema = z
   })
   .strict();
 
+export const LESSON_DIFFICULTIES = [
+  'beginner',
+  'intermediate',
+  'advanced',
+  'freeride',
+  'freestyle',
+] as const;
+
+export const LessonDifficultySchema = z.enum(LESSON_DIFFICULTIES);
+
+export const BookingLessonNotesSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? undefined : trimmed;
+  },
+  z.string().max(1_000).optional()
+);
+
+export function lessonContentFields(input: {
+  readonly difficulty?: z.output<typeof LessonDifficultySchema>;
+  readonly notes?: string;
+}): {
+  readonly difficulty?: z.output<typeof LessonDifficultySchema>;
+  readonly notes?: string;
+} {
+  const notes = input.notes?.trim();
+  return {
+    ...(input.difficulty !== undefined ? { difficulty: input.difficulty } : {}),
+    ...(notes ? { notes } : {}),
+  };
+}
+
 export const BookingSchema = z
   .object({
     bookingId: BookingIdSchema,
@@ -434,6 +466,8 @@ export const BookingSchema = z
     lifecycle: BookingLifecycleSchema,
     paymentId: PaymentIdSchema,
     payerAccountId: AccountIdSchema.optional(),
+    difficulty: LessonDifficultySchema.optional(),
+    notes: BookingLessonNotesSchema,
     clientSelfServiceRescheduleConsumedAt: CanonicalTimestampSchema.optional(),
     archival: BookingArchivalSchema.optional(),
     revision: PersistedAggregateRevisionSchema,
@@ -683,7 +717,6 @@ export const LegacyBookingShapeSchema = z
     coursePrice: z.unknown().optional(),
     instructorName: z.unknown().optional(),
     instructorAvatar: z.unknown().optional(),
-    difficulty: z.unknown().optional(),
     totalPrice: z.unknown().optional(),
     enrollmentId: z.unknown().optional(),
     availableSeats: z.unknown().optional(),

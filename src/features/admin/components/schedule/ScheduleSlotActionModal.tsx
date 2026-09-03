@@ -11,15 +11,19 @@ import {
   CanonicalCommandClientError,
   mapCanonicalErrorMessage,
 } from '../../../../lib/canonical/mapCanonicalCommandError';
+import type { AdminManagedParticipantSelection } from '../../identity';
+import { accountDirectoryOptionFromClient } from '../../identity/accountDirectorySearch';
 import { LinkGuestBookingModal } from '../bookings/LinkGuestBookingModal';
 import { ActiveSlotDetails } from './../schedule/slot-modal/ActiveSlotDetails';
 import { ActiveSlotMoveForm } from './../schedule/slot-modal/ActiveSlotMoveForm';
 import { ActiveSlotCreateForm } from './../schedule/slot-modal/ActiveSlotCreateForm';
+import type { PlannerCreateOccupancyInput } from './scheduleContracts';
 import {
   getAvailableMoveTimeSlots,
   getAvailableScheduleDurations,
   hasScheduleOverlap,
 } from './scheduleOverlap';
+import { isPlannerLessonBooking } from './scheduleUtils';
 
 const mutationErrorMessage = (error: unknown, fallback: string): string =>
   error instanceof CanonicalCommandClientError ? mapCanonicalErrorMessage(error.code) : fallback;
@@ -59,13 +63,15 @@ interface ScheduleSlotActionModalProps {
   usersList: UserProfile[];
   adminProfile: UserProfile;
   onClose: () => void;
-  onAddBooking?: (booking: Booking) => Promise<void>;
+  onAddBooking?: (booking: PlannerCreateOccupancyInput) => Promise<void>;
   onRescheduleBooking?: (id: string, newDate: string, newTime: string) => Promise<void>;
   onReassignInstructor?: ReassignInstructorFn;
+  onChangeBookingDuration?: (id: string, durationHours: number) => Promise<void>;
   onDeleteBooking?: (id: string) => Promise<void>;
   onCancelBooking: (id: string) => Promise<void>;
   onCompleteBooking?: (id: string) => Promise<void>;
   onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
+  onOpenLessonDetail?: (bookingId: string) => void;
   skipLegacyBalanceGate?: boolean;
 }
 
@@ -79,12 +85,13 @@ interface ActiveSlotDialogProps {
   onClose: () => void;
   onDeleteRequest: (id: string) => void;
   onOpenChat: (booking: Booking) => void;
-  onAddBooking?: (booking: Booking) => Promise<void>;
+  onAddBooking?: (booking: PlannerCreateOccupancyInput) => Promise<void>;
   onRescheduleBooking?: (id: string, newDate: string, newTime: string) => Promise<void>;
   onReassignInstructor?: ReassignInstructorFn;
+  onChangeBookingDuration?: (id: string, durationHours: number) => Promise<void>;
   onCompleteBooking?: (id: string) => Promise<void>;
   onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
-  skipLegacyBalanceGate?: boolean;
+  onOpenLessonDetail?: (bookingId: string) => void;
 }
 
 const isReassignableBooking = (booking: Booking): boolean =>
@@ -108,16 +115,20 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   onAddBooking,
   onRescheduleBooking,
   onReassignInstructor,
+  onChangeBookingDuration,
   onCompleteBooking,
   onLinkGuestBooking,
-  skipLegacyBalanceGate = false,
+  onOpenLessonDetail,
 }) => {
   const { addNotification } = useNotifications();
   const { t } = useLanguage();
   const [modalTab, setModalTab] = useState<'break' | 'day_off' | 'booking'>('break');
   const [blockDuration, setBlockDuration] = useState(1);
   const [blockNotes, setBlockNotes] = useState('');
-  const [selectedClientUid, setSelectedClientUid] = useState(usersList[0]?.uid || '');
+  const [createSelection, setCreateSelection] = useState<
+    AdminManagedParticipantSelection | undefined
+  >();
+  const [createAccountId, setCreateAccountId] = useState<string | undefined>();
   const [bookingDuration, setBookingDuration] = useState(1);
   const [bookingDifficulty, setBookingDifficulty] = useState<
     'beginner' | 'intermediate' | 'advanced' | 'freeride' | 'freestyle'
@@ -127,8 +138,17 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [insufficientFundsPrompt, setInsufficientFundsPrompt] =
     useState<InsufficientFundsPrompt | null>(null);
+  const clientAccounts = useMemo(
+    () =>
+      usersList.flatMap((user) => {
+        const option = accountDirectoryOptionFromClient(user);
+        return option ? [option] : [];
+      }),
+    [usersList]
+  );
   const [newMoveDate, setNewMoveDate] = useState(activeSlot.booking?.date || selectedDate);
   const [newMoveTime, setNewMoveTime] = useState(activeSlot.booking?.time || activeSlot.time);
+  const [newMoveDuration, setNewMoveDuration] = useState(activeSlot.booking?.durationHours || 1);
   const [newInstructorId, setNewInstructorId] = useState(
     activeSlot.booking?.instructorId || activeSlot.instructor.id
   );
@@ -145,9 +165,25 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
     setInsufficientFundsPrompt(null);
     setNewMoveTime(time);
   };
+  const setNewMoveDurationAndClearPrompt = (duration: number) => {
+    setInsufficientFundsPrompt(null);
+    setNewMoveDuration(duration);
+  };
 
   const canReassignInstructor = Boolean(
     activeSlot.booking && isReassignableBooking(activeSlot.booking) && onReassignInstructor
+  );
+  const canChangeDuration = Boolean(
+    activeSlot.booking && isReassignableBooking(activeSlot.booking) && onChangeBookingDuration
+  );
+  const canCompleteLesson = Boolean(
+    activeSlot.booking &&
+      isPlannerLessonBooking(activeSlot.booking) &&
+      activeSlot.booking.status === 'confirmed' &&
+      onCompleteBooking
+  );
+  const canOpenLessonDetail = Boolean(
+    activeSlot.booking && isPlannerLessonBooking(activeSlot.booking) && onOpenLessonDetail
   );
 
   const availableInstructors = useMemo(() => {
@@ -166,10 +202,26 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
       courses,
       instructorId: newInstructorId,
       date: newMoveDate,
-      durationHours: activeSlot.booking.durationHours,
+      durationHours: newMoveDuration,
       excludeBookingId: activeSlot.booking.id,
     });
-  }, [activeSlot, newMoveDate, newInstructorId, bookings, courses]);
+  }, [activeSlot, newMoveDate, newInstructorId, newMoveDuration, bookings, courses]);
+
+  const availableMoveDurations = useMemo(() => {
+    if (!activeSlot.booking || !canChangeDuration) return [];
+    const available = getAvailableScheduleDurations({
+      bookings,
+      courses,
+      instructorId: newInstructorId,
+      date: newMoveDate,
+      time: newMoveTime,
+      excludeBookingId: activeSlot.booking.id,
+    });
+    const current = activeSlot.booking.durationHours;
+    return available.includes(current)
+      ? available
+      : [...available, current].sort((left, right) => left - right);
+  }, [activeSlot, canChangeDuration, newInstructorId, newMoveDate, newMoveTime, bookings, courses]);
 
   useEffect(() => {
     if (activeSlot.booking && availableMoveTimeSlots.length > 0) {
@@ -178,6 +230,14 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
       }
     }
   }, [availableMoveTimeSlots, newMoveTime, activeSlot]);
+
+  useEffect(() => {
+    if (activeSlot.booking && availableMoveDurations.length > 0) {
+      if (!availableMoveDurations.includes(newMoveDuration)) {
+        setNewMoveDuration(availableMoveDurations[0]);
+      }
+    }
+  }, [availableMoveDurations, newMoveDuration, activeSlot]);
 
   const availableBreakDurations = useMemo(() => {
     if (activeSlot.booking) return [];
@@ -315,8 +375,8 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
           return;
         }
 
-        if (!selectedClientUid) {
-          addNotification('warning', t('missingClientTitle'), t('selectClientPlease'));
+        if (!createSelection && !createAccountId) {
+          addNotification('warning', t('missingParticipantTitle'), t('plannerSelectParticipantPlease'));
           setIsSlotActionSubmitting(false);
           return;
         }
@@ -335,22 +395,18 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
           return;
         }
 
-        const matchedClient = usersList.find((user) => user.uid === selectedClientUid);
-        const bookingPrice = activeSlot.instructor.pricePerHour * bookingDuration;
-
-        if (!skipLegacyBalanceGate && matchedClient && matchedClient.balanceUSD < bookingPrice) {
-          addNotification(
-            'error',
-            t('insufficientFunds'),
-            `${t('clientBalanceDescPrefix')} ${matchedClient.displayName} ${t('clientBalanceDescMiddle')} ${matchedClient.balanceUSD}, ${t('clientBalanceDescSuffix')} ${bookingPrice}.`
-          );
+        const payerAccountId = createSelection?.accountId ?? createAccountId;
+        if (!payerAccountId) {
+          addNotification('warning', t('missingParticipantTitle'), t('plannerSelectParticipantPlease'));
           setIsSlotActionSubmitting(false);
           return;
         }
+        const bookingPrice = activeSlot.instructor.pricePerHour * bookingDuration;
 
-        const newBooking: Booking = {
+        const newBooking: PlannerCreateOccupancyInput = {
           id: `booking_${Math.random().toString(36).substring(2, 9)}`,
-          userId: selectedClientUid,
+          userId: payerAccountId,
+          ...(createSelection ? { participantId: createSelection.participantId } : {}),
           instructorId: activeSlot.instructor.id,
           instructorName: activeSlot.instructor.name,
           instructorAvatar: activeSlot.instructor.avatarUrl,
@@ -366,7 +422,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
         addNotification(
           'success',
           t('manualBookingAdded'),
-          `${t('manualBookingDescPrefix')} ${matchedClient?.displayName || t('clientFallback')} ${t('manualBookingDescWith')} ${activeSlot.instructor.name}.`
+          `${t('manualBookingDescPrefix')} ${createSelection?.displayName || t('clientFallback')} ${t('manualBookingDescWith')} ${activeSlot.instructor.name}.`
         );
       }
       onClose();
@@ -389,14 +445,18 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
       canReassignInstructor && newInstructorId !== activeSlot.booking.instructorId;
     const scheduleChanged =
       newMoveDate !== activeSlot.booking.date || newMoveTime !== activeSlot.booking.time;
+    const durationChanged =
+      canChangeDuration && newMoveDuration !== activeSlot.booking.durationHours;
+    const shrinking = durationChanged && newMoveDuration < activeSlot.booking.durationHours;
 
-    if (!instructorChanged && !scheduleChanged) {
+    if (!instructorChanged && !scheduleChanged && !durationChanged) {
       onClose();
       return;
     }
 
     if (instructorChanged && !onReassignInstructor) return;
-    if (!instructorChanged && !onRescheduleBooking) return;
+    if (!instructorChanged && scheduleChanged && !onRescheduleBooking) return;
+    if (durationChanged && !onChangeBookingDuration) return;
 
     setIsSlotActionSubmitting(true);
     setInsufficientFundsPrompt(null);
@@ -408,13 +468,17 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
           instructorId: newInstructorId,
           date: newMoveDate,
           time: newMoveTime,
-          durationHours: activeSlot.booking.durationHours,
+          durationHours: newMoveDuration,
           excludeBookingId: activeSlot.booking.id,
         })
       ) {
         addNotification('error', t('conflictDetected'), t('conflictRescheduleDesc'));
         setIsSlotActionSubmitting(false);
         return;
+      }
+
+      if (durationChanged && shrinking) {
+        await onChangeBookingDuration!(activeSlot.booking.id, newMoveDuration);
       }
 
       if (instructorChanged) {
@@ -471,8 +535,14 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
           throw error;
         }
         addNotification('success', t('lessonReassigned'), t('lessonReassignedDesc'));
-      } else {
+      } else if (scheduleChanged) {
         await onRescheduleBooking!(activeSlot.booking.id, newMoveDate, newMoveTime);
+        addNotification('success', t('scheduleUpdated'), t('scheduleUpdatedDesc'));
+      }
+      if (durationChanged && !shrinking) {
+        await onChangeBookingDuration!(activeSlot.booking.id, newMoveDuration);
+      }
+      if (durationChanged && !instructorChanged && !scheduleChanged) {
         addNotification('success', t('scheduleUpdated'), t('scheduleUpdatedDesc'));
       }
       onClose();
@@ -595,6 +665,8 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
             <ActiveSlotMoveForm
               booking={activeSlot.booking}
               canReassignInstructor={canReassignInstructor}
+              canChangeDuration={canChangeDuration}
+              canCompleteLesson={canCompleteLesson}
               newInstructorId={newInstructorId}
               setNewInstructorId={setNewInstructorIdAndClearPrompt}
               availableInstructors={availableInstructors}
@@ -602,9 +674,13 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
               setNewMoveDate={setNewMoveDateAndClearPrompt}
               newMoveTime={newMoveTime}
               setNewMoveTime={setNewMoveTimeAndClearPrompt}
+              newMoveDuration={newMoveDuration}
+              setNewMoveDuration={setNewMoveDurationAndClearPrompt}
               availableMoveTimeSlots={availableMoveTimeSlots}
+              availableMoveDurations={availableMoveDurations}
               isSlotActionSubmitting={isSlotActionSubmitting}
-              onCompleteBooking={onCompleteBooking}
+              onCompleteBooking={canCompleteLesson ? onCompleteBooking : undefined}
+              onOpenLessonDetail={canOpenLessonDetail ? onOpenLessonDetail : undefined}
               onDeleteRequest={onDeleteRequest}
               onSubmit={handleSlotMoveSubmit}
               onClose={onClose}
@@ -620,9 +696,10 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
             availableBreakDurations={availableBreakDurations}
             blockNotes={blockNotes}
             setBlockNotes={setBlockNotes}
-            selectedClientUid={selectedClientUid}
-            setSelectedClientUid={setSelectedClientUid}
-            usersList={usersList}
+            createSelection={createSelection}
+            setCreateSelection={setCreateSelection}
+            onCreateAccountIdChange={setCreateAccountId}
+            clientAccounts={clientAccounts}
             bookingDuration={bookingDuration}
             setBookingDuration={setBookingDuration}
             availableBookingDurations={availableBookingDurations}
@@ -674,11 +751,13 @@ export const ScheduleSlotActionModal = forwardRef<
       onAddBooking,
       onRescheduleBooking,
       onReassignInstructor,
+      onChangeBookingDuration,
       onDeleteBooking,
       onCancelBooking,
       onCompleteBooking,
       onLinkGuestBooking,
-      skipLegacyBalanceGate = false,
+      onOpenLessonDetail,
+      skipLegacyBalanceGate: _skipLegacyBalanceGate = false,
     },
     ref
   ) => {
@@ -736,9 +815,10 @@ export const ScheduleSlotActionModal = forwardRef<
             onAddBooking={onAddBooking}
             onRescheduleBooking={onRescheduleBooking}
             onReassignInstructor={onReassignInstructor}
+            onChangeBookingDuration={onChangeBookingDuration}
             onCompleteBooking={onCompleteBooking}
             onLinkGuestBooking={onLinkGuestBooking}
-            skipLegacyBalanceGate={skipLegacyBalanceGate}
+            onOpenLessonDetail={onOpenLessonDetail}
           />
         )}
 

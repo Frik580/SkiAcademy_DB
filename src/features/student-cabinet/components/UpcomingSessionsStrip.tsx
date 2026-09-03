@@ -12,7 +12,7 @@ import {
 import {
   useLanguage,
   formatShortBookingDate,
-  getDifficultyLabel,
+  formatLessonDifficultyOrUnspecified,
   getHourSuffix,
 } from '../../../app/providers/LanguageContext';
 import { StatusBadge } from '../../../ui/StatusBadge';
@@ -148,7 +148,7 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5">
                         <p className="text-[10px] font-mono text-[var(--ink)] uppercase tracking-wider font-medium">
                           {item.kind === 'lesson'
-                            ? `${getDifficultyLabel(item.session.difficulty ?? 'beginner', language, 'short')} • ${item.session.durationHours}${getHourSuffix(language)}`
+                            ? `${formatLessonDifficultyOrUnspecified(item.session.difficulty, language, t('difficultyUnspecified'), 'short')} • ${item.session.durationHours}${getHourSuffix(language)}`
                             : getCabinetSessionSubtitle(item, language === 'ru' ? 'ru' : 'en')}
                         </p>
                         <span className="text-[10px] font-mono text-[var(--ink-dim)]">•</span>

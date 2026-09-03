@@ -24,6 +24,7 @@ export function mapLegacyCourseBookingToCabinetItem(booking: Booking): LessonBoo
     bookingOrigin: 'account',
     isLessonBooking: false,
     difficulty: booking.difficulty,
+    notes: booking.notes,
     cancellationReason: booking.cancellationReason,
     authorizedActions: undefined,
   };
@@ -64,7 +65,8 @@ export function cabinetItemToLegacyPresentation(
     durationHours: item.durationHours,
     totalPrice: item.totalPrice ?? 0,
     status: item.status,
-    difficulty: item.difficulty ?? 'beginner',
+    ...(item.difficulty ? { difficulty: item.difficulty } : {}),
     cancellationReason: item.cancellationReason,
+    ...(item.notes ? { notes: item.notes } : {}),
   };
 }

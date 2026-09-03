@@ -9,7 +9,7 @@ import { AchievementsConfig } from '../../../domain/achievements';
 import { AdminCollapsibleSection } from './settings';
 import { TableSkeleton } from '../../../ui/Skeleton';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
-import { ADMIN_COURSE_ENROLLMENT_QUERY_KEY, ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY, ADMIN_TAB_QUERY_KEY, parseAdminTabId, type AdminTabId } from '../adminNavigation';
+import { ADMIN_COURSE_ENROLLMENT_QUERY_KEY, ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY, ADMIN_LESSON_BOOKING_QUERY_KEY, ADMIN_PLANNER_DATE_QUERY_KEY, ADMIN_PLANNER_FOCUS_QUERY_KEY, ADMIN_TAB_QUERY_KEY, parseAdminTabId, type AdminTabId } from '../adminNavigation';
 import { AdminTabNav } from './AdminTabNav';
 
 const CanonicalFinancePanel = lazy(() =>
@@ -185,6 +185,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               subtitle={t('scheduleBoardSub')}
               icon={CalendarDays}
               defaultOpen
+              forceOpen={Boolean(
+                searchParams.get(ADMIN_PLANNER_FOCUS_QUERY_KEY) ||
+                  searchParams.get(ADMIN_PLANNER_DATE_QUERY_KEY)
+              )}
+              forceOpenToken={
+                searchParams.get(ADMIN_PLANNER_FOCUS_QUERY_KEY) ??
+                searchParams.get(ADMIN_PLANNER_DATE_QUERY_KEY) ??
+                undefined
+              }
             >
               <AdminPlannerBoard
                 adminProfile={currentUserProfile}
@@ -230,6 +239,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               subtitle={t('adminLessonBookingsSub')}
               icon={BookOpen}
               defaultOpen={false}
+              forceOpen={Boolean(searchParams.get(ADMIN_LESSON_BOOKING_QUERY_KEY))}
+              forceOpenToken={searchParams.get(ADMIN_LESSON_BOOKING_QUERY_KEY) ?? undefined}
             >
               <AdminLessonBookingPanel
                 adminAccountId={currentUserProfile.uid}

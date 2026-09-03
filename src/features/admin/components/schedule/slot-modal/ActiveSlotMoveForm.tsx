@@ -2,10 +2,13 @@ import React from 'react';
 import { Check, Loader2, Trash2 } from 'lucide-react';
 import type { Booking, Instructor } from '../../../../../types';
 import { useLanguage } from '../../../../../app/providers/LanguageContext';
+import { formatDurationLabel } from '../../../../../lib/i18n/duration';
 
 interface ActiveSlotMoveFormProps {
   booking: Booking;
   canReassignInstructor: boolean;
+  canChangeDuration: boolean;
+  canCompleteLesson: boolean;
   newInstructorId: string;
   setNewInstructorId: (id: string) => void;
   availableInstructors: Instructor[];
@@ -13,9 +16,13 @@ interface ActiveSlotMoveFormProps {
   setNewMoveDate: (date: string) => void;
   newMoveTime: string;
   setNewMoveTime: (time: string) => void;
+  newMoveDuration: number;
+  setNewMoveDuration: (duration: number) => void;
   availableMoveTimeSlots: string[];
+  availableMoveDurations: number[];
   isSlotActionSubmitting: boolean;
   onCompleteBooking?: (id: string) => Promise<void>;
+  onOpenLessonDetail?: (bookingId: string) => void;
   onDeleteRequest: (id: string) => void;
   onSubmit: (event: React.FormEvent) => Promise<void>;
   onClose: () => void;
@@ -24,6 +31,8 @@ interface ActiveSlotMoveFormProps {
 export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
   booking,
   canReassignInstructor,
+  canChangeDuration,
+  canCompleteLesson,
   newInstructorId,
   setNewInstructorId,
   availableInstructors,
@@ -31,14 +40,18 @@ export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
   setNewMoveDate,
   newMoveTime,
   setNewMoveTime,
+  newMoveDuration,
+  setNewMoveDuration,
   availableMoveTimeSlots,
+  availableMoveDurations,
   isSlotActionSubmitting,
   onCompleteBooking,
+  onOpenLessonDetail,
   onDeleteRequest,
   onSubmit,
   onClose,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -110,9 +123,40 @@ export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
             </select>
           </div>
         </div>
+
+        {canChangeDuration && (
+          <div className="space-y-1">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
+              {t('hoursLabel')}
+            </label>
+            <select
+              aria-label={t('hoursLabel')}
+              value={newMoveDuration}
+              onChange={(event) => setNewMoveDuration(Number(event.target.value))}
+              disabled={availableMoveDurations.length === 0}
+              className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none cursor-pointer font-mono disabled:opacity-60"
+            >
+              {availableMoveDurations.length === 0 ? (
+                <option value="" className="bg-[var(--bg)] text-[var(--ink)]">
+                  {t('noHoursAvailable')}
+                </option>
+              ) : (
+                availableMoveDurations.map((duration: number) => (
+                  <option
+                    key={duration}
+                    value={duration}
+                    className="bg-[var(--bg)] text-[var(--ink)]"
+                  >
+                    {formatDurationLabel(duration, language === 'ru' ? 'ru' : 'en')}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+        )}
       </div>
 
-      {booking.status === 'confirmed' && (
+      {canCompleteLesson && (
         <button
           type="button"
           onClick={async () => {
@@ -126,6 +170,20 @@ export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
         >
           <Check className="w-4 h-4" />
           {t('markLessonCompleted')}
+        </button>
+      )}
+
+      {onOpenLessonDetail && (
+        <button
+          type="button"
+          aria-label={t('openLessonDetail')}
+          onClick={() => {
+            onOpenLessonDetail(booking.id);
+            onClose();
+          }}
+          className="w-full py-2.5 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink)] rounded-none text-xs font-mono uppercase tracking-widest transition cursor-pointer"
+        >
+          {t('openLessonDetail')}
         </button>
       )}
 

@@ -10,7 +10,7 @@ import {
   InstructorIdSchema,
   ParticipantIdSchema,
 } from '../identifiers';
-import { BookingLifecycleStatusSchema } from '../bookingOccurrenceProposalChange';
+import { BookingLifecycleStatusSchema, LessonDifficultySchema } from '../bookingOccurrenceProposalChange';
 import { AggregateRevisionSchema, IanaTimeZoneSchema, TimeIntervalSchema } from '../primitives';
 
 export const ADMIN_PLANNER_READ_MODEL_PAGE_SIZE_MAX = 500;
@@ -67,6 +67,7 @@ export const AdminPlannerOccupancyItemSchema = z
     courseRevision: AggregateRevisionSchema.optional(),
     blockId: AdministrativeAvailabilityBlockIdSchema.optional(),
     blockKind: AdministrativeAvailabilityBlockKindSchema.optional(),
+    difficulty: LessonDifficultySchema.optional(),
     notes: z.string().trim().max(1_000).optional(),
   })
   .strict();

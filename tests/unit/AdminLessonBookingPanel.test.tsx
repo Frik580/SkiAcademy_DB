@@ -153,8 +153,95 @@ function detail(): LessonBookingReadModel {
         canResolveAttendanceOutcome: false,
         canLinkGuestToAccount: false,
       },
+      guestIdentityLinkUnavailableReason: 'expired_reservation',
     },
   } as LessonBookingReadModel;
+}
+
+function pendingUnpaidAdminDetail(): LessonBookingReadModel {
+  const item = detail();
+  return {
+    ...item,
+    lifecycle: { status: 'pending', reservationExpiresAt: { seconds: 1_788_250_000, nanoseconds: 0 } },
+    difficulty: 'freestyle',
+    notes: undefined,
+    admin: {
+      ...item.admin!,
+      payer: undefined,
+      payment: {
+        paymentId: 'payment_admin_panel_01',
+        status: 'unpaid',
+        revision: 1,
+        currency: 'KZT',
+        originalPrice: 60_000,
+        price: 60_000,
+        paid: 0,
+        refunded: 0,
+        retained: 0,
+        settled: 0,
+        writtenOff: 0,
+        outstanding: 60_000,
+      },
+      cancellationFinancial: {
+        timing: 'direct_cancel',
+        maximumRefund: 0,
+        suggestedRefund: 0,
+      },
+      relatedIssues: [],
+      attendance: [
+        {
+          participantId: 'participant_admin_panel_01',
+          authorizedActions: {
+            canRecordPresent: false,
+            canRecordAbsent: false,
+            reasonRequired: true,
+          },
+        },
+      ],
+      authorizedActions: {
+        canConfirmGuest: false,
+        canDirectCancel: false,
+        canReschedule: false,
+        canChangeInstructor: false,
+        canChangeDuration: false,
+        canRecordAttendance: false,
+        canResolveCancellation: false,
+        canResolveAttendanceOutcome: false,
+        canLinkGuestToAccount: false,
+      },
+      guestIdentityLinkUnavailableReason: 'expired_reservation',
+    },
+  } as LessonBookingReadModel;
+}
+
+function renderPanel(item?: LessonBookingReadModel, path = '/admin?tab=operations&booking=booking_admin_panel_01') {
+  readMock.mockReturnValue({
+    list: {
+      items: item ? [item] : [],
+      loading: false,
+      loadingMore: false,
+      hasMore: false,
+    },
+    detail: { item, loading: false },
+    retryList: vi.fn(),
+    retryDetail: vi.fn(),
+    loadMore: vi.fn(),
+    refreshBooking: vi.fn(),
+  });
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <AdminLessonBookingPanel
+        adminAccountId="admin_account_01"
+        instructors={[
+          {
+            instructorId: 'instructor_admin_panel_01',
+            displayName: 'Canonical Coach',
+          },
+        ]}
+      />
+      <LocationProbe />
+    </MemoryRouter>
+  );
 }
 
 describe('AdminLessonBookingPanel', () => {
@@ -193,8 +280,9 @@ describe('AdminLessonBookingPanel', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/original/)).toHaveTextContent('25,000');
-    expect(screen.getByText(/adminLessonLinkUnavailable/)).toBeVisible();
+    expect(screen.getByText('adminLessonPaymentTitle')).toBeVisible();
+    expect(screen.getByText('adminLessonLinkUnavailable')).toBeVisible();
+    expect(screen.getByText('adminLessonLinkReasonExpired')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'adminLessonLinkGuest' })).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'adminLessonLinkDeferred' })
@@ -205,7 +293,7 @@ describe('AdminLessonBookingPanel', () => {
     expect(screen.getByLabelText('location')).toHaveTextContent('tab=finance');
     expect(screen.getByLabelText('location')).toHaveTextContent('payment=payment_admin_panel_01');
 
-    fireEvent.click(screen.getByRole('button', { name: /missing_attendance/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonOpenIssue' }));
     expect(screen.getByLabelText('location')).toHaveTextContent('tab=operations');
     expect(screen.getByLabelText('location')).toHaveTextContent(
       'issue=admin_issue_booking_panel_01'
@@ -213,40 +301,12 @@ describe('AdminLessonBookingPanel', () => {
   });
 
   it('shows payment-driven confirmation status without a manual approval action', () => {
-    const item = detail();
-    const pendingGuest = {
-      ...item,
-      lifecycle: {
-        status: 'pending' as const,
-        reservationExpiresAt: { seconds: 1_788_250_000, nanoseconds: 0 },
-      },
-      admin: {
-        ...item.admin!,
-        authorizedActions: {
-          ...item.admin!.authorizedActions,
-          canConfirmGuest: false,
-          canResolveCancellation: false,
-        },
-      },
-    };
-    readMock.mockReturnValue({
-      list: { items: [pendingGuest], loading: false, loadingMore: false, hasMore: false },
-      detail: { item: pendingGuest, loading: false },
-      retryList: vi.fn(),
-      retryDetail: vi.fn(),
-      loadMore: vi.fn(),
-      refreshBooking: vi.fn(),
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/admin?tab=operations&booking=booking_admin_panel_01']}>
-        <AdminLessonBookingPanel adminAccountId="admin_account_01" accounts={[]} instructors={[]} />
-      </MemoryRouter>
-    );
+    renderPanel(pendingUnpaidAdminDetail());
 
     expect(
       screen.queryByRole('button', { name: 'adminLessonConfirmGuest' })
     ).not.toBeInTheDocument();
+    expect(screen.getAllByText('adminLessonStatusAwaitingPayment').length).toBeGreaterThan(0);
     expect(screen.getByText('adminLessonGuestApprovalUnavailable')).toBeVisible();
   });
 
@@ -393,8 +453,8 @@ describe('AdminLessonBookingPanel', () => {
     expect(screen.getByRole('button', { name: 'adminLessonApproveCancellation' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'adminLessonDirectCancel' })).toBeVisible();
     expect(screen.getByText(/Canonical Payer/)).toBeVisible();
-    expect(screen.getByText(/missing_attendance/)).toBeVisible();
-    expect(screen.getByText(/booking 5/)).toBeVisible();
+    expect(screen.getByText(/adminIssueKindMissingAttendance/)).toBeVisible();
+    expect(screen.getByText('booking 5 · schedule 2')).not.toBeVisible();
     expect(screen.getByText('adminLessonScheduleInPlanner')).toBeVisible();
     expect(screen.getByText('adminLessonDifficulty')).toBeVisible();
     expect(screen.getByText('Freeride')).toBeVisible();
@@ -425,5 +485,155 @@ describe('AdminLessonBookingPanel', () => {
     expect(screen.getByLabelText('location')).toHaveTextContent(
       'plannerBooking=booking_admin_panel_01'
     );
+  });
+
+  it('presents a realistic pending unpaid admin_detail without developer mutations', () => {
+    const item = pendingUnpaidAdminDetail();
+    renderPanel(item);
+
+    expect(screen.getAllByText('adminLessonStatusAwaitingPayment').length).toBeGreaterThan(0);
+    expect(screen.getByText('adminLessonPaymentRemaining')).toBeVisible();
+    expect(screen.getAllByText(/60,000/).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'adminLessonOpenPayment' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'adminLessonDirectCancel' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'adminLessonRecordPresent' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'adminLessonRecordAbsent' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonResolveOutcome' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonApproveCancellation' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'adminLessonLinkGuest' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/server currently authorizes no booking mutations/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('adminLessonNoActions')).not.toBeInTheDocument();
+    expect(screen.getByText('adminLessonNoActionsAwaitingConfirmation')).toBeVisible();
+    expect(screen.getByText('adminLessonAttendanceMissing')).toBeVisible();
+    expect(screen.getByText('adminLessonLinkReasonExpired')).toBeVisible();
+    expect(screen.getByText('adminLessonNoRelatedIssues')).toBeVisible();
+    expect(screen.queryByText('adminLessonNotes')).not.toBeInTheDocument();
+    expect(screen.queryByText('adminFinanceRefunded')).not.toBeInTheDocument();
+    expect(screen.queryByText('adminFinanceRetained')).not.toBeInTheDocument();
+    expect(screen.queryByText('adminFinanceWrittenOff')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'adminLessonReschedule' })).not.toBeInTheDocument();
+    expect(screen.getByText('Freestyle')).toBeVisible();
+    expect(screen.getByText('adminLessonTechnicalDetails')).toBeVisible();
+    expect(screen.getByText('booking_admin_panel_01')).not.toBeVisible();
+
+    fireEvent.click(screen.getByText('adminLessonTechnicalDetails'));
+    expect(screen.getByText('booking_admin_panel_01')).toBeVisible();
+    expect(screen.getByText('booking 5 · schedule 2')).toBeVisible();
+  });
+
+  it('hides unauthorized lifecycle buttons instead of disabling them', () => {
+    const item = detail();
+    const confirmedUnauthorized = {
+      ...item,
+      lifecycle: { status: 'confirmed' as const },
+      admin: {
+        ...item.admin!,
+        relatedIssues: [],
+        attendance: [
+          {
+            participantId: 'participant_admin_panel_01',
+            attendanceStatus: 'present' as const,
+            revision: 1,
+            authorizedActions: { canRecordPresent: false, canRecordAbsent: true, reasonRequired: true as const },
+          },
+        ],
+        authorizedActions: {
+          ...item.admin!.authorizedActions,
+          canDirectCancel: false,
+          canResolveCancellation: false,
+          canRecordAttendance: true,
+          canResolveAttendanceOutcome: false,
+          canLinkGuestToAccount: false,
+        },
+      },
+    };
+    renderPanel(confirmedUnauthorized);
+
+    expect(screen.getAllByText('adminLessonStatusConfirmed').length).toBeGreaterThan(0);
+    expect(screen.getByText('adminLessonAttendancePresent')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'adminLessonRecordPresent' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'adminLessonRecordAbsent' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'adminLessonDirectCancel' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonApproveCancellation' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonResolveOutcome' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows recorded absent attendance and omits empty notes', () => {
+    const item = detail();
+    const absentRecorded = {
+      ...item,
+      notes: undefined,
+      difficulty: undefined,
+      lifecycle: { status: 'confirmed' as const },
+      admin: {
+        ...item.admin!,
+        relatedIssues: [],
+        attendance: [
+          {
+            participantId: 'participant_admin_panel_01',
+            attendanceStatus: 'absent' as const,
+            revision: 1,
+            authorizedActions: { canRecordPresent: false, canRecordAbsent: false, reasonRequired: true as const },
+          },
+        ],
+        authorizedActions: {
+          ...item.admin!.authorizedActions,
+          canResolveCancellation: false,
+          canDirectCancel: false,
+        },
+      },
+    };
+    renderPanel(absentRecorded);
+
+    expect(screen.getByText('adminLessonAttendanceAbsent')).toBeVisible();
+    expect(screen.queryByText('adminLessonNotes')).not.toBeInTheDocument();
+    expect(screen.getByText('difficultyUnspecified')).toBeVisible();
+    expect(screen.queryByText('Beginner')).not.toBeInTheDocument();
+  });
+
+  it('shows the pending cancellation request and only server-authorized cancel controls', () => {
+    renderPanel(detail());
+
+    expect(screen.getAllByText('adminLessonStatusPendingCancellation').length).toBeGreaterThan(0);
+    expect(screen.getByText('adminLessonCancellationRequested')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'adminLessonApproveCancellation' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'adminLessonRejectCancellation' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'adminLessonDirectCancel' })).not.toBeInTheDocument();
+  });
+
+  it('exposes the Account + Participant guest-link workflow when the server allows it', () => {
+    const item = detail();
+    const linkable = {
+      ...item,
+      admin: {
+        ...item.admin!,
+        authorizedActions: {
+          ...item.admin!.authorizedActions,
+          canLinkGuestToAccount: true,
+          canResolveCancellation: false,
+        },
+      },
+    };
+    renderPanel(linkable);
+
+    expect(screen.getByRole('button', { name: 'pick managed' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'adminLessonLinkGuest' })).toBeVisible();
+    expect(screen.queryByText('adminLessonLinkUnavailable')).not.toBeInTheDocument();
+  });
+
+  it('shows meaningful non-zero ancillary payment rows', () => {
+    renderPanel(detail());
+    expect(screen.getByText('adminFinanceRetained')).toBeVisible();
+    expect(screen.getByText('adminFinanceSettled')).toBeVisible();
+    expect(screen.queryByText('adminFinanceRefunded')).not.toBeInTheDocument();
+    expect(screen.queryByText('adminFinanceWrittenOff')).not.toBeInTheDocument();
   });
 });

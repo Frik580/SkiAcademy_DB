@@ -3,7 +3,7 @@ import {
   filterAdminBookingMonitorRows,
   monitorHasCourseAndLessonRows,
 } from '../../src/features/admin/operations/adminBookingMonitorFilters';
-import { mergeAdminBookingMonitorRows } from '../../src/features/admin/operations/adminBookingMonitorMapping';
+import { mergeAdminBookingMonitorRows, lessonBookingToMonitorRow } from '../../src/features/admin/operations/adminBookingMonitorMapping';
 import { computeAdminOperationalOverview } from '../../src/features/admin/operations/adminFinancialOverview';
 import { bookingsBlockingInstructorDeactivation } from '../../src/features/admin/people/adminPeopleOccupancy';
 import {
@@ -141,8 +141,71 @@ describe('T32.9A Admin UX parity behavior', () => {
       updatedAt: { seconds: 1_788_249_600, nanoseconds: 0 },
     } as unknown as AdminCourseEnrollmentRosterItem;
     const merged = mergeAdminBookingMonitorRows([lessonRm], [enrollment]);
-    expect(merged.some((row) => row.instructorId === 'ins_1')).toBe(true);
-    expect(merged.some((row) => row.instructorId.startsWith('course_'))).toBe(true);
+    const lessonRow = merged.find((row) => row.instructorId === 'ins_1');
+    const courseRow = merged.find((row) => row.instructorId.startsWith('course_'));
+    expect(lessonRow?.difficulty).toBeUndefined();
+    expect(lessonRow?.durationHours).toBe(1);
+    expect(lessonRow?.guestName).toBe('Guest A');
+    expect(lessonRow?.notes).toBeUndefined();
+    expect(lessonRow?.isGuest).toBe(true);
+    expect(courseRow?.durationHours).toBe(0);
+    expect(courseRow?.difficulty).toBeUndefined();
+    expect(
+      readRepoFile('src/features/admin/operations/AdminActiveBookingMonitor.tsx')
+    ).toContain('ADMIN_LESSON_BOOKING_QUERY_KEY');
+    expect(
+      readRepoFile('src/features/admin/operations/AdminActiveBookingMonitor.tsx')
+    ).not.toContain('resolve_booking_cancellation');
+    expect(
+      readRepoFile('src/features/admin/operations/AdminActiveBookingMonitor.tsx')
+    ).not.toContain('record_booking_attendance');
+    expect(
+      readRepoFile('src/features/admin/operations/AdminActiveBookingMonitor.tsx')
+    ).not.toContain('link_guest_booking_to_account_as_administrator');
+    expect(
+      readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')
+    ).toContain('openLessonDetail');
+    expect(
+      readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')
+    ).not.toContain('onCancelBooking');
+    expect(
+      readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')
+    ).not.toContain('LinkGuestBookingModal');
+    expect(
+      readRepoFile('src/features/admin/operations/adminPlannerCommands.ts')
+    ).toContain('completePlannerLesson');
+  });
+
+  it('maps lesson duration, notes, requestedAt, and omits unspecified difficulty', () => {
+    const row = lessonBookingToMonitorRow({
+      bookingId: 'booking_admin_2',
+      instructor: { instructorId: 'ins_1', displayName: 'Anna' },
+      occurrence: {
+        startsAt: { seconds: 1_788_249_600, nanoseconds: 0 },
+        endsAt: { seconds: 1_788_255_000, nanoseconds: 0 },
+        timeZone: 'Asia/Almaty',
+        durationMinutes: 90,
+      },
+      lifecycle: {
+        status: 'confirmed',
+        requestedAt: { seconds: 1_700_000_000, nanoseconds: 0 },
+      },
+      bookingOrigin: 'authenticated_account',
+      notes: 'Bring helmet',
+      updatedAt: { seconds: 1_788_249_600, nanoseconds: 0 },
+      admin: {
+        participants: [{ participantId: 'part_1', displayName: 'Canonical Student' }],
+        payer: { accountId: 'account_client_1', displayName: 'Client One' },
+        payment: { price: 18000 },
+      },
+      participants: [{ participantId: 'part_1', displayName: 'Canonical Student' }],
+    } as unknown as LessonBookingReadModel);
+    expect(row.durationHours).toBe(1.5);
+    expect(row.difficulty).toBeUndefined();
+    expect(row.notes).toBe('Bring helmet');
+    expect(row.guestName).toBe('Canonical Student');
+    expect(row.isGuest).toBe(false);
+    expect(row.createdAt).toBe(new Date(1_700_000_000 * 1_000).toISOString());
   });
 
   it('counts operational Financial Overview metrics without treating booking price as revenue', () => {
@@ -368,6 +431,9 @@ describe('T32.9A Admin UX parity behavior', () => {
     expect(guestPanel).toContain('ADMIN_FINANCE_PAYMENT_QUERY_KEY');
     expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).toContain(
       'openEnrollmentAttendance'
+    );
+    expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).toContain(
+      'openCancellationDetail'
     );
     expect(readRepoFile('src/features/admin/components/users/ClientsManager.tsx')).toContain(
       'accountActivateDeactivate'

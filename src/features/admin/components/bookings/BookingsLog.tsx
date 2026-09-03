@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Check, X, Link2 } from 'lucide-react';
+import { Search, Link2 } from 'lucide-react';
 import { Booking, UserProfile, Instructor } from '../../../../types';
-import { useLanguage, getDifficultyLabel } from '../../../../app/providers/LanguageContext';
+import {
+  useLanguage,
+  formatLessonDifficultyOrUnspecified,
+} from '../../../../app/providers/LanguageContext';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import { isCourseBooking } from '../../../../domain/availability';
 import { formatBookingCreatedAt } from '../../../../domain/booking';
 import { StatusBadge } from '../../../../ui/StatusBadge';
-import { LinkGuestBookingModal } from './LinkGuestBookingModal';
 import { ApplePagination } from '../../../../ui/ApplePagination';
 import {
   filterAdminBookingMonitorRows,
@@ -17,39 +19,35 @@ import {
 
 const shortenBookingId = (id: string): string => (id.length > 12 ? `${id.slice(0, 10)}…` : id);
 
+function formatMonitorDuration(durationHours: number, language: string): string {
+  const minutes = Math.round(durationHours * 60);
+  if (minutes <= 0) return '—';
+  if (minutes % 60 === 0) return `${minutes / 60}h`;
+  return language === 'ru' ? `${minutes} мин` : `${minutes}m`;
+}
+
 interface BookingsLogProps {
   bookings: Booking[];
   usersList: UserProfile[];
   instructors: Instructor[];
-  onConfirmBooking: (id: string) => Promise<void>;
-  onCompleteBooking?: (id: string) => Promise<void>;
-  onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
-  onCancelBooking: (id: string) => Promise<void>;
-  onRequestConfirm: (message: string, onConfirm: () => void | Promise<void>) => void;
+  onOpenLesson?: (bookingId: string) => void;
+  onOpenEnrollment?: (enrollmentId: string) => void;
   hasMoreBookings?: boolean;
   onLoadMoreBookings?: () => void;
-  hideUnpaidConfirm?: boolean;
-  onOpenEnrollment?: (enrollmentId: string) => void;
 }
 
 export const BookingsLog: React.FC<BookingsLogProps> = ({
   bookings,
   usersList,
   instructors,
-  onConfirmBooking,
-  onCompleteBooking,
-  onLinkGuestBooking,
-  onCancelBooking,
-  onRequestConfirm,
+  onOpenLesson,
+  onOpenEnrollment,
   hasMoreBookings = false,
   onLoadMoreBookings,
-  hideUnpaidConfirm = false,
-  onOpenEnrollment,
 }) => {
   const { t, language } = useLanguage();
   const { formatPrice } = useCurrency();
 
-  const [linkingBooking, setLinkingBooking] = useState<Booking | null>(null);
   const [monitorSearch, setMonitorSearch] = useState('');
   const [monitorStatusFilter, setMonitorStatusFilter] =
     useState<AdminBookingMonitorStatusFilter>('all');
@@ -348,7 +346,12 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                             </a>
                           )}
                           <button
-                            onClick={() => setLinkingBooking(b)}
+                            type="button"
+                            onClick={() =>
+                              isCourseBooking(b)
+                                ? onOpenEnrollment?.(b.id)
+                                : onOpenLesson?.(b.id)
+                            }
                             className="mt-1.5 px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-mono font-bold transition flex items-center gap-1 cursor-pointer"
                             title={t('linkToClientBtn')}
                           >
@@ -359,7 +362,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                       ) : (
                         <>
                           <span className="font-bold text-[var(--ink)] block leading-none">
-                            {client?.displayName || t('skierLabel')}
+                            {b.guestName || client?.displayName || t('skierLabel')}
                           </span>
                           <span className="font-mono text-[9px] text-[var(--ink-dim)] mt-1 block">
                             {b.userId.substring(0, 8)}...
@@ -371,11 +374,16 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                     <td className="py-3 px-2 font-mono text-[10px] text-[var(--ink-dim)] whitespace-nowrap">
                       {isCourseBooking(b)
                         ? '—'
-                        : getDifficultyLabel(b.difficulty as any, language, 'short')}
+                        : formatLessonDifficultyOrUnspecified(
+                            b.difficulty,
+                            language,
+                            t('difficultyUnspecified'),
+                            'short'
+                          )}
                     </td>
                     <td className="py-3 px-2 font-mono text-[11px] text-[var(--ink-dim)]">
                       <div>
-                        {b.date} @ {b.time} ({b.durationHours}h)
+                        {b.date} @ {b.time} ({formatMonitorDuration(b.durationHours, language)})
                       </div>
                       {b.notes && (
                         <div className="mt-1 text-[10px] text-[var(--ink)] italic bg-black/5 dark:bg-white/5 border border-[var(--border)] p-1.5 max-w-xs font-sans">
@@ -397,89 +405,126 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                     </td>
                     <td className="py-3 px-2 text-right font-mono">
                       {b.status === 'pending' && (
-                        <div className="flex items-center justify-end gap-1">
-                          {hideUnpaidConfirm ? (
-                            <span className="text-[9px] font-mono text-amber-700 dark:text-amber-300">
-                              {t('paymentDrivenGuestConfirmation')}
-                            </span>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span className="text-[9px] font-mono text-amber-700 dark:text-amber-300">
+                            {t('paymentDrivenGuestConfirmation')}
+                          </span>
+                          {isCourseBooking(b) ? (
+                            onOpenEnrollment ? (
+                              <button
+                                type="button"
+                                onClick={() => onOpenEnrollment(b.id)}
+                                className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                              >
+                                {t('openEnrollmentAttendance')}
+                              </button>
+                            ) : null
                           ) : (
                             <button
-                              onClick={() => onConfirmBooking(b.id)}
-                              className="p-1 border border-transparent hover:border-[var(--border)] text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/5 rounded-none transition cursor-pointer"
-                              title="Confirm Booking"
+                              type="button"
+                              onClick={() => onOpenLesson?.(b.id)}
+                              className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
                             >
-                              <Check className="w-4 h-4" />
+                              {t('openLessonDetail')}
                             </button>
                           )}
-                          <button
-                            onClick={() => onCancelBooking(b.id)}
-                            className="p-1 border border-transparent hover:border-[var(--border)] text-rose-600 dark:text-rose-400 hover:bg-rose-500/5 rounded-none transition cursor-pointer"
-                            title="Decline/Cancel"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
                         </div>
                       )}
                       {b.status === 'pending_cancellation' && (
                         <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => {
-                              onRequestConfirm(t('approveCancelConfirm'), async () => {
-                                await onCancelBooking(b.id);
-                              });
-                            }}
-                            className="px-2.5 py-1 text-[10px] font-bold border border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 hover:text-white rounded-none transition cursor-pointer"
-                            title={t('approveCancel')}
-                          >
-                            {t('approveCancel')}
-                          </button>
-                          <button
-                            onClick={() => {
-                              onRequestConfirm(t('declineCancelConfirm'), async () => {
-                                await onConfirmBooking(b.id);
-                              });
-                            }}
-                            className="px-2.5 py-1 text-[10px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
-                            title={t('rejectRequest')}
-                          >
-                            {t('decline')}
-                          </button>
+                          {isCourseBooking(b) ? (
+                            <button
+                              type="button"
+                              onClick={() => onOpenEnrollment?.(b.id)}
+                              className="px-2.5 py-1 text-[10px] font-bold border border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-50 rounded-none transition cursor-pointer"
+                            >
+                              {t('openEnrollmentAttendance')}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onOpenLesson?.(b.id)}
+                              className="px-2.5 py-1 text-[10px] font-bold border border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-50 rounded-none transition cursor-pointer"
+                            >
+                              {t('openCancellationDetail')}
+                            </button>
+                          )}
                         </div>
                       )}
                       {b.status === 'confirmed' && (
                         <div className="flex items-center justify-end gap-1.5">
-                          {!isCourseBooking(b) ? (
-                          <button
-                            onClick={() => onCompleteBooking?.(b.id)}
-                            className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
-                          >
-                            {t('completeBtn')}
-                          </button>
-                          ) : onOpenEnrollment ? (
-                          <button
-                            onClick={() => onOpenEnrollment(b.id)}
-                            className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
-                          >
-                            {t('openEnrollmentAttendance')}
-                          </button>
-                          ) : null}
-                          <button
-                            onClick={() => onCancelBooking(b.id)}
-                            className="px-2 py-0.5 text-[9px] font-bold border border-rose-500/30 hover:border-rose-500 text-rose-500 rounded-none transition cursor-pointer"
-                          >
-                            {t('cancel')}
-                          </button>
+                          {isCourseBooking(b) ? (
+                            onOpenEnrollment ? (
+                              <button
+                                type="button"
+                                onClick={() => onOpenEnrollment(b.id)}
+                                className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                              >
+                                {t('openEnrollmentAttendance')}
+                              </button>
+                            ) : null
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onOpenLesson?.(b.id)}
+                              className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                            >
+                              {t('openLessonDetail')}
+                            </button>
+                          )}
                         </div>
                       )}
                       {b.status === 'cancelled' && (
-                        <span className="text-[10px] text-[var(--ink-dim)] italic font-mono">
-                          {t('cancelledLabel')}
-                        </span>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span className="text-[10px] text-[var(--ink-dim)] italic font-mono">
+                            {t('cancelledLabel')}
+                          </span>
+                          {isCourseBooking(b) ? (
+                            onOpenEnrollment ? (
+                              <button
+                                type="button"
+                                onClick={() => onOpenEnrollment(b.id)}
+                                className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                              >
+                                {t('openEnrollmentAttendance')}
+                              </button>
+                            ) : null
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onOpenLesson?.(b.id)}
+                              className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                            >
+                              {t('openLessonDetail')}
+                            </button>
+                          )}
+                        </div>
                       )}
                       {b.status === 'completed' && (
-                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 italic font-mono">
-                          {t('finishedLabel')}
-                        </span>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 italic font-mono">
+                            {t('finishedLabel')}
+                          </span>
+                          {isCourseBooking(b) ? (
+                            onOpenEnrollment ? (
+                              <button
+                                type="button"
+                                onClick={() => onOpenEnrollment(b.id)}
+                                className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                              >
+                                {t('openEnrollmentAttendance')}
+                              </button>
+                            ) : null
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onOpenLesson?.(b.id)}
+                              className="px-2 py-0.5 text-[9px] font-bold border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] rounded-none transition cursor-pointer"
+                            >
+                              {t('openLessonDetail')}
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -510,18 +555,6 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
           </button>
         </div>
       )}
-
-      <LinkGuestBookingModal
-        isOpen={!!linkingBooking}
-        onClose={() => setLinkingBooking(null)}
-        booking={linkingBooking}
-        usersList={usersList}
-        onLinkBooking={async (bId, uId) => {
-          if (onLinkGuestBooking) {
-            await onLinkGuestBooking(bId, uId);
-          }
-        }}
-      />
     </div>
   );
 };

@@ -9,6 +9,7 @@ const STATUS_LABELS: Record<string, { en: string; ru: string }> = {
   completed: { en: 'Completed', ru: 'Завершено' },
   pending: { en: 'Pending', ru: 'Ожидает' },
   pending_cancellation: { en: 'Pending Cancellation', ru: 'Ожидает отмены' },
+  no_show: { en: 'No-show', ru: 'Неявка' },
 };
 
 export function getBookingStatusLabel(status: string, language: Language): string {

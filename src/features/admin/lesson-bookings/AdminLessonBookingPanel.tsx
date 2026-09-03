@@ -1,8 +1,7 @@
 import { BookingIdSchema, type LessonBookingReadModel } from '@ski-academy/shared-domain';
-import { AlertTriangle, ChevronRight, Loader2, RefreshCw, X } from 'lucide-react';
+import { ChevronRight, Loader2, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { formatLessonDifficultyOrUnspecified } from '../../../app/providers/LanguageContext';
 import {
   ADMIN_FINANCE_PAYMENT_QUERY_KEY,
   ADMIN_ISSUE_QUERY_KEY,
@@ -12,6 +11,7 @@ import {
   ADMIN_PLANNER_FOCUS_QUERY_KEY,
   ADMIN_TAB_QUERY_KEY,
 } from '../adminNavigation';
+import { AdminLessonBookingDetail } from './AdminLessonBookingDetail';
 import { useAdminLessonBookingTranslations } from './useAdminLessonBookingTranslations';
 import type {
   AdminLessonBookingAttempt,
@@ -19,6 +19,11 @@ import type {
   AdminLessonBookingMutationAttempt,
   AdminLessonInstructorOption,
 } from './lessonBookingAdminContracts';
+import {
+  formatLessonAdminDuration,
+  LESSON_ADMIN_PRIMARY_STATUS_KEYS,
+  resolveLessonAdminPrimaryStatus,
+} from './lessonBookingAdminPresentation';
 import { useAdminLessonBookingCommands } from './useAdminLessonBookingCommands';
 import { useAdminLessonBookingReadModels } from './useAdminLessonBookingReadModels';
 import {
@@ -26,7 +31,6 @@ import {
   createAdminLessonBookingAttemptId,
   parseAdminLessonBookingView,
 } from './lessonBookingAdminUtils';
-import { AdminManagedParticipantPicker } from '../identity';
 import type { AdminManagedParticipantSelection } from '../identity';
 
 interface AdminLessonBookingPanelProps {
@@ -37,32 +41,6 @@ interface AdminLessonBookingPanelProps {
 interface Confirmation {
   readonly attempt: AdminLessonBookingAttempt;
   readonly message: string;
-}
-
-function guestLinkUnavailableLabel(
-  reason: LessonBookingReadModel['admin'] extends infer Admin
-    ? Admin extends { guestIdentityLinkUnavailableReason?: infer Reason }
-      ? Reason
-      : never
-    : never,
-  t: ReturnType<typeof useAdminLessonBookingTranslations>['t']
-): string {
-  switch (reason) {
-    case 'already_linked':
-      return t('adminLessonLinkReasonAlreadyLinked');
-    case 'not_guest':
-      return t('adminLessonLinkReasonNotGuest');
-    case 'ambiguous_guest_participant':
-      return t('adminLessonLinkReasonAmbiguous');
-    case 'expired_reservation':
-      return t('adminLessonLinkReasonExpired');
-    case 'attendance_recorded':
-      return t('adminLessonLinkReasonAttendance');
-    case 'admin_account_inactive':
-      return t('adminLessonLinkReasonAdminInactive');
-    default:
-      return t('adminLessonLinkReasonIneligible');
-  }
 }
 
 function localParts(item: LessonBookingReadModel): { date: string; time: string } {
@@ -85,14 +63,6 @@ function localParts(item: LessonBookingReadModel): { date: string; time: string 
 function readableError(error: { code: string; message: string } | undefined): string | undefined {
   if (!error) return undefined;
   return `${error.message} (${error.code})`;
-}
-
-function attendanceActorLabel(
-  actor: { kind: 'instructor'; instructorId: string } | { kind: 'administrator'; accountId: string }
-): string {
-  return actor.kind === 'instructor'
-    ? `instructor:${actor.instructorId}`
-    : `administrator:${actor.accountId}`;
 }
 
 export function AdminLessonBookingPanel({
@@ -159,12 +129,6 @@ export function AdminLessonBookingPanel({
       timeStyle: 'short',
       timeZone: item.occurrence.timeZone,
     }).format(new Date(item.occurrence.startsAt.seconds * 1_000));
-  const formatKzt = (value: number) =>
-    new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: 'KZT',
-      maximumFractionDigits: 0,
-    }).format(value);
 
   const requestAttempt = (attempt: AdminLessonBookingAttempt, message: string) => {
     setMutationError(undefined);
@@ -186,14 +150,14 @@ export function AdminLessonBookingPanel({
   };
 
   const requestDetailAttempt = (
-    detail: LessonBookingReadModel,
+    item: LessonBookingReadModel,
     attempt: AdminLessonBookingMutationDraft,
     message: string
   ) => {
     requestAttempt(
       {
         ...attempt,
-        target: captureAdminLessonBookingTarget(detail),
+        target: captureAdminLessonBookingTarget(item),
         idempotencyKey: createAdminLessonBookingAttemptId(attempt.kind),
       } as AdminLessonBookingMutationAttempt,
       message
@@ -286,12 +250,11 @@ export function AdminLessonBookingPanel({
                         {item.participants.map((participant) => participant.displayName).join(', ')}
                       </p>
                       <p className="mt-1 text-xs text-[var(--ink-dim)]">
-                        {formatDate(item)} · {item.occurrence.durationMinutes} min ·{' '}
-                        {item.occurrence.timeZone}
+                        {formatDate(item)} · {formatLessonAdminDuration(item.occurrence.durationMinutes, t)}
                       </p>
-                      <p className="mt-1 text-[10px] font-mono text-[var(--ink-dim)]">
-                        {item.instructor.displayName} · {item.lifecycle.status} · rev{' '}
-                        {item.revision}
+                      <p className="mt-1 text-xs text-[var(--ink-dim)]">
+                        {item.instructor.displayName} ·{' '}
+                        {t(LESSON_ADMIN_PRIMARY_STATUS_KEYS[resolveLessonAdminPrimaryStatus(item)])}
                       </p>
                     </div>
                     <ChevronRight className="h-4 w-4 shrink-0" />
@@ -345,441 +308,51 @@ export function AdminLessonBookingPanel({
               {t('adminLessonProjectionMissing')}
             </p>
           ) : (
-            <div className="space-y-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="break-all font-mono text-[10px] text-[var(--ink-dim)]">
-                    {detail.bookingId}
-                  </p>
-                  <h3 className="mt-2 text-base">
-                    {admin.participants.map((participant) => participant.displayName).join(', ')}
-                  </h3>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <button
-                    type="button"
-                    aria-label={t('openInPlanner')}
-                    onClick={() => {
-                      const parts = localParts(detail);
-                      updateQuery({
-                        [ADMIN_TAB_QUERY_KEY]: 'operations',
-                        [ADMIN_PLANNER_DATE_QUERY_KEY]: parts.date,
-                        [ADMIN_PLANNER_FOCUS_QUERY_KEY]: detail.bookingId,
-                      });
-                    }}
-                    className="border border-[var(--border)] px-3 py-2 text-xs"
-                  >
-                    {t('openInPlanner')}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={t('adminLessonCloseDetail')}
-                    onClick={() => updateQuery({ [ADMIN_LESSON_BOOKING_QUERY_KEY]: undefined })}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
-                <dt className="text-[var(--ink-dim)]">{t('adminLessonSchedule')}</dt>
-                <dd>
-                  {formatDate(detail)} · {detail.occurrence.durationMinutes} min
-                </dd>
-                <dt className="text-[var(--ink-dim)]">{t('adminLessonTimezone')}</dt>
-                <dd>{detail.occurrence.timeZone}</dd>
-                <dt className="text-[var(--ink-dim)]">{t('adminLessonInstructor')}</dt>
-                <dd>
-                  {detail.instructor.displayName} · {detail.instructor.instructorId}
-                </dd>
-                <dt className="text-[var(--ink-dim)]">{t('adminLessonOrigin')}</dt>
-                <dd>{admin.attribution.bookingOrigin}</dd>
-                <dt className="text-[var(--ink-dim)]">{t('adminLessonLifecycle')}</dt>
-                <dd>{detail.lifecycle.status}</dd>
-                <dt className="text-[var(--ink-dim)]">{t('adminLessonDifficulty')}</dt>
-                <dd>
-                  {formatLessonDifficultyOrUnspecified(
-                    detail.difficulty,
-                    language,
-                    t('difficultyUnspecified'),
-                    'short'
-                  )}
-                </dd>
-                {detail.notes ? (
-                  <>
-                    <dt className="text-[var(--ink-dim)]">{t('adminLessonNotes')}</dt>
-                    <dd>{detail.notes}</dd>
-                  </>
-                ) : null}
-                <dt className="text-[var(--ink-dim)]">{t('adminLessonRevisions')}</dt>
-                <dd>
-                  booking {detail.revision} · schedule {admin.scheduleRevision}
-                </dd>
-                <dt className="text-[var(--ink-dim)]">{t('adminLessonPayer')}</dt>
-                <dd>
-                  {admin.payer ? `${admin.payer.displayName} · ${admin.payer.accountId}` : '—'}
-                </dd>
-              </dl>
-
-              <div className="space-y-2 border-t border-[var(--border)] pt-4">
-                <h4 className="text-xs font-mono uppercase">{t('adminLessonParticipants')}</h4>
-                {admin.participants.map((participant) => (
-                  <p key={participant.participantId} className="text-xs text-[var(--ink-dim)]">
-                    {participant.displayName} · {participant.discipline} · {participant.skillLevel}{' '}
-                    · {participant.participantId}
-                  </p>
-                ))}
-              </div>
-
-              {admin.payment && (
-                <div className="space-y-2 border-t border-[var(--border)] pt-4">
-                  <h4 className="text-xs font-mono uppercase">{t('adminLessonPaymentTitle')}</h4>
-                  <p className="text-xs text-[var(--ink-dim)]">
-                    {admin.payment.status} · original {formatKzt(admin.payment.originalPrice)} ·
-                    price {formatKzt(admin.payment.price)} · paid {formatKzt(admin.payment.paid)} ·
-                    refunded {formatKzt(admin.payment.refunded)} · retained{' '}
-                    {formatKzt(admin.payment.retained)} · settled {formatKzt(admin.payment.settled)}{' '}
-                    · written off {formatKzt(admin.payment.writtenOff)} · outstanding{' '}
-                    {formatKzt(admin.payment.outstanding)} · rev {admin.payment.revision}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateQuery({
-                        [ADMIN_TAB_QUERY_KEY]: 'finance',
-                        [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: admin.payment!.paymentId,
-                      })
-                    }
-                    className="border border-[var(--border)] px-3 py-2 text-xs"
-                  >
-                    {t('adminLessonOpenPayment')}
-                  </button>
-                </div>
-              )}
-
-              {admin.cancellationFinancial && (
-                <div className="border-t border-[var(--border)] pt-4 text-xs">
-                  <h4 className="font-mono uppercase">{t('adminLessonCancellationFinance')}</h4>
-                  <p className="mt-2 text-[var(--ink-dim)]">
-                    {admin.cancellationFinancial.timing} · suggested{' '}
-                    {formatKzt(admin.cancellationFinancial.suggestedRefund)} · maximum{' '}
-                    {formatKzt(admin.cancellationFinancial.maximumRefund)}
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-2 border-t border-[var(--border)] pt-4">
-                <h4 className="text-xs font-mono uppercase">{t('adminLessonRelatedIssues')}</h4>
-                {admin.relatedIssues.length === 0 ? (
-                  <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonNoRelatedIssues')}</p>
-                ) : (
-                  admin.relatedIssues.map((issue) => (
-                    <button
-                      key={issue.issueId}
-                      type="button"
-                      onClick={() =>
-                        updateQuery({
-                          [ADMIN_TAB_QUERY_KEY]: 'operations',
-                          [ADMIN_ISSUE_QUERY_KEY]: issue.issueId,
-                        })
-                      }
-                      className="block w-full border border-[var(--border)] p-2 text-left text-xs"
-                    >
-                      {issue.kind} · {issue.severity} · {issue.lifecycleStatus} · rev{' '}
-                      {issue.revision}
-                    </button>
-                  ))
-                )}
-              </div>
-
-              <div className="space-y-2 border-t border-[var(--border)] pt-4">
-                <h4 className="text-xs font-mono uppercase">{t('adminLessonAttendanceTitle')}</h4>
-                {(admin.attendance ?? []).map((record) => {
-                  const participant = admin.participants.find(
-                    (candidate) => candidate.participantId === record.participantId
-                  );
-                  return (
-                    <div
-                      key={record.participantId}
-                      className="space-y-2 border border-[var(--border)] p-3 text-xs"
-                    >
-                      <p className="font-medium">
-                        {participant?.displayName ?? record.participantId} ·{' '}
-                        {record.attendanceStatus ?? t('adminLessonAttendanceMissing')}
-                        {record.revision === undefined ? '' : ` · rev ${record.revision}`}
-                      </p>
-                      {record.recordedBy && record.lastChangedBy && (
-                        <p className="break-all text-[var(--ink-dim)]">
-                          {t('adminLessonAttendanceRecordedBy')}:{' '}
-                          {attendanceActorLabel(record.recordedBy)} ·{' '}
-                          {t('adminLessonAttendanceLastChangedBy')}:{' '}
-                          {attendanceActorLabel(record.lastChangedBy)}
-                        </p>
-                      )}
-                      {(record.authorizedActions.canRecordPresent ||
-                        record.authorizedActions.canRecordAbsent) && (
-                        <div className="flex gap-2">
-                          {(['present', 'absent'] as const).map((attendanceStatus) => {
-                            const allowed =
-                              attendanceStatus === 'present'
-                                ? record.authorizedActions.canRecordPresent
-                                : record.authorizedActions.canRecordAbsent;
-                            if (!allowed) return null;
-                            return (
-                              <button
-                                key={attendanceStatus}
-                                type="button"
-                                disabled={!actionReason.trim()}
-                                onClick={() =>
-                                  requestDetailAttempt(
-                                    detail,
-                                    {
-                                      kind: 'record_booking_attendance',
-                                      participantId: record.participantId,
-                                      attendanceStatus,
-                                      ...(record.revision === undefined
-                                        ? {}
-                                        : { expectedAttendanceRevision: record.revision }),
-                                      reasonExplanation: actionReason.trim(),
-                                    },
-                                    `${t('adminLessonConfirmAttendance')} ${participant?.displayName ?? record.participantId}: ${record.attendanceStatus ?? 'missing'} → ${attendanceStatus} @ booking rev ${detail.revision}${record.revision === undefined ? '' : `, attendance rev ${record.revision}`}`
-                                  )
-                                }
-                                className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
-                              >
-                                {attendanceStatus === 'present'
-                                  ? t('adminLessonRecordPresent')
-                                  : t('adminLessonRecordAbsent')}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="space-y-3 border-t border-[var(--border)] pt-4">
-                <h4 className="text-xs font-mono uppercase">{t('adminLessonAuthorizedActions')}</h4>
-                <label className="block text-xs">
-                  {t('adminLessonReason')}
-                  <input
-                    aria-label="Action reason"
-                    value={actionReason}
-                    onChange={(event) => setActionReason(event.target.value)}
-                    className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
-                  />
-                </label>
-                {(admin.authorizedActions.canReschedule ||
-                  admin.authorizedActions.canChangeInstructor ||
-                  admin.authorizedActions.canChangeDuration) && (
-                  <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonScheduleInPlanner')}</p>
-                )}
-
-                {(admin.authorizedActions.canResolveCancellation ||
-                  admin.authorizedActions.canDirectCancel) && (
-                  <div className="space-y-2 border border-[var(--border)] p-3">
-                    <label className="block text-xs">
-                      {t('adminLessonRefund')}
-                      <input
-                        aria-label="Cancellation refund"
-                        type="number"
-                        min="0"
-                        max={admin.cancellationFinancial?.maximumRefund}
-                        value={refundAmount}
-                        onChange={(event) => setRefundAmount(event.target.value)}
-                        className="mt-1 w-full border border-[var(--border)] bg-transparent p-2"
-                      />
-                    </label>
-                    <div className="flex gap-2">
-                      {admin.authorizedActions.canResolveCancellation && (
-                        <>
-                          <button
-                            type="button"
-                            disabled={
-                              !actionReason.trim() ||
-                              !Number.isInteger(Number(refundAmount)) ||
-                              Number(refundAmount) < 0 ||
-                              Number(refundAmount) >
-                                (admin.cancellationFinancial?.maximumRefund ?? 0)
-                            }
-                            onClick={() =>
-                              requestDetailAttempt(
-                                detail,
-                                {
-                                  kind: 'resolve_booking_cancellation',
-                                  paymentId: admin.payment!.paymentId,
-                                  paymentRevision: admin.payment!.revision,
-                                  decision: 'approve',
-                                  refundAmount: Number(refundAmount),
-                                  reasonExplanation: actionReason.trim(),
-                                },
-                                t('adminLessonConfirmApproveCancel')
-                              )
-                            }
-                            className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-                          >
-                            {t('adminLessonApproveCancellation')}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={!actionReason.trim()}
-                            onClick={() =>
-                              requestDetailAttempt(
-                                detail,
-                                {
-                                  kind: 'resolve_booking_cancellation',
-                                  paymentId: admin.payment!.paymentId,
-                                  decision: 'reject',
-                                  reasonExplanation: actionReason.trim(),
-                                },
-                                t('adminLessonConfirmRejectCancel')
-                              )
-                            }
-                            className="border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-                          >
-                            {t('adminLessonRejectCancellation')}
-                          </button>
-                        </>
-                      )}
-                      {admin.authorizedActions.canDirectCancel && (
-                        <button
-                          type="button"
-                          disabled={
-                            !actionReason.trim() ||
-                            !Number.isInteger(Number(refundAmount)) ||
-                            Number(refundAmount) < 0 ||
-                            Number(refundAmount) > (admin.cancellationFinancial?.maximumRefund ?? 0)
-                          }
-                          onClick={() =>
-                            requestDetailAttempt(
-                              detail,
-                              {
-                                kind: 'resolve_booking_cancellation',
-                                paymentId: admin.payment!.paymentId,
-                                paymentRevision: admin.payment!.revision,
-                                decision: 'direct_cancel',
-                                refundAmount: Number(refundAmount),
-                                reasonExplanation: actionReason.trim(),
-                              },
-                              t('adminLessonConfirmDirectCancel')
-                            )
-                          }
-                          className="border border-rose-500 px-3 py-2 text-xs text-rose-600 disabled:opacity-50"
-                        >
-                          {t('adminLessonDirectCancel')}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {admin.authorizedActions.canResolveAttendanceOutcome && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      requestDetailAttempt(
-                        detail,
-                        { kind: 'resolve_attendance_outcome' },
-                        t('adminLessonConfirmOutcome')
-                      )
-                    }
-                    className="w-full border border-[var(--border)] px-3 py-2 text-xs"
-                  >
-                    {t('adminLessonResolveOutcome')}
-                  </button>
-                )}
-
-                {!Object.values(admin.authorizedActions).some(Boolean) && (
-                  <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonNoActions')}</p>
-                )}
-              </div>
-
-              <div className="space-y-2 border-t border-[var(--border)] pt-4">
-                {admin.authorizedActions.canLinkGuestToAccount ? (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium">{t('adminLessonLinkGuestTitle')}</p>
-                    <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonLinkGuestHint')}</p>
-                    <AdminManagedParticipantPicker
-                      selected={linkSelection}
-                      onChange={(selection) => {
-                        setLinkSelection(selection);
-                        setConfirmation(undefined);
-                      }}
-                    />
-                    <label className="block text-xs">
-                      {t('adminLessonReason')}
-                      <input
-                        aria-label="Link reason"
-                        value={linkReason}
-                        onChange={(event) => {
-                          setLinkReason(event.target.value);
-                          setConfirmation(undefined);
-                        }}
-                        className="mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2"
-                      />
-                    </label>
-                    {linkSelection && (
-                      <p className="text-xs text-[var(--ink-dim)]">
-                        {t('adminLessonLinkReview')
-                          .replace(
-                            '{guest}',
-                            admin.participants[0]?.displayName ?? detail.bookingId
-                          )
-                          .replace(
-                            '{account}',
-                            linkSelection.accountDisplayName ?? linkSelection.accountId
-                          )
-                          .replace('{participant}', linkSelection.displayName)}
-                      </p>
-                    )}
-                    <button
-                      type="button"
-                      disabled={!linkSelection || !linkReason.trim()}
-                      onClick={() => {
-                        if (!linkSelection) return;
-                        requestDetailAttempt(
-                          detail,
-                          {
-                            kind: 'link_guest_booking_to_account_as_administrator',
-                            targetAccountId: linkSelection.accountId,
-                            targetParticipantId: linkSelection.participantId,
-                            ...(linkSelection.accountDisplayName
-                              ? { targetAccountDisplayName: linkSelection.accountDisplayName }
-                              : {}),
-                            targetParticipantDisplayName: linkSelection.displayName,
-                            reasonExplanation: linkReason.trim(),
-                          },
-                          t('adminLessonConfirmLinkGuest')
-                        );
-                      }}
-                      className="w-full border border-[var(--border)] px-3 py-2 text-xs disabled:opacity-50"
-                    >
-                      {t('adminLessonLinkGuest')}
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    {detail.bookingOrigin === 'guest' && (
-                      <p className="text-xs text-[var(--ink-dim)]">
-                        {t('adminLessonLinkUnavailable')}:{' '}
-                        {guestLinkUnavailableLabel(
-                          admin.guestIdentityLinkUnavailableReason ?? 'ineligible_lifecycle',
-                          t
-                        )}
-                      </p>
-                    )}
-                  </>
-                )}
-                {detail.bookingOrigin === 'guest' && detail.lifecycle.status === 'pending' && (
-                  <p className="flex gap-2 text-xs text-amber-700">
-                    <AlertTriangle className="h-4 w-4 shrink-0" />
-                    {t('adminLessonGuestApprovalUnavailable')}
-                  </p>
-                )}
-              </div>
-            </div>
+            <AdminLessonBookingDetail
+              detail={detail}
+              admin={admin}
+              language={language}
+              locale={locale}
+              t={t}
+              actionReason={actionReason}
+              onActionReasonChange={setActionReason}
+              refundAmount={refundAmount}
+              onRefundAmountChange={setRefundAmount}
+              linkSelection={linkSelection}
+              onLinkSelectionChange={(selection) => {
+                setLinkSelection(selection);
+                setConfirmation(undefined);
+              }}
+              linkReason={linkReason}
+              onLinkReasonChange={(value) => {
+                setLinkReason(value);
+                setConfirmation(undefined);
+              }}
+              onRequestAttempt={(attempt, message) =>
+                requestDetailAttempt(detail, attempt, message)
+              }
+              onOpenPlanner={() => {
+                const parts = localParts(detail);
+                updateQuery({
+                  [ADMIN_TAB_QUERY_KEY]: 'operations',
+                  [ADMIN_PLANNER_DATE_QUERY_KEY]: parts.date,
+                  [ADMIN_PLANNER_FOCUS_QUERY_KEY]: detail.bookingId,
+                });
+              }}
+              onClose={() => updateQuery({ [ADMIN_LESSON_BOOKING_QUERY_KEY]: undefined })}
+              onOpenPayment={(paymentId) =>
+                updateQuery({
+                  [ADMIN_TAB_QUERY_KEY]: 'finance',
+                  [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: paymentId,
+                })
+              }
+              onOpenIssue={(issueId) =>
+                updateQuery({
+                  [ADMIN_TAB_QUERY_KEY]: 'operations',
+                  [ADMIN_ISSUE_QUERY_KEY]: issueId,
+                })
+              }
+            />
           )}
         </aside>
       </div>

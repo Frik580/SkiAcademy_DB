@@ -19,6 +19,10 @@ function asBookingStatus(status: string): BookingStatus {
   return 'confirmed';
 }
 
+function timestampToIso(seconds: number): string {
+  return new Date(seconds * 1_000).toISOString();
+}
+
 export function lessonBookingToMonitorRow(booking: LessonBookingReadModel): Booking {
   const timeZone = booking.occurrence.timeZone || resolveAdminTimeZone();
   const local = localDateTimeFromTimestamp(booking.occurrence.startsAt.seconds, timeZone);
@@ -27,6 +31,8 @@ export function lessonBookingToMonitorRow(booking: LessonBookingReadModel): Book
   const price =
     booking.admin?.payment.price ??
     (booking.paymentPresentation?.kind === 'visible' ? booking.paymentPresentation.price : 0);
+  const createdAtSeconds =
+    booking.lifecycle.requestedAt?.seconds ?? booking.updatedAt.seconds;
   return {
     id: booking.bookingId,
     userId: booking.admin?.payer?.accountId ?? participant?.participantId ?? booking.bookingId,
@@ -35,14 +41,14 @@ export function lessonBookingToMonitorRow(booking: LessonBookingReadModel): Book
     instructorAvatar: booking.instructor.avatarUrl ?? '',
     date: local.date,
     time: local.time,
-    durationHours: Math.max(1, Math.round(booking.occurrence.durationMinutes / 60)),
+    durationHours: booking.occurrence.durationMinutes / 60,
     totalPrice: price,
     status: asBookingStatus(booking.lifecycle.status),
-    difficulty: 'beginner',
-    notes: participant?.displayName,
+    ...(booking.difficulty !== undefined ? { difficulty: booking.difficulty } : {}),
+    ...(booking.notes ? { notes: booking.notes } : {}),
     isGuest,
-    guestName: isGuest ? participant?.displayName : undefined,
-    createdAt: new Date(booking.updatedAt.seconds * 1_000).toISOString(),
+    guestName: participant?.displayName,
+    createdAt: timestampToIso(createdAtSeconds),
   };
 }
 
@@ -62,15 +68,13 @@ export function courseEnrollmentToMonitorRow(
     instructorAvatar: '',
     date: local.date,
     time: local.time,
-    durationHours: 1,
+    durationHours: 0,
     totalPrice: enrollment.payment?.price ?? 0,
     status: asBookingStatus(enrollment.lifecycleStatus),
-    difficulty: 'beginner',
-    notes: enrollment.participant.displayName,
     isGuest,
-    guestName: isGuest ? enrollment.participant.displayName : undefined,
+    guestName: enrollment.participant.displayName,
     courseId: enrollment.course.courseId,
-    createdAt: new Date(enrollment.updatedAt.seconds * 1_000).toISOString(),
+    createdAt: timestampToIso(enrollment.updatedAt.seconds),
   };
 }
 

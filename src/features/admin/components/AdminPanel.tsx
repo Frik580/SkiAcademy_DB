@@ -212,10 +212,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               defaultOpen
             >
               <AdminActiveBookingMonitor
-                adminAccountId={currentUserProfile.uid}
                 usersList={usersList}
                 instructors={instructors}
-                onRequestConfirm={onRequestConfirm}
               />
             </AdminCollapsibleSection>
           </Suspense>

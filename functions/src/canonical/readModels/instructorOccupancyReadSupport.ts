@@ -48,12 +48,19 @@ function localParts(
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false,
+    hourCycle: 'h23',
   }).formatToParts(new Date(intervalStart.seconds * 1_000));
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const hour = values.hour === '24' ? '00' : values.hour;
+  const date =
+    values.hour === '24'
+      ? new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day) + 1))
+      : null;
   return {
-    date: `${values.year}-${values.month}-${values.day}`,
-    time: `${values.hour === '24' ? '00' : values.hour}:${values.minute}`,
+    date: date
+      ? `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+      : `${values.year}-${values.month}-${values.day}`,
+    time: `${hour}:${values.minute}`,
   };
 }
 

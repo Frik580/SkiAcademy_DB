@@ -115,7 +115,15 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
           onChange={setTime}
           options={timeOptions}
           disabled={isLoadingBookings || occupancyLoadFailed || availableSlots.length === 0}
-          placeholder={t('timeSlot')}
+          placeholder={
+            isLoadingBookings
+              ? `${t('loading')}...`
+              : occupancyLoadFailed
+                ? t('instructorOccupancyLoadFailed')
+                : availableSlots.length === 0
+                  ? t('noSlotsAvailable')
+                  : ''
+          }
           aria-label={t('timeSlot')}
         />
       </div>

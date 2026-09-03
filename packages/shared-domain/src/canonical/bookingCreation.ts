@@ -27,7 +27,7 @@ function zonedPartsAt(instantMs: number, timeZone: string): Record<string, numbe
     hour: 'numeric',
     minute: 'numeric',
     second: 'numeric',
-    hour12: false,
+    hourCycle: 'h23',
   });
   const parts = formatter.formatToParts(new Date(instantMs));
   const values: Record<string, number> = {};
@@ -35,6 +35,14 @@ function zonedPartsAt(instantMs: number, timeZone: string): Record<string, numbe
     if (part.type !== 'literal') {
       values[part.type] = Number(part.value);
     }
+  }
+  // Some ICU builds still emit hour 24 at local midnight with the previous calendar date.
+  if (values.hour === 24) {
+    const next = new Date(Date.UTC(values.year, values.month - 1, values.day + 1));
+    values.year = next.getUTCFullYear();
+    values.month = next.getUTCMonth() + 1;
+    values.day = next.getUTCDate();
+    values.hour = 0;
   }
   return values;
 }

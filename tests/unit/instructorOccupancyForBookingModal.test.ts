@@ -265,12 +265,12 @@ describe('getAvailableLessonStartTimes', () => {
 });
 
 describe('resolveLessonStartTimeSelection', () => {
-  it('clears selected time when duration change makes it unavailable', () => {
+  it('selects the nearest remaining start when duration change makes the current time unavailable', () => {
     const twoHourStarts = availableStarts([block('13:00', 1)], [], 2);
-    expect(resolveLessonStartTimeSelection('12:00', twoHourStarts)).toBe('');
+    expect(resolveLessonStartTimeSelection('12:00', twoHourStarts)).toBe('11:00');
   });
 
-  it('clears selected time when switching to an instructor where it is busy', () => {
+  it('selects the next available start when switching to an instructor where it is busy', () => {
     const instructorBStarts = getAvailableLessonStartTimes({
       candidateStarts: DEFAULT_LESSON_TIME_SLOTS,
       durationHours: 1,
@@ -281,24 +281,29 @@ describe('resolveLessonStartTimeSelection', () => {
       now: futureNow,
     });
 
-    expect(resolveLessonStartTimeSelection('10:00', instructorBStarts)).toBe('');
+    expect(resolveLessonStartTimeSelection('10:00', instructorBStarts)).toBe('11:00');
   });
 
-  it('clears selected time when occupancy refetch makes it busy', () => {
+  it('selects the next available start when occupancy refetch makes the current time busy', () => {
     const afterRefetch = availableStarts([slot('10:00', 1)]);
-    expect(resolveLessonStartTimeSelection('10:00', afterRefetch)).toBe('');
+    expect(resolveLessonStartTimeSelection('10:00', afterRefetch)).toBe('11:00');
   });
 
-  it('keeps selection empty after backend conflict refetch hides the previous slot', () => {
+  it('defaults to the earliest remaining start when selection is empty', () => {
     const afterRefetch = availableStarts([slot('10:00', 1)]);
 
-    expect(resolveLessonStartTimeSelection('', afterRefetch)).toBe('');
-    expect(resolveLessonStartTimeSelection('10:00', afterRefetch)).toBe('');
+    expect(resolveLessonStartTimeSelection('', afterRefetch)).toBe('08:00');
+    expect(resolveLessonStartTimeSelection('10:00', afterRefetch)).toBe('11:00');
   });
 
   it('preserves a selected time that remains available', () => {
     const starts = availableStarts([]);
     expect(resolveLessonStartTimeSelection('09:00', starts)).toBe('09:00');
+  });
+
+  it('returns empty when no starts remain', () => {
+    expect(resolveLessonStartTimeSelection('08:00', [])).toBe('');
+    expect(resolveLessonStartTimeSelection('', [])).toBe('');
   });
 });
 
@@ -331,5 +336,68 @@ describe('buildBookingTimePickerOptions', () => {
 
     expect(getVisibleBookingTimePickerValues(options)).toHaveLength(0);
     expect(options).toEqual([{ value: '', label: 'noSlotsAvailable', disabled: true }]);
+  });
+});
+
+describe('runtime occupancy payload', () => {
+  it('hides 11:00 when canonical item is a 11:00–12:00 lesson on the selected day', () => {
+    const item = occupancyItem({
+      occupancyKind: 'lesson_booking',
+      occupancyId: 'booking_admin_9abece29f32a4436bafae30fcc7dd520',
+      bookingId: 'booking_admin_9abece29f32a4436bafae30fcc7dd520',
+      instructorId,
+      interval: {
+        startsAt: { seconds: 1_788_328_800, nanoseconds: 0 },
+        endsAt: { seconds: 1_788_332_400, nanoseconds: 0 },
+      },
+      timeZone: 'Asia/Qyzylorda',
+      localDate: '2026-09-02',
+      localTime: '11:00',
+      durationMinutes: 60,
+      displayTitle: 'Booked',
+      lifecycleStatus: 'confirmed',
+      revision: 1,
+    });
+
+    const starts = getAvailableLessonStartTimes({
+      candidateStarts: DEFAULT_LESSON_TIME_SLOTS,
+      durationHours: 1,
+      localDate: '2026-09-02',
+      instructorId,
+      occupancySlots: [],
+      occupancyCourses: [],
+      occupancyItems: [item],
+      timeZone: 'Asia/Qyzylorda',
+      now: new Date('2026-09-02T00:00:00'),
+    });
+
+    expect(starts).not.toContain('11:00');
+    expect(starts).toContain('10:00');
+    expect(starts).toContain('12:00');
+  });
+
+  it('hides day-off, break, and lesson starts from the same occupancy list', () => {
+    const items = [
+      occupancyItem({
+        occupancyKind: 'availability_block',
+        occupancyId: 'day_off',
+        blockId: 'day_off',
+        blockKind: 'day_off',
+        localTime: '08:00',
+        durationMinutes: 11 * 60,
+      }),
+    ];
+    const starts = getAvailableLessonStartTimes({
+      candidateStarts: DEFAULT_LESSON_TIME_SLOTS,
+      durationHours: 1,
+      localDate,
+      instructorId,
+      occupancySlots: [],
+      occupancyCourses: [],
+      occupancyItems: items,
+      timeZone,
+      now: futureNow,
+    });
+    expect(starts).toEqual([]);
   });
 });

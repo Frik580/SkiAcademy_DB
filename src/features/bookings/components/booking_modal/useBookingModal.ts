@@ -8,7 +8,7 @@ import {
   LessonDifficulty,
   Course,
 } from '../../../../types';
-import { InstructorIdSchema } from '@ski-academy/shared-domain';
+import { InstructorIdSchema, type AdminPlannerOccupancyItem } from '@ski-academy/shared-domain';
 import { useNotifications } from '../../../../features/notifications';
 import {
   useLanguage,
@@ -27,6 +27,7 @@ import { queryInstructorOccupancyReadModels } from '../../../../lib/canonical/ca
 import {
   getAvailableLessonStartTimes,
   mapInstructorOccupancyReadModelForBookingModal,
+  addBookingLocalDays,
   normalizeBookingLocalDate,
   resolveLessonStartTimeSelection,
 } from '../../instructorOccupancyForBookingModal';
@@ -128,6 +129,7 @@ export const useBookingModal = ({
 
   const [instructorBookings, setInstructorBookings] = useState<AvailabilitySlot[]>([]);
   const [occupancyCourses, setOccupancyCourses] = useState<Course[]>([]);
+  const [occupancyItems, setOccupancyItems] = useState<AdminPlannerOccupancyItem[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState<boolean>(true);
   const [occupancyLoadFailed, setOccupancyLoadFailed] = useState(false);
   const [occupancyRefreshNonce, setOccupancyRefreshNonce] = useState(0);
@@ -148,6 +150,7 @@ export const useBookingModal = ({
   };
 
   const minBookingDateStr = useMemo(() => toLocalDateStr(), []);
+  const timezone = resolveLessonBookingTimezone();
 
   useEffect(() => {
     if (isOpen) {
@@ -168,14 +171,28 @@ export const useBookingModal = ({
         const isSandbox = userProfile?.uid?.startsWith('local_') || false;
         if (!isSandbox) {
           const timezone = resolveLessonBookingTimezone();
-          const result = await queryInstructorOccupancyReadModels({
-            scope: 'public_instructor_day',
-            instructorId: InstructorIdSchema.parse(targetInstructor.id),
-            localDate: normalizeDateStr(date),
-            timeZone: timezone,
-          });
+          const selectedDate = normalizeDateStr(date);
+          const [selectedDay, nextDay] = await Promise.all([
+            queryInstructorOccupancyReadModels({
+              scope: 'public_instructor_day',
+              instructorId: InstructorIdSchema.parse(targetInstructor.id),
+              localDate: selectedDate,
+              timeZone: timezone,
+            }),
+            queryInstructorOccupancyReadModels({
+              scope: 'public_instructor_day',
+              instructorId: InstructorIdSchema.parse(targetInstructor.id),
+              localDate: addBookingLocalDays(selectedDate, 1),
+              timeZone: timezone,
+            }),
+          ]);
           if (fetchVersion !== occupancyFetchVersionRef.current) return;
-          const mapped = mapInstructorOccupancyReadModelForBookingModal(result.item);
+          const occupancy = [...selectedDay.item.occupancy, ...nextDay.item.occupancy];
+          const mapped = mapInstructorOccupancyReadModelForBookingModal({
+            ...selectedDay.item,
+            occupancy,
+          });
+          setOccupancyItems(occupancy);
           setInstructorBookings(mapped.slots);
           setOccupancyCourses(mapped.courses);
         } else {
@@ -196,6 +213,7 @@ export const useBookingModal = ({
               }
             }
           }
+          setOccupancyItems([]);
           setInstructorBookings(
             localList
               .filter(
@@ -210,6 +228,7 @@ export const useBookingModal = ({
         if (fetchVersion === occupancyFetchVersionRef.current) {
           setInstructorBookings([]);
           setOccupancyCourses([]);
+          setOccupancyItems([]);
           setOccupancyLoadFailed(true);
         }
       } finally {
@@ -230,8 +249,18 @@ export const useBookingModal = ({
       instructorId: targetInstructor?.id,
       occupancySlots: instructorBookings,
       occupancyCourses,
+      occupancyItems,
+      timeZone: timezone,
     });
-  }, [date, duration, instructorBookings, occupancyCourses, targetInstructor?.id]);
+  }, [
+    date,
+    duration,
+    instructorBookings,
+    occupancyCourses,
+    occupancyItems,
+    targetInstructor?.id,
+    timezone,
+  ]);
 
   useEffect(() => {
     const nextTime = resolveLessonStartTimeSelection(time, availableSlots);
@@ -300,7 +329,6 @@ export const useBookingModal = ({
     !!overlappingCourse;
 
   const totalCost = targetInstructor ? targetInstructor.pricePerHour * duration : 0;
-  const timezone = resolveLessonBookingTimezone();
 
   const toggleParticipant = (participantId: string) => {
     setSelectedParticipantIds((current) =>

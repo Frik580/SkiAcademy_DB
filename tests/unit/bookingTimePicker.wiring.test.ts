@@ -175,12 +175,12 @@ describe('booking time picker full wiring', () => {
     );
   });
 
-  it('occupied initial default 08:00 is cleared to empty string', () => {
+  it('occupied initial default 08:00 snaps to the nearest remaining start', () => {
     const { selectedTime } = fullPipeline(
       [makeOccupancyItem('lesson_booking', 8, 10)],
       2
     );
-    expect(selectedTime).toBe('');
+    expect(selectedTime).toBe('10:00');
   });
 
   it('available initial default 08:00 is preserved', () => {

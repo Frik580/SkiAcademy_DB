@@ -45,6 +45,28 @@ describe('booking creation helpers', () => {
     expect(schedule.interval.endsAt.seconds - schedule.interval.startsAt.seconds).toBe(3_600);
   });
 
+  it('converts local midnight in Kazakhstan zones to that morning, not the previous day', () => {
+    for (const timeZone of ['Asia/Almaty', 'Asia/Qyzylorda'] as const) {
+      const midnight = localCalendarInputToUtcDate(
+        { localDate: '2026-09-03', localTime: '00:00', durationMinutes: 60 },
+        timeZone
+      );
+      const local = new Intl.DateTimeFormat('en-CA', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+      }).formatToParts(midnight);
+      const values = Object.fromEntries(local.map((part) => [part.type, part.value]));
+      expect(`${values.year}-${values.month}-${values.day}`).toBe('2026-09-03');
+      expect(`${values.hour}:${values.minute}`).toBe('00:00');
+      expect(midnight.toISOString()).toBe('2026-09-02T19:00:00.000Z');
+    }
+  });
+
   it('allows adjacent intervals that share an end/start boundary', () => {
     const first = resolveBookingScheduleFromCalendarInput(
       { localDate: '2026-01-15', localTime: '09:00', durationMinutes: 60 },

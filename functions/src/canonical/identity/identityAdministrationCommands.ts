@@ -2,6 +2,7 @@ import {
   AUDIT_REASON_REGISTRY_VERSION,
   AggregateRevisionSchema,
   CanonicalCommandError,
+  INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT,
   InstructorCatalogEntrySchema,
   PARTICIPANT_ARCHIVE_COMMITMENT_SCAN_LIMIT,
   administratorCapabilityExercisedByAccount,
@@ -10,18 +11,23 @@ import {
   evaluateAdminManagementAssignment,
   evaluateChangeAccountRole,
   evaluateDisableAccount,
+  evaluateReactivateInstructorCatalog,
+  instructorUnlinkBlockedByFutureCommitments,
   nextAggregateRevision,
   parseInstructorCatalogRevision,
   participantArchiveBlockedByCommitments,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
+  AccountIdSchema,
   type Account,
+  type AccountId,
   type AuditOutboxStagingPlan,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
   type CommandKind,
   type CommandResult,
   type InstructorCatalogEntry,
+  type InstructorId,
   type Participant,
   type ParticipantManagement,
 } from '@ski-academy/shared-domain';
@@ -30,13 +36,15 @@ import {
   executeAuthoritativeIdempotentCanonicalCommand,
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
-import { parseBooking } from '../bookings/bookingStore';
+import { parseBooking, instructorCatalogPath } from '../bookings/bookingStore';
 import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
+import { parseCourseDay } from '../courses/courseStore';
 import {
   commitAcquireParticipantManagementActiveOwnerGuard,
   readAndPlanAcquireParticipantManagementActiveOwnerGuard,
 } from '../resourceClaims/uniquenessGuards';
 import { CANONICAL_FIELD_DELETE } from '../transactions/transactionExecution';
+import type { CanonicalAtomicTransactionSession } from '../transactions';
 import {
   assertAccountActive,
   assertAdministrator,
@@ -54,7 +62,7 @@ import {
   participantManagementPath,
   participantPath,
 } from '../participantAccess/participantAccessStore';
-import { instructorCatalogPath } from '../bookings/bookingStore';
+import { sanitizeInstructorPresentationAvatarUrl } from '../readModels/instructorPresentationAvatar';
 
 type IdentityAdminKind = Extract<
   CommandKind,
@@ -182,23 +190,156 @@ function parseCatalogEntry(
   data: Record<string, unknown> | undefined
 ): InstructorCatalogEntry | undefined {
   if (!data) return undefined;
+
+  // Load-time tolerance for legacy optional presentation fields.
+  // Strict write bounds still apply to command intents; an oversized historical
+  // avatarUrl (or other optional noise) must not turn profile update into
+  // invalid_transition/conflict — that blocked replacing the bad avatar.
+  const specialty =
+    data.specialty === 'ski' || data.specialty === 'snowboard' || data.specialty === 'both'
+      ? data.specialty
+      : undefined;
+  const languages = Array.isArray(data.languages)
+    ? data.languages
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter((item) => item.length >= 1 && item.length <= 32)
+        .slice(0, 16)
+    : undefined;
+  const experienceYears =
+    typeof data.experienceYears === 'number' &&
+    Number.isFinite(data.experienceYears) &&
+    Number.isInteger(data.experienceYears) &&
+    data.experienceYears >= 0 &&
+    data.experienceYears <= 80
+      ? data.experienceYears
+      : undefined;
+  const bio =
+    typeof data.bio === 'string' && data.bio.trim().length > 0 && data.bio.trim().length <= 4_000
+      ? data.bio.trim()
+      : undefined;
+  const avatarUrl = sanitizeInstructorPresentationAvatarUrl(
+    typeof data.avatarUrl === 'string' ? data.avatarUrl : undefined
+  );
+  const phoneNumber =
+    typeof data.phoneNumber === 'string' &&
+    data.phoneNumber.trim().length > 0 &&
+    data.phoneNumber.trim().length <= 32
+      ? data.phoneNumber.trim()
+      : undefined;
+  const linkedAccountParsed = AccountIdSchema.safeParse(data.linkedAccountId);
+  const rating =
+    typeof data.rating === 'number' &&
+    Number.isFinite(data.rating) &&
+    data.rating >= 0 &&
+    data.rating <= 5
+      ? data.rating
+      : undefined;
+  const reviewsCount =
+    typeof data.reviewsCount === 'number' &&
+    Number.isFinite(data.reviewsCount) &&
+    Number.isInteger(data.reviewsCount) &&
+    data.reviewsCount >= 0
+      ? data.reviewsCount
+      : undefined;
+
   const parsed = InstructorCatalogEntrySchema.safeParse({
     instructorId,
     name: data.name,
-    specialty: data.specialty,
-    languages: data.languages,
-    experienceYears: data.experienceYears,
-    bio: data.bio,
-    avatarUrl: data.avatarUrl,
+    ...(specialty ? { specialty } : {}),
+    ...(languages && languages.length > 0 ? { languages } : {}),
+    ...(experienceYears !== undefined ? { experienceYears } : {}),
+    ...(bio ? { bio } : {}),
+    ...(avatarUrl ? { avatarUrl } : {}),
     pricePerHourKZT: data.pricePerHourKZT,
     pricePerHour: data.pricePerHour,
-    phoneNumber: data.phoneNumber,
+    ...(phoneNumber ? { phoneNumber } : {}),
+    ...(linkedAccountParsed.success ? { linkedAccountId: linkedAccountParsed.data } : {}),
     isAvailable: typeof data.isAvailable === 'boolean' ? data.isAvailable : true,
-    rating: data.rating,
-    reviewsCount: data.reviewsCount,
+    ...(rating !== undefined ? { rating } : {}),
+    ...(reviewsCount !== undefined ? { reviewsCount } : {}),
     revision: parseInstructorCatalogRevision(data),
   });
   return parsed.success ? parsed.data : undefined;
+}
+
+async function assertInstructorReverseLinkAvailable(
+  session: CanonicalAtomicTransactionSession,
+  envelope: CommandEnvelope,
+  instructorId: InstructorId,
+  targetAccountId: AccountId,
+  catalogLinkedAccountId: AccountId | undefined
+): Promise<void> {
+  if (catalogLinkedAccountId && catalogLinkedAccountId !== targetAccountId) {
+    throw new CanonicalCommandError('blocked_relationship', {
+      correlationId: envelope.context.correlationId,
+      details: { resourceKind: 'instructor', reason: 'conflict' },
+    });
+  }
+  const linkedAccounts = await session.tx.query({
+    collection: 'users',
+    where: { field: 'instructorId', op: '==', value: instructorId },
+    limit: 2,
+  });
+  session.plan.planRead({
+    path: 'users/query_by_instructorId',
+    category: 'authorization_check',
+  });
+  for (const doc of linkedAccounts) {
+    const accountId = doc.path.split('/')[1];
+    if (accountId && accountId !== targetAccountId) {
+      throw new CanonicalCommandError('blocked_relationship', {
+        correlationId: envelope.context.correlationId,
+        details: { resourceKind: 'instructor', reason: 'conflict' },
+      });
+    }
+  }
+}
+
+async function assertNoOutstandingInstructorCommitments(
+  session: CanonicalAtomicTransactionSession,
+  envelope: CommandEnvelope,
+  instructorId: InstructorId,
+  now: Date
+): Promise<void> {
+  const bookingDocs = await session.tx.query({
+    collection: 'bookings',
+    where: { field: 'occurrence.instructorId', op: '==', value: instructorId },
+    limit: INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT + 1,
+  });
+  session.plan.planRead({
+    path: 'bookings/query_by_instructor',
+    category: 'authorization_check',
+  });
+  const courseDayDocs = await session.tx.query({
+    collection: 'days',
+    collectionGroup: true,
+    where: { field: 'actualInstructorIds', op: 'array-contains', value: instructorId },
+    limit: INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT + 1,
+  });
+  session.plan.planRead({
+    path: 'days/query_by_instructor',
+    category: 'authorization_check',
+  });
+  const bookings = bookingDocs
+    .map((doc) => parseBooking(doc.data))
+    .filter((booking): booking is NonNullable<typeof booking> => booking !== undefined);
+  const courseDays = courseDayDocs
+    .map((doc) => parseCourseDay(doc.data))
+    .filter((day): day is NonNullable<typeof day> => day !== undefined);
+  if (
+    instructorUnlinkBlockedByFutureCommitments({
+      bookings,
+      courseDays,
+      now: timestampFromDate(now),
+      bookingScanCapped: bookingDocs.length > INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT,
+      courseDayScanCapped: courseDayDocs.length > INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT,
+      unparsedCommitmentCount:
+        bookingDocs.length - bookings.length + (courseDayDocs.length - courseDays.length),
+    })
+  ) {
+    conflict(envelope, { resourceKind: 'instructor', reason: 'conflict' });
+  }
 }
 
 export function createIdentityAdministrationCommandHandlers(
@@ -267,8 +408,28 @@ function accountLifecycleHandler<Kind extends 'disable_account' | 'enable_accoun
       targetAccount = parsed;
       targetProfile = targetRead.data;
       if (nextStatus === 'disabled') {
-        if (evaluateDisableAccount({ targetSystemRole: readSystemRole(targetProfile) }) !== 'allowed') {
-          forbidden(envelope, { field: 'accountId', reason: 'conflict' });
+        const linkedInstructorId =
+          typeof targetProfile?.instructorId === 'string' ? targetProfile.instructorId : undefined;
+        let linkedInstructorAvailable = false;
+        if (linkedInstructorId) {
+          const catalogPath = instructorCatalogPath(linkedInstructorId as InstructorId);
+          const catalogRead = await session.tx.get({ path: catalogPath });
+          session.plan.planRead({ path: catalogPath, category: 'authorization_check' });
+          const catalog = parseCatalogEntry(
+            linkedInstructorId,
+            catalogRead.exists ? catalogRead.data : undefined
+          );
+          linkedInstructorAvailable = catalog?.isAvailable === true;
+        }
+        const disableDecision = evaluateDisableAccount({
+          targetSystemRole: readSystemRole(targetProfile),
+          linkedInstructorAvailable,
+        });
+        if (disableDecision !== 'allowed') {
+          forbidden(envelope, {
+            field: 'accountId',
+            reason: 'conflict',
+          });
         }
         if (targetAccount.lifecycle.status !== 'active') {
           conflict(envelope);
@@ -1050,6 +1211,9 @@ function createInstructorCatalogHandler(
   requireAdmin(envelope);
   requireReason(envelope, envelope.intent.reasonExplanation);
   const catalogPath = instructorCatalogPath(envelope.intent.instructorId);
+  const linkAccountId = envelope.intent.accountId;
+  let targetAccount: Account | undefined;
+  let targetProfile: Record<string, unknown> | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_instructor_catalog_entry'> =
     {
@@ -1075,20 +1239,65 @@ function createInstructorCatalogHandler(
           category: 'aggregate',
           estimatedPayloadBytes: 768,
         });
+        if (linkAccountId) {
+          const targetPath = accountPath(linkAccountId);
+          const targetRead = await session.tx.get({ path: targetPath });
+          session.plan.planRead({ path: targetPath, category: 'aggregate' });
+          const parsed = parseAccount(targetRead.exists ? targetRead.data : undefined);
+          assertAccountActive(envelope, parsed);
+          targetAccount = parsed!;
+          targetProfile = targetRead.data;
+          const existingInstructorId =
+            typeof targetProfile?.instructorId === 'string'
+              ? targetProfile.instructorId
+              : undefined;
+          if (existingInstructorId && existingInstructorId !== envelope.intent.instructorId) {
+            throw new CanonicalCommandError('blocked_relationship', {
+              correlationId: envelope.context.correlationId,
+              details: { resourceKind: 'instructor', reason: 'conflict' },
+            });
+          }
+          await assertInstructorReverseLinkAvailable(
+            session,
+            envelope,
+            envelope.intent.instructorId,
+            linkAccountId,
+            undefined
+          );
+          session.plan.planMutation({
+            path: targetPath,
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.accountBytes,
+          });
+        }
       },
       planAuditOutbox: async () =>
         buildIdentityAdminAuditPlan({
           envelope,
-          summary: 'Instructor catalog entry created',
+          summary: linkAccountId
+            ? 'Instructor catalog entry created and linked to Account'
+            : 'Instructor catalog entry created',
           reasonCode: 'manual_override',
           explanation: envelope.intent.reasonExplanation,
           primary: { kind: 'instructor', id: envelope.intent.instructorId },
-          affectedSubjects: [canonicalReference('instructor', envelope.intent.instructorId)],
+          affectedSubjects: [
+            canonicalReference('instructor', envelope.intent.instructorId),
+            ...(linkAccountId ? [canonicalReference('account', linkAccountId)] : []),
+          ],
           resultingRevisions: [
             {
               subject: canonicalReference('instructor', envelope.intent.instructorId),
               revision: AggregateRevisionSchema.parse(1),
             },
+            ...(targetAccount && linkAccountId
+              ? [
+                  {
+                    subject: canonicalReference('account', linkAccountId),
+                    revision: nextAggregateRevision(targetAccount.revision),
+                  },
+                ]
+              : []),
           ],
           effectKind: 'outbox_obligation_created',
         }),
@@ -1111,6 +1320,7 @@ function createInstructorCatalogHandler(
             ...(envelope.intent.phoneNumber === undefined
               ? {}
               : { phoneNumber: envelope.intent.phoneNumber }),
+            ...(linkAccountId ? { linkedAccountId: linkAccountId } : {}),
             isAvailable: true,
             rating: 0,
             reviewsCount: 0,
@@ -1120,6 +1330,22 @@ function createInstructorCatalogHandler(
             audit: revisionAuditLink(envelope, metadata),
           }
         );
+        if (linkAccountId && targetAccount) {
+          session.tx.update(
+            { path: accountPath(linkAccountId) },
+            {
+              instructorId: envelope.intent.instructorId,
+              isInstructor: true,
+              revision: nextAggregateRevision(targetAccount.revision),
+              updatedAt: decidedAt,
+              audit: {
+                ...targetAccount.audit,
+                lastChangedByCommandId: metadata.commandId,
+                correlationId: metadata.correlationId,
+              },
+            }
+          );
+        }
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
       },
     };
@@ -1128,6 +1354,9 @@ function createInstructorCatalogHandler(
     envelope,
     environment,
     executor,
+    ...(linkAccountId
+      ? { revisionTarget: { ref: { path: accountPath(linkAccountId) }, requireExpectedRevision: true } }
+      : {}),
     handler,
   });
 }
@@ -1250,6 +1479,46 @@ function instructorAvailabilityHandler<
         conflict(envelope, { resourceKind: 'instructor', reason: 'conflict' });
       }
       current = parsed;
+      if (isAvailable) {
+        let linkedAccountLifecycle: 'active' | 'disabled' | 'uninitialized' | undefined;
+        let linkedAccountId = current.linkedAccountId;
+        if (!linkedAccountId) {
+          const linkedAccounts = await session.tx.query({
+            collection: 'users',
+            where: {
+              field: 'instructorId',
+              op: '==',
+              value: envelope.intent.instructorId,
+            },
+            limit: 1,
+          });
+          session.plan.planRead({
+            path: 'users/query_by_instructorId',
+            category: 'authorization_check',
+          });
+          const linkedPath = linkedAccounts[0]?.path;
+          linkedAccountId = linkedPath
+            ? (linkedPath.split('/')[1] as AccountId | undefined)
+            : undefined;
+        }
+        if (linkedAccountId) {
+          const linkedRead = await session.tx.get({ path: accountPath(linkedAccountId) });
+          session.plan.planRead({
+            path: accountPath(linkedAccountId),
+            category: 'authorization_check',
+          });
+          const linkedAccount = parseAccount(linkedRead.exists ? linkedRead.data : undefined);
+          linkedAccountLifecycle = linkedAccount?.lifecycle.status;
+        }
+        if (
+          evaluateReactivateInstructorCatalog({ linkedAccountLifecycle }) !== 'allowed'
+        ) {
+          forbidden(envelope, {
+            resourceKind: 'instructor',
+            reason: 'conflict',
+          });
+        }
+      }
       if (current.isAvailable === isAvailable) {
         return;
       }
@@ -1311,8 +1580,11 @@ function linkInstructorCatalogHandler(
   requireAdmin(envelope);
   requireReason(envelope, envelope.intent.reasonExplanation);
   const targetPath = accountPath(envelope.intent.accountId);
+  const catalogPath = instructorCatalogPath(envelope.intent.instructorId);
   let targetAccount!: Account;
   let targetProfile: Record<string, unknown> | undefined;
+  let catalog!: InstructorCatalogEntry;
+  let alreadyLinked = false;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'link_account_instructor_catalog'> =
     {
@@ -1325,21 +1597,16 @@ function linkInstructorCatalogHandler(
         });
         assertAccountActive(envelope, parseAccount(actorRead.exists ? actorRead.data : undefined));
 
-        const catalogRead = await session.tx.get({
-          path: instructorCatalogPath(envelope.intent.instructorId),
-        });
-        session.plan.planRead({
-          path: instructorCatalogPath(envelope.intent.instructorId),
-          category: 'authorization_check',
-        });
-        if (
-          !parseCatalogEntry(
-            envelope.intent.instructorId,
-            catalogRead.exists ? catalogRead.data : undefined
-          )
-        ) {
+        const catalogRead = await session.tx.get({ path: catalogPath });
+        session.plan.planRead({ path: catalogPath, category: 'aggregate' });
+        const parsedCatalog = parseCatalogEntry(
+          envelope.intent.instructorId,
+          catalogRead.exists ? catalogRead.data : undefined
+        );
+        if (!parsedCatalog) {
           conflict(envelope, { resourceKind: 'instructor', reason: 'conflict' });
         }
+        catalog = parsedCatalog;
 
         const targetRead = await session.tx.get({ path: targetPath });
         session.plan.planRead({ path: targetPath, category: 'aggregate' });
@@ -1355,12 +1622,30 @@ function linkInstructorCatalogHandler(
             details: { resourceKind: 'instructor', reason: 'conflict' },
           });
         }
-        session.plan.planMutation({
-          path: targetPath,
-          kind: 'update',
-          category: 'aggregate',
-          estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.accountBytes,
-        });
+        alreadyLinked =
+          existingInstructorId === envelope.intent.instructorId &&
+          catalog.linkedAccountId === envelope.intent.accountId;
+        if (!alreadyLinked) {
+          await assertInstructorReverseLinkAvailable(
+            session,
+            envelope,
+            envelope.intent.instructorId,
+            envelope.intent.accountId,
+            catalog.linkedAccountId
+          );
+          session.plan.planMutation({
+            path: targetPath,
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.accountBytes,
+          });
+          session.plan.planMutation({
+            path: catalogPath,
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: 768,
+          });
+        }
       },
       planAuditOutbox: async () =>
         buildIdentityAdminAuditPlan({
@@ -1378,10 +1663,17 @@ function linkInstructorCatalogHandler(
               subject: canonicalReference('account', envelope.intent.accountId),
               revision: nextAggregateRevision(targetAccount.revision),
             },
+            {
+              subject: canonicalReference('instructor', envelope.intent.instructorId),
+              revision: nextAggregateRevision(catalog.revision),
+            },
           ],
           effectKind: 'outbox_obligation_created',
         }),
       execute: async (session, context) => {
+        if (alreadyLinked) {
+          return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+        }
         const decidedAt = timestampFromDate(context.decidedAt);
         session.tx.update(
           { path: targetPath },
@@ -1395,6 +1687,14 @@ function linkInstructorCatalogHandler(
               lastChangedByCommandId: metadata.commandId,
               correlationId: metadata.correlationId,
             },
+          }
+        );
+        session.tx.update(
+          { path: catalogPath },
+          {
+            linkedAccountId: envelope.intent.accountId,
+            revision: nextAggregateRevision(catalog.revision),
+            updatedAt: decidedAt,
           }
         );
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
@@ -1419,8 +1719,10 @@ function unlinkInstructorCatalogHandler(
   requireAdmin(envelope);
   requireReason(envelope, envelope.intent.reasonExplanation);
   const targetPath = accountPath(envelope.intent.accountId);
+  const catalogPath = instructorCatalogPath(envelope.intent.instructorId);
   let targetAccount!: Account;
   let targetProfile: Record<string, unknown> | undefined;
+  let catalog: InstructorCatalogEntry | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'unlink_account_instructor_catalog'> =
     {
@@ -1443,12 +1745,32 @@ function unlinkInstructorCatalogHandler(
         if (targetProfile?.instructorId !== envelope.intent.instructorId) {
           conflict(envelope, { field: 'instructorId', reason: 'conflict' });
         }
+        const catalogRead = await session.tx.get({ path: catalogPath });
+        session.plan.planRead({ path: catalogPath, category: 'aggregate' });
+        catalog = parseCatalogEntry(
+          envelope.intent.instructorId,
+          catalogRead.exists ? catalogRead.data : undefined
+        );
+        await assertNoOutstandingInstructorCommitments(
+          session,
+          envelope,
+          envelope.intent.instructorId,
+          environment.clock.decidedAt()
+        );
         session.plan.planMutation({
           path: targetPath,
           kind: 'update',
           category: 'aggregate',
           estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.accountBytes,
         });
+        if (catalog) {
+          session.plan.planMutation({
+            path: catalogPath,
+            kind: 'update',
+            category: 'aggregate',
+            estimatedPayloadBytes: 768,
+          });
+        }
       },
       planAuditOutbox: async () =>
         buildIdentityAdminAuditPlan({
@@ -1466,6 +1788,14 @@ function unlinkInstructorCatalogHandler(
               subject: canonicalReference('account', envelope.intent.accountId),
               revision: nextAggregateRevision(targetAccount.revision),
             },
+            ...(catalog
+              ? [
+                  {
+                    subject: canonicalReference('instructor', envelope.intent.instructorId),
+                    revision: nextAggregateRevision(catalog.revision),
+                  },
+                ]
+              : []),
           ],
           effectKind: 'outbox_obligation_created',
         }),
@@ -1485,6 +1815,17 @@ function unlinkInstructorCatalogHandler(
             },
           }
         );
+        if (catalog) {
+          session.tx.update(
+            { path: catalogPath },
+            {
+              linkedAccountId: CANONICAL_FIELD_DELETE as unknown as string,
+              isAvailable: false,
+              revision: nextAggregateRevision(catalog.revision),
+              updatedAt: decidedAt,
+            }
+          );
+        }
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
       },
     };

@@ -41,6 +41,40 @@ export function adminFinanceAccountSearchParams(
   return next;
 }
 
+/**
+ * People → Clients has no account deep-link query key yet (collapsible sections only).
+ * Opens the People tab; the caller cannot pre-select a specific client account.
+ */
+export function adminClientAccountSearchParams(
+  previous: URLSearchParams,
+  _accountId: string
+): URLSearchParams {
+  const next = new URLSearchParams(previous);
+  next.set(ADMIN_TAB_QUERY_KEY, 'people');
+  return next;
+}
+
+/**
+ * AdminPlannerBoard reads plannerDate / plannerBooking only — no instructor filter query param.
+ * Opens Operations with an optional planner date (defaults to today upstream).
+ */
+export function adminPlannerSearchParams(
+  previous: URLSearchParams,
+  options?: {
+    readonly localDate?: string;
+    readonly instructorId?: string;
+  }
+): URLSearchParams {
+  const next = new URLSearchParams(previous);
+  next.set(ADMIN_TAB_QUERY_KEY, 'operations');
+  if (options?.localDate) {
+    next.set(ADMIN_PLANNER_DATE_QUERY_KEY, options.localDate);
+  }
+  // instructorId reserved for a future planner filter; intentionally unused today.
+  void options?.instructorId;
+  return next;
+}
+
 export const ADMIN_TAB_LABEL_KEYS: Record<AdminTabId, TranslationKey> = {
   operations: 'adminTabOperations',
   finance: 'adminTabFinance',

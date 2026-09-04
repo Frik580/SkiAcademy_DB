@@ -10,6 +10,7 @@ import {
   type ReadModelAdministratorActor,
 } from '@ski-academy/shared-domain';
 import { parseInstructorCatalog } from '../bookings/bookingStore';
+import { sanitizeInstructorPresentationAvatarUrl } from './instructorPresentationAvatar';
 import {
   instructorOccupancyWindow,
   loadInstructorOccupancyItems,
@@ -39,7 +40,8 @@ export async function queryAdminPlannerReadModels(
         document.data() as Record<string, unknown>
       );
       if (!record) return undefined;
-      const base = {
+      const avatarUrl = sanitizeInstructorPresentationAvatarUrl(record.avatarUrl);
+      return AdminPlannerInstructorPresentationSchema.parse({
         instructorId: record.instructorId,
         name: record.name,
         ...(record.pricePerHourKZT !== undefined
@@ -47,30 +49,7 @@ export async function queryAdminPlannerReadModels(
           : {}),
         isAvailable: record.isAvailable !== false,
         revision: parseInstructorCatalogRevision(document.data() as Record<string, unknown>),
-      };
-
-      if (!record.avatarUrl) {
-        return AdminPlannerInstructorPresentationSchema.parse(base);
-      }
-
-      const withAvatar = AdminPlannerInstructorPresentationSchema.safeParse({
-        ...base,
-        avatarUrl: record.avatarUrl,
-      });
-      if (withAvatar.success) {
-        return withAvatar.data;
-      }
-
-      const avatarOnlyIssues = withAvatar.error.issues.every(
-        (issue) => issue.path.length === 1 && issue.path[0] === 'avatarUrl'
-      );
-      if (avatarOnlyIssues) {
-        return AdminPlannerInstructorPresentationSchema.parse(base);
-      }
-
-      return AdminPlannerInstructorPresentationSchema.parse({
-        ...base,
-        avatarUrl: record.avatarUrl,
+        ...(avatarUrl ? { avatarUrl } : {}),
       });
     })
     .filter((item): item is NonNullable<typeof item> => item !== undefined);

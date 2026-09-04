@@ -6,7 +6,11 @@ import {
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
 } from './identifiers';
-import { AggregateRevisionSchema } from './primitives';
+import {
+  AggregateRevisionSchema,
+  compareCanonicalTimestamps,
+  type CanonicalTimestamp,
+} from './primitives';
 
 export const ACCOUNT_ROLES = ['user', 'admin'] as const;
 export const AccountRoleSchema = z.enum(ACCOUNT_ROLES);
@@ -26,6 +30,7 @@ export const InstructorCatalogEntrySchema = z
     pricePerHourKZT: z.number().finite().int().positive().optional(),
     pricePerHour: z.number().finite().positive().optional(),
     phoneNumber: z.string().trim().max(32).optional(),
+    linkedAccountId: AccountIdSchema.optional(),
     isAvailable: z.boolean(),
     rating: z.number().finite().min(0).max(5).optional(),
     reviewsCount: z.number().finite().int().min(0).optional(),
@@ -47,11 +52,17 @@ export type InstructorCatalogEntry = Readonly<z.output<typeof InstructorCatalogE
 export function parseInstructorCatalogRevision(
   data: Record<string, unknown> | undefined
 ): z.output<typeof AggregateRevisionSchema> {
-  const revision = data?.revision;
-  if (typeof revision === 'number' && Number.isInteger(revision) && revision >= 1) {
-    return AggregateRevisionSchema.parse(revision);
+  // Must agree with command-side readAggregateRevision / assertExpectedRevision:
+  // missing or invalid legacy Instructor revision is authoritative initial 0,
+  // never a synthetic 1 (that caused read expectedRevision=1 vs command current=0).
+  if (!data || !('revision' in data)) {
+    return AggregateRevisionSchema.parse(0);
   }
-  return AggregateRevisionSchema.parse(1);
+  const parsed = AggregateRevisionSchema.safeParse(data.revision);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  return AggregateRevisionSchema.parse(0);
 }
 
 export const IDENTITY_DIAGNOSTIC_TYPES = [
@@ -111,8 +122,104 @@ export function evaluateChangeAccountRole(input: {
 
 export function evaluateDisableAccount(input: {
   readonly targetSystemRole: 'owner' | undefined;
-}): 'allowed' | 'system_owner_protected' {
-  return input.targetSystemRole === 'owner' ? 'system_owner_protected' : 'allowed';
+  readonly linkedInstructorAvailable?: boolean;
+}): 'allowed' | 'system_owner_protected' | 'active_instructor_linked' {
+  if (input.targetSystemRole === 'owner') {
+    return 'system_owner_protected';
+  }
+  if (input.linkedInstructorAvailable === true) {
+    return 'active_instructor_linked';
+  }
+  return 'allowed';
+}
+
+export function evaluateReactivateInstructorCatalog(input: {
+  readonly linkedAccountLifecycle?: 'active' | 'disabled' | 'uninitialized';
+}): 'allowed' | 'linked_account_disabled' {
+  return input.linkedAccountLifecycle === 'disabled' ? 'linked_account_disabled' : 'allowed';
+}
+
+export const INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT = 32;
+
+const INSTRUCTOR_UNLINK_TERMINAL_BOOKING_STATUSES = new Set([
+  'cancelled',
+  'completed',
+  'no_show',
+]);
+
+export function instructorUnlinkBlockedByFutureCommitments(input: {
+  readonly bookings: readonly {
+    readonly lifecycle: { readonly status: string };
+    readonly occurrence: {
+      readonly interval: {
+        readonly startsAt: CanonicalTimestamp;
+        readonly endsAt: CanonicalTimestamp;
+      };
+    };
+  }[];
+  readonly courseDays: readonly {
+    readonly interval: {
+      readonly startsAt: CanonicalTimestamp;
+      readonly endsAt: CanonicalTimestamp;
+    };
+  }[];
+  readonly now: CanonicalTimestamp;
+  readonly bookingScanCapped: boolean;
+  readonly courseDayScanCapped: boolean;
+  readonly unparsedCommitmentCount?: number;
+}): boolean {
+  if (input.bookingScanCapped || input.courseDayScanCapped) {
+    return true;
+  }
+  if ((input.unparsedCommitmentCount ?? 0) > 0) {
+    return true;
+  }
+  const hasOutstandingBooking = input.bookings.some((booking) => {
+    if (INSTRUCTOR_UNLINK_TERMINAL_BOOKING_STATUSES.has(booking.lifecycle.status)) {
+      return false;
+    }
+    return compareCanonicalTimestamps(input.now, booking.occurrence.interval.endsAt) < 0;
+  });
+  if (hasOutstandingBooking) {
+    return true;
+  }
+  return input.courseDays.some(
+    (day) => compareCanonicalTimestamps(input.now, day.interval.endsAt) < 0
+  );
+}
+
+export function countInstructorFutureCommitments(input: {
+  readonly bookings: readonly {
+    readonly lifecycle: { readonly status: string };
+    readonly occurrence: {
+      readonly interval: {
+        readonly startsAt: CanonicalTimestamp;
+        readonly endsAt: CanonicalTimestamp;
+      };
+    };
+  }[];
+  readonly courseDays: readonly {
+    readonly interval: {
+      readonly startsAt: CanonicalTimestamp;
+      readonly endsAt: CanonicalTimestamp;
+    };
+  }[];
+  readonly now: CanonicalTimestamp;
+}): {
+  readonly futureLessonCommitmentCount: number;
+  readonly futureCourseDayAssignmentCount: number;
+} {
+  return {
+    futureLessonCommitmentCount: input.bookings.filter((booking) => {
+      if (INSTRUCTOR_UNLINK_TERMINAL_BOOKING_STATUSES.has(booking.lifecycle.status)) {
+        return false;
+      }
+      return compareCanonicalTimestamps(input.now, booking.occurrence.interval.endsAt) < 0;
+    }).length,
+    futureCourseDayAssignmentCount: input.courseDays.filter(
+      (day) => compareCanonicalTimestamps(input.now, day.interval.endsAt) < 0
+    ).length,
+  };
 }
 
 export function evaluateAdminManagementAssignment(input: {

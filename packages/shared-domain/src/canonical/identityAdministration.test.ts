@@ -4,16 +4,87 @@ import {
   evaluateAdminManagementRevocation,
   evaluateChangeAccountRole,
   evaluateDisableAccount,
+  evaluateReactivateInstructorCatalog,
+  instructorUnlinkBlockedByFutureCommitments,
+  parseInstructorCatalogRevision,
   participantArchiveBlockedByCommitments,
   diagnoseAccountIdentity,
   diagnoseParticipantIdentity,
 } from './identityAdministration';
-import { AccountIdSchema } from './identifiers';
+import { AccountIdSchema, CorrelationIdSchema } from './identifiers';
+import { AggregateRevisionSchema, timestampFromDate } from './primitives';
+import { assertExpectedRevision, readAggregateRevision } from './revisionConcurrency';
 
 const actor = AccountIdSchema.parse('account_identity_policy_actor');
 const target = AccountIdSchema.parse('account_identity_policy_target');
+const correlationId = CorrelationIdSchema.parse('correlation_instructor_revision_matrix_01');
 
 describe('T32.8A identity administration policy', () => {
+  it('preserves authoritative instructor catalog revision 0 and treats missing as 0', () => {
+    expect(parseInstructorCatalogRevision({ revision: 0 })).toBe(0);
+    expect(parseInstructorCatalogRevision({ revision: 1 })).toBe(1);
+    expect(parseInstructorCatalogRevision({ revision: 7 })).toBe(7);
+    expect(parseInstructorCatalogRevision({})).toBe(0);
+    expect(parseInstructorCatalogRevision(undefined)).toBe(0);
+    expect(parseInstructorCatalogRevision({ revision: -1 })).toBe(0);
+    expect(parseInstructorCatalogRevision({ revision: 1.5 })).toBe(0);
+    expect(parseInstructorCatalogRevision({ revision: '0' })).toBe(0);
+  });
+
+  it('keeps presentation and command revision authority aligned for legacy catalog shapes', () => {
+    const matrix: Array<{
+      raw: Record<string, unknown> | undefined;
+      expected: number;
+      commandCurrent: number | undefined;
+      assertWithPresentation: 'pass' | 'stale';
+    }> = [
+      { raw: {}, expected: 0, commandCurrent: 0, assertWithPresentation: 'pass' },
+      { raw: { revision: 0 }, expected: 0, commandCurrent: 0, assertWithPresentation: 'pass' },
+      { raw: { revision: 1 }, expected: 1, commandCurrent: 1, assertWithPresentation: 'pass' },
+      { raw: { revision: -1 }, expected: 0, commandCurrent: undefined, assertWithPresentation: 'stale' },
+      { raw: { revision: '0' }, expected: 0, commandCurrent: undefined, assertWithPresentation: 'stale' },
+      { raw: undefined, expected: 0, commandCurrent: undefined, assertWithPresentation: 'stale' },
+    ];
+
+    for (const row of matrix) {
+      const presentation = parseInstructorCatalogRevision(row.raw);
+      const command = readAggregateRevision(row.raw);
+      expect(presentation).toBe(row.expected);
+      expect(command).toBe(row.commandCurrent);
+
+      if (row.assertWithPresentation === 'pass') {
+        expect(() =>
+          assertExpectedRevision({
+            correlationId,
+            expectedRevision: AggregateRevisionSchema.parse(presentation),
+            currentRevision: command,
+            requireExpectedRevision: true,
+          })
+        ).not.toThrow();
+      } else {
+        try {
+          assertExpectedRevision({
+            correlationId,
+            expectedRevision: AggregateRevisionSchema.parse(presentation),
+            currentRevision: command,
+            requireExpectedRevision: true,
+          });
+          throw new Error(`expected stale_version for ${JSON.stringify(row.raw)}`);
+        } catch (error) {
+          expect(error).toBeInstanceOf(Error);
+          expect((error as { code?: string }).code).toBe('stale_version');
+        }
+      }
+    }
+
+    // Supported legacy states used by production Instructor documents:
+    // missing field and explicit 0 must share the same authoritative revision.
+    expect(parseInstructorCatalogRevision({})).toBe(readAggregateRevision({}));
+    expect(parseInstructorCatalogRevision({ revision: 0 })).toBe(
+      readAggregateRevision({ revision: 0 })
+    );
+  });
+
   it('lets only system owner change non-owner Account roles and never self-demote', () => {
     expect(
       evaluateChangeAccountRole({
@@ -53,9 +124,74 @@ describe('T32.8A identity administration policy', () => {
     ).toBe('self_demotion_forbidden');
   });
 
-  it('protects system owner from disable', () => {
+  it('protects system owner from disable and active linked instructors', () => {
     expect(evaluateDisableAccount({ targetSystemRole: 'owner' })).toBe('system_owner_protected');
     expect(evaluateDisableAccount({ targetSystemRole: undefined })).toBe('allowed');
+    expect(
+      evaluateDisableAccount({
+        targetSystemRole: undefined,
+        linkedInstructorAvailable: true,
+      })
+    ).toBe('active_instructor_linked');
+    expect(
+      evaluateDisableAccount({
+        targetSystemRole: undefined,
+        linkedInstructorAvailable: false,
+      })
+    ).toBe('allowed');
+  });
+
+  it('blocks instructor reactivation while linked Account is disabled', () => {
+    expect(evaluateReactivateInstructorCatalog({})).toBe('allowed');
+    expect(evaluateReactivateInstructorCatalog({ linkedAccountLifecycle: 'active' })).toBe(
+      'allowed'
+    );
+    expect(evaluateReactivateInstructorCatalog({ linkedAccountLifecycle: 'disabled' })).toBe(
+      'linked_account_disabled'
+    );
+  });
+
+  it('blocks instructor unlink on outstanding non-terminal commitments', () => {
+    const now = timestampFromDate(new Date('2026-02-01T00:00:00.000Z'));
+    const future = timestampFromDate(new Date('2026-02-10T00:00:00.000Z'));
+    const past = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+    expect(
+      instructorUnlinkBlockedByFutureCommitments({
+        bookings: [
+          {
+            lifecycle: { status: 'confirmed' },
+            occurrence: { interval: { startsAt: future, endsAt: future } },
+          },
+        ],
+        courseDays: [],
+        now,
+        bookingScanCapped: false,
+        courseDayScanCapped: false,
+      })
+    ).toBe(true);
+    expect(
+      instructorUnlinkBlockedByFutureCommitments({
+        bookings: [
+          {
+            lifecycle: { status: 'completed' },
+            occurrence: { interval: { startsAt: past, endsAt: past } },
+          },
+        ],
+        courseDays: [],
+        now,
+        bookingScanCapped: false,
+        courseDayScanCapped: false,
+      })
+    ).toBe(false);
+    expect(
+      instructorUnlinkBlockedByFutureCommitments({
+        bookings: [],
+        courseDays: [{ interval: { startsAt: future, endsAt: future } }],
+        now,
+        bookingScanCapped: false,
+        courseDayScanCapped: false,
+      })
+    ).toBe(true);
   });
 
   it('assigns unmanaged guests to an explicit active Account and never transfers managed ones', () => {

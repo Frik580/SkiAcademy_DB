@@ -3,14 +3,18 @@ import {
   ADMIN_IDENTITY_READ_MODEL_PAGE_SIZE_DEFAULT,
   AccountIdSchema,
   AggregateRevisionSchema,
+  INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT,
   InstructorIdSchema,
   ParticipantIdSchema,
   QueryAdminIdentityReadModelsResultSchema,
+  countInstructorFutureCommitments,
   decodeAdminIdentityListCursor,
   diagnoseAccountIdentity,
   diagnoseParticipantIdentity,
   encodeAdminIdentityListCursor,
+  instructorUnlinkBlockedByFutureCommitments,
   parseInstructorCatalogRevision,
+  timestampFromDate,
   type AccountId,
   type AdminAccountDetailReadModel,
   type AdminAccountListItem,
@@ -36,7 +40,9 @@ import {
   parseParticipantBlock,
   parseParticipantManagement,
 } from '../participantAccess/participantAccessStore';
-import { parseInstructorCatalog } from '../bookings/bookingStore';
+import { parseBooking, parseInstructorCatalog } from '../bookings/bookingStore';
+import { parseCourseDay } from '../courses/courseStore';
+import { sanitizeInstructorPresentationAvatarUrl } from './instructorPresentationAvatar';
 
 export class InvalidAdminIdentityReadCursorError extends Error {
   constructor() {
@@ -158,10 +164,15 @@ function accountActions(input: {
   readonly targetSystemRole?: 'owner';
   readonly missingSelf: boolean;
   readonly hasInstructorLink?: boolean;
+  readonly linkedInstructorAvailable?: boolean;
 }): AdminIdentityAuthorizedAction[] {
   const actions: AdminIdentityAuthorizedAction[] = [];
   const revision = AggregateRevisionSchema.parse(input.revision ?? 1);
-  if (input.lifecycle === 'active' && input.targetSystemRole !== 'owner') {
+  if (
+    input.lifecycle === 'active' &&
+    input.targetSystemRole !== 'owner' &&
+    input.linkedInstructorAvailable !== true
+  ) {
     actions.push({ kind: 'disable_account', expectedRevision: revision });
   }
   if (input.lifecycle === 'disabled') {
@@ -242,6 +253,8 @@ function instructorActions(input: {
   readonly isAvailable: boolean;
   readonly linkedAccountId?: AccountId;
   readonly linkedAccountRevision?: number;
+  readonly linkedAccountLifecycle?: 'active' | 'disabled' | 'uninitialized';
+  readonly unlinkBlockedByCommitments?: boolean;
 }): AdminIdentityAuthorizedAction[] {
   const revision = AggregateRevisionSchema.parse(input.revision);
   const linkedAccountRevision =
@@ -253,10 +266,13 @@ function instructorActions(input: {
   ];
   if (input.isAvailable) {
     actions.push({ kind: 'deactivate_instructor_catalog', expectedRevision: revision });
-  } else {
+  } else if (input.linkedAccountLifecycle !== 'disabled') {
     actions.push({ kind: 'reactivate_instructor_catalog', expectedRevision: revision });
   }
-  if (input.linkedAccountId && linkedAccountRevision !== undefined) {
+  if (!input.linkedAccountId) {
+    // Link uses Account expectedRevision from the Account picker at call time.
+    actions.push({ kind: 'link_account_instructor_catalog', expectedRevision: revision });
+  } else if (linkedAccountRevision !== undefined && input.unlinkBlockedByCommitments !== true) {
     actions.push({
       kind: 'unlink_account_instructor_catalog',
       expectedRevision: linkedAccountRevision,
@@ -367,6 +383,18 @@ async function buildAccountListItem(
       ? { linkedInstructorId: instructorLinkOf(data).instructorId }
       : {}),
   });
+  const linkedInstructorId = instructorLinkOf(data).instructorId;
+  let linkedInstructorAvailable = false;
+  if (linkedInstructorId) {
+    try {
+      const catalogSnap = await firestore.collection('instructors').doc(linkedInstructorId).get();
+      linkedInstructorAvailable =
+        catalogSnap.exists &&
+        (catalogSnap.data() as Record<string, unknown> | undefined)?.isAvailable !== false;
+    } catch {
+      linkedInstructorAvailable = false;
+    }
+  }
   return {
     accountId,
     displayName: displayNameOf(data, accountId),
@@ -384,7 +412,8 @@ async function buildAccountListItem(
       ...(account ? { revision: account.revision } : {}),
       ...(roleProjection(data).systemRole === 'owner' ? { targetSystemRole: 'owner' } : {}),
       missingSelf: selfCount === 0,
-      hasInstructorLink: Boolean(instructorLinkOf(data).instructorId),
+      hasInstructorLink: Boolean(linkedInstructorId),
+      linkedInstructorAvailable,
     }),
   };
 }
@@ -625,8 +654,32 @@ async function buildParticipantDetail(
 
 async function findLinkedAccount(
   firestore: Firestore,
-  instructorId: InstructorId
-): Promise<{ accountId: AccountId; revision?: number } | undefined> {
+  instructorId: InstructorId,
+  catalogLinkedAccountId?: string
+): Promise<
+  | {
+      accountId: AccountId;
+      revision?: number;
+      displayName?: string;
+      lifecycle?: 'active' | 'disabled' | 'uninitialized';
+    }
+  | undefined
+> {
+  if (catalogLinkedAccountId) {
+    const parsedId = AccountIdSchema.safeParse(catalogLinkedAccountId);
+    if (parsedId.success) {
+      const snapshot = await firestore.collection('users').doc(parsedId.data).get();
+      if (snapshot.exists) {
+        const data = snapshot.data() as Record<string, unknown>;
+        const account = parseAccount(data);
+        return {
+          accountId: parsedId.data,
+          ...(account ? { revision: account.revision, lifecycle: account.lifecycle.status } : {}),
+          displayName: displayNameOf(data, parsedId.data),
+        };
+      }
+    }
+  }
   const snapshot = await firestore
     .collection('users')
     .where('instructorId', '==', instructorId)
@@ -635,8 +688,67 @@ async function findLinkedAccount(
   if (snapshot.empty) return undefined;
   const accountId = AccountIdSchema.safeParse(snapshot.docs[0]!.id);
   if (!accountId.success) return undefined;
-  const account = parseAccount(snapshot.docs[0]!.data() as Record<string, unknown>);
-  return { accountId: accountId.data, ...(account ? { revision: account.revision } : {}) };
+  const data = snapshot.docs[0]!.data() as Record<string, unknown>;
+  const account = parseAccount(data);
+  return {
+    accountId: accountId.data,
+    ...(account ? { revision: account.revision, lifecycle: account.lifecycle.status } : {}),
+    displayName: displayNameOf(data, accountId.data),
+  };
+}
+
+async function loadInstructorCommitmentCounts(
+  firestore: Firestore,
+  instructorId: InstructorId
+): Promise<{
+  readonly futureLessonCommitmentCount: number;
+  readonly futureCourseDayAssignmentCount: number;
+  readonly unlinkBlockedByCommitments: boolean;
+}> {
+  const now = timestampFromDate(new Date());
+  let bookingDocs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+  let courseDayDocs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+  try {
+    bookingDocs = (
+      await firestore
+        .collection('bookings')
+        .where('occurrence.instructorId', '==', instructorId)
+        .limit(INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT + 1)
+        .get()
+    ).docs;
+  } catch {
+    bookingDocs = [];
+  }
+  try {
+    courseDayDocs = (
+      await firestore
+        .collectionGroup('days')
+        .where('actualInstructorIds', 'array-contains', instructorId)
+        .limit(INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT + 1)
+        .get()
+    ).docs;
+  } catch {
+    courseDayDocs = [];
+  }
+  const bookings = bookingDocs
+    .map((doc) => parseBooking(doc.data() as Record<string, unknown>))
+    .filter((booking): booking is NonNullable<typeof booking> => booking !== undefined);
+  const courseDays = courseDayDocs
+    .map((doc) => parseCourseDay(doc.data() as Record<string, unknown>))
+    .filter((day): day is NonNullable<typeof day> => day !== undefined);
+  const counts = countInstructorFutureCommitments({ bookings, courseDays, now });
+  return {
+    ...counts,
+    unlinkBlockedByCommitments: instructorUnlinkBlockedByFutureCommitments({
+      bookings,
+      courseDays,
+      now,
+      bookingScanCapped: bookingDocs.length > INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT,
+      courseDayScanCapped: courseDayDocs.length > INSTRUCTOR_UNLINK_COMMITMENT_SCAN_LIMIT,
+      unparsedCommitmentCount:
+        bookingDocs.length - bookings.length + (courseDayDocs.length - courseDays.length),
+    }),
+  };
 }
 
 async function buildInstructorListItem(
@@ -648,25 +760,44 @@ async function buildInstructorListItem(
   if (!parsed) return undefined;
   const revision = parseInstructorCatalogRevision(data);
   const isAvailable = data.isAvailable !== false;
-  const linked = await findLinkedAccount(firestore, instructorId);
+  const catalogLinkedAccountId =
+    typeof data.linkedAccountId === 'string' ? data.linkedAccountId : undefined;
+  const linked = await findLinkedAccount(firestore, instructorId, catalogLinkedAccountId);
   const rosterCount = await countQuery(
     firestore.collection('courses').where('instructorRosterIds', 'array-contains', instructorId)
   );
   const dayCount = await countQuery(
     firestore.collectionGroup('days').where('actualInstructorIds', 'array-contains', instructorId)
   );
+  const specialty =
+    data.specialty === 'ski' || data.specialty === 'snowboard' || data.specialty === 'both'
+      ? data.specialty
+      : undefined;
+  const pricePerHourKZT =
+    typeof parsed.pricePerHourKZT === 'number' && Number.isFinite(parsed.pricePerHourKZT)
+      ? Math.round(parsed.pricePerHourKZT)
+      : undefined;
   return {
     instructorId,
     name: parsed.name,
+    ...(specialty ? { specialty } : {}),
     isAvailable,
     ...(linked ? { linkedAccountId: linked.accountId } : {}),
+    ...(linked?.displayName ? { linkedAccountDisplayName: linked.displayName } : {}),
+    ...(pricePerHourKZT !== undefined && pricePerHourKZT > 0 ? { pricePerHourKZT } : {}),
     courseRosterCount: rosterCount,
     courseDayAssignmentCount: dayCount,
     revision,
     authorizedActions: instructorActions({
       revision,
       isAvailable,
-      ...(linked ? { linkedAccountId: linked.accountId, linkedAccountRevision: linked.revision } : {}),
+      ...(linked
+        ? {
+            linkedAccountId: linked.accountId,
+            linkedAccountRevision: linked.revision,
+            linkedAccountLifecycle: linked.lifecycle,
+          }
+        : {}),
     }),
   };
 }
@@ -678,7 +809,15 @@ async function buildInstructorDetail(
 ): Promise<AdminInstructorDetailReadModel | undefined> {
   const listItem = await buildInstructorListItem(firestore, instructorId, data);
   if (!listItem) return undefined;
+  const commitments = await loadInstructorCommitmentCounts(firestore, instructorId);
   const diagnostics: IdentityDiagnostic[] = [];
+  let linkedLifecycle = (
+    await findLinkedAccount(
+      firestore,
+      instructorId,
+      typeof data.linkedAccountId === 'string' ? data.linkedAccountId : listItem.linkedAccountId
+    )
+  )?.lifecycle;
   if (listItem.linkedAccountId) {
     const accountSnap = await firestore.collection('users').doc(listItem.linkedAccountId).get();
     const linkedId = readString(accountSnap.data() as Record<string, unknown> | undefined, 'instructorId');
@@ -691,19 +830,41 @@ async function buildInstructorDetail(
         safeRepairAvailable: false,
       });
     }
+    const account = parseAccount(accountSnap.data() as Record<string, unknown> | undefined);
+    linkedLifecycle = account?.lifecycle.status ?? linkedLifecycle;
   }
+  const avatarUrl = sanitizeInstructorPresentationAvatarUrl(readString(data, 'avatarUrl'));
   return {
     ...listItem,
-    ...(typeof data.specialty === 'string'
-      ? { specialty: data.specialty as AdminInstructorDetailReadModel['specialty'] }
-      : {}),
+    authorizedActions: instructorActions({
+      revision: listItem.revision,
+      isAvailable: listItem.isAvailable,
+      unlinkBlockedByCommitments: commitments.unlinkBlockedByCommitments,
+      ...(listItem.linkedAccountId
+        ? {
+            linkedAccountId: listItem.linkedAccountId,
+            linkedAccountRevision: (
+              await findLinkedAccount(firestore, instructorId, listItem.linkedAccountId)
+            )?.revision,
+            linkedAccountLifecycle: linkedLifecycle,
+          }
+        : {}),
+    }),
     ...(readString(data, 'bio') ? { bio: readString(data, 'bio') } : {}),
-    ...(readString(data, 'avatarUrl') ? { avatarUrl: readString(data, 'avatarUrl') } : {}),
+    ...(avatarUrl ? { avatarUrl } : {}),
     ...(readString(data, 'phoneNumber') ? { phoneNumber: readString(data, 'phoneNumber') } : {}),
     ...(Array.isArray(data.languages)
-      ? { languages: data.languages.filter((item): item is string => typeof item === 'string').slice(0, 16) }
+      ? {
+          languages: data.languages
+            .filter((item): item is string => typeof item === 'string')
+            .slice(0, 16),
+        }
       : {}),
     ...(typeof data.experienceYears === 'number' ? { experienceYears: data.experienceYears } : {}),
+    ...(linkedLifecycle ? { linkedAccountLifecycle: linkedLifecycle } : {}),
+    futureLessonCommitmentCount: commitments.futureLessonCommitmentCount,
+    futureCourseDayAssignmentCount: commitments.futureCourseDayAssignmentCount,
+    unlinkBlockedByCommitments: commitments.unlinkBlockedByCommitments,
     diagnostics: diagnostics.slice(0, 32),
   };
 }

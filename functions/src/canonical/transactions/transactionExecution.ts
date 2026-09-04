@@ -21,6 +21,8 @@ export interface CanonicalTransactionCollectionQuery {
   readonly collection: string;
   readonly where: CanonicalTransactionQueryFilter;
   readonly limit?: number;
+  /** When true, match any nested collection with this id (Firestore collectionGroup). */
+  readonly collectionGroup?: boolean;
 }
 
 export interface CanonicalTransactionQueryDocumentResult extends CanonicalTransactionReadResult {

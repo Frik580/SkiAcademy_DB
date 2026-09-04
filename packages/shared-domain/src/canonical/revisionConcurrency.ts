@@ -49,8 +49,14 @@ export function nextAggregateRevision(current: AggregateRevision): AggregateRevi
 export function readAggregateRevision(
   data: Record<string, unknown> | undefined
 ): AggregateRevision | undefined {
-  if (!data || !('revision' in data)) {
+  // Absent document payload stays undefined so non-existent aggregates still fail
+  // assertExpectedRevision. An existing document without a revision field is the
+  // authoritative initial revision 0 (matches assertExpectedRevision reporting).
+  if (!data) {
     return undefined;
+  }
+  if (!('revision' in data)) {
+    return AggregateRevisionSchema.parse(0);
   }
   const parsed = AggregateRevisionSchema.safeParse(data.revision);
   return parsed.success ? parsed.data : undefined;

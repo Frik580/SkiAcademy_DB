@@ -434,7 +434,7 @@ describe('T32.9A Admin UX parity behavior', () => {
     expect(adminPanel).not.toContain('CanonicalIdentityManager');
   });
 
-  it('blocks instructor deactivation on course-day occupancy as well as active lessons', () => {
+  it('allows instructor deactivation even when future lesson or course-day commitments exist', () => {
     const occupancy = [
       lesson({ id: 'booking_1', instructorId: 'ins_1', status: 'confirmed' }),
       lesson({
@@ -450,8 +450,17 @@ describe('T32.9A Admin UX parity behavior', () => {
         status: 'confirmed',
       }),
     ];
+    // Legacy helper still classifies occupancy; canonical deactivate no longer blocks on it.
     const blocking = bookingsBlockingInstructorDeactivation(occupancy, 'ins_1');
     expect(blocking.map((row) => row.id)).toEqual(['booking_1', 'day_1']);
+    const directory = readRepoFile('src/features/admin/people/AdminInstructorDirectory.tsx');
+    const translations = readRepoFile(
+      'src/features/admin/people/useAdminInstructorTranslations.ts'
+    );
+    expect(directory).toContain('deactivate_instructor_catalog');
+    expect(directory).toContain('confirmPauseWithFuture');
+    expect(translations).toContain('They remain; new bookings will stop');
+    expect(directory).not.toContain('bookingsBlockingInstructorDeactivation');
   });
 
   it('preserves profile-store client balances when merging identity accounts', () => {
@@ -476,14 +485,18 @@ describe('T32.9A Admin UX parity behavior', () => {
 
   it('uses canonical identity commands for people mutations', () => {
     const people = readRepoFile('src/features/admin/people/AdminPeopleSection.tsx');
+    const instructors = readRepoFile('src/features/admin/people/AdminInstructorDirectory.tsx');
     expect(people).toContain('AdminClientDirectory');
+    expect(people).toContain('AdminInstructorDirectory');
     expect(people).toContain("kind: 'change_account_role'");
-    expect(people).toContain("kind: 'create_instructor_catalog_entry'");
-    expect(people).toContain("kind: 'update_instructor_catalog_profile'");
+    expect(people).not.toContain('CoachesManager');
+    expect(instructors).toContain("kind: 'create_instructor_catalog_entry'");
+    expect(instructors).toContain("kind: 'update_instructor_catalog_profile'");
+    expect(instructors).toContain('deactivate_instructor_catalog');
     expect(people).not.toContain('addInstructorService');
     expect(people).not.toContain('updateDoc');
     expect(people).not.toContain('onUpdateUser=');
-    expect(people).toContain('windowDays: 62');
+    expect(people).not.toContain('windowDays: 62');
     expect(readRepoFile('src/features/admin/components/finance/FinancialOverview.tsx')).toContain(
       'exchangeRateDisplayOnly'
     );

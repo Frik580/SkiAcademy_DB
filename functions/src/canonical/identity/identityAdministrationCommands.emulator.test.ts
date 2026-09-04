@@ -15,6 +15,7 @@ import {
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
+import { queryAdminIdentityReadModels } from '../readModels/adminIdentityReadModels';
 
 const PROJECT_ID = 'ski-academy-identity-admin-emulator';
 const correlationId = CorrelationIdSchema.parse('correlation_identity_admin_emulator_01');
@@ -265,4 +266,321 @@ describe.skipIf(!runsOnFirestoreEmulator)('identity administration Firestore emu
       displayName: 'Dependent',
     });
   }, 30_000);
+
+  it('enforces one Account ↔ one Instructor link and refuses reverse double-link', async () => {
+    const accountB = AccountIdSchema.parse('account_identity_admin_emulator_03');
+    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+    const commands = createProductionCanonicalCommands(
+      { clock: createAuthoritativeCommandClock(new Date('2026-02-01T00:00:00.000Z')) },
+      executor
+    );
+    await firestore.collection('users').doc(accountB).set(seedAccount(accountB, { role: 'user' }));
+    await firestore.collection('instructors').doc(instructorId).set({
+      instructorId,
+      name: 'Emulator Link Coach',
+      pricePerHourKZT: 18_000,
+      isAvailable: true,
+      revision: 1,
+    });
+
+    const first = await commands.execute({
+      kind: 'link_account_instructor_catalog',
+      context: adminContext('identity-emulator-link-a'),
+      intent: {
+        accountId: targetAccountId,
+        instructorId,
+        reasonExplanation: 'Emulator link A',
+      },
+    });
+    expect(first.status).toBe('success');
+
+    const reverse = await commands.execute({
+      kind: 'link_account_instructor_catalog',
+      context: adminContext('identity-emulator-link-b'),
+      intent: {
+        accountId: accountB,
+        instructorId,
+        reasonExplanation: 'Emulator reverse link',
+      },
+    });
+    expect(reverse.status).toBe('error');
+
+    const [accountA, accountOther, catalog] = await Promise.all([
+      firestore.collection('users').doc(targetAccountId).get(),
+      firestore.collection('users').doc(accountB).get(),
+      firestore.collection('instructors').doc(instructorId).get(),
+    ]);
+    expect(accountA.data()).toMatchObject({ instructorId, isInstructor: true });
+    expect(accountOther.data()?.instructorId).toBeUndefined();
+    expect(catalog.data()).toMatchObject({ linkedAccountId: targetAccountId });
+  }, 30_000);
+
+  it('creates and links instructor atomically for an existing Account', async () => {
+    const linkedInstructorId = InstructorIdSchema.parse('instructor_identity_admin_emulator_link_create');
+    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+    const commands = createProductionCanonicalCommands(
+      { clock: createAuthoritativeCommandClock(new Date('2026-02-01T00:00:00.000Z')) },
+      executor
+    );
+    const result = await commands.execute({
+      kind: 'create_instructor_catalog_entry',
+      context: adminContext('identity-emulator-create-link'),
+      intent: {
+        instructorId: linkedInstructorId,
+        accountId: targetAccountId,
+        name: 'Atomic Coach',
+        pricePerHourKZT: 22_000,
+        specialty: 'both',
+        reasonExplanation: 'Emulator account-first create',
+      },
+    });
+    expect(result.status).toBe('success');
+    const [account, catalog, participant] = await Promise.all([
+      firestore.collection('users').doc(targetAccountId).get(),
+      firestore.collection('instructors').doc(linkedInstructorId).get(),
+      firestore.collection('participants').doc(participantId).get(),
+    ]);
+    expect(account.data()).toMatchObject({
+      instructorId: linkedInstructorId,
+      isInstructor: true,
+      role: 'user',
+    });
+    expect(catalog.data()).toMatchObject({
+      linkedAccountId: targetAccountId,
+      isAvailable: true,
+      pricePerHourKZT: 22_000,
+    });
+    expect(participant.data()).toMatchObject({
+      displayName: 'Dependent',
+      skillLevel: 'beginner',
+    });
+  }, 30_000);
+
+  it('updates legacy instructor without revision field: detail=0 → save → 1 → second save → 2', async () => {
+    const legacyInstructorId = InstructorIdSchema.parse(
+      'instructor_identity_admin_emulator_missing_rev'
+    );
+    await firestore.collection('instructors').doc(legacyInstructorId).set({
+      instructorId: legacyInstructorId,
+      name: 'Legacy Missing Revision Coach',
+      specialty: 'both',
+      pricePerHourKZT: 21_000,
+      isAvailable: true,
+      // revision field intentionally absent — production legacy shape
+    });
+
+    const rawBefore = (await firestore.collection('instructors').doc(legacyInstructorId).get()).data();
+    expect(rawBefore).toBeDefined();
+    expect(rawBefore).not.toHaveProperty('revision');
+
+    const detailBefore = await queryAdminIdentityReadModels(
+      firestore,
+      { kind: 'administrator', accountId: adminAccountId },
+      { scope: 'admin_instructor_detail', instructorId: legacyInstructorId }
+    );
+    expect(detailBefore.scope).toBe('admin_instructor_detail');
+    if (detailBefore.scope !== 'admin_instructor_detail') return;
+    expect(detailBefore.item?.revision).toBe(0);
+    expect(detailBefore.item?.authorizedActions).toEqual(
+      expect.arrayContaining([
+        { kind: 'update_instructor_catalog_profile', expectedRevision: 0 },
+        { kind: 'deactivate_instructor_catalog', expectedRevision: 0 },
+      ])
+    );
+
+    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+    const commands = createProductionCanonicalCommands(
+      { clock: createAuthoritativeCommandClock(new Date('2026-02-01T00:00:00.000Z')) },
+      executor
+    );
+
+    const first = await commands.execute({
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('identity-emulator-missing-rev-01', 0),
+      intent: {
+        instructorId: legacyInstructorId,
+        bio: 'First legacy emulator save',
+        avatarUrl:
+          'https://firebasestorage.googleapis.com/v0/b/bucket/o/instructors%2Fem.jpg?alt=media&token=t',
+        reasonExplanation: 'Emulator missing revision first save',
+      },
+    });
+    expect(first.status).toBe('success');
+    expect((await firestore.collection('instructors').doc(legacyInstructorId).get()).data()).toMatchObject({
+      bio: 'First legacy emulator save',
+      revision: 1,
+    });
+
+    const detailMid = await queryAdminIdentityReadModels(
+      firestore,
+      { kind: 'administrator', accountId: adminAccountId },
+      { scope: 'admin_instructor_detail', instructorId: legacyInstructorId }
+    );
+    expect(detailMid.scope).toBe('admin_instructor_detail');
+    if (detailMid.scope !== 'admin_instructor_detail') return;
+    expect(detailMid.item?.revision).toBe(1);
+    expect(detailMid.item?.authorizedActions).toEqual(
+      expect.arrayContaining([
+        { kind: 'update_instructor_catalog_profile', expectedRevision: 1 },
+      ])
+    );
+
+    const second = await commands.execute({
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('identity-emulator-missing-rev-02', 1),
+      intent: {
+        instructorId: legacyInstructorId,
+        bio: 'Second legacy emulator save',
+        reasonExplanation: 'Emulator missing revision second save',
+      },
+    });
+    expect(second.status).toBe('success');
+    expect((await firestore.collection('instructors').doc(legacyInstructorId).get()).data()).toMatchObject({
+      bio: 'Second legacy emulator save',
+      revision: 2,
+    });
+
+    const stale = await commands.execute({
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('identity-emulator-missing-rev-stale', 0),
+      intent: {
+        instructorId: legacyInstructorId,
+        bio: 'Should not apply',
+        reasonExplanation: 'Emulator genuine stale',
+      },
+    });
+    expect(stale.status).toBe('error');
+    if (stale.status === 'error') {
+      expect(stale.error.code).toBe('stale_version');
+      expect(stale.error.currentRevision).toBe(2);
+    }
+
+    const zeroCaseId = InstructorIdSchema.parse('instructor_identity_admin_emulator_zero_rev');
+    await firestore.collection('instructors').doc(zeroCaseId).set({
+      instructorId: zeroCaseId,
+      name: 'Explicit Zero Revision Coach',
+      specialty: 'ski',
+      pricePerHourKZT: 16_000,
+      isAvailable: true,
+      revision: 0,
+    });
+    const zeroUpdate = await commands.execute({
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('identity-emulator-zero-rev-01', 0),
+      intent: {
+        instructorId: zeroCaseId,
+        bio: 'Explicit zero first save',
+        reasonExplanation: 'Emulator explicit revision 0',
+      },
+    });
+    expect(zeroUpdate.status).toBe('success');
+    expect((await firestore.collection('instructors').doc(zeroCaseId).get()).data()).toMatchObject({
+      bio: 'Explicit zero first save',
+      revision: 1,
+    });
+  }, 60_000);
+
+  it('updates symmetrically linked instructor with missing revision and oversized legacy avatar', async () => {
+    const linkedInstructorId = InstructorIdSchema.parse('ins_X9vUp3gIrbNFWUpWsEzvLCAEh7q2');
+    const linkedAccount = AccountIdSchema.parse('X9vUp3gIrbNFWUpWsEzvLCAEh7q2');
+    const legacyAvatar = `data:image/jpeg;base64,${'B'.repeat(2_500)}`;
+    const nextAvatar =
+      'https://firebasestorage.googleapis.com/v0/b/bucket/o/instructors%2Fem-ok.jpg?alt=media&token=t';
+
+    await firestore.collection('users').doc(linkedAccount).set(
+      seedAccount(linkedAccount, {
+        role: 'user',
+        instructorId: linkedInstructorId,
+        isInstructor: true,
+      })
+    );
+    await firestore.collection('instructors').doc(linkedInstructorId).set({
+      instructorId: linkedInstructorId,
+      name: 'Арсений Герасимчук',
+      specialty: 'both',
+      languages: ['Русский'],
+      experienceYears: 10,
+      pricePerHourKZT: 30_000,
+      phoneNumber: '+77055492235',
+      isAvailable: true,
+      linkedAccountId: linkedAccount,
+      avatarUrl: legacyAvatar,
+      // revision intentionally absent
+    });
+
+    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+    const commands = createProductionCanonicalCommands(
+      { clock: createAuthoritativeCommandClock(new Date('2026-02-01T00:00:00.000Z')) },
+      executor
+    );
+
+    const detailBefore = await queryAdminIdentityReadModels(
+      firestore,
+      { kind: 'administrator', accountId: adminAccountId },
+      { scope: 'admin_instructor_detail', instructorId: linkedInstructorId }
+    );
+    expect(detailBefore.scope).toBe('admin_instructor_detail');
+    if (detailBefore.scope !== 'admin_instructor_detail') return;
+    expect(detailBefore.item?.revision).toBe(0);
+    expect(detailBefore.item?.linkedAccountId).toBe(linkedAccount);
+    expect(detailBefore.item).not.toHaveProperty('avatarUrl');
+    expect(detailBefore.item?.authorizedActions).toEqual(
+      expect.arrayContaining([
+        { kind: 'update_instructor_catalog_profile', expectedRevision: 0 },
+      ])
+    );
+
+    const accountRevisionBefore = (
+      await firestore.collection('users').doc(linkedAccount).get()
+    ).data()?.revision;
+
+    const first = await commands.execute({
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('identity-emulator-linked-legacy-01', 0),
+      intent: {
+        instructorId: linkedInstructorId,
+        name: 'Арсений Герасимчук',
+        specialty: 'both',
+        languages: ['Русский'],
+        experienceYears: 10,
+        bio: 'Emulator linked profile save',
+        avatarUrl: nextAvatar,
+        pricePerHourKZT: 30_000,
+        phoneNumber: '+77055492235',
+        reasonExplanation: 'Emulator profile must succeed on valid 1:1 link',
+      },
+    });
+    expect(first.status).toBe('success');
+
+    const catalogAfter = (await firestore.collection('instructors').doc(linkedInstructorId).get()).data();
+    const accountAfter = (await firestore.collection('users').doc(linkedAccount).get()).data();
+    expect(catalogAfter).toMatchObject({
+      bio: 'Emulator linked profile save',
+      avatarUrl: nextAvatar,
+      revision: 1,
+      linkedAccountId: linkedAccount,
+      experienceYears: 10,
+    });
+    expect(accountAfter).toMatchObject({
+      instructorId: linkedInstructorId,
+      isInstructor: true,
+      revision: accountRevisionBefore,
+    });
+
+    const second = await commands.execute({
+      kind: 'update_instructor_catalog_profile',
+      context: adminContext('identity-emulator-linked-legacy-02', 1),
+      intent: {
+        instructorId: linkedInstructorId,
+        bio: 'Second emulator linked save',
+        reasonExplanation: 'Emulator second profile save',
+      },
+    });
+    expect(second.status).toBe('success');
+    expect((await firestore.collection('instructors').doc(linkedInstructorId).get()).data()).toMatchObject({
+      bio: 'Second emulator linked save',
+      revision: 2,
+      linkedAccountId: linkedAccount,
+    });
+  }, 60_000);
 });

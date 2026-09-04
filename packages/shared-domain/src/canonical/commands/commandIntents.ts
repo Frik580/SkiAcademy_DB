@@ -872,6 +872,7 @@ export const CommandIntentSchemaByKind = {
   create_instructor_catalog_entry: z
     .object({
       instructorId: InstructorIdSchema,
+      accountId: AccountIdSchema.optional(),
       name: z.string().trim().min(1).max(200),
       specialty: z.enum(['ski', 'snowboard', 'both']).optional(),
       languages: z.array(z.string().trim().min(1).max(32)).max(16).optional(),

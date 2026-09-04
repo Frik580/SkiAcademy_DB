@@ -1,4 +1,4 @@
-import { FieldValue, type Firestore, type Transaction } from 'firebase-admin/firestore';
+import { FieldValue, type Firestore, type Query, type Transaction } from 'firebase-admin/firestore';
 import {
   assertTransactionWithinBudget,
   CanonicalCommandError,
@@ -70,9 +70,10 @@ class FirestoreCanonicalTransactionOperations implements CanonicalTransactionOpe
     input: CanonicalTransactionCollectionQuery
   ): Promise<readonly CanonicalTransactionQueryDocumentResult[]> {
     assertReadPhase(this, 'read');
-    let collectionQuery = this.firestore
-      .collection(input.collection)
-      .where(input.where.field, input.where.op, input.where.value);
+    let collectionQuery: Query = input.collectionGroup
+      ? this.firestore.collectionGroup(input.collection)
+      : this.firestore.collection(input.collection);
+    collectionQuery = collectionQuery.where(input.where.field, input.where.op, input.where.value);
     if (input.limit !== undefined) {
       collectionQuery = collectionQuery.limit(input.limit);
     }

@@ -21,6 +21,7 @@ import {
   SystemActorIdSchema,
   assertExpectedRevision,
   nextAggregateRevision,
+  readAggregateRevision,
   CorrelationIdSchema,
   commandSuccessResult,
   commandErrorResult,
@@ -159,6 +160,37 @@ describe('revision concurrency helpers', () => {
       if (error instanceof CanonicalCommandError) {
         expect(error.code).toBe('stale_version');
         expect(error.currentRevision).toBe(revision);
+      }
+    }
+  });
+
+  it('treats an existing document without revision field as authoritative revision 0', () => {
+    expect(readAggregateRevision({})).toBe(0);
+    expect(readAggregateRevision({ revision: 0 })).toBe(0);
+    expect(readAggregateRevision({ revision: 1 })).toBe(1);
+    expect(readAggregateRevision(undefined)).toBeUndefined();
+    expect(readAggregateRevision({ revision: -1 })).toBeUndefined();
+    expect(() =>
+      assertExpectedRevision({
+        correlationId,
+        expectedRevision: AggregateRevisionSchema.parse(0),
+        currentRevision: readAggregateRevision({}),
+        requireExpectedRevision: true,
+      })
+    ).not.toThrow();
+    try {
+      assertExpectedRevision({
+        correlationId,
+        expectedRevision: AggregateRevisionSchema.parse(1),
+        currentRevision: readAggregateRevision({}),
+        requireExpectedRevision: true,
+      });
+      throw new Error('expected stale_version');
+    } catch (error) {
+      expect(error).toBeInstanceOf(CanonicalCommandError);
+      if (error instanceof CanonicalCommandError) {
+        expect(error.code).toBe('stale_version');
+        expect(error.currentRevision).toBe(0);
       }
     }
   });

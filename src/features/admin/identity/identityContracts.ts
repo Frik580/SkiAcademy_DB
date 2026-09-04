@@ -64,8 +64,20 @@ export type AdminIdentityAttempt =
       readonly participantId?: ParticipantId;
     })
   | (AdminIdentityCommandBase & {
+      readonly kind: 'create_instructor_catalog_entry';
+      readonly instructorId: InstructorId;
+      readonly accountId?: AccountId;
+      readonly name?: string;
+      readonly pricePerHourKZT?: number;
+      readonly specialty?: 'ski' | 'snowboard' | 'both';
+      readonly languages?: readonly string[];
+      readonly experienceYears?: number;
+      readonly bio?: string;
+      readonly avatarUrl?: string;
+      readonly phoneNumber?: string;
+    })
+  | (AdminIdentityCommandBase & {
       readonly kind:
-        | 'create_instructor_catalog_entry'
         | 'update_instructor_catalog_profile'
         | 'deactivate_instructor_catalog'
         | 'reactivate_instructor_catalog';

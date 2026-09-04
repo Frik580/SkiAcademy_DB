@@ -201,6 +201,9 @@ export async function executeAdminIdentityAttempt(
             name: attempt.name ?? attempt.instructorId,
             pricePerHourKZT: attempt.pricePerHourKZT ?? 1,
             reasonExplanation,
+            ...(attempt.accountId === undefined
+              ? {}
+              : { accountId: AccountIdSchema.parse(attempt.accountId) }),
             ...(attempt.specialty === undefined ? {} : { specialty: attempt.specialty }),
             ...(attempt.languages === undefined ? {} : { languages: [...attempt.languages] }),
             ...(attempt.experienceYears === undefined
@@ -211,6 +214,7 @@ export async function executeAdminIdentityAttempt(
             ...(attempt.phoneNumber === undefined ? {} : { phoneNumber: attempt.phoneNumber }),
           },
           idempotencyKey: attempt.idempotencyKey,
+          ...(attempt.accountId === undefined ? {} : { expectedRevision }),
         })
       );
       return;

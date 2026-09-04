@@ -120,8 +120,11 @@ export const AdminInstructorListItemSchema = z
   .object({
     instructorId: InstructorIdSchema,
     name: z.string().trim().min(1).max(200),
+    specialty: InstructorCatalogSpecialtySchema.optional(),
     isAvailable: z.boolean(),
     linkedAccountId: AccountIdSchema.optional(),
+    linkedAccountDisplayName: z.string().trim().min(1).max(200).optional(),
+    pricePerHourKZT: z.number().finite().int().positive().optional(),
     courseRosterCount: z.number().int().nonnegative(),
     courseDayAssignmentCount: z.number().int().nonnegative(),
     revision: AggregateRevisionSchema,
@@ -132,13 +135,15 @@ export const AdminInstructorListItemSchema = z
 export type AdminInstructorListItem = z.output<typeof AdminInstructorListItemSchema>;
 
 export const AdminInstructorDetailReadModelSchema = AdminInstructorListItemSchema.extend({
-  specialty: InstructorCatalogSpecialtySchema.optional(),
   bio: z.string().trim().max(4_000).optional(),
   avatarUrl: z.string().trim().min(1).max(2_000).optional(),
   phoneNumber: z.string().trim().max(32).optional(),
-  pricePerHourKZT: z.number().finite().int().positive().optional(),
   languages: z.array(z.string()).max(16).optional(),
   experienceYears: z.number().finite().int().min(0).max(80).optional(),
+  linkedAccountLifecycle: z.enum(['active', 'disabled', 'uninitialized']).optional(),
+  futureLessonCommitmentCount: z.number().int().nonnegative(),
+  futureCourseDayAssignmentCount: z.number().int().nonnegative(),
+  unlinkBlockedByCommitments: z.boolean(),
   diagnostics: z.array(IdentityDiagnosticSchema).max(32),
 }).strict();
 

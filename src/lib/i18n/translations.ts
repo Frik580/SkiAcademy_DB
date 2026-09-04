@@ -852,7 +852,7 @@ export const translations = {
 
     // Admin Panel
     resortManagerConsole: 'Resort Manager Console',
-    resortConsoleSub: 'Monitor lessons, configure guide availabilities, and add/delete instructors',
+    resortConsoleSub: 'Monitor lessons, configure guide availabilities, and manage instructors',
     financialOverview: 'Financial Overview',
     adminTabsNavLabel: 'Admin sections',
     adminTabOperations: 'Operations',
@@ -1413,7 +1413,7 @@ export const translations = {
     deleteInstructor: 'Delete Instructor',
     expYearsPrefix: 'Exp:',
     coachesDirectoryTitle: 'Coaches Directory Management',
-    coachesDirectorySub: 'Toggle availability, edit rates, add/remove staff',
+    coachesDirectorySub: 'Toggle availability, edit rates, add and link instructor accounts',
     coachFormSub: 'Define specialty levels, rate limits, and language tags',
     addCoachShort: 'Add Coach',
     registerNewCoach: 'Register New Coach',
@@ -2909,7 +2909,7 @@ export const translations = {
     // Admin Panel
     resortManagerConsole: 'Консоль управления курортом',
     resortConsoleSub:
-      'Мониторинг уроков, управление доступностью гидов, добавление и удаление инструкторов',
+      'Мониторинг уроков, управление доступностью гидов и инструкторами',
     financialOverview: 'Финансовый обзор',
     adminTabsNavLabel: 'Разделы админки',
     adminTabOperations: 'Операции',
@@ -3474,7 +3474,7 @@ export const translations = {
     deleteInstructor: 'Удалить',
     expYearsPrefix: 'Опыт:',
     coachesDirectoryTitle: 'Управление базой инструкторов',
-    coachesDirectorySub: 'Управление доступностью, тарифами, добавление и удаление тренеров',
+    coachesDirectorySub: 'Управление доступностью, тарифами, добавление и привязка аккаунтов',
     coachFormSub: 'Укажите специальность, стоимость и языки',
     addCoachShort: 'Добавить',
     registerNewCoach: 'Зарегистрировать тренера',

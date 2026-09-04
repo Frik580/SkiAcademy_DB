@@ -59,6 +59,16 @@ function matchesQueryFilter(
   return fieldValue >= compareValue;
 }
 
+function pathMatchesCollectionGroup(path: string, collection: string): boolean {
+  const segments = path.split('/');
+  for (let index = 0; index < segments.length - 1; index += 2) {
+    if (segments[index] === collection) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export interface InMemoryFirestoreSnapshot {
   readonly docs: ReadonlyMap<string, InMemoryDocument>;
   readonly writesAttempted: number;
@@ -96,10 +106,12 @@ class InMemoryCanonicalTransactionOperations implements CanonicalTransactionOper
   ): Promise<readonly CanonicalTransactionQueryDocumentResult[]> {
     assertReadPhase(this, 'read');
     const readPromise = Promise.resolve().then(() => {
-      const prefix = `${input.collection}/`;
       const results: CanonicalTransactionQueryDocumentResult[] = [];
       for (const [path, document] of this.docs.entries()) {
-        if (!path.startsWith(prefix)) continue;
+        const matchesCollection = input.collectionGroup
+          ? pathMatchesCollectionGroup(path, input.collection)
+          : path.startsWith(`${input.collection}/`);
+        if (!matchesCollection) continue;
         const fieldValue: unknown = readQueryField(document.data, input.where.field);
         const compareValue: unknown = input.where.value;
         const matchesFilter = matchesQueryFilter(input.where.op, fieldValue, compareValue);

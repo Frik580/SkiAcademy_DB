@@ -861,6 +861,14 @@ export const CommandIntentSchemaByKind = {
       reasonExplanation: z.string().trim().min(1).max(1_000),
     })
     .strict(),
+  update_account_contact_as_administrator: z
+    .object({
+      accountId: AccountIdSchema,
+      displayName: z.string().trim().min(1).max(200),
+      phoneNumber: z.string().trim().max(32).optional(),
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
   create_instructor_catalog_entry: z
     .object({
       instructorId: InstructorIdSchema,

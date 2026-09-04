@@ -182,6 +182,7 @@ export const AdminIdentityAuthorizedActionKindSchema = z.enum([
   'disable_account',
   'enable_account',
   'change_account_role',
+  'update_account_contact_as_administrator',
   'archive_participant',
   'reactivate_participant',
   'update_participant_profile',
@@ -234,6 +235,24 @@ export const AdminIdentityManagedParticipantSummarySchema = z
     authority: z.enum(['self', 'parent_guardian']),
     lifecycle: z.enum(['active', 'archived']),
     revision: AggregateRevisionSchema,
+    skillLevel: z.string().trim().min(1).max(64).optional(),
+    discipline: z.enum(['ski', 'snowboard']).optional(),
+    age: z
+      .discriminatedUnion('kind', [
+        z
+          .object({
+            kind: z.literal('birth_date'),
+            birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          })
+          .strict(),
+        z
+          .object({
+            kind: z.literal('age_years'),
+            years: z.number().finite().int().min(0).max(125),
+          })
+          .strict(),
+      ])
+      .optional(),
   })
   .strict();
 

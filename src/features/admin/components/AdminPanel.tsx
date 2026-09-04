@@ -2,7 +2,7 @@ import React, { useCallback, useState, Suspense, lazy } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { Instructor, Booking, UserProfile, Course } from '../../../types';
-import { Shield, UserCheck, BookOpen, AlertTriangle, ShieldAlert, Wallet, CalendarDays, Users } from 'lucide-react';
+import { Shield, BookOpen, AlertTriangle, ShieldAlert, Wallet, CalendarDays, Users } from 'lucide-react';
 import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../domain/achievements';
 import { AchievementsConfig } from '../../../domain/achievements';
@@ -65,11 +65,6 @@ const AdminLessonBookingPanel = lazy(() =>
 const AdminCourseEnrollmentPanel = lazy(() =>
   import('../course-enrollments').then((m) => ({
     default: m.AdminCourseEnrollmentPanel,
-  }))
-);
-const CanonicalIdentityManager = lazy(() =>
-  import('../identity').then((m) => ({
-    default: m.CanonicalIdentityManager,
   }))
 );
 const CoursesManager = lazy(() =>
@@ -373,18 +368,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 onRequestConfirm={onRequestConfirm}
                 surface="admins"
               />
-            </AdminCollapsibleSection>
-          </Suspense>
-
-          <Suspense fallback={<SectionLoadingFallback label={t('canonicalIdentityTitle')} />}>
-            <AdminCollapsibleSection
-              id="canonical_identity"
-              title={t('canonicalIdentityTitle')}
-              subtitle={t('canonicalIdentitySub')}
-              icon={UserCheck}
-              defaultOpen={false}
-            >
-              <CanonicalIdentityManager adminAccountId={currentUserProfile.uid} />
             </AdminCollapsibleSection>
           </Suspense>
         </div>

@@ -65,6 +65,7 @@ type IdentityAdminKind = Extract<
   | 'assign_participant_management_as_administrator'
   | 'create_managed_dependent_participant'
   | 'change_account_role'
+  | 'update_account_contact_as_administrator'
   | 'create_instructor_catalog_entry'
   | 'update_instructor_catalog_profile'
   | 'deactivate_instructor_catalog'
@@ -218,6 +219,8 @@ export function createIdentityAdministrationCommandHandlers(
       createManagedDependentHandler(envelope, environment, executor),
     change_account_role: (envelope, environment) =>
       changeAccountRoleHandler(envelope, environment, executor),
+    update_account_contact_as_administrator: (envelope, environment) =>
+      updateAccountContactHandler(envelope, environment, executor),
     create_instructor_catalog_entry: (envelope, environment) =>
       createInstructorCatalogHandler(envelope, environment, executor),
     update_instructor_catalog_profile: (envelope, environment) =>
@@ -923,6 +926,111 @@ function changeAccountRoleHandler(
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
   };
+
+  return executeAuthoritativeIdempotentCanonicalCommand({
+    envelope,
+    environment,
+    executor,
+    revisionTarget: { ref: { path: targetPath }, requireExpectedRevision: true },
+    handler,
+  });
+}
+
+function readContactDisplayName(data: Record<string, unknown> | undefined): string {
+  const value = data?.displayName;
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function readContactPhoneNumber(data: Record<string, unknown> | undefined): string {
+  const value = data?.phoneNumber;
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function updateAccountContactHandler(
+  envelope: CommandEnvelope<'update_account_contact_as_administrator'>,
+  environment: CommandExecutionEnvironment,
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
+): Promise<CommandResult<'update_account_contact_as_administrator'>> {
+  const metadata = metadataFromEnvelope(envelope);
+  requireAdmin(envelope);
+  requireReason(envelope, envelope.intent.reasonExplanation);
+  const targetPath = accountPath(envelope.intent.accountId);
+  let targetAccount!: Account;
+  let targetProfile: Record<string, unknown> | undefined;
+  const nextDisplayName = envelope.intent.displayName.trim();
+  const nextPhoneNumber = envelope.intent.phoneNumber?.trim() ?? '';
+
+  const handler: AuthoritativeIdempotentCanonicalCommandHandler<'update_account_contact_as_administrator'> =
+    {
+      read: async (session) => {
+        const actor = requireAccountActor(envelope);
+        const actorPath = accountPath(actor.accountId);
+        const actorRead = await session.tx.get({ path: actorPath });
+        session.plan.planRead({ path: actorPath, category: 'authorization_check' });
+        assertAccountActive(envelope, parseAccount(actorRead.exists ? actorRead.data : undefined));
+
+        const targetRead = await session.tx.get({ path: targetPath });
+        session.plan.planRead({ path: targetPath, category: 'aggregate' });
+        const parsed = parseAccount(targetRead.exists ? targetRead.data : undefined);
+        if (!parsed) {
+          conflict(envelope, { resourceKind: 'account', reason: 'conflict' });
+        }
+        targetAccount = parsed;
+        targetProfile = targetRead.data;
+        if (
+          readContactDisplayName(targetProfile) === nextDisplayName &&
+          readContactPhoneNumber(targetProfile) === nextPhoneNumber
+        ) {
+          return;
+        }
+        session.plan.planMutation({
+          path: targetPath,
+          kind: 'update',
+          category: 'aggregate',
+          estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.accountBytes,
+        });
+      },
+      planAuditOutbox: async () =>
+        buildIdentityAdminAuditPlan({
+          envelope,
+          summary: 'Account contact projection updated',
+          reasonCode: 'manual_override',
+          explanation: envelope.intent.reasonExplanation,
+          primary: { kind: 'account', id: envelope.intent.accountId },
+          affectedSubjects: [canonicalReference('account', envelope.intent.accountId)],
+          resultingRevisions: [
+            {
+              subject: canonicalReference('account', envelope.intent.accountId),
+              revision: nextAggregateRevision(targetAccount.revision),
+            },
+          ],
+          effectKind: 'outbox_obligation_created',
+        }),
+      execute: async (session, context) => {
+        if (
+          readContactDisplayName(targetProfile) === nextDisplayName &&
+          readContactPhoneNumber(targetProfile) === nextPhoneNumber
+        ) {
+          return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+        }
+        const decidedAt = timestampFromDate(context.decidedAt);
+        session.tx.update(
+          { path: targetPath },
+          {
+            displayName: nextDisplayName,
+            phoneNumber: nextPhoneNumber,
+            revision: nextAggregateRevision(targetAccount.revision),
+            updatedAt: decidedAt,
+            audit: {
+              ...targetAccount.audit,
+              lastChangedByCommandId: metadata.commandId,
+              correlationId: metadata.correlationId,
+            },
+          }
+        );
+        return commandSuccessResult(envelope.kind, envelope.context.correlationId);
+      },
+    };
 
   return executeAuthoritativeIdempotentCanonicalCommand({
     envelope,

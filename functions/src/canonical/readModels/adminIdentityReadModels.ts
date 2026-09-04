@@ -167,6 +167,9 @@ function accountActions(input: {
   if (input.lifecycle === 'disabled') {
     actions.push({ kind: 'enable_account', expectedRevision: revision });
   }
+  if (input.revision !== undefined) {
+    actions.push({ kind: 'update_account_contact_as_administrator', expectedRevision: revision });
+  }
   if (
     input.actor.systemRole === 'owner' &&
     input.targetSystemRole !== 'owner' &&
@@ -262,6 +265,11 @@ function instructorActions(input: {
   return actions.slice(0, 8);
 }
 
+function looksLikePhoneSearch(search: string): boolean {
+  const digits = search.replace(/\D/g, '');
+  return digits.length >= 6 && (/^\+/.test(search) || /^[\d\s()-]+$/.test(search));
+}
+
 async function paginateCollection(
   firestore: Firestore,
   collection: string,
@@ -280,15 +288,6 @@ async function paginateCollection(
         : collection === 'participants'
           ? ParticipantIdSchema.safeParse(search)
           : InstructorIdSchema.safeParse(search);
-    if (asId.success) {
-      const snapshot = await firestore.collection(collection).doc(asId.data).get();
-      return {
-        docs: snapshot.exists
-          ? ([snapshot as FirebaseFirestore.QueryDocumentSnapshot] as FirebaseFirestore.QueryDocumentSnapshot[])
-          : [],
-        hasMore: false,
-      };
-    }
     if (collection === 'users' && search.includes('@')) {
       const snapshot = await firestore
         .collection(collection)
@@ -298,6 +297,26 @@ async function paginateCollection(
       return {
         docs: snapshot.docs.slice(0, size),
         hasMore: snapshot.docs.length > size,
+      };
+    }
+    if (collection === 'users' && looksLikePhoneSearch(search)) {
+      const snapshot = await firestore
+        .collection(collection)
+        .where('phoneNumber', '==', search)
+        .limit(size + 1)
+        .get();
+      return {
+        docs: snapshot.docs.slice(0, size),
+        hasMore: snapshot.docs.length > size,
+      };
+    }
+    if (asId.success) {
+      const snapshot = await firestore.collection(collection).doc(asId.data).get();
+      return {
+        docs: snapshot.exists
+          ? ([snapshot as FirebaseFirestore.QueryDocumentSnapshot] as FirebaseFirestore.QueryDocumentSnapshot[])
+          : [],
+        hasMore: false,
       };
     }
     query = query
@@ -390,6 +409,9 @@ async function buildAccountDetail(
         authority: item.authority,
         lifecycle: participant?.lifecycle.status === 'archived' ? ('archived' as const) : ('active' as const),
         revision: participant?.revision ?? AggregateRevisionSchema.parse(1),
+        ...(participant?.skillLevel ? { skillLevel: participant.skillLevel } : {}),
+        ...(participant?.discipline ? { discipline: participant.discipline } : {}),
+        ...(participant?.age ? { age: participant.age } : {}),
       };
     })
   );

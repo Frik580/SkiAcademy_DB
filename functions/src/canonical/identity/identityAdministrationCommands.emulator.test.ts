@@ -226,4 +226,43 @@ describe.skipIf(!runsOnFirestoreEmulator)('identity administration Firestore emu
       role: 'admin',
     });
   }, 30_000);
+
+  it('updates Account contact projection through the Admin SDK without changing email or role', async () => {
+    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+    const commands = createProductionCanonicalCommands(
+      { clock: createAuthoritativeCommandClock(new Date('2026-02-01T00:00:00.000Z')) },
+      executor
+    );
+    await firestore.collection('users').doc(targetAccountId).set(
+      seedAccount(targetAccountId, {
+        role: 'user',
+        email: 'keep@example.com',
+        displayName: 'Emulator Old',
+        phoneNumber: '+77010000000',
+      })
+    );
+
+    const result = await commands.execute({
+      kind: 'update_account_contact_as_administrator',
+      context: adminContext('identity-emulator-contact'),
+      intent: {
+        accountId: targetAccountId,
+        displayName: 'Emulator New',
+        phoneNumber: '+77019999999',
+        reasonExplanation: 'Emulator contact',
+      },
+    });
+
+    expect(result.status).toBe('success');
+    expect((await firestore.collection('users').doc(targetAccountId).get()).data()).toMatchObject({
+      displayName: 'Emulator New',
+      phoneNumber: '+77019999999',
+      email: 'keep@example.com',
+      role: 'user',
+      lifecycle: { status: 'active' },
+    });
+    expect((await firestore.collection('participants').doc(participantId).get()).data()).toMatchObject({
+      displayName: 'Dependent',
+    });
+  }, 30_000);
 });

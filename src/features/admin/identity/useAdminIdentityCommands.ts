@@ -55,6 +55,22 @@ export async function executeAdminIdentityAttempt(
       );
       return;
     }
+    if (attempt.kind === 'update_account_contact_as_administrator') {
+      await assertSucceeded(
+        executeAuthenticatedCanonicalCommand(adminAccountId, {
+          kind: attempt.kind,
+          intent: {
+            accountId: AccountIdSchema.parse(attempt.accountId),
+            displayName: attempt.displayName,
+            reasonExplanation,
+            ...(attempt.phoneNumber === undefined ? {} : { phoneNumber: attempt.phoneNumber }),
+          },
+          idempotencyKey: attempt.idempotencyKey,
+          expectedRevision,
+        })
+      );
+      return;
+    }
     if (attempt.kind === 'archive_participant' || attempt.kind === 'reactivate_participant') {
       await assertSucceeded(
         executeAuthenticatedCanonicalCommand(adminAccountId, {
@@ -81,6 +97,9 @@ export async function executeAdminIdentityAttempt(
               : {}),
             ...(attempt.skillLevel === undefined ? {} : { skillLevel: attempt.skillLevel }),
             ...(attempt.discipline === undefined ? {} : { discipline: attempt.discipline }),
+            ...(attempt.instructorComment === undefined
+              ? {}
+              : { instructorComment: attempt.instructorComment }),
           },
           idempotencyKey: attempt.idempotencyKey,
           expectedRevision,

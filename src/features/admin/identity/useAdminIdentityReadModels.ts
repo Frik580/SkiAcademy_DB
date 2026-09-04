@@ -239,6 +239,45 @@ export function useAdminIdentityReadModels(input: {
   };
 }
 
+export function useAdminParticipantDetail(participantId: ParticipantId | undefined) {
+  const generation = useRef(0);
+  const [item, setItem] = useState<AdminParticipantDetailReadModel | undefined>();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<AdminIdentityReadError | undefined>();
+
+  const load = useCallback(async () => {
+    if (!participantId) {
+      setItem(undefined);
+      setError(undefined);
+      setLoading(false);
+      return;
+    }
+    const current = ++generation.current;
+    setLoading(true);
+    setError(undefined);
+    try {
+      const result = await queryAdminIdentityReadModels({
+        scope: 'admin_participant_detail',
+        participantId,
+      });
+      if (current !== generation.current) return;
+      setItem(result.scope === 'admin_participant_detail' ? result.item : undefined);
+    } catch (caught) {
+      if (current !== generation.current) return;
+      setError(classify(caught));
+      setItem(undefined);
+    } finally {
+      if (current === generation.current) setLoading(false);
+    }
+  }, [participantId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { item, loading, error, refresh: load };
+}
+
 export function useAdminEligibleParticipants(accountId: AccountId | undefined) {
   const [items, setItems] = useState<readonly AdminEligibleParticipantItem[]>([]);
   const [loading, setLoading] = useState(false);

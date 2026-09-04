@@ -473,4 +473,141 @@ describe('canonical identity administration commands', () => {
     });
     expect(result.status).toBe('error');
   });
+
+  it('lets an administrator update Account contact projection without touching identity or finance', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+        role: 'user',
+        email: 'keep@example.com',
+        displayName: 'Old Name',
+        phoneNumber: '+77010000000',
+      }),
+      [`participants/${participantId}`]: seedParticipant(),
+      [`users/${targetAccountId}/wallet/state`]: {
+        accountId: targetAccountId,
+        balance: 42_000,
+        currency: 'KZT',
+        revision: 3,
+      },
+    });
+    const result = await run(executor, {
+      kind: 'update_account_contact_as_administrator',
+      context: adminContext('contact-update-01'),
+      intent: {
+        accountId: targetAccountId,
+        displayName: 'New Client Name',
+        phoneNumber: '+77019999999',
+        reasonExplanation: 'Admin contact correction',
+      },
+    });
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`users/${targetAccountId}`)?.data).toMatchObject({
+      displayName: 'New Client Name',
+      phoneNumber: '+77019999999',
+      email: 'keep@example.com',
+      role: 'user',
+      lifecycle: { status: 'active' },
+      revision: 2,
+    });
+    expect(snapshot.docs.get(`participants/${participantId}`)?.data).toMatchObject({
+      displayName: 'Dependent',
+      skillLevel: 'beginner',
+    });
+    expect(snapshot.docs.get(`users/${targetAccountId}/wallet/state`)?.data).toMatchObject({
+      balance: 42_000,
+      revision: 3,
+    });
+  });
+
+  it('rejects Account contact updates from a non-administrator', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+        role: 'user',
+        displayName: 'Old Name',
+      }),
+    });
+    const result = await run(executor, {
+      kind: 'update_account_contact_as_administrator',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'contact-client-01',
+        correlationId,
+        source: 'client_callable',
+        expectedRevision: 1,
+      },
+      intent: {
+        accountId: targetAccountId,
+        displayName: 'Hijacked Name',
+        phoneNumber: '+77011111111',
+        reasonExplanation: 'Must fail',
+      },
+    });
+    expect(result.status).toBe('error');
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data).toMatchObject({
+      displayName: 'Old Name',
+    });
+  });
+
+  it('is idempotent when Account contact already matches the requested projection', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+        role: 'user',
+        displayName: 'Same Name',
+        phoneNumber: '+77012222222',
+      }),
+    });
+    const result = await run(executor, {
+      kind: 'update_account_contact_as_administrator',
+      context: adminContext('contact-idempotent-01'),
+      intent: {
+        accountId: targetAccountId,
+        displayName: 'Same Name',
+        phoneNumber: '+77012222222',
+        reasonExplanation: 'No-op contact save',
+      },
+    });
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data).toMatchObject({
+      displayName: 'Same Name',
+      phoneNumber: '+77012222222',
+      revision: 1,
+    });
+  });
+
+  it('rejects Account contact updates that omit displayName or exceed phone length', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, { role: 'user', displayName: 'Keep' }),
+    });
+    const emptyName = await run(executor, {
+      kind: 'update_account_contact_as_administrator',
+      context: adminContext('contact-empty-01'),
+      intent: {
+        accountId: targetAccountId,
+        displayName: '   ',
+        reasonExplanation: 'Empty name',
+      },
+    });
+    expect(emptyName.status).toBe('error');
+    const longPhone = await run(executor, {
+      kind: 'update_account_contact_as_administrator',
+      context: adminContext('contact-phone-01'),
+      intent: {
+        accountId: targetAccountId,
+        displayName: 'Keep',
+        phoneNumber: '1'.repeat(33),
+        reasonExplanation: 'Phone too long',
+      },
+    });
+    expect(longPhone.status).toBe('error');
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data).toMatchObject({
+      displayName: 'Keep',
+      revision: 1,
+    });
+  });
 });

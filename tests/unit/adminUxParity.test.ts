@@ -426,11 +426,12 @@ describe('T32.9A Admin UX parity behavior', () => {
       readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')
     ).toContain('openCancellationDetail');
     expect(
-      readRepoFile('src/features/admin/components/users/ClientsManager.tsx')
-    ).toContain('accountActivateDeactivate');
+      readRepoFile('src/features/admin/people/AdminClientDirectory.tsx')
+    ).toContain('disable_account');
     expect(
-      readRepoFile('src/features/admin/components/users/ClientsManager.tsx')
-    ).toContain('onAddUser ?');
+      readRepoFile('src/features/admin/people/AdminClientDirectory.tsx')
+    ).not.toContain('onAddUser');
+    expect(adminPanel).not.toContain('CanonicalIdentityManager');
   });
 
   it('blocks instructor deactivation on course-day occupancy as well as active lessons', () => {
@@ -475,11 +476,13 @@ describe('T32.9A Admin UX parity behavior', () => {
 
   it('uses canonical identity commands for people mutations', () => {
     const people = readRepoFile('src/features/admin/people/AdminPeopleSection.tsx');
+    expect(people).toContain('AdminClientDirectory');
     expect(people).toContain("kind: 'change_account_role'");
     expect(people).toContain("kind: 'create_instructor_catalog_entry'");
     expect(people).toContain("kind: 'update_instructor_catalog_profile'");
     expect(people).not.toContain('addInstructorService');
     expect(people).not.toContain('updateDoc');
+    expect(people).not.toContain('onUpdateUser=');
     expect(people).toContain('windowDays: 62');
     expect(readRepoFile('src/features/admin/components/finance/FinancialOverview.tsx')).toContain(
       'exchangeRateDisplayOnly'

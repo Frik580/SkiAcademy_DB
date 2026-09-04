@@ -28,6 +28,19 @@ export const ADMIN_COURSE_ENROLLMENT_QUERY_KEY = 'enrollment';
 export const ADMIN_COURSE_ENROLLMENT_VIEW_QUERY_KEY = 'enrollmentView';
 export const ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY = 'enrollmentCourse';
 
+export function adminFinanceAccountSearchParams(
+  previous: URLSearchParams,
+  accountId: string
+): URLSearchParams {
+  const next = new URLSearchParams(previous);
+  next.set(ADMIN_TAB_QUERY_KEY, 'finance');
+  next.set(ADMIN_FINANCE_ACCOUNT_QUERY_KEY, accountId);
+  next.delete(ADMIN_FINANCE_PAYMENT_QUERY_KEY);
+  next.delete(ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY);
+  next.delete(ADMIN_FINANCE_MOVEMENT_PERIOD_QUERY_KEY);
+  return next;
+}
+
 export const ADMIN_TAB_LABEL_KEYS: Record<AdminTabId, TranslationKey> = {
   operations: 'adminTabOperations',
   finance: 'adminTabFinance',

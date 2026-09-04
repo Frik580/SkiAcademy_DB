@@ -49,6 +49,7 @@ export const COMMAND_KINDS = [
   'create_managed_dependent_participant',
   'provision_self_participant_for_account',
   'change_account_role',
+  'update_account_contact_as_administrator',
   'create_instructor_catalog_entry',
   'update_instructor_catalog_profile',
   'deactivate_instructor_catalog',

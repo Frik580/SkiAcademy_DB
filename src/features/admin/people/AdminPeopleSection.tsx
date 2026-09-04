@@ -1,7 +1,6 @@
 import { IdempotencyKeySchema, InstructorIdSchema, ADMIN_IDENTITY_READ_MODEL_PAGE_SIZE_MAX } from '@ski-academy/shared-domain';
 import { useEffect, useMemo } from 'react';
 import type { Booking, Instructor, UserProfile } from '../../../types';
-import { ClientsManager } from '../components/users/ClientsManager';
 import { CoachesManager } from '../components/users/CoachesManager';
 import { AdminRoleManager } from '../components/users/AdminRoleManager';
 import { executeAdminIdentityAttempt } from '../identity/useAdminIdentityCommands';
@@ -12,6 +11,7 @@ import { mapPlannerOccupancyToBookings } from '../operations/adminPlannerMapping
 import { useAdminPlannerReadModels } from '../operations/useAdminPlannerReadModels';
 import { useAdminMonitorReadModels } from '../operations/useAdminMonitorReadModels';
 import { mergeInstructorOccupancyBookings } from './adminPeopleOccupancy';
+import { AdminClientDirectory } from './AdminClientDirectory';
 
 interface AdminPeopleSectionProps {
   readonly adminAccountId: string;
@@ -41,13 +41,13 @@ export function AdminPeopleSection({
   surface,
 }: AdminPeopleSectionProps) {
   const accounts = useAdminIdentityReadModels({
-    enabled: true,
+    enabled: surface === 'admins',
     directory: 'accounts',
     search: '',
     pageSize: ADMIN_IDENTITY_READ_MODEL_PAGE_SIZE_MAX,
   });
   const instructors = useAdminIdentityReadModels({
-    enabled: true,
+    enabled: surface === 'instructors',
     directory: 'instructors',
     search: '',
     pageSize: ADMIN_IDENTITY_READ_MODEL_PAGE_SIZE_MAX,
@@ -117,87 +117,7 @@ export function AdminPeopleSection({
 
   return (
     <>
-      {surface === 'clients' ? (
-      <ClientsManager
-        usersList={usersList}
-        instructors={instructorList}
-        currentUserProfile={currentUserProfile}
-        onUpdateUser={async (user) => {
-          const item = accounts.accounts.items.find((account) => account.accountId === user.uid);
-          if (!item) return;
-          if (item.role.role !== user.role) {
-            await executeAdminIdentityAttempt(adminAccountId, {
-              kind: 'change_account_role',
-              accountId: item.accountId,
-              role: user.role,
-              reasonExplanation: 'Admin client directory role update',
-              expectedRevision: item.revision ?? 1,
-              idempotencyKey: attemptKey('change_role'),
-            });
-          }
-          if (item.lifecycle === 'active' && user.isClientActive === false) {
-            await executeAdminIdentityAttempt(adminAccountId, {
-              kind: 'disable_account',
-              accountId: item.accountId,
-              reasonExplanation: 'Admin client directory disable',
-              expectedRevision: item.revision ?? 1,
-              idempotencyKey: attemptKey('disable_account'),
-            });
-          }
-          if (item.lifecycle !== 'active' && user.isClientActive !== false) {
-            await executeAdminIdentityAttempt(adminAccountId, {
-              kind: 'enable_account',
-              accountId: item.accountId,
-              reasonExplanation: 'Admin client directory enable',
-              expectedRevision: item.revision ?? 1,
-              idempotencyKey: attemptKey('enable_account'),
-            });
-          }
-          await refreshPeople();
-        }}
-        onAddInstructor={async (instructor) => {
-          await executeAdminIdentityAttempt(adminAccountId, {
-            kind: 'create_instructor_catalog_entry',
-            instructorId: InstructorIdSchema.parse(instructor.id),
-            name: instructor.name,
-            pricePerHourKZT: Math.max(1, Math.round(instructor.pricePerHourKZT ?? instructor.pricePerHour)),
-            specialty: instructor.specialty,
-            languages: instructor.languages,
-            experienceYears: instructor.experienceYears,
-            bio: instructor.bio,
-            avatarUrl: instructor.avatarUrl || undefined,
-            phoneNumber: instructor.phoneNumber,
-            reasonExplanation: 'Admin client directory instructor create',
-            expectedRevision: 1,
-            idempotencyKey: attemptKey('create_instructor'),
-          });
-          await refreshPeople();
-        }}
-        onUpdateInstructor={async (instructor) => {
-          const item = instructors.instructors.items.find(
-            (candidate) => candidate.instructorId === instructor.id
-          );
-          await executeAdminIdentityAttempt(adminAccountId, {
-            kind: instructor.isAvailable
-              ? 'update_instructor_catalog_profile'
-              : 'deactivate_instructor_catalog',
-            instructorId: InstructorIdSchema.parse(instructor.id),
-            name: instructor.name,
-            pricePerHourKZT: Math.max(1, Math.round(instructor.pricePerHourKZT ?? instructor.pricePerHour)),
-            specialty: instructor.specialty,
-            languages: instructor.languages,
-            experienceYears: instructor.experienceYears,
-            bio: instructor.bio,
-            avatarUrl: instructor.avatarUrl || undefined,
-            phoneNumber: instructor.phoneNumber,
-            reasonExplanation: 'Admin client directory instructor update',
-            expectedRevision: item?.revision ?? 1,
-            idempotencyKey: attemptKey('update_instructor'),
-          });
-          await refreshPeople();
-        }}
-      />
-      ) : null}
+      {surface === 'clients' ? <AdminClientDirectory adminAccountId={adminAccountId} /> : null}
       {surface === 'instructors' ? (
       <CoachesManager
         instructors={instructorList}

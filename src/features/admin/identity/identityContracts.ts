@@ -22,6 +22,12 @@ export type AdminIdentityAttempt =
       readonly role?: 'user' | 'admin';
     })
   | (AdminIdentityCommandBase & {
+      readonly kind: 'update_account_contact_as_administrator';
+      readonly accountId: AccountId;
+      readonly displayName: string;
+      readonly phoneNumber?: string;
+    })
+  | (AdminIdentityCommandBase & {
       readonly kind:
         'archive_participant' | 'reactivate_participant' | 'update_participant_profile';
       readonly participantId: ParticipantId;
@@ -29,6 +35,7 @@ export type AdminIdentityAttempt =
       readonly birthDate?: string;
       readonly skillLevel?: string;
       readonly discipline?: 'ski' | 'snowboard';
+      readonly instructorComment?: string;
     })
   | (AdminIdentityCommandBase & {
       readonly kind: 'assign_participant_management_as_administrator';

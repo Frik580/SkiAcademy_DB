@@ -722,10 +722,13 @@ function linkGuestBookingToAccountHandler(
   const guardDocumentPath = participantManagementActiveOwnerPath(envelope.intent.participantId);
 
   let booking!: Booking;
+  let payment!: Payment;
+  let paymentAssociationChanged = false;
   let participantRecord!: Participant;
   let existingManagement: ReturnType<typeof parseParticipantManagement>;
   let existingGuard: ReturnType<typeof parseActiveOwnerGuard>;
   let plannedBookingRevision = AggregateRevisionSchema.parse(1);
+  let plannedPaymentRevision = AggregateRevisionSchema.parse(1);
   let plannedParticipantRevision = AggregateRevisionSchema.parse(1);
   let plannedManagementRevision = AggregateRevisionSchema.parse(1);
   let plannedOwnerGuard!: Awaited<
@@ -760,6 +763,29 @@ function linkGuestBookingToAccountHandler(
           details: { field: 'participantId', reason: 'conflict' },
         });
       }
+
+      const paymentDocumentPath = paymentPath(booking.paymentId);
+      const paymentRead = await session.tx.get({ path: paymentDocumentPath });
+      session.plan.planRead({ path: paymentDocumentPath, category: 'payment_wallet' });
+      const parsedPayment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
+      if (!parsedPayment) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'paymentId', reason: 'conflict' },
+        });
+      }
+      assertBookingPaymentIdentity(envelope.context.correlationId, booking, parsedPayment);
+      payment = parsedPayment;
+      if (
+        (booking.payerAccountId !== undefined && booking.payerAccountId !== actor.accountId) ||
+        (payment.payerAccountId !== undefined && payment.payerAccountId !== actor.accountId)
+      ) {
+        throw new CanonicalCommandError('forbidden', {
+          correlationId: envelope.context.correlationId,
+          details: { resourceKind: 'booking', reason: 'conflict' },
+        });
+      }
+      paymentAssociationChanged = payment.payerAccountId !== actor.accountId;
 
       const participantRead = await session.tx.get({ path: participantDocumentPath });
       session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
@@ -816,6 +842,9 @@ function linkGuestBookingToAccountHandler(
         : AggregateRevisionSchema.parse(1);
       plannedParticipantRevision = nextAggregateRevision(participantRecord.revision);
       plannedBookingRevision = nextAggregateRevision(booking.revision);
+      plannedPaymentRevision = paymentAssociationChanged
+        ? nextAggregateRevision(payment.revision)
+        : payment.revision;
       plannedOwnerGuard = await readAndPlanAcquireParticipantManagementActiveOwnerGuard(session, {
         correlationId: metadata.correlationId,
         commandId: metadata.commandId,
@@ -844,6 +873,14 @@ function linkGuestBookingToAccountHandler(
         category: 'aggregate',
         estimatedPayloadBytes: BOOKING_PLANNING_ESTIMATES.bookingBytes,
       });
+      if (paymentAssociationChanged) {
+        session.plan.planMutation({
+          path: paymentPath(booking.paymentId),
+          kind: 'update',
+          category: 'payment_wallet',
+          estimatedPayloadBytes: FINANCE_PLANNING_ESTIMATES.paymentBytes,
+        });
+      }
     },
     planAuditOutbox: async () =>
       buildLinkGuestBookingAuditPlan({
@@ -852,6 +889,8 @@ function linkGuestBookingToAccountHandler(
         bookingRevision: plannedBookingRevision,
         participantRevision: plannedParticipantRevision,
         managementRevision: plannedManagementRevision,
+        paymentId: booking.paymentId,
+        paymentRevision: plannedPaymentRevision,
       }),
     execute: async (session, context) => {
       const decidedAt = timestampFromDate(context.decidedAt);
@@ -904,6 +943,7 @@ function linkGuestBookingToAccountHandler(
 
       const updatedBooking = BookingSchema.parse({
         ...booking,
+        payerAccountId: actor.accountId,
         revision: plannedBookingRevision,
         updatedAt: decidedAt,
         audit: {
@@ -926,6 +966,18 @@ function linkGuestBookingToAccountHandler(
         { path: bookingDocumentPath },
         toFirestoreWritePayload(updatedBooking as Record<string, unknown>)
       );
+      if (paymentAssociationChanged) {
+        const updatedPayment = PaymentSchema.parse({
+          ...payment,
+          payerAccountId: actor.accountId,
+          revision: plannedPaymentRevision,
+          updatedAt: decidedAt,
+        });
+        session.tx.update(
+          { path: paymentPath(booking.paymentId) },
+          financeToFirestoreWritePayload(updatedPayment as Record<string, unknown>)
+        );
+      }
 
       commitAcquireParticipantManagementActiveOwnerGuard(
         session,

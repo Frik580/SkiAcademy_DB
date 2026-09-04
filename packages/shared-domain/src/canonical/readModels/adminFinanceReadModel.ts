@@ -224,11 +224,99 @@ export const AdminFinancialOverviewReadModelSchema = z
 
 export type AdminFinancialOverviewReadModel = z.output<typeof AdminFinancialOverviewReadModelSchema>;
 
+export const ADMIN_GUEST_FUNDS_DISCOVERY_FILTERS = [
+  'all',
+  'unlinked',
+  'linked',
+  'outstanding',
+  'unpaid',
+  'partially_paid',
+  'paid',
+  'refunded',
+  'partially_refunded',
+] as const;
+
+export const AdminGuestFundsDiscoveryFilterSchema = z.enum(ADMIN_GUEST_FUNDS_DISCOVERY_FILTERS);
+export type AdminGuestFundsDiscoveryFilter = z.output<typeof AdminGuestFundsDiscoveryFilterSchema>;
+
+export const AdminGuestFundsLinkStateSchema = z.enum(['linked', 'unlinked']);
+export type AdminGuestFundsLinkState = z.output<typeof AdminGuestFundsLinkStateSchema>;
+
+export const AdminGuestFundsLessonServiceSummarySchema = z
+  .object({
+    subjectKind: z.literal('booking'),
+    bookingId: z.string().trim().min(1).max(128),
+    startsAt: CanonicalTimestampSchema,
+    timeZone: IanaTimeZoneSchema,
+  })
+  .strict();
+
+export const AdminGuestFundsEnrollmentServiceSummarySchema = z
+  .object({
+    subjectKind: z.literal('course_enrollment'),
+    enrollmentId: z.string().trim().min(1).max(128),
+    courseId: z.string().trim().min(1).max(128),
+    courseTitle: z.string().trim().min(1).max(200).optional(),
+  })
+  .strict();
+
+export const AdminGuestFundsServiceSummarySchema = z.discriminatedUnion('subjectKind', [
+  AdminGuestFundsLessonServiceSummarySchema,
+  AdminGuestFundsEnrollmentServiceSummarySchema,
+]);
+
+export type AdminGuestFundsServiceSummary = z.output<typeof AdminGuestFundsServiceSummarySchema>;
+
+export const AdminGuestFundsDiscoveryRowSchema = z
+  .object({
+    rowId: z.string().trim().min(1).max(160),
+    origin: z.literal('guest'),
+    linkState: AdminGuestFundsLinkStateSchema,
+    guestDisplayName: z.string().trim().min(1).max(200).optional(),
+    payer: AdminFinanceAccountIdentitySchema.optional(),
+    paymentId: PaymentIdSchema.optional(),
+    paymentStatus: PaymentStatusSchema.optional(),
+    currency: z.literal('KZT').optional(),
+    price: KztMinorUnitsSchema.optional(),
+    paidAmount: KztMinorUnitsSchema.optional(),
+    outstandingAmount: KztMinorUnitsSchema.optional(),
+    refundedAmount: KztMinorUnitsSchema.optional(),
+    retainedAmount: KztMinorUnitsSchema.optional(),
+    writtenOffAmount: KztMinorUnitsSchema.optional(),
+    service: AdminGuestFundsServiceSummarySchema,
+    updatedAt: CanonicalTimestampSchema,
+  })
+  .strict();
+
+export type AdminGuestFundsDiscoveryRow = z.output<typeof AdminGuestFundsDiscoveryRowSchema>;
+
+export const AdminGuestFundsReadModelSchema = z
+  .object({
+    filter: AdminGuestFundsDiscoveryFilterSchema,
+    items: z.array(AdminGuestFundsDiscoveryRowSchema).max(ADMIN_FINANCE_READ_MODEL_PAGE_SIZE_MAX),
+    nextCursor: z.string().trim().min(1).max(768).optional(),
+    hasMore: z.boolean(),
+  })
+  .strict();
+
+export type AdminGuestFundsReadModel = z.output<typeof AdminGuestFundsReadModelSchema>;
+
+const AdminGuestFundsReadInputSchema = z
+  .object({
+    scope: z.literal('admin_guest_funds'),
+    filter: AdminGuestFundsDiscoveryFilterSchema.optional(),
+    pageSize: z.number().int().positive().max(ADMIN_FINANCE_READ_MODEL_PAGE_SIZE_MAX).optional(),
+    cursor: z.string().trim().min(1).max(768).optional(),
+    idempotencyKey: IdempotencyKeySchema.optional(),
+  })
+  .strict();
+
 export const QueryAdminFinanceReadModelsInputSchema = z.discriminatedUnion('scope', [
   AdminWalletReadInputSchema,
   AdminPaymentDetailReadInputSchema,
   AdminSchoolMovementReadInputSchema,
   AdminFinancialOverviewReadInputSchema,
+  AdminGuestFundsReadInputSchema,
 ]);
 
 export type QueryAdminFinanceReadModelsInput = z.output<
@@ -253,6 +341,12 @@ export const QueryAdminFinanceReadModelsResultSchema = z.discriminatedUnion('sco
     .object({
       scope: z.literal('admin_financial_overview'),
       item: AdminFinancialOverviewReadModelSchema,
+    })
+    .strict(),
+  z
+    .object({
+      scope: z.literal('admin_guest_funds'),
+      item: AdminGuestFundsReadModelSchema,
     })
     .strict(),
 ]);

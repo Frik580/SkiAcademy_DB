@@ -263,9 +263,12 @@ export function buildLinkGuestBookingAuditPlan(input: {
   bookingRevision: number;
   participantRevision: number;
   managementRevision: number;
+  paymentId: PaymentId;
+  paymentRevision: number;
 }): AuditOutboxStagingPlan {
   const bookingRef = canonicalReference('booking', input.bookingId);
   const participantRef = canonicalReference('participant', input.participantId);
+  const paymentRef = canonicalReference('payment', input.paymentId);
   return {
     activityLog: {
       reason: {
@@ -277,12 +280,17 @@ export function buildLinkGuestBookingAuditPlan(input: {
         id: input.bookingId,
         subjectKey: `booking:${input.bookingId}`,
       },
-      affectedSubjects: [bookingRef, participantRef],
+      affectedSubjects: [bookingRef, participantRef, paymentRef],
       effects: [
         {
           kind: 'participant_access_changed',
           subjectRef: participantRef,
           summary: 'Guest booking participant linked to account',
+        },
+        {
+          kind: 'payment_association_changed',
+          subjectRef: paymentRef,
+          summary: 'Payment payer account associated on guest booking link',
         },
         {
           kind: 'outbox_obligation_created',
@@ -300,6 +308,10 @@ export function buildLinkGuestBookingAuditPlan(input: {
         {
           subject: participantRef,
           revision: AggregateRevisionSchema.parse(input.participantRevision),
+        },
+        {
+          subject: paymentRef,
+          revision: AggregateRevisionSchema.parse(input.paymentRevision),
         },
       ],
     },
@@ -323,11 +335,14 @@ export function buildLinkGuestBookingAsAdministratorAuditPlan(input: {
   targetAccountId: AccountId;
   targetParticipantId: ParticipantId;
   bookingRevision: number;
+  paymentId: PaymentId;
+  paymentRevision: number;
   reasonExplanation: string;
 }): AuditOutboxStagingPlan {
   const bookingRef = canonicalReference('booking', input.bookingId);
   const participantRef = canonicalReference('participant', input.targetParticipantId);
   const accountRef = canonicalReference('account', input.targetAccountId);
+  const paymentRef = canonicalReference('payment', input.paymentId);
   return {
     activityLog: {
       reason: {
@@ -340,7 +355,7 @@ export function buildLinkGuestBookingAsAdministratorAuditPlan(input: {
         id: input.bookingId,
         subjectKey: `booking:${input.bookingId}`,
       },
-      affectedSubjects: [bookingRef, participantRef, accountRef],
+      affectedSubjects: [bookingRef, participantRef, accountRef, paymentRef],
       effects: [
         {
           kind: 'booking_party_changed',
@@ -351,6 +366,11 @@ export function buildLinkGuestBookingAsAdministratorAuditPlan(input: {
           kind: 'resource_claim_changed',
           subjectRef: bookingRef,
           summary: 'Participant occurrence claim migrated for guest identity link',
+        },
+        {
+          kind: 'payment_association_changed',
+          subjectRef: paymentRef,
+          summary: 'Payment payer account associated on admin guest booking link',
         },
         {
           kind: 'outbox_obligation_created',
@@ -364,6 +384,10 @@ export function buildLinkGuestBookingAsAdministratorAuditPlan(input: {
         {
           subject: bookingRef,
           revision: AggregateRevisionSchema.parse(input.bookingRevision),
+        },
+        {
+          subject: paymentRef,
+          revision: AggregateRevisionSchema.parse(input.paymentRevision),
         },
       ],
     },

@@ -702,6 +702,10 @@ describe('linked guest-origin reschedule authorization', () => {
       ...linkedDocs[`payments/${guestPaymentId}`],
       payerAccountId: unrelatedAccountId,
     };
+    linkedDocs[`bookings/${guestBookingId}`] = {
+      ...linkedDocs[`bookings/${guestBookingId}`],
+      payerAccountId: unrelatedAccountId,
+    };
 
     const executor = createInMemoryCanonicalTransactionExecutor(linkedDocs);
     const startsAt = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence

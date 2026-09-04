@@ -4,6 +4,12 @@ import { subscribeGuestWalletBalance } from '../../../../features/admin/adminSer
 import { logger } from '../../../../shared';
 import { useAdminFinanceTranslations } from './useAdminFinanceTranslations';
 
+/**
+ * Legacy school guest cash till (`settings/guest_wallet.balanceUSD`).
+ * Unmounted from Admin Finance tab after T32.9A.4.2 Guest Funds parity.
+ * Component retained as reference until T32.9B cleanup — do not remount as
+ * a canonical Wallet surface.
+ */
 export const GuestWalletPanel: React.FC = () => {
   const { t } = useAdminFinanceTranslations();
   const { formatPrice } = useCurrency();

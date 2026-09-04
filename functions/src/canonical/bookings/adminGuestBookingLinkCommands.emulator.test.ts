@@ -231,7 +231,7 @@ describe.skipIf(!runsOnFirestoreEmulator)(
     }, 30_000);
 
     it(
-      'replaces the guest occurrence, migrates claims, and leaves Payment and the guest Participant untouched',
+      'replaces the guest occurrence, migrates claims, and associates Payment payer without funding',
       async () => {
         const commands = createCommands();
         expect((await commands.execute(guestCreateEnvelope())).status).toBe('success');
@@ -270,7 +270,11 @@ describe.skipIf(!runsOnFirestoreEmulator)(
           price: paymentBefore?.price,
           paidAmount: paymentBefore?.paidAmount,
           paymentStatus: paymentBefore?.paymentStatus,
+          payerAccountId: targetAccountId,
         });
+        expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.payerAccountId).toBe(
+          targetAccountId
+        );
         expect(
           (await firestore.doc(`resource_claims/${guestClaimId}`).get()).data()?.lifecycle.status
         ).toBe('released');

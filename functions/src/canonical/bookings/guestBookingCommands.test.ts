@@ -23,7 +23,10 @@ import {
   timestampFromDate,
   WalletSchema,
   systemCommandActor,
+  resolveRefundDestination,
+  type Booking,
   type CommandEnvelope,
+  type Payment,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
@@ -752,9 +755,33 @@ describe('guest pending cancellation command', () => {
 
 describe('link_guest_booking_to_account command', () => {
   it('links unmanaged guest participant without rewriting booking origin', async () => {
-    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        [`users/${linkAccountId}/wallet/state`]: WalletSchema.parse({
+          accountId: linkAccountId,
+          currency: 'KZT',
+          balance: 18_000,
+          revision: 1,
+          eventRevision: 1,
+          createdAt: decidedAt,
+          updatedAt: decidedAt,
+        }),
+      })
+    );
     const commands = runCommands(executor);
     await commands.execute(guestCreateEnvelope());
+    const before = executor.snapshot();
+    const bookingBefore = before.docs.get(`bookings/${bookingId}`)?.data;
+    const paymentBefore = before.docs.get(`payments/${paymentId}`)?.data;
+    expect(bookingBefore?.payerAccountId).toBeUndefined();
+    expect(paymentBefore?.payerAccountId).toBeUndefined();
+    expect(
+      resolveRefundDestination({
+        booking: bookingBefore as unknown as Booking,
+        payment: paymentBefore as unknown as Payment,
+      })
+    ).toBe('manual_external');
+
     const result = await commands.execute({
       kind: 'link_guest_booking_to_account',
       context: {
@@ -769,12 +796,32 @@ describe('link_guest_booking_to_account command', () => {
     });
     expect(result.status).toBe('success');
     const snapshot = executor.snapshot();
+    const booking = snapshot.docs.get(`bookings/${bookingId}`)?.data;
+    const payment = snapshot.docs.get(`payments/${paymentId}`)?.data;
     expect(snapshot.docs.get(`participants/${participantId}`)?.data.management.kind).toBe('managed');
-    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.attribution.bookingOrigin).toBe('guest');
-    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.attribution.bookedBy).toEqual({
+    expect(booking?.attribution.bookingOrigin).toBe('guest');
+    expect(booking?.attribution.bookedBy).toEqual({
       kind: 'guest',
       guestSubjectId,
     });
+    expect(booking?.lifecycle.status).toBe('pending');
+    expect(booking?.payerAccountId).toBe(linkAccountId);
+    expect(payment?.payerAccountId).toBe(linkAccountId);
+    expect(booking?.payerAccountId).toBe(payment?.payerAccountId);
+    expect(payment?.paidAmount).toBe(paymentBefore?.paidAmount);
+    expect(payment?.outstandingAmount).toBe(paymentBefore?.outstandingAmount);
+    expect(payment?.paymentStatus).toBe(paymentBefore?.paymentStatus);
+    expect(payment?.eventRevision).toBe(paymentBefore?.eventRevision);
+    expect(
+      resolveRefundDestination({
+        booking: booking as unknown as Booking,
+        payment: payment as unknown as Payment,
+      })
+    ).toBe('wallet');
+    expect(snapshot.docs.get(`users/${linkAccountId}/wallet/state`)?.data.balance).toBe(18_000);
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('monetary_events/'))
+    ).toEqual([]);
   });
 });
 

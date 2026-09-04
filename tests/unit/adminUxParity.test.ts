@@ -12,7 +12,6 @@ import {
   settledRevenueKztFromMonetaryEffects,
 } from '@ski-academy/shared-domain';
 import { matchesSchoolMovementFilters } from '../../src/features/admin/finance/CanonicalSchoolMovementPanel';
-import { guestFinanceRowsFromReadModels } from '../../src/features/admin/finance/adminGuestFinanceRows';
 import {
   mapPlannerCourses,
   mapPlannerOccupancyToBookings,
@@ -61,7 +60,10 @@ describe('T32.9A Admin UX parity behavior', () => {
     const source = readRepoFile('src/features/admin/components/AdminPanel.tsx');
     expect(source).toContain('scheduleBoardTitle');
     expect(source).toContain('bookingsLogTitle');
-    expect(source).toContain('guestWalletPanelTitle');
+    expect(source).not.toContain('guestWalletPanelTitle');
+    expect(source).not.toContain('GuestWalletPanel');
+    expect(source).toContain('canonicalGuestFinanceTitle');
+    expect(source).toContain('AdminGuestFinanceHost');
     expect(source).toContain('cashFlowTitle');
     expect(source).toContain('clientsManagerTitle');
     expect(source).toContain('coachesDirectoryTitle');
@@ -71,6 +73,7 @@ describe('T32.9A Admin UX parity behavior', () => {
     expect(source).toContain('AdminActiveBookingMonitor');
     expect(source).not.toContain('addBookingDirect');
     expect(source).not.toContain('onAddUser');
+    expect(source.match(/<CanonicalFinancePanel/g)?.length).toBe(1);
   });
 
   it('filters Active Booking Monitor by status, instructor, guest, type, and search', () => {
@@ -394,53 +397,40 @@ describe('T32.9A Admin UX parity behavior', () => {
     expect(readRepoFile('src/app/routes/AdminRouteContainer.tsx')).not.toContain('onAddBooking');
   });
 
-  it('keeps linked guest payments in guest finance and binds account/payment query keys', () => {
-    const lessonRm = {
-      bookingId: 'booking_guest_1',
-      bookingOrigin: 'guest',
-      lifecycle: { status: 'confirmed' },
-      occurrence: {
-        startsAt: { seconds: 1_788_249_600, nanoseconds: 0 },
-        timeZone: 'Asia/Almaty',
-      },
-      participants: [{ participantId: 'part_1', displayName: 'Ivan Guest' }],
-      admin: {
-        participants: [{ participantId: 'part_1', displayName: 'Ivan Guest' }],
-        payer: { accountId: 'account_linked_1' },
-        payment: { paymentId: 'payment_guest_1', price: 18000 },
-      },
-    } as unknown as LessonBookingReadModel;
-    const linkedEnrollment = {
-      enrollmentId: 'enroll_linked_1',
-      guestState: 'linked',
-      lifecycleStatus: 'confirmed',
-      participant: { displayName: 'Child Guest' },
-      payer: { accountId: 'account_linked_2' },
-      payment: { paymentId: 'payment_enroll_1', price: 90000 },
-      course: { title: 'Kids Camp' },
-      updatedAt: { seconds: 1_788_249_600, nanoseconds: 0 },
-    } as unknown as AdminCourseEnrollmentRosterItem;
-    const rows = guestFinanceRowsFromReadModels([lessonRm], [linkedEnrollment]);
-    expect(rows).toHaveLength(2);
-    expect(rows[0]?.identityState).toBe('linked_guest');
-    expect(rows[0]?.payerAccountId).toBe('account_linked_1');
-    expect(rows[0]?.paymentId).toBe('payment_guest_1');
-    expect(rows[1]?.identityState).toBe('linked_guest');
+  it('keeps guest funds discovery on canonical finance scope without embedded finance mutations', () => {
     const guestPanel = readRepoFile('src/features/admin/finance/CanonicalGuestFinancePanel.tsx');
-    expect(guestPanel).toContain('ADMIN_FINANCE_ACCOUNT_QUERY_KEY');
+    const guestHost = readRepoFile('src/features/admin/finance/AdminGuestFinanceHost.tsx');
+    const adminPanel = readRepoFile('src/features/admin/components/AdminPanel.tsx');
+    expect(guestHost).toContain('CanonicalGuestFinancePanel');
     expect(guestPanel).toContain('ADMIN_FINANCE_PAYMENT_QUERY_KEY');
-    expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).toContain(
-      'openEnrollmentAttendance'
-    );
-    expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).toContain(
-      'openCancellationDetail'
-    );
-    expect(readRepoFile('src/features/admin/components/users/ClientsManager.tsx')).toContain(
-      'accountActivateDeactivate'
-    );
-    expect(readRepoFile('src/features/admin/components/users/ClientsManager.tsx')).toContain(
-      'onAddUser ?'
-    );
+    expect(guestPanel).toContain('ADMIN_FINANCE_ACCOUNT_QUERY_KEY');
+    expect(guestPanel).toContain('ADMIN_LESSON_BOOKING_QUERY_KEY');
+    expect(guestPanel).toContain('ADMIN_COURSE_ENROLLMENT_QUERY_KEY');
+    expect(guestPanel).toContain('canonicalGuestFundsPrice');
+    expect(guestPanel).toContain('canonicalGuestFundsPaid');
+    expect(guestPanel).toContain('canonicalGuestFundsOutstanding');
+    expect(guestPanel).not.toContain('CanonicalFinancePanel');
+    expect(guestPanel).not.toContain('record_manual_wallet_funding');
+    expect(guestPanel).not.toContain('record_financial_correction');
+    expect(guestPanel).not.toContain('balanceUSD');
+    expect(guestPanel).not.toContain('lifecycle.status');
+    expect(
+      readRepoFile('src/features/admin/finance/useAdminGuestFundsReadModel.ts')
+    ).toContain("scope: 'admin_guest_funds'");
+    expect(adminPanel).not.toContain('GuestWalletPanel');
+    expect(adminPanel).toContain('AdminGuestFinanceHost');
+    expect(
+      readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')
+    ).toContain('openEnrollmentAttendance');
+    expect(
+      readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')
+    ).toContain('openCancellationDetail');
+    expect(
+      readRepoFile('src/features/admin/components/users/ClientsManager.tsx')
+    ).toContain('accountActivateDeactivate');
+    expect(
+      readRepoFile('src/features/admin/components/users/ClientsManager.tsx')
+    ).toContain('onAddUser ?');
   });
 
   it('blocks instructor deactivation on course-day occupancy as well as active lessons', () => {

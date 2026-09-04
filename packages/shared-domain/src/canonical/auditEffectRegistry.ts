@@ -25,10 +25,15 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'course_enrollment_lifecycle_changed',
     'outbox_obligation_created',
   ],
-  link_guest_booking_to_account: ['participant_access_changed', 'outbox_obligation_created'],
+  link_guest_booking_to_account: [
+    'participant_access_changed',
+    'payment_association_changed',
+    'outbox_obligation_created',
+  ],
   link_guest_booking_to_account_as_administrator: [
     'booking_party_changed',
     'resource_claim_changed',
+    'payment_association_changed',
     'outbox_obligation_created',
   ],
   request_booking_cancellation: [

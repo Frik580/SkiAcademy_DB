@@ -3,6 +3,8 @@ import {
   AggregateRevisionSchema,
   BookingSchema,
   CanonicalCommandError,
+  PaymentSchema,
+  assertBookingPaymentIdentity,
   attendanceIdFromBookingIdentity,
   commandSuccessResult,
   derivePartyKindFromCount,
@@ -18,6 +20,7 @@ import {
   type Participant,
   type ParticipantBlock,
   type ParticipantManagement,
+  type Payment,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
 import {
@@ -51,6 +54,12 @@ import {
   participantManagementPath,
   participantPath,
 } from '../participantAccess/participantAccessStore';
+import {
+  FINANCE_PLANNING_ESTIMATES,
+  parsePayment,
+  paymentPath,
+  toFirestoreWritePayload as financeToFirestoreWritePayload,
+} from '../finance/financeStore';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -106,10 +115,13 @@ function linkGuestBookingToAccountAsAdministratorHandler(
   const targetParticipantDocumentPath = participantPath(envelope.intent.targetParticipantId);
 
   let booking!: Booking;
+  let payment!: Payment;
+  let paymentAssociationChanged = false;
   let sourceGuestParticipantId!: Participant['participantId'];
   let targetParticipant!: Participant;
   let targetManagement!: ParticipantManagement;
   let plannedBookingRevision = AggregateRevisionSchema.parse(1);
+  let plannedPaymentRevision = AggregateRevisionSchema.parse(1);
   let acquireClaimPlan!: Awaited<ReturnType<typeof planAcquireParticipantBookingClaim>>;
   let releaseClaimPlan!: Awaited<ReturnType<typeof planReleaseParticipantBookingClaim>>;
 
@@ -149,6 +161,31 @@ function linkGuestBookingToAccountAsAdministratorHandler(
           });
         }
         booking = parsedBooking;
+
+        const paymentDocumentPath = paymentPath(booking.paymentId);
+        const paymentRead = await session.tx.get({ path: paymentDocumentPath });
+        session.plan.planRead({ path: paymentDocumentPath, category: 'payment_wallet' });
+        const parsedPayment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
+        if (!parsedPayment) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { field: 'paymentId', reason: 'conflict' },
+          });
+        }
+        assertBookingPaymentIdentity(envelope.context.correlationId, booking, parsedPayment);
+        payment = parsedPayment;
+        if (
+          (booking.payerAccountId !== undefined &&
+            booking.payerAccountId !== envelope.intent.targetAccountId) ||
+          (payment.payerAccountId !== undefined &&
+            payment.payerAccountId !== envelope.intent.targetAccountId)
+        ) {
+          throw new CanonicalCommandError('forbidden', {
+            correlationId: envelope.context.correlationId,
+            details: { resourceKind: 'booking', reason: 'conflict' },
+          });
+        }
+        paymentAssociationChanged = payment.payerAccountId !== envelope.intent.targetAccountId;
 
         const partyParticipants: Participant[] = [];
         for (const participantId of booking.party.participantIds) {
@@ -323,12 +360,23 @@ function linkGuestBookingToAccountAsAdministratorHandler(
         });
 
         plannedBookingRevision = nextAggregateRevision(booking.revision);
+        plannedPaymentRevision = paymentAssociationChanged
+          ? nextAggregateRevision(payment.revision)
+          : payment.revision;
         session.plan.planMutation({
           path: bookingDocumentPath,
           kind: 'update',
           category: 'aggregate',
           estimatedPayloadBytes: BOOKING_PLANNING_ESTIMATES.bookingBytes,
         });
+        if (paymentAssociationChanged) {
+          session.plan.planMutation({
+            path: paymentPath(booking.paymentId),
+            kind: 'update',
+            category: 'payment_wallet',
+            estimatedPayloadBytes: FINANCE_PLANNING_ESTIMATES.paymentBytes,
+          });
+        }
       },
       planAuditOutbox: async () =>
         buildLinkGuestBookingAsAdministratorAuditPlan({
@@ -337,6 +385,8 @@ function linkGuestBookingToAccountAsAdministratorHandler(
           targetAccountId: envelope.intent.targetAccountId,
           targetParticipantId: envelope.intent.targetParticipantId,
           bookingRevision: plannedBookingRevision,
+          paymentId: booking.paymentId,
+          paymentRevision: plannedPaymentRevision,
           reasonExplanation: envelope.intent.reasonExplanation,
         }),
       execute: async (session, context) => {
@@ -361,6 +411,7 @@ function linkGuestBookingToAccountAsAdministratorHandler(
                 : { frozenAt: booking.occurrence.serviceParty.frozenAt }),
             },
           },
+          payerAccountId: envelope.intent.targetAccountId,
           revision: plannedBookingRevision,
           updatedAt: decidedAt,
           audit: {
@@ -374,6 +425,19 @@ function linkGuestBookingToAccountAsAdministratorHandler(
           { path: bookingDocumentPath },
           toFirestoreWritePayload(updatedBooking as Record<string, unknown>)
         );
+
+        if (paymentAssociationChanged) {
+          const updatedPayment = PaymentSchema.parse({
+            ...payment,
+            payerAccountId: envelope.intent.targetAccountId,
+            revision: plannedPaymentRevision,
+            updatedAt: decidedAt,
+          });
+          session.tx.update(
+            { path: paymentPath(booking.paymentId) },
+            financeToFirestoreWritePayload(updatedPayment as Record<string, unknown>)
+          );
+        }
 
         const claimMetadata = {
           correlationId: metadata.correlationId,

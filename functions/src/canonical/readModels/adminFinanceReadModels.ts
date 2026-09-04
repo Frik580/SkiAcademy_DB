@@ -30,6 +30,10 @@ import {
   parseWallet,
 } from '../finance/financeStore';
 import { buildAdminIssueDetail } from './adminIssueReadModels';
+import {
+  InvalidAdminGuestFundsReadCursorError,
+  queryAdminGuestFundsReadModel,
+} from './adminGuestFundsReadModels';
 
 interface AdminFinanceEventCursor {
   readonly scope: QueryAdminFinanceReadModelsInput['scope'];
@@ -96,7 +100,7 @@ function safeAccountIdentity(
 
 type AdminFinanceEventPageInput = Exclude<
   QueryAdminFinanceReadModelsInput,
-  { scope: 'admin_financial_overview' }
+  { scope: 'admin_financial_overview' } | { scope: 'admin_guest_funds' }
 >;
 
 function schoolMovementWindow(
@@ -606,6 +610,18 @@ export async function queryAdminFinanceReadModels(
       scope: input.scope,
       item: await queryFinancialOverviewReadModel(firestore, input),
     };
+  } else if (input.scope === 'admin_guest_funds') {
+    try {
+      result = {
+        scope: input.scope,
+        item: await queryAdminGuestFundsReadModel(firestore, input),
+      };
+    } catch (error) {
+      if (error instanceof InvalidAdminGuestFundsReadCursorError) {
+        throw new InvalidAdminFinanceReadCursorError();
+      }
+      throw error;
+    }
   } else {
     const item = await queryPaymentDetailReadModel(firestore, actor, input);
     result = {

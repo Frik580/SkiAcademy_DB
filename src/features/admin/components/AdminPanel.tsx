@@ -9,17 +9,12 @@ import { AchievementsConfig } from '../../../domain/achievements';
 import { AdminCollapsibleSection } from './settings';
 import { TableSkeleton } from '../../../ui/Skeleton';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
-import { ADMIN_COURSE_ENROLLMENT_QUERY_KEY, ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY, ADMIN_LESSON_BOOKING_QUERY_KEY, ADMIN_PLANNER_DATE_QUERY_KEY, ADMIN_PLANNER_FOCUS_QUERY_KEY, ADMIN_TAB_QUERY_KEY, parseAdminTabId, type AdminTabId } from '../adminNavigation';
+import { ADMIN_COURSE_ENROLLMENT_QUERY_KEY, ADMIN_FINANCE_ACCOUNT_QUERY_KEY, ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY, ADMIN_FINANCE_PAYMENT_QUERY_KEY, ADMIN_LESSON_BOOKING_QUERY_KEY, ADMIN_PLANNER_DATE_QUERY_KEY, ADMIN_PLANNER_FOCUS_QUERY_KEY, ADMIN_TAB_QUERY_KEY, parseAdminTabId, type AdminTabId } from '../adminNavigation';
 import { AdminTabNav } from './AdminTabNav';
 
 const CanonicalFinancePanel = lazy(() =>
   import('./finance').then((m) => ({
     default: m.CanonicalFinancePanel,
-  }))
-);
-const GuestWalletPanel = lazy(() =>
-  import('./finance').then((m) => ({
-    default: m.GuestWalletPanel,
   }))
 );
 const CanonicalSchoolMovementPanel = lazy(() =>
@@ -267,18 +262,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {activeTab === 'finance' && (
         <div className="space-y-6">
-          <Suspense fallback={<SectionLoadingFallback label={t('guestWalletPanelTitle')} />}>
-            <AdminCollapsibleSection
-              id="guest_wallet"
-              title={t('guestWalletPanelTitle')}
-              subtitle={t('guestWalletPanelSub')}
-              icon={Wallet}
-              defaultOpen
-            >
-              <GuestWalletPanel />
-            </AdminCollapsibleSection>
-          </Suspense>
-
           <Suspense fallback={<SectionLoadingFallback label={t('canonicalGuestFinanceTitle')} />}>
             <AdminCollapsibleSection
               id="canonical_guest_finance"
@@ -287,7 +270,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               icon={Wallet}
               defaultOpen
             >
-              <AdminGuestFinanceHost
+              <AdminGuestFinanceHost />
+            </AdminCollapsibleSection>
+          </Suspense>
+
+          <Suspense fallback={<SectionLoadingFallback label={t('adminFinanceCanonicalTitle')} />}>
+            <AdminCollapsibleSection
+              id="canonical_finance"
+              title={t('adminFinanceCanonicalTitle')}
+              subtitle={t('adminFinanceCanonicalSub')}
+              icon={Wallet}
+              defaultOpen={false}
+              forceOpen={Boolean(
+                searchParams.get(ADMIN_FINANCE_PAYMENT_QUERY_KEY) ||
+                  searchParams.get(ADMIN_FINANCE_ACCOUNT_QUERY_KEY)
+              )}
+              forceOpenToken={
+                searchParams.get(ADMIN_FINANCE_PAYMENT_QUERY_KEY) ??
+                searchParams.get(ADMIN_FINANCE_ACCOUNT_QUERY_KEY) ??
+                undefined
+              }
+            >
+              <CanonicalFinancePanel
                 adminAccountId={currentUserProfile.uid}
                 accounts={usersList}
                 onRequestConfirm={onRequestConfirm}
@@ -305,22 +309,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               forceOpen={Boolean(searchParams.get(ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY))}
             >
               <CanonicalSchoolMovementPanel />
-            </AdminCollapsibleSection>
-          </Suspense>
-
-          <Suspense fallback={<SectionLoadingFallback label={t('adminFinanceCanonicalTitle')} />}>
-            <AdminCollapsibleSection
-              id="canonical_finance"
-              title={t('adminFinanceCanonicalTitle')}
-              subtitle={t('adminFinanceCanonicalSub')}
-              icon={Wallet}
-              defaultOpen={false}
-            >
-              <CanonicalFinancePanel
-                adminAccountId={currentUserProfile.uid}
-                accounts={usersList}
-                onRequestConfirm={onRequestConfirm}
-              />
             </AdminCollapsibleSection>
           </Suspense>
         </div>

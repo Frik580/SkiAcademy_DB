@@ -146,12 +146,18 @@ export async function queryAdminFinanceReadModels(
           : 'school'
         : input.scope === 'admin_financial_overview'
           ? `${input.period}:${input.localDate}:${input.timeZone}`
-          : input.paymentId;
+          : input.scope === 'admin_guest_funds'
+            ? `${input.filter ?? 'all'}`
+            : input.paymentId;
   const identityHash = canonicalDeterministicHash([
     'read:admin_finance:v1',
     input.scope,
     target,
-    input.scope === 'admin_financial_overview' ? 'overview' : (input.cursor ?? 'start'),
+    input.scope === 'admin_financial_overview'
+      ? 'overview'
+      : input.scope === 'admin_guest_funds'
+        ? (input.cursor ?? 'start')
+        : (input.cursor ?? 'start'),
   ]);
   const idempotencyKey = `read:admin_finance:${identityHash}`;
   return callFunction<QueryAdminFinanceReadModelsInput, QueryAdminFinanceReadModelsResult>(

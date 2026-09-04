@@ -10,6 +10,7 @@ import {
   InstructorIdSchema,
   OccurrenceIdSchema,
   ParticipantIdSchema,
+  WalletSchema,
   activityLogIdFromCommandId,
   attendanceIdFromBookingIdentity,
   accountCommandActor,
@@ -19,8 +20,11 @@ import {
   participantManagementIdFromGuestLink,
   paymentIdFromBookingId,
   resolveCommandIdempotencyIdentity,
+  resolveRefundDestination,
   timestampFromDate,
+  type Booking,
   type CommandEnvelope,
+  type Payment,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
@@ -154,6 +158,15 @@ function baseFixture(extra: Record<string, unknown> = {}) {
     [`participant_management/${dependentManagementId}`]: dependent.management,
     [`users/${adminAccountId}`]: seedAccount(adminAccountId),
     [`users/${targetAccountId}`]: seedAccount(targetAccountId),
+    [`users/${targetAccountId}/wallet/state`]: WalletSchema.parse({
+      accountId: targetAccountId,
+      currency: 'KZT',
+      balance: 40_000,
+      revision: 1,
+      eventRevision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+    }),
     ...extra,
   };
 }
@@ -240,6 +253,29 @@ async function createGuestBooking(
   return executor;
 }
 
+function paymentAccounting(payment: Record<string, unknown> | undefined) {
+  return {
+    originalPrice: payment?.originalPrice,
+    price: payment?.price,
+    paidAmount: payment?.paidAmount,
+    refundedAmount: payment?.refundedAmount,
+    retainedAmount: payment?.retainedAmount,
+    settledAmount: payment?.settledAmount,
+    writtenOffAmount: payment?.writtenOffAmount,
+    outstandingAmount: payment?.outstandingAmount,
+    paymentStatus: payment?.paymentStatus,
+    eventRevision: payment?.eventRevision,
+  };
+}
+
+function monetaryEventDocs(
+  snapshot: ReturnType<ReturnType<typeof createInMemoryCanonicalTransactionExecutor>['snapshot']>
+) {
+  return [...snapshot.docs.entries()]
+    .filter(([path]) => path.startsWith('monetary_events/'))
+    .map(([path, document]) => [path, document.data] as const);
+}
+
 describe('link_guest_booking_to_account_as_administrator', () => {
   it('replaces the unique guest occurrence with an existing managed Participant and migrates claims atomically', async () => {
     const executor = await createGuestBooking();
@@ -260,30 +296,45 @@ describe('link_guest_booking_to_account_as_administrator', () => {
       participantId: managedParticipantId,
     }).participantClaimId;
 
+    expect(
+      resolveRefundDestination({
+        booking: bookingBefore as unknown as Booking,
+        payment: paymentBefore as unknown as Payment,
+      })
+    ).toBe('manual_external');
+
     const envelope = adminLinkEnvelope();
     const result = await runCommands(executor).execute(envelope);
     expect(result.status).toBe('success');
 
     const snapshot = executor.snapshot();
     const booking = snapshot.docs.get(`bookings/${bookingId}`)?.data;
+    const payment = snapshot.docs.get(`payments/${paymentId}`)?.data;
     expect(booking?.party.participantIds).toEqual([managedParticipantId]);
     expect(booking?.occurrence.serviceParty.participantIds).toEqual([managedParticipantId]);
     expect(booking?.occurrence.serviceParty).not.toHaveProperty('frozenAt');
     expect(booking?.attribution).toEqual(bookingBefore.attribution);
     expect(booking?.lifecycle).toEqual(bookingBefore.lifecycle);
+    expect(booking?.lifecycle.status).toBe('pending');
     expect(booking?.paymentId).toBe(paymentId);
+    expect(booking?.payerAccountId).toBe(targetAccountId);
     expect(snapshot.docs.get(`participants/${guestParticipantId}`)?.data.management).toEqual({
       kind: 'unmanaged_guest',
     });
     expect(snapshot.docs.get(`participants/${managedParticipantId}`)?.data.management.kind).toBe(
       'managed'
     );
-    expect(snapshot.docs.get(`payments/${paymentId}`)?.data).toMatchObject({
-      price: paymentBefore.price,
-      paidAmount: paymentBefore.paidAmount,
-      paymentStatus: paymentBefore.paymentStatus,
-    });
-    expect(snapshot.docs.get(`payments/${paymentId}`)?.data).not.toHaveProperty('payerAccountId');
+    expect(paymentAccounting(payment)).toEqual(paymentAccounting(paymentBefore));
+    expect(payment?.payerAccountId).toBe(targetAccountId);
+    expect(booking?.payerAccountId).toBe(payment?.payerAccountId);
+    expect(
+      resolveRefundDestination({
+        booking: booking as unknown as Booking,
+        payment: payment as unknown as Payment,
+      })
+    ).toBe('wallet');
+    expect(snapshot.docs.get(`users/${targetAccountId}/wallet/state`)?.data.balance).toBe(40_000);
+    expect(monetaryEventDocs(snapshot)).toEqual([]);
     expect(snapshot.docs.get(`resource_claims/${guestClaimId}`)?.data.lifecycle.status).toBe(
       'released'
     );
@@ -327,9 +378,99 @@ describe('link_guest_booking_to_account_as_administrator', () => {
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.party.participantIds).toEqual([
       dependentParticipantId,
     ]);
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.payerAccountId).toBe(targetAccountId);
+    expect(snapshot.docs.get(`payments/${paymentId}`)?.data.payerAccountId).toBe(targetAccountId);
     expect(
       [...snapshot.docs.keys()].filter((path) => path.startsWith('participant_management/')).length
     ).toBe(2);
+  });
+
+  it('associates the target Account as future refund destination without rewriting funded events', async () => {
+    const executor = await createGuestBooking();
+    const commands = runCommands(executor);
+    const partial = await commands.execute({
+      kind: 'record_provider_payment_event',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'admin-guest-booking-link-partial-fund',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        paymentId,
+        amount: 5_000,
+        sourceKind: 'manual_external',
+        manualReference: 'admin-guest-link-partial-ref',
+      },
+    });
+    expect(partial.status).toBe('success');
+    const beforeLink = executor.snapshot();
+    expect(beforeLink.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('pending');
+    const eventsBefore = monetaryEventDocs(beforeLink);
+    expect(eventsBefore.length).toBeGreaterThan(0);
+    const eventSnapshots = eventsBefore.map(([path, data]) => [
+      path,
+      {
+        payerAccountIdAtEvent: data.payerAccountIdAtEvent,
+        sourceKind: data.sourceKind,
+        paymentEffect: data.paymentEffect,
+        walletBalanceDelta: data.walletBalanceDelta,
+        eventKind: data.eventKind,
+      },
+    ]);
+
+    const result = await commands.execute(
+      adminLinkEnvelope({
+        context: {
+          actor: accountCommandActor(adminAccountId),
+          exercisedCapability: 'administrator',
+          idempotencyKey: 'admin-guest-booking-link-after-partial',
+          correlationId,
+          source: 'admin_callable',
+          expectedRevision: AggregateRevisionSchema.parse(1),
+        },
+      })
+    );
+    expect(result.status).toBe('success');
+    const after = executor.snapshot();
+    expect(after.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('pending');
+    expect(after.docs.get(`payments/${paymentId}`)?.data.paidAmount).toBe(5_000);
+    expect(after.docs.get(`payments/${paymentId}`)?.data.payerAccountId).toBe(targetAccountId);
+    expect(
+      monetaryEventDocs(after).map(([path, data]) => [
+        path,
+        {
+          payerAccountIdAtEvent: data.payerAccountIdAtEvent,
+          sourceKind: data.sourceKind,
+          paymentEffect: data.paymentEffect,
+          walletBalanceDelta: data.walletBalanceDelta,
+          eventKind: data.eventKind,
+        },
+      ])
+    ).toEqual(eventSnapshots);
+  });
+
+  it('rejects a conflicting Payment payerAccountId instead of transferring funds', async () => {
+    const created = await createGuestBooking();
+    const docs = cloneDocs(created.snapshot());
+    docs[`payments/${paymentId}`] = {
+      ...docs[`payments/${paymentId}`],
+      payerAccountId: adminAccountId,
+    };
+    const executor = createInMemoryCanonicalTransactionExecutor(docs);
+    const result = await runCommands(executor).execute(adminLinkEnvelope());
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data.payerAccountId).toBe(
+      adminAccountId
+    );
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.party.participantIds).toEqual(
+      [guestParticipantId]
+    );
   });
 
   it('replays the same delivery exactly once', async () => {

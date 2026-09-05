@@ -1,4 +1,5 @@
 import {
+  ADMIN_IDENTITY_READ_MODEL_PAGE_SIZE_DEFAULT,
   ADMIN_IDENTITY_READ_MODEL_PAGE_SIZE_MAX,
   AccountIdSchema,
   type AccountId,
@@ -6,12 +7,17 @@ import {
 import { queryAdminIdentityReadModels } from '../../../lib/canonical/canonicalReadModelClient';
 
 export const ACCOUNT_DIRECTORY_SEARCH_DEBOUNCE_MS = 1000;
-const ACCOUNT_DIRECTORY_MAX_PAGES = 100;
 
 export interface AccountDirectoryOption {
   readonly accountId: AccountId;
   readonly displayName: string;
   readonly email?: string;
+}
+
+export interface AccountDirectoryPage {
+  readonly items: readonly AccountDirectoryOption[];
+  readonly hasMore: boolean;
+  readonly nextCursor?: string;
 }
 
 export function isBookableAccountLifecycle(
@@ -51,9 +57,7 @@ export function mergeAccountDirectoryOptions(
       byId.set(item.accountId, {
         accountId: item.accountId,
         displayName: existing.displayName || item.displayName,
-        ...(existing.email || item.email
-          ? { email: existing.email ?? item.email }
-          : {}),
+        ...(existing.email || item.email ? { email: existing.email ?? item.email } : {}),
       });
     }
   }
@@ -90,26 +94,44 @@ export function visibleAccountDirectoryOptions(
   return selected ? [...filtered, selected] : filtered;
 }
 
-export async function loadActiveAccountDirectory(): Promise<AccountDirectoryOption[]> {
-  const collected: AccountDirectoryOption[] = [];
-  let cursor: string | undefined;
-  for (let page = 0; page < ACCOUNT_DIRECTORY_MAX_PAGES; page += 1) {
-    const result = await queryAdminIdentityReadModels({
-      scope: 'admin_account_list',
-      pageSize: ADMIN_IDENTITY_READ_MODEL_PAGE_SIZE_MAX,
-      ...(cursor ? { cursor } : {}),
-    });
-    if (result.scope !== 'admin_account_list') break;
-    for (const item of result.items) {
-      if (!isBookableAccountLifecycle(item.lifecycle)) continue;
-      collected.push({
-        accountId: item.accountId,
-        displayName: item.displayName,
-        ...(item.email ? { email: item.email } : {}),
-      });
-    }
-    if (!result.hasMore || !result.nextCursor || result.nextCursor === cursor) break;
-    cursor = result.nextCursor;
+function pageSizeOf(pageSize?: number): number {
+  if (pageSize === undefined) return ADMIN_IDENTITY_READ_MODEL_PAGE_SIZE_DEFAULT;
+  return Math.min(Math.max(1, pageSize), ADMIN_IDENTITY_READ_MODEL_PAGE_SIZE_MAX);
+}
+
+/**
+ * One bounded admin_account_list page. Never drains pages.
+ * Server search covers displayName prefix, exact email, phone, and accountId.
+ */
+export async function loadAccountDirectoryPage(
+  input: {
+    readonly search?: string;
+    readonly cursor?: string;
+    readonly pageSize?: number;
+  } = {}
+): Promise<AccountDirectoryPage> {
+  const search = input.search?.trim();
+  const result = await queryAdminIdentityReadModels({
+    scope: 'admin_account_list',
+    pageSize: pageSizeOf(input.pageSize),
+    ...(search ? { search } : {}),
+    ...(input.cursor ? { cursor: input.cursor } : {}),
+  });
+  if (result.scope !== 'admin_account_list') {
+    return { items: [], hasMore: false };
   }
-  return collected.sort((left, right) => left.displayName.localeCompare(right.displayName));
+  const items: AccountDirectoryOption[] = [];
+  for (const item of result.items) {
+    if (!isBookableAccountLifecycle(item.lifecycle)) continue;
+    items.push({
+      accountId: item.accountId,
+      displayName: item.displayName,
+      ...(item.email ? { email: item.email } : {}),
+    });
+  }
+  return {
+    items,
+    hasMore: result.hasMore,
+    ...(result.nextCursor ? { nextCursor: result.nextCursor } : {}),
+  };
 }

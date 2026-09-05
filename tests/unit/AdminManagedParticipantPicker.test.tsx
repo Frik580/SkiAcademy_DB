@@ -78,21 +78,23 @@ describe('AdminManagedParticipantPicker account search', () => {
     vi.useRealTimers();
   });
 
-  it('shows the full client list when the Account search is empty', async () => {
+  it('loads at most one first page when the Account search is empty', async () => {
     render(<AdminManagedParticipantPicker onChange={vi.fn()} />);
     await waitFor(() => {
       expect(screen.getByRole('option', { name: /Alice Snow/ })).toBeInTheDocument();
     });
     expect(screen.getByRole('option', { name: /Bob Carve/ })).toBeInTheDocument();
+    expect(queryAdminIdentityReadModels).toHaveBeenCalledTimes(1);
     expect(queryAdminIdentityReadModels).toHaveBeenCalledWith(
       expect.objectContaining({
         scope: 'admin_account_list',
       })
     );
     expect(queryAdminIdentityReadModels.mock.calls[0]?.[0]?.search).toBeUndefined();
+    expect(queryAdminIdentityReadModels.mock.calls[0]?.[0]?.cursor).toBeUndefined();
   });
 
-  it('loads the remaining Account pages so the empty field can show the full directory', async () => {
+  it('does not auto-drain remaining Account pages; Load more fetches exactly one next page', async () => {
     queryAdminIdentityReadModels
       .mockResolvedValueOnce({
         scope: 'admin_account_list',
@@ -107,9 +109,16 @@ describe('AdminManagedParticipantPicker account search', () => {
       });
     render(<AdminManagedParticipantPicker onChange={vi.fn()} />);
     await waitFor(() => {
+      expect(screen.getByRole('option', { name: /Alice Snow/ })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('option', { name: /Bob Carve/ })).not.toBeInTheDocument();
+    expect(queryAdminIdentityReadModels).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+    await waitFor(() => {
       expect(screen.getByRole('option', { name: /Bob Carve/ })).toBeInTheDocument();
     });
-    expect(screen.getByRole('option', { name: /Alice Snow/ })).toBeInTheDocument();
+    expect(queryAdminIdentityReadModels).toHaveBeenCalledTimes(2);
     expect(queryAdminIdentityReadModels).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
@@ -119,48 +128,100 @@ describe('AdminManagedParticipantPicker account search', () => {
     );
   });
 
-  it('applies ID/email/name filtering one second after typing stops', async () => {
+  it('runs one server search first page after debounce and drops stale rapid queries', async () => {
+    queryAdminIdentityReadModels
+      .mockResolvedValueOnce({
+        scope: 'admin_account_list',
+        items: [accountItem(aliceId, 'Alice Snow', 'alice@example.com')],
+        hasMore: false,
+      })
+      .mockResolvedValueOnce({
+        scope: 'admin_account_list',
+        items: [accountItem(bobId, 'Bob Carve', 'bob@school.test')],
+        hasMore: false,
+      });
+
     render(<AdminManagedParticipantPicker onChange={vi.fn()} />);
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: /Alice Snow/ })).toBeInTheDocument();
+      expect(queryAdminIdentityReadModels).toHaveBeenCalledTimes(1);
     });
-    vi.useFakeTimers();
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Account for participant selection' }), {
-      target: { value: 'bob@' },
-    });
-    expect(screen.getByRole('option', { name: /Alice Snow/ })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /Bob Carve/ })).toBeInTheDocument();
+    vi.useFakeTimers();
+    const searchBox = screen.getByRole('textbox', { name: 'Account for participant selection' });
+    fireEvent.change(searchBox, { target: { value: 'a' } });
+    fireEvent.change(searchBox, { target: { value: 'ab' } });
+    fireEvent.change(searchBox, { target: { value: 'bob' } });
 
     await act(async () => {
       vi.advanceTimersByTime(ACCOUNT_DIRECTORY_SEARCH_DEBOUNCE_MS - 1);
     });
-    expect(screen.getByRole('option', { name: /Alice Snow/ })).toBeInTheDocument();
+    expect(queryAdminIdentityReadModels).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       vi.advanceTimersByTime(1);
     });
-    expect(screen.queryByRole('option', { name: /Alice Snow/ })).not.toBeInTheDocument();
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect(queryAdminIdentityReadModels).toHaveBeenCalledTimes(2);
+    });
+    expect(queryAdminIdentityReadModels).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        scope: 'admin_account_list',
+        search: 'bob',
+      })
+    );
     expect(screen.getByRole('option', { name: /Bob Carve/ })).toBeInTheDocument();
-    expect(queryAdminIdentityReadModels).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('option', { name: /Alice Snow/ })).not.toBeInTheDocument();
   });
 
-  it('restores the full client list immediately when search is cleared', async () => {
+  it('restores the first directory page immediately when search is cleared', async () => {
+    queryAdminIdentityReadModels
+      .mockResolvedValueOnce({
+        scope: 'admin_account_list',
+        items: [
+          accountItem(aliceId, 'Alice Snow', 'alice@example.com'),
+          accountItem(bobId, 'Bob Carve', 'bob@school.test'),
+        ],
+        hasMore: false,
+      })
+      .mockResolvedValueOnce({
+        scope: 'admin_account_list',
+        items: [accountItem(bobId, 'Bob Carve', 'bob@school.test')],
+        hasMore: false,
+      })
+      .mockResolvedValueOnce({
+        scope: 'admin_account_list',
+        items: [
+          accountItem(aliceId, 'Alice Snow', 'alice@example.com'),
+          accountItem(bobId, 'Bob Carve', 'bob@school.test'),
+        ],
+        hasMore: false,
+      });
+
     render(<AdminManagedParticipantPicker onChange={vi.fn()} />);
     await waitFor(() => {
       expect(screen.getByRole('option', { name: /Alice Snow/ })).toBeInTheDocument();
     });
+
     vi.useFakeTimers();
     const searchBox = screen.getByRole('textbox', { name: 'Account for participant selection' });
-    fireEvent.change(searchBox, { target: { value: 'bob@' } });
+    fireEvent.change(searchBox, { target: { value: 'bob' } });
     await act(async () => {
       vi.advanceTimersByTime(ACCOUNT_DIRECTORY_SEARCH_DEBOUNCE_MS);
     });
-    expect(screen.queryByRole('option', { name: /Alice Snow/ })).not.toBeInTheDocument();
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect(screen.queryByRole('option', { name: /Alice Snow/ })).not.toBeInTheDocument();
+    });
 
     fireEvent.change(searchBox, { target: { value: '' } });
-    expect(screen.getByRole('option', { name: /Alice Snow/ })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: /Alice Snow/ })).toBeInTheDocument();
+    });
     expect(screen.getByRole('option', { name: /Bob Carve/ })).toBeInTheDocument();
+    expect(queryAdminIdentityReadModels).toHaveBeenCalledTimes(3);
   });
 
   it('shows uninitialized identity Accounts and Planner clients missing from the active identity page', async () => {
@@ -286,11 +347,7 @@ describe('AdminManagedParticipantPicker self default and visibility', () => {
       (call) => call[0]?.participantId === self.participantId
     )?.[0];
     rerender(
-      <AdminManagedParticipantPicker
-        selected={selected}
-        onChange={onChange}
-        autoSelectUniqueSelf
-      />
+      <AdminManagedParticipantPicker selected={selected} onChange={onChange} autoSelectUniqueSelf />
     );
 
     expect(

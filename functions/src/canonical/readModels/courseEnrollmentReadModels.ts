@@ -27,6 +27,7 @@ import {
   type QueryCourseEnrollmentReadModelsResult,
   decodeCourseEnrollmentReadModelCursor,
   encodeCourseEnrollmentReadModelCursor,
+  drainInstructorRosterCompleteSet,
   COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_DEFAULT,
   COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX,
 } from '@ski-academy/shared-domain';
@@ -35,11 +36,7 @@ import { verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative } from '.
 import { parsePayment } from '../finance/financeStore';
 import { parseParticipant } from '../participantAccess/participantAccessStore';
 import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
-import {
-  courseDaysCollectionPath,
-  parseCourse,
-  parseCourseDays,
-} from '../courses/courseStore';
+import { courseDaysCollectionPath, parseCourse, parseCourseDays } from '../courses/courseStore';
 import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
 import { buildCourseScheduleProjectionReadModel } from './courseDayScheduleProjectionSupport';
 import { loadLessonBookingReadAuthorizationContext } from './lessonBookingReadModels';
@@ -149,7 +146,9 @@ async function loadCourseDays(
   courseId: Course['courseId']
 ): Promise<CourseDay[]> {
   const snapshot = await firestore.collection(courseDaysCollectionPath(courseId)).get();
-  return parseCourseDays(snapshot.docs.map((doc) => ({ data: doc.data() as Record<string, unknown> })));
+  return parseCourseDays(
+    snapshot.docs.map((doc) => ({ data: doc.data() as Record<string, unknown> }))
+  );
 }
 
 export async function buildCourseEnrollmentReadModel(
@@ -164,7 +163,8 @@ export async function buildCourseEnrollmentReadModel(
   } = {}
 ): Promise<CourseEnrollmentReadModel | undefined> {
   const authContext =
-    options.authContext ?? (await loadCourseEnrollmentReadAuthorizationContext(firestore, accountId));
+    options.authContext ??
+    (await loadCourseEnrollmentReadAuthorizationContext(firestore, accountId));
   const now = options.now ?? timestampFromDate(new Date());
 
   if (!canAccountViewEnrollment(authContext, accountId, enrollment)) {
@@ -182,7 +182,9 @@ export async function buildCourseEnrollmentReadModel(
     .collection('participants')
     .doc(enrollment.participantId)
     .get();
-  const participant = parseParticipant(participantSnap.data() as Record<string, unknown> | undefined);
+  const participant = parseParticipant(
+    participantSnap.data() as Record<string, unknown> | undefined
+  );
   if (!participant) {
     return undefined;
   }
@@ -275,7 +277,9 @@ export async function buildInstructorCourseEnrollmentRosterItem(
     .collection('participants')
     .doc(enrollment.participantId)
     .get();
-  const participant = parseParticipant(participantSnap.data() as Record<string, unknown> | undefined);
+  const participant = parseParticipant(
+    participantSnap.data() as Record<string, unknown> | undefined
+  );
   if (!participant) {
     return undefined;
   }
@@ -311,7 +315,10 @@ function compareEnrollmentReadOrder(left: CourseEnrollment, right: CourseEnrollm
   return left.enrollmentId.localeCompare(right.enrollmentId);
 }
 
-function isAfterCursor(enrollment: CourseEnrollment, cursor: CourseEnrollmentReadModelCursor): boolean {
+function isAfterCursor(
+  enrollment: CourseEnrollment,
+  cursor: CourseEnrollmentReadModelCursor
+): boolean {
   const updatedCompare = compareCanonicalTimestamps(enrollment.updatedAt, {
     seconds: cursor.updatedAtSeconds,
     nanoseconds: cursor.updatedAtNanoseconds,
@@ -323,6 +330,93 @@ function isAfterCursor(enrollment: CourseEnrollment, cursor: CourseEnrollmentRea
     return false;
   }
   return enrollment.enrollmentId < cursor.enrollmentId;
+}
+
+const INSTRUCTOR_ROSTER_ACTIVE_STATUSES = ['confirmed', 'pending_cancellation'] as const;
+
+/**
+ * One Firestore page of active instructor roster enrollments.
+ * Cursor is applied via startAfter on the ordered query — page N does not re-scan page 1.
+ */
+export async function loadInstructorRosterEnrollmentPage(
+  firestore: Firestore,
+  courseId: Course['courseId'],
+  options: {
+    readonly pageSize: number;
+    readonly cursor?: CourseEnrollmentReadModelCursor;
+  }
+): Promise<{ readonly enrollments: CourseEnrollment[]; readonly hasMore: boolean }> {
+  let query = firestore
+    .collection('course_enrollments')
+    .where('courseId', '==', courseId)
+    .where('lifecycle.status', 'in', [...INSTRUCTOR_ROSTER_ACTIVE_STATUSES])
+    .orderBy('updatedAt.seconds', 'desc')
+    .orderBy('updatedAt.nanoseconds', 'desc')
+    .orderBy('enrollmentId', 'asc');
+
+  if (options.cursor) {
+    query = query.startAfter(
+      options.cursor.updatedAtSeconds,
+      options.cursor.updatedAtNanoseconds,
+      options.cursor.enrollmentId
+    );
+  }
+
+  const snapshot = await query.limit(options.pageSize + 1).get();
+  const enrollments: CourseEnrollment[] = [];
+  for (const doc of snapshot.docs) {
+    const parsed = parseCourseEnrollment(doc.data() as Record<string, unknown>);
+    if (parsed && isInstructorActiveRosterEnrollment(parsed)) {
+      enrollments.push(parsed);
+    }
+  }
+  const hasMore = enrollments.length > options.pageSize;
+  return {
+    enrollments: enrollments.slice(0, options.pageSize),
+    hasMore,
+  };
+}
+
+/**
+ * OPERATIONAL_COMPLETE_SET for attendance joins.
+ * Bound: active roster ≤ Course capacity ≤ COURSE_SEAT_MAX (64).
+ * Uses cursor pages (no first-N rescan). Overflow fails visibly.
+ */
+export async function loadInstructorRosterEnrollments(
+  firestore: Firestore,
+  courseId: Course['courseId']
+): Promise<CourseEnrollment[]> {
+  const pageSize = COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX;
+  const items = await drainInstructorRosterCompleteSet({
+    pageSize,
+    fetchPage: async (encodedCursor) => {
+      const cursor = encodedCursor
+        ? decodeCourseEnrollmentReadModelCursor(encodedCursor)
+        : undefined;
+      if (encodedCursor && !cursor) {
+        throw new Error('Invalid instructor roster cursor');
+      }
+      const result = await loadInstructorRosterEnrollmentPage(firestore, courseId, {
+        pageSize,
+        ...(cursor ? { cursor } : {}),
+      });
+      const last = result.enrollments[result.enrollments.length - 1];
+      return {
+        items: result.enrollments,
+        hasMore: result.hasMore,
+        ...(result.hasMore && last
+          ? {
+              nextCursor: encodeCourseEnrollmentReadModelCursor({
+                updatedAtSeconds: last.updatedAt.seconds,
+                updatedAtNanoseconds: last.updatedAt.nanoseconds,
+                enrollmentId: last.enrollmentId,
+              }),
+            }
+          : {}),
+      };
+    },
+  });
+  return [...items];
 }
 
 async function loadAuthorizedAccountEnrollments(
@@ -360,26 +454,6 @@ async function loadAuthorizedAccountEnrollments(
   }
 
   return [...enrollmentsById.values()].sort(compareEnrollmentReadOrder);
-}
-
-export async function loadInstructorRosterEnrollments(
-  firestore: Firestore,
-  courseId: Course['courseId']
-): Promise<CourseEnrollment[]> {
-  const snapshot = await firestore
-    .collection('course_enrollments')
-    .where('courseId', '==', courseId)
-    .limit(COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX * 4)
-    .get();
-
-  const enrollments: CourseEnrollment[] = [];
-  for (const doc of snapshot.docs) {
-    const parsed = parseCourseEnrollment(doc.data() as Record<string, unknown>);
-    if (parsed && isInstructorActiveRosterEnrollment(parsed)) {
-      enrollments.push(parsed);
-    }
-  }
-  return enrollments.sort(compareEnrollmentReadOrder);
 }
 
 export async function queryCourseEnrollmentReadModels(
@@ -431,8 +505,13 @@ export async function queryCourseEnrollmentReadModels(
       return { scope: input.scope, items: [], hasMore: false };
     }
 
-    const participantSnap = await firestore.collection('participants').doc(enrollment.participantId).get();
-    const participant = parseParticipant(participantSnap.data() as Record<string, unknown> | undefined);
+    const participantSnap = await firestore
+      .collection('participants')
+      .doc(enrollment.participantId)
+      .get();
+    const participant = parseParticipant(
+      participantSnap.data() as Record<string, unknown> | undefined
+    );
     if (!participant) {
       return { scope: input.scope, items: [], hasMore: false };
     }
@@ -473,12 +552,12 @@ export async function queryCourseEnrollmentReadModels(
     }
     const courseDays = await loadCourseDays(firestore, courseId);
     assertInstructorCourseRosterReadAccess({ instructorId, course, courseDays });
-    const enrollments = await loadInstructorRosterEnrollments(firestore, courseId);
+    const pageResult = await loadInstructorRosterEnrollmentPage(firestore, courseId, {
+      pageSize,
+      ...(cursor ? { cursor } : {}),
+    });
     const items: InstructorCourseEnrollmentRosterItem[] = [];
-    for (const enrollment of enrollments) {
-      if (cursor && !isAfterCursor(enrollment, cursor)) {
-        continue;
-      }
+    for (const enrollment of pageResult.enrollments) {
       const item = await buildInstructorCourseEnrollmentRosterItem(
         firestore,
         instructorId,
@@ -489,18 +568,13 @@ export async function queryCourseEnrollmentReadModels(
       if (item) {
         items.push(item);
       }
-      if (items.length >= pageSize + 1) {
-        break;
-      }
     }
-    const page = items.slice(0, pageSize);
-    const hasMore = items.length > pageSize;
-    const last = page[page.length - 1];
+    const last = pageResult.enrollments[pageResult.enrollments.length - 1];
     return {
       scope: input.scope,
-      items: page,
-      hasMore,
-      ...(hasMore && last
+      items,
+      hasMore: pageResult.hasMore,
+      ...(pageResult.hasMore && last
         ? {
             nextCursor: encodeCourseEnrollmentReadModelCursor({
               updatedAtSeconds: last.updatedAt.seconds,

@@ -1,10 +1,9 @@
 import { AccountIdSchema, type AccountId, type ParticipantId } from '@ski-academy/shared-domain';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ACCOUNT_DIRECTORY_SEARCH_DEBOUNCE_MS,
-  loadActiveAccountDirectory,
+  loadAccountDirectoryPage,
   mergeAccountDirectoryOptions,
-  visibleAccountDirectoryOptions,
   type AccountDirectoryOption,
 } from './accountDirectorySearch';
 import type { AdminManagedParticipantSelection } from './identityContracts';
@@ -49,7 +48,15 @@ export function AdminManagedParticipantPicker({
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [accountId, setAccountId] = useState<AccountId | undefined>(selected?.accountId);
   const [accountOptions, setAccountOptions] = useState<readonly AccountDirectoryOption[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [cursor, setCursor] = useState<string | undefined>();
   const [directoryLoading, setDirectoryLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [directoryError, setDirectoryError] = useState(false);
+  const [selectedAccountOption, setSelectedAccountOption] = useState<
+    AccountDirectoryOption | undefined
+  >();
+  const listGeneration = useRef(0);
   const eligible = useAdminEligibleParticipants(accountId);
 
   useEffect(() => {
@@ -58,7 +65,7 @@ export function AdminManagedParticipantPicker({
       return;
     }
     const handle = window.setTimeout(() => {
-      setDebouncedSearch(search);
+      setDebouncedSearch(search.trim());
     }, ACCOUNT_DIRECTORY_SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
   }, [search]);
@@ -66,32 +73,71 @@ export function AdminManagedParticipantPicker({
   const appliedSearch = search.trim() === '' ? '' : debouncedSearch;
 
   useEffect(() => {
-    let cancelled = false;
+    const generation = ++listGeneration.current;
     setDirectoryLoading(true);
-    void loadActiveAccountDirectory()
-      .then((options) => {
-        if (cancelled) return;
-        setAccountOptions(options);
+    setDirectoryError(false);
+    setLoadingMore(false);
+    setAccountOptions([]);
+    setHasMore(false);
+    setCursor(undefined);
+    void loadAccountDirectoryPage({
+      ...(appliedSearch ? { search: appliedSearch } : {}),
+    })
+      .then((page) => {
+        if (generation !== listGeneration.current) return;
+        setAccountOptions(page.items);
+        setHasMore(page.hasMore);
+        setCursor(page.nextCursor);
         setDirectoryLoading(false);
       })
       .catch(() => {
-        if (cancelled) return;
+        if (generation !== listGeneration.current) return;
         setAccountOptions([]);
+        setHasMore(false);
+        setCursor(undefined);
+        setDirectoryError(true);
         setDirectoryLoading(false);
       });
     return () => {
-      cancelled = true;
+      listGeneration.current += 1;
     };
-  }, []);
+  }, [appliedSearch]);
+
+  const loadMore = () => {
+    if (!hasMore || !cursor || loadingMore || directoryLoading) return;
+    const generation = listGeneration.current;
+    setLoadingMore(true);
+    setDirectoryError(false);
+    void loadAccountDirectoryPage({
+      ...(appliedSearch ? { search: appliedSearch } : {}),
+      cursor,
+    })
+      .then((page) => {
+        if (generation !== listGeneration.current) return;
+        setAccountOptions((previous) => {
+          const seen = new Set(previous.map((item) => item.accountId));
+          const appended = page.items.filter((item) => !seen.has(item.accountId));
+          return [...previous, ...appended];
+        });
+        setHasMore(page.hasMore);
+        setCursor(page.nextCursor);
+        setLoadingMore(false);
+      })
+      .catch(() => {
+        if (generation !== listGeneration.current) return;
+        setDirectoryError(true);
+        setLoadingMore(false);
+      });
+  };
 
   const mergedAccounts = useMemo(
-    () => mergeAccountDirectoryOptions(additionalAccounts, accountOptions),
-    [additionalAccounts, accountOptions]
-  );
-
-  const visibleAccounts = useMemo(
-    () => visibleAccountDirectoryOptions(mergedAccounts, appliedSearch, accountId),
-    [accountId, appliedSearch, mergedAccounts]
+    () =>
+      mergeAccountDirectoryOptions(
+        additionalAccounts,
+        accountOptions,
+        selectedAccountOption ? [selectedAccountOption] : undefined
+      ),
+    [additionalAccounts, accountOptions, selectedAccountOption]
   );
 
   const accountDisplayName = useMemo(
@@ -100,9 +146,7 @@ export function AdminManagedParticipantPicker({
   );
 
   const onlyUniqueSelf =
-    !eligible.loading &&
-    eligible.items.length === 1 &&
-    eligible.items[0]?.authority === 'self';
+    !eligible.loading && eligible.items.length === 1 && eligible.items[0]?.authority === 'self';
 
   const hideParticipantField = Boolean(autoSelectUniqueSelf && accountId && onlyUniqueSelf);
 
@@ -175,18 +219,59 @@ export function AdminManagedParticipantPicker({
             setAccountId(next);
             onAccountIdChange?.(next);
             onChange(undefined);
+            if (next) {
+              const option = mergedAccounts.find((item) => item.accountId === next);
+              setSelectedAccountOption(option);
+            } else {
+              setSelectedAccountOption(undefined);
+            }
           }}
         >
           <option value="">
             {directoryLoading && mergedAccounts.length === 0 ? text.loading : text.selectAccount}
           </option>
-          {visibleAccounts.map((option) => (
+          {mergedAccounts.map((option) => (
             <option key={option.accountId} value={option.accountId}>
               {option.displayName}
               {option.email ? ` · ${option.email}` : ''}
             </option>
           ))}
         </select>
+        {hasMore ? (
+          <button
+            type="button"
+            className="mt-1 border border-[var(--border)] px-2 py-1 text-[10px] font-mono uppercase tracking-wider disabled:opacity-50"
+            disabled={loadingMore || directoryLoading}
+            onClick={loadMore}
+          >
+            {loadingMore ? text.loading : text.loadMore}
+          </button>
+        ) : null}
+        {directoryError ? (
+          <p className="mt-1 text-[var(--ink-dim)]" role="alert">
+            {text.mutationFailed}{' '}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                const generation = ++listGeneration.current;
+                setDirectoryLoading(true);
+                setDirectoryError(false);
+                void loadAccountDirectoryPage({
+                  ...(appliedSearch ? { search: appliedSearch } : {}),
+                }).then((page) => {
+                  if (generation !== listGeneration.current) return;
+                  setAccountOptions(page.items);
+                  setHasMore(page.hasMore);
+                  setCursor(page.nextCursor);
+                  setDirectoryLoading(false);
+                });
+              }}
+            >
+              {text.retry}
+            </button>
+          </p>
+        ) : null}
       </label>
       {hideParticipantField ? null : (
         <label className="text-xs">

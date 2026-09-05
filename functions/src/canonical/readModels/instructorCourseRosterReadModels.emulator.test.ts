@@ -28,9 +28,7 @@ import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import { queryCourseAttendanceReadModels } from './courseAttendanceReadModels';
-import {
-  queryCourseEnrollmentReadModels,
-} from './courseEnrollmentReadModels';
+import { queryCourseEnrollmentReadModels } from './courseEnrollmentReadModels';
 import { queryInstructorCourseAssignmentReadModels } from './instructorCourseAssignmentReadModels';
 import { ReadModelAccessDeniedError } from './readModelAccessDenied';
 
@@ -100,7 +98,9 @@ function instructorContext(
   };
 }
 
-function recordPresentEnvelope(idempotencyKey: string): CommandEnvelope<'record_course_day_attendance'> {
+function recordPresentEnvelope(
+  idempotencyKey: string
+): CommandEnvelope<'record_course_day_attendance'> {
   return {
     kind: 'record_course_day_attendance',
     context: instructorContext(rosterInstructorAccountId, rosterInstructorId, idempotencyKey),
@@ -150,10 +150,12 @@ async function clearCollections(database: Firestore) {
   }
 }
 
-async function seedFixture(options: {
-  readonly courseDayInstructorIds?: readonly (typeof rosterInstructorId)[];
-  readonly underfunded?: boolean;
-} = {}) {
+async function seedFixture(
+  options: {
+    readonly courseDayInstructorIds?: readonly (typeof rosterInstructorId)[];
+    readonly underfunded?: boolean;
+  } = {}
+) {
   const courseDayInstructorIds = options.courseDayInstructorIds ?? [rosterInstructorId];
   const underfunded = options.underfunded ?? false;
 
@@ -464,7 +466,9 @@ describeEmulator('instructor course roster read models emulator', () => {
     const envelope = recordPresentEnvelope('underfunded-present');
     expect((await commands.execute(envelope)).status).toBe('success');
 
-    const attendance = (await firestore.doc(`attendance/${attendanceIdFor(enrollmentId)}`).get()).data();
+    const attendance = (
+      await firestore.doc(`attendance/${attendanceIdFor(enrollmentId)}`).get()
+    ).data();
     expect(attendance?.attendanceStatus).toBe('present');
 
     const conflictIssues = (await firestore.collection('admin_issues').get()).docs.filter(
@@ -516,5 +520,133 @@ describeEmulator('instructor course roster read models emulator', () => {
     if (staleAttempt.status === 'error') {
       expect(staleAttempt.error.code).toBe('stale_version');
     }
+  });
+
+  it('applies instructor_roster cursor via Firestore startAfter without overlap', async () => {
+    await firestore.doc(`course_enrollments/${enrollmentId}`).delete();
+
+    const firstId = CourseEnrollmentIdSchema.parse('enrollment_instructor_roster_page_a');
+    const secondId = CourseEnrollmentIdSchema.parse('enrollment_instructor_roster_page_b');
+    const thirdId = CourseEnrollmentIdSchema.parse('enrollment_instructor_roster_page_c');
+    const participantB = ParticipantIdSchema.parse('participant_instructor_roster_page_b');
+    const participantC = ParticipantIdSchema.parse('participant_instructor_roster_page_c');
+    const newer = timestampFromDate(new Date('2026-01-03T00:00:00.000Z'));
+    const mid = timestampFromDate(new Date('2026-01-02T00:00:00.000Z'));
+    const older = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+
+    for (const [id, displayName] of [
+      [participantB, 'Page B'],
+      [participantC, 'Page C'],
+    ] as const) {
+      await firestore.doc(`participants/${id}`).set({
+        participantId: id,
+        displayName,
+        age: { kind: 'age_years', years: 20 },
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        management: {
+          kind: 'managed',
+          participantManagementId: ParticipantManagementIdSchema.parse(`management_${id}`),
+        },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'seed',
+          lastChangedByCommandId: 'seed',
+          correlationId,
+        },
+      });
+    }
+
+    const base = {
+      courseId,
+      originalCourseId: courseId,
+      attribution: {
+        bookingOrigin: 'admin',
+        bookedBy: { kind: 'account', accountId: rosterInstructorAccountId },
+      },
+      revision: 1,
+      createdAt: decidedAt,
+      audit: {
+        createdByCommandId: 'seed',
+        lastChangedByCommandId: 'seed',
+        correlationId,
+      },
+    };
+
+    await firestore.doc(`course_enrollments/${firstId}`).set({
+      ...base,
+      enrollmentId: firstId,
+      participantId,
+      paymentId: paymentIdFromCourseEnrollmentId(firstId),
+      lifecycle: { status: 'confirmed' },
+      updatedAt: newer,
+    });
+    await firestore.doc(`course_enrollments/${secondId}`).set({
+      ...base,
+      enrollmentId: secondId,
+      participantId: participantB,
+      paymentId: paymentIdFromCourseEnrollmentId(secondId),
+      lifecycle: { status: 'confirmed' },
+      updatedAt: mid,
+    });
+    await firestore.doc(`course_enrollments/${thirdId}`).set({
+      ...base,
+      enrollmentId: thirdId,
+      participantId: participantC,
+      paymentId: paymentIdFromCourseEnrollmentId(thirdId),
+      lifecycle: { status: 'confirmed' },
+      updatedAt: older,
+    });
+
+    const page1 = await queryCourseEnrollmentReadModels(
+      firestore,
+      { scope: 'instructor_roster', courseId, pageSize: 1 },
+      { accountId: rosterInstructorAccountId, instructorId: rosterInstructorId }
+    );
+    expect(page1.scope).toBe('instructor_roster');
+    if (page1.scope !== 'instructor_roster') return;
+    expect(page1.items.map((item) => item.enrollmentId)).toEqual([firstId]);
+    expect(page1.hasMore).toBe(true);
+    expect(page1.nextCursor).toBeTruthy();
+
+    const page2 = await queryCourseEnrollmentReadModels(
+      firestore,
+      {
+        scope: 'instructor_roster',
+        courseId,
+        pageSize: 1,
+        cursor: page1.nextCursor,
+      },
+      { accountId: rosterInstructorAccountId, instructorId: rosterInstructorId }
+    );
+    expect(page2.scope).toBe('instructor_roster');
+    if (page2.scope !== 'instructor_roster') return;
+    expect(page2.items.map((item) => item.enrollmentId)).toEqual([secondId]);
+    expect(page2.hasMore).toBe(true);
+
+    const page3 = await queryCourseEnrollmentReadModels(
+      firestore,
+      {
+        scope: 'instructor_roster',
+        courseId,
+        pageSize: 1,
+        cursor: page2.nextCursor,
+      },
+      { accountId: rosterInstructorAccountId, instructorId: rosterInstructorId }
+    );
+    expect(page3.scope).toBe('instructor_roster');
+    if (page3.scope !== 'instructor_roster') return;
+    expect(page3.items.map((item) => item.enrollmentId)).toEqual([thirdId]);
+    expect(page3.hasMore).toBe(false);
+
+    const allIds = [
+      ...page1.items.map((item) => item.enrollmentId),
+      ...page2.items.map((item) => item.enrollmentId),
+      ...page3.items.map((item) => item.enrollmentId),
+    ];
+    expect(new Set(allIds).size).toBe(3);
   });
 });

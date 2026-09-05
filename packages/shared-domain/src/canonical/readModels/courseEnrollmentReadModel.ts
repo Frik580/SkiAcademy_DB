@@ -6,6 +6,7 @@ import {
   ParticipantIdSchema,
 } from '../identifiers';
 import {
+  COURSE_SEAT_MAX,
   CourseEnrollmentCancellationReasonCodeSchema,
   CourseEnrollmentLifecycleStatusSchema,
 } from '../courseEnrollmentAttendanceAdminIssue';
@@ -35,6 +36,88 @@ export const CourseEnrollmentReadScopeSchema = z.enum(COURSE_ENROLLMENT_READ_SCO
 
 export const COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_DEFAULT = 25;
 export const COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX = 25;
+
+/**
+ * Instructor roster is OPERATIONAL_COMPLETE_SET for attendance.
+ * Bound = Course capacity ≤ COURSE_SEAT_MAX (server-enforced).
+ * Not an unbounded USER_LIST drain.
+ */
+export const INSTRUCTOR_ROSTER_COMPLETE_SET_MAX = COURSE_SEAT_MAX;
+
+export function instructorRosterCompleteSetMaxPages(
+  pageSize: number = COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX
+): number {
+  if (pageSize <= 0) {
+    throw new Error('instructor roster pageSize must be positive');
+  }
+  return Math.ceil(INSTRUCTOR_ROSTER_COMPLETE_SET_MAX / pageSize);
+}
+
+export class InstructorRosterCompleteSetOverflowError extends Error {
+  readonly code = 'instructor_roster_complete_set_overflow' as const;
+
+  constructor(
+    message = `Instructor roster exceeds Course capacity bound (${INSTRUCTOR_ROSTER_COMPLETE_SET_MAX})`
+  ) {
+    super(message);
+    this.name = 'InstructorRosterCompleteSetOverflowError';
+  }
+}
+
+export interface InstructorRosterCompleteSetPage<T> {
+  readonly items: readonly T[];
+  readonly hasMore: boolean;
+  readonly nextCursor?: string;
+}
+
+/**
+ * Bounded complete-set drain for instructor roster / attendance.
+ * At most ceil(COURSE_SEAT_MAX / pageSize) pages; fails visibly if hasMore beyond the bound.
+ */
+export async function drainInstructorRosterCompleteSet<T>(input: {
+  readonly fetchPage: (
+    cursor: string | undefined
+  ) => Promise<InstructorRosterCompleteSetPage<T>>;
+  readonly pageSize?: number;
+}): Promise<readonly T[]> {
+  const pageSize = input.pageSize ?? COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX;
+  const maxPages = instructorRosterCompleteSetMaxPages(pageSize);
+  const items: T[] = [];
+  let cursor: string | undefined;
+  let pages = 0;
+
+  while (true) {
+    pages += 1;
+    if (pages > maxPages) {
+      throw new InstructorRosterCompleteSetOverflowError(
+        `Instructor roster exceeded ${maxPages} pages (Course capacity bound ${INSTRUCTOR_ROSTER_COMPLETE_SET_MAX})`
+      );
+    }
+
+    const page = await input.fetchPage(cursor);
+    items.push(...page.items);
+
+    if (items.length > INSTRUCTOR_ROSTER_COMPLETE_SET_MAX) {
+      throw new InstructorRosterCompleteSetOverflowError();
+    }
+
+    if (!page.hasMore) {
+      return items;
+    }
+
+    if (items.length >= INSTRUCTOR_ROSTER_COMPLETE_SET_MAX) {
+      throw new InstructorRosterCompleteSetOverflowError();
+    }
+
+    if (!page.nextCursor) {
+      throw new InstructorRosterCompleteSetOverflowError(
+        'Instructor roster reported hasMore without nextCursor'
+      );
+    }
+
+    cursor = page.nextCursor;
+  }
+}
 
 export const CourseEnrollmentReadModelParticipantProjectionSchema = z
   .object({

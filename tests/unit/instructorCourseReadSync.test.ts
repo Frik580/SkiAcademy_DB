@@ -195,11 +195,243 @@ describe('useInstructorCourseReadSync', () => {
     expect(queryEnrollmentMock).toHaveBeenCalledWith({
       scope: 'instructor_roster',
       courseId: 'course_instructor_sync_01',
+      pageSize: 25,
     });
     expect(queryAttendanceMock).toHaveBeenCalledWith({
       scope: 'instructor_roster',
       courseId: 'course_instructor_sync_01',
     });
+  });
+
+  it('loads complete roster across three cursor pages for capacity-max (64) without duplicates', async () => {
+    const enrollmentIds = Array.from({ length: 64 }, (_, index) =>
+      CourseEnrollmentIdSchema.parse(
+        `enrollment_instructor_sync_${String(index + 1).padStart(2, '0')}`
+      )
+    );
+    const rosterItem = (enrollmentId: string, index: number) => ({
+      enrollmentId,
+      revision: 1,
+      courseId,
+      participant: {
+        participantId: ParticipantIdSchema.parse(
+          `participant_instructor_sync_${String(index + 1).padStart(2, '0')}`
+        ),
+        displayName: `P${index + 1}`,
+      },
+      lifecycle: { status: 'confirmed' as const },
+      courseDisplay: { courseId, title: 'BASE — First Turns' },
+      courseSchedule: {
+        courseId,
+        courseScheduleRevision: 1,
+        courseDayCount: 1,
+        startAt: { seconds: 1, nanoseconds: 0 },
+        finalCourseDayEndsAt: { seconds: 2, nanoseconds: 0 },
+        courseDays: [
+          {
+            courseDayId,
+            dayOrder: 1,
+            interval: {
+              startsAt: { seconds: 1, nanoseconds: 0 },
+              endsAt: { seconds: 2, nanoseconds: 0 },
+            },
+            timeZone: 'Asia/Almaty',
+            revision: 1,
+          },
+        ],
+      },
+      authorizedActions: { canRecordAttendance: true },
+      updatedAt: { seconds: 1000 - index, nanoseconds: 0 },
+    });
+
+    queryEnrollmentMock
+      .mockResolvedValueOnce({
+        scope: 'instructor_roster',
+        items: enrollmentIds.slice(0, 25).map((id, index) => rosterItem(id, index)),
+        hasMore: true,
+        nextCursor: 'cursor-page-1',
+      })
+      .mockResolvedValueOnce({
+        scope: 'instructor_roster',
+        items: enrollmentIds.slice(25, 50).map((id, index) => rosterItem(id, index + 25)),
+        hasMore: true,
+        nextCursor: 'cursor-page-2',
+      })
+      .mockResolvedValueOnce({
+        scope: 'instructor_roster',
+        items: enrollmentIds.slice(50, 64).map((id, index) => rosterItem(id, index + 50)),
+        hasMore: false,
+      });
+    queryAttendanceMock.mockResolvedValue({
+      scope: 'instructor_roster',
+      items: [],
+    });
+
+    renderHook(() =>
+      useInstructorCourseReadSync({
+        enabled: true,
+        accountId: 'account_instructor_sync_01',
+        instructorId: 'instructor_instructor_sync_01',
+        selectedCourseId: 'course_instructor_sync_01',
+      })
+    );
+
+    await waitFor(() => {
+      expect(useInstructorCourseStore.getState().loaded).toBe(true);
+    });
+
+    expect(queryEnrollmentMock).toHaveBeenCalledTimes(3);
+    expect(queryEnrollmentMock.mock.calls.map((call) => call[0]?.cursor)).toEqual([
+      undefined,
+      'cursor-page-1',
+      'cursor-page-2',
+    ]);
+    expect(queryAttendanceMock).toHaveBeenCalledTimes(1);
+
+    const course = useInstructorCourseStore.getState().coursesById.get(courseId);
+    expect(course?.participants).toHaveLength(64);
+    expect(new Set(course?.participants.map((item) => item.enrollmentId)).size).toBe(64);
+  });
+
+  it('surfaces overflow when roster exceeds COURSE_SEAT_MAX bound', async () => {
+    queryEnrollmentMock
+      .mockResolvedValueOnce({
+        scope: 'instructor_roster',
+        items: Array.from({ length: 25 }, (_, index) => ({
+          enrollmentId: CourseEnrollmentIdSchema.parse(
+            `enrollment_instructor_overflow_a_${String(index + 1).padStart(2, '0')}`
+          ),
+          revision: 1,
+          courseId,
+          participant: {
+            participantId: ParticipantIdSchema.parse(
+              `participant_instructor_overflow_a_${String(index + 1).padStart(2, '0')}`
+            ),
+            displayName: `A${index}`,
+          },
+          lifecycle: { status: 'confirmed' as const },
+          courseDisplay: { courseId, title: 'BASE — First Turns' },
+          courseSchedule: {
+            courseId,
+            courseScheduleRevision: 1,
+            courseDayCount: 1,
+            startAt: { seconds: 1, nanoseconds: 0 },
+            finalCourseDayEndsAt: { seconds: 2, nanoseconds: 0 },
+            courseDays: [
+              {
+                courseDayId,
+                dayOrder: 1,
+                interval: {
+                  startsAt: { seconds: 1, nanoseconds: 0 },
+                  endsAt: { seconds: 2, nanoseconds: 0 },
+                },
+                timeZone: 'Asia/Almaty',
+                revision: 1,
+              },
+            ],
+          },
+          authorizedActions: { canRecordAttendance: true },
+          updatedAt: { seconds: 1, nanoseconds: 0 },
+        })),
+        hasMore: true,
+        nextCursor: 'overflow-1',
+      })
+      .mockResolvedValueOnce({
+        scope: 'instructor_roster',
+        items: Array.from({ length: 25 }, (_, index) => ({
+          enrollmentId: CourseEnrollmentIdSchema.parse(
+            `enrollment_instructor_overflow_b_${String(index + 1).padStart(2, '0')}`
+          ),
+          revision: 1,
+          courseId,
+          participant: {
+            participantId: ParticipantIdSchema.parse(
+              `participant_instructor_overflow_b_${String(index + 1).padStart(2, '0')}`
+            ),
+            displayName: `B${index}`,
+          },
+          lifecycle: { status: 'confirmed' as const },
+          courseDisplay: { courseId, title: 'BASE — First Turns' },
+          courseSchedule: {
+            courseId,
+            courseScheduleRevision: 1,
+            courseDayCount: 1,
+            startAt: { seconds: 1, nanoseconds: 0 },
+            finalCourseDayEndsAt: { seconds: 2, nanoseconds: 0 },
+            courseDays: [
+              {
+                courseDayId,
+                dayOrder: 1,
+                interval: {
+                  startsAt: { seconds: 1, nanoseconds: 0 },
+                  endsAt: { seconds: 2, nanoseconds: 0 },
+                },
+                timeZone: 'Asia/Almaty',
+                revision: 1,
+              },
+            ],
+          },
+          authorizedActions: { canRecordAttendance: true },
+          updatedAt: { seconds: 1, nanoseconds: 0 },
+        })),
+        hasMore: true,
+        nextCursor: 'overflow-2',
+      })
+      .mockResolvedValueOnce({
+        scope: 'instructor_roster',
+        items: Array.from({ length: 14 }, (_, index) => ({
+          enrollmentId: CourseEnrollmentIdSchema.parse(
+            `enrollment_instructor_overflow_c_${String(index + 1).padStart(2, '0')}`
+          ),
+          revision: 1,
+          courseId,
+          participant: {
+            participantId: ParticipantIdSchema.parse(
+              `participant_instructor_overflow_c_${String(index + 1).padStart(2, '0')}`
+            ),
+            displayName: `C${index}`,
+          },
+          lifecycle: { status: 'confirmed' as const },
+          courseDisplay: { courseId, title: 'BASE — First Turns' },
+          courseSchedule: {
+            courseId,
+            courseScheduleRevision: 1,
+            courseDayCount: 1,
+            startAt: { seconds: 1, nanoseconds: 0 },
+            finalCourseDayEndsAt: { seconds: 2, nanoseconds: 0 },
+            courseDays: [
+              {
+                courseDayId,
+                dayOrder: 1,
+                interval: {
+                  startsAt: { seconds: 1, nanoseconds: 0 },
+                  endsAt: { seconds: 2, nanoseconds: 0 },
+                },
+                timeZone: 'Asia/Almaty',
+                revision: 1,
+              },
+            ],
+          },
+          authorizedActions: { canRecordAttendance: true },
+          updatedAt: { seconds: 1, nanoseconds: 0 },
+        })),
+        hasMore: true,
+        nextCursor: 'overflow-3',
+      });
+
+    renderHook(() =>
+      useInstructorCourseReadSync({
+        enabled: true,
+        accountId: 'account_instructor_sync_01',
+        instructorId: 'instructor_instructor_sync_01',
+        selectedCourseId: 'course_instructor_sync_01',
+      })
+    );
+
+    await waitFor(() => {
+      expect(useInstructorCourseStore.getState().errorCode).toBe('read-failed');
+    });
+    expect(useInstructorCourseStore.getState().error).toMatch(/capacity bound|Course capacity/i);
   });
 
   it('ignores an obsolete request that fails after a newer reload succeeds', async () => {

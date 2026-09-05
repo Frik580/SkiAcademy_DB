@@ -3,7 +3,10 @@ import {
   filterAdminBookingMonitorRows,
   monitorHasCourseAndLessonRows,
 } from '../../src/features/admin/operations/adminBookingMonitorFilters';
-import { mergeAdminBookingMonitorRows, lessonBookingToMonitorRow } from '../../src/features/admin/operations/adminBookingMonitorMapping';
+import {
+  mergeAdminBookingMonitorRows,
+  lessonBookingToMonitorRow,
+} from '../../src/features/admin/operations/adminBookingMonitorMapping';
 import { computeAdminOperationalOverview } from '../../src/features/admin/operations/adminFinancialOverview';
 import { bookingsBlockingInstructorDeactivation } from '../../src/features/admin/people/adminPeopleOccupancy';
 import {
@@ -157,9 +160,9 @@ describe('T32.9A Admin UX parity behavior', () => {
     expect(lessonRow?.isGuest).toBe(true);
     expect(courseRow?.durationHours).toBe(0);
     expect(courseRow?.difficulty).toBeUndefined();
-    expect(
-      readRepoFile('src/features/admin/operations/AdminActiveBookingMonitor.tsx')
-    ).toContain('ADMIN_LESSON_BOOKING_QUERY_KEY');
+    expect(readRepoFile('src/features/admin/operations/AdminActiveBookingMonitor.tsx')).toContain(
+      'ADMIN_LESSON_BOOKING_QUERY_KEY'
+    );
     expect(
       readRepoFile('src/features/admin/operations/AdminActiveBookingMonitor.tsx')
     ).not.toContain('resolve_booking_cancellation');
@@ -169,18 +172,18 @@ describe('T32.9A Admin UX parity behavior', () => {
     expect(
       readRepoFile('src/features/admin/operations/AdminActiveBookingMonitor.tsx')
     ).not.toContain('link_guest_booking_to_account_as_administrator');
-    expect(
-      readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')
-    ).toContain('openLessonDetail');
-    expect(
-      readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')
-    ).not.toContain('onCancelBooking');
-    expect(
-      readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')
-    ).not.toContain('LinkGuestBookingModal');
-    expect(
-      readRepoFile('src/features/admin/operations/adminPlannerCommands.ts')
-    ).toContain('completePlannerLesson');
+    expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).toContain(
+      'openLessonDetail'
+    );
+    expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).not.toContain(
+      'onCancelBooking'
+    );
+    expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).not.toContain(
+      'LinkGuestBookingModal'
+    );
+    expect(readRepoFile('src/features/admin/operations/adminPlannerCommands.ts')).toContain(
+      'completePlannerLesson'
+    );
   });
 
   it('maps lesson duration, notes, requestedAt, and omits unspecified difficulty', () => {
@@ -418,23 +421,23 @@ describe('T32.9A Admin UX parity behavior', () => {
     expect(guestPanel).not.toContain('record_financial_correction');
     expect(guestPanel).not.toContain('balanceUSD');
     expect(guestPanel).not.toContain('lifecycle.status');
-    expect(
-      readRepoFile('src/features/admin/finance/useAdminGuestFundsReadModel.ts')
-    ).toContain("scope: 'admin_guest_funds'");
+    expect(readRepoFile('src/features/admin/finance/useAdminGuestFundsReadModel.ts')).toContain(
+      "scope: 'admin_guest_funds'"
+    );
     expect(adminPanel).not.toContain('GuestWalletPanel');
     expect(adminPanel).toContain('AdminGuestFinanceHost');
-    expect(
-      readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')
-    ).toContain('openEnrollmentAttendance');
-    expect(
-      readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')
-    ).toContain('openCancellationDetail');
-    expect(
-      readRepoFile('src/features/admin/people/AdminClientDirectory.tsx')
-    ).toContain('disable_account');
-    expect(
-      readRepoFile('src/features/admin/people/AdminClientDirectory.tsx')
-    ).not.toContain('onAddUser');
+    expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).toContain(
+      'openEnrollmentAttendance'
+    );
+    expect(readRepoFile('src/features/admin/components/bookings/BookingsLog.tsx')).toContain(
+      'openCancellationDetail'
+    );
+    expect(readRepoFile('src/features/admin/people/AdminClientDirectory.tsx')).toContain(
+      'disable_account'
+    );
+    expect(readRepoFile('src/features/admin/people/AdminClientDirectory.tsx')).not.toContain(
+      'onAddUser'
+    );
     expect(adminPanel).not.toContain('CanonicalIdentityManager');
   });
 
@@ -547,7 +550,10 @@ describe('T32.9A Admin UX parity behavior', () => {
     ).toContain('CoursesTable');
     expect(
       readRepoFile('src/features/admin/components/courses/CanonicalCoursesManager.tsx')
-    ).toContain('enrolledNamesByCourseId');
+    ).not.toContain("scope: 'admin_course_roster'");
+    expect(
+      readRepoFile('src/features/admin/components/courses/CanonicalCoursesManager.tsx')
+    ).not.toContain('for (let page = 0');
     expect(
       readRepoFile('functions/src/canonical/readModels/instructorOccupancyReadSupport.ts')
     ).toContain('`${day.courseDayId}:${instructorId}`');

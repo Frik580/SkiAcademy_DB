@@ -1,28 +1,22 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ADMIN_COURSE_ENROLLMENT_PAGE_SIZE_MAX,
   ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX,
   CourseCatalogContentInputSchema,
   CourseProvisioningManifestSchema,
   IdempotencyKeySchema,
-  type AdminCourseEnrollmentRosterItem,
   type AdminCourseReadModel,
   type CommandEnvelope,
   type CommandKind,
   type CourseCatalogContentInput,
 } from '@ski-academy/shared-domain';
 import { executeAuthenticatedCanonicalCommand } from '../../../../lib/canonical/canonicalCommandClient';
-import {
-  queryAdminCourseEnrollmentReadModels,
-  queryAdminCourseReadModels,
-} from '../../../../lib/canonical/canonicalReadModelClient';
+import { queryAdminCourseReadModels } from '../../../../lib/canonical/canonicalReadModelClient';
 import type { CanonicalCoursesManagerInput } from './adminCourseContracts';
 import { useAdminCourseTranslations } from './useAdminCourseTranslations';
 import { CoursesManagerToolbar } from './form/CoursesManagerToolbar';
 import { CoursesTable } from './form/CoursesTable';
 import {
   catalogContentInputFromCourse,
-  enrolledNamesByCourseId,
   mapAdminCourseToTableCourse,
 } from './adminCourseTableMapping';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
@@ -80,7 +74,6 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   const { language, text } = useAdminCourseTranslations();
   const { t } = useLanguage();
   const [courses, setCourses] = useState<AdminCourseReadModel[]>([]);
-  const [roster, setRoster] = useState<AdminCourseEnrollmentRosterItem[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,32 +87,15 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     setLoading(true);
     setError(null);
     try {
-      const [courseResult, rosterItems] = await Promise.all([
-        queryAdminCourseReadModels({
-          scope: 'admin_course_list',
-          pageSize: ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX,
-        }),
-        (async () => {
-          const items: AdminCourseEnrollmentRosterItem[] = [];
-          let cursor: string | undefined;
-          for (let page = 0; page < 10; page += 1) {
-            const result = await queryAdminCourseEnrollmentReadModels({
-              scope: 'admin_course_roster',
-              pageSize: ADMIN_COURSE_ENROLLMENT_PAGE_SIZE_MAX,
-              ...(cursor ? { cursor } : {}),
-            });
-            if (result.scope === 'admin_enrollment_detail') break;
-            items.push(...result.items);
-            if (!result.hasMore || !result.nextCursor) break;
-            cursor = result.nextCursor;
-          }
-          return items;
-        })(),
-      ]);
+      // Course list only — one page. Roster UX lives in AdminCourseEnrollmentPanel
+      // (paginated Load more). Do not drain enrollment roster pages here.
+      const courseResult = await queryAdminCourseReadModels({
+        scope: 'admin_course_list',
+        pageSize: ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX,
+      });
       if (courseResult.scope === 'admin_course_list') {
         setCourses(courseResult.items);
       }
-      setRoster(rosterItems);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : text.mutationFailed;
       setError(message.includes('permission') ? text.permissionDenied : message);
@@ -167,7 +143,6 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     }
     return [...byId.values()];
   }, [courses, instructors]);
-  const enrolledNames = useMemo(() => enrolledNamesByCourseId(roster), [roster]);
   const selectedCourse = courses.find((course) => course.courseId === selectedCourseId);
 
   const execute = useCallback(
@@ -498,11 +473,17 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     });
   };
 
-  const handleToggleVisibility = async (tableCourse: ReturnType<typeof mapAdminCourseToTableCourse>) => {
+  const handleToggleVisibility = async (
+    tableCourse: ReturnType<typeof mapAdminCourseToTableCourse>
+  ) => {
     const course = courses.find((candidate) => candidate.courseId === tableCourse.id);
     if (!course) return;
     const content = catalogContentInputFromCourse(course);
-    await updateCatalog(course, { ...content, isHidden: !content.isHidden }, 'Admin course visibility');
+    await updateCatalog(
+      course,
+      { ...content, isHidden: !content.isHidden },
+      'Admin course visibility'
+    );
   };
 
   const handleMove = async (
@@ -678,7 +659,6 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           onDelete={handleArchive}
           onClone={(course) => void handleClone(course)}
           onMove={(course, direction) => void handleMove(course, direction)}
-          enrolledNamesByCourseId={enrolledNames}
           archiveInsteadOfDelete
         />
       )}

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import {
   CourseIdSchema,
+  COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX,
+  drainInstructorRosterCompleteSet,
   type CourseId,
   type InstructorCourseEnrollmentRosterItem,
 } from '@ski-academy/shared-domain';
@@ -72,31 +74,34 @@ export interface InstructorCourseReadSyncInput {
   readonly selectedCourseId?: string;
 }
 
-async function loadInstructorRosterEnrollments(
+/**
+ * OPERATIONAL_COMPLETE_SET / KEEP_REQUIRED / BOUNDED ≤ COURSE_SEAT_MAX (64).
+ * Attendance matrix requires the full active roster; Load More is not used.
+ * Each page uses server-side cursor (no previous-page re-scan).
+ * Overflow beyond capacity bound fails visibly.
+ */
+export async function loadInstructorRosterEnrollments(
   courseId: CourseId
 ): Promise<readonly InstructorCourseEnrollmentRosterItem[]> {
-  const items: InstructorCourseEnrollmentRosterItem[] = [];
-  let cursor: string | undefined;
-  let hasMore = true;
-
-  while (hasMore) {
-    const result = await queryCourseEnrollmentReadModels({
-      scope: 'instructor_roster',
-      courseId,
-      ...(cursor ? { cursor } : {}),
-    });
-    if (result.scope !== 'instructor_roster') {
-      break;
-    }
-    items.push(...result.items);
-    hasMore = result.hasMore;
-    cursor = result.nextCursor;
-    if (hasMore && !cursor) {
-      break;
-    }
-  }
-
-  return items;
+  return drainInstructorRosterCompleteSet({
+    pageSize: COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX,
+    fetchPage: async (cursor) => {
+      const result = await queryCourseEnrollmentReadModels({
+        scope: 'instructor_roster',
+        courseId,
+        pageSize: COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX,
+        ...(cursor ? { cursor } : {}),
+      });
+      if (result.scope !== 'instructor_roster') {
+        return { items: [], hasMore: false };
+      }
+      return {
+        items: result.items,
+        hasMore: result.hasMore,
+        ...(result.nextCursor ? { nextCursor: result.nextCursor } : {}),
+      };
+    },
+  });
 }
 
 /**

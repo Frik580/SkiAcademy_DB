@@ -20,10 +20,7 @@ export function AdminPeopleSection({
         <AdminInstructorDirectory adminAccountId={adminAccountId} />
       ) : null}
       {surface === 'admins' ? (
-        <AdminRoleDirectory
-          adminAccountId={adminAccountId}
-          onRequestConfirm={onRequestConfirm}
-        />
+        <AdminRoleDirectory adminAccountId={adminAccountId} onRequestConfirm={onRequestConfirm} />
       ) : null}
     </>
   );

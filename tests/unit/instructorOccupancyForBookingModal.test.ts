@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { AdminPlannerOccupancyItem, InstructorOccupancyReadModel } from '@ski-academy/shared-domain';
+import type {
+  AdminPlannerOccupancyItem,
+  InstructorOccupancyReadModel,
+} from '@ski-academy/shared-domain';
 import { DEFAULT_LESSON_TIME_SLOTS } from '../../src/domain/availability';
 import {
   getAvailableLessonStartTimes,
@@ -21,7 +24,8 @@ const instructorId = 'instructor_guest_availability';
 const futureNow = new Date('2026-01-15T00:00:00');
 
 function occupancyItem(
-  overrides: Partial<AdminPlannerOccupancyItem> & Pick<AdminPlannerOccupancyItem, 'occupancyKind' | 'occupancyId'>
+  overrides: Partial<AdminPlannerOccupancyItem> &
+    Pick<AdminPlannerOccupancyItem, 'occupancyKind' | 'occupancyId'>
 ): AdminPlannerOccupancyItem {
   return {
     instructorId,
@@ -38,11 +42,7 @@ function occupancyItem(
   } as AdminPlannerOccupancyItem;
 }
 
-function slot(
-  time: string,
-  durationHours: number,
-  bookingId = `slot_${time}`
-): AvailabilitySlot {
+function slot(time: string, durationHours: number, bookingId = `slot_${time}`): AvailabilitySlot {
   return {
     bookingId,
     instructorId,
@@ -53,11 +53,7 @@ function slot(
   };
 }
 
-function block(
-  time: string,
-  durationHours: number,
-  bookingId = `block_${time}`
-): AvailabilitySlot {
+function block(time: string, durationHours: number, bookingId = `block_${time}`): AvailabilitySlot {
   return {
     bookingId,
     instructorId,

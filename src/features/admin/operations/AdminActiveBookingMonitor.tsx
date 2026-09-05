@@ -41,8 +41,7 @@ export function AdminActiveBookingMonitor({
   const handleOpenLesson = useCallback(
     (bookingId: string) => {
       const row = bookings.find((booking) => booking.id === bookingId);
-      const view =
-        row?.status === 'completed' || row?.status === 'cancelled' ? 'history' : 'hot';
+      const view = row?.status === 'completed' || row?.status === 'cancelled' ? 'history' : 'hot';
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);

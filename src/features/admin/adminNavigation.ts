@@ -108,8 +108,7 @@ export function parseAdminIssueSeverity(
 export function parseAdminFinanceMovementPeriod(
   value: string | null | undefined
 ): AdminFinancialOverviewPeriod | undefined {
-  return value != null &&
-    (ADMIN_FINANCIAL_OVERVIEW_PERIODS as readonly string[]).includes(value)
+  return value != null && (ADMIN_FINANCIAL_OVERVIEW_PERIODS as readonly string[]).includes(value)
     ? (value as AdminFinancialOverviewPeriod)
     : undefined;
 }

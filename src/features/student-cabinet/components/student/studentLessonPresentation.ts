@@ -1,5 +1,8 @@
 import { Booking, Course } from '../../../../types';
-import { formatLessonDifficultyOrUnspecified, parseCourseDates } from '../../../../app/providers/LanguageContext';
+import {
+  formatLessonDifficultyOrUnspecified,
+  parseCourseDates,
+} from '../../../../app/providers/LanguageContext';
 import { translateCourse, translateInstructorName } from '../../../../lib/i18n/contentTranslation';
 import { toYMD } from './studentCabinetPresentation';
 

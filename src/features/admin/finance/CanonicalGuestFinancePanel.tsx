@@ -140,9 +140,7 @@ export function CanonicalGuestFinancePanel() {
           {t('canonicalGuestFundsFilterLabel')}
           <select
             value={filter}
-            onChange={(event) =>
-              setFilter(event.target.value as AdminGuestFundsDiscoveryFilter)
-            }
+            onChange={(event) => setFilter(event.target.value as AdminGuestFundsDiscoveryFilter)}
             className="mt-1 block w-full sm:w-56 px-3 py-2 border border-[var(--border)] bg-transparent text-xs font-mono"
           >
             {ADMIN_GUEST_FUNDS_DISCOVERY_FILTERS.map((value) => (
@@ -255,8 +253,7 @@ export function CanonicalGuestFinancePanel() {
               ) : null}
               {row.outstandingAmount !== undefined ? (
                 <div>
-                  {t('canonicalGuestFundsOutstanding')}:{' '}
-                  {formatKzt(row.outstandingAmount, locale)}
+                  {t('canonicalGuestFundsOutstanding')}: {formatKzt(row.outstandingAmount, locale)}
                 </div>
               ) : null}
               {row.refundedAmount !== undefined ? (

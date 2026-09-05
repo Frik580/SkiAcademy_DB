@@ -57,9 +57,7 @@ export function useAdminInstructorTranslations() {
       accountDisabled: ru ? 'Отключён' : 'Disabled',
       accountUninitialized: ru ? 'Не инициализирован' : 'Uninitialized',
       accountActive: ru ? 'Активен' : 'Active',
-      accountUnavailableForLink: ru
-        ? 'Недоступен для привязки'
-        : 'Unavailable for linking',
+      accountUnavailableForLink: ru ? 'Недоступен для привязки' : 'Unavailable for linking',
       accountAlreadyLinked: ru ? 'Уже привязан' : 'Already linked',
       accountNotLinked: ru ? 'Аккаунт не привязан' : 'Account not linked',
       linkAccount: ru ? 'Привязать аккаунт' : 'Link account',

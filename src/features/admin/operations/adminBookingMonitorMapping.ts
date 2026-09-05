@@ -31,8 +31,7 @@ export function lessonBookingToMonitorRow(booking: LessonBookingReadModel): Book
   const price =
     booking.admin?.payment.price ??
     (booking.paymentPresentation?.kind === 'visible' ? booking.paymentPresentation.price : 0);
-  const createdAtSeconds =
-    booking.lifecycle.requestedAt?.seconds ?? booking.updatedAt.seconds;
+  const createdAtSeconds = booking.lifecycle.requestedAt?.seconds ?? booking.updatedAt.seconds;
   return {
     id: booking.bookingId,
     userId: booking.admin?.payer?.accountId ?? participant?.participantId ?? booking.bookingId,
@@ -52,9 +51,7 @@ export function lessonBookingToMonitorRow(booking: LessonBookingReadModel): Book
   };
 }
 
-export function courseEnrollmentToMonitorRow(
-  enrollment: AdminCourseEnrollmentRosterItem
-): Booking {
+export function courseEnrollmentToMonitorRow(enrollment: AdminCourseEnrollmentRosterItem): Booking {
   const local = localDateTimeFromTimestamp(enrollment.updatedAt.seconds, resolveAdminTimeZone());
   const isGuest = enrollment.guestState === 'pending_unlinked';
   return {

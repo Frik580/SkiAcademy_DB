@@ -70,7 +70,10 @@ export function mergeAdminInstructorDirectory(
   if (identityInstructors.length === 0) return [...storeInstructors];
   const byId = new Map<string, Instructor>();
   for (const item of identityInstructors) {
-    byId.set(item.instructorId, instructorListItemToInstructor(item, fallbackById.get(item.instructorId)));
+    byId.set(
+      item.instructorId,
+      instructorListItemToInstructor(item, fallbackById.get(item.instructorId))
+    );
   }
   for (const instructor of storeInstructors) {
     if (!byId.has(instructor.id)) byId.set(instructor.id, instructor);
@@ -78,10 +81,9 @@ export function mergeAdminInstructorDirectory(
   return [...byId.values()];
 }
 
-export function filterPeopleBySearch<T extends { displayName?: string; name?: string; email?: string }>(
-  items: readonly T[],
-  search: string
-): T[] {
+export function filterPeopleBySearch<
+  T extends { displayName?: string; name?: string; email?: string },
+>(items: readonly T[], search: string): T[] {
   const needle = search.trim().toLowerCase();
   if (!needle) return [...items];
   return items.filter((item) => {

@@ -36,10 +36,7 @@ describe('filterAccountDirectoryBySearch', () => {
 
 describe('visibleAccountDirectoryOptions', () => {
   it('keeps the selected Account visible even when it misses the current filter', () => {
-    expect(visibleAccountDirectoryOptions(directory, 'alice', bob.accountId)).toEqual([
-      alice,
-      bob,
-    ]);
+    expect(visibleAccountDirectoryOptions(directory, 'alice', bob.accountId)).toEqual([alice, bob]);
   });
 });
 

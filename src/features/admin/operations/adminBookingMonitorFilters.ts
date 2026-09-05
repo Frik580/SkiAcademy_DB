@@ -2,19 +2,10 @@ import type { Booking, UserProfile } from '../../../types';
 import { isCourseBooking } from '../../../domain/availability';
 
 export type AdminBookingMonitorStatusFilter =
-  | 'all'
-  | 'pending'
-  | 'confirmed'
-  | 'completed'
-  | 'cancelled'
-  | 'pending_cancellation';
+  'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'pending_cancellation';
 
 export type AdminBookingMonitorTypeFilter = 'all' | 'courses' | 'lessons';
-export type AdminBookingMonitorSort =
-  | 'date_desc'
-  | 'date_asc'
-  | 'client_asc'
-  | 'client_desc';
+export type AdminBookingMonitorSort = 'date_desc' | 'date_asc' | 'client_asc' | 'client_desc';
 
 export interface AdminBookingMonitorFilterInput {
   readonly search: string;

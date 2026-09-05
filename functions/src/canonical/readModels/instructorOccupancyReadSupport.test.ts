@@ -152,8 +152,7 @@ function fakeFirestore(seed: Record<string, Record<string, unknown>>): Firestore
 
 function bookingForInstructor(
   bookingId: typeof bookingA,
-  instructorId: typeof instructorA,
-  participantLabel: string
+  instructorId: typeof instructorA
 ) {
   return BookingSchema.parse({
     bookingId,
@@ -203,8 +202,8 @@ describe('instructorOccupancyReadSupport', () => {
 
   it('filters occupancy to the requested instructor in memory', async () => {
     const firestore = fakeFirestore({
-      [`bookings/${bookingA}`]: bookingForInstructor(bookingA, instructorA, 'Anna'),
-      [`bookings/${bookingB}`]: bookingForInstructor(bookingB, instructorB, 'Bob'),
+      [`bookings/${bookingA}`]: bookingForInstructor(bookingA, instructorA),
+      [`bookings/${bookingB}`]: bookingForInstructor(bookingB, instructorB),
       [`participants/${participantId}`]: {
         participantId,
         displayName: 'Anna',
@@ -227,7 +226,7 @@ describe('instructorOccupancyReadSupport', () => {
         isAvailable: true,
       },
       [`bookings/${bookingA}`]: {
-        ...bookingForInstructor(bookingA, instructorA, 'Anna'),
+        ...bookingForInstructor(bookingA, instructorA),
         difficulty: 'intermediate',
         notes: 'private',
       },
@@ -304,7 +303,7 @@ describe('instructorOccupancyReadSupport', () => {
         pricePerHourKZT: 12_000,
         isAvailable: true,
       },
-      [`bookings/${bookingA}`]: bookingForInstructor(bookingA, instructorA, 'Anna'),
+      [`bookings/${bookingA}`]: bookingForInstructor(bookingA, instructorA),
       [`participants/${participantId}`]: {
         participantId,
         displayName: 'Anna',

@@ -209,7 +209,9 @@ describe('Admin Planner sequential revision flow', () => {
         durationMinutes: 120,
       })
     );
-    expect(executeAttempt.mock.calls[0]?.[1]?.durationMinutes).not.toBe(occupancyItem.durationMinutes);
+    expect(executeAttempt.mock.calls[0]?.[1]?.durationMinutes).not.toBe(
+      occupancyItem.durationMinutes
+    );
   });
 
   it('refetches a fresh booking revision between attendance and completion outcome', async () => {

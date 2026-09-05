@@ -29,7 +29,10 @@ export function AdminClientContactEditor({
       }}
     >
       <div className="space-y-1.5">
-        <label className="block text-[10px] font-mono uppercase text-[var(--ink-dim)]" htmlFor="admin-client-display-name">
+        <label
+          className="block text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+          htmlFor="admin-client-display-name"
+        >
           {text.displayName}
         </label>
         <input
@@ -42,7 +45,10 @@ export function AdminClientContactEditor({
         />
       </div>
       <div className="space-y-1.5">
-        <label className="block text-[10px] font-mono uppercase text-[var(--ink-dim)]" htmlFor="admin-client-email">
+        <label
+          className="block text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+          htmlFor="admin-client-email"
+        >
           {text.email}
         </label>
         <input
@@ -52,10 +58,15 @@ export function AdminClientContactEditor({
           disabled
           className="w-full cursor-not-allowed border border-[var(--border)] bg-transparent px-3.5 py-2 font-mono text-xs text-[var(--ink)] opacity-60"
         />
-        <p className="text-[10px] font-mono leading-relaxed text-[var(--ink-dim)]">{text.emailReadOnly}</p>
+        <p className="text-[10px] font-mono leading-relaxed text-[var(--ink-dim)]">
+          {text.emailReadOnly}
+        </p>
       </div>
       <div className="space-y-1.5">
-        <label className="block text-[10px] font-mono uppercase text-[var(--ink-dim)]" htmlFor="admin-client-phone">
+        <label
+          className="block text-[10px] font-mono uppercase text-[var(--ink-dim)]"
+          htmlFor="admin-client-phone"
+        >
           {text.phone}
         </label>
         <input

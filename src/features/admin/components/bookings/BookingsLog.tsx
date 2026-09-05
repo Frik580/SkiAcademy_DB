@@ -348,9 +348,7 @@ export const BookingsLog: React.FC<BookingsLogProps> = ({
                           <button
                             type="button"
                             onClick={() =>
-                              isCourseBooking(b)
-                                ? onOpenEnrollment?.(b.id)
-                                : onOpenLesson?.(b.id)
+                              isCourseBooking(b) ? onOpenEnrollment?.(b.id) : onOpenLesson?.(b.id)
                             }
                             className="mt-1.5 px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-mono font-bold transition flex items-center gap-1 cursor-pointer"
                             title={t('linkToClientBtn')}

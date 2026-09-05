@@ -5,9 +5,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
-import {
-  BookingAppleWheelColumn,
-} from '../../src/features/bookings/components/booking_modal/BookingAppleWheelColumn';
+import { BookingAppleWheelColumn } from '../../src/features/bookings/components/booking_modal/BookingAppleWheelColumn';
 import type { BookingAppleWheelOption } from '../../src/features/bookings/components/booking_modal/BookingAppleWheelPicker';
 
 function makeOptions(times: string[]): BookingAppleWheelOption[] {
@@ -22,12 +20,7 @@ describe('BookingAppleWheelColumn', () => {
       { value: '', label: 'Loading...', disabled: true },
     ];
     render(
-      <BookingAppleWheelColumn
-        value="08:00"
-        options={options}
-        onChange={vi.fn()}
-        isOpen={true}
-      />
+      <BookingAppleWheelColumn value="08:00" options={options} onChange={vi.fn()} isOpen={true} />
     );
     expect(screen.getByText('08:00')).toBeInTheDocument();
     expect(screen.getByText('09:00')).toBeInTheDocument();
@@ -66,16 +59,9 @@ describe('BookingAppleWheelColumn', () => {
   });
 
   it('renders nothing when all options are disabled', () => {
-    const options: BookingAppleWheelOption[] = [
-      { value: '', label: 'Loading...', disabled: true },
-    ];
+    const options: BookingAppleWheelOption[] = [{ value: '', label: 'Loading...', disabled: true }];
     const { container } = render(
-      <BookingAppleWheelColumn
-        value=""
-        options={options}
-        onChange={vi.fn()}
-        isOpen={true}
-      />
+      <BookingAppleWheelColumn value="" options={options} onChange={vi.fn()} isOpen={true} />
     );
     expect(container.querySelectorAll('button')).toHaveLength(0);
   });
@@ -83,12 +69,7 @@ describe('BookingAppleWheelColumn', () => {
   it('busy slot does not appear as disabled in DOM — it is completely absent', () => {
     const options = makeOptions(['08:00', '09:00', '11:00']);
     const { container } = render(
-      <BookingAppleWheelColumn
-        value="08:00"
-        options={options}
-        onChange={vi.fn()}
-        isOpen={true}
-      />
+      <BookingAppleWheelColumn value="08:00" options={options} onChange={vi.fn()} isOpen={true} />
     );
 
     const buttons = Array.from(container.querySelectorAll('button'));

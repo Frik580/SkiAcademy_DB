@@ -162,7 +162,10 @@ function pendingUnpaidAdminDetail(): LessonBookingReadModel {
   const item = detail();
   return {
     ...item,
-    lifecycle: { status: 'pending', reservationExpiresAt: { seconds: 1_788_250_000, nanoseconds: 0 } },
+    lifecycle: {
+      status: 'pending',
+      reservationExpiresAt: { seconds: 1_788_250_000, nanoseconds: 0 },
+    },
     difficulty: 'freestyle',
     notes: undefined,
     admin: {
@@ -214,7 +217,10 @@ function pendingUnpaidAdminDetail(): LessonBookingReadModel {
   } as LessonBookingReadModel;
 }
 
-function renderPanel(item?: LessonBookingReadModel, path = '/admin?tab=operations&booking=booking_admin_panel_01') {
+function renderPanel(
+  item?: LessonBookingReadModel,
+  path = '/admin?tab=operations&booking=booking_admin_panel_01'
+) {
   readMock.mockReturnValue({
     list: {
       items: item ? [item] : [],
@@ -495,9 +501,15 @@ describe('AdminLessonBookingPanel', () => {
     expect(screen.getByText('adminLessonPaymentRemaining')).toBeVisible();
     expect(screen.getAllByText(/60,000/).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'adminLessonOpenPayment' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'adminLessonDirectCancel' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'adminLessonRecordPresent' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'adminLessonRecordAbsent' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonDirectCancel' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonRecordPresent' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonRecordAbsent' })
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'adminLessonResolveOutcome' })
     ).not.toBeInTheDocument();
@@ -505,7 +517,9 @@ describe('AdminLessonBookingPanel', () => {
       screen.queryByRole('button', { name: 'adminLessonApproveCancellation' })
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'adminLessonLinkGuest' })).not.toBeInTheDocument();
-    expect(screen.queryByText(/server currently authorizes no booking mutations/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/server currently authorizes no booking mutations/i)
+    ).not.toBeInTheDocument();
     expect(screen.queryByText('adminLessonNoActions')).not.toBeInTheDocument();
     expect(screen.getByText('adminLessonNoActionsAwaitingConfirmation')).toBeVisible();
     expect(screen.getByText('adminLessonAttendanceMissing')).toBeVisible();
@@ -538,7 +552,11 @@ describe('AdminLessonBookingPanel', () => {
             participantId: 'participant_admin_panel_01',
             attendanceStatus: 'present' as const,
             revision: 1,
-            authorizedActions: { canRecordPresent: false, canRecordAbsent: true, reasonRequired: true as const },
+            authorizedActions: {
+              canRecordPresent: false,
+              canRecordAbsent: true,
+              reasonRequired: true as const,
+            },
           },
         ],
         authorizedActions: {
@@ -555,9 +573,13 @@ describe('AdminLessonBookingPanel', () => {
 
     expect(screen.getAllByText('adminLessonStatusConfirmed').length).toBeGreaterThan(0);
     expect(screen.getByText('adminLessonAttendancePresent')).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'adminLessonRecordPresent' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonRecordPresent' })
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'adminLessonRecordAbsent' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'adminLessonDirectCancel' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonDirectCancel' })
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'adminLessonApproveCancellation' })
     ).not.toBeInTheDocument();
@@ -581,7 +603,11 @@ describe('AdminLessonBookingPanel', () => {
             participantId: 'participant_admin_panel_01',
             attendanceStatus: 'absent' as const,
             revision: 1,
-            authorizedActions: { canRecordPresent: false, canRecordAbsent: false, reasonRequired: true as const },
+            authorizedActions: {
+              canRecordPresent: false,
+              canRecordAbsent: false,
+              reasonRequired: true as const,
+            },
           },
         ],
         authorizedActions: {
@@ -606,7 +632,9 @@ describe('AdminLessonBookingPanel', () => {
     expect(screen.getByText('adminLessonCancellationRequested')).toBeVisible();
     expect(screen.getByRole('button', { name: 'adminLessonApproveCancellation' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'adminLessonRejectCancellation' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'adminLessonDirectCancel' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'adminLessonDirectCancel' })
+    ).not.toBeInTheDocument();
   });
 
   it('exposes the Account + Participant guest-link workflow when the server allows it', () => {

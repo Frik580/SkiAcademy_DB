@@ -82,10 +82,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   const [internalCurrentDate, setInternalCurrentDate] = useState(new Date());
   const viewMode = plannerView ?? internalViewMode;
   const selectedDate = plannerDate ?? formatDateLocalYMD(internalCurrentDate);
-  const currentDate = useMemo(
-    () => parsePlannerLocalDateInput(selectedDate),
-    [selectedDate]
-  );
+  const currentDate = useMemo(() => parsePlannerLocalDateInput(selectedDate), [selectedDate]);
   const [activeSlotModal, setActiveSlotModal] = useState<ActiveScheduleSlot | null>(null);
   const slotActionModalRef = useRef<ScheduleSlotActionModalHandle>(null);
 
@@ -327,9 +324,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             language={language}
             t={t}
             onViewModeChange={(nextView) => updatePlannerWindow(selectedDate, nextView)}
-            onDateChange={(nextDate) =>
-              updatePlannerWindow(formatDateLocalYMD(nextDate), viewMode)
-            }
+            onDateChange={(nextDate) => updatePlannerWindow(formatDateLocalYMD(nextDate), viewMode)}
             onAdjustDate={adjustDate}
             onToday={() => updatePlannerWindow(formatDateLocalYMD(new Date()), viewMode)}
           />

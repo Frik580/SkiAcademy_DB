@@ -1,5 +1,8 @@
 import type { ParticipantId } from '@ski-academy/shared-domain';
-import type { AdminClientDependentDraft, AdminClientManagedParticipant } from './adminClientContracts';
+import type {
+  AdminClientDependentDraft,
+  AdminClientManagedParticipant,
+} from './adminClientContracts';
 import {
   adminClientAgeLabel,
   adminClientDisciplineLabel,
@@ -100,7 +103,9 @@ export function AdminClientParticipantList({
             onCreateDependent();
           }}
         >
-          <p className="text-[10px] font-mono uppercase text-[var(--ink-dim)]">{text.addParticipant}</p>
+          <p className="text-[10px] font-mono uppercase text-[var(--ink-dim)]">
+            {text.addParticipant}
+          </p>
           <input
             aria-label={text.displayName}
             value={dependentDraft.displayName}

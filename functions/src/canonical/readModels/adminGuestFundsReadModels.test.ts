@@ -217,8 +217,9 @@ function bookingPayment(
     payerAccountId?: typeof linkedAccountId;
   }
 ) {
-  const { payerAccountId: _omitPayer, ...basePayment } =
+  const { payerAccountId: _removedPayerAccountId, ...basePayment } =
     canonicalPaymentWalletAuditFixtures.underpaidPayment;
+  void _removedPayerAccountId;
   return PaymentSchema.parse({
     ...basePayment,
     paymentId: booking.paymentId,
@@ -292,8 +293,9 @@ function enrollmentPayment(
     payerAccountId?: typeof linkedAccountId;
   }
 ) {
-  const { payerAccountId: _omitPayer, ...basePayment } =
+  const { payerAccountId: _removedPayerAccountId, ...basePayment } =
     canonicalPaymentWalletAuditFixtures.underpaidPayment;
+  void _removedPayerAccountId;
   return PaymentSchema.parse({
     ...basePayment,
     paymentId: enrollment.paymentId,

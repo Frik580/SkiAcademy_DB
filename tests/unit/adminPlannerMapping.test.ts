@@ -223,12 +223,8 @@ describe('Admin Planner compatibility mapping', () => {
   });
 
   it('treats break and day-off occupancy as administrative blocks, not lessons', () => {
-    expect(
-      isAdministrativeScheduleBlock({ userId: 'system_block_break' })
-    ).toBe(true);
-    expect(
-      isAdministrativeScheduleBlock({ userId: 'system_block_day_off' })
-    ).toBe(true);
+    expect(isAdministrativeScheduleBlock({ userId: 'system_block_break' })).toBe(true);
+    expect(isAdministrativeScheduleBlock({ userId: 'system_block_day_off' })).toBe(true);
     expect(
       isPlannerLessonBooking({
         userId: 'system_block_break',

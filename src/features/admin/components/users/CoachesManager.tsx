@@ -317,347 +317,350 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
           {t('plannerOccupancyTruncated')}
         </p>
       ) : null}
-    <div className="grid lg:grid-cols-12 gap-6 w-full min-w-0 overflow-hidden">
-      {/* Instructors Management Table */}
-      <div
-        className={`${showAddForm || editingIns ? 'lg:col-span-8' : 'lg:col-span-12'} space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden`}
-      >
-        <div className="flex items-center justify-end border-b border-[var(--border)] pb-3">
-          <button
-            onClick={() => {
-              setEditingIns(null);
-              setShowAddForm(!showAddForm);
-            }}
-            className="py-1.5 px-3 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 rounded-none text-xs flex items-center gap-1 transition cursor-pointer font-mono"
-          >
-            <Plus className="w-4 h-4" /> {t('addCoachShort')}
-          </button>
-        </div>
+      <div className="grid lg:grid-cols-12 gap-6 w-full min-w-0 overflow-hidden">
+        {/* Instructors Management Table */}
+        <div
+          className={`${showAddForm || editingIns ? 'lg:col-span-8' : 'lg:col-span-12'} space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden`}
+        >
+          <div className="flex items-center justify-end border-b border-[var(--border)] pb-3">
+            <button
+              onClick={() => {
+                setEditingIns(null);
+                setShowAddForm(!showAddForm);
+              }}
+              className="py-1.5 px-3 border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] hover:bg-black/5 dark:hover:bg-white/5 rounded-none text-xs flex items-center gap-1 transition cursor-pointer font-mono"
+            >
+              <Plus className="w-4 h-4" /> {t('addCoachShort')}
+            </button>
+          </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-[var(--border)] text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
-                <th className="py-3 px-2">{t('instructorColumn')}</th>
-                <th className="py-3 px-2">{t('discipline')}</th>
-                <th className="py-3 px-2">{t('ratePerHourShort')}</th>
-                <th className="py-3 px-2 text-center">{t('availabilityLabel')}</th>
-                <th className="py-3 px-2 text-right">{t('actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {instructors.map((ins) => (
-                <tr
-                  key={ins.id}
-                  className="border-b border-[var(--border)]/40 hover:bg-black/5 dark:hover:bg-white/5 transition"
-                >
-                  <td className="py-3 px-2">
-                    <div className="flex items-center gap-2.5">
-                      <img
-                        src={ins.avatarUrl}
-                        alt={ins.name}
-                        className="w-8 h-8 rounded-none border border-[var(--border)] object-cover"
-                      />
-                      <div>
-                        <span className="text-xs font-bold text-[var(--ink)] block leading-none">
-                          {ins.name}
-                        </span>
-                        <span className="text-[10px] font-mono text-[var(--ink-dim)] mt-1.5 block">
-                          {`${t('expYearsPrefix')} ${ins.experienceYears} ${t('expYearsSuffix')}`}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 px-2">
-                    <span className="text-[10px] font-mono text-[var(--ink)] uppercase border border-[var(--border)] px-2 py-0.5 bg-black/5 dark:bg-white/5">
-                      {getSpecialtyLabel(ins.specialty, language)}
-                    </span>
-                  </td>
-                  <td className="py-3 px-2 text-xs font-mono text-[var(--ink)]">
-                    <div>${ins.pricePerHour}</div>
-                    {ins.pricePerHourKZT ? (
-                      <div className="text-[10px] text-[var(--ink-dim)]">
-                        {ins.pricePerHourKZT.toLocaleString()} ₸
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="py-3 px-2">
-                    <div className="flex items-center justify-center">
-                      <button
-                        onClick={() => handleToggleAvailability(ins)}
-                        className="p-1 transition cursor-pointer"
-                      >
-                        {ins.isAvailable ? (
-                          <ToggleRight className="w-8 h-8 text-[var(--ink)]" />
-                        ) : (
-                          <ToggleLeft className="w-8 h-8 text-[var(--ink-dim)]" />
-                        )}
-                      </button>
-                    </div>
-                  </td>
-                  <td className="py-3 px-2">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        onClick={() => startEdit(ins)}
-                        className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] border border-transparent rounded-none transition cursor-pointer"
-                        title={t('editDetails')}
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCoach(ins)}
-                        className="p-1.5 text-rose-500 hover:text-rose-600 hover:border-rose-500/30 border border-transparent rounded-none transition cursor-pointer"
-                        title={t('deleteInstructor')}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-[var(--border)] text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
+                  <th className="py-3 px-2">{t('instructorColumn')}</th>
+                  <th className="py-3 px-2">{t('discipline')}</th>
+                  <th className="py-3 px-2">{t('ratePerHourShort')}</th>
+                  <th className="py-3 px-2 text-center">{t('availabilityLabel')}</th>
+                  <th className="py-3 px-2 text-right">{t('actions')}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {instructors.map((ins) => (
+                  <tr
+                    key={ins.id}
+                    className="border-b border-[var(--border)]/40 hover:bg-black/5 dark:hover:bg-white/5 transition"
+                  >
+                    <td className="py-3 px-2">
+                      <div className="flex items-center gap-2.5">
+                        <img
+                          src={ins.avatarUrl}
+                          alt={ins.name}
+                          className="w-8 h-8 rounded-none border border-[var(--border)] object-cover"
+                        />
+                        <div>
+                          <span className="text-xs font-bold text-[var(--ink)] block leading-none">
+                            {ins.name}
+                          </span>
+                          <span className="text-[10px] font-mono text-[var(--ink-dim)] mt-1.5 block">
+                            {`${t('expYearsPrefix')} ${ins.experienceYears} ${t('expYearsSuffix')}`}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-2">
+                      <span className="text-[10px] font-mono text-[var(--ink)] uppercase border border-[var(--border)] px-2 py-0.5 bg-black/5 dark:bg-white/5">
+                        {getSpecialtyLabel(ins.specialty, language)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-2 text-xs font-mono text-[var(--ink)]">
+                      <div>${ins.pricePerHour}</div>
+                      {ins.pricePerHourKZT ? (
+                        <div className="text-[10px] text-[var(--ink-dim)]">
+                          {ins.pricePerHourKZT.toLocaleString()} ₸
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="flex items-center justify-center">
+                        <button
+                          onClick={() => handleToggleAvailability(ins)}
+                          className="p-1 transition cursor-pointer"
+                        >
+                          {ins.isAvailable ? (
+                            <ToggleRight className="w-8 h-8 text-[var(--ink)]" />
+                          ) : (
+                            <ToggleLeft className="w-8 h-8 text-[var(--ink-dim)]" />
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => startEdit(ins)}
+                          className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] border border-transparent rounded-none transition cursor-pointer"
+                          title={t('editDetails')}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCoach(ins)}
+                          className="p-1.5 text-rose-500 hover:text-rose-600 hover:border-rose-500/30 border border-transparent rounded-none transition cursor-pointer"
+                          title={t('deleteInstructor')}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
 
-      {/* Form Panel Side (Dynamic add or edit) */}
-      {(showAddForm || editingIns) && (
-        <div className="lg:col-span-4 border border-[var(--border)] p-6 bg-transparent self-start transition-colors duration-300 animate-fade-in">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <h4 className="font-serif text-lg font-light text-[var(--ink)]">
-                {editingIns
-                  ? `${t('editProfilePrefix')} ${editingIns.name}`
-                  : t('registerNewCoach')}
-              </h4>
-              <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1.5 leading-relaxed">
-                {t('coachFormSub')}
-              </p>
-            </div>
+        {/* Form Panel Side (Dynamic add or edit) */}
+        {(showAddForm || editingIns) && (
+          <div className="lg:col-span-4 border border-[var(--border)] p-6 bg-transparent self-start transition-colors duration-300 animate-fade-in">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <h4 className="font-serif text-lg font-light text-[var(--ink)]">
+                  {editingIns
+                    ? `${t('editProfilePrefix')} ${editingIns.name}`
+                    : t('registerNewCoach')}
+                </h4>
+                <p className="text-[10px] font-mono text-[var(--ink-dim)] uppercase tracking-wider mt-1.5 leading-relaxed">
+                  {t('coachFormSub')}
+                </p>
+              </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
-                {t('coachFullName')}
-              </label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Jean-Pierre"
-                className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none font-mono"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
-                  {t('discipline')}
+                  {t('coachFullName')}
                 </label>
-                <select
-                  value={specialty}
-                  onChange={(e) => setSpecialty(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-slate-50 dark:bg-slate-900 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] cursor-pointer rounded-none font-mono"
-                >
-                  <option value="ski" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-                    {t('specialtySki')}
-                  </option>
-                  <option
-                    value="snowboard"
-                    className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]"
-                  >
-                    {t('specialtySnowboard')}
-                  </option>
-                  <option value="both" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
-                    {t('specialtyBoth')}
-                  </option>
-                </select>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Jean-Pierre"
+                  className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none font-mono"
+                />
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
-                    {t('ratePerHourLabel')} ($ USD)
+                    {t('discipline')}
+                  </label>
+                  <select
+                    value={specialty}
+                    onChange={(e) => setSpecialty(e.target.value as any)}
+                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-slate-50 dark:bg-slate-900 text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] cursor-pointer rounded-none font-mono"
+                  >
+                    <option value="ski" className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]">
+                      {t('specialtySki')}
+                    </option>
+                    <option
+                      value="snowboard"
+                      className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]"
+                    >
+                      {t('specialtySnowboard')}
+                    </option>
+                    <option
+                      value="both"
+                      className="bg-slate-50 dark:bg-slate-900 text-[var(--ink)]"
+                    >
+                      {t('specialtyBoth')}
+                    </option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
+                      {t('ratePerHourLabel')} ($ USD)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={pricePerHour}
+                      onChange={(e) => setPricePerHour(Number(e.target.value))}
+                      placeholder="75"
+                      className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] text-center rounded-none font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
+                      {t('ratePerHourKztLabel') || 'Ставка (₸ KZT/ч)'}
+                    </label>
+                    <input
+                      type="number"
+                      value={pricePerHourKZT}
+                      onChange={(e) =>
+                        setPricePerHourKZT(e.target.value ? Number(e.target.value) : '')
+                      }
+                      placeholder="37500"
+                      className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] text-center rounded-none font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
+                    {t('phoneOptional')}
+                  </label>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="+7 ..."
+                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] text-center rounded-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
+                    {t('experienceYrsShort')}
                   </label>
                   <input
                     type="number"
                     required
-                    value={pricePerHour}
-                    onChange={(e) => setPricePerHour(Number(e.target.value))}
-                    placeholder="75"
+                    value={experienceYears}
+                    onChange={(e) => setExperienceYears(Number(e.target.value))}
                     className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] text-center rounded-none font-mono"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
-                    {t('ratePerHourKztLabel') || 'Ставка (₸ KZT/ч)'}
+                    {t('languagesCsv')}
                   </label>
                   <input
-                    type="number"
-                    value={pricePerHourKZT}
-                    onChange={(e) =>
-                      setPricePerHourKZT(e.target.value ? Number(e.target.value) : '')
-                    }
-                    placeholder="37500"
-                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] text-center rounded-none font-mono"
+                    type="text"
+                    required
+                    value={languages}
+                    onChange={(e) => setLanguages(e.target.value)}
+                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none font-mono"
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
-                  {t('phoneOptional')}
-                </label>
-                <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="+7 ..."
-                  className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] text-center rounded-none font-mono"
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
-                  {t('experienceYrsShort')}
+                  {t('bioStatement')}
                 </label>
-                <input
-                  type="number"
+                <textarea
                   required
-                  value={experienceYears}
-                  onChange={(e) => setExperienceYears(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] text-center rounded-none font-mono"
+                  rows={3}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder={t('bioPlaceholder')}
+                  className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] resize-none rounded-none font-mono"
                 />
               </div>
-              <div className="space-y-1.5">
+
+              <div className="space-y-2">
                 <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
-                  {t('languagesCsv')}
+                  {t('coachPhoto')}
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={languages}
-                  onChange={(e) => setLanguages(e.target.value)}
-                  className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none font-mono"
-                />
-              </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
-                {t('bioStatement')}
-              </label>
-              <textarea
-                required
-                rows={3}
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder={t('bioPlaceholder')}
-                className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] resize-none rounded-none font-mono"
-              />
-            </div>
+                {/* Combined preview and drag-drop upload zone */}
+                <div className="flex gap-3 items-center">
+                  {/* Visual Preview */}
+                  <div className="w-16 h-16 rounded-none bg-black/5 dark:bg-white/5 border border-[var(--border)] flex-shrink-0 overflow-hidden relative flex items-center justify-center group">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <Camera className="w-6 h-6 text-[var(--ink-dim)]" />
+                    )}
+                    {isUploadingImage && (
+                      <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
+                        <Loader2 className="w-5 h-5 text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
-                {t('coachPhoto')}
-              </label>
-
-              {/* Combined preview and drag-drop upload zone */}
-              <div className="flex gap-3 items-center">
-                {/* Visual Preview */}
-                <div className="w-16 h-16 rounded-none bg-black/5 dark:bg-white/5 border border-[var(--border)] flex-shrink-0 overflow-hidden relative flex items-center justify-center group">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
+                  {/* Drag and Drop Zone */}
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => document.getElementById('instructor-photo-upload')?.click()}
+                    className={`flex-1 h-16 rounded-none border border-dashed flex flex-col items-center justify-center px-3 cursor-pointer transition ${
+                      isDragOver
+                        ? 'border-[var(--ink)] bg-black/5 dark:bg-white/5'
+                        : 'border-[var(--border)] hover:border-[var(--ink)] bg-black/5 dark:bg-white/5'
+                    }`}
+                  >
+                    <input
+                      id="instructor-photo-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
                     />
-                  ) : (
-                    <Camera className="w-6 h-6 text-[var(--ink-dim)]" />
-                  )}
-                  {isUploadingImage && (
-                    <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
-                      <Loader2 className="w-5 h-5 text-white animate-spin" />
-                    </div>
-                  )}
+                    <Upload className="w-4 h-4 text-[var(--ink-dim)] mb-0.5" />
+                    <p className="text-[10px] font-bold text-[var(--ink)] text-center font-mono">
+                      {isUploadingImage ? t('optimizing') : t('clickOrDragPhoto')}
+                    </p>
+                    <p className="text-[8px] text-[var(--ink-dim)] text-center font-mono">
+                      {t('autoOptimizeHint')}
+                    </p>
+                  </div>
                 </div>
 
-                {/* Drag and Drop Zone */}
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => document.getElementById('instructor-photo-upload')?.click()}
-                  className={`flex-1 h-16 rounded-none border border-dashed flex flex-col items-center justify-center px-3 cursor-pointer transition ${
-                    isDragOver
-                      ? 'border-[var(--ink)] bg-black/5 dark:bg-white/5'
-                      : 'border-[var(--border)] hover:border-[var(--ink)] bg-black/5 dark:bg-white/5'
-                  }`}
-                >
+                {/* Manual URL Input alternative */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-[var(--ink-dim)] font-semibold uppercase font-mono">
+                      {t('orPasteImageUrl')}
+                    </span>
+                  </div>
                   <input
-                    id="instructor-photo-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="hidden"
+                    type="text"
+                    value={avatarUrl}
+                    onChange={(e) => setAvatarUrl(e.target.value)}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none font-mono"
                   />
-                  <Upload className="w-4 h-4 text-[var(--ink-dim)] mb-0.5" />
-                  <p className="text-[10px] font-bold text-[var(--ink)] text-center font-mono">
-                    {isUploadingImage ? t('optimizing') : t('clickOrDragPhoto')}
-                  </p>
-                  <p className="text-[8px] text-[var(--ink-dim)] text-center font-mono">
-                    {t('autoOptimizeHint')}
-                  </p>
                 </div>
               </div>
 
-              {/* Manual URL Input alternative */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] text-[var(--ink-dim)] font-semibold uppercase font-mono">
-                    {t('orPasteImageUrl')}
-                  </span>
-                </div>
-                <input
-                  type="text"
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none font-mono"
-                />
+              <div className="flex gap-2 pt-2 font-mono">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 py-2 border border-[var(--border)] hover:bg-[var(--ink)] hover:text-[var(--bg)] bg-transparent text-[var(--ink)] font-bold text-xs rounded-none flex items-center justify-center gap-1.5 cursor-pointer transition"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : editingIns ? (
+                    t('saveUpdates')
+                  ) : (
+                    t('addCoachShort')
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingIns(null);
+                    setShowAddForm(false);
+                  }}
+                  className="px-3 py-2 border border-[var(--border)] bg-transparent hover:bg-black/5 dark:hover:bg-white/5 text-[var(--ink)] rounded-none text-xs font-semibold cursor-pointer transition"
+                >
+                  {t('cancel')}
+                </button>
               </div>
-            </div>
-
-            <div className="flex gap-2 pt-2 font-mono">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex-1 py-2 border border-[var(--border)] hover:bg-[var(--ink)] hover:text-[var(--bg)] bg-transparent text-[var(--ink)] font-bold text-xs rounded-none flex items-center justify-center gap-1.5 cursor-pointer transition"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : editingIns ? (
-                  t('saveUpdates')
-                ) : (
-                  t('addCoachShort')
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingIns(null);
-                  setShowAddForm(false);
-                }}
-                className="px-3 py-2 border border-[var(--border)] bg-transparent hover:bg-black/5 dark:hover:bg-white/5 text-[var(--ink)] rounded-none text-xs font-semibold cursor-pointer transition"
-              >
-                {t('cancel')}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-    </div>
+            </form>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

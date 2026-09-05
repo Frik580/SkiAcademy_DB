@@ -42,10 +42,7 @@ function toRow(item: AdminAccountListItem): AdminRoleDirectoryRow {
   };
 }
 
-export function AdminRoleDirectory({
-  adminAccountId,
-  onRequestConfirm,
-}: AdminRoleDirectoryProps) {
+export function AdminRoleDirectory({ adminAccountId, onRequestConfirm }: AdminRoleDirectoryProps) {
   const { text } = useAdminRoleTranslations();
   const [, setSearchParams] = useSearchParams();
   const [showAdd, setShowAdd] = useState(false);
@@ -69,8 +66,7 @@ export function AdminRoleDirectory({
     return () => window.clearTimeout(handle);
   }, [candidateSearch]);
 
-  const appliedCandidateSearch =
-    candidateSearch.trim() === '' ? '' : debouncedCandidateSearch;
+  const appliedCandidateSearch = candidateSearch.trim() === '' ? '' : debouncedCandidateSearch;
 
   const adminReads = useAdminIdentityReadModels({
     enabled: true,
@@ -78,9 +74,7 @@ export function AdminRoleDirectory({
     search: '',
     pageSize: ADMIN_ROLE_DIRECTORY_PAGE_SIZE,
     role: 'admin',
-    ...(parsedAdminAccountId.success
-      ? { selectedAccountId: parsedAdminAccountId.data }
-      : {}),
+    ...(parsedAdminAccountId.success ? { selectedAccountId: parsedAdminAccountId.data } : {}),
   });
 
   const candidateReads = useAdminIdentityReadModels({
@@ -165,10 +159,9 @@ export function AdminRoleDirectory({
   };
 
   const onOpenClient = (accountId: AccountId) => {
-    setSearchParams(
-      (previous) => adminClientAccountSearchParams(previous, accountId),
-      { replace: true }
-    );
+    setSearchParams((previous) => adminClientAccountSearchParams(previous, accountId), {
+      replace: true,
+    });
   };
 
   const listError =

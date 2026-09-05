@@ -40,8 +40,8 @@ describe('T32.9A.7.2 Admin Roles identity boundary', () => {
       expect(source).not.toContain('systemRole:');
       expect(source).not.toContain('ownership');
       expect(source).not.toContain('transferOwnership');
-      expect(source).not.toContain('directory: \'participants\'');
-      expect(source).not.toContain('directory: \'instructors\'');
+      expect(source).not.toContain("directory: 'participants'");
+      expect(source).not.toContain("directory: 'instructors'");
       expect(source).not.toContain('link_account_instructor_catalog');
       expect(source).not.toContain('Instructor option');
     }
@@ -67,7 +67,9 @@ describe('T32.9A.7.2 Admin Roles identity boundary', () => {
     const panel = readRepoFile('src/features/admin/components/AdminPanel.tsx');
     const clients = readRepoFile('src/features/admin/people/AdminClientDirectory.tsx');
     expect(panel).toContain('ADMIN_CLIENT_ACCOUNT_QUERY_KEY');
-    expect(panel).toContain('forceOpen={Boolean(searchParams.get(ADMIN_CLIENT_ACCOUNT_QUERY_KEY))}');
+    expect(panel).toContain(
+      'forceOpen={Boolean(searchParams.get(ADMIN_CLIENT_ACCOUNT_QUERY_KEY))}'
+    );
     expect(clients).toContain('ADMIN_CLIENT_ACCOUNT_QUERY_KEY');
     expect(clients).toContain('AccountIdSchema.safeParse(deepLinkAccountRaw)');
   });

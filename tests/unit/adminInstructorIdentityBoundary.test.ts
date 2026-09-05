@@ -41,7 +41,7 @@ describe('T32.9A.6.2 Admin Instructors identity boundary', () => {
       expect(source).not.toContain('change_account_role');
       expect(source).not.toContain('deleteDoc');
       expect(source).not.toContain('balanceUSD');
-      expect(source).not.toContain('directory: \'participants\'');
+      expect(source).not.toContain("directory: 'participants'");
       expect(source).not.toContain('Create participant');
       expect(source).not.toContain('Delete instructor');
       expect(source).not.toContain('Удалить инструктора');

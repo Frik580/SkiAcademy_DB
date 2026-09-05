@@ -1,7 +1,4 @@
-import {
-  IdempotencyKeySchema,
-  type AdminAccountListItem,
-} from '@ski-academy/shared-domain';
+import { IdempotencyKeySchema, type AdminAccountListItem } from '@ski-academy/shared-domain';
 
 export const ADMIN_ROLE_DIRECTORY_PAGE_SIZE = 20;
 export const ADMIN_ROLE_PROMOTE_REASON = 'Admin role directory promote administrator';

@@ -1,8 +1,6 @@
 import type { Language } from '../../../../lib/i18n/translations';
 
-export function isAdministrativeScheduleBlock(booking: {
-  readonly userId: string;
-}): boolean {
+export function isAdministrativeScheduleBlock(booking: { readonly userId: string }): boolean {
   return booking.userId === 'system_block_break' || booking.userId === 'system_block_day_off';
 }
 

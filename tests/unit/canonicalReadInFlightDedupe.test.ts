@@ -125,9 +125,8 @@ describe('canonical read in-flight dedupe', () => {
   });
 
   it('does not dedupe different guest-fund filters', async () => {
-    const { queryAdminFinanceReadModels } = await import(
-      '../../src/lib/canonical/canonicalReadModelClient'
-    );
+    const { queryAdminFinanceReadModels } =
+      await import('../../src/lib/canonical/canonicalReadModelClient');
     callFunctionMock.mockResolvedValue({ scope: 'admin_guest_funds', items: [], hasMore: false });
 
     await Promise.all([

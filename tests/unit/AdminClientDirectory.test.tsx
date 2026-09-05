@@ -142,7 +142,9 @@ describe('AdminClientDirectory canonical identity UX', () => {
     expect(screen.getByText('Active')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/Skier|balanceUSD|\$/);
-    expect(screen.queryByRole('button', { name: /create account|create client/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /create account|create client/i })
+    ).not.toBeInTheDocument();
     expect(identityReadInput.current).toMatchObject({
       directory: 'accounts',
       enabled: true,
@@ -267,7 +269,9 @@ describe('AdminClientDirectory canonical identity UX', () => {
     };
     render(<AdminClientDirectory adminAccountId={adminId} />);
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
-    expect(screen.getByTestId('admin-client-wallet-missing')).toHaveTextContent('Wallet is not created');
+    expect(screen.getByTestId('admin-client-wallet-missing')).toHaveTextContent(
+      'Wallet is not created'
+    );
     expect(screen.queryByTestId('admin-client-wallet-balance')).not.toBeInTheDocument();
   });
 
@@ -289,7 +293,9 @@ describe('AdminClientDirectory canonical identity UX', () => {
     expect(screen.getByTestId('admin-client-wallet-balance').textContent).toMatch(/25.?000/);
     fireEvent.click(screen.getByRole('button', { name: 'Open Finance' }));
     expect(mockSetSearchParams).toHaveBeenCalled();
-    const updater = mockSetSearchParams.mock.calls[0]?.[0] as (prev: URLSearchParams) => URLSearchParams;
+    const updater = mockSetSearchParams.mock.calls[0]?.[0] as (
+      prev: URLSearchParams
+    ) => URLSearchParams;
     const next = updater(new URLSearchParams('tab=people&payment=payment_stale&movement=move_1'));
     expect(next.get('tab')).toBe('finance');
     expect(next.get('account')).toBe(familyId);
@@ -361,8 +367,12 @@ describe('AdminClientDirectory canonical identity UX', () => {
     };
     render(<AdminClientDirectory adminAccountId={adminId} />);
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
-    expect(screen.queryByText(/Promote|Demote|Grant instructor|Guest Link|Create Account|Delete/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /record_manual_wallet_funding|Complete|Cancel/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Promote|Demote|Grant instructor|Guest Link|Create Account|Delete/i)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /record_manual_wallet_funding|Complete|Cancel/i })
+    ).not.toBeInTheDocument();
   });
 
   it('closes Account detail from the detail panel close control', async () => {
@@ -385,9 +395,7 @@ describe('AdminClientDirectory canonical identity UX', () => {
       managedParticipants: [],
       diagnostics: [],
     };
-    searchParamsHolder.params = new URLSearchParams(
-      `tab=people&clientAccount=${familyId}`
-    );
+    searchParamsHolder.params = new URLSearchParams(`tab=people&clientAccount=${familyId}`);
     render(<AdminClientDirectory adminAccountId={adminId} />);
     await waitFor(() => {
       expect(identityReadInput.current.selectedAccountId).toBe(familyId);
@@ -418,9 +426,7 @@ describe('AdminClientDirectory canonical identity UX', () => {
       managedParticipants: [],
       diagnostics: [],
     };
-    searchParamsHolder.params = new URLSearchParams(
-      `tab=people&clientAccount=${familyId}`
-    );
+    searchParamsHolder.params = new URLSearchParams(`tab=people&clientAccount=${familyId}`);
     const { rerender } = render(<AdminClientDirectory adminAccountId={adminId} />);
     await waitFor(() => {
       expect(identityReadInput.current.selectedAccountId).toBe(familyId);
@@ -435,9 +441,7 @@ describe('AdminClientDirectory canonical identity UX', () => {
       managedParticipants: [],
       diagnostics: [],
     };
-    searchParamsHolder.params = new URLSearchParams(
-      `tab=people&clientAccount=${accountB}`
-    );
+    searchParamsHolder.params = new URLSearchParams(`tab=people&clientAccount=${accountB}`);
     rerender(<AdminClientDirectory adminAccountId={adminId} />);
     await waitFor(() => {
       expect(identityReadInput.current.selectedAccountId).toBe(accountB);

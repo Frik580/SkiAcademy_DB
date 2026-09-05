@@ -4,10 +4,7 @@ import { parseCourseDates } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { formatDateLocalYMD, hourToMinutes } from './scheduleUtils';
 import { SCHEDULE_TIME_SLOTS } from './scheduleOverlap';
-import {
-  dayViewBookingForSlot,
-  dayViewColSpanForBooking,
-} from './scheduleDayViewPlacement';
+import { dayViewBookingForSlot, dayViewColSpanForBooking } from './scheduleDayViewPlacement';
 import { ScheduleBookingCell } from './ScheduleBookingCell';
 import type {
   ScheduleBooking,

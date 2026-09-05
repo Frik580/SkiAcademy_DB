@@ -86,14 +86,9 @@ function buildCanonicalReadInFlightKey(
 ): string {
   const guestPart =
     guestCredential?.nonce || guestCredential?.signature
-      ? canonicalDeterministicHash([
-          guestCredential.nonce ?? '',
-          guestCredential.signature ?? '',
-        ])
+      ? canonicalDeterministicHash([guestCredential.nonce ?? '', guestCredential.signature ?? ''])
       : 'none';
-  return [callableName, idempotencyKey, resolveCanonicalReadSessionKey(), guestPart].join(
-    '\u001f'
-  );
+  return [callableName, idempotencyKey, resolveCanonicalReadSessionKey(), guestPart].join('\u001f');
 }
 
 /**
@@ -106,11 +101,7 @@ function invokeCanonicalReadCallable<Input, Output>(
   options: FunctionsCallOptions,
   guestCredential?: { readonly nonce?: string; readonly signature?: string }
 ): Promise<Output> {
-  const key = buildCanonicalReadInFlightKey(
-    callableName,
-    options.idempotencyKey,
-    guestCredential
-  );
+  const key = buildCanonicalReadInFlightKey(callableName, options.idempotencyKey, guestCredential);
   const existing = inFlightCanonicalReads.get(key);
   if (existing) {
     return existing.promise as Promise<Output>;

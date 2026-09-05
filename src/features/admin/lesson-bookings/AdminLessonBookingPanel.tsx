@@ -65,9 +65,7 @@ function readableError(error: { code: string; message: string } | undefined): st
   return `${error.message} (${error.code})`;
 }
 
-export function AdminLessonBookingPanel({
-  adminAccountId,
-}: AdminLessonBookingPanelProps) {
+export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPanelProps) {
   const { language, t } = useAdminLessonBookingTranslations();
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
   const [searchParams, setSearchParams] = useSearchParams();
@@ -250,7 +248,8 @@ export function AdminLessonBookingPanel({
                         {item.participants.map((participant) => participant.displayName).join(', ')}
                       </p>
                       <p className="mt-1 text-xs text-[var(--ink-dim)]">
-                        {formatDate(item)} · {formatLessonAdminDuration(item.occurrence.durationMinutes, t)}
+                        {formatDate(item)} ·{' '}
+                        {formatLessonAdminDuration(item.occurrence.durationMinutes, t)}
                       </p>
                       <p className="mt-1 text-xs text-[var(--ink-dim)]">
                         {item.instructor.displayName} ·{' '}

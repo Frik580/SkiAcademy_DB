@@ -91,7 +91,10 @@ async function loadEligibleParticipants(accountId: string) {
   return result.scope === 'admin_eligible_participants' ? result.items : [];
 }
 
-async function provisionSelfParticipant(adminAccountId: string, accountId: string): Promise<string> {
+async function provisionSelfParticipant(
+  adminAccountId: string,
+  accountId: string
+): Promise<string> {
   const parsedAccountId = AccountIdSchema.parse(accountId);
   await assertSucceeded(
     executeAuthenticatedCanonicalCommand(adminAccountId, {

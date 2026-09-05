@@ -46,13 +46,13 @@ describe('lessonBooking commands integration', () => {
       localTime: '08:00',
       durationMinutes: 120,
       timezone: 'Asia/Almaty',
-        identity: {
-          bookingId,
-          idempotencyKey: `create-confirmed:${bookingId}`,
-        },
-        difficulty: 'intermediate',
-        notes: '  Work on carving  ',
-      });
+      identity: {
+        bookingId,
+        idempotencyKey: `create-confirmed:${bookingId}`,
+      },
+      difficulty: 'intermediate',
+      notes: '  Work on carving  ',
+    });
 
     expect(executeAuthenticatedMock).toHaveBeenCalledWith(
       accountId,

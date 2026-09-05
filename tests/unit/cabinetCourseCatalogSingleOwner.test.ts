@@ -10,8 +10,7 @@ const queryCourseCatalogReadModelsMock = vi.fn();
 const queryCourseEnrollmentReadModelsMock = vi.fn();
 
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
-  queryCourseCatalogReadModels: (...args: unknown[]) =>
-    queryCourseCatalogReadModelsMock(...args),
+  queryCourseCatalogReadModels: (...args: unknown[]) => queryCourseCatalogReadModelsMock(...args),
   queryCourseEnrollmentReadModels: (...args: unknown[]) =>
     queryCourseEnrollmentReadModelsMock(...args),
 }));

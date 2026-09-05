@@ -5,7 +5,10 @@
  * final picker options, without gaps between helpers.
  */
 import { describe, expect, it } from 'vitest';
-import type { AdminPlannerOccupancyItem, InstructorOccupancyReadModel } from '@ski-academy/shared-domain';
+import type {
+  AdminPlannerOccupancyItem,
+  InstructorOccupancyReadModel,
+} from '@ski-academy/shared-domain';
 import { DEFAULT_LESSON_TIME_SLOTS } from '../../src/domain/availability';
 import {
   getAvailableLessonStartTimes,
@@ -46,8 +49,12 @@ function makeOccupancyItem(
     displayTitle: 'Test',
     revision: 1,
     ...(kind === 'lesson_booking' ? { bookingId: `b_${startHour}` } : {}),
-    ...(kind === 'availability_block' ? { blockId: `block_${startHour}`, blockKind: 'break' as const } : {}),
-    ...(kind === 'course_day' ? { courseId: `c_${startHour}`, courseDayId: `cd_${startHour}` } : {}),
+    ...(kind === 'availability_block'
+      ? { blockId: `block_${startHour}`, blockKind: 'break' as const }
+      : {}),
+    ...(kind === 'course_day'
+      ? { courseId: `c_${startHour}`, courseDayId: `cd_${startHour}` }
+      : {}),
     ...extra,
   } as AdminPlannerOccupancyItem;
 }
@@ -98,10 +105,7 @@ function fullPipeline(
 
 describe('booking time picker full wiring', () => {
   it('lesson_booking at 10:00–11:00 removes 10:00 from visible picker values (1h duration)', () => {
-    const { visibleValues } = fullPipeline(
-      [makeOccupancyItem('lesson_booking', 10, 11)],
-      1
-    );
+    const { visibleValues } = fullPipeline([makeOccupancyItem('lesson_booking', 10, 11)], 1);
     expect(visibleValues).not.toContain('10:00');
     expect(visibleValues).toContain('08:00');
     expect(visibleValues).toContain('09:00');
@@ -109,10 +113,7 @@ describe('booking time picker full wiring', () => {
   });
 
   it('lesson_booking at 10:00–12:00 removes 10:00 and 11:00 from visible picker (2h duration)', () => {
-    const { visibleValues } = fullPipeline(
-      [makeOccupancyItem('lesson_booking', 10, 12)],
-      2
-    );
+    const { visibleValues } = fullPipeline([makeOccupancyItem('lesson_booking', 10, 12)], 2);
     expect(visibleValues).not.toContain('10:00');
     expect(visibleValues).not.toContain('11:00');
     expect(visibleValues).toContain('08:00');
@@ -120,10 +121,7 @@ describe('booking time picker full wiring', () => {
   });
 
   it('2h duration candidate starting at 09:00 overlaps 10:00–11:00 booking → 09:00 removed', () => {
-    const { visibleValues } = fullPipeline(
-      [makeOccupancyItem('lesson_booking', 10, 11)],
-      2
-    );
+    const { visibleValues } = fullPipeline([makeOccupancyItem('lesson_booking', 10, 11)], 2);
     expect(visibleValues).not.toContain('09:00');
     expect(visibleValues).not.toContain('10:00');
     expect(visibleValues).toContain('08:00');
@@ -131,20 +129,14 @@ describe('booking time picker full wiring', () => {
   });
 
   it('availability_block (break) at 14:00–15:00 removes 14:00 from visible picker', () => {
-    const { visibleValues } = fullPipeline(
-      [makeOccupancyItem('availability_block', 14, 15)],
-      1
-    );
+    const { visibleValues } = fullPipeline([makeOccupancyItem('availability_block', 14, 15)], 1);
     expect(visibleValues).not.toContain('14:00');
     expect(visibleValues).toContain('13:00');
     expect(visibleValues).toContain('15:00');
   });
 
   it('course_day at 09:00–13:00 removes overlapping slots', () => {
-    const { visibleValues } = fullPipeline(
-      [makeOccupancyItem('course_day', 9, 13)],
-      1
-    );
+    const { visibleValues } = fullPipeline([makeOccupancyItem('course_day', 9, 13)], 1);
     expect(visibleValues).not.toContain('09:00');
     expect(visibleValues).not.toContain('10:00');
     expect(visibleValues).not.toContain('11:00');
@@ -155,10 +147,7 @@ describe('booking time picker full wiring', () => {
 
   it('multiple occupancy items removes all busy intervals', () => {
     const { visibleValues } = fullPipeline(
-      [
-        makeOccupancyItem('lesson_booking', 8, 9),
-        makeOccupancyItem('availability_block', 12, 14),
-      ],
+      [makeOccupancyItem('lesson_booking', 8, 9), makeOccupancyItem('availability_block', 12, 14)],
       1
     );
     expect(visibleValues).not.toContain('08:00');
@@ -171,15 +160,24 @@ describe('booking time picker full wiring', () => {
   it('empty occupancy returns all candidate times', () => {
     const { visibleValues } = fullPipeline([], 1);
     expect(visibleValues).toEqual(
-      expect.arrayContaining(['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'])
+      expect.arrayContaining([
+        '08:00',
+        '09:00',
+        '10:00',
+        '11:00',
+        '12:00',
+        '13:00',
+        '14:00',
+        '15:00',
+        '16:00',
+        '17:00',
+        '18:00',
+      ])
     );
   });
 
   it('occupied initial default 08:00 snaps to the nearest remaining start', () => {
-    const { selectedTime } = fullPipeline(
-      [makeOccupancyItem('lesson_booking', 8, 10)],
-      2
-    );
+    const { selectedTime } = fullPipeline([makeOccupancyItem('lesson_booking', 8, 10)], 2);
     expect(selectedTime).toBe('10:00');
   });
 

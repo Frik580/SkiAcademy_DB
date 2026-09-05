@@ -55,9 +55,7 @@ export function useAdminGuestFundsReadModel(filter: AdminGuestFundsDiscoveryFilt
         if (generationRef.current !== generation || result.scope !== 'admin_guest_funds') return;
         setState((current) => ({
           item:
-            append && current.item
-              ? mergeGuestFundsPages(current.item, result.item)
-              : result.item,
+            append && current.item ? mergeGuestFundsPages(current.item, result.item) : result.item,
           loading: false,
           loadingMore: false,
         }));

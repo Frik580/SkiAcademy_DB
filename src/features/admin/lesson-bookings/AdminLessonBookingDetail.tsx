@@ -1,4 +1,7 @@
-import type { LessonBookingAdminProjection, LessonBookingReadModel } from '@ski-academy/shared-domain';
+import type {
+  LessonBookingAdminProjection,
+  LessonBookingReadModel,
+} from '@ski-academy/shared-domain';
 import { formatLessonDifficultyOrUnspecified } from '../../../lib/i18n/bookingLabels';
 import type { Language, TranslationKey } from '../../../lib/i18n/translations';
 import { AdminManagedParticipantPicker } from '../identity';
@@ -32,10 +35,7 @@ import {
   trueAuthorizedActionKeys,
 } from './lessonBookingAdminPresentation';
 
-const BADGE_TONE_CLASS: Record<
-  ReturnType<typeof lessonAdminPrimaryStatusBadgeTone>,
-  string
-> = {
+const BADGE_TONE_CLASS: Record<ReturnType<typeof lessonAdminPrimaryStatusBadgeTone>, string> = {
   pending:
     'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-300',
   confirmed:
@@ -62,10 +62,7 @@ export interface AdminLessonBookingDetailProps {
   readonly onLinkSelectionChange: (selection: AdminManagedParticipantSelection | undefined) => void;
   readonly linkReason: string;
   readonly onLinkReasonChange: (value: string) => void;
-  readonly onRequestAttempt: (
-    attempt: AdminLessonBookingMutationDraft,
-    message: string
-  ) => void;
+  readonly onRequestAttempt: (attempt: AdminLessonBookingMutationDraft, message: string) => void;
   readonly onOpenPlanner: () => void;
   readonly onClose: () => void;
   readonly onOpenPayment: (paymentId: string) => void;
@@ -159,7 +156,9 @@ export function AdminLessonBookingDetail({
       currency: 'KZT',
       maximumFractionDigits: 0,
     }).format(value);
-  const participantNames = admin.participants.map((participant) => participant.displayName).join(', ');
+  const participantNames = admin.participants
+    .map((participant) => participant.displayName)
+    .join(', ');
   const primaryStatus = resolveLessonAdminPrimaryStatus(detail);
   const statusLabel = t(LESSON_ADMIN_PRIMARY_STATUS_KEYS[primaryStatus]);
   const badgeTone = lessonAdminPrimaryStatusBadgeTone(primaryStatus);
@@ -224,7 +223,10 @@ export function AdminLessonBookingDetail({
         <div className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
           <p className="font-medium">{t('adminLessonAttentionAwaitingPayment')}</p>
           <p className="mt-1 text-[var(--ink-dim)]">
-            {t('adminLessonAwaitingPaymentDetail').replace('{amount}', formatKzt(payment.outstanding))}
+            {t('adminLessonAwaitingPaymentDetail').replace(
+              '{amount}',
+              formatKzt(payment.outstanding)
+            )}
           </p>
           {detail.bookingOrigin === 'guest' && (
             <p className="mt-1 text-[var(--ink-dim)]">{t('adminLessonGuestApprovalUnavailable')}</p>
@@ -242,7 +244,9 @@ export function AdminLessonBookingDetail({
         <dt className="text-[var(--ink-dim)]">{t('adminLessonInstructor')}</dt>
         <dd>{detail.instructor.displayName}</dd>
         <dt className="text-[var(--ink-dim)]">
-          {admin.participants.length > 1 ? t('adminLessonParticipants') : t('adminLessonParticipant')}
+          {admin.participants.length > 1
+            ? t('adminLessonParticipants')
+            : t('adminLessonParticipant')}
         </dt>
         <dd>{participantNames}</dd>
         {showPayer && admin.payer && (
@@ -270,11 +274,15 @@ export function AdminLessonBookingDetail({
 
       {payment && (
         <section className="space-y-2 border-t border-[var(--border)] pt-3">
-          <h4 className="text-xs font-medium uppercase tracking-wide">{t('adminLessonPaymentTitle')}</h4>
+          <h4 className="text-xs font-medium uppercase tracking-wide">
+            {t('adminLessonPaymentTitle')}
+          </h4>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
             {lessonAdminPaymentPrimaryRows(payment).map((row) => (
               <div key={row.id} className="contents">
-                <dt className="text-[var(--ink-dim)]">{t(LESSON_ADMIN_PAYMENT_PRIMARY_ROW_KEYS[row.id])}</dt>
+                <dt className="text-[var(--ink-dim)]">
+                  {t(LESSON_ADMIN_PAYMENT_PRIMARY_ROW_KEYS[row.id])}
+                </dt>
                 <dd className="text-right tabular-nums">{formatKzt(row.amount)}</dd>
               </div>
             ))}
@@ -305,95 +313,97 @@ export function AdminLessonBookingDetail({
             {t('adminLessonAttendanceTitle')}
           </h4>
           {(admin.attendance ?? []).map((record) => {
-          const participant = admin.participants.find(
-            (candidate) => candidate.participantId === record.participantId
-          );
-          const canPresent = record.authorizedActions.canRecordPresent;
-          const canAbsent = record.authorizedActions.canRecordAbsent;
-          return (
-            <div key={record.participantId} className="space-y-2 text-xs">
-              <p className="font-medium">{participant?.displayName ?? record.participantId}</p>
-              <p className="text-[var(--ink-dim)]">
-                {t(attendanceStatusLabelKey(record.attendanceStatus))}
-              </p>
-              {(canPresent || canAbsent) && (
-                <div className="flex flex-wrap gap-2">
-                  {canPresent && (
-                    <button
-                      type="button"
-                      disabled={!actionReason.trim()}
-                      onClick={() =>
-                        onRequestAttempt(
-                          {
-                            kind: 'record_booking_attendance',
-                            participantId: record.participantId,
-                            attendanceStatus: 'present',
-                            ...(record.revision === undefined
-                              ? {}
-                              : { expectedAttendanceRevision: record.revision }),
-                            reasonExplanation: actionReason.trim(),
-                          },
-                          `${t('adminLessonConfirmAttendance')} ${participant?.displayName ?? record.participantId}: ${record.attendanceStatus ?? 'missing'} → present @ booking rev ${detail.revision}${record.revision === undefined ? '' : `, attendance rev ${record.revision}`}`
-                        )
-                      }
-                      className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
-                    >
-                      {t('adminLessonRecordPresent')}
-                    </button>
-                  )}
-                  {canAbsent && (
-                    <button
-                      type="button"
-                      disabled={!actionReason.trim()}
-                      onClick={() =>
-                        onRequestAttempt(
-                          {
-                            kind: 'record_booking_attendance',
-                            participantId: record.participantId,
-                            attendanceStatus: 'absent',
-                            ...(record.revision === undefined
-                              ? {}
-                              : { expectedAttendanceRevision: record.revision }),
-                            reasonExplanation: actionReason.trim(),
-                          },
-                          `${t('adminLessonConfirmAttendance')} ${participant?.displayName ?? record.participantId}: ${record.attendanceStatus ?? 'missing'} → absent @ booking rev ${detail.revision}${record.revision === undefined ? '' : `, attendance rev ${record.revision}`}`
-                        )
-                      }
-                      className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
-                    >
-                      {t('adminLessonRecordAbsent')}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {attendancePending && (
-          <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonAttendanceAfterConfirm')}</p>
-        )}
-        {showOutcome && (
-          <button
-            type="button"
-            onClick={() =>
-              onRequestAttempt(
-                { kind: 'resolve_attendance_outcome' },
-                t('adminLessonConfirmOutcome')
-              )
-            }
-            className="w-full border border-[var(--border)] px-3 py-2 text-xs"
-          >
-            {t('adminLessonResolveOutcome')}
-          </button>
-        )}
-        {reasonInAttendance && (
-          <ReasonField
-            value={actionReason}
-            onChange={onActionReasonChange}
-            t={t}
-            ariaLabel="Action reason"
-          />
-        )}
+            const participant = admin.participants.find(
+              (candidate) => candidate.participantId === record.participantId
+            );
+            const canPresent = record.authorizedActions.canRecordPresent;
+            const canAbsent = record.authorizedActions.canRecordAbsent;
+            return (
+              <div key={record.participantId} className="space-y-2 text-xs">
+                <p className="font-medium">{participant?.displayName ?? record.participantId}</p>
+                <p className="text-[var(--ink-dim)]">
+                  {t(attendanceStatusLabelKey(record.attendanceStatus))}
+                </p>
+                {(canPresent || canAbsent) && (
+                  <div className="flex flex-wrap gap-2">
+                    {canPresent && (
+                      <button
+                        type="button"
+                        disabled={!actionReason.trim()}
+                        onClick={() =>
+                          onRequestAttempt(
+                            {
+                              kind: 'record_booking_attendance',
+                              participantId: record.participantId,
+                              attendanceStatus: 'present',
+                              ...(record.revision === undefined
+                                ? {}
+                                : { expectedAttendanceRevision: record.revision }),
+                              reasonExplanation: actionReason.trim(),
+                            },
+                            `${t('adminLessonConfirmAttendance')} ${participant?.displayName ?? record.participantId}: ${record.attendanceStatus ?? 'missing'} → present @ booking rev ${detail.revision}${record.revision === undefined ? '' : `, attendance rev ${record.revision}`}`
+                          )
+                        }
+                        className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
+                      >
+                        {t('adminLessonRecordPresent')}
+                      </button>
+                    )}
+                    {canAbsent && (
+                      <button
+                        type="button"
+                        disabled={!actionReason.trim()}
+                        onClick={() =>
+                          onRequestAttempt(
+                            {
+                              kind: 'record_booking_attendance',
+                              participantId: record.participantId,
+                              attendanceStatus: 'absent',
+                              ...(record.revision === undefined
+                                ? {}
+                                : { expectedAttendanceRevision: record.revision }),
+                              reasonExplanation: actionReason.trim(),
+                            },
+                            `${t('adminLessonConfirmAttendance')} ${participant?.displayName ?? record.participantId}: ${record.attendanceStatus ?? 'missing'} → absent @ booking rev ${detail.revision}${record.revision === undefined ? '' : `, attendance rev ${record.revision}`}`
+                          )
+                        }
+                        className="border border-[var(--border)] px-3 py-2 disabled:opacity-50"
+                      >
+                        {t('adminLessonRecordAbsent')}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {attendancePending && (
+            <p className="text-xs text-[var(--ink-dim)]">
+              {t('adminLessonAttendanceAfterConfirm')}
+            </p>
+          )}
+          {showOutcome && (
+            <button
+              type="button"
+              onClick={() =>
+                onRequestAttempt(
+                  { kind: 'resolve_attendance_outcome' },
+                  t('adminLessonConfirmOutcome')
+                )
+              }
+              className="w-full border border-[var(--border)] px-3 py-2 text-xs"
+            >
+              {t('adminLessonResolveOutcome')}
+            </button>
+          )}
+          {reasonInAttendance && (
+            <ReasonField
+              value={actionReason}
+              onChange={onActionReasonChange}
+              t={t}
+              ariaLabel="Action reason"
+            />
+          )}
         </section>
       )}
 
@@ -501,7 +511,9 @@ export function AdminLessonBookingDetail({
 
       {showGuest && (
         <section className="space-y-2 border-t border-[var(--border)] pt-3">
-          <h4 className="text-xs font-medium uppercase tracking-wide">{t('adminLessonGuestTitle')}</h4>
+          <h4 className="text-xs font-medium uppercase tracking-wide">
+            {t('adminLessonGuestTitle')}
+          </h4>
           <p className="text-xs">
             {t('adminLessonParticipant')}: {participantNames}
           </p>
@@ -572,12 +584,17 @@ export function AdminLessonBookingDetail({
       )}
 
       <section className="space-y-2 border-t border-[var(--border)] pt-3">
-        <h4 className="text-xs font-medium uppercase tracking-wide">{t('adminLessonRelatedIssues')}</h4>
+        <h4 className="text-xs font-medium uppercase tracking-wide">
+          {t('adminLessonRelatedIssues')}
+        </h4>
         {admin.relatedIssues.length === 0 ? (
           <p className="text-xs text-[var(--ink-dim)]">{t('adminLessonNoRelatedIssues')}</p>
         ) : (
           admin.relatedIssues.map((issue) => (
-            <div key={issue.issueId} className="space-y-1 border border-[var(--border)] p-2 text-xs">
+            <div
+              key={issue.issueId}
+              className="space-y-1 border border-[var(--border)] p-2 text-xs"
+            >
               <p>
                 {t(issueSeverityLabelKey(issue.severity))} · {t(issueKindLabelKey(issue.kind))} ·{' '}
                 {t(issueStatusLabelKey(issue.lifecycleStatus))}

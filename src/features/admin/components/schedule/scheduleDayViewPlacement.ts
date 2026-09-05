@@ -37,7 +37,9 @@ export function scheduleBookingStartsAtSlot(booking: ScheduleBooking, slotTime: 
 }
 
 export function firstOverlappingSlotIndex(booking: ScheduleBooking): number {
-  return SCHEDULE_TIME_SLOTS.findIndex((slotTime) => scheduleBookingOverlapsSlot(booking, slotTime));
+  return SCHEDULE_TIME_SLOTS.findIndex((slotTime) =>
+    scheduleBookingOverlapsSlot(booking, slotTime)
+  );
 }
 
 export function dayViewBookingForSlot(

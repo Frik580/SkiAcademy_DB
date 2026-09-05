@@ -30,9 +30,7 @@ export function useAdminRoleTranslations() {
       lifecycleUninitialized: ru ? 'Не инициализирован' : 'Uninitialized',
       openClient: ru ? 'Открыть клиента' : 'Open client',
       revokeAdmin: ru ? 'Снять права администратора' : 'Remove administrator rights',
-      revokeConfirmPrefix: ru
-        ? 'Снять права администратора с'
-        : 'Remove administrator rights from',
+      revokeConfirmPrefix: ru ? 'Снять права администратора с' : 'Remove administrator rights from',
       addAdministrator: ru ? 'Добавить администратора' : 'Add administrator',
       cancelAdd: ru ? 'Отмена' : 'Cancel',
       pickAccount: ru ? 'Выберите аккаунт' : 'Choose an account',
@@ -42,9 +40,7 @@ export function useAdminRoleTranslations() {
         : 'Name, email, phone, or ID. Current admins and owner are hidden.',
       emptyCandidates: ru ? 'Подходящих аккаунтов нет.' : 'No eligible accounts.',
       confirmPromote: ru ? 'Назначить администратором' : 'Make administrator',
-      promoteConfirmPrefix: ru
-        ? 'Назначить администратором'
-        : 'Promote to administrator',
+      promoteConfirmPrefix: ru ? 'Назначить администратором' : 'Promote to administrator',
       saved: ru ? 'Сохранено.' : 'Saved.',
       mutationFailed: ru ? 'Операция не выполнена.' : 'The operation failed.',
       stale: ru
@@ -52,9 +48,7 @@ export function useAdminRoleTranslations() {
         : 'The data was stale and refreshed. Try again.',
       pending: ru ? 'Сохранение…' : 'Saving…',
       unnamed: ru ? 'Без имени' : 'Unnamed',
-      unavailableForPromote: ru
-        ? 'Недоступен для назначения'
-        : 'Unavailable for promotion',
+      unavailableForPromote: ru ? 'Недоступен для назначения' : 'Unavailable for promotion',
     },
   };
 }

@@ -178,9 +178,9 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   );
   const canCompleteLesson = Boolean(
     activeSlot.booking &&
-      isPlannerLessonBooking(activeSlot.booking) &&
-      activeSlot.booking.status === 'confirmed' &&
-      onCompleteBooking
+    isPlannerLessonBooking(activeSlot.booking) &&
+    activeSlot.booking.status === 'confirmed' &&
+    onCompleteBooking
   );
   const canOpenLessonDetail = Boolean(
     activeSlot.booking && isPlannerLessonBooking(activeSlot.booking) && onOpenLessonDetail
@@ -376,7 +376,11 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
         }
 
         if (!createSelection && !createAccountId) {
-          addNotification('warning', t('missingParticipantTitle'), t('plannerSelectParticipantPlease'));
+          addNotification(
+            'warning',
+            t('missingParticipantTitle'),
+            t('plannerSelectParticipantPlease')
+          );
           setIsSlotActionSubmitting(false);
           return;
         }
@@ -397,7 +401,11 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
 
         const payerAccountId = createSelection?.accountId ?? createAccountId;
         if (!payerAccountId) {
-          addNotification('warning', t('missingParticipantTitle'), t('plannerSelectParticipantPlease'));
+          addNotification(
+            'warning',
+            t('missingParticipantTitle'),
+            t('plannerSelectParticipantPlease')
+          );
           setIsSlotActionSubmitting(false);
           return;
         }

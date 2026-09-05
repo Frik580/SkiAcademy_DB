@@ -13,7 +13,8 @@ export const ADMIN_CLIENT_CONTACT_REASON = 'Admin client directory contact updat
 export const ADMIN_CLIENT_LIFECYCLE_REASON = 'Admin client directory lifecycle update';
 export const ADMIN_CLIENT_PARTICIPANT_REASON = 'Admin client directory participant update';
 export const ADMIN_CLIENT_DEPENDENT_REASON = 'Admin client directory add participant';
-export const ADMIN_CLIENT_PROVISION_SELF_REASON = 'Admin client directory provision self participant';
+export const ADMIN_CLIENT_PROVISION_SELF_REASON =
+  'Admin client directory provision self participant';
 
 export type AdminClientDirectoryRow = Pick<
   AdminAccountListItem,
@@ -43,7 +44,8 @@ export type AdminClientAccountDetailView = Pick<
   | 'revision'
 >;
 
-export type AdminClientManagedParticipant = AdminAccountDetailReadModel['managedParticipants'][number];
+export type AdminClientManagedParticipant =
+  AdminAccountDetailReadModel['managedParticipants'][number];
 
 export type AdminClientParticipantDetailView = Pick<
   AdminParticipantDetailReadModel,
@@ -83,7 +85,10 @@ export interface AdminClientParticipantProfileDraft {
   readonly instructorComment: string;
 }
 
-export function adminClientAttemptKey(action: string, subjectId: AccountId | ParticipantId | string) {
+export function adminClientAttemptKey(
+  action: string,
+  subjectId: AccountId | ParticipantId | string
+) {
   const entropy =
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID().replaceAll('-', '')

@@ -72,19 +72,21 @@ describe('schedule day view placement', () => {
 
   it('covers boundary cases for blocks crossing slot edges', () => {
     const startsBeforeDay = blockBooking({ time: '07:30', durationHours: 2 });
-    expect(dayViewBookingForSlot([startsBeforeDay], instructorId, selectedDate, '08:00', 0)).toEqual(
-      {
-        booking: startsBeforeDay,
-        startsHere: true,
-      }
-    );
+    expect(
+      dayViewBookingForSlot([startsBeforeDay], instructorId, selectedDate, '08:00', 0)
+    ).toEqual({
+      booking: startsBeforeDay,
+      startsHere: true,
+    });
 
     const endsAfterGrid = blockBooking({ time: '17:00', durationHours: 3 });
     expect(dayViewColSpanForBooking(endsAfterGrid, 9)).toBe(2);
-    expect(dayViewBookingForSlot([endsAfterGrid], instructorId, selectedDate, '18:00', 10)).toEqual({
-      booking: endsAfterGrid,
-      startsHere: false,
-    });
+    expect(dayViewBookingForSlot([endsAfterGrid], instructorId, selectedDate, '18:00', 10)).toEqual(
+      {
+        booking: endsAfterGrid,
+        startsHere: false,
+      }
+    );
   });
 
   it('keeps day-off and break visible in day and week projections for the same instructor row', () => {

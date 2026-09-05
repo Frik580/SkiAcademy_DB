@@ -2,14 +2,34 @@ import React, { useCallback, useState, Suspense, lazy } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { Instructor, Booking, UserProfile, Course } from '../../../types';
-import { Shield, BookOpen, AlertTriangle, ShieldAlert, Wallet, CalendarDays, Users } from 'lucide-react';
+import {
+  Shield,
+  BookOpen,
+  AlertTriangle,
+  ShieldAlert,
+  Wallet,
+  CalendarDays,
+  Users,
+} from 'lucide-react';
 import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../domain/achievements';
 import { AchievementsConfig } from '../../../domain/achievements';
 import { AdminCollapsibleSection } from './settings';
 import { TableSkeleton } from '../../../ui/Skeleton';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
-import { ADMIN_CLIENT_ACCOUNT_QUERY_KEY, ADMIN_COURSE_ENROLLMENT_QUERY_KEY, ADMIN_FINANCE_ACCOUNT_QUERY_KEY, ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY, ADMIN_FINANCE_PAYMENT_QUERY_KEY, ADMIN_LESSON_BOOKING_QUERY_KEY, ADMIN_PLANNER_DATE_QUERY_KEY, ADMIN_PLANNER_FOCUS_QUERY_KEY, ADMIN_TAB_QUERY_KEY, parseAdminTabId, type AdminTabId } from '../adminNavigation';
+import {
+  ADMIN_CLIENT_ACCOUNT_QUERY_KEY,
+  ADMIN_COURSE_ENROLLMENT_QUERY_KEY,
+  ADMIN_FINANCE_ACCOUNT_QUERY_KEY,
+  ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY,
+  ADMIN_FINANCE_PAYMENT_QUERY_KEY,
+  ADMIN_LESSON_BOOKING_QUERY_KEY,
+  ADMIN_PLANNER_DATE_QUERY_KEY,
+  ADMIN_PLANNER_FOCUS_QUERY_KEY,
+  ADMIN_TAB_QUERY_KEY,
+  parseAdminTabId,
+  type AdminTabId,
+} from '../adminNavigation';
 import { AdminTabNav } from './AdminTabNav';
 import { AdminDisplayChrome } from './finance/AdminDisplayChrome';
 import { AdminMonitorReadModelsProvider } from '../operations/AdminMonitorReadModelsContext';
@@ -187,7 +207,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 defaultOpen
                 forceOpen={Boolean(
                   searchParams.get(ADMIN_PLANNER_FOCUS_QUERY_KEY) ||
-                    searchParams.get(ADMIN_PLANNER_DATE_QUERY_KEY)
+                  searchParams.get(ADMIN_PLANNER_DATE_QUERY_KEY)
                 )}
                 forceOpenToken={
                   searchParams.get(ADMIN_PLANNER_FOCUS_QUERY_KEY) ??
@@ -211,10 +231,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 icon={BookOpen}
                 defaultOpen
               >
-                <AdminActiveBookingMonitor
-                  usersList={usersList}
-                  instructors={instructors}
-                />
+                <AdminActiveBookingMonitor usersList={usersList} instructors={instructors} />
               </AdminCollapsibleSection>
             </Suspense>
 
@@ -250,7 +267,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </AdminCollapsibleSection>
             </Suspense>
 
-            <Suspense fallback={<SectionLoadingFallback label={t('adminCourseEnrollmentsTitle')} />}>
+            <Suspense
+              fallback={<SectionLoadingFallback label={t('adminCourseEnrollmentsTitle')} />}
+            >
               <AdminCollapsibleSection
                 id="canonical_course_enrollments"
                 title={t('adminCourseEnrollmentsTitle')}
@@ -293,7 +312,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               defaultOpen={false}
               forceOpen={Boolean(
                 searchParams.get(ADMIN_FINANCE_PAYMENT_QUERY_KEY) ||
-                  searchParams.get(ADMIN_FINANCE_ACCOUNT_QUERY_KEY)
+                searchParams.get(ADMIN_FINANCE_ACCOUNT_QUERY_KEY)
               )}
               forceOpenToken={
                 searchParams.get(ADMIN_FINANCE_PAYMENT_QUERY_KEY) ??

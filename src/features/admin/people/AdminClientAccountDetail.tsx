@@ -157,15 +157,21 @@ export function AdminClientAccountDetail({
         ) : (
           <dl className="space-y-1 text-xs">
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">{text.displayName}</dt>
+              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+                {text.displayName}
+              </dt>
               <dd>{detail.displayName}</dd>
             </div>
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">{text.email}</dt>
+              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+                {text.email}
+              </dt>
               <dd>{detail.email ?? '—'}</dd>
             </div>
             <div>
-              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">{text.phone}</dt>
+              <dt className="font-mono text-[10px] uppercase text-[var(--ink-dim)]">
+                {text.phone}
+              </dt>
               <dd>{detail.phoneNumber ?? text.noPhone}</dd>
             </div>
           </dl>

@@ -9,7 +9,10 @@ import {
   plannerDayWindow,
   plannerFetchWindow,
 } from '../../src/features/admin/operations/adminPlannerDayWindow';
-import { formatDateLocalYMD, getWeekRange } from '../../src/features/admin/components/schedule/scheduleUtils';
+import {
+  formatDateLocalYMD,
+  getWeekRange,
+} from '../../src/features/admin/components/schedule/scheduleUtils';
 import { parsePlannerLocalDateInput } from '../../src/features/admin/components/schedule/scheduleDateInput';
 import {
   mapPlannerOccupancyToBookings,
@@ -45,7 +48,9 @@ function blockItem(
 
 describe('admin planner day window', () => {
   it('uses the week fetch window for day view so data matches week columns', () => {
-    const weekStart = formatDateLocalYMD(getWeekRange(parsePlannerLocalDateInput('2026-09-10')).start);
+    const weekStart = formatDateLocalYMD(
+      getWeekRange(parsePlannerLocalDateInput('2026-09-10')).start
+    );
     expect(plannerFetchWindow('2026-09-10', 'day')).toEqual({
       localDate: weekStart,
       view: 'week',
@@ -74,9 +79,9 @@ describe('admin planner day window', () => {
       time: '00:00',
       userId: 'system_block_break',
     });
-    expect(
-      dayViewBookingForSlot(bookings, instructorId, localDate, '08:00', 0)?.booking.id
-    ).toBe('block_spanning_day');
+    expect(dayViewBookingForSlot(bookings, instructorId, localDate, '08:00', 0)?.booking.id).toBe(
+      'block_spanning_day'
+    );
   });
 
   it('normalizes schedule times and applies half-open overlap boundaries', () => {

@@ -19,10 +19,7 @@ import {
   mapPlannerInstructors,
   mapPlannerOccupancyToBookings,
 } from './adminPlannerMapping';
-import {
-  filterOccupancyForLocalDate,
-  plannerFetchWindow,
-} from './adminPlannerDayWindow';
+import { filterOccupancyForLocalDate, plannerFetchWindow } from './adminPlannerDayWindow';
 import { resolveAdminTimeZone } from './adminTimeZone';
 import {
   changePlannerOccupancyDuration,

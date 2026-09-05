@@ -1,4 +1,7 @@
-import type { AdminClientParticipantProfileDraft, AdminClientParticipantDetailView } from './adminClientContracts';
+import type {
+  AdminClientParticipantProfileDraft,
+  AdminClientParticipantDetailView,
+} from './adminClientContracts';
 import { X } from 'lucide-react';
 import {
   adminClientDisciplineLabel,
@@ -33,9 +36,15 @@ export function AdminClientParticipantDetail({
   onBack,
   onClose,
 }: AdminClientParticipantDetailProps) {
-  const canEdit = detail.authorizedActions.some((action) => action.kind === 'update_participant_profile');
-  const canArchive = detail.authorizedActions.some((action) => action.kind === 'archive_participant');
-  const canRestore = detail.authorizedActions.some((action) => action.kind === 'reactivate_participant');
+  const canEdit = detail.authorizedActions.some(
+    (action) => action.kind === 'update_participant_profile'
+  );
+  const canArchive = detail.authorizedActions.some(
+    (action) => action.kind === 'archive_participant'
+  );
+  const canRestore = detail.authorizedActions.some(
+    (action) => action.kind === 'reactivate_participant'
+  );
   const manager = detail.managers[0];
 
   return (

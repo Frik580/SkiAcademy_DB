@@ -1,9 +1,7 @@
 import { Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {
-  queryAdminFinanceReadModels,
-} from '../../../lib/canonical/canonicalReadModelClient';
+import { queryAdminFinanceReadModels } from '../../../lib/canonical/canonicalReadModelClient';
 import type { AdminMonetaryEventPresentation } from '@ski-academy/shared-domain';
 import { useAdminFinanceTranslations } from '../components/finance/useAdminFinanceTranslations';
 import { ApplePagination } from '../../../ui/ApplePagination';
@@ -89,7 +87,8 @@ export function CanonicalSchoolMovementPanel() {
   }, [load]);
 
   const filtered = useMemo(
-    () => events.filter((event) => matchesSchoolMovementFilters(event, search, direction, sourceKind)),
+    () =>
+      events.filter((event) => matchesSchoolMovementFilters(event, search, direction, sourceKind)),
     [direction, events, search, sourceKind]
   );
   const pageItems = filtered.slice((page - 1) * 20, page * 20);
@@ -157,7 +156,10 @@ export function CanonicalSchoolMovementPanel() {
           </thead>
           <tbody>
             {pageItems.map((event) => (
-              <tr key={event.eventId} className="border-b border-[var(--border)]/40 text-xs font-mono">
+              <tr
+                key={event.eventId}
+                className="border-b border-[var(--border)]/40 text-xs font-mono"
+              >
                 <td className="py-2 pr-2 whitespace-nowrap">
                   {new Date(event.occurredAt.seconds * 1_000).toLocaleString(locale)}
                 </td>
@@ -166,7 +168,9 @@ export function CanonicalSchoolMovementPanel() {
                 <td className="py-2 pr-2">{event.subjectType ?? '—'}</td>
                 <td className="py-2 pr-2">{event.paymentId ?? '—'}</td>
                 <td className="py-2 pr-2">{event.walletAccountId ?? '—'}</td>
-                <td className={`py-2 pr-2 text-right ${event.direction === 'out' ? 'text-rose-600' : ''}`}>
+                <td
+                  className={`py-2 pr-2 text-right ${event.direction === 'out' ? 'text-rose-600' : ''}`}
+                >
                   {event.direction === 'out' ? '-' : event.direction === 'in' ? '+' : ''}
                   {formatKzt(event.amount, locale)}
                 </td>

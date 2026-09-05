@@ -71,9 +71,7 @@ export function useAdminIdentityTranslations() {
         ? 'У этого Account нет активных управляемых участников.'
         : 'This Account has no active managed participants.',
       pickerAccount: ru ? 'Account для выбора участника' : 'Account for participant selection',
-      pickerSearchHint: ru
-        ? 'Поиск по ID, email или имени'
-        : 'Search by ID, email, or name',
+      pickerSearchHint: ru ? 'Поиск по ID, email или имени' : 'Search by ID, email, or name',
     },
   };
 }

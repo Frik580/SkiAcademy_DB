@@ -49,7 +49,10 @@ function localDateTime(seconds: number, timeZone: string): { date: string; time:
   };
 }
 
-function dayWindowSeconds(localDate: string, timeZone: string): { startsAt: number; endsAt: number } {
+function dayWindowSeconds(
+  localDate: string,
+  timeZone: string
+): { startsAt: number; endsAt: number } {
   const start = localCalendarInputToUtcDate(
     { localDate, localTime: '00:00', durationMinutes: 60 },
     IanaTimeZoneSchema.parse(timeZone)
@@ -282,9 +285,7 @@ export interface GetAvailableLessonStartTimesInput {
   now?: Date;
 }
 
-export function getAvailableLessonStartTimes(
-  input: GetAvailableLessonStartTimesInput
-): string[] {
+export function getAvailableLessonStartTimes(input: GetAvailableLessonStartTimesInput): string[] {
   const {
     candidateStarts,
     durationHours,

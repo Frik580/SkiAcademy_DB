@@ -2,64 +2,59 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountIdSchema, InstructorIdSchema } from '@ski-academy/shared-domain';
 
-const {
-  mockReads,
-  mockAccountReads,
-  mockExecute,
-  mockSetSearchParams,
-  identityReadByDirectory,
-} = vi.hoisted(() => ({
-  mockReads: {
-    accounts: {
-      items: [] as Array<Record<string, unknown>>,
-      loading: false,
-      loadingMore: false,
-      hasMore: false,
-      cursor: undefined as string | undefined,
-      error: undefined as 'permission-denied' | 'read-failed' | undefined,
+const { mockReads, mockAccountReads, mockExecute, mockSetSearchParams, identityReadByDirectory } =
+  vi.hoisted(() => ({
+    mockReads: {
+      accounts: {
+        items: [] as Array<Record<string, unknown>>,
+        loading: false,
+        loadingMore: false,
+        hasMore: false,
+        cursor: undefined as string | undefined,
+        error: undefined as 'permission-denied' | 'read-failed' | undefined,
+      },
+      participants: { items: [], loading: false, loadingMore: false, hasMore: false },
+      instructors: {
+        items: [] as Array<Record<string, unknown>>,
+        loading: false,
+        loadingMore: false,
+        hasMore: false,
+        cursor: undefined as string | undefined,
+        error: undefined as 'permission-denied' | 'read-failed' | undefined,
+      },
+      accountDetail: undefined,
+      participantDetail: undefined,
+      instructorDetail: undefined as Record<string, unknown> | undefined,
+      detailLoading: false,
+      detailError: undefined as 'permission-denied' | 'read-failed' | undefined,
+      loadMore: vi.fn(),
+      refresh: vi.fn(async () => undefined),
     },
-    participants: { items: [], loading: false, loadingMore: false, hasMore: false },
-    instructors: {
-      items: [] as Array<Record<string, unknown>>,
-      loading: false,
-      loadingMore: false,
-      hasMore: false,
-      cursor: undefined as string | undefined,
-      error: undefined as 'permission-denied' | 'read-failed' | undefined,
+    mockAccountReads: {
+      accounts: {
+        items: [] as Array<Record<string, unknown>>,
+        loading: false,
+        loadingMore: false,
+        hasMore: false,
+        cursor: undefined as string | undefined,
+        error: undefined as 'permission-denied' | 'read-failed' | undefined,
+      },
+      participants: { items: [], loading: false, loadingMore: false, hasMore: false },
+      instructors: { items: [], loading: false, loadingMore: false, hasMore: false },
+      accountDetail: undefined,
+      participantDetail: undefined,
+      instructorDetail: undefined,
+      detailLoading: false,
+      detailError: undefined as 'permission-denied' | 'read-failed' | undefined,
+      loadMore: vi.fn(),
+      refresh: vi.fn(async () => undefined),
     },
-    accountDetail: undefined,
-    participantDetail: undefined,
-    instructorDetail: undefined as Record<string, unknown> | undefined,
-    detailLoading: false,
-    detailError: undefined as 'permission-denied' | 'read-failed' | undefined,
-    loadMore: vi.fn(),
-    refresh: vi.fn(async () => undefined),
-  },
-  mockAccountReads: {
-    accounts: {
-      items: [] as Array<Record<string, unknown>>,
-      loading: false,
-      loadingMore: false,
-      hasMore: false,
-      cursor: undefined as string | undefined,
-      error: undefined as 'permission-denied' | 'read-failed' | undefined,
+    mockExecute: vi.fn(async () => undefined),
+    mockSetSearchParams: vi.fn(),
+    identityReadByDirectory: {
+      current: {} as Record<string, Record<string, unknown>>,
     },
-    participants: { items: [], loading: false, loadingMore: false, hasMore: false },
-    instructors: { items: [], loading: false, loadingMore: false, hasMore: false },
-    accountDetail: undefined,
-    participantDetail: undefined,
-    instructorDetail: undefined,
-    detailLoading: false,
-    detailError: undefined as 'permission-denied' | 'read-failed' | undefined,
-    loadMore: vi.fn(),
-    refresh: vi.fn(async () => undefined),
-  },
-  mockExecute: vi.fn(async () => undefined),
-  mockSetSearchParams: vi.fn(),
-  identityReadByDirectory: {
-    current: {} as Record<string, Record<string, unknown>>,
-  },
-}));
+  }));
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ language: 'en', t: (key: string) => key }),

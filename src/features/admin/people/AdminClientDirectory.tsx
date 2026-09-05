@@ -60,7 +60,9 @@ function entropy(): string {
 function profileDraftFromDetail(detail: {
   readonly profile: {
     readonly displayName: string;
-    readonly age: { readonly kind: 'birth_date'; readonly birthDate: string } | { readonly kind: 'age_years'; readonly years: number };
+    readonly age:
+      | { readonly kind: 'birth_date'; readonly birthDate: string }
+      | { readonly kind: 'age_years'; readonly years: number };
     readonly skillLevel: string;
     readonly discipline: 'ski' | 'snowboard';
     readonly instructorComment?: string;
@@ -141,9 +143,7 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
   const walletAccountId = selectedAccountId
     ? parseAdminFinanceAccountId(selectedAccountId)
     : undefined;
-  const walletRead = useAdminWalletReadModel(
-    selectedParticipantId ? undefined : walletAccountId
-  );
+  const walletRead = useAdminWalletReadModel(selectedParticipantId ? undefined : walletAccountId);
 
   useEffect(() => {
     if (!reads.accountDetail || contactEditing) return;
@@ -193,7 +193,12 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
   };
 
   const actionRevision = (
-    kind: 'disable_account' | 'enable_account' | 'update_account_contact_as_administrator' | 'create_managed_dependent_participant' | 'provision_self_participant_for_account',
+    kind:
+      | 'disable_account'
+      | 'enable_account'
+      | 'update_account_contact_as_administrator'
+      | 'create_managed_dependent_participant'
+      | 'provision_self_participant_for_account',
     fallback = 1
   ) =>
     reads.accountDetail?.authorizedActions.find((item) => item.kind === kind)?.expectedRevision ??
@@ -308,7 +313,9 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
                       <td className="px-4 py-3 text-xs">
                         {adminClientLifecycleLabel(item.lifecycle, text)}
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs">{item.managedParticipantCount}</td>
+                      <td className="px-4 py-3 font-mono text-xs">
+                        {item.managedParticipantCount}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <button
                           type="button"
@@ -520,9 +527,12 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
                 onOpenFinance={() => {
                   const accountId = reads.accountDetail?.accountId;
                   if (!accountId) return;
-                  setSearchParams((previous) => adminFinanceAccountSearchParams(previous, accountId), {
-                    replace: true,
-                  });
+                  setSearchParams(
+                    (previous) => adminFinanceAccountSearchParams(previous, accountId),
+                    {
+                      replace: true,
+                    }
+                  );
                 }}
                 onDependentChange={setDependentDraft}
                 onCreateDependent={() => {

@@ -1381,7 +1381,8 @@ export const translations = {
     reassignInstructor: 'Instructor',
     newStartTime: 'New Start Time',
     noSlotsAvailable: 'No slots available',
-    instructorOccupancyLoadFailed: 'Could not load instructor availability. Try again or pick another date.',
+    instructorOccupancyLoadFailed:
+      'Could not load instructor availability. Try again or pick another date.',
     markLessonCompleted: 'Mark Lesson as Completed',
     deleteCancelBlock: 'Delete / Cancel',
     applyMove: 'Apply Move',
@@ -2908,8 +2909,7 @@ export const translations = {
 
     // Admin Panel
     resortManagerConsole: 'Консоль управления курортом',
-    resortConsoleSub:
-      'Мониторинг уроков, управление доступностью гидов и инструкторами',
+    resortConsoleSub: 'Мониторинг уроков, управление доступностью гидов и инструкторами',
     financialOverview: 'Финансовый обзор',
     adminTabsNavLabel: 'Разделы админки',
     adminTabOperations: 'Операции',
@@ -3078,8 +3078,7 @@ export const translations = {
     adminLessonBookingsTitle: 'Индивидуальные занятия',
     adminLessonBookingsSub: 'Серверные чтения, ревизии и команды',
     adminCourseEnrollmentsTitle: 'Канонические записи на курсы',
-    adminCourseEnrollmentsSub:
-      'Серверные операции состава, посещаемости и жизненного цикла',
+    adminCourseEnrollmentsSub: 'Серверные операции состава, посещаемости и жизненного цикла',
     adminLessonCreateTitle: 'Создать подтверждённый индивидуальный урок',
     adminLessonCreateHint: 'Сервер проверяет права участника, доступность, пересечения и цену.',
     adminLessonCreateUnavailable:
@@ -3197,8 +3196,7 @@ export const translations = {
     adminLessonPaymentStatus: 'Статус',
     adminLessonAttendancePresent: 'Присутствовал',
     adminLessonAttendanceAbsent: 'Отсутствовал',
-    adminLessonAttendanceAfterConfirm:
-      'Посещаемость станет доступна после подтверждения занятия.',
+    adminLessonAttendanceAfterConfirm: 'Посещаемость станет доступна после подтверждения занятия.',
     adminLessonGuestTitle: 'Гость',
     adminLessonNoActionsAwaitingConfirmation:
       'Сейчас действий нет. Занятие ожидает выполнения условий подтверждения.',

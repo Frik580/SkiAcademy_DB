@@ -75,9 +75,7 @@ function baseAdmin() {
   };
 }
 
-function item(
-  overrides: Partial<LessonBookingReadModel> = {}
-): LessonBookingReadModel {
+function item(overrides: Partial<LessonBookingReadModel> = {}): LessonBookingReadModel {
   return {
     bookingId: 'booking_presentation_01',
     revision: 1,

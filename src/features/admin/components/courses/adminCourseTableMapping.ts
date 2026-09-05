@@ -76,7 +76,9 @@ export function catalogContentInputFromCourse(
     ...(mapped.shortDescription ? { shortDescription: mapped.shortDescription } : {}),
     ...(mapped.shortDescriptionRu ? { shortDescriptionRu: mapped.shortDescriptionRu } : {}),
     ...(mapped.detailedDescription ? { detailedDescription: mapped.detailedDescription } : {}),
-    ...(mapped.detailedDescriptionRu ? { detailedDescriptionRu: mapped.detailedDescriptionRu } : {}),
+    ...(mapped.detailedDescriptionRu
+      ? { detailedDescriptionRu: mapped.detailedDescriptionRu }
+      : {}),
     ...(mapped.badge ? { badge: mapped.badge } : {}),
     ...(mapped.badgeRu ? { badgeRu: mapped.badgeRu } : {}),
     ...(mapped.level ? { level: mapped.level } : {}),

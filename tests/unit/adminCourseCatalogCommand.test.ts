@@ -79,7 +79,10 @@ function baseCourse(overrides: Partial<AdminCourseReadModel> = {}): AdminCourseR
   } as AdminCourseReadModel;
 }
 
-function buildUiTransport(course: AdminCourseReadModel, contentOverrides: Record<string, unknown> = {}) {
+function buildUiTransport(
+  course: AdminCourseReadModel,
+  contentOverrides: Record<string, unknown> = {}
+) {
   const action = course.authorizedActions.find(
     (candidate) => candidate.kind === 'update_course_catalog_content'
   );
@@ -150,7 +153,9 @@ describe('update_course_catalog_content handler with UI payload', () => {
     return {
       actor: accountCommandActor(adminAccountId),
       exercisedCapability: 'administrator' as const,
-      idempotencyKey: IdempotencyKeySchema.parse('admin-course:update_course_catalog_content:test01'),
+      idempotencyKey: IdempotencyKeySchema.parse(
+        'admin-course:update_course_catalog_content:test01'
+      ),
       correlationId,
       source: 'admin_callable' as const,
       expectedRevision,
@@ -199,7 +204,7 @@ describe('update_course_catalog_content handler with UI payload', () => {
         correlationId,
       },
     });
-  const account = {
+    const account = {
       ...AccountSchema.parse({
         accountId: adminAccountId,
         lifecycle: { status: 'active' },
@@ -296,9 +301,13 @@ describe('update_course_catalog_content handler with UI payload', () => {
       intent: { courseId, content, reasonExplanation: 'Admin course visibility' },
     });
     if (result.status === 'error') {
-      throw new Error(`legacy catalog toggle failed: ${result.error.code} ${JSON.stringify(result.error)}`);
+      throw new Error(
+        `legacy catalog toggle failed: ${result.error.code} ${JSON.stringify(result.error)}`
+      );
     }
     expect(result).toMatchObject({ status: 'success' });
-    expect(executor.snapshot().docs.get(`course_catalog_content/${courseId}`)?.data.isHidden).toBe(true);
+    expect(executor.snapshot().docs.get(`course_catalog_content/${courseId}`)?.data.isHidden).toBe(
+      true
+    );
   });
 });

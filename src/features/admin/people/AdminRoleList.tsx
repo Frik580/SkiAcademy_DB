@@ -1,7 +1,4 @@
-import {
-  canDemoteCanonicalAccountAdminRole,
-  type AccountId,
-} from '@ski-academy/shared-domain';
+import { canDemoteCanonicalAccountAdminRole, type AccountId } from '@ski-academy/shared-domain';
 import { Loader2, UserMinus } from 'lucide-react';
 import type { AdminRoleDirectoryRow } from './adminRoleContracts';
 import type { useAdminRoleTranslations } from './useAdminRoleTranslations';

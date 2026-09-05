@@ -71,11 +71,7 @@ export const PAYMENT_STATUS_LABEL_KEYS: Record<PaymentStatus, TranslationKey> = 
 
 export type LessonAdminPaymentPrimaryRowId = 'price' | 'paid' | 'outstanding';
 export type LessonAdminPaymentAncillaryRowId =
-  | 'original'
-  | 'refunded'
-  | 'retained'
-  | 'settled'
-  | 'writtenOff';
+  'original' | 'refunded' | 'retained' | 'settled' | 'writtenOff';
 
 export const LESSON_ADMIN_PAYMENT_PRIMARY_ROW_KEYS: Record<
   LessonAdminPaymentPrimaryRowId,
@@ -188,9 +184,7 @@ export function shouldShowGuestSection(item: LessonBookingReadModel): boolean {
   );
 }
 
-export function attendanceUnavailableReason(
-  item: LessonBookingReadModel
-): 'pending' | undefined {
+export function attendanceUnavailableReason(item: LessonBookingReadModel): 'pending' | undefined {
   const records = item.admin?.attendance ?? [];
   const anyAllowed = records.some(
     (record) =>
@@ -201,9 +195,7 @@ export function attendanceUnavailableReason(
   return undefined;
 }
 
-export function attendanceStatusLabelKey(
-  status: 'present' | 'absent' | undefined
-): TranslationKey {
+export function attendanceStatusLabelKey(status: 'present' | 'absent' | undefined): TranslationKey {
   if (status === 'present') return 'adminLessonAttendancePresent';
   if (status === 'absent') return 'adminLessonAttendanceAbsent';
   return 'adminLessonAttendanceMissing';
@@ -230,23 +222,17 @@ export function guestLinkUnavailableLabelKey(
   }
 }
 
-export function issueKindLabelKey(
-  kind: keyof typeof ADMIN_ISSUE_KIND_LABEL_KEYS
-): TranslationKey {
+export function issueKindLabelKey(kind: keyof typeof ADMIN_ISSUE_KIND_LABEL_KEYS): TranslationKey {
   return ADMIN_ISSUE_KIND_LABEL_KEYS[kind];
 }
 
-export function issueSeverityLabelKey(
-  severity: 'critical' | 'urgent' | 'normal'
-): TranslationKey {
+export function issueSeverityLabelKey(severity: 'critical' | 'urgent' | 'normal'): TranslationKey {
   if (severity === 'critical') return 'adminIssueSeverityCritical';
   if (severity === 'urgent') return 'adminIssueSeverityUrgent';
   return 'adminIssueSeverityNormal';
 }
 
-export function issueStatusLabelKey(
-  status: 'open' | 'resolved' | 'dismissed'
-): TranslationKey {
+export function issueStatusLabelKey(status: 'open' | 'resolved' | 'dismissed'): TranslationKey {
   if (status === 'open') return 'adminLessonIssueStatusOpen';
   if (status === 'resolved') return 'adminLessonIssueStatusResolved';
   return 'adminLessonIssueStatusDismissed';
@@ -262,9 +248,7 @@ export function needsSharedActionReason(admin: LessonBookingAdminProjection): bo
   );
 }
 
-export function trueAuthorizedActionKeys(
-  admin: LessonBookingAdminProjection
-): readonly string[] {
+export function trueAuthorizedActionKeys(admin: LessonBookingAdminProjection): readonly string[] {
   return Object.entries(admin.authorizedActions)
     .filter(([, value]) => value === true)
     .map(([key]) => key);

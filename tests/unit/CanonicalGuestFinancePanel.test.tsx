@@ -175,9 +175,7 @@ describe('CanonicalGuestFinancePanel discovery UX', () => {
       ],
     };
     render(<CanonicalGuestFinancePanel />);
-    await userEvent.click(
-      screen.getByRole('button', { name: 'canonicalGuestFundsOpenPayment' })
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'canonicalGuestFundsOpenPayment' }));
     const updater = mockSetSearchParams.mock.calls[0]?.[0] as (
       prev: URLSearchParams
     ) => URLSearchParams;
@@ -190,7 +188,9 @@ describe('CanonicalGuestFinancePanel discovery UX', () => {
     render(<CanonicalGuestFinancePanel />);
     expect(screen.queryByText(/record_financial_correction/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Fund wallet/i)).not.toBeInTheDocument();
-    await userEvent.click(screen.getAllByRole('button', { name: 'canonicalGuestFundsOpenLesson' })[0]!);
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'canonicalGuestFundsOpenLesson' })[0]!
+    );
     let updater = mockSetSearchParams.mock.calls.at(-1)?.[0] as (
       prev: URLSearchParams
     ) => URLSearchParams;

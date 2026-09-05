@@ -176,7 +176,10 @@ describe('lesson booking read authorization', () => {
 function createAdminReadFirestore(input: {
   readonly bookings: readonly { readonly id: string; readonly data: Record<string, unknown> }[];
   readonly documents: Readonly<Record<string, Readonly<Record<string, Record<string, unknown>>>>>;
+  readonly reads?: Map<string, number>;
 }): Firestore {
+  const recordRead = (path: string) =>
+    input.reads?.set(path, (input.reads.get(path) ?? 0) + 1);
   const readNested = (record: Record<string, unknown>, path: string): unknown =>
     path
       .split('.')
@@ -243,6 +246,7 @@ function createAdminReadFirestore(input: {
           ...bookingsQuery(),
           doc: (id: string) => ({
             get: async () => {
+              recordRead(`bookings/${id}`);
               const document = input.bookings.find((candidate) => candidate.id === id);
               return {
                 id,
@@ -272,6 +276,7 @@ function createAdminReadFirestore(input: {
       return {
         doc: (id: string) => ({
           get: async () => {
+            recordRead(`${name}/${id}`);
             const data = input.documents[name]?.[id];
             return {
               id,
@@ -414,8 +419,10 @@ describe('Admin lesson booking read models', () => {
         correlationId: 'correlation_admin_account',
       },
     });
+    const reads = new Map<string, number>();
     return {
       issue,
+      reads,
       firestore: createAdminReadFirestore({
         bookings: bookings.map((booking) => ({
           id: booking.bookingId,
@@ -442,9 +449,41 @@ describe('Admin lesson booking read models', () => {
             [issue.issueId]: issue as unknown as Record<string, unknown>,
           },
         },
+        reads,
       }),
     };
   }
+
+  it('deduplicates same-request Instructor, actor, and payer reads across 20 rows', async () => {
+    const bookings = Array.from({ length: 20 }, (_, index) =>
+      canonicalBooking(
+        `booking_admin_memo_${String(index + 1).padStart(2, '0')}`,
+        `2026-08-01T${String(20 - index).padStart(2, '0')}:00:00.000Z`,
+        { status: 'confirmed' }
+      )
+    );
+    const { firestore, reads } = adminFixture(bookings);
+
+    const result = await queryLessonBookingReadModels(
+      firestore,
+      { scope: 'admin_hot', pageSize: 20 },
+      { administratorActor: adminActor, now: new Date('2026-08-01T10:00:00.000Z') }
+    );
+
+    expect(result.items).toHaveLength(20);
+    expect(reads.get(`instructors/${instructorId}`)).toBe(1);
+    expect(reads.get(`users/${adminId}`)).toBe(1);
+    expect(
+      [...reads.entries()]
+        .filter(([path]) => path.startsWith('participants/'))
+        .reduce((total, [, count]) => total + count, 0)
+    ).toBe(20);
+    expect(
+      [...reads.entries()]
+        .filter(([path]) => path.startsWith('payments/'))
+        .reduce((total, [, count]) => total + count, 0)
+    ).toBe(20);
+  });
 
   it('projects canonical payment, participant, policy, issue, and action detail', async () => {
     const booking = canonicalBooking('booking_admin_detail_read_01', '2026-08-01T12:00:00.000Z', {

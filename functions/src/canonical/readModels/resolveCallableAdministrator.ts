@@ -4,10 +4,15 @@ import { AccountIdSchema, type ReadModelAdministratorActor } from '@ski-academy/
 import { isAdministratorProfile } from '../commands/resolveCallableAccountContext';
 import { readCallableAccountProfile } from './resolveCallableInstructorId';
 import { parseAccount } from '../participantAccess/participantAccessStore';
+import {
+  createReadModelRequestContext,
+  type ReadModelRequestContext,
+} from './readModelRequestContext';
 
 export async function resolveCallableAdministratorActor(
   firestore: Firestore,
-  authUid: string | undefined
+  authUid: string | undefined,
+  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
 ): Promise<ReadModelAdministratorActor> {
   if (!authUid) {
     throw new HttpsError('unauthenticated', 'Authentication is required.');
@@ -18,7 +23,7 @@ export async function resolveCallableAdministratorActor(
     throw new HttpsError('unauthenticated', 'Authentication is required.');
   }
 
-  const profileSnapshot = await firestore.collection('users').doc(authUid).get();
+  const profileSnapshot = await readContext.account(accountId.data);
   const profileData = profileSnapshot.data() as Record<string, unknown> | undefined;
   const profile = readCallableAccountProfile(profileData);
   const account = parseAccount(profileData);

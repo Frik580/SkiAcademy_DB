@@ -109,36 +109,40 @@ function createFirestore(instructor: InstructorFixture): Firestore {
         };
       }
       if (name === 'course_enrollments') {
-        return {
-          where: () => ({
-            limit: () => ({
-              get: async () => ({
-                docs: [
-                  {
-                    data: () => ({
-                      enrollmentId,
-                      participantId,
-                      courseId,
-                      originalCourseId: courseId,
-                      attribution: {
-                        bookingOrigin: 'admin',
-                        bookedBy: { kind: 'account', accountId: rosterInstructorAccountId },
-                      },
-                      lifecycle: { status: 'confirmed' },
-                      revision: 1,
-                      createdAt: decidedAt,
-                      updatedAt: decidedAt,
-                      audit: {
-                        createdByCommandId: 'seed',
-                        lastChangedByCommandId: 'seed',
-                        correlationId: 'correlation_roster_read_fixture',
-                      },
-                    }),
+        const query = {
+          where: () => query,
+          orderBy: () => query,
+          startAfter: () => query,
+          limit: () => query,
+          get: async () => ({
+            docs: [
+              {
+                id: enrollmentId,
+                data: () => ({
+                  enrollmentId,
+                  participantId,
+                  courseId,
+                  originalCourseId: courseId,
+                  attribution: {
+                    bookingOrigin: 'admin',
+                    bookedBy: { kind: 'account', accountId: rosterInstructorAccountId },
                   },
-                ],
-              }),
-            }),
+                  lifecycle: { status: 'confirmed' },
+                  revision: 1,
+                  createdAt: decidedAt,
+                  updatedAt: decidedAt,
+                  audit: {
+                    createdByCommandId: 'seed',
+                    lastChangedByCommandId: 'seed',
+                    correlationId: 'correlation_roster_read_fixture',
+                  },
+                }),
+              },
+            ],
           }),
+        };
+        return {
+          ...query,
         };
       }
       if (name === 'participants') {
@@ -155,7 +159,12 @@ function createFirestore(instructor: InstructorFixture): Firestore {
         };
       }
       if (name === 'attendance') {
+        const query = {
+          where: () => query,
+          get: async () => ({ docs: [], empty: true, size: 0 }),
+        };
         return {
+          ...query,
           doc: () => ({
             get: async () => ({ exists: false, data: () => undefined }),
           }),

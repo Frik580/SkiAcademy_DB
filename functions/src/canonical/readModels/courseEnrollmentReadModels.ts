@@ -36,11 +36,15 @@ import { verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative } from '.
 import { parsePayment } from '../finance/financeStore';
 import { parseParticipant } from '../participantAccess/participantAccessStore';
 import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
-import { courseDaysCollectionPath, parseCourse, parseCourseDays } from '../courses/courseStore';
+import { parseCourse, parseCourseDays } from '../courses/courseStore';
 import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
 import { buildCourseScheduleProjectionReadModel } from './courseDayScheduleProjectionSupport';
 import { loadLessonBookingReadAuthorizationContext } from './lessonBookingReadModels';
 import { ReadModelAccessDeniedError } from './readModelAccessDenied';
+import {
+  createReadModelRequestContext,
+  type ReadModelRequestContext,
+} from './readModelRequestContext';
 
 export interface CourseEnrollmentReadAuthorizationContext {
   readonly account?: Account;
@@ -50,9 +54,10 @@ export interface CourseEnrollmentReadAuthorizationContext {
 
 export async function loadCourseEnrollmentReadAuthorizationContext(
   firestore: Firestore,
-  accountId: AccountId
+  accountId: AccountId,
+  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
 ): Promise<CourseEnrollmentReadAuthorizationContext> {
-  return loadLessonBookingReadAuthorizationContext(firestore, accountId);
+  return loadLessonBookingReadAuthorizationContext(firestore, accountId, readContext);
 }
 
 function buildLifecycleProjection(
@@ -143,9 +148,10 @@ function canAccountViewEnrollment(
 
 async function loadCourseDays(
   firestore: Firestore,
-  courseId: Course['courseId']
+  courseId: Course['courseId'],
+  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
 ): Promise<CourseDay[]> {
-  const snapshot = await firestore.collection(courseDaysCollectionPath(courseId)).get();
+  const snapshot = await readContext.courseDays(courseId);
   return parseCourseDays(
     snapshot.docs.map((doc) => ({ data: doc.data() as Record<string, unknown> }))
   );
@@ -160,28 +166,27 @@ export async function buildCourseEnrollmentReadModel(
     readonly now?: ReturnType<typeof timestampFromDate>;
     readonly includePayment?: boolean;
     readonly includeAttendanceSummary?: boolean;
+    readonly readContext?: ReadModelRequestContext;
   } = {}
 ): Promise<CourseEnrollmentReadModel | undefined> {
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
   const authContext =
     options.authContext ??
-    (await loadCourseEnrollmentReadAuthorizationContext(firestore, accountId));
+    (await loadCourseEnrollmentReadAuthorizationContext(firestore, accountId, readContext));
   const now = options.now ?? timestampFromDate(new Date());
 
   if (!canAccountViewEnrollment(authContext, accountId, enrollment)) {
     return undefined;
   }
 
-  const courseSnap = await firestore.collection('courses').doc(enrollment.courseId).get();
+  const courseSnap = await readContext.course(enrollment.courseId);
   const course = parseCourse(courseSnap.data() as Record<string, unknown> | undefined);
   if (!course) {
     return undefined;
   }
 
-  const courseDays = await loadCourseDays(firestore, enrollment.courseId);
-  const participantSnap = await firestore
-    .collection('participants')
-    .doc(enrollment.participantId)
-    .get();
+  const courseDays = await loadCourseDays(firestore, enrollment.courseId, readContext);
+  const participantSnap = await readContext.participant(enrollment.participantId);
   const participant = parseParticipant(
     participantSnap.data() as Record<string, unknown> | undefined
   );
@@ -216,10 +221,9 @@ export async function buildCourseEnrollmentReadModel(
       })
     : { canWithdraw: false, canRequestCancellation: false };
 
-  const paymentSnap = await firestore
-    .collection('payments')
-    .doc(paymentIdFromCourseEnrollmentId(enrollment.enrollmentId))
-    .get();
+  const paymentSnap = await readContext.payment(
+    paymentIdFromCourseEnrollmentId(enrollment.enrollmentId)
+  );
   const payment = parsePayment(paymentSnap.data() as Record<string, unknown> | undefined);
 
   return {
@@ -267,16 +271,14 @@ export async function buildInstructorCourseEnrollmentRosterItem(
   instructorId: InstructorId,
   enrollment: CourseEnrollment,
   course: Course,
-  courseDays: readonly CourseDay[]
+  courseDays: readonly CourseDay[],
+  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
 ): Promise<InstructorCourseEnrollmentRosterItem | undefined> {
   if (!isInstructorActiveRosterEnrollment(enrollment)) {
     return undefined;
   }
 
-  const participantSnap = await firestore
-    .collection('participants')
-    .doc(enrollment.participantId)
-    .get();
+  const participantSnap = await readContext.participant(enrollment.participantId);
   const participant = parseParticipant(
     participantSnap.data() as Record<string, unknown> | undefined
   );
@@ -421,9 +423,16 @@ export async function loadInstructorRosterEnrollments(
 
 async function loadAuthorizedAccountEnrollments(
   firestore: Firestore,
-  accountId: AccountId
+  accountId: AccountId,
+  options: {
+    readonly authContext?: CourseEnrollmentReadAuthorizationContext;
+    readonly readContext?: ReadModelRequestContext;
+  } = {}
 ): Promise<CourseEnrollment[]> {
-  const authContext = await loadCourseEnrollmentReadAuthorizationContext(firestore, accountId);
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const authContext =
+    options.authContext ??
+    (await loadCourseEnrollmentReadAuthorizationContext(firestore, accountId, readContext));
   const participantIds = authContext.participantManagement.map(
     (management) => management.participantId
   );
@@ -464,8 +473,10 @@ export async function queryCourseEnrollmentReadModels(
     readonly instructorId?: InstructorId;
     readonly guestActionSecret?: string;
     readonly now?: Date;
+    readonly readContext?: ReadModelRequestContext;
   } = {}
 ): Promise<QueryCourseEnrollmentReadModelsResult> {
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
   const pageSize = Math.min(
     input.pageSize ?? COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_DEFAULT,
     COURSE_ENROLLMENT_READ_MODEL_PAGE_SIZE_MAX
@@ -475,7 +486,7 @@ export async function queryCourseEnrollmentReadModels(
 
   if (input.scope === 'guest_single') {
     const enrollmentId = input.enrollmentId!;
-    const enrollmentSnap = await firestore.collection('course_enrollments').doc(enrollmentId).get();
+    const enrollmentSnap = await readContext.enrollment(enrollmentId);
     const enrollment = parseCourseEnrollment(
       enrollmentSnap.data() as Record<string, unknown> | undefined
     );
@@ -483,12 +494,12 @@ export async function queryCourseEnrollmentReadModels(
       return { scope: input.scope, items: [], hasMore: false };
     }
 
-    const courseSnap = await firestore.collection('courses').doc(enrollment.courseId).get();
+    const courseSnap = await readContext.course(enrollment.courseId);
     const course = parseCourse(courseSnap.data() as Record<string, unknown> | undefined);
     if (!course) {
       return { scope: input.scope, items: [], hasMore: false };
     }
-    const courseDays = await loadCourseDays(firestore, enrollment.courseId);
+    const courseDays = await loadCourseDays(firestore, enrollment.courseId, readContext);
 
     const guestSubjectId = guestSubjectIdFromCourseEnrollmentId(enrollmentId);
     const verification = verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative({
@@ -505,10 +516,7 @@ export async function queryCourseEnrollmentReadModels(
       return { scope: input.scope, items: [], hasMore: false };
     }
 
-    const participantSnap = await firestore
-      .collection('participants')
-      .doc(enrollment.participantId)
-      .get();
+    const participantSnap = await readContext.participant(enrollment.participantId);
     const participant = parseParticipant(
       participantSnap.data() as Record<string, unknown> | undefined
     );
@@ -545,12 +553,12 @@ export async function queryCourseEnrollmentReadModels(
       return { scope: input.scope, items: [], hasMore: false };
     }
 
-    const courseSnap = await firestore.collection('courses').doc(courseId).get();
+    const courseSnap = await readContext.course(courseId);
     const course = parseCourse(courseSnap.data() as Record<string, unknown> | undefined);
     if (!course) {
       return { scope: input.scope, items: [], hasMore: false };
     }
-    const courseDays = await loadCourseDays(firestore, courseId);
+    const courseDays = await loadCourseDays(firestore, courseId, readContext);
     assertInstructorCourseRosterReadAccess({ instructorId, course, courseDays });
     const pageResult = await loadInstructorRosterEnrollmentPage(firestore, courseId, {
       pageSize,
@@ -563,7 +571,8 @@ export async function queryCourseEnrollmentReadModels(
         instructorId,
         enrollment,
         course,
-        courseDays
+        courseDays,
+        readContext
       );
       if (item) {
         items.push(item);
@@ -591,8 +600,15 @@ export async function queryCourseEnrollmentReadModels(
     return { scope: input.scope, items: [], hasMore: false };
   }
 
-  const authContext = await loadCourseEnrollmentReadAuthorizationContext(firestore, accountId);
-  const enrollments = await loadAuthorizedAccountEnrollments(firestore, accountId);
+  const authContext = await loadCourseEnrollmentReadAuthorizationContext(
+    firestore,
+    accountId,
+    readContext
+  );
+  const enrollments = await loadAuthorizedAccountEnrollments(firestore, accountId, {
+    authContext,
+    readContext,
+  });
   const courseCache = new Map<string, { course: Course; courseDays: CourseDay[] }>();
   const items: CourseEnrollmentReadModel[] = [];
 
@@ -602,12 +618,12 @@ export async function queryCourseEnrollmentReadModels(
     }
     let cached = courseCache.get(enrollment.courseId);
     if (!cached) {
-      const courseSnap = await firestore.collection('courses').doc(enrollment.courseId).get();
+      const courseSnap = await readContext.course(enrollment.courseId);
       const course = parseCourse(courseSnap.data() as Record<string, unknown> | undefined);
       if (!course) {
         continue;
       }
-      const courseDays = await loadCourseDays(firestore, enrollment.courseId);
+      const courseDays = await loadCourseDays(firestore, enrollment.courseId, readContext);
       cached = { course, courseDays };
       courseCache.set(enrollment.courseId, cached);
     }
@@ -628,6 +644,7 @@ export async function queryCourseEnrollmentReadModels(
       authContext,
       now,
       includeAttendanceSummary: true,
+      readContext,
     });
     if (item) {
       items.push(item);

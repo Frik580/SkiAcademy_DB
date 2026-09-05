@@ -37,7 +37,11 @@ function nestedValue(data: Record<string, unknown>, field: string): unknown {
     );
 }
 
-function fakeFirestore(seed: Record<string, Record<string, unknown>>): Firestore {
+function fakeFirestore(
+  seed: Record<string, Record<string, unknown>>,
+  reads?: Map<string, number>
+): Firestore {
+  const recordRead = (key: string) => reads?.set(key, (reads.get(key) ?? 0) + 1);
   const snapshot = (entries: Array<[string, Record<string, unknown>]>) => ({
     empty: entries.length === 0,
     docs: entries.map(([path, data]) => ({
@@ -65,6 +69,7 @@ function fakeFirestore(seed: Record<string, Record<string, unknown>>): Firestore
         startAfter: (...values: unknown[]) => makeQuery(filters, orders, values, max),
         limit: (count: number) => makeQuery(filters, orders, cursor, count),
         get: async () => {
+          recordRead(`query:${path}`);
           let entries = baseEntries().filter(([, data]) =>
             filters.every(({ field, op, value }) => {
               const actual = nestedValue(data, field);
@@ -99,6 +104,7 @@ function fakeFirestore(seed: Record<string, Record<string, unknown>>): Firestore
     return {
       doc: (id: string) => ({
         get: async () => {
+          recordRead(`doc:${path}/${id}`);
           const data = seed[`${path}/${id}`];
           return { exists: data !== undefined, data: () => data };
         },
@@ -110,6 +116,7 @@ function fakeFirestore(seed: Record<string, Record<string, unknown>>): Firestore
     collection,
     doc: (path: string) => ({
       get: async () => {
+        recordRead(`doc:${path}`);
         const data = seed[path];
         return { exists: data !== undefined, data: () => data };
       },
@@ -336,6 +343,34 @@ function seed() {
 }
 
 describe('Admin CourseEnrollment read-model callable', () => {
+  it('loads shared Course, payer Account, and CourseDays once per request', async () => {
+    const reads = new Map<string, number>();
+    const handler = createQueryAdminCourseEnrollmentReadModelsHandler(
+      fakeFirestore(seed(), reads)
+    );
+
+    const roster = await handler({
+      auth: { uid: adminId },
+      data: { scope: 'admin_course_roster' },
+    } as never);
+    expect(roster.scope).toBe('admin_course_roster');
+    expect(reads.get(`doc:courses/${canonicalCourseDeliveryFixtures.course.courseId}`)).toBe(1);
+    expect(reads.get(`doc:users/${adminId}`)).toBe(1);
+
+    reads.clear();
+    await handler({
+      auth: { uid: adminId },
+      data: {
+        scope: 'admin_enrollment_detail',
+        enrollmentId: CourseEnrollmentIdSchema.parse('course_enrollment_admin_transfer'),
+      },
+    } as never);
+    expect(
+      reads.get(`query:courses/${canonicalCourseDeliveryFixtures.course.courseId}/days`)
+    ).toBe(1);
+    expect(reads.get(`doc:users/${adminId}`)).toBe(1);
+  });
+
   it('returns canonical roster/detail with server actions and finance/capacity linkage', async () => {
     const handler = createQueryAdminCourseEnrollmentReadModelsHandler(fakeFirestore(seed()));
     const roster = await handler({

@@ -9,6 +9,7 @@ import {
   InvalidAdminCourseEnrollmentCursorError,
   queryAdminCourseEnrollmentReadModels,
 } from './adminCourseEnrollmentReadModels';
+import { createReadModelRequestContext } from './readModelRequestContext';
 
 export function createQueryAdminCourseEnrollmentReadModelsHandler(firestore: Firestore) {
   return async (
@@ -18,9 +19,16 @@ export function createQueryAdminCourseEnrollmentReadModelsHandler(firestore: Fir
     if (!parsed.success) {
       throw new HttpsError('invalid-argument', 'The request is invalid.');
     }
-    const actor = await resolveCallableAdministratorActor(firestore, request.auth?.uid);
+    const readContext = createReadModelRequestContext(firestore);
+    const actor = await resolveCallableAdministratorActor(
+      firestore,
+      request.auth?.uid,
+      readContext
+    );
     try {
-      return await queryAdminCourseEnrollmentReadModels(firestore, actor, parsed.data);
+      return await queryAdminCourseEnrollmentReadModels(firestore, actor, parsed.data, {
+        readContext,
+      });
     } catch (error) {
       if (error instanceof InvalidAdminCourseEnrollmentCursorError) {
         throw new HttpsError('invalid-argument', 'The cursor is invalid.');

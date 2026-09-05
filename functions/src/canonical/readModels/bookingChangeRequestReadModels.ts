@@ -17,6 +17,10 @@ import {
   loadInstructorHotBookings,
   loadLessonBookingReadAuthorizationContext,
 } from './lessonBookingReadModels';
+import {
+  createReadModelRequestContext,
+  type ReadModelRequestContext,
+} from './readModelRequestContext';
 
 function isOpenChangeRequest(changeRequest: BookingChangeRequest): boolean {
   return changeRequest.lifecycle.status === 'open';
@@ -49,17 +53,23 @@ export async function queryBookingChangeRequestReadModels(
     readonly accountId: AccountId;
     readonly instructorId?: InstructorId;
     readonly now?: Date;
+    readonly readContext?: ReadModelRequestContext;
   }
 ): Promise<QueryBookingChangeRequestReadModelsResult> {
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
   const now = timestampFromDate(options.now ?? new Date());
   void now;
 
   if (input.scope === 'account_open') {
     const authContext = await loadLessonBookingReadAuthorizationContext(
       firestore,
-      options.accountId
+      options.accountId,
+      readContext
     );
-    const authorizedBookings = await loadAuthorizedAccountBookings(firestore, options.accountId);
+    const authorizedBookings = await loadAuthorizedAccountBookings(firestore, options.accountId, {
+      authContext,
+      readContext,
+    });
     const items: BookingChangeRequestReadModel[] = [];
 
     for (const booking of authorizedBookings) {

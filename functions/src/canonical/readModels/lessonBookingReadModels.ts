@@ -56,6 +56,10 @@ import { parsePayment } from '../finance/financeStore';
 import { parseAccount, parseParticipant } from '../participantAccess/participantAccessStore';
 import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
 import { loadActiveParticipantBlocksForPair } from './participantBlockReadSupport';
+import {
+  createReadModelRequestContext,
+  type ReadModelRequestContext,
+} from './readModelRequestContext';
 
 export interface LessonBookingReadAuthorizationContext {
   readonly account?: Account;
@@ -72,16 +76,13 @@ export class InvalidLessonBookingReadCursorError extends Error {
 
 export async function loadLessonBookingReadAuthorizationContext(
   firestore: Firestore,
-  accountId: AccountId
+  accountId: AccountId,
+  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
 ): Promise<LessonBookingReadAuthorizationContext> {
-  const accountSnap = await firestore.collection('users').doc(accountId).get();
+  const accountSnap = await readContext.account(accountId);
   const accountData = parseAccount(accountSnap.data() as Record<string, unknown> | undefined);
 
-  const managementSnap = await firestore
-    .collection('participant_management')
-    .where('accountId', '==', accountId)
-    .limit(50)
-    .get();
+  const managementSnap = await readContext.lessonManagementForAccount(accountId);
 
   const participantManagement: ParticipantManagement[] = [];
   for (const doc of managementSnap.docs) {
@@ -93,10 +94,7 @@ export async function loadLessonBookingReadAuthorizationContext(
 
   const participants: Participant[] = [];
   for (const management of participantManagement) {
-    const participantSnap = await firestore
-      .collection('participants')
-      .doc(management.participantId)
-      .get();
+    const participantSnap = await readContext.participant(management.participantId);
     const participant = parseParticipant(
       participantSnap.data() as Record<string, unknown> | undefined
     );
@@ -356,9 +354,13 @@ export async function buildAdminLessonBookingReadModel(
   firestore: Firestore,
   actor: ReadModelAdministratorActor,
   booking: Booking,
-  options: { readonly now?: CanonicalTimestamp } = {}
+  options: {
+    readonly now?: CanonicalTimestamp;
+    readonly readContext?: ReadModelRequestContext;
+  } = {}
 ): Promise<LessonBookingReadModel | undefined> {
   const now = options.now ?? timestampFromDate(new Date());
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
   const [
     instructorSnap,
     paymentSnap,
@@ -367,13 +369,13 @@ export async function buildAdminLessonBookingReadModel(
     participantSnaps,
     attendanceSnaps,
   ] = await Promise.all([
-    firestore.collection('instructors').doc(booking.occurrence.instructorId).get(),
-    firestore.collection('payments').doc(booking.paymentId).get(),
-    firestore.collection('users').doc(actor.accountId).get(),
+    readContext.instructor(booking.occurrence.instructorId),
+    readContext.payment(booking.paymentId),
+    readContext.account(actor.accountId),
     loadRelatedBookingAdminIssues(firestore, booking),
     Promise.all(
       booking.party.participantIds.map((participantId) =>
-        firestore.collection('participants').doc(participantId).get()
+        readContext.participant(participantId)
       )
     ),
     Promise.all(
@@ -384,7 +386,7 @@ export async function buildAdminLessonBookingReadModel(
           occurrenceId: booking.occurrence.occurrenceId,
           participantId,
         });
-        return firestore.collection('attendance').doc(attendanceId).get();
+        return readContext.attendance(attendanceId);
       })
     ),
   ]);
@@ -436,7 +438,7 @@ export async function buildAdminLessonBookingReadModel(
 
   const payerAccountId = booking.payerAccountId ?? payment?.payerAccountId;
   const payerSnap = payerAccountId
-    ? await firestore.collection('users').doc(payerAccountId).get()
+    ? await readContext.account(payerAccountId)
     : undefined;
   const administratorAccount = parseAccount(
     administratorSnap.data() as Record<string, unknown> | undefined
@@ -627,16 +629,16 @@ export async function buildLessonBookingReadModel(
   options: {
     readonly authContext?: LessonBookingReadAuthorizationContext;
     readonly now?: CanonicalTimestamp;
+    readonly readContext?: ReadModelRequestContext;
   } = {}
 ): Promise<LessonBookingReadModel | undefined> {
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
   const authContext =
-    options.authContext ?? (await loadLessonBookingReadAuthorizationContext(firestore, accountId));
+    options.authContext ??
+    (await loadLessonBookingReadAuthorizationContext(firestore, accountId, readContext));
   const now = options.now ?? timestampFromDate(new Date());
 
-  const instructorSnap = await firestore
-    .collection('instructors')
-    .doc(booking.occurrence.instructorId)
-    .get();
+  const instructorSnap = await readContext.instructor(booking.occurrence.instructorId);
   const instructorCatalog = parseInstructorCatalog(
     booking.occurrence.instructorId,
     instructorSnap.data() as Record<string, unknown> | undefined
@@ -657,7 +659,8 @@ export async function buildLessonBookingReadModel(
     const blocks = await loadActiveParticipantBlocksForPair(
       firestore,
       primaryParticipantId!,
-      booking.occurrence.instructorId
+      booking.occurrence.instructorId,
+      readContext
     );
     const topology = buildParticipantAccessTopology({
       account: authContext.account,
@@ -682,7 +685,7 @@ export async function buildLessonBookingReadModel(
   }
 
   for (const participantId of booking.party.participantIds) {
-    const participantSnap = await firestore.collection('participants').doc(participantId).get();
+    const participantSnap = await readContext.participant(participantId);
     const participant = parseParticipant(
       participantSnap.data() as Record<string, unknown> | undefined
     );
@@ -695,7 +698,7 @@ export async function buildLessonBookingReadModel(
     });
   }
 
-  const paymentSnap = await firestore.collection('payments').doc(booking.paymentId).get();
+  const paymentSnap = await readContext.payment(booking.paymentId);
   const payment = parsePayment(paymentSnap.data() as Record<string, unknown> | undefined);
 
   const instructor: LessonBookingReadModelInstructorProjection = {
@@ -734,13 +737,14 @@ export async function buildLessonBookingReadModel(
 export async function buildInstructorLessonBookingReadModel(
   firestore: Firestore,
   instructorId: InstructorId,
-  booking: Booking
+  booking: Booking,
+  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
 ): Promise<LessonBookingReadModel | undefined> {
   if (booking.occurrence.instructorId !== instructorId) {
     return undefined;
   }
 
-  const instructorSnap = await firestore.collection('instructors').doc(instructorId).get();
+  const instructorSnap = await readContext.instructor(instructorId);
   const instructorCatalog = parseInstructorCatalog(
     instructorId,
     instructorSnap.data() as Record<string, unknown> | undefined
@@ -751,7 +755,7 @@ export async function buildInstructorLessonBookingReadModel(
 
   const participants: LessonBookingReadModelParticipantProjection[] = [];
   for (const participantId of booking.party.participantIds) {
-    const participantSnap = await firestore.collection('participants').doc(participantId).get();
+    const participantSnap = await readContext.participant(participantId);
     const participant = parseParticipant(
       participantSnap.data() as Record<string, unknown> | undefined
     );
@@ -856,9 +860,16 @@ function cursorFromBookingDocument(
 
 export async function loadAuthorizedAccountBookings(
   firestore: Firestore,
-  accountId: AccountId
+  accountId: AccountId,
+  options: {
+    readonly authContext?: LessonBookingReadAuthorizationContext;
+    readonly readContext?: ReadModelRequestContext;
+  } = {}
 ): Promise<Booking[]> {
-  const authContext = await loadLessonBookingReadAuthorizationContext(firestore, accountId);
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const authContext =
+    options.authContext ??
+    (await loadLessonBookingReadAuthorizationContext(firestore, accountId, readContext));
   const participantIds = authContext.participantManagement.map(
     (management) => management.participantId
   );
@@ -921,8 +932,10 @@ export async function queryLessonBookingReadModels(
     readonly administratorActor?: ReadModelAdministratorActor;
     readonly guestActionSecret?: string;
     readonly now?: Date;
+    readonly readContext?: ReadModelRequestContext;
   } = {}
 ): Promise<QueryLessonBookingReadModelsResult> {
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
   const pageSize = Math.min(
     input.pageSize ?? LESSON_BOOKING_READ_MODEL_PAGE_SIZE_DEFAULT,
     LESSON_BOOKING_READ_MODEL_PAGE_SIZE_MAX
@@ -944,12 +957,15 @@ export async function queryLessonBookingReadModels(
     if (!actor) {
       return { scope: input.scope, items: [], hasMore: false };
     }
-    const bookingSnap = await firestore.collection('bookings').doc(input.bookingId!).get();
+    const bookingSnap = await readContext.booking(input.bookingId!);
     const booking = parseBooking(bookingSnap.data() as Record<string, unknown> | undefined);
     if (!booking || booking.archival?.isDeleted || booking.bookingId !== input.bookingId) {
       return { scope: input.scope, items: [], hasMore: false };
     }
-    const item = await buildAdminLessonBookingReadModel(firestore, actor, booking, { now });
+    const item = await buildAdminLessonBookingReadModel(firestore, actor, booking, {
+      now,
+      readContext,
+    });
     return {
       scope: input.scope,
       items: item ? [item] : [],
@@ -983,7 +999,7 @@ export async function queryLessonBookingReadModels(
     const items = (
       await Promise.all(
         filtered.map((booking) =>
-          buildAdminLessonBookingReadModel(firestore, actor, booking, { now })
+          buildAdminLessonBookingReadModel(firestore, actor, booking, { now, readContext })
         )
       )
     ).filter((item): item is LessonBookingReadModel => item !== undefined);
@@ -1010,7 +1026,7 @@ export async function queryLessonBookingReadModels(
 
   if (input.scope === 'guest_single') {
     const bookingId = input.bookingId!;
-    const bookingSnap = await firestore.collection('bookings').doc(bookingId).get();
+    const bookingSnap = await readContext.booking(bookingId);
     const booking = parseBooking(bookingSnap.data() as Record<string, unknown> | undefined);
     if (!booking || booking.archival?.isDeleted) {
       return { scope: input.scope, items: [], hasMore: false };
@@ -1034,7 +1050,7 @@ export async function queryLessonBookingReadModels(
       return { scope: input.scope, items: [], hasMore: false };
     }
 
-    const readModel = await buildGuestLessonBookingReadModel(firestore, booking);
+    const readModel = await buildGuestLessonBookingReadModel(firestore, booking, readContext);
     return {
       scope: input.scope,
       items: readModel ? [readModel] : [],
@@ -1067,7 +1083,8 @@ export async function queryLessonBookingReadModels(
       const readModel = await buildInstructorLessonBookingReadModel(
         firestore,
         instructorId,
-        booking
+        booking,
+        readContext
       );
       if (readModel) {
         items.push(readModel);
@@ -1099,8 +1116,15 @@ export async function queryLessonBookingReadModels(
     return { scope: input.scope, items: [], hasMore: false };
   }
 
-  const authorizedBookings = await loadAuthorizedAccountBookings(firestore, accountId);
-  const authContext = await loadLessonBookingReadAuthorizationContext(firestore, accountId);
+  const authContext = await loadLessonBookingReadAuthorizationContext(
+    firestore,
+    accountId,
+    readContext
+  );
+  const authorizedBookings = await loadAuthorizedAccountBookings(firestore, accountId, {
+    authContext,
+    readContext,
+  });
   const filtered = authorizedBookings.filter((booking) => {
     const hot = isLessonBookingHot({
       lifecycleStatus: booking.lifecycle.status,
@@ -1120,6 +1144,7 @@ export async function queryLessonBookingReadModels(
     const readModel = await buildLessonBookingReadModel(firestore, accountId, booking, {
       authContext,
       now,
+      readContext,
     });
     if (readModel) {
       items.push(readModel);
@@ -1148,12 +1173,10 @@ export async function queryLessonBookingReadModels(
 
 async function buildGuestLessonBookingReadModel(
   firestore: Firestore,
-  booking: Booking
+  booking: Booking,
+  readContext: ReadModelRequestContext
 ): Promise<LessonBookingReadModel | undefined> {
-  const instructorSnap = await firestore
-    .collection('instructors')
-    .doc(booking.occurrence.instructorId)
-    .get();
+  const instructorSnap = await readContext.instructor(booking.occurrence.instructorId);
   const instructorCatalog = parseInstructorCatalog(
     booking.occurrence.instructorId,
     instructorSnap.data() as Record<string, unknown> | undefined
@@ -1164,7 +1187,7 @@ async function buildGuestLessonBookingReadModel(
 
   const participants: LessonBookingReadModelParticipantProjection[] = [];
   for (const participantId of booking.party.participantIds) {
-    const participantSnap = await firestore.collection('participants').doc(participantId).get();
+    const participantSnap = await readContext.participant(participantId);
     const participant = parseParticipant(
       participantSnap.data() as Record<string, unknown> | undefined
     );

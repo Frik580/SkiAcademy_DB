@@ -38,9 +38,13 @@ import { parseAdminIssue } from '../adminIssues/adminIssueStore';
 import { parsePayment } from '../finance/financeStore';
 import { parseAccount, parseParticipant } from '../participantAccess/participantAccessStore';
 import { parseCourse } from '../courses/courseStore';
-import { courseDaysCollectionPath, parseCourseDays } from '../courses/courseStore';
+import { parseCourseDays } from '../courses/courseStore';
 import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
-import { attendancePath, parseAttendance } from '../bookings/attendanceStore';
+import { parseAttendance } from '../bookings/attendanceStore';
+import {
+  createReadModelRequestContext,
+  type ReadModelRequestContext,
+} from './readModelRequestContext';
 
 type AdminCourseEnrollmentActions = AdminCourseEnrollmentRosterItem['authorizedActions'];
 type AdminCourseEnrollmentIssueSummary = AdminCourseEnrollmentRosterItem['relatedIssues'][number];
@@ -206,8 +210,12 @@ function attendanceDayProjection(input: {
   });
 }
 
-async function loadCourseDays(firestore: Firestore, courseId: Course['courseId']) {
-  const snapshot = await firestore.collection(courseDaysCollectionPath(courseId)).get();
+async function loadCourseDays(
+  firestore: Firestore,
+  courseId: Course['courseId'],
+  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
+) {
+  const snapshot = await readContext.courseDays(courseId);
   return sortedCourseDays(
     parseCourseDays(
       snapshot.docs.map((document) => ({
@@ -220,24 +228,27 @@ async function loadCourseDays(firestore: Firestore, courseId: Course['courseId']
 async function loadAttendances(
   firestore: Firestore,
   enrollment: CourseEnrollment,
-  courseDays: readonly CourseDay[]
+  courseDays: readonly CourseDay[],
+  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
 ): Promise<Map<CourseDayId, Attendance>> {
   const attendances = new Map<CourseDayId, Attendance>();
-  await Promise.all(
-    courseDays.map(async (courseDay) => {
-      const attendanceId = attendanceIdFromCourseDayIdentity({
-        strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
-        subjectKind: 'course_enrollment',
-        enrollmentId: enrollment.enrollmentId,
-        courseDayId: courseDay.courseDayId,
-      });
-      const snapshot = await firestore.doc(attendancePath(attendanceId)).get();
-      const attendance = parseAttendance(snapshot.data() as Record<string, unknown> | undefined);
-      if (attendance && courseDayAttendanceMatchesCurrentOccurrence(attendance, courseDay)) {
-        attendances.set(courseDay.courseDayId, attendance);
-      }
-    })
-  );
+  const snapshot = await readContext.enrollmentAttendances(enrollment.enrollmentId);
+  const documentsById = new Map(snapshot.docs.map((document) => [document.id, document]));
+  for (const courseDay of courseDays) {
+    const attendanceId = attendanceIdFromCourseDayIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'course_enrollment',
+      enrollmentId: enrollment.enrollmentId,
+      courseDayId: courseDay.courseDayId,
+    });
+    const document = documentsById.get(attendanceId);
+    const attendance = parseAttendance(
+      document?.data() as Record<string, unknown> | undefined
+    );
+    if (attendance && courseDayAttendanceMatchesCurrentOccurrence(attendance, courseDay)) {
+      attendances.set(courseDay.courseDayId, attendance);
+    }
+  }
   return attendances;
 }
 
@@ -247,6 +258,7 @@ async function reconciliationProjection(input: {
   readonly course: Course;
   readonly payment: NonNullable<ReturnType<typeof parsePayment>> | undefined;
   readonly issues: readonly AdminIssue[];
+  readonly readContext: ReadModelRequestContext;
 }): Promise<AdminCourseEnrollmentDetailReadModel['reconciliation']> {
   const evidenceIssueIds = input.issues
     .filter(
@@ -256,14 +268,19 @@ async function reconciliationProjection(input: {
   if (!input.payment || input.enrollment.lifecycle.status === 'pending_cancellation') {
     return { eligible: false, evidenceIssueIds };
   }
-  const courseDays = await loadCourseDays(input.firestore, input.course.courseId);
+  const courseDays = await loadCourseDays(
+    input.firestore,
+    input.course.courseId,
+    input.readContext
+  );
   if (!courseScheduleIsComplete(input.course, courseDays)) {
     return { eligible: false, evidenceIssueIds };
   }
   const attendancesByCourseDayId = await loadAttendances(
     input.firestore,
     input.enrollment,
-    courseDays
+    courseDays,
+    input.readContext
   );
   const guardPath = canonicalPaths
     .activeCourseEnrollmentGuard(input.enrollment.participantId, input.enrollment.courseId)
@@ -296,9 +313,14 @@ async function transferTargetOptions(input: {
   readonly firestore: Firestore;
   readonly enrollment: CourseEnrollment;
   readonly sourceCourse: Course;
+  readonly readContext: ReadModelRequestContext;
 }) {
   const now = timestampFromDate(new Date());
-  const sourceDays = await loadCourseDays(input.firestore, input.sourceCourse.courseId);
+  const sourceDays = await loadCourseDays(
+    input.firestore,
+    input.sourceCourse.courseId,
+    input.readContext
+  );
   if (
     !transferDecision(input.enrollment, input.sourceCourse).eligible ||
     !courseScheduleIsComplete(input.sourceCourse, sourceDays)
@@ -318,7 +340,11 @@ async function transferTargetOptions(input: {
       ) {
         return undefined;
       }
-      const courseDays = await loadCourseDays(input.firestore, course.courseId);
+      const courseDays = await loadCourseDays(
+        input.firestore,
+        course.courseId,
+        input.readContext
+      );
       if (!courseScheduleIsComplete(course, courseDays)) return undefined;
       return {
         courseId: course.courseId,
@@ -352,7 +378,8 @@ async function buildAdminCourseEnrollmentItem(
   firestore: Firestore,
   enrollment: CourseEnrollment,
   includeOperationalDetail = false,
-  administratorAccountActive = true
+  administratorAccountActive = true,
+  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
 ): Promise<
   | {
       readonly item: AdminCourseEnrollmentRosterItem;
@@ -361,9 +388,9 @@ async function buildAdminCourseEnrollmentItem(
   | undefined
 > {
   const [courseSnapshot, participantSnapshot, paymentSnapshot, issues] = await Promise.all([
-    firestore.collection('courses').doc(enrollment.courseId).get(),
-    firestore.collection('participants').doc(enrollment.participantId).get(),
-    firestore.collection('payments').doc(enrollment.paymentId).get(),
+    readContext.course(enrollment.courseId),
+    readContext.participant(enrollment.participantId),
+    readContext.payment(enrollment.paymentId),
     loadRelatedIssues(firestore, enrollment),
   ]);
   const course = parseCourse(courseSnapshot.data() as Record<string, unknown> | undefined);
@@ -375,19 +402,31 @@ async function buildAdminCourseEnrollmentItem(
 
   const payerAccountId = enrollment.payerAccountId ?? payment?.payerAccountId;
   const payerSnapshot = payerAccountId
-    ? await firestore.collection('users').doc(payerAccountId).get()
+    ? await readContext.account(payerAccountId)
     : undefined;
   const payerData = payerSnapshot?.data() as Record<string, unknown> | undefined;
   const transfer = transferDecision(enrollment, course);
   const [reconciliation, targetOptions, attendanceDays] = includeOperationalDetail
     ? await Promise.all([
-        reconciliationProjection({ firestore, enrollment, course, payment, issues }),
-        transferTargetOptions({ firestore, enrollment, sourceCourse: course }),
-        loadCourseDays(firestore, course.courseId).then(async (courseDays) =>
+        reconciliationProjection({
+          firestore,
+          enrollment,
+          course,
+          payment,
+          issues,
+          readContext,
+        }),
+        transferTargetOptions({ firestore, enrollment, sourceCourse: course, readContext }),
+        loadCourseDays(firestore, course.courseId, readContext).then(async (courseDays) =>
           attendanceDayProjection({
             enrollment,
             courseDays,
-            attendances: await loadAttendances(firestore, enrollment, courseDays),
+            attendances: await loadAttendances(
+              firestore,
+              enrollment,
+              courseDays,
+              readContext
+            ),
             now: timestampFromDate(new Date()),
           })
         ),
@@ -525,15 +564,17 @@ function listQuery(
 export async function queryAdminCourseEnrollmentReadModels(
   firestore: Firestore,
   actor: ReadModelAdministratorActor,
-  input: QueryAdminCourseEnrollmentReadModelsInput
+  input: QueryAdminCourseEnrollmentReadModelsInput,
+  options: { readonly readContext?: ReadModelRequestContext } = {}
 ): Promise<QueryAdminCourseEnrollmentReadModelsResult> {
-  const administratorSnap = await firestore.collection('users').doc(actor.accountId).get();
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const administratorSnap = await readContext.account(actor.accountId);
   const administratorAccount = parseAccount(
     administratorSnap.data() as Record<string, unknown> | undefined
   );
   const administratorAccountActive = administratorAccount?.lifecycle.status === 'active';
   if (input.scope === 'admin_enrollment_detail') {
-    const snapshot = await firestore.collection('course_enrollments').doc(input.enrollmentId).get();
+    const snapshot = await readContext.enrollment(input.enrollmentId);
     const enrollment = parseCourseEnrollment(
       snapshot.data() as Record<string, unknown> | undefined
     );
@@ -542,7 +583,8 @@ export async function queryAdminCourseEnrollmentReadModels(
       firestore,
       enrollment,
       true,
-      administratorAccountActive
+      administratorAccountActive,
+      readContext
     );
     return { scope: input.scope, ...(built ? { item: built.detail } : {}) };
   }
@@ -561,7 +603,13 @@ export async function queryAdminCourseEnrollmentReadModels(
   const page = enrollments.slice(0, pageSize);
   const built = await Promise.all(
     page.map((enrollment) =>
-      buildAdminCourseEnrollmentItem(firestore, enrollment, false, administratorAccountActive)
+      buildAdminCourseEnrollmentItem(
+        firestore,
+        enrollment,
+        false,
+        administratorAccountActive,
+        readContext
+      )
     )
   );
   const items = built.flatMap((value) => (value ? [value.item] : []));

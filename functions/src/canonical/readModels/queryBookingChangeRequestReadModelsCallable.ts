@@ -11,6 +11,7 @@ import {
   readCallableAccountProfile,
   resolveCallableInstructorId,
 } from './resolveCallableInstructorId';
+import { createReadModelRequestContext } from './readModelRequestContext';
 
 export function createQueryBookingChangeRequestReadModelsHandler(firestore: Firestore) {
   return async (
@@ -32,10 +33,11 @@ export function createQueryBookingChangeRequestReadModelsHandler(firestore: Fire
     if (!parsedAccountId.success) {
       throw new HttpsError('unauthenticated', 'Authentication is required.');
     }
+    const readContext = createReadModelRequestContext(firestore);
 
     let instructorId: ReturnType<typeof resolveCallableInstructorId> | undefined;
     if (parsed.data.scope === 'instructor_open') {
-      const userSnap = await firestore.collection('users').doc(request.auth.uid).get();
+      const userSnap = await readContext.account(parsedAccountId.data);
       instructorId = resolveCallableInstructorId(
         readCallableAccountProfile(userSnap.data() as Record<string, unknown> | undefined)
       );
@@ -47,6 +49,7 @@ export function createQueryBookingChangeRequestReadModelsHandler(firestore: Fire
     return queryBookingChangeRequestReadModels(firestore, parsed.data, {
       accountId: parsedAccountId.data,
       instructorId,
+      readContext,
     });
   };
 }

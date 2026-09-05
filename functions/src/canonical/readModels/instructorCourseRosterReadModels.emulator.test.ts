@@ -4,6 +4,7 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import {
   AccountIdSchema,
   AccountSchema,
+  AttendanceSchema,
   AggregateRevisionSchema,
   CorrelationIdSchema,
   CourseDayIdSchema,
@@ -20,6 +21,7 @@ import {
   courseEnrollmentAttendancePaymentConflictIdentity,
   courseEnrollmentSeatOccurrenceId,
   paymentIdFromCourseEnrollmentId,
+  initialCourseDayOccurrenceId,
   timestampFromDate,
   accountCommandActor,
   type CommandEnvelope,
@@ -354,6 +356,232 @@ describeEmulator('instructor course roster read models emulator', () => {
     expect(attendanceResult.items[0]?.participantId).toBe(participantId);
     expect(attendanceResult.items[0]?.days[0]?.factualState).toBe('missing');
   });
+
+  it('preserves a complete 64-enrollment sparse attendance matrix with Course isolation', async () => {
+    const secondDayId = CourseDayIdSchema.parse('course_day_instructor_roster_read_02');
+    const thirdDayId = CourseDayIdSchema.parse('course_day_instructor_roster_read_03');
+    const secondDayStart = timestampFromDate(new Date('2026-02-02T03:00:00.000Z'));
+    const secondDayEnd = timestampFromDate(new Date('2026-02-02T05:00:00.000Z'));
+    const thirdDayStart = timestampFromDate(new Date('2026-02-03T03:00:00.000Z'));
+    const thirdDayEnd = timestampFromDate(new Date('2026-02-03T05:00:00.000Z'));
+    const batch = firestore.batch();
+
+    batch.update(firestore.doc(`courses/${courseId}`), {
+      capacity: { totalSeats: 64, availableSeats: 0 },
+      scheduleProjection: {
+        courseDayCount: 3,
+        finalCourseDayEndsAt: thirdDayEnd,
+        courseScheduleRevision: 2,
+      },
+    });
+    for (const [id, order, startsAt, endsAt] of [
+      [secondDayId, 2, secondDayStart, secondDayEnd],
+      [thirdDayId, 3, thirdDayStart, thirdDayEnd],
+    ] as const) {
+      batch.set(firestore.doc(`courses/${courseId}/days/${id}`), {
+        courseId,
+        courseDayId: id,
+        dayOrder: order,
+        interval: { startsAt, endsAt },
+        timeZone: 'Asia/Almaty',
+        actualInstructorIds: [rosterInstructorId],
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'seed',
+          lastChangedByCommandId: 'seed',
+          correlationId,
+        },
+      });
+    }
+
+    const enrollmentIds = [enrollmentId];
+    const participantIds = [participantId];
+    for (let index = 2; index <= 64; index += 1) {
+      const suffix = String(index).padStart(2, '0');
+      const nextEnrollmentId = CourseEnrollmentIdSchema.parse(
+        `enrollment_instructor_roster_matrix_${suffix}`
+      );
+      const nextParticipantId = ParticipantIdSchema.parse(
+        `participant_instructor_roster_matrix_${suffix}`
+      );
+      enrollmentIds.push(nextEnrollmentId);
+      participantIds.push(nextParticipantId);
+      batch.set(firestore.doc(`participants/${nextParticipantId}`), {
+        participantId: nextParticipantId,
+        displayName: `Matrix Participant ${suffix}`,
+        age: { kind: 'age_years', years: 20 },
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        management: {
+          kind: 'managed',
+          participantManagementId: ParticipantManagementIdSchema.parse(
+            `management_instructor_roster_matrix_${suffix}`
+          ),
+        },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'seed',
+          lastChangedByCommandId: 'seed',
+          correlationId,
+        },
+      });
+      batch.set(firestore.doc(`course_enrollments/${nextEnrollmentId}`), {
+        courseId,
+        originalCourseId: courseId,
+        enrollmentId: nextEnrollmentId,
+        participantId: nextParticipantId,
+        paymentId: paymentIdFromCourseEnrollmentId(nextEnrollmentId),
+        attribution: {
+          bookingOrigin: 'admin',
+          bookedBy: { kind: 'account', accountId: rosterInstructorAccountId },
+        },
+        lifecycle: { status: 'confirmed' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'seed',
+          lastChangedByCommandId: 'seed',
+          correlationId,
+        },
+      });
+    }
+
+    const sparseEvidence = [
+      {
+        enrollmentId: enrollmentIds[0]!,
+        participantId: participantIds[0]!,
+        courseDayId,
+        status: 'present' as const,
+        recordedAt: dayEnd,
+      },
+      {
+        enrollmentId: enrollmentIds[1]!,
+        participantId: participantIds[1]!,
+        courseDayId: secondDayId,
+        status: 'absent' as const,
+        recordedAt: secondDayEnd,
+      },
+      {
+        enrollmentId: enrollmentIds[63]!,
+        participantId: participantIds[63]!,
+        courseDayId: thirdDayId,
+        status: 'present' as const,
+        recordedAt: thirdDayEnd,
+      },
+    ];
+    for (const evidence of sparseEvidence) {
+      const attendanceId = attendanceIdFromCourseDayIdentity({
+        strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+        subjectKind: 'course_enrollment',
+        enrollmentId: evidence.enrollmentId,
+        courseDayId: evidence.courseDayId,
+      });
+      batch.set(
+        firestore.doc(`attendance/${attendanceId}`),
+        AttendanceSchema.parse({
+          attendanceId,
+          subject: {
+            subjectKind: 'course_enrollment',
+            enrollmentId: evidence.enrollmentId,
+            courseId,
+            courseDayId: evidence.courseDayId,
+            occurrenceId: initialCourseDayOccurrenceId(evidence.courseDayId),
+            participantId: evidence.participantId,
+          },
+          attendanceStatus: evidence.status,
+          recordedBy: { kind: 'instructor', instructorId: rosterInstructorId },
+          recordedAt: evidence.recordedAt,
+          lastChangedBy: { kind: 'instructor', instructorId: rosterInstructorId },
+          updatedAt: evidence.recordedAt,
+          revision: 1,
+          correlationId,
+        })
+      );
+    }
+
+    const otherCourseId = CourseIdSchema.parse('course_instructor_roster_read_other');
+    const otherEnrollmentId = CourseEnrollmentIdSchema.parse(
+      'enrollment_instructor_roster_read_other'
+    );
+    const otherDayId = CourseDayIdSchema.parse('course_day_instructor_roster_read_other');
+    const otherAttendanceId = attendanceIdFromCourseDayIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'course_enrollment',
+      enrollmentId: otherEnrollmentId,
+      courseDayId: otherDayId,
+    });
+    const sourceCourse = (await firestore.doc(`courses/${courseId}`).get()).data()!;
+    batch.set(firestore.doc(`courses/${otherCourseId}`), {
+      ...sourceCourse,
+      courseId: otherCourseId,
+      title: 'Other Course',
+    });
+    batch.set(
+      firestore.doc(`attendance/${otherAttendanceId}`),
+      AttendanceSchema.parse({
+        attendanceId: otherAttendanceId,
+        subject: {
+          subjectKind: 'course_enrollment',
+          enrollmentId: otherEnrollmentId,
+          courseId: otherCourseId,
+          courseDayId: otherDayId,
+          occurrenceId: initialCourseDayOccurrenceId(otherDayId),
+          participantId,
+        },
+        attendanceStatus: 'absent',
+        recordedBy: { kind: 'instructor', instructorId: rosterInstructorId },
+        recordedAt: decidedAt,
+        lastChangedBy: { kind: 'instructor', instructorId: rosterInstructorId },
+        updatedAt: decidedAt,
+        revision: 1,
+        correlationId,
+      })
+    );
+    await batch.commit();
+
+    const result = await queryCourseAttendanceReadModels(
+      firestore,
+      { scope: 'instructor_roster', courseId },
+      { accountId: rosterInstructorAccountId, instructorId: rosterInstructorId }
+    );
+    expect(result.items).toHaveLength(64);
+    expect(result.items.every((item) => item.days.length === 3)).toBe(true);
+
+    const pointReadStates = new Map<string, string>();
+    for (const targetEnrollmentId of enrollmentIds) {
+      for (const targetDayId of [courseDayId, secondDayId, thirdDayId]) {
+        const attendanceId = attendanceIdFromCourseDayIdentity({
+          strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+          subjectKind: 'course_enrollment',
+          enrollmentId: targetEnrollmentId,
+          courseDayId: targetDayId,
+        });
+        const snapshot = await firestore.doc(`attendance/${attendanceId}`).get();
+        pointReadStates.set(
+          `${targetEnrollmentId}:${targetDayId}`,
+          snapshot.exists ? String(snapshot.data()?.attendanceStatus) : 'missing'
+        );
+      }
+    }
+    for (const item of result.items) {
+      for (const day of item.days) {
+        expect(day.factualState).toBe(
+          pointReadStates.get(`${item.enrollmentId}:${day.courseDayId}`)
+        );
+      }
+    }
+    const states = result.items.flatMap((item) => item.days.map((day) => day.factualState));
+    expect(states.filter((state) => state === 'present')).toHaveLength(2);
+    expect(states.filter((state) => state === 'absent')).toHaveLength(1);
+    expect(states.filter((state) => state === 'missing')).toHaveLength(189);
+    expect(result.items.some((item) => item.courseId === otherCourseId)).toBe(false);
+  }, 15_000);
 
   it('allows instructor assigned only through CourseDay to read roster data', async () => {
     await clearCollections(firestore);

@@ -9,6 +9,7 @@ import {
   queryAdminIdentityReadModels,
 } from './adminIdentityReadModels';
 import { resolveCallableAdministratorActor } from './resolveCallableAdministrator';
+import { createReadModelRequestContext } from './readModelRequestContext';
 
 export function createQueryAdminIdentityReadModelsHandler(firestore: Firestore) {
   return async (
@@ -19,9 +20,14 @@ export function createQueryAdminIdentityReadModelsHandler(firestore: Firestore) 
       throw new HttpsError('invalid-argument', 'The request is invalid.');
     }
 
-    const actor = await resolveCallableAdministratorActor(firestore, request.auth?.uid);
+    const readContext = createReadModelRequestContext(firestore);
+    const actor = await resolveCallableAdministratorActor(
+      firestore,
+      request.auth?.uid,
+      readContext
+    );
     try {
-      return await queryAdminIdentityReadModels(firestore, actor, parsed.data);
+      return await queryAdminIdentityReadModels(firestore, actor, parsed.data, { readContext });
     } catch (error) {
       if (error instanceof InvalidAdminIdentityReadCursorError) {
         throw new HttpsError('invalid-argument', 'The cursor is invalid.');

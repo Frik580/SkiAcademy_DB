@@ -19,6 +19,10 @@ import {
 import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
 import { parseParticipant } from '../participantAccess/participantAccessStore';
 import { loadActiveParticipantBlocksForPair } from './participantBlockReadSupport';
+import {
+  createReadModelRequestContext,
+  type ReadModelRequestContext,
+} from './readModelRequestContext';
 
 function durationMinutesFromInterval(start: CanonicalTimestamp, end: CanonicalTimestamp): number {
   const startMs = start.seconds * 1_000 + start.nanoseconds / 1_000_000;
@@ -35,7 +39,8 @@ async function buildAccountProposalReadModel(
   accountId: AccountId,
   proposal: BookingProposal,
   authContext: LessonBookingReadAuthorizationContext,
-  now: CanonicalTimestamp
+  now: CanonicalTimestamp,
+  readContext: ReadModelRequestContext
 ): Promise<BookingProposalReadModel | undefined> {
   const management = authContext.participantManagement.find(
     (record) => record.participantId === proposal.participantId
@@ -47,7 +52,7 @@ async function buildAccountProposalReadModel(
     return undefined;
   }
 
-  const instructorSnap = await firestore.collection('instructors').doc(proposal.instructorId).get();
+  const instructorSnap = await readContext.instructor(proposal.instructorId);
   const instructorCatalog = parseInstructorCatalog(
     proposal.instructorId,
     instructorSnap.data() as Record<string, unknown> | undefined
@@ -59,7 +64,8 @@ async function buildAccountProposalReadModel(
   const blocks = await loadActiveParticipantBlocksForPair(
     firestore,
     proposal.participantId,
-    proposal.instructorId
+    proposal.instructorId,
+    readContext
   );
   const topology = buildParticipantAccessTopology({
     account: authContext.account,
@@ -110,16 +116,14 @@ async function buildInstructorProposalReadModel(
   instructorId: InstructorId,
   accountId: AccountId,
   proposal: BookingProposal,
-  now: CanonicalTimestamp
+  now: CanonicalTimestamp,
+  readContext: ReadModelRequestContext
 ): Promise<BookingProposalReadModel | undefined> {
   if (proposal.instructorId !== instructorId) {
     return undefined;
   }
 
-  const participantSnap = await firestore
-    .collection('participants')
-    .doc(proposal.participantId)
-    .get();
+  const participantSnap = await readContext.participant(proposal.participantId);
   const participant = parseParticipant(
     participantSnap.data() as Record<string, unknown> | undefined
   );
@@ -127,7 +131,7 @@ async function buildInstructorProposalReadModel(
     return undefined;
   }
 
-  const instructorSnap = await firestore.collection('instructors').doc(instructorId).get();
+  const instructorSnap = await readContext.instructor(instructorId);
   const instructorCatalog = parseInstructorCatalog(
     instructorId,
     instructorSnap.data() as Record<string, unknown> | undefined
@@ -175,14 +179,17 @@ export async function queryBookingProposalReadModels(
     readonly accountId: AccountId;
     readonly instructorId?: InstructorId;
     readonly now?: Date;
+    readonly readContext?: ReadModelRequestContext;
   }
 ): Promise<QueryBookingProposalReadModelsResult> {
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
   const now = timestampFromDate(options.now ?? new Date());
 
   if (input.scope === 'account_open') {
     const authContext = await loadLessonBookingReadAuthorizationContext(
       firestore,
-      options.accountId
+      options.accountId,
+      readContext
     );
     const participantIds = authContext.participantManagement.map(
       (management) => management.participantId
@@ -206,7 +213,8 @@ export async function queryBookingProposalReadModels(
           options.accountId,
           proposal,
           authContext,
-          now
+          now,
+          readContext
         );
         if (readModel) {
           items.push(readModel);
@@ -240,7 +248,8 @@ export async function queryBookingProposalReadModels(
       instructorId,
       options.accountId,
       proposal,
-      now
+      now,
+      readContext
     );
     if (readModel) {
       items.push(readModel);

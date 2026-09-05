@@ -11,6 +11,7 @@ import {
   resolveCallableInstructorId,
 } from './resolveCallableInstructorId';
 import { ReadModelAccessDeniedError } from './readModelAccessDenied';
+import { createReadModelRequestContext } from './readModelRequestContext';
 
 export function createQueryCourseAttendanceReadModelsHandler(firestore: Firestore) {
   return async (
@@ -22,6 +23,7 @@ export function createQueryCourseAttendanceReadModelsHandler(firestore: Firestor
     }
 
     const input = parsed.data;
+    const readContext = createReadModelRequestContext(firestore);
     if (!request.auth?.uid) {
       throw new HttpsError('unauthenticated', 'Authentication is required.');
     }
@@ -32,7 +34,7 @@ export function createQueryCourseAttendanceReadModelsHandler(firestore: Firestor
 
     let instructorId: ReturnType<typeof resolveCallableInstructorId> | undefined;
     if (input.scope === 'instructor_roster') {
-      const userSnap = await firestore.collection('users').doc(request.auth.uid).get();
+      const userSnap = await readContext.account(parsedAccountId.data);
       instructorId = resolveCallableInstructorId(
         readCallableAccountProfile(userSnap.data() as Record<string, unknown> | undefined)
       );
@@ -45,6 +47,7 @@ export function createQueryCourseAttendanceReadModelsHandler(firestore: Firestor
       return await queryCourseAttendanceReadModels(firestore, input, {
         accountId: parsedAccountId.data,
         instructorId,
+        readContext,
       });
     } catch (error) {
       if (error instanceof ReadModelAccessDeniedError) {

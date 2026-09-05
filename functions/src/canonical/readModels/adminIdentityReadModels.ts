@@ -43,6 +43,10 @@ import {
 import { parseBooking, parseInstructorCatalog } from '../bookings/bookingStore';
 import { parseCourseDay } from '../courses/courseStore';
 import { sanitizeInstructorPresentationAvatarUrl } from './instructorPresentationAvatar';
+import {
+  createReadModelRequestContext,
+  type ReadModelRequestContext,
+} from './readModelRequestContext';
 
 export class InvalidAdminIdentityReadCursorError extends Error {
   constructor() {
@@ -109,9 +113,10 @@ function decodeCursor(cursor: string | undefined): {
 
 async function loadActorAuthority(
   firestore: Firestore,
-  actor: ReadModelAdministratorActor
+  actor: ReadModelAdministratorActor,
+  readContext: ReadModelRequestContext
 ): Promise<ActorAuthority> {
-  const snapshot = await firestore.collection('users').doc(actor.accountId).get();
+  const snapshot = await readContext.account(actor.accountId);
   const data = snapshot.data() as Record<string, unknown> | undefined;
   return {
     accountId: actor.accountId,
@@ -121,13 +126,10 @@ async function loadActorAuthority(
 
 async function queryActiveManagementForAccount(
   firestore: Firestore,
-  accountId: AccountId
+  accountId: AccountId,
+  readContext: ReadModelRequestContext
 ): Promise<ParticipantManagement[]> {
-  const snapshot = await firestore
-    .collection('participant_management')
-    .where('accountId', '==', accountId)
-    .where('status', '==', 'active')
-    .get();
+  const snapshot = await readContext.activeManagementForAccount(accountId);
   return snapshot.docs
     .map((doc) => parseParticipantManagement(doc.data() as Record<string, unknown>))
     .filter((value): value is ParticipantManagement => value !== undefined);
@@ -135,13 +137,10 @@ async function queryActiveManagementForAccount(
 
 async function queryActiveManagementForParticipant(
   firestore: Firestore,
-  participantId: ParticipantId
+  participantId: ParticipantId,
+  readContext: ReadModelRequestContext
 ): Promise<ParticipantManagement[]> {
-  const snapshot = await firestore
-    .collection('participant_management')
-    .where('participantId', '==', participantId)
-    .where('status', '==', 'active')
-    .get();
+  const snapshot = await readContext.activeManagementForParticipant(participantId);
   return snapshot.docs
     .map((doc) => parseParticipantManagement(doc.data() as Record<string, unknown>))
     .filter((value): value is ParticipantManagement => value !== undefined);
@@ -386,10 +385,11 @@ async function buildAccountListItem(
   firestore: Firestore,
   actor: ActorAuthority,
   accountId: AccountId,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  readContext: ReadModelRequestContext
 ): Promise<AdminAccountListItem> {
   const account = parseAccount(data);
-  const management = await queryActiveManagementForAccount(firestore, accountId);
+  const management = await queryActiveManagementForAccount(firestore, accountId, readContext);
   const selfCount = management.filter((item) => item.authority === 'self').length;
   const lifecycle: AdminAccountListItem['lifecycle'] = account
     ? account.lifecycle.status
@@ -410,7 +410,7 @@ async function buildAccountListItem(
   let linkedInstructorAvailable = false;
   if (linkedInstructorId) {
     try {
-      const catalogSnap = await firestore.collection('instructors').doc(linkedInstructorId).get();
+      const catalogSnap = await readContext.instructor(linkedInstructorId);
       linkedInstructorAvailable =
         catalogSnap.exists &&
         (catalogSnap.data() as Record<string, unknown> | undefined)?.isAvailable !== false;
@@ -445,14 +445,25 @@ async function buildAccountDetail(
   firestore: Firestore,
   actor: ActorAuthority,
   accountId: AccountId,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  readContext: ReadModelRequestContext
 ): Promise<AdminAccountDetailReadModel> {
-  const listItem = await buildAccountListItem(firestore, actor, accountId, data);
-  const management = await queryActiveManagementForAccount(firestore, accountId);
+  const listItem = await buildAccountListItem(
+    firestore,
+    actor,
+    accountId,
+    data,
+    readContext
+  );
+  const management = await queryActiveManagementForAccount(
+    firestore,
+    accountId,
+    readContext
+  );
   const selfManagement = management.filter((item) => item.authority === 'self');
   const participants = await Promise.all(
     management.map(async (item) => {
-      const snapshot = await firestore.collection('participants').doc(item.participantId).get();
+      const snapshot = await readContext.participant(item.participantId);
       const participant = parseParticipant(snapshot.data() as Record<string, unknown> | undefined);
       return {
         participantId: item.participantId,
@@ -479,7 +490,7 @@ async function buildAccountDetail(
   );
   const linkedInstructorId = listItem.instructorLink.instructorId;
   const catalogExists = linkedInstructorId
-    ? (await firestore.collection('instructors').doc(linkedInstructorId).get()).exists
+    ? (await readContext.instructor(linkedInstructorId)).exists
     : true;
   const diagnostics = diagnoseAccountIdentity({
     profileExists: true,
@@ -546,9 +557,14 @@ async function countParticipantBlocks(
 
 async function buildParticipantListItem(
   firestore: Firestore,
-  participant: Participant
+  participant: Participant,
+  readContext: ReadModelRequestContext
 ): Promise<AdminParticipantListItem> {
-  const management = await queryActiveManagementForParticipant(firestore, participant.participantId);
+  const management = await queryActiveManagementForParticipant(
+    firestore,
+    participant.participantId,
+    readContext
+  );
   const classification = classificationOf(participant, management);
   const owner = management.find((item) => item.status === 'active');
   const diagnostics = diagnoseParticipantIdentity({
@@ -581,10 +597,15 @@ async function buildParticipantListItem(
 
 async function buildParticipantDetail(
   firestore: Firestore,
-  participant: Participant
+  participant: Participant,
+  readContext: ReadModelRequestContext
 ): Promise<AdminParticipantDetailReadModel> {
-  const management = await queryActiveManagementForParticipant(firestore, participant.participantId);
-  const listItem = await buildParticipantListItem(firestore, participant);
+  const management = await queryActiveManagementForParticipant(
+    firestore,
+    participant.participantId,
+    readContext
+  );
+  const listItem = await buildParticipantListItem(firestore, participant, readContext);
   const uniqueOwner = management.length === 1 ? management[0] : undefined;
   const guardSnapshot = await firestore
     .collection('participant_management_active_owner')
@@ -607,7 +628,7 @@ async function buildParticipantDetail(
   });
   const managers = await Promise.all(
     management.map(async (item) => {
-      const accountSnap = await firestore.collection('users').doc(item.accountId).get();
+      const accountSnap = await readContext.account(item.accountId);
       return {
         accountId: item.accountId,
         participantManagementId: item.participantManagementId,
@@ -678,7 +699,8 @@ async function buildParticipantDetail(
 async function findLinkedAccount(
   firestore: Firestore,
   instructorId: InstructorId,
-  catalogLinkedAccountId?: string
+  catalogLinkedAccountId: string | undefined,
+  readContext: ReadModelRequestContext
 ): Promise<
   | {
       accountId: AccountId;
@@ -691,7 +713,7 @@ async function findLinkedAccount(
   if (catalogLinkedAccountId) {
     const parsedId = AccountIdSchema.safeParse(catalogLinkedAccountId);
     if (parsedId.success) {
-      const snapshot = await firestore.collection('users').doc(parsedId.data).get();
+      const snapshot = await readContext.account(parsedId.data);
       if (snapshot.exists) {
         const data = snapshot.data() as Record<string, unknown>;
         const account = parseAccount(data);
@@ -703,11 +725,7 @@ async function findLinkedAccount(
       }
     }
   }
-  const snapshot = await firestore
-    .collection('users')
-    .where('instructorId', '==', instructorId)
-    .limit(2)
-    .get();
+  const snapshot = await readContext.linkedAccountForInstructor(instructorId);
   if (snapshot.empty) return undefined;
   const accountId = AccountIdSchema.safeParse(snapshot.docs[0]!.id);
   if (!accountId.success) return undefined;
@@ -777,7 +795,8 @@ async function loadInstructorCommitmentCounts(
 async function buildInstructorListItem(
   firestore: Firestore,
   instructorId: InstructorId,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  readContext: ReadModelRequestContext
 ): Promise<AdminInstructorListItem | undefined> {
   const parsed = parseInstructorCatalog(instructorId, data);
   if (!parsed) return undefined;
@@ -785,7 +804,12 @@ async function buildInstructorListItem(
   const isAvailable = data.isAvailable !== false;
   const catalogLinkedAccountId =
     typeof data.linkedAccountId === 'string' ? data.linkedAccountId : undefined;
-  const linked = await findLinkedAccount(firestore, instructorId, catalogLinkedAccountId);
+  const linked = await findLinkedAccount(
+    firestore,
+    instructorId,
+    catalogLinkedAccountId,
+    readContext
+  );
   const rosterCount = await countQuery(
     firestore.collection('courses').where('instructorRosterIds', 'array-contains', instructorId)
   );
@@ -828,9 +852,10 @@ async function buildInstructorListItem(
 async function buildInstructorDetail(
   firestore: Firestore,
   instructorId: InstructorId,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  readContext: ReadModelRequestContext
 ): Promise<AdminInstructorDetailReadModel | undefined> {
-  const listItem = await buildInstructorListItem(firestore, instructorId, data);
+  const listItem = await buildInstructorListItem(firestore, instructorId, data, readContext);
   if (!listItem) return undefined;
   const commitments = await loadInstructorCommitmentCounts(firestore, instructorId);
   const diagnostics: IdentityDiagnostic[] = [];
@@ -838,11 +863,12 @@ async function buildInstructorDetail(
     await findLinkedAccount(
       firestore,
       instructorId,
-      typeof data.linkedAccountId === 'string' ? data.linkedAccountId : listItem.linkedAccountId
+      typeof data.linkedAccountId === 'string' ? data.linkedAccountId : listItem.linkedAccountId,
+      readContext
     )
   )?.lifecycle;
   if (listItem.linkedAccountId) {
-    const accountSnap = await firestore.collection('users').doc(listItem.linkedAccountId).get();
+    const accountSnap = await readContext.account(listItem.linkedAccountId);
     const linkedId = readString(accountSnap.data() as Record<string, unknown> | undefined, 'instructorId');
     if (linkedId !== instructorId) {
       diagnostics.push({
@@ -867,7 +893,12 @@ async function buildInstructorDetail(
         ? {
             linkedAccountId: listItem.linkedAccountId,
             linkedAccountRevision: (
-              await findLinkedAccount(firestore, instructorId, listItem.linkedAccountId)
+              await findLinkedAccount(
+                firestore,
+                instructorId,
+                listItem.linkedAccountId,
+                readContext
+              )
             )?.revision,
             linkedAccountLifecycle: linkedLifecycle,
           }
@@ -894,17 +925,18 @@ async function buildInstructorDetail(
 
 async function queryEligibleParticipants(
   firestore: Firestore,
-  accountId: AccountId
+  accountId: AccountId,
+  readContext: ReadModelRequestContext
 ): Promise<AdminEligibleParticipantItem[]> {
-  const accountSnapshot = await firestore.collection('users').doc(accountId).get();
+  const accountSnapshot = await readContext.account(accountId);
   const account = parseAccount(accountSnapshot.data() as Record<string, unknown> | undefined);
   if (!account || account.lifecycle.status !== 'active') {
     return [];
   }
-  const management = await queryActiveManagementForAccount(firestore, accountId);
+  const management = await queryActiveManagementForAccount(firestore, accountId, readContext);
   const items: AdminEligibleParticipantItem[] = [];
   for (const item of management) {
-    const snapshot = await firestore.collection('participants').doc(item.participantId).get();
+    const snapshot = await readContext.participant(item.participantId);
     const participant = parseParticipant(snapshot.data() as Record<string, unknown> | undefined);
     if (!participant || participant.lifecycle.status !== 'active') continue;
     if (participant.management.kind !== 'managed') continue;
@@ -924,9 +956,11 @@ async function queryEligibleParticipants(
 export async function queryAdminIdentityReadModels(
   firestore: Firestore,
   actor: ReadModelAdministratorActor,
-  input: QueryAdminIdentityReadModelsInput
+  input: QueryAdminIdentityReadModelsInput,
+  options: { readonly readContext?: ReadModelRequestContext } = {}
 ): Promise<QueryAdminIdentityReadModelsResult> {
-  const authority = await loadActorAuthority(firestore, actor);
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
+  const authority = await loadActorAuthority(firestore, actor, readContext);
 
   if (input.scope === 'admin_account_list') {
     const page = await paginateCollection(firestore, 'users', input, 'displayName');
@@ -939,7 +973,8 @@ export async function queryAdminIdentityReadModels(
             firestore,
             authority,
             accountId.data,
-            doc.data() as Record<string, unknown>
+            doc.data() as Record<string, unknown>,
+            readContext
           );
         })
       )
@@ -964,7 +999,7 @@ export async function queryAdminIdentityReadModels(
   }
 
   if (input.scope === 'admin_account_detail') {
-    const snapshot = await firestore.collection('users').doc(input.accountId).get();
+    const snapshot = await readContext.account(input.accountId);
     const result = {
       scope: 'admin_account_detail' as const,
       ...(snapshot.exists
@@ -973,7 +1008,8 @@ export async function queryAdminIdentityReadModels(
               firestore,
               authority,
               input.accountId,
-              snapshot.data() as Record<string, unknown>
+              snapshot.data() as Record<string, unknown>,
+              readContext
             ),
           }
         : {}),
@@ -988,7 +1024,7 @@ export async function queryAdminIdentityReadModels(
         page.docs.map(async (doc) => {
           const participant = parseParticipant(doc.data() as Record<string, unknown>);
           if (!participant) return undefined;
-          return buildParticipantListItem(firestore, participant);
+          return buildParticipantListItem(firestore, participant, readContext);
         })
       )
     ).filter((item): item is AdminParticipantListItem => item !== undefined);
@@ -1012,11 +1048,13 @@ export async function queryAdminIdentityReadModels(
   }
 
   if (input.scope === 'admin_participant_detail') {
-    const snapshot = await firestore.collection('participants').doc(input.participantId).get();
+    const snapshot = await readContext.participant(input.participantId);
     const participant = parseParticipant(snapshot.data() as Record<string, unknown> | undefined);
     const result = {
       scope: 'admin_participant_detail' as const,
-      ...(participant ? { item: await buildParticipantDetail(firestore, participant) } : {}),
+      ...(participant
+        ? { item: await buildParticipantDetail(firestore, participant, readContext) }
+        : {}),
     };
     return QueryAdminIdentityReadModelsResultSchema.parse(result);
   }
@@ -1031,7 +1069,8 @@ export async function queryAdminIdentityReadModels(
           return buildInstructorListItem(
             firestore,
             instructorId.data,
-            doc.data() as Record<string, unknown>
+            doc.data() as Record<string, unknown>,
+            readContext
           );
         })
       )
@@ -1054,7 +1093,7 @@ export async function queryAdminIdentityReadModels(
   }
 
   if (input.scope === 'admin_instructor_detail') {
-    const snapshot = await firestore.collection('instructors').doc(input.instructorId).get();
+    const snapshot = await readContext.instructor(input.instructorId);
     const result = {
       scope: 'admin_instructor_detail' as const,
       ...(snapshot.exists
@@ -1062,7 +1101,8 @@ export async function queryAdminIdentityReadModels(
             item: await buildInstructorDetail(
               firestore,
               input.instructorId,
-              snapshot.data() as Record<string, unknown>
+              snapshot.data() as Record<string, unknown>,
+              readContext
             ),
           }
         : {}),
@@ -1070,7 +1110,7 @@ export async function queryAdminIdentityReadModels(
     return QueryAdminIdentityReadModelsResultSchema.parse(result);
   }
 
-  const items = await queryEligibleParticipants(firestore, input.accountId);
+  const items = await queryEligibleParticipants(firestore, input.accountId, readContext);
   return QueryAdminIdentityReadModelsResultSchema.parse({
     scope: 'admin_eligible_participants',
     accountId: input.accountId,

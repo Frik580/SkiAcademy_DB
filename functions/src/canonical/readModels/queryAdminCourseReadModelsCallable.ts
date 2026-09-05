@@ -6,6 +6,7 @@ import {
 } from '@ski-academy/shared-domain';
 import { resolveCallableAdministratorActor } from './resolveCallableAdministrator';
 import { queryAdminCourseReadModels } from './adminCourseReadModels';
+import { createReadModelRequestContext } from './readModelRequestContext';
 
 export function createQueryAdminCourseReadModelsHandler(firestore: Firestore) {
   return async (
@@ -15,7 +16,12 @@ export function createQueryAdminCourseReadModelsHandler(firestore: Firestore) {
     if (!parsed.success) {
       throw new HttpsError('invalid-argument', 'The request is invalid.');
     }
-    const actor = await resolveCallableAdministratorActor(firestore, request.auth?.uid);
-    return queryAdminCourseReadModels(firestore, actor, parsed.data);
+    const readContext = createReadModelRequestContext(firestore);
+    const actor = await resolveCallableAdministratorActor(
+      firestore,
+      request.auth?.uid,
+      readContext
+    );
+    return queryAdminCourseReadModels(firestore, actor, parsed.data, { readContext });
   };
 }

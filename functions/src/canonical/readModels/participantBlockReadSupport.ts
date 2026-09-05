@@ -6,11 +6,13 @@ import {
   type ParticipantId,
 } from '@ski-academy/shared-domain';
 import { participantBlockPath, parseParticipantBlock } from '../participantAccess/participantAccessStore';
+import type { ReadModelRequestContext } from './readModelRequestContext';
 
 export async function loadActiveParticipantBlocksForPair(
   firestore: Firestore,
   participantId: ParticipantId,
-  instructorId: InstructorId
+  instructorId: InstructorId,
+  readContext?: ReadModelRequestContext
 ): Promise<readonly ParticipantBlock[]> {
   const managerBlockId = participantBlockIdFromDirection({
     participantId,
@@ -25,7 +27,9 @@ export async function loadActiveParticipantBlocksForPair(
 
   const blocks: ParticipantBlock[] = [];
   for (const blockId of [managerBlockId, instructorBlockId]) {
-    const snap = await firestore.doc(participantBlockPath(blockId)).get();
+    const snap = readContext
+      ? await readContext.participantBlock(blockId)
+      : await firestore.doc(participantBlockPath(blockId)).get();
     const block = parseParticipantBlock(snap.data() as Record<string, unknown> | undefined);
     if (block && block.status === 'active') {
       blocks.push(block);

@@ -45,7 +45,10 @@ function snapshot(entries: Array<[string, Record<string, unknown>]>) {
   };
 }
 
-function fakeFirestore(seed: Record<string, Record<string, unknown>>): Firestore {
+function fakeFirestore(
+  seed: Record<string, Record<string, unknown>>,
+  reads?: Map<string, number>
+): Firestore {
   const collectionEntries = (path: string) =>
     Object.entries(seed).filter(([key]) => {
       if (!key.startsWith(`${path}/`)) return false;
@@ -87,6 +90,8 @@ function fakeFirestore(seed: Record<string, Record<string, unknown>>): Firestore
       ...buildQuery(entries),
       doc: (id: string) => ({
         get: async () => {
+          const key = `${path}/${id}`;
+          reads?.set(key, (reads.get(key) ?? 0) + 1);
           const data = seed[`${path}/${id}`];
           return {
             id,
@@ -164,6 +169,18 @@ function seed() {
 }
 
 describe('Admin Identity instructor avatar presentation', () => {
+  it('reuses the callable-validated administrator Account in the read model', async () => {
+    const reads = new Map<string, number>();
+    const handler = createQueryAdminIdentityReadModelsHandler(fakeFirestore(seed(), reads));
+
+    await handler({
+      auth: { uid: adminId },
+      data: { scope: 'admin_instructor_detail', instructorId },
+    } as never);
+
+    expect(reads.get(`users/${adminId}`)).toBe(1);
+  });
+
   it('returns admin_instructor_detail without avatarUrl when historical avatarUrl exceeds bound', async () => {
     const handler = createQueryAdminIdentityReadModelsHandler(fakeFirestore(seed()));
     const result = await handler({

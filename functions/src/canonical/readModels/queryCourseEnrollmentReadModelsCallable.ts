@@ -12,6 +12,7 @@ import {
   resolveCallableInstructorId,
 } from './resolveCallableInstructorId';
 import { ReadModelAccessDeniedError } from './readModelAccessDenied';
+import { createReadModelRequestContext } from './readModelRequestContext';
 
 export function createQueryCourseEnrollmentReadModelsHandler(firestore: Firestore) {
   return async (
@@ -23,6 +24,7 @@ export function createQueryCourseEnrollmentReadModelsHandler(firestore: Firestor
     }
 
     const input = parsed.data;
+    const readContext = createReadModelRequestContext(firestore);
     let accountId: ReturnType<typeof AccountIdSchema.parse> | undefined;
     let instructorId: ReturnType<typeof resolveCallableInstructorId> | undefined;
 
@@ -41,7 +43,7 @@ export function createQueryCourseEnrollmentReadModelsHandler(firestore: Firestor
       accountId = parsedAccountId.data;
 
       if (input.scope === 'instructor_roster') {
-        const userSnap = await firestore.collection('users').doc(request.auth.uid).get();
+        const userSnap = await readContext.account(parsedAccountId.data);
         instructorId = resolveCallableInstructorId(
           readCallableAccountProfile(userSnap.data() as Record<string, unknown> | undefined)
         );
@@ -56,6 +58,7 @@ export function createQueryCourseEnrollmentReadModelsHandler(firestore: Firestor
         accountId,
         instructorId,
         guestActionSecret: readGuestActionTokenSecret(),
+        readContext,
       });
     } catch (error) {
       if (error instanceof ReadModelAccessDeniedError) {

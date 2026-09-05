@@ -14,7 +14,6 @@ import {
   type ReadModelAdministratorActor,
 } from '@ski-academy/shared-domain';
 import {
-  courseDaysCollectionPath,
   parseCourse,
   parseCourseDays,
   parseInstructorCatalog,
@@ -24,6 +23,10 @@ import {
   courseCatalogContentPath,
   parseCourseCatalogContent,
 } from '../courses/courseCatalogContentStore';
+import {
+  createReadModelRequestContext,
+  type ReadModelRequestContext,
+} from './readModelRequestContext';
 
 const ACTIVE_ENROLLMENT_STATUSES = new Set([
   'pending',
@@ -34,14 +37,15 @@ const ACTIVE_ENROLLMENT_STATUSES = new Set([
 async function buildAdminCourseReadModel(
   firestore: Firestore,
   course: NonNullable<ReturnType<typeof parseCourse>>,
-  now = timestampFromDate(new Date())
+  now = timestampFromDate(new Date()),
+  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
 ): Promise<AdminCourseReadModel | undefined> {
   const [daySnapshot, enrollmentSnapshot, catalogSnapshot, attendanceSnapshot] =
     await Promise.all([
-      firestore.collection(courseDaysCollectionPath(course.courseId)).get(),
+      readContext.courseDays(course.courseId),
       firestore.collection('course_enrollments').where('courseId', '==', course.courseId).get(),
       firestore.doc(courseCatalogContentPath(course.courseId)).get(),
-      firestore.collection('attendance').where('subject.courseId', '==', course.courseId).get(),
+      readContext.courseAttendances(course.courseId),
     ]);
 
   const courseDays = parseCourseDays(
@@ -62,7 +66,7 @@ async function buildAdminCourseReadModel(
   const instructors = (
     await Promise.all(
       course.instructorRosterIds.map(async (instructorId) => {
-        const snapshot = await firestore.collection('instructors').doc(instructorId).get();
+        const snapshot = await readContext.instructor(instructorId);
         const instructor = parseInstructorCatalog(
           instructorId,
           snapshot.data() as Record<string, unknown> | undefined
@@ -158,12 +162,16 @@ async function buildAdminCourseReadModel(
 export async function queryAdminCourseReadModels(
   firestore: Firestore,
   _actor: ReadModelAdministratorActor,
-  input: QueryAdminCourseReadModelsInput
+  input: QueryAdminCourseReadModelsInput,
+  options: { readonly readContext?: ReadModelRequestContext } = {}
 ): Promise<QueryAdminCourseReadModelsResult> {
+  const readContext = options.readContext ?? createReadModelRequestContext(firestore);
   if (input.scope === 'admin_course_detail') {
-    const snapshot = await firestore.collection('courses').doc(input.courseId).get();
+    const snapshot = await readContext.course(input.courseId);
     const course = parseCourse(snapshot.data() as Record<string, unknown> | undefined);
-    const item = course ? await buildAdminCourseReadModel(firestore, course) : undefined;
+    const item = course
+      ? await buildAdminCourseReadModel(firestore, course, undefined, readContext)
+      : undefined;
     return QueryAdminCourseReadModelsResultSchema.parse({
       scope: input.scope,
       ...(item ? { item } : {}),
@@ -176,7 +184,9 @@ export async function queryAdminCourseReadModels(
     .map((document) => parseCourse(document.data() as Record<string, unknown>))
     .filter((value): value is NonNullable<typeof value> => value !== undefined);
   const items = (
-    await Promise.all(courses.map((course) => buildAdminCourseReadModel(firestore, course)))
+    await Promise.all(
+      courses.map((course) => buildAdminCourseReadModel(firestore, course, undefined, readContext))
+    )
   )
     .filter((item): item is AdminCourseReadModel => item !== undefined)
     .sort((left, right) => left.title.localeCompare(right.title));

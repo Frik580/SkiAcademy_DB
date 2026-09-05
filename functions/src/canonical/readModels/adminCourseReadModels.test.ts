@@ -212,12 +212,19 @@ describe('Admin Course read-model callable', () => {
     } as never);
 
     expect(result.scope).toBe('admin_course_list');
-    expect(reads).not.toContain(`courses/${courseId}/days:query`);
+    // Compact v2 may read first/last CourseDay for scheduleSummary only — never full days,
+    // enrollments, or attendance.
+    expect(reads.filter((path) => path === `courses/${courseId}/days:query`)).toHaveLength(2);
     expect(reads).not.toContain('course_enrollments:query');
     expect(reads).not.toContain(`courses/${courseId}/attendance:query`);
     if (result.scope === 'admin_course_list') {
       expect(result.items[0]).not.toHaveProperty('courseDays');
       expect(result.items[0]).not.toHaveProperty('activeEnrollmentCount');
+      expect(result.items[0]?.scheduleSummary).toMatchObject({
+        courseDayCount: 1,
+        timeZone: 'Asia/Almaty',
+        startsAt: timestampFromDate(new Date('2026-12-01T05:00:00.000Z')),
+      });
       expect(result.items[0]?.instructors).toEqual([
         expect.objectContaining({ instructorId, name: 'Safe Coach' }),
       ]);
@@ -254,7 +261,45 @@ describe('Admin Course read-model callable', () => {
     }
   });
 
-  it('uses one first-day fallback when catalog content is missing', async () => {
+  it('emits scheduleSummary from CourseDays even when catalog content dates are stale', async () => {
+    const data = seed();
+    // Stale presentation date (clone source) must not suppress operational scheduleSummary.
+    data[`course_catalog_content/${courseId}`] = {
+      courseId,
+      duration: 'One day',
+      description: 'Presentation content',
+      dates: '1 March 2026',
+      bgImageUrl: 'https://example.com/course.webp',
+    };
+    const day = data[`courses/${courseId}/days/${dayId}`] as Record<string, unknown>;
+    const startsAt = timestampFromDate(new Date('2026-09-20T05:00:00.000Z'));
+    const endsAt = timestampFromDate(new Date('2026-09-20T07:00:00.000Z'));
+    day.interval = { startsAt, endsAt };
+    const course = data[`courses/${courseId}`] as Record<string, unknown>;
+    course.startAt = startsAt;
+    (course.scheduleProjection as Record<string, unknown>).finalCourseDayEndsAt = endsAt;
+
+    const reads: string[] = [];
+    const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(data, reads));
+    const list = await handler({
+      auth: { uid: adminId },
+      data: { scope: 'admin_course_list', readModelVersion: 2 },
+    } as never);
+    expect(list.scope).toBe('admin_course_list');
+    if (list.scope === 'admin_course_list') {
+      expect(list.items[0]?.catalogContent.content?.dates).toBe('1 March 2026');
+      expect(list.items[0]?.scheduleSummary).toMatchObject({
+        courseDayCount: 1,
+        timeZone: 'Asia/Almaty',
+        startsAt,
+        lastDayStartsAt: startsAt,
+      });
+      expect(list.items[0]).not.toHaveProperty('courseDays');
+    }
+    expect(reads.filter((path) => path === `courses/${courseId}/days:query`)).toHaveLength(2);
+  });
+
+  it('uses first/last CourseDay for scheduleSummary when catalog content is missing', async () => {
     const data = seed();
     delete data[`course_catalog_content/${courseId}`];
     const reads: string[] = [];

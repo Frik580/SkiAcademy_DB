@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AccountIdSchema,
   AccountSchema,
+  AggregateRevisionSchema,
   CorrelationIdSchema,
   CourseDayIdSchema,
   CourseIdSchema,
@@ -31,7 +32,13 @@ import {
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
-import { parseCourse, parseCourseDays, courseDaysCollectionPath, courseDayPath, toFirestoreWritePayload } from './courseStore';
+import {
+  parseCourse,
+  parseCourseDays,
+  courseDaysCollectionPath,
+  courseDayPath,
+  toFirestoreWritePayload,
+} from './courseStore';
 import { parseCourseCatalogContent, courseCatalogContentPath } from './courseCatalogContentStore';
 
 const correlationId = CorrelationIdSchema.parse('correlation_course_provision_cmd_01');
@@ -173,7 +180,9 @@ function legacyCourseFixture() {
   };
 }
 
-function applyEnvelope(idempotencyKey: string): CommandEnvelope<'apply_canonical_course_provisioning_manifest'> {
+function applyEnvelope(
+  idempotencyKey: string
+): CommandEnvelope<'apply_canonical_course_provisioning_manifest'> {
   return {
     kind: 'apply_canonical_course_provisioning_manifest',
     context: adminContext(idempotencyKey),
@@ -234,9 +243,11 @@ describe('course provisioning commands', () => {
       expect(payload.data.dryRun).toBe(true);
       expect(payload.data.plannedCourseDayCount).toBe(1);
     }
-    expect(legacyCourseDocumentFailsCanonicalParse(executor.snapshot().docs.get(`courses/${courseId}`)?.data)).toBe(
-      true
-    );
+    expect(
+      legacyCourseDocumentFailsCanonicalParse(
+        executor.snapshot().docs.get(`courses/${courseId}`)?.data
+      )
+    ).toBe(true);
   });
 
   it('provisions canonical course and days from legacy fixture', async () => {
@@ -266,9 +277,9 @@ describe('course provisioning commands', () => {
     expect(verifyProvisionedCourseSchedule(course!, courseDays)).toBe(true);
 
     const identity = resolveCommandIdempotencyIdentity(envelope);
-    expect(snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)).toBe(
-      true
-    );
+    expect(
+      snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
+    ).toBe(true);
   });
 
   it('is idempotent on replay', async () => {
@@ -284,7 +295,9 @@ describe('course provisioning commands', () => {
   it('maps provision_canonical_course failure to apply manifest kind', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(legacyCourseFixture());
     const commands = createProductionCanonicalCommands(environment(), executor);
-    expect((await commands.execute(applyEnvelope('idem-provision-conflict-a'))).status).toBe('success');
+    expect((await commands.execute(applyEnvelope('idem-provision-conflict-a'))).status).toBe(
+      'success'
+    );
 
     const conflictingManifest = CourseProvisioningManifestSchema.parse({
       ...manifest,
@@ -303,7 +316,7 @@ describe('course provisioning commands', () => {
     }
   });
 
-  it('maps create_course_day failure to apply manifest kind', async () => {
+  it('rejects a CourseDay conflict without committing a partial Course', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       ...legacyCourseFixture(),
       [courseDayPath(courseId, courseDayTwoId)]: {
@@ -331,8 +344,10 @@ describe('course provisioning commands', () => {
         .filter(([path]) => path.startsWith(`${courseDaysCollectionPath(courseId)}/`))
         .map(([, doc]) => ({ data: doc.data ?? {} }))
     );
-    expect(courseDays).toHaveLength(1);
-    expect(courseDays[0]?.courseDayId).toBe(courseDayId);
+    expect(courseDays).toHaveLength(0);
+    expect(
+      legacyCourseDocumentFailsCanonicalParse(snapshot.docs.get(`courses/${courseId}`)?.data)
+    ).toBe(true);
   });
 
   it('resumes partial provisioning after create_course_day blocker removal', async () => {
@@ -373,6 +388,92 @@ describe('course provisioning commands', () => {
     );
     expect(courseDays).toHaveLength(2);
     expect(courseScheduleIsComplete(course!, courseDays)).toBe(true);
+  });
+
+  it('completes a legacy sequential partial manifest without rewriting matching CourseDays', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(legacyCourseFixture());
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    const partialManifest = twoDayManifest();
+
+    expect(
+      (
+        await commands.execute({
+          kind: 'provision_canonical_course',
+          context: adminContext('idem-provision-legacy-partial-course'),
+          intent: { manifest: partialManifest },
+        })
+      ).status
+    ).toBe('success');
+    expect(
+      (
+        await commands.execute({
+          kind: 'create_course_day',
+          context: {
+            ...adminContext('idem-provision-legacy-partial-day-one'),
+            expectedRevision: AggregateRevisionSchema.parse(1),
+            calendarInput: {
+              localDate: partialManifest.days[0]!.localDate,
+              localTime: partialManifest.days[0]!.localTime,
+              durationMinutes: partialManifest.days[0]!.durationMinutes,
+            },
+            timezone: partialManifest.timeZone,
+          },
+          intent: {
+            courseId,
+            courseDayId,
+            instructorId,
+          },
+        })
+      ).status
+    ).toBe('success');
+
+    const resumed = await commands.execute(
+      applyEnvelopeWithManifest('idem-provision-legacy-partial-resume', partialManifest)
+    );
+    expect(resumed.status).toBe('success');
+
+    const course = parseCourse(executor.snapshot().docs.get(`courses/${courseId}`)?.data);
+    const courseDays = parseCourseDays(
+      [...executor.snapshot().docs.entries()]
+        .filter(([path]) => path.startsWith(`${courseDaysCollectionPath(courseId)}/`))
+        .map(([, doc]) => ({ data: doc.data ?? {} }))
+    );
+    expect(courseDays.map((day) => day.courseDayId).sort()).toEqual(
+      [courseDayId, courseDayTwoId].sort()
+    );
+    expect(courseScheduleIsComplete(course!, courseDays)).toBe(true);
+
+    expect(
+      (
+        await commands.execute({
+          kind: 'archive_course',
+          context: {
+            ...adminContext('idem-provision-legacy-partial-archive'),
+            expectedRevision: course!.revision,
+          },
+          intent: { courseId, reasonExplanation: 'Verify archived recovery is rejected' },
+        })
+      ).status
+    ).toBe('success');
+    const archivedDocsWithMissingDay = Object.fromEntries(
+      [...executor.snapshot().docs.entries()]
+        .filter(([path]) => path !== courseDayPath(courseId, courseDayTwoId))
+        .map(([path, doc]) => [path, doc.data])
+    );
+    const archivedExecutor = createInMemoryCanonicalTransactionExecutor(archivedDocsWithMissingDay);
+    const archivedCommands = createProductionCanonicalCommands(environment(), archivedExecutor);
+    const archivedRecovery = await archivedCommands.execute(
+      applyEnvelopeWithManifest('idem-provision-legacy-partial-archived-recovery', partialManifest)
+    );
+    expect(archivedRecovery.status).toBe('error');
+    if (archivedRecovery.status === 'error') {
+      expect(archivedRecovery.error.details).toEqual({ field: 'courseId', reason: 'unsupported' });
+    }
+    expect(
+      [...archivedExecutor.snapshot().docs.keys()].filter((path) =>
+        path.startsWith(`${courseDaysCollectionPath(courseId)}/`)
+      )
+    ).toHaveLength(1);
   });
 
   it('completes provision to enrollment e2e on staging fixture', async () => {
@@ -652,7 +753,9 @@ describe('course provisioning commands', () => {
     });
     const executor = createInMemoryCanonicalTransactionExecutor({
       ...legacyCourseFixture(),
-      [`courses/${courseId}`]: toFirestoreWritePayload(strictCourse as unknown as Record<string, unknown>),
+      [`courses/${courseId}`]: toFirestoreWritePayload(
+        strictCourse as unknown as Record<string, unknown>
+      ),
     });
     const commands = createProductionCanonicalCommands(environment(), executor);
     const before = executor.snapshot().docs.get(`courses/${courseId}`)?.data;

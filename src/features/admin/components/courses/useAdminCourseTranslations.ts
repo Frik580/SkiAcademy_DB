@@ -10,6 +10,10 @@ export function useAdminCourseTranslations() {
       retry: ru ? 'Повторить' : 'Retry',
       empty: ru ? 'Canonical-курсов пока нет.' : 'No canonical courses yet.',
       create: ru ? 'Создать canonical-курс' : 'Create canonical course',
+      createClone: ru ? 'Создать копию курса' : 'Create course copy',
+      cloneDraftReady: ru
+        ? 'Черновик клона из detail. Проверьте расписание перед сохранением.'
+        : 'Clone draft from detail. Review the schedule before saving.',
       refresh: ru ? 'Обновить' : 'Refresh',
       reason: ru ? 'Причина изменения' : 'Reason for change',
       mutationFailed: ru ? 'Операция не выполнена.' : 'The operation failed.',

@@ -49,34 +49,31 @@ async function buildAdminCourseListItem(
     catalogSnapshot.data() as Record<string, unknown> | undefined,
     course.courseId
   );
-  const [firstDaySnapshot, lastDaySnapshot] = catalogContent
-    ? [undefined, undefined]
-    : await Promise.all([
-        firestore
-          .collection(`courses/${course.courseId}/days`)
-          .orderBy('dayOrder', 'asc')
-          .limit(1)
-          .get(),
-        firestore
-          .collection(`courses/${course.courseId}/days`)
-          .orderBy('dayOrder', 'desc')
-          .limit(1)
-          .get(),
-      ]);
-  const firstDay = firstDaySnapshot
-    ? parseCourseDays(
-        firstDaySnapshot.docs.map((document) => ({
-          data: document.data() as Record<string, unknown>,
-        }))
-      )[0]
-    : undefined;
-  const lastDay = lastDaySnapshot
-    ? parseCourseDays(
-        lastDaySnapshot.docs.map((document) => ({
-          data: document.data() as Record<string, unknown>,
-        }))
-      )[0]
-    : undefined;
+  // Compact list still needs an operational scheduleSummary for Admin table dates.
+  // Catalog content.dates is presentation-only and can lag behind CourseDays (e.g. clones).
+  // Load only first/last day docs — never the full CourseDays array (R.2E compact invariant).
+  const [firstDaySnapshot, lastDaySnapshot] = await Promise.all([
+    firestore
+      .collection(`courses/${course.courseId}/days`)
+      .orderBy('dayOrder', 'asc')
+      .limit(1)
+      .get(),
+    firestore
+      .collection(`courses/${course.courseId}/days`)
+      .orderBy('dayOrder', 'desc')
+      .limit(1)
+      .get(),
+  ]);
+  const firstDay = parseCourseDays(
+    firstDaySnapshot.docs.map((document) => ({
+      data: document.data() as Record<string, unknown>,
+    }))
+  )[0];
+  const lastDay = parseCourseDays(
+    lastDaySnapshot.docs.map((document) => ({
+      data: document.data() as Record<string, unknown>,
+    }))
+  )[0];
   const expectedRevision = course.revision;
   const actions: AdminCourseListItem['authorizedActions'] = [
     {
@@ -106,7 +103,9 @@ async function buildAdminCourseListItem(
       ? {
           scheduleSummary: {
             courseDayCount: course.scheduleProjection.courseDayCount,
-            startsAt: course.startAt,
+            // Prefer first CourseDay interval over Course.startAt so list dates
+            // track the same operational schedule as detail CourseDays.
+            startsAt: firstDay.interval.startsAt,
             firstDayEndsAt: firstDay.interval.endsAt,
             lastDayStartsAt: lastDay.interval.startsAt,
             timeZone: firstDay.timeZone,

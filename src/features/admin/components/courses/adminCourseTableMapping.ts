@@ -18,14 +18,38 @@ const ACTIVE_ENROLLMENT_STATUSES = new Set([
 
 type AdminCourseCatalogRow = AdminCourseListItem | AdminCourseReadModel;
 
+function formatAdminListDateFromIsoLocal(isoLocalDate: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoLocalDate);
+  if (!match) return isoLocalDate;
+  return `${match[3]}.${match[2]}.${match[1]}`;
+}
+
+/**
+ * Admin list date column: operational scheduleSummary first/last day.
+ * Historical table used a freeform dates string; when scheduleSummary is present
+ * prefer first→last local calendar dates (single day collapses to one value).
+ */
+export function formatAdminCourseScheduleSummaryDates(
+  scheduleSummary: NonNullable<AdminCourseCatalogRow['scheduleSummary']>
+): string {
+  const first = formatAdminListDateFromIsoLocal(
+    localDateTimeFromTimestamp(scheduleSummary.startsAt.seconds, scheduleSummary.timeZone).date
+  );
+  const last = formatAdminListDateFromIsoLocal(
+    localDateTimeFromTimestamp(scheduleSummary.lastDayStartsAt.seconds, scheduleSummary.timeZone)
+      .date
+  );
+  return first === last ? first : `${first} – ${last}`;
+}
+
 export function mapAdminCourseToTableCourse(course: AdminCourseCatalogRow): Course {
   const content = course.catalogContent.content;
   const scheduleSummary = course.scheduleSummary;
   const fallbackDuration = scheduleSummary
     ? `${Math.max(1, Math.round((scheduleSummary.firstDayEndsAt.seconds - scheduleSummary.startsAt.seconds) / 3600))}h`
     : '—';
-  const fallbackDates = scheduleSummary
-    ? `${localDateTimeFromTimestamp(scheduleSummary.startsAt.seconds, scheduleSummary.timeZone).date} – ${localDateTimeFromTimestamp(scheduleSummary.lastDayStartsAt.seconds, scheduleSummary.timeZone).date}`
+  const scheduleDates = scheduleSummary
+    ? formatAdminCourseScheduleSummaryDates(scheduleSummary)
     : '';
   return {
     id: course.courseId,
@@ -33,7 +57,8 @@ export function mapAdminCourseToTableCourse(course: AdminCourseCatalogRow): Cour
     titleRu: content?.titleRu,
     duration: content?.duration || fallbackDuration,
     description: content?.description || course.title,
-    dates: content?.dates || fallbackDates,
+    // Prefer operational schedule over catalog presentation dates (stale on clones).
+    dates: scheduleDates || content?.dates || '',
     totalSeats: course.capacity.totalSeats,
     availableSeats: course.capacity.availableSeats,
     price: 0,
@@ -69,7 +94,8 @@ export function catalogContentInputFromCourse(
   return CourseCatalogContentInputSchema.parse({
     duration: mapped.duration,
     description: mapped.description,
-    dates: mapped.dates,
+    // Catalog write-back keeps presentation dates; list display uses scheduleSummary.
+    dates: content?.dates || mapped.dates,
     bgImageUrl: mapped.bgImageUrl || 'https://placehold.co/80x80/png?text=Course',
     ...(mapped.isHidden !== undefined ? { isHidden: mapped.isHidden } : {}),
     ...(mapped.order !== undefined ? { order: mapped.order } : {}),

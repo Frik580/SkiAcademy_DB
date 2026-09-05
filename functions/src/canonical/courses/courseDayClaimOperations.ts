@@ -13,6 +13,7 @@ import {
   commitResourceClaimPlan,
   readAndPlanAcquireResourceClaim,
   readAndPlanReleaseResourceClaim,
+  type InTransactionGuardOverlay,
 } from '../resourceClaims/resourceClaimEngine';
 
 export function courseDayInstructorClaimIdentity(input: {
@@ -61,6 +62,7 @@ export async function planAcquireCourseDayInstructorClaim(
     readonly correlationId: Parameters<typeof readAndPlanAcquireResourceClaim>[1]['correlationId'];
     readonly commandId: Parameters<typeof readAndPlanAcquireResourceClaim>[1]['commandId'];
     readonly decidedAt: Date;
+    readonly inTransactionGuardOverlay?: InTransactionGuardOverlay;
   }
 ) {
   const identities = courseDayInstructorClaimIdentity({
@@ -75,6 +77,7 @@ export async function planAcquireCourseDayInstructorClaim(
     identity: identities.instructorIdentity,
     interval: input.interval,
     replacementIgnore: input.replacementIgnore,
+    inTransactionGuardOverlay: input.inTransactionGuardOverlay,
   });
 }
 

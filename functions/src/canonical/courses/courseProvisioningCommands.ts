@@ -2,10 +2,10 @@ import {
   AggregateRevisionSchema,
   CanonicalCommandError,
   CourseCatalogContentSchema,
+  CourseDaySchema,
   CourseSchema,
   buildCourseAggregateFromManifest,
   buildCourseAggregateFromShapeRepair,
-  commandErrorResult,
   commandSuccessResult,
   computeCourseProvisioningManifestFingerprint,
   deriveSchedulePlanFromManifest,
@@ -16,6 +16,7 @@ import {
   readPersistedCourseRevision,
   resolveCommandIdempotencyIdentity,
   resolveProvisionedAvailableSeats,
+  resolveManifestDayInterval,
   courseDocumentRequiresShapeReplacement,
   validatePersistedCourseOperationalStateAgainstManifest,
   timestampFromDate,
@@ -23,10 +24,11 @@ import {
   type CommandExecutionEnvironment,
   type CommandResult,
   type Course,
+  type CourseDay,
   type CourseProvisioningManifest,
   type CourseProvisioningManifestDay,
 } from '@ski-academy/shared-domain';
-import type { CanonicalCommands, CommandHandlerMap } from '../commands/canonicalCommands';
+import type { CommandHandlerMap } from '../commands/canonicalCommands';
 import {
   executeAuthoritativeIdempotentCanonicalCommand,
   type AuthoritativeIdempotentCanonicalCommandHandler,
@@ -40,11 +42,20 @@ import {
 } from './courseCatalogContentStore';
 import { assertCourseProvisioningAdminAuthorization } from './courseProvisioningAuthorization';
 import { buildProvisionCanonicalCourseAuditPlan } from './courseProvisioningAudit';
+import { buildApplyCanonicalCourseProvisioningManifestAuditPlan } from './courseProvisioningAudit';
+import {
+  commitResourceClaimPlan,
+  registerResourceClaimPlanInGuardOverlay,
+  type InTransactionGuardOverlay,
+} from '../resourceClaims/resourceClaimEngine';
+import { planAcquireCourseDayInstructorClaim } from './courseDayClaimOperations';
 import {
   COURSE_PLANNING_ESTIMATES,
+  courseDayPath,
   coursePath,
   instructorCatalogPath,
   parseCourse,
+  parseCourseDay,
   toFirestoreWritePayload,
 } from './courseStore';
 
@@ -67,6 +78,26 @@ function revisionAuditLink(envelope: CommandEnvelope, metadata: CommandMetadata)
     lastChangedByCommandId: metadata.commandId,
     correlationId: metadata.correlationId,
   };
+}
+
+function existingCourseDayMatchesManifestDay(
+  courseDay: CourseDay,
+  manifest: CourseProvisioningManifest,
+  day: CourseProvisioningManifestDay
+): boolean {
+  const interval = resolveManifestDayInterval(day, manifest.timeZone).interval;
+  return (
+    courseDay.courseId === manifest.courseId &&
+    courseDay.courseDayId === day.courseDayId &&
+    courseDay.dayOrder === day.dayOrder &&
+    courseDay.timeZone === manifest.timeZone &&
+    courseDay.actualInstructorIds.length === 1 &&
+    courseDay.actualInstructorIds[0] === day.instructorId &&
+    courseDay.interval.startsAt.seconds === interval.startsAt.seconds &&
+    courseDay.interval.startsAt.nanoseconds === interval.startsAt.nanoseconds &&
+    courseDay.interval.endsAt.seconds === interval.endsAt.seconds &&
+    courseDay.interval.endsAt.nanoseconds === interval.endsAt.nanoseconds
+  );
 }
 
 function provisionCanonicalCourseHandler(
@@ -93,7 +124,10 @@ function provisionCanonicalCourseHandler(
     read: async (session) => {
       const actor = requireAccountActor(envelope);
       const accountRead = await session.tx.get({ path: accountPath(actor.accountId) });
-      session.plan.planRead({ path: accountPath(actor.accountId), category: 'authorization_check' });
+      session.plan.planRead({
+        path: accountPath(actor.accountId),
+        category: 'authorization_check',
+      });
       const account = parseAccount(accountRead.exists ? accountRead.data : undefined);
       if (!account) {
         throw new CanonicalCommandError('forbidden', {
@@ -117,7 +151,7 @@ function provisionCanonicalCourseHandler(
         existingCourse?.audit.createdByCommandId ??
         readPersistedCourseAuditCreatedByCommandId(rawCourseData);
       const persistedRevision = AggregateRevisionSchema.parse(
-        existingCourse?.revision ?? readPersistedCourseRevision(rawCourseData) ?? 1
+        Math.max(1, existingCourse?.revision ?? readPersistedCourseRevision(rawCourseData) ?? 1)
       );
       if (existingCourse && existingCourse.courseId !== manifest.courseId) {
         throw new CanonicalCommandError('validation', {
@@ -267,8 +301,7 @@ function provisionCanonicalCourseHandler(
       const decidedAt = timestampFromDate(context.decidedAt);
       const courseRecord = CourseSchema.parse({
         ...plannedCourse,
-        createdAt:
-          existingCourse?.createdAt ?? persistedCreatedAt ?? decidedAt,
+        createdAt: existingCourse?.createdAt ?? persistedCreatedAt ?? decidedAt,
         updatedAt: decidedAt,
         audit: {
           createdByCommandId:
@@ -316,40 +349,10 @@ function provisionCanonicalCourseHandler(
   });
 }
 
-function buildCreateCourseDayEnvelope(
-  source: CommandEnvelope<'apply_canonical_course_provisioning_manifest'>,
-  manifest: CourseProvisioningManifest,
-  day: CourseProvisioningManifestDay,
-  idempotencyKey: string,
-  expectedRevision: number
-): CommandEnvelope<'create_course_day'> {
-  return {
-    kind: 'create_course_day',
-    context: {
-      actor: source.context.actor,
-      exercisedCapability: 'administrator',
-      idempotencyKey: idempotencyKey as never,
-      correlationId: source.context.correlationId,
-      source: 'admin_callable',
-      calendarInput: {
-        localDate: day.localDate,
-        localTime: day.localTime,
-        durationMinutes: day.durationMinutes,
-      },
-      timezone: manifest.timeZone,
-      expectedRevision: AggregateRevisionSchema.parse(expectedRevision),
-    },
-    intent: {
-      courseDayId: day.courseDayId,
-      courseId: manifest.courseId,
-      instructorId: day.instructorId,
-    },
-  };
-}
-
 export async function applyCanonicalCourseProvisioningManifest(
-  commands: CanonicalCommands,
-  envelope: CommandEnvelope<'apply_canonical_course_provisioning_manifest'>
+  envelope: CommandEnvelope<'apply_canonical_course_provisioning_manifest'>,
+  environment: CommandExecutionEnvironment,
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'apply_canonical_course_provisioning_manifest'>> {
   assertCourseProvisioningAdminAuthorization(envelope);
   const manifest = envelope.intent.manifest;
@@ -372,68 +375,336 @@ export async function applyCanonicalCourseProvisioningManifest(
     );
   }
 
-  const provisionResult = await commands.execute({
-    kind: 'provision_canonical_course',
-    context: envelope.context,
-    intent: { manifest },
-  });
-  if (provisionResult.status !== 'success') {
-    return commandErrorResult(
-      'apply_canonical_course_provisioning_manifest',
-      provisionResult.correlationId,
-      provisionResult.error
-    );
-  }
-
+  const metadata = metadataFromEnvelope(envelope);
+  const courseDocumentPath = coursePath(manifest.courseId);
+  const catalogContentDocumentPath = courseCatalogContentPath(manifest.courseId);
   const sortedDays = [...manifest.days].sort((left, right) => left.dayOrder - right.dayOrder);
-  let expectedCourseRevision = 1;
-  for (const day of sortedDays) {
-    const dayResult = await commands.execute(
-      buildCreateCourseDayEnvelope(
-        envelope,
-        manifest,
-        day,
-        `${envelope.context.idempotencyKey}:day:${day.courseDayId as string}`,
-        expectedCourseRevision
-      )
-    );
-    if (dayResult.status !== 'success') {
-      return commandErrorResult(
-        'apply_canonical_course_provisioning_manifest',
-        dayResult.correlationId,
-        dayResult.error
-      );
-    }
-    expectedCourseRevision += 1;
-  }
+  let plannedCourse!: Course;
+  let existingCourse: Course | undefined;
+  let courseDocumentExists = false;
+  let requiresShapeReplacement = false;
+  let catalogContentAlreadyExists = false;
+  let shouldWriteCatalogContent = false;
+  let persistedCreatedAt: ReturnType<typeof readPersistedCourseCreatedAt>;
+  let persistedAuditCreatedByCommandId: string | undefined;
+  let plannedDays: CourseDay[] = [];
+  let instructorClaimPlans: Awaited<ReturnType<typeof planAcquireCourseDayInstructorClaim>>[] = [];
 
-  return commandSuccessResult(
-    'apply_canonical_course_provisioning_manifest',
-    envelope.context.correlationId,
+  const handler: AuthoritativeIdempotentCanonicalCommandHandler<'apply_canonical_course_provisioning_manifest'> =
     {
-      dryRun: false,
-      courseId: manifest.courseId,
-      plannedCourseDayCount: schedulePlan.courseDayCount,
-      availableSeats,
-      scheduleComplete: true,
-    }
-  );
+      read: async (session) => {
+        const actor = requireAccountActor(envelope);
+        const accountRead = await session.tx.get({ path: accountPath(actor.accountId) });
+        session.plan.planRead({
+          path: accountPath(actor.accountId),
+          category: 'authorization_check',
+        });
+        if (!parseAccount(accountRead.exists ? accountRead.data : undefined)) {
+          throw new CanonicalCommandError('forbidden', {
+            correlationId: envelope.context.correlationId,
+          });
+        }
+
+        const courseRead = await session.tx.get({ path: courseDocumentPath });
+        session.plan.planRead({ path: courseDocumentPath, category: 'aggregate' });
+        const rawCourseData = courseRead.exists
+          ? (courseRead.data as Record<string, unknown>)
+          : undefined;
+        existingCourse = parseCourse(rawCourseData);
+        courseDocumentExists = courseRead.exists;
+        requiresShapeReplacement =
+          courseDocumentExists && courseDocumentRequiresShapeReplacement(rawCourseData);
+        persistedCreatedAt =
+          existingCourse?.createdAt ?? readPersistedCourseCreatedAt(rawCourseData);
+        persistedAuditCreatedByCommandId =
+          existingCourse?.audit.createdByCommandId ??
+          readPersistedCourseAuditCreatedByCommandId(rawCourseData);
+        const persistedRevision = AggregateRevisionSchema.parse(
+          Math.max(1, existingCourse?.revision ?? readPersistedCourseRevision(rawCourseData) ?? 1)
+        );
+
+        if (existingCourse && existingCourse.courseId !== manifest.courseId) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { field: 'courseId', reason: 'conflict' },
+          });
+        }
+
+        const plannedFingerprint = computeCourseProvisioningManifestFingerprint(manifest);
+        const persistedOperational = courseDocumentExists
+          ? parseCanonicalCourseOperationalStateFromDocument(rawCourseData)
+          : undefined;
+        if (!existingCourse && courseDocumentExists) {
+          const rawFingerprint = readPersistedCourseProvisioningFingerprint(rawCourseData);
+          if (rawFingerprint && rawFingerprint !== plannedFingerprint) {
+            throw new CanonicalCommandError('validation', {
+              correlationId: envelope.context.correlationId,
+              details: { field: 'manifest', reason: 'conflict' },
+            });
+          }
+        }
+
+        if (requiresShapeReplacement && persistedOperational) {
+          const issues = validatePersistedCourseOperationalStateAgainstManifest(
+            persistedOperational,
+            manifest
+          );
+          if (issues.length > 0) {
+            throw new CanonicalCommandError('validation', {
+              correlationId: envelope.context.correlationId,
+              details: { field: issues[0]!.field, reason: 'conflict' },
+            });
+          }
+          plannedCourse = buildCourseAggregateFromShapeRepair({
+            persistedOperational,
+            manifest,
+            revision: persistedRevision,
+            audit: revisionAuditLink(envelope, metadata),
+          });
+        } else {
+          plannedCourse = buildCourseAggregateFromManifest({
+            manifest,
+            revision: persistedRevision,
+            decidedAt: timestampFromDate(environment.clock.decidedAt()),
+            audit: revisionAuditLink(envelope, metadata),
+          });
+        }
+
+        if (existingCourse) {
+          if (existingCourse.lifecycle !== 'active') {
+            throw new CanonicalCommandError('validation', {
+              correlationId: envelope.context.correlationId,
+              details: { field: 'courseId', reason: 'unsupported' },
+            });
+          }
+          if (existingCourse.provisioningManifestFingerprint !== plannedFingerprint) {
+            throw new CanonicalCommandError('validation', {
+              correlationId: envelope.context.correlationId,
+              details: { field: 'manifest', reason: 'conflict' },
+            });
+          }
+          const sameAggregate =
+            existingCourse.title === plannedCourse.title &&
+            existingCourse.price === plannedCourse.price &&
+            existingCourse.capacity.totalSeats === plannedCourse.capacity.totalSeats &&
+            existingCourse.capacity.availableSeats === plannedCourse.capacity.availableSeats &&
+            existingCourse.scheduleProjection.courseDayCount ===
+              plannedCourse.scheduleProjection.courseDayCount &&
+            existingCourse.startAt.seconds === plannedCourse.startAt.seconds;
+          if (!sameAggregate) {
+            throw new CanonicalCommandError('validation', {
+              correlationId: envelope.context.correlationId,
+              details: { field: 'courseId', reason: 'conflict' },
+            });
+          }
+        }
+
+        for (const instructorId of manifest.instructorRosterIds) {
+          const instructorDocumentPath = instructorCatalogPath(instructorId);
+          const instructorRead = await session.tx.get({ path: instructorDocumentPath });
+          session.plan.planRead({ path: instructorDocumentPath, category: 'authorization_check' });
+          if (!instructorRead.exists || (instructorRead.data ?? {}).isAvailable === false) {
+            throw new CanonicalCommandError('validation', {
+              correlationId: envelope.context.correlationId,
+              details: { field: 'instructorRosterIds', reason: 'conflict' },
+            });
+          }
+        }
+
+        shouldWriteCatalogContent = Boolean(manifest.presentation);
+        if (shouldWriteCatalogContent) {
+          const contentRead = await session.tx.get({ path: catalogContentDocumentPath });
+          session.plan.planRead({ path: catalogContentDocumentPath, category: 'aggregate' });
+          catalogContentAlreadyExists = contentRead.exists;
+        }
+
+        const guardOverlay: InTransactionGuardOverlay = new Map();
+        plannedDays = [];
+        instructorClaimPlans = [];
+        for (const day of sortedDays) {
+          const courseDayDocumentPath = courseDayPath(manifest.courseId, day.courseDayId);
+          const courseDayRead = await session.tx.get({ path: courseDayDocumentPath });
+          session.plan.planRead({ path: courseDayDocumentPath, category: 'aggregate' });
+          if (courseDayRead.exists) {
+            const existingCourseDay = parseCourseDay(courseDayRead.data);
+            if (
+              !existingCourseDay ||
+              !existingCourseDayMatchesManifestDay(existingCourseDay, manifest, day)
+            ) {
+              throw new CanonicalCommandError('validation', {
+                correlationId: envelope.context.correlationId,
+                details: { field: 'courseDayId', reason: 'conflict' },
+              });
+            }
+            continue;
+          }
+
+          const interval = resolveManifestDayInterval(day, manifest.timeZone).interval;
+          const claimPlan = await planAcquireCourseDayInstructorClaim(session, {
+            courseDayId: day.courseDayId,
+            instructorId: day.instructorId,
+            occurrenceRevision: 1,
+            interval,
+            correlationId: metadata.correlationId,
+            commandId: metadata.commandId,
+            decidedAt: environment.clock.decidedAt(),
+            inTransactionGuardOverlay: guardOverlay,
+          });
+          registerResourceClaimPlanInGuardOverlay(guardOverlay, claimPlan);
+          instructorClaimPlans.push(claimPlan);
+          plannedDays.push(
+            CourseDaySchema.parse({
+              courseId: manifest.courseId,
+              courseDayId: day.courseDayId,
+              dayOrder: day.dayOrder,
+              interval,
+              timeZone: manifest.timeZone,
+              actualInstructorIds: [day.instructorId],
+              revision: 1,
+              createdAt: timestampFromDate(environment.clock.decidedAt()),
+              updatedAt: timestampFromDate(environment.clock.decidedAt()),
+              audit: revisionAuditLink(envelope, metadata),
+            })
+          );
+          session.plan.planMutation({
+            path: courseDayDocumentPath,
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: COURSE_PLANNING_ESTIMATES.courseDayBytes,
+          });
+        }
+
+        const shouldWriteCourse = !courseDocumentExists || requiresShapeReplacement;
+        if (shouldWriteCourse) {
+          session.plan.planMutation({
+            path: courseDocumentPath,
+            kind: courseDocumentExists
+              ? requiresShapeReplacement
+                ? 'create'
+                : 'update'
+              : 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: COURSE_PLANNING_ESTIMATES.courseBytes,
+          });
+          if (requiresShapeReplacement) {
+            session.plan.planMutation({
+              path: courseDocumentPath,
+              kind: 'delete',
+              category: 'aggregate',
+              estimatedPayloadBytes: COURSE_PLANNING_ESTIMATES.courseBytes,
+            });
+          }
+        }
+        if (shouldWriteCatalogContent && !catalogContentAlreadyExists) {
+          session.plan.planMutation({
+            path: catalogContentDocumentPath,
+            kind: 'create',
+            category: 'aggregate',
+            estimatedPayloadBytes: COURSE_CATALOG_CONTENT_PLANNING_ESTIMATES.catalogContentBytes,
+          });
+        }
+      },
+      planAuditOutbox: async () =>
+        buildApplyCanonicalCourseProvisioningManifestAuditPlan({
+          envelope,
+          courseId: manifest.courseId,
+          courseRevision: plannedCourse.revision,
+          courseDayIds: sortedDays.map((day) => day.courseDayId),
+        }),
+      execute: async (session, context) => {
+        const decidedAt = timestampFromDate(context.decidedAt);
+        const shouldWriteCourse = !courseDocumentExists || requiresShapeReplacement;
+        if (shouldWriteCourse) {
+          const courseRecord = CourseSchema.parse({
+            ...plannedCourse,
+            createdAt: existingCourse?.createdAt ?? persistedCreatedAt ?? decidedAt,
+            updatedAt: decidedAt,
+            audit: {
+              createdByCommandId:
+                existingCourse?.audit.createdByCommandId ??
+                persistedAuditCreatedByCommandId ??
+                metadata.commandId,
+              lastChangedByCommandId: metadata.commandId,
+              correlationId: metadata.correlationId,
+            },
+          });
+          const coursePayload = toFirestoreWritePayload(
+            courseRecord as unknown as Record<string, unknown>
+          );
+          if (!courseDocumentExists) {
+            session.tx.create({ path: courseDocumentPath }, coursePayload);
+          } else if (requiresShapeReplacement) {
+            session.tx.delete({ path: courseDocumentPath });
+            session.tx.create({ path: courseDocumentPath }, coursePayload);
+          } else {
+            session.tx.update({ path: courseDocumentPath }, coursePayload);
+          }
+        }
+
+        if (shouldWriteCatalogContent && manifest.presentation && !catalogContentAlreadyExists) {
+          const catalogContent = CourseCatalogContentSchema.parse({
+            courseId: manifest.courseId,
+            ...manifest.presentation,
+          });
+          session.tx.create(
+            { path: catalogContentDocumentPath },
+            catalogContentToFirestoreWritePayload(
+              catalogContent as unknown as Record<string, unknown>
+            )
+          );
+        }
+
+        for (const claimPlan of instructorClaimPlans) {
+          commitResourceClaimPlan(session, claimPlan, {
+            correlationId: metadata.correlationId,
+            commandId: metadata.commandId,
+            decidedAt: context.decidedAt,
+          });
+        }
+        for (const courseDay of plannedDays) {
+          session.tx.create(
+            { path: courseDayPath(manifest.courseId, courseDay.courseDayId) },
+            toFirestoreWritePayload({
+              ...courseDay,
+              createdAt: decidedAt,
+              updatedAt: decidedAt,
+            } as unknown as Record<string, unknown>)
+          );
+        }
+
+        return commandSuccessResult(
+          'apply_canonical_course_provisioning_manifest',
+          envelope.context.correlationId,
+          {
+            dryRun: false,
+            courseId: manifest.courseId,
+            plannedCourseDayCount: schedulePlan.courseDayCount,
+            availableSeats,
+            scheduleComplete: true,
+          }
+        );
+      },
+    };
+
+  return executeAuthoritativeIdempotentCanonicalCommand({
+    envelope,
+    environment,
+    executor,
+    revisionTarget: { ref: { path: courseDocumentPath }, requireExpectedRevision: false },
+    handler,
+  });
 }
 
 function applyCanonicalCourseProvisioningManifestHandler(
   envelope: CommandEnvelope<'apply_canonical_course_provisioning_manifest'>,
   environment: CommandExecutionEnvironment,
-  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'],
-  getCommands: () => CanonicalCommands
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'apply_canonical_course_provisioning_manifest'>> {
-  void environment;
-  void executor;
-  return applyCanonicalCourseProvisioningManifest(getCommands(), envelope);
+  return applyCanonicalCourseProvisioningManifest(envelope, environment, executor);
 }
 
 export function createCourseProvisioningCommandHandlers(
-  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor'],
-  getCommands: () => CanonicalCommands
+  executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Pick<
   CommandHandlerMap,
   'provision_canonical_course' | 'apply_canonical_course_provisioning_manifest'
@@ -442,6 +713,6 @@ export function createCourseProvisioningCommandHandlers(
     provision_canonical_course: (envelope, environment) =>
       provisionCanonicalCourseHandler(envelope, environment, executor),
     apply_canonical_course_provisioning_manifest: (envelope, environment) =>
-      applyCanonicalCourseProvisioningManifestHandler(envelope, environment, executor, getCommands),
+      applyCanonicalCourseProvisioningManifestHandler(envelope, environment, executor),
   };
 }

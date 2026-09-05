@@ -12,7 +12,9 @@ import {
   commandErrorResult,
 } from '@ski-academy/shared-domain';
 
-const MALFORMED_ENVELOPE_CORRELATION_ID = CorrelationIdSchema.parse('correlation_malformed_envelope');
+const MALFORMED_ENVELOPE_CORRELATION_ID = CorrelationIdSchema.parse(
+  'correlation_malformed_envelope'
+);
 
 import type { CanonicalTransactionExecutor } from '../transactions';
 import { createFinanceCommandHandlers, type MonetaryEventLoader } from '../finance';
@@ -55,9 +57,7 @@ export type CommandHandlerMap = {
 };
 
 export interface CanonicalCommands {
-  execute<Kind extends CommandKind>(
-    envelope: CommandEnvelope<Kind>
-  ): Promise<CommandResult<Kind>>;
+  execute<Kind extends CommandKind>(envelope: CommandEnvelope<Kind>): Promise<CommandResult<Kind>>;
 }
 
 function readEnvelopeCorrelationId(envelope: CommandEnvelope<CommandKind>): CorrelationId {
@@ -123,9 +123,9 @@ export function createCanonicalCommands(
   environment: CommandExecutionEnvironment
 ): CanonicalCommands {
   return {
-    async execute<Kind extends CommandKind>(envelope: CommandEnvelope<Kind>): Promise<
-      CommandResult<Kind>
-    > {
+    async execute<Kind extends CommandKind>(
+      envelope: CommandEnvelope<Kind>
+    ): Promise<CommandResult<Kind>> {
       const parsed = parseCommandEnvelope(envelope);
       if (!parsed.success) {
         return validationErrorResult(envelope);
@@ -197,7 +197,7 @@ export function createProductionCanonicalCommands(
     ...createBookingChangeRequestCommandHandlers(executor),
     ...createBookingAttendanceCommandHandlers(executor),
     ...createCourseDayCommandHandlers(executor),
-    ...createCourseProvisioningCommandHandlers(executor, () => commandsRef.current!),
+    ...createCourseProvisioningCommandHandlers(executor),
     ...createCourseAdministrationCommandHandlers(executor),
     ...createCourseEnrollmentCommandHandlers(executor, options.guestActionTokenSecret),
     ...createCourseEnrollmentLifecycleCommandHandlers(

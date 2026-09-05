@@ -21,8 +21,14 @@ import {
   catalogContentInputFromCourse,
   mapAdminCourseToTableCourse,
 } from './adminCourseTableMapping';
+import { buildArchiveCourseCommandFromListItem } from './adminCourseArchiveCommand';
+import {
+  buildCanonicalCourseCloneDraft,
+  mergeClonePresentationWithForm,
+  type CanonicalCourseCloneDraft,
+  type CanonicalCourseCreateFormState,
+} from './adminCourseCloneDraft';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
-import { localDateTimeFromTimestamp } from '../../operations/adminTimeZone';
 import type { Instructor } from '../../../../types';
 
 function newIdentity(prefix: string): ReturnType<typeof IdempotencyKeySchema.parse> {
@@ -37,18 +43,7 @@ function commandErrorMessage(result: { status: string; error?: { code?: string }
   return result.error?.code ?? 'unknown_error';
 }
 
-interface CreateFormState {
-  title: string;
-  price: string;
-  totalSeats: string;
-  timeZone: string;
-  roster: string;
-  days: string;
-  duration: string;
-  description: string;
-  dates: string;
-  bgImageUrl: string;
-}
+type CreateFormState = CanonicalCourseCreateFormState;
 
 interface CreateAttempt {
   readonly idempotencyKey: ReturnType<typeof IdempotencyKeySchema.parse>;
@@ -83,8 +78,11 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   const [stale, setStale] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [createMode, setCreateMode] = useState<'create' | 'clone'>('create');
   const [createForm, setCreateForm] = useState<CreateFormState>(EMPTY_CREATE_FORM);
   const createAttemptRef = useRef<CreateAttempt | null>(null);
+  const cloneDraftRef = useRef<CanonicalCourseCloneDraft | null>(null);
+  const commandInFlightRef = useRef(false);
   const detailRequestRef = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -181,6 +179,8 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       calendarInput?: CommandEnvelope<Kind>['context']['calendarInput'];
       timezone?: CommandEnvelope<Kind>['context']['timezone'];
     }) => {
+      if (commandInFlightRef.current) return false;
+      commandInFlightRef.current = true;
       setPending(input.kind);
       setError(null);
       setStale(false);
@@ -210,6 +210,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         setError(caught instanceof Error ? caught.message : text.mutationFailed);
         return false;
       } finally {
+        commandInFlightRef.current = false;
         setPending(null);
       }
     },
@@ -218,14 +219,26 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
 
   const promptReason = () => window.prompt(text.reason, '')?.trim() ?? '';
 
+  const resetCreateForm = () => {
+    createAttemptRef.current = null;
+    cloneDraftRef.current = null;
+    setCreateMode('create');
+    setCreateForm(EMPTY_CREATE_FORM);
+  };
+
   const updateCreateField = (field: keyof CreateFormState, value: string) => {
     createAttemptRef.current = null;
     setCreateForm((state) => ({ ...state, [field]: value }));
   };
 
   const toggleCreate = () => {
-    if (showCreate) createAttemptRef.current = null;
-    setShowCreate((value) => !value);
+    if (showCreate) {
+      resetCreateForm();
+      setShowCreate(false);
+      return;
+    }
+    resetCreateForm();
+    setShowCreate(true);
   };
 
   const runCourseAction = async (course: AdminCourseReadModel, kind: CommandKind) => {
@@ -296,10 +309,11 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         .split(',')
         .map((value) => value.trim())
         .filter(Boolean);
+      const attemptPrefix = createMode === 'clone' ? 'admin-course:clone' : 'admin-course:create';
       const attempt =
         createAttemptRef.current ??
         (() => {
-          const idempotencyKey = newIdentity('admin-course:create');
+          const idempotencyKey = newIdentity(attemptPrefix);
           return {
             idempotencyKey,
             seed: idempotencyKey.split(':').at(-1)!,
@@ -323,12 +337,14 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             instructorId,
           };
         });
-      const presentation: CourseCatalogContentInput = {
-        duration: createForm.duration,
-        description: createForm.description,
-        dates: createForm.dates,
-        bgImageUrl: createForm.bgImageUrl,
-      };
+      const presentation: CourseCatalogContentInput = cloneDraftRef.current
+        ? mergeClonePresentationWithForm(cloneDraftRef.current.presentation, createForm)
+        : {
+            duration: createForm.duration,
+            description: createForm.description,
+            dates: createForm.dates,
+            bgImageUrl: createForm.bgImageUrl,
+          };
       const manifest = CourseProvisioningManifestSchema.parse({
         courseId,
         title: createForm.title,
@@ -346,8 +362,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         idempotencyKey: attempt.idempotencyKey,
       });
       if (!succeeded) return;
-      createAttemptRef.current = null;
-      setCreateForm(EMPTY_CREATE_FORM);
+      resetCreateForm();
       setShowCreate(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : text.mutationFailed);
@@ -541,54 +556,36 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   const handleArchive = (tableCourse: ReturnType<typeof mapAdminCourseToTableCourse>) => {
     const course = courses.find((candidate) => candidate.courseId === tableCourse.id);
     if (!course) return;
+    let submission: ReturnType<typeof buildArchiveCourseCommandFromListItem>;
+    try {
+      submission = buildArchiveCourseCommandFromListItem(course);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : text.mutationFailed);
+      return;
+    }
     onRequestConfirm(`${t('archiveCourseConfirmPrefix')} "${course.title}"?`, async () => {
       await execute({
-        kind: 'archive_course',
-        expectedRevision: course.revision,
-        intent: {
-          courseId: course.courseId,
-          reasonExplanation: 'Admin course archive',
-        },
+        kind: submission.kind,
+        expectedRevision: submission.expectedRevision,
+        intent: submission.intent,
       });
     });
   };
 
   const handleClone = async (tableCourse: ReturnType<typeof mapAdminCourseToTableCourse>) => {
+    setError(null);
     const course = await loadCourseDetail(tableCourse.id);
-    if (!course || course.courseDays.length === 0) return;
-    const attempt = newIdentity('admin-course:clone');
-    const seed = attempt.split(':').at(-1)!;
-    const presentation = catalogContentInputFromCourse(course);
-    const days = course.courseDays.map((day, index) => {
-      const local = localDateTimeFromTimestamp(day.interval.startsAt.seconds, day.timeZone);
-      return {
-        courseDayId: `course_day_${seed}_${index + 1}`,
-        dayOrder: day.dayOrder,
-        localDate: local.date,
-        localTime: local.time,
-        durationMinutes: Math.max(
-          15,
-          Math.round((day.interval.endsAt.seconds - day.interval.startsAt.seconds) / 60)
-        ),
-        instructorId: day.actualInstructorIds[0],
-      };
-    });
-    const manifest = CourseProvisioningManifestSchema.parse({
-      courseId: `course_${seed}`,
-      title: course.title,
-      price: course.price,
-      totalSeats: course.capacity.totalSeats,
-      capacityPolicy: { kind: 'seed_full' },
-      instructorRosterIds: course.instructorRosterIds,
-      timeZone: course.courseDays[0]?.timeZone ?? 'Asia/Almaty',
-      days,
-      presentation,
-    });
-    await execute({
-      kind: 'apply_canonical_course_provisioning_manifest',
-      intent: { manifest, dryRun: false },
-      idempotencyKey: attempt,
-    });
+    if (!course) return;
+    try {
+      const draft = buildCanonicalCourseCloneDraft(course);
+      createAttemptRef.current = null;
+      cloneDraftRef.current = draft;
+      setCreateMode('clone');
+      setCreateForm(draft.form);
+      setShowCreate(true);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : text.mutationFailed);
+    }
   };
 
   if (loading && courses.length === 0) return <p>{text.loading}</p>;
@@ -662,8 +659,13 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             Instructors:{' '}
             {[...instructorOptions.entries()].map(([id, name]) => `${name} (${id})`).join(', ')}
           </p>
+          {createMode === 'clone' ? (
+            <p className="text-xs md:col-span-2 text-[var(--ink-dim)]" role="status">
+              {text.cloneDraftReady}
+            </p>
+          ) : null}
           <button disabled={pending !== null} className="ui-btn ui-btn-primary" type="submit">
-            {text.create}
+            {createMode === 'clone' ? text.createClone : text.create}
           </button>
         </form>
       )}

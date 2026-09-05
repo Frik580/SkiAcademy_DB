@@ -99,17 +99,21 @@ async function loadInstructorRosterEnrollments(
   return items;
 }
 
+/**
+ * Detail/roster/attendance loads only for an explicitly selected course.
+ * Discovery (assigned list) is separate — never eager-load all assigned courses.
+ */
 export function resolveInstructorCourseLoadTargets(input: {
   readonly assignedCourses: readonly InstructorAssignedCourseRef[];
   readonly selectedCourseId?: string;
 }): InstructorAssignedCourseRef[] {
-  if (input.selectedCourseId) {
-    const selected = input.assignedCourses.find(
-      (course) => course.courseId === input.selectedCourseId
-    );
-    return selected ? [selected] : [];
+  if (!input.selectedCourseId) {
+    return [];
   }
-  return [...input.assignedCourses];
+  const selected = input.assignedCourses.find(
+    (course) => course.courseId === input.selectedCourseId
+  );
+  return selected ? [selected] : [];
 }
 
 export async function refetchInstructorCourseReadModels(
@@ -161,27 +165,30 @@ export async function loadInstructorAssignedCourses(): Promise<InstructorAssigne
 
 export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput) {
   const { enabled, accountId, instructorId, selectedCourseId } = input;
-  const requestGeneration = useRef(0);
+  const discoveryGeneration = useRef(0);
+  const rosterGeneration = useRef(0);
+  const assignedCourses = useInstructorCourseStore((state) => state.assignedCourses);
 
-  const load = useCallback(async () => {
-    const generation = ++requestGeneration.current;
-    const isCurrentRequest = () => requestGeneration.current === generation;
+  const loadDiscovery = useCallback(async () => {
+    const generation = ++discoveryGeneration.current;
+    const isCurrent = () => discoveryGeneration.current === generation;
     if (!enabled || !accountId || !instructorId) {
       return;
     }
 
     useInstructorCourseStore.getState().setDiscoveryLoading(true);
-    useInstructorCourseStore.getState().setRosterLoading(false);
     useInstructorCourseStore.getState().setError(undefined, undefined);
-    let assignedCourses: InstructorAssignedCourseRef[] = [];
     try {
-      assignedCourses = await loadInstructorAssignedCourses();
-      if (!isCurrentRequest()) {
+      const nextAssigned = await loadInstructorAssignedCourses();
+      if (!isCurrent()) {
         return;
       }
-      useInstructorCourseStore.getState().setAssignedCourses(assignedCourses);
+      useInstructorCourseStore.getState().setAssignedCourses(nextAssigned);
+      if (nextAssigned.length === 0) {
+        useInstructorCourseStore.getState().setLoaded(true);
+      }
     } catch (error) {
-      if (!isCurrentRequest()) {
+      if (!isCurrent()) {
         return;
       }
       const errorCode = classifyInstructorCourseReadError(error);
@@ -191,35 +198,40 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
           error instanceof Error ? error.message : 'Failed to load instructor course read models.',
           errorCode
         );
-      return;
     } finally {
-      if (isCurrentRequest()) {
+      if (isCurrent()) {
         useInstructorCourseStore.getState().setDiscoveryLoading(false);
       }
     }
+  }, [accountId, enabled, instructorId]);
+
+  const loadSelectedRoster = useCallback(async () => {
+    const generation = ++rosterGeneration.current;
+    const isCurrent = () => rosterGeneration.current === generation;
+    if (!enabled || !accountId || !instructorId || !selectedCourseId) {
+      return;
+    }
 
     const targets = resolveInstructorCourseLoadTargets({
-      assignedCourses,
+      assignedCourses: useInstructorCourseStore.getState().assignedCourses,
       selectedCourseId,
     });
     if (targets.length === 0) {
-      if (isCurrentRequest()) {
-        useInstructorCourseStore.getState().setLoaded(true);
-      }
       return;
     }
 
     useInstructorCourseStore.getState().setRosterLoading(true);
+    useInstructorCourseStore.getState().setError(undefined, undefined);
     try {
-      await refetchInstructorCourseReadModels(targets, isCurrentRequest, {
+      await refetchInstructorCourseReadModels(targets, isCurrent, {
         supersedePending: true,
       });
-      if (!isCurrentRequest()) {
+      if (!isCurrent()) {
         return;
       }
       useInstructorCourseStore.getState().setLoaded(true);
     } catch (error) {
-      if (!isCurrentRequest()) {
+      if (!isCurrent()) {
         return;
       }
       const errorCode = classifyInstructorCourseReadError(error);
@@ -230,22 +242,40 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
           errorCode
         );
     } finally {
-      if (isCurrentRequest()) {
+      if (isCurrent()) {
         useInstructorCourseStore.getState().setRosterLoading(false);
       }
     }
   }, [accountId, enabled, instructorId, selectedCourseId]);
+
+  const load = useCallback(async () => {
+    await loadDiscovery();
+    await loadSelectedRoster();
+  }, [loadDiscovery, loadSelectedRoster]);
 
   useEffect(() => {
     if (!enabled || !accountId || !instructorId) {
       useInstructorCourseStore.getState().reset();
       return;
     }
-    void load();
+    void loadDiscovery();
     return () => {
-      requestGeneration.current += 1;
+      discoveryGeneration.current += 1;
     };
-  }, [accountId, enabled, instructorId, load, selectedCourseId]);
+  }, [accountId, enabled, instructorId, loadDiscovery]);
+
+  useEffect(() => {
+    if (!enabled || !accountId || !instructorId || !selectedCourseId) {
+      return;
+    }
+    if (!assignedCourses.some((course) => course.courseId === selectedCourseId)) {
+      return;
+    }
+    void loadSelectedRoster();
+    return () => {
+      rosterGeneration.current += 1;
+    };
+  }, [accountId, assignedCourses, enabled, instructorId, loadSelectedRoster, selectedCourseId]);
 
   return { reload: load };
 }

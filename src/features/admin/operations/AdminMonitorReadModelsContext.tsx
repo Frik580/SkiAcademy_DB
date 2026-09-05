@@ -45,7 +45,7 @@ export function useSharedAdminMonitorReadModels(): AdminMonitorReadModelsValue {
   const value = useContext(AdminMonitorReadModelsContext);
   if (!value) {
     throw new Error(
-      'useSharedAdminMonitorReadModels requires AdminMonitorReadModelsProvider in the Admin shell.'
+      'useSharedAdminMonitorReadModels requires AdminMonitorReadModelsProvider on the Operations surface.'
     );
   }
   return value;

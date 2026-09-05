@@ -69,9 +69,12 @@ describe('T32.9A Admin UX parity behavior', () => {
     expect(source).toContain('clientsManagerTitle');
     expect(source).toContain('coachesDirectoryTitle');
     expect(source).toContain('adminRoleManagementTitle');
+    expect(source).toContain('AdminDisplayChrome');
+    expect(source).toContain('AdminOperationalMetricsHost');
     expect(source).toContain('financialOverview');
     expect(source).toContain('AdminPlannerBoard');
     expect(source).toContain('AdminActiveBookingMonitor');
+    expect(source).toContain('AdminFinancialOverviewHost');
     expect(source).not.toContain('addBookingDirect');
     expect(source).not.toContain('onAddUser');
     expect(source.match(/<CanonicalFinancePanel/g)?.length).toBe(1);
@@ -509,7 +512,7 @@ describe('T32.9A Admin UX parity behavior', () => {
     expect(people).not.toContain('updateDoc');
     expect(people).not.toContain('onUpdateUser=');
     expect(people).not.toContain('windowDays: 62');
-    expect(readRepoFile('src/features/admin/components/finance/FinancialOverview.tsx')).toContain(
+    expect(readRepoFile('src/features/admin/components/finance/AdminDisplayChrome.tsx')).toContain(
       'exchangeRateDisplayOnly'
     );
     expect(readRepoFile('src/features/admin/components/finance/FinancialOverview.tsx')).toContain(
@@ -520,6 +523,15 @@ describe('T32.9A Admin UX parity behavior', () => {
     );
     expect(readRepoFile('src/features/admin/components/finance/FinancialOverview.tsx')).toContain(
       'onOpenPeriodMovement'
+    );
+    expect(readRepoFile('src/features/admin/operations/AdminOperationalMetrics.tsx')).toContain(
+      "t('activeLessons')"
+    );
+    expect(readRepoFile('src/features/admin/operations/AdminOperationalMetrics.tsx')).toContain(
+      "t('completedLessons')"
+    );
+    expect(readRepoFile('src/features/admin/operations/AdminOperationalMetrics.tsx')).toContain(
+      "t('allGuidesCount')"
     );
     expect(readRepoFile('src/features/admin/operations/AdminFinancialOverviewHost.tsx')).toContain(
       'finance.item?.netSettledKzt'

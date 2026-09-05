@@ -1,9 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { AdminFinancialOverviewPeriod } from '@ski-academy/shared-domain';
 import { FinancialOverview } from '../components/finance/FinancialOverview';
-import { computeAdminOperationalOverview } from './adminFinancialOverview';
-import { useSharedAdminMonitorReadModels } from './AdminMonitorReadModelsContext';
 import { useAdminFinancialOverviewReadModel } from '../components/finance/useAdminFinanceReadModels';
 import { formatDateLocalYMD } from '../components/schedule/scheduleUtils';
 import { resolveAdminTimeZone } from './adminTimeZone';
@@ -13,21 +11,16 @@ import {
   ADMIN_TAB_QUERY_KEY,
 } from '../adminNavigation';
 
-interface AdminFinancialOverviewHostProps {
-  readonly instructorsCount: number;
-}
-
-export function AdminFinancialOverviewHost({ instructorsCount }: AdminFinancialOverviewHostProps) {
-  const { bookings } = useSharedAdminMonitorReadModels();
+/**
+ * Finance-tab owner for revenue overview (monetary_events scan).
+ * Does not mount Admin monitor scopes or booking counters.
+ */
+export function AdminFinancialOverviewHost() {
   const [period, setPeriod] = useState<AdminFinancialOverviewPeriod>('month');
   const [, setSearchParams] = useSearchParams();
   const localDate = formatDateLocalYMD(new Date());
   const timeZone = resolveAdminTimeZone();
   const finance = useAdminFinancialOverviewReadModel({ period, localDate, timeZone });
-  const metrics = useMemo(
-    () => computeAdminOperationalOverview({ bookings, instructorsCount }),
-    [bookings, instructorsCount]
-  );
 
   const openPeriodMovement = () => {
     setSearchParams(
@@ -47,9 +40,6 @@ export function AdminFinancialOverviewHost({ instructorsCount }: AdminFinancialO
       netSettledKzt={finance.error ? undefined : finance.item?.netSettledKzt}
       settledRevenueKzt={finance.error ? undefined : finance.item?.settledRevenueKzt}
       refundedKzt={finance.error ? undefined : finance.item?.refundedKzt}
-      activeBookings={metrics.activeBookings}
-      completedBookings={metrics.completedBookings}
-      instructorsCount={metrics.instructorsCount}
       period={period}
       onPeriodChange={setPeriod}
       revenueLoading={finance.loading}

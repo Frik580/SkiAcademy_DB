@@ -11,6 +11,7 @@ import { TableSkeleton } from '../../../ui/Skeleton';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import { ADMIN_CLIENT_ACCOUNT_QUERY_KEY, ADMIN_COURSE_ENROLLMENT_QUERY_KEY, ADMIN_FINANCE_ACCOUNT_QUERY_KEY, ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY, ADMIN_FINANCE_PAYMENT_QUERY_KEY, ADMIN_LESSON_BOOKING_QUERY_KEY, ADMIN_PLANNER_DATE_QUERY_KEY, ADMIN_PLANNER_FOCUS_QUERY_KEY, ADMIN_TAB_QUERY_KEY, parseAdminTabId, type AdminTabId } from '../adminNavigation';
 import { AdminTabNav } from './AdminTabNav';
+import { AdminDisplayChrome } from './finance/AdminDisplayChrome';
 import { AdminMonitorReadModelsProvider } from '../operations/AdminMonitorReadModelsContext';
 
 const CanonicalFinancePanel = lazy(() =>
@@ -31,6 +32,11 @@ const AdminGuestFinanceHost = lazy(() =>
 const AdminFinancialOverviewHost = lazy(() =>
   import('../operations/AdminFinancialOverviewHost').then((m) => ({
     default: m.AdminFinancialOverviewHost,
+  }))
+);
+const AdminOperationalMetricsHost = lazy(() =>
+  import('../operations/AdminOperationalMetricsHost').then((m) => ({
+    default: m.AdminOperationalMetricsHost,
   }))
 );
 const AdminPlannerBoard = lazy(() =>
@@ -160,105 +166,112 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   return (
-    <AdminMonitorReadModelsProvider>
     <div className="space-y-6 animate-fade-in">
-      <Suspense fallback={<SectionLoadingFallback label={t('financialOverview')} />}>
-        <AdminFinancialOverviewHost instructorsCount={instructors.length} />
-      </Suspense>
+      <AdminDisplayChrome />
 
       <AdminTabNav activeTab={activeTab} onChange={setActiveTab} />
 
       {activeTab === 'operations' && (
-        <div className="space-y-6">
-          <Suspense fallback={<SectionLoadingFallback label={t('scheduleBoardTitle')} />}>
-            <AdminCollapsibleSection
-              id="admin_planner"
-              title={t('scheduleBoardTitle')}
-              subtitle={t('scheduleBoardSub')}
-              icon={CalendarDays}
-              defaultOpen
-              forceOpen={Boolean(
-                searchParams.get(ADMIN_PLANNER_FOCUS_QUERY_KEY) ||
-                  searchParams.get(ADMIN_PLANNER_DATE_QUERY_KEY)
-              )}
-              forceOpenToken={
-                searchParams.get(ADMIN_PLANNER_FOCUS_QUERY_KEY) ??
-                searchParams.get(ADMIN_PLANNER_DATE_QUERY_KEY) ??
-                undefined
-              }
-            >
-              <AdminPlannerBoard
-                adminProfile={currentUserProfile}
-                usersList={usersList}
-                fallbackInstructors={instructors}
-              />
-            </AdminCollapsibleSection>
-          </Suspense>
+        <AdminMonitorReadModelsProvider>
+          <div className="space-y-6">
+            <Suspense fallback={<SectionLoadingFallback label={t('financialOverview')} />}>
+              <AdminOperationalMetricsHost instructorsCount={instructors.length} />
+            </Suspense>
 
-          <Suspense fallback={<SectionLoadingFallback label={t('bookingsLogTitle')} />}>
-            <AdminCollapsibleSection
-              id="admin_booking_monitor"
-              title={t('bookingsLogTitle')}
-              subtitle={t('bookingsLogSub')}
-              icon={BookOpen}
-              defaultOpen
-            >
-              <AdminActiveBookingMonitor
-                usersList={usersList}
-                instructors={instructors}
-              />
-            </AdminCollapsibleSection>
-          </Suspense>
+            <Suspense fallback={<SectionLoadingFallback label={t('scheduleBoardTitle')} />}>
+              <AdminCollapsibleSection
+                id="admin_planner"
+                title={t('scheduleBoardTitle')}
+                subtitle={t('scheduleBoardSub')}
+                icon={CalendarDays}
+                defaultOpen
+                forceOpen={Boolean(
+                  searchParams.get(ADMIN_PLANNER_FOCUS_QUERY_KEY) ||
+                    searchParams.get(ADMIN_PLANNER_DATE_QUERY_KEY)
+                )}
+                forceOpenToken={
+                  searchParams.get(ADMIN_PLANNER_FOCUS_QUERY_KEY) ??
+                  searchParams.get(ADMIN_PLANNER_DATE_QUERY_KEY) ??
+                  undefined
+                }
+              >
+                <AdminPlannerBoard
+                  adminProfile={currentUserProfile}
+                  usersList={usersList}
+                  fallbackInstructors={instructors}
+                />
+              </AdminCollapsibleSection>
+            </Suspense>
 
-          <Suspense fallback={<SectionLoadingFallback label={t('adminIssueInboxTitle')} />}>
-            <AdminCollapsibleSection
-              id="admin_issue_inbox"
-              title={t('adminIssueInboxTitle')}
-              subtitle={t('adminIssueInboxSub')}
-              icon={ShieldAlert}
-              defaultOpen={false}
-            >
-              <AdminIssueCenter />
-            </AdminCollapsibleSection>
-          </Suspense>
+            <Suspense fallback={<SectionLoadingFallback label={t('bookingsLogTitle')} />}>
+              <AdminCollapsibleSection
+                id="admin_booking_monitor"
+                title={t('bookingsLogTitle')}
+                subtitle={t('bookingsLogSub')}
+                icon={BookOpen}
+                defaultOpen
+              >
+                <AdminActiveBookingMonitor
+                  usersList={usersList}
+                  instructors={instructors}
+                />
+              </AdminCollapsibleSection>
+            </Suspense>
 
-          <Suspense fallback={<SectionLoadingFallback label={t('adminLessonBookingsTitle')} />}>
-            <AdminCollapsibleSection
-              id="canonical_lesson_bookings"
-              title={t('adminLessonBookingsTitle')}
-              subtitle={t('adminLessonBookingsSub')}
-              icon={BookOpen}
-              defaultOpen={false}
-              forceOpen={Boolean(searchParams.get(ADMIN_LESSON_BOOKING_QUERY_KEY))}
-              forceOpenToken={searchParams.get(ADMIN_LESSON_BOOKING_QUERY_KEY) ?? undefined}
-            >
-              <AdminLessonBookingPanel
-                adminAccountId={currentUserProfile.uid}
-                instructors={instructors.map((instructor) => ({
-                  instructorId: instructor.id,
-                  displayName: instructor.name,
-                }))}
-              />
-            </AdminCollapsibleSection>
-          </Suspense>
+            <Suspense fallback={<SectionLoadingFallback label={t('adminIssueInboxTitle')} />}>
+              <AdminCollapsibleSection
+                id="admin_issue_inbox"
+                title={t('adminIssueInboxTitle')}
+                subtitle={t('adminIssueInboxSub')}
+                icon={ShieldAlert}
+                defaultOpen={false}
+              >
+                <AdminIssueCenter />
+              </AdminCollapsibleSection>
+            </Suspense>
 
-          <Suspense fallback={<SectionLoadingFallback label={t('adminCourseEnrollmentsTitle')} />}>
-            <AdminCollapsibleSection
-              id="canonical_course_enrollments"
-              title={t('adminCourseEnrollmentsTitle')}
-              subtitle={t('adminCourseEnrollmentsSub')}
-              icon={BookOpen}
-              defaultOpen={false}
-              forceOpen={Boolean(searchParams.get(ADMIN_COURSE_ENROLLMENT_QUERY_KEY))}
-            >
-              <AdminCourseEnrollmentPanel adminAccountId={currentUserProfile.uid} />
-            </AdminCollapsibleSection>
-          </Suspense>
-        </div>
+            <Suspense fallback={<SectionLoadingFallback label={t('adminLessonBookingsTitle')} />}>
+              <AdminCollapsibleSection
+                id="canonical_lesson_bookings"
+                title={t('adminLessonBookingsTitle')}
+                subtitle={t('adminLessonBookingsSub')}
+                icon={BookOpen}
+                defaultOpen={false}
+                forceOpen={Boolean(searchParams.get(ADMIN_LESSON_BOOKING_QUERY_KEY))}
+                forceOpenToken={searchParams.get(ADMIN_LESSON_BOOKING_QUERY_KEY) ?? undefined}
+              >
+                <AdminLessonBookingPanel
+                  adminAccountId={currentUserProfile.uid}
+                  instructors={instructors.map((instructor) => ({
+                    instructorId: instructor.id,
+                    displayName: instructor.name,
+                  }))}
+                />
+              </AdminCollapsibleSection>
+            </Suspense>
+
+            <Suspense fallback={<SectionLoadingFallback label={t('adminCourseEnrollmentsTitle')} />}>
+              <AdminCollapsibleSection
+                id="canonical_course_enrollments"
+                title={t('adminCourseEnrollmentsTitle')}
+                subtitle={t('adminCourseEnrollmentsSub')}
+                icon={BookOpen}
+                defaultOpen={false}
+                forceOpen={Boolean(searchParams.get(ADMIN_COURSE_ENROLLMENT_QUERY_KEY))}
+              >
+                <AdminCourseEnrollmentPanel adminAccountId={currentUserProfile.uid} />
+              </AdminCollapsibleSection>
+            </Suspense>
+          </div>
+        </AdminMonitorReadModelsProvider>
       )}
 
       {activeTab === 'finance' && (
         <div className="space-y-6">
+          <Suspense fallback={<SectionLoadingFallback label={t('financialOverview')} />}>
+            <AdminFinancialOverviewHost />
+          </Suspense>
+
           <Suspense fallback={<SectionLoadingFallback label={t('canonicalGuestFinanceTitle')} />}>
             <AdminCollapsibleSection
               id="canonical_guest_finance"
@@ -460,6 +473,5 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           document.body
         )}
     </div>
-    </AdminMonitorReadModelsProvider>
   );
 };

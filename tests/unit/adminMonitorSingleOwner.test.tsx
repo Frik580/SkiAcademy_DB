@@ -7,8 +7,7 @@ const queryLessonBookingReadModelsMock = vi.fn();
 const queryAdminCourseEnrollmentReadModelsMock = vi.fn();
 
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
-  queryLessonBookingReadModels: (...args: unknown[]) =>
-    queryLessonBookingReadModelsMock(...args),
+  queryLessonBookingReadModels: (...args: unknown[]) => queryLessonBookingReadModelsMock(...args),
   queryAdminCourseEnrollmentReadModels: (...args: unknown[]) =>
     queryAdminCourseEnrollmentReadModelsMock(...args),
 }));
@@ -25,12 +24,19 @@ vi.mock('../../src/features/admin/components/finance/FinancialOverview', () => (
   FinancialOverview: () => <div data-testid="financial-overview" />,
 }));
 
+vi.mock('../../src/features/admin/operations/AdminOperationalMetrics', () => ({
+  AdminOperationalMetrics: () => <div data-testid="operational-metrics" />,
+}));
+
 vi.mock('../../src/features/admin/components/bookings/BookingsLog', () => ({
   BookingsLog: () => <div data-testid="bookings-log" />,
 }));
 
-import { AdminMonitorReadModelsProvider, useSharedAdminMonitorReadModels } from '../../src/features/admin/operations/AdminMonitorReadModelsContext';
-import { AdminFinancialOverviewHost } from '../../src/features/admin/operations/AdminFinancialOverviewHost';
+import {
+  AdminMonitorReadModelsProvider,
+  useSharedAdminMonitorReadModels,
+} from '../../src/features/admin/operations/AdminMonitorReadModelsContext';
+import { AdminOperationalMetricsHost } from '../../src/features/admin/operations/AdminOperationalMetricsHost';
 import { AdminActiveBookingMonitor } from '../../src/features/admin/operations/AdminActiveBookingMonitor';
 
 function emptyLessonResult(scope: 'admin_hot' | 'admin_history') {
@@ -58,19 +64,18 @@ describe('Admin monitor single owner', () => {
     queryLessonBookingReadModelsMock.mockImplementation(async (input: { scope: string }) =>
       emptyLessonResult(input.scope as 'admin_hot' | 'admin_history')
     );
-    queryAdminCourseEnrollmentReadModelsMock.mockImplementation(
-      async (input: { scope: string }) =>
-        emptyEnrollmentResult(
-          input.scope as 'admin_course_roster' | 'admin_pending_guest' | 'admin_history'
-        )
+    queryAdminCourseEnrollmentReadModelsMock.mockImplementation(async (input: { scope: string }) =>
+      emptyEnrollmentResult(
+        input.scope as 'admin_course_roster' | 'admin_pending_guest' | 'admin_history'
+      )
     );
   });
 
-  it('invokes each monitor scope once when Overview and Operations monitor both mount', async () => {
+  it('invokes each monitor scope once when Operations metrics and monitor both mount', async () => {
     render(
       <MemoryRouter>
         <AdminMonitorReadModelsProvider>
-          <AdminFinancialOverviewHost instructorsCount={3} />
+          <AdminOperationalMetricsHost instructorsCount={3} />
           <AdminActiveBookingMonitor usersList={[]} instructors={[]} />
         </AdminMonitorReadModelsProvider>
       </MemoryRouter>
@@ -107,7 +112,7 @@ describe('Admin monitor single owner', () => {
     render(
       <MemoryRouter>
         <AdminMonitorReadModelsProvider>
-          <AdminFinancialOverviewHost instructorsCount={1} />
+          <AdminOperationalMetricsHost instructorsCount={1} />
           <AdminActiveBookingMonitor usersList={[]} instructors={[]} />
           <RefreshProbe
             onReady={(fn) => {

@@ -80,7 +80,7 @@ describe('useInstructorCourseReadSync', () => {
     });
   });
 
-  it('loads canonical instructor assignment discovery then roster read models', async () => {
+  it('loads canonical instructor assignment discovery without roster until selected', async () => {
     renderHook(() =>
       useInstructorCourseReadSync({
         enabled: true,
@@ -90,18 +90,12 @@ describe('useInstructorCourseReadSync', () => {
     );
 
     await waitFor(() => {
-      expect(useInstructorCourseStore.getState().loaded).toBe(true);
+      expect(useInstructorCourseStore.getState().assignedCourses.length).toBe(1);
     });
 
     expect(queryAssignmentMock).toHaveBeenCalledWith({ scope: 'instructor_assigned' });
-    expect(queryEnrollmentMock).toHaveBeenCalledWith({
-      scope: 'instructor_roster',
-      courseId: 'course_instructor_sync_01',
-    });
-    expect(queryAttendanceMock).toHaveBeenCalledWith({
-      scope: 'instructor_roster',
-      courseId: 'course_instructor_sync_01',
-    });
+    expect(queryEnrollmentMock).not.toHaveBeenCalled();
+    expect(queryAttendanceMock).not.toHaveBeenCalled();
     expect(useInstructorCourseStore.getState().assignedCourses).toEqual([
       {
         courseId: 'course_instructor_sync_01',
@@ -116,14 +110,81 @@ describe('useInstructorCourseReadSync', () => {
   });
 
   it('loads only the selected assigned course when selectedCourseId is provided', async () => {
-    renderHook(() =>
-      useInstructorCourseReadSync({
-        enabled: true,
-        accountId: 'account_instructor_sync_01',
-        instructorId: 'instructor_instructor_sync_01',
-        selectedCourseId: 'course_instructor_sync_01',
-      })
+    queryAssignmentMock.mockResolvedValue({
+      scope: 'instructor_assigned',
+      items: [
+        {
+          courseId,
+          revision: 1,
+          title: 'BASE — First Turns',
+          assignedCourseDayIds: [courseDayId],
+          courseSchedule: {
+            courseId,
+            courseScheduleRevision: 1,
+            courseDayCount: 1,
+            startAt: { seconds: 1, nanoseconds: 0 },
+            finalCourseDayEndsAt: { seconds: 2, nanoseconds: 0 },
+            courseDays: [
+              {
+                courseDayId,
+                dayOrder: 1,
+                interval: {
+                  startsAt: { seconds: 1, nanoseconds: 0 },
+                  endsAt: { seconds: 2, nanoseconds: 0 },
+                },
+                timeZone: 'Asia/Almaty',
+                revision: 1,
+              },
+            ],
+          },
+          updatedAt: { seconds: 1, nanoseconds: 0 },
+        },
+        {
+          courseId: secondCourseId,
+          revision: 1,
+          title: 'Course B',
+          assignedCourseDayIds: [secondCourseDayId],
+          courseSchedule: {
+            courseId: secondCourseId,
+            courseScheduleRevision: 1,
+            courseDayCount: 1,
+            startAt: { seconds: 1, nanoseconds: 0 },
+            finalCourseDayEndsAt: { seconds: 2, nanoseconds: 0 },
+            courseDays: [
+              {
+                courseDayId: secondCourseDayId,
+                dayOrder: 1,
+                interval: {
+                  startsAt: { seconds: 1, nanoseconds: 0 },
+                  endsAt: { seconds: 2, nanoseconds: 0 },
+                },
+                timeZone: 'Asia/Almaty',
+                revision: 1,
+              },
+            ],
+          },
+          updatedAt: { seconds: 1, nanoseconds: 0 },
+        },
+      ],
+    });
+
+    const { rerender } = renderHook(
+      ({ selectedCourseId }: { selectedCourseId?: string }) =>
+        useInstructorCourseReadSync({
+          enabled: true,
+          accountId: 'account_instructor_sync_01',
+          instructorId: 'instructor_instructor_sync_01',
+          selectedCourseId,
+        }),
+      { initialProps: { selectedCourseId: undefined as string | undefined } }
     );
+
+    await waitFor(() => {
+      expect(useInstructorCourseStore.getState().assignedCourses.length).toBe(2);
+    });
+    expect(queryEnrollmentMock).not.toHaveBeenCalled();
+
+    rerender({ selectedCourseId: 'course_instructor_sync_01' });
 
     await waitFor(() => {
       expect(useInstructorCourseStore.getState().loaded).toBe(true);
@@ -131,6 +192,14 @@ describe('useInstructorCourseReadSync', () => {
 
     expect(queryEnrollmentMock).toHaveBeenCalledTimes(1);
     expect(queryAttendanceMock).toHaveBeenCalledTimes(1);
+    expect(queryEnrollmentMock).toHaveBeenCalledWith({
+      scope: 'instructor_roster',
+      courseId: 'course_instructor_sync_01',
+    });
+    expect(queryAttendanceMock).toHaveBeenCalledWith({
+      scope: 'instructor_roster',
+      courseId: 'course_instructor_sync_01',
+    });
   });
 
   it('ignores an obsolete request that fails after a newer reload succeeds', async () => {
@@ -147,6 +216,7 @@ describe('useInstructorCourseReadSync', () => {
         enabled: true,
         accountId: 'account_instructor_sync_01',
         instructorId: 'instructor_instructor_sync_01',
+        selectedCourseId: 'course_instructor_sync_01',
       })
     );
 

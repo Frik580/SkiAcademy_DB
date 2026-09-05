@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   BookOpen,
@@ -71,7 +71,7 @@ export const InstructorCourseSection: React.FC<InstructorCourseSectionProps> = (
     selectedCourseId,
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!selectedCourseId && assignedCourses.length > 0) {
       setSelectedCourseId(assignedCourses[0]?.courseId);
     }

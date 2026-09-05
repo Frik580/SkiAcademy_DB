@@ -144,9 +144,9 @@ describe('InstructorCourseSection', () => {
     renderSection();
 
     await waitFor(() => {
-      expect(screen.getByText('BASE — First Turns')).toBeInTheDocument();
+      expect(screen.getAllByText('BASE — First Turns').length).toBeGreaterThan(0);
+      expect(screen.getByText('Canonical Student')).toBeInTheDocument();
     });
-    expect(screen.getByText('Canonical Student')).toBeInTheDocument();
     expect(screen.getAllByText('instructorCourseDay 1').length).toBeGreaterThan(0);
     expect(screen.getAllByText('instructorCourseDay 2').length).toBeGreaterThan(0);
     expect(screen.getAllByText('instructorAttendanceMissing').length).toBeGreaterThan(0);
@@ -180,12 +180,12 @@ describe('InstructorCourseSection', () => {
     renderSection();
 
     await waitFor(() => {
-      expect(screen.getByText('Day-Only Course')).toBeInTheDocument();
+      expect(screen.getAllByText('Day-Only Course').length).toBeGreaterThan(0);
+      expect(screen.getByText('instructorCourseRosterEmpty')).toBeInTheDocument();
     });
     expect(screen.getByText(/instructorCourseAssignedDays/)).toBeInTheDocument();
     expect(screen.getAllByText('instructorCourseDay 1').length).toBeGreaterThan(0);
     expect(screen.queryByText('instructorCourseDay 2')).not.toBeInTheDocument();
-    expect(screen.getByText('instructorCourseRosterEmpty')).toBeInTheDocument();
   });
 
   it('changes selected CourseDay without showing a stale attendance projection', async () => {
@@ -363,7 +363,12 @@ describe('InstructorCourseSection', () => {
     renderSection();
 
     await waitFor(() => {
-      expect(queryAttendanceMock).toHaveBeenCalledTimes(2);
+      expect(queryAttendanceMock).toHaveBeenCalled();
+      expect(
+        screen.getByRole('button', {
+          name: 'Canonical Student: instructorAttendancePresent',
+        })
+      ).toBeInTheDocument();
     });
     const presentButton = screen.getByRole('button', {
       name: 'Canonical Student: instructorAttendancePresent',
@@ -515,7 +520,12 @@ describe('InstructorCourseSection', () => {
 
     renderSection();
     await waitFor(() => {
-      expect(queryAttendanceMock).toHaveBeenCalledTimes(2);
+      expect(queryAttendanceMock).toHaveBeenCalled();
+      expect(
+        screen.getByRole('button', {
+          name: 'Canonical Student: instructorAttendancePresent',
+        })
+      ).toBeInTheDocument();
     });
     fireEvent.click(
       screen.getByRole('button', {

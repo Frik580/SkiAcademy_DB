@@ -8,27 +8,30 @@ import { useCourseEnrollmentStore } from './courseEnrollmentStore';
 import { mergeCatalogRecords, mergeCourseEnrollmentRecords } from './courseEnrollmentViewModel';
 import { readGuestCourseEnrollmentCredential } from './guestCourseEnrollmentCredentialStorage';
 
+async function loadPublicCourseCatalog(): Promise<void> {
+  useCourseEnrollmentStore.getState().setCatalogLoading(true);
+  try {
+    const result = await queryCourseCatalogReadModels({ scope: 'public' });
+    const merged = mergeCatalogRecords(
+      useCourseEnrollmentStore.getState().catalogByCourseId,
+      result.items
+    );
+    useCourseEnrollmentStore.getState().mergeCatalog(merged);
+  } catch (error) {
+    useCourseEnrollmentStore
+      .getState()
+      .setError(error instanceof Error ? error.message : 'Failed to load course catalog.');
+  } finally {
+    useCourseEnrollmentStore.getState().setCatalogLoading(false);
+  }
+}
+
+/**
+ * Account course enrollment sync. Public catalog ownership lives in
+ * `useCourseCatalogReadSync` so cabinet mount issues one catalog callable.
+ */
 export function useCourseEnrollmentReadSync(enabled: boolean, accountId: string | undefined) {
   const historyRequestNonce = useCourseEnrollmentStore((state) => state.historyRequestNonce);
-
-  const loadCatalog = useCallback(async () => {
-    if (!enabled) return;
-    useCourseEnrollmentStore.getState().setCatalogLoading(true);
-    try {
-      const result = await queryCourseCatalogReadModels({ scope: 'public' });
-      const merged = mergeCatalogRecords(
-        useCourseEnrollmentStore.getState().catalogByCourseId,
-        result.items
-      );
-      useCourseEnrollmentStore.getState().mergeCatalog(merged);
-    } catch (error) {
-      useCourseEnrollmentStore
-        .getState()
-        .setError(error instanceof Error ? error.message : 'Failed to load course catalog.');
-    } finally {
-      useCourseEnrollmentStore.getState().setCatalogLoading(false);
-    }
-  }, [enabled]);
 
   const loadHot = useCallback(async () => {
     if (!enabled || !accountId) return;
@@ -77,13 +80,6 @@ export function useCourseEnrollmentReadSync(enabled: boolean, accountId: string 
   }, [accountId, enabled]);
 
   useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-    void loadCatalog();
-  }, [enabled, loadCatalog]);
-
-  useEffect(() => {
     if (!enabled || !accountId) {
       useCourseEnrollmentStore.getState().reset();
       return;
@@ -93,11 +89,12 @@ export function useCourseEnrollmentReadSync(enabled: boolean, accountId: string 
   }, [accountId, enabled, loadHot, loadHistoryPage]);
 
   useEffect(() => {
-    if (!enabled || !accountId) return;
+    // Initial history page is chained after hot load; nonce 0 would duplicate that request.
+    if (!enabled || !accountId || historyRequestNonce === 0) return;
     void loadHistoryPage();
   }, [historyRequestNonce, enabled, accountId, loadHistoryPage]);
 
-  return { reloadHot: loadHot, reloadCatalog: loadCatalog };
+  return { reloadHot: loadHot, reloadCatalog: loadPublicCourseCatalog };
 }
 
 export async function loadGuestSingleCourseEnrollment(enrollmentId: string) {
@@ -119,24 +116,11 @@ export async function loadGuestSingleCourseEnrollment(enrollmentId: string) {
   return result.items[0];
 }
 
+/** Sole mount-time owner of the public course catalog read for `/` and `/cabinet*`. */
 export function useCourseCatalogReadSync(enabled: boolean) {
   const loadCatalog = useCallback(async () => {
     if (!enabled) return;
-    useCourseEnrollmentStore.getState().setCatalogLoading(true);
-    try {
-      const result = await queryCourseCatalogReadModels({ scope: 'public' });
-      const merged = mergeCatalogRecords(
-        useCourseEnrollmentStore.getState().catalogByCourseId,
-        result.items
-      );
-      useCourseEnrollmentStore.getState().mergeCatalog(merged);
-    } catch (error) {
-      useCourseEnrollmentStore
-        .getState()
-        .setError(error instanceof Error ? error.message : 'Failed to load course catalog.');
-    } finally {
-      useCourseEnrollmentStore.getState().setCatalogLoading(false);
-    }
+    await loadPublicCourseCatalog();
   }, [enabled]);
 
   useEffect(() => {

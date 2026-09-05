@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import type { AdminFinancialOverviewPeriod } from '@ski-academy/shared-domain';
 import { FinancialOverview } from '../components/finance/FinancialOverview';
 import { computeAdminOperationalOverview } from './adminFinancialOverview';
-import { useAdminMonitorReadModels } from './useAdminMonitorReadModels';
+import { useSharedAdminMonitorReadModels } from './AdminMonitorReadModelsContext';
 import { useAdminFinancialOverviewReadModel } from '../components/finance/useAdminFinanceReadModels';
 import { formatDateLocalYMD } from '../components/schedule/scheduleUtils';
 import { resolveAdminTimeZone } from './adminTimeZone';
@@ -18,7 +18,7 @@ interface AdminFinancialOverviewHostProps {
 }
 
 export function AdminFinancialOverviewHost({ instructorsCount }: AdminFinancialOverviewHostProps) {
-  const { bookings } = useAdminMonitorReadModels();
+  const { bookings } = useSharedAdminMonitorReadModels();
   const [period, setPeriod] = useState<AdminFinancialOverviewPeriod>('month');
   const [, setSearchParams] = useSearchParams();
   const localDate = formatDateLocalYMD(new Date());

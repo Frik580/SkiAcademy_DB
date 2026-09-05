@@ -64,7 +64,8 @@ export function useLessonBookingReadSync(enabled: boolean, accountId: string | u
   }, [accountId, enabled, loadHot, loadHistoryPage]);
 
   useEffect(() => {
-    if (!enabled || !accountId) return;
+    // Initial history page is chained after hot load; nonce 0 would duplicate that request.
+    if (!enabled || !accountId || historyRequestNonce === 0) return;
     void loadHistoryPage();
   }, [historyRequestNonce, enabled, accountId, loadHistoryPage]);
 

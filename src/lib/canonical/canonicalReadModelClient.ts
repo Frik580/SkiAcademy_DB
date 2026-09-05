@@ -33,7 +33,8 @@ import {
   type QueryParticipantInstructorAccessReadModelsInput,
   type QueryParticipantInstructorAccessReadModelsResult,
 } from '@ski-academy/shared-domain';
-import { callFunction } from '../functions/functionsClient';
+import { callFunction, type FunctionsCallOptions } from '../functions/functionsClient';
+import { auth } from '../../infrastructure/firebase';
 
 export const QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE = 'queryLessonBookingReadModels';
 export const QUERY_MANAGED_PARTICIPANT_PICKER_READ_MODELS_CALLABLE =
@@ -57,6 +58,78 @@ export const QUERY_ADMIN_IDENTITY_READ_MODELS_CALLABLE = 'queryAdminIdentityRead
 export const QUERY_ADMIN_PLANNER_READ_MODELS_CALLABLE = 'queryAdminPlannerReadModels';
 export const QUERY_INSTRUCTOR_OCCUPANCY_READ_MODELS_CALLABLE = 'queryInstructorOccupancyReadModels';
 
+type CanonicalReadInFlightEntry = {
+  readonly promise: Promise<unknown>;
+};
+
+const inFlightCanonicalReads = new Map<string, CanonicalReadInFlightEntry>();
+let canonicalReadTransportInvocationCount = 0;
+let resolveCanonicalReadSessionKey = (): string => auth.currentUser?.uid ?? 'anonymous';
+
+export function __getCanonicalReadTransportInvocationCountForTests(): number {
+  return canonicalReadTransportInvocationCount;
+}
+
+export function __resetCanonicalReadInFlightRegistryForTests(): void {
+  inFlightCanonicalReads.clear();
+  canonicalReadTransportInvocationCount = 0;
+}
+
+export function __setCanonicalReadSessionKeyResolverForTests(resolver: () => string): void {
+  resolveCanonicalReadSessionKey = resolver;
+}
+
+function buildCanonicalReadInFlightKey(
+  callableName: string,
+  idempotencyKey: string,
+  guestCredential?: { readonly nonce?: string; readonly signature?: string }
+): string {
+  const guestPart =
+    guestCredential?.nonce || guestCredential?.signature
+      ? canonicalDeterministicHash([
+          guestCredential.nonce ?? '',
+          guestCredential.signature ?? '',
+        ])
+      : 'none';
+  return [callableName, idempotencyKey, resolveCanonicalReadSessionKey(), guestPart].join(
+    '\u001f'
+  );
+}
+
+/**
+ * Same-key in-flight dedupe for canonical READ callables only.
+ * Not a result cache: the registry entry is removed when the promise settles.
+ */
+function invokeCanonicalReadCallable<Input, Output>(
+  callableName: string,
+  input: Input,
+  options: FunctionsCallOptions,
+  guestCredential?: { readonly nonce?: string; readonly signature?: string }
+): Promise<Output> {
+  const key = buildCanonicalReadInFlightKey(
+    callableName,
+    options.idempotencyKey,
+    guestCredential
+  );
+  const existing = inFlightCanonicalReads.get(key);
+  if (existing) {
+    return existing.promise as Promise<Output>;
+  }
+
+  canonicalReadTransportInvocationCount += 1;
+  const pending: CanonicalReadInFlightEntry = {
+    promise: undefined as unknown as Promise<unknown>,
+  };
+  const promise = callFunction<Input, Output>(callableName, input, options).finally(() => {
+    if (inFlightCanonicalReads.get(key) === pending) {
+      inFlightCanonicalReads.delete(key);
+    }
+  });
+  (pending as { promise: Promise<unknown> }).promise = promise;
+  inFlightCanonicalReads.set(key, pending);
+  return promise;
+}
+
 export async function queryAdminCourseEnrollmentReadModels(
   input: QueryAdminCourseEnrollmentReadModelsInput
 ): Promise<QueryAdminCourseEnrollmentReadModelsResult> {
@@ -69,7 +142,7 @@ export async function queryAdminCourseEnrollmentReadModels(
     input.scope,
     target,
   ]);
-  return callFunction<
+  return invokeCanonicalReadCallable<
     QueryAdminCourseEnrollmentReadModelsInput,
     QueryAdminCourseEnrollmentReadModelsResult
   >(QUERY_ADMIN_COURSE_ENROLLMENT_READ_MODELS_CALLABLE, input, {
@@ -92,14 +165,13 @@ export async function queryAdminIdentityReadModels(
             ? input.accountId
             : `${'search' in input ? (input.search ?? 'all') : 'all'}:${'role' in input && input.role ? input.role : 'any'}:${'cursor' in input ? (input.cursor ?? 'start') : 'start'}`;
   const identityHash = canonicalDeterministicHash(['read:admin_identity:v1', input.scope, target]);
-  return callFunction<QueryAdminIdentityReadModelsInput, QueryAdminIdentityReadModelsResult>(
-    QUERY_ADMIN_IDENTITY_READ_MODELS_CALLABLE,
-    input,
-    {
-      idempotencyKey: `read:admin_identity:${identityHash}`,
-      maxAttempts: 1,
-    }
-  );
+  return invokeCanonicalReadCallable<
+    QueryAdminIdentityReadModelsInput,
+    QueryAdminIdentityReadModelsResult
+  >(QUERY_ADMIN_IDENTITY_READ_MODELS_CALLABLE, input, {
+    idempotencyKey: `read:admin_identity:${identityHash}`,
+    maxAttempts: 1,
+  });
 }
 
 export async function queryAdminPlannerReadModels(
@@ -112,14 +184,13 @@ export async function queryAdminPlannerReadModels(
     input.timeZone,
     String(input.windowDays ?? ''),
   ]);
-  return callFunction<QueryAdminPlannerReadModelsInput, QueryAdminPlannerReadModelsResult>(
-    QUERY_ADMIN_PLANNER_READ_MODELS_CALLABLE,
-    input,
-    {
-      idempotencyKey: `read:admin_planner:${identityHash}`,
-      maxAttempts: 1,
-    }
-  );
+  return invokeCanonicalReadCallable<
+    QueryAdminPlannerReadModelsInput,
+    QueryAdminPlannerReadModelsResult
+  >(QUERY_ADMIN_PLANNER_READ_MODELS_CALLABLE, input, {
+    idempotencyKey: `read:admin_planner:${identityHash}`,
+    maxAttempts: 1,
+  });
 }
 
 export async function queryAdminCourseReadModels(
@@ -127,11 +198,10 @@ export async function queryAdminCourseReadModels(
 ): Promise<QueryAdminCourseReadModelsResult> {
   const target = input.scope === 'admin_course_detail' ? input.courseId : 'list';
   const idempotencyKey = `read:admin_course:${input.scope}:${target}`;
-  return callFunction<QueryAdminCourseReadModelsInput, QueryAdminCourseReadModelsResult>(
-    QUERY_ADMIN_COURSE_READ_MODELS_CALLABLE,
-    input,
-    { idempotencyKey, maxAttempts: 1 }
-  );
+  return invokeCanonicalReadCallable<
+    QueryAdminCourseReadModelsInput,
+    QueryAdminCourseReadModelsResult
+  >(QUERY_ADMIN_COURSE_READ_MODELS_CALLABLE, input, { idempotencyKey, maxAttempts: 1 });
 }
 
 export async function queryAdminFinanceReadModels(
@@ -160,11 +230,10 @@ export async function queryAdminFinanceReadModels(
         : (input.cursor ?? 'start'),
   ]);
   const idempotencyKey = `read:admin_finance:${identityHash}`;
-  return callFunction<QueryAdminFinanceReadModelsInput, QueryAdminFinanceReadModelsResult>(
-    QUERY_ADMIN_FINANCE_READ_MODELS_CALLABLE,
-    input,
-    { idempotencyKey, maxAttempts: 1 }
-  );
+  return invokeCanonicalReadCallable<
+    QueryAdminFinanceReadModelsInput,
+    QueryAdminFinanceReadModelsResult
+  >(QUERY_ADMIN_FINANCE_READ_MODELS_CALLABLE, input, { idempotencyKey, maxAttempts: 1 });
 }
 
 function buildAdminIssueReadModelTransportInput(
@@ -197,14 +266,13 @@ export async function queryAdminIssueReadModels(
     transportInput.severity ?? 'all',
     transportInput.cursor ?? 'start',
   ].join(':');
-  return callFunction<QueryAdminIssueReadModelsInput, QueryAdminIssueReadModelsResult>(
-    QUERY_ADMIN_ISSUE_READ_MODELS_CALLABLE,
-    transportInput,
-    {
-      idempotencyKey,
-      maxAttempts: 1,
-    }
-  );
+  return invokeCanonicalReadCallable<
+    QueryAdminIssueReadModelsInput,
+    QueryAdminIssueReadModelsResult
+  >(QUERY_ADMIN_ISSUE_READ_MODELS_CALLABLE, transportInput, {
+    idempotencyKey,
+    maxAttempts: 1,
+  });
 }
 
 function createLessonBookingReadModelIdempotencyKey(
@@ -249,10 +317,17 @@ export async function queryLessonBookingReadModels(
 ): Promise<QueryLessonBookingReadModelsResult> {
   const transportInput = buildLessonBookingReadModelTransportInput(input);
   const idempotencyKey = createLessonBookingReadModelIdempotencyKey(transportInput);
-  return callFunction<QueryLessonBookingReadModelsInput, QueryLessonBookingReadModelsResult>(
+  return invokeCanonicalReadCallable<
+    QueryLessonBookingReadModelsInput,
+    QueryLessonBookingReadModelsResult
+  >(
     QUERY_LESSON_BOOKING_READ_MODELS_CALLABLE,
     transportInput,
-    { idempotencyKey, maxAttempts: 1 }
+    { idempotencyKey, maxAttempts: 1 },
+    {
+      nonce: transportInput.guestActionNonce,
+      signature: transportInput.guestActionSignature,
+    }
   );
 }
 
@@ -262,7 +337,7 @@ export async function queryManagedParticipantPickerReadModels(
   const idempotencyKey = input.accountId
     ? `read:managed_participant_picker:admin:${input.accountId}`
     : 'read:managed_participant_picker';
-  return callFunction<
+  return invokeCanonicalReadCallable<
     QueryManagedParticipantPickerReadModelsInput,
     QueryManagedParticipantPickerReadModelsResult
   >(QUERY_MANAGED_PARTICIPANT_PICKER_READ_MODELS_CALLABLE, input, {
@@ -275,28 +350,33 @@ export async function queryBookingProposalReadModels(
   input: QueryBookingProposalReadModelsInput
 ): Promise<QueryBookingProposalReadModelsResult> {
   const idempotencyKey = `read:booking_proposal:${input.scope}`;
-  return callFunction<QueryBookingProposalReadModelsInput, QueryBookingProposalReadModelsResult>(
-    QUERY_BOOKING_PROPOSAL_READ_MODELS_CALLABLE,
-    input,
-    { idempotencyKey, maxAttempts: 1 }
-  );
+  return invokeCanonicalReadCallable<
+    QueryBookingProposalReadModelsInput,
+    QueryBookingProposalReadModelsResult
+  >(QUERY_BOOKING_PROPOSAL_READ_MODELS_CALLABLE, input, {
+    idempotencyKey,
+    maxAttempts: 1,
+  });
 }
 
 export async function queryBookingChangeRequestReadModels(
   input: QueryBookingChangeRequestReadModelsInput
 ): Promise<QueryBookingChangeRequestReadModelsResult> {
   const idempotencyKey = `read:booking_change_request:${input.scope}`;
-  return callFunction<
+  return invokeCanonicalReadCallable<
     QueryBookingChangeRequestReadModelsInput,
     QueryBookingChangeRequestReadModelsResult
-  >(QUERY_BOOKING_CHANGE_REQUEST_READ_MODELS_CALLABLE, input, { idempotencyKey, maxAttempts: 1 });
+  >(QUERY_BOOKING_CHANGE_REQUEST_READ_MODELS_CALLABLE, input, {
+    idempotencyKey,
+    maxAttempts: 1,
+  });
 }
 
 export async function queryParticipantInstructorAccessReadModels(
   input: QueryParticipantInstructorAccessReadModelsInput
 ): Promise<QueryParticipantInstructorAccessReadModelsResult> {
   const idempotencyKey = createParticipantInstructorAccessReadModelIdempotencyKey(input);
-  return callFunction<
+  return invokeCanonicalReadCallable<
     QueryParticipantInstructorAccessReadModelsInput,
     QueryParticipantInstructorAccessReadModelsResult
   >(QUERY_PARTICIPANT_INSTRUCTOR_ACCESS_READ_MODELS_CALLABLE, input, {
@@ -345,10 +425,17 @@ export async function queryCourseEnrollmentReadModels(
 ): Promise<QueryCourseEnrollmentReadModelsResult> {
   const transportInput = buildCourseEnrollmentReadModelTransportInput(input);
   const idempotencyKey = createCourseEnrollmentReadModelIdempotencyKey(transportInput);
-  return callFunction<QueryCourseEnrollmentReadModelsInput, QueryCourseEnrollmentReadModelsResult>(
+  return invokeCanonicalReadCallable<
+    QueryCourseEnrollmentReadModelsInput,
+    QueryCourseEnrollmentReadModelsResult
+  >(
     QUERY_COURSE_ENROLLMENT_READ_MODELS_CALLABLE,
     transportInput,
-    { idempotencyKey, maxAttempts: 1 }
+    { idempotencyKey, maxAttempts: 1 },
+    {
+      nonce: transportInput.guestActionNonce,
+      signature: transportInput.guestActionSignature,
+    }
   );
 }
 
@@ -356,29 +443,33 @@ export async function queryCourseCatalogReadModels(
   input: QueryCourseCatalogReadModelsInput
 ): Promise<QueryCourseCatalogReadModelsResult> {
   const idempotencyKey = `read:course_catalog:${input.scope}:${input.courseId ?? 'all'}`;
-  return callFunction<QueryCourseCatalogReadModelsInput, QueryCourseCatalogReadModelsResult>(
-    QUERY_COURSE_CATALOG_READ_MODELS_CALLABLE,
-    input,
-    { idempotencyKey, maxAttempts: 1 }
-  );
+  return invokeCanonicalReadCallable<
+    QueryCourseCatalogReadModelsInput,
+    QueryCourseCatalogReadModelsResult
+  >(QUERY_COURSE_CATALOG_READ_MODELS_CALLABLE, input, {
+    idempotencyKey,
+    maxAttempts: 1,
+  });
 }
 
 export async function queryCourseAttendanceReadModels(
   input: QueryCourseAttendanceReadModelsInput
 ): Promise<QueryCourseAttendanceReadModelsResult> {
   const idempotencyKey = `read:course_attendance:${input.scope}:${input.enrollmentId ?? 'none'}:${input.courseId ?? 'none'}`;
-  return callFunction<QueryCourseAttendanceReadModelsInput, QueryCourseAttendanceReadModelsResult>(
-    QUERY_COURSE_ATTENDANCE_READ_MODELS_CALLABLE,
-    input,
-    { idempotencyKey, maxAttempts: 1 }
-  );
+  return invokeCanonicalReadCallable<
+    QueryCourseAttendanceReadModelsInput,
+    QueryCourseAttendanceReadModelsResult
+  >(QUERY_COURSE_ATTENDANCE_READ_MODELS_CALLABLE, input, {
+    idempotencyKey,
+    maxAttempts: 1,
+  });
 }
 
 export async function queryInstructorCourseAssignmentReadModels(
   input: QueryInstructorCourseAssignmentReadModelsInput
 ): Promise<QueryInstructorCourseAssignmentReadModelsResult> {
   const idempotencyKey = `read:instructor_course_assignment:${input.scope}`;
-  return callFunction<
+  return invokeCanonicalReadCallable<
     QueryInstructorCourseAssignmentReadModelsInput,
     QueryInstructorCourseAssignmentReadModelsResult
   >(QUERY_INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODELS_CALLABLE, input, {
@@ -397,7 +488,7 @@ export async function queryInstructorOccupancyReadModels(
     input.timeZone,
     String(input.windowDays ?? 1),
   ]);
-  return callFunction<
+  return invokeCanonicalReadCallable<
     QueryInstructorOccupancyReadModelsInput,
     QueryInstructorOccupancyReadModelsResult
   >(QUERY_INSTRUCTOR_OCCUPANCY_READ_MODELS_CALLABLE, input, {

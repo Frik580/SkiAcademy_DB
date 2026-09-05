@@ -60,6 +60,7 @@ describe('T32.9A Admin UX parity behavior', () => {
     const source = readRepoFile('src/features/admin/components/AdminPanel.tsx');
     expect(source).toContain('scheduleBoardTitle');
     expect(source).toContain('bookingsLogTitle');
+    expect(source).toContain('AdminMonitorReadModelsProvider');
     expect(source).not.toContain('guestWalletPanelTitle');
     expect(source).not.toContain('GuestWalletPanel');
     expect(source).toContain('canonicalGuestFinanceTitle');

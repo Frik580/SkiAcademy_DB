@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { Instructor, UserProfile } from '../../../types';
 import { BookingsLog } from '../components/bookings/BookingsLog';
-import { useAdminMonitorReadModels } from './useAdminMonitorReadModels';
+import { useSharedAdminMonitorReadModels } from './AdminMonitorReadModelsContext';
 import {
   ADMIN_COURSE_ENROLLMENT_QUERY_KEY,
   ADMIN_COURSE_ENROLLMENT_VIEW_QUERY_KEY,
@@ -28,7 +28,7 @@ export function AdminActiveBookingMonitor({
     enrollmentsRoster,
     enrollmentsPending,
     enrollmentsHistory,
-  } = useAdminMonitorReadModels();
+  } = useSharedAdminMonitorReadModels();
 
   const loadMore = useCallback(() => {
     if (lessonsHot.list.hasMore) void lessonsHot.loadMore();

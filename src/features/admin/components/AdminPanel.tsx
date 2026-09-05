@@ -11,6 +11,7 @@ import { TableSkeleton } from '../../../ui/Skeleton';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import { ADMIN_CLIENT_ACCOUNT_QUERY_KEY, ADMIN_COURSE_ENROLLMENT_QUERY_KEY, ADMIN_FINANCE_ACCOUNT_QUERY_KEY, ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY, ADMIN_FINANCE_PAYMENT_QUERY_KEY, ADMIN_LESSON_BOOKING_QUERY_KEY, ADMIN_PLANNER_DATE_QUERY_KEY, ADMIN_PLANNER_FOCUS_QUERY_KEY, ADMIN_TAB_QUERY_KEY, parseAdminTabId, type AdminTabId } from '../adminNavigation';
 import { AdminTabNav } from './AdminTabNav';
+import { AdminMonitorReadModelsProvider } from '../operations/AdminMonitorReadModelsContext';
 
 const CanonicalFinancePanel = lazy(() =>
   import('./finance').then((m) => ({
@@ -159,6 +160,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   return (
+    <AdminMonitorReadModelsProvider>
     <div className="space-y-6 animate-fade-in">
       <Suspense fallback={<SectionLoadingFallback label={t('financialOverview')} />}>
         <AdminFinancialOverviewHost instructorsCount={instructors.length} />
@@ -458,5 +460,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           document.body
         )}
     </div>
+    </AdminMonitorReadModelsProvider>
   );
 };

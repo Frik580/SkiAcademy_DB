@@ -1,11 +1,12 @@
 import {
+  AccountIdSchema,
   ParticipantIdSchema,
   canonicalDeterministicHash,
   participantManagementIdFromGuestLink,
   type AccountId,
   type ParticipantId,
 } from '@ski-academy/shared-domain';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toCanonicalCommandClientError } from '../../../lib/canonical/mapCanonicalCommandError';
@@ -15,7 +16,10 @@ import {
   useAdminIdentityReadModels,
   useAdminParticipantDetail,
 } from '../identity/useAdminIdentityReadModels';
-import { adminFinanceAccountSearchParams } from '../adminNavigation';
+import {
+  ADMIN_CLIENT_ACCOUNT_QUERY_KEY,
+  adminFinanceAccountSearchParams,
+} from '../adminNavigation';
 import { useAdminWalletReadModel } from '../components/finance/useAdminFinanceReadModels';
 import { parseAdminFinanceAccountId } from '../components/finance/financeContracts';
 import {
@@ -73,7 +77,7 @@ function profileDraftFromDetail(detail: {
 
 export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryProps) {
   const { text, locale } = useAdminClientTranslations();
-  const [, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState<AccountId | undefined>();
@@ -94,6 +98,25 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+
+  const deepLinkAccountRaw = searchParams.get(ADMIN_CLIENT_ACCOUNT_QUERY_KEY);
+
+  useEffect(() => {
+    if (!deepLinkAccountRaw) return;
+    const parsed = AccountIdSchema.safeParse(deepLinkAccountRaw);
+    if (!parsed.success) return;
+    setSelectedAccountId(parsed.data);
+    setSelectedParticipantId(undefined);
+    setContactEditing(false);
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        next.delete(ADMIN_CLIENT_ACCOUNT_QUERY_KEY);
+        return next;
+      },
+      { replace: true }
+    );
+  }, [deepLinkAccountRaw, setSearchParams]);
 
   useEffect(() => {
     if (search.trim() === '') {
@@ -182,6 +205,12 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
   ) =>
     participantRead.item?.authorizedActions.find((item) => item.kind === kind)?.expectedRevision ??
     fallback;
+
+  const closeClientDetail = () => {
+    setSelectedAccountId(undefined);
+    setSelectedParticipantId(undefined);
+    setContactEditing(false);
+  };
 
   return (
     <div className="space-y-4">
@@ -311,21 +340,41 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
           ) : null}
         </section>
         {selectedAccountId ? (
-          <aside className="min-w-0 border border-[var(--border)] p-6 lg:col-span-5">
+          <aside className="relative min-w-0 border border-[var(--border)] p-6 lg:col-span-5">
             {reads.detailLoading || participantRead.loading ? (
-              <p className="flex items-center gap-2 text-xs text-[var(--ink-dim)]">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {text.loading}
-              </p>
+              <div className="flex items-start justify-between gap-3">
+                <p className="flex items-center gap-2 text-xs text-[var(--ink-dim)]">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {text.loading}
+                </p>
+                <button
+                  type="button"
+                  aria-label={text.closeDetail}
+                  onClick={closeClientDetail}
+                  className="shrink-0 border border-[var(--border)] p-1.5 text-[var(--ink-dim)] transition hover:border-[var(--ink)] hover:text-[var(--ink)]"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              </div>
             ) : null}
             {reads.detailError || participantRead.error ? (
               <div className="space-y-2">
-                <p role="alert" className="text-xs text-red-600">
-                  {reads.detailError === 'permission-denied' ||
-                  participantRead.error === 'permission-denied'
-                    ? text.permissionDenied
-                    : text.detailFailed}
-                </p>
+                <div className="flex items-start justify-between gap-3">
+                  <p role="alert" className="text-xs text-red-600">
+                    {reads.detailError === 'permission-denied' ||
+                    participantRead.error === 'permission-denied'
+                      ? text.permissionDenied
+                      : text.detailFailed}
+                  </p>
+                  <button
+                    type="button"
+                    aria-label={text.closeDetail}
+                    onClick={closeClientDetail}
+                    className="shrink-0 border border-[var(--border)] p-1.5 text-[var(--ink-dim)] transition hover:border-[var(--ink)] hover:text-[var(--ink)]"
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => void reads.refresh()}
@@ -391,6 +440,7 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
                   })
                 }
                 onBack={() => setSelectedParticipantId(undefined)}
+                onClose={closeClientDetail}
               />
             ) : null}
             {!reads.detailLoading && !selectedParticipantId && reads.accountDetail ? (
@@ -414,6 +464,7 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
                 pending={pending}
                 locale={locale}
                 text={text}
+                onClose={closeClientDetail}
                 onStartContactEdit={() => setContactEditing(true)}
                 onContactChange={setContactDraft}
                 onSaveContact={() =>

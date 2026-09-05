@@ -38,6 +38,7 @@ export function useAdminInstructorTranslations() {
       account: ru ? 'Аккаунт' : 'Account',
       actions: ru ? 'Действия' : 'Actions',
       openDetail: ru ? 'Открыть' : 'Open',
+      closeDetail: ru ? 'Закрыть карточку' : 'Close detail',
       unnamed: ru ? 'Без имени' : 'Unnamed',
       available: ru ? 'Принимает записи' : 'Accepting bookings',
       paused: ru ? 'Приём приостановлен' : 'Bookings paused',

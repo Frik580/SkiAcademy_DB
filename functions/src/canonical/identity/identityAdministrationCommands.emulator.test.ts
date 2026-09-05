@@ -228,6 +228,113 @@ describe.skipIf(!runsOnFirestoreEmulator)('identity administration Firestore emu
     });
   }, 30_000);
 
+  it('enforces owner-only role mutations and excludes uninitialized targets from authorizedActions', async () => {
+    const ordinaryAdminId = AccountIdSchema.parse('account_identity_admin_emulator_ordinary');
+    const statsId = AccountIdSchema.parse('school_global_stats');
+    await firestore.collection('users').doc(ordinaryAdminId).set(
+      seedAccount(ordinaryAdminId, { role: 'admin', displayName: 'Ordinary Admin' })
+    );
+    await firestore.collection('users').doc(statsId).set({
+      displayName: 'School Global Stats',
+    });
+    await firestore.collection('users').doc(targetAccountId).set(
+      seedAccount(targetAccountId, { role: 'admin', displayName: 'Demote Target' })
+    );
+
+    const ownerActor = { kind: 'administrator' as const, accountId: adminAccountId };
+    const ordinaryActor = { kind: 'administrator' as const, accountId: ordinaryAdminId };
+
+    const ownerList = await queryAdminIdentityReadModels(firestore, ownerActor, {
+      scope: 'admin_account_list',
+      role: 'admin',
+      pageSize: 50,
+    });
+    expect(ownerList.scope).toBe('admin_account_list');
+    if (ownerList.scope !== 'admin_account_list') return;
+    expect(ownerList.items.some((item) => item.accountId === adminAccountId)).toBe(true);
+    const demoteTarget = ownerList.items.find((item) => item.accountId === targetAccountId);
+    expect(demoteTarget?.authorizedActions.some((a) => a.kind === 'change_account_role')).toBe(
+      true
+    );
+
+    const statsDetail = await queryAdminIdentityReadModels(firestore, ownerActor, {
+      scope: 'admin_account_detail',
+      accountId: statsId,
+    });
+    expect(statsDetail.scope).toBe('admin_account_detail');
+    if (statsDetail.scope !== 'admin_account_detail') return;
+    expect(statsDetail.item?.lifecycle).toBe('uninitialized');
+    expect(
+      statsDetail.item?.authorizedActions.some((a) => a.kind === 'change_account_role')
+    ).toBe(false);
+
+    const ordinaryList = await queryAdminIdentityReadModels(firestore, ordinaryActor, {
+      scope: 'admin_account_list',
+      role: 'admin',
+      pageSize: 50,
+    });
+    expect(ordinaryList.scope).toBe('admin_account_list');
+    if (ordinaryList.scope !== 'admin_account_list') return;
+    expect(
+      ordinaryList.items.every(
+        (item) => !item.authorizedActions.some((a) => a.kind === 'change_account_role')
+      )
+    ).toBe(true);
+
+    const executor = createFirestoreCanonicalTransactionExecutor(firestore);
+    const commands = createProductionCanonicalCommands(
+      { clock: createAuthoritativeCommandClock(new Date('2026-02-01T00:00:00.000Z')) },
+      executor
+    );
+
+    const ordinaryAttempt = await commands.execute({
+      kind: 'change_account_role',
+      context: {
+        ...adminContext('identity-emulator-role-ordinary'),
+        actor: accountCommandActor(ordinaryAdminId),
+      },
+      intent: {
+        accountId: targetAccountId,
+        role: 'user',
+        reasonExplanation: 'Ordinary admin demote',
+      },
+    });
+    expect(ordinaryAttempt.status).toBe('error');
+
+    const demoteRevision = demoteTarget?.authorizedActions.find(
+      (a) => a.kind === 'change_account_role'
+    )?.expectedRevision;
+    expect(demoteRevision).toBeDefined();
+    const demote = await commands.execute({
+      kind: 'change_account_role',
+      context: adminContext('identity-emulator-role-demote', demoteRevision),
+      intent: {
+        accountId: targetAccountId,
+        role: 'user',
+        reasonExplanation: 'Owner demote',
+      },
+    });
+    expect(demote.status).toBe('success');
+    expect((await firestore.collection('users').doc(targetAccountId).get()).data()).toMatchObject({
+      role: 'user',
+      lifecycle: { status: 'active' },
+    });
+
+    const uninitAttempt = await commands.execute({
+      kind: 'change_account_role',
+      context: adminContext('identity-emulator-role-uninit', 1),
+      intent: {
+        accountId: statsId,
+        role: 'admin',
+        reasonExplanation: 'Promote stats',
+      },
+    });
+    expect(uninitAttempt.status).toBe('error');
+    expect((await firestore.collection('users').doc(statsId).get()).data()).toEqual({
+      displayName: 'School Global Stats',
+    });
+  }, 60_000);
+
   it('updates Account contact projection through the Admin SDK without changing email or role', async () => {
     const executor = createFirestoreCanonicalTransactionExecutor(firestore);
     const commands = createProductionCanonicalCommands(

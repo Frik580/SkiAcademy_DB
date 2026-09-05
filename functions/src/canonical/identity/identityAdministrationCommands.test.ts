@@ -151,6 +151,120 @@ describe('canonical identity administration commands', () => {
     });
   });
 
+  it('lets system owner demote a non-owner admin without touching lifecycle or instructor link', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`users/${targetAccountId}`]: seedAccount(targetAccountId, {
+        role: 'admin',
+        instructorId,
+        isInstructor: true,
+      }),
+      [`participants/${participantId}`]: seedParticipant(),
+    });
+    const result = await run(executor, {
+      kind: 'change_account_role',
+      context: adminContext('role-demote-01'),
+      intent: { accountId: targetAccountId, role: 'user', reasonExplanation: 'Demote' },
+    });
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`users/${targetAccountId}`)?.data).toMatchObject({
+      role: 'user',
+      lifecycle: { status: 'active' },
+      instructorId,
+      isInstructor: true,
+    });
+    expect(executor.snapshot().docs.get(`participants/${participantId}`)?.data).toMatchObject({
+      lifecycle: { status: 'active' },
+    });
+  });
+
+  it('rejects ordinary admin and non-admin role mutations; rejects self demotion and owner target', async () => {
+    const ordinaryDenied = await run(
+      createInMemoryCanonicalTransactionExecutor({
+        [`users/${adminAccountId}`]: seedAccount(adminAccountId, { role: 'admin' }),
+        [`users/${targetAccountId}`]: seedAccount(targetAccountId, { role: 'user' }),
+      }),
+      {
+        kind: 'change_account_role',
+        context: adminContext('role-ordinary-01'),
+        intent: { accountId: targetAccountId, role: 'admin', reasonExplanation: 'Promote' },
+      }
+    );
+    expect(ordinaryDenied.status).toBe('error');
+
+    const nonAdminDenied = await run(
+      createInMemoryCanonicalTransactionExecutor({
+        [`users/${adminAccountId}`]: seedAccount(adminAccountId, { role: 'user' }),
+        [`users/${targetAccountId}`]: seedAccount(targetAccountId, { role: 'user' }),
+      }),
+      {
+        kind: 'change_account_role',
+        context: {
+          ...adminContext('role-nonadmin-01'),
+          exercisedCapability: 'account_owner',
+        },
+        intent: { accountId: targetAccountId, role: 'admin', reasonExplanation: 'Promote' },
+      }
+    );
+    expect(nonAdminDenied.status).toBe('error');
+
+    const selfDemote = await run(
+      createInMemoryCanonicalTransactionExecutor({
+        [`users/${adminAccountId}`]: seedAccount(adminAccountId, {
+          role: 'admin',
+          systemRole: 'owner',
+        }),
+      }),
+      {
+        kind: 'change_account_role',
+        context: adminContext('role-self-01'),
+        intent: { accountId: adminAccountId, role: 'user', reasonExplanation: 'Self demote' },
+      }
+    );
+    expect(selfDemote.status).toBe('error');
+
+    const ownerTarget = await run(
+      createInMemoryCanonicalTransactionExecutor({
+        [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+        [`users/${ownerAccountId}`]: seedAccount(ownerAccountId, {
+          role: 'admin',
+          systemRole: 'owner',
+        }),
+      }),
+      {
+        kind: 'change_account_role',
+        context: adminContext('role-owner-target-02'),
+        intent: {
+          accountId: ownerAccountId,
+          role: 'user',
+          reasonExplanation: 'Must not demote owner',
+        },
+      }
+    );
+    expect(ownerTarget.status).toBe('error');
+  });
+
+  it('rejects change_account_role against uninitialized non-canonical documents', async () => {
+    const statsId = AccountIdSchema.parse('school_global_stats');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${adminAccountId}`]: seedAccount(adminAccountId, { systemRole: 'owner' }),
+      [`users/${statsId}`]: { displayName: 'School Global Stats' },
+    });
+    const result = await run(executor, {
+      kind: 'change_account_role',
+      context: adminContext('role-uninit-01', 1),
+      intent: {
+        accountId: statsId,
+        role: 'admin',
+        reasonExplanation: 'Must not promote stats',
+      },
+    });
+    expect(result.status).toBe('error');
+    expect(executor.snapshot().docs.get(`users/${statsId}`)?.data).toEqual({
+      displayName: 'School Global Stats',
+    });
+  });
+
   it('fails closed when archiving a Participant with too many commitments to scan', async () => {
     const bookings: Record<string, Record<string, unknown>> = {};
     for (let index = 0; index < 33; index += 1) {

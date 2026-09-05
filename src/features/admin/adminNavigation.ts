@@ -20,6 +20,7 @@ export const ADMIN_FINANCE_ACCOUNT_QUERY_KEY = 'account';
 export const ADMIN_FINANCE_PAYMENT_QUERY_KEY = 'payment';
 export const ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY = 'movement';
 export const ADMIN_FINANCE_MOVEMENT_PERIOD_QUERY_KEY = 'movementPeriod';
+export const ADMIN_CLIENT_ACCOUNT_QUERY_KEY = 'clientAccount';
 export const ADMIN_LESSON_BOOKING_QUERY_KEY = 'booking';
 export const ADMIN_LESSON_BOOKING_VIEW_QUERY_KEY = 'bookingView';
 export const ADMIN_PLANNER_DATE_QUERY_KEY = 'plannerDate';
@@ -42,15 +43,16 @@ export function adminFinanceAccountSearchParams(
 }
 
 /**
- * People → Clients has no account deep-link query key yet (collapsible sections only).
- * Opens the People tab; the caller cannot pre-select a specific client account.
+ * People → Clients account deep-link.
+ * Opens the People tab and sets clientAccount for AdminClientDirectory to consume.
  */
 export function adminClientAccountSearchParams(
   previous: URLSearchParams,
-  _accountId: string
+  accountId: string
 ): URLSearchParams {
   const next = new URLSearchParams(previous);
   next.set(ADMIN_TAB_QUERY_KEY, 'people');
+  next.set(ADMIN_CLIENT_ACCOUNT_QUERY_KEY, accountId);
   return next;
 }
 

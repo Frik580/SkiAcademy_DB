@@ -322,3 +322,99 @@ describe('Admin Identity instructor revision 0 preservation', () => {
     );
   });
 });
+
+describe('Admin Identity account role authorization and filters', () => {
+  const ownerId = AccountIdSchema.parse('account_admin_identity_owner_role_01');
+  const ordinaryAdminId = AccountIdSchema.parse('account_admin_identity_ordinary_role_01');
+  const userTargetId = AccountIdSchema.parse('account_admin_identity_user_role_01');
+  const schoolGlobalStatsId = AccountIdSchema.parse('school_global_stats');
+  const uninitializedId = AccountIdSchema.parse('account_admin_identity_uninit_role_01');
+
+  function ownerSeedAccount(accountId: typeof ownerId, role: 'admin' | 'user', systemRole?: 'owner') {
+    return {
+      ...seedAccount(accountId, role),
+      ...(systemRole ? { systemRole } : {}),
+      displayName: accountId,
+    };
+  }
+
+  function roleDirectorySeed() {
+    return {
+      [`users/${ownerId}`]: ownerSeedAccount(ownerId, 'admin', 'owner'),
+      [`users/${ordinaryAdminId}`]: ownerSeedAccount(ordinaryAdminId, 'admin'),
+      [`users/${userTargetId}`]: ownerSeedAccount(userTargetId, 'user'),
+      [`users/${schoolGlobalStatsId}`]: {
+        displayName: 'School Global Stats',
+        // Non-canonical legacy aggregate — no Account lifecycle/revision.
+      },
+      [`users/${uninitializedId}`]: {
+        displayName: 'Uninitialized Pseudo',
+        email: 'pseudo@example.com',
+        role: 'user',
+      },
+    };
+  }
+
+  it('does not advertise change_account_role for uninitialized or school_global_stats docs', async () => {
+    const handler = createQueryAdminIdentityReadModelsHandler(fakeFirestore(roleDirectorySeed()));
+    const result = await handler({
+      auth: { uid: ownerId },
+      data: { scope: 'admin_account_list', pageSize: 50 },
+    } as never);
+    expect(result.scope).toBe('admin_account_list');
+    if (result.scope !== 'admin_account_list') return;
+
+    const stats = result.items.find((item) => item.accountId === schoolGlobalStatsId);
+    expect(stats?.lifecycle).toBe('uninitialized');
+    expect(stats?.revision).toBeUndefined();
+    expect(stats?.authorizedActions.some((action) => action.kind === 'change_account_role')).toBe(
+      false
+    );
+
+    const uninit = result.items.find((item) => item.accountId === uninitializedId);
+    expect(uninit?.lifecycle).toBe('uninitialized');
+    expect(uninit?.revision).toBeUndefined();
+    expect(uninit?.authorizedActions.some((action) => action.kind === 'change_account_role')).toBe(
+      false
+    );
+  });
+
+  it('filters admin_account_list by role=admin and includes owner', async () => {
+    const handler = createQueryAdminIdentityReadModelsHandler(fakeFirestore(roleDirectorySeed()));
+    const result = await handler({
+      auth: { uid: ownerId },
+      data: { scope: 'admin_account_list', role: 'admin', pageSize: 50 },
+    } as never);
+    expect(result.scope).toBe('admin_account_list');
+    if (result.scope !== 'admin_account_list') return;
+    const ids = result.items.map((item) => item.accountId);
+    expect(ids).toContain(ownerId);
+    expect(ids).toContain(ordinaryAdminId);
+    expect(ids).not.toContain(userTargetId);
+    expect(ids).not.toContain(schoolGlobalStatsId);
+    const ownerRow = result.items.find((item) => item.accountId === ownerId);
+    expect(ownerRow?.role.systemRole).toBe('owner');
+    expect(ownerRow?.authorizedActions.some((action) => action.kind === 'change_account_role')).toBe(
+      false
+    );
+    const ordinary = result.items.find((item) => item.accountId === ordinaryAdminId);
+    expect(ordinary?.authorizedActions.some((action) => action.kind === 'change_account_role')).toBe(
+      true
+    );
+  });
+
+  it('does not advertise change_account_role when actor is ordinary admin', async () => {
+    const handler = createQueryAdminIdentityReadModelsHandler(fakeFirestore(roleDirectorySeed()));
+    const result = await handler({
+      auth: { uid: ordinaryAdminId },
+      data: { scope: 'admin_account_list', role: 'admin', pageSize: 50 },
+    } as never);
+    expect(result.scope).toBe('admin_account_list');
+    if (result.scope !== 'admin_account_list') return;
+    for (const item of result.items) {
+      expect(item.authorizedActions.some((action) => action.kind === 'change_account_role')).toBe(
+        false
+      );
+    }
+  });
+});

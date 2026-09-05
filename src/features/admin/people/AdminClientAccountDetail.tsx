@@ -1,4 +1,5 @@
 import type { ParticipantId } from '@ski-academy/shared-domain';
+import { X } from 'lucide-react';
 import type {
   AdminClientAccountDetailView,
   AdminClientContactDraft,
@@ -21,6 +22,7 @@ interface AdminClientAccountDetailProps {
   readonly pending: boolean;
   readonly locale: string;
   readonly text: ReturnType<typeof useAdminClientTranslations>['text'];
+  readonly onClose: () => void;
   readonly onStartContactEdit: () => void;
   readonly onContactChange: (draft: AdminClientContactDraft) => void;
   readonly onSaveContact: () => void;
@@ -44,6 +46,7 @@ export function AdminClientAccountDetail({
   pending,
   locale,
   text,
+  onClose,
   onStartContactEdit,
   onContactChange,
   onSaveContact,
@@ -71,7 +74,17 @@ export function AdminClientAccountDetail({
   return (
     <div className="space-y-4">
       <header className="space-y-1 border-b border-[var(--border)] pb-3">
-        <h3 className="font-serif text-lg font-light">{detail.displayName}</h3>
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="min-w-0 font-serif text-lg font-light">{detail.displayName}</h3>
+          <button
+            type="button"
+            aria-label={text.closeDetail}
+            onClick={onClose}
+            className="shrink-0 border border-[var(--border)] p-1.5 text-[var(--ink-dim)] transition hover:border-[var(--ink)] hover:text-[var(--ink)]"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        </div>
         {detail.email ? <p className="font-mono text-xs">{detail.email}</p> : null}
         {detail.phoneNumber ? (
           <p className="font-mono text-xs text-[var(--ink-dim)]">{detail.phoneNumber}</p>

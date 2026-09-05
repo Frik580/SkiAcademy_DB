@@ -1,5 +1,6 @@
 import type { AccountId } from '@ski-academy/shared-domain';
 import type { ReactNode } from 'react';
+import { X } from 'lucide-react';
 import type {
   AdminInstructorDetailView,
   AdminInstructorProfileDraft,
@@ -16,6 +17,7 @@ interface AdminInstructorDetailProps {
   readonly uploading: boolean;
   readonly linkPicker: ReactNode;
   readonly text: ReturnType<typeof useAdminInstructorTranslations>['text'];
+  readonly onClose: () => void;
   readonly onStartEdit: () => void;
   readonly onProfileChange: (draft: AdminInstructorProfileDraft) => void;
   readonly onSaveProfile: () => void;
@@ -59,6 +61,7 @@ export function AdminInstructorDetail({
   uploading,
   linkPicker,
   text,
+  onClose,
   onStartEdit,
   onProfileChange,
   onSaveProfile,
@@ -93,25 +96,34 @@ export function AdminInstructorDetail({
   return (
     <div className="space-y-4">
       <header className="space-y-1 border-b border-[var(--border)] pb-3">
-        <div className="flex items-start gap-3">
-          {detail.avatarUrl ? (
-            <img src={detail.avatarUrl} alt="" className="h-14 w-14 shrink-0 object-cover" />
-          ) : null}
-          <div className="min-w-0">
-            <h3 className="font-serif text-lg font-light">{detail.name}</h3>
-            <p className="text-xs text-[var(--ink-dim)]">
-              {specialtyLabel(detail.specialty, text)}
-              {detail.pricePerHourKZT !== undefined
-                ? ` · ${detail.pricePerHourKZT.toLocaleString('ru-RU')} ₸/ч`
-                : ''}
-            </p>
-            <p className="text-xs text-[var(--ink-dim)]">
-              {detail.isAvailable ? text.available : text.paused}
-            </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            {detail.avatarUrl ? (
+              <img src={detail.avatarUrl} alt="" className="h-14 w-14 shrink-0 object-cover" />
+            ) : null}
+            <div className="min-w-0">
+              <h3 className="font-serif text-lg font-light">{detail.name}</h3>
+              <p className="text-xs text-[var(--ink-dim)]">
+                {specialtyLabel(detail.specialty, text)}
+                {detail.pricePerHourKZT !== undefined
+                  ? ` · ${detail.pricePerHourKZT.toLocaleString('ru-RU')} ₸/ч`
+                  : ''}
+              </p>
+              <p className="text-xs text-[var(--ink-dim)]">
+                {detail.isAvailable ? text.available : text.paused}
+              </p>
+            </div>
           </div>
+          <button
+            type="button"
+            aria-label={text.closeDetail}
+            onClick={onClose}
+            className="shrink-0 border border-[var(--border)] p-1.5 text-[var(--ink-dim)] transition hover:border-[var(--ink)] hover:text-[var(--ink)]"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden />
+          </button>
         </div>
       </header>
-
       <section className="space-y-1 text-xs">
         <h4 className="text-sm font-medium">{text.account}</h4>
         {detail.linkedAccountId ? (

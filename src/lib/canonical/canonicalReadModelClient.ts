@@ -90,7 +90,7 @@ export async function queryAdminIdentityReadModels(
           ? input.instructorId
           : input.scope === 'admin_eligible_participants'
             ? input.accountId
-            : `${'search' in input ? (input.search ?? 'all') : 'all'}:${'cursor' in input ? (input.cursor ?? 'start') : 'start'}`;
+            : `${'search' in input ? (input.search ?? 'all') : 'all'}:${'role' in input && input.role ? input.role : 'any'}:${'cursor' in input ? (input.cursor ?? 'start') : 'start'}`;
   const identityHash = canonicalDeterministicHash(['read:admin_identity:v1', input.scope, target]);
   return callFunction<QueryAdminIdentityReadModelsInput, QueryAdminIdentityReadModelsResult>(
     QUERY_ADMIN_IDENTITY_READ_MODELS_CALLABLE,

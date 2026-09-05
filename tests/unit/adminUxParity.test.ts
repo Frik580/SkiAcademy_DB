@@ -485,10 +485,21 @@ describe('T32.9A Admin UX parity behavior', () => {
 
   it('uses canonical identity commands for people mutations', () => {
     const people = readRepoFile('src/features/admin/people/AdminPeopleSection.tsx');
+    const roles = readRepoFile('src/features/admin/people/AdminRoleDirectory.tsx');
     const instructors = readRepoFile('src/features/admin/people/AdminInstructorDirectory.tsx');
     expect(people).toContain('AdminClientDirectory');
     expect(people).toContain('AdminInstructorDirectory');
-    expect(people).toContain("kind: 'change_account_role'");
+    expect(people).toContain('AdminRoleDirectory');
+    expect(people).not.toContain('mergeAdminClientDirectory');
+    expect(people).not.toContain('storeUsers');
+    expect(people).not.toContain('useUsersSync');
+    expect(roles).toContain("kind: 'change_account_role'");
+    expect(roles).toContain("role: 'admin'");
+    expect(roles).toContain('changeAccountRoleAuthorizedAction');
+    expect(roles).not.toContain('expectedRevision: item?.revision ?? 1');
+    expect(roles).not.toContain('mergeAdminClientDirectory');
+    expect(roles).not.toContain('useUsersSync');
+    expect(roles).not.toContain('usersList');
     expect(people).not.toContain('CoachesManager');
     expect(instructors).toContain("kind: 'create_instructor_catalog_entry'");
     expect(instructors).toContain("kind: 'update_instructor_catalog_profile'");

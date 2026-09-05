@@ -6,6 +6,8 @@ import {
   evaluateDisableAccount,
   evaluateReactivateInstructorCatalog,
   instructorUnlinkBlockedByFutureCommitments,
+  isCanonicalAccountEligibleForAdminRolePromotion,
+  canDemoteCanonicalAccountAdminRole,
   parseInstructorCatalogRevision,
   participantArchiveBlockedByCommitments,
   diagnoseAccountIdentity,
@@ -14,6 +16,7 @@ import {
 import { AccountIdSchema, CorrelationIdSchema } from './identifiers';
 import { AggregateRevisionSchema, timestampFromDate } from './primitives';
 import { assertExpectedRevision, readAggregateRevision } from './revisionConcurrency';
+import { parseCommandIntent } from './commands/commandIntents';
 
 const actor = AccountIdSchema.parse('account_identity_policy_actor');
 const target = AccountIdSchema.parse('account_identity_policy_target');
@@ -122,6 +125,79 @@ describe('T32.8A identity administration policy', () => {
         nextRole: 'user',
       })
     ).toBe('self_demotion_forbidden');
+  });
+
+  it('gates promote eligibility on parseable active non-admin Accounts with change_account_role', () => {
+    const authorized = [{ kind: 'change_account_role' as const, expectedRevision: 1 }];
+    expect(
+      isCanonicalAccountEligibleForAdminRolePromotion({
+        lifecycle: 'active',
+        role: { role: 'user' },
+        revision: 1,
+        authorizedActions: authorized,
+      })
+    ).toBe(true);
+    expect(
+      isCanonicalAccountEligibleForAdminRolePromotion({
+        lifecycle: 'uninitialized',
+        role: { role: 'user' },
+        authorizedActions: authorized,
+      })
+    ).toBe(false);
+    expect(
+      isCanonicalAccountEligibleForAdminRolePromotion({
+        lifecycle: 'disabled',
+        role: { role: 'user' },
+        revision: 1,
+        authorizedActions: authorized,
+      })
+    ).toBe(false);
+    expect(
+      isCanonicalAccountEligibleForAdminRolePromotion({
+        lifecycle: 'active',
+        role: { role: 'admin' },
+        revision: 1,
+        authorizedActions: authorized,
+      })
+    ).toBe(false);
+    expect(
+      isCanonicalAccountEligibleForAdminRolePromotion({
+        lifecycle: 'active',
+        role: { role: 'user', systemRole: 'owner' },
+        revision: 1,
+        authorizedActions: authorized,
+      })
+    ).toBe(false);
+    expect(
+      isCanonicalAccountEligibleForAdminRolePromotion({
+        lifecycle: 'active',
+        role: { role: 'user' },
+        revision: 1,
+        authorizedActions: [],
+      })
+    ).toBe(false);
+    expect(
+      canDemoteCanonicalAccountAdminRole({
+        role: { role: 'admin' },
+        authorizedActions: authorized,
+      })
+    ).toBe(true);
+    expect(
+      canDemoteCanonicalAccountAdminRole({
+        role: { role: 'admin', systemRole: 'owner' },
+        authorizedActions: authorized,
+      })
+    ).toBe(false);
+  });
+
+  it('rejects systemRole on change_account_role intent (strict schema)', () => {
+    const parsed = parseCommandIntent('change_account_role', {
+      accountId: target,
+      role: 'admin',
+      reasonExplanation: 'Promote',
+      systemRole: 'owner',
+    });
+    expect(parsed.success).toBe(false);
   });
 
   it('protects system owner from disable and active linked instructors', () => {

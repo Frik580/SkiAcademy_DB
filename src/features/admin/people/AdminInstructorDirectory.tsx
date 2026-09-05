@@ -5,7 +5,7 @@ import {
   type AccountId,
   type InstructorId,
 } from '@ski-academy/shared-domain';
-import { Loader2, Plus, Search } from 'lucide-react';
+import { Loader2, Plus, Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { uploadImage } from '../../../infrastructure/firebase';
@@ -503,18 +503,46 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
         {selectedInstructorId && !showAdd ? (
           <aside className="min-w-0 border border-[var(--border)] p-6 lg:col-span-5">
             {reads.detailLoading ? (
-              <p className="flex items-center gap-2 text-xs text-[var(--ink-dim)]">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {text.loading}
-              </p>
+              <div className="flex items-start justify-between gap-3">
+                <p className="flex items-center gap-2 text-xs text-[var(--ink-dim)]">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {text.loading}
+                </p>
+                <button
+                  type="button"
+                  aria-label={text.closeDetail}
+                  onClick={() => {
+                    setSelectedInstructorId(undefined);
+                    setProfileEditing(false);
+                    setLinking(false);
+                  }}
+                  className="shrink-0 border border-[var(--border)] p-1.5 text-[var(--ink-dim)] transition hover:border-[var(--ink)] hover:text-[var(--ink)]"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              </div>
             ) : null}
             {reads.detailError ? (
               <div className="space-y-2">
-                <p role="alert" className="text-xs text-red-600">
-                  {reads.detailError === 'permission-denied'
-                    ? text.permissionDenied
-                    : text.detailFailed}
-                </p>
+                <div className="flex items-start justify-between gap-3">
+                  <p role="alert" className="text-xs text-red-600">
+                    {reads.detailError === 'permission-denied'
+                      ? text.permissionDenied
+                      : text.detailFailed}
+                  </p>
+                  <button
+                    type="button"
+                    aria-label={text.closeDetail}
+                    onClick={() => {
+                      setSelectedInstructorId(undefined);
+                      setProfileEditing(false);
+                      setLinking(false);
+                    }}
+                    className="shrink-0 border border-[var(--border)] p-1.5 text-[var(--ink-dim)] transition hover:border-[var(--ink)] hover:text-[var(--ink)]"
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => void reads.refresh()}
@@ -534,6 +562,11 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
                 uploading={uploading}
                 linkPicker={accountPicker}
                 text={text}
+                onClose={() => {
+                  setSelectedInstructorId(undefined);
+                  setProfileEditing(false);
+                  setLinking(false);
+                }}
                 onStartEdit={() => setProfileEditing(true)}
                 onProfileChange={setProfileDraft}
                 onSaveProfile={() => void handleSaveProfile()}

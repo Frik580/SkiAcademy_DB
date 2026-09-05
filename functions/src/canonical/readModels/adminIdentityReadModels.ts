@@ -181,12 +181,19 @@ function accountActions(input: {
   if (input.revision !== undefined) {
     actions.push({ kind: 'update_account_contact_as_administrator', expectedRevision: revision });
   }
+  // change_account_role requires a parseable Account revision. Never advertise for
+  // uninitialized / non-canonical docs (would fabricate expectedRevision and fail parseAccount).
   if (
     input.actor.systemRole === 'owner' &&
     input.targetSystemRole !== 'owner' &&
-    (input.actor.accountId !== input.accountId || input.lifecycle !== 'disabled')
+    input.revision !== undefined &&
+    input.lifecycle !== 'uninitialized' &&
+    input.actor.accountId !== input.accountId
   ) {
-    actions.push({ kind: 'change_account_role', expectedRevision: revision });
+    actions.push({
+      kind: 'change_account_role',
+      expectedRevision: AggregateRevisionSchema.parse(input.revision),
+    });
   }
   if (input.lifecycle !== 'disabled' && input.missingSelf) {
     actions.push({ kind: 'provision_self_participant_for_account', expectedRevision: revision });
@@ -289,13 +296,22 @@ function looksLikePhoneSearch(search: string): boolean {
 async function paginateCollection(
   firestore: Firestore,
   collection: string,
-  input: { search?: string; pageSize?: number; cursor?: string },
+  input: {
+    search?: string;
+    pageSize?: number;
+    cursor?: string;
+    role?: 'admin' | 'user';
+  },
   searchField: 'displayName' | 'name'
 ): Promise<{ readonly docs: FirebaseFirestore.QueryDocumentSnapshot[]; readonly hasMore: boolean }> {
   const size = pageSizeOf(input.pageSize);
   const cursor = decodeCursor(input.cursor);
   const search = input.search?.trim();
+  const roleFilter = collection === 'users' ? input.role : undefined;
   let query: Query = firestore.collection(collection);
+  if (roleFilter) {
+    query = query.where('role', '==', roleFilter);
+  }
 
   if (search) {
     const asId =
@@ -305,22 +321,22 @@ async function paginateCollection(
           ? ParticipantIdSchema.safeParse(search)
           : InstructorIdSchema.safeParse(search);
     if (collection === 'users' && search.includes('@')) {
-      const snapshot = await firestore
-        .collection(collection)
-        .where('email', '==', search.toLowerCase())
-        .limit(size + 1)
-        .get();
+      let emailQuery: Query = firestore.collection(collection).where('email', '==', search.toLowerCase());
+      if (roleFilter) {
+        emailQuery = emailQuery.where('role', '==', roleFilter);
+      }
+      const snapshot = await emailQuery.limit(size + 1).get();
       return {
         docs: snapshot.docs.slice(0, size),
         hasMore: snapshot.docs.length > size,
       };
     }
     if (collection === 'users' && looksLikePhoneSearch(search)) {
-      const snapshot = await firestore
-        .collection(collection)
-        .where('phoneNumber', '==', search)
-        .limit(size + 1)
-        .get();
+      let phoneQuery: Query = firestore.collection(collection).where('phoneNumber', '==', search);
+      if (roleFilter) {
+        phoneQuery = phoneQuery.where('role', '==', roleFilter);
+      }
+      const snapshot = await phoneQuery.limit(size + 1).get();
       return {
         docs: snapshot.docs.slice(0, size),
         hasMore: snapshot.docs.length > size,
@@ -328,10 +344,17 @@ async function paginateCollection(
     }
     if (asId.success) {
       const snapshot = await firestore.collection(collection).doc(asId.data).get();
+      if (!snapshot.exists) {
+        return { docs: [], hasMore: false };
+      }
+      if (roleFilter) {
+        const data = snapshot.data() as Record<string, unknown> | undefined;
+        if (data?.role !== roleFilter) {
+          return { docs: [], hasMore: false };
+        }
+      }
       return {
-        docs: snapshot.exists
-          ? ([snapshot as FirebaseFirestore.QueryDocumentSnapshot] as FirebaseFirestore.QueryDocumentSnapshot[])
-          : [],
+        docs: [snapshot as FirebaseFirestore.QueryDocumentSnapshot],
         hasMore: false,
       };
     }

@@ -13,6 +13,7 @@ const {
   mockExecute,
   mockSetSearchParams,
   identityReadInput,
+  searchParamsHolder,
 } = vi.hoisted(() => ({
   mockReads: {
     accounts: {
@@ -48,6 +49,9 @@ const {
   mockExecute: vi.fn(async () => undefined),
   mockSetSearchParams: vi.fn(),
   identityReadInput: { current: {} as Record<string, unknown> },
+  searchParamsHolder: {
+    params: new URLSearchParams('tab=people&payment=payment_stale'),
+  },
 }));
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
@@ -58,10 +62,9 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {
     ...actual,
-    useSearchParams: () => [new URLSearchParams('tab=people&payment=payment_stale'), mockSetSearchParams],
+    useSearchParams: () => [searchParamsHolder.params, mockSetSearchParams],
   };
 });
-
 vi.mock('../../src/features/admin/identity/useAdminIdentityReadModels', () => ({
   useAdminIdentityReadModels: (input: Record<string, unknown>) => {
     identityReadInput.current = input;
@@ -109,6 +112,7 @@ function accountRow(overrides: Record<string, unknown> = {}) {
 
 describe('AdminClientDirectory canonical identity UX', () => {
   beforeEach(() => {
+    searchParamsHolder.params = new URLSearchParams('tab=people&payment=payment_stale');
     mockReads.accounts = {
       items: [accountRow()],
       loading: false,
@@ -359,5 +363,85 @@ describe('AdminClientDirectory canonical identity UX', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     expect(screen.queryByText(/Promote|Demote|Grant instructor|Guest Link|Create Account|Delete/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /record_manual_wallet_funding|Complete|Cancel/i })).not.toBeInTheDocument();
+  });
+
+  it('closes Account detail from the detail panel close control', async () => {
+    mockReads.accountDetail = {
+      ...accountRow(),
+      managedParticipants: [],
+      diagnostics: [],
+    };
+    render(<AdminClientDirectory adminAccountId={adminId} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.getByText('Edit contact')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close detail' }));
+    expect(screen.queryByText('Edit contact')).not.toBeInTheDocument();
+    expect(identityReadInput.current.selectedAccountId).toBeUndefined();
+  });
+
+  it('opens Account detail from clientAccount deep-link without mutation', async () => {
+    mockReads.accountDetail = {
+      ...accountRow(),
+      managedParticipants: [],
+      diagnostics: [],
+    };
+    searchParamsHolder.params = new URLSearchParams(
+      `tab=people&clientAccount=${familyId}`
+    );
+    render(<AdminClientDirectory adminAccountId={adminId} />);
+    await waitFor(() => {
+      expect(identityReadInput.current.selectedAccountId).toBe(familyId);
+    });
+    expect(screen.getByText('Edit contact')).toBeInTheDocument();
+    expect(mockExecute).not.toHaveBeenCalled();
+    expect(mockSetSearchParams).toHaveBeenCalled();
+    const updater = mockSetSearchParams.mock.calls[0]?.[0] as (
+      prev: URLSearchParams
+    ) => URLSearchParams;
+    const cleared = updater(new URLSearchParams(`tab=people&clientAccount=${familyId}`));
+    expect(cleared.get('clientAccount')).toBeNull();
+    expect(cleared.get('tab')).toBe('people');
+  });
+
+  it('deep-link Account B replaces stale Account A selection', async () => {
+    const accountB = AccountIdSchema.parse('account_family_client_dir_02');
+    mockReads.accounts.items = [
+      accountRow(),
+      accountRow({
+        accountId: accountB,
+        displayName: 'Second Client',
+        email: 'second@example.com',
+      }),
+    ];
+    mockReads.accountDetail = {
+      ...accountRow(),
+      managedParticipants: [],
+      diagnostics: [],
+    };
+    searchParamsHolder.params = new URLSearchParams(
+      `tab=people&clientAccount=${familyId}`
+    );
+    const { rerender } = render(<AdminClientDirectory adminAccountId={adminId} />);
+    await waitFor(() => {
+      expect(identityReadInput.current.selectedAccountId).toBe(familyId);
+    });
+
+    mockReads.accountDetail = {
+      ...accountRow({
+        accountId: accountB,
+        displayName: 'Second Client',
+        email: 'second@example.com',
+      }),
+      managedParticipants: [],
+      diagnostics: [],
+    };
+    searchParamsHolder.params = new URLSearchParams(
+      `tab=people&clientAccount=${accountB}`
+    );
+    rerender(<AdminClientDirectory adminAccountId={adminId} />);
+    await waitFor(() => {
+      expect(identityReadInput.current.selectedAccountId).toBe(accountB);
+    });
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 });

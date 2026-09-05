@@ -1,4 +1,5 @@
 import type { AdminClientParticipantProfileDraft, AdminClientParticipantDetailView } from './adminClientContracts';
+import { X } from 'lucide-react';
 import {
   adminClientDisciplineLabel,
   adminClientParticipantLifecycleLabel,
@@ -17,6 +18,7 @@ interface AdminClientParticipantDetailProps {
   readonly onArchive: () => void;
   readonly onRestore: () => void;
   readonly onBack: () => void;
+  readonly onClose: () => void;
 }
 
 export function AdminClientParticipantDetail({
@@ -29,6 +31,7 @@ export function AdminClientParticipantDetail({
   onArchive,
   onRestore,
   onBack,
+  onClose,
 }: AdminClientParticipantDetailProps) {
   const canEdit = detail.authorizedActions.some((action) => action.kind === 'update_participant_profile');
   const canArchive = detail.authorizedActions.some((action) => action.kind === 'archive_participant');
@@ -37,13 +40,23 @@ export function AdminClientParticipantDetail({
 
   return (
     <div className="space-y-4">
-      <button
-        type="button"
-        onClick={onBack}
-        className="text-xs font-mono uppercase tracking-wider text-[var(--ink-dim)] underline"
-      >
-        {text.backToAccount}
-      </button>
+      <div className="flex items-start justify-between gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-xs font-mono uppercase tracking-wider text-[var(--ink-dim)] underline"
+        >
+          {text.backToAccount}
+        </button>
+        <button
+          type="button"
+          aria-label={text.closeDetail}
+          onClick={onClose}
+          className="shrink-0 border border-[var(--border)] p-1.5 text-[var(--ink-dim)] transition hover:border-[var(--ink)] hover:text-[var(--ink)]"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </div>
       <header className="space-y-1">
         <h3 className="font-serif text-lg font-light">{detail.profile.displayName}</h3>
         <p className="text-xs text-[var(--ink-dim)]">

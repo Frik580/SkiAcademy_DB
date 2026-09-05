@@ -7,6 +7,7 @@ import {
   ParticipantManagementIdSchema,
 } from '../identifiers';
 import {
+  AccountRoleSchema,
   AdminIdentityAccountRoleProjectionSchema,
   AdminIdentityAuthorizedActionSchema,
   AdminIdentityInstructorLinkProjectionSchema,
@@ -174,6 +175,8 @@ export const QueryAdminIdentityReadModelsInputSchema = z.discriminatedUnion('sco
     .object({
       scope: z.literal('admin_account_list'),
       ...listInputBase,
+      /** Server-side Account.role equality filter (e.g. current administrators). */
+      role: AccountRoleSchema.optional(),
     })
     .strict(),
   z

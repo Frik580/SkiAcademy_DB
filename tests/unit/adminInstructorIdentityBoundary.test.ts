@@ -64,12 +64,13 @@ describe('T32.9A.6.2 Admin Instructors identity boundary', () => {
     expect(detail).toContain('unlinkBlockedByCommitments');
   });
 
-  it('navigates Open Client to People and Open Planner to Operations', () => {
+  it('navigates Open Client to People with clientAccount and Open Planner to Operations', () => {
     const client = adminClientAccountSearchParams(
       new URLSearchParams('tab=finance&account=account_stale'),
       'account_family_instructor_01'
     );
     expect(client.get('tab')).toBe('people');
+    expect(client.get('clientAccount')).toBe('account_family_instructor_01');
     const planner = adminPlannerSearchParams(new URLSearchParams('tab=people'), {
       localDate: '2026-09-04',
       instructorId: 'instructor_hash_01',

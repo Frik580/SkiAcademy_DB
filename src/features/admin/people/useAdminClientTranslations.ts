@@ -33,6 +33,7 @@ export function useAdminClientTranslations() {
       participants: ru ? 'Участники' : 'Participants',
       actions: ru ? 'Действия' : 'Actions',
       openDetail: ru ? 'Открыть' : 'Open',
+      closeDetail: ru ? 'Закрыть карточку' : 'Close detail',
       backToAccount: ru ? 'К аккаунту' : 'Back to account',
       unnamed: ru ? 'Без имени' : 'Unnamed',
       youBadge: ru ? 'Вы' : 'You',

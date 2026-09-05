@@ -120,6 +120,42 @@ export function evaluateChangeAccountRole(input: {
   return 'allowed';
 }
 
+/**
+ * Promote eligibility for Roles "Add Administrator" UX.
+ * Authority is server authorizedActions; lifecycle/role/revision are fail-closed guards
+ * so uninitialized / non-canonical docs and current admins never appear as candidates.
+ * Disabled Accounts stay out of the primary picker as conservative UX only —
+ * the domain command contract is unchanged.
+ */
+export function isCanonicalAccountEligibleForAdminRolePromotion(input: {
+  readonly lifecycle: 'active' | 'disabled' | 'uninitialized';
+  readonly role: { readonly role: AccountRole; readonly systemRole?: 'owner' };
+  readonly revision?: number;
+  readonly authorizedActions: readonly { readonly kind: string }[];
+}): boolean {
+  if (input.lifecycle !== 'active') {
+    return false;
+  }
+  if (input.role.role === 'admin' || input.role.systemRole === 'owner') {
+    return false;
+  }
+  if (input.revision === undefined) {
+    return false;
+  }
+  return input.authorizedActions.some((action) => action.kind === 'change_account_role');
+}
+
+/** Demote control visibility: owner rows and non-admins never show mutation. */
+export function canDemoteCanonicalAccountAdminRole(input: {
+  readonly role: { readonly role: AccountRole; readonly systemRole?: 'owner' };
+  readonly authorizedActions: readonly { readonly kind: string }[];
+}): boolean {
+  if (input.role.role !== 'admin' || input.role.systemRole === 'owner') {
+    return false;
+  }
+  return input.authorizedActions.some((action) => action.kind === 'change_account_role');
+}
+
 export function evaluateDisableAccount(input: {
   readonly targetSystemRole: 'owner' | undefined;
   readonly linkedInstructorAvailable?: boolean;
@@ -319,6 +355,12 @@ export const AdminIdentityAuthorizedActionSchema = z
   .strict();
 
 export type AdminIdentityAuthorizedAction = z.output<typeof AdminIdentityAuthorizedActionSchema>;
+
+export function changeAccountRoleAuthorizedAction(
+  authorizedActions: readonly AdminIdentityAuthorizedAction[]
+): AdminIdentityAuthorizedAction | undefined {
+  return authorizedActions.find((action) => action.kind === 'change_account_role');
+}
 
 export const AdminIdentityAccountRoleProjectionSchema = z
   .object({

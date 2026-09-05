@@ -44,6 +44,7 @@ export function useAdminIdentityReadModels(input: {
   readonly directory: AdminIdentityDirectory;
   readonly search: string;
   readonly pageSize?: number;
+  readonly role?: 'admin' | 'user';
   readonly selectedAccountId?: AccountId;
   readonly selectedParticipantId?: ParticipantId;
   readonly selectedInstructorId?: InstructorId;
@@ -101,6 +102,7 @@ export function useAdminIdentityReadModels(input: {
           ...(input.search.trim() ? { search: input.search.trim() } : {}),
           ...(input.pageSize ? { pageSize: input.pageSize } : {}),
           ...(cursor ? { cursor } : {}),
+          ...(scope === 'admin_account_list' && input.role ? { role: input.role } : {}),
         });
         if (generation !== listGeneration.current) return;
         if (result.scope !== scope) return;
@@ -156,7 +158,7 @@ export function useAdminIdentityReadModels(input: {
         }
       }
     },
-    [input.directory, input.enabled, input.pageSize, input.search]
+    [input.directory, input.enabled, input.pageSize, input.role, input.search]
   );
 
   const loadDetail = useCallback(async () => {

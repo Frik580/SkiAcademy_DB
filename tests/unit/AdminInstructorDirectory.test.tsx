@@ -318,4 +318,27 @@ describe('AdminInstructorDirectory canonical identity UX', () => {
       })
     );
   });
+
+  it('closes Instructor detail from the detail panel close control', () => {
+    mockReads.instructorDetail = {
+      ...instructorRow({
+        revision: 1,
+        authorizedActions: [
+          { kind: 'update_instructor_catalog_profile', expectedRevision: 1 },
+          { kind: 'deactivate_instructor_catalog', expectedRevision: 1 },
+        ],
+      }),
+      languages: ['English'],
+      experienceYears: 2,
+      futureLessonCommitmentCount: 0,
+      futureCourseDayAssignmentCount: 0,
+      unlinkBlockedByCommitments: false,
+      diagnostics: [],
+    };
+    render(<AdminInstructorDirectory adminAccountId={adminId} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.getByRole('button', { name: 'Pause new bookings' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close detail' }));
+    expect(screen.queryByRole('button', { name: 'Pause new bookings' })).not.toBeInTheDocument();
+  });
 });

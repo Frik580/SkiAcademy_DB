@@ -9,7 +9,7 @@ import { AchievementsConfig } from '../../../domain/achievements';
 import { AdminCollapsibleSection } from './settings';
 import { TableSkeleton } from '../../../ui/Skeleton';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
-import { ADMIN_COURSE_ENROLLMENT_QUERY_KEY, ADMIN_FINANCE_ACCOUNT_QUERY_KEY, ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY, ADMIN_FINANCE_PAYMENT_QUERY_KEY, ADMIN_LESSON_BOOKING_QUERY_KEY, ADMIN_PLANNER_DATE_QUERY_KEY, ADMIN_PLANNER_FOCUS_QUERY_KEY, ADMIN_TAB_QUERY_KEY, parseAdminTabId, type AdminTabId } from '../adminNavigation';
+import { ADMIN_CLIENT_ACCOUNT_QUERY_KEY, ADMIN_COURSE_ENROLLMENT_QUERY_KEY, ADMIN_FINANCE_ACCOUNT_QUERY_KEY, ADMIN_FINANCE_MOVEMENT_FOCUS_QUERY_KEY, ADMIN_FINANCE_PAYMENT_QUERY_KEY, ADMIN_LESSON_BOOKING_QUERY_KEY, ADMIN_PLANNER_DATE_QUERY_KEY, ADMIN_PLANNER_FOCUS_QUERY_KEY, ADMIN_TAB_QUERY_KEY, parseAdminTabId, type AdminTabId } from '../adminNavigation';
 import { AdminTabNav } from './AdminTabNav';
 
 const CanonicalFinancePanel = lazy(() =>
@@ -318,13 +318,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               subtitle={t('clientsManagerSub')}
               icon={Users}
               defaultOpen
+              forceOpen={Boolean(searchParams.get(ADMIN_CLIENT_ACCOUNT_QUERY_KEY))}
+              forceOpenToken={searchParams.get(ADMIN_CLIENT_ACCOUNT_QUERY_KEY) ?? undefined}
             >
               <AdminPeopleSection
                 adminAccountId={currentUserProfile.uid}
-                currentUserProfile={currentUserProfile}
-                storeUsers={usersList}
-                storeInstructors={instructors}
-                bookings={rawBookings}
                 onRequestConfirm={onRequestConfirm}
                 surface="clients"
               />
@@ -341,10 +339,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             >
               <AdminPeopleSection
                 adminAccountId={currentUserProfile.uid}
-                currentUserProfile={currentUserProfile}
-                storeUsers={usersList}
-                storeInstructors={instructors}
-                bookings={rawBookings}
                 onRequestConfirm={onRequestConfirm}
                 surface="instructors"
               />
@@ -361,10 +355,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             >
               <AdminPeopleSection
                 adminAccountId={currentUserProfile.uid}
-                currentUserProfile={currentUserProfile}
-                storeUsers={usersList}
-                storeInstructors={instructors}
-                bookings={rawBookings}
                 onRequestConfirm={onRequestConfirm}
                 surface="admins"
               />

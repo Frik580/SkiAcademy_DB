@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AdminPlannerReadModel } from '@ski-academy/shared-domain';
 import { queryAdminPlannerReadModels } from '../../../lib/canonical/canonicalReadModelClient';
 import { toFunctionsClientError } from '../../../lib/functions/functionsClient';
@@ -16,9 +16,11 @@ export function useAdminPlannerReadModels(input: {
   const [item, setItem] = useState<AdminPlannerReadModel | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<AdminPlannerReadError | undefined>();
+  const requestIdRef = useRef(0);
 
   const refresh = useCallback(async () => {
     if (!input.enabled) return;
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(undefined);
     try {
@@ -29,8 +31,10 @@ export function useAdminPlannerReadModels(input: {
         timeZone: resolveAdminTimeZone(),
         ...(input.windowDays === undefined ? {} : { windowDays: input.windowDays }),
       });
+      if (requestId !== requestIdRef.current) return;
       setItem(result.item);
     } catch (caught) {
+      if (requestId !== requestIdRef.current) return;
       setError(
         toFunctionsClientError(caught).code === 'functions/permission-denied'
           ? 'permission-denied'
@@ -38,7 +42,9 @@ export function useAdminPlannerReadModels(input: {
       );
       setItem(undefined);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [input.enabled, input.localDate, input.view, input.windowDays]);
 

@@ -92,7 +92,9 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
           isAvailable ? 'text-[var(--ink)]' : 'text-[var(--ink-dim)]'
         }`}
       >
-        {formatPrice(instructor.pricePerHour, instructor.pricePerHourKZT)}{' '}
+        {instructor.pricePerHourKZT != null && Number.isFinite(instructor.pricePerHourKZT)
+          ? formatPrice(instructor.pricePerHourKZT)
+          : '—'}{' '}
         <span className="text-xs tracking-wider text-[var(--ink-dim)] font-sans">/ {t('hr')}</span>
       </div>
     );

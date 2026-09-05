@@ -69,6 +69,6 @@ export interface ResortConfig {
   slideIntervalSeconds?: number;
   slidesRandomOrder?: boolean;
   usdToKztRate?: number;
-  /** Global display currency for all clients (synced via Firestore). */
+  /** @deprecated Display currency is always KZT; retained for reading legacy resort_data/config. */
   currency?: 'USD' | 'KZT';
 }

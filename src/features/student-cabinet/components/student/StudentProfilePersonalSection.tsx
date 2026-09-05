@@ -169,9 +169,8 @@ export const StudentProfilePersonalSection: React.FC<StudentProfilePersonalSecti
         <Wallet className="w-5 h-5 text-[var(--ink-dim)]" />
         <div>
           <p className="text-xs text-[var(--ink-dim)]">{t('walletBalance')}</p>
-          <p className="text-xl font-serif text-[var(--ink)]">${effectiveBalance.toFixed(2)}</p>
-          <p className="text-sm text-[var(--ink-dim)]">
-            {(userProfile.walletBalances?.KZT ?? 0).toLocaleString('ru-RU')} ₸
+          <p className="text-xl font-serif text-[var(--ink)]" data-testid="cabinet-wallet-balance">
+            {effectiveBalance.toLocaleString('ru-RU')} ₸
           </p>
         </div>
       </div>

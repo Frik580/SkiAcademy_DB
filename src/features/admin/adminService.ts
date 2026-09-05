@@ -8,7 +8,6 @@ import {
   limit,
   orderBy,
   query,
-  setDoc,
   toWalletLedgerEntry,
 } from '../../infrastructure/firebase';
 import {
@@ -21,17 +20,7 @@ import {
 import { OperationType, type ErrorLog, type WalletLedgerEntry } from '../../types';
 import { QUERY_LIMITS } from '../../shared';
 
-const RESORT_CONFIG_COLLECTION = 'resort_data';
-const RESORT_CONFIG_ID = 'config';
 const ERROR_LOGS_COLLECTION = 'error_logs';
-
-export function saveUsdToKztRate(rate: number): Promise<void> {
-  return setDoc(
-    doc(db, RESORT_CONFIG_COLLECTION, RESORT_CONFIG_ID),
-    { usdToKztRate: rate },
-    { merge: true }
-  );
-}
 
 export function subscribeErrorLogs(
   onLogs: (logs: ErrorLog[], hasMore: boolean) => void,

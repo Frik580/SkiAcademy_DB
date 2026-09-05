@@ -183,7 +183,7 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
         <div className="space-y-3 max-w-md">
           <div className="space-y-1.5 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
             <label
-              htmlFor="starter-credit-usd"
+              htmlFor="starter-credit-kzt"
               className="block text-[10px] font-mono uppercase tracking-wider text-[var(--ink)] font-bold"
             >
               {t('starterCreditSettingLabel')}
@@ -192,9 +192,8 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
               {t('starterCreditSettingDesc')}
             </p>
             <div className="flex items-center gap-3 pt-1">
-              <span className="text-xs font-mono text-[var(--ink-dim)]">$</span>
               <input
-                id="starter-credit-usd"
+                id="starter-credit-kzt"
                 type="number"
                 min={MIN_STARTER_CREDIT_USD}
                 max={MAX_STARTER_CREDIT_USD}
@@ -207,10 +206,10 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
                     void handleSaveStarterCredit();
                   }
                 }}
-                className="w-28 bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
+                className="w-36 bg-transparent border border-[var(--border)] px-3 py-1.5 font-mono text-xs text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] rounded-none"
               />
               <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
-                USD
+                ₸ KZT
               </span>
             </div>
           </div>

@@ -1,14 +1,31 @@
 import { useEffect } from 'react';
-import { collection, db, limit, onSnapshot, query, where } from '../../../infrastructure/firebase';
+import { WalletSchema, normalizeFirestoreDocument, type Wallet } from '@ski-academy/shared-domain';
+import {
+  collection,
+  db,
+  doc,
+  limit,
+  onSnapshot,
+  query,
+  where,
+} from '../../../infrastructure/firebase';
 import { toWalletLedgerEntry } from '../../../infrastructure/firebase';
 import { logger } from '../../../shared';
 import { useAuthStore } from '../../auth/authStore';
 import { useWalletStore } from '../walletStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
 
+function parseCanonicalWallet(data: Record<string, unknown> | undefined): Wallet | undefined {
+  const normalized = normalizeFirestoreDocument(data);
+  if (!normalized) return undefined;
+  const parsed = WalletSchema.safeParse(normalized);
+  return parsed.success ? parsed.data : undefined;
+}
+
 /**
- * Synchronizes wallet ledger entries (transaction history) from Firestore.
- * This hook subscribes to wallet_ledger collection for the current user.
+ * Synchronizes:
+ * 1) Canonical Account Wallet balance from `/users/{accountId}/wallet/state`
+ * 2) Legacy `wallet_ledger` history (still used by cabinet history UI)
  */
 export const useWalletSync = () => {
   const { shouldSyncActivityLogs } = useDataSyncScope();
@@ -19,7 +36,65 @@ export const useWalletSync = () => {
     useWalletStore.getState().resetWalletLedgerPagination();
   }, [firebaseUser?.uid, shouldSyncActivityLogs]);
 
-  // Wallet ledger synchronization
+  // Canonical wallet balance — source of truth for Header / spendable balance UI.
+  useEffect(() => {
+    if (!firebaseUser) {
+      useWalletStore.getState().resetCanonicalWallet();
+      return;
+    }
+
+    const walletRef = doc(db, 'users', firebaseUser.uid, 'wallet', 'state');
+    return onSnapshot(
+      walletRef,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+            exists: false,
+            balanceKzt: 0,
+          });
+          return;
+        }
+
+        const wallet = parseCanonicalWallet(snapshot.data() as Record<string, unknown>);
+        if (!wallet) {
+          logger.error('Canonical wallet document failed schema validation', {
+            accountId: firebaseUser.uid,
+          });
+          useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+            exists: false,
+            balanceKzt: 0,
+          });
+          return;
+        }
+
+        if (wallet.accountId !== firebaseUser.uid) {
+          logger.error('Canonical wallet accountId mismatch; ignoring snapshot', {
+            accountId: firebaseUser.uid,
+            walletAccountId: wallet.accountId,
+          });
+          useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+            exists: false,
+            balanceKzt: 0,
+          });
+          return;
+        }
+
+        useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+          exists: true,
+          balanceKzt: wallet.balance,
+        });
+      },
+      (error) => {
+        logger.error('Canonical wallet sync error:', error);
+        useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+          exists: false,
+          balanceKzt: 0,
+        });
+      }
+    );
+  }, [firebaseUser]);
+
+  // Wallet ledger synchronization (legacy history UI)
   useEffect(() => {
     if (!firebaseUser || !shouldSyncActivityLogs) {
       useWalletStore.getState().setWalletLedgerEntries([]);

@@ -595,6 +595,26 @@ describe('user profiles and roles', () => {
     };
 
     await assertFails(setDoc(doc(ownerDb, 'settings', 'starter_credit'), { amountUsd: 999_999 }));
+    await assertSucceeds(
+      setDoc(doc(ownerDb, 'settings', 'starter_credit'), {
+        amountKzt: 500,
+        amountUsd: 500,
+      })
+    );
+    await assertSucceeds(setDoc(doc(ownerDb, 'settings', 'starter_credit'), { amountKzt: 300 }));
+    await assertFails(
+      setDoc(doc(ownerDb, 'settings', 'starter_credit'), {
+        amountKzt: 400,
+        amountUsd: 500,
+      })
+    );
+    // Restore default gift so the rest of this test still validates balanceUSD == 250.
+    await assertSucceeds(
+      setDoc(doc(ownerDb, 'settings', 'starter_credit'), {
+        amountKzt: 250,
+        amountUsd: 250,
+      })
+    );
     await assertFails(
       setDoc(doc(ownerDb, 'users', 'client_inflated_wallet'), {
         ...userProfile('client_inflated_wallet', 'inflated@example.com'),
@@ -651,6 +671,48 @@ describe('user profiles and roles', () => {
       });
     });
     await assertFails(deleteDoc(ledgerRef));
+  });
+
+  it('allows owner to read own canonical wallet/state but denies peers, admin client reads of others, and all client writes', async () => {
+    const walletPath = ['users', USER_ID, 'wallet', 'state'] as const;
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'users', USER_ID), userProfile(USER_ID, 'user@example.com'));
+      await setDoc(doc(db, 'users', OTHER_USER_ID), userProfile(OTHER_USER_ID, 'other@example.com'));
+      await setDoc(doc(db, 'users', ADMIN_ID), userProfile(ADMIN_ID, 'admin@example.com', 'admin'));
+      await setDoc(doc(db, ...walletPath), {
+        accountId: USER_ID,
+        currency: 'KZT',
+        balance: 50_000,
+        revision: 1,
+        eventRevision: 1,
+        createdAt: { seconds: 1_700_000_000, nanoseconds: 0 },
+        updatedAt: { seconds: 1_700_000_000, nanoseconds: 0 },
+      });
+    });
+
+    const ownerDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const peerDb = testEnv
+      .authenticatedContext(OTHER_USER_ID, { email: 'other@example.com' })
+      .firestore();
+    const adminDb = testEnv
+      .authenticatedContext(ADMIN_ID, { email: 'admin@example.com' })
+      .firestore();
+
+    await assertSucceeds(getDoc(doc(ownerDb, ...walletPath)));
+    await assertFails(getDoc(doc(peerDb, ...walletPath)));
+    await assertFails(getDoc(doc(adminDb, ...walletPath)));
+    await assertFails(
+      updateDoc(doc(ownerDb, ...walletPath), {
+        balance: 99_000,
+      })
+    );
+    await assertFails(
+      setDoc(doc(ownerDb, 'users', USER_ID, 'wallet', 'other'), {
+        accountId: USER_ID,
+        balance: 1,
+      })
+    );
   });
 
   it('denies Admin client guest-wallet mutation while keeping it readable', async () => {

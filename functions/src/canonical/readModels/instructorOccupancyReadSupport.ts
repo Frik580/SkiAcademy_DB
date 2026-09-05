@@ -126,11 +126,14 @@ export async function loadInstructorOccupancyItems(
     blockQuery = blockQuery.where('instructorId', '==', input.instructorId);
   }
 
-  const dayQuery: Query = firestore
+  let dayQuery: Query = firestore
     .collectionGroup('days')
     .where('interval.startsAt.seconds', '>=', rangeStart)
     .where('interval.startsAt.seconds', '<', rangeEnd)
     .orderBy('interval.startsAt.seconds', 'asc');
+  if (input.instructorId) {
+    dayQuery = dayQuery.where('actualInstructorIds', 'array-contains', input.instructorId);
+  }
 
   const [bookingPage, blockPage, dayPage] = await Promise.all([
     paginateWindowQuery(bookingQuery),

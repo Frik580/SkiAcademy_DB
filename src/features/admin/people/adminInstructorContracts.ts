@@ -22,8 +22,6 @@ export type AdminInstructorDirectoryRow = Pick<
   | 'linkedAccountId'
   | 'linkedAccountDisplayName'
   | 'pricePerHourKZT'
-  | 'courseRosterCount'
-  | 'courseDayAssignmentCount'
   | 'revision'
   | 'authorizedActions'
 >;

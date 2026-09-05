@@ -52,7 +52,7 @@ export function classifySchoolCashFlow(
 }
 
 export function schoolCashFlowCurrency(entry: Pick<WalletLedgerEntry, 'currency'>): WalletCurrency {
-  return entry.currency ?? 'USD';
+  return entry.currency ?? 'KZT';
 }
 
 export function schoolCashFlowAmount(entry: Pick<WalletLedgerEntry, 'amount'>): number {

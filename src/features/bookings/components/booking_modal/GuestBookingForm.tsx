@@ -48,8 +48,9 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
   const labelStyle = 'flex items-center gap-1.5 text-xs text-[var(--ink-dim)] mb-1';
 
   const totalFormatted = formatPrice(
-    totalCost,
-    targetInstructor?.pricePerHourKZT ? targetInstructor.pricePerHourKZT * duration : undefined
+    targetInstructor?.pricePerHourKZT != null && Number.isFinite(targetInstructor.pricePerHourKZT)
+      ? targetInstructor.pricePerHourKZT * duration
+      : totalCost
   );
 
   return (

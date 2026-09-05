@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX,
   CourseCatalogContentInputSchema,
+  CourseIdSchema,
   CourseProvisioningManifestSchema,
   IdempotencyKeySchema,
+  type AdminCourseListItem,
   type AdminCourseReadModel,
   type CommandEnvelope,
   type CommandKind,
@@ -73,8 +75,9 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
 }) => {
   const { language, text } = useAdminCourseTranslations();
   const { t } = useLanguage();
-  const [courses, setCourses] = useState<AdminCourseReadModel[]>([]);
+  const [courses, setCourses] = useState<AdminCourseListItem[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<AdminCourseReadModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
@@ -82,6 +85,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState<CreateFormState>(EMPTY_CREATE_FORM);
   const createAttemptRef = useRef<CreateAttempt | null>(null);
+  const detailRequestRef = useRef(0);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -92,6 +96,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       const courseResult = await queryAdminCourseReadModels({
         scope: 'admin_course_list',
         pageSize: ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX,
+        readModelVersion: 2,
       });
       if (courseResult.scope === 'admin_course_list') {
         setCourses(courseResult.items);
@@ -103,6 +108,29 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       setLoading(false);
     }
   }, [text.mutationFailed, text.permissionDenied]);
+
+  const loadCourseDetail = useCallback(
+    async (courseId: string): Promise<AdminCourseReadModel | undefined> => {
+      const requestId = ++detailRequestRef.current;
+      try {
+        const result = await queryAdminCourseReadModels({
+          scope: 'admin_course_detail',
+          courseId: CourseIdSchema.parse(courseId),
+        });
+        if (result.scope !== 'admin_course_detail') return undefined;
+        const item = result.item;
+        if (requestId === detailRequestRef.current) setSelectedCourse(item ?? null);
+        return item;
+      } catch (caught) {
+        if (requestId === detailRequestRef.current) {
+          const message = caught instanceof Error ? caught.message : text.mutationFailed;
+          setError(message.includes('permission') ? text.permissionDenied : message);
+        }
+        return undefined;
+      }
+    },
+    [text.mutationFailed, text.permissionDenied]
+  );
 
   useEffect(() => {
     void refresh();
@@ -136,14 +164,13 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         remember(
           instructor.instructorId,
           instructor.name,
-          instructor.avatarUrl ?? '',
-          instructor.isAvailable !== false
+          instructor.avatarUrl,
+          instructor.isAvailable ?? true
         );
       }
     }
     return [...byId.values()];
   }, [courses, instructors]);
-  const selectedCourse = courses.find((course) => course.courseId === selectedCourseId);
 
   const execute = useCallback(
     async <Kind extends CommandKind>(input: {
@@ -177,6 +204,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           return false;
         }
         await refresh();
+        if (selectedCourseId) await loadCourseDetail(selectedCourseId);
         return true;
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : text.mutationFailed);
@@ -185,7 +213,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         setPending(null);
       }
     },
-    [currentAccountId, refresh, text.mutationFailed]
+    [currentAccountId, loadCourseDetail, refresh, selectedCourseId, text.mutationFailed]
   );
 
   const promptReason = () => window.prompt(text.reason, '')?.trim() ?? '';
@@ -408,7 +436,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     });
   };
 
-  const editCatalogContent = async (course: AdminCourseReadModel) => {
+  const editCatalogContent = async (course: AdminCourseListItem | AdminCourseReadModel) => {
     const current = course.catalogContent.content;
     const reasonExplanation = promptReason();
     if (!reasonExplanation) return;
@@ -451,7 +479,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   };
 
   const updateCatalog = async (
-    course: AdminCourseReadModel,
+    course: AdminCourseListItem | AdminCourseReadModel,
     content: CourseCatalogContentInput,
     reasonExplanation: string
   ) => {
@@ -526,7 +554,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   };
 
   const handleClone = async (tableCourse: ReturnType<typeof mapAdminCourseToTableCourse>) => {
-    const course = courses.find((candidate) => candidate.courseId === tableCourse.id);
+    const course = await loadCourseDetail(tableCourse.id);
     if (!course || course.courseDays.length === 0) return;
     const attempt = newIdentity('admin-course:clone');
     const seed = attempt.split(':').at(-1)!;
@@ -653,8 +681,12 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           onToggleVisibility={(course) => void handleToggleVisibility(course)}
           onEdit={(course) => {
             setSelectedCourseId(course.id);
+            setSelectedCourse(null);
             const canonical = courses.find((candidate) => candidate.courseId === course.id);
-            if (canonical) void editCatalogContent(canonical);
+            if (canonical) {
+              void loadCourseDetail(course.id);
+              void editCatalogContent(canonical);
+            }
           }}
           onDelete={handleArchive}
           onClone={(course) => void handleClone(course)}

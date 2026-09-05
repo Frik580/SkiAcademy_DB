@@ -27,7 +27,10 @@ function nestedValue(data: Record<string, unknown>, field: string): unknown {
   data);
 }
 
-function fakeFirestore(seed: Record<string, Record<string, unknown>>): Firestore {
+function fakeFirestore(
+  seed: Record<string, Record<string, unknown>>,
+  reads: string[] = []
+): Firestore {
   const snapshot = (entries: Array<[string, Record<string, unknown>]>) => ({
     empty: entries.length === 0,
     docs: entries.map(([path, data]) => ({ id: path.split('/').at(-1), data: () => data })),
@@ -40,14 +43,42 @@ function fakeFirestore(seed: Record<string, Record<string, unknown>>): Firestore
     return {
       doc: (id: string) => ({
         get: async () => {
+          reads.push(`${path}/${id}`);
           const data = seed[`${path}/${id}`];
           return { exists: data !== undefined, data: () => data };
         },
       }),
-      get: async () => snapshot(entries()),
-      limit: (count: number) => ({ get: async () => snapshot(entries().slice(0, count)) }),
+      get: async () => {
+        reads.push(`${path}:query`);
+        return snapshot(entries());
+      },
+      limit: (count: number) => ({
+        get: async () => {
+          reads.push(`${path}:query`);
+          return snapshot(entries().slice(0, count));
+        },
+      }),
+      orderBy: (_field: string, direction: 'asc' | 'desc' = 'asc') => ({
+        limit: (count: number) => ({
+          get: async () => {
+            reads.push(`${path}:query`);
+            return snapshot(
+              entries()
+                .sort((left, right) =>
+                  direction === 'asc'
+                    ? Number(left[1].dayOrder) - Number(right[1].dayOrder)
+                    : Number(right[1].dayOrder) - Number(left[1].dayOrder)
+                )
+                .slice(0, count)
+            );
+          },
+        }),
+      }),
       where: (field: string, _op: string, value: unknown) => ({
-        get: async () => snapshot(entries().filter(([, data]) => Object.is(nestedValue(data, field), value))),
+        get: async () => {
+          reads.push(`${path}:query`);
+          return snapshot(entries().filter(([, data]) => Object.is(nestedValue(data, field), value)));
+        },
       }),
     };
   };
@@ -55,6 +86,7 @@ function fakeFirestore(seed: Record<string, Record<string, unknown>>): Firestore
     collection,
     doc: (path: string) => ({
       get: async () => {
+        reads.push(path);
         const data = seed[path];
         return { exists: data !== undefined, data: () => data };
       },
@@ -156,6 +188,7 @@ describe('Admin Course read-model callable', () => {
         scheduleRevision: 3,
         capacity: { occupiedConfirmedSeats: 1 },
         catalogContent: { status: 'present' },
+        courseDays: [expect.objectContaining({ courseId })],
       });
     }
     const detail = await handler({
@@ -168,6 +201,27 @@ describe('Admin Course read-model callable', () => {
     } as never);
     expect(detail.scope).toBe('admin_course_detail');
     if (detail.scope === 'admin_course_detail') expect(detail.item?.instructors[0]?.name).toBe('Safe Coach');
+  });
+
+  it('keeps the list projection free of detail-grade joins', async () => {
+    const reads: string[] = [];
+    const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(seed(), reads));
+    const result = await handler({
+      auth: { uid: adminId },
+      data: { scope: 'admin_course_list', pageSize: 50, readModelVersion: 2 },
+    } as never);
+
+    expect(result.scope).toBe('admin_course_list');
+    expect(reads).not.toContain(`courses/${courseId}/days:query`);
+    expect(reads).not.toContain('course_enrollments:query');
+    expect(reads).not.toContain(`courses/${courseId}/attendance:query`);
+    if (result.scope === 'admin_course_list') {
+      expect(result.items[0]).not.toHaveProperty('courseDays');
+      expect(result.items[0]).not.toHaveProperty('activeEnrollmentCount');
+      expect(result.items[0]?.instructors).toEqual([
+        expect.objectContaining({ instructorId, name: 'Safe Coach' }),
+      ]);
+    }
   });
 
   it('denies non-admin callers', async () => {
@@ -198,6 +252,25 @@ describe('Admin Course read-model callable', () => {
       expect(list.items[0]?.instructors).toEqual([]);
       expect(list.items[0]?.instructorRosterIds).toEqual([instructorId]);
     }
+  });
+
+  it('uses one first-day fallback when catalog content is missing', async () => {
+    const data = seed();
+    delete data[`course_catalog_content/${courseId}`];
+    const reads: string[] = [];
+    const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(data, reads));
+    const list = await handler({
+      auth: { uid: adminId },
+      data: { scope: 'admin_course_list', readModelVersion: 2 },
+    } as never);
+    expect(list.scope).toBe('admin_course_list');
+    if (list.scope === 'admin_course_list') {
+      expect(list.items[0]?.scheduleSummary).toMatchObject({
+        courseDayCount: 1,
+        timeZone: 'Asia/Almaty',
+      });
+    }
+    expect(reads.filter((path) => path === `courses/${courseId}/days:query`)).toHaveLength(2);
   });
 
   it('accepts legacy catalog content without embedded courseId using document identity', async () => {

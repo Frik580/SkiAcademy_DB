@@ -4,18 +4,15 @@ import { vi } from 'vitest';
 
 vi.mock('../src/app/providers/CurrencyContext', () => ({
   useCurrency: () => ({
-    currency: 'USD' as const,
-    setCurrency: vi.fn(),
-    usdToKztRate: 500,
-    setUsdToKztRate: vi.fn(),
-    formatPrice: (usdAmount: number) => `$${usdAmount.toLocaleString('en-US')}`,
-    formatPriceRaw: (usdAmount: number) => ({
-      amount: usdAmount,
-      symbol: '$',
-      code: 'USD',
-      formatted: `$${usdAmount.toLocaleString('en-US')}`,
+    currency: 'KZT' as const,
+    formatPrice: (amountKzt: number) => `${amountKzt.toLocaleString('ru-RU')} ₸`,
+    formatPriceRaw: (amountKzt: number) => ({
+      amount: amountKzt,
+      symbol: '₸',
+      code: 'KZT' as const,
+      formatted: `${amountKzt.toLocaleString('ru-RU')} ₸`,
     }),
-    convertPrice: (usdAmount: number) => usdAmount,
+    convertPrice: (amountKzt: number) => amountKzt,
   }),
   CurrencyProvider: ({ children }: { children: ReactNode }) => children,
 }));

@@ -37,7 +37,7 @@ describe('wallet credit', () => {
       .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
       .firestore();
 
-    const newBalance = await grantAndApplyWalletCredit(adminDb, USER_ID, 50);
+    const newBalance = await grantAndApplyWalletCredit(adminDb, USER_ID, 50, 'USD');
 
     const userDoc = await getDoc(doc(adminDb, 'users', USER_ID));
     expect(newBalance).toBe(150);
@@ -50,8 +50,8 @@ describe('wallet credit', () => {
       .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
       .firestore();
 
-    await grantAndApplyWalletCredit(adminDb, USER_ID, 25);
-    const newBalance = await grantAndApplyWalletCredit(adminDb, USER_ID, 25);
+    await grantAndApplyWalletCredit(adminDb, USER_ID, 25, 'USD');
+    const newBalance = await grantAndApplyWalletCredit(adminDb, USER_ID, 25, 'USD');
 
     const userDoc = await getDoc(doc(adminDb, 'users', USER_ID));
     expect(newBalance).toBe(150);
@@ -63,7 +63,7 @@ describe('wallet credit', () => {
       .authenticatedContext(USER_ID, { email: 'user@example.com' })
       .firestore();
 
-    await expect(grantAndApplyWalletCredit(userDb, USER_ID, 50)).rejects.toThrow();
+    await expect(grantAndApplyWalletCredit(userDb, USER_ID, 50, 'USD')).rejects.toThrow();
   });
 
   it('rejects wallet credits above the configured limit', async () => {
@@ -72,7 +72,7 @@ describe('wallet credit', () => {
       .firestore();
 
     await expect(
-      grantAndApplyWalletCredit(userDb, USER_ID, MAX_WALLET_CREDIT_USD + 1)
+      grantAndApplyWalletCredit(userDb, USER_ID, MAX_WALLET_CREDIT_USD + 1, 'USD')
     ).rejects.toThrow(/limit/i);
   });
 

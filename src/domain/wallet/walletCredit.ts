@@ -4,6 +4,8 @@ import { recordWalletLedgerEntryInTransaction, walletLedgerEntryId } from './wal
 
 /** Max single credit applied through the wallet credit flow (top-ups and refunds). */
 export const MAX_WALLET_CREDIT_USD = 10_000;
+/** @deprecated Alias — prefer MAX_WALLET_CREDIT_KZT for new call sites. */
+export const MAX_WALLET_CREDIT_KZT = MAX_WALLET_CREDIT_USD;
 
 /** Max amount selectable in the simulated payment gateway UI. */
 export const MAX_WALLET_TOPUP_USD = 5_000;
@@ -168,7 +170,7 @@ export async function grantAndApplyWalletCredit(
   firestore: Firestore,
   userId: string,
   amount: number,
-  currency: WalletCurrency = 'USD'
+  currency: WalletCurrency = 'KZT'
 ): Promise<number> {
   const userRef = doc(firestore, 'users', userId);
 

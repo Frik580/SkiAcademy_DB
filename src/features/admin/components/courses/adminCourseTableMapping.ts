@@ -1,6 +1,7 @@
 import {
   CourseCatalogContentInputSchema,
   type AdminCourseEnrollmentRosterItem,
+  type AdminCourseListItem,
   type AdminCourseReadModel,
   type CourseCatalogContentInput,
 } from '@ski-academy/shared-domain';
@@ -15,17 +16,17 @@ const ACTIVE_ENROLLMENT_STATUSES = new Set([
   'no_show',
 ]);
 
-export function mapAdminCourseToTableCourse(course: AdminCourseReadModel): Course {
+type AdminCourseCatalogRow = AdminCourseListItem | AdminCourseReadModel;
+
+export function mapAdminCourseToTableCourse(course: AdminCourseCatalogRow): Course {
   const content = course.catalogContent.content;
-  const first = course.courseDays[0];
-  const last = course.courseDays[course.courseDays.length - 1];
-  const fallbackDuration = first
-    ? `${Math.max(1, Math.round((first.interval.endsAt.seconds - first.interval.startsAt.seconds) / 3600))}h`
+  const scheduleSummary = course.scheduleSummary;
+  const fallbackDuration = scheduleSummary
+    ? `${Math.max(1, Math.round((scheduleSummary.firstDayEndsAt.seconds - scheduleSummary.startsAt.seconds) / 3600))}h`
     : '—';
-  const fallbackDates =
-    first && last
-      ? `${localDateTimeFromTimestamp(first.interval.startsAt.seconds, first.timeZone).date} – ${localDateTimeFromTimestamp(last.interval.startsAt.seconds, last.timeZone).date}`
-      : '';
+  const fallbackDates = scheduleSummary
+    ? `${localDateTimeFromTimestamp(scheduleSummary.startsAt.seconds, scheduleSummary.timeZone).date} – ${localDateTimeFromTimestamp(scheduleSummary.lastDayStartsAt.seconds, scheduleSummary.timeZone).date}`
+    : '';
   return {
     id: course.courseId,
     title: content?.titleRu && content.titleRu.trim() ? course.title : course.title,
@@ -61,7 +62,7 @@ export function mapAdminCourseToTableCourse(course: AdminCourseReadModel): Cours
 }
 
 export function catalogContentInputFromCourse(
-  course: AdminCourseReadModel
+  course: AdminCourseCatalogRow
 ): CourseCatalogContentInput {
   const mapped = mapAdminCourseToTableCourse(course);
   const content = course.catalogContent.content;

@@ -95,22 +95,23 @@ service cloud.firestore {
       ]);
     }
 
-    function validInitialWalletAuthority() {
+    function starterCreditGiftAmount() {
       let starterCreditPath = /databases/$(database)/documents/settings/starter_credit;
+      return !exists(starterCreditPath)
+        ? 250
+        : (
+            get(starterCreditPath).data.keys().hasAny(['amountKzt'])
+              ? get(starterCreditPath).data.amountKzt
+              : get(starterCreditPath).data.amountUsd
+          );
+    }
+
+    function validInitialWalletAuthority() {
       return request.resource.data.balanceUSD is number &&
         !('walletBalances' in request.resource.data) &&
         !('pendingWalletCredit' in request.resource.data) &&
         !('lastRefundBookingId' in request.resource.data) &&
-        (
-          (
-            exists(starterCreditPath) &&
-            request.resource.data.balanceUSD == get(starterCreditPath).data.amountUsd
-          ) ||
-          (
-            !exists(starterCreditPath) &&
-            request.resource.data.balanceUSD == 250
-          )
-        );
+        request.resource.data.balanceUSD == starterCreditGiftAmount();
     }
 
     // T32.8A: Account/Instructor identity authority is command-only.
@@ -162,10 +163,22 @@ service cloud.firestore {
     }
 
     function validStarterCreditSetting() {
-      return request.resource.data.keys().hasOnly(['amountUsd']) &&
-        request.resource.data.amountUsd is number &&
-        request.resource.data.amountUsd >= 0 &&
-        request.resource.data.amountUsd <= 10000;
+      let keys = request.resource.data.keys();
+      let hasUsd = keys.hasAny(['amountUsd']);
+      let hasKzt = keys.hasAny(['amountKzt']);
+      return keys.hasOnly(['amountUsd', 'amountKzt']) &&
+        (hasUsd || hasKzt) &&
+        (!hasUsd || (
+          request.resource.data.amountUsd is number &&
+          request.resource.data.amountUsd >= 0 &&
+          request.resource.data.amountUsd <= 10000
+        )) &&
+        (!hasKzt || (
+          request.resource.data.amountKzt is number &&
+          request.resource.data.amountKzt >= 0 &&
+          request.resource.data.amountKzt <= 10000
+        )) &&
+        (!hasUsd || !hasKzt || request.resource.data.amountUsd == request.resource.data.amountKzt);
     }
 
     function isInstructor() {
@@ -613,6 +626,15 @@ service cloud.firestore {
       allow delete: if userId.matches('^client_.*') &&
         (!('systemRole' in resource.data) || resource.data.systemRole != 'owner') &&
         isOwnEmail(resource.data.email);
+
+      // Canonical Account Wallet (`/users/{accountId}/wallet/state`): owner may read
+      // own spendable balance for Header/cabinet. Client SDK never writes; Admin finance
+      // reads go through callables, not direct browser access to other accounts' wallets.
+      match /wallet/{walletDocId} {
+        allow get: if (walletDocId == 'state') && isOwner(userId);
+        allow list: if false;
+        allow create, update, delete: if false;
+      }
     }
 
     // Instructor catalog. Admin create/update/delete is canonical-command only.

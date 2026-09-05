@@ -79,6 +79,7 @@ describe('CanonicalCoursesManager first-page budget', () => {
     expect(queryAdminCourseReadModels).toHaveBeenCalledWith({
       scope: 'admin_course_list',
       pageSize: 50,
+      readModelVersion: 2,
     });
     expect(queryAdminCourseEnrollmentReadModels).not.toHaveBeenCalled();
   });

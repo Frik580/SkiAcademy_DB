@@ -27,7 +27,11 @@ export async function saveStarterCreditUsd(amount: number): Promise<number> {
   const normalizedAmount = normalizeStarterCreditUsd(
     Math.min(MAX_STARTER_CREDIT_USD, Math.max(MIN_STARTER_CREDIT_USD, amount))
   );
-  await setDoc(doc(db, 'settings', 'starter_credit'), { amountUsd: normalizedAmount });
+  // Dual-write: amountKzt is the preferred field; amountUsd remains for Rules/compat readers.
+  await setDoc(doc(db, 'settings', 'starter_credit'), {
+    amountKzt: normalizedAmount,
+    amountUsd: normalizedAmount,
+  });
   return normalizedAmount;
 }
 

@@ -228,6 +228,14 @@
         { "fieldPath": "occurredAt.nanoseconds", "order": "DESCENDING" },
         { "fieldPath": "eventId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "days",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "actualInstructorIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "interval.startsAt.seconds", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

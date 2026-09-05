@@ -6,7 +6,7 @@ import {
 } from '../../../domain/achievements';
 import { DEFAULT_NOTIFICATION_RETENTION_DAYS } from '../../../domain/notifications';
 import { DEFAULT_SKILL_CONFIG } from '../../../domain/achievements';
-import { DEFAULT_STARTER_CREDIT_USD, normalizeStarterCreditUsd } from '../../../domain/wallet';
+import { DEFAULT_STARTER_CREDIT_USD, resolveStarterCreditAmountKzt } from '../../../domain/wallet';
 import { logger } from '../../../shared';
 import { useSettingsStore } from '../settingsStore';
 
@@ -56,7 +56,7 @@ export const useSettingsSync = () => {
             .getState()
             .setStarterCreditUsd(
               snapshot.exists()
-                ? normalizeStarterCreditUsd(snapshot.data().amountUsd)
+                ? resolveStarterCreditAmountKzt(snapshot.data())
                 : DEFAULT_STARTER_CREDIT_USD
             ),
         (error) => logger.error('Starter credit settings sync error:', error)

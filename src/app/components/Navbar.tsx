@@ -47,6 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const notificationButtonTitle = hasUnreadNotifications
     ? `${t('newNotifications')} (${unreadNotificationCount})`
     : t('notifications');
+  const formattedBalance = formatPrice(effectiveBalance);
   const workspaceItems = [
     ...(showClientNav
       ? [{ to: '/cabinet', label: t('clientCabinet'), active: isCabinetView }]
@@ -202,7 +203,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span className="text-[var(--ink-dim)] normal-case hidden xl:inline">
                     {t('balance')}:
                   </span>
-                  <span className="font-bold">{formatPrice(effectiveBalance)}</span>
+                  <span className="font-bold" data-testid="navbar-balance">
+                    {formattedBalance}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-2 xl:gap-3 pl-1 shrink-0">
@@ -411,7 +414,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 <div className="flex items-center justify-between gap-2 text-sm text-[var(--ink)]">
                   <span className="text-[var(--ink-dim)]">{t('balance')}:</span>
-                  <span className="font-bold">{formatPrice(effectiveBalance)}</span>
+                  <span className="font-bold" data-testid="navbar-balance-mobile">
+                    {formattedBalance}
+                  </span>
                 </div>
 
                 <button

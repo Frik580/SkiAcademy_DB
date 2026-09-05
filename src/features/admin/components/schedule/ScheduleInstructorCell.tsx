@@ -44,7 +44,7 @@ export const ScheduleInstructorCell: React.FC<ScheduleInstructorCellProps> = ({
               {t('unavailableLabel')}
             </span>
           ) : (
-            `${getSpecialtyLabel(instructor.specialty, language)} • $${instructor.pricePerHour}/h`
+            `${getSpecialtyLabel(instructor.specialty, language)} • ${instructor.pricePerHour.toLocaleString('ru-RU')} ₸/ч`
           )}
         </div>
       </div>

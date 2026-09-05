@@ -635,17 +635,18 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
                   <div className="space-y-1 font-mono">
                     <p className="font-bold">{t('reassignInsufficientFundsTitle')}</p>
                     <p>
-                      {t('reassignInsufficientFundsDescPrefix')} $
-                      {insufficientFundsPrompt.currentBalance.toFixed(2)}
-                      {t('reassignInsufficientFundsDescMiddle')}$
-                      {insufficientFundsPrompt.required.toFixed(2)}
+                      {t('reassignInsufficientFundsDescPrefix')}{' '}
+                      {insufficientFundsPrompt.currentBalance.toLocaleString('ru-RU')} ₸
+                      {t('reassignInsufficientFundsDescMiddle')}
+                      {insufficientFundsPrompt.required.toLocaleString('ru-RU')} ₸
                       {t('reassignInsufficientFundsDescSuffix')}
                     </p>
                     <p>
-                      {t('reassignNegativeBalanceResultPrefix')}$
+                      {t('reassignNegativeBalanceResultPrefix')}
                       {(
                         insufficientFundsPrompt.currentBalance - insufficientFundsPrompt.required
-                      ).toFixed(2)}
+                      ).toLocaleString('ru-RU')}{' '}
+                      ₸
                       {t('reassignNegativeBalanceResultSuffix')}
                     </p>
                   </div>

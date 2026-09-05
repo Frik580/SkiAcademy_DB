@@ -31,7 +31,7 @@ describe('PaymentGateway', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('renders current balance and amount options', () => {
+  it('renders current balance and KZT amount options', () => {
     render(
       <PaymentGateway
         isOpen={true}
@@ -41,11 +41,11 @@ describe('PaymentGateway', () => {
       />
     );
 
-    expect(screen.getByText('$250')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '$50' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '$100' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '$200' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '$500' })).toBeInTheDocument();
+    expect(screen.getByText('250 ₸')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '10\u00a0000 ₸' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '25\u00a0000 ₸' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '50\u00a0000 ₸' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '100\u00a0000 ₸' })).toBeInTheDocument();
   });
 
   it('switches selected amount when clicking an option', async () => {
@@ -58,9 +58,9 @@ describe('PaymentGateway', () => {
       />
     );
 
-    const amount200 = screen.getByRole('button', { name: '$200' });
-    await userEvent.click(amount200);
-    expect(amount200).toHaveClass('font-bold');
+    const amount50k = screen.getByRole('button', { name: '50\u00a0000 ₸' });
+    await userEvent.click(amount50k);
+    expect(amount50k).toHaveClass('font-bold');
   });
 
   it('does not submit payment when fields are empty', async () => {
@@ -114,7 +114,7 @@ describe('PaymentGateway', () => {
         await vi.advanceTimersByTimeAsync(1800);
       });
 
-      expect(onPaymentSuccess).toHaveBeenCalledWith(100, 'USD');
+      expect(onPaymentSuccess).toHaveBeenCalledWith(25_000, 'KZT');
     } finally {
       vi.useRealTimers();
     }

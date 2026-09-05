@@ -9,7 +9,16 @@ export interface BalanceOptimisticState {
   resetOptimisticBalance: () => void;
 }
 
-interface WalletState extends BalanceOptimisticState {
+export interface CanonicalWalletSnapshot {
+  /** Authoritative spendable balance from `/users/{accountId}/wallet/state` (KZT minor units). */
+  canonicalBalanceKzt: number | null;
+  /** False when the signed-in account has no wallet document yet. */
+  canonicalWalletExists: boolean;
+  /** True after the first wallet snapshot for the current auth session (or clear on logout). */
+  canonicalWalletLoaded: boolean;
+}
+
+interface WalletState extends BalanceOptimisticState, CanonicalWalletSnapshot {
   walletLedgerEntries: WalletLedgerEntry[];
   walletLedgerPageSize: number;
   walletLedgerHasMore: boolean;
@@ -17,6 +26,8 @@ interface WalletState extends BalanceOptimisticState {
   setWalletLedgerHasMore: (hasMore: boolean) => void;
   loadMoreWalletLedger: () => void;
   resetWalletLedgerPagination: () => void;
+  syncCanonicalWalletFromSnapshot: (input: { exists: boolean; balanceKzt: number | null }) => void;
+  resetCanonicalWallet: () => void;
 }
 
 type BalanceOptimisticImpl = <T extends BalanceOptimisticState>(
@@ -47,8 +58,15 @@ export const balanceOptimisticMiddleware: BalanceOptimisticImpl =
     };
   };
 
+const EMPTY_CANONICAL_WALLET: CanonicalWalletSnapshot = {
+  canonicalBalanceKzt: null,
+  canonicalWalletExists: false,
+  canonicalWalletLoaded: false,
+};
+
 export const useWalletStore = create<WalletState>()(
   balanceOptimisticMiddleware((set) => ({
+    ...EMPTY_CANONICAL_WALLET,
     walletLedgerEntries: [],
     walletLedgerPageSize: QUERY_LIMITS.walletLedger,
     walletLedgerHasMore: false,
@@ -62,6 +80,14 @@ export const useWalletStore = create<WalletState>()(
       })),
     resetWalletLedgerPagination: () =>
       set({ walletLedgerPageSize: QUERY_LIMITS.walletLedger, walletLedgerHasMore: false }),
+    syncCanonicalWalletFromSnapshot: ({ exists, balanceKzt }) =>
+      set({
+        canonicalWalletExists: exists,
+        canonicalBalanceKzt: exists ? (balanceKzt ?? 0) : 0,
+        canonicalWalletLoaded: true,
+        optimisticBalanceDelta: 0,
+      }),
+    resetCanonicalWallet: () => set({ ...EMPTY_CANONICAL_WALLET, optimisticBalanceDelta: 0 }),
     adjustOptimisticBalance: (delta) => {
       if (delta === 0) return;
       set((current) => ({

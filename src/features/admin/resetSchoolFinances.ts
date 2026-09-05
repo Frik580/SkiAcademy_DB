@@ -115,7 +115,7 @@ export async function resetSchoolFinances(
           userId: userDoc.id,
           amount,
           balanceAfter: amount,
-          currency: 'USD',
+          currency: 'KZT',
           type: 'starter_credit',
           createdAt: new Date().toISOString(),
           subjectName: 'Starter gift credit',

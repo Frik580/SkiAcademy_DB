@@ -74,7 +74,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
     isClientActive: userProfile?.isClientActive,
   });
   const displayPriceMinorUnits =
-    catalogOperational?.priceMinorUnits ?? rawCourse.priceKZT ?? rawCourse.price;
+    catalogOperational?.priceMinorUnits ?? rawCourse.priceKZT;
   const scheduleStart = catalogOperational?.scheduleSummaryStartDate;
   const scheduleEnd = catalogOperational?.scheduleSummaryEndDate;
   const legacyDates = splitCourseDates(course.dates, language);
@@ -166,7 +166,9 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
         <div className="mt-3 space-y-6 pt-1">
           <div className="flex items-baseline gap-2">
             <p className="text-4xl font-serif font-light tracking-[-0.03em] text-[var(--ink)] leading-none">
-              {formatPrice(rawCourse.price, displayPriceMinorUnits)}
+              {displayPriceMinorUnits != null
+                ? formatPrice(displayPriceMinorUnits)
+                : '—'}
             </p>
             <p className="text-xs text-[var(--ink-dim)]/60 font-sans">{t('perCourse')}</p>
           </div>

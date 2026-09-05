@@ -272,7 +272,7 @@ export function ledgerEntryToView(entry: WalletLedgerEntry): WalletOperationView
     id: entry.id,
     amount: entry.amount,
     balanceAfter: entry.balanceAfter,
-    currency: entry.currency ?? 'USD',
+    currency: entry.currency ?? 'KZT',
     createdAt: entry.createdAt,
     labelKey: WALLET_LEDGER_LABEL_KEYS[entry.type],
     subjectName: entry.subjectName,

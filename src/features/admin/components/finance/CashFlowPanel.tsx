@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, Minus, Search } from 'lucide-react';
-import { useCurrency } from '../../../../app/providers/CurrencyContext';
 import {
   buildSchoolCashFlowRows,
   formatWalletOperationLabel,
@@ -45,28 +44,25 @@ const KIND_FILTERS: KindFilter[] = [
   'starter_credit',
 ];
 
-function formatCurrencyTotals(
-  totals: Record<WalletCurrency, number>,
-  formatUsd: (amount: number) => string
-): string {
+function formatKztAmount(amount: number): string {
+  return `${amount.toLocaleString('ru-RU')} ₸`;
+}
+
+/** Display all cash-flow amounts as ₸ (legacy USD ledger rows keep numeric values, no FX). */
+function formatCurrencyTotals(totals: Record<WalletCurrency, number>): string {
   const parts: string[] = [];
-  if (totals.USD !== 0) parts.push(formatUsd(totals.USD));
-  if (totals.KZT !== 0) parts.push(`${totals.KZT.toLocaleString('ru-RU')} ₸`);
-  if (parts.length === 0) parts.push(formatUsd(0));
+  if (totals.USD !== 0) parts.push(formatKztAmount(totals.USD));
+  if (totals.KZT !== 0) parts.push(formatKztAmount(totals.KZT));
+  if (parts.length === 0) parts.push(formatKztAmount(0));
   return parts.join(' · ');
 }
 
-function formatEntryAmount(
-  amount: number,
-  currency: WalletCurrency,
-  formatUsd: (n: number) => string
-) {
-  return currency === 'KZT' ? `${amount.toLocaleString('ru-RU')} ₸` : formatUsd(amount);
+function formatEntryAmount(amount: number): string {
+  return formatKztAmount(amount);
 }
 
 export const CashFlowPanel: React.FC<CashFlowPanelProps> = ({ usersList }) => {
   const { t, language } = useAdminFinanceTranslations();
-  const { formatPrice } = useCurrency();
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
 
   const [entries, setEntries] = useState<WalletLedgerEntry[]>([]);
@@ -177,13 +173,13 @@ export const CashFlowPanel: React.FC<CashFlowPanelProps> = ({ usersList }) => {
             {t('cashFlowCash')}
           </span>
           <p className="text-xl font-serif font-light text-[var(--ink)]">
-            {formatCurrencyTotals(summary.cashNet, formatPrice)}
+            {formatCurrencyTotals(summary.cashNet)}
           </p>
           <p className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
-            {t('cashFlowCashIn')}: {formatCurrencyTotals(summary.cashIn, formatPrice)}
+            {t('cashFlowCashIn')}: {formatCurrencyTotals(summary.cashIn)}
           </p>
           <p className="text-[11px] font-mono text-rose-600 dark:text-rose-400">
-            {t('cashFlowCashOut')}: {formatCurrencyTotals(summary.cashOut, formatPrice)}
+            {t('cashFlowCashOut')}: {formatCurrencyTotals(summary.cashOut)}
           </p>
         </div>
         <div className="border border-[var(--border)] p-4 space-y-2">
@@ -191,13 +187,13 @@ export const CashFlowPanel: React.FC<CashFlowPanelProps> = ({ usersList }) => {
             {t('cashFlowRevenue')}
           </span>
           <p className="text-xl font-serif font-light text-[var(--ink)]">
-            {formatCurrencyTotals(summary.revenueNet, formatPrice)}
+            {formatCurrencyTotals(summary.revenueNet)}
           </p>
           <p className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
-            {t('cashFlowRevenueIn')}: {formatCurrencyTotals(summary.revenueIn, formatPrice)}
+            {t('cashFlowRevenueIn')}: {formatCurrencyTotals(summary.revenueIn)}
           </p>
           <p className="text-[11px] font-mono text-rose-600 dark:text-rose-400">
-            {t('cashFlowRevenueOut')}: {formatCurrencyTotals(summary.revenueOut, formatPrice)}
+            {t('cashFlowRevenueOut')}: {formatCurrencyTotals(summary.revenueOut)}
           </p>
         </div>
         <div className="border border-[var(--border)] p-4 space-y-2">
@@ -205,7 +201,7 @@ export const CashFlowPanel: React.FC<CashFlowPanelProps> = ({ usersList }) => {
             {t('cashFlowGuestWallet')}
           </span>
           <p className="text-xl font-serif font-light text-[var(--ink)]">
-            {formatPrice(summary.guestWalletBalanceUsd)}
+            {formatKztAmount(summary.guestWalletBalanceUsd)}
           </p>
           <p className="text-[11px] font-mono text-[var(--ink-dim)] leading-relaxed">
             {t('cashFlowGuestWalletHint')}
@@ -216,7 +212,7 @@ export const CashFlowPanel: React.FC<CashFlowPanelProps> = ({ usersList }) => {
             {t('cashFlowLiabilities')}
           </span>
           <p className="text-xl font-serif font-light text-[var(--ink)]">
-            {formatCurrencyTotals(summary.liabilities, formatPrice)}
+            {formatCurrencyTotals(summary.liabilities)}
           </p>
           <p className="text-[11px] font-mono text-[var(--ink-dim)] leading-relaxed">
             {t('cashFlowLiabilitiesHint')}
@@ -231,8 +227,7 @@ export const CashFlowPanel: React.FC<CashFlowPanelProps> = ({ usersList }) => {
               key={item.kind}
               className="text-[10px] font-mono uppercase tracking-wider border border-[var(--border)] px-2 py-1 text-[var(--ink-dim)]"
             >
-              {kindLabel(item.kind)} · {item.count} ·{' '}
-              {formatCurrencyTotals(item.byCurrency, formatPrice)}
+              {kindLabel(item.kind)} · {item.count} · {formatCurrencyTotals(item.byCurrency)}
             </span>
           ))}
         </div>
@@ -358,7 +353,7 @@ export const CashFlowPanel: React.FC<CashFlowPanelProps> = ({ usersList }) => {
                   }`}
                 >
                   {isIn ? '+' : isOut ? '−' : ''}
-                  {formatEntryAmount(row.amount, row.currency, formatPrice)}
+                  {formatEntryAmount(row.amount)}
                 </p>
               </div>
             );

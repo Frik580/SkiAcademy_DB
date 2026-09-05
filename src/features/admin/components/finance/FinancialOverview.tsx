@@ -2,11 +2,7 @@ import React from 'react';
 import { DollarSign } from 'lucide-react';
 import type { AdminFinancialOverviewPeriod } from '@ski-academy/shared-domain';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
-import { useCurrency } from '../../../../app/providers/CurrencyContext';
-import {
-  formatCanonicalKztForDisplay,
-  isUsdToKztDisplayRateAvailable,
-} from '../../operations/adminFinancialOverview';
+import { formatCanonicalKztForDisplay } from '../../operations/adminFinancialOverview';
 import type { AdminFinanceReadErrorCode } from './useAdminFinanceReadModels';
 
 interface FinancialOverviewProps {
@@ -23,7 +19,7 @@ interface FinancialOverviewProps {
 
 /**
  * Finance-tab revenue overview. Owns period selector + monetary_events-backed totals.
- * Booking counters live on Operations; FX/currency chrome is global AdminDisplayChrome.
+ * Booking counters live on Operations; currency chrome is global AdminDisplayChrome.
  */
 export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
   netSettledKzt,
@@ -37,15 +33,13 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
   onOpenPeriodMovement,
 }) => {
   const { t } = useLanguage();
-  const { currency, usdToKztRate } = useCurrency();
-  const fxRateAvailable = isUsdToKztDisplayRateAvailable(usdToKztRate);
 
   const revenueReady = !revenueLoading && !revenueError && netSettledKzt !== undefined;
   const revenueLabel = revenueLoading
     ? '…'
     : revenueError
       ? t('adminFinanceOverviewLoadFailed')
-      : formatCanonicalKztForDisplay(netSettledKzt ?? 0, currency, usdToKztRate);
+      : formatCanonicalKztForDisplay(netSettledKzt ?? 0);
 
   return (
     <div className="space-y-3">
@@ -91,15 +85,10 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
             {revenueReady ? (
               <span className="text-[9px] font-mono text-[var(--ink-dim)] block">
                 {t('adminFinanceOverviewSettled')}:{' '}
-                {formatCanonicalKztForDisplay(settledRevenueKzt ?? 0, 'KZT', usdToKztRate)}
+                {formatCanonicalKztForDisplay(settledRevenueKzt ?? 0)}
                 {' · '}
                 {t('adminFinanceOverviewRefunded')}:{' '}
-                {formatCanonicalKztForDisplay(refundedKzt ?? 0, 'KZT', usdToKztRate)}
-              </span>
-            ) : null}
-            {currency === 'USD' && !fxRateAvailable ? (
-              <span className="text-[9px] font-mono text-amber-600 dark:text-amber-400 block">
-                {t('adminFinanceOverviewFxUnavailable')}
+                {formatCanonicalKztForDisplay(refundedKzt ?? 0)}
               </span>
             ) : null}
             {revenueTruncated ? (
@@ -118,7 +107,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({
             ) : null}
           </div>
           <div className="w-10 h-10 border border-[var(--border)] rounded-none flex items-center justify-center text-[var(--ink)] bg-black/5 dark:bg-white/5">
-            <DollarSign className="w-4 h-4" />
+            <DollarSign className="w-5 h-5" />
           </div>
         </div>
       </div>

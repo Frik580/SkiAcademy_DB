@@ -5,12 +5,26 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import type { WalletCurrency } from '../../../types';
 
+const TOP_UP_AMOUNTS_KZT = [10_000, 25_000, 50_000, 100_000] as const;
+const DEFAULT_TOP_UP_KZT = 25_000;
+
 interface PaymentGatewayProps {
   isOpen: boolean;
   onClose: () => void;
   currentBalance: number;
   balances?: Partial<Record<WalletCurrency, number>>;
   onPaymentSuccess: (amount: number, currency: WalletCurrency) => Promise<void>;
+}
+
+function formatCardNumber(raw: string): string {
+  const value = raw.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+  const matches = value.match(/\d{4,16}/g);
+  const match = (matches && matches[0]) || '';
+  const parts: string[] = [];
+  for (let i = 0, len = match.length; i < len; i += 4) {
+    parts.push(match.substring(i, i + 4));
+  }
+  return parts.length > 0 ? parts.join(' ') : value;
 }
 
 export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
@@ -22,8 +36,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
 }) => {
   const { addNotification } = useNotifications();
   const { t } = useLanguage();
-  const [selectedAmount, setSelectedAmount] = useState<number>(100);
-  const [selectedCurrency, setSelectedCurrency] = useState<WalletCurrency>('USD');
+  const [selectedAmount, setSelectedAmount] = useState<number>(DEFAULT_TOP_UP_KZT);
   const [cardNumber, setCardNumber] = useState<string>('');
   const [expiry, setExpiry] = useState<string>('');
   const [cvv, setCvv] = useState<string>('');
@@ -43,39 +56,9 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
 
   if (!isOpen) return null;
 
-  const walletBalance =
-    balances?.[selectedCurrency] ?? (selectedCurrency === 'USD' ? currentBalance : 0);
-  const topUpAmounts =
-    selectedCurrency === 'USD' ? [50, 100, 200, 500] : [10_000, 25_000, 50_000, 100_000];
-  const formatWalletAmount = (amount: number, currency = selectedCurrency) =>
-    currency === 'USD'
-      ? `$${amount.toLocaleString('en-US')}`
-      : `${amount.toLocaleString('ru-RU')} ₸`;
+  const walletBalance = balances?.KZT ?? currentBalance;
+  const formatWalletAmount = (amount: number) => `${amount.toLocaleString('ru-RU')} ₸`;
 
-  const selectCurrency = (currency: WalletCurrency) => {
-    setSelectedCurrency(currency);
-    setSelectedAmount(currency === 'USD' ? 100 : 25_000);
-  };
-
-  // Format Card Number (space every 4 digits)
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    const matches = value.match(/\d{4,16}/g);
-    const match = (matches && matches[0]) || '';
-    const parts = [];
-
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
-    }
-
-    if (parts.length > 0) {
-      setCardNumber(parts.join(' '));
-    } else {
-      setCardNumber(value);
-    }
-  };
-
-  // Format Expiry (MM/YY)
   const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/[^0-9]/g, '');
     if (value.length > 2) {
@@ -99,7 +82,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
     if (payTimerRef.current) clearTimeout(payTimerRef.current);
     payTimerRef.current = setTimeout(async () => {
       try {
-        await onPaymentSuccess(selectedAmount, selectedCurrency);
+        await onPaymentSuccess(selectedAmount, 'KZT');
         setIsPaying(false);
         setIsSuccess(true);
         addNotification(
@@ -118,7 +101,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
           setCardholderName('');
           onClose();
         }, 1500);
-      } catch (err) {
+      } catch {
         isPayingRef.current = false;
         setIsPaying(false);
         addNotification('error', t('paymentFailed'), t('balanceSyncFailed'));
@@ -130,7 +113,6 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
     <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
       <BodyScrollLock />
       <div className="ui-modal shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]">
-        {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5">
           <div>
             <h3 className="font-serif text-lg font-light text-[var(--ink)]">
@@ -170,7 +152,6 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
           </div>
         ) : (
           <form onSubmit={handlePay} className="p-6 space-y-5">
-            {/* Quick Balance Information */}
             <div className="flex items-center justify-between bg-black/10 rounded-none p-4 border border-[var(--border)]">
               <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
                 {t('currentBalance')}:
@@ -182,33 +163,10 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
 
             <div className="space-y-2">
               <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
-                Currency
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {(['USD', 'KZT'] as WalletCurrency[]).map((currency) => (
-                  <button
-                    key={currency}
-                    type="button"
-                    onClick={() => selectCurrency(currency)}
-                    className={`py-2 border text-xs font-mono transition-all cursor-pointer rounded-none ${
-                      selectedCurrency === currency
-                        ? 'border-[var(--ink)] bg-black/15 text-[var(--ink)] font-bold'
-                        : 'border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink-dim)]'
-                    }`}
-                  >
-                    {currency}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Select Top-up Amount */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
                 {t('selectTopUpAmount')}
               </label>
               <div className="grid grid-cols-4 gap-2">
-                {topUpAmounts.map((amt) => (
+                {TOP_UP_AMOUNTS_KZT.map((amt) => (
                   <button
                     key={amt}
                     type="button"
@@ -225,13 +183,11 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
               </div>
             </div>
 
-            {/* Card Information */}
             <div className="space-y-3 pt-4 border-t border-[var(--border)]">
               <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
                 {t('cardNumber')} ({t('sandbox')})
               </span>
 
-              {/* Cardholder Name */}
               <div className="space-y-1">
                 <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
                   {t('cardHolder')}
@@ -246,7 +202,6 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
                 />
               </div>
 
-              {/* Card Number */}
               <div className="space-y-1">
                 <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
                   {t('paymentCardNumber')}
@@ -257,7 +212,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
                     required
                     maxLength={19}
                     value={cardNumber}
-                    onChange={handleCardNumberChange}
+                    onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
                     placeholder="4000 1234 5678 9010"
                     className="w-full pl-10 pr-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none font-mono"
                   />
@@ -265,7 +220,6 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
                 </div>
               </div>
 
-              {/* Expiry & CVV */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-dim)] block">
@@ -298,7 +252,6 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
               </div>
             </div>
 
-            {/* Pay Button */}
             <button
               type="submit"
               disabled={isPaying}

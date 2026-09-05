@@ -43,7 +43,7 @@ export const AdminCourseAuthorizedActionSchema = z
   })
   .strict();
 
-export const AdminCourseReadModelSchema = z
+export const AdminCourseListItemSchema = z
   .object({
     courseId: CourseIdSchema,
     title: z.string().trim().min(1).max(200),
@@ -59,27 +59,56 @@ export const AdminCourseReadModelSchema = z
     revision: AggregateRevisionSchema,
     scheduleRevision: AggregateRevisionSchema,
     instructorRosterIds: z.array(InstructorIdSchema).min(1).max(16),
+    // The list renders roster tags, so keep only that presentation data here.
+    // Course-day, enrollment, and attendance data remain detail-only below.
     instructors: z.array(AdminCourseInstructorPresentationSchema).max(16),
-    courseDays: z.array(CourseDaySchema).max(64),
-    activeEnrollmentCount: z.number().finite().int().nonnegative(),
-    totalEnrollmentCount: z.number().finite().int().nonnegative(),
-    provisioning: z
+    scheduleSummary: z
       .object({
-        status: z.enum(['complete', 'incomplete', 'operationally_amended']),
-        fingerprint: z.string().min(1).max(128).optional(),
+        courseDayCount: z.number().finite().int().min(1).max(64),
+        startsAt: CourseSchema.shape.startAt,
+        firstDayEndsAt: CourseSchema.shape.startAt,
+        lastDayStartsAt: CourseSchema.shape.startAt,
+        timeZone: CourseDaySchema.shape.timeZone,
       })
-      .strict(),
+      .strict()
+      .optional(),
     catalogContent: z
       .object({
         status: z.enum(['present', 'missing']),
         content: CourseCatalogContentSchema.optional(),
       })
       .strict(),
+    // Compatibility envelope for clients that have not opted in to the compact
+    // list response yet. Compact v2 never populates these fields.
+    courseDays: z.array(CourseDaySchema).max(64).optional(),
+    activeEnrollmentCount: z.number().finite().int().nonnegative().optional(),
+    totalEnrollmentCount: z.number().finite().int().nonnegative().optional(),
+    provisioning: z
+      .object({
+        status: z.enum(['complete', 'incomplete', 'operationally_amended']),
+        fingerprint: z.string().min(1).max(128).optional(),
+      })
+      .strict()
+      .optional(),
     authorizedActions: z.array(AdminCourseAuthorizedActionSchema).max(16),
     createdAt: CourseSchema.shape.createdAt,
     updatedAt: CourseSchema.shape.updatedAt,
   })
   .strict();
+
+export type AdminCourseListItem = z.output<typeof AdminCourseListItemSchema>;
+
+export const AdminCourseReadModelSchema = AdminCourseListItemSchema.extend({
+  courseDays: z.array(CourseDaySchema).max(64),
+  activeEnrollmentCount: z.number().finite().int().nonnegative(),
+  totalEnrollmentCount: z.number().finite().int().nonnegative(),
+  provisioning: z
+    .object({
+      status: z.enum(['complete', 'incomplete', 'operationally_amended']),
+      fingerprint: z.string().min(1).max(128).optional(),
+    })
+    .strict(),
+}).strict();
 
 export type AdminCourseReadModel = z.output<typeof AdminCourseReadModelSchema>;
 
@@ -87,6 +116,7 @@ const AdminCourseListInputSchema = z
   .object({
     scope: z.literal('admin_course_list'),
     pageSize: z.number().int().positive().max(ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX).optional(),
+    readModelVersion: z.literal(2).optional(),
     idempotencyKey: IdempotencyKeySchema.optional(),
   })
   .strict();
@@ -112,7 +142,7 @@ export const QueryAdminCourseReadModelsResultSchema = z.discriminatedUnion('scop
   z
     .object({
       scope: z.literal('admin_course_list'),
-      items: z.array(AdminCourseReadModelSchema).max(ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX),
+      items: z.array(AdminCourseListItemSchema).max(ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX),
     })
     .strict(),
   z

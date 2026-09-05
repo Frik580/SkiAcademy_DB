@@ -126,8 +126,6 @@ export const AdminInstructorListItemSchema = z
     linkedAccountId: AccountIdSchema.optional(),
     linkedAccountDisplayName: z.string().trim().min(1).max(200).optional(),
     pricePerHourKZT: z.number().finite().int().positive().optional(),
-    courseRosterCount: z.number().int().nonnegative(),
-    courseDayAssignmentCount: z.number().int().nonnegative(),
     revision: AggregateRevisionSchema,
     authorizedActions: z.array(AdminIdentityAuthorizedActionSchema).max(8),
   })
@@ -136,6 +134,8 @@ export const AdminInstructorListItemSchema = z
 export type AdminInstructorListItem = z.output<typeof AdminInstructorListItemSchema>;
 
 export const AdminInstructorDetailReadModelSchema = AdminInstructorListItemSchema.extend({
+  courseRosterCount: z.number().int().nonnegative(),
+  courseDayAssignmentCount: z.number().int().nonnegative(),
   bio: z.string().trim().max(4_000).optional(),
   avatarUrl: z.string().trim().min(1).max(2_000).optional(),
   phoneNumber: z.string().trim().max(32).optional(),

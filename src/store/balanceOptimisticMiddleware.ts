@@ -35,5 +35,5 @@ export const balanceOptimisticMiddleware: BalanceOptimisticImpl =
   };
 
 export const selectEffectiveBalance = (
-  state: BalanceOptimisticState & { userProfile: { balanceUSD: number } | null }
-) => (state.userProfile?.balanceUSD ?? 0) + state.optimisticBalanceDelta;
+  state: BalanceOptimisticState & { canonicalBalanceKzt: number | null }
+) => (state.canonicalBalanceKzt ?? 0) + state.optimisticBalanceDelta;

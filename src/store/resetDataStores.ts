@@ -34,6 +34,9 @@ export function resetUserScopedStores(): void {
     walletLedgerPageSize: QUERY_LIMITS.walletLedger,
     walletLedgerHasMore: false,
     optimisticBalanceDelta: 0,
+    canonicalBalanceKzt: null,
+    canonicalWalletExists: false,
+    canonicalWalletLoaded: false,
   });
   useNotificationsStore.setState({
     dbNotifications: [],

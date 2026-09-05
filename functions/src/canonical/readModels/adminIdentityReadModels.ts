@@ -810,12 +810,6 @@ async function buildInstructorListItem(
     catalogLinkedAccountId,
     readContext
   );
-  const rosterCount = await countQuery(
-    firestore.collection('courses').where('instructorRosterIds', 'array-contains', instructorId)
-  );
-  const dayCount = await countQuery(
-    firestore.collectionGroup('days').where('actualInstructorIds', 'array-contains', instructorId)
-  );
   const specialty =
     data.specialty === 'ski' || data.specialty === 'snowboard' || data.specialty === 'both'
       ? data.specialty
@@ -832,8 +826,6 @@ async function buildInstructorListItem(
     ...(linked ? { linkedAccountId: linked.accountId } : {}),
     ...(linked?.displayName ? { linkedAccountDisplayName: linked.displayName } : {}),
     ...(pricePerHourKZT !== undefined && pricePerHourKZT > 0 ? { pricePerHourKZT } : {}),
-    courseRosterCount: rosterCount,
-    courseDayAssignmentCount: dayCount,
     revision,
     authorizedActions: instructorActions({
       revision,
@@ -857,7 +849,15 @@ async function buildInstructorDetail(
 ): Promise<AdminInstructorDetailReadModel | undefined> {
   const listItem = await buildInstructorListItem(firestore, instructorId, data, readContext);
   if (!listItem) return undefined;
-  const commitments = await loadInstructorCommitmentCounts(firestore, instructorId);
+  const [commitments, courseRosterCount, courseDayAssignmentCount] = await Promise.all([
+    loadInstructorCommitmentCounts(firestore, instructorId),
+    countQuery(
+      firestore.collection('courses').where('instructorRosterIds', 'array-contains', instructorId)
+    ),
+    countQuery(
+      firestore.collectionGroup('days').where('actualInstructorIds', 'array-contains', instructorId)
+    ),
+  ]);
   const diagnostics: IdentityDiagnostic[] = [];
   let linkedLifecycle = (
     await findLinkedAccount(
@@ -916,6 +916,8 @@ async function buildInstructorDetail(
       : {}),
     ...(typeof data.experienceYears === 'number' ? { experienceYears: data.experienceYears } : {}),
     ...(linkedLifecycle ? { linkedAccountLifecycle: linkedLifecycle } : {}),
+    courseRosterCount,
+    courseDayAssignmentCount,
     futureLessonCommitmentCount: commitments.futureLessonCommitmentCount,
     futureCourseDayAssignmentCount: commitments.futureCourseDayAssignmentCount,
     unlinkBlockedByCommitments: commitments.unlinkBlockedByCommitments,

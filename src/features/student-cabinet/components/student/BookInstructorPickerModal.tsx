@@ -142,10 +142,10 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
                                     {instructor.rating.toFixed(1)}
                                   </span>
                                   <span>
-                                    {formatPrice(
-                                      instructor.pricePerHour,
-                                      instructor.pricePerHourKZT
-                                    )}
+                                    {instructor.pricePerHourKZT != null &&
+                                    Number.isFinite(instructor.pricePerHourKZT)
+                                      ? formatPrice(instructor.pricePerHourKZT)
+                                      : '—'}
                                     /{t('hr')}
                                   </span>
                                 </span>

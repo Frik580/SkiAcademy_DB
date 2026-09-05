@@ -1,19 +1,14 @@
-import { useProfileStore } from '../profile/profileStore';
 import { useWalletStore } from './walletStore';
 
 /**
- * Selects the effective balance (real balance + optimistic delta).
- * Used for immediate UI feedback during transactions.
+ * Selects the effective spendable balance from the canonical Account Wallet
+ * (`/users/{accountId}/wallet/state`), plus any in-flight optimistic delta (KZT).
  *
- * Usage: useWalletStore(selectEffectiveBalance)
- * But you also need useProfileStore for userProfile, so better to compose it in component:
- * const userProfile = useProfileStore((s) => s.userProfile);
- * const optimisticDelta = useWalletStore((s) => s.optimisticBalanceDelta);
- * const effectiveBalance = (userProfile?.balanceUSD ?? 0) + optimisticDelta;
+ * Does not read legacy profile monetary fields.
  */
 export const selectEffectiveBalance = (state: ReturnType<typeof useWalletStore.getState>) => {
-  const userProfile = useProfileStore.getState().userProfile;
-  return (userProfile?.balanceUSD ?? 0) + state.optimisticBalanceDelta;
+  const realBalance = state.canonicalBalanceKzt ?? 0;
+  return realBalance + state.optimisticBalanceDelta;
 };
 
 /**
@@ -35,11 +30,15 @@ export const selectHasPendingBalance = (state: ReturnType<typeof useWalletStore.
   state.optimisticBalanceDelta !== 0;
 
 /**
- * Helper hook for getting effective balance.
- * Combines wallet and profile store selectors for convenience.
+ * Helper hook for Header / cabinet wallet display.
+ * Source of truth: canonical wallet balance in KZT minor units.
  */
 export const useEffectiveBalance = () => {
-  const userProfile = useProfileStore((s) => s.userProfile);
+  const canonicalBalanceKzt = useWalletStore((s) => s.canonicalBalanceKzt);
   const optimisticDelta = useWalletStore((s) => s.optimisticBalanceDelta);
-  return (userProfile?.balanceUSD ?? 0) + optimisticDelta;
+  return (canonicalBalanceKzt ?? 0) + optimisticDelta;
 };
+
+export const useCanonicalWalletLoaded = () => useWalletStore((s) => s.canonicalWalletLoaded);
+
+export const useCanonicalWalletExists = () => useWalletStore((s) => s.canonicalWalletExists);

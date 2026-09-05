@@ -39,8 +39,7 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
     isEnrolled,
     isClientActive: userProfile?.isClientActive,
   });
-  const displayPriceMinorUnits =
-    catalogOperational?.priceMinorUnits ?? course.priceKZT ?? course.price;
+  const displayPriceMinorUnits = catalogOperational?.priceMinorUnits ?? course.priceKZT;
 
   return (
     <div className="relative">
@@ -108,7 +107,9 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
             </span>
           </div>
           <span className="text-3xl font-serif text-[var(--ink)] font-light">
-            {formatPrice(course.price, displayPriceMinorUnits)}
+            {displayPriceMinorUnits != null
+              ? formatPrice(displayPriceMinorUnits)
+              : '—'}
           </span>
         </div>
 

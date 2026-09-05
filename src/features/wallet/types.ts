@@ -15,7 +15,7 @@ export interface WalletLedgerEntry {
   /** Positive for credits, negative for debits. */
   amount: number;
   balanceAfter: number;
-  /** Currency of amount and balanceAfter. Legacy entries are USD. */
+  /** Currency of amount and balanceAfter. Missing currency is treated as KZT; older rows may be USD. */
   currency?: WalletCurrency;
   type: WalletLedgerType;
   subjectName?: string;

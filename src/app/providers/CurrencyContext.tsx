@@ -1,122 +1,58 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { db, doc, onSnapshot, setDoc } from '../../infrastructure/firebase';
-import { logger } from '../../shared';
+import React, { createContext, useContext } from 'react';
 
-export type Currency = 'USD' | 'KZT';
+export type Currency = 'KZT';
 
 interface CurrencyContextType {
+  /** Always KZT — retained for call-site compatibility. */
   currency: Currency;
-  setCurrency: (curr: Currency) => void;
-  usdToKztRate: number;
-  setUsdToKztRate: (rate: number) => void;
-  formatPrice: (usdAmount: number, kztAmount?: number) => string;
+  formatPrice: (amountKzt: number, preferredKzt?: number) => string;
   formatPriceRaw: (
-    usdAmount: number,
-    kztAmount?: number
-  ) => { amount: number; symbol: string; code: string; formatted: string };
-  convertPrice: (usdAmount: number, kztAmount?: number) => number;
+    amountKzt: number,
+    preferredKzt?: number
+  ) => {
+    amount: number;
+    symbol: string;
+    code: 'KZT';
+    formatted: string;
+  };
+  /** Resolves the KZT amount to display (prefers explicit KZT when provided). */
+  convertPrice: (amountKzt: number, preferredKzt?: number) => number;
 }
 
-const DEFAULT_CURRENCY: Currency = 'USD';
-const DEFAULT_USD_TO_KZT_RATE = 500;
-const CURRENCY_STORAGE_KEY = 'alpine_glide_currency';
-const RATE_STORAGE_KEY = 'alpine_glide_usd_kzt_rate';
+function resolveAmountKzt(amountKzt: number, preferredKzt?: number): number {
+  if (preferredKzt !== undefined && preferredKzt !== null && Number.isFinite(preferredKzt)) {
+    return preferredKzt;
+  }
+  return Number.isFinite(amountKzt) ? amountKzt : 0;
+}
 
-const isCurrency = (value: unknown): value is Currency => value === 'USD' || value === 'KZT';
+function formatKzt(amount: number): string {
+  return `${amount.toLocaleString('ru-RU')} ₸`;
+}
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
 
 export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currency, setCurrencyState] = useState<Currency>(DEFAULT_CURRENCY);
+  const convertPrice = (amountKzt: number, preferredKzt?: number): number =>
+    resolveAmountKzt(amountKzt, preferredKzt);
 
-  const [usdToKztRate, setUsdToKztRateState] = useState<number>(DEFAULT_USD_TO_KZT_RATE);
+  const formatPrice = (amountKzt: number, preferredKzt?: number): string =>
+    formatKzt(convertPrice(amountKzt, preferredKzt));
 
-  useEffect(() => {
-    try {
-      const configRef = doc(db, 'resort_data', 'config');
-      const unsub = onSnapshot(configRef, (snap) => {
-        if (!snap.exists()) {
-          setCurrencyState(DEFAULT_CURRENCY);
-          localStorage.setItem(CURRENCY_STORAGE_KEY, DEFAULT_CURRENCY);
-          return;
-        }
-
-        const data = snap.data();
-
-        const serverCurrency = isCurrency(data?.currency) ? data.currency : DEFAULT_CURRENCY;
-        setCurrencyState(serverCurrency);
-        localStorage.setItem(CURRENCY_STORAGE_KEY, serverCurrency);
-
-        if (typeof data?.usdToKztRate === 'number' && data.usdToKztRate > 0) {
-          setUsdToKztRateState(data.usdToKztRate);
-          localStorage.setItem(RATE_STORAGE_KEY, String(data.usdToKztRate));
-        }
-      });
-      return () => unsub();
-    } catch {
-      // Fallback
-    }
-  }, []);
-
-  const setCurrency = (curr: Currency) => {
-    setCurrencyState(curr);
-    setDoc(doc(db, 'resort_data', 'config'), { currency: curr }, { merge: true }).catch((err) => {
-      logger.error('Failed to update currency in Firestore:', err);
-    });
-  };
-
-  const setUsdToKztRate = (rate: number) => {
-    if (rate > 0) {
-      setUsdToKztRateState(rate);
-      localStorage.setItem(RATE_STORAGE_KEY, String(rate));
-    }
-  };
-
-  const convertPrice = (usdAmount: number, kztAmount?: number): number => {
-    if (currency === 'USD') {
-      return usdAmount;
-    }
-    if (kztAmount !== undefined && kztAmount !== null && kztAmount > 0) {
-      return kztAmount;
-    }
-    return Math.round(usdAmount * usdToKztRate);
-  };
-
-  const formatPrice = (usdAmount: number, kztAmount?: number): string => {
-    if (currency === 'USD') {
-      return `$${usdAmount.toLocaleString('en-US')}`;
-    } else {
-      const kzt = convertPrice(usdAmount, kztAmount);
-      return `${kzt.toLocaleString('ru-RU')} ₸`;
-    }
-  };
-
-  const formatPriceRaw = (usdAmount: number, kztAmount?: number) => {
-    if (currency === 'USD') {
-      return {
-        amount: usdAmount,
-        symbol: '$',
-        code: 'USD',
-        formatted: `$${usdAmount.toLocaleString('en-US')}`,
-      };
-    } else {
-      const amount = convertPrice(usdAmount, kztAmount);
-      return {
-        amount,
-        symbol: '₸',
-        code: 'KZT',
-        formatted: `${amount.toLocaleString('ru-RU')} ₸`,
-      };
-    }
+  const formatPriceRaw = (amountKzt: number, preferredKzt?: number) => {
+    const amount = convertPrice(amountKzt, preferredKzt);
+    return {
+      amount,
+      symbol: '₸',
+      code: 'KZT' as const,
+      formatted: formatKzt(amount),
+    };
   };
 
   return (
     <CurrencyContext.Provider
       value={{
-        currency,
-        setCurrency,
-        usdToKztRate,
-        setUsdToKztRate,
+        currency: 'KZT',
         formatPrice,
         formatPriceRaw,
         convertPrice,

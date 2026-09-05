@@ -51,6 +51,7 @@ function createWindowQuery(
   let rangeStart = 0;
   let rangeEnd = Number.MAX_SAFE_INTEGER;
   const equalityFilters: Array<{ field: string; value: unknown }> = [];
+  const arrayContainsFilters: Array<{ field: string; value: unknown }> = [];
   const chain = {
     where: (field: string, operator: string, value: unknown) => {
       if (field === rangeField) {
@@ -58,6 +59,8 @@ function createWindowQuery(
         if (operator === '<') rangeEnd = value as number;
       } else if (operator === '==') {
         equalityFilters.push({ field, value });
+      } else if (operator === 'array-contains') {
+        arrayContainsFilters.push({ field, value });
       }
       return chain;
     },
@@ -72,7 +75,11 @@ function createWindowQuery(
             const matchesEquality = equalityFilters.every(({ field, value }) =>
               Object.is(nestedValue(data, field), value)
             );
-            return inRange && matchesEquality;
+            const matchesArrayContains = arrayContainsFilters.every(({ field, value }) => {
+              const actual = nestedValue(data, field);
+              return Array.isArray(actual) && actual.includes(value);
+            });
+            return inRange && matchesEquality && matchesArrayContains;
           })
         ),
       startAfter: () => ({
@@ -197,6 +204,9 @@ describe('instructorOccupancyReadSupport', () => {
     );
     expect(source).toMatch(
       /\.where\(\s*['"]instructorId['"]\s*,\s*['"]==['"]\s*,\s*input\.instructorId/
+    );
+    expect(source).toMatch(
+      /\.where\(\s*['"]actualInstructorIds['"]\s*,\s*['"]array-contains['"]\s*,\s*input\.instructorId/
     );
   });
 

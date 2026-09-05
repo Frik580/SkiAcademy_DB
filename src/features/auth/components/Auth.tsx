@@ -96,7 +96,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
           addNotification(
             'success',
             t('authWelcomeBack'),
-            `${t('authLinkedProfileName')} "${displayName}" ${t('authWithBalance')} $${finalProfile.balanceUSD}.`
+            `${t('authLinkedProfileName')} "${displayName}" ${t('authWithBalance')} ${finalProfile.balanceUSD.toLocaleString('ru-RU')} ₸.`
           );
         }
 
@@ -117,7 +117,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
           addNotification(
             'success',
             t('authWelcomeBack'),
-            `${t('authLinkedProfileBalance')} $${finalProfile.balanceUSD} ${t('authMergedSuffix')}`
+            `${t('authLinkedProfileBalance')} ${finalProfile.balanceUSD.toLocaleString('ru-RU')} ₸ ${t('authMergedSuffix')}`
           );
           onSuccess(finalProfile);
         } else {
@@ -244,7 +244,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
           addNotification(
             'success',
             t('authWelcomeBack'),
-            `${t('authGoogleProfileFound')} $${finalProfile.balanceUSD}, ${t('authLinkedToName')} "${actualName}".`
+            `${t('authGoogleProfileFound')} ${finalProfile.balanceUSD.toLocaleString('ru-RU')} ₸, ${t('authLinkedToName')} "${actualName}".`
           );
         }
         onSuccess(finalProfile);

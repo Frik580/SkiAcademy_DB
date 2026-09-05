@@ -29,10 +29,7 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryListProps> =
   const [currentPage, setCurrentPage] = useState(1);
   const walletLedgerHasMore = useWalletStore((state) => state.walletLedgerHasMore);
   const loadMoreWalletLedger = useWalletStore((state) => state.loadMoreWalletLedger);
-  const formatWalletAmount = (amount: number, currency = 'USD') =>
-    currency === 'KZT'
-      ? `${amount.toLocaleString('ru-RU')} ₸`
-      : `$${amount.toLocaleString('en-US')}`;
+  const formatWalletAmount = (amount: number) => `${amount.toLocaleString('ru-RU')} ₸`;
 
   const operations = useMemo(
     () => buildWalletOperationHistory(userId, bookings, courses, ledgerEntries, lang),
@@ -94,8 +91,7 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryListProps> =
                 <p className="text-xs text-[var(--ink-dim)] mt-1">{formattedDate}</p>
                 {operation.balanceAfter != null && (
                   <p className="text-[11px] text-[var(--ink-dim)] mt-1">
-                    {t('scProfileWalletBalanceAfter')}:{' '}
-                    {formatWalletAmount(operation.balanceAfter, operation.currency)}
+                    {t('scProfileWalletBalanceAfter')}: {formatWalletAmount(operation.balanceAfter)}
                   </p>
                 )}
               </div>
@@ -108,7 +104,7 @@ export const StudentWalletHistoryList: React.FC<StudentWalletHistoryListProps> =
                   }`}
                 >
                   {isCredit ? '+' : '−'}
-                  {formatWalletAmount(Math.abs(operation.amount), operation.currency)}
+                  {formatWalletAmount(Math.abs(operation.amount))}
                 </p>
               </div>
             </div>

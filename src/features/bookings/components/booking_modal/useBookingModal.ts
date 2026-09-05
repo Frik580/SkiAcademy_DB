@@ -328,7 +328,10 @@ export const useBookingModal = ({
     !!overlappingBooking ||
     !!overlappingCourse;
 
-  const totalCost = targetInstructor ? targetInstructor.pricePerHour * duration : 0;
+  const totalCost =
+    targetInstructor?.pricePerHourKZT != null && Number.isFinite(targetInstructor.pricePerHourKZT)
+      ? targetInstructor.pricePerHourKZT * duration
+      : 0;
 
   const toggleParticipant = (participantId: string) => {
     setSelectedParticipantIds((current) =>

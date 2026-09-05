@@ -51,12 +51,13 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
 
   if (!targetInstructor) return null;
 
-  const totalFormatted = formatPrice(
-    totalCost,
-    targetInstructor.pricePerHourKZT ? targetInstructor.pricePerHourKZT * duration : undefined
-  );
-
-  const hourlyRateLabel = `${formatPrice(targetInstructor.pricePerHour, targetInstructor.pricePerHourKZT)} / ${t('hr')}`;
+  const hourlyRateKzt =
+    targetInstructor.pricePerHourKZT != null && Number.isFinite(targetInstructor.pricePerHourKZT)
+      ? targetInstructor.pricePerHourKZT
+      : undefined;
+  const totalFormatted = formatPrice(hourlyRateKzt != null ? hourlyRateKzt * duration : totalCost);
+  const hourlyRateLabel =
+    hourlyRateKzt != null ? `${formatPrice(hourlyRateKzt)} / ${t('hr')}` : `— / ${t('hr')}`;
 
   const isSubmitDisabled = isAuthenticatedBookingSubmitDisabled({
     isSubmitting,

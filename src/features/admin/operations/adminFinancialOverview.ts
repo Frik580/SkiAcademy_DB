@@ -35,18 +35,7 @@ export function computeAdminOperationalOverview(input: {
   };
 }
 
-export function isUsdToKztDisplayRateAvailable(rate: number): boolean {
-  return Number.isFinite(rate) && rate > 0;
-}
-
-export function formatCanonicalKztForDisplay(
-  amountKzt: number,
-  currency: 'USD' | 'KZT',
-  usdToKztRate: number
-): string {
-  if (currency === 'KZT' || !isUsdToKztDisplayRateAvailable(usdToKztRate)) {
-    return `${amountKzt.toLocaleString('ru-RU')} ₸`;
-  }
-  const usd = Math.round(amountKzt / usdToKztRate);
-  return `$${usd.toLocaleString('en-US')}`;
+/** Formats canonical KZT minor/whole units for Admin finance display. */
+export function formatCanonicalKztForDisplay(amountKzt: number): string {
+  return `${amountKzt.toLocaleString('ru-RU')} ₸`;
 }

@@ -516,8 +516,14 @@ describe('T32.9A Admin UX parity behavior', () => {
     expect(people).not.toContain('onUpdateUser=');
     expect(people).not.toContain('windowDays: 62');
     expect(readRepoFile('src/features/admin/components/finance/AdminDisplayChrome.tsx')).toContain(
-      'exchangeRateDisplayOnly'
+      '₸ KZT'
     );
+    expect(
+      readRepoFile('src/features/admin/components/finance/AdminDisplayChrome.tsx')
+    ).not.toContain('exchangeRateDisplayOnly');
+    expect(
+      readRepoFile('src/features/admin/components/finance/AdminDisplayChrome.tsx')
+    ).not.toContain('saveUsdToKztRate');
     expect(readRepoFile('src/features/admin/components/finance/FinancialOverview.tsx')).toContain(
       "t('totalRevenue')"
     );

@@ -20,7 +20,7 @@ export interface WalletLedgerEntry {
   /** Positive for credits, negative for debits. */
   amount: number;
   balanceAfter: number;
-  /** Currency of amount and balanceAfter. Legacy entries are USD. */
+  /** Currency of amount and balanceAfter. Missing currency is treated as KZT; older rows may be USD. */
   currency?: WalletCurrency;
   type: WalletLedgerType;
   subjectName?: string;
@@ -38,7 +38,11 @@ export interface UserProfile {
   systemRole?: 'owner';
   avatarUrl: string;
   balanceUSD: number;
-  /** Separate wallet balances. balanceUSD is retained for backwards compatibility and USD bookings. */
+  /**
+   * Legacy dual wallet map. `balanceUSD` remains the persisted field name for Rules/compat.
+   * New credits should use KZT; do not treat profile balanceUSD as canonical spendable balance
+   * (see `/users/{accountId}/wallet/state`).
+   */
   walletBalances?: Partial<Record<WalletCurrency, number>>;
   /** Staging field for secure wallet credits (top-ups / refunds) before apply. */
   pendingWalletCredit?: number;

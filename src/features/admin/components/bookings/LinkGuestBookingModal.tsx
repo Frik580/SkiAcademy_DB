@@ -163,7 +163,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                     {t('costLabel') || 'Стоимость:'}
                   </span>
                   <span className="font-bold text-amber-600 dark:text-amber-400">
-                    ${booking.totalPrice}
+                    {booking.totalPrice.toLocaleString('ru-RU')} ₸
                   </span>
                 </div>
               </div>
@@ -252,7 +252,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                         <div className="flex items-center gap-3 shrink-0 font-mono text-right">
                           <div>
                             <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                              ${userBalance}
+                              {userBalance.toLocaleString('ru-RU')} ₸
                             </div>
                           </div>
 

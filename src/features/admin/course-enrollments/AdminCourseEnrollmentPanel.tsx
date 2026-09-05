@@ -5,7 +5,7 @@ import {
   CourseEnrollmentIdSchema,
   CourseIdSchema,
   type AdminCourseEnrollmentDetailReadModel,
-  type AdminCourseReadModel,
+  type AdminCourseListItem,
 } from '@ski-academy/shared-domain';
 import {
   ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY,
@@ -67,9 +67,7 @@ function attendanceActorLabel(
     : `administrator:${actor.accountId}`;
 }
 
-function courseOptions(
-  items: readonly AdminCourseReadModel[]
-): AdminCourseEnrollmentCourseOption[] {
+function courseOptions(items: readonly AdminCourseListItem[]): AdminCourseEnrollmentCourseOption[] {
   return items
     .map((course) => ({
       courseId: course.courseId,

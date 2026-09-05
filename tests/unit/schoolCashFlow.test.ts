@@ -38,10 +38,10 @@ describe('school cash flow', () => {
       buildSchoolCashFlowRows([entry({ id: 's1', type: 'starter_credit', amount: 250 })])
     );
 
-    expect(summary.cashIn.USD).toBe(0);
-    expect(summary.cashOut.USD).toBe(0);
-    expect(summary.revenueIn.USD).toBe(0);
-    expect(summary.revenueOut.USD).toBe(0);
+    expect(summary.cashIn.KZT).toBe(0);
+    expect(summary.cashOut.KZT).toBe(0);
+    expect(summary.revenueIn.KZT).toBe(0);
+    expect(summary.revenueOut.KZT).toBe(0);
     expect(summary.byKind[0]?.kind).toBe('starter_credit');
   });
 
@@ -69,8 +69,8 @@ describe('school cash flow', () => {
       0
     );
 
-    expect(summary.cashIn.USD).toBe(90);
-    expect(summary.revenueIn.USD).toBe(90);
+    expect(summary.cashIn.KZT).toBe(90);
+    expect(summary.revenueIn.KZT).toBe(90);
     expect(summary.guestWalletBalanceUsd).toBe(0);
   });
 
@@ -96,9 +96,9 @@ describe('school cash flow', () => {
       30
     );
 
-    expect(summary.cashIn.USD).toBe(50);
-    expect(summary.cashOut.USD).toBe(20);
-    expect(summary.cashNet.USD).toBe(30);
+    expect(summary.cashIn.KZT).toBe(50);
+    expect(summary.cashOut.KZT).toBe(20);
+    expect(summary.cashNet.KZT).toBe(30);
     expect(summary.guestWalletBalanceUsd).toBe(30);
   });
 
@@ -131,10 +131,10 @@ describe('school cash flow', () => {
       90
     );
 
-    expect(summary.cashIn.USD).toBe(90);
-    expect(summary.revenueIn.USD).toBe(90);
-    expect(summary.revenueOut.USD).toBe(90);
-    expect(summary.revenueNet.USD).toBe(0);
+    expect(summary.cashIn.KZT).toBe(90);
+    expect(summary.revenueIn.KZT).toBe(90);
+    expect(summary.revenueOut.KZT).toBe(90);
+    expect(summary.revenueNet.KZT).toBe(0);
     expect(summary.guestWalletBalanceUsd).toBe(90);
   });
 

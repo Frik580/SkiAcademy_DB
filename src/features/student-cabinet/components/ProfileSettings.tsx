@@ -203,13 +203,16 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
               <span className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-widest block">
                 {t('walletBalance')}
               </span>
-              <span className="text-xl font-serif font-light text-[var(--ink)]">
-                ${effectiveBalance}
+              <span
+                className="text-xl font-serif font-light text-[var(--ink)]"
+                data-testid="profile-settings-wallet-balance"
+              >
+                {effectiveBalance.toLocaleString('ru-RU')} ₸
               </span>
             </div>
           </div>
           <div className="text-[9px] font-mono text-[var(--ink-dim)] uppercase tracking-wider">
-            Mock USD
+            KZT
           </div>
         </div>
 

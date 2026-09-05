@@ -208,7 +208,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                   </h3>
                   <p className="text-xs text-[var(--ink-dim)] mt-0.5">
                     {getGroupCourseLabel(course.title, language)} •{' '}
-                    {formatPrice(course.price, course.priceKZT)}
+                    {course.priceKZT != null ? formatPrice(course.priceKZT) : '—'}
                   </p>
                 </div>
                 <button
@@ -255,7 +255,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                           {t('courseTotalTuition')}
                         </span>
                         <span className="text-lg font-extrabold text-[var(--accent)] font-sans">
-                          {formatPrice(course.price, course.priceKZT)}
+                          {course.priceKZT != null ? formatPrice(course.priceKZT) : '—'}
                         </span>
                       </div>
                       <div className="text-xs text-[var(--ink-dim)]">📅 {course.dates}</div>
@@ -370,7 +370,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                           {t('courseTotalTuition')}
                         </span>
                         <span className="text-lg font-extrabold text-[var(--accent)] font-sans">
-                          {formatPrice(course.price, course.priceKZT)}
+                          {course.priceKZT != null ? formatPrice(course.priceKZT) : '—'}
                         </span>
                       </div>
                       <div className="text-xs text-[var(--ink-dim)]">📅 {course.dates}</div>

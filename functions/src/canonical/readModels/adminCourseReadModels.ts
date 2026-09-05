@@ -2,12 +2,14 @@ import type { Firestore } from 'firebase-admin/firestore';
 import {
   ADMIN_COURSE_READ_MODEL_PAGE_SIZE_DEFAULT,
   AdminCourseInstructorPresentationSchema,
+  AdminCourseListItemSchema,
   AdminCourseReadModelSchema,
   AggregateRevisionSchema,
   QueryAdminCourseReadModelsResultSchema,
   compareCanonicalTimestamps,
   courseScheduleIsComplete,
   timestampFromDate,
+  type AdminCourseListItem,
   type AdminCourseReadModel,
   type QueryAdminCourseReadModelsInput,
   type QueryAdminCourseReadModelsResult,
@@ -33,6 +35,121 @@ const ACTIVE_ENROLLMENT_STATUSES = new Set([
   'confirmed',
   'pending_cancellation',
 ]);
+
+async function buildAdminCourseListItem(
+  firestore: Firestore,
+  course: NonNullable<ReturnType<typeof parseCourse>>,
+  readContext: ReadModelRequestContext
+): Promise<AdminCourseListItem | undefined> {
+  const [catalogSnapshot, instructors] = await Promise.all([
+    firestore.doc(courseCatalogContentPath(course.courseId)).get(),
+    loadInstructorPresentations(course, readContext),
+  ]);
+  const catalogContent = parseCourseCatalogContent(
+    catalogSnapshot.data() as Record<string, unknown> | undefined,
+    course.courseId
+  );
+  const [firstDaySnapshot, lastDaySnapshot] = catalogContent
+    ? [undefined, undefined]
+    : await Promise.all([
+        firestore
+          .collection(`courses/${course.courseId}/days`)
+          .orderBy('dayOrder', 'asc')
+          .limit(1)
+          .get(),
+        firestore
+          .collection(`courses/${course.courseId}/days`)
+          .orderBy('dayOrder', 'desc')
+          .limit(1)
+          .get(),
+      ]);
+  const firstDay = firstDaySnapshot
+    ? parseCourseDays(
+        firstDaySnapshot.docs.map((document) => ({
+          data: document.data() as Record<string, unknown>,
+        }))
+      )[0]
+    : undefined;
+  const lastDay = lastDaySnapshot
+    ? parseCourseDays(
+        lastDaySnapshot.docs.map((document) => ({
+          data: document.data() as Record<string, unknown>,
+        }))
+      )[0]
+    : undefined;
+  const expectedRevision = course.revision;
+  const actions: AdminCourseListItem['authorizedActions'] = [
+    {
+      kind: 'update_course_catalog_content',
+      expectedRevision: catalogContent?.revision ?? AggregateRevisionSchema.parse(0),
+    },
+    course.lifecycle === 'active'
+      ? { kind: 'archive_course', expectedRevision }
+      : { kind: 'reactivate_course', expectedRevision },
+  ];
+  const occupiedConfirmedSeats = course.capacity.totalSeats - course.capacity.availableSeats;
+  const parsed = AdminCourseListItemSchema.safeParse({
+    courseId: course.courseId,
+    title: course.title,
+    lifecycle: course.lifecycle,
+    price: course.price,
+    capacity: {
+      totalSeats: course.capacity.totalSeats,
+      availableSeats: course.capacity.availableSeats,
+      occupiedConfirmedSeats,
+    },
+    revision: course.revision,
+    scheduleRevision: course.scheduleProjection.courseScheduleRevision,
+    instructorRosterIds: course.instructorRosterIds,
+    instructors,
+    ...(firstDay && lastDay
+      ? {
+          scheduleSummary: {
+            courseDayCount: course.scheduleProjection.courseDayCount,
+            startsAt: course.startAt,
+            firstDayEndsAt: firstDay.interval.endsAt,
+            lastDayStartsAt: lastDay.interval.startsAt,
+            timeZone: firstDay.timeZone,
+          },
+        }
+      : {}),
+    catalogContent: {
+      status: catalogContent ? 'present' : 'missing',
+      ...(catalogContent ? { content: catalogContent } : {}),
+    },
+    authorizedActions: actions,
+    createdAt: course.createdAt,
+    updatedAt: course.updatedAt,
+  });
+  return parsed.success ? parsed.data : undefined;
+}
+
+async function loadInstructorPresentations(
+  course: NonNullable<ReturnType<typeof parseCourse>>,
+  readContext: ReadModelRequestContext
+) {
+  return (
+    await Promise.all(
+      course.instructorRosterIds.map(async (instructorId) => {
+        const snapshot = await readContext.instructor(instructorId);
+        const instructor = parseInstructorCatalog(
+          instructorId,
+          snapshot.data() as Record<string, unknown> | undefined
+        );
+        if (!instructor) return undefined;
+        const presentation = AdminCourseInstructorPresentationSchema.safeParse({
+          instructorId,
+          name: instructor.name,
+          ...(instructor.avatarUrl ? { avatarUrl: instructor.avatarUrl } : {}),
+          ...(instructor.isAvailable === undefined
+            ? {}
+            : { isAvailable: instructor.isAvailable }),
+        });
+        return presentation.success ? presentation.data : undefined;
+      })
+    )
+  ).filter((value): value is NonNullable<typeof value> => value !== undefined);
+}
 
 async function buildAdminCourseReadModel(
   firestore: Firestore,
@@ -63,27 +180,7 @@ async function buildAdminCourseReadModel(
     course.courseId
   );
 
-  const instructors = (
-    await Promise.all(
-      course.instructorRosterIds.map(async (instructorId) => {
-        const snapshot = await readContext.instructor(instructorId);
-        const instructor = parseInstructorCatalog(
-          instructorId,
-          snapshot.data() as Record<string, unknown> | undefined
-        );
-        if (!instructor) return undefined;
-        const presentation = AdminCourseInstructorPresentationSchema.safeParse({
-          instructorId,
-          name: instructor.name,
-          ...(instructor.avatarUrl ? { avatarUrl: instructor.avatarUrl } : {}),
-          ...(instructor.isAvailable === undefined
-            ? {}
-            : { isAvailable: instructor.isAvailable }),
-        });
-        return presentation.success ? presentation.data : undefined;
-      })
-    )
-  ).filter((value): value is NonNullable<typeof value> => value !== undefined);
+  const instructors = await loadInstructorPresentations(course, readContext);
 
   const expectedRevision = course.revision;
   const actions: AdminCourseReadModel['authorizedActions'] = [
@@ -185,10 +282,14 @@ export async function queryAdminCourseReadModels(
     .filter((value): value is NonNullable<typeof value> => value !== undefined);
   const items = (
     await Promise.all(
-      courses.map((course) => buildAdminCourseReadModel(firestore, course, undefined, readContext))
+      courses.map((course) =>
+        input.readModelVersion === 2
+          ? buildAdminCourseListItem(firestore, course, readContext)
+          : buildAdminCourseReadModel(firestore, course, undefined, readContext)
+      )
     )
   )
-    .filter((item): item is AdminCourseReadModel => item !== undefined)
+    .filter((item): item is AdminCourseListItem => item !== undefined)
     .sort((left, right) => left.title.localeCompare(right.title));
   return QueryAdminCourseReadModelsResultSchema.parse({ scope: input.scope, items });
 }

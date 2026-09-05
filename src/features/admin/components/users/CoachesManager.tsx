@@ -111,7 +111,6 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
   const [experienceYears, setExperienceYears] = useState(5);
   const [bio, setBio] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
-  const [pricePerHour, setPricePerHour] = useState(50);
   const [pricePerHourKZT, setPricePerHourKZT] = useState<number | ''>(25000);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -166,7 +165,7 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !bio || !pricePerHour) {
+    if (!name || !bio || pricePerHourKZT === '' || pricePerHourKZT === null) {
       addNotification('warning', t('missingDetails'), t('completeInstructorForm'));
       return;
     }
@@ -178,6 +177,7 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
       .filter(Boolean);
     const defaultAvatar = `https://images.unsplash.com/photo-${Math.random() > 0.5 ? '1534528741775-53994a69daeb' : '1506794778202-cad84cf45f1d'}?auto=format&fit=crop&q=80&w=400`;
 
+    const kztRate = Number(pricePerHourKZT);
     const insData: Instructor = {
       id: editingIns ? editingIns.id : `ins_${Math.random().toString(36).substring(2, 9)}`,
       name,
@@ -188,13 +188,11 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
       experienceYears: Number(experienceYears),
       bio,
       avatarUrl: avatarUrl.trim() || defaultAvatar,
-      pricePerHour: Number(pricePerHour),
+      // Dual-write legacy field with the same KZT amount so planner surfaces stay consistent.
+      pricePerHour: kztRate,
+      pricePerHourKZT: kztRate,
       isAvailable: editingIns ? editingIns.isAvailable : true,
     };
-
-    if (pricePerHourKZT !== '' && pricePerHourKZT !== null && !isNaN(Number(pricePerHourKZT))) {
-      insData.pricePerHourKZT = Number(pricePerHourKZT);
-    }
     if (phoneNumber.trim()) {
       insData.phoneNumber = phoneNumber.trim();
     }
@@ -218,7 +216,6 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
       setBio('');
       setAvatarUrl('');
       setLanguages('English, German');
-      setPricePerHour(50);
       setPricePerHourKZT(25000);
       setPhoneNumber('');
       setExperienceYears(5);
@@ -238,8 +235,9 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
     setExperienceYears(ins.experienceYears);
     setBio(ins.bio);
     setAvatarUrl(ins.avatarUrl);
-    setPricePerHour(ins.pricePerHour);
-    setPricePerHourKZT(ins.pricePerHourKZT ?? '');
+    setPricePerHourKZT(
+      ins.pricePerHourKZT != null && Number.isFinite(ins.pricePerHourKZT) ? ins.pricePerHourKZT : ''
+    );
     setPhoneNumber(ins.phoneNumber || '');
     setShowAddForm(true);
   };
@@ -374,12 +372,11 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
                       </span>
                     </td>
                     <td className="py-3 px-2 text-xs font-mono text-[var(--ink)]">
-                      <div>${ins.pricePerHour}</div>
-                      {ins.pricePerHourKZT ? (
-                        <div className="text-[10px] text-[var(--ink-dim)]">
-                          {ins.pricePerHourKZT.toLocaleString()} ₸
-                        </div>
-                      ) : null}
+                      <div>
+                        {ins.pricePerHourKZT != null
+                          ? `${ins.pricePerHourKZT.toLocaleString()} ₸`
+                          : '—'}
+                      </div>
                     </td>
                     <td className="py-3 px-2">
                       <div className="flex items-center justify-center">
@@ -476,30 +473,19 @@ export const CoachesManager: React.FC<CoachesManagerProps> = ({
                     </option>
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
-                      {t('ratePerHourLabel')} ($ USD)
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      value={pricePerHour}
-                      onChange={(e) => setPricePerHour(Number(e.target.value))}
-                      placeholder="75"
-                      className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] text-center rounded-none font-mono"
-                    />
-                  </div>
+                <div className="grid grid-cols-1 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-mono text-[var(--ink-dim)] uppercase block">
                       {t('ratePerHourKztLabel') || 'Ставка (₸ KZT/ч)'}
                     </label>
                     <input
                       type="number"
-                      value={pricePerHourKZT}
-                      onChange={(e) =>
-                        setPricePerHourKZT(e.target.value ? Number(e.target.value) : '')
-                      }
+                      required
+                      value={pricePerHourKZT === '' ? '' : pricePerHourKZT}
+                      onChange={(e) => {
+                        const next = e.target.value ? Number(e.target.value) : '';
+                        setPricePerHourKZT(next);
+                      }}
                       placeholder="37500"
                       className="w-full px-3 py-2 border border-[var(--border)] text-xs bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] text-center rounded-none font-mono"
                     />

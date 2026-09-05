@@ -47,7 +47,8 @@ function snapshot(entries: Array<[string, Record<string, unknown>]>) {
 
 function fakeFirestore(
   seed: Record<string, Record<string, unknown>>,
-  reads?: Map<string, number>
+  reads?: Map<string, number>,
+  queryReads?: Map<string, number>
 ): Firestore {
   const collectionEntries = (path: string) =>
     Object.entries(seed).filter(([key]) => {
@@ -55,7 +56,11 @@ function fakeFirestore(
       return key.slice(path.length + 1).split('/').length === 1;
     });
 
-  const buildQuery = (entries: () => Array<[string, Record<string, unknown>]>) => {
+  const buildQuery = (
+    entries: () => Array<[string, Record<string, unknown>]>,
+    queryKey: string
+  ) => {
+    const recordQuery = () => queryReads?.set(queryKey, (queryReads.get(queryKey) ?? 0) + 1);
     const chain: {
       where: (field: string, _op: string, value: unknown) => typeof chain;
       orderBy: (..._args: unknown[]) => typeof chain;
@@ -72,14 +77,20 @@ function fakeFirestore(
             }
             return Object.is(actual, value);
           });
-        return buildQuery(filtered);
+        return buildQuery(filtered, queryKey);
       },
       orderBy: () => chain,
       startAfter: () => chain,
       limit: (count: number) => ({
-        get: async () => snapshot(entries().slice(0, count)),
+        get: async () => {
+          recordQuery();
+          return snapshot(entries().slice(0, count));
+        },
       }),
-      get: async () => snapshot(entries()),
+      get: async () => {
+        recordQuery();
+        return snapshot(entries());
+      },
     };
     return chain;
   };
@@ -87,7 +98,7 @@ function fakeFirestore(
   const collection = (path: string) => {
     const entries = () => collectionEntries(path);
     return {
-      ...buildQuery(entries),
+      ...buildQuery(entries, path),
       doc: (id: string) => ({
         get: async () => {
           const key = `${path}/${id}`;
@@ -106,14 +117,16 @@ function fakeFirestore(
   return {
     collection,
     collectionGroup: (name: string) =>
-      buildQuery(() =>
-        Object.entries(seed).filter(([key]) => {
-          const suffix = `/${name}/`;
-          return (
-            key.includes(suffix) &&
-            key.slice(key.indexOf(suffix) + suffix.length).split('/').length === 1
-          );
-        })
+      buildQuery(
+        () =>
+          Object.entries(seed).filter(([key]) => {
+            const suffix = `/${name}/`;
+            return (
+              key.includes(suffix) &&
+              key.slice(key.indexOf(suffix) + suffix.length).split('/').length === 1
+            );
+          }),
+        `collectionGroup:${name}`
       ),
   } as unknown as Firestore;
 }
@@ -223,6 +236,25 @@ describe('Admin Identity instructor avatar presentation', () => {
       isAvailable: true,
     });
     expect(row).not.toHaveProperty('avatarUrl');
+  });
+
+  it('does not run roster or CourseDay count scans for instructor list rows', async () => {
+    const queryReads = new Map<string, number>();
+    const handler = createQueryAdminIdentityReadModelsHandler(
+      fakeFirestore(seed(), undefined, queryReads)
+    );
+    const result = await handler({
+      auth: { uid: adminId },
+      data: { scope: 'admin_instructor_list', pageSize: 20 },
+    } as never);
+
+    expect(result.scope).toBe('admin_instructor_list');
+    expect(queryReads.get('courses')).toBeUndefined();
+    expect(queryReads.get('collectionGroup:days')).toBeUndefined();
+    if (result.scope === 'admin_instructor_list') {
+      expect(result.items[0]).not.toHaveProperty('courseRosterCount');
+      expect(result.items[0]).not.toHaveProperty('courseDayAssignmentCount');
+    }
   });
 
   it('omits data-URL avatarUrl from admin_instructor_detail', async () => {

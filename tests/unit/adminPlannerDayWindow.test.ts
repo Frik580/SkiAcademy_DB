@@ -47,16 +47,21 @@ function blockItem(
 }
 
 describe('admin planner day window', () => {
-  it('uses the week fetch window for day view so data matches week columns', () => {
+  it('uses the Monday-aligned week fetch window for both day and week views', () => {
     const weekStart = formatDateLocalYMD(
       getWeekRange(parsePlannerLocalDateInput('2026-09-10')).start
     );
+    expect(weekStart).toBe('2026-09-07');
     expect(plannerFetchWindow('2026-09-10', 'day')).toEqual({
       localDate: weekStart,
       view: 'week',
     });
     expect(plannerFetchWindow('2026-09-10', 'week')).toEqual({
-      localDate: '2026-09-10',
+      localDate: weekStart,
+      view: 'week',
+    });
+    expect(plannerFetchWindow('2026-09-07', 'week')).toEqual({
+      localDate: weekStart,
       view: 'week',
     });
   });

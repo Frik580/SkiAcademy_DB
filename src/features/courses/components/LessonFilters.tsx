@@ -126,10 +126,10 @@ export const LessonFilters: React.FC<LessonFiltersProps> = ({
               ★ {t('ratingHighToLow')}
             </option>
             <option value="priceAsc" className="bg-[var(--bg)] text-[var(--ink)]">
-              $ {t('priceLowToHigh')}
+              ₸ {t('priceLowToHigh')}
             </option>
             <option value="priceDesc" className="bg-[var(--bg)] text-[var(--ink)]">
-              $ {t('priceHighToLow')}
+              ₸ {t('priceHighToLow')}
             </option>
             <option value="experience" className="bg-[var(--bg)] text-[var(--ink)]">
               ⚙ {t('experienceYears')}

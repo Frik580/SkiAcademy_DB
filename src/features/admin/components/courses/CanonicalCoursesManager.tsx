@@ -26,7 +26,10 @@ import {
   formatAdminCourseDaysScheduleDates,
   mapAdminCourseToTableCourse,
 } from './adminCourseTableMapping';
-import { buildArchiveCourseCommandFromListItem } from './adminCourseArchiveCommand';
+import {
+  buildArchiveCourseCommandFromListItem,
+  buildReactivateCourseCommandFromListItem,
+} from './adminCourseArchiveCommand';
 import {
   buildCanonicalCourseCloneDraft,
   catalogContentInputFromCreateForm,
@@ -49,6 +52,34 @@ function newIdentity(prefix: string): ReturnType<typeof IdempotencyKeySchema.par
 }
 
 type CreateFormState = CanonicalCourseCreateFormState;
+type CourseLifecycleScope = AdminCourseListItem['lifecycle'];
+
+interface CourseListState {
+  readonly items: readonly AdminCourseListItem[];
+  readonly cursor?: string;
+  readonly hasMore: boolean;
+  readonly loadingInitial: boolean;
+  readonly loadingMore: boolean;
+  readonly initialized: boolean;
+  readonly error?: string;
+}
+
+const EMPTY_COURSE_LIST_STATE: CourseListState = {
+  items: [],
+  hasMore: false,
+  loadingInitial: false,
+  loadingMore: false,
+  initialized: false,
+};
+
+function mergeCoursePages(
+  previous: readonly AdminCourseListItem[],
+  incoming: readonly AdminCourseListItem[]
+): readonly AdminCourseListItem[] {
+  const byId = new Map(previous.map((course) => [course.courseId, course]));
+  for (const course of incoming) byId.set(course.courseId, course);
+  return [...byId.values()];
+}
 
 interface CreateAttempt {
   readonly idempotencyKey: ReturnType<typeof IdempotencyKeySchema.parse>;
@@ -143,11 +174,14 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   onOpenEnrollments,
 }) => {
   const { language, t, text, actionLabel, commandError } = useAdminCourseTranslations();
-  const [courses, setCourses] = useState<AdminCourseListItem[]>([]);
+  const [lifecycleScope, setLifecycleScope] = useState<CourseLifecycleScope>('active');
+  const [courseLists, setCourseLists] = useState<Record<CourseLifecycleScope, CourseListState>>({
+    active: EMPTY_COURSE_LIST_STATE,
+    archived: EMPTY_COURSE_LIST_STATE,
+  });
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<AdminCourseReadModel | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [mutationError, setMutationError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -169,6 +203,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   const cloneDraftRef = useRef<CanonicalCourseCloneDraft | null>(null);
   const commandInFlightRef = useRef(false);
   const detailRequestRef = useRef(0);
+  const listRequestRef = useRef<Record<CourseLifecycleScope, number>>({ active: 0, archived: 0 });
   const instructorReads = useAdminIdentityReadModels({
     enabled: showCreate || selectedCourseId !== null,
     directory: 'instructors',
@@ -176,27 +211,62 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     pageSize: 50,
   });
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Course list only — one page. Roster UX lives in AdminCourseEnrollmentPanel
-      // (paginated Load more). Do not drain enrollment roster pages here.
-      const courseResult = await queryAdminCourseReadModels({
-        scope: 'admin_course_list',
-        pageSize: ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX,
-        readModelVersion: 2,
-      });
-      if (courseResult.scope === 'admin_course_list') {
-        setCourses(courseResult.items);
+  const loadCoursePage = useCallback(
+    async (scope: CourseLifecycleScope, cursor?: string, append = false) => {
+      const requestId = ++listRequestRef.current[scope];
+      setCourseLists((previous) => ({
+        ...previous,
+        [scope]: {
+          ...previous[scope],
+          loadingInitial: !append,
+          loadingMore: append,
+          error: undefined,
+        },
+      }));
+      try {
+        // One bounded lifecycle page only. Never drain either Course list or enrollment rosters.
+        const result = await queryAdminCourseReadModels({
+          scope: 'admin_course_list',
+          pageSize: ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX,
+          readModelVersion: 2,
+          lifecycle: scope,
+          ...(cursor ? { cursor } : {}),
+        });
+        if (requestId !== listRequestRef.current[scope]) return;
+        if (result.scope !== 'admin_course_list') return;
+        setCourseLists((previous) => ({
+          ...previous,
+          [scope]: {
+            items: append ? mergeCoursePages(previous[scope].items, result.items) : result.items,
+            loadingInitial: false,
+            loadingMore: false,
+            initialized: true,
+            hasMore: result.hasMore === true,
+            ...(result.nextCursor ? { cursor: result.nextCursor } : {}),
+          },
+        }));
+      } catch (caught) {
+        if (requestId !== listRequestRef.current[scope]) return;
+        const message = caught instanceof Error ? caught.message : text.mutationFailed;
+        setCourseLists((previous) => ({
+          ...previous,
+          [scope]: {
+            ...previous[scope],
+            loadingInitial: false,
+            loadingMore: false,
+            initialized: true,
+            error: message.includes('permission') ? text.permissionDenied : message,
+          },
+        }));
       }
-    } catch (caught) {
-      const message = caught instanceof Error ? caught.message : text.mutationFailed;
-      setError(message.includes('permission') ? text.permissionDenied : message);
-    } finally {
-      setLoading(false);
-    }
-  }, [text.mutationFailed, text.permissionDenied]);
+    },
+    [text.mutationFailed, text.permissionDenied]
+  );
+
+  const refresh = useCallback(
+    () => loadCoursePage(lifecycleScope),
+    [lifecycleScope, loadCoursePage]
+  );
 
   const loadCourseDetail = useCallback(
     async (courseId: string): Promise<AdminCourseReadModel | undefined> => {
@@ -213,7 +283,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       } catch (caught) {
         if (requestId === detailRequestRef.current) {
           const message = caught instanceof Error ? caught.message : text.mutationFailed;
-          setError(message.includes('permission') ? text.permissionDenied : message);
+          setMutationError(message.includes('permission') ? text.permissionDenied : message);
         }
         return undefined;
       }
@@ -221,9 +291,14 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     [text.mutationFailed, text.permissionDenied]
   );
 
+  const currentList = courseLists[lifecycleScope];
+  const courses = currentList.items;
+
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (!currentList.initialized && !currentList.loadingInitial) {
+      void loadCoursePage(lifecycleScope);
+    }
+  }, [currentList.initialized, currentList.loadingInitial, lifecycleScope, loadCoursePage]);
 
   const instructorOptions = useMemo(
     () =>
@@ -275,7 +350,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       if (commandInFlightRef.current) return false;
       commandInFlightRef.current = true;
       setPending(input.kind);
-      setError(null);
+      setMutationError(null);
       setStale(false);
       try {
         const result = await executeAuthenticatedCanonicalCommand(currentAccountId, {
@@ -294,8 +369,37 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             await refresh();
             if (selectedCourseId) await loadCourseDetail(selectedCourseId);
           }
-          setError(commandError(result.error.code));
+          setMutationError(commandError(result.error.code));
           return false;
+        }
+        if (input.kind === 'archive_course' || input.kind === 'reactivate_course') {
+          const courseId = (input.intent as { readonly courseId: string }).courseId;
+          const source: CourseLifecycleScope =
+            input.kind === 'archive_course' ? 'active' : 'archived';
+          const target: CourseLifecycleScope =
+            input.kind === 'archive_course' ? 'archived' : 'active';
+          ++listRequestRef.current[source];
+          ++listRequestRef.current[target];
+          setCourseLists((previous) => ({
+            ...previous,
+            [source]: {
+              ...previous[source],
+              items: previous[source].items.filter((course) => course.courseId !== courseId),
+              loadingInitial: false,
+              loadingMore: false,
+              error: undefined,
+            },
+            // The opposite scope is invalidated, but remains lazy until its tab is opened.
+            [target]: EMPTY_COURSE_LIST_STATE,
+          }));
+          if (selectedCourseId === courseId) {
+            ++detailRequestRef.current;
+            setSelectedCourseId(null);
+            setSelectedCourse(null);
+            setEditForm(null);
+            setEditOriginal(null);
+          }
+          return true;
         }
         await refresh();
         if (selectedCourseId) await loadCourseDetail(selectedCourseId);
@@ -305,7 +409,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           caught,
           'correlation_admin_course_command'
         );
-        setError(commandError(normalized.code));
+        setMutationError(commandError(normalized.code));
         return false;
       } finally {
         commandInFlightRef.current = false;
@@ -345,7 +449,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   const runCourseAction = async (course: AdminCourseReadModel, kind: CommandKind) => {
     const action = course.authorizedActions.find((candidate) => candidate.kind === kind);
     if (!action) {
-      setError(text.permissionDenied);
+      setMutationError(text.permissionDenied);
       return;
     }
     const reasonExplanation = promptReason();
@@ -376,7 +480,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         window.prompt('Total capacity', String(course.capacity.totalSeats))
       );
       if (!Number.isInteger(totalSeats) || totalSeats < 1 || totalSeats > 64) {
-        setError(text.capacityRange);
+        setMutationError(text.capacityRange);
         return;
       }
       await execute({
@@ -420,7 +524,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         .filter(Boolean);
       const totalSeats = Number(createForm.totalSeats);
       if (!Number.isInteger(totalSeats) || totalSeats < 1 || totalSeats > 64) {
-        setError(text.capacityRange);
+        setMutationError(text.capacityRange);
         return;
       }
       const attemptPrefix = createMode === 'clone' ? 'admin-course:clone' : 'admin-course:create';
@@ -475,7 +579,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       resetCreateForm();
       setShowCreate(false);
     } catch {
-      setError(commandError('validation'));
+      setMutationError(commandError('validation'));
     }
   };
 
@@ -495,7 +599,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     if (!editForm || !editOriginal) return;
     const reasonExplanation = editReason.trim();
     if (!reasonExplanation) {
-      setError(
+      setMutationError(
         language === 'ru' ? 'Укажите причину изменения.' : 'Provide a reason for the change.'
       );
       return;
@@ -503,11 +607,11 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     const totalSeats = Number(editForm.totalSeats);
     const price = Number(editForm.price);
     if (!Number.isInteger(totalSeats) || totalSeats < 1 || totalSeats > 64) {
-      setError(text.capacityRange);
+      setMutationError(text.capacityRange);
       return;
     }
     if (!Number.isInteger(price) || price < 0) {
-      setError(commandError('validation'));
+      setMutationError(commandError('validation'));
       return;
     }
     let authoritative = editOriginal;
@@ -517,7 +621,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     ) => {
       const action = authoritative.authorizedActions.find((candidate) => candidate.kind === kind);
       if (!action) {
-        setError(text.permissionDenied);
+        setMutationError(text.permissionDenied);
         return false;
       }
       const succeeded = await execute({ kind, expectedRevision: action.expectedRevision, intent });
@@ -601,7 +705,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       setEditForm(formFromAuthoritativeDetail(authoritative));
       setEditReason('');
     } catch {
-      setError(commandError('validation'));
+      setMutationError(commandError('validation'));
     }
   };
 
@@ -615,14 +719,14 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       !Number.isInteger(durationMinutes) ||
       durationMinutes < 15
     ) {
-      setError(commandError('validation'));
+      setMutationError(commandError('validation'));
       return;
     }
     const action = selectedCourse.authorizedActions.find(
       (candidate) => candidate.kind === courseDayDraft.kind
     );
     if (!action) {
-      setError(text.permissionDenied);
+      setMutationError(text.permissionDenied);
       return;
     }
     const day = courseDayDraft.courseDayId
@@ -688,7 +792,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
   ) => {
     const action = course.authorizedActions.find((candidate) => candidate.kind === kind);
     if (!action) {
-      setError(text.permissionDenied);
+      setMutationError(text.permissionDenied);
       return;
     }
     const reasonExplanation = kind === 'create_course_day' ? '' : promptReason();
@@ -802,7 +906,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         (candidate) => candidate.kind === 'update_course_catalog_content'
       );
       if (!action) {
-        setError(text.permissionDenied);
+        setMutationError(text.permissionDenied);
         return;
       }
       await execute({
@@ -815,7 +919,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         },
       });
     } catch {
-      setError(commandError('validation'));
+      setMutationError(commandError('validation'));
     }
   };
 
@@ -828,7 +932,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       (candidate) => candidate.kind === 'update_course_catalog_content'
     );
     if (!action) {
-      setError(text.permissionDenied);
+      setMutationError(text.permissionDenied);
       return;
     }
     await execute({
@@ -890,7 +994,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     try {
       submission = buildArchiveCourseCommandFromListItem(course);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : text.mutationFailed);
+      setMutationError(caught instanceof Error ? caught.message : text.mutationFailed);
       return;
     }
     onRequestConfirm(
@@ -905,8 +1009,42 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     );
   };
 
+  const handleReactivate = (tableCourse: ReturnType<typeof mapAdminCourseToTableCourse>) => {
+    const course = courses.find((candidate) => candidate.courseId === tableCourse.id);
+    if (!course) return;
+    let submission: ReturnType<typeof buildReactivateCourseCommandFromListItem>;
+    try {
+      submission = buildReactivateCourseCommandFromListItem(course);
+    } catch (caught) {
+      setMutationError(caught instanceof Error ? caught.message : text.mutationFailed);
+      return;
+    }
+    onRequestConfirm(
+      `${text.restoreConfirmPrefix} "${course.title}"? ${text.restoreExplanation}`,
+      async () => {
+        await execute({
+          kind: submission.kind,
+          expectedRevision: submission.expectedRevision,
+          intent: submission.intent,
+        });
+      }
+    );
+  };
+
+  const openCourseDetail = (courseId: string, edit: boolean) => {
+    setSelectedCourseId(courseId);
+    setSelectedCourse(null);
+    setEditForm(null);
+    setEditOriginal(null);
+    void loadCourseDetail(courseId).then((detail) => {
+      if (!detail || !edit) return;
+      setEditOriginal(detail);
+      setEditForm(formFromAuthoritativeDetail(detail));
+    });
+  };
+
   const handleClone = async (tableCourse: ReturnType<typeof mapAdminCourseToTableCourse>) => {
-    setError(null);
+    setMutationError(null);
     const course = await loadCourseDetail(tableCourse.id);
     if (!course) return;
     try {
@@ -917,7 +1055,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
       setCreateForm(draft.form);
       setShowCreate(true);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : text.mutationFailed);
+      setMutationError(caught instanceof Error ? caught.message : text.mutationFailed);
     }
   };
 
@@ -931,20 +1069,35 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
     ? formatAdminCourseDaysScheduleDates(selectedCourse.courseDays)
     : '';
 
-  if (loading && courses.length === 0) return <p>{text.loading}</p>;
-  if (error && courses.length === 0) {
-    return (
-      <div role="alert">
-        <p>{error}</p>
-        <button type="button" onClick={() => void refresh()}>
-          {text.retry}
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4" aria-busy={pending !== null}>
+    <div
+      className="space-y-4"
+      aria-busy={pending !== null || currentList.loadingInitial || currentList.loadingMore}
+    >
+      <div className="flex gap-2" role="tablist" aria-label={text.lifecycle}>
+        {(['active', 'archived'] as const).map((scope) => (
+          <button
+            key={scope}
+            type="button"
+            role="tab"
+            aria-selected={lifecycleScope === scope}
+            className={`ui-btn ${lifecycleScope === scope ? 'ui-btn-primary' : ''}`}
+            onClick={() => {
+              if (scope === lifecycleScope) return;
+              setLifecycleScope(scope);
+              setSelectedCourseId(null);
+              setSelectedCourse(null);
+              setEditForm(null);
+              setEditOriginal(null);
+              setCourseDayDraft(null);
+              setMutationError(null);
+              setStale(false);
+            }}
+          >
+            {scope === 'active' ? text.active : text.archived}
+          </button>
+        ))}
+      </div>
       <div className="flex flex-wrap items-center justify-end gap-2 border-b border-[var(--border)] pb-3">
         <CoursesManagerToolbar t={t} showCourseForm={showCreate} onToggle={toggleCreate} />
         <button type="button" className="ui-btn" onClick={() => void refresh()}>
@@ -952,7 +1105,25 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         </button>
         {pending && <span role="status">{text.pending}</span>}
         {stale && <span role="status">{text.stale}</span>}
-        {error && <span role="alert">{error}</span>}
+        {mutationError && <span role="alert">{mutationError}</span>}
+        {currentList.error && courses.length > 0 ? (
+          <span role="alert">
+            {currentList.error}{' '}
+            <button
+              type="button"
+              className="underline"
+              onClick={() =>
+                void loadCoursePage(
+                  lifecycleScope,
+                  courses.length > 0 ? currentList.cursor : undefined,
+                  courses.length > 0
+                )
+              }
+            >
+              {text.retry}
+            </button>
+          </span>
+        ) : null}
       </div>
 
       {showCreate && (
@@ -1145,8 +1316,17 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
         </form>
       )}
 
-      {courses.length === 0 ? (
-        <p>{text.empty}</p>
+      {(!currentList.initialized || currentList.loadingInitial) && courses.length === 0 ? (
+        <p>{text.loading}</p>
+      ) : currentList.error && courses.length === 0 ? (
+        <div role="alert">
+          <p>{currentList.error}</p>
+          <button type="button" onClick={() => void refresh()}>
+            {text.retry}
+          </button>
+        </div>
+      ) : courses.length === 0 ? (
+        <p>{lifecycleScope === 'active' ? text.activeEmpty : text.archivedEmpty}</p>
       ) : (
         <CoursesTable
           courses={tableCourses}
@@ -1156,21 +1336,14 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
           language={language}
           t={t}
           onToggleVisibility={(course) => void handleToggleVisibility(course)}
-          onEdit={(course) => {
-            setSelectedCourseId(course.id);
-            setSelectedCourse(null);
-            setEditForm(null);
-            setEditOriginal(null);
-            void loadCourseDetail(course.id).then((detail) => {
-              if (!detail) return;
-              setEditOriginal(detail);
-              setEditForm(formFromAuthoritativeDetail(detail));
-            });
-          }}
+          onEdit={(course) => openCourseDetail(course.id, true)}
+          onView={(course) => openCourseDetail(course.id, false)}
           onDelete={handleArchive}
+          onReactivate={handleReactivate}
           onClone={(course) => void handleClone(course)}
           onMove={(course, direction) => void handleMove(course, direction)}
           canToggleVisibility={(course) =>
+            lifecycleScope === 'active' &&
             courses
               .find((candidate) => candidate.courseId === course.id)
               ?.authorizedActions.some(
@@ -1178,15 +1351,38 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               ) === true
           }
           canEdit={(course) =>
-            (courses.find((candidate) => candidate.courseId === course.id)?.authorizedActions
-              .length ?? 0) > 0
+            (() => {
+              const item = courses.find((candidate) => candidate.courseId === course.id);
+              if (!item) return false;
+              // Compact active v2 rows intentionally carry only list-grade actions;
+              // detail authoritatively resolves the complete edit action set.
+              if (item.lifecycle === 'active') return item.authorizedActions.length > 0;
+              return item.authorizedActions.some((action) =>
+                [
+                  'change_course_title',
+                  'change_course_price',
+                  'change_course_capacity',
+                  'add_course_roster_instructor',
+                  'remove_course_roster_instructor',
+                  'update_course_catalog_content',
+                ].includes(action.kind)
+              );
+            })()
           }
+          canView={() => true}
           canArchive={(course) =>
             courses
               .find((candidate) => candidate.courseId === course.id)
               ?.authorizedActions.some((action) => action.kind === 'archive_course') === true
           }
+          canReactivate={(course) =>
+            courses
+              .find((candidate) => candidate.courseId === course.id)
+              ?.authorizedActions.some((action) => action.kind === 'reactivate_course') === true
+          }
+          canClone={() => lifecycleScope === 'active'}
           canMove={(course) =>
+            lifecycleScope === 'active' &&
             courses
               .find((candidate) => candidate.courseId === course.id)
               ?.authorizedActions.some(
@@ -1194,8 +1390,21 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
               ) === true
           }
           archiveInsteadOfDelete
+          detailsLabel={text.details}
+          reactivateLabel={text.restore}
         />
       )}
+
+      {currentList.hasMore && currentList.cursor ? (
+        <button
+          type="button"
+          className="ui-btn"
+          disabled={currentList.loadingMore}
+          onClick={() => void loadCoursePage(lifecycleScope, currentList.cursor, true)}
+        >
+          {currentList.loadingMore ? text.loadingMore : text.loadMore}
+        </button>
+      ) : null}
 
       {selectedCourse ? (
         <article className="space-y-4 rounded border border-[var(--border)] p-4">
@@ -1848,7 +2057,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
             </button>
           ) : null}
           <div className="flex flex-wrap gap-2">
-            {(['archive_course'] as const)
+            {(['archive_course', 'reactivate_course'] as const)
               .filter((kind) =>
                 selectedCourse.authorizedActions.some((action) => action.kind === kind)
               )
@@ -1860,6 +2069,7 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                   onClick={() => {
                     if (kind === 'archive_course')
                       handleArchive(mapAdminCourseToTableCourse(selectedCourse));
+                    else handleReactivate(mapAdminCourseToTableCourse(selectedCourse));
                   }}
                 >
                   {actionLabel(kind)}

@@ -20,7 +20,9 @@ import { createFirestoreCanonicalTransactionExecutor } from '../transactions/fir
 import { courseDayInstructorClaimIdentity } from './courseDayClaimOperations';
 
 const PROJECT_ID = 'ski-academy-course-admin-emulator-test';
-const runsOnFirestoreEmulator = Boolean(process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST);
+const runsOnFirestoreEmulator = Boolean(
+  process.env.FIREBASE_EMULATOR_HUB ?? process.env.FIRESTORE_EMULATOR_HOST
+);
 const adminId = AccountIdSchema.parse('account_course_admin_emulator_01');
 const courseId = CourseIdSchema.parse('course_admin_emulator_01');
 const dayId = CourseDayIdSchema.parse('course_day_admin_emulator_01');
@@ -37,7 +39,19 @@ async function clear() {
     firestore.doc(`courses/${courseId}/days/${dayId}`).delete(),
     firestore.doc(`courses/${courseId}/days/${secondDayId}`).delete(),
   ]);
-  for (const name of ['users', 'courses', 'course_enrollments', 'attendance', 'resource_claims', 'resource_claim_guards', 'activity_logs', 'domain_outbox', 'command_idempotency']) {
+  for (const name of [
+    'users',
+    'courses',
+    'course_catalog_content',
+    'course_enrollments',
+    'attendance',
+    'payments',
+    'resource_claims',
+    'resource_claim_guards',
+    'activity_logs',
+    'domain_outbox',
+    'command_idempotency',
+  ]) {
     const snapshot = await firestore.collection(name).get();
     await Promise.all(snapshot.docs.map((document) => document.ref.delete()));
   }
@@ -53,48 +67,66 @@ beforeAll(async () => {
 beforeEach(async () => {
   if (!runsOnFirestoreEmulator) return;
   await clear();
-  await firestore.doc(`users/${adminId}`).set(AccountSchema.parse({
-    accountId: adminId,
-    lifecycle: { status: 'active' },
-    revision: 1,
-    createdAt,
-    updatedAt: createdAt,
-    audit: { createdByCommandId: 'command_seed', lastChangedByCommandId: 'command_seed', correlationId },
-  }));
-  await firestore.doc(`courses/${courseId}`).set(CourseSchema.parse({
-    courseId,
-    title: 'Concurrent Course',
-    lifecycle: 'active',
-    price: 50_000,
-    capacity: { totalSeats: 8, availableSeats: 8 },
-    instructorRosterIds: [instructorId, secondInstructorId],
-    startAt: timestampFromDate(new Date('2026-12-01T05:00:00.000Z')),
-    scheduleProjection: {
-      courseDayCount: 1,
-      finalCourseDayEndsAt: timestampFromDate(new Date('2026-12-01T07:00:00.000Z')),
-      courseScheduleRevision: 1,
-    },
-    provisioningExpectedCourseDayIds: [dayId],
-    revision: 1,
-    createdAt,
-    updatedAt: createdAt,
-    audit: { createdByCommandId: 'command_seed', lastChangedByCommandId: 'command_seed', correlationId },
-  }));
-  await firestore.doc(`courses/${courseId}/days/${dayId}`).set(CourseDaySchema.parse({
-    courseId,
-    courseDayId: dayId,
-    dayOrder: 1,
-    interval: {
-      startsAt: timestampFromDate(new Date('2026-12-01T05:00:00.000Z')),
-      endsAt: timestampFromDate(new Date('2026-12-01T07:00:00.000Z')),
-    },
-    timeZone: 'Asia/Almaty',
-    actualInstructorIds: [instructorId],
-    revision: 1,
-    createdAt,
-    updatedAt: createdAt,
-    audit: { createdByCommandId: 'command_seed', lastChangedByCommandId: 'command_seed', correlationId },
-  }));
+  await firestore.doc(`users/${adminId}`).set(
+    AccountSchema.parse({
+      accountId: adminId,
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt,
+      updatedAt: createdAt,
+      audit: {
+        createdByCommandId: 'command_seed',
+        lastChangedByCommandId: 'command_seed',
+        correlationId,
+      },
+    })
+  );
+  await firestore.doc(`courses/${courseId}`).set(
+    CourseSchema.parse({
+      courseId,
+      title: 'Concurrent Course',
+      lifecycle: 'active',
+      price: 50_000,
+      capacity: { totalSeats: 8, availableSeats: 8 },
+      instructorRosterIds: [instructorId, secondInstructorId],
+      startAt: timestampFromDate(new Date('2026-12-01T05:00:00.000Z')),
+      scheduleProjection: {
+        courseDayCount: 1,
+        finalCourseDayEndsAt: timestampFromDate(new Date('2026-12-01T07:00:00.000Z')),
+        courseScheduleRevision: 1,
+      },
+      provisioningExpectedCourseDayIds: [dayId],
+      revision: 1,
+      createdAt,
+      updatedAt: createdAt,
+      audit: {
+        createdByCommandId: 'command_seed',
+        lastChangedByCommandId: 'command_seed',
+        correlationId,
+      },
+    })
+  );
+  await firestore.doc(`courses/${courseId}/days/${dayId}`).set(
+    CourseDaySchema.parse({
+      courseId,
+      courseDayId: dayId,
+      dayOrder: 1,
+      interval: {
+        startsAt: timestampFromDate(new Date('2026-12-01T05:00:00.000Z')),
+        endsAt: timestampFromDate(new Date('2026-12-01T07:00:00.000Z')),
+      },
+      timeZone: 'Asia/Almaty',
+      actualInstructorIds: [instructorId],
+      revision: 1,
+      createdAt,
+      updatedAt: createdAt,
+      audit: {
+        createdByCommandId: 'command_seed',
+        lastChangedByCommandId: 'command_seed',
+        correlationId,
+      },
+    })
+  );
   await firestore.doc(`instructors/${instructorId}`).set({
     id: instructorId,
     name: 'Course Admin Emulator Instructor',
@@ -113,6 +145,84 @@ afterAll(async () => {
   if (!runsOnFirestoreEmulator) return;
   await clear();
   if (app && getApps().includes(app)) await deleteApp(app);
+});
+
+describe.skipIf(!runsOnFirestoreEmulator)('Course archive/reactivate lifecycle', () => {
+  it('uses OCC, preserves the same Course identity and history, and does not retry stale restore', async () => {
+    const enrollmentPath = 'course_enrollments/enrollment_course_lifecycle_history_01';
+    const attendancePath = 'attendance/attendance_course_lifecycle_history_01';
+    const paymentPath = 'payments/payment_course_lifecycle_history_01';
+    const catalogPath = `course_catalog_content/${courseId}`;
+    await Promise.all([
+      firestore.doc(enrollmentPath).set({ courseId, marker: 'preserve' }),
+      firestore.doc(attendancePath).set({ courseId, marker: 'preserve' }),
+      firestore.doc(paymentPath).set({ courseId, marker: 'preserve' }),
+      firestore.doc(catalogPath).set({ courseId, marker: 'preserve' }),
+    ]);
+    const commands = createProductionCanonicalCommands(
+      { clock: createAuthoritativeCommandClock(new Date('2026-02-01T00:00:00.000Z')) },
+      createFirestoreCanonicalTransactionExecutor(firestore)
+    );
+    const archived = await commands.execute({
+      kind: 'archive_course',
+      context: {
+        actor: accountCommandActor(adminId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'idem-course-emulator-archive',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: 1,
+      },
+      intent: { courseId, reasonExplanation: 'Archive lifecycle proof' },
+    });
+    expect(archived.status).toBe('success');
+
+    const stale = await commands.execute({
+      kind: 'reactivate_course',
+      context: {
+        actor: accountCommandActor(adminId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'idem-course-emulator-reactivate-stale',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: 1,
+      },
+      intent: { courseId, reasonExplanation: 'Stale restore proof' },
+    });
+    expect(stale.status).toBe('error');
+    if (stale.status === 'error') expect(stale.error.code).toBe('stale_version');
+    expect(
+      CourseSchema.parse((await firestore.doc(`courses/${courseId}`).get()).data()).lifecycle
+    ).toBe('archived');
+
+    const reactivated = await commands.execute({
+      kind: 'reactivate_course',
+      context: {
+        actor: accountCommandActor(adminId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'idem-course-emulator-reactivate',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: 2,
+      },
+      intent: { courseId, reasonExplanation: 'Restore lifecycle proof' },
+    });
+    expect(reactivated.status).toBe('success');
+    const restored = CourseSchema.parse((await firestore.doc(`courses/${courseId}`).get()).data());
+    expect(restored.courseId).toBe(courseId);
+    expect(restored.lifecycle).toBe('active');
+    await expect(
+      Promise.all(
+        [
+          `courses/${courseId}/days/${dayId}`,
+          enrollmentPath,
+          attendancePath,
+          paymentPath,
+          catalogPath,
+        ].map(async (path) => (await firestore.doc(path).get()).exists)
+      )
+    ).resolves.toEqual([true, true, true, true, true]);
+  });
 });
 
 describe.skipIf(!runsOnFirestoreEmulator)('Course capacity concurrency', () => {
@@ -146,7 +256,9 @@ describe.skipIf(!runsOnFirestoreEmulator)('Course capacity concurrency', () => {
       });
     });
     const [capacityResult] = await Promise.all([capacityPromise, enrollmentSeatPromise]);
-    const finalCourse = CourseSchema.parse((await firestore.doc(`courses/${courseId}`).get()).data());
+    const finalCourse = CourseSchema.parse(
+      (await firestore.doc(`courses/${courseId}`).get()).data()
+    );
     const occupied = finalCourse.capacity.totalSeats - finalCourse.capacity.availableSeats;
     expect(occupied).toBe(1);
     expect(finalCourse.capacity.totalSeats).toBeGreaterThanOrEqual(occupied);
@@ -290,8 +402,12 @@ describe.skipIf(!runsOnFirestoreEmulator)('Course capacity concurrency', () => {
       },
     });
     expect(removed.status).toBe('success');
-    expect((await firestore.doc(`courses/${courseId}/days/${secondDayId}`).get()).exists).toBe(false);
-    const finalCourse = CourseSchema.parse((await firestore.doc(`courses/${courseId}`).get()).data());
+    expect((await firestore.doc(`courses/${courseId}/days/${secondDayId}`).get()).exists).toBe(
+      false
+    );
+    const finalCourse = CourseSchema.parse(
+      (await firestore.doc(`courses/${courseId}`).get()).data()
+    );
     expect(finalCourse.scheduleProjection.courseDayCount).toBe(1);
     expect(finalCourse.scheduleProjection.courseScheduleRevision).toBe(4);
     for (const claimId of [

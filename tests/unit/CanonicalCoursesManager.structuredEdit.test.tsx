@@ -552,6 +552,7 @@ describe('CanonicalCoursesManager structured edit regressions', () => {
       scope: 'admin_course_list',
       pageSize: 50,
       readModelVersion: 2,
+      lifecycle: 'active',
     });
     expect(queryAdminIdentityReadModels).not.toHaveBeenCalled();
     expect(queryAdminCourseEnrollmentReadModels).not.toHaveBeenCalled();

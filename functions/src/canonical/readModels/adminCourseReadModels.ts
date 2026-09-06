@@ -1,4 +1,4 @@
-import type { Firestore } from 'firebase-admin/firestore';
+import { FieldPath, type Firestore, type Query } from 'firebase-admin/firestore';
 import {
   ADMIN_COURSE_READ_MODEL_PAGE_SIZE_DEFAULT,
   AdminCourseInstructorPresentationSchema,
@@ -8,6 +8,8 @@ import {
   QueryAdminCourseReadModelsResultSchema,
   compareCanonicalTimestamps,
   courseScheduleIsComplete,
+  decodeAdminCourseReadModelCursor,
+  encodeAdminCourseReadModelCursor,
   timestampFromDate,
   type AdminCourseListItem,
   type AdminCourseReadModel,
@@ -268,9 +270,51 @@ export async function queryAdminCourseReadModels(
   // v2 is the strict canonical active-list query. v1 keeps its bounded legacy
   // compatibility shape because CourseSchema defaults a missing lifecycle to
   // active until T32.9B; Firestore cannot query for a missing field.
-  const snapshot = await (input.readModelVersion === 2
-    ? courseCollection.where('lifecycle', '==', 'active').limit(pageSize).get()
-    : courseCollection.limit(pageSize).get());
+  if ('readModelVersion' in input && input.readModelVersion === 2) {
+    const lifecycle = input.lifecycle ?? 'active';
+    const cursor = input.cursor ? decodeAdminCourseReadModelCursor(input.cursor) : undefined;
+    if (input.cursor && (!cursor || cursor.lifecycle !== lifecycle)) {
+      throw new Error('invalid_cursor');
+    }
+    let query: Query = courseCollection
+      .where('lifecycle', '==', lifecycle)
+      .orderBy('title', 'asc')
+      .orderBy(FieldPath.documentId(), 'asc');
+    if (cursor) {
+      query = query.startAfter(cursor.title, cursor.documentId);
+    }
+    const snapshot = await query.limit(pageSize + 1).get();
+    const pageDocuments = snapshot.docs.slice(0, pageSize);
+    const courses = pageDocuments
+      .map((document) => parseCourse(document.data() as Record<string, unknown>))
+      .filter(
+        (value): value is NonNullable<typeof value> =>
+          value !== undefined && value.lifecycle === lifecycle
+      );
+    const items = (
+      await Promise.all(
+        courses.map((course) => buildAdminCourseListItem(firestore, course, readContext))
+      )
+    ).filter((item): item is AdminCourseListItem => item !== undefined);
+    const hasMore = snapshot.docs.length > pageSize;
+    const lastDocument = pageDocuments.at(-1);
+    return QueryAdminCourseReadModelsResultSchema.parse({
+      scope: input.scope,
+      items,
+      hasMore,
+      ...(hasMore && lastDocument
+        ? {
+            nextCursor: encodeAdminCourseReadModelCursor({
+              lifecycle,
+              title: String(lastDocument.get('title')),
+              documentId: lastDocument.id,
+            }),
+          }
+        : {}),
+    });
+  }
+
+  const snapshot = await courseCollection.limit(pageSize).get();
   const courses = snapshot.docs
     .map((document) => parseCourse(document.data() as Record<string, unknown>))
     .filter(
@@ -279,14 +323,10 @@ export async function queryAdminCourseReadModels(
     );
   const items = (
     await Promise.all(
-      courses.map((course) =>
-        input.readModelVersion === 2
-          ? buildAdminCourseListItem(firestore, course, readContext)
-          : buildAdminCourseReadModel(firestore, course, undefined, readContext)
-      )
+      courses.map((course) => buildAdminCourseReadModel(firestore, course, undefined, readContext))
     )
   )
-    .filter((item): item is AdminCourseListItem => item !== undefined)
+    .filter((item): item is AdminCourseReadModel => item !== undefined)
     .sort((left, right) => left.title.localeCompare(right.title));
   return QueryAdminCourseReadModelsResultSchema.parse({ scope: input.scope, items });
 }

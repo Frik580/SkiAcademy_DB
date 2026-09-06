@@ -24,10 +24,14 @@ const createdAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 let app: App;
 let firestore: Firestore;
 
-function course(courseId: typeof activeCourseId, lifecycle: 'active' | 'archived') {
+function course(
+  courseId: typeof activeCourseId,
+  lifecycle: 'active' | 'archived',
+  title = lifecycle === 'active' ? 'Active Course' : 'Archived Course'
+) {
   return CourseSchema.parse({
     courseId,
-    title: lifecycle === 'active' ? 'Active Course' : 'Archived Course',
+    title,
     lifecycle,
     price: 50_000,
     capacity: { totalSeats: 8, availableSeats: 8 },
@@ -90,5 +94,69 @@ describeEmulator('admin Course read models', () => {
     if (result.scope === 'admin_course_list') {
       expect(result.items.map((item) => item.courseId)).toEqual([activeCourseId]);
     }
+  });
+
+  it('paginates both lifecycle scopes without duplicates, omissions, or cross-scope rows', async () => {
+    const activeIds = [
+      CourseIdSchema.parse('course_admin_emulator_active_a'),
+      CourseIdSchema.parse('course_admin_emulator_active_b'),
+      CourseIdSchema.parse('course_admin_emulator_active_c'),
+    ];
+    const archivedIds = [
+      CourseIdSchema.parse('course_admin_emulator_archived_a'),
+      CourseIdSchema.parse('course_admin_emulator_archived_b'),
+      CourseIdSchema.parse('course_admin_emulator_archived_c'),
+    ];
+    await Promise.all([
+      ...activeIds.map((id, index) =>
+        firestore
+          .collection('courses')
+          .doc(id)
+          .set(course(id, 'active', `Course ${index}`))
+      ),
+      ...archivedIds.map((id, index) =>
+        firestore
+          .collection('courses')
+          .doc(id)
+          .set(course(id, 'archived', `Course ${index}`))
+      ),
+      firestore.collection('instructors').doc(instructorId).set({
+        id: instructorId,
+        name: 'Course Coach',
+        isAvailable: true,
+      }),
+    ]);
+
+    const readScope = async (lifecycle: 'active' | 'archived') => {
+      const first = await queryAdminCourseReadModels(
+        firestore,
+        { kind: 'administrator', accountId: adminAccountId },
+        { scope: 'admin_course_list', pageSize: 2, readModelVersion: 2, lifecycle }
+      );
+      if (first.scope !== 'admin_course_list') throw new Error('unexpected scope');
+      expect(first.hasMore).toBe(true);
+      expect(first.nextCursor).toBeDefined();
+      const second = await queryAdminCourseReadModels(
+        firestore,
+        { kind: 'administrator', accountId: adminAccountId },
+        {
+          scope: 'admin_course_list',
+          pageSize: 2,
+          readModelVersion: 2,
+          lifecycle,
+          cursor: first.nextCursor,
+        }
+      );
+      if (second.scope !== 'admin_course_list') throw new Error('unexpected scope');
+      expect(second.hasMore).toBe(false);
+      const items = [...first.items, ...second.items];
+      expect(items).toHaveLength(3);
+      expect(new Set(items.map((item) => item.courseId)).size).toBe(3);
+      expect(items.every((item) => item.lifecycle === lifecycle)).toBe(true);
+      return items.map((item) => item.courseId);
+    };
+
+    await expect(readScope('active')).resolves.toEqual(activeIds);
+    await expect(readScope('archived')).resolves.toEqual(archivedIds);
   });
 });

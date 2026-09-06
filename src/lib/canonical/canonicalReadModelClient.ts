@@ -187,7 +187,12 @@ export async function queryAdminPlannerReadModels(
 export async function queryAdminCourseReadModels(
   input: QueryAdminCourseReadModelsInput
 ): Promise<QueryAdminCourseReadModelsResult> {
-  const target = input.scope === 'admin_course_detail' ? input.courseId : 'list';
+  const target =
+    input.scope === 'admin_course_detail'
+      ? input.courseId
+      : 'readModelVersion' in input && input.readModelVersion === 2
+        ? `v2:${input.lifecycle ?? 'active'}:${input.pageSize ?? 'default'}:${input.cursor ?? 'start'}`
+        : `v1:${input.pageSize ?? 'default'}`;
   const idempotencyKey = `read:admin_course:${input.scope}:${target}`;
   return invokeCanonicalReadCallable<
     QueryAdminCourseReadModelsInput,

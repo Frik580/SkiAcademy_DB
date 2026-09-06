@@ -12,16 +12,22 @@ interface CoursesTableProps {
   t: (key: TranslationKey) => string;
   onToggleVisibility: (course: Course) => void;
   onEdit: (course: Course) => void;
+  onView?: (course: Course) => void;
   onDelete: (course: Course) => void;
+  onReactivate?: (course: Course) => void;
   onClone: (course: Course) => void;
   onMove: (course: Course, direction: 'up' | 'down') => void;
   enrolledNamesByCourseId?: ReadonlyMap<string, readonly string[]>;
   archiveInsteadOfDelete?: boolean;
   canToggleVisibility?: (course: Course) => boolean;
   canEdit?: (course: Course) => boolean;
+  canView?: (course: Course) => boolean;
   canArchive?: (course: Course) => boolean;
+  canReactivate?: (course: Course) => boolean;
   canClone?: (course: Course) => boolean;
   canMove?: (course: Course) => boolean;
+  detailsLabel?: string;
+  reactivateLabel?: string;
 }
 
 export const CoursesTable: React.FC<CoursesTableProps> = ({
@@ -33,16 +39,22 @@ export const CoursesTable: React.FC<CoursesTableProps> = ({
   t,
   onToggleVisibility,
   onEdit,
+  onView,
   onDelete,
+  onReactivate,
   onClone,
   onMove,
   enrolledNamesByCourseId,
   archiveInsteadOfDelete = false,
   canToggleVisibility,
   canEdit,
+  canView,
   canArchive,
+  canReactivate,
   canClone,
   canMove,
+  detailsLabel,
+  reactivateLabel,
 }) => {
   const sortedCourses = [...courses].sort((a, b) => {
     const orderA = a.order !== undefined ? a.order : 999;
@@ -80,16 +92,22 @@ export const CoursesTable: React.FC<CoursesTableProps> = ({
               t={t}
               onToggleVisibility={onToggleVisibility}
               onEdit={onEdit}
+              onView={onView}
               onDelete={onDelete}
+              onReactivate={onReactivate}
               onClone={onClone}
               onMove={onMove}
               enrolledNames={enrolledNamesByCourseId?.get(course.id)}
               archiveInsteadOfDelete={archiveInsteadOfDelete}
               canToggleVisibility={canToggleVisibility?.(course)}
               canEdit={canEdit?.(course)}
+              canView={canView?.(course)}
               canArchive={canArchive?.(course)}
+              canReactivate={canReactivate?.(course)}
               canClone={canClone?.(course)}
               canMove={canMove?.(course)}
+              detailsLabel={detailsLabel}
+              reactivateLabel={reactivateLabel}
             />
           ))}
           {courses.length === 0 && (

@@ -6,7 +6,7 @@ const ACTION_LABELS: Partial<Record<CommandKind, { readonly en: string; readonly
   change_course_price: { en: 'Change KZT price', ru: 'Изменить цену в KZT' },
   change_course_capacity: { en: 'Change capacity', ru: 'Изменить вместимость' },
   archive_course: { en: 'Archive', ru: 'Архивировать' },
-  reactivate_course: { en: 'Reactivate', ru: 'Вернуть из архива' },
+  reactivate_course: { en: 'Restore', ru: 'Восстановить' },
   add_course_roster_instructor: { en: 'Add roster instructor', ru: 'Добавить инструктора' },
   remove_course_roster_instructor: {
     en: 'Remove roster instructor',
@@ -81,8 +81,19 @@ export function useAdminCourseTranslations() {
     commandError: (code: CommandErrorCode) => commandErrorText(code, ru),
     text: {
       loading: ru ? 'Загрузка canonical-курсов…' : 'Loading canonical courses…',
+      loadingMore: ru ? 'Загрузка следующей страницы…' : 'Loading next page…',
+      loadMore: ru ? 'Загрузить ещё' : 'Load more',
       retry: ru ? 'Повторить' : 'Retry',
       empty: ru ? 'Canonical-курсов пока нет.' : 'No canonical courses yet.',
+      active: ru ? 'Активные' : 'Active',
+      archived: ru ? 'Архивные' : 'Archived',
+      activeEmpty: ru ? 'Активных курсов пока нет.' : 'No active courses yet.',
+      archivedEmpty: ru ? 'Архивных курсов пока нет.' : 'No archived courses yet.',
+      restore: ru ? 'Восстановить' : 'Restore',
+      restoreConfirmPrefix: ru ? 'Восстановить курс' : 'Restore course',
+      restoreExplanation: ru
+        ? 'Курс вернётся в активный список; расписание и история не изменятся.'
+        : 'The Course will return to the active list; its schedule and history will not change.',
       create: ru ? 'Создать canonical-курс' : 'Create canonical course',
       createClone: ru ? 'Создать копию курса' : 'Create course copy',
       cloneDraftReady: ru

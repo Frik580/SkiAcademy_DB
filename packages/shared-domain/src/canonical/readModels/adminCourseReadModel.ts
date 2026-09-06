@@ -112,14 +112,59 @@ export const AdminCourseReadModelSchema = AdminCourseListItemSchema.extend({
 
 export type AdminCourseReadModel = z.output<typeof AdminCourseReadModelSchema>;
 
-const AdminCourseListInputSchema = z
+export const AdminCourseReadModelCursorSchema = z
+  .object({
+    lifecycle: CourseLifecycleStatusSchema,
+    title: z.string().trim().min(1).max(200),
+    documentId: z.string().trim().min(1).max(200),
+  })
+  .strict();
+
+export type AdminCourseReadModelCursor = z.output<typeof AdminCourseReadModelCursorSchema>;
+
+export function encodeAdminCourseReadModelCursor(cursor: AdminCourseReadModelCursor): string {
+  return Buffer.from(
+    JSON.stringify(AdminCourseReadModelCursorSchema.parse(cursor)),
+    'utf8'
+  ).toString('base64url');
+}
+
+export function decodeAdminCourseReadModelCursor(
+  cursor: string
+): AdminCourseReadModelCursor | undefined {
+  try {
+    const parsed = AdminCourseReadModelCursorSchema.safeParse(
+      JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'))
+    );
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const AdminCourseListV1InputSchema = z
   .object({
     scope: z.literal('admin_course_list'),
     pageSize: z.number().int().positive().max(ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX).optional(),
-    readModelVersion: z.literal(2).optional(),
     idempotencyKey: IdempotencyKeySchema.optional(),
   })
   .strict();
+
+const AdminCourseListV2InputSchema = z
+  .object({
+    scope: z.literal('admin_course_list'),
+    pageSize: z.number().int().positive().max(ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX).optional(),
+    readModelVersion: z.literal(2),
+    lifecycle: CourseLifecycleStatusSchema.optional(),
+    cursor: z.string().trim().min(1).max(512).optional(),
+    idempotencyKey: IdempotencyKeySchema.optional(),
+  })
+  .strict();
+
+const AdminCourseListInputSchema = z.union([
+  AdminCourseListV2InputSchema,
+  AdminCourseListV1InputSchema,
+]);
 
 const AdminCourseDetailInputSchema = z
   .object({
@@ -129,7 +174,7 @@ const AdminCourseDetailInputSchema = z
   })
   .strict();
 
-export const QueryAdminCourseReadModelsInputSchema = z.discriminatedUnion('scope', [
+export const QueryAdminCourseReadModelsInputSchema = z.union([
   AdminCourseListInputSchema,
   AdminCourseDetailInputSchema,
 ]);
@@ -143,6 +188,9 @@ export const QueryAdminCourseReadModelsResultSchema = z.discriminatedUnion('scop
     .object({
       scope: z.literal('admin_course_list'),
       items: z.array(AdminCourseListItemSchema).max(ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX),
+      // v2 pagination metadata is optional so the v1 response envelope remains unchanged.
+      nextCursor: z.string().trim().min(1).max(512).optional(),
+      hasMore: z.boolean().optional(),
     })
     .strict(),
   z

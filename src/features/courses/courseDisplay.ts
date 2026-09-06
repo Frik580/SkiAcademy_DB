@@ -52,7 +52,9 @@ export function buildCourseFromCanonicalAggregateAndContent(
     price: canonical.price,
     priceKZT: canonical.price,
     bgImageUrl: catalog?.bgImageUrl ?? DEFAULT_COURSE_IMAGE,
-    isHidden: catalog?.isHidden,
+    // Lifecycle is the canonical availability authority. Catalog visibility only
+    // adds a marketing-level hide; it must never make an archived Course public.
+    isHidden: catalog?.isHidden === true || aggregate.lifecycle === 'archived',
     order: catalog?.order,
     shortDescription: catalog?.shortDescription,
     shortDescriptionRu: catalog?.shortDescriptionRu,

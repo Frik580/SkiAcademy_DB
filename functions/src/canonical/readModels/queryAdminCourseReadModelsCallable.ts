@@ -22,6 +22,13 @@ export function createQueryAdminCourseReadModelsHandler(firestore: Firestore) {
       request.auth?.uid,
       readContext
     );
-    return queryAdminCourseReadModels(firestore, actor, parsed.data, { readContext });
+    try {
+      return await queryAdminCourseReadModels(firestore, actor, parsed.data, { readContext });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'invalid_cursor') {
+        throw new HttpsError('invalid-argument', 'The cursor is invalid.');
+      }
+      throw error;
+    }
   };
 }

@@ -6,7 +6,10 @@ import {
   type AdminCourseListItem,
   type AdminCourseReadModel,
 } from '@ski-academy/shared-domain';
-import { buildArchiveCourseCommandFromListItem } from '../../src/features/admin/components/courses/adminCourseArchiveCommand';
+import {
+  buildArchiveCourseCommandFromListItem,
+  buildReactivateCourseCommandFromListItem,
+} from '../../src/features/admin/components/courses/adminCourseArchiveCommand';
 import {
   buildCanonicalCourseCloneDraft,
   catalogContentInputFromCreateForm,
@@ -140,6 +143,37 @@ describe('adminCourseArchiveCommand', () => {
         compactListRow({
           authorizedActions: [],
         })
+      )
+    ).toThrow(/not authorized/i);
+  });
+
+  it('builds reactivate_course from the authorized action revision without row fallback', () => {
+    const submission = buildReactivateCourseCommandFromListItem(
+      compactListRow({
+        lifecycle: 'archived',
+        revision: AggregateRevisionSchema.parse(99),
+        authorizedActions: [
+          {
+            kind: 'reactivate_course',
+            expectedRevision: AggregateRevisionSchema.parse(7),
+          },
+        ],
+      })
+    );
+    expect(submission).toEqual({
+      kind: 'reactivate_course',
+      expectedRevision: 7,
+      intent: {
+        courseId: 'course_v2_list_01',
+        reasonExplanation: 'Admin course reactivation',
+      },
+    });
+  });
+
+  it('rejects reactivation without the canonical authorized action', () => {
+    expect(() =>
+      buildReactivateCourseCommandFromListItem(
+        compactListRow({ lifecycle: 'archived', authorizedActions: [] })
       )
     ).toThrow(/not authorized/i);
   });

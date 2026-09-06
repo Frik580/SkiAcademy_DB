@@ -3,6 +3,7 @@ import {
   resolveCourseDocument,
   isLegacyCourseDocument,
 } from '../../src/features/courses/courseDisplay';
+import { sortVisibleCourses } from '../../src/features/courses/components/GroupCourseCard';
 
 describe('courseDisplay', () => {
   it('keeps legacy course documents readable', () => {
@@ -55,5 +56,41 @@ describe('courseDisplay', () => {
     expect(course?.title).toBe('Canonical Title');
     expect(course?.description).toBe('Presentation description');
     expect(course?.priceKZT).toBe(50_000);
+  });
+
+  it('keeps an archived canonical Course out of public card collections', () => {
+    const course = resolveCourseDocument(
+      'course_canonical_archived_01',
+      {
+        courseId: 'course_canonical_archived_01',
+        title: 'Archived canonical course',
+        lifecycle: 'archived',
+        price: 50_000,
+        capacity: { totalSeats: 8, availableSeats: 8 },
+        instructorRosterIds: ['instructor_01'],
+        startAt: { seconds: 1, nanoseconds: 0 },
+        scheduleProjection: {
+          courseDayCount: 1,
+          finalCourseDayEndsAt: { seconds: 2, nanoseconds: 0 },
+          courseScheduleRevision: 1,
+        },
+        revision: 1,
+        createdAt: { seconds: 1, nanoseconds: 0 },
+        updatedAt: { seconds: 1, nanoseconds: 0 },
+        audit: {
+          createdByCommandId: 'command_seed',
+          lastChangedByCommandId: 'command_seed',
+          correlationId: 'correlation_seed',
+        },
+      },
+      {
+        duration: '1 day',
+        description: 'Presentation description',
+        dates: '1 March',
+        bgImageUrl: 'https://example.com/canonical.webp',
+      }
+    );
+    expect(course?.isHidden).toBe(true);
+    expect(course ? sortVisibleCourses([course]) : []).toEqual([]);
   });
 });

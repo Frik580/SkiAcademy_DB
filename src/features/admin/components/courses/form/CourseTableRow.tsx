@@ -1,5 +1,15 @@
 import React from 'react';
-import { ArrowUp, ArrowDown, Eye, EyeOff, Edit2, Trash2, Copy } from 'lucide-react';
+import {
+  ArrowUp,
+  ArrowDown,
+  Eye,
+  EyeOff,
+  Edit2,
+  Trash2,
+  Copy,
+  Info,
+  RotateCcw,
+} from 'lucide-react';
 import { Booking, Course, Instructor, UserProfile } from '../../../../../types';
 import {
   translateCourse,
@@ -20,16 +30,22 @@ interface CourseTableRowProps {
   t: (key: TranslationKey) => string;
   onToggleVisibility: (course: Course) => void;
   onEdit: (course: Course) => void;
+  onView?: (course: Course) => void;
   onDelete: (course: Course) => void;
+  onReactivate?: (course: Course) => void;
   onClone: (course: Course) => void;
   onMove: (course: Course, direction: 'up' | 'down') => void;
   enrolledNames?: readonly string[];
   archiveInsteadOfDelete?: boolean;
   canToggleVisibility?: boolean;
   canEdit?: boolean;
+  canView?: boolean;
   canArchive?: boolean;
+  canReactivate?: boolean;
   canClone?: boolean;
   canMove?: boolean;
+  detailsLabel?: string;
+  reactivateLabel?: string;
 }
 
 export const CourseTableRow: React.FC<CourseTableRowProps> = ({
@@ -43,16 +59,22 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
   t,
   onToggleVisibility,
   onEdit,
+  onView,
   onDelete,
+  onReactivate,
   onClone,
   onMove,
   enrolledNames: enrolledNamesOverride,
   archiveInsteadOfDelete = false,
   canToggleVisibility = true,
   canEdit = true,
+  canView = false,
   canArchive = true,
+  canReactivate = false,
   canClone = true,
   canMove = true,
+  detailsLabel = 'Details',
+  reactivateLabel = 'Restore',
 }) => {
   const translatedCourse = translateCourse(course, language);
 
@@ -186,6 +208,17 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
       </td>
       <td className="px-4 py-2 text-right">
         <div className="flex items-center justify-end gap-1">
+          {canView && onView ? (
+            <button
+              type="button"
+              onClick={() => onView(course)}
+              className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] border border-transparent rounded-none transition cursor-pointer"
+              title={detailsLabel}
+              aria-label={detailsLabel}
+            >
+              <Info className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
           {canToggleVisibility ? (
             <button
               onClick={() => onToggleVisibility(course)}
@@ -228,6 +261,17 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
               title={archiveInsteadOfDelete ? t('archiveCourse') : t('deleteCourse')}
             >
               <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
+          {canReactivate && onReactivate ? (
+            <button
+              type="button"
+              onClick={() => onReactivate(course)}
+              className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:border-emerald-500/30 border border-transparent rounded-none transition cursor-pointer"
+              title={reactivateLabel}
+              aria-label={reactivateLabel}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
             </button>
           ) : null}
         </div>

@@ -39,15 +39,81 @@ function fakeFirestore(
 ): Firestore {
   const snapshot = (entries: Array<[string, Record<string, unknown>]>) => ({
     empty: entries.length === 0,
-    docs: entries.map(([path, data]) => ({ id: path.split('/').at(-1), data: () => data })),
+    docs: entries.map(([path, data]) => ({
+      id: path.split('/').at(-1),
+      data: () => data,
+      get: (field: string) => nestedValue(data, field),
+    })),
   });
+  const compare = (left: unknown, right: unknown) =>
+    typeof left === 'number' && typeof right === 'number'
+      ? left - right
+      : String(left).localeCompare(String(right));
   const collection = (path: string) => {
     const entries = () =>
       Object.entries(seed).filter(([key]) => {
         if (!key.startsWith(`${path}/`)) return false;
         return key.slice(path.length + 1).split('/').length === 1;
       });
+    const createQuery = () => {
+      const filters: Array<{ field: string; value: unknown }> = [];
+      const orderings: Array<{ field: string; direction: 'asc' | 'desc' }> = [];
+      let after: readonly unknown[] | undefined;
+      let maximum: number | undefined;
+      const query = {
+        where: (field: string, _op: string, value: unknown) => {
+          filters.push({ field, value });
+          return query;
+        },
+        orderBy: (field: unknown, direction: 'asc' | 'desc' = 'asc') => {
+          orderings.push({ field: typeof field === 'string' ? field : '__name__', direction });
+          return query;
+        },
+        startAfter: (...values: unknown[]) => {
+          after = values;
+          return query;
+        },
+        limit: (count: number) => {
+          maximum = count;
+          return query;
+        },
+        get: async () => {
+          reads.push(`${path}:query`);
+          let result = entries().filter(([, data]) =>
+            filters.every(({ field, value }) => Object.is(nestedValue(data, field), value))
+          );
+          const tuple = ([entryPath, data]: [string, Record<string, unknown>]) =>
+            orderings.map(({ field }) =>
+              field === '__name__' ? entryPath.split('/').at(-1) : nestedValue(data, field)
+            );
+          result.sort((left, right) => {
+            const leftTuple = tuple(left);
+            const rightTuple = tuple(right);
+            for (let index = 0; index < orderings.length; index += 1) {
+              const compared = compare(leftTuple[index], rightTuple[index]);
+              if (compared !== 0)
+                return orderings[index]!.direction === 'asc' ? compared : -compared;
+            }
+            return 0;
+          });
+          if (after) {
+            result = result.filter((entry) => {
+              const values = tuple(entry);
+              for (let index = 0; index < orderings.length; index += 1) {
+                const compared = compare(values[index], after![index]);
+                if (compared !== 0)
+                  return orderings[index]!.direction === 'asc' ? compared > 0 : compared < 0;
+              }
+              return false;
+            });
+          }
+          return snapshot(maximum === undefined ? result : result.slice(0, maximum));
+        },
+      };
+      return query;
+    };
     return {
+      ...createQuery(),
       doc: (id: string) => ({
         get: async () => {
           reads.push(`${path}/${id}`);
@@ -55,48 +121,6 @@ function fakeFirestore(
           return { exists: data !== undefined, data: () => data };
         },
       }),
-      get: async () => {
-        reads.push(`${path}:query`);
-        return snapshot(entries());
-      },
-      limit: (count: number) => ({
-        get: async () => {
-          reads.push(`${path}:query`);
-          return snapshot(entries().slice(0, count));
-        },
-      }),
-      orderBy: (_field: string, direction: 'asc' | 'desc' = 'asc') => ({
-        limit: (count: number) => ({
-          get: async () => {
-            reads.push(`${path}:query`);
-            return snapshot(
-              entries()
-                .sort((left, right) =>
-                  direction === 'asc'
-                    ? Number(left[1].dayOrder) - Number(right[1].dayOrder)
-                    : Number(right[1].dayOrder) - Number(left[1].dayOrder)
-                )
-                .slice(0, count)
-            );
-          },
-        }),
-      }),
-      where: (field: string, _op: string, value: unknown) => {
-        const filteredEntries = () =>
-          entries().filter(([, data]) => Object.is(nestedValue(data, field), value));
-        return {
-          get: async () => {
-            reads.push(`${path}:query`);
-            return snapshot(filteredEntries());
-          },
-          limit: (count: number) => ({
-            get: async () => {
-              reads.push(`${path}:query`);
-              return snapshot(filteredEntries().slice(0, count));
-            },
-          }),
-        };
-      },
     };
   };
   return {
@@ -187,6 +211,22 @@ function seed() {
       bgImageUrl: 'https://example.com/course.webp',
     },
   };
+}
+
+function addCourse(
+  data: Record<string, Record<string, unknown>>,
+  id: string,
+  title: string,
+  lifecycle: 'active' | 'archived'
+) {
+  const parsedId = CourseIdSchema.parse(id);
+  data[`courses/${parsedId}`] = CourseSchema.parse({
+    ...(data[`courses/${courseId}`] as Record<string, unknown>),
+    courseId: parsedId,
+    title,
+    lifecycle,
+  }) as unknown as Record<string, unknown>;
+  return parsedId;
 }
 
 describe('Admin Course read-model callable', () => {
@@ -288,6 +328,99 @@ describe('Admin Course read-model callable', () => {
     }
   });
 
+  it('paginates active and archived v2 scopes with stable title/document cursors', async () => {
+    const data = seed();
+    const activeA = addCourse(data, 'course_admin_read_active_a', 'Alpha Course', 'active');
+    const activeB = addCourse(data, 'course_admin_read_active_b', 'Alpha Course', 'active');
+    const archivedA = addCourse(data, 'course_admin_read_archived_a', 'Archived Alpha', 'archived');
+    const archivedB = addCourse(data, 'course_admin_read_archived_b', 'Archived Beta', 'archived');
+    const archivedC = addCourse(data, 'course_admin_read_archived_c', 'Archived Gamma', 'archived');
+    const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(data));
+
+    const firstActive = await handler({
+      auth: { uid: adminId },
+      data: {
+        scope: 'admin_course_list',
+        readModelVersion: 2,
+        lifecycle: 'active',
+        pageSize: 2,
+      },
+    } as never);
+    expect(firstActive).toMatchObject({ scope: 'admin_course_list', hasMore: true });
+    if (firstActive.scope !== 'admin_course_list') throw new Error('unexpected scope');
+    expect(firstActive.items.map((item) => item.courseId)).toEqual([activeA, activeB]);
+    const secondActive = await handler({
+      auth: { uid: adminId },
+      data: {
+        scope: 'admin_course_list',
+        readModelVersion: 2,
+        lifecycle: 'active',
+        pageSize: 2,
+        cursor: firstActive.nextCursor,
+      },
+    } as never);
+    if (secondActive.scope !== 'admin_course_list') throw new Error('unexpected scope');
+    expect(secondActive.hasMore).toBe(false);
+    expect(secondActive.items.map((item) => item.courseId)).toEqual([courseId]);
+    expect(
+      new Set([...firstActive.items, ...secondActive.items].map((item) => item.courseId)).size
+    ).toBe(3);
+
+    const firstArchived = await handler({
+      auth: { uid: adminId },
+      data: {
+        scope: 'admin_course_list',
+        readModelVersion: 2,
+        lifecycle: 'archived',
+        pageSize: 2,
+      },
+    } as never);
+    if (firstArchived.scope !== 'admin_course_list') throw new Error('unexpected scope');
+    expect(firstArchived.items.map((item) => item.courseId)).toEqual([archivedA, archivedB]);
+    expect(firstArchived.hasMore).toBe(true);
+    const secondArchived = await handler({
+      auth: { uid: adminId },
+      data: {
+        scope: 'admin_course_list',
+        readModelVersion: 2,
+        lifecycle: 'archived',
+        pageSize: 2,
+        cursor: firstArchived.nextCursor,
+      },
+    } as never);
+    if (secondArchived.scope !== 'admin_course_list') throw new Error('unexpected scope');
+    expect(secondArchived.items.map((item) => item.courseId)).toEqual([archivedC]);
+    expect(secondArchived.hasMore).toBe(false);
+  });
+
+  it('rejects a cursor from the wrong lifecycle scope', async () => {
+    const data = seed();
+    addCourse(data, 'course_admin_read_active_cursor', 'Cursor Course', 'active');
+    const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(data));
+    const active = await handler({
+      auth: { uid: adminId },
+      data: {
+        scope: 'admin_course_list',
+        readModelVersion: 2,
+        lifecycle: 'active',
+        pageSize: 1,
+      },
+    } as never);
+    if (active.scope !== 'admin_course_list') throw new Error('unexpected scope');
+    await expect(
+      handler({
+        auth: { uid: adminId },
+        data: {
+          scope: 'admin_course_list',
+          readModelVersion: 2,
+          lifecycle: 'archived',
+          pageSize: 1,
+          cursor: active.nextCursor,
+        },
+      } as never)
+    ).rejects.toMatchObject({ code: 'invalid-argument' });
+  });
+
   it('keeps v1 compatibility for canonical Course documents without lifecycle', async () => {
     const data = seed();
     const legacyCanonicalCourse = data[`courses/${courseId}`] as Record<string, unknown>;
@@ -303,6 +436,8 @@ describe('Admin Course read-model callable', () => {
     if (result.scope === 'admin_course_list') {
       expect(result.items.map((item) => item.courseId)).toEqual([courseId]);
       expect(result.items[0]?.lifecycle).toBe('active');
+      expect(result).not.toHaveProperty('hasMore');
+      expect(result).not.toHaveProperty('nextCursor');
     }
   });
 

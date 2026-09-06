@@ -51,6 +51,7 @@ import {
 import { planAcquireCourseDayInstructorClaim } from './courseDayClaimOperations';
 import {
   COURSE_PLANNING_ESTIMATES,
+  courseDaysCollectionPath,
   courseDayPath,
   coursePath,
   instructorCatalogPath,
@@ -495,6 +496,26 @@ export async function applyCanonicalCourseProvisioningManifest(
             throw new CanonicalCommandError('validation', {
               correlationId: envelope.context.correlationId,
               details: { field: 'courseId', reason: 'conflict' },
+            });
+          }
+        }
+
+        if (!existingCourse) {
+          const existingDayDocuments = await session.tx.query({
+            collection: courseDaysCollectionPath(manifest.courseId),
+            where: { field: 'courseId', op: '==', value: manifest.courseId },
+          });
+          session.plan.planRead({
+            path: `${courseDaysCollectionPath(manifest.courseId)}/query`,
+            category: 'aggregate',
+          });
+          const manifestDayPaths = new Set(
+            sortedDays.map((day) => courseDayPath(manifest.courseId, day.courseDayId))
+          );
+          if (existingDayDocuments.some((document) => !manifestDayPaths.has(document.path))) {
+            throw new CanonicalCommandError('validation', {
+              correlationId: envelope.context.correlationId,
+              details: { field: 'courseDayId', reason: 'conflict' },
             });
           }
         }

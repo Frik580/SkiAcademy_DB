@@ -77,6 +77,19 @@ export function adminPlannerSearchParams(
   return next;
 }
 
+/** Product → Operations CourseEnrollment handoff with a canonical Course filter. */
+export function adminCourseEnrollmentSearchParams(
+  previous: URLSearchParams,
+  courseId: string
+): URLSearchParams {
+  const next = new URLSearchParams(previous);
+  next.set(ADMIN_TAB_QUERY_KEY, 'operations');
+  next.set(ADMIN_COURSE_ENROLLMENT_VIEW_QUERY_KEY, 'roster');
+  next.set(ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY, courseId);
+  next.delete(ADMIN_COURSE_ENROLLMENT_QUERY_KEY);
+  return next;
+}
+
 export const ADMIN_TAB_LABEL_KEYS: Record<AdminTabId, TranslationKey> = {
   operations: 'adminTabOperations',
   finance: 'adminTabFinance',

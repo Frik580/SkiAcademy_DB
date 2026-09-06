@@ -25,6 +25,11 @@ interface CourseTableRowProps {
   onMove: (course: Course, direction: 'up' | 'down') => void;
   enrolledNames?: readonly string[];
   archiveInsteadOfDelete?: boolean;
+  canToggleVisibility?: boolean;
+  canEdit?: boolean;
+  canArchive?: boolean;
+  canClone?: boolean;
+  canMove?: boolean;
 }
 
 export const CourseTableRow: React.FC<CourseTableRowProps> = ({
@@ -43,6 +48,11 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
   onMove,
   enrolledNames: enrolledNamesOverride,
   archiveInsteadOfDelete = false,
+  canToggleVisibility = true,
+  canEdit = true,
+  canArchive = true,
+  canClone = true,
+  canMove = true,
 }) => {
   const translatedCourse = translateCourse(course, language);
 
@@ -144,66 +154,82 @@ export const CourseTableRow: React.FC<CourseTableRowProps> = ({
       </td>
       <td className="px-4 py-2 text-center">
         <div className="flex items-center justify-center gap-1">
-          <button
-            onClick={() => onMove(course, 'up')}
-            disabled={idx === 0}
-            className={`p-1 border border-transparent rounded-none transition cursor-pointer ${
-              idx === 0
-                ? 'text-[var(--border)] cursor-not-allowed opacity-30'
-                : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--border)] bg-black/5 dark:bg-white/5'
-            }`}
-            title={t('moveUp')}
-          >
-            <ArrowUp className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => onMove(course, 'down')}
-            disabled={idx === sortedLength - 1}
-            className={`p-1 border border-transparent rounded-none transition cursor-pointer ${
-              idx === sortedLength - 1
-                ? 'text-[var(--border)] cursor-not-allowed opacity-30'
-                : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--border)] bg-black/5 dark:bg-white/5'
-            }`}
-            title={t('moveDown')}
-          >
-            <ArrowDown className="w-3.5 h-3.5" />
-          </button>
+          {canMove ? (
+            <button
+              onClick={() => onMove(course, 'up')}
+              disabled={idx === 0}
+              className={`p-1 border border-transparent rounded-none transition cursor-pointer ${
+                idx === 0
+                  ? 'text-[var(--border)] cursor-not-allowed opacity-30'
+                  : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--border)] bg-black/5 dark:bg-white/5'
+              }`}
+              title={t('moveUp')}
+            >
+              <ArrowUp className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
+          {canMove ? (
+            <button
+              onClick={() => onMove(course, 'down')}
+              disabled={idx === sortedLength - 1}
+              className={`p-1 border border-transparent rounded-none transition cursor-pointer ${
+                idx === sortedLength - 1
+                  ? 'text-[var(--border)] cursor-not-allowed opacity-30'
+                  : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--border)] bg-black/5 dark:bg-white/5'
+              }`}
+              title={t('moveDown')}
+            >
+              <ArrowDown className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
         </div>
       </td>
       <td className="px-4 py-2 text-right">
         <div className="flex items-center justify-end gap-1">
-          <button
-            onClick={() => onToggleVisibility(course)}
-            className={`p-1.5 border border-transparent rounded-none transition cursor-pointer ${
-              course.isHidden
-                ? 'text-rose-400 hover:text-rose-300'
-                : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
-            }`}
-            title={course.isHidden ? t('showCourse') : t('hideCourse')}
-          >
-            {course.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-          </button>
-          <button
-            onClick={() => onEdit(course)}
-            className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] border border-transparent rounded-none transition cursor-pointer"
-            title={t('editCourse')}
-          >
-            <Edit2 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => onClone(course)}
-            className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] border border-transparent rounded-none transition cursor-pointer"
-            title={t('cloneCourse')}
-          >
-            <Copy className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => onDelete(course)}
-            className="p-1.5 text-rose-500 hover:text-rose-600 hover:border-rose-500/30 border border-transparent rounded-none transition cursor-pointer"
-            title={archiveInsteadOfDelete ? t('archiveCourse') : t('deleteCourse')}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+          {canToggleVisibility ? (
+            <button
+              onClick={() => onToggleVisibility(course)}
+              className={`p-1.5 border border-transparent rounded-none transition cursor-pointer ${
+                course.isHidden
+                  ? 'text-rose-400 hover:text-rose-300'
+                  : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
+              }`}
+              title={course.isHidden ? t('showCourse') : t('hideCourse')}
+            >
+              {course.isHidden ? (
+                <EyeOff className="w-3.5 h-3.5" />
+              ) : (
+                <Eye className="w-3.5 h-3.5" />
+              )}
+            </button>
+          ) : null}
+          {canEdit ? (
+            <button
+              onClick={() => onEdit(course)}
+              className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] border border-transparent rounded-none transition cursor-pointer"
+              title={t('editCourse')}
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
+          {canClone ? (
+            <button
+              onClick={() => onClone(course)}
+              className="p-1.5 text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink)] border border-transparent rounded-none transition cursor-pointer"
+              title={t('cloneCourse')}
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
+          {canArchive ? (
+            <button
+              onClick={() => onDelete(course)}
+              className="p-1.5 text-rose-500 hover:text-rose-600 hover:border-rose-500/30 border border-transparent rounded-none transition cursor-pointer"
+              title={archiveInsteadOfDelete ? t('archiveCourse') : t('deleteCourse')}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
         </div>
       </td>
     </tr>

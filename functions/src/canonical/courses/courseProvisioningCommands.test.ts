@@ -390,6 +390,51 @@ describe('course provisioning commands', () => {
     expect(courseScheduleIsComplete(course!, courseDays)).toBe(true);
   });
 
+  it('rejects an alternate manifest while an orphan CourseDay still exists', async () => {
+    const fixtureWithoutCourse = Object.fromEntries(
+      Object.entries(legacyCourseFixture()).filter(([path]) => path !== `courses/${courseId}`)
+    );
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...fixtureWithoutCourse,
+      [courseDayPath(courseId, courseDayTwoId)]: {
+        courseId,
+        courseDayId: courseDayTwoId,
+        placeholder: true,
+      },
+    });
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    const partialManifest = twoDayManifest();
+
+    expect(
+      (
+        await commands.execute(
+          applyEnvelopeWithManifest('idem-provision-orphan-conflict-a', partialManifest)
+        )
+      ).status
+    ).toBe('error');
+
+    const alternateDayTwoId = CourseDayIdSchema.parse('course_day_provision_cmd_alt_02');
+    const alternateManifest = CourseProvisioningManifestSchema.parse({
+      ...partialManifest,
+      days: [
+        partialManifest.days[0]!,
+        { ...partialManifest.days[1]!, courseDayId: alternateDayTwoId },
+      ],
+    });
+    const alternate = await commands.execute(
+      applyEnvelopeWithManifest('idem-provision-orphan-conflict-b', alternateManifest)
+    );
+
+    expect(alternate.status).toBe('error');
+    if (alternate.status === 'error') {
+      expect(alternate.error).toMatchObject({
+        code: 'validation',
+        details: { field: 'courseDayId', reason: 'conflict' },
+      });
+    }
+    expect(executor.snapshot().docs.has(`courses/${courseId}`)).toBe(false);
+  });
+
   it('completes a legacy sequential partial manifest without rewriting matching CourseDays', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(legacyCourseFixture());
     const commands = createProductionCanonicalCommands(environment(), executor);

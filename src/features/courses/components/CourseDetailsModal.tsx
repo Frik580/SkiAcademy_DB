@@ -2,11 +2,7 @@ import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Users, Star, Heart } from 'lucide-react';
 import { Course, Instructor, UserProfile } from '../../../types';
-import {
-  useLanguage,
-  translateInstructorName,
-  splitCourseDates,
-} from '../../../app/providers/LanguageContext';
+import { useLanguage, translateInstructorName } from '../../../app/providers/LanguageContext';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import { getCourseEnrichedData } from './course_details/courseEnrichedData';
 import { CourseHeader } from './course_details/CourseHeader';
@@ -15,6 +11,10 @@ import { CourseGallery } from './course_details/CourseGallery';
 import { CourseFAQ } from './course_details/CourseFAQ';
 import { CourseEnrollAction } from './course_details/CourseEnrollAction';
 import type { CourseCatalogOperationalState } from '../../course-enrollments';
+import {
+  formatCourseCatalogCardDate,
+  resolveCourseCatalogDisplaySchedule,
+} from '../courseCatalogDisplaySchedule';
 
 interface CourseDetailsModalProps {
   isOpen: boolean;
@@ -43,7 +43,13 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
 
   if (!isOpen || !course || !rawCourse) return null;
 
-  const { datePart, timePart } = splitCourseDates(course.dates, language);
+  const schedule = resolveCourseCatalogDisplaySchedule({
+    legacyDates: course.dates,
+    language,
+    catalogOperational,
+  });
+  const datePart = schedule.datePart ? formatCourseCatalogCardDate(schedule.datePart) : '';
+  const { timePart } = schedule;
   const availableSeats = catalogOperational?.availableSeats ?? rawCourse.availableSeats;
   const totalSeats = catalogOperational?.totalSeats ?? rawCourse.totalSeats;
   const seatsPercentage = totalSeats > 0 ? Math.round((availableSeats / totalSeats) * 100) : 0;

@@ -26,9 +26,10 @@ export function buildArchiveCourseCommandFromListItem(
   }
 
   const archiveAction = course.authorizedActions.find((action) => action.kind === 'archive_course');
-  const expectedRevision = AggregateRevisionSchema.parse(
-    archiveAction?.expectedRevision ?? course.revision
-  );
+  if (!archiveAction) {
+    throw new Error('Course archive is not authorized.');
+  }
+  const expectedRevision = AggregateRevisionSchema.parse(archiveAction.expectedRevision);
 
   return {
     kind: 'archive_course',

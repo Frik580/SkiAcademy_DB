@@ -18,6 +18,7 @@ import { AdminCollapsibleSection } from './settings';
 import { TableSkeleton } from '../../../ui/Skeleton';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import {
+  adminCourseEnrollmentSearchParams,
   ADMIN_CLIENT_ACCOUNT_QUERY_KEY,
   ADMIN_COURSE_ENROLLMENT_QUERY_KEY,
   ADMIN_FINANCE_ACCOUNT_QUERY_KEY,
@@ -409,11 +410,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             >
               <CoursesManager
                 currentAccountId={currentUserProfile.uid}
-                instructors={instructors.map((instructor) => ({
-                  instructorId: instructor.id,
-                  name: instructor.name,
-                }))}
                 onRequestConfirm={onRequestConfirm}
+                onOpenEnrollments={(courseId) =>
+                  setSearchParams(
+                    (previous) => adminCourseEnrollmentSearchParams(previous, courseId),
+                    { replace: true }
+                  )
+                }
               />
             </AdminCollapsibleSection>
           </Suspense>

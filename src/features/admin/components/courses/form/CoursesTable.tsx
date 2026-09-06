@@ -17,6 +17,11 @@ interface CoursesTableProps {
   onMove: (course: Course, direction: 'up' | 'down') => void;
   enrolledNamesByCourseId?: ReadonlyMap<string, readonly string[]>;
   archiveInsteadOfDelete?: boolean;
+  canToggleVisibility?: (course: Course) => boolean;
+  canEdit?: (course: Course) => boolean;
+  canArchive?: (course: Course) => boolean;
+  canClone?: (course: Course) => boolean;
+  canMove?: (course: Course) => boolean;
 }
 
 export const CoursesTable: React.FC<CoursesTableProps> = ({
@@ -33,6 +38,11 @@ export const CoursesTable: React.FC<CoursesTableProps> = ({
   onMove,
   enrolledNamesByCourseId,
   archiveInsteadOfDelete = false,
+  canToggleVisibility,
+  canEdit,
+  canArchive,
+  canClone,
+  canMove,
 }) => {
   const sortedCourses = [...courses].sort((a, b) => {
     const orderA = a.order !== undefined ? a.order : 999;
@@ -75,6 +85,11 @@ export const CoursesTable: React.FC<CoursesTableProps> = ({
               onMove={onMove}
               enrolledNames={enrolledNamesByCourseId?.get(course.id)}
               archiveInsteadOfDelete={archiveInsteadOfDelete}
+              canToggleVisibility={canToggleVisibility?.(course)}
+              canEdit={canEdit?.(course)}
+              canArchive={canArchive?.(course)}
+              canClone={canClone?.(course)}
+              canMove={canMove?.(course)}
             />
           ))}
           {courses.length === 0 && (

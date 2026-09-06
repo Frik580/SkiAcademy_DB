@@ -188,6 +188,24 @@ describe('Canonical CoursesManager delete/clone from compact v2', () => {
     ).toBeInTheDocument();
   });
 
+  it('opens canonical enrollments and attendance from Course detail', async () => {
+    const onOpenEnrollments = vi.fn();
+    render(
+      <CoursesManager
+        currentAccountId="account_admin_component_01"
+        instructors={[{ instructorId: 'instructor_admin_component_01', name: 'Coach' }]}
+        onRequestConfirm={onRequestConfirm}
+        onOpenEnrollments={onOpenEnrollments}
+      />
+    );
+    expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Edit course' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Open enrollments and attendance' })
+    );
+    expect(onOpenEnrollments).toHaveBeenCalledWith('course_admin_component_01');
+  });
+
   it('submits new identities only after explicit clone save', async () => {
     executeAuthenticatedCanonicalCommand.mockResolvedValue({
       status: 'success',

@@ -9,6 +9,7 @@ import {
 import { buildArchiveCourseCommandFromListItem } from '../../src/features/admin/components/courses/adminCourseArchiveCommand';
 import {
   buildCanonicalCourseCloneDraft,
+  catalogContentInputFromCreateForm,
   mergeClonePresentationWithForm,
 } from '../../src/features/admin/components/courses/adminCourseCloneDraft';
 
@@ -132,6 +133,16 @@ describe('adminCourseArchiveCommand', () => {
       )
     ).toThrow(/active Course/i);
   });
+
+  it('rejects archive when canonical authorizedActions omits it', () => {
+    expect(() =>
+      buildArchiveCourseCommandFromListItem(
+        compactListRow({
+          authorizedActions: [],
+        })
+      )
+    ).toThrow(/not authorized/i);
+  });
 });
 
 describe('adminCourseCloneDraft', () => {
@@ -165,5 +176,27 @@ describe('adminCourseCloneDraft', () => {
     expect(merged.description).toBe('Edited description');
     expect(merged.titleRu).toBe('Фрирайд (копия)');
     expect(merged.order).toBe(3);
+  });
+
+  it('maps the restored rich create fields into canonical catalog content', () => {
+    const draft = buildCanonicalCourseCloneDraft(detailCourse());
+    const content = catalogContentInputFromCreateForm({
+      ...draft.form,
+      titleRu: 'Новый курс',
+      benefits: 'Video review\nEquipment advice',
+      program: 'Day 1 | Balance | Base drills',
+      faq: 'Can beginners join? | Yes',
+      galleryPhotos: 'https://example.com/one.webp\nhttps://example.com/two.webp',
+      isHidden: true,
+    });
+
+    expect(content).toMatchObject({
+      titleRu: 'Новый курс',
+      benefits: ['Video review', 'Equipment advice'],
+      program: [{ day: 'Day 1', title: 'Balance', desc: 'Base drills' }],
+      faq: [{ q: 'Can beginners join?', a: 'Yes' }],
+      galleryPhotos: ['https://example.com/one.webp', 'https://example.com/two.webp'],
+      isHidden: true,
+    });
   });
 });

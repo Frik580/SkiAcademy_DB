@@ -22,9 +22,15 @@ const correlationId = CorrelationIdSchema.parse('correlation_admin_course_read_0
 const createdAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 
 function nestedValue(data: Record<string, unknown>, field: string): unknown {
-  return field.split('.').reduce<unknown>((current, key) =>
-    current && typeof current === 'object' ? (current as Record<string, unknown>)[key] : undefined,
-  data);
+  return field
+    .split('.')
+    .reduce<unknown>(
+      (current, key) =>
+        current && typeof current === 'object'
+          ? (current as Record<string, unknown>)[key]
+          : undefined,
+      data
+    );
 }
 
 function fakeFirestore(
@@ -36,10 +42,11 @@ function fakeFirestore(
     docs: entries.map(([path, data]) => ({ id: path.split('/').at(-1), data: () => data })),
   });
   const collection = (path: string) => {
-    const entries = () => Object.entries(seed).filter(([key]) => {
-      if (!key.startsWith(`${path}/`)) return false;
-      return key.slice(path.length + 1).split('/').length === 1;
-    });
+    const entries = () =>
+      Object.entries(seed).filter(([key]) => {
+        if (!key.startsWith(`${path}/`)) return false;
+        return key.slice(path.length + 1).split('/').length === 1;
+      });
     return {
       doc: (id: string) => ({
         get: async () => {
@@ -74,12 +81,22 @@ function fakeFirestore(
           },
         }),
       }),
-      where: (field: string, _op: string, value: unknown) => ({
-        get: async () => {
-          reads.push(`${path}:query`);
-          return snapshot(entries().filter(([, data]) => Object.is(nestedValue(data, field), value)));
-        },
-      }),
+      where: (field: string, _op: string, value: unknown) => {
+        const filteredEntries = () =>
+          entries().filter(([, data]) => Object.is(nestedValue(data, field), value));
+        return {
+          get: async () => {
+            reads.push(`${path}:query`);
+            return snapshot(filteredEntries());
+          },
+          limit: (count: number) => ({
+            get: async () => {
+              reads.push(`${path}:query`);
+              return snapshot(filteredEntries().slice(0, count));
+            },
+          }),
+        };
+      },
     };
   };
   return {
@@ -102,7 +119,11 @@ function seed() {
       revision: 1,
       createdAt,
       updatedAt: createdAt,
-      audit: { createdByCommandId: 'command_seed', lastChangedByCommandId: 'command_seed', correlationId },
+      audit: {
+        createdByCommandId: 'command_seed',
+        lastChangedByCommandId: 'command_seed',
+        correlationId,
+      },
     }),
     role,
   });
@@ -122,7 +143,11 @@ function seed() {
     revision: 4,
     createdAt,
     updatedAt: createdAt,
-    audit: { createdByCommandId: 'command_seed', lastChangedByCommandId: 'command_seed', correlationId },
+    audit: {
+      createdByCommandId: 'command_seed',
+      lastChangedByCommandId: 'command_seed',
+      correlationId,
+    },
   });
   const day = CourseDaySchema.parse({
     courseId,
@@ -137,14 +162,23 @@ function seed() {
     revision: 2,
     createdAt,
     updatedAt: createdAt,
-    audit: { createdByCommandId: 'command_seed', lastChangedByCommandId: 'command_seed', correlationId },
+    audit: {
+      createdByCommandId: 'command_seed',
+      lastChangedByCommandId: 'command_seed',
+      correlationId,
+    },
   });
   return {
     [`users/${adminId}`]: account(adminId, 'admin'),
     [`users/${userId}`]: account(userId, 'user'),
     [`courses/${courseId}`]: course as unknown as Record<string, unknown>,
     [`courses/${courseId}/days/${dayId}`]: day as unknown as Record<string, unknown>,
-    [`instructors/${instructorId}`]: { id: instructorId, name: 'Safe Coach', pricePerHourKZT: 12_000, isAvailable: true },
+    [`instructors/${instructorId}`]: {
+      id: instructorId,
+      name: 'Safe Coach',
+      pricePerHourKZT: 12_000,
+      isAvailable: true,
+    },
     [`course_catalog_content/${courseId}`]: {
       courseId,
       duration: 'One day',
@@ -200,7 +234,8 @@ describe('Admin Course read-model callable', () => {
       },
     } as never);
     expect(detail.scope).toBe('admin_course_detail');
-    if (detail.scope === 'admin_course_detail') expect(detail.item?.instructors[0]?.name).toBe('Safe Coach');
+    if (detail.scope === 'admin_course_detail')
+      expect(detail.item?.instructors[0]?.name).toBe('Safe Coach');
   });
 
   it('keeps the list projection free of detail-grade joins', async () => {
@@ -231,9 +266,51 @@ describe('Admin Course read-model callable', () => {
     }
   });
 
+  it('keeps archived Courses out of the bounded active list', async () => {
+    const data = seed();
+    const archivedCourseId = CourseIdSchema.parse('course_admin_read_archived_01');
+    data[`courses/${archivedCourseId}`] = CourseSchema.parse({
+      ...(data[`courses/${courseId}`] as Record<string, unknown>),
+      courseId: archivedCourseId,
+      title: 'Archived Course',
+      lifecycle: 'archived',
+    }) as unknown as Record<string, unknown>;
+
+    const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(data));
+    const result = await handler({
+      auth: { uid: adminId },
+      data: { scope: 'admin_course_list', pageSize: 50, readModelVersion: 2 },
+    } as never);
+
+    expect(result.scope).toBe('admin_course_list');
+    if (result.scope === 'admin_course_list') {
+      expect(result.items.map((item) => item.courseId)).toEqual([courseId]);
+    }
+  });
+
+  it('keeps v1 compatibility for canonical Course documents without lifecycle', async () => {
+    const data = seed();
+    const legacyCanonicalCourse = data[`courses/${courseId}`] as Record<string, unknown>;
+    delete legacyCanonicalCourse.lifecycle;
+
+    const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(data));
+    const result = await handler({
+      auth: { uid: adminId },
+      data: { scope: 'admin_course_list', pageSize: 50 },
+    } as never);
+
+    expect(result.scope).toBe('admin_course_list');
+    if (result.scope === 'admin_course_list') {
+      expect(result.items.map((item) => item.courseId)).toEqual([courseId]);
+      expect(result.items[0]?.lifecycle).toBe('active');
+    }
+  });
+
   it('denies non-admin callers', async () => {
     const handler = createQueryAdminCourseReadModelsHandler(fakeFirestore(seed()));
-    await expect(handler({ auth: { uid: userId }, data: { scope: 'admin_course_list' } } as never)).rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(
+      handler({ auth: { uid: userId }, data: { scope: 'admin_course_list' } } as never)
+    ).rejects.toMatchObject({ code: 'permission-denied' });
   });
 
   it('keeps list readable when instructor presentation exceeds read-model bounds', async () => {

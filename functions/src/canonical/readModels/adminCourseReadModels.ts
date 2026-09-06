@@ -15,11 +15,7 @@ import {
   type QueryAdminCourseReadModelsResult,
   type ReadModelAdministratorActor,
 } from '@ski-academy/shared-domain';
-import {
-  parseCourse,
-  parseCourseDays,
-  parseInstructorCatalog,
-} from '../courses/courseStore';
+import { parseCourse, parseCourseDays, parseInstructorCatalog } from '../courses/courseStore';
 import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
 import {
   courseCatalogContentPath,
@@ -30,11 +26,7 @@ import {
   type ReadModelRequestContext,
 } from './readModelRequestContext';
 
-const ACTIVE_ENROLLMENT_STATUSES = new Set([
-  'pending',
-  'confirmed',
-  'pending_cancellation',
-]);
+const ACTIVE_ENROLLMENT_STATUSES = new Set(['pending', 'confirmed', 'pending_cancellation']);
 
 async function buildAdminCourseListItem(
   firestore: Firestore,
@@ -140,9 +132,7 @@ async function loadInstructorPresentations(
           instructorId,
           name: instructor.name,
           ...(instructor.avatarUrl ? { avatarUrl: instructor.avatarUrl } : {}),
-          ...(instructor.isAvailable === undefined
-            ? {}
-            : { isAvailable: instructor.isAvailable }),
+          ...(instructor.isAvailable === undefined ? {} : { isAvailable: instructor.isAvailable }),
         });
         return presentation.success ? presentation.data : undefined;
       })
@@ -156,13 +146,12 @@ async function buildAdminCourseReadModel(
   now = timestampFromDate(new Date()),
   readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
 ): Promise<AdminCourseReadModel | undefined> {
-  const [daySnapshot, enrollmentSnapshot, catalogSnapshot, attendanceSnapshot] =
-    await Promise.all([
-      readContext.courseDays(course.courseId),
-      firestore.collection('course_enrollments').where('courseId', '==', course.courseId).get(),
-      firestore.doc(courseCatalogContentPath(course.courseId)).get(),
-      readContext.courseAttendances(course.courseId),
-    ]);
+  const [daySnapshot, enrollmentSnapshot, catalogSnapshot, attendanceSnapshot] = await Promise.all([
+    readContext.courseDays(course.courseId),
+    firestore.collection('course_enrollments').where('courseId', '==', course.courseId).get(),
+    firestore.doc(courseCatalogContentPath(course.courseId)).get(),
+    readContext.courseAttendances(course.courseId),
+  ]);
 
   const courseDays = parseCourseDays(
     daySnapshot.docs.map((document) => ({ data: document.data() as Record<string, unknown> }))
@@ -275,10 +264,19 @@ export async function queryAdminCourseReadModels(
   }
 
   const pageSize = input.pageSize ?? ADMIN_COURSE_READ_MODEL_PAGE_SIZE_DEFAULT;
-  const snapshot = await firestore.collection('courses').limit(pageSize).get();
+  const courseCollection = firestore.collection('courses');
+  // v2 is the strict canonical active-list query. v1 keeps its bounded legacy
+  // compatibility shape because CourseSchema defaults a missing lifecycle to
+  // active until T32.9B; Firestore cannot query for a missing field.
+  const snapshot = await (input.readModelVersion === 2
+    ? courseCollection.where('lifecycle', '==', 'active').limit(pageSize).get()
+    : courseCollection.limit(pageSize).get());
   const courses = snapshot.docs
     .map((document) => parseCourse(document.data() as Record<string, unknown>))
-    .filter((value): value is NonNullable<typeof value> => value !== undefined);
+    .filter(
+      (value): value is NonNullable<typeof value> =>
+        value !== undefined && value.lifecycle === 'active'
+    );
   const items = (
     await Promise.all(
       courses.map((course) =>

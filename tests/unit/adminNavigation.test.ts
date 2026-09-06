@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   ADMIN_CLIENT_ACCOUNT_QUERY_KEY,
+  ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY,
+  ADMIN_COURSE_ENROLLMENT_QUERY_KEY,
+  ADMIN_COURSE_ENROLLMENT_VIEW_QUERY_KEY,
   ADMIN_TAB_IDS,
   DEFAULT_ADMIN_TAB,
   adminClientAccountSearchParams,
+  adminCourseEnrollmentSearchParams,
   isAdminTabId,
   parseAdminTabId,
 } from '../../src/features/admin/adminNavigation';
@@ -29,5 +33,16 @@ describe('adminNavigation', () => {
     );
     expect(next.get('tab')).toBe('people');
     expect(next.get(ADMIN_CLIENT_ACCOUNT_QUERY_KEY)).toBe('account_open_client_01');
+  });
+
+  it('deep-links a Course detail to its canonical enrollment roster', () => {
+    const next = adminCourseEnrollmentSearchParams(
+      new URLSearchParams('tab=product&enrollment=enrollment_old_01'),
+      'course_open_enrollments_01'
+    );
+    expect(next.get('tab')).toBe('operations');
+    expect(next.get(ADMIN_COURSE_ENROLLMENT_VIEW_QUERY_KEY)).toBe('roster');
+    expect(next.get(ADMIN_COURSE_ENROLLMENT_COURSE_QUERY_KEY)).toBe('course_open_enrollments_01');
+    expect(next.has(ADMIN_COURSE_ENROLLMENT_QUERY_KEY)).toBe(false);
   });
 });

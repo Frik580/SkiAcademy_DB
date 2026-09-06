@@ -7,6 +7,7 @@ import { CoursesManager } from '../../src/features/admin';
 
 const queryAdminCourseReadModels = vi.fn();
 const queryAdminCourseEnrollmentReadModels = vi.fn();
+const queryAdminIdentityReadModels = vi.fn();
 const executeAuthenticatedCanonicalCommand = vi.fn();
 
 vi.mock('../../src/app/providers/LanguageContext', async (importOriginal) => {
@@ -24,6 +25,7 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryAdminCourseReadModels: (...args: unknown[]) => queryAdminCourseReadModels(...args),
   queryAdminCourseEnrollmentReadModels: (...args: unknown[]) =>
     queryAdminCourseEnrollmentReadModels(...args),
+  queryAdminIdentityReadModels: (...args: unknown[]) => queryAdminIdentityReadModels(...args),
 }));
 
 vi.mock('../../src/lib/canonical/canonicalCommandClient', () => ({
@@ -68,6 +70,20 @@ describe('Canonical CoursesManager', () => {
       items: [],
       hasMore: false,
     });
+    queryAdminIdentityReadModels.mockResolvedValue({
+      scope: 'admin_instructor_list',
+      items: [
+        {
+          instructorId: 'instructor_admin_component_01',
+          name: 'Coach',
+          specialty: 'ski',
+          isAvailable: true,
+          revision: 1,
+          authorizedActions: [],
+        },
+      ],
+      hasMore: false,
+    });
     executeAuthenticatedCanonicalCommand.mockResolvedValue({
       status: 'success',
       kind: 'archive_course',
@@ -89,7 +105,7 @@ describe('Canonical CoursesManager', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Archive course' }));
 
     expect(onRequestConfirm).toHaveBeenCalledWith(
-      'Archive course "Canonical Freeride Camp"?',
+      expect.stringContaining('Archive course "Canonical Freeride Camp"?'),
       expect.any(Function)
     );
     await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalled());
@@ -128,7 +144,8 @@ describe('Canonical CoursesManager', () => {
     );
     expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole('button', { name: 'Archive course' }));
-    expect(await screen.findByText('network-unavailable')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByRole('alert').textContent?.length).toBeGreaterThan(0);
   });
 
   it('reuses the same creation identity after an unconfirmed attempt', async () => {
@@ -147,12 +164,6 @@ describe('Canonical CoursesManager', () => {
     render(
       <CoursesManager
         currentAccountId="account_admin_component_01"
-        instructors={[
-          {
-            instructorId: 'instructor_admin_component_01',
-            name: 'Coach',
-          },
-        ]}
         onRequestConfirm={onRequestConfirm}
       />
     );
@@ -160,8 +171,9 @@ describe('Canonical CoursesManager', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Add Course' }));
     await user.type(screen.getByLabelText('title'), 'Canonical Retry Course');
-    await user.type(screen.getByLabelText('price'), '50000');
-    await user.type(screen.getByLabelText('roster'), 'instructor_admin_component_01');
+    await user.type(screen.getByLabelText('price (KZT)'), '50000');
+    await waitFor(() => expect(screen.getByLabelText(/Coach/)).toBeInTheDocument());
+    await user.click(screen.getByLabelText(/Coach/));
     await user.type(screen.getByLabelText('duration'), 'Two days');
     await user.type(screen.getByLabelText('dates'), '1–2 December 2026');
     await user.type(screen.getByLabelText('bgImageUrl'), 'https://example.com/retry.webp');

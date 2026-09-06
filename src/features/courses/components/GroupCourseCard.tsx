@@ -2,7 +2,6 @@ import React from 'react';
 import { Calendar, Clock } from 'lucide-react';
 import {
   translateCourse,
-  splitCourseDates,
   formatCourseCardDuration,
   useLanguage,
   type Language,
@@ -22,18 +21,10 @@ import type {
 } from '../../course-enrollments';
 import { isEnrolledInCourse } from '../../course-enrollments';
 import { deriveGroupCourseEnrollmentCtaState } from '../groupCourseEnrollmentCta';
-
-const formatCourseCardDate = (datePart: string) =>
-  datePart
-    .replace(/\s*-\s*/g, '–')
-    .replace(
-      /\b(январ[ья]|феврал[ья]|март[а]?|апрел[ья]|ма[йя]|июн[ья]|июл[ья]|август[а]?|сентябр[ья]|октябр[ья]|ноябр[ья]|декабр[ья])\b/gi,
-      (month) => month.toLowerCase()
-    )
-    .replace(
-      /\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/g,
-      (month) => month.toLowerCase()
-    );
+import {
+  formatCourseCatalogCardDate,
+  resolveCourseCatalogDisplaySchedule,
+} from '../courseCatalogDisplaySchedule';
 
 const metaChipClass = (enrolled: boolean) =>
   `inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-sans text-[var(--ink-dim)] ${
@@ -73,14 +64,13 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
     isEnrolled,
     isClientActive: userProfile?.isClientActive,
   });
-  const displayPriceMinorUnits =
-    catalogOperational?.priceMinorUnits ?? rawCourse.priceKZT;
-  const scheduleStart = catalogOperational?.scheduleSummaryStartDate;
-  const scheduleEnd = catalogOperational?.scheduleSummaryEndDate;
-  const legacyDates = splitCourseDates(course.dates, language);
-  const datePart =
-    scheduleStart && scheduleEnd ? `${scheduleStart} – ${scheduleEnd}` : legacyDates.datePart;
-  const cardDate = datePart ? formatCourseCardDate(datePart) : '';
+  const displayPriceMinorUnits = catalogOperational?.priceMinorUnits ?? rawCourse.priceKZT;
+  const { datePart } = resolveCourseCatalogDisplaySchedule({
+    legacyDates: course.dates,
+    language,
+    catalogOperational,
+  });
+  const cardDate = datePart ? formatCourseCatalogCardDate(datePart) : '';
   const cardDuration = formatCourseCardDuration(course.duration);
   const enrollmentBooking = undefined;
   const showRecommendations = hasBookingRecommendations(enrollmentBooking);
@@ -166,9 +156,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
         <div className="mt-3 space-y-6 pt-1">
           <div className="flex items-baseline gap-2">
             <p className="text-4xl font-serif font-light tracking-[-0.03em] text-[var(--ink)] leading-none">
-              {displayPriceMinorUnits != null
-                ? formatPrice(displayPriceMinorUnits)
-                : '—'}
+              {displayPriceMinorUnits != null ? formatPrice(displayPriceMinorUnits) : '—'}
             </p>
             <p className="text-xs text-[var(--ink-dim)]/60 font-sans">{t('perCourse')}</p>
           </div>

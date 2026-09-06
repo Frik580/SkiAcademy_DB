@@ -35,8 +35,15 @@ export type GuestBookingActionCredential = Readonly<
   z.output<typeof GuestBookingActionCredentialSchema>
 >;
 
+export const CreateCourseEnrollmentOutcomeSchema = z.enum(['created', 'already_exists']);
+
+export type CreateCourseEnrollmentOutcome = Readonly<
+  z.output<typeof CreateCourseEnrollmentOutcomeSchema>
+>;
+
 export const CreateCourseEnrollmentsResultPayloadSchema = z
   .object({
+    outcome: CreateCourseEnrollmentOutcomeSchema,
     guestLinkCredentials: z.array(GuestCourseEnrollmentLinkCredentialSchema).optional(),
   })
   .strict();

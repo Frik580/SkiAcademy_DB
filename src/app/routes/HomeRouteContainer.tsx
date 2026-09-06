@@ -1,4 +1,4 @@
-﻿import React from 'react';
+﻿import React, { useEffect } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { Navigate } from 'react-router-dom';
 import { Compass } from 'lucide-react';
@@ -22,6 +22,10 @@ import {
   selectCourseEnrollmentItems,
   useCourseEnrollmentStore,
 } from '../../features/course-enrollments';
+import { useManagedParticipants } from '../../features/lesson-bookings';
+import { resolveDefaultParticipantSelection } from '../../features/participants/participantSelectionState';
+import { traceCourseEnrollmentCtaIdentity } from '../../features/courses/courseEnrollmentCtaTrace';
+import { shouldSyncAccountCourseEnrollments } from '../../store/accountCourseEnrollmentSync';
 import { AppInitSkeleton } from '../../ui/Skeleton';
 import type { AppRoutesProps } from './routeTypes';
 
@@ -32,9 +36,38 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
   const authLoading = useAuthStore((state) => state.authLoading);
   const profileLoading = useProfileStore((state) => state.profileLoading);
   const userProfile = useProfileStore((state) => state.userProfile);
+  const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const courses = useCoursesStore((state) => state.courses);
   const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
   const catalogByCourseId = useCourseEnrollmentStore(selectAllCourseCatalogOperationalStates);
+  const { participants } = useManagedParticipants(userProfile?.uid);
+  const selectedParticipantId = resolveDefaultParticipantSelection(participants)[0];
+  useEffect(() => {
+    if (!import.meta.env.DEV || !userProfile) return;
+    for (const course of courses) {
+      traceCourseEnrollmentCtaIdentity({
+        courseId: course.id,
+        selectedParticipantId,
+        availableParticipantIds: participants.map((participant) => participant.participantId),
+        courseEnrollments,
+        accountId: userProfile.uid,
+        accountRole: userProfile.role,
+        instructorId: userProfile.instructorId,
+        syncEnabled: shouldSyncAccountCourseEnrollments({
+          pathname: window.location.pathname,
+          accountId: firebaseUser?.uid,
+        }),
+        pathname: window.location.pathname,
+      });
+    }
+  }, [
+    courseEnrollments,
+    courses,
+    firebaseUser?.uid,
+    participants,
+    selectedParticipantId,
+    userProfile,
+  ]);
   const filtersEnabled = useSettingsStore((state) => state.filtersEnabled);
   const skillConfig = useSettingsStore((state) => state.skillConfig);
   const setSelectedInstructor = useUiStore((state) => state.setSelectedInstructor);
@@ -110,6 +143,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
                 catalogByCourseId,
                 userProfile,
                 language,
+                selectedParticipantId,
               }}
               actions={{
                 onViewDetails: setSelectedCourseForDetails,

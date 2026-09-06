@@ -24,12 +24,13 @@ import {
   type GuestCourseEnrollmentLinkCredential,
   isCourseEnrollmentAllowedBeforeStart,
   isPaymentFullyFundedForService,
-  monetaryEventIdFromCommandEffect,
+  isTerminalCourseEnrollmentLifecycle,
+  monetaryEventIdFromCourseEnrollmentInitialCharge,
   nextAggregateRevision,
   paymentEffectFromProjectionChange,
   paymentIdFromCourseEnrollmentId,
   resolveCommandIdempotencyIdentity,
-  resolveEnrollmentIdsForCommand,
+  resolveCreateCourseEnrollmentIds,
   resolveGuestCourseReservationExpiresAt,
   sortedCourseDays,
   timestampFromDate,
@@ -59,7 +60,9 @@ import {
   mergeWalletBalance,
   monetaryEventPath,
   parseAccount,
+  parsePayment,
   parseWallet,
+  paymentPath,
   walletPath,
 } from '../finance/financeStore';
 import { toFirestoreWritePayload as financeToFirestoreWritePayload } from '../finance/financeStore';
@@ -114,6 +117,7 @@ import type { GuestCourseEnrollmentCommandEnvironment } from './guestCourseEnrol
 import {
   COURSE_ENROLLMENT_PLANNING_ESTIMATES,
   courseEnrollmentPath,
+  parseCourseEnrollment,
   toFirestoreWritePayload as enrollmentToFirestoreWritePayload,
 } from './courseEnrollmentStore';
 
@@ -128,11 +132,68 @@ interface PlannedParticipantEnrollment {
   readonly paymentId: ReturnType<typeof paymentIdFromCourseEnrollmentId>;
   readonly authorization: CourseEnrollmentCreationAuthorization;
   readonly paymentProjection: PaymentAccountingProjection;
-  readonly guardPlan: Awaited<ReturnType<typeof readAndPlanAcquireActiveCourseEnrollmentGuard>>;
-  readonly seatClaimPlan: ResourceClaimOperationPlan;
+  readonly guardPlan?: Awaited<ReturnType<typeof readAndPlanAcquireActiveCourseEnrollmentGuard>>;
+  readonly seatClaimPlan?: ResourceClaimOperationPlan;
   readonly dayClaimPlans: readonly ResourceClaimOperationPlan[];
+  readonly alreadyApplied: boolean;
   readonly shouldCreateGuestParticipant?: boolean;
   readonly guestParticipantProfile?: import('@ski-academy/shared-domain').GuestParticipantProfileFromTransport;
+}
+
+function assertEquivalentExistingCourseEnrollment(input: {
+  readonly envelope: CommandEnvelope<'create_course_enrollments'>;
+  readonly enrollment: CourseEnrollment;
+  readonly payment: Payment;
+  readonly courseId: Course['courseId'];
+  readonly participantId: CourseEnrollment['participantId'];
+  readonly enrollmentId: CourseEnrollment['enrollmentId'];
+  readonly paymentId: Payment['paymentId'];
+  readonly mode: CourseEnrollmentCreationAuthorization['mode'];
+}): void {
+  if (
+    input.enrollment.courseId !== input.courseId ||
+    input.enrollment.participantId !== input.participantId ||
+    input.enrollment.enrollmentId !== input.enrollmentId ||
+    input.enrollment.paymentId !== input.paymentId ||
+    input.payment.paymentId !== input.paymentId ||
+    input.payment.subjectType !== 'course_enrollment' ||
+    input.payment.subjectId !== input.enrollmentId
+  ) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: input.envelope.context.correlationId,
+      details: { field: 'enrollmentIds', reason: 'conflict' },
+    });
+  }
+  if (
+    isTerminalCourseEnrollmentLifecycle(input.enrollment) ||
+    input.enrollment.lifecycle.status === 'pending_cancellation'
+  ) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: input.envelope.context.correlationId,
+      details: { field: 'enrollmentIds', reason: 'conflict' },
+    });
+  }
+  if (input.mode === 'guest') {
+    if (input.enrollment.lifecycle.status !== 'pending') {
+      throw new CanonicalCommandError('validation', {
+        correlationId: input.envelope.context.correlationId,
+        details: { field: 'enrollmentIds', reason: 'conflict' },
+      });
+    }
+    return;
+  }
+  if (input.enrollment.lifecycle.status !== 'confirmed') {
+    throw new CanonicalCommandError('validation', {
+      correlationId: input.envelope.context.correlationId,
+      details: { field: 'enrollmentIds', reason: 'conflict' },
+    });
+  }
+  if (input.mode === 'account_self_service' && !isPaymentFullyFundedForService(input.payment)) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: input.envelope.context.correlationId,
+      details: { field: 'paymentId', reason: 'conflict' },
+    });
+  }
 }
 
 function metadataFromEnvelope(envelope: CommandEnvelope): CommandMetadata {
@@ -275,13 +336,12 @@ function createCourseEnrollmentsHandler(
       assertGuestActorMatchesEnrollment(envelope, enrollmentId);
     }
   }
-  const enrollmentIds =
-    mode === 'guest'
-      ? envelope.intent.enrollmentIds!
-      : resolveEnrollmentIdsForCommand({
-          commandId: metadata.commandId,
-          participantIds: envelope.intent.participantIds,
-        });
+  const enrollmentIds = resolveCreateCourseEnrollmentIds({
+    commandId: metadata.commandId,
+    participantIds: envelope.intent.participantIds,
+    enrollmentIds: envelope.intent.enrollmentIds,
+    requireProvidedIds: mode === 'guest',
+  });
   const courseDocumentPath = coursePath(envelope.intent.courseId);
 
   let courseRecord!: Course;
@@ -299,8 +359,9 @@ function createCourseEnrollmentsHandler(
   let totalServicePrice!: KztMinorUnits;
   let includeWalletEffect = false;
   let stageMonetaryEvents = false;
-  let stagedEventIds: ReturnType<typeof monetaryEventIdFromCommandEffect>[] = [];
+  let stagedEventIds: ReturnType<typeof monetaryEventIdFromCourseEnrollmentInitialCharge>[] = [];
   let underfunded = false;
+  let equivalentReplayOnly = false;
   const guestLinkCredentials: GuestCourseEnrollmentLinkCredential[] = [];
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_course_enrollments'> = {
@@ -361,15 +422,8 @@ function createCourseEnrollmentsHandler(
         });
       }
 
-      if (courseRecord.capacity.availableSeats < seatCount) {
-        throw new CanonicalCommandError('unavailable', {
-          correlationId: envelope.context.correlationId,
-          details: { resourceKind: 'course', reason: 'conflict' },
-        });
-      }
-
+      // Capacity is enforced after filtering already-applied enrollments below.
       servicePrice = courseRecord.price;
-      totalServicePrice = KztMinorUnitsSchema.parse(servicePrice * seatCount);
       const claimMetadata = {
         correlationId: metadata.correlationId,
         commandId: metadata.commandId,
@@ -388,24 +442,55 @@ function createCourseEnrollmentsHandler(
         const enrollmentId = enrollmentIds[index]!;
         const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
         const enrollmentDocumentPath = courseEnrollmentPath(enrollmentId);
-        const paymentPathValue = `payments/${paymentId}`;
+        const paymentPathValue = paymentPath(paymentId);
 
         const enrollmentRead = await session.tx.get({ path: enrollmentDocumentPath });
         session.plan.planRead({ path: enrollmentDocumentPath, category: 'aggregate' });
-        if (enrollmentRead.exists) {
-          throw new CanonicalCommandError('validation', {
-            correlationId: envelope.context.correlationId,
-            details: { field: 'participantIds', reason: 'conflict' },
-          });
-        }
-
         const paymentRead = await session.tx.get({ path: paymentPathValue });
         session.plan.planRead({ path: paymentPathValue, category: 'payment_wallet' });
-        if (paymentRead.exists) {
-          throw new CanonicalCommandError('validation', {
-            correlationId: envelope.context.correlationId,
-            details: { field: 'paymentId', reason: 'conflict' },
+
+        const existingEnrollment = parseCourseEnrollment(
+          enrollmentRead.exists ? enrollmentRead.data : undefined
+        );
+        const existingPayment = parsePayment(paymentRead.exists ? paymentRead.data : undefined);
+
+        if (existingEnrollment || existingPayment) {
+          if (!existingEnrollment || !existingPayment) {
+            throw new CanonicalCommandError('validation', {
+              correlationId: envelope.context.correlationId,
+              details: { field: 'enrollmentIds', reason: 'conflict' },
+            });
+          }
+          assertEquivalentExistingCourseEnrollment({
+            envelope,
+            enrollment: existingEnrollment,
+            payment: existingPayment,
+            courseId: envelope.intent.courseId,
+            participantId,
+            enrollmentId,
+            paymentId,
+            mode,
           });
+          nextPlanned.push({
+            participantId,
+            enrollmentId,
+            paymentId,
+            authorization: { mode },
+            paymentProjection: {
+              originalPrice: existingPayment.originalPrice,
+              price: existingPayment.price,
+              paidAmount: existingPayment.paidAmount,
+              refundedAmount: existingPayment.refundedAmount,
+              retainedAmount: existingPayment.retainedAmount,
+              settledAmount: existingPayment.settledAmount,
+              writtenOffAmount: existingPayment.writtenOffAmount,
+              outstandingAmount: existingPayment.outstandingAmount,
+              paymentStatus: existingPayment.paymentStatus,
+            },
+            dayClaimPlans: [],
+            alreadyApplied: true,
+          });
+          continue;
         }
 
         const participantRead = await session.tx.get({ path: participantPath(participantId) });
@@ -579,6 +664,7 @@ function createCourseEnrollmentsHandler(
           guardPlan,
           seatClaimPlan,
           dayClaimPlans,
+          alreadyApplied: false,
           ...(shouldCreateGuestParticipant && guestParticipantProfile
             ? { shouldCreateGuestParticipant, guestParticipantProfile }
             : {}),
@@ -598,29 +684,67 @@ function createCourseEnrollmentsHandler(
         });
       }
 
+      const newPlanned = nextPlanned.filter((planned) => !planned.alreadyApplied);
+      equivalentReplayOnly = newPlanned.length === 0;
+      const newSeatCount = newPlanned.length;
+      if (courseRecord.capacity.availableSeats < newSeatCount) {
+        throw new CanonicalCommandError('unavailable', {
+          correlationId: envelope.context.correlationId,
+          details: { resourceKind: 'course', reason: 'conflict' },
+        });
+      }
+      totalServicePrice = KztMinorUnitsSchema.parse(servicePrice * newSeatCount);
+
       const payerAccountIds = new Set(
-        nextPlanned
+        newPlanned
           .map((planned) => planned.authorization.payerAccountId)
           .filter((value): value is NonNullable<typeof value> => value !== undefined)
       );
-      if (mode !== 'guest' && payerAccountIds.size !== 1) {
+      if (mode !== 'guest' && !equivalentReplayOnly && payerAccountIds.size !== 1) {
         throw new CanonicalCommandError('validation', {
           correlationId: envelope.context.correlationId,
           details: { field: 'participantIds', reason: 'unsupported' },
         });
       }
-      payerAccountId = [...payerAccountIds][0];
+      payerAccountId =
+        [...payerAccountIds][0] ??
+        nextPlanned.find((planned) => planned.authorization.payerAccountId)?.authorization
+          .payerAccountId;
 
       const guestPaymentProjection = unpaidPaymentProjection(servicePrice);
 
-      if (mode === 'guest') {
-        plannedEnrollments = nextPlanned.map((planned) => ({
-          ...planned,
-          paymentProjection: guestPaymentProjection,
-        }));
+      if (equivalentReplayOnly) {
+        plannedEnrollments = nextPlanned;
+        includeWalletEffect = false;
+        stageMonetaryEvents = false;
+        stagedEventIds =
+          mode === 'guest'
+            ? []
+            : nextPlanned
+                .filter((planned) => planned.paymentProjection.paidAmount > 0)
+                .map((planned) =>
+                  monetaryEventIdFromCourseEnrollmentInitialCharge(planned.enrollmentId)
+                );
+        plannedCourseRevision = courseRecord.revision;
+      } else if (mode === 'guest') {
+        plannedEnrollments = nextPlanned.map((planned) =>
+          planned.alreadyApplied
+            ? planned
+            : {
+                ...planned,
+                paymentProjection: guestPaymentProjection,
+              }
+        );
         includeWalletEffect = false;
         stageMonetaryEvents = false;
         stagedEventIds = [];
+        plannedCourseRevision = nextAggregateRevision(courseRecord.revision);
+        session.plan.planMutation({
+          path: courseDocumentPath,
+          kind: 'update',
+          category: 'capacity_projection',
+          estimatedPayloadBytes: COURSE_PLANNING_ESTIMATES.courseBytes,
+        });
       } else if (mode === 'account_self_service') {
         walletDocumentPath = walletPath(payerAccountId!);
         const walletRead = await session.tx.get({ path: walletDocumentPath });
@@ -643,14 +767,18 @@ function createCourseEnrollmentsHandler(
             correlationId: envelope.context.correlationId,
           });
         }
-        plannedEnrollments = nextPlanned.map((planned) => ({
-          ...planned,
-          paymentProjection: fundedProjection,
-        }));
+        plannedEnrollments = nextPlanned.map((planned) =>
+          planned.alreadyApplied
+            ? planned
+            : {
+                ...planned,
+                paymentProjection: fundedProjection,
+              }
+        );
         includeWalletEffect = true;
         stageMonetaryEvents = true;
-        stagedEventIds = enrollmentIds.map((_, index) =>
-          monetaryEventIdFromCommandEffect(metadata.commandId, index)
+        stagedEventIds = newPlanned.map((planned) =>
+          monetaryEventIdFromCourseEnrollmentInitialCharge(planned.enrollmentId)
         );
         plannedWalletEventRevision = walletExists
           ? nextAggregateRevision(walletRecord!.eventRevision)
@@ -658,6 +786,27 @@ function createCourseEnrollmentsHandler(
         plannedWalletRevision = walletExists
           ? nextAggregateRevision(walletRecord!.revision)
           : AggregateRevisionSchema.parse(1);
+        plannedCourseRevision = nextAggregateRevision(courseRecord.revision);
+        session.plan.planMutation({
+          path: courseDocumentPath,
+          kind: 'update',
+          category: 'capacity_projection',
+          estimatedPayloadBytes: COURSE_PLANNING_ESTIMATES.courseBytes,
+        });
+        session.plan.planMutation({
+          path: walletDocumentPath,
+          kind: walletExists ? 'update' : 'create',
+          category: 'payment_wallet',
+          estimatedPayloadBytes: FINANCE_PLANNING_ESTIMATES.walletBytes,
+        });
+        for (const eventId of stagedEventIds) {
+          session.plan.planMutation({
+            path: monetaryEventPath(eventId),
+            kind: 'create',
+            category: 'payment_wallet',
+            estimatedPayloadBytes: FINANCE_PLANNING_ESTIMATES.monetaryEventBytes,
+          });
+        }
       } else {
         walletDocumentPath = walletPath(payerAccountId!);
         const walletRead = await session.tx.get({ path: walletDocumentPath });
@@ -666,7 +815,7 @@ function createCourseEnrollmentsHandler(
         walletExists = walletRead.exists;
         let remainingWallet = walletRecord?.balance ?? 0;
         const paymentProjections: PaymentAccountingProjection[] = [];
-        for (let index = 0; index < seatCount; index += 1) {
+        for (let index = 0; index < newSeatCount; index += 1) {
           const seatFunding = KztMinorUnitsSchema.parse(
             Math.min(remainingWallet, servicePrice)
           );
@@ -681,51 +830,57 @@ function createCourseEnrollmentsHandler(
         );
         assertAdminEnrollmentUnderpaymentReason(
           envelope,
-          Math.max(...paymentProjections.map((projection) => projection.outstandingAmount))
+          Math.max(
+            0,
+            ...paymentProjections.map((projection) => projection.outstandingAmount)
+          )
         );
-        plannedEnrollments = nextPlanned.map((planned, index) => ({
-          ...planned,
-          paymentProjection: paymentProjections[index]!,
-        }));
+        let newIndex = 0;
+        plannedEnrollments = nextPlanned.map((planned) => {
+          if (planned.alreadyApplied) {
+            return planned;
+          }
+          const paymentProjection = paymentProjections[newIndex]!;
+          newIndex += 1;
+          return {
+            ...planned,
+            paymentProjection,
+          };
+        });
         includeWalletEffect = walletFunding > 0;
         stageMonetaryEvents = walletFunding > 0;
         stagedEventIds = plannedEnrollments
-          .map((planned, index) =>
-            planned.paymentProjection.paidAmount > 0
-              ? monetaryEventIdFromCommandEffect(metadata.commandId, index)
-              : undefined
-          )
-          .filter((eventId): eventId is NonNullable<typeof eventId> => eventId !== undefined);
+          .filter((planned) => !planned.alreadyApplied && planned.paymentProjection.paidAmount > 0)
+          .map((planned) => monetaryEventIdFromCourseEnrollmentInitialCharge(planned.enrollmentId));
         plannedWalletEventRevision = walletExists
           ? nextAggregateRevision(walletRecord!.eventRevision)
           : AggregateRevisionSchema.parse(1);
         plannedWalletRevision = walletExists
           ? nextAggregateRevision(walletRecord!.revision)
           : AggregateRevisionSchema.parse(1);
-      }
-
-      plannedCourseRevision = nextAggregateRevision(courseRecord.revision);
-      session.plan.planMutation({
-        path: courseDocumentPath,
-        kind: 'update',
-        category: 'capacity_projection',
-        estimatedPayloadBytes: COURSE_PLANNING_ESTIMATES.courseBytes,
-      });
-      if (includeWalletEffect) {
+        plannedCourseRevision = nextAggregateRevision(courseRecord.revision);
         session.plan.planMutation({
-          path: walletDocumentPath,
-          kind: walletExists ? 'update' : 'create',
-          category: 'payment_wallet',
-          estimatedPayloadBytes: FINANCE_PLANNING_ESTIMATES.walletBytes,
+          path: courseDocumentPath,
+          kind: 'update',
+          category: 'capacity_projection',
+          estimatedPayloadBytes: COURSE_PLANNING_ESTIMATES.courseBytes,
         });
-      }
-      for (const eventId of stagedEventIds) {
-        session.plan.planMutation({
-          path: monetaryEventPath(eventId),
-          kind: 'create',
-          category: 'payment_wallet',
-          estimatedPayloadBytes: FINANCE_PLANNING_ESTIMATES.monetaryEventBytes,
-        });
+        if (includeWalletEffect) {
+          session.plan.planMutation({
+            path: walletDocumentPath,
+            kind: walletExists ? 'update' : 'create',
+            category: 'payment_wallet',
+            estimatedPayloadBytes: FINANCE_PLANNING_ESTIMATES.walletBytes,
+          });
+        }
+        for (const eventId of stagedEventIds) {
+          session.plan.planMutation({
+            path: monetaryEventPath(eventId),
+            kind: 'create',
+            category: 'payment_wallet',
+            estimatedPayloadBytes: FINANCE_PLANNING_ESTIMATES.monetaryEventBytes,
+          });
+        }
       }
     },
     planAuditOutbox: async () =>
@@ -741,6 +896,7 @@ function createCourseEnrollmentsHandler(
         mode,
         underfunded,
         includeWalletEffect,
+        equivalentReplay: equivalentReplayOnly,
         notificationAccountId: payerAccountId,
         walletRevision: includeWalletEffect ? plannedWalletRevision : undefined,
       }),
@@ -748,24 +904,27 @@ function createCourseEnrollmentsHandler(
       try {
         const decidedAt = timestampFromDate(context.decidedAt);
         const audit = revisionAuditLink(envelope, metadata);
-        const updatedCourse: Course = {
-          ...courseRecord,
-          capacity: {
-            ...courseRecord.capacity,
-            availableSeats: courseRecord.capacity.availableSeats - envelope.intent.participantIds.length,
-          },
-          revision: plannedCourseRevision,
-          updatedAt: decidedAt,
-          audit: {
-            ...courseRecord.audit,
-            lastChangedByCommandId: metadata.commandId,
-            correlationId: metadata.correlationId,
-          },
-        };
-        session.tx.update(
-          { path: courseDocumentPath },
-          courseToFirestoreWritePayload(updatedCourse as Record<string, unknown>)
-        );
+        const newEnrollments = plannedEnrollments.filter((planned) => !planned.alreadyApplied);
+        if (newEnrollments.length > 0) {
+          const updatedCourse: Course = {
+            ...courseRecord,
+            capacity: {
+              ...courseRecord.capacity,
+              availableSeats: courseRecord.capacity.availableSeats - newEnrollments.length,
+            },
+            revision: plannedCourseRevision,
+            updatedAt: decidedAt,
+            audit: {
+              ...courseRecord.audit,
+              lastChangedByCommandId: metadata.commandId,
+              correlationId: metadata.correlationId,
+            },
+          };
+          session.tx.update(
+            { path: courseDocumentPath },
+            courseToFirestoreWritePayload(updatedCourse as Record<string, unknown>)
+          );
+        }
 
         const claimMetadata = {
           correlationId: metadata.correlationId,
@@ -774,6 +933,37 @@ function createCourseEnrollmentsHandler(
         };
 
         for (const planned of plannedEnrollments) {
+          if (planned.alreadyApplied) {
+            if (mode === 'guest') {
+              const guestSubjectId = guestSubjectIdFromCourseEnrollmentId(planned.enrollmentId);
+              const nonce = createGuestActionTokenNonce();
+              const expiresAt = courseRecord.scheduleProjection.finalCourseDayEndsAt;
+              const secret = environment.guestActionTokenSecret;
+              if (!secret) {
+                throw new CanonicalCommandError('unavailable', {
+                  correlationId: envelope.context.correlationId,
+                });
+              }
+              const signature = signGuestCourseEnrollmentActionCredential(secret, {
+                version: GUEST_ACTION_TOKEN_VERSION,
+                subjectKind: 'course_enrollment',
+                enrollmentId: planned.enrollmentId,
+                guestSubjectId,
+                purpose: 'link_guest_course_enrollment',
+                expiresAt,
+                nonce,
+              });
+              guestLinkCredentials.push({
+                enrollmentId: planned.enrollmentId,
+                guestSubjectId,
+                nonce,
+                signature,
+                expiresAt,
+              });
+            }
+            continue;
+          }
+
           if (planned.shouldCreateGuestParticipant && planned.guestParticipantProfile) {
             const guestParticipant = {
               participantId: planned.participantId,
@@ -866,7 +1056,7 @@ function createCourseEnrollmentsHandler(
             enrollmentToFirestoreWritePayload(enrollment as Record<string, unknown>)
           );
           session.tx.create(
-            { path: `payments/${planned.paymentId}` },
+            { path: paymentPath(planned.paymentId) },
             financeToFirestoreWritePayload(payment as Record<string, unknown>)
           );
 
@@ -878,10 +1068,10 @@ function createCourseEnrollmentsHandler(
               courseId: envelope.intent.courseId,
               courseEnrollmentId: planned.enrollmentId,
             },
-            planned.guardPlan.guard,
-            planned.guardPlan.hadExisting
+            planned.guardPlan!.guard,
+            planned.guardPlan!.hadExisting
           );
-          commitResourceClaimPlan(session, planned.seatClaimPlan, claimMetadata);
+          commitResourceClaimPlan(session, planned.seatClaimPlan!, claimMetadata);
           for (const dayClaimPlan of planned.dayClaimPlans) {
             commitResourceClaimPlan(session, dayClaimPlan, claimMetadata);
           }
@@ -938,12 +1128,11 @@ function createCourseEnrollmentsHandler(
 
         if (stageMonetaryEvents && payerAccountId) {
           let walletEventRevision = plannedWalletEventRevision;
-          for (const [index, planned] of plannedEnrollments.entries()) {
-            if (planned.paymentProjection.paidAmount <= 0) {
+          for (const planned of plannedEnrollments) {
+            if (planned.alreadyApplied || planned.paymentProjection.paidAmount <= 0) {
               continue;
             }
-            const eventId =
-              stagedEventIds[index] ?? monetaryEventIdFromCommandEffect(metadata.commandId, index);
+            const eventId = monetaryEventIdFromCourseEnrollmentInitialCharge(planned.enrollmentId);
             const beforePayment = initialUnpaidPaymentFields(servicePrice);
             const monetaryEvent: MonetaryEvent = {
               eventId,
@@ -954,7 +1143,10 @@ function createCourseEnrollmentsHandler(
               subjectId: planned.enrollmentId,
               walletAccountId: payerAccountId,
               walletBalanceDelta: -planned.paymentProjection.paidAmount,
-              paymentEffect: paymentEffectFromProjectionChange(beforePayment, planned.paymentProjection),
+              paymentEffect: paymentEffectFromProjectionChange(
+                beforePayment,
+                planned.paymentProjection
+              ),
               sourceKind: 'wallet',
               payerAccountIdAtEvent: payerAccountId,
               actor: monetaryActorFromEnvelope(envelope),
@@ -973,11 +1165,12 @@ function createCourseEnrollmentsHandler(
           }
         }
 
-        return commandSuccessResult(
-          envelope.kind,
-          envelope.context.correlationId,
-          mode === 'guest' ? { guestLinkCredentials } : undefined
-        );
+        return commandSuccessResult(envelope.kind, envelope.context.correlationId, {
+          outcome: equivalentReplayOnly ? 'already_exists' : 'created',
+          ...(mode === 'guest' && guestLinkCredentials.length > 0
+            ? { guestLinkCredentials }
+            : {}),
+        });
       } catch (error) {
         mapFinanceDomainError(envelope, error);
       }

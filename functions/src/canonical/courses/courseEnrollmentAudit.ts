@@ -22,6 +22,7 @@ export function buildCreateCourseEnrollmentsAuditPlan(input: {
   readonly mode: CourseEnrollmentCreationMode;
   readonly underfunded: boolean;
   readonly includeWalletEffect: boolean;
+  readonly equivalentReplay?: boolean;
   readonly notificationAccountId?: AccountId;
   readonly walletRevision?: number;
 }): AuditOutboxStagingPlan {
@@ -48,6 +49,48 @@ export function buildCreateCourseEnrollmentsAuditPlan(input: {
       : reasonCode === 'other'
         ? 'Guest course enrollment request'
         : undefined;
+
+  if (input.equivalentReplay) {
+    return {
+      activityLog: {
+        reason: {
+          registryVersion: AUDIT_REASON_REGISTRY_VERSION,
+          reasonCode,
+          ...(explanation === undefined ? {} : { explanation }),
+        },
+        primarySubject: {
+          kind: 'course_enrollment',
+          id: primaryEnrollmentId,
+          subjectKey: `course_enrollment:${primaryEnrollmentId}`,
+        },
+        affectedSubjects: [courseRef, ...enrollmentRefs, ...paymentRefs],
+        effects: [
+          {
+            kind: 'course_enrollment_lifecycle_changed',
+            subjectRef: primaryEnrollmentRef,
+            summary: 'Course enrollment create acknowledged as already applied',
+          },
+        ],
+        monetaryEventIds: [...input.monetaryEventIds],
+        adminIssueIds: [],
+        resultingRevisions: [
+          {
+            subject: courseRef,
+            revision: AggregateRevisionSchema.parse(input.courseRevision),
+          },
+          ...enrollmentRefs.map((enrollmentRef) => ({
+            subject: enrollmentRef,
+            revision: AggregateRevisionSchema.parse(1),
+          })),
+          ...paymentRefs.map((paymentRef) => ({
+            subject: paymentRef,
+            revision: AggregateRevisionSchema.parse(1),
+          })),
+        ],
+      },
+      outboxObligations: [],
+    };
+  }
 
   const effects: AuditOutboxStagingPlan['activityLog']['effects'] = [
     {

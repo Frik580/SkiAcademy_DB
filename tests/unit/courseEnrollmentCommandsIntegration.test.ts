@@ -33,7 +33,10 @@ describe('courseEnrollment commands integration', () => {
 
   it('creates authenticated enrollment and refetches hot enrollments and catalog', async () => {
     const accountId = 'account_fixture_01';
-    executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
+    executeAuthenticatedMock.mockResolvedValueOnce({
+      status: 'success',
+      payload: { outcome: 'created' },
+    });
     queryEnrollmentMock.mockResolvedValueOnce({
       scope: 'account_hot',
       items: [],
@@ -42,7 +45,7 @@ describe('courseEnrollment commands integration', () => {
     queryCatalogMock.mockResolvedValueOnce({ scope: 'public', items: [] });
 
     const { result } = renderHook(() => useCourseEnrollmentCommands(accountId));
-    await result.current.createAuthenticatedEnrollment({
+    const created = await result.current.createAuthenticatedEnrollment({
       courseId: 'course_fixture_01',
       participantIds: ['participant_fixture_01'],
       exercisedCapability: 'account_owner',
@@ -52,6 +55,7 @@ describe('courseEnrollment commands integration', () => {
       },
     });
 
+    expect(created).toEqual({ outcome: 'created' });
     expect(executeAuthenticatedMock).toHaveBeenCalledWith(
       accountId,
       expect.objectContaining({
@@ -60,6 +64,34 @@ describe('courseEnrollment commands integration', () => {
     );
     expect(queryEnrollmentMock).toHaveBeenCalledWith({ scope: 'account_hot' });
     expect(queryCatalogMock).toHaveBeenCalledWith({ scope: 'public' });
+  });
+
+  it('returns already_exists outcome for equivalent success without treating it as a new debit', async () => {
+    const accountId = 'account_fixture_01';
+    executeAuthenticatedMock.mockResolvedValueOnce({
+      status: 'success',
+      payload: { outcome: 'already_exists' },
+    });
+    queryEnrollmentMock.mockResolvedValueOnce({
+      scope: 'account_hot',
+      items: [],
+      hasMore: false,
+    });
+    queryCatalogMock.mockResolvedValueOnce({ scope: 'public', items: [] });
+
+    const { result } = renderHook(() => useCourseEnrollmentCommands(accountId));
+    const replayed = await result.current.createAuthenticatedEnrollment({
+      courseId: 'course_fixture_01',
+      participantIds: ['participant_fixture_01'],
+      exercisedCapability: 'account_owner',
+      identity: {
+        enrollmentId: '',
+        idempotencyKey: 'create-course-enrollment:course_fixture_01:participant_fixture_01',
+      },
+    });
+
+    expect(replayed).toEqual({ outcome: 'already_exists' });
+    expect(queryEnrollmentMock).toHaveBeenCalledWith({ scope: 'account_hot' });
   });
 
   it('creates guest enrollment and persists credential', async () => {
@@ -73,7 +105,7 @@ describe('courseEnrollment commands integration', () => {
     };
     executeGuestMock.mockResolvedValueOnce({
       status: 'success',
-      payload: { guestLinkCredentials: [credential] },
+      payload: { outcome: 'created', guestLinkCredentials: [credential] },
     });
 
     const { result } = renderHook(() => useCourseEnrollmentCommands(undefined));

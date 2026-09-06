@@ -62,6 +62,29 @@ export function resolveEnrollmentIdsForCommand(input: {
   );
 }
 
+/**
+ * Prefer client/business-provided enrollmentIds when present so payment and seat
+ * identity stay stable across distinct command idempotency keys. Fall back to
+ * command-scoped derivation only when ids were not supplied.
+ */
+export function resolveCreateCourseEnrollmentIds(input: {
+  readonly commandId: CommandId;
+  readonly participantIds: readonly ParticipantId[];
+  readonly enrollmentIds: readonly CourseEnrollmentId[] | undefined;
+  readonly requireProvidedIds: boolean;
+}): readonly CourseEnrollmentId[] {
+  if (input.enrollmentIds !== undefined) {
+    return input.enrollmentIds;
+  }
+  if (input.requireProvidedIds) {
+    throw new Error('enrollmentIds are required for this enrollment creation mode');
+  }
+  return resolveEnrollmentIdsForCommand({
+    commandId: input.commandId,
+    participantIds: input.participantIds,
+  });
+}
+
 export function courseSeatClaimInterval(input: {
   readonly decidedAt: CanonicalTimestamp;
   readonly course: Course;

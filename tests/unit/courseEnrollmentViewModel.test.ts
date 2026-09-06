@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   expandEnrollmentsToCourseDaySessions,
+  hasActiveEnrollmentForCourse,
   isEnrolledInCourse,
+  isAnySelectedParticipantEnrolledInCourse,
   mapCourseEnrollmentReadModelToCabinetItem,
+  resolveParticipantScopedCourseEnrollment,
 } from '../../src/features/course-enrollments/courseEnrollmentViewModel';
 import { buildMixedCabinetSessionItems } from '../../src/features/course-enrollments/cabinetSessionItems';
 import type { LessonBookingCabinetItem } from '../../src/features/lesson-bookings/lessonBookingContracts';
@@ -63,10 +66,51 @@ describe('courseEnrollmentViewModel', () => {
     expect(item).not.toHaveProperty('isLessonBooking');
   });
 
-  it('detects enrolled courses from lifecycle', () => {
+  it('detects enrolled courses for a specific participant only', () => {
     const items = [mapCourseEnrollmentReadModelToCabinetItem(readModelFixture)];
-    expect(isEnrolledInCourse(items, 'course_vm_fixture_01')).toBe(true);
-    expect(isEnrolledInCourse(items, 'course_other')).toBe(false);
+    expect(isEnrolledInCourse(items, 'course_vm_fixture_01', 'participant_vm_fixture_01')).toBe(
+      true
+    );
+    expect(isEnrolledInCourse(items, 'course_vm_fixture_01', 'participant_other')).toBe(false);
+    expect(isEnrolledInCourse(items, 'course_other', 'participant_vm_fixture_01')).toBe(false);
+    expect(hasActiveEnrollmentForCourse(items, 'course_vm_fixture_01')).toBe(true);
+    expect(hasActiveEnrollmentForCourse(items, 'course_other')).toBe(false);
+  });
+
+  it('scopes CTA enrollment to selectedParticipantId, not account-level any enrollment', () => {
+    const items = [mapCourseEnrollmentReadModelToCabinetItem(readModelFixture)];
+    expect(
+      resolveParticipantScopedCourseEnrollment({
+        enrollments: items,
+        courseId: 'course_vm_fixture_01',
+        selectedParticipantId: 'participant_vm_fixture_01',
+      })
+    ).toBe(true);
+    expect(
+      resolveParticipantScopedCourseEnrollment({
+        enrollments: items,
+        courseId: 'course_vm_fixture_01',
+        selectedParticipantId: 'participant_b',
+      })
+    ).toBe(false);
+    expect(
+      resolveParticipantScopedCourseEnrollment({
+        enrollments: items,
+        courseId: 'course_vm_fixture_01',
+        selectedParticipantId: undefined,
+      })
+    ).toBe(false);
+    expect(
+      isAnySelectedParticipantEnrolledInCourse(items, 'course_vm_fixture_01', [
+        'participant_b',
+        'participant_c',
+      ])
+    ).toBe(false);
+    expect(
+      isAnySelectedParticipantEnrolledInCourse(items, 'course_vm_fixture_01', [
+        'participant_vm_fixture_01',
+      ])
+    ).toBe(true);
   });
 
   it('expands course days for calendar sessions', () => {

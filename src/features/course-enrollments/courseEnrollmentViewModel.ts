@@ -23,16 +23,60 @@ export function isActiveCourseEnrollmentLifecycle(
   return ACTIVE_ENROLLMENT_STATUSES.has(status);
 }
 
+/**
+ * Participant-scoped enrollment check. CTA / pre-submit guards must pass
+ * `participantId` — never treat "any enrollment on this course for the account"
+ * as already enrolled for the selected participant.
+ */
 export function isEnrolledInCourse(
   enrollments: readonly CourseEnrollmentCabinetItem[],
   courseId: string,
-  participantId?: string
+  participantId: string
 ): boolean {
   return enrollments.some(
     (enrollment) =>
       enrollment.courseId === courseId &&
-      isActiveCourseEnrollmentLifecycle(enrollment.lifecycleStatus) &&
-      (participantId === undefined || enrollment.participantId === participantId)
+      enrollment.participantId === participantId &&
+      isActiveCourseEnrollmentLifecycle(enrollment.lifecycleStatus)
+  );
+}
+
+/** Account-level: any managed participant has an active enrollment on the course. */
+export function hasActiveEnrollmentForCourse(
+  enrollments: readonly CourseEnrollmentCabinetItem[],
+  courseId: string
+): boolean {
+  return enrollments.some(
+    (enrollment) =>
+      enrollment.courseId === courseId &&
+      isActiveCourseEnrollmentLifecycle(enrollment.lifecycleStatus)
+  );
+}
+
+/**
+ * Card/details CTA enrollment flag: only true when a concrete selected
+ * participant is already enrolled. Missing selection (multi-participant
+ * without auto-select) must not disable enroll for the whole account.
+ */
+export function resolveParticipantScopedCourseEnrollment(input: {
+  readonly enrollments: readonly CourseEnrollmentCabinetItem[];
+  readonly courseId: string;
+  readonly selectedParticipantId: string | undefined;
+}): boolean {
+  if (!input.selectedParticipantId) {
+    return false;
+  }
+  return isEnrolledInCourse(input.enrollments, input.courseId, input.selectedParticipantId);
+}
+
+/** True when any selected participant is already enrolled (blocks mixed submit). */
+export function isAnySelectedParticipantEnrolledInCourse(
+  enrollments: readonly CourseEnrollmentCabinetItem[],
+  courseId: string,
+  selectedParticipantIds: readonly string[]
+): boolean {
+  return selectedParticipantIds.some((participantId) =>
+    isEnrolledInCourse(enrollments, courseId, participantId)
   );
 }
 

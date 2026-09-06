@@ -62,6 +62,23 @@ export function monetaryEventIdFromCommandEffect(
   );
 }
 
+/**
+ * Deterministic initial course-charge identity for one enrollment.
+ * Concurrent/retry create commands with different command idempotency keys must
+ * collide on this document so wallet debit cannot apply more than once.
+ */
+export function monetaryEventIdFromCourseEnrollmentInitialCharge(
+  enrollmentId: CourseEnrollmentId
+): MonetaryEventId {
+  return MonetaryEventIdSchema.parse(
+    canonicalDeterministicHash([
+      'monetary:v1',
+      'course_enrollment_initial_charge',
+      enrollmentId,
+    ])
+  );
+}
+
 export function participantBlockIdFromDirection(input: {
   readonly participantId: ParticipantId;
   readonly instructorId: InstructorId;

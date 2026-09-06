@@ -81,6 +81,12 @@ export interface AuthenticatedCourseEnrollmentInput {
   readonly identity: CourseEnrollmentSubmissionIdentity;
 }
 
+export type AuthenticatedCourseEnrollmentCommandOutcome = 'created' | 'already_exists';
+
+export interface AuthenticatedCourseEnrollmentCommandResult {
+  readonly outcome: AuthenticatedCourseEnrollmentCommandOutcome;
+}
+
 export interface GuestCourseEnrollmentInput {
   readonly courseId: string;
   readonly enrollmentId: string;

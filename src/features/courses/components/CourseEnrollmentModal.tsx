@@ -14,7 +14,10 @@ import {
   createLogicalEnrollmentAttemptId,
   deriveGuestCreateEnrollmentIdempotencyKey,
   deriveGuestParticipantIdForEnrollment,
+  isAnySelectedParticipantEnrolledInCourse,
+  selectCourseEnrollmentItems,
   useCourseEnrollmentCommands,
+  useCourseEnrollmentStore,
 } from '../../../features/course-enrollments';
 import { presentCanonicalCommandErrorWithContext } from '../../../features/lesson-bookings';
 import type { AuthenticatedCourseEnrollmentSelection } from '../useCourseActions';
@@ -66,6 +69,10 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     toggleParticipant,
     resetSelection,
   } = useParticipantSelection(activeAccountId);
+  const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
+  const selectedAlreadyEnrolled =
+    course != null &&
+    isAnySelectedParticipantEnrolledInCourse(courseEnrollments, course.id, selectedParticipantIds);
 
   useEffect(() => {
     setAuthenticatedProfile(userProfile ?? null);
@@ -142,6 +149,16 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     }
     if (selectedParticipantIds.length === 0) {
       addNotification('warning', t('missingDetails'), t('bookingSelectParticipant'));
+      return;
+    }
+    if (
+      isAnySelectedParticipantEnrolledInCourse(
+        courseEnrollments,
+        course.id,
+        selectedParticipantIds
+      )
+    ) {
+      addNotification('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
       return;
     }
 
@@ -267,6 +284,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         isSubmitting ||
                         participantsLoading ||
                         selectedParticipantIds.length === 0 ||
+                        selectedAlreadyEnrolled ||
                         authenticatedProfile?.isClientActive === false
                       }
                       className="btn-primary w-full py-3 flex items-center justify-center gap-2"
@@ -275,6 +293,11 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           {t('submitting')}
+                        </>
+                      ) : selectedAlreadyEnrolled ? (
+                        <>
+                          <span className="text-emerald-500 font-bold text-xs">✔</span>
+                          {t('courseEnrolled')}
                         </>
                       ) : (
                         <>

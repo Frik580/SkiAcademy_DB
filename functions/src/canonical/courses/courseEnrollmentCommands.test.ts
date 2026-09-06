@@ -4,6 +4,7 @@ import {
   AccountSchema,
   CorrelationIdSchema,
   CourseDayIdSchema,
+  CourseEnrollmentIdSchema,
   CourseIdSchema,
   InstructorIdSchema,
   ParticipantIdSchema,
@@ -12,7 +13,7 @@ import {
   activityLogIdFromCommandId,
   accountCommandActor,
   courseEnrollmentIdFromCommandParticipant,
-  monetaryEventIdFromCommandEffect,
+  monetaryEventIdFromCourseEnrollmentInitialCharge,
   paymentIdFromCourseEnrollmentId,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
@@ -251,9 +252,86 @@ describe('create_course_enrollments command', () => {
     );
     expect(
       snapshot.docs.has(
-        `monetary_events/${monetaryEventIdFromCommandEffect(identity.commandKey, 0)}`
+        `monetary_events/${monetaryEventIdFromCourseEnrollmentInitialCharge(enrollmentId)}`
       )
     ).toBe(true);
+  });
+
+  it('replays a different idempotency key for the same enrollmentId without a second debit', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const enrollmentId = CourseEnrollmentIdSchema.parse('enrollment_stable_payment_identity_01');
+    const first = await runCommand(
+      executor,
+      createEnvelope({
+        context: accountContext('account_owner', accountId, 'enrollment-stable-a'),
+        intent: { courseId, participantIds: [participantId], enrollmentIds: [enrollmentId] },
+      })
+    );
+    const second = await runCommand(
+      executor,
+      createEnvelope({
+        context: accountContext('account_owner', accountId, 'enrollment-stable-b'),
+        intent: { courseId, participantIds: [participantId], enrollmentIds: [enrollmentId] },
+      })
+    );
+    expect(first.status).toBe('success');
+    expect(second.status).toBe('success');
+
+    const snapshot = executor.snapshot();
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('course_enrollments/')).length
+    ).toBe(1);
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('monetary_events/')).length
+    ).toBe(1);
+    expect(
+      snapshot.docs.has(
+        `monetary_events/${monetaryEventIdFromCourseEnrollmentInitialCharge(enrollmentId)}`
+      )
+    ).toBe(true);
+    expect(snapshot.docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(7);
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
+      100_000 - COURSE_PRICE_KZT
+    );
+  });
+
+  it('retries after a completed enrollment payment as equivalent success', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const enrollmentId = CourseEnrollmentIdSchema.parse('enrollment_retry_after_paid_01');
+    const firstEnvelope = createEnvelope({
+      context: accountContext('account_owner', accountId, 'enrollment-retry-first'),
+      intent: { courseId, participantIds: [participantId], enrollmentIds: [enrollmentId] },
+    });
+    expect(await runCommand(executor, firstEnvelope)).toMatchObject({
+      status: 'success',
+      payload: { outcome: 'created' },
+    });
+    // Same idempotency key replays the stored success payload.
+    expect(await runCommand(executor, firstEnvelope)).toMatchObject({
+      status: 'success',
+      payload: { outcome: 'created' },
+    });
+    expect(
+      await runCommand(
+        executor,
+        createEnvelope({
+          context: accountContext('account_owner', accountId, 'enrollment-retry-after-paid'),
+          intent: { courseId, participantIds: [participantId], enrollmentIds: [enrollmentId] },
+        })
+      )
+    ).toMatchObject({
+      status: 'success',
+      payload: { outcome: 'already_exists' },
+    });
+
+    const snapshot = executor.snapshot();
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('monetary_events/')).length
+    ).toBe(1);
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
+      100_000 - COURSE_PRICE_KZT
+    );
+    expect(snapshot.docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(7);
   });
 
   it('rejects account self-service enrollment when wallet funds are insufficient', async () => {

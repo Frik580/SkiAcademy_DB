@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Course, Instructor } from '../../../../types';
 import type { Booking } from '../../../../types';
 import { translateInstructor } from '../../../../app/providers/LanguageContext';
@@ -11,6 +11,9 @@ import {
   useCourseEnrollmentStore,
   type CourseEnrollmentCabinetItem,
 } from '../../../../features/course-enrollments';
+import { useManagedParticipants } from '../../../../features/lesson-bookings';
+import { resolveDefaultParticipantSelection } from '../../../../features/participants/participantSelectionState';
+import { traceCourseEnrollmentCtaIdentity } from '../../../../features/courses/courseEnrollmentCtaTrace';
 import { InstructorCard } from '../../../../features/profile';
 import { StudentDevelopmentPanel } from './StudentDevelopmentPanel';
 import { ScDivider, ScEditorialHubList, ScPageIntro, ScSectionTitle } from './StudentCabinetUI';
@@ -172,6 +175,25 @@ export const StudentCoursesPanel: React.FC<
 }) => {
   const { t, language } = useStudentCabinetTranslations();
   const catalogByCourseId = useCourseEnrollmentStore(selectAllCourseCatalogOperationalStates);
+  const { participants } = useManagedParticipants(userProfile?.uid);
+  // Sole managed participant is auto-selected for CTA; multi-participant leaves
+  // selection empty so account-level enrollment does not disable enroll for others.
+  const selectedParticipantId = resolveDefaultParticipantSelection(participants)[0];
+  useEffect(() => {
+    if (!import.meta.env.DEV || !userProfile) return;
+    for (const course of courses) {
+      traceCourseEnrollmentCtaIdentity({
+        courseId: course.id,
+        selectedParticipantId,
+        availableParticipantIds: participants.map((participant) => participant.participantId),
+        courseEnrollments,
+        accountId: userProfile.uid,
+        accountRole: userProfile.role,
+        instructorId: userProfile.instructorId,
+        pathname: window.location.pathname,
+      });
+    }
+  }, [courseEnrollments, courses, participants, selectedParticipantId, userProfile]);
   const enrolledCourseIds = getEnrolledCourseIdsFromEnrollments(courseEnrollments);
   const myCourses = sortVisibleCourses(
     courses.filter((course) => enrolledCourseIds.has(course.id))
@@ -190,6 +212,7 @@ export const StudentCoursesPanel: React.FC<
           key={rawCourse.id}
           rawCourse={rawCourse}
           courseEnrollments={courseEnrollments}
+          selectedParticipantId={selectedParticipantId}
           catalogOperational={lookupCourseCatalogOperational(catalogByCourseId, rawCourse.id)}
           userProfile={userProfile}
           language={language}

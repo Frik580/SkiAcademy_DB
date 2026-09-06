@@ -8,6 +8,7 @@ import {
   BookingIdSchema,
   CorrelationIdSchema,
   CourseDayIdSchema,
+  CourseEnrollmentIdSchema,
   CourseIdSchema,
   InstructorIdSchema,
   ParticipantIdSchema,
@@ -15,6 +16,7 @@ import {
   WalletSchema,
   activityLogIdFromCommandId,
   courseEnrollmentIdFromCommandParticipant,
+  monetaryEventIdFromCourseEnrollmentInitialCharge,
   paymentIdFromCourseEnrollmentId,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
@@ -345,6 +347,7 @@ async function seedWalletRaceCourses() {
 function enrollmentEnvelope(input: {
   idempotencyKey: string;
   participantIds: readonly [typeof participantId] | readonly [typeof participantId, typeof participantIdB];
+  enrollmentIds?: readonly string[];
   correlation?: typeof correlationId;
   targetCourseId?: typeof courseId;
   capability?: 'account_owner' | 'parent_guardian' | 'administrator';
@@ -369,6 +372,11 @@ function enrollmentEnvelope(input: {
     intent: {
       courseId: input.targetCourseId ?? courseId,
       participantIds: [...input.participantIds],
+      ...(input.enrollmentIds === undefined
+        ? {}
+        : {
+            enrollmentIds: input.enrollmentIds.map((id) => CourseEnrollmentIdSchema.parse(id)),
+          }),
       ...(input.reasonExplanation === undefined
         ? {}
         : { reasonExplanation: input.reasonExplanation }),
@@ -1096,6 +1104,143 @@ describe.sequential.runIf(runsOnFirestoreEmulator)('course enrollment commands e
       expect(state.walletBalance).toBe(0);
       const payment = (await firestore.collection('payments').get()).docs[0]?.data();
       expect(payment?.outstandingAmount).toBeGreaterThan(0);
+    },
+    30_000
+  );
+
+  it(
+    'S. same idempotency key replay debits wallet and seats exactly once',
+    async () => {
+      const commands = createCommands();
+      const enrollmentId = 'enrollment_emulator_same_key_01';
+      const envelope = enrollmentEnvelope({
+        idempotencyKey: 'enrollment-same-key-replay',
+        participantIds: [participantId],
+        enrollmentIds: [enrollmentId],
+      });
+      expect(await commands.execute(envelope)).toMatchObject({ status: 'success' });
+      expect(await commands.execute(envelope)).toMatchObject({ status: 'success' });
+
+      const state = await durableCounts();
+      expect(state.enrollments).toBe(1);
+      expect(state.payments).toBe(1);
+      expect(state.monetaryEvents).toBe(1);
+      expect(state.paymentIds[0]).toBe(paymentIdFromCourseEnrollmentId(enrollmentId as never));
+      expect(state.availableSeats).toBe(7);
+      expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
+      expect(
+        (
+          await firestore
+            .doc(
+              `monetary_events/${monetaryEventIdFromCourseEnrollmentInitialCharge(
+                CourseEnrollmentIdSchema.parse(enrollmentId)
+              )}`
+            )
+            .get()
+        ).exists
+      ).toBe(true);
+    },
+    30_000
+  );
+
+  it(
+    'T. different idempotency keys for the same enrollmentId debit wallet once',
+    async () => {
+      const commands = createCommands();
+      const enrollmentId = 'enrollment_emulator_diff_key_01';
+      const first = await commands.execute(
+        enrollmentEnvelope({
+          idempotencyKey: 'enrollment-diff-key-a',
+          participantIds: [participantId],
+          enrollmentIds: [enrollmentId],
+        })
+      );
+      const second = await commands.execute(
+        enrollmentEnvelope({
+          idempotencyKey: 'enrollment-diff-key-b',
+          participantIds: [participantId],
+          enrollmentIds: [enrollmentId],
+          correlation: correlationIdB,
+        })
+      );
+      expect(first.status).toBe('success');
+      expect(second.status).toBe('success');
+
+      const state = await durableCounts();
+      expect(state.enrollments).toBe(1);
+      expect(state.payments).toBe(1);
+      expect(state.monetaryEvents).toBe(1);
+      expect(state.availableSeats).toBe(7);
+      expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
+      expect(state.successfulIdempotency).toBe(2);
+    },
+    30_000
+  );
+
+  it(
+    'U. concurrent payments for the same enrollmentId create one debit and one seat',
+    async () => {
+      const commands = createCommands();
+      const enrollmentId = 'enrollment_emulator_parallel_pay_01';
+      const attempts = await Promise.all([
+        commands.execute(
+          enrollmentEnvelope({
+            idempotencyKey: 'enrollment-parallel-pay-a',
+            participantIds: [participantId],
+            enrollmentIds: [enrollmentId],
+          })
+        ),
+        commands.execute(
+          enrollmentEnvelope({
+            idempotencyKey: 'enrollment-parallel-pay-b',
+            participantIds: [participantId],
+            enrollmentIds: [enrollmentId],
+            correlation: correlationIdB,
+          })
+        ),
+      ]);
+      expect(attempts.every((attempt) => attempt.status === 'success')).toBe(true);
+
+      const state = await durableCounts();
+      expect(state.enrollments).toBe(1);
+      expect(state.payments).toBe(1);
+      expect(state.monetaryEvents).toBe(1);
+      expect(state.availableSeats).toBe(7);
+      expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
+      expect(state.enrollmentGuards).toBe(1);
+    },
+    30_000
+  );
+
+  it(
+    'V. retry after completed payment is equivalent success without a second debit',
+    async () => {
+      const commands = createCommands();
+      const enrollmentId = 'enrollment_emulator_retry_paid_01';
+      const firstEnvelope = enrollmentEnvelope({
+        idempotencyKey: 'enrollment-retry-paid-first',
+        participantIds: [participantId],
+        enrollmentIds: [enrollmentId],
+      });
+      expect(await commands.execute(firstEnvelope)).toMatchObject({ status: 'success' });
+      expect(await commands.execute(firstEnvelope)).toMatchObject({ status: 'success' });
+      expect(
+        await commands.execute(
+          enrollmentEnvelope({
+            idempotencyKey: 'enrollment-retry-paid-again',
+            participantIds: [participantId],
+            enrollmentIds: [enrollmentId],
+            correlation: correlationIdB,
+          })
+        )
+      ).toMatchObject({ status: 'success' });
+
+      const state = await durableCounts();
+      expect(state.enrollments).toBe(1);
+      expect(state.payments).toBe(1);
+      expect(state.monetaryEvents).toBe(1);
+      expect(state.availableSeats).toBe(7);
+      expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
     },
     30_000
   );

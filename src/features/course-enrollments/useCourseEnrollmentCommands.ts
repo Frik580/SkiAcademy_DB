@@ -20,6 +20,7 @@ import {
   queryCourseEnrollmentReadModels,
 } from '../../lib/canonical/canonicalReadModelClient';
 import type {
+  AuthenticatedCourseEnrollmentCommandResult,
   AuthenticatedCourseEnrollmentInput,
   GuestCourseEnrollmentInput,
 } from './courseEnrollmentContracts';
@@ -45,9 +46,25 @@ async function refetchAccountHotEnrollments(): Promise<void> {
   useCourseEnrollmentStore.getState().mergeCatalog(mergedCatalog);
 }
 
+function resolveCreateEnrollmentOutcome(
+  result: Awaited<ReturnType<typeof executeAuthenticatedCanonicalCommand>>
+): AuthenticatedCourseEnrollmentCommandResult['outcome'] {
+  if (result.status !== 'success') {
+    return 'created';
+  }
+  const payload = parseCommandResultPayload('create_course_enrollments', result.payload ?? {});
+  if (payload.success) {
+    return payload.data.outcome;
+  }
+  // Older servers without outcome: treat as created so first-time UX stays intact.
+  return 'created';
+}
+
 export function useCourseEnrollmentCommands(accountId: string | undefined) {
   const createAuthenticatedEnrollment = useCallback(
-    async (input: AuthenticatedCourseEnrollmentInput): Promise<void> => {
+    async (
+      input: AuthenticatedCourseEnrollmentInput
+    ): Promise<AuthenticatedCourseEnrollmentCommandResult> => {
       if (!accountId) {
         throw new Error('Authentication is required.');
       }
@@ -81,7 +98,9 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
       });
       const error = mapCanonicalCommandResultError(result);
       if (error) throw error;
+      const outcome = resolveCreateEnrollmentOutcome(result);
       await refetchAccountHotEnrollments();
+      return { outcome };
     },
     [accountId]
   );
@@ -106,7 +125,10 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
       if (result.status !== 'success') {
         throw new Error('Guest course enrollment did not succeed.');
       }
-      const payload = parseCommandResultPayload('create_course_enrollments', result.payload);
+      const payload = parseCommandResultPayload(
+        'create_course_enrollments',
+        result.payload ?? { outcome: 'created' }
+      );
       if (!payload.success) {
         throw new Error('Guest course enrollment payload was invalid.');
       }

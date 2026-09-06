@@ -120,6 +120,30 @@ describe('deriveGroupCourseEnrollmentCtaState', () => {
     expect(cta.enrollDisabled).toBe(true);
     expect(cta.label).toBe('unavailable');
   });
+
+  it('disables enroll CTA when participant is already enrolled', () => {
+    const operational = mapCourseCatalogReadModelToOperationalState(catalogReadModel);
+    const cta = deriveGroupCourseEnrollmentCtaState({
+      rawCourse: marketingCourse,
+      catalogOperational: operational,
+      isEnrolled: true,
+    });
+
+    expect(cta.label).toBe('enrolled');
+    expect(cta.enrollDisabled).toBe(true);
+  });
+
+  it('keeps enroll enabled when another account participant is enrolled but selected is not', () => {
+    const operational = mapCourseCatalogReadModelToOperationalState(catalogReadModel);
+    const cta = deriveGroupCourseEnrollmentCtaState({
+      rawCourse: marketingCourse,
+      catalogOperational: operational,
+      isEnrolled: false,
+    });
+
+    expect(cta.label).toBe('enroll');
+    expect(cta.enrollDisabled).toBe(false);
+  });
 });
 
 describe('lookupCourseCatalogOperational', () => {

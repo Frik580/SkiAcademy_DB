@@ -31,8 +31,11 @@ export function deriveGroupCourseEnrollmentCtaState(input: {
   const isFull = hasOperationalCatalog ? catalogOperational.isFull : availableSeats <= 0;
 
   const enrollDisabled =
+    isEnrolled ||
     isClientActive === false ||
-    (!isEnrolled && (isFull || isCapacityFrozen || !isEnrollmentEligible));
+    isFull ||
+    isCapacityFrozen ||
+    !isEnrollmentEligible;
 
   let label: GroupCourseEnrollmentCtaLabel;
   if (isEnrolled) {

@@ -19,7 +19,7 @@ import type {
   CourseCatalogOperationalState,
   CourseEnrollmentCabinetItem,
 } from '../../course-enrollments';
-import { isEnrolledInCourse } from '../../course-enrollments';
+import { resolveParticipantScopedCourseEnrollment } from '../../course-enrollments';
 import { deriveGroupCourseEnrollmentCtaState } from '../groupCourseEnrollmentCta';
 import {
   formatCourseCatalogCardDate,
@@ -36,6 +36,8 @@ const metaChipClass = (enrolled: boolean) =>
 export interface GroupCourseCardProps {
   rawCourse: Course;
   courseEnrollments: readonly CourseEnrollmentCabinetItem[];
+  /** Sole auto-selected participant, or explicit picker selection. Omit for multi without selection. */
+  selectedParticipantId?: string;
   catalogOperational?: CourseCatalogOperationalState;
   userProfile: UserProfile | null;
   language: Language;
@@ -47,6 +49,7 @@ export interface GroupCourseCardProps {
 export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   rawCourse,
   courseEnrollments,
+  selectedParticipantId,
   catalogOperational,
   userProfile,
   language,
@@ -57,7 +60,11 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   const { t } = useLanguage();
   const { formatPrice } = useCurrency();
   const course = translateCourse(rawCourse, language);
-  const isEnrolled = isEnrolledInCourse(courseEnrollments, course.id);
+  const isEnrolled = resolveParticipantScopedCourseEnrollment({
+    enrollments: courseEnrollments,
+    courseId: course.id,
+    selectedParticipantId,
+  });
   const cta = deriveGroupCourseEnrollmentCtaState({
     rawCourse,
     catalogOperational,

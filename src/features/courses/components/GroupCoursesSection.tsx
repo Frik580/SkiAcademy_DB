@@ -16,6 +16,7 @@ interface GroupCoursesSectionProps {
     catalogByCourseId: ReadonlyMap<string, CourseCatalogOperationalState>;
     userProfile: UserProfile | null;
     language: Language;
+    selectedParticipantId?: string;
   };
   actions: {
     onViewDetails: (course: Course) => void;
@@ -24,7 +25,14 @@ interface GroupCoursesSectionProps {
 }
 
 export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
-  data: { courses, courseEnrollments, catalogByCourseId, userProfile, language },
+  data: {
+    courses,
+    courseEnrollments,
+    catalogByCourseId,
+    userProfile,
+    language,
+    selectedParticipantId,
+  },
   actions: { onViewDetails, onRequireAuth },
 }) => {
   const { t } = useLanguage();
@@ -58,6 +66,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
             <GroupCourseCard
               rawCourse={rawCourse}
               courseEnrollments={courseEnrollments}
+              selectedParticipantId={selectedParticipantId}
               catalogOperational={lookupCourseCatalogOperational(catalogByCourseId, rawCourse.id)}
               userProfile={userProfile}
               language={language}

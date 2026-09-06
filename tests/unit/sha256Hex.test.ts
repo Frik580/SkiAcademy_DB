@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   activityLogIdFromCommandId,
   canonicalDeterministicHash,
+  CourseEnrollmentIdSchema,
   domainOutboxIdFromCommand,
   monetaryEventIdFromCommandEffect,
+  monetaryEventIdFromCourseEnrollmentInitialCharge,
   resourceClaimGuardBucketKeyFromIdentity,
   resourceClaimIdFromIdentity,
 } from '@ski-academy/shared-domain';
@@ -93,6 +95,16 @@ describe('canonicalDeterministicHash parity with Node crypto', () => {
     expect(activityLogIdFromCommandId(commandId)).toBe(nodeSha256Hex(auditPayload));
     expect(domainOutboxIdFromCommand(commandId, 0)).toBe(nodeSha256Hex(outboxPayload));
     expect(monetaryEventIdFromCommandEffect(commandId, 0)).toBe(nodeSha256Hex(monetaryPayload));
+
+    const enrollmentId = CourseEnrollmentIdSchema.parse('enrollment_charge_identity_01');
+    const enrollmentChargePayload = [
+      'monetary:v1',
+      'course_enrollment_initial_charge',
+      enrollmentId,
+    ].join(DETERMINISTIC_ID_PART_SEPARATOR);
+    expect(monetaryEventIdFromCourseEnrollmentInitialCharge(enrollmentId)).toBe(
+      nodeSha256Hex(enrollmentChargePayload)
+    );
   });
 
   it('preserves resource claim identity hashes used by fixtures', () => {

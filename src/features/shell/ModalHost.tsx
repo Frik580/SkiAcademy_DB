@@ -6,11 +6,13 @@ import { useBookingsStore } from '../bookings/bookingsStore';
 import { useCoursesStore } from '../courses/coursesStore';
 import { useCourseActions } from '../courses/useCourseActions';
 import {
-  isEnrolledInCourse,
+  resolveParticipantScopedCourseEnrollment,
   lookupCourseCatalogOperational,
   selectCourseEnrollmentItems,
   useCourseEnrollmentStore,
 } from '../course-enrollments';
+import { useManagedParticipants } from '../lesson-bookings';
+import { resolveDefaultParticipantSelection } from '../participants/participantSelectionState';
 import { NotificationsPanel } from '../notifications/NotificationsPanel';
 import { AuthModal } from '../../features/auth';
 import { LazyLoad } from '../../ui/LazyLoad';
@@ -50,6 +52,8 @@ export const ModalHost: React.FC = () => {
   const reviews = useBookingsStore((s) => s.reviews);
   const instructors = useBookingsStore((s) => s.instructors);
   const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
+  const { participants } = useManagedParticipants(userProfile?.uid);
+  const selectedParticipantId = resolveDefaultParticipantSelection(participants)[0];
 
   const courses = useCoursesStore((s) => s.courses);
   const { handleBookCourse } = useCourseActions();
@@ -107,7 +111,11 @@ export const ModalHost: React.FC = () => {
             instructors={instructors}
             userProfile={userProfile}
             catalogOperational={selectedCatalogOperational}
-            isEnrolled={isEnrolledInCourse(courseEnrollments, selectedCourseForDetails.id)}
+            isEnrolled={resolveParticipantScopedCourseEnrollment({
+              enrollments: courseEnrollments,
+              courseId: selectedCourseForDetails.id,
+              selectedParticipantId,
+            })}
             onEnroll={() => {
               setSelectedCourseForAuth(selectedCourseForDetails);
             }}

@@ -45,6 +45,10 @@ vi.mock('../../src/features/course-enrollments', () => ({
   useCourseEnrollmentCommands: () => ({
     createGuestEnrollment: mocks.createGuestEnrollment,
   }),
+  selectCourseEnrollmentItems: () => [],
+  useCourseEnrollmentStore: (selector: (state: { items: Map<string, never> }) => unknown) =>
+    selector({ items: new Map() }),
+  isAnySelectedParticipantEnrolledInCourse: () => false,
 }));
 
 vi.mock('../../src/features/participants/useParticipantSelection', () => ({

@@ -6,6 +6,7 @@ import { useAuthStore } from '../auth/authStore';
 import { getCurrentAuthenticatedUser } from '../auth/authService';
 import { useProfileStore } from '../profile/profileStore';
 import { withOptimisticBalance } from '../wallet/walletService';
+import { useWalletStore } from '../wallet/walletStore';
 import { useCoursesStore } from './coursesStore';
 import {
   addCourseService,
@@ -17,7 +18,10 @@ import {
 import { useBookingsStore } from '../bookings/bookingsStore';
 import {
   deriveAuthenticatedCreateEnrollmentIdempotencyKey,
+  isEnrolledInCourse,
+  selectCourseEnrollmentItems,
   useCourseEnrollmentCommands,
+  useCourseEnrollmentStore,
 } from '../course-enrollments';
 import { presentCanonicalCommandErrorWithContext } from '../lesson-bookings';
 import type { ClientCallableCapability } from '../../lib/canonical/canonicalCommandClient';
@@ -49,6 +53,8 @@ export function useCourseActions() {
   const userProfile = useProfileStore((state) => state.userProfile);
   const bookings = useBookingsStore((state) => state.bookings);
   const inFlightEnrollmentsRef = useRef<Set<string>>(new Set());
+  /** Same-session guard: idempotent replay returns stored outcome "created". */
+  const completedEnrollmentKeysRef = useRef<Set<string>>(new Set());
   const { createAuthenticatedEnrollment } = useCourseEnrollmentCommands(userProfile?.uid);
 
   const handleAddCourse = useCallback(async (course: Course) => {
@@ -119,6 +125,17 @@ export function useCourseActions() {
         return;
       }
 
+      const existingEnrollments = selectCourseEnrollmentItems(
+        useCourseEnrollmentStore.getState()
+      );
+      const alreadyEnrolledLocally = selection.participantIds.some((participantId) =>
+        isEnrolledInCourse(existingEnrollments, courseId, participantId)
+      );
+      if (alreadyEnrolledLocally || completedEnrollmentKeysRef.current.has(enrollmentKey)) {
+        notify('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
+        return;
+      }
+
       inFlightEnrollmentsRef.current.add(enrollmentKey);
       try {
         const course = courses.find((item) => item.id === courseId);
@@ -128,14 +145,25 @@ export function useCourseActions() {
           selection.participantIds
         );
 
-        await withOptimisticBalance(-estimatedPrice, async () => {
-          await createAuthenticatedEnrollment({
+        const { outcome } = await withOptimisticBalance(-estimatedPrice, () =>
+          createAuthenticatedEnrollment({
             courseId,
             participantIds: selection.participantIds,
             exercisedCapability: selection.exercisedCapability,
             identity: { enrollmentId: '', idempotencyKey },
-          });
-        });
+          })
+        );
+
+        completedEnrollmentKeysRef.current.add(enrollmentKey);
+
+        if (outcome === 'already_exists') {
+          // Equivalent success: server did not debit; undo optimistic wallet mutation.
+          if (estimatedPrice !== 0) {
+            useWalletStore.getState().adjustOptimisticBalance(estimatedPrice);
+          }
+          notify('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
+          return;
+        }
 
         const courseTitle = course?.title ?? courseId;
         notify(

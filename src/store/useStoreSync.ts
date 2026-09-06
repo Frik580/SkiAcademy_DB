@@ -16,21 +16,24 @@ import { useProfileActivitySync } from '../features/profile/sync/useProfileActiv
 import { useCurrentUserProfileSync } from '../features/profile/sync/useCurrentUserProfileSync';
 import { useUsersSync } from '../features/profile/sync/useUsersSync';
 import { useDataSyncScope } from './useDataSyncScope';
+import { shouldSyncAccountCourseEnrollments } from './accountCourseEnrollmentSync';
 import { useAuthStore } from '../features/auth/authStore';
 import { useProfileStore } from '../features/profile/profileStore';
 
 export const useStoreSync = () => {
   const location = useLocation();
-  const { shouldUseCanonicalLessonBookings, shouldUseCanonicalCourseEnrollments } =
-    useDataSyncScope();
+  const { shouldUseCanonicalLessonBookings } = useDataSyncScope();
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const userProfile = useProfileStore((state) => state.userProfile);
   const isCustomerCanonicalLessonPath =
     shouldUseCanonicalLessonBookings && userProfile?.role === 'user' && !userProfile?.instructorId;
-  const isCustomerCanonicalCoursePath =
-    shouldUseCanonicalCourseEnrollments &&
-    userProfile?.role === 'user' &&
-    !userProfile?.instructorId;
+  // Hydrate account course enrollments on `/` and `/cabinet*` for any signed-in
+  // account. Do not gate on role/instructorId — that left Arsenii-style admin /
+  // dual-role accounts with an empty enrollment store and an active enroll CTA.
+  const isCustomerCanonicalCoursePath = shouldSyncAccountCourseEnrollments({
+    pathname: location.pathname,
+    accountId: firebaseUser?.uid,
+  });
   const isPublicCatalogPath = location.pathname === '/' || location.pathname.startsWith('/cabinet');
   const isInstructorCollaborationPath =
     location.pathname === '/instructor' && Boolean(userProfile?.instructorId);

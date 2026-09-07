@@ -57,7 +57,11 @@ function createT30aFirestore(): Firestore {
   };
 
   seed(`users/${accountId}`, { accountId, lifecycle: { status: 'active' }, ...metadata });
-  seed(`users/${otherAccountId}`, { accountId: otherAccountId, lifecycle: { status: 'active' }, ...metadata });
+  seed(`users/${otherAccountId}`, {
+    accountId: otherAccountId,
+    lifecycle: { status: 'active' },
+    ...metadata,
+  });
   seed(`users/${instructorAccountId}`, {
     accountId: instructorAccountId,
     lifecycle: { status: 'active' },
@@ -218,29 +222,63 @@ function createT30aFirestore(): Firestore {
     };
   };
 
+  type FixtureDocument = { id: string; data: Record<string, unknown> };
+  type Order = { field: string; direction: 'asc' | 'desc' };
+  const query = (
+    documents: readonly FixtureDocument[],
+    orders: readonly Order[] = [],
+    cursor?: readonly unknown[],
+    maximum?: number
+  ): Record<string, unknown> => {
+    const compare = (left: readonly unknown[], right: readonly unknown[]) => {
+      for (let index = 0; index < orders.length; index += 1) {
+        const a = left[index] as number | string;
+        const b = right[index] as number | string;
+        const difference = a === b ? 0 : a < b ? -1 : 1;
+        if (difference) return orders[index].direction === 'desc' ? -difference : difference;
+      }
+      return 0;
+    };
+    const values = (document: FixtureDocument) =>
+      orders.map(({ field }) => getNestedField(document.data, field));
+    return {
+      where: (field: string, op: string, value: unknown) =>
+        query(
+          documents.filter(({ data }) => {
+            if (op === 'array-contains-any' && Array.isArray(value)) {
+              const arrayField = getNestedField(data, field) as unknown[] | undefined;
+              return arrayField?.some((entry) => value.includes(entry));
+            }
+            if (op !== '==') throw new Error(`Unsupported fixture operator: ${op}`);
+            return getNestedField(data, field) === value;
+          }),
+          orders,
+          cursor,
+          maximum
+        ),
+      orderBy: (field: string, direction: 'asc' | 'desc' = 'asc') =>
+        query(documents, [...orders, { field, direction }], cursor, maximum),
+      startAfter: (...nextCursor: unknown[]) => query(documents, orders, nextCursor, maximum),
+      limit: (value: number) => query(documents, orders, cursor, value),
+      get: async () => ({
+        docs: [...documents]
+          .sort((left, right) => compare(values(left), values(right)))
+          .filter((document) => !cursor || compare(values(document), cursor) > 0)
+          .slice(0, maximum)
+          .map(({ id, data }) => ({ id, data: () => data })),
+      }),
+    };
+  };
+
   return {
     collection: (name: string) => ({
+      ...query(
+        [...docs.entries()]
+          .filter(([path]) => path.startsWith(`${name}/`))
+          .map(([path, data]) => ({ id: path.slice(name.length + 1), data }))
+      ),
       doc: (id: string) => ({
         get: async () => getDoc(`${name}/${id}`),
-      }),
-      where: (field: string, op: string, value: unknown) => ({
-        limit: () => ({
-          get: async () => {
-            const matched = [...docs.entries()]
-              .filter(([path]) => path.startsWith(`${name}/`))
-              .map(([, data]) => data)
-              .filter((data) => {
-                if (op === 'array-contains-any' && Array.isArray(value)) {
-                  const arrayField = getNestedField(data, field) as unknown[] | undefined;
-                  return arrayField?.some((entry) => value.includes(entry));
-                }
-                return getNestedField(data, field) === value;
-              });
-            return {
-              docs: matched.map((data) => ({ data: () => data })),
-            };
-          },
-        }),
       }),
     }),
     doc: (path: string) => ({
@@ -356,7 +394,8 @@ describe('T30A canonical read models', () => {
   it('returns instructor_hot lessons without payer financial fields', async () => {
     const result = await queryLessonBookingReadModels(
       createT30aFirestore(),
-      { scope: 'instructor_hot' },
+      // Fill the scan batch so the query must use startAfter to establish exhaustion.
+      { scope: 'instructor_hot', pageSize: 1 },
       {
         accountId: instructorAccountId,
         instructorId,
@@ -364,6 +403,8 @@ describe('T30A canonical read models', () => {
       }
     );
 
+    expect(result.items).toHaveLength(1);
+    expect(result.hasMore).toBe(false);
     expect(result.items.some((item) => item.bookingId === bookingId)).toBe(true);
     const item = result.items.find((entry) => entry.bookingId === bookingId);
     expect(item).not.toHaveProperty('paymentPresentation');

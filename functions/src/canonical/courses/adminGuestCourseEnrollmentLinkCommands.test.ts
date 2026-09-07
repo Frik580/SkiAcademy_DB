@@ -397,7 +397,8 @@ describe('payment-driven guest course enrollment confirmation', () => {
       'course_enrollment_admin_guest_enroll_link_foreign'
     );
     const foreignPaymentId = paymentIdFromCourseEnrollmentId(foreignEnrollmentId);
-    const originalPayment = docs[`payments/${paymentIdFromCourseEnrollmentId(created.enrollmentId)}`]!;
+    const originalPayment =
+      docs[`payments/${paymentIdFromCourseEnrollmentId(created.enrollmentId)}`]!;
 
     docs[requestedEnrollmentPath] = {
       ...requestedEnrollment,
@@ -573,7 +574,18 @@ describe('payment-driven guest course enrollment confirmation', () => {
           manualReference: 'guest-course-late-payment-after-cancel-ref',
         },
       })
-    ).rejects.toThrow('Unallocated funding remainder');
+    ).resolves.toMatchObject({
+      status: 'error',
+      kind: 'record_provider_payment_event',
+      correlationId,
+      error: {
+        code: 'validation',
+        retryable: false,
+        details: { field: 'payment', reason: 'unsupported' },
+      },
+    });
+    // A rejected late payment must leave all domain state and financial history unchanged.
+    expect(executor.snapshot().docs).toEqual(snapshot.docs);
     expect(
       executor.snapshot().docs.get(`course_enrollments/${enrollmentId}`)?.data.lifecycle.status
     ).toBe('cancelled');

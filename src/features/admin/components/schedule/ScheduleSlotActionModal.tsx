@@ -646,8 +646,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
                       {(
                         insufficientFundsPrompt.currentBalance - insufficientFundsPrompt.required
                       ).toLocaleString('ru-RU')}{' '}
-                      ₸
-                      {t('reassignNegativeBalanceResultSuffix')}
+                      ₸{t('reassignNegativeBalanceResultSuffix')}
                     </p>
                   </div>
                 </div>

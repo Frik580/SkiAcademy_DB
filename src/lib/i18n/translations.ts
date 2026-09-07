@@ -3202,8 +3202,7 @@ export const translations = {
     adminLessonPaymentAmount: 'Сумма, KZT',
     adminLessonRecordPayment: 'Зафиксировать оплату',
     adminLessonConfirmPayment: 'Зафиксировать получение {amount} наличными от гостя?',
-    adminLessonPaymentRecordedRefreshPending:
-      'Оплата сохранена, но данные временно не обновились',
+    adminLessonPaymentRecordedRefreshPending: 'Оплата сохранена, но данные временно не обновились',
     adminLessonAttendancePresent: 'Присутствовал',
     adminLessonAttendanceAbsent: 'Отсутствовал',
     adminLessonAttendanceAfterConfirm: 'Посещаемость станет доступна после подтверждения занятия.',

@@ -19,10 +19,15 @@ export function normalizeStarterCreditUsd(value: unknown): number {
 }
 
 /** Resolve gift amount from settings doc: prefer amountKzt, fall back to legacy amountUsd. */
-export function resolveStarterCreditAmountKzt(data: {
-  amountKzt?: unknown;
-  amountUsd?: unknown;
-} | null | undefined): number {
+export function resolveStarterCreditAmountKzt(
+  data:
+    | {
+        amountKzt?: unknown;
+        amountUsd?: unknown;
+      }
+    | null
+    | undefined
+): number {
   if (data == null) return DEFAULT_STARTER_CREDIT_USD;
   if (data.amountKzt !== undefined && data.amountKzt !== null) {
     return normalizeStarterCreditUsd(data.amountKzt);

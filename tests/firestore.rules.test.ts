@@ -678,7 +678,10 @@ describe('user profiles and roles', () => {
     await seedData(async (context) => {
       const db = context.firestore();
       await setDoc(doc(db, 'users', USER_ID), userProfile(USER_ID, 'user@example.com'));
-      await setDoc(doc(db, 'users', OTHER_USER_ID), userProfile(OTHER_USER_ID, 'other@example.com'));
+      await setDoc(
+        doc(db, 'users', OTHER_USER_ID),
+        userProfile(OTHER_USER_ID, 'other@example.com')
+      );
       await setDoc(doc(db, 'users', ADMIN_ID), userProfile(ADMIN_ID, 'admin@example.com', 'admin'));
       await setDoc(doc(db, ...walletPath), {
         accountId: USER_ID,
@@ -691,7 +694,9 @@ describe('user profiles and roles', () => {
       });
     });
 
-    const ownerDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
+    const ownerDb = testEnv
+      .authenticatedContext(USER_ID, { email: 'user@example.com' })
+      .firestore();
     const peerDb = testEnv
       .authenticatedContext(OTHER_USER_ID, { email: 'other@example.com' })
       .firestore();

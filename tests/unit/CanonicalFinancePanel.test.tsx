@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -208,14 +208,22 @@ describe('CanonicalFinancePanel manual funding', () => {
     );
 
     await screen.findByText(/booking_subject_a/);
-    await userEvent.type(screen.getByLabelText('adminFinanceAmountKzt'), '1000');
-    await userEvent.type(screen.getByLabelText('adminFinanceReason'), 'Approved write-off');
+    fireEvent.change(screen.getByLabelText('adminFinanceAmountKzt'), {
+      target: { value: '1000' },
+    });
+    fireEvent.change(screen.getByLabelText('adminFinanceReason'), {
+      target: { value: 'Approved write-off' },
+    });
     await userEvent.click(screen.getByRole('button', { name: 'adminFinanceApplyCorrection' }));
     expect(confirmedAction).toBeTypeOf('function');
 
     const paymentInput = screen.getByLabelText('adminFinancePaymentId');
-    await userEvent.clear(paymentInput);
-    await userEvent.type(paymentInput, `${paymentB}{enter}`);
+    fireEvent.change(paymentInput, {
+      target: { value: paymentB },
+    });
+    const paymentForm = paymentInput.closest('form');
+    expect(paymentForm).not.toBeNull();
+    fireEvent.submit(paymentForm!);
     await screen.findByText(/booking_subject_b/);
     await act(async () => confirmedAction!());
 

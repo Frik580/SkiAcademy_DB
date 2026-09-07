@@ -152,11 +152,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       return;
     }
     if (
-      isAnySelectedParticipantEnrolledInCourse(
-        courseEnrollments,
-        course.id,
-        selectedParticipantIds
-      )
+      isAnySelectedParticipantEnrolledInCourse(courseEnrollments, course.id, selectedParticipantIds)
     ) {
       addNotification('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
       return;

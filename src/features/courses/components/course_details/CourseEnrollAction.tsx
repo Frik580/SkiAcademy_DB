@@ -107,9 +107,7 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
             </span>
           </div>
           <span className="text-3xl font-serif text-[var(--ink)] font-light">
-            {displayPriceMinorUnits != null
-              ? formatPrice(displayPriceMinorUnits)
-              : '—'}
+            {displayPriceMinorUnits != null ? formatPrice(displayPriceMinorUnits) : '—'}
           </span>
         </div>
 

@@ -29,9 +29,11 @@ export interface E2ETestIsolation {
   title: string;
 }
 
-export function uniqueDayOffset(_baseOffset: number, testInfo: E2ETestIsolation): number {
-  const slot = (simpleHash(testInfo.title) + testInfo.repeatEachIndex * 17) % 28;
-  return 2 + slot;
+export function uniqueDayOffset(
+  baseOffset: number,
+  testInfo: E2ETestIsolation
+): number {
+  return baseOffset + testInfo.repeatEachIndex * 28;
 }
 
 export function uniqueTimeSlot(testInfo: E2ETestIsolation): string {

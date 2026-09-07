@@ -113,7 +113,7 @@ describe('Student Cabinet upcoming individual Booking regression (T32.9A.9A)', (
     );
     const storeSync = readFileSync(join(process.cwd(), 'src/store/useStoreSync.ts'), 'utf8');
 
-    expect(bookingSync).toContain("useBookingsStore.getState().setBookings([])");
+    expect(bookingSync).toContain('useBookingsStore.getState().setBookings([])');
     expect(bookingSync).not.toContain("collection(db, 'bookings')");
     expect(storeSync).toContain('shouldSyncAccountLessonBookings');
     expect(storeSync).not.toContain("userProfile?.role === 'user'");

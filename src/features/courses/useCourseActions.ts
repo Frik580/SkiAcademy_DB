@@ -125,9 +125,7 @@ export function useCourseActions() {
         return;
       }
 
-      const existingEnrollments = selectCourseEnrollmentItems(
-        useCourseEnrollmentStore.getState()
-      );
+      const existingEnrollments = selectCourseEnrollmentItems(useCourseEnrollmentStore.getState());
       const alreadyEnrolledLocally = selection.participantIds.some((participantId) =>
         isEnrolledInCourse(existingEnrollments, courseId, participantId)
       );

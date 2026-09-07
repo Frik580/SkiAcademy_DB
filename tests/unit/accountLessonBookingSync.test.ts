@@ -10,9 +10,9 @@ describe('shouldSyncAccountLessonBookings', () => {
   });
 
   it('syncs authenticated cabinet and home lesson surfaces', () => {
-    expect(
-      shouldSyncAccountLessonBookings({ pathname: '/cabinet', accountId: 'account_01' })
-    ).toBe(true);
+    expect(shouldSyncAccountLessonBookings({ pathname: '/cabinet', accountId: 'account_01' })).toBe(
+      true
+    );
     expect(
       shouldSyncAccountLessonBookings({ pathname: '/cabinet/history', accountId: 'account_01' })
     ).toBe(true);

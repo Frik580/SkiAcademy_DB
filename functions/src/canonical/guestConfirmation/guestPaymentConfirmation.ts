@@ -6,6 +6,7 @@ import {
   CourseEnrollmentSchema,
   assertBookingPaymentIdentity,
   assertCourseEnrollmentPaymentIdentity,
+  evaluateGuestBookingFundedConfirmation,
   evaluateGuestManualPaymentAcceptance,
   isCourseEnrollmentAllowedBeforeStart,
   isGuestBookingConfirmationAllowedBeforeStart,
@@ -101,16 +102,14 @@ async function planBookingConfirmation(
     throw paymentSubjectMismatch(input.correlationId);
   }
   assertBookingPaymentIdentity(input.correlationId, booking, input.payment);
-  const acceptance = evaluateGuestManualPaymentAcceptance({
+  const confirmation = evaluateGuestBookingFundedConfirmation({
     bookingOrigin: booking.attribution.bookingOrigin,
     lifecycleStatus: booking.lifecycle.status,
-    reservationExpiresAt:
-      booking.lifecycle.status === 'pending' ? booking.lifecycle.reservationExpiresAt : undefined,
     serviceStartsAt: booking.occurrence.interval.startsAt,
     now: input.now,
   });
-  if (acceptance.outcome === 'not_applicable') return blocked('not_guest');
-  if (acceptance.outcome === 'rejected') return blocked(acceptance.reason);
+  if (confirmation.outcome === 'not_applicable') return blocked('not_guest');
+  if (confirmation.outcome === 'rejected') return blocked(confirmation.reason);
 
   const participantId = booking.party.participantIds[0]!;
   const instructorBlockDocumentPath = participantBlockPath(
@@ -359,10 +358,11 @@ export async function detectGuestPaymentConfirmationLifecycleMismatch(input: {
 /**
  * Server-side authority for accepting money against a Booking-subject Payment.
  * Missing Booking is a subject invariant failure, not a guest-policy skip.
- * Guest eligibility runs only after the Booking exists and identity is valid.
+ * Guest funding eligibility runs only after the Booking exists and identity is valid.
  * Must run before any Payment / MonetaryEvent / Booking / ActivityLog mutation.
- * Independent of {@link planGuestPaymentConfirmation}, which only decides
- * whether a fully funded Payment should confirm the Booking.
+ * Independent of {@link planGuestPaymentConfirmation}, which decides whether an
+ * already fully funded Payment should confirm the Booking. `reservationExpiresAt`
+ * blocks new funding, not confirmation of money already accepted.
  */
 export async function assertGuestManualPaymentAcceptance(input: {
   readonly session: CanonicalAtomicTransactionSession;

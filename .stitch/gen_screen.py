@@ -60,7 +60,7 @@ if __name__ == "__main__":
             {
                 **base,
                 "deviceType": "DESKTOP",
-                "designSystem": "assets/11762622741281556178",
+                "designSystem": "assets/11762622741281556178",  # SkiAcademy Alpine Air
             },
             "ds",
             timeout=120,
@@ -81,7 +81,7 @@ Editorial alpine, generous whitespace."""
                 "prompt": prompt,
                 "deviceType": "DESKTOP",
                 "modelId": "GEMINI_3_FLASH",
-                "designSystem": "assets/11762622741281556178",
+                "designSystem": "assets/11762622741281556178",  # SkiAcademy Alpine Air
             },
             "full",
             timeout=600,

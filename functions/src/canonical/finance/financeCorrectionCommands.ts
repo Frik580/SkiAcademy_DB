@@ -781,13 +781,26 @@ export function recordAuditCorrectionHandler(
             });
           } else {
             const reconciliation = reconcilePaymentState({ payment, paymentEvents });
-            const guestConfirmationLifecycleMismatch =
+            let guestConfirmationLifecycleMismatch =
               await detectGuestPaymentConfirmationLifecycleMismatch({
                 session,
                 payment,
                 correlationId: envelope.context.correlationId,
                 now: timestampFromDate(environment.clock.now()),
               });
+            if (guestConfirmationLifecycleMismatch && isPaymentFullyFundedForService(payment)) {
+              const confirmationDecision = await planGuestPaymentConfirmation({
+                session,
+                payment,
+                correlationId: envelope.context.correlationId,
+                commandId: metadata.commandId,
+                now: timestampFromDate(environment.clock.now()),
+              });
+              if (confirmationDecision.outcome === 'planned') {
+                plannedGuestConfirmation = confirmationDecision.plan;
+                guestConfirmationLifecycleMismatch = undefined;
+              }
+            }
             if (reconciliation.hasMismatch || guestConfirmationLifecycleMismatch) {
               const scope = reconciliation.hasMismatch
                 ? primaryReconciliationScopeForMismatches(reconciliation.mismatches)
@@ -909,7 +922,6 @@ export function recordAuditCorrectionHandler(
           { path: paymentDocumentPath },
           toFirestoreWritePayload(updatedPayment as Record<string, unknown>)
         );
-        plannedGuestConfirmation?.commit(session, context.decidedAt);
       }
 
       if (
@@ -928,6 +940,8 @@ export function recordAuditCorrectionHandler(
           toFirestoreWritePayload(updatedWallet as Record<string, unknown>)
         );
       }
+
+      plannedGuestConfirmation?.commit(session, context.decidedAt);
 
       if (plannedIssue !== undefined && issueDocumentPath && issueMutationKind) {
         const payload = toAdminIssueWritePayload(plannedIssue as Record<string, unknown>);

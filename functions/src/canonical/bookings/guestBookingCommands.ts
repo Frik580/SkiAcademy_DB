@@ -13,9 +13,10 @@ import {
   GUEST_ACTION_TOKEN_VERSION,
   guestSubjectIdFromBookingId,
   initialBookingOccurrenceIdFromBookingId,
+  evaluateGuestLessonReservationExpiry,
   isGuestBookingRequestAllowedBeforeStart,
-  isGuestReservationExpired,
   isPaymentFullyFundedForService,
+  type GuestLessonReservationExpiryRejectReason,
   isSyntheticCourseInstructorId,
   lessonContentFields,
   nextAggregateRevision,
@@ -561,6 +562,40 @@ function confirmGuestBookingHandler(
   });
 }
 
+function throwExpireGuestReservationRejection(
+  correlationId: CommandEnvelope<'expire_guest_reservation'>['context']['correlationId'],
+  reason: GuestLessonReservationExpiryRejectReason
+): never {
+  if (reason === 'not_guest') {
+    throw new CanonicalCommandError('validation', {
+      correlationId,
+      details: { resourceKind: 'booking', reason: 'unsupported' },
+    });
+  }
+  if (reason === 'already_confirmed' || reason === 'terminal_or_non_pending') {
+    throw new CanonicalCommandError('invalid_transition', {
+      correlationId,
+      details: { resourceKind: 'booking', reason: 'conflict' },
+    });
+  }
+  if (reason === 'missing_payment') {
+    throw new CanonicalCommandError('validation', {
+      correlationId,
+      details: { field: 'paymentId', reason: 'conflict' },
+    });
+  }
+  if (reason === 'fully_funded') {
+    throw new CanonicalCommandError('invalid_transition', {
+      correlationId,
+      details: { field: 'paymentId', reason: 'conflict' },
+    });
+  }
+  throw new CanonicalCommandError('invalid_transition', {
+    correlationId,
+    details: { field: 'reservationExpiresAt', reason: 'out_of_range' },
+  });
+}
+
 function expireGuestReservationHandler(
   envelope: CommandEnvelope<'expire_guest_reservation'>,
   environment: CommandExecutionEnvironment,
@@ -621,24 +656,19 @@ async function expireGuestBookingReservationHandler(
         });
       }
       assertBookingPaymentIdentity(envelope.context.correlationId, booking, payment);
-      if (isPaymentFullyFundedForService(payment)) {
-        throw new CanonicalCommandError('invalid_transition', {
-          correlationId: envelope.context.correlationId,
-          details: { field: 'paymentId', reason: 'conflict' },
-        });
-      }
-
-      const now = timestampFromDate(environment.clock.now());
-      if (
-        !isGuestReservationExpired({
-          now,
-          reservationExpiresAt: booking.lifecycle.reservationExpiresAt,
-        })
-      ) {
-        throw new CanonicalCommandError('invalid_transition', {
-          correlationId: envelope.context.correlationId,
-          details: { field: 'reservationExpiresAt', reason: 'out_of_range' },
-        });
+      const decision = evaluateGuestLessonReservationExpiry({
+        bookingOrigin: booking.attribution.bookingOrigin,
+        lifecycleStatus: booking.lifecycle.status,
+        reservationExpiresAt:
+          booking.lifecycle.status === 'pending'
+            ? booking.lifecycle.reservationExpiresAt
+            : undefined,
+        now: timestampFromDate(environment.clock.now()),
+        hasPayment: true,
+        paymentFullyFunded: isPaymentFullyFundedForService(payment),
+      });
+      if (decision.outcome === 'rejected') {
+        throwExpireGuestReservationRejection(envelope.context.correlationId, decision.reason);
       }
 
       plannedRevision = nextAggregateRevision(booking.revision);

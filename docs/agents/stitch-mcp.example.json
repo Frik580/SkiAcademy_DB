@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "stitch": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "--use-system-ca",
+        "${workspaceFolder}/.cursor/stitch-mcp-proxy.mjs"
+      ],
+      "env": {
+        "STITCH_API_KEY": "${env:STITCH_API_KEY}"
+      }
+    }
+  }
+}

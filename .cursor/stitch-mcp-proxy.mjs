@@ -1,8 +1,7 @@
-import { createInterface } from "node:readline";
+﻿import { createInterface } from "node:readline";
 import https from "node:https";
 
 const apiKey = process.env.STITCH_API_KEY;
-const endpoint = new URL("https://stitch.googleapis.com/mcp");
 
 if (!apiKey) {
   console.error("STITCH_API_KEY is missing");
@@ -15,11 +14,12 @@ function callStitch(message) {
 
     const req = https.request(
       {
-        hostname: endpoint.hostname,
-        path: endpoint.pathname,
+        hostname: "stitch.googleapis.com",
+        path: "/mcp",
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json, text/event-stream",
           "Content-Length": Buffer.byteLength(body),
           "X-Goog-Api-Key": apiKey
         }
@@ -27,15 +27,13 @@ function callStitch(message) {
       res => {
         let data = "";
 
-        res.on("data", chunk => {
-          data += chunk;
-        });
+        res.on("data", chunk => data += chunk);
 
         res.on("end", () => {
           try {
             resolve(JSON.parse(data));
-          } catch (error) {
-            reject(error);
+          } catch (e) {
+            reject(new Error(`HTTP ${res.statusCode}: ${data}`));
           }
         });
       }
@@ -64,6 +62,7 @@ input.on("line", async line => {
 
     const response = await callStitch(request);
 
+    // Cursor currently has trouble ingesting Stitch's large output schemas.
     if (request.method === "tools/list" && response?.result?.tools) {
       response.result.tools = response.result.tools.map(tool => {
         const { outputSchema, ...rest } = tool;

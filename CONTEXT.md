@@ -171,7 +171,11 @@ Confirmation is payment-driven. Identity linking, Administrator discretion, Inst
 
 The intended current guest flow is unpaid → pending, then fully funded → confirmed. Existing `payment_required_at_start` mechanisms remain defensive protection for legacy, inconsistent, or exceptional states, including Administrator-created confirmed underpayment. They are not the normal way to approve an unpaid guest request.
 
-Unconfirmed expiration of a still-unpaid pending reservation produces `cancelled` with `reservation_expired`. Payment settlement versus expiry or cancellation is serialized by canonical transaction and revision semantics. A terminal cancelled or expired subject must never be resurrected to `confirmed` by delayed settlement or reconciliation.
+Unconfirmed expiration of a still-unpaid pending reservation produces `cancelled` with `reservation_expired`. The production orchestrator is `scheduledExpireGuestLessonReservations` (`every 5 minutes`, UTC); it only discovers candidates and invokes `expire_guest_reservation`, which rechecks lifecycle, deadline, Payment funding, and claim ownership in the authoritative transaction.
+
+Guest reservation expiry semantics ([ADR-0007](docs/adr/0007-guest-identity-payment-and-confirmation.md)): `reservationExpiresAt` controls unpaid reservation hold and new funding acceptance, not delayed confirmation of an already fully funded pending Booking; a fully funded pending Booking may still confirm after the reservation deadline when service has not started; late funding after the deadline is rejected server-side; fully funded + pending + past deadline must not remain a permanent limbo — reconciliation must confirm when eligible.
+
+Payment settlement versus expiry or cancellation is serialized by canonical transaction and revision semantics. A terminal cancelled subject must never be resurrected to `confirmed` by delayed settlement or reconciliation.
 
 A guest may cancel only through a signed, booking-scoped, action-limited token that does not rely on Booking ID alone and becomes invalid after expiration, use, or status change. Guest cancellation produces `cancelled` with `guest_cancelled`. Fully unpaid pending cancellation refunds nothing because nothing was paid and releases the applicable reservation, claims, and, for Course Enrollment, the seat exactly once.
 

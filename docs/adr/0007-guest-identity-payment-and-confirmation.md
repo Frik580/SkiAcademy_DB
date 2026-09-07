@@ -109,6 +109,73 @@ Lesson confirmation must not:
 
 The confirmation write changes only the lifecycle, revision, audit, and the Booking service-party freeze required by the canonical model.
 
+## Guest lesson reservation expiry (T32.9A.9A.F2)
+
+For guest individual Lesson Bookings (`bookingOrigin = guest`), the authoritative reservation deadline is `Booking.lifecycle.reservationExpiresAt`:
+
+```text
+min(createdAt + GUEST_LESSON_RESERVATION_TTL_MS, serviceStartsAt)
+```
+
+where `GUEST_LESSON_RESERVATION_TTL_MS = 1 hour`. The expiry boundary is inclusive: `now >= reservationExpiresAt`.
+
+Canonical command: `expire_guest_reservation`. Scheduler: `scheduledExpireGuestLessonReservations` every 5 minutes (UTC); orchestrator only.
+
+### Semantic distinction: reservation deadline vs confirmation deadline
+
+`reservationExpiresAt` governs:
+
+1. holding a not-fully-funded guest reservation;
+2. accepting new guest funding.
+
+`reservationExpiresAt` does **not** govern delayed lifecycle reconciliation of a Booking whose Payment is already fully funded.
+
+A pending Booking with `isPaymentFullyFundedForService(Payment)` and service not yet started remains eligible for canonical confirmation/reconciliation even when `now >= reservationExpiresAt`. That state is a lifecycle reconciliation mismatch, not an unpaid expired reservation.
+
+### Policy matrix
+
+| Booking | Payment | Deadline | Service | Result |
+|---|---|---|---|---|
+| `pending` | not fully funded | before deadline | not started | remain `pending` |
+| `pending` | not fully funded | reached/passed | not started | `cancelled`; `reasonCode: reservation_expired`; claim released |
+| `pending` | fully funded | before deadline | not started | `confirmed` |
+| `pending` | fully funded | reached/passed | not started | `confirmed` via canonical confirmation/reconciliation; claim retained |
+| `cancelled` / expired | any later payment attempt | passed | any | reject server-side; no Payment mutation; no resurrection |
+
+Partial payment does not protect the reservation. Expiry does not mutate Payment amounts.
+
+### Late funding after deadline
+
+Attempts to fund a not-fully-funded guest reservation after `reservationExpiresAt` are rejected server-side. No Payment mutation. No Booking resurrection.
+
+### No permanent funded-pending limbo
+
+The following must not be a permanent canonical state:
+
+```text
+Payment fully funded
++ Booking pending
++ now >= reservationExpiresAt
++ active resource claim
++ no possible lifecycle transition
+```
+
+Reconciliation (`sweepGuestConfirmationLifecycleMismatches`) must bring a valid fully funded pending Booking to `confirmed` when service has not started and other invariants are satisfied. Resource claims remain active until confirmation or terminal cancellation.
+
+### No funded-at timestamp
+
+F2 does not introduce:
+
+- `fullyFundedAt`;
+- a new event timestamp policy;
+- inference of funding time from `Payment.updatedAt`.
+
+The canonical payment path after the reservation deadline is fail-closed. A fully funded Payment on a still-pending Booking after `reservationExpiresAt` is treated as previously accepted canonical money / lifecycle drift that reconciliation must repair. `Payment.updatedAt` is not authoritative evidence of when funding occurred.
+
+### F3 compatibility
+
+Expiry and confirmation policy operate at the Booking aggregate level: one Booking, one Payment, one lifecycle, one resource claim. Participant count does not affect expiry eligibility, funding acceptance, or confirmation/reconciliation decisions.
+
 ## Guest CourseEnrollment lifecycle
 
 Guest enrollment creation remains:
@@ -176,6 +243,7 @@ The sweep module is `guestConfirmationReconciliationSweep` (`sweepGuestConfirmat
 The sweep must:
 
 - be idempotent;
+- confirm eligible `pending` fully funded subjects even when `now >= reservationExpiresAt`, provided service has not started and other invariants are satisfied;
 - never resurrect cancelled or expired terminal subjects to `confirmed`;
 - deduplicate open issues;
 - safely reopen a resolved issue if the underlying mismatch genuinely reappears.
@@ -194,7 +262,9 @@ must never be resurrected to confirmed
 by delayed settlement or reconciliation
 ```
 
-If Payment is fully funded but the guest subject is already cancelled, expired, started, or otherwise ineligible, confirmation is refused. The mismatch may produce a reconciliation AdminIssue. It must not become a confirmation.
+If Payment is fully funded but the guest subject is already cancelled, started, or otherwise terminal/ineligible, confirmation is refused. The mismatch may produce a reconciliation AdminIssue. It must not become a confirmation.
+
+`reservationExpiresAt` is the deadline for holding a not-fully-funded guest reservation and for accepting new guest funding. It does not block confirmation or reconciliation of a pending Booking whose Payment is already fully funded while service has not started. Canonical funding after that deadline is rejected server-side; a fully funded pending Booking after the deadline is a lifecycle reconciliation case, not an unpaid expiry.
 
 ## T32.8B identity linking
 
@@ -310,11 +380,19 @@ and the later migration status in
   monetary authority; confirmation remains payment-driven and may reconcile a
   funded-but-unconfirmed mismatch. F1 is REQUIRED / IN PROGRESS — not PASS.
 - **T32.9A.9A.F2 — Guest Unpaid Reservation Expiry** is required before 9A may
-  close. Unpaid guest individual reservations must expire through the existing
-  canonical expiry policy/command; the scheduler is orchestrator only. F2 is
-  REQUIRED / PLANNED — not PASS. Do not invent a new TTL here. F2 must remain
-  F3-compatible: expiry operates on the Booking/Payment aggregate, not on a
-  single Participant; see [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md).
+  close. Unpaid guest individual reservations expire through the existing
+  canonical command `expire_guest_reservation`. The scheduler
+  `scheduledExpireGuestLessonReservations` runs every 5 minutes (UTC) and is
+  orchestrator only. Deadline is `Booking.lifecycle.reservationExpiresAt` =
+  `min(createdAt + 1h, serviceStartsAt)`, inclusive (`now >= deadline`).
+  Partial payment does not protect the reservation; Payment is not mutated by
+  expiry. Fully funded pending Bookings remain eligible for
+  confirmation/reconciliation after the reservation deadline; funded-pending
+  past deadline must not be a permanent limbo. F2 does not introduce
+  `fullyFundedAt` or funding-time inference from `Payment.updatedAt`. F2 is
+  READY_FOR_MANUAL_SMOKE — not PASS/CLOSED. F2 remains F3-compatible: expiry
+  operates on the Booking/Payment aggregate, not on a single Participant; see
+  [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md).
 - **T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking** is required
   before 9A final integration / production smoke and 9A close. One lesson slot,
   one Booking lifecycle, one Payment, `participantIds[]` for N managed
@@ -345,7 +423,7 @@ implemented and smoked.
 | `scheduledAutoCompleteBookings` | Removed (legacy Individual Booking completion) |
 | `scheduledReconcileGuestConfirmationMismatches` | Canonical / active |
 | `scheduledPurgeExpiredNotifications` | Canonical / active |
-| Guest unpaid reservation expiry scheduler | Planned under T32.9A.9A.F2 |
+| Guest unpaid reservation expiry scheduler | `scheduledExpireGuestLessonReservations` / every 5 minutes UTC / READY_FOR_MANUAL_SMOKE |
 
 Completion scheduling must not be confused with payment-confirmation
 reconciliation.

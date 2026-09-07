@@ -24,6 +24,7 @@ import { createQueryAdminIdentityReadModelsHandler } from './canonical/readModel
 import { createQueryAdminPlannerReadModelsHandler } from './canonical/readModels/queryAdminPlannerReadModelsCallable';
 import { createQueryInstructorOccupancyReadModelsHandler } from './canonical/readModels/queryInstructorOccupancyReadModelsCallable';
 import { sweepGuestConfirmationLifecycleMismatches } from './canonical/guestConfirmation/guestConfirmationReconciliationSweep';
+import { sweepExpiredGuestLessonReservations } from './canonical/bookings/guestLessonReservationExpirySweep';
 
 export { optimizeImage } from './images/optimizeImageHttp';
 
@@ -150,5 +151,21 @@ export const scheduledReconcileGuestConfirmationMismatches = onSchedule(
   async () => {
     const result = await sweepGuestConfirmationLifecycleMismatches(getAdminFirestore());
     console.log(`Reconciled ${result.scannedPayments} fully-paid Payment(s).`);
+  }
+);
+
+export const scheduledExpireGuestLessonReservations = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    timeZone: 'UTC',
+    cpu: 'gcf_gen1',
+    memory: '256MiB',
+    maxInstances: 1,
+  },
+  async () => {
+    const result = await sweepExpiredGuestLessonReservations(getAdminFirestore());
+    console.log(
+      `Expired guest lesson reservations scanned ${result.scannedCandidates} candidate(s).`
+    );
   }
 );

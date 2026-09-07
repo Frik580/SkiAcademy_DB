@@ -49,6 +49,15 @@ When GitHub Issues are unavailable, use the approved issue-ready artifacts in
 
 Single-context layout: one root `CONTEXT.md` and ADRs in `docs/adr/`. See `docs/agents/domain.md`.
 
+### Stitch (UI design)
+
+Google Stitch is used for UI exploration and variant generation. See `docs/agents/stitch.md`.
+
+- MCP server: `stitch` via `.cursor/stitch-mcp-proxy.mjs` (requires `STITCH_API_KEY`).
+- Project ID: `12447626312814512672`; design system: `assets/11762622741281556178`.
+- Design tokens: `docs/design/alpine-air.DESIGN.md` and `src/index.css`.
+- Screen registry: `.stitch/metadata.json`.
+
 ## Review policy
 
 For implementation tickets, use one independent code-review pass by default.

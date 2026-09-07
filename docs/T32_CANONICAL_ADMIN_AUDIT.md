@@ -4,6 +4,7 @@ Date: 2026-08-30
 Amended: 2026-09-01 — T32.8A, T32.8B, and T32.8C PASS; guest confirmation policy recorded in [ADR-0007](adr/0007-guest-identity-payment-and-confirmation.md); T32.9 split and global UX preservation recorded in [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md)
 Amended: 2026-09-07 — T32.9A.8 PASS/CLOSED; T32.9A.9 redefined as FINAL CANONICAL CUTOVER (9A–9E); T32.9A.9A core authority cutover recorded; F1/F2 required before 9A close; production Booking inventory and legacy Individual Booking callable cleanup recorded
 Amended: 2026-09-07 — T32.9A.9A.F3 (Canonical Multi-Participant Lesson Booking) added to roadmap after F2; F2 F3-compatibility requirement recorded; 9A final integration / production smoke gated after F3
+Amended: 2026-09-07 — T32.9A.9A.F2 funded-pending-after-deadline limbo policy documented; reservation deadline vs confirmation reconciliation distinction recorded in ADR-0007
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
@@ -35,7 +36,7 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.8 | Canonical Courses UX | PASS / CLOSED |
 | T32.9A.9A core | Individual Booking lifecycle cutover (authority) | PASS at source/production authority level |
 | T32.9A.9A.F1 | Canonical Admin Guest Payment Capture | REQUIRED / IN PROGRESS |
-| T32.9A.9A.F2 | Guest Unpaid Reservation Expiry | REQUIRED / PLANNED — next implementation stage |
+| T32.9A.9A.F2 | Guest Unpaid Reservation Expiry | READY_FOR_MANUAL_SMOKE |
 | T32.9A.9A.F3 | Canonical Multi-Participant Lesson Booking | PLANNED |
 | T32.9A.9A final integration / production smoke | 9A close gate after F3 | PENDING |
 | T32.9A.9A | Individual Booking lifecycle cutover (overall) | NOT CLOSED — finalization in progress |
@@ -45,7 +46,7 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.9E | Canonical Authority / Reachability Gate | PENDING |
 | T32.9B | Final Legacy Write / Runtime Cleanup | PENDING; blocked until T32.9A.9E PASS |
 
-Status labels used here: `PASS`, `PASS / CLOSED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `PENDING`, `NOT CLOSED`. Do not treat F1, F2, or F3 as `PASS`, `CLOSED`, or `DEPLOYED` until implemented and smoked.
+Status labels used here: `PASS`, `PASS / CLOSED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `PENDING`, `NOT CLOSED`. Do not treat F1, F2, or F3 as `PASS`, `CLOSED`, or `DEPLOYED` until production-smoked.
 
 ### T32.9A.8 — Canonical Courses UX — PASS / CLOSED
 
@@ -145,11 +146,38 @@ Explicit rules:
 
 9A cannot close without F1. F1 is decided and required; it is not PASS/CLOSED/DEPLOYED.
 
-##### T32.9A.9A.F2 — Guest Unpaid Reservation Expiry — REQUIRED / PLANNED
+##### T32.9A.9A.F2 — Guest Unpaid Reservation Expiry — READY_FOR_MANUAL_SMOKE
 
 Goal: an unpaid guest individual Booking must not hold instructor/resource slots indefinitely.
 
-Requirements:
+Implemented facts (not newly invented policy):
+
+- Command: existing `expire_guest_reservation` (server/system only). Scheduler is orchestrator only.
+- Scheduler: `scheduledExpireGuestLessonReservations`, cadence `every 5 minutes`, timezone `UTC`.
+- Authoritative deadline field: `Booking.lifecycle.reservationExpiresAt`.
+- Created at guest lesson creation by `resolveGuestLessonReservationExpiresAt`: `min(createdAt + GUEST_LESSON_RESERVATION_TTL_MS, serviceStartsAt)` where TTL = 1 hour.
+- Clock: server authoritative time. Inclusive boundary: `now >= reservationExpiresAt` is expired.
+- Eligibility: guest origin, `pending`, Payment exists and matches Booking identity, Payment is not `isPaymentFullyFundedForService`, deadline reached.
+- Lifecycle: `pending` → `cancelled` with `reasonCode: 'reservation_expired'`.
+- Partial payment does not protect the reservation; Payment amounts are not refunded, retained, written off, or deleted by expiry.
+- Payment after deadline is rejected by the F1 guest acceptance predicate even if the scheduler has not run yet.
+- Fully funded pending Booking after `reservationExpiresAt` is a confirmation/reconciliation case, not unpaid expiry, while service has not started. Expiry returns `fully_funded`; reconciliation confirms and retains the claim.
+- Resource claims are released once per Booking via `planReleaseBookingClaims` (one instructor occurrence claim, not per participant as the expiry authority).
+- No expiry notification/outbox obligation. Audit: `activity_logs` with `scheduled_system_action`.
+- Candidate query: guest + pending + `lifecycle.reservationExpiresAt.seconds <= now`, ordered by that seconds field then `bookingId`, page size 25, max 100 per invocation.
+- F3 compatibility: expiry authority is the Booking aggregate. No `participantIds.length === 1` assumption. Payment.price is not recomputed from participant count.
+
+**Limbo policy resolution (accepted).** Prior ambiguity: Payment fully funded, Booking `pending`, `now >= reservationExpiresAt`, service not started — expiry skipped the Booking, confirmation/reconciliation did not confirm, resource claim stayed active. Canonical policy:
+
+- `reservationExpiresAt` governs unpaid reservation hold and new funding acceptance, not delayed reconciliation of an already fully funded Booking;
+- `pending` + fully funded + service not started → eligible for canonical confirmation/reconciliation even after the reservation deadline; claim retained;
+- `pending` + not fully funded + deadline passed → `cancelled` / `reservation_expired`; claim released;
+- late funding after deadline → rejected server-side; no Payment mutation; no resurrection;
+- fully funded + `pending` + past deadline must not remain a permanent canonical state — reconciliation must confirm when invariants are satisfied.
+
+F2 does not introduce `fullyFundedAt`, a new event timestamp policy, or funding-time inference from `Payment.updatedAt`.
+
+Requirements covered:
 
 - use the existing canonical expiry policy/command (`expire_guest_reservation` / `reservationExpiresAt` domain policy);
 - scheduler is orchestrator only, not a direct status writer;
@@ -164,9 +192,9 @@ Requirements:
 
 Do not invent a new TTL in this document. Use the existing domain reservation-expiry policy already encoded by canonical Booking lifecycle. Concrete duration belongs to that policy, not to a migration invention.
 
-**F3 compatibility requirement.** F2 is implemented before F3 and must not pre-implement multi-participant lesson booking. F2 must remain **F3-compatible**: expiry is a lifecycle operation over the Booking/Payment reservation aggregate, not over a single Participant. F2 must not introduce architectural assumptions that make expiry depend on `Booking == exactly one Participant`. After F3, one Booking still has one expiry decision, one lifecycle transition, one slot release, and one Payment outcome — regardless of participant count.
+**F3 compatibility requirement.** F2 does not implement multi-participant lesson booking. F2 remains **F3-compatible**: expiry is a lifecycle operation over the Booking/Payment reservation aggregate, not over a single Participant. After F3, one Booking still has one expiry decision, one lifecycle transition, one slot release, and one Payment outcome — regardless of participant count.
 
-9A cannot close without F2. F2 is decided and required; it is not PASS/CLOSED/DEPLOYED.
+9A cannot close without F2 production smoke plus F3. F2 is not PASS/CLOSED/DEPLOYED.
 
 ##### T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking — PLANNED
 
@@ -381,7 +409,7 @@ This is **not** a claim that every legacy function in the project was removed �
 | `scheduledAutoCompleteBookings` | Removed (source export + production) |
 | `scheduledReconcileGuestConfirmationMismatches` | Canonical / active |
 | `scheduledPurgeExpiredNotifications` | Canonical / active |
-| Guest unpaid reservation expiry scheduler | Planned under T32.9A.9A.F2 |
+| Guest unpaid reservation expiry scheduler | `scheduledExpireGuestLessonReservations` — READY_FOR_MANUAL_SMOKE (`every 5 minutes`, UTC) |
 
 Do not confuse completion scheduling with payment-confirmation reconciliation.
 
@@ -1297,8 +1325,8 @@ Current structure (authoritative for later status; see preamble):
 - **T32.9A.8** Canonical Courses UX — PASS / CLOSED (8A/8B/8C)
 - **T32.9A.9** FINAL CANONICAL CUTOVER
   - **9A** Individual Booking lifecycle cutover — NOT CLOSED (core PASS at
-    authority level; F1 REQUIRED/IN PROGRESS; F2 REQUIRED/PLANNED — next
-    implementation stage; F3 PLANNED; final integration/production smoke PENDING
+    authority level; F1 REQUIRED/IN PROGRESS; F2 READY_FOR_MANUAL_SMOKE;
+    F3 PLANNED / REQUIRED; final integration/production smoke PENDING
     after F3)
   - **9B** Student Booking Stats / Progress / Recommendations Cutover — PENDING
   - **9C** Course Progress / Achievements Cutover — PENDING

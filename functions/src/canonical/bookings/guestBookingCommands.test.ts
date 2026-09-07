@@ -997,6 +997,146 @@ describe('expire_guest_reservation command', () => {
       'cancelled'
     );
   });
+
+  it('leaves the Booking unchanged before the deadline and expires at the inclusive boundary', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await runCommands(executor, '2026-01-01T10:00:00.000Z').execute(guestCreateEnvelope());
+
+    const beforeDeadline = await runCommands(executor, '2026-01-01T10:59:59.000Z').execute({
+      kind: 'expire_guest_reservation',
+      context: {
+        actor: systemCommandActor(SystemActorIdSchema.parse('system_guest_expiry_before')),
+        exercisedCapability: 'system',
+        idempotencyKey: 'guest-expire-before-deadline',
+        correlationId,
+        source: 'scheduler',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: { bookingId },
+    });
+    expect(beforeDeadline.status).toBe('error');
+    expect(beforeDeadline.status === 'error' ? beforeDeadline.error.code : '').toBe(
+      'invalid_transition'
+    );
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'pending'
+    );
+
+    const atDeadline = await runCommands(executor, '2026-01-01T11:00:00.000Z').execute({
+      kind: 'expire_guest_reservation',
+      context: {
+        actor: systemCommandActor(SystemActorIdSchema.parse('system_guest_expiry_boundary')),
+        exercisedCapability: 'system',
+        idempotencyKey: 'guest-expire-at-deadline',
+        correlationId,
+        source: 'scheduler',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: { bookingId },
+    });
+    expect(atDeadline.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle).toMatchObject({
+      status: 'cancelled',
+      reasonCode: 'reservation_expired',
+    });
+  });
+
+  it('expires a partially funded pending guest Booking without mutating Payment', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await runCommands(executor, '2026-01-01T10:00:00.000Z').execute(guestCreateEnvelope());
+    expect(
+      (
+        await runCommands(executor, '2026-01-01T10:10:00.000Z').execute({
+          kind: 'record_provider_payment_event',
+          context: {
+            actor: accountCommandActor(adminAccountId),
+            exercisedCapability: 'administrator',
+            idempotencyKey: 'guest-expire-partial-pay',
+            correlationId,
+            source: 'admin_callable',
+            expectedRevision: AggregateRevisionSchema.parse(1),
+          },
+          intent: {
+            paymentId,
+            amount: 5_000,
+            sourceKind: 'manual_external',
+            manualReference: 'guest-expire-partial-pay-ref',
+          },
+        })
+      ).status
+    ).toBe('success');
+
+    const expireResult = await runCommands(executor, '2026-01-01T11:01:00.000Z').execute({
+      kind: 'expire_guest_reservation',
+      context: {
+        actor: systemCommandActor(SystemActorIdSchema.parse('system_guest_expiry_partial_unpaid')),
+        exercisedCapability: 'system',
+        idempotencyKey: 'guest-expire-partial',
+        correlationId,
+        source: 'scheduler',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: { bookingId },
+    });
+    expect(expireResult.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle).toMatchObject({
+      status: 'cancelled',
+      reasonCode: 'reservation_expired',
+    });
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: 5_000,
+      outstandingAmount: 7_000,
+      paymentStatus: 'partially_paid',
+      revision: 2,
+    });
+  });
+
+  it('does not expire a confirmed guest Booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await runCommands(executor, '2026-01-01T10:00:00.000Z').execute(guestCreateEnvelope());
+    expect(
+      (
+        await runCommands(executor, '2026-01-01T10:10:00.000Z').execute({
+          kind: 'record_provider_payment_event',
+          context: {
+            actor: accountCommandActor(adminAccountId),
+            exercisedCapability: 'administrator',
+            idempotencyKey: 'guest-expire-confirmed-pay',
+            correlationId,
+            source: 'admin_callable',
+            expectedRevision: AggregateRevisionSchema.parse(1),
+          },
+          intent: {
+            paymentId,
+            amount: 12_000,
+            sourceKind: 'manual_external',
+            manualReference: 'guest-expire-confirmed-pay-ref',
+          },
+        })
+      ).status
+    ).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'confirmed'
+    );
+
+    const result = await runCommands(executor, '2026-01-01T11:30:00.000Z').execute({
+      kind: 'expire_guest_reservation',
+      context: {
+        actor: systemCommandActor(SystemActorIdSchema.parse('system_guest_expiry_confirmed')),
+        exercisedCapability: 'system',
+        idempotencyKey: 'guest-expire-confirmed',
+        correlationId,
+        source: 'scheduler',
+        expectedRevision: AggregateRevisionSchema.parse(2),
+      },
+      intent: { bookingId },
+    });
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('invalid_transition');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'confirmed'
+    );
+  });
 });
 
 describe('guest pending cancellation command', () => {

@@ -104,6 +104,16 @@
       ]
     },
     {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "attribution.bookingOrigin", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle.reservationExpiresAt.seconds", "order": "ASCENDING" },
+        { "fieldPath": "bookingId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "course_enrollments",
       "queryScope": "COLLECTION",
       "fields": [

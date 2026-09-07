@@ -42,6 +42,59 @@ export function isGuestReservationExpired(input: {
   return compareCanonicalTimestamps(input.now, input.reservationExpiresAt) >= 0;
 }
 
+export type GuestLessonReservationExpiryRejectReason =
+  | 'not_guest'
+  | 'already_confirmed'
+  | 'terminal_or_non_pending'
+  | 'missing_payment'
+  | 'fully_funded'
+  | 'not_yet_expired';
+
+export type GuestLessonReservationExpiryDecision =
+  | { readonly outcome: 'expire' }
+  | {
+      readonly outcome: 'rejected';
+      readonly reason: GuestLessonReservationExpiryRejectReason;
+    };
+
+/**
+ * Booking-aggregate expiry eligibility. Party size is not an input: a future
+ * multi-participant lesson Booking expires once, from Payment funding + deadline.
+ */
+export function evaluateGuestLessonReservationExpiry(input: {
+  readonly bookingOrigin: string;
+  readonly lifecycleStatus: string;
+  readonly reservationExpiresAt?: CanonicalTimestamp;
+  readonly now: CanonicalTimestamp;
+  readonly hasPayment: boolean;
+  readonly paymentFullyFunded: boolean;
+}): GuestLessonReservationExpiryDecision {
+  if (input.bookingOrigin !== 'guest') {
+    return { outcome: 'rejected', reason: 'not_guest' };
+  }
+  if (input.lifecycleStatus === 'confirmed') {
+    return { outcome: 'rejected', reason: 'already_confirmed' };
+  }
+  if (input.lifecycleStatus !== 'pending' || input.reservationExpiresAt === undefined) {
+    return { outcome: 'rejected', reason: 'terminal_or_non_pending' };
+  }
+  if (!input.hasPayment) {
+    return { outcome: 'rejected', reason: 'missing_payment' };
+  }
+  if (input.paymentFullyFunded) {
+    return { outcome: 'rejected', reason: 'fully_funded' };
+  }
+  if (
+    !isGuestReservationExpired({
+      now: input.now,
+      reservationExpiresAt: input.reservationExpiresAt,
+    })
+  ) {
+    return { outcome: 'rejected', reason: 'not_yet_expired' };
+  }
+  return { outcome: 'expire' };
+}
+
 export function isGuestBookingRequestAllowedBeforeStart(input: {
   readonly now: CanonicalTimestamp;
   readonly serviceStartsAt: CanonicalTimestamp;
@@ -69,7 +122,8 @@ export type GuestManualPaymentAcceptanceDecision =
 
 /**
  * Whether money may be accepted against a guest Booking.
- * Independent of whether the Payment will become fully funded and confirm the Booking.
+ * Independent of whether an already fully funded Payment should confirm the Booking.
+ * `reservationExpiresAt` is the deadline for new guest funding and unpaid holds.
  */
 export function evaluateGuestManualPaymentAcceptance(input: {
   readonly bookingOrigin: string;
@@ -94,6 +148,48 @@ export function evaluateGuestManualPaymentAcceptance(input: {
     })
   ) {
     return { outcome: 'rejected', reason: 'reservation_expired' };
+  }
+  if (
+    !isGuestBookingConfirmationAllowedBeforeStart({
+      now: input.now,
+      serviceStartsAt: input.serviceStartsAt,
+    })
+  ) {
+    return { outcome: 'rejected', reason: 'service_started' };
+  }
+  return { outcome: 'accepted' };
+}
+
+export type GuestBookingFundedConfirmationRejectReason =
+  Exclude<GuestManualPaymentAcceptanceRejectReason, 'reservation_expired'>;
+
+export type GuestBookingFundedConfirmationDecision =
+  | { readonly outcome: 'not_applicable' }
+  | { readonly outcome: 'accepted' }
+  | {
+      readonly outcome: 'rejected';
+      readonly reason: GuestBookingFundedConfirmationRejectReason;
+    };
+
+/**
+ * Whether an already fully funded Payment may confirm a pending guest Booking.
+ * Does not consult `reservationExpiresAt`: that deadline does not block
+ * confirmation/reconciliation of money already accepted on the canonical path.
+ */
+export function evaluateGuestBookingFundedConfirmation(input: {
+  readonly bookingOrigin: string;
+  readonly lifecycleStatus: string;
+  readonly serviceStartsAt: CanonicalTimestamp;
+  readonly now: CanonicalTimestamp;
+}): GuestBookingFundedConfirmationDecision {
+  if (input.bookingOrigin !== 'guest') {
+    return { outcome: 'not_applicable' };
+  }
+  if (input.lifecycleStatus === 'confirmed') {
+    return { outcome: 'rejected', reason: 'already_confirmed' };
+  }
+  if (input.lifecycleStatus !== 'pending') {
+    return { outcome: 'rejected', reason: 'terminal_or_non_pending' };
   }
   if (
     !isGuestBookingConfirmationAllowedBeforeStart({

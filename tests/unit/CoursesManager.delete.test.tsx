@@ -170,25 +170,26 @@ describe('Canonical CoursesManager', () => {
     expect((await screen.findAllByText('Canonical Freeride Camp')).length).toBeGreaterThan(0);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Add Course' }));
-    await user.type(screen.getByLabelText('title'), 'Canonical Retry Course');
-    await user.type(screen.getByLabelText('price (KZT)'), '50000');
-    await waitFor(() => expect(screen.getByLabelText(/Coach/)).toBeInTheDocument());
-    await user.click(screen.getByLabelText(/Coach/));
-    await user.type(screen.getByLabelText('duration'), 'Two days');
-    await user.type(screen.getByLabelText('dates'), '1–2 December 2026');
-    await user.type(screen.getByLabelText('bgImageUrl'), 'https://example.com/retry.webp');
-    await user.type(screen.getByLabelText('description'), 'Canonical retry description');
-    await user.type(
-      screen.getByLabelText(/CourseDays/),
-      '2026-12-01 10:00 120 instructor_admin_component_01'
-    );
+    // This test exercises retry identity, not per-keystroke input behavior.
+    const fill = (label: string | RegExp, value: string) => {
+      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    };
+    fill('title', 'Canonical Retry Course');
+    fill('titleRu', 'Повторное создание курса');
+    fill('price (KZT)', '50000');
+    await user.click(await screen.findByLabelText(/Coach/));
+    fill('duration', 'Two days');
+    fill('dates', '1–2 December 2026');
+    fill('bgImageUrl', 'https://example.com/retry.webp');
+    fill('description', 'Canonical retry description');
+    fill(/CourseDays/, '2026-12-01 10:00 120 instructor_admin_component_01');
 
-    const form = document.querySelector('form');
-    expect(form).not.toBeNull();
     const submit = screen.getByRole('button', { name: 'Create canonical course' });
-    fireEvent.submit(form!);
+    await user.click(submit);
     await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(1));
-    fireEvent.submit(form!);
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    await waitFor(() => expect(submit).toBeEnabled());
+    await user.click(submit);
     await waitFor(() => expect(executeAuthenticatedCanonicalCommand).toHaveBeenCalledTimes(2));
     expect(executeAuthenticatedCanonicalCommand.mock.calls[0]?.[1].idempotencyKey).toBe(
       executeAuthenticatedCanonicalCommand.mock.calls[1]?.[1].idempotencyKey

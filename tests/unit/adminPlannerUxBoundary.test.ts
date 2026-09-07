@@ -8,6 +8,7 @@ function readSource(relativePath: string) {
 
 describe('T32.9A.2.2 Planner / Lesson Admin UX boundary', () => {
   const panel = readSource('src/features/admin/lesson-bookings/AdminLessonBookingPanel.tsx');
+  const detail = readSource('src/features/admin/lesson-bookings/AdminLessonBookingDetail.tsx');
   const commands = readSource(
     'src/features/admin/lesson-bookings/useAdminLessonBookingCommands.ts'
   );
@@ -30,16 +31,21 @@ describe('T32.9A.2.2 Planner / Lesson Admin UX boundary', () => {
     expect(commands).toContain("'change_booking_instructor'");
     expect(commands).toContain("'change_booking_duration'");
 
-    expect(panel).not.toContain('adminLessonCreateTitle');
-    expect(panel).not.toContain('submitCreate');
-    expect(panel).not.toContain('adminLessonReschedule');
-    expect(panel).not.toContain('adminLessonReassign');
-    expect(panel).not.toContain('adminLessonChangeDuration');
-    expect(panel).toContain('openInPlanner');
+    // Scheduling controls must stay absent from both container and extracted detail.
+    for (const source of [panel, detail]) {
+      expect(source).not.toContain('adminLessonCreateTitle');
+      expect(source).not.toContain('submitCreate');
+      expect(source).not.toContain('adminLessonReschedule');
+      expect(source).not.toContain('adminLessonReassign');
+      expect(source).not.toContain('adminLessonChangeDuration');
+    }
+    expect(panel).toContain('onOpenPlanner=');
+    expect(detail).toContain('onClick={onOpenPlanner}');
+    expect(detail).toContain("t('openInPlanner')");
     expect(panel).toContain('ADMIN_PLANNER_DATE_QUERY_KEY');
-    expect(panel).toContain('record_booking_attendance');
-    expect(panel).toContain('resolve_booking_cancellation');
-    expect(panel).toContain('resolve_attendance_outcome');
+    expect(detail).toContain('record_booking_attendance');
+    expect(detail).toContain('resolve_booking_cancellation');
+    expect(detail).toContain('resolve_attendance_outcome');
   });
 
   it('gives Planner managed Participant create, duration change, and lesson-detail navigation', () => {

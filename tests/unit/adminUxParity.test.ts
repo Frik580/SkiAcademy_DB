@@ -598,7 +598,8 @@ describe('T32.9A Admin UX parity behavior', () => {
     expect(mapped.priceKZT).toBe(90_000);
     expect(mapped.availableSeats).toBe(7);
     expect(mapped.duration).toBe('3 days');
-    expect(mapped.dates).toBe('1–3 Jan');
+    // CourseDay schedule takes precedence over stale catalog presentation dates.
+    expect(mapped.dates).toBe('01.09.2026');
     const names = enrolledNamesByCourseId([
       {
         course: { courseId: 'course_1' },

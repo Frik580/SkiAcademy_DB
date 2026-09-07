@@ -36,6 +36,12 @@ interface AttemptBase {
 
 export type AdminLessonBookingMutationAttempt =
   | (AttemptBase & {
+      readonly kind: 'record_provider_payment_event';
+      readonly paymentId: string;
+      readonly paymentRevision: number;
+      readonly amount: number;
+    })
+  | (AttemptBase & {
       readonly kind: 'resolve_booking_cancellation';
       readonly paymentId: string;
       readonly paymentRevision?: number;

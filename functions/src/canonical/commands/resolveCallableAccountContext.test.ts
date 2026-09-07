@@ -57,6 +57,25 @@ describe('resolveCallableAccountContext', () => {
     ).toThrow('forbidden');
   });
 
+  it('routes external Payment recording only through trusted Admin authority', () => {
+    expect(
+      resolveCallableAccountContext(
+        { role: 'admin' },
+        { authUid: accountId, commandKind: 'record_provider_payment_event' }
+      )
+    ).toMatchObject({
+      accountId,
+      capability: 'administrator',
+      source: 'admin_callable',
+    });
+    expect(() =>
+      resolveCallableAccountContext(
+        { role: 'user' },
+        { authUid: accountId, commandKind: 'record_provider_payment_event' }
+      )
+    ).toThrow('forbidden');
+  });
+
   it('routes transfer_course_enrollment through trusted Admin authority', () => {
     expect(
       resolveCallableAccountContext(

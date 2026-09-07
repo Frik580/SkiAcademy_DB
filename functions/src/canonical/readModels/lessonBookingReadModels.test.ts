@@ -351,7 +351,7 @@ describe('Admin lesson booking read models', () => {
 
   function adminFixture(
     bookings: readonly ReturnType<typeof canonicalBooking>[],
-    options: { readonly unmanagedGuest?: boolean } = {}
+    options: { readonly unmanagedGuest?: boolean; readonly unpaidPayment?: boolean } = {}
   ) {
     const participantDocuments: Record<string, Record<string, unknown>> = {};
     const paymentDocuments: Record<string, Record<string, unknown>> = {};
@@ -386,13 +386,13 @@ describe('Admin lesson booking read models', () => {
         currency: 'KZT',
         originalPrice: 50_000,
         price: 50_000,
-        paidAmount: 50_000,
+        paidAmount: options.unpaidPayment ? 0 : 50_000,
         refundedAmount: 0,
-        retainedAmount: 50_000,
-        settledAmount: 50_000,
+        retainedAmount: options.unpaidPayment ? 0 : 50_000,
+        settledAmount: options.unpaidPayment ? 0 : 50_000,
         writtenOffAmount: 0,
-        outstandingAmount: 0,
-        paymentStatus: 'paid',
+        outstandingAmount: options.unpaidPayment ? 50_000 : 0,
+        paymentStatus: options.unpaidPayment ? 'unpaid' : 'paid',
         payerAccountId: adminId,
         incrementalRequirements: [],
         eventRevision: 1,
@@ -540,6 +540,7 @@ describe('Admin lesson booking read models', () => {
       serviceParticipantIds: booking.occurrence.serviceParty.participantIds,
       authorizedActions: {
         canConfirmGuest: false,
+        canRecordGuestPayment: false,
         canDirectCancel: false,
         canReschedule: false,
         canChangeInstructor: false,
@@ -579,6 +580,39 @@ describe('Admin lesson booking read models', () => {
       canConfirmGuest: false,
       canDirectCancel: false,
       canLinkGuestToAccount: false,
+    });
+  });
+
+  it('authorizes cash capture only for an eligible pending underfunded guest Booking', async () => {
+    const base = canonicalBooking('booking_admin_guest_payment_01', '2026-08-01T12:00:00.000Z', {
+      status: 'confirmed',
+    });
+    const booking = BookingSchema.parse({
+      ...base,
+      attribution: {
+        bookingOrigin: 'guest',
+        bookedBy: { kind: 'guest', guestSubjectId: 'guest_subject_admin_payment_01' },
+      },
+      lifecycle: {
+        status: 'pending',
+        reservationExpiresAt: timestampFromDate(new Date('2026-08-01T13:00:00.000Z')),
+      },
+    });
+    const { firestore } = adminFixture([booking], { unpaidPayment: true });
+
+    const model = await buildAdminLessonBookingReadModel(firestore, adminActor, booking, {
+      now: readNow,
+    });
+
+    expect(model?.admin?.authorizedActions).toMatchObject({
+      canConfirmGuest: false,
+      canRecordGuestPayment: true,
+    });
+    expect(model?.admin?.payment).toMatchObject({
+      currency: 'KZT',
+      price: 50_000,
+      paid: 0,
+      outstanding: 50_000,
     });
   });
 

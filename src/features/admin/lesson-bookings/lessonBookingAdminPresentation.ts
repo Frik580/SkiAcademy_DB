@@ -120,6 +120,7 @@ export function lessonAdminPaymentAncillaryRows(
 export function hasVisibleLessonAdminMutation(admin: LessonBookingAdminProjection): boolean {
   const actions = admin.authorizedActions;
   if (
+    actions.canRecordGuestPayment ||
     actions.canDirectCancel ||
     actions.canResolveCancellation ||
     actions.canResolveAttendanceOutcome ||

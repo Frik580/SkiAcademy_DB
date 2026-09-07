@@ -215,6 +215,128 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
     expect(activityLogs.size).toBe(1);
   }, 30_000);
 
+  it('records full guest cash exactly once and confirms the Booking atomically', async () => {
+    const commands = createCommands('2026-01-01T10:00:00.000Z');
+    expect(
+      (
+        await commands.execute(
+          guestCreateEnvelope({ bookingId, idempotencyKey: 'guest-cash-create-01' })
+        )
+      ).status
+    ).toBe('success');
+
+    const cashEnvelope: CommandEnvelope<'record_provider_payment_event'> = {
+      kind: 'record_provider_payment_event',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: 'guest-cash-payment-01',
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        paymentId,
+        amount: 12_000,
+        sourceKind: 'cash',
+        manualReference: 'admin-received-guest-cash',
+      },
+    };
+
+    expect((await commands.execute(cashEnvelope)).status).toBe('success');
+    expect((await commands.execute(cashEnvelope)).status).toBe('success');
+
+    expect((await firestore.collection('payments').doc(paymentId).get()).data()).toMatchObject({
+      currency: 'KZT',
+      price: 12_000,
+      paidAmount: 12_000,
+      settledAmount: 12_000,
+      outstandingAmount: 0,
+      paymentStatus: 'paid',
+      revision: 2,
+    });
+    const booking = (await firestore.collection('bookings').doc(bookingId).get()).data();
+    expect(booking?.lifecycle.status).toBe('confirmed');
+    expect(booking).not.toHaveProperty('status');
+    expect(booking).not.toHaveProperty('totalPrice');
+
+    const events = await firestore
+      .collection('monetary_events')
+      .where('paymentId', '==', paymentId)
+      .get();
+    expect(events.size).toBe(1);
+    expect(events.docs[0]?.data()).toMatchObject({
+      eventKind: 'manual_payment',
+      sourceKind: 'cash',
+      paymentEffect: {
+        paidAmountDelta: 12_000,
+        settledAmountDelta: 12_000,
+        outstandingAmountDelta: -12_000,
+      },
+      actor: { kind: 'account', accountId: adminAccountId },
+    });
+
+    const logs = await firestore
+      .collection('activity_logs')
+      .where('command.kind', '==', 'record_provider_payment_event')
+      .get();
+    expect(logs.size).toBe(1);
+    expect((await firestore.collection('wallet_ledger').get()).empty).toBe(true);
+    expect((await firestore.collection('settings').doc('guest_wallet').get()).exists).toBe(false);
+  }, 30_000);
+
+  it('serializes two Admin cash submissions against one Payment revision', async () => {
+    const commands = createCommands('2026-01-01T10:00:00.000Z');
+    expect(
+      (
+        await commands.execute(
+          guestCreateEnvelope({ bookingId, idempotencyKey: 'guest-cash-race-create-01' })
+        )
+      ).status
+    ).toBe('success');
+
+    const secondAdminId = AccountIdSchema.parse('account_guest_emulator_admin_02');
+    const outcomes = await Promise.all(
+      [
+        { actorId: adminAccountId, key: 'guest-cash-race-a' },
+        { actorId: secondAdminId, key: 'guest-cash-race-b' },
+      ].map(({ actorId, key }) =>
+        commands.execute({
+          kind: 'record_provider_payment_event',
+          context: {
+            actor: accountCommandActor(actorId),
+            exercisedCapability: 'administrator',
+            idempotencyKey: key,
+            correlationId,
+            source: 'admin_callable',
+            expectedRevision: AggregateRevisionSchema.parse(1),
+          },
+          intent: {
+            paymentId,
+            amount: 5_000,
+            sourceKind: 'cash',
+            manualReference: key,
+          },
+        })
+      )
+    );
+
+    expect(outcomes.filter((outcome) => outcome.status === 'success')).toHaveLength(1);
+    expect(
+      outcomes.filter(
+        (outcome) => outcome.status === 'error' && outcome.error.code === 'stale_version'
+      )
+    ).toHaveLength(1);
+    expect((await firestore.collection('payments').doc(paymentId).get()).data()).toMatchObject({
+      paidAmount: 5_000,
+      outstandingAmount: 7_000,
+      revision: 2,
+    });
+    expect(
+      (await firestore.collection('monetary_events').where('paymentId', '==', paymentId).get()).size
+    ).toBe(1);
+  }, 30_000);
+
   it('serializes full Payment vs expiry without resurrecting a terminal booking', async () => {
     const createCommandsAt = createCommands('2026-01-01T10:00:00.000Z');
     await createCommandsAt.execute(

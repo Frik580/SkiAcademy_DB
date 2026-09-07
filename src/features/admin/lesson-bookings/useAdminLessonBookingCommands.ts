@@ -3,6 +3,7 @@ import {
   AccountIdSchema,
   AggregateRevisionSchema,
   BookingIdSchema,
+  canonicalDeterministicHash,
   InstructorIdSchema,
   KztMinorUnitsSchema,
   ParticipantIdSchema,
@@ -53,6 +54,27 @@ export async function executeAdminLessonBookingAttempt(
         },
         timezone: attempt.timezone,
         administratorContext: true,
+      })
+    );
+    return;
+  }
+
+  if (attempt.kind === 'record_provider_payment_event') {
+    await assertCommandSucceeded(
+      executeAuthenticatedCanonicalCommand(adminAccountId, {
+        kind: attempt.kind,
+        intent: {
+          paymentId: PaymentIdSchema.parse(attempt.paymentId),
+          amount: KztMinorUnitsSchema.parse(attempt.amount),
+          sourceKind: 'cash',
+          manualReference: `admin-cash:${canonicalDeterministicHash([
+            'admin_guest_cash:v1',
+            attempt.target.bookingId,
+            attempt.idempotencyKey,
+          ])}`,
+        },
+        idempotencyKey: attempt.idempotencyKey,
+        expectedRevision: AggregateRevisionSchema.parse(attempt.paymentRevision),
       })
     );
     return;
@@ -193,7 +215,7 @@ export async function executeAdminLessonBookingAttempt(
 }
 
 export type AdminLessonBookingAttemptResult =
-  | { readonly status: 'success' }
+  | { readonly status: 'success'; readonly refreshFailed?: boolean }
   | { readonly status: 'error'; readonly error: CanonicalCommandClientError };
 
 export function useAdminLessonBookingCommands(input: {
@@ -209,7 +231,8 @@ export function useAdminLessonBookingCommands(input: {
       const refreshCanonicalProjections = async () => {
         await Promise.all([
           refreshBooking(bookingId),
-          attempt.kind === 'resolve_booking_cancellation'
+          attempt.kind === 'resolve_booking_cancellation' ||
+          attempt.kind === 'record_provider_payment_event'
             ? queryAdminFinanceReadModels({
                 scope: 'admin_payment_detail',
                 paymentId: PaymentIdSchema.parse(attempt.paymentId),
@@ -237,6 +260,9 @@ export function useAdminLessonBookingCommands(input: {
         await refreshCanonicalProjections();
         return { status: 'success' };
       } catch (error) {
+        if (attempt.kind === 'record_provider_payment_event') {
+          return { status: 'success', refreshFailed: true };
+        }
         return {
           status: 'error',
           error:

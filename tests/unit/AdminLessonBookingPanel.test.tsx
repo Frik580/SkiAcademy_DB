@@ -144,6 +144,7 @@ function detail(): LessonBookingReadModel {
       serviceParticipantIds: ['participant_admin_panel_01'],
       authorizedActions: {
         canConfirmGuest: false,
+        canRecordGuestPayment: false,
         canDirectCancel: false,
         canReschedule: false,
         canChangeInstructor: false,
@@ -203,6 +204,7 @@ function pendingUnpaidAdminDetail(): LessonBookingReadModel {
       ],
       authorizedActions: {
         canConfirmGuest: false,
+        canRecordGuestPayment: true,
         canDirectCancel: false,
         canReschedule: false,
         canChangeInstructor: false,
@@ -314,6 +316,68 @@ describe('AdminLessonBookingPanel', () => {
     ).not.toBeInTheDocument();
     expect(screen.getAllByText('adminLessonStatusAwaitingPayment').length).toBeGreaterThan(0);
     expect(screen.getByText('adminLessonGuestApprovalUnavailable')).toBeVisible();
+  });
+
+  it('records one partial cash Payment attempt with the captured Payment revision', async () => {
+    let completeAttempt: ((value: { status: 'success' }) => void) | undefined;
+    runAttemptMock.mockImplementation(
+      () =>
+        new Promise<{ status: 'success' }>((resolve) => {
+          completeAttempt = resolve;
+        })
+    );
+    renderPanel(pendingUnpaidAdminDetail());
+
+    expect(screen.getByText('adminLessonPaymentPrice')).toBeVisible();
+    expect(screen.getByText('adminFinancePaid')).toBeVisible();
+    expect(screen.getByText('adminLessonPaymentRemaining')).toBeVisible();
+    const amount = screen.getByLabelText('adminLessonPaymentAmount');
+    expect(amount).toHaveValue(60_000);
+
+    fireEvent.change(amount, { target: { value: '5000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonRecordPayment' }));
+    const submit = screen.getByRole('button', { name: 'adminLessonConfirmSubmit' });
+    fireEvent.click(submit);
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(runAttemptMock).toHaveBeenCalledTimes(1));
+    expect(runAttemptMock.mock.calls[0]?.[0]).toMatchObject({
+      kind: 'record_provider_payment_event',
+      target: { bookingId: 'booking_admin_panel_01', revision: 5 },
+      paymentId: 'payment_admin_panel_01',
+      paymentRevision: 1,
+      amount: 5_000,
+    });
+
+    completeAttempt?.({ status: 'success' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('defaults a new cash Payment attempt to the full canonical remainder', async () => {
+    runAttemptMock.mockResolvedValue({ status: 'success' });
+    renderPanel(pendingUnpaidAdminDetail());
+
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonRecordPayment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonConfirmSubmit' }));
+
+    await waitFor(() => expect(runAttemptMock).toHaveBeenCalledTimes(1));
+    expect(runAttemptMock.mock.calls[0]?.[0]).toMatchObject({
+      kind: 'record_provider_payment_event',
+      paymentId: 'payment_admin_panel_01',
+      paymentRevision: 1,
+      amount: 60_000,
+    });
+  });
+
+  it('keeps committed Payment success visible when the authoritative refresh fails', async () => {
+    runAttemptMock.mockResolvedValue({ status: 'success', refreshFailed: true });
+    renderPanel(pendingUnpaidAdminDetail());
+
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonRecordPayment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'adminLessonConfirmSubmit' }));
+
+    expect(await screen.findByText('adminLessonPaymentRecordedRefreshPending')).toBeVisible();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('keeps server pagination reachable when a filtered page is empty', () => {
@@ -521,7 +585,8 @@ describe('AdminLessonBookingPanel', () => {
       screen.queryByText(/server currently authorizes no booking mutations/i)
     ).not.toBeInTheDocument();
     expect(screen.queryByText('adminLessonNoActions')).not.toBeInTheDocument();
-    expect(screen.getByText('adminLessonNoActionsAwaitingConfirmation')).toBeVisible();
+    expect(screen.queryByText('adminLessonNoActionsAwaitingConfirmation')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'adminLessonRecordPayment' })).toBeVisible();
     expect(screen.getByText('adminLessonAttendanceMissing')).toBeVisible();
     expect(screen.getByText('adminLessonLinkReasonExpired')).toBeVisible();
     expect(screen.getByText('adminLessonNoRelatedIssues')).toBeVisible();

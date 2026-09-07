@@ -223,6 +223,74 @@ describe('finance commands', () => {
     expect(payment?.outstandingAmount).toBe(50_000);
   });
 
+  it('rejects overpayment without mutating canonical Payment or monetary history', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`users/${accountId}`]: seedAccount(),
+      [`payments/${paymentId}`]: seedPayment(),
+    });
+
+    const result = await runCommand(executor, {
+      kind: 'record_provider_payment_event',
+      context: {
+        ...adminContext('cash-overpayment-1'),
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: {
+        paymentId,
+        amount: 70_001,
+        sourceKind: 'cash',
+        manualReference: 'cash-overpayment-rejected',
+      },
+    });
+
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('validation');
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: 30_000,
+      outstandingAmount: 70_000,
+      revision: 1,
+    });
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/'))
+    ).toHaveLength(0);
+  });
+
+  it.each(['account_owner', 'instructor'] as const)(
+    'denies %s capability from recording a Payment',
+    async (exercisedCapability) => {
+      const executor = createInMemoryCanonicalTransactionExecutor({
+        [`users/${accountId}`]: seedAccount(),
+        [`payments/${paymentId}`]: seedPayment(),
+      });
+
+      const result = await runCommand(executor, {
+        kind: 'record_provider_payment_event',
+        context: {
+          actor: accountCommandActor(accountId),
+          exercisedCapability,
+          idempotencyKey: `unauthorized-cash-${exercisedCapability}`,
+          correlationId,
+          source: 'client_callable',
+          expectedRevision: AggregateRevisionSchema.parse(1),
+        },
+        intent: {
+          paymentId,
+          amount: 5_000,
+          sourceKind: 'cash',
+          manualReference: 'unauthorized-cash-attempt',
+        },
+      });
+
+      expect(result.status).toBe('error');
+      expect(result.status === 'error' ? result.error.code : '').toBe('forbidden');
+      expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+        paidAmount: 30_000,
+        outstandingAmount: 70_000,
+        revision: 1,
+      });
+    }
+  );
+
   it('deduplicates provider payment events by receipt identity', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       [`users/${accountId}`]: seedAccount(),

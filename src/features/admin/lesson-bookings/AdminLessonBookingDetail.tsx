@@ -58,6 +58,8 @@ export interface AdminLessonBookingDetailProps {
   readonly onActionReasonChange: (value: string) => void;
   readonly refundAmount: string;
   readonly onRefundAmountChange: (value: string) => void;
+  readonly paymentAmount: string;
+  readonly onPaymentAmountChange: (value: string) => void;
   readonly linkSelection: AdminManagedParticipantSelection | undefined;
   readonly onLinkSelectionChange: (selection: AdminManagedParticipantSelection | undefined) => void;
   readonly linkReason: string;
@@ -139,6 +141,8 @@ export function AdminLessonBookingDetail({
   onActionReasonChange,
   refundAmount,
   onRefundAmountChange,
+  paymentAmount,
+  onPaymentAmountChange,
   linkSelection,
   onLinkSelectionChange,
   linkReason,
@@ -185,6 +189,11 @@ export function AdminLessonBookingDetail({
     Number(refundAmount) <= (admin.cancellationFinancial?.maximumRefund ?? 0);
   const payment = admin.payment;
   const awaitingPayment = isPendingUnpaidOutstanding(detail);
+  const parsedPaymentAmount = Number(paymentAmount);
+  const paymentAmountValid =
+    Number.isInteger(parsedPaymentAmount) &&
+    parsedPaymentAmount > 0 &&
+    parsedPaymentAmount <= payment.outstanding;
 
   return (
     <div className="space-y-4">
@@ -297,6 +306,46 @@ export function AdminLessonBookingDetail({
             <dt className="text-[var(--ink-dim)]">{t('adminLessonPaymentStatus')}</dt>
             <dd>{t(PAYMENT_STATUS_LABEL_KEYS[payment.status])}</dd>
           </dl>
+          {admin.authorizedActions.canRecordGuestPayment && (
+            <div className="space-y-2 border-t border-[var(--border)] pt-3">
+              <label htmlFor="admin-guest-payment-amount" className="block text-xs">
+                {t('adminLessonPaymentAmount')}
+                <input
+                  id="admin-guest-payment-amount"
+                  aria-label={t('adminLessonPaymentAmount')}
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  max={payment.outstanding}
+                  step="1"
+                  value={paymentAmount}
+                  onChange={(event) => onPaymentAmountChange(event.target.value)}
+                  className="mt-1 w-full border border-[var(--border)] bg-transparent p-2 tabular-nums"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={!paymentAmountValid}
+                onClick={() =>
+                  onRequestAttempt(
+                    {
+                      kind: 'record_provider_payment_event',
+                      paymentId: payment.paymentId,
+                      paymentRevision: payment.revision,
+                      amount: parsedPaymentAmount,
+                    },
+                    t('adminLessonConfirmPayment').replace(
+                      '{amount}',
+                      formatKzt(parsedPaymentAmount)
+                    )
+                  )
+                }
+                className="w-full border border-[var(--ink)] bg-[var(--ink)] px-3 py-2 text-xs text-[var(--bg)] disabled:opacity-50"
+              >
+                {t('adminLessonRecordPayment')}
+              </button>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => onOpenPayment(payment.paymentId)}

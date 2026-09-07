@@ -62,6 +62,7 @@ function baseAdmin() {
     serviceParticipantIds: ['participant_presentation_01'],
     authorizedActions: {
       canConfirmGuest: false as const,
+      canRecordGuestPayment: false,
       canDirectCancel: false,
       canReschedule: false,
       canChangeInstructor: false,

@@ -236,6 +236,7 @@ export const LessonBookingAdminAttendancePresentationSchema = z
 export const LessonBookingAdminAuthorizedActionsSchema = z
   .object({
     canConfirmGuest: z.literal(false),
+    canRecordGuestPayment: z.boolean(),
     canDirectCancel: z.boolean(),
     canReschedule: z.boolean(),
     canChangeInstructor: z.boolean(),

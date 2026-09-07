@@ -25,6 +25,7 @@ export const ADMINISTRATOR_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
   'transfer_course_enrollment',
   'record_financial_correction',
   'record_manual_wallet_funding',
+  'record_provider_payment_event',
   'record_audit_correction',
   'enforce_payment_start_gate',
   'create_course_day',

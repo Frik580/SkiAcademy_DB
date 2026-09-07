@@ -3,9 +3,14 @@ import { BookingIdSchema, ParticipantIdSchema } from '@ski-academy/shared-domain
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const executeMock = vi.fn();
+const financeReadMock = vi.fn();
 
 vi.mock('../../src/lib/canonical/canonicalCommandClient', () => ({
   executeAuthenticatedCanonicalCommand: (...args: unknown[]) => executeMock(...args),
+}));
+
+vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
+  queryAdminFinanceReadModels: (...args: unknown[]) => financeReadMock(...args),
 }));
 
 import {
@@ -26,6 +31,8 @@ describe('canonical Admin lesson booking commands', () => {
   beforeEach(() => {
     executeMock.mockReset();
     executeMock.mockResolvedValue({ status: 'success' });
+    financeReadMock.mockReset();
+    financeReadMock.mockResolvedValue({ scope: 'admin_payment_detail' });
   });
 
   it('captures the booking target and creates fresh user-action identities', () => {
@@ -140,6 +147,33 @@ describe('canonical Admin lesson booking commands', () => {
     );
   });
 
+  it('records Admin-received guest cash through the canonical Payment command', async () => {
+    const idempotencyKey = createAdminLessonBookingAttemptId('record_guest_payment');
+    await executeAdminLessonBookingAttempt('admin_account_01', {
+      kind: 'record_provider_payment_event',
+      target,
+      idempotencyKey,
+      paymentId: 'payment_admin_command_01',
+      paymentRevision: 4,
+      amount: 5_000,
+    });
+
+    expect(executeMock).toHaveBeenCalledWith(
+      'admin_account_01',
+      expect.objectContaining({
+        kind: 'record_provider_payment_event',
+        idempotencyKey,
+        expectedRevision: 4,
+        intent: expect.objectContaining({
+          paymentId: 'payment_admin_command_01',
+          amount: 5_000,
+          sourceKind: 'cash',
+          manualReference: expect.stringMatching(/^admin-cash:/),
+        }),
+      })
+    );
+  });
+
   it('uses participant-specific attendance commands and never complete_booking', async () => {
     const attempt: AdminLessonBookingMutationAttempt = {
       kind: 'record_booking_attendance',
@@ -223,5 +257,31 @@ describe('canonical Admin lesson booking commands', () => {
     expect(executeMock).toHaveBeenCalledTimes(1);
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(refresh).toHaveBeenCalledWith(target.bookingId);
+  });
+
+  it('reports a committed cash Payment separately from a failed projection refresh', async () => {
+    const refresh = vi.fn().mockRejectedValue(new Error('read temporarily unavailable'));
+    const attempt: AdminLessonBookingMutationAttempt = {
+      kind: 'record_provider_payment_event',
+      target,
+      idempotencyKey: createAdminLessonBookingAttemptId('record_guest_payment'),
+      paymentId: 'payment_admin_command_01',
+      paymentRevision: 4,
+      amount: 20_000,
+    };
+    const { result } = renderHook(() =>
+      useAdminLessonBookingCommands({
+        adminAccountId: 'admin_account_01',
+        refreshBooking: refresh,
+      })
+    );
+
+    let outcome: Awaited<ReturnType<typeof result.current.runAttempt>> | undefined;
+    await act(async () => {
+      outcome = await result.current.runAttempt(attempt);
+    });
+
+    expect(executeMock).toHaveBeenCalledTimes(1);
+    expect(outcome).toEqual({ status: 'success', refreshFailed: true });
   });
 });

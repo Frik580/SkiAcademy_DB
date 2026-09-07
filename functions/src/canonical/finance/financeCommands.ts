@@ -275,7 +275,12 @@ function recordProviderPaymentEventHandler(
       plannedPaymentEventRevision = nextAggregateRevision(payment.eventRevision);
 
       const before = paymentAccountingFields(payment);
-      const projection = applyExternalPaymentFunding(before, envelope.intent.amount);
+      let projection: ReturnType<typeof applyExternalPaymentFunding>;
+      try {
+        projection = applyExternalPaymentFunding(before, envelope.intent.amount);
+      } catch (error) {
+        mapFinanceDomainError(envelope, error);
+      }
       const projectedPayment = mergePaymentProjection(payment, projection, {
         revision: plannedPaymentRevision,
         eventRevision: plannedPaymentEventRevision,

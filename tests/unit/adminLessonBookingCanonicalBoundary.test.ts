@@ -34,13 +34,21 @@ describe('T32.4 canonical Admin lesson booking boundary', () => {
     const commands = readRepoFile(
       'src/features/admin/lesson-bookings/useAdminLessonBookingCommands.ts'
     );
+    const detail = readRepoFile('src/features/admin/lesson-bookings/AdminLessonBookingDetail.tsx');
+    const activePaymentBoundary = panel + reads + commands + detail;
 
     expect(reads).toContain('queryLessonBookingReadModels');
     expect(commands).toContain('executeAuthenticatedCanonicalCommand');
+    expect(commands).toContain("attempt.kind === 'record_provider_payment_event'");
+    expect(commands).toContain("sourceKind: 'cash'");
+    expect(detail).toContain('canRecordGuestPayment');
     expect(commands).toContain("kind: 'resolve_attendance_outcome'");
-    expect(panel + reads + commands).not.toContain('completeBooking');
-    expect(panel + reads + commands).not.toContain('linkGuestBookingService');
-    expect(panel + reads + commands).not.toContain('getDocs(');
-    expect(panel + reads + commands).not.toContain('onSnapshot(');
+    expect(activePaymentBoundary).not.toContain('completeBooking');
+    expect(activePaymentBoundary).not.toContain('linkGuestBookingService');
+    expect(activePaymentBoundary).not.toContain('schoolGuestWallet');
+    expect(activePaymentBoundary).not.toContain('bookingService');
+    expect(activePaymentBoundary).not.toContain('updateDoc(');
+    expect(activePaymentBoundary).not.toContain('getDocs(');
+    expect(activePaymentBoundary).not.toContain('onSnapshot(');
   });
 });

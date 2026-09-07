@@ -85,8 +85,10 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
   const [confirmation, setConfirmation] = useState<Confirmation>();
   const [mutationPending, setMutationPending] = useState(false);
   const [mutationError, setMutationError] = useState<{ code: string; message: string }>();
+  const [mutationNotice, setMutationNotice] = useState<string>();
   const [actionReason, setActionReason] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
+  const [paymentAmount, setPaymentAmount] = useState('');
   const [linkSelection, setLinkSelection] = useState<AdminManagedParticipantSelection>();
   const [linkReason, setLinkReason] = useState('');
 
@@ -94,12 +96,14 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
     const item = reads.detail.item;
     if (!item) return;
     setRefundAmount(String(item.admin?.cancellationFinancial?.suggestedRefund ?? 0));
+    setPaymentAmount(String(item.admin?.payment.outstanding ?? 0));
     setActionReason('');
   }, [reads.detail.item]);
 
   useEffect(() => {
     setLinkSelection(undefined);
     setLinkReason('');
+    setMutationNotice(undefined);
     setConfirmation((current) =>
       current?.attempt.kind === 'link_guest_booking_to_account_as_administrator'
         ? undefined
@@ -130,6 +134,7 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
 
   const requestAttempt = (attempt: AdminLessonBookingAttempt, message: string) => {
     setMutationError(undefined);
+    setMutationNotice(undefined);
     setConfirmation({ attempt, message });
   };
 
@@ -137,9 +142,13 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
     if (!confirmation || mutationPending) return;
     setMutationPending(true);
     setMutationError(undefined);
+    setMutationNotice(undefined);
     const result = await commands.runAttempt(confirmation.attempt);
     setMutationPending(false);
     if (result.status === 'success') {
+      if (result.refreshFailed && confirmation.attempt.kind === 'record_provider_payment_event') {
+        setMutationNotice(t('adminLessonPaymentRecordedRefreshPending'));
+      }
       setConfirmation(undefined);
       return;
     }
@@ -170,6 +179,11 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
       {mutationError && !confirmation && (
         <div role="alert" className="border border-red-500/30 bg-red-500/5 p-3 text-xs">
           {readableError(mutationError)}
+        </div>
+      )}
+      {mutationNotice && (
+        <div role="status" className="border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+          {mutationNotice}
         </div>
       )}
 
@@ -317,6 +331,11 @@ export function AdminLessonBookingPanel({ adminAccountId }: AdminLessonBookingPa
               onActionReasonChange={setActionReason}
               refundAmount={refundAmount}
               onRefundAmountChange={setRefundAmount}
+              paymentAmount={paymentAmount}
+              onPaymentAmountChange={(value) => {
+                setPaymentAmount(value);
+                setConfirmation(undefined);
+              }}
               linkSelection={linkSelection}
               onLinkSelectionChange={(selection) => {
                 setLinkSelection(selection);

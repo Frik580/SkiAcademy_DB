@@ -169,6 +169,7 @@ describe('lessonBookingReadModel contracts', () => {
       serviceParticipantIds: ['participant_admin_contract_01'],
       authorizedActions: {
         canConfirmGuest: false,
+        canRecordGuestPayment: false,
         canDirectCancel: true,
         canReschedule: true,
         canChangeInstructor: true,

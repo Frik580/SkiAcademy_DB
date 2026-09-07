@@ -312,7 +312,14 @@ and the later migration status in
 - **T32.9A.9A.F2 — Guest Unpaid Reservation Expiry** is required before 9A may
   close. Unpaid guest individual reservations must expire through the existing
   canonical expiry policy/command; the scheduler is orchestrator only. F2 is
-  REQUIRED / PLANNED — not PASS. Do not invent a new TTL here.
+  REQUIRED / PLANNED — not PASS. Do not invent a new TTL here. F2 must remain
+  F3-compatible: expiry operates on the Booking/Payment aggregate, not on a
+  single Participant; see [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md).
+- **T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking** is required
+  before 9A final integration / production smoke and 9A close. One lesson slot,
+  one Booking lifecycle, one Payment, `participantIds[]` for N managed
+  Participants. F3 is PLANNED — not PASS. Details and acceptance criteria live in
+  [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md).
 - **T32.9B — Final Legacy Write / Runtime Cleanup** may remove leftover
   implementation only after T32.9A.9E PASS, canonical replacement, and UX
   parity. Unreachable leftover helpers such as old bundled `confirmBooking`,

@@ -276,7 +276,11 @@ T32.9A.8 — Canonical Courses UX
 
 T32.9A.9 — FINAL CANONICAL CUTOVER
   9A — Individual Booking lifecycle cutover
-       (core + F1 Admin Guest Payment Capture + F2 Guest Unpaid Reservation Expiry)
+       (core
+        → F1 Admin Guest Payment Capture
+        → F2 Guest Unpaid Reservation Expiry
+        → F3 Canonical Multi-Participant Lesson Booking
+        → final integration / production smoke)
   9B — Student Booking Stats / Progress / Recommendations Cutover
   9C — Course Progress / Achievements Cutover
   9D — Destructive Legacy Data Reset

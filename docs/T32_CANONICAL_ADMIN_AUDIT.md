@@ -3,6 +3,7 @@
 Date: 2026-08-30  
 Amended: 2026-09-01 — T32.8A, T32.8B, and T32.8C PASS; guest confirmation policy recorded in [ADR-0007](adr/0007-guest-identity-payment-and-confirmation.md); T32.9 split and global UX preservation recorded in [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md)
 Amended: 2026-09-07 — T32.9A.8 PASS/CLOSED; T32.9A.9 redefined as FINAL CANONICAL CUTOVER (9A–9E); T32.9A.9A core authority cutover recorded; F1/F2 required before 9A close; production Booking inventory and legacy Individual Booking callable cleanup recorded
+Amended: 2026-09-07 — T32.9A.9A.F3 (Canonical Multi-Participant Lesson Booking) added to roadmap after F2; F2 F3-compatibility requirement recorded; 9A final integration / production smoke gated after F3
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
@@ -34,7 +35,9 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.8 | Canonical Courses UX | PASS / CLOSED |
 | T32.9A.9A core | Individual Booking lifecycle cutover (authority) | PASS at source/production authority level |
 | T32.9A.9A.F1 | Canonical Admin Guest Payment Capture | REQUIRED / IN PROGRESS |
-| T32.9A.9A.F2 | Guest Unpaid Reservation Expiry | REQUIRED / PLANNED |
+| T32.9A.9A.F2 | Guest Unpaid Reservation Expiry | REQUIRED / PLANNED — next implementation stage |
+| T32.9A.9A.F3 | Canonical Multi-Participant Lesson Booking | PLANNED |
+| T32.9A.9A final integration / production smoke | 9A close gate after F3 | PENDING |
 | T32.9A.9A | Individual Booking lifecycle cutover (overall) | NOT CLOSED — finalization in progress |
 | T32.9A.9B | Student Booking Stats / Progress / Recommendations Cutover | PENDING |
 | T32.9A.9C | Course Progress / Achievements Cutover | PENDING |
@@ -42,7 +45,7 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.9E | Canonical Authority / Reachability Gate | PENDING |
 | T32.9B | Final Legacy Write / Runtime Cleanup | PENDING; blocked until T32.9A.9E PASS |
 
-Status labels used here: `PASS`, `PASS / CLOSED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `PENDING`, `NOT CLOSED`. Do not treat F1 or F2 as `PASS`, `CLOSED`, or `DEPLOYED` until implemented and smoked.
+Status labels used here: `PASS`, `PASS / CLOSED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `PENDING`, `NOT CLOSED`. Do not treat F1, F2, or F3 as `PASS`, `CLOSED`, or `DEPLOYED` until implemented and smoked.
 
 ### T32.9A.8 — Canonical Courses UX — PASS / CLOSED
 
@@ -61,6 +64,8 @@ T32.9A.9A — Individual Booking lifecycle cutover
   T32.9A.9A core
   T32.9A.9A.F1 — Canonical Admin Guest Payment Capture
   T32.9A.9A.F2 — Guest Unpaid Reservation Expiry
+  T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking
+  T32.9A.9A final integration / production smoke
 T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover
 T32.9A.9C — Course Progress / Achievements Cutover
 T32.9A.9D — Destructive Legacy Data Reset
@@ -90,7 +95,7 @@ not progress / presentation / feedback data by default.
 
 #### T32.9A.9A — Individual Booking lifecycle cutover — PARTIAL / FINALIZATION IN PROGRESS
 
-**9A overall is NOT CLOSED** until F1 + F2 + final smoke complete.
+**9A overall is NOT CLOSED** until F1 + F2 + F3 + final integration / production smoke complete.
 
 Core lifecycle cutover (authority level) — recorded as PASS at source/production authority level:
 
@@ -159,7 +164,165 @@ Requirements:
 
 Do not invent a new TTL in this document. Use the existing domain reservation-expiry policy already encoded by canonical Booking lifecycle. Concrete duration belongs to that policy, not to a migration invention.
 
+**F3 compatibility requirement.** F2 is implemented before F3 and must not pre-implement multi-participant lesson booking. F2 must remain **F3-compatible**: expiry is a lifecycle operation over the Booking/Payment reservation aggregate, not over a single Participant. F2 must not introduce architectural assumptions that make expiry depend on `Booking == exactly one Participant`. After F3, one Booking still has one expiry decision, one lifecycle transition, one slot release, and one Payment outcome — regardless of participant count.
+
 9A cannot close without F2. F2 is decided and required; it is not PASS/CLOSED/DEPLOYED.
+
+##### T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking — PLANNED
+
+Goal: support booking one individual/private lesson for several managed Participants in a single canonical lesson reservation.
+
+Aggregate semantics:
+
+```text
+several Participants
+        ↓
+ONE Lesson Booking
+```
+
+This is **not** several independent Bookings. A canonical lesson reservation represents one instructor lesson in one time slot with multiple participants.
+
+**Canonical invariants** for multi-participant lesson:
+
+```text
+1 Lesson Booking
+1 instructor/time-slot reservation
+1 Booking lifecycle
+1 Payment
+1 cancellation workflow
+N Participants
+```
+
+When selecting Participants A + B:
+
+```text
+Booking
+  participantIds = [A, B]
+```
+
+Not:
+
+```text
+Booking A
+Booking B
+```
+
+for the same slot. Do not create separate slot locks, Payments, or Booking lifecycles per Participant.
+
+**Participant model.** Canonical direction: `Booking.participantIds[]` must support at least `[A]` and `[A, B]` and is the source of truth for new canonical lesson writes. Do not document a specific migration implementation for legacy `participantId` until a code/schema audit defines a safe cutover/compatibility strategy.
+
+Product/domain invariant: **multi-participant Booking cannot be represented by only the first `participantId`.** The following is forbidden as canonical truth for multi-participant lesson:
+
+```text
+participantId = participantIds[0]
+```
+
+**Frontend participant selection** (preserve approved semantics):
+
+```text
+participants.length === 1
+→ picker hidden
+→ participant determined automatically
+→ booking submit uses its participantId
+
+participants.length >= 2
+→ show multi-select Participant Picker
+→ user may select multiple Participants
+→ booking submit uses full effectiveParticipantIds[]
+```
+
+Existing derived-state baseline:
+
+```text
+single participant → [singleParticipantId]
+multiple participants → selected valid participant IDs
+```
+
+`0 participants` is not a normal product flow. It is a transitional/error state (loading, provisioning incomplete, read-model/provisioning error).
+
+**CourseEnrollment — do not change.** Lesson and Course differ:
+
+```text
+Lesson:  Participants A + B → ONE Booking → participantIds = [A, B]
+Course:  Participants A + B → Enrollment A + Enrollment B
+```
+
+CourseEnrollment remains a separate canonical enrollment per Participant. F3 must not merge multiple CourseEnrollments into one aggregate.
+
+**Pricing rule.** Lesson total:
+
+```text
+totalPrice =
+  baseLessonPrice
+  + additionalParticipantFee × (participantCount - 1)
+```
+
+for `participantCount >= 1`:
+
+```text
+1 participant → baseLessonPrice
+2 participants → baseLessonPrice + 1 × additionalParticipantFee
+3 participants → baseLessonPrice + 2 × additionalParticipantFee
+```
+
+Do not fix a concrete additional-participant fee amount in this document.
+
+**Admin-configurable additional participant fee.** `additionalParticipantFee` must be set by Administrator through Admin Panel as a canonical pricing setting, stored in KZT, with server-side validation, changeable without code redeploy, and not frontend authority. During F3 implementation, audit the existing canonical settings/pricing architecture and use the existing pattern. Working semantic name: `additionalParticipantFeeKzt` — not a final storage contract until code audit.
+
+**Server price authority.** Frontend may show estimated/display price; authoritative Booking cost is determined by backend. The canonical command uses base lesson price, participant count, and current canonical additional-participant fee to calculate total server-side. Frontend does not pass authoritative final price.
+
+**Pricing snapshot.** Admin setting changes after Booking creation must not change cost of existing bookings. F3 requires Booking/Payment to retain sufficient immutable pricing snapshot / monetary facts to prove:
+
+```text
+price at booking
++ additional-participant fee at booking
++ participant count
+= authoritative charged price
+```
+
+Conceptually: base price at booking, additional participant fee at booking, participant count, final total. Do not prescribe snapshot structure until audit of existing Payment/Booking model. Payment remains numerical financial authority where already established.
+
+**Authorization.** On multi-participant Booking creation, backend must verify authorization/ownership/managed-participant access for **every** `participantId`. If A is authorized and B is not, the whole command must fail atomically — no partial Booking.
+
+**Atomicity.** Multi-participant lesson creation must be atomic relative to: Booking; slot reservation/occupancy; Payment; Wallet debit if applicable; participant relations/claims; idempotency; relevant ActivityLog/outbox effects. No partial results (Booking created but second Participant not attached; double debit; two slot locks).
+
+**Cancellation.** Multi-participant lesson has one Booking and one shared lifecycle. F3 does not introduce per-Participant cancellation by default:
+
+```text
+cancel Booking → entire lesson reservation cancelled
+```
+
+Removing one Participant from an existing group lesson booking, if needed later, is a separate explicitly designed workflow — not a hidden part of F3.
+
+**Attendance compatibility.** F3 must be compatible with participant-level attendance semantics. One Booking may have `participantIds = [A, B]` while attendance differs per participant (`A → present`, `B → absent`). Do not collapse multi-participant attendance to a single participant status. F3 need not redesign Attendance, but Booking/read-model architecture must not block per-participant attendance.
+
+**Read models / UI.** F3 must update all lesson Booking read surfaces that assume `one Booking == one Participant`. Audit: client booking history; upcoming lessons; Instructor panel; Admin Lesson Booking; Admin Planner; booking monitor; participant-specific views; notifications; cancellation UI; Payment presentation; attendance UI; activity/audit presentation. UI must display all Participants of a Booking.
+
+**Idempotency.** Replaying the same canonical create-booking command with the same idempotency intent must not create a second Booking, re-reserve slot, re-create Payment, re-debit Wallet, or lose/duplicate Participants.
+
+**Maximum participant count.** Product decision on maximum Participants per lesson is not yet made. F3 documentation does not set `maxParticipants = 2` or any other value. Architecture supports `N` participants; concrete limits use existing service/instructor/product constraints if present. If implementation reveals no authoritative limit and one is required — escalate as product question.
+
+**Acceptance criteria.** F3 is complete only when proven:
+
+| Scenario | Expected outcome |
+|---|---|
+| Single participant | Picker hidden; ONE Booking; `participantIds` contains A; ONE Payment; ONE slot reservation |
+| Two participants | Select A + B; ONE Booking; `participantIds` exactly [A, B]; ONE Payment; ONE slot reservation |
+| Authorization | A allowed + B not allowed → whole command rejected; no partial Booking/Payment/slot mutation |
+| Pricing | 2 participants → base price + one additional-participant fee |
+| Admin pricing setting | Admin changes fee → future bookings use new fee; existing bookings retain old financial truth |
+| Idempotency | Same booking command replay → no duplicate Booking/Payment/debit/slot reservation |
+| Cancellation | Multi-participant Booking cancelled → one canonical cancellation; slot released once; financial policy applied once |
+| Read models | All affected lesson Booking read models show full participant set |
+| Course regression | CourseEnrollment multi-select still creates independent enrollment per Participant |
+
+9A cannot close without F3. F3 is decided and required; it is not PASS/CLOSED/DEPLOYED.
+
+##### T32.9A.9A final integration / production smoke — PENDING
+
+Gate after F1 + F2 + F3. Confirms end-to-end individual Booking lifecycle cutover (including guest payment capture, unpaid reservation expiry, and multi-participant lesson booking) on production or production-equivalent smoke paths before 9A may close and 9B begins.
+
+9A cannot close without this smoke block. It is not PASS/CLOSED/DEPLOYED until executed and recorded.
 
 #### Production Booking inventory (ski-school-8f3ca) — PASS
 
@@ -1134,7 +1297,9 @@ Current structure (authoritative for later status; see preamble):
 - **T32.9A.8** Canonical Courses UX — PASS / CLOSED (8A/8B/8C)
 - **T32.9A.9** FINAL CANONICAL CUTOVER
   - **9A** Individual Booking lifecycle cutover — NOT CLOSED (core PASS at
-    authority level; F1 REQUIRED/IN PROGRESS; F2 REQUIRED/PLANNED)
+    authority level; F1 REQUIRED/IN PROGRESS; F2 REQUIRED/PLANNED — next
+    implementation stage; F3 PLANNED; final integration/production smoke PENDING
+    after F3)
   - **9B** Student Booking Stats / Progress / Recommendations Cutover — PENDING
   - **9C** Course Progress / Achievements Cutover — PENDING
   - **9D** Destructive Legacy Data Reset — PENDING (proven legacy rows only;

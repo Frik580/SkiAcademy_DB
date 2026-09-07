@@ -262,11 +262,44 @@ Purpose:
 - preserve useful information and interactions;
 - integrate new canonical functionality;
 - prove feature parity;
-- identify legacy implementations safe for later removal.
+- identify legacy implementations safe for later removal;
+- complete FINAL CANONICAL CUTOVER under T32.9A.9 (9A–9E).
 
 T32.9A is **not** broad legacy UI cleanup.
 
+Current T32.9A structure (status details live in
+[T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md)):
+
+```text
+T32.9A.8 — Canonical Courses UX
+  8A / 8B / 8C — PASS / CLOSED
+
+T32.9A.9 — FINAL CANONICAL CUTOVER
+  9A — Individual Booking lifecycle cutover
+       (core + F1 Admin Guest Payment Capture + F2 Guest Unpaid Reservation Expiry)
+  9B — Student Booking Stats / Progress / Recommendations Cutover
+  9C — Course Progress / Achievements Cutover
+  9D — Destructive Legacy Data Reset
+  9E — Canonical Authority / Reachability Gate
+```
+
+T32.9A.9 is the final canonical cutover sequence. It is not limited to Admin
+Integration Smoke.
+
+Booking-specific authority rule for cutover:
+
+```text
+Canonical Booking owns lifecycle,
+not progress / presentation / feedback data by default.
+```
+
+Recommendation, feedback, and progress must first receive the correct
+canonical authority (T32.9A.9B / 9C). They must not be auto-added as fields on
+canonical Booking merely because the lifecycle cutover is underway.
+
 ### T32.9B — Final Legacy Write / Runtime Cleanup
+
+T32.9B starts only after **T32.9A.9E PASS**.
 
 T32.9B may remove a legacy implementation only after its useful product
 capability has a canonical replacement implemented **and** UX parity proven.
@@ -275,6 +308,9 @@ T32.9B must not become a product-feature deletion phase. Unreachable leftover
 helpers may be removed only after the useful capability they once served is
 preserved on the canonical path, or after an accepted product decision has
 superseded that capability.
+
+T32.9B is physical cleanup after authority cutover, not authority migration
+itself.
 
 ## Consequences
 

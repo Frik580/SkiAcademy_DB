@@ -295,12 +295,56 @@ It is not discretionary Administrator approval. Resolving it requires a coupled 
 
 ## T32.9 boundary
 
-T32.9 is split. See [ADR-0008](./0008-ux-preservation-during-canonical-migration.md).
+T32.9 is split. See [ADR-0008](./0008-ux-preservation-during-canonical-migration.md)
+and the later migration status in
+[T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md).
 
-- **T32.9A — Admin UX Restoration & Canonical Integration** recovers and preserves useful Admin UX on canonical read models and commands. It is not broad legacy UI cleanup.
-- **T32.9B — Final Legacy Write / Runtime Cleanup** may remove leftover implementation only after canonical replacement and UX parity. Unreachable leftover helpers such as old bundled `confirmBooking`, superseded unpaid-approval terminology, and unused legacy Guest linking UI remain T32.9B after that gate.
+- **T32.9A — Admin UX Restoration & Canonical Integration** recovers and
+  preserves useful Admin UX on canonical read models and commands, and
+  completes FINAL CANONICAL CUTOVER under T32.9A.9 (9A–9E). It is not broad
+  legacy UI cleanup.
+- **T32.9A.9A.F1 — Canonical Admin Guest Payment Capture** is required before
+  Individual Booking lifecycle cutover may close. Administrator records money
+  actually received for a guest individual lesson through a canonical finance
+  command. Payment remains numeric authority; Booking status must not become
+  monetary authority; confirmation remains payment-driven and may reconcile a
+  funded-but-unconfirmed mismatch. F1 is REQUIRED / IN PROGRESS — not PASS.
+- **T32.9A.9A.F2 — Guest Unpaid Reservation Expiry** is required before 9A may
+  close. Unpaid guest individual reservations must expire through the existing
+  canonical expiry policy/command; the scheduler is orchestrator only. F2 is
+  REQUIRED / PLANNED — not PASS. Do not invent a new TTL here.
+- **T32.9B — Final Legacy Write / Runtime Cleanup** may remove leftover
+  implementation only after T32.9A.9E PASS, canonical replacement, and UX
+  parity. Unreachable leftover helpers such as old bundled `confirmBooking`,
+  superseded unpaid-approval terminology, and unused legacy Guest linking UI
+  remain T32.9B after that gate.
 
-This ADR does not delete those files. Unpaid Administrator guest approval remains forbidden product policy and must not be restored as “historical UX.”
+### Booking / Payment authority boundary (guest Admin capture)
+
+- Booking lifecycle confirmation may depend on Payment funding;
+- Payment is numeric money authority;
+- Booking status must not become monetary authority;
+- Admin manual money receipt must be recorded in canonical Finance;
+- Booking confirmation must not bypass funding rules;
+- reconciliation may repair a funded-but-unconfirmed mismatch.
+
+Do not document F1 implementation details beyond this boundary until F1 is
+implemented and smoked.
+
+### Background jobs (guest confirmation vs completion)
+
+| Job | Status |
+|---|---|
+| `scheduledAutoCompleteBookings` | Removed (legacy Individual Booking completion) |
+| `scheduledReconcileGuestConfirmationMismatches` | Canonical / active |
+| `scheduledPurgeExpiredNotifications` | Canonical / active |
+| Guest unpaid reservation expiry scheduler | Planned under T32.9A.9A.F2 |
+
+Completion scheduling must not be confused with payment-confirmation
+reconciliation.
+
+This ADR does not delete leftover files. Unpaid Administrator guest approval
+remains forbidden product policy and must not be restored as “historical UX.”
 
 ## Consequences
 

@@ -2,8 +2,9 @@
 
 Date: 2026-08-30  
 Amended: 2026-09-01 — T32.8A, T32.8B, and T32.8C PASS; guest confirmation policy recorded in [ADR-0007](adr/0007-guest-identity-payment-and-confirmation.md); T32.9 split and global UX preservation recorded in [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md)
+Amended: 2026-09-07 — T32.9A.8 PASS/CLOSED; T32.9A.9 redefined as FINAL CANONICAL CUTOVER (9A–9E); T32.9A.9A core authority cutover recorded; F1/F2 required before 9A close; production Booking inventory and legacy Individual Booking callable cleanup recorded
 
-Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007.
+Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
 ## Later migration status: T32.8A–T32.8C and T32.9
 
@@ -21,12 +22,310 @@ Explicitly deferred after T32.8C:
 - partially-paid pending guest rejection or refund policy;
 - unused unmanaged guest Participant cleanup.
 
-T32.9 is split. This audit amendment does not start either slice.
+T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md). T32.9A is Admin UX restoration and canonical integration plus final authority cutover; T32.9B is physical legacy cleanup after the 9E gate.
+
+### Status table (current)
 
 | Slice | Name | Status |
 |---|---|---|
-| T32.9A | Admin UX Restoration & Canonical Integration | not started |
-| T32.9B | Final Legacy Write / Runtime Cleanup | not started; blocked on T32.9A parity |
+| T32.9A.8A | Canonical Courses UX — archived/reactivate foundations | PASS / CLOSED |
+| T32.9A.8B | Canonical Courses UX — edit / catalog ownership | PASS / CLOSED |
+| T32.9A.8C | Canonical Courses UX — archived courses + reactivate + cursor pagination | PASS / CLOSED |
+| T32.9A.8 | Canonical Courses UX | PASS / CLOSED |
+| T32.9A.9A core | Individual Booking lifecycle cutover (authority) | PASS at source/production authority level |
+| T32.9A.9A.F1 | Canonical Admin Guest Payment Capture | REQUIRED / IN PROGRESS |
+| T32.9A.9A.F2 | Guest Unpaid Reservation Expiry | REQUIRED / PLANNED |
+| T32.9A.9A | Individual Booking lifecycle cutover (overall) | NOT CLOSED — finalization in progress |
+| T32.9A.9B | Student Booking Stats / Progress / Recommendations Cutover | PENDING |
+| T32.9A.9C | Course Progress / Achievements Cutover | PENDING |
+| T32.9A.9D | Destructive Legacy Data Reset | PENDING |
+| T32.9A.9E | Canonical Authority / Reachability Gate | PENDING |
+| T32.9B | Final Legacy Write / Runtime Cleanup | PENDING; blocked until T32.9A.9E PASS |
+
+Status labels used here: `PASS`, `PASS / CLOSED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `PENDING`, `NOT CLOSED`. Do not treat F1 or F2 as `PASS`, `CLOSED`, or `DEPLOYED` until implemented and smoked.
+
+### T32.9A.8 — Canonical Courses UX — PASS / CLOSED
+
+```text
+T32.9A.8A — PASS / CLOSED
+T32.9A.8B — PASS / CLOSED
+T32.9A.8C — PASS / CLOSED
+```
+
+### T32.9A.9 — FINAL CANONICAL CUTOVER
+
+T32.9A.9 is **not** “Admin Integration Smoke only.” It is the final canonical cutover sequence:
+
+```text
+T32.9A.9A — Individual Booking lifecycle cutover
+  T32.9A.9A core
+  T32.9A.9A.F1 — Canonical Admin Guest Payment Capture
+  T32.9A.9A.F2 — Guest Unpaid Reservation Expiry
+T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover
+T32.9A.9C — Course Progress / Achievements Cutover
+T32.9A.9D — Destructive Legacy Data Reset
+T32.9A.9E — Canonical Authority / Reachability Gate
+THEN
+T32.9B — Final Legacy Cleanup
+```
+
+Architectural principle (see also [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md)):
+
+```text
+LEGACY IMPLEMENTATION != LEGACY FEATURE
+
+Preserve useful UX
+  → replace backend authority
+  → add canonical UX
+  → prove parity
+  → remove legacy implementation
+```
+
+Booking-specific rule for this cutover:
+
+```text
+Canonical Booking owns lifecycle,
+not progress / presentation / feedback data by default.
+```
+
+#### T32.9A.9A — Individual Booking lifecycle cutover — PARTIAL / FINALIZATION IN PROGRESS
+
+**9A overall is NOT CLOSED** until F1 + F2 + final smoke complete.
+
+Core lifecycle cutover (authority level) — recorded as PASS at source/production authority level:
+
+- canonical Booking is operational authority for current/future individual lessons;
+- Student lifecycle reads/writes — canonical;
+- Guest lifecycle — canonical;
+- Admin / Planner lifecycle — canonical;
+- Instructor lesson list/history/completion — canonical;
+- proposals / change requests — canonical;
+- resource claims / scheduling changes — canonical;
+- legacy Booking realtime sync disabled;
+- active reachable legacy Booking lifecycle writers = 0;
+- legacy recommendation writer remains only in dead/unreachable code;
+- recommendation editor temporarily removed from Instructor Workspace;
+- completion goes through canonical `record_booking_attendance`;
+- legacy `scheduledAutoCompleteBookings` removed from source export and deleted from production;
+- legacy Individual Booking lifecycle callables deleted from production (see inventory below).
+
+##### T32.9A.9A.F1 — Canonical Admin Guest Payment Capture — REQUIRED / IN PROGRESS
+
+Goal: Administrator must have a canonical way to record money actually received from a guest for an individual lesson.
+
+Required behavior:
+
+```text
+Guest Booking
+  → Admin opens Booking
+  → sees required amount / paid amount / remaining amount
+  → «Зафиксировать оплату»
+  → canonical finance/payment command
+  → Payment remains numeric authority
+  → full funding leads to canonical guest confirmation
+```
+
+Explicit rules:
+
+- no legacy guest wallet authority;
+- no direct Booking status patch;
+- no dual write;
+- KZT only;
+- idempotent real-money write;
+- audit required;
+- server-side authorization;
+- partial payment semantics follow current Payment domain ([ADR-0003](adr/0003-payment-accounting-source.md));
+- payment success must not be reported as failure if confirmation is temporarily delayed;
+- confirmation/reconciliation remains canonical ([ADR-0007](adr/0007-guest-identity-payment-and-confirmation.md)).
+
+9A cannot close without F1. F1 is decided and required; it is not PASS/CLOSED/DEPLOYED.
+
+##### T32.9A.9A.F2 — Guest Unpaid Reservation Expiry — REQUIRED / PLANNED
+
+Goal: an unpaid guest individual Booking must not hold instructor/resource slots indefinitely.
+
+Requirements:
+
+- use the existing canonical expiry policy/command (`expire_guest_reservation` / `reservationExpiresAt` domain policy);
+- scheduler is orchestrator only, not a direct status writer;
+- expired unpaid guest reservation releases resource claims;
+- funded/confirmed Booking must never be incorrectly expired;
+- payment vs expiry race must be safe;
+- confirmation reconciliation vs expiry must be safe;
+- bounded scheduler;
+- indexed query;
+- idempotent processing;
+- no legacy scheduler/write.
+
+Do not invent a new TTL in this document. Use the existing domain reservation-expiry policy already encoded by canonical Booking lifecycle. Concrete duration belongs to that policy, not to a migration invention.
+
+9A cannot close without F2. F2 is decided and required; it is not PASS/CLOSED/DEPLOYED.
+
+#### Production Booking inventory (ski-school-8f3ca) — PASS
+
+Read-only inventory result for Individual Booking cutover:
+
+| Classification | Count |
+|---|---|
+| CANONICAL_CURRENT_FUTURE | 16 |
+| LEGACY_ONLY_CURRENT_FUTURE | 0 |
+| CANONICAL_PAST | 1 |
+| LEGACY_PAST_DISPOSABLE | 11 |
+| AMBIGUOUS | 0 |
+
+Interpretation:
+
+- current/future legacy-only Booking blockers = 0;
+- ambiguous Booking docs = 0;
+- current/future Booking migration/backfill NOT required;
+- 11 legacy historical Booking docs may be deleted later in T32.9A.9D;
+- historical legacy lesson/booking history is disposable;
+- NO historical backfill required.
+
+Document IDs are omitted here; inventory tooling lives under `scripts/individual-booking-cutover-inventory.mjs`.
+
+#### Production legacy Individual Booking functions cleanup
+
+After production cleanup, these **legacy Individual Booking lifecycle** functions are removed:
+
+- `addBooking`
+- `cancelBooking`
+- `completeBooking`
+- `confirmBooking`
+- `createBooking`
+- `createGuestBooking`
+- `deleteBooking`
+- `linkGuestBooking`
+- `requestBookingCancellation`
+- `scheduledAutoCompleteBookings`
+- `updateBookingSchedule`
+
+Production remains on canonical functions, including:
+
+- `executeCanonicalCommand`
+- `executeGuestCanonicalCommand`
+- `queryLessonBookingReadModels`
+- `queryBookingProposalReadModels`
+- `queryBookingChangeRequestReadModels`
+- and other canonical read models
+
+This is **not** a claim that every legacy function in the project was removed — only the legacy Individual Booking lifecycle surface above.
+
+#### Background jobs (Booking-related)
+
+| Job | Status |
+|---|---|
+| `scheduledAutoCompleteBookings` | Removed (source export + production) |
+| `scheduledReconcileGuestConfirmationMismatches` | Canonical / active |
+| `scheduledPurgeExpiredNotifications` | Canonical / active |
+| Guest unpaid reservation expiry scheduler | Planned under T32.9A.9A.F2 |
+
+Do not confuse completion scheduling with payment-confirmation reconciliation.
+
+#### T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover — PENDING
+
+Mandatory scope:
+
+- instructor recommendations;
+- lesson feedback;
+- student individual lesson stats;
+- student history-derived progress;
+- streaks;
+- today checklist;
+- related individual lesson achievement inputs;
+- completed recommendation IDs, if they remain product-relevant after domain review.
+
+Product decision:
+
+```text
+Recommendation / feedback / progress
+must NOT be auto-added as fields on canonical Booking.
+
+First determine the correct canonical progress/feedback authority.
+```
+
+During 9A, recommendation editing is temporarily disabled in Instructor Workspace.
+
+In 9B:
+
+- create or use the correct canonical authority;
+- canonical write command(s);
+- canonical read model;
+- authorization / OCC / idempotency;
+- restore Instructor recommendation editor;
+- provide Student canonical read UX;
+- active legacy recommendation writes = 0;
+- no dual write.
+
+#### T32.9A.9C — Course Progress / Achievements Cutover — PENDING
+
+Separate Course-domain stage after individual-lesson progress cutover (9B). Do not expand Course progress scope here without existing product decisions.
+
+#### T32.9A.9D — Destructive Legacy Data Reset — PENDING
+
+Critical product decision:
+
+```text
+Historical legacy lesson/booking records
+are NOT required to be preserved or backfilled.
+```
+
+Production inventory already proved:
+
+- legacy-only current/future = 0
+- ambiguous = 0
+- legacy past disposable = 11
+
+**Never write “delete bookings collection.”** Canonical Booking may use the same storage area.
+
+Destructive reset must:
+
+- use the exact proven legacy discriminator;
+- delete only proven legacy rows;
+- preserve canonical Booking documents;
+- preserve Payments;
+- preserve Attendances;
+- preserve Resource Claims;
+- preserve Participant relations;
+- not delete `bookings/{id}/messages` without a separate inventory/decision;
+- not delete canonical audit/history.
+
+9D runs only after 9A / 9B / 9C completion.
+
+#### T32.9A.9E — Canonical Authority / Reachability Gate — PENDING
+
+Final integration gate before T32.9B. Full final canonical cutover smoke belongs here.
+
+Checks:
+
+- all reachable current runtime paths are canonical;
+- no active legacy writes;
+- no legacy authority needed;
+- no mixed lifecycle authority;
+- navigation / reachability;
+- Admin / Student / Instructor / Guest critical smoke;
+- authorization / OCC;
+- hidden legacy runtime owners;
+- scheduled / background writers;
+- production deployment consistency.
+
+#### T32.9B — Final Legacy Write / Runtime Cleanup — PENDING
+
+Starts only after T32.9A.9E PASS.
+
+T32.9B is physical cleanup after authority cutover, not authority migration itself.
+
+Cleanup candidates:
+
+- dead legacy Booking services;
+- `useBookingActions`;
+- old callable adapters;
+- legacy recommendation writers;
+- legacy Course manager/services;
+- V1 Course read-model compatibility;
+- temporary adapters;
+- obsolete rules/index compatibility;
+- other dead legacy runtime code.
 
 T32.9A recovers missing historical Admin UX, preserves useful information and interactions, integrates new canonical functionality, proves feature parity, and identifies legacy implementations safe for later removal. It is not broad legacy UI cleanup.
 
@@ -823,11 +1122,24 @@ seat.
 
 Purpose: recover missing historical Admin UX; preserve useful information and
 interactions; integrate new canonical functionality; prove feature parity;
-identify legacy implementations safe for later removal.
+identify legacy implementations safe for later removal; complete FINAL
+CANONICAL CUTOVER under T32.9A.9 (9A–9E).
 
 T32.9A is **not** broad legacy UI cleanup. Specific Admin capability inventories
 belong here, not in the global [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md)
 rule.
+
+Current structure (authoritative for later status; see preamble):
+
+- **T32.9A.8** Canonical Courses UX — PASS / CLOSED (8A/8B/8C)
+- **T32.9A.9** FINAL CANONICAL CUTOVER
+  - **9A** Individual Booking lifecycle cutover — NOT CLOSED (core PASS at
+    authority level; F1 REQUIRED/IN PROGRESS; F2 REQUIRED/PLANNED)
+  - **9B** Student Booking Stats / Progress / Recommendations Cutover — PENDING
+  - **9C** Course Progress / Achievements Cutover — PENDING
+  - **9D** Destructive Legacy Data Reset — PENDING (proven legacy rows only;
+    never “delete bookings collection”)
+  - **9E** Canonical Authority / Reachability Gate — PENDING
 
 Scope:
 
@@ -835,7 +1147,9 @@ Scope:
   finance, People, monitoring, filtering, and operational workflows on
   canonical read models and commands;
 - add new canonical UX where required (AdminIssue actions, Payment detail,
-  Account / Participant topology);
+  Account / Participant topology, Admin guest payment capture under 9A.F1);
+- complete individual Booking, progress/recommendations, and Course progress
+  authority cutovers before destructive legacy disposal;
 - prove information, action, and interaction parity before any leftover
   implementation is treated as removable;
 - record a UX parity inventory (`PASS` / `PARTIAL` / `MISSING` /
@@ -849,14 +1163,20 @@ Reason:
 
 ### T32.9B — Final Legacy Write / Runtime Cleanup
 
-T32.9B may remove a leftover implementation only after its useful product
-capability has a canonical replacement **and** UX parity is proven. It must not
-become a product-feature deletion phase.
+T32.9B starts only after **T32.9A.9E PASS**. It may remove a leftover
+implementation only after its useful product capability has a canonical
+replacement **and** UX parity is proven. It must not become a product-feature
+deletion phase. T32.9B is physical cleanup after authority cutover, not
+authority migration itself.
 
 Scope:
 
 - remove Admin dependencies on legacy booking, Course, profile, instructor, and
   wallet wrappers that T32.9A has replaced with proven-parity canonical paths;
+- dead legacy Booking services, `useBookingActions`, old callable adapters,
+  legacy recommendation writers, legacy Course manager/services, V1 Course
+  read-model compatibility, temporary adapters, and obsolete rules/index
+  compatibility;
 - tighten Firestore Rules for each migrated collection;
 - retire unreachable leftover helpers, including superseded unpaid-approval
   terminology/UI, unused legacy Guest linking UI, and old bundled

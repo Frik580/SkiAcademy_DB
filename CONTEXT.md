@@ -471,7 +471,7 @@ Existing useful screens, information, filters, interactions, and workflows must 
 
 Before removing a legacy frontend or runtime implementation, canonical replacement and UX feature parity must be proven.
 
-Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). This does not reopen accepted domain or security decisions.
+Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER, 9A–9E) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). Canonical Booking owns lifecycle, not progress/presentation/feedback data by default. This does not reopen accepted domain or security decisions.
 
 ## Clean-rewrite and cutover risks
 

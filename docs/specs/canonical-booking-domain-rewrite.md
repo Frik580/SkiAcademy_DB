@@ -1,6 +1,7 @@
 # Canonical Booking Domain Rewrite and Clean Cutover
 
 Status: approved implementation strategy; ADR-0001 through ADR-0008 accepted
+Amended: 2026-09-07 — T32.9A.9D selective legacy Booking disposal clarified for the incremental production cutover path (see amendment under Firestore reset contract); T32.9A.9 FINAL CANONICAL CUTOVER status lives in [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md)
 
 ## Problem Statement
 
@@ -315,6 +316,19 @@ To make repeated rehearsals deterministic, it also clears any canonical test doc
 - `/domain_outbox`
 
 The reset does not attempt to interpret, copy, or classify any deleted transactional document. After reset, `/bookings` is reserved for canonical lesson Bookings and `/course_enrollments` is reserved for canonical CourseEnrollments.
+
+### Amendment — T32.9A.9D selective legacy Booking disposal (current production path)
+
+The Phase 7 collection-wide reset above remains the original clean-rewrite rehearsal contract for isolated development/test projects. It must **not** be read as permission to “delete bookings collection” on a live project that already holds canonical Booking documents.
+
+Current production cutover status (see [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md)):
+
+- historical legacy lesson/booking records are **not** required to be preserved or backfilled;
+- production inventory proved legacy-only current/future = 0, ambiguous = 0, and a small set of disposable legacy past rows;
+- **T32.9A.9D** deletes only proven legacy rows using the exact proven legacy discriminator;
+- canonical Booking documents, Payments, Attendances, Resource Claims, Participant relations, and canonical audit/history are preserved;
+- `bookings/{id}/messages` must not be deleted without a separate inventory/decision;
+- 9D runs only after 9A / 9B / 9C completion.
 
 ## Reference/configuration seed contract
 

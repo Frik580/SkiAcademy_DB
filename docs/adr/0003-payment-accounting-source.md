@@ -333,6 +333,17 @@ An unauthenticated guest service may have no `payerAccountId`. Guest creation cr
 
 Administration records a manual or externally settled payment only after it has evidence that the money was received. The canonical command updates Payment and appends an `external_payment` or `manual_payment` event without changing any Wallet. When that mutation fully funds a pending guest subject, confirmation is planned in the same transaction.
 
+Admin capture of money actually received from a guest for an individual lesson is the T32.9A.9A.F1 product requirement. Boundary rules that remain in force:
+
+- Booking lifecycle confirmation may depend on Payment funding;
+- Payment is numeric money authority;
+- Booking status must not become monetary authority;
+- Admin manual money receipt must be recorded in canonical Finance;
+- Booking confirmation must not bypass funding rules;
+- reconciliation may repair a funded-but-unconfirmed mismatch.
+
+F1 is REQUIRED / IN PROGRESS in the migration status document. This ADR does not claim F1 implementation PASS.
+
 Historical provenance belongs to each immutable event through `sourceKind`, `payerAccountIdAtEvent`, provider/manual references, timestamps, and command/actor information. Later Account linking never rewrites those fields. A linked Account may become the destination for a later Wallet refund, which is recorded on the new refund event without changing original payment provenance. Linking does not confirm the guest subject or change Payment amounts.
 
 ## Refund model

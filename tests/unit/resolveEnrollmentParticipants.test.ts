@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   requiresExplicitParticipantSelection,
+  resolveEffectiveParticipantIds,
   resolveSelectedParticipantCommand,
+  shouldShowParticipantPicker,
 } from '../../src/features/course-enrollments/resolveEnrollmentParticipants';
 import type { ManagedParticipantOption } from '../../src/features/lesson-bookings/lessonBookingContracts';
 
@@ -31,6 +33,13 @@ const participants: ManagedParticipantOption[] = [
 describe('course enrollment participant selection exports', () => {
   it('requires explicit selection when multiple managed participants exist', () => {
     expect(requiresExplicitParticipantSelection(participants)).toBe(true);
+    expect(shouldShowParticipantPicker({ participants })).toBe(true);
+  });
+
+  it('hides the picker and uses the sole participant id without explicit selection', () => {
+    expect(shouldShowParticipantPicker({ participants: [participants[0]!] })).toBe(false);
+    expect(shouldShowParticipantPicker({ participants: [] })).toBe(false);
+    expect(resolveEffectiveParticipantIds([participants[0]!], [])).toEqual(['participant_self']);
   });
 
   it('maps selected participant ids to enrollment command payload', () => {

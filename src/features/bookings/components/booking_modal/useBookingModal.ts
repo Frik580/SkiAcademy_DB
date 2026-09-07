@@ -42,7 +42,7 @@ import {
   useLessonBookingCommands,
   useManagedParticipants,
 } from '../../../lesson-bookings';
-import { resolveAuthenticatedParticipantSelection } from './authBookingState';
+import { resolveEffectiveParticipantIds } from './authBookingState';
 import { toggleParticipantSelection } from '../../../participants/participantSelectionState';
 
 export interface BookingModalInput {
@@ -101,18 +101,6 @@ export const useBookingModal = ({
       setSelectedParticipantIds([]);
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen || managedParticipants.length === 0) return;
-    if (selectedParticipantIds.length === 0) {
-      setSelectedParticipantIds(
-        resolveAuthenticatedParticipantSelection(
-          selectedParticipantIds,
-          managedParticipants.map((participant) => participant.participantId)
-        )
-      );
-    }
-  }, [isOpen, managedParticipants, selectedParticipantIds.length]);
 
   useEffect(() => {
     return () => {
@@ -435,7 +423,11 @@ export const useBookingModal = ({
       addNotification('warning', t('missingDetails'), t('bookingSelectValidDate'));
       return;
     }
-    if (selectedParticipantIds.length === 0) {
+    const effectiveParticipantIds = resolveEffectiveParticipantIds(
+      managedParticipants,
+      selectedParticipantIds
+    );
+    if (effectiveParticipantIds.length === 0) {
       addNotification('warning', t('missingDetails'), 'Select a participant');
       return;
     }
@@ -475,13 +467,13 @@ export const useBookingModal = ({
       bookingAttemptIdRef.current = bookingId;
 
       const selectedAuthorities = managedParticipants
-        .filter((participant) => selectedParticipantIds.includes(participant.participantId))
+        .filter((participant) => effectiveParticipantIds.includes(participant.participantId))
         .map((participant) => participant.authority);
 
       try {
         await createAuthenticatedBooking({
           instructorId: targetInstructor.id,
-          participantIds: selectedParticipantIds,
+          participantIds: effectiveParticipantIds,
           exercisedCapability: deriveExercisedCapabilityFromParticipants(selectedAuthorities),
           localDate: date,
           localTime: time,

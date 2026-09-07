@@ -7,7 +7,11 @@ import { BookingPriceAccordion } from './BookingPriceAccordion';
 import { ParticipantPicker } from '../../../participants/components/ParticipantPicker';
 import { BOOKING_NOTES_FIELD_CLASS } from './bookingAppleFieldStyles';
 import { useCurrency } from '../../../../app/providers/CurrencyContext';
-import { isAuthenticatedBookingSubmitDisabled } from './authBookingState';
+import {
+  isAuthenticatedBookingSubmitDisabled,
+  resolveEffectiveParticipantIds,
+  shouldShowParticipantPicker,
+} from './authBookingState';
 
 interface AuthBookingFormProps {
   workspace: ReturnType<typeof useBookingModal>;
@@ -59,12 +63,21 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
   const hourlyRateLabel =
     hourlyRateKzt != null ? `${formatPrice(hourlyRateKzt)} / ${t('hr')}` : `— / ${t('hr')}`;
 
+  const effectiveParticipantIds = resolveEffectiveParticipantIds(
+    managedParticipants,
+    selectedParticipantIds
+  );
+  const showParticipantPicker = shouldShowParticipantPicker({
+    participants: managedParticipants,
+    loading: managedParticipantsLoading,
+    error: managedParticipantsError,
+  });
   const isSubmitDisabled = isAuthenticatedBookingSubmitDisabled({
     isSubmitting,
     isTimeSlotOccupied,
     instructorAvailable: targetInstructor.isAvailable,
     clientActive: userProfile?.isClientActive !== false,
-    selectedParticipantCount: selectedParticipantIds.length,
+    selectedParticipantCount: effectiveParticipantIds.length,
   });
 
   return (
@@ -98,15 +111,17 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
           language={language}
         />
 
-        <ParticipantPicker
-          participants={managedParticipants}
-          selectedParticipantIds={selectedParticipantIds}
-          onToggleParticipant={toggleParticipant}
-          loading={managedParticipantsLoading}
-          error={managedParticipantsError}
-          onRetry={() => void reloadManagedParticipants()}
-          t={t as (key: string) => string}
-        />
+        {showParticipantPicker && (
+          <ParticipantPicker
+            participants={managedParticipants}
+            selectedParticipantIds={selectedParticipantIds}
+            onToggleParticipant={toggleParticipant}
+            loading={managedParticipantsLoading}
+            error={managedParticipantsError}
+            onRetry={() => void reloadManagedParticipants()}
+            t={t as (key: string) => string}
+          />
+        )}
 
         <div className="space-y-1">
           <label className="flex items-center gap-1.5 text-xs text-[var(--ink-dim)]">

@@ -1,27 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useManagedParticipants } from '../lesson-bookings/useManagedParticipants';
-import {
-  resolveAuthenticatedParticipantSelection,
-  resolveDefaultParticipantSelection,
-  toggleParticipantSelection,
-} from './participantSelectionState';
+import { toggleParticipantSelection } from './participantSelectionState';
 
 export function useParticipantSelection(accountId: string | undefined) {
   const { participants, loading, error, reload } = useManagedParticipants(accountId);
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (participants.length === 0) {
-      setSelectedParticipantIds([]);
-      return;
-    }
-    setSelectedParticipantIds((current) =>
-      resolveAuthenticatedParticipantSelection(
-        current,
-        participants.map((participant) => participant.participantId)
-      )
-    );
-  }, [participants]);
 
   const toggleParticipant = useCallback(
     (participantId: string) => {
@@ -37,8 +20,8 @@ export function useParticipantSelection(accountId: string | undefined) {
   );
 
   const resetSelection = useCallback(() => {
-    setSelectedParticipantIds([...resolveDefaultParticipantSelection(participants)]);
-  }, [participants]);
+    setSelectedParticipantIds([]);
+  }, []);
 
   return {
     participants,

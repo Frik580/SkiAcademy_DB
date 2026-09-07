@@ -5,7 +5,10 @@ import {
   requiresExplicitParticipantSelection,
   resolveAuthenticatedParticipantSelection,
   resolveDefaultParticipantSelection,
+  resolveEffectiveParticipantId,
+  resolveEffectiveParticipantIds,
   resolveSelectedParticipantCommand,
+  shouldShowParticipantPicker,
   toggleParticipantSelection,
 } from '../../src/features/participants/participantSelectionState';
 
@@ -87,5 +90,54 @@ describe('participantSelectionState', () => {
       participantIds: ['participant_child'],
       exercisedCapability: 'parent_guardian',
     });
+  });
+
+  it('uses the sole participant id without an explicit picker selection', () => {
+    expect(resolveEffectiveParticipantId([selfParticipant], undefined)).toBe('participant_self');
+    expect(resolveEffectiveParticipantIds([selfParticipant], [])).toEqual(['participant_self']);
+    expect(
+      resolveSelectedParticipantCommand(
+        [selfParticipant],
+        resolveEffectiveParticipantIds([selfParticipant], [])
+      )
+    ).toMatchObject({
+      participantIds: ['participant_self'],
+      exercisedCapability: 'account_owner',
+    });
+  });
+
+  it('keeps an empty effective selection when no participants are available', () => {
+    expect(resolveEffectiveParticipantIds([], [])).toEqual([]);
+    expect(resolveEffectiveParticipantIds([], ['participant_self'])).toEqual([]);
+    expect(resolveEffectiveParticipantId([], 'participant_self')).toBeUndefined();
+  });
+
+  it('requires an explicit selection when two or more participants exist', () => {
+    expect(resolveEffectiveParticipantIds([selfParticipant, dependentParticipant], [])).toEqual([]);
+    expect(
+      resolveEffectiveParticipantIds([selfParticipant, dependentParticipant], ['participant_child'])
+    ).toEqual(['participant_child']);
+  });
+
+  it('drops a selected participant that is no longer in the current list', () => {
+    expect(
+      resolveEffectiveParticipantIds(
+        [selfParticipant, dependentParticipant],
+        ['participant_missing']
+      )
+    ).toEqual([]);
+    expect(resolveEffectiveParticipantIds([selfParticipant], ['participant_missing'])).toEqual([
+      'participant_self',
+    ]);
+  });
+
+  it('shows the picker for 2+ participants or loading/error, not for 0 or 1', () => {
+    expect(shouldShowParticipantPicker({ participants: [] })).toBe(false);
+    expect(shouldShowParticipantPicker({ participants: [selfParticipant] })).toBe(false);
+    expect(
+      shouldShowParticipantPicker({ participants: [selfParticipant, dependentParticipant] })
+    ).toBe(true);
+    expect(shouldShowParticipantPicker({ participants: [], loading: true })).toBe(true);
+    expect(shouldShowParticipantPicker({ participants: [], error: 'failed' })).toBe(true);
   });
 });

@@ -53,21 +53,8 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
     );
   }
 
-  if (participants.length === 0) {
-    return (
-      <div className="space-y-2">
-        <p className="text-xs text-[var(--ink-dim)]">{t('participantsNoneAvailable')}</p>
-        {onCreateDependent && (
-          <button
-            type="button"
-            onClick={onCreateDependent}
-            className="text-xs font-medium text-[var(--accent)] hover:underline"
-          >
-            {t('participantsCreateDependent')}
-          </button>
-        )}
-      </div>
-    );
+  if (participants.length < 2) {
+    return null;
   }
 
   return (

@@ -14,6 +14,9 @@ const mocks = vi.hoisted(() => ({
   toggleParticipant: vi.fn(),
   resetSelection: vi.fn(),
   createGuestEnrollment: vi.fn(),
+  isAnySelectedParticipantEnrolledInCourse: vi.fn(
+    (_enrollments: unknown, _courseId: string, _ids: readonly string[]) => false
+  ),
 }));
 
 vi.mock('motion/react', () => ({
@@ -48,7 +51,11 @@ vi.mock('../../src/features/course-enrollments', () => ({
   selectCourseEnrollmentItems: () => [],
   useCourseEnrollmentStore: (selector: (state: { items: Map<string, never> }) => unknown) =>
     selector({ items: new Map() }),
-  isAnySelectedParticipantEnrolledInCourse: () => false,
+  isAnySelectedParticipantEnrolledInCourse: (
+    enrollments: unknown,
+    courseId: string,
+    ids: readonly string[]
+  ) => mocks.isAnySelectedParticipantEnrolledInCourse(enrollments, courseId, ids),
 }));
 
 vi.mock('../../src/features/participants/useParticipantSelection', () => ({
@@ -108,10 +115,13 @@ describe('CourseEnrollmentModal authenticated enrollment', () => {
     mocks.selectedParticipantIds = ['participant_self'];
     mocks.loading = false;
     mocks.error = undefined;
+    mocks.isAnySelectedParticipantEnrolledInCourse.mockReturnValue(false);
     onEnroll.mockResolvedValue(undefined);
   });
 
-  it('preselects a single managed participant and enrolls with that participantId', async () => {
+  it('hides the picker and enrolls the sole participant without an explicit selection', async () => {
+    mocks.selectedParticipantIds = [];
+
     render(
       <CourseEnrollmentModal
         isOpen
@@ -122,8 +132,12 @@ describe('CourseEnrollmentModal authenticated enrollment', () => {
       />
     );
 
-    expect(screen.getByText('Self Client')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: /enroll/i }));
+    expect(screen.queryByText('Self Client')).not.toBeInTheDocument();
+    expect(screen.queryByText('bookingParticipantsLabel')).not.toBeInTheDocument();
+    expect(screen.queryByText('courseEnrollmentParticipantPrompt')).not.toBeInTheDocument();
+    const submit = screen.getByRole('button', { name: /enroll/i });
+    expect(submit).toBeEnabled();
+    await userEvent.click(submit);
 
     await waitFor(() => {
       expect(onEnroll).toHaveBeenCalledWith('course_01', {
@@ -131,6 +145,42 @@ describe('CourseEnrollmentModal authenticated enrollment', () => {
         exercisedCapability: 'account_owner',
       });
     });
+  });
+
+  it('shows the picker while participants are loading, then hides it for a sole participant', () => {
+    mocks.participants = [];
+    mocks.selectedParticipantIds = [];
+    mocks.loading = true;
+
+    const { rerender } = render(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={vi.fn()}
+        course={course}
+        userProfile={userProfile}
+        onEnroll={onEnroll}
+      />
+    );
+
+    expect(screen.getByText('loading')).toBeInTheDocument();
+    expect(screen.queryByText('participantsNoneAvailable')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /enroll/i })).toBeDisabled();
+
+    mocks.participants = [selfOnly];
+    mocks.loading = false;
+    rerender(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={vi.fn()}
+        course={course}
+        userProfile={userProfile}
+        onEnroll={onEnroll}
+      />
+    );
+
+    expect(screen.queryByText('loading')).not.toBeInTheDocument();
+    expect(screen.queryByText('bookingParticipantsLabel')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /enroll/i })).toBeEnabled();
   });
 
   it('requires explicit selection when multiple participants exist', async () => {
@@ -151,6 +201,56 @@ describe('CourseEnrollmentModal authenticated enrollment', () => {
     expect(submit).toBeDisabled();
     expect(onEnroll).not.toHaveBeenCalled();
     expect(screen.getByText('participantsChooseExplicitly')).toBeInTheDocument();
+  });
+
+  it('blocks enroll when the participant list is empty without showing an empty picker', () => {
+    mocks.participants = [];
+    mocks.selectedParticipantIds = [];
+
+    render(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={vi.fn()}
+        course={course}
+        userProfile={userProfile}
+        onEnroll={onEnroll}
+      />
+    );
+
+    expect(screen.queryByText('participantsNoneAvailable')).not.toBeInTheDocument();
+    expect(screen.queryByText('bookingParticipantsLabel')).not.toBeInTheDocument();
+    expect(screen.queryByText('courseEnrollmentParticipantPrompt')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /enroll/i })).toBeDisabled();
+    expect(onEnroll).not.toHaveBeenCalled();
+  });
+
+  it('does not block participant A when only participant B is already enrolled', async () => {
+    mocks.participants = [selfOnly, dependent];
+    mocks.selectedParticipantIds = ['participant_self'];
+    mocks.isAnySelectedParticipantEnrolledInCourse.mockImplementation(
+      (_enrollments, _courseId, ids) => ids.includes('participant_dependent')
+    );
+
+    render(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={vi.fn()}
+        course={course}
+        userProfile={userProfile}
+        onEnroll={onEnroll}
+      />
+    );
+
+    const submit = screen.getByRole('button', { name: /enroll/i });
+    expect(submit).toBeEnabled();
+    await userEvent.click(submit);
+
+    await waitFor(() => {
+      expect(onEnroll).toHaveBeenCalledWith('course_01', {
+        participantIds: ['participant_self'],
+        exercisedCapability: 'account_owner',
+      });
+    });
   });
 
   it('passes selected participantIds into the enrollment command', async () => {

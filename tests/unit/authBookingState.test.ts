@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   isAuthenticatedBookingSubmitDisabled,
   resolveAuthenticatedParticipantSelection,
+  resolveEffectiveParticipantIds,
 } from '../../src/features/bookings/components/booking_modal/authBookingState';
 
 describe('authenticated booking participant state', () => {
   it('automatically selects the sole provisioned Participant', () => {
     expect(resolveAuthenticatedParticipantSelection([], ['participant_self'])).toEqual([
+      'participant_self',
+    ]);
+    expect(resolveEffectiveParticipantIds([{ participantId: 'participant_self' }], [])).toEqual([
       'participant_self',
     ]);
   });

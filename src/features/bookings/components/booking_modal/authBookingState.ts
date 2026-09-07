@@ -1,4 +1,8 @@
-export { resolveAuthenticatedParticipantSelection } from '../../../participants/participantSelectionState';
+export {
+  resolveAuthenticatedParticipantSelection,
+  resolveEffectiveParticipantIds,
+  shouldShowParticipantPicker,
+} from '../../../participants/participantSelectionState';
 
 export function isAuthenticatedBookingSubmitDisabled(input: {
   readonly isSubmitting: boolean;

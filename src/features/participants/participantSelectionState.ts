@@ -10,6 +10,54 @@ export function requiresExplicitParticipantSelection(
   return participants.length > 1;
 }
 
+export function resolveSingleManagedParticipant<T extends { readonly participantId: string }>(
+  participants: readonly T[]
+): T | null {
+  return participants.length === 1 ? participants[0]! : null;
+}
+
+/**
+ * Derived participant id for submit/validation. A sole managed participant is
+ * used automatically; otherwise the explicit picker selection is used.
+ */
+export function resolveEffectiveParticipantId(
+  participants: readonly { readonly participantId: string }[],
+  selectedParticipantId: string | undefined
+): string | undefined {
+  return resolveEffectiveParticipantIds(
+    participants,
+    selectedParticipantId ? [selectedParticipantId] : []
+  )[0];
+}
+
+/**
+ * Multi-select counterpart used by lesson booking and course enrollment.
+ * Stale ids that are no longer in the current read model are dropped.
+ */
+export function resolveEffectiveParticipantIds(
+  participants: readonly { readonly participantId: string }[],
+  selectedParticipantIds: readonly string[]
+): readonly string[] {
+  const singleParticipant = resolveSingleManagedParticipant(participants);
+  if (singleParticipant) {
+    return [singleParticipant.participantId];
+  }
+  const availableIds = new Set(participants.map((participant) => participant.participantId));
+  return selectedParticipantIds.filter((id) => availableIds.has(id));
+}
+
+/** Show loading/error or the 2+ picker. Zero participants is not a user-facing empty list. */
+export function shouldShowParticipantPicker(input: {
+  readonly participants: readonly unknown[];
+  readonly loading?: boolean;
+  readonly error?: string;
+}): boolean {
+  if (input.loading || Boolean(input.error)) {
+    return true;
+  }
+  return input.participants.length > 1;
+}
+
 export function resolveDefaultParticipantSelection(
   participants: readonly ManagedParticipantOption[]
 ): readonly string[] {

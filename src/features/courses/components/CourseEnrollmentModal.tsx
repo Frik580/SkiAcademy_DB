@@ -23,7 +23,12 @@ import { presentCanonicalCommandErrorWithContext } from '../../../features/lesso
 import type { AuthenticatedCourseEnrollmentSelection } from '../useCourseActions';
 import { ParticipantPicker } from '../../participants/components/ParticipantPicker';
 import { useParticipantSelection } from '../../participants/useParticipantSelection';
-import { resolveSelectedParticipantCommand } from '../../participants/participantSelectionState';
+import {
+  requiresExplicitParticipantSelection,
+  resolveEffectiveParticipantIds,
+  resolveSelectedParticipantCommand,
+  shouldShowParticipantPicker,
+} from '../../participants/participantSelectionState';
 
 interface CourseEnrollmentModalProps {
   isOpen: boolean;
@@ -70,9 +75,18 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     resetSelection,
   } = useParticipantSelection(activeAccountId);
   const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
+  const effectiveParticipantIds = resolveEffectiveParticipantIds(
+    participants,
+    selectedParticipantIds
+  );
+  const showParticipantPicker = shouldShowParticipantPicker({
+    participants,
+    loading: participantsLoading,
+    error: participantsError,
+  });
   const selectedAlreadyEnrolled =
     course != null &&
-    isAnySelectedParticipantEnrolledInCourse(courseEnrollments, course.id, selectedParticipantIds);
+    isAnySelectedParticipantEnrolledInCourse(courseEnrollments, course.id, effectiveParticipantIds);
 
   useEffect(() => {
     setAuthenticatedProfile(userProfile ?? null);
@@ -147,12 +161,16 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       addNotification('error', t('accessSuspended'), t('bookingSuspendedDesc'));
       return;
     }
-    if (selectedParticipantIds.length === 0) {
+    if (effectiveParticipantIds.length === 0) {
       addNotification('warning', t('missingDetails'), t('bookingSelectParticipant'));
       return;
     }
     if (
-      isAnySelectedParticipantEnrolledInCourse(courseEnrollments, course.id, selectedParticipantIds)
+      isAnySelectedParticipantEnrolledInCourse(
+        courseEnrollments,
+        course.id,
+        effectiveParticipantIds
+      )
     ) {
       addNotification('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
       return;
@@ -161,7 +179,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     isSubmittingRef.current = true;
     setIsSubmitting(true);
     try {
-      const selection = resolveSelectedParticipantCommand(participants, selectedParticipantIds);
+      const selection = resolveSelectedParticipantCommand(participants, effectiveParticipantIds);
       await Promise.resolve(onEnroll(course.id, selection));
       onClose();
     } catch (err) {
@@ -247,20 +265,26 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
               <div className="p-5 md:p-6 overflow-y-auto space-y-4 flex-1 min-h-0">
                 {showAuthenticatedEnrollment ? (
                   <form onSubmit={handleSubmitAuthenticated} className="space-y-4">
-                    <p className="text-xs text-[var(--ink-dim)] leading-relaxed">
-                      {t('courseEnrollmentParticipantPrompt')}
-                    </p>
+                    {showParticipantPicker && (
+                      <>
+                        {requiresExplicitParticipantSelection(participants) && (
+                          <p className="text-xs text-[var(--ink-dim)] leading-relaxed">
+                            {t('courseEnrollmentParticipantPrompt')}
+                          </p>
+                        )}
 
-                    <ParticipantPicker
-                      participants={participants}
-                      selectedParticipantIds={selectedParticipantIds}
-                      onToggleParticipant={toggleParticipant}
-                      loading={participantsLoading}
-                      error={participantsError}
-                      onRetry={() => void reloadParticipants()}
-                      maxParticipants={8}
-                      t={t as (key: string) => string}
-                    />
+                        <ParticipantPicker
+                          participants={participants}
+                          selectedParticipantIds={selectedParticipantIds}
+                          onToggleParticipant={toggleParticipant}
+                          loading={participantsLoading}
+                          error={participantsError}
+                          onRetry={() => void reloadParticipants()}
+                          maxParticipants={8}
+                          t={t as (key: string) => string}
+                        />
+                      </>
+                    )}
 
                     <div className="p-3.5 border border-[var(--border)] bg-black/5 dark:bg-white/5 rounded-none rounded-[var(--radius-md)] space-y-1">
                       <div className="flex justify-between items-baseline">
@@ -279,7 +303,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       disabled={
                         isSubmitting ||
                         participantsLoading ||
-                        selectedParticipantIds.length === 0 ||
+                        effectiveParticipantIds.length === 0 ||
                         selectedAlreadyEnrolled ||
                         authenticatedProfile?.isClientActive === false
                       }

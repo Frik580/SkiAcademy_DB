@@ -65,6 +65,21 @@ describe('lessonBookingReadModel contracts', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it('accepts instructor_history and rejects detail or guest credentials for instructor scopes', () => {
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'instructor_history',
+        idempotencyKey: 'read:lesson_booking:instructor_history:start:none',
+      }).success
+    ).toBe(true);
+    expect(
+      QueryLessonBookingReadModelsInputSchema.safeParse({
+        scope: 'instructor_history',
+        bookingId: 'booking_instructor_history_01',
+      }).success
+    ).toBe(false);
+  });
+
   it('accepts account_history without cursor on first page', () => {
     const parsed = QueryLessonBookingReadModelsInputSchema.safeParse({
       scope: 'account_history',

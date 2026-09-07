@@ -5,6 +5,7 @@ import {
   useBookingCollaborationStore,
 } from '../../src/features/booking-collaboration/bookingCollaborationStore';
 import type { BookingProposalCabinetItem } from '../../src/features/booking-collaboration/bookingCollaborationContracts';
+import type { InstructorLessonBookingItem } from '../../src/features/booking-collaboration/bookingCollaborationContracts';
 
 function proposal(id: string, revision: number, date = '2026-06-15'): BookingProposalCabinetItem {
   return {
@@ -64,5 +65,30 @@ describe('bookingCollaborationStore', () => {
         .mergeProposals(new Map([['proposal_a', proposal('proposal_a', 1)]]));
     });
     expect(renderCount).toBe(2);
+  });
+
+  it('replaces instructor bookings so rows removed from canonical scopes do not remain stale', () => {
+    const first = {
+      bookingId: 'booking_first',
+      revision: 1,
+      date: '2026-01-02',
+    } as InstructorLessonBookingItem;
+    const reassigned = {
+      bookingId: 'booking_reassigned',
+      revision: 1,
+      date: '2026-01-01',
+    } as InstructorLessonBookingItem;
+    useBookingCollaborationStore.getState().setInstructorLessonBookings(
+      new Map([
+        [first.bookingId, first],
+        [reassigned.bookingId, reassigned],
+      ])
+    );
+
+    useBookingCollaborationStore
+      .getState()
+      .setInstructorLessonBookings(new Map([[first.bookingId, first]]));
+
+    expect(useBookingCollaborationStore.getState().instructorLessonBookingsList).toEqual([first]);
   });
 });

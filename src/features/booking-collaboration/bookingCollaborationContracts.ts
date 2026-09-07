@@ -1,6 +1,8 @@
 import type {
   BookingChangeRequestReadModelAuthorizedActions,
+  BookingStatus,
   BookingProposalReadModelAuthorizedActions,
+  LessonBookingReadModel,
   LessonBookingReadModelAuthorizedActions,
   ParticipantInstructorAccessReadModelAuthorizedActions,
 } from '@ski-academy/shared-domain';
@@ -34,15 +36,25 @@ export interface BookingChangeRequestCabinetItem {
 export interface InstructorLessonBookingItem {
   readonly bookingId: string;
   readonly revision: number;
-  readonly status: string;
+  readonly status: BookingStatus;
   readonly date: string;
   readonly time: string;
   readonly durationHours: number;
+  readonly startsAtEpochMs: number;
+  readonly endsAtEpochMs: number;
   readonly instructorId: string;
   readonly instructorName: string;
   readonly participantIds: readonly string[];
   readonly participantNames: readonly string[];
+  readonly participants: readonly {
+    readonly participantId: string;
+    readonly displayName: string;
+    readonly selfAccountId?: string;
+  }[];
   readonly partyKind: 'individual' | 'family_group';
+  readonly difficulty?: LessonBookingReadModel['difficulty'];
+  readonly notes?: string;
+  readonly bookingOrigin: 'account' | 'instructor' | 'admin' | 'guest';
   readonly authorizedActions: LessonBookingReadModelAuthorizedActions;
 }
 

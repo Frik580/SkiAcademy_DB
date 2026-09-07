@@ -13,11 +13,12 @@ import { InstructorReviews } from './components/InstructorReviews';
 import { useNotifications } from '../notifications';
 import { useLanguage } from '../../app/providers/LanguageContext';
 import { CreateProposalModal, useInstructorBookingCollaboration } from '../booking-collaboration';
+import type { InstructorLessonBookingItem } from '../booking-collaboration';
 
 export interface InstructorWorkspaceProps {
   userProfile: UserProfile;
   instructors: Instructor[];
-  allBookings: Booking[];
+  lessonBookings: readonly InstructorLessonBookingItem[];
   reviews: Review[];
   courses: Course[];
   usersList: UserProfile[];

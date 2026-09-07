@@ -1,84 +1,70 @@
 import { useState, useMemo, useEffect } from 'react';
-import { UserProfile, Instructor, Booking, Review, Course, LessonDifficulty } from '../../../types';
+import {
+  UserProfile,
+  Instructor,
+  Review,
+  Course,
+  LessonDifficulty,
+  BookingStatus,
+} from '../../../types';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../features/notifications';
 import { useTheme } from '../../../hooks/useTheme';
 import { logger } from '../../../shared';
 import { SkillConfig, DEFAULT_SKILL_ITEMS } from '../../../domain/achievements';
-import { LessonRecommendation } from '../../../types';
 import { useBookingChatUnread } from '../../../features/student-cabinet/useBookingChatUnread';
-import {
-  activityLogId,
-  buildBookingCompletedMetadata,
-  logActivityForUser,
-} from '../../../domain/activity';
-import {
-  completeBookingService,
-  saveBookingRecommendationsService,
-  confirmBookingService,
-} from '../../bookings/bookingService';
+import { activityLogId, logActivityForUser } from '../../../domain/activity';
 import {
   updateStudentLevelService,
   updateStudentSkillsService,
 } from '../../profile/profileService';
+import type { InstructorLessonBookingItem } from '../../booking-collaboration/bookingCollaborationContracts';
 
 export interface InstructorWorkspaceInput {
   userProfile: UserProfile;
   instructors: Instructor[];
-  allBookings: Booking[];
+  lessonBookings: readonly InstructorLessonBookingItem[];
   reviews: Review[];
   courses: Course[];
   usersList: UserProfile[];
   skillConfig?: SkillConfig;
 }
 
-export interface EnrichedBooking extends Booking {
-  clientName?: string;
-  clientAvatar?: string;
-  isGuest?: boolean;
-  guestPhone?: string;
-  guestEmail?: string;
-}
-
-export interface EnrichedCourseBooking {
+export interface EnrichedBooking {
   id: string;
-  chatId: string;
-  courseId: string;
+  revision: number;
   instructorId: string;
-  participantBookingIds: string[];
-  isCourse: true;
   instructorName: string;
-  instructorAvatar: string;
   date: string;
   time: string;
   durationHours: number;
-  status: 'confirmed';
-  difficulty: LessonDifficulty;
+  startsAtEpochMs: number;
+  endsAtEpochMs: number;
+  status: BookingStatus;
+  difficulty?: LessonDifficulty;
   notes: string;
-  clients: CourseClient[];
-  totalPrice?: number;
+  participantId: string;
+  participantIds: readonly string[];
+  participants: readonly {
+    participantId: string;
+    userId?: string;
+    clientName: string;
+    clientAvatar?: string;
+  }[];
   userId?: string;
+  clientName: string;
+  clientAvatar?: string;
+  isGuest: boolean;
 }
 
-export interface CourseClient {
-  uid: string;
-  name: string;
-  avatar?: string;
-  phone?: string;
-  email?: string;
-  isGuest?: boolean;
-  bookingId: string;
-  recommendations?: LessonRecommendation[];
-}
-
-export type DisplayBooking = EnrichedBooking | EnrichedCourseBooking;
+export type DisplayBooking = EnrichedBooking;
 
 type StatusFilter = 'all' | 'pending' | 'confirmed' | 'completed';
 
 export const useInstructorWorkspace = ({
   userProfile,
   instructors,
-  allBookings,
+  lessonBookings,
   reviews,
   courses,
   usersList,
@@ -105,34 +91,47 @@ export const useInstructorWorkspace = ({
   const instructorBookings = useMemo<DisplayBooking[]>(() => {
     if (!userProfile.instructorId) return [];
 
-    return allBookings
+    return lessonBookings
       .filter(
-        (b) =>
-          b.instructorId === userProfile.instructorId &&
-          !b.instructorId.startsWith('course_') &&
-          !b.userId?.startsWith('system_block_') &&
-          b.status !== 'cancelled'
+        (booking) =>
+          booking.instructorId === userProfile.instructorId && booking.status !== 'cancelled'
       )
-      .map((b): EnrichedBooking => {
-        const client = usersList.find((u) => u.uid === b.userId);
-        const name =
-          client?.displayName ||
-          b.guestName ||
-          (b.isGuest || b.userId?.startsWith('guest_')
-            ? b.guestName
-              ? `${b.guestName} (${t('guestBadge') || 'Гость'})`
-              : t('guestBadge') || 'Гость'
-            : t('instructorEnrolledStudent'));
+      .map((booking): EnrichedBooking => {
+        const participants = booking.participants.map((participant) => {
+          const client = participant.selfAccountId
+            ? usersList.find((user) => user.uid === participant.selfAccountId)
+            : undefined;
+          return {
+            participantId: participant.participantId,
+            ...(participant.selfAccountId ? { userId: participant.selfAccountId } : {}),
+            clientName: client?.displayName || participant.displayName,
+            clientAvatar: client?.avatarUrl || '',
+          };
+        });
+        const primaryParticipant = participants[0]!;
         return {
-          ...b,
-          clientName: name,
-          clientAvatar: client?.avatarUrl || '',
-          guestPhone: b.guestPhone,
-          guestEmail: b.guestEmail,
-          isGuest: b.isGuest || b.userId?.startsWith('guest_'),
+          id: booking.bookingId,
+          revision: booking.revision,
+          instructorId: booking.instructorId,
+          instructorName: booking.instructorName,
+          date: booking.date,
+          time: booking.time,
+          durationHours: booking.durationHours,
+          startsAtEpochMs: booking.startsAtEpochMs,
+          endsAtEpochMs: booking.endsAtEpochMs,
+          status: booking.status,
+          ...(booking.difficulty ? { difficulty: booking.difficulty } : {}),
+          notes: booking.notes ?? '',
+          participantId: primaryParticipant.participantId,
+          participantIds: booking.participantIds,
+          participants,
+          ...(primaryParticipant.userId ? { userId: primaryParticipant.userId } : {}),
+          clientName: primaryParticipant.clientName,
+          clientAvatar: primaryParticipant.clientAvatar,
+          isGuest: booking.bookingOrigin === 'guest',
         };
       });
-  }, [allBookings, userProfile.instructorId, usersList, t]);
+  }, [lessonBookings, userProfile.instructorId, usersList]);
 
   const { hasUnreadChat, markBookingChatRead } = useBookingChatUnread(
     userProfile.uid,
@@ -147,9 +146,7 @@ export const useInstructorWorkspace = ({
     const confirmed = instructorBookings.filter((b) => b.status === 'confirmed').length;
     const completed = instructorBookings.filter((b) => b.status === 'completed').length;
     const cancelled = instructorBookings.filter((b) => b.status === 'cancelled').length;
-    const revenue = instructorBookings
-      .filter((b) => b.status === 'completed')
-      .reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+    const revenue: number | undefined = undefined;
     return { total, pending, confirmed, completed, cancelled, revenue };
   }, [instructorBookings]);
 
@@ -172,18 +169,19 @@ export const useInstructorWorkspace = ({
       { uid: string; name: string; avatar?: string; lessonsCount: number }
     >();
 
-    instructorBookings.forEach((b) => {
-      if (b.userId && !b.userId.startsWith('system_block_')) {
-        const individual = b as EnrichedBooking;
-        const existing = map.get(b.userId) || {
-          uid: b.userId,
-          name: individual.clientName || 'Student',
-          avatar: individual.clientAvatar,
-          lessonsCount: 0,
-        };
-        existing.lessonsCount += 1;
-        map.set(b.userId, existing);
-      }
+    instructorBookings.forEach((booking) => {
+      booking.participants.forEach((participant) => {
+        if (participant.userId) {
+          const existing = map.get(participant.userId) || {
+            uid: participant.userId,
+            name: participant.clientName || 'Student',
+            avatar: participant.clientAvatar,
+            lessonsCount: 0,
+          };
+          existing.lessonsCount += 1;
+          map.set(participant.userId, existing);
+        }
+      });
     });
 
     return Array.from(map.values());
@@ -318,45 +316,6 @@ export const useInstructorWorkspace = ({
     }
   };
 
-  const handleSaveRecommendations = async (bookingId: string, items: LessonRecommendation[]) => {
-    try {
-      await saveBookingRecommendationsService(bookingId, items);
-      addNotification(
-        'success',
-        t('instructorRecommendationsSaved'),
-        t('instructorRecommendationsSavedDesc')
-      );
-    } catch (err) {
-      logger.error('Error saving recommendations:', err);
-      addNotification('error', t('updateFailed'), t('updateFailedDesc'));
-    }
-  };
-
-  const handleUpdateStatus = async (bookingId: string, nextStatus: 'confirmed' | 'completed') => {
-    try {
-      const booking = allBookings.find((item) => item.id === bookingId);
-      if (!booking) return;
-
-      if (nextStatus === 'completed') {
-        const completedBooking = await completeBookingService(bookingId);
-        if (!completedBooking) return;
-
-        await logActivityForUser(
-          completedBooking.userId,
-          userProfile.uid,
-          'booking_completed',
-          buildBookingCompletedMetadata(completedBooking, courses),
-          activityLogId.bookingCompleted(completedBooking.id)
-        );
-        return;
-      }
-
-      await confirmBookingService(bookingId);
-    } catch (err) {
-      logger.error('Error updating lesson status:', err);
-    }
-  };
-
   const openEvalModal = (
     studentUid: string,
     studentName: string,
@@ -405,8 +364,6 @@ export const useInstructorWorkspace = ({
     closeEvalModal,
     handleSaveStudentScores,
     handleUpdateStudentLevel,
-    handleUpdateStatus,
-    handleSaveRecommendations,
     hasUnreadChat,
     markBookingChatRead,
     userProfile,

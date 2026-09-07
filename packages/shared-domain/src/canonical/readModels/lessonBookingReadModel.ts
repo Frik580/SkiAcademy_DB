@@ -39,6 +39,7 @@ export const LESSON_BOOKING_READ_SCOPES = [
   'account_hot',
   'account_history',
   'instructor_hot',
+  'instructor_history',
   'guest_single',
   'admin_hot',
   'admin_history',
@@ -55,6 +56,7 @@ export const LessonBookingReadModelParticipantProjectionSchema = z
   .object({
     participantId: ParticipantIdSchema,
     displayName: z.string().trim().min(1).max(200),
+    selfAccountId: AccountIdSchema.optional(),
   })
   .strict();
 
@@ -338,19 +340,19 @@ export const QueryLessonBookingReadModelsInputSchema = z
         });
       }
     }
-    if (input.scope === 'instructor_hot') {
+    if (input.scope === 'instructor_hot' || input.scope === 'instructor_history') {
       if (input.bookingId !== undefined) {
         context.addIssue({
           code: 'custom',
           path: ['bookingId'],
-          message: 'bookingId is not allowed for instructor_hot scope',
+          message: 'bookingId is not allowed for instructor scopes',
         });
       }
       if (input.guestActionNonce !== undefined || input.guestActionSignature !== undefined) {
         context.addIssue({
           code: 'custom',
           path: ['guestActionNonce'],
-          message: 'Guest credential is not allowed for instructor_hot scope',
+          message: 'Guest credential is not allowed for instructor scopes',
         });
       }
     }

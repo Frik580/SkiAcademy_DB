@@ -36,7 +36,7 @@ describe('useBookingCollaborationReadSync instructor panel', () => {
     });
   });
 
-  it('loads instructor collaboration reads with instructor_hot lesson booking scope', async () => {
+  it('loads canonical hot and history lesson booking scopes for the instructor workspace', async () => {
     renderHook(() =>
       useBookingCollaborationReadSync({
         customerEnabled: false,
@@ -50,9 +50,39 @@ describe('useBookingCollaborationReadSync instructor panel', () => {
     });
 
     expect(queryLessonBookingReadModelsMock).toHaveBeenCalledWith({ scope: 'instructor_hot' });
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledWith({ scope: 'instructor_history' });
     expect(queryBookingProposalReadModelsMock).toHaveBeenCalledWith({ scope: 'instructor_open' });
     expect(queryBookingChangeRequestReadModelsMock).toHaveBeenCalledWith({
       scope: 'instructor_open',
     });
+  });
+
+  it('follows every current/upcoming instructor cursor before replacing the workspace snapshot', async () => {
+    queryLessonBookingReadModelsMock.mockImplementation(
+      async (input: { scope: 'instructor_hot' | 'instructor_history'; cursor?: string }) => {
+        if (input.scope === 'instructor_hot' && !input.cursor) {
+          return { scope: input.scope, items: [], hasMore: true, nextCursor: `${input.scope}:2` };
+        }
+        return { scope: input.scope, items: [], hasMore: false };
+      }
+    );
+
+    renderHook(() =>
+      useBookingCollaborationReadSync({
+        customerEnabled: false,
+        instructorEnabled: true,
+        instructorId: 'instructor_fixture_01',
+      })
+    );
+
+    await waitFor(() => {
+      expect(useBookingCollaborationStore.getState().loaded).toBe(true);
+    });
+
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledWith({
+      scope: 'instructor_hot',
+      cursor: 'instructor_hot:2',
+    });
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledWith({ scope: 'instructor_history' });
   });
 });

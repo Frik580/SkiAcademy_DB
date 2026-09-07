@@ -5,6 +5,10 @@ import { LazyLoad } from '../../ui/LazyLoad';
 import { CardSkeleton, Skeleton } from '../../ui/Skeleton';
 import { useProfileStore } from '../../features/profile/profileStore';
 import { useBookingsStore } from '../../features/bookings/bookingsStore';
+import {
+  selectInstructorLessonBookings,
+  useBookingCollaborationStore,
+} from '../../features/booking-collaboration';
 import { useCoursesStore } from '../../features/courses/coursesStore';
 import { useSettingsStore } from '../../features/settings/settingsStore';
 import { loadInstructorWorkspace } from '../../features/instructor-workspace';
@@ -27,7 +31,7 @@ export const InstructorRouteContainer: React.FC = () => {
   const userProfile = useProfileStore((state) => state.userProfile);
   const usersList = useProfileStore((state) => state.usersList);
   const instructors = useBookingsStore((state) => state.instructors);
-  const allBookings = useBookingsStore((state) => state.bookings);
+  const lessonBookings = useBookingCollaborationStore(selectInstructorLessonBookings);
   const reviews = useBookingsStore((state) => state.reviews);
   const courses = useCoursesStore((state) => state.courses);
   const skillConfig = useSettingsStore((state) => state.skillConfig);
@@ -40,7 +44,7 @@ export const InstructorRouteContainer: React.FC = () => {
             <InstructorWorkspace
               userProfile={userProfile}
               instructors={instructors}
-              allBookings={allBookings}
+              lessonBookings={lessonBookings}
               reviews={reviews}
               courses={courses}
               usersList={usersList}

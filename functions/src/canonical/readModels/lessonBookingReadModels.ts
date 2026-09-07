@@ -374,9 +374,7 @@ export async function buildAdminLessonBookingReadModel(
     readContext.account(actor.accountId),
     loadRelatedBookingAdminIssues(firestore, booking),
     Promise.all(
-      booking.party.participantIds.map((participantId) =>
-        readContext.participant(participantId)
-      )
+      booking.party.participantIds.map((participantId) => readContext.participant(participantId))
     ),
     Promise.all(
       booking.occurrence.serviceParty.participantIds.map((participantId) => {
@@ -437,9 +435,7 @@ export async function buildAdminLessonBookingReadModel(
   }
 
   const payerAccountId = booking.payerAccountId ?? payment?.payerAccountId;
-  const payerSnap = payerAccountId
-    ? await readContext.account(payerAccountId)
-    : undefined;
+  const payerSnap = payerAccountId ? await readContext.account(payerAccountId) : undefined;
   const administratorAccount = parseAccount(
     administratorSnap.data() as Record<string, unknown> | undefined
   );
@@ -763,9 +759,19 @@ export async function buildInstructorLessonBookingReadModel(
       return undefined;
     }
     const sanitized = sanitizeParticipantProfileForInstructor(participant);
+    const managementSnap =
+      participant.management.kind === 'managed'
+        ? await readContext.participantManagement(participant.management.participantManagementId)
+        : undefined;
+    const selfManagement = ParticipantManagementSchema.safeParse(managementSnap?.data());
     participants.push({
       participantId: sanitized.participantId,
       displayName: sanitized.displayName,
+      ...(selfManagement.success &&
+      selfManagement.data.status === 'active' &&
+      selfManagement.data.authority === 'self'
+        ? { selfAccountId: selfManagement.data.accountId }
+        : {}),
     });
   }
 
@@ -829,6 +835,27 @@ function adminListQuery(
 ): Query {
   let query: Query = firestore
     .collection('bookings')
+    .orderBy('updatedAt.seconds', 'desc')
+    .orderBy('updatedAt.nanoseconds', 'desc')
+    .orderBy('bookingId', 'asc');
+  if (cursor) {
+    query = query.startAfter(
+      cursor.updatedAtSeconds,
+      cursor.updatedAtNanoseconds,
+      cursor.bookingId
+    );
+  }
+  return query;
+}
+
+function instructorListQuery(
+  firestore: Firestore,
+  instructorId: InstructorId,
+  cursor: LessonBookingReadModelCursor | undefined
+): Query {
+  let query: Query = firestore
+    .collection('bookings')
+    .where('occurrence.instructorId', '==', instructorId)
     .orderBy('updatedAt.seconds', 'desc')
     .orderBy('updatedAt.nanoseconds', 'desc')
     .orderBy('bookingId', 'asc');
@@ -946,7 +973,10 @@ export async function queryLessonBookingReadModels(
     input.cursor &&
     (!cursor ||
       (cursor.scope !== undefined && cursor.scope !== input.scope) ||
-      ((input.scope === 'admin_hot' || input.scope === 'admin_history') &&
+      ((input.scope === 'admin_hot' ||
+        input.scope === 'admin_history' ||
+        input.scope === 'instructor_hot' ||
+        input.scope === 'instructor_history') &&
         cursor.scope !== input.scope))
   ) {
     throw new InvalidLessonBookingReadCursorError();
@@ -1058,26 +1088,46 @@ export async function queryLessonBookingReadModels(
     };
   }
 
-  if (input.scope === 'instructor_hot') {
+  if (input.scope === 'instructor_hot' || input.scope === 'instructor_history') {
     const instructorId = options.instructorId;
     if (!instructorId) {
       return { scope: input.scope, items: [], hasMore: false };
     }
 
-    const instructorBookings = await loadInstructorHotBookings(firestore, instructorId);
-    const filtered = instructorBookings.filter((booking) =>
-      isLessonBookingHot({
-        lifecycleStatus: booking.lifecycle.status,
-        endsAt: booking.occurrence.interval.endsAt,
-        now,
-      })
-    );
+    // Hot/history is derived from lifecycle + occurrence time, so it cannot be
+    // expressed as one reliable Firestore predicate. Scan the canonical ordered
+    // instructor index until this logical page (plus one look-ahead item) is full.
+    // This avoids truncating the instructor's universe before classification.
+    const matching: Booking[] = [];
+    let scanCursor = cursor;
+    let exhausted = false;
+    while (matching.length <= pageSize && !exhausted) {
+      const snapshot = await instructorListQuery(firestore, instructorId, scanCursor)
+        .limit(pageSize)
+        .get();
+      exhausted = snapshot.docs.length < pageSize;
+      for (const document of snapshot.docs) {
+        const booking = parseBooking(document.data() as Record<string, unknown>);
+        if (!booking || booking.archival?.isDeleted) continue;
+        const hot = isLessonBookingHot({
+          lifecycleStatus: booking.lifecycle.status,
+          endsAt: booking.occurrence.interval.endsAt,
+          now,
+        });
+        if (input.scope === 'instructor_hot' ? hot : !hot) {
+          matching.push(booking);
+        }
+      }
+      const lastScanned = snapshot.docs.at(-1);
+      if (!lastScanned) break;
+      const nextScanCursor = cursorFromBookingDocument(lastScanned);
+      if (!nextScanCursor) {
+        throw new InvalidLessonBookingReadCursorError();
+      }
+      scanCursor = nextScanCursor;
+    }
 
-    const afterCursor = cursor
-      ? filtered.filter((booking) => isAfterCursor(booking, cursor))
-      : filtered;
-
-    const page = afterCursor.slice(0, pageSize);
+    const page = matching.slice(0, pageSize);
     const items: LessonBookingReadModel[] = [];
     for (const booking of page) {
       const readModel = await buildInstructorLessonBookingReadModel(
@@ -1091,7 +1141,7 @@ export async function queryLessonBookingReadModels(
       }
     }
 
-    const hasMore = afterCursor.length > pageSize;
+    const hasMore = matching.length > pageSize;
     const last = page.at(-1);
     const nextCursor =
       hasMore && last

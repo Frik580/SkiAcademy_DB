@@ -12,7 +12,16 @@ const instructorPanelTransportPayload = {
   idempotencyKey: 'read:lesson_booking:instructor_hot:start:none',
 };
 
-function createInstructorPanelFirestore(): Firestore {
+function createInstructorPanelFirestore(
+  lifecycleStatus: 'active' | 'disabled' = 'active'
+): Firestore {
+  const bookingsQuery = {
+    where: () => bookingsQuery,
+    orderBy: () => bookingsQuery,
+    startAfter: () => bookingsQuery,
+    limit: () => bookingsQuery,
+    get: async () => ({ docs: [] }),
+  };
   return {
     collection: (name: string) => {
       if (name === 'users') {
@@ -21,19 +30,31 @@ function createInstructorPanelFirestore(): Firestore {
             get: async () => ({
               exists: id === instructorAccountId,
               data: () =>
-                id === instructorAccountId ? { instructorId, isInstructor: true } : undefined,
+                id === instructorAccountId
+                  ? {
+                      instructorId,
+                      isInstructor: true,
+                      accountId: instructorAccountId,
+                      lifecycle:
+                        lifecycleStatus === 'active'
+                          ? { status: 'active' }
+                          : { status: 'disabled', disabledAt: { seconds: 2, nanoseconds: 0 } },
+                      revision: 1,
+                      createdAt: { seconds: 1, nanoseconds: 0 },
+                      updatedAt: { seconds: 2, nanoseconds: 0 },
+                      audit: {
+                        createdByCommandId: 'command_instructor_callable_seed',
+                        lastChangedByCommandId: 'command_instructor_callable_seed',
+                        correlationId: 'correlation_instructor_callable_seed',
+                      },
+                    }
+                  : undefined,
             }),
           }),
         };
       }
       if (name === 'bookings') {
-        return {
-          where: () => ({
-            limit: () => ({
-              get: async () => ({ docs: [] }),
-            }),
-          }),
-        };
+        return bookingsQuery;
       }
       throw new Error(`Unexpected collection: ${name}`);
     },
@@ -99,6 +120,20 @@ describe('queryLessonBookingReadModelsCallable instructor panel contract', () =>
       items: [],
       hasMore: false,
     });
+
+    await expect(
+      handler({
+        data: {
+          scope: 'instructor_history',
+          idempotencyKey: 'read:lesson_booking:instructor_history:start:none',
+        },
+        auth: { uid: instructorAccountId },
+      } as CallableRequest<Record<string, unknown>>)
+    ).resolves.toEqual({
+      scope: 'instructor_history',
+      items: [],
+      hasMore: false,
+    });
   });
 
   it('rejects instructor_hot without authentication', async () => {
@@ -109,6 +144,19 @@ describe('queryLessonBookingReadModelsCallable instructor panel contract', () =>
         data: instructorPanelTransportPayload,
       } as CallableRequest<Record<string, unknown>>)
     ).rejects.toMatchObject({ code: 'unauthenticated' });
+  });
+
+  it('denies instructor scopes when the canonical Account is disabled', async () => {
+    const handler = createQueryLessonBookingReadModelsHandler(
+      createInstructorPanelFirestore('disabled')
+    );
+
+    await expect(
+      handler({
+        data: instructorPanelTransportPayload,
+        auth: { uid: instructorAccountId },
+      } as CallableRequest<Record<string, unknown>>)
+    ).rejects.toMatchObject({ code: 'permission-denied' });
   });
 
   it('allows Admin scopes only through server-resolved administrator authority', async () => {

@@ -24,11 +24,25 @@ export function mapInstructorLessonBookingReadModel(
     date,
     time,
     durationHours: readModel.occurrence.durationMinutes / 60,
+    startsAtEpochMs:
+      readModel.occurrence.startsAt.seconds * 1_000 +
+      readModel.occurrence.startsAt.nanoseconds / 1_000_000,
+    endsAtEpochMs:
+      readModel.occurrence.endsAt.seconds * 1_000 +
+      readModel.occurrence.endsAt.nanoseconds / 1_000_000,
     instructorId: readModel.instructor.instructorId,
     instructorName: readModel.instructor.displayName,
     participantIds: readModel.participantIds,
     participantNames: readModel.participants.map((participant) => participant.displayName),
+    participants: readModel.participants.map((participant) => ({
+      participantId: participant.participantId,
+      displayName: participant.displayName,
+      ...(participant.selfAccountId ? { selfAccountId: participant.selfAccountId } : {}),
+    })),
     partyKind: readModel.partyKind,
+    ...(readModel.difficulty ? { difficulty: readModel.difficulty } : {}),
+    notes: readModel.notes,
+    bookingOrigin: readModel.bookingOrigin,
     authorizedActions: readModel.authorizedActions,
   };
 }

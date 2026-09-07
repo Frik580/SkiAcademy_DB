@@ -98,7 +98,7 @@ export const InstructorDashboardHeader: React.FC<InstructorDashboardHeaderProps>
             {t('instructorEstimatedEarnings')}
           </span>
           <span className="text-3xl font-serif font-light text-[var(--ink)] block">
-            ${stats.revenue}
+            {stats.revenue === undefined ? '—' : `₸${stats.revenue}`}
           </span>
           <span className="text-[8px] font-mono text-[var(--ink-dim)] uppercase tracking-wider block">
             {t('instructorCompletedEarnings')}

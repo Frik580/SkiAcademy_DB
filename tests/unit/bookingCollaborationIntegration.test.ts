@@ -178,4 +178,38 @@ describe('booking collaboration integration', () => {
       })
     );
   });
+
+  it('records instructor completion through canonical attendance and refetches both scopes', async () => {
+    executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
+    const { result } = renderHook(() =>
+      useBookingCollaborationCommands({
+        accountId: 'account_fixture_01',
+        instructorId: 'instructor_fixture_01',
+      })
+    );
+
+    await result.current.recordLessonCompleted({
+      bookingId: 'booking_attendance_01',
+      participantId: 'participant_attendance_01',
+      bookingRevision: 7,
+    });
+
+    expect(executeAuthenticatedMock).toHaveBeenCalledWith(
+      'account_fixture_01',
+      expect.objectContaining({
+        kind: 'record_booking_attendance',
+        exercisedCapability: 'instructor',
+        idempotencyKey: 'attendance-present:booking_attendance_01:participant_attendance_01:7',
+        intent: {
+          bookingId: BookingIdSchema.parse('booking_attendance_01'),
+          participantId: 'participant_attendance_01',
+          attendanceStatus: 'present',
+        },
+      })
+    );
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledWith({ scope: 'instructor_hot' });
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledWith({
+      scope: 'instructor_history',
+    });
+  });
 });

@@ -22,6 +22,7 @@ interface BookingCollaborationStoreState {
   mergeProposals: (items: ReadonlyMap<string, BookingProposalCabinetItem>) => void;
   setChangeRequests: (items: ReadonlyMap<string, BookingChangeRequestCabinetItem>) => void;
   mergeChangeRequests: (items: ReadonlyMap<string, BookingChangeRequestCabinetItem>) => void;
+  setInstructorLessonBookings: (items: ReadonlyMap<string, InstructorLessonBookingItem>) => void;
   mergeInstructorLessonBookings: (items: ReadonlyMap<string, InstructorLessonBookingItem>) => void;
   setParticipantAccess: (items: ReadonlyMap<string, ParticipantAccessCabinetItem>) => void;
   mergeParticipantAccess: (items: ReadonlyMap<string, ParticipantAccessCabinetItem>) => void;
@@ -103,6 +104,11 @@ export const useBookingCollaborationStore = create<BookingCollaborationStoreStat
         changeRequests: merged,
         changeRequestsList: buildChangeRequestsList(merged),
       };
+    }),
+  setInstructorLessonBookings: (items) =>
+    set({
+      instructorLessonBookings: items,
+      instructorLessonBookingsList: buildInstructorLessonBookingsList(items),
     }),
   mergeInstructorLessonBookings: (items) =>
     set((state) => {

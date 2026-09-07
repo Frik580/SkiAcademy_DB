@@ -26,6 +26,7 @@ import {
   deriveCreateRelationshipIdempotencyKey,
   deriveDeclineProposalIdempotencyKey,
   deriveRescheduleBookingIdempotencyKey,
+  deriveRecordInstructorAttendanceIdempotencyKey,
   deriveRevokeRelationshipIdempotencyKey,
   deriveUnblockParticipantIdempotencyKey,
   deriveWithdrawCancellationIdempotencyKey,
@@ -239,6 +240,34 @@ export function useBookingCollaborationCommands(input: {
     [accountId]
   );
 
+  const recordLessonCompleted = useCallback(
+    async (params: {
+      readonly bookingId: string;
+      readonly participantId: string;
+      readonly bookingRevision: number;
+    }): Promise<void> => {
+      if (!accountId) throw new Error('Authentication is required.');
+      const result = await executeAuthenticatedCanonicalCommand(accountId, {
+        kind: 'record_booking_attendance',
+        intent: {
+          bookingId: BookingIdSchema.parse(params.bookingId),
+          participantId: ParticipantIdSchema.parse(params.participantId),
+          attendanceStatus: 'present',
+        },
+        idempotencyKey: deriveRecordInstructorAttendanceIdempotencyKey(
+          params.bookingId,
+          params.participantId,
+          params.bookingRevision
+        ),
+        exercisedCapability: 'instructor',
+      });
+      const error = mapCanonicalCommandResultError(result);
+      if (error) throw error;
+      await refetchInstructorCollaborationReads();
+    },
+    [accountId]
+  );
+
   const withdrawChangeRequest = useCallback(
     async (params: {
       readonly requestId: string;
@@ -424,6 +453,7 @@ export function useBookingCollaborationCommands(input: {
     createProposal,
     withdrawProposal,
     createChangeRequest,
+    recordLessonCompleted,
     withdrawChangeRequest,
     createRelationship,
     revokeRelationship,

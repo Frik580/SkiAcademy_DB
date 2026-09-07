@@ -12,7 +12,10 @@ import {
 } from '../../../infrastructure/firebase';
 import { toUserProfile } from '../../../infrastructure/firebase';
 import { useAuthStore } from '../../auth/authStore';
-import { useBookingsStore } from '../../bookings/bookingsStore';
+import {
+  selectInstructorLessonBookings,
+  useBookingCollaborationStore,
+} from '../../booking-collaboration';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
 import { useProfileStore } from '../profileStore';
 import {
@@ -26,7 +29,7 @@ export const useUsersSync = () => {
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const userProfile = useProfileStore((s) => s.userProfile);
   const usersPageSize = useProfileStore((s) => s.usersPageSize);
-  const bookings = useBookingsStore((s) => s.bookings);
+  const instructorLessonBookings = useBookingCollaborationStore(selectInstructorLessonBookings);
   const isAdmin = userProfile?.role === 'admin';
   const instructorId = userProfile?.instructorId;
 
@@ -58,7 +61,7 @@ export const useUsersSync = () => {
       );
     }
 
-    const studentProfileIds = getInstructorStudentProfileIds(bookings, instructorId!);
+    const studentProfileIds = getInstructorStudentProfileIds(instructorLessonBookings);
     if (studentProfileIds.length === 0) {
       useProfileStore.getState().setUsersList([]);
       useProfileStore.getState().setUsersHasMore(false);
@@ -94,5 +97,12 @@ export const useUsersSync = () => {
     );
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [bookings, firebaseUser, instructorId, isAdmin, shouldSyncUsersList, usersPageSize]);
+  }, [
+    firebaseUser,
+    instructorId,
+    instructorLessonBookings,
+    isAdmin,
+    shouldSyncUsersList,
+    usersPageSize,
+  ]);
 };

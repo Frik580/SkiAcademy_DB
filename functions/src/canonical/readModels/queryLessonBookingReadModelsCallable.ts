@@ -17,6 +17,7 @@ import {
 } from './resolveCallableInstructorId';
 import { resolveCallableAdministratorActor } from './resolveCallableAdministrator';
 import { createReadModelRequestContext } from './readModelRequestContext';
+import { parseAccount } from '../participantAccess/participantAccessStore';
 
 export function createQueryLessonBookingReadModelsHandler(firestore: Firestore) {
   return async (
@@ -48,7 +49,8 @@ export function createQueryLessonBookingReadModelsHandler(firestore: Firestore) 
     if (
       input.scope === 'account_hot' ||
       input.scope === 'account_history' ||
-      input.scope === 'instructor_hot'
+      input.scope === 'instructor_hot' ||
+      input.scope === 'instructor_history'
     ) {
       if (!request.auth?.uid) {
         throw new HttpsError('unauthenticated', 'Authentication is required.');
@@ -57,13 +59,16 @@ export function createQueryLessonBookingReadModelsHandler(firestore: Firestore) 
       if (!parsedAccountId.success) {
         throw new HttpsError('unauthenticated', 'Authentication is required.');
       }
+      const userSnap = await readContext.account(parsedAccountId.data);
+      const profileData = userSnap.data() as Record<string, unknown> | undefined;
+      const account = parseAccount(profileData);
+      if (!account || account.lifecycle.status !== 'active') {
+        throw new HttpsError('permission-denied', 'This action is not permitted.');
+      }
       accountId = parsedAccountId.data;
 
-      if (input.scope === 'instructor_hot') {
-        const userSnap = await readContext.account(parsedAccountId.data);
-        instructorId = resolveCallableInstructorId(
-          readCallableAccountProfile(userSnap.data() as Record<string, unknown> | undefined)
-        );
+      if (input.scope === 'instructor_hot' || input.scope === 'instructor_history') {
+        instructorId = resolveCallableInstructorId(readCallableAccountProfile(profileData));
         if (!instructorId) {
           throw new HttpsError('permission-denied', 'This action is not permitted.');
         }

@@ -15,18 +15,23 @@ import { useWalletSync } from '../features/wallet/sync/useWalletSync';
 import { useProfileActivitySync } from '../features/profile/sync/useProfileActivitySync';
 import { useCurrentUserProfileSync } from '../features/profile/sync/useCurrentUserProfileSync';
 import { useUsersSync } from '../features/profile/sync/useUsersSync';
-import { useDataSyncScope } from './useDataSyncScope';
 import { shouldSyncAccountCourseEnrollments } from './accountCourseEnrollmentSync';
+import { shouldSyncAccountLessonBookings } from './accountLessonBookingSync';
 import { useAuthStore } from '../features/auth/authStore';
 import { useProfileStore } from '../features/profile/profileStore';
 
 export const useStoreSync = () => {
   const location = useLocation();
-  const { shouldUseCanonicalLessonBookings } = useDataSyncScope();
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const userProfile = useProfileStore((state) => state.userProfile);
-  const isCustomerCanonicalLessonPath =
-    shouldUseCanonicalLessonBookings && userProfile?.role === 'user' && !userProfile?.instructorId;
+  // Hydrate account lesson bookings on `/` and `/cabinet*` for any signed-in
+  // account. Do not gate on role/instructorId — that left Arsenii-style admin /
+  // dual-role accounts with an empty lesson store and no
+  // queryLessonBookingReadModels request after legacy bookings sync was cut off.
+  const isCustomerCanonicalLessonPath = shouldSyncAccountLessonBookings({
+    pathname: location.pathname,
+    accountId: firebaseUser?.uid,
+  });
   // Hydrate account course enrollments on `/` and `/cabinet*` for any signed-in
   // account. Do not gate on role/instructorId — that left Arsenii-style admin /
   // dual-role accounts with an empty enrollment store and an active enroll CTA.

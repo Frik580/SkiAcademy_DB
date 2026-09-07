@@ -16,6 +16,7 @@ import { useProfileStore } from '../features/profile';
 import { useNotificationActions } from '../features/notifications';
 import { useUnreadNotificationCount } from '../features/notifications';
 import { useBookingsStore } from '../features/bookings';
+import { selectLessonBookingItems, useLessonBookingStore } from '../features/lesson-bookings';
 import { useUiStore } from '../features/shell';
 
 export const AppShell: React.FC = () => {
@@ -29,7 +30,7 @@ export const AppShell: React.FC = () => {
   const dismissedReviewIds = useProfileStore((s) => s.dismissedReviewIds);
   const handleSignOut = useAuthStore((s) => s.handleSignOut);
 
-  const bookings = useBookingsStore((s) => s.bookings);
+  const bookings = useLessonBookingStore(selectLessonBookingItems);
   const reviews = useBookingsStore((s) => s.reviews);
 
   const unreadNotificationCount = useUnreadNotificationCount();
@@ -65,11 +66,7 @@ export const AppShell: React.FC = () => {
   const unreviewedCompletedCount = useMemo(() => {
     if (!userProfile?.uid) return 0;
 
-    const userBookings = bookings.filter(
-      (booking) => booking.userId === userProfile.uid && !booking.isDeleted
-    );
-
-    return userBookings.filter((booking) => {
+    return bookings.filter((booking) => {
       if (booking.status !== 'completed') return false;
       if (dismissedReviewIds.includes(booking.id)) return false;
 

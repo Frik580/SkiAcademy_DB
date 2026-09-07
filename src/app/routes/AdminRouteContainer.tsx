@@ -5,8 +5,6 @@ import { useInstructorFilters } from '../../hooks/useInstructorFilters';
 import { LazyLoad } from '../../ui/LazyLoad';
 import { CardSkeleton, Skeleton } from '../../ui/Skeleton';
 import { useProfileStore } from '../../features/profile/profileStore';
-import { useBookingsStore } from '../../features/bookings/bookingsStore';
-import { useCoursesStore } from '../../features/courses/coursesStore';
 import { useSettingsStore } from '../../features/settings/settingsStore';
 import { loadAdminPanel } from '../../features/admin';
 
@@ -27,8 +25,6 @@ export const AdminRouteContainer: React.FC = () => {
   const { t, language } = useLanguage();
   const userProfile = useProfileStore((state) => state.userProfile);
   const usersList = useProfileStore((state) => state.usersList);
-  const bookings = useBookingsStore((state) => state.bookings);
-  const courses = useCoursesStore((state) => state.courses);
   const filtersEnabled = useSettingsStore((state) => state.filtersEnabled);
   const notificationRetentionDays = useSettingsStore((state) => state.notificationRetentionDays);
   const starterCreditUsd = useSettingsStore((state) => state.starterCreditUsd);
@@ -50,8 +46,6 @@ export const AdminRouteContainer: React.FC = () => {
       <LazyLoad fallback={<AdminLoadingFallback label={t('loading')} />}>
         <AdminPanel
           instructors={translatedInstructors}
-          bookings={bookings}
-          courses={courses}
           usersList={usersList}
           currentUserProfile={userProfile!}
           filtersEnabled={filtersEnabled}

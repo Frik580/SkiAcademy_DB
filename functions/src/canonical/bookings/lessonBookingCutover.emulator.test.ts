@@ -35,8 +35,11 @@ const payerAccountId = AccountIdSchema.parse('account_lesson_cutover_payer');
 const managerAccountId = AccountIdSchema.parse('account_lesson_cutover_manager');
 const participantId = ParticipantIdSchema.parse('participant_lesson_cutover_01');
 const payerManagementId = ParticipantManagementIdSchema.parse('management_lesson_cutover_payer');
-const managerManagementId = ParticipantManagementIdSchema.parse('management_lesson_cutover_manager');
+const managerManagementId = ParticipantManagementIdSchema.parse(
+  'management_lesson_cutover_manager'
+);
 const instructorId = InstructorIdSchema.parse('instructor_lesson_cutover_01');
+const instructorAccountId = AccountIdSchema.parse('account_lesson_cutover_instructor');
 const bookingId = BookingIdSchema.parse('booking_lesson_cutover_auth_01');
 const guestBookingId = BookingIdSchema.parse('booking_lesson_cutover_guest_01');
 const guestParticipantId = ParticipantIdSchema.parse('participant_lesson_cutover_guest');
@@ -57,6 +60,8 @@ const COLLECTIONS_TO_CLEAR = [
   'participant_management',
   'instructors',
   'bookings',
+  'attendance',
+  'admin_issues',
   'payments',
   'monetary_events',
   'resource_claims',
@@ -128,6 +133,22 @@ async function seedManagedParticipantFixture(): Promise<void> {
       },
     })
   );
+  await firestore.doc(`users/${instructorAccountId}`).set({
+    ...AccountSchema.parse({
+      accountId: instructorAccountId,
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'seed',
+        lastChangedByCommandId: 'seed',
+        correlationId,
+      },
+    }),
+    instructorId,
+    isInstructor: true,
+  });
   await firestore.doc(`users/${payerAccountId}/wallet/state`).set(
     WalletSchema.parse({
       accountId: payerAccountId,
@@ -139,55 +160,64 @@ async function seedManagedParticipantFixture(): Promise<void> {
       updatedAt: decidedAt,
     })
   );
-  await firestore.collection('participants').doc(participantId).set({
-    participantId,
-    displayName: 'Lesson Cutover Student',
-    age: { kind: 'age_years', years: 12 },
-    skillLevel: 'beginner',
-    discipline: 'ski',
-    management: { kind: 'managed', participantManagementId: payerManagementId },
-    lifecycle: { status: 'active' },
-    revision: 1,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-    audit: {
-      createdByCommandId: 'seed',
-      lastChangedByCommandId: 'seed',
-      correlationId,
-    },
-  });
-  await firestore.collection('participant_management').doc(payerManagementId).set({
-    participantManagementId: payerManagementId,
-    participantId,
-    accountId: payerAccountId,
-    role: 'owner',
-    authority: 'parent_guardian',
-    status: 'active',
-    revision: 1,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-    audit: {
-      createdByCommandId: 'seed',
-      lastChangedByCommandId: 'seed',
-      correlationId,
-    },
-  });
-  await firestore.collection('participant_management').doc(managerManagementId).set({
-    participantManagementId: managerManagementId,
-    participantId,
-    accountId: managerAccountId,
-    role: 'manager',
-    authority: 'parent_guardian',
-    status: 'active',
-    revision: 1,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-    audit: {
-      createdByCommandId: 'seed',
-      lastChangedByCommandId: 'seed',
-      correlationId,
-    },
-  });
+  await firestore
+    .collection('participants')
+    .doc(participantId)
+    .set({
+      participantId,
+      displayName: 'Lesson Cutover Student',
+      age: { kind: 'age_years', years: 12 },
+      skillLevel: 'beginner',
+      discipline: 'ski',
+      management: { kind: 'managed', participantManagementId: payerManagementId },
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'seed',
+        lastChangedByCommandId: 'seed',
+        correlationId,
+      },
+    });
+  await firestore
+    .collection('participant_management')
+    .doc(payerManagementId)
+    .set({
+      participantManagementId: payerManagementId,
+      participantId,
+      accountId: payerAccountId,
+      role: 'owner',
+      authority: 'parent_guardian',
+      status: 'active',
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'seed',
+        lastChangedByCommandId: 'seed',
+        correlationId,
+      },
+    });
+  await firestore
+    .collection('participant_management')
+    .doc(managerManagementId)
+    .set({
+      participantManagementId: managerManagementId,
+      participantId,
+      accountId: managerAccountId,
+      role: 'manager',
+      authority: 'parent_guardian',
+      status: 'active',
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'seed',
+        lastChangedByCommandId: 'seed',
+        correlationId,
+      },
+    });
   await seedInstructor();
 }
 
@@ -253,26 +283,26 @@ function guestCreateEnvelope(
   };
 }
 
-describe.skipIf(!runsOnFirestoreEmulator)('lesson booking cutover boundary (firestore emulator)', () => {
-  beforeAll(() => {
-    process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
-    app = getApps().length > 0 ? getApps()[0]! : initializeApp({ projectId: PROJECT_ID });
-    firestore = getFirestore(app);
-  }, 30_000);
+describe.skipIf(!runsOnFirestoreEmulator)(
+  'lesson booking cutover boundary (firestore emulator)',
+  () => {
+    beforeAll(() => {
+      process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
+      app = getApps().length > 0 ? getApps()[0]! : initializeApp({ projectId: PROJECT_ID });
+      firestore = getFirestore(app);
+    }, 30_000);
 
-  afterAll(async () => {
-    if (app) {
-      await deleteApp(app);
-    }
-  });
+    afterAll(async () => {
+      if (app) {
+        await deleteApp(app);
+      }
+    });
 
-  beforeEach(async () => {
-    await clearCollections([...COLLECTIONS_TO_CLEAR]);
-  }, 30_000);
+    beforeEach(async () => {
+      await clearCollections([...COLLECTIONS_TO_CLEAR]);
+    }, 30_000);
 
-  it(
-    'authenticated create_confirmed_booking is readable through account_hot with canonical revision',
-    async () => {
+    it('authenticated create_confirmed_booking is readable through account_hot with canonical revision', async () => {
       await seedManagedParticipantFixture();
       const commands = createCommands('2026-01-01T00:00:00.000Z');
       const createResult = await commands.execute(
@@ -292,13 +322,9 @@ describe.skipIf(!runsOnFirestoreEmulator)('lesson booking cutover boundary (fire
       const readItem = hotRead.items.find((item) => item.bookingId === bookingId);
       expect(readItem?.revision).toBe(bookingRevision);
       expect(readItem?.lifecycle.status).toBe('confirmed');
-    },
-    30_000
-  );
+    }, 30_000);
 
-  it(
-    'Admin hot/detail project canonical Payment, skip course_* rows, and keep guest linking deferred',
-    async () => {
+    it('Admin hot/detail project canonical Payment, skip course_* rows, and keep guest linking deferred', async () => {
       await seedManagedParticipantFixture();
       const adminAccountId = AccountIdSchema.parse('account_lesson_cutover_admin');
       await firestore.doc(`users/${adminAccountId}`).set({
@@ -317,11 +343,14 @@ describe.skipIf(!runsOnFirestoreEmulator)('lesson booking cutover boundary (fire
         role: 'admin',
         displayName: 'Cutover Admin',
       });
-      await firestore.collection('bookings').doc('booking_admin_legacy_course_01').set({
-        bookingId: 'booking_admin_legacy_course_01',
-        courseId: 'course_legacy_cutover_01',
-        updatedAt: timestampFromDate(new Date('2026-01-15T05:00:00.000Z')),
-      });
+      await firestore
+        .collection('bookings')
+        .doc('booking_admin_legacy_course_01')
+        .set({
+          bookingId: 'booking_admin_legacy_course_01',
+          courseId: 'course_legacy_cutover_01',
+          updatedAt: timestampFromDate(new Date('2026-01-15T05:00:00.000Z')),
+        });
       const commands = createCommands('2026-01-01T00:00:00.000Z');
       const createResult = await commands.execute(
         authenticatedCreateEnvelope(bookingId, 'cutover-admin-read-01')
@@ -346,13 +375,9 @@ describe.skipIf(!runsOnFirestoreEmulator)('lesson booking cutover boundary (fire
       );
       expect(detail.items[0]?.admin?.payment.paymentId).toBe(paymentIdFromBookingId(bookingId));
       expect(detail.items[0]?.admin?.authorizedActions.canDirectCancel).toBe(true);
-    },
-    30_000
-  );
+    }, 30_000);
 
-  it(
-    'guest create provisions participant, returns credential, and authorizes guest_single reads',
-    async () => {
+    it('guest create provisions participant, returns credential, and authorizes guest_single reads', async () => {
       await seedInstructor();
       const commands = createCommands('2026-01-01T10:00:00.000Z');
       const createResult = await commands.execute(
@@ -402,13 +427,9 @@ describe.skipIf(!runsOnFirestoreEmulator)('lesson booking cutover boundary (fire
         { guestActionSecret: guestTokenSecret, now: new Date('2026-01-01T12:30:00.000Z') }
       );
       expect(expired.items).toHaveLength(0);
-    },
-    30_000
-  );
+    }, 30_000);
 
-  it(
-    'authenticated cancellation uses expectedRevision and stale revisions are rejected',
-    async () => {
+    it('authenticated cancellation uses expectedRevision and stale revisions are rejected', async () => {
       await seedManagedParticipantFixture();
       const commands = createCommands('2026-01-01T00:00:00.000Z');
       await commands.execute(authenticatedCreateEnvelope(bookingId, 'cutover-cancel-seed'));
@@ -459,13 +480,9 @@ describe.skipIf(!runsOnFirestoreEmulator)('lesson booking cutover boundary (fire
       const historyItem = historyRead.items.find((entry) => entry.bookingId === bookingId);
       expect(historyItem?.lifecycle.status).toBe('cancelled');
       expect(historyItem?.revision).toBe(bookingAfter?.revision);
-    },
-    30_000
-  );
+    }, 30_000);
 
-  it(
-    'payment presentation is visible to payer and withheld for authorized non-payer manager',
-    async () => {
+    it('payment presentation is visible to payer and withheld for authorized non-payer manager', async () => {
       await seedManagedParticipantFixture();
       const commands = createCommands('2026-01-01T00:00:00.000Z');
       await commands.execute(authenticatedCreateEnvelope(bookingId, 'cutover-payment-create'));
@@ -489,28 +506,74 @@ describe.skipIf(!runsOnFirestoreEmulator)('lesson booking cutover boundary (fire
         >
       );
       const paymentRecord = parsePayment(
-        (await firestore
-          .collection('payments')
-          .doc(paymentIdFromBookingId(bookingId))
-          .get()).data() as Record<string, unknown>
+        (
+          await firestore.collection('payments').doc(paymentIdFromBookingId(bookingId)).get()
+        ).data() as Record<string, unknown>
       );
       expect(bookingRecord).toBeDefined();
       expect(paymentRecord).toBeDefined();
-      expect(buildPaymentPresentation(payerAccountId, bookingRecord!, paymentRecord)).toMatchObject({
-        kind: 'visible',
-        paymentStatus: 'paid',
-        price: paymentRecord!.price,
+      expect(buildPaymentPresentation(payerAccountId, bookingRecord!, paymentRecord)).toMatchObject(
+        {
+          kind: 'visible',
+          paymentStatus: 'paid',
+          price: paymentRecord!.price,
+        }
+      );
+      expect(buildPaymentPresentation(managerAccountId, bookingRecord!, paymentRecord)).toEqual({
+        kind: 'withheld',
       });
-      expect(
-        buildPaymentPresentation(managerAccountId, bookingRecord!, paymentRecord)
-      ).toEqual({ kind: 'withheld' });
       expect(
         buildPaymentPresentation(managerAccountId, bookingRecord!, paymentRecord)
       ).not.toMatchObject({
         kind: 'visible',
         paymentStatus: 'paid',
       });
-    },
-    30_000
-  );
-});
+    }, 30_000);
+
+    it('instructor reads canonical hot/history and completes through attendance command', async () => {
+      await seedManagedParticipantFixture();
+      await createCommands('2026-01-01T00:00:00.000Z').execute(
+        authenticatedCreateEnvelope(bookingId, 'cutover-instructor-seed')
+      );
+
+      const hot = await queryLessonBookingReadModels(
+        firestore,
+        { scope: 'instructor_hot' },
+        { instructorId, now: hotReadNow }
+      );
+      expect(hot.items.map((item) => item.bookingId)).toContain(bookingId);
+
+      const completionNow = new Date('2026-01-15T05:30:00.000Z');
+      const completed = await createCommands(completionNow.toISOString()).execute({
+        kind: 'record_booking_attendance',
+        context: {
+          actor: accountCommandActor(instructorAccountId),
+          exercisedCapability: 'instructor',
+          idempotencyKey: 'cutover-instructor-attendance-present',
+          correlationId,
+          source: 'client_callable',
+          transportMetadata: { instructor_id: instructorId },
+        },
+        intent: { bookingId, participantId, attendanceStatus: 'present' },
+      });
+      expect(completed.status).toBe('success');
+
+      const bookingAfter = parseBooking(
+        (await firestore.collection('bookings').doc(bookingId).get()).data() as Record<
+          string,
+          unknown
+        >
+      );
+      expect(bookingAfter?.lifecycle.status).toBe('completed');
+
+      const history = await queryLessonBookingReadModels(
+        firestore,
+        { scope: 'instructor_history' },
+        { instructorId, now: completionNow }
+      );
+      expect(history.items.find((item) => item.bookingId === bookingId)?.lifecycle.status).toBe(
+        'completed'
+      );
+    }, 30_000);
+  }
+);

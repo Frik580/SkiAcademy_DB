@@ -7,7 +7,7 @@ import { LazyLoad } from '../../ui/LazyLoad';
 import { CardSkeleton, Skeleton } from '../../ui/Skeleton';
 import { loadPersonalCabinet } from '../../features/profile';
 import { useProfileStore } from '../../features/profile/profileStore';
-import { useBookingActions } from '../../features/bookings/useBookingActions';
+import { addReviewService } from '../../features/bookings/bookingService';
 import { useBookingsStore } from '../../features/bookings/bookingsStore';
 import { useCoursesStore } from '../../features/courses/coursesStore';
 import { useSettingsStore } from '../../features/settings/settingsStore';
@@ -30,6 +30,7 @@ import {
   useCourseEnrollmentStore,
 } from '../../features/course-enrollments';
 import { useNotifications } from '../../features/notifications';
+import type { Review } from '../../types';
 
 const PersonalCabinet = React.lazy(loadPersonalCabinet);
 
@@ -73,7 +74,13 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   const handleAddCustomTodayTask = useProfileStore((state) => state.handleAddCustomTodayTask);
   const handleRemoveTodayTask = useProfileStore((state) => state.handleRemoveTodayTask);
   const handleUpdateProfile = useProfileStore((state) => state.handleUpdateProfile);
-  const { handleAddReview, handleToggleRecommendation } = useBookingActions();
+  const handleAddReview = useCallback(
+    async (review: Omit<Review, 'id' | 'userId' | 'userName' | 'userAvatar' | 'date'>) => {
+      if (!userProfile) return;
+      await addReviewService(review, userProfile, reviews);
+    },
+    [reviews, userProfile]
+  );
   const { requestCancellation, refetchAccountHotBookings } = useLessonBookingCommands(
     userProfile?.uid
   );
@@ -201,7 +208,6 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
               onCourseWithdraw={handleCourseWithdraw}
               onCourseRequestCancellation={handleCourseCancellationRequest}
               onAddReview={handleAddReview}
-              onToggleRecommendation={handleToggleRecommendation}
               onToggleSkillToday={handleToggleSkillToday}
               onPinSkillsToday={(skillItemIds) =>
                 handlePinSkillsToday(skillItemIds, skillConfig.items)

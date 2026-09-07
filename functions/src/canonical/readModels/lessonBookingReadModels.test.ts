@@ -178,8 +178,7 @@ function createAdminReadFirestore(input: {
   readonly documents: Readonly<Record<string, Readonly<Record<string, Record<string, unknown>>>>>;
   readonly reads?: Map<string, number>;
 }): Firestore {
-  const recordRead = (path: string) =>
-    input.reads?.set(path, (input.reads.get(path) ?? 0) + 1);
+  const recordRead = (path: string) => input.reads?.set(path, (input.reads.get(path) ?? 0) + 1);
   const readNested = (record: Record<string, unknown>, path: string): unknown =>
     path
       .split('.')
@@ -193,14 +192,22 @@ function createAdminReadFirestore(input: {
 
   const bookingsQuery = (
     cursor?: readonly [number, number, string],
-    maximum?: number
+    maximum?: number,
+    instructorFilter?: string
   ): Record<string, unknown> => ({
-    orderBy: () => bookingsQuery(cursor, maximum),
+    orderBy: () => bookingsQuery(cursor, maximum, instructorFilter),
+    where: (_field: string, _operator: string, instructorIdValue: string) =>
+      bookingsQuery(cursor, maximum, instructorIdValue),
     startAfter: (seconds: number, nanoseconds: number, id: string) =>
-      bookingsQuery([seconds, nanoseconds, id], maximum),
-    limit: (value: number) => bookingsQuery(cursor, value),
+      bookingsQuery([seconds, nanoseconds, id], maximum, instructorFilter),
+    limit: (value: number) => bookingsQuery(cursor, value, instructorFilter),
     get: async () => {
-      const ordered = [...input.bookings].sort((left, right) => {
+      const filteredBookings = instructorFilter
+        ? input.bookings.filter(
+            (document) => readNested(document.data, 'occurrence.instructorId') === instructorFilter
+          )
+        : input.bookings;
+      const ordered = [...filteredBookings].sort((left, right) => {
         const leftUpdated = readNested(left.data, 'updatedAt') as {
           seconds: number;
           nanoseconds: number;
@@ -742,6 +749,18 @@ describe('Admin lesson booking read models', () => {
       { administratorActor: adminActor, now: new Date('2026-08-01T10:00:00.000Z') }
     );
     expect(historyResult.items.map((item) => item.bookingId)).toEqual([history.bookingId]);
+    const instructorHot = await queryLessonBookingReadModels(
+      firestore,
+      { scope: 'instructor_hot', pageSize: 1 },
+      { instructorId, now: new Date('2026-08-01T10:00:00.000Z') }
+    );
+    const instructorHistory = await queryLessonBookingReadModels(
+      firestore,
+      { scope: 'instructor_history', pageSize: 1 },
+      { instructorId, now: new Date('2026-08-01T10:00:00.000Z') }
+    );
+    expect(instructorHot.items.map((item) => item.bookingId)).toEqual([hot.bookingId]);
+    expect(instructorHistory.items.map((item) => item.bookingId)).toEqual([history.bookingId]);
     const detail = await queryLessonBookingReadModels(
       firestore,
       { scope: 'admin_detail', bookingId: hot.bookingId },

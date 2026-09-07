@@ -1,7 +1,7 @@
 import React, { useCallback, useState, Suspense, lazy } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
-import { Instructor, Booking, UserProfile, Course } from '../../../types';
+import { Instructor, UserProfile } from '../../../types';
 import {
   Shield,
   BookOpen,
@@ -11,7 +11,7 @@ import {
   CalendarDays,
   Users,
 } from 'lucide-react';
-import { useLanguage, useTranslatedBookings } from '../../../app/providers/LanguageContext';
+import { useLanguage } from '../../../app/providers/LanguageContext';
 import { SkillConfig } from '../../../domain/achievements';
 import { AchievementsConfig } from '../../../domain/achievements';
 import { AdminCollapsibleSection } from './settings';
@@ -124,7 +124,6 @@ const SectionLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
 
 interface AdminPanelProps {
   instructors: Instructor[];
-  bookings: Booking[];
   usersList?: UserProfile[];
   currentUserProfile: UserProfile;
   filtersEnabled?: boolean;
@@ -133,7 +132,6 @@ interface AdminPanelProps {
   onSetNotificationRetentionDays?: (days: number) => Promise<void>;
   starterCreditUsd?: number;
   onSetStarterCreditUsd?: (amount: number) => Promise<void>;
-  courses?: Course[];
   skillConfig?: SkillConfig;
   achievementsConfig?: AchievementsConfig;
   onUpdateSkillConfig?: (config: SkillConfig) => Promise<void>;
@@ -142,9 +140,7 @@ interface AdminPanelProps {
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
   instructors,
-  bookings: rawBookings,
   usersList = [],
-  courses = [],
   currentUserProfile,
   filtersEnabled = true,
   onToggleFilters,
@@ -157,7 +153,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   achievementsConfig,
   onUpdateAchievementsConfig,
 }) => {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = parseAdminTabId(searchParams.get(ADMIN_TAB_QUERY_KEY));
 
@@ -174,8 +170,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     },
     [setSearchParams]
   );
-
-  useTranslatedBookings(rawBookings, courses, language, { syncCoursePrice: true });
 
   const [confirmModal, setConfirmModal] = useState<{
     message: string;

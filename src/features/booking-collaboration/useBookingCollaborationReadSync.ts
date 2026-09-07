@@ -5,7 +5,11 @@ import {
   queryLessonBookingReadModels,
   queryParticipantInstructorAccessReadModels,
 } from '../../lib/canonical/canonicalReadModelClient';
-import { InstructorIdSchema, ParticipantIdSchema } from '@ski-academy/shared-domain';
+import {
+  InstructorIdSchema,
+  ParticipantIdSchema,
+  type LessonBookingReadModel,
+} from '@ski-academy/shared-domain';
 import { useBookingCollaborationStore } from './bookingCollaborationStore';
 import { mergeProposalRecords } from './proposalViewModel';
 import { mergeChangeRequestRecords } from './changeRequestViewModel';
@@ -42,19 +46,41 @@ async function loadCustomerCollaborationReads(): Promise<void> {
     );
 }
 
+async function loadAllInstructorHotLessonBookingPages() {
+  const scope = 'instructor_hot' as const;
+  const items: LessonBookingReadModel[] = [];
+  let cursor: string | undefined;
+  const seenCursors = new Set<string>();
+  do {
+    const page = await queryLessonBookingReadModels({
+      scope,
+      ...(cursor ? { cursor } : {}),
+    });
+    items.push(...page.items);
+    if (!page.hasMore) break;
+    if (!page.nextCursor || seenCursors.has(page.nextCursor)) {
+      throw new Error(`Invalid ${scope} pagination cursor.`);
+    }
+    seenCursors.add(page.nextCursor);
+    cursor = page.nextCursor;
+  } while (cursor);
+  return items;
+}
+
 async function loadInstructorCollaborationReads(): Promise<void> {
-  const [lessonBookings, proposals, changeRequests] = await Promise.all([
-    queryLessonBookingReadModels({ scope: 'instructor_hot' }),
+  const [hotLessonBookings, historyLessonBookings, proposals, changeRequests] = await Promise.all([
+    loadAllInstructorHotLessonBookingPages(),
+    queryLessonBookingReadModels({ scope: 'instructor_history' }),
     queryBookingProposalReadModels({ scope: 'instructor_open' }),
     queryBookingChangeRequestReadModels({ scope: 'instructor_open' }),
   ]);
   useBookingCollaborationStore
     .getState()
-    .mergeInstructorLessonBookings(
-      mergeInstructorLessonBookingRecords(
-        useBookingCollaborationStore.getState().instructorLessonBookings,
-        lessonBookings.items
-      )
+    .setInstructorLessonBookings(
+      mergeInstructorLessonBookingRecords(new Map(), [
+        ...hotLessonBookings,
+        ...historyLessonBookings.items,
+      ])
     );
   useBookingCollaborationStore
     .getState()

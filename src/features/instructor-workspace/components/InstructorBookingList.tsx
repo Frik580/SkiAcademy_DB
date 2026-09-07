@@ -23,10 +23,8 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
     setSelectedChatBooking,
     hasUnreadChat,
     markBookingChatRead,
-    handleUpdateStatus,
     handleUpdateStudentLevel,
     openEvalModal,
-    handleSaveRecommendations,
     usersList,
   } = workspace;
 
@@ -95,10 +93,8 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
                 markBookingChatRead(booking);
                 setSelectedChatBooking(booking);
               }}
-              onUpdateStatus={handleUpdateStatus}
               onUpdateStudentLevel={handleUpdateStudentLevel}
               onOpenEval={openEvalModal}
-              onSaveRecommendations={handleSaveRecommendations}
               collaboration={collaboration}
             />
           ))}

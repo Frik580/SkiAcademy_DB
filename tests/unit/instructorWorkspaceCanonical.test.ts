@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import type { Booking, Course, UserProfile } from '../../src/types';
+import type { Course, UserProfile } from '../../src/types';
+import type { InstructorLessonBookingItem } from '../../src/features/booking-collaboration/bookingCollaborationContracts';
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({
@@ -34,26 +35,40 @@ const userProfile = {
 } as UserProfile;
 
 const individualBooking = {
-  id: 'booking_individual_01',
+  bookingId: 'booking_individual_01',
+  revision: 1,
   instructorId,
-  userId: 'student_workspace_01',
+  instructorName: 'Coach',
   status: 'confirmed',
   date: '2026-02-01',
   time: '10:00',
   durationHours: 2,
+  startsAtEpochMs: Date.parse('2026-02-01T10:00:00Z'),
+  endsAtEpochMs: Date.parse('2026-02-01T12:00:00Z'),
   difficulty: 'beginner',
-} as Booking;
-
-const legacyCourseBooking = {
-  id: 'booking_course_01',
-  instructorId: `course_${'course_legacy_01'}`,
-  userId: 'student_course_01',
-  status: 'confirmed',
-  date: '2026-02-02',
-  time: '11:00',
-  durationHours: 2,
-  difficulty: 'beginner',
-} as Booking;
+  notes: '',
+  participantIds: ['participant_workspace_01', 'participant_workspace_02'],
+  participantNames: ['Lesson Student', 'Second Student'],
+  participants: [
+    {
+      participantId: 'participant_workspace_01',
+      displayName: 'Lesson Student',
+      selfAccountId: 'student_workspace_01',
+    },
+    {
+      participantId: 'participant_workspace_02',
+      displayName: 'Second Student',
+      selfAccountId: 'student_workspace_02',
+    },
+  ],
+  partyKind: 'family_group',
+  bookingOrigin: 'account',
+  authorizedActions: {
+    canRequestCancellation: false,
+    canWithdrawCancellation: false,
+    canReschedule: false,
+  },
+} as InstructorLessonBookingItem;
 
 const courses = [
   {
@@ -64,18 +79,22 @@ const courses = [
 ] as Course[];
 
 describe('useInstructorWorkspace canonical lesson isolation', () => {
-  it('keeps individual lesson bookings and ignores course_* legacy bookings', () => {
+  it('maps canonical instructor lessons and self-managed participant accounts', () => {
     const { result } = renderHook(() =>
       useInstructorWorkspace({
         userProfile,
         instructors: [],
-        allBookings: [individualBooking, legacyCourseBooking],
+        lessonBookings: [individualBooking],
         reviews: [],
         courses,
         usersList: [
           {
             uid: 'student_workspace_01',
             displayName: 'Lesson Student',
+          } as UserProfile,
+          {
+            uid: 'student_workspace_02',
+            displayName: 'Second Student',
           } as UserProfile,
         ],
       })
@@ -86,5 +105,10 @@ describe('useInstructorWorkspace canonical lesson isolation', () => {
     expect(result.current.displayedBookings[0]).toMatchObject({
       clientName: 'Lesson Student',
     });
+    expect(result.current.displayedBookings[0]?.participants).toHaveLength(2);
+    expect(result.current.myStudents.map((student) => student.name)).toEqual([
+      'Lesson Student',
+      'Second Student',
+    ]);
   });
 });

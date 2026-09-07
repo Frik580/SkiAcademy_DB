@@ -11,8 +11,8 @@ export function resolveDataSyncScope(pathname: string, hasReviewsInstructor: boo
     shouldSyncUsersList: isAdminRoute || isInstructorRoute,
     shouldSyncActivityLogs: isAdminRoute || isInstructorRoute || isCabinetRoute,
     shouldSyncReviews: isCabinetRoute || isInstructorRoute || hasReviewsInstructor,
-    shouldLoadBookingHistory: isAdminRoute || isInstructorRoute,
-    shouldUseCanonicalLessonBookings: isCabinetRoute,
+    shouldLoadBookingHistory: false,
+    shouldUseCanonicalLessonBookings: isCabinetRoute || pathname === '/',
     shouldUseCanonicalCourseEnrollments: isCabinetRoute,
     shouldLoadLegacyCourseBookings: false,
   };

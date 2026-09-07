@@ -3,24 +3,27 @@ import {
   chunkFirestoreInValues,
   getInstructorStudentProfileIds,
 } from '../../src/features/profile/sync/instructorStudentProfiles';
-import type { Booking } from '../../src/types';
+import type { InstructorLessonBookingItem } from '../../src/features/booking-collaboration/bookingCollaborationContracts';
 
-const booking = (userId: string, instructorId = 'instructor_1') =>
-  ({ userId, instructorId }) as Booking;
+const booking = (...selfAccountIds: Array<string | undefined>) =>
+  ({
+    participants: selfAccountIds.map((selfAccountId, index) => ({
+      participantId: `participant_${index}`,
+      displayName: `Student ${index}`,
+      ...(selfAccountId ? { selfAccountId } : {}),
+    })),
+  }) as InstructorLessonBookingItem;
 
 describe('instructor student profile query helpers', () => {
-  it('keeps only real students assigned to the instructor and de-duplicates them', () => {
+  it('keeps only self-managed participant accounts and de-duplicates them', () => {
     expect(
-      getInstructorStudentProfileIds(
-        [
-          booking('student_1'),
-          booking('student_1'),
-          booking('guest_1'),
-          booking('system_block_1'),
-          booking('student_2', 'instructor_2'),
-        ],
-        'instructor_1'
-      )
+      getInstructorStudentProfileIds([
+        booking('student_1'),
+        booking('student_1'),
+        booking('guest_1'),
+        booking('system_block_1'),
+        booking(undefined),
+      ])
     ).toEqual(['student_1']);
   });
 

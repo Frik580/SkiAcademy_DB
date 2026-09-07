@@ -1,8 +1,4 @@
-import type {
-  DocumentSnapshot,
-  Firestore,
-  QuerySnapshot,
-} from 'firebase-admin/firestore';
+import type { DocumentSnapshot, Firestore, QuerySnapshot } from 'firebase-admin/firestore';
 import type {
   AccountId,
   AttendanceId,
@@ -11,6 +7,7 @@ import type {
   CourseId,
   InstructorId,
   Participant,
+  ParticipantManagementId,
   ParticipantBlock,
   PaymentId,
 } from '@ski-academy/shared-domain';
@@ -23,9 +20,7 @@ const ATTENDANCES_FOR_ENROLLMENTS_MAX_IDS = 30;
 const ATTENDANCES_FOR_ENROLLMENTS_CONTRACT_VIOLATION =
   'ReadModelRequestContext.attendancesForEnrollments internal contract violation: enrollmentIds must be non-empty and at most 30';
 
-function attendancesForEnrollmentsMemoKey(
-  enrollmentIds: readonly CourseEnrollmentId[]
-): string {
+function attendancesForEnrollmentsMemoKey(enrollmentIds: readonly CourseEnrollmentId[]): string {
   return [...enrollmentIds].sort().join('\u001f');
 }
 
@@ -40,6 +35,7 @@ function attendancesForEnrollmentsMemoKey(
 export class ReadModelRequestContext {
   private readonly accountById = new Map<string, Promise<DocumentSnapshot>>();
   private readonly participantById = new Map<string, Promise<DocumentSnapshot>>();
+  private readonly participantManagementById = new Map<string, Promise<DocumentSnapshot>>();
   private readonly instructorById = new Map<string, Promise<DocumentSnapshot>>();
   private readonly courseById = new Map<string, Promise<DocumentSnapshot>>();
   private readonly paymentById = new Map<string, Promise<DocumentSnapshot>>();
@@ -50,10 +46,7 @@ export class ReadModelRequestContext {
   private readonly courseDaysByCourseId = new Map<string, Promise<QuerySnapshot>>();
   private readonly courseAttendancesByCourseId = new Map<string, Promise<QuerySnapshot>>();
   private readonly attendancesByEnrollmentIds = new Map<string, Promise<QuerySnapshot>>();
-  private readonly enrollmentAttendancesByEnrollmentId = new Map<
-    string,
-    Promise<QuerySnapshot>
-  >();
+  private readonly enrollmentAttendancesByEnrollmentId = new Map<string, Promise<QuerySnapshot>>();
   private readonly lessonManagementByAccountId = new Map<string, Promise<QuerySnapshot>>();
   private readonly activeManagementByAccountId = new Map<string, Promise<QuerySnapshot>>();
   private readonly activeManagementByParticipantId = new Map<string, Promise<QuerySnapshot>>();
@@ -82,6 +75,14 @@ export class ReadModelRequestContext {
   participant(participantId: Participant['participantId']): Promise<DocumentSnapshot> {
     return this.memoize(this.participantById, participantId, () =>
       this.firestore.collection('participants').doc(participantId).get()
+    );
+  }
+
+  participantManagement(
+    participantManagementId: ParticipantManagementId
+  ): Promise<DocumentSnapshot> {
+    return this.memoize(this.participantManagementById, participantManagementId, () =>
+      this.firestore.collection('participant_management').doc(participantManagementId).get()
     );
   }
 
@@ -141,13 +142,8 @@ export class ReadModelRequestContext {
     );
   }
 
-  attendancesForEnrollments(
-    enrollmentIds: readonly CourseEnrollmentId[]
-  ): Promise<QuerySnapshot> {
-    if (
-      enrollmentIds.length === 0 ||
-      enrollmentIds.length > ATTENDANCES_FOR_ENROLLMENTS_MAX_IDS
-    ) {
+  attendancesForEnrollments(enrollmentIds: readonly CourseEnrollmentId[]): Promise<QuerySnapshot> {
+    if (enrollmentIds.length === 0 || enrollmentIds.length > ATTENDANCES_FOR_ENROLLMENTS_MAX_IDS) {
       throw new Error(ATTENDANCES_FOR_ENROLLMENTS_CONTRACT_VIOLATION);
     }
     const key = attendancesForEnrollmentsMemoKey(enrollmentIds);

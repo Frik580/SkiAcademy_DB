@@ -107,6 +107,33 @@ export function useInstructorBookingCollaboration(input: {
     [commands, handleCommandError, input]
   );
 
+  const handleCompleteLesson = useCallback(
+    async (booking: {
+      readonly bookingId: string;
+      readonly revision: number;
+      readonly participantId: string;
+    }) => {
+      setSubmittingId(booking.bookingId);
+      try {
+        await commands.recordLessonCompleted({
+          bookingId: booking.bookingId,
+          participantId: booking.participantId,
+          bookingRevision: booking.revision,
+        });
+        input.onNotify(
+          'success',
+          input.t('instructorCompleteLesson'),
+          input.t('scheduleUpdatedDesc')
+        );
+      } catch (error) {
+        await handleCommandError(error);
+      } finally {
+        setSubmittingId(undefined);
+      }
+    },
+    [commands, handleCommandError, input]
+  );
+
   const handleWithdrawChangeRequest = useCallback(
     async (request: BookingChangeRequestCabinetItem) => {
       setSubmittingId(request.requestId);
@@ -138,6 +165,7 @@ export function useInstructorBookingCollaboration(input: {
     handleWithdrawProposal,
     handleCreateProposal,
     handleCreateChangeRequest,
+    handleCompleteLesson,
     handleWithdrawChangeRequest,
     refetchParticipantAccessRead: commands.refetchParticipantAccessRead,
     blockParticipant: commands.blockParticipant,

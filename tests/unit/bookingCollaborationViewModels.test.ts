@@ -13,6 +13,7 @@ import { mapParticipantInstructorAccessReadModelToCabinetItem } from '../../src/
 import {
   deriveAcceptProposalIdempotencyKey,
   deriveRescheduleBookingIdempotencyKey,
+  deriveRecordInstructorAttendanceIdempotencyKey,
   deriveWithdrawCancellationIdempotencyKey,
 } from '../../src/features/booking-collaboration/deriveCollaborationIdempotencyKeys';
 import { presentCanonicalCommandError } from '../../src/features/booking-collaboration/presentCollaborationError';
@@ -89,6 +90,9 @@ describe('booking collaboration idempotency keys', () => {
     );
     expect(deriveAcceptProposalIdempotencyKey('booking_proposal_a', 2)).toBe(
       'accept-proposal:booking_proposal_a:2'
+    );
+    expect(deriveRecordInstructorAttendanceIdempotencyKey('booking_a', 'participant_a', 4)).toBe(
+      'attendance-present:booking_a:participant_a:4'
     );
   });
 });

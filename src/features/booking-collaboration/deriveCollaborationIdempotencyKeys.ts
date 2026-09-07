@@ -81,6 +81,14 @@ export function deriveWithdrawChangeRequestIdempotencyKey(
   return `withdraw-change-request:${requestId}:${expectedRevision}` as IdempotencyKey;
 }
 
+export function deriveRecordInstructorAttendanceIdempotencyKey(
+  bookingId: string,
+  participantId: string,
+  bookingRevision: number
+): IdempotencyKey {
+  return `attendance-present:${bookingId}:${participantId}:${bookingRevision}` as IdempotencyKey;
+}
+
 export function deriveCreateRelationshipIdempotencyKey(relationshipId: string): IdempotencyKey {
   return `create-relationship:${relationshipId}` as IdempotencyKey;
 }

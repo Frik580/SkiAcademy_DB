@@ -311,20 +311,8 @@ export async function migratePreExistingProfile(
       throw new Error(`Write user profile failed: ${err.message}`);
     }
 
-    try {
-      logger.debug(`Checking bookings for oldUid: ${oldUid}...`);
-      const bQuery = query(collection(db, 'bookings'), where('userId', '==', oldUid));
-      const bSnap = await getDocs(bQuery);
-      logger.debug(`Found ${bSnap.size} bookings to update.`);
-      for (const bDoc of bSnap.docs) {
-        logger.debug(`Updating booking ${bDoc.id}...`);
-        await updateDoc(doc(db, 'bookings', bDoc.id), { userId: newUid });
-      }
-      logger.debug('Bookings update complete.');
-    } catch (err: any) {
-      logger.error('Migration error at step 3: Update bookings failed', err);
-      throw new Error(`Update bookings failed: ${err.message}`);
-    }
+    // Booking identity is canonical-only. Do not rewrite legacy Booking.userId
+    // during profile migration; participant linking is owned by canonical commands.
 
     try {
       logger.debug(`Checking reviews for oldUid: ${oldUid}...`);

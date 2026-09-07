@@ -117,6 +117,7 @@ describe('instructor course attendance commands', () => {
     expect(queryEnrollmentMock).toHaveBeenCalledWith({
       scope: 'instructor_roster',
       courseId,
+      pageSize: 25,
     });
     expect(queryAttendanceMock).toHaveBeenCalledWith({
       scope: 'instructor_roster',
@@ -227,6 +228,7 @@ describe('instructor course attendance commands', () => {
     expect(queryEnrollmentMock).toHaveBeenCalledWith({
       scope: 'instructor_roster',
       courseId,
+      pageSize: 25,
     });
     expect(queryAttendanceMock).toHaveBeenCalledWith({
       scope: 'instructor_roster',

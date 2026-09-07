@@ -8,8 +8,7 @@ import {
   evaluateParticipantManagementAccess,
   evaluateClientCancellationTiming,
   isConfirmedIndividualBooking,
-  isGuestBookingConfirmationAllowedBeforeStart,
-  isGuestReservationExpired,
+  evaluateGuestManualPaymentAcceptance,
   isLessonBookingHot,
   isPendingCancellationIndividualBooking,
   isRescheduleEligibleBooking,
@@ -322,18 +321,15 @@ function buildAdminAuthorizedActions(input: {
     input.booking.lifecycle.status === 'pending' ? input.booking.lifecycle : undefined;
   const canRecordGuestPayment = Boolean(
     accountActive &&
-    input.booking.attribution.bookingOrigin === 'guest' &&
-    guestPendingLifecycle !== undefined &&
     input.payment !== undefined &&
     input.payment.outstandingAmount > 0 &&
-    !isGuestReservationExpired({
-      now: input.now,
-      reservationExpiresAt: guestPendingLifecycle.reservationExpiresAt,
-    }) &&
-    isGuestBookingConfirmationAllowedBeforeStart({
-      now: input.now,
+    evaluateGuestManualPaymentAcceptance({
+      bookingOrigin: input.booking.attribution.bookingOrigin,
+      lifecycleStatus: input.booking.lifecycle.status,
+      reservationExpiresAt: guestPendingLifecycle?.reservationExpiresAt,
       serviceStartsAt: input.booking.occurrence.interval.startsAt,
-    })
+      now: input.now,
+    }).outcome === 'accepted'
   );
   const linkAvailability = evaluateAdminGuestBookingIdentityLinkAvailability({
     bookingOrigin: input.booking.attribution.bookingOrigin,

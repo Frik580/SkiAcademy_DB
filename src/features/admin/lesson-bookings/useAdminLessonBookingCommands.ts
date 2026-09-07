@@ -19,7 +19,10 @@ import {
   mapCanonicalCommandResultError,
   toCanonicalCommandClientError,
 } from '../../../lib/canonical/mapCanonicalCommandError';
-import type { AdminLessonBookingAttempt } from './lessonBookingAdminContracts';
+import type {
+  AdminLessonBookingAttempt,
+  AdminLessonBookingRefreshResult,
+} from './lessonBookingAdminContracts';
 
 async function assertCommandSucceeded<Kind extends CommandKind>(
   command: Promise<CommandResult<Kind>>
@@ -220,7 +223,7 @@ export type AdminLessonBookingAttemptResult =
 
 export function useAdminLessonBookingCommands(input: {
   readonly adminAccountId: string;
-  readonly refreshBooking: (bookingId: BookingId) => Promise<void>;
+  readonly refreshBooking: (bookingId: BookingId) => Promise<AdminLessonBookingRefreshResult>;
 }) {
   const { adminAccountId, refreshBooking } = input;
 
@@ -228,17 +231,23 @@ export function useAdminLessonBookingCommands(input: {
     async (attempt: AdminLessonBookingAttempt): Promise<AdminLessonBookingAttemptResult> => {
       const bookingId =
         attempt.kind === 'create_confirmed_booking' ? attempt.bookingId : attempt.target.bookingId;
-      const refreshCanonicalProjections = async () => {
-        await Promise.all([
-          refreshBooking(bookingId),
-          attempt.kind === 'resolve_booking_cancellation' ||
-          attempt.kind === 'record_provider_payment_event'
-            ? queryAdminFinanceReadModels({
-                scope: 'admin_payment_detail',
-                paymentId: PaymentIdSchema.parse(attempt.paymentId),
-              }).then(() => undefined)
-            : Promise.resolve(),
-        ]);
+      const refreshCanonicalProjections = async (): Promise<AdminLessonBookingRefreshResult> => {
+        try {
+          const bookingRefresh = await refreshBooking(bookingId);
+          if (bookingRefresh.status !== 'success') return { status: 'failure' };
+          if (
+            attempt.kind === 'resolve_booking_cancellation' ||
+            attempt.kind === 'record_provider_payment_event'
+          ) {
+            await queryAdminFinanceReadModels({
+              scope: 'admin_payment_detail',
+              paymentId: PaymentIdSchema.parse(attempt.paymentId),
+            });
+          }
+          return { status: 'success' };
+        } catch {
+          return { status: 'failure' };
+        }
       };
       try {
         await executeAdminLessonBookingAttempt(adminAccountId, attempt);
@@ -248,29 +257,24 @@ export function useAdminLessonBookingCommands(input: {
             ? error
             : toCanonicalCommandClientError(error, 'correlation_admin_lesson_unknown');
         if (normalized.code === 'stale_version') {
-          try {
-            await refreshCanonicalProjections();
-          } catch {
-            // Preserve the authoritative stale-version outcome; the read hook exposes retry.
-          }
+          await refreshCanonicalProjections();
         }
         return { status: 'error', error: normalized };
       }
-      try {
-        await refreshCanonicalProjections();
+      const refreshResult = await refreshCanonicalProjections();
+      if (refreshResult.status === 'success') {
         return { status: 'success' };
-      } catch (error) {
-        if (attempt.kind === 'record_provider_payment_event') {
-          return { status: 'success', refreshFailed: true };
-        }
-        return {
-          status: 'error',
-          error:
-            error instanceof CanonicalCommandClientError
-              ? error
-              : toCanonicalCommandClientError(error, 'correlation_admin_lesson_refresh_unknown'),
-        };
       }
+      if (attempt.kind === 'record_provider_payment_event') {
+        return { status: 'success', refreshFailed: true };
+      }
+      return {
+        status: 'error',
+        error: toCanonicalCommandClientError(
+          new Error('canonical projections refresh failed'),
+          'correlation_admin_lesson_refresh_unknown'
+        ),
+      };
     },
     [adminAccountId, refreshBooking]
   );

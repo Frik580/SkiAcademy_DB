@@ -6,6 +6,7 @@ import type {
   AdminLessonBookingDetailState,
   AdminLessonBookingListState,
   AdminLessonBookingReadError,
+  AdminLessonBookingRefreshResult,
   AdminLessonBookingView,
 } from './lessonBookingAdminContracts';
 import { mergeAdminLessonBookingItems } from './lessonBookingAdminUtils';
@@ -49,9 +50,9 @@ export function useAdminLessonBookingReadModels(input: {
   const [detail, setDetail] = useState<AdminLessonBookingDetailState>(INITIAL_DETAIL);
 
   const loadList = useCallback(
-    async (cursor?: string, append = false) => {
+    async (cursor?: string, append = false): Promise<AdminLessonBookingRefreshResult> => {
       const generation = ++listGeneration.current;
-      if (!enabled) return;
+      if (!enabled) return { status: 'success' };
       setList((current) => ({
         ...(append ? current : INITIAL_LIST),
         loading: !append,
@@ -64,7 +65,9 @@ export function useAdminLessonBookingReadModels(input: {
           scope: expectedScope,
           ...(cursor ? { cursor } : {}),
         });
-        if (listGeneration.current !== generation || result.scope !== expectedScope) return;
+        if (listGeneration.current !== generation || result.scope !== expectedScope) {
+          return { status: 'success' };
+        }
         setList((current) => ({
           items: append
             ? mergeAdminLessonBookingItems(current.items, result.items)
@@ -74,25 +77,27 @@ export function useAdminLessonBookingReadModels(input: {
           hasMore: result.hasMore,
           ...(result.nextCursor ? { cursor: result.nextCursor } : {}),
         }));
+        return { status: 'success' };
       } catch (error) {
-        if (listGeneration.current !== generation) return;
+        if (listGeneration.current !== generation) return { status: 'success' };
         setList((current) => ({
           ...current,
           loading: false,
           loadingMore: false,
           error: classifyAdminLessonBookingReadError(error),
         }));
+        return { status: 'failure' };
       }
     },
     [enabled, view]
   );
 
   const loadDetail = useCallback(
-    async (bookingId = selectedBookingRef.current) => {
+    async (bookingId = selectedBookingRef.current): Promise<AdminLessonBookingRefreshResult> => {
       const generation = ++detailGeneration.current;
       if (!enabled || !bookingId) {
         setDetail(INITIAL_DETAIL);
-        return;
+        return { status: 'success' };
       }
       setDetail({ loading: true });
       try {
@@ -105,7 +110,7 @@ export function useAdminLessonBookingReadModels(input: {
           selectedBookingRef.current !== bookingId ||
           result.scope !== 'admin_detail'
         ) {
-          return;
+          return { status: 'success' };
         }
         const incoming = result.items[0];
         setDetail((current) => ({
@@ -115,14 +120,16 @@ export function useAdminLessonBookingReadModels(input: {
               : incoming,
           loading: false,
         }));
+        return { status: 'success' };
       } catch (error) {
         if (detailGeneration.current !== generation || selectedBookingRef.current !== bookingId) {
-          return;
+          return { status: 'success' };
         }
         setDetail({
           loading: false,
           error: classifyAdminLessonBookingReadError(error),
         });
+        return { status: 'failure' };
       }
     },
     [enabled]
@@ -148,11 +155,16 @@ export function useAdminLessonBookingReadModels(input: {
   }, [loadDetail, selectedBookingId]);
 
   const refreshBooking = useCallback(
-    async (bookingId: BookingId) => {
-      await Promise.all([
+    async (bookingId: BookingId): Promise<AdminLessonBookingRefreshResult> => {
+      const [listResult, detailResult] = await Promise.all([
         loadList(),
-        selectedBookingRef.current === bookingId ? loadDetail(bookingId) : Promise.resolve(),
+        selectedBookingRef.current === bookingId
+          ? loadDetail(bookingId)
+          : Promise.resolve({ status: 'success' as const }),
       ]);
+      return listResult.status === 'success' && detailResult.status === 'success'
+        ? { status: 'success' }
+        : { status: 'failure' };
     },
     [loadDetail, loadList]
   );

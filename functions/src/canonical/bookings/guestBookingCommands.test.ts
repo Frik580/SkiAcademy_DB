@@ -24,6 +24,8 @@ import {
   WalletSchema,
   systemCommandActor,
   resolveRefundDestination,
+  PaymentSchema,
+  BookingSchema,
   type Booking,
   type CommandEnvelope,
   type Payment,
@@ -253,9 +255,9 @@ describe('create_guest_booking_request command', () => {
     const snapshot = executor.snapshot();
     expect(snapshot.docs.get(`bookings/${bookingId}`)).toBeDefined();
     expect(snapshot.docs.get(`participants/${participantId}`)).toBeDefined();
-    expect([...snapshot.docs.keys()].filter((path) => path.startsWith('activity_logs/')).length).toBe(
-      1
-    );
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('activity_logs/')).length
+    ).toBe(1);
   });
 
   it('rejects provisioning without guest participant transport metadata', async () => {
@@ -300,7 +302,9 @@ describe('create_guest_booking_request command', () => {
     const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
     const commands = runCommands(executor);
     const createResult = await commands.execute(
-      guestCreateEnvelope({ context: { ...guestCreateEnvelope().context, idempotencyKey: 'guest-read-01' } })
+      guestCreateEnvelope({
+        context: { ...guestCreateEnvelope().context, idempotencyKey: 'guest-read-01' },
+      })
     );
     expect(createResult.status).toBe('success');
     const credential = createResult.payload?.guestActionCredential;
@@ -375,7 +379,9 @@ describe('create_guest_booking_request command', () => {
 });
 
 describe('confirm_guest_booking command', () => {
-  async function seedPending(executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>) {
+  async function seedPending(
+    executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>
+  ) {
     const commands = runCommands(executor);
     await commands.execute(guestCreateEnvelope());
   }
@@ -450,9 +456,9 @@ describe('confirm_guest_booking command', () => {
     expect(executor.snapshot().docs.get(requestedBookingPath)?.data.lifecycle.status).toBe(
       'pending'
     );
-    expect(executor.snapshot().docs.get(`bookings/${foreignBookingId}`)?.data.lifecycle.status).toBe(
-      'pending'
-    );
+    expect(
+      executor.snapshot().docs.get(`bookings/${foreignBookingId}`)?.data.lifecycle.status
+    ).toBe('pending');
   });
 
   it('keeps partial Payment pending and confirms atomically when fully funded', async () => {
@@ -510,6 +516,281 @@ describe('confirm_guest_booking command', () => {
     const replayed = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data;
     expect(replayed?.revision).toBe(2);
     expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data?.paidAmount).toBe(12_000);
+  });
+
+  function mutationFingerprint(
+    executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>
+  ) {
+    const snapshot = executor.snapshot();
+    return structuredClone({
+      payment: snapshot.docs.get(`payments/${paymentId}`)?.data,
+      booking: snapshot.docs.get(`bookings/${bookingId}`)?.data,
+      monetaryEventCount: [...snapshot.docs.keys()].filter((path) =>
+        path.startsWith('monetary_events/')
+      ).length,
+      activityLogCount: [...snapshot.docs.keys()].filter((path) =>
+        path.startsWith('activity_logs/')
+      ).length,
+    });
+  }
+
+  function cashEnvelope(input: {
+    readonly amount: number;
+    readonly key: string;
+    readonly expectedRevision?: number;
+  }): CommandEnvelope<'record_provider_payment_event'> {
+    return {
+      kind: 'record_provider_payment_event',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: input.key,
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(input.expectedRevision ?? 1),
+      },
+      intent: {
+        paymentId,
+        amount: input.amount,
+        sourceKind: 'cash',
+        manualReference: input.key,
+      },
+    };
+  }
+
+  it('rejects orphan Booking partial cash without mutating Payment, events, audit, or creating a Booking', async () => {
+    const orphanPayment = PaymentSchema.parse({
+      paymentId,
+      subjectType: 'booking',
+      subjectId: bookingId,
+      currency: 'KZT',
+      originalPrice: 30_000,
+      price: 30_000,
+      paidAmount: 0,
+      refundedAmount: 0,
+      retainedAmount: 0,
+      settledAmount: 0,
+      writtenOffAmount: 0,
+      outstandingAmount: 30_000,
+      paymentStatus: 'unpaid',
+      incrementalRequirements: [],
+      revision: 1,
+      eventRevision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...baseFixture(),
+      [`payments/${paymentId}`]: orphanPayment,
+    });
+    const before = mutationFingerprint(executor);
+    const result = await runCommands(executor).execute(
+      cashEnvelope({ amount: 10_000, key: 'guest-cash-orphan-partial' })
+    );
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('validation');
+    expect(result.status === 'error' ? result.error.details : undefined).toEqual({
+      field: 'paymentId',
+      reason: 'conflict',
+    });
+    expect(mutationFingerprint(executor)).toEqual(before);
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: 0,
+      outstandingAmount: 30_000,
+      revision: 1,
+      eventRevision: 1,
+    });
+    expect(executor.snapshot().docs.has(`bookings/${bookingId}`)).toBe(false);
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/'))
+    ).toHaveLength(0);
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('activity_logs/'))
+    ).toHaveLength(0);
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('domain_outbox/'))
+    ).toHaveLength(0);
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('command_idempotency/'))
+    ).toHaveLength(0);
+  });
+
+  it('records non-guest Booking provider payment without applying guest eligibility', async () => {
+    const nonGuestBooking = BookingSchema.parse({
+      bookingId,
+      attribution: {
+        bookingOrigin: 'admin',
+        bookedBy: { kind: 'account', accountId: adminAccountId },
+      },
+      party: {
+        kind: 'individual',
+        participantIds: [participantId],
+      },
+      occurrence: {
+        occurrenceId: 'occurrence_guest_nonguest_01',
+        instructorId,
+        interval: {
+          startsAt: timestampFromDate(new Date('2026-01-15T04:00:00.000Z')),
+          endsAt: timestampFromDate(new Date('2026-01-15T05:00:00.000Z')),
+        },
+        timeZone: 'Asia/Almaty',
+        scheduleRevision: 1,
+        serviceParty: { participantIds: [participantId] },
+      },
+      lifecycle: { status: 'confirmed' },
+      paymentId,
+      payerAccountId: adminAccountId,
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_nonguest_booking',
+        lastChangedByCommandId: 'command_seed_nonguest_booking',
+        correlationId,
+      },
+    });
+    const payment = PaymentSchema.parse({
+      paymentId,
+      subjectType: 'booking',
+      subjectId: bookingId,
+      currency: 'KZT',
+      originalPrice: 30_000,
+      price: 30_000,
+      paidAmount: 0,
+      refundedAmount: 0,
+      retainedAmount: 0,
+      settledAmount: 0,
+      writtenOffAmount: 0,
+      outstandingAmount: 30_000,
+      paymentStatus: 'unpaid',
+      incrementalRequirements: [],
+      revision: 1,
+      eventRevision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+    });
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...baseFixture(),
+      [`bookings/${bookingId}`]: nonGuestBooking,
+      [`payments/${paymentId}`]: payment,
+    });
+    const result = await runCommands(executor).execute(
+      cashEnvelope({ amount: 10_000, key: 'guest-cash-nonguest-partial' })
+    );
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: 10_000,
+      outstandingAmount: 20_000,
+      paymentStatus: 'partially_paid',
+    });
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data?.lifecycle.status).toBe(
+      'confirmed'
+    );
+  });
+
+  it('rejects expired partial guest cash without mutating Payment, Booking, events, or audit', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await seedPending(executor);
+    const before = mutationFingerprint(executor);
+    const result = await runCommands(executor, '2026-01-01T11:01:00.000Z').execute(
+      cashEnvelope({ amount: 5_000, key: 'guest-cash-expired-partial' })
+    );
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('invalid_transition');
+    expect(mutationFingerprint(executor)).toEqual(before);
+  });
+
+  it('rejects started partial guest cash without mutating Payment, Booking, events, or audit', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await seedPending(executor);
+    const booking = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data as {
+      occurrence: { interval: Record<string, unknown> };
+      lifecycle: Record<string, unknown>;
+    };
+    booking.lifecycle = {
+      status: 'pending',
+      reservationExpiresAt: timestampFromDate(new Date('2026-01-02T10:00:00.000Z')),
+    };
+    booking.occurrence.interval = {
+      ...booking.occurrence.interval,
+      startsAt: timestampFromDate(new Date('2026-01-01T09:00:00.000Z')),
+      endsAt: timestampFromDate(new Date('2026-01-01T10:00:00.000Z')),
+    };
+    const before = mutationFingerprint(executor);
+    const result = await runCommands(executor, '2026-01-01T10:30:00.000Z').execute(
+      cashEnvelope({ amount: 5_000, key: 'guest-cash-started-partial' })
+    );
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('invalid_transition');
+    expect(mutationFingerprint(executor)).toEqual(before);
+  });
+
+  it('rejects terminal partial guest cash without mutating Payment, Booking, events, or audit', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await seedPending(executor);
+    expect(
+      (
+        await runCommands(executor, '2026-01-01T11:01:00.000Z').execute({
+          kind: 'expire_guest_reservation',
+          context: {
+            actor: systemCommandActor(SystemActorIdSchema.parse('system_guest_expiry_partial')),
+            exercisedCapability: 'system',
+            idempotencyKey: 'guest-cash-terminal-expire',
+            correlationId,
+            source: 'scheduler',
+            expectedRevision: AggregateRevisionSchema.parse(1),
+          },
+          intent: { bookingId },
+        })
+      ).status
+    ).toBe('success');
+    const before = mutationFingerprint(executor);
+    const result = await runCommands(executor, '2026-01-01T11:02:00.000Z').execute(
+      cashEnvelope({ amount: 5_000, key: 'guest-cash-terminal-partial' })
+    );
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('invalid_transition');
+    expect(mutationFingerprint(executor)).toEqual(before);
+  });
+
+  it('records valid partial guest cash without confirming the Booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await seedPending(executor);
+    const result = await runCommands(executor).execute(
+      cashEnvelope({ amount: 5_000, key: 'guest-cash-valid-partial' })
+    );
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: 5_000,
+      outstandingAmount: 7_000,
+      paymentStatus: 'partially_paid',
+    });
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data?.lifecycle.status).toBe(
+      'pending'
+    );
+  });
+
+  it('records valid full guest cash atomically with Booking confirmation and remains idempotent', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await seedPending(executor);
+    const envelope = cashEnvelope({ amount: 12_000, key: 'guest-cash-valid-full' });
+    expect((await runCommands(executor).execute(envelope)).status).toBe('success');
+    expect((await runCommands(executor).execute(envelope)).status).toBe('success');
+    expect(executor.snapshot().docs.get(`payments/${paymentId}`)?.data).toMatchObject({
+      paidAmount: 12_000,
+      outstandingAmount: 0,
+      paymentStatus: 'paid',
+      revision: 2,
+    });
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data?.lifecycle.status).toBe(
+      'confirmed'
+    );
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/'))
+    ).toHaveLength(1);
+    expect(
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('activity_logs/'))
+    ).toHaveLength(2);
   });
 
   it('clears a stale confirmation plan when a transaction retry observes terminal lifecycle', async () => {
@@ -798,7 +1079,9 @@ describe('link_guest_booking_to_account command', () => {
     const snapshot = executor.snapshot();
     const booking = snapshot.docs.get(`bookings/${bookingId}`)?.data;
     const payment = snapshot.docs.get(`payments/${paymentId}`)?.data;
-    expect(snapshot.docs.get(`participants/${participantId}`)?.data.management.kind).toBe('managed');
+    expect(snapshot.docs.get(`participants/${participantId}`)?.data.management.kind).toBe(
+      'managed'
+    );
     expect(booking?.attribution.bookingOrigin).toBe('guest');
     expect(booking?.attribution.bookedBy).toEqual({
       kind: 'guest',
@@ -819,9 +1102,9 @@ describe('link_guest_booking_to_account command', () => {
       })
     ).toBe('wallet');
     expect(snapshot.docs.get(`users/${linkAccountId}/wallet/state`)?.data.balance).toBe(18_000);
-    expect(
-      [...snapshot.docs.keys()].filter((path) => path.startsWith('monetary_events/'))
-    ).toEqual([]);
+    expect([...snapshot.docs.keys()].filter((path) => path.startsWith('monetary_events/'))).toEqual(
+      []
+    );
   });
 });
 
@@ -1183,7 +1466,8 @@ describe('guest booking schedule occupancy guards', () => {
     expect(second.status).toBe('success');
     expect(executor.snapshot().docs.get(`bookings/${guestBookingId}`)).toBeDefined();
     expect(
-      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('activity_logs/')).length
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('activity_logs/'))
+        .length
     ).toBe(1);
   });
 });
@@ -1196,7 +1480,9 @@ describe('guest booking audit registry', () => {
     await commands.execute(envelope);
     const identity = resolveCommandIdempotencyIdentity(envelope);
     expect(
-      executor.snapshot().docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
+      executor
+        .snapshot()
+        .docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
     ).toBe(true);
   });
 });

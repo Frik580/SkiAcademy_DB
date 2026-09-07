@@ -56,6 +56,56 @@ export function isGuestBookingConfirmationAllowedBeforeStart(input: {
   return compareCanonicalTimestamps(input.now, input.serviceStartsAt) < 0;
 }
 
+export type GuestManualPaymentAcceptanceRejectReason =
+  'already_confirmed' | 'terminal_or_non_pending' | 'reservation_expired' | 'service_started';
+
+export type GuestManualPaymentAcceptanceDecision =
+  | { readonly outcome: 'not_applicable' }
+  | { readonly outcome: 'accepted' }
+  | {
+      readonly outcome: 'rejected';
+      readonly reason: GuestManualPaymentAcceptanceRejectReason;
+    };
+
+/**
+ * Whether money may be accepted against a guest Booking.
+ * Independent of whether the Payment will become fully funded and confirm the Booking.
+ */
+export function evaluateGuestManualPaymentAcceptance(input: {
+  readonly bookingOrigin: string;
+  readonly lifecycleStatus: string;
+  readonly reservationExpiresAt?: CanonicalTimestamp;
+  readonly serviceStartsAt: CanonicalTimestamp;
+  readonly now: CanonicalTimestamp;
+}): GuestManualPaymentAcceptanceDecision {
+  if (input.bookingOrigin !== 'guest') {
+    return { outcome: 'not_applicable' };
+  }
+  if (input.lifecycleStatus === 'confirmed') {
+    return { outcome: 'rejected', reason: 'already_confirmed' };
+  }
+  if (input.lifecycleStatus !== 'pending' || input.reservationExpiresAt === undefined) {
+    return { outcome: 'rejected', reason: 'terminal_or_non_pending' };
+  }
+  if (
+    isGuestReservationExpired({
+      now: input.now,
+      reservationExpiresAt: input.reservationExpiresAt,
+    })
+  ) {
+    return { outcome: 'rejected', reason: 'reservation_expired' };
+  }
+  if (
+    !isGuestBookingConfirmationAllowedBeforeStart({
+      now: input.now,
+      serviceStartsAt: input.serviceStartsAt,
+    })
+  ) {
+    return { outcome: 'rejected', reason: 'service_started' };
+  }
+  return { outcome: 'accepted' };
+}
+
 export const GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS = {
   displayName: 'participant_display_name',
   skillLevel: 'participant_skill_level',
@@ -84,8 +134,7 @@ export function parseGuestParticipantProfileFromTransportMetadata(
   }
 
   const ageYearsRaw = transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.ageYears];
-  const parsedAgeYears =
-    ageYearsRaw === undefined ? undefined : Number.parseInt(ageYearsRaw, 10);
+  const parsedAgeYears = ageYearsRaw === undefined ? undefined : Number.parseInt(ageYearsRaw, 10);
 
   return GuestParticipantProfileFromTransportSchema.safeParse({
     displayName: transportMetadata[GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS.displayName],

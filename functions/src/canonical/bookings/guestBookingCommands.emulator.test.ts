@@ -9,6 +9,7 @@ import {
   InstructorIdSchema,
   MonetaryEventSchema,
   ParticipantIdSchema,
+  PaymentSchema,
   SystemActorIdSchema,
   accountCommandActor,
   guestCommandActor,
@@ -547,15 +548,18 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
     });
 
     const mismatchAt = timestampFromDate(new Date('2026-01-01T11:01:00.000Z'));
-    await firestore.collection('bookings').doc(bookingId).update({
-      lifecycle: {
-        status: 'cancelled',
-        cancelledAt: mismatchAt,
-        reasonCode: 'reservation_expired',
-      },
-      revision: 3,
-      updatedAt: mismatchAt,
-    });
+    await firestore
+      .collection('bookings')
+      .doc(bookingId)
+      .update({
+        lifecycle: {
+          status: 'cancelled',
+          cancelledAt: mismatchAt,
+          reasonCode: 'reservation_expired',
+        },
+        revision: 3,
+        updatedAt: mismatchAt,
+      });
 
     const firstSweep = await sweepGuestConfirmationLifecycleMismatches(
       firestore,
@@ -598,8 +602,236 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
       new Date('2026-01-01T11:04:00.000Z')
     );
     expect((await issue.ref.get()).data()).toMatchObject({
-      lifecycle: { status: 'open', reopenedAt: timestampFromDate(new Date('2026-01-01T11:04:00.000Z')) },
+      lifecycle: {
+        status: 'open',
+        reopenedAt: timestampFromDate(new Date('2026-01-01T11:04:00.000Z')),
+      },
       revision: 3,
     });
+  }, 30_000);
+
+  async function mutationFingerprint() {
+    return JSON.parse(
+      JSON.stringify({
+        payment: (await firestore.collection('payments').doc(paymentId).get()).data(),
+        booking: (await firestore.collection('bookings').doc(bookingId).get()).data(),
+        monetaryEventCount: (await firestore.collection('monetary_events').get()).size,
+        activityLogCount: (await firestore.collection('activity_logs').get()).size,
+      })
+    );
+  }
+
+  function cashEnvelope(input: {
+    readonly amount: number;
+    readonly key: string;
+    readonly expectedRevision?: number;
+  }): CommandEnvelope<'record_provider_payment_event'> {
+    return {
+      kind: 'record_provider_payment_event',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'administrator',
+        idempotencyKey: input.key,
+        correlationId,
+        source: 'admin_callable',
+        expectedRevision: AggregateRevisionSchema.parse(input.expectedRevision ?? 1),
+      },
+      intent: {
+        paymentId,
+        amount: input.amount,
+        sourceKind: 'cash',
+        manualReference: input.key,
+      },
+    };
+  }
+
+  it('rejects orphan Booking partial cash with zero mutations', async () => {
+    const orphanPayment = PaymentSchema.parse({
+      paymentId,
+      subjectType: 'booking',
+      subjectId: bookingId,
+      currency: 'KZT',
+      originalPrice: 30_000,
+      price: 30_000,
+      paidAmount: 0,
+      refundedAmount: 0,
+      retainedAmount: 0,
+      settledAmount: 0,
+      writtenOffAmount: 0,
+      outstandingAmount: 30_000,
+      paymentStatus: 'unpaid',
+      incrementalRequirements: [],
+      revision: 1,
+      eventRevision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+    });
+    await firestore.collection('payments').doc(paymentId).set(orphanPayment);
+    const before = await mutationFingerprint();
+    const result = await createCommands('2026-01-01T10:10:00.000Z').execute(
+      cashEnvelope({ amount: 10_000, key: 'guest-elig-orphan-partial' })
+    );
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('validation');
+    expect(result.status === 'error' ? result.error.details : undefined).toEqual({
+      field: 'paymentId',
+      reason: 'conflict',
+    });
+    expect(await mutationFingerprint()).toEqual(before);
+    expect((await firestore.collection('payments').doc(paymentId).get()).data()).toMatchObject({
+      paidAmount: 0,
+      outstandingAmount: 30_000,
+      revision: 1,
+      eventRevision: 1,
+    });
+    expect((await firestore.collection('bookings').doc(bookingId).get()).exists).toBe(false);
+    expect((await firestore.collection('monetary_events').get()).size).toBe(0);
+    expect((await firestore.collection('activity_logs').get()).size).toBe(0);
+    expect((await firestore.collection('domain_outbox').get()).size).toBe(0);
+    expect((await firestore.collection('command_idempotency').get()).size).toBe(0);
+    expect((await firestore.collection('provider_event_receipts').get()).size).toBe(0);
+  }, 30_000);
+
+  it('rejects expired partial guest cash with zero mutations', async () => {
+    const createCommandsAt = createCommands('2026-01-01T10:00:00.000Z');
+    expect(
+      (
+        await createCommandsAt.execute(
+          guestCreateEnvelope({ bookingId, idempotencyKey: 'guest-elig-expired-create' })
+        )
+      ).status
+    ).toBe('success');
+    const before = await mutationFingerprint();
+    const result = await createCommands('2026-01-01T11:01:00.000Z').execute(
+      cashEnvelope({ amount: 5_000, key: 'guest-elig-expired-partial' })
+    );
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('invalid_transition');
+    expect(await mutationFingerprint()).toEqual(before);
+  }, 30_000);
+
+  it('rejects started partial guest cash with zero mutations', async () => {
+    const createCommandsAt = createCommands('2026-01-01T10:00:00.000Z');
+    expect(
+      (
+        await createCommandsAt.execute(
+          guestCreateEnvelope({ bookingId, idempotencyKey: 'guest-elig-started-create' })
+        )
+      ).status
+    ).toBe('success');
+    const bookingRef = firestore.collection('bookings').doc(bookingId);
+    const booking = (await bookingRef.get()).data()!;
+    await bookingRef.set({
+      ...booking,
+      lifecycle: {
+        status: 'pending',
+        reservationExpiresAt: timestampFromDate(new Date('2026-01-02T10:00:00.000Z')),
+      },
+      occurrence: {
+        ...booking.occurrence,
+        interval: {
+          ...booking.occurrence.interval,
+          startsAt: timestampFromDate(new Date('2026-01-01T09:00:00.000Z')),
+          endsAt: timestampFromDate(new Date('2026-01-01T10:00:00.000Z')),
+        },
+      },
+    });
+    const before = await mutationFingerprint();
+    const result = await createCommands('2026-01-01T10:30:00.000Z').execute(
+      cashEnvelope({ amount: 5_000, key: 'guest-elig-started-partial' })
+    );
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('invalid_transition');
+    expect(await mutationFingerprint()).toEqual(before);
+  }, 30_000);
+
+  it('rejects terminal partial guest cash with zero mutations', async () => {
+    const createCommandsAt = createCommands('2026-01-01T10:00:00.000Z');
+    expect(
+      (
+        await createCommandsAt.execute(
+          guestCreateEnvelope({ bookingId, idempotencyKey: 'guest-elig-terminal-create' })
+        )
+      ).status
+    ).toBe('success');
+    expect(
+      (
+        await createCommands('2026-01-01T11:01:00.000Z').execute({
+          kind: 'expire_guest_reservation',
+          context: {
+            actor: systemCommandActor(SystemActorIdSchema.parse('system_guest_expiry_emulator')),
+            exercisedCapability: 'system',
+            idempotencyKey: 'guest-elig-terminal-expire',
+            correlationId,
+            source: 'scheduler',
+            expectedRevision: AggregateRevisionSchema.parse(1),
+          },
+          intent: { bookingId },
+        })
+      ).status
+    ).toBe('success');
+    const before = await mutationFingerprint();
+    const result = await createCommands('2026-01-01T11:02:00.000Z').execute(
+      cashEnvelope({ amount: 5_000, key: 'guest-elig-terminal-partial' })
+    );
+    expect(result.status).toBe('error');
+    expect(result.status === 'error' ? result.error.code : '').toBe('invalid_transition');
+    expect(await mutationFingerprint()).toEqual(before);
+  }, 30_000);
+
+  it('records valid partial guest cash without confirming the Booking', async () => {
+    expect(
+      (
+        await createCommands('2026-01-01T10:00:00.000Z').execute(
+          guestCreateEnvelope({ bookingId, idempotencyKey: 'guest-elig-partial-create' })
+        )
+      ).status
+    ).toBe('success');
+    const envelope = cashEnvelope({ amount: 5_000, key: 'guest-elig-partial-pay' });
+    expect((await createCommands('2026-01-01T10:10:00.000Z').execute(envelope)).status).toBe(
+      'success'
+    );
+    expect((await createCommands('2026-01-01T10:10:00.000Z').execute(envelope)).status).toBe(
+      'success'
+    );
+    expect((await firestore.collection('payments').doc(paymentId).get()).data()).toMatchObject({
+      paidAmount: 5_000,
+      outstandingAmount: 7_000,
+      paymentStatus: 'partially_paid',
+      revision: 2,
+    });
+    expect((await firestore.collection('bookings').doc(bookingId).get()).data()).toMatchObject({
+      lifecycle: { status: 'pending' },
+    });
+    expect((await firestore.collection('monetary_events').get()).size).toBe(1);
+  }, 30_000);
+
+  it('records valid full guest cash atomically with Booking confirmation and remains idempotent', async () => {
+    expect(
+      (
+        await createCommands('2026-01-01T10:00:00.000Z').execute(
+          guestCreateEnvelope({ bookingId, idempotencyKey: 'guest-elig-full-create' })
+        )
+      ).status
+    ).toBe('success');
+    const envelope = cashEnvelope({ amount: 12_000, key: 'guest-elig-full-pay' });
+    const commands = createCommands('2026-01-01T10:10:00.000Z');
+    expect((await commands.execute(envelope)).status).toBe('success');
+    expect((await commands.execute(envelope)).status).toBe('success');
+    expect((await firestore.collection('payments').doc(paymentId).get()).data()).toMatchObject({
+      paidAmount: 12_000,
+      outstandingAmount: 0,
+      paymentStatus: 'paid',
+      revision: 2,
+    });
+    expect((await firestore.collection('bookings').doc(bookingId).get()).data()).toMatchObject({
+      lifecycle: { status: 'confirmed' },
+    });
+    expect((await firestore.collection('monetary_events').get()).size).toBe(1);
+    const paymentLogs = await firestore
+      .collection('activity_logs')
+      .where('command.kind', '==', 'record_provider_payment_event')
+      .get();
+    expect(paymentLogs.size).toBe(1);
   }, 30_000);
 });

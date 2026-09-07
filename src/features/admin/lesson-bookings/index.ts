@@ -26,6 +26,7 @@ export type {
   AdminLessonBookingMutationDraft,
   AdminLessonBookingMutationAttempt,
   AdminLessonBookingReadError,
+  AdminLessonBookingRefreshResult,
   AdminLessonBookingTarget,
   AdminLessonBookingView,
   AdminLessonInstructorOption,

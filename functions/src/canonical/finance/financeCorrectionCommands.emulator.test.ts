@@ -4,6 +4,8 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import {
   AccountSchema,
   AggregateRevisionSchema,
+  BookingIdSchema,
+  BookingSchema,
   CorrelationIdSchema,
   INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS,
   ParticipantIdSchema,
@@ -38,8 +40,8 @@ const PROJECT_ID = 'ski-academy-finance-correction-emulator';
 const correlationId = CorrelationIdSchema.parse('correlation_fin_corr_emulator_01');
 const correlationIdB = CorrelationIdSchema.parse('correlation_fin_corr_emulator_02');
 const accountId = 'account_fin_corr_emulator_01';
-const paymentId = 'payment_fin_corr_emulator_01';
-const bookingId = 'booking_fin_corr_emulator_01';
+const bookingId = BookingIdSchema.parse('booking_fin_corr_emulator_01');
+const paymentId = paymentIdFromBookingId(bookingId);
 const raceBookingId = 'booking_fin_corr_race_01';
 const racePaymentId = paymentIdFromBookingId(raceBookingId);
 const raceParticipantId = ParticipantIdSchema.parse('participant_fin_corr_race_01');
@@ -105,6 +107,42 @@ function seedWallet(balance: number) {
   });
 }
 
+function seedBooking() {
+  return BookingSchema.parse({
+    bookingId,
+    attribution: {
+      bookingOrigin: 'admin',
+      bookedBy: { kind: 'account', accountId },
+    },
+    party: {
+      kind: 'individual',
+      participantIds: ['participant_fin_corr_emulator_01'],
+    },
+    occurrence: {
+      occurrenceId: initialBookingOccurrenceIdFromBookingId(bookingId),
+      instructorId: 'instructor_fin_corr_emulator_01',
+      interval: {
+        startsAt: timestampFromDate(new Date('2026-01-15T04:00:00.000Z')),
+        endsAt: timestampFromDate(new Date('2026-01-15T05:00:00.000Z')),
+      },
+      timeZone: 'Asia/Almaty',
+      scheduleRevision: 1,
+      serviceParty: { participantIds: ['participant_fin_corr_emulator_01'] },
+    },
+    lifecycle: { status: 'confirmed' },
+    paymentId,
+    payerAccountId: accountId,
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'command_seed_booking',
+      lastChangedByCommandId: 'command_seed_booking',
+      correlationId,
+    },
+  });
+}
+
 function seedPayment(overrides: Partial<Payment> = {}): Payment {
   return PaymentSchema.parse({
     paymentId,
@@ -145,6 +183,7 @@ async function clearCollections(collections: readonly string[]): Promise<void> {
 async function seedMismatchPaymentFixture(): Promise<void> {
   await clearCollections([
     'users',
+    'bookings',
     'payments',
     'monetary_events',
     'admin_issues',
@@ -158,6 +197,7 @@ async function seedMismatchPaymentFixture(): Promise<void> {
     .collection('wallet')
     .doc('state')
     .set(seedWallet(0));
+  await firestore.collection('bookings').doc(bookingId).set(seedBooking());
   await firestore
     .collection('payments')
     .doc(paymentId)
@@ -175,6 +215,7 @@ async function seedMismatchPaymentFixture(): Promise<void> {
 async function seedCorrectionFixture(): Promise<void> {
   await clearCollections([
     'users',
+    'bookings',
     'payments',
     'monetary_events',
     'admin_issues',
@@ -188,6 +229,7 @@ async function seedCorrectionFixture(): Promise<void> {
     .collection('wallet')
     .doc('state')
     .set(seedWallet(0));
+  await firestore.collection('bookings').doc(bookingId).set(seedBooking());
   await firestore.collection('payments').doc(paymentId).set(seedPayment());
 }
 

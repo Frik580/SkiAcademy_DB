@@ -1143,7 +1143,7 @@ export const translations = {
     adminLessonRecordPayment: 'Record payment',
     adminLessonConfirmPayment: 'Record {amount} received in cash from the guest?',
     adminLessonPaymentRecordedRefreshPending:
-      'Payment was recorded successfully. The latest Payment and Booking state could not be fully refreshed; retry the read without submitting the payment again.',
+      'Payment was saved, but the data has not updated yet.',
     adminLessonAttendancePresent: 'Present',
     adminLessonAttendanceAbsent: 'Absent',
     adminLessonAttendanceAfterConfirm:
@@ -3203,7 +3203,7 @@ export const translations = {
     adminLessonRecordPayment: 'Зафиксировать оплату',
     adminLessonConfirmPayment: 'Зафиксировать получение {amount} наличными от гостя?',
     adminLessonPaymentRecordedRefreshPending:
-      'Оплата успешно зафиксирована. Актуальные состояния Payment и Booking пока не удалось полностью обновить; повторите загрузку, не отправляя оплату ещё раз.',
+      'Оплата сохранена, но данные временно не обновились',
     adminLessonAttendancePresent: 'Присутствовал',
     adminLessonAttendanceAbsent: 'Отсутствовал',
     adminLessonAttendanceAfterConfirm: 'Посещаемость станет доступна после подтверждения занятия.',

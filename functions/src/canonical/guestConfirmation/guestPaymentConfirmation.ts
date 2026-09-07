@@ -6,6 +6,7 @@ import {
   CourseEnrollmentSchema,
   assertBookingPaymentIdentity,
   assertCourseEnrollmentPaymentIdentity,
+  evaluateGuestManualPaymentAcceptance,
   isCourseEnrollmentAllowedBeforeStart,
   isGuestBookingConfirmationAllowedBeforeStart,
   isGuestReservationExpired,
@@ -100,25 +101,16 @@ async function planBookingConfirmation(
     throw paymentSubjectMismatch(input.correlationId);
   }
   assertBookingPaymentIdentity(input.correlationId, booking, input.payment);
-  if (booking.attribution.bookingOrigin !== 'guest') return blocked('not_guest');
-  if (booking.lifecycle.status === 'confirmed') return blocked('already_confirmed');
-  if (booking.lifecycle.status !== 'pending') return blocked('terminal_or_non_pending');
-  if (
-    isGuestReservationExpired({
-      now: input.now,
-      reservationExpiresAt: booking.lifecycle.reservationExpiresAt,
-    })
-  ) {
-    return blocked('reservation_expired');
-  }
-  if (
-    !isGuestBookingConfirmationAllowedBeforeStart({
-      now: input.now,
-      serviceStartsAt: booking.occurrence.interval.startsAt,
-    })
-  ) {
-    return blocked('service_started');
-  }
+  const acceptance = evaluateGuestManualPaymentAcceptance({
+    bookingOrigin: booking.attribution.bookingOrigin,
+    lifecycleStatus: booking.lifecycle.status,
+    reservationExpiresAt:
+      booking.lifecycle.status === 'pending' ? booking.lifecycle.reservationExpiresAt : undefined,
+    serviceStartsAt: booking.occurrence.interval.startsAt,
+    now: input.now,
+  });
+  if (acceptance.outcome === 'not_applicable') return blocked('not_guest');
+  if (acceptance.outcome === 'rejected') return blocked(acceptance.reason);
 
   const participantId = booking.party.participantIds[0]!;
   const instructorBlockDocumentPath = participantBlockPath(
@@ -321,16 +313,14 @@ export async function detectGuestPaymentConfirmationLifecycleMismatch(input: {
       return { subjectRevision: booking.revision };
     }
     if (booking.lifecycle.status !== 'pending') return undefined;
-    return (
-      isGuestReservationExpired({
-        now: input.now,
-        reservationExpiresAt: booking.lifecycle.reservationExpiresAt,
-      }) ||
+    return isGuestReservationExpired({
+      now: input.now,
+      reservationExpiresAt: booking.lifecycle.reservationExpiresAt,
+    }) ||
       !isGuestBookingConfirmationAllowedBeforeStart({
         now: input.now,
         serviceStartsAt: booking.occurrence.interval.startsAt,
       })
-    )
       ? { subjectRevision: booking.revision }
       : undefined;
   }
@@ -339,9 +329,7 @@ export async function detectGuestPaymentConfirmationLifecycleMismatch(input: {
   const enrollmentDocumentPath = courseEnrollmentPath(enrollmentId);
   const enrollmentRead = await input.session.tx.get({ path: enrollmentDocumentPath });
   input.session.plan.planRead({ path: enrollmentDocumentPath, category: 'aggregate' });
-  const enrollment = parseCourseEnrollment(
-    enrollmentRead.exists ? enrollmentRead.data : undefined
-  );
+  const enrollment = parseCourseEnrollment(enrollmentRead.exists ? enrollmentRead.data : undefined);
   if (!enrollment) return undefined;
   assertCourseEnrollmentPaymentIdentity(input.correlationId, enrollment, input.payment);
   if (enrollment.attribution.bookingOrigin !== 'guest') return undefined;
@@ -362,12 +350,49 @@ export async function detectGuestPaymentConfirmationLifecycleMismatch(input: {
   input.session.plan.planRead({ path: courseDocumentPath, category: 'aggregate' });
   const course = parseCourse(courseRead.exists ? courseRead.data : undefined);
   if (!course) return undefined;
-  return (
-    course.lifecycle !== 'active' ||
+  return course.lifecycle !== 'active' ||
     !isCourseEnrollmentAllowedBeforeStart({ now: input.now, courseStartsAt: course.startAt })
-  )
     ? { subjectRevision: enrollment.revision }
     : undefined;
+}
+
+/**
+ * Server-side authority for accepting money against a Booking-subject Payment.
+ * Missing Booking is a subject invariant failure, not a guest-policy skip.
+ * Guest eligibility runs only after the Booking exists and identity is valid.
+ * Must run before any Payment / MonetaryEvent / Booking / ActivityLog mutation.
+ * Independent of {@link planGuestPaymentConfirmation}, which only decides
+ * whether a fully funded Payment should confirm the Booking.
+ */
+export async function assertGuestManualPaymentAcceptance(input: {
+  readonly session: CanonicalAtomicTransactionSession;
+  readonly payment: Payment;
+  readonly correlationId: CorrelationId;
+  readonly now: CanonicalTimestamp;
+}): Promise<void> {
+  if (input.payment.subjectType !== 'booking') return;
+  const bookingId = BookingIdSchema.parse(input.payment.subjectId);
+  const documentPath = bookingPath(bookingId);
+  const bookingRead = await input.session.tx.get({ path: documentPath });
+  input.session.plan.planRead({ path: documentPath, category: 'aggregate' });
+  const booking = parseBooking(bookingRead.exists ? bookingRead.data : undefined);
+  if (!booking || booking.paymentId !== input.payment.paymentId) {
+    throw paymentSubjectMismatch(input.correlationId);
+  }
+  assertBookingPaymentIdentity(input.correlationId, booking, input.payment);
+  const acceptance = evaluateGuestManualPaymentAcceptance({
+    bookingOrigin: booking.attribution.bookingOrigin,
+    lifecycleStatus: booking.lifecycle.status,
+    reservationExpiresAt:
+      booking.lifecycle.status === 'pending' ? booking.lifecycle.reservationExpiresAt : undefined,
+    serviceStartsAt: booking.occurrence.interval.startsAt,
+    now: input.now,
+  });
+  if (acceptance.outcome !== 'rejected') return;
+  throw new CanonicalCommandError('invalid_transition', {
+    correlationId: input.correlationId,
+    details: { field: 'lifecycle', reason: 'conflict' },
+  });
 }
 
 export function resolveFinanceGuestPaymentConfirmationEffect(

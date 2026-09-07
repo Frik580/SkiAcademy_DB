@@ -69,6 +69,7 @@ import {
   walletPath,
 } from './financeStore';
 import {
+  assertGuestManualPaymentAcceptance,
   planGuestPaymentConfirmation,
   resolveFinanceGuestPaymentConfirmationEffect,
   type PlannedGuestPaymentConfirmation,
@@ -271,6 +272,12 @@ function recordProviderPaymentEventHandler(
         });
       }
       payment = parsedPayment;
+      await assertGuestManualPaymentAcceptance({
+        session,
+        payment,
+        correlationId: envelope.context.correlationId,
+        now: timestampFromDate(environment.clock.now()),
+      });
       plannedPaymentRevision = nextAggregateRevision(payment.revision);
       plannedPaymentEventRevision = nextAggregateRevision(payment.eventRevision);
 

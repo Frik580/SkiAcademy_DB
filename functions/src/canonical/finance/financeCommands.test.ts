@@ -2,12 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   AccountSchema,
   AggregateRevisionSchema,
+  BookingIdSchema,
+  BookingSchema,
   CorrelationIdSchema,
   PaymentSchema,
   WalletSchema,
   accountCommandActor,
   activityLogIdFromCommandId,
+  initialBookingOccurrenceIdFromBookingId,
   monetaryEventIdFromCommandEffect,
+  paymentIdFromBookingId,
   providerEventReceiptIdFromProviderEvent,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
@@ -21,7 +25,8 @@ import { createInMemoryCanonicalTransactionExecutor } from '../transactions';
 
 const correlationId = CorrelationIdSchema.parse('correlation_finance_cmd_01');
 const accountId = 'account_finance_cmd_01';
-const paymentId = 'payment_finance_cmd_01';
+const bookingId = BookingIdSchema.parse('booking_finance_cmd_01');
+const paymentId = paymentIdFromBookingId(bookingId);
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 
 function environment(at = '2026-01-01T00:00:00.000Z') {
@@ -69,7 +74,7 @@ function seedPayment(overrides: Partial<Payment> = {}): Payment {
   return PaymentSchema.parse({
     paymentId,
     subjectType: 'booking',
-    subjectId: 'booking_finance_cmd_01',
+    subjectId: bookingId,
     currency: 'KZT',
     originalPrice: 100_000,
     price: 100_000,
@@ -87,6 +92,51 @@ function seedPayment(overrides: Partial<Payment> = {}): Payment {
     updatedAt: decidedAt,
     ...overrides,
   });
+}
+
+function seedBooking() {
+  return BookingSchema.parse({
+    bookingId,
+    attribution: {
+      bookingOrigin: 'admin',
+      bookedBy: { kind: 'account', accountId },
+    },
+    party: {
+      kind: 'individual',
+      participantIds: ['participant_finance_cmd_01'],
+    },
+    occurrence: {
+      occurrenceId: initialBookingOccurrenceIdFromBookingId(bookingId),
+      instructorId: 'instructor_finance_cmd_01',
+      interval: {
+        startsAt: timestampFromDate(new Date('2026-01-15T04:00:00.000Z')),
+        endsAt: timestampFromDate(new Date('2026-01-15T05:00:00.000Z')),
+      },
+      timeZone: 'Asia/Almaty',
+      scheduleRevision: 1,
+      serviceParty: { participantIds: ['participant_finance_cmd_01'] },
+    },
+    lifecycle: { status: 'confirmed' },
+    paymentId,
+    payerAccountId: accountId,
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'command_seed_booking',
+      lastChangedByCommandId: 'command_seed_booking',
+      correlationId,
+    },
+  });
+}
+
+function providerPaymentFixture(extra: Record<string, unknown> = {}) {
+  return {
+    [`users/${accountId}`]: seedAccount(),
+    [`bookings/${bookingId}`]: seedBooking(),
+    [`payments/${paymentId}`]: seedPayment(),
+    ...extra,
+  };
 }
 
 async function runCommand<Kind extends CommandEnvelope['kind']>(
@@ -196,10 +246,7 @@ describe('finance commands', () => {
   });
 
   it('records external payment funding on payment projection', async () => {
-    const executor = createInMemoryCanonicalTransactionExecutor({
-      [`users/${accountId}`]: seedAccount(),
-      [`payments/${paymentId}`]: seedPayment(),
-    });
+    const executor = createInMemoryCanonicalTransactionExecutor(providerPaymentFixture());
 
     const envelope: CommandEnvelope<'record_provider_payment_event'> = {
       kind: 'record_provider_payment_event',
@@ -224,10 +271,7 @@ describe('finance commands', () => {
   });
 
   it('rejects overpayment without mutating canonical Payment or monetary history', async () => {
-    const executor = createInMemoryCanonicalTransactionExecutor({
-      [`users/${accountId}`]: seedAccount(),
-      [`payments/${paymentId}`]: seedPayment(),
-    });
+    const executor = createInMemoryCanonicalTransactionExecutor(providerPaymentFixture());
 
     const result = await runCommand(executor, {
       kind: 'record_provider_payment_event',
@@ -258,10 +302,7 @@ describe('finance commands', () => {
   it.each(['account_owner', 'instructor'] as const)(
     'denies %s capability from recording a Payment',
     async (exercisedCapability) => {
-      const executor = createInMemoryCanonicalTransactionExecutor({
-        [`users/${accountId}`]: seedAccount(),
-        [`payments/${paymentId}`]: seedPayment(),
-      });
+      const executor = createInMemoryCanonicalTransactionExecutor(providerPaymentFixture());
 
       const result = await runCommand(executor, {
         kind: 'record_provider_payment_event',
@@ -292,10 +333,7 @@ describe('finance commands', () => {
   );
 
   it('deduplicates provider payment events by receipt identity', async () => {
-    const executor = createInMemoryCanonicalTransactionExecutor({
-      [`users/${accountId}`]: seedAccount(),
-      [`payments/${paymentId}`]: seedPayment(),
-    });
+    const executor = createInMemoryCanonicalTransactionExecutor(providerPaymentFixture());
 
     const envelope: CommandEnvelope<'record_provider_payment_event'> = {
       kind: 'record_provider_payment_event',

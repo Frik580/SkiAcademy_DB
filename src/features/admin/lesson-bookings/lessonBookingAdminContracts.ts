@@ -8,6 +8,8 @@ import type {
 
 export type AdminLessonBookingView = 'hot' | 'history';
 export type AdminLessonBookingReadError = 'permission-denied' | 'read-failed';
+export type AdminLessonBookingRefreshResult =
+  { readonly status: 'success' } | { readonly status: 'failure' };
 
 export interface AdminLessonBookingListState {
   readonly items: readonly LessonBookingReadModel[];

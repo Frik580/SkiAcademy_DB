@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { LessonBookingReadModel } from '@ski-academy/shared-domain';
+import { BookingIdSchema, type LessonBookingReadModel } from '@ski-academy/shared-domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const queryMock = vi.fn();
@@ -106,5 +106,24 @@ describe('useAdminLessonBookingReadModels', () => {
       loading: false,
       hasMore: false,
     });
+  });
+
+  it('returns a typed refresh failure when the production fetch fails', async () => {
+    queryMock
+      .mockResolvedValueOnce({ scope: 'admin_hot', items: [], hasMore: false })
+      .mockRejectedValueOnce(new Error('read temporarily unavailable'));
+    const { result } = renderHook(() =>
+      useAdminLessonBookingReadModels({ enabled: true, view: 'hot' })
+    );
+    await waitFor(() => expect(result.current.list.loading).toBe(false));
+
+    let refreshResult: Awaited<ReturnType<typeof result.current.refreshBooking>> | undefined;
+    await act(async () => {
+      refreshResult = await result.current.refreshBooking(
+        BookingIdSchema.parse('booking_admin_refresh_01')
+      );
+    });
+    expect(refreshResult).toEqual({ status: 'failure' });
+    expect(result.current.list.error).toBe('read-failed');
   });
 });

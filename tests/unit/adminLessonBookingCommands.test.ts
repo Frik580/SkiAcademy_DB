@@ -1,9 +1,10 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { BookingIdSchema, ParticipantIdSchema } from '@ski-academy/shared-domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const executeMock = vi.fn();
 const financeReadMock = vi.fn();
+const queryMock = vi.fn();
 
 vi.mock('../../src/lib/canonical/canonicalCommandClient', () => ({
   executeAuthenticatedCanonicalCommand: (...args: unknown[]) => executeMock(...args),
@@ -11,6 +12,7 @@ vi.mock('../../src/lib/canonical/canonicalCommandClient', () => ({
 
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryAdminFinanceReadModels: (...args: unknown[]) => financeReadMock(...args),
+  queryLessonBookingReadModels: (...args: unknown[]) => queryMock(...args),
 }));
 
 import {
@@ -18,6 +20,7 @@ import {
   createAdminLessonBookingAttemptId,
   executeAdminLessonBookingAttempt,
   useAdminLessonBookingCommands,
+  useAdminLessonBookingReadModels,
   type AdminLessonBookingMutationAttempt,
 } from '../../src/features/admin/lesson-bookings';
 import { CanonicalCommandClientError } from '../../src/lib/canonical/mapCanonicalCommandError';
@@ -33,6 +36,8 @@ describe('canonical Admin lesson booking commands', () => {
     executeMock.mockResolvedValue({ status: 'success' });
     financeReadMock.mockReset();
     financeReadMock.mockResolvedValue({ scope: 'admin_payment_detail' });
+    queryMock.mockReset();
+    queryMock.mockResolvedValue({ scope: 'admin_hot', items: [], hasMore: false });
   });
 
   it('captures the booking target and creates fresh user-action identities', () => {
@@ -260,7 +265,7 @@ describe('canonical Admin lesson booking commands', () => {
   });
 
   it('reports a committed cash Payment separately from a failed projection refresh', async () => {
-    const refresh = vi.fn().mockRejectedValue(new Error('read temporarily unavailable'));
+    const refresh = vi.fn().mockResolvedValue({ status: 'failure' });
     const attempt: AdminLessonBookingMutationAttempt = {
       kind: 'record_provider_payment_event',
       target,
@@ -283,5 +288,47 @@ describe('canonical Admin lesson booking commands', () => {
 
     expect(executeMock).toHaveBeenCalledTimes(1);
     expect(outcome).toEqual({ status: 'success', refreshFailed: true });
+  });
+
+  it('detects production refresh failure through the real read-model hook after payment success', async () => {
+    queryMock.mockImplementation(async (input: { scope: string }) => {
+      if (input.scope === 'admin_detail') {
+        return { scope: 'admin_detail', items: [] };
+      }
+      return { scope: 'admin_hot', items: [], hasMore: false };
+    });
+
+    const { result } = renderHook(() => {
+      const reads = useAdminLessonBookingReadModels({
+        enabled: true,
+        view: 'hot',
+        selectedBookingId: target.bookingId,
+      });
+      const commands = useAdminLessonBookingCommands({
+        adminAccountId: 'admin_account_01',
+        refreshBooking: reads.refreshBooking,
+      });
+      return { reads, commands };
+    });
+
+    await waitFor(() => expect(result.current.reads.list.loading).toBe(false));
+    queryMock.mockRejectedValue(new Error('read temporarily unavailable'));
+
+    const attempt: AdminLessonBookingMutationAttempt = {
+      kind: 'record_provider_payment_event',
+      target,
+      idempotencyKey: createAdminLessonBookingAttemptId('record_guest_payment'),
+      paymentId: 'payment_admin_command_01',
+      paymentRevision: 4,
+      amount: 20_000,
+    };
+    let outcome: Awaited<ReturnType<typeof result.current.commands.runAttempt>> | undefined;
+    await act(async () => {
+      outcome = await result.current.commands.runAttempt(attempt);
+    });
+
+    expect(executeMock).toHaveBeenCalledTimes(1);
+    expect(outcome).toEqual({ status: 'success', refreshFailed: true });
+    expect(result.current.reads.list.error).toBe('read-failed');
   });
 });

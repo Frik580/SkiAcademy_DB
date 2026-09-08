@@ -2,12 +2,15 @@
 
 Status: approved implementation strategy; ADR-0001 through ADR-0008 accepted
 Amended: 2026-09-07 — T32.9A.9D selective legacy Booking disposal clarified for the incremental production cutover path (see amendment under Firestore reset contract); T32.9A.9 FINAL CANONICAL CUTOVER status lives in [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md)
+Amended: 2026-09-08 — production cutover gates: T32.9A.9P, 9D0, 9D selective cleanup (not full Firestore reset), 9E technical+product reachability; T38 empty-database rehearsal is nonproduction only; T40 Execute Rehearsed Selective Production Cutover; T41 expanded verification. F3 multi-participant design is unchanged.
 
 ## Problem Statement
 
 The current implementation overloads `Booking` and `UserProfile` with account identity, Participant identity, payer identity, course enrollment, schedule, Payment-like fields, Attendance-like outcomes, Wallet effects, and resource locking. Client and server entry points enforce different subsets of the canonical rules in [CONTEXT.md](../../CONTEXT.md), and current Firestore documents use shapes that cannot faithfully represent the approved domain.
 
 No production or user data must be preserved. The current Firestore contents are development/test data and may be deleted. Historical test Bookings, course-shaped enrollment records, payments, Wallet movements, Attendance-like outcomes, Participants, reviews, chats, notifications, and audit records have no migration value.
+
+**Production-path supersession (2026-09-08).** The empty-database / no-preservation statement above remains the original isolated clean-rewrite rehearsal contract. It is **not** a production instruction for a project that already holds canonical Booking, Payment, Attendance, claims, enrollments, or other live product data (reviews, chat/homework, notifications, profile, assets). Production follows selective incremental cleanup: T32.9A.9P → 9D0 → 9D → 9E → T32.9B → T40 → T41. Historical legacy lesson records may still be deleted when the rehearsed manifest proves them disposable. Do not migrate those historical legacy lessons into canonical Booking merely to keep them.
 
 The repository therefore requires a canonical rewrite followed by a clean maintenance-window cutover. The rewrite must preserve the accepted topology in [ADR-0001](../adr/0001-canonical-aggregate-topology.md), not the current document shapes.
 
@@ -328,7 +331,46 @@ Current production cutover status (see [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CAN
 - **T32.9A.9D** deletes only proven legacy rows using the exact proven legacy discriminator;
 - canonical Booking documents, Payments, Attendances, Resource Claims, Participant relations, and canonical audit/history are preserved;
 - `bookings/{id}/messages` must not be deleted without a separate inventory/decision;
-- 9D runs only after 9A / 9B / 9C completion.
+- 9D runs only after 9A / 9B / 9C / **9P** / **9D0** PASS. 9D means Selective Destructive legacy Data Cleanup, not a full Firestore reset, not delete-bookings-collection, and not a production clean-start. T38 empty-database rehearsal does not satisfy 9D0.
+
+
+### Amendment — Authoritative incremental production sequence (2026-09-08)
+
+There is one production cutover sequence. It supersedes reading Phase 7 / T40 as a full Firestore/Storage reset plus empty seed on a live project.
+
+```text
+T32.9A.9A (F1 / F2 / F3 / final integration smoke)
+        ↓
+T32.9A.9B (stats/progress/recommendations + Reviews / instructor rating)
+        ↓
+T32.9A.9C (Course progress / achievements)
+        ↓
+T32.9A.9P (Global Product Parity & legacy Dependency Gate)
+        ↓
+T32.9A.9D0 (production-like mixed-state rehearsal of EXACT 9D)
+        ↓
+T32.9A.9D (Selective Destructive legacy Data Cleanup)
+        ↓
+T32.9A.9E (technical + product reachability)
+        ↓
+T32.9B (physical legacy runtime cleanup)
+        ↓
+T40 (Execute Rehearsed Selective Production Cutover)
+        ↓
+T41 (Expanded Post-Cutover Verification)
+```
+
+Mapping of original Phase 6/7 tickets:
+
+| Ticket | Production role after this amendment |
+| --- | --- |
+| T37 | Guarded export/reset **tooling**. Full collection reset remains valid for isolated nonproduction drills. Production also needs selective preserve/delete manifest tooling for 9D/9D0. |
+| T38 | Empty-database architectural rehearsal **only**. Not a production procedure. Does not substitute for 9D0. |
+| T39 | Aligns with T32.9B physical legacy-runtime removal after 9E PASS. STOP if a useful capability has no replacement. |
+| T40 | **Execute Rehearsed Selective Production Cutover.** Deploys the T32.9B-cleaned release and applies only the 9D0-rehearsed selective manifest if 9D has not already been applied in that environment. Forbidden: full Firestore/Storage reset; empty-database seed as production migration; second independent deletion pass. |
+| T41 | Expanded post-cutover verification (product journeys + legacy-negative checks). |
+
+Phase 7 collection-wide reset, seed, and empty-database E2E remain historical/reference contracts for isolated development/test projects.
 
 ## Reference/configuration seed contract
 
@@ -472,6 +514,28 @@ The final deletion set includes old direct Booking/Course mutations, course-shap
 - Chat/media access through canonical Booking and CourseEnrollment references.
 
 The release requires all suites to pass from an empty database seeded only by the canonical reference artifact.
+
+### Amendment — production-safe T41 verification (incremental path)
+
+Empty-database E2E above remains the T38 / isolated rehearsal bar. Production T41 must also exercise preserved live product journeys:
+
+- Guest lesson; Guest course enrollment; payment/expiry
+- Student lesson booking; multi-participant lesson; course enrollment; cancellation
+- Student Cabinet current/history; progress/recommendations/achievements
+- Reviews/rating; Chat; Homework; Notifications
+- Profile; Participants
+- Instructor schedule/history; Attendance
+- Admin planner; Admin Booking detail; Admin Courses; Admin Finance; People/Instructors
+- Wallet; starter credit; registration/login; assets/images
+
+Negative verification:
+
+- deleted old callable unavailable
+- old direct writes rejected
+- old scheduler absent
+- no frontend still calling a deleted leftover path
+
+
 
 ### UX capability parity
 

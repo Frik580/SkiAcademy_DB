@@ -6,6 +6,7 @@ Amended: 2026-09-07 — T32.9A.8 PASS/CLOSED; T32.9A.9 redefined as FINAL CANONI
 Amended: 2026-09-07 — T32.9A.9A.F3 (Canonical Multi-Participant Lesson Booking) added to roadmap after F2; F2 F3-compatibility requirement recorded; 9A final integration / production smoke gated after F3
 Amended: 2026-09-07 — T32.9A.9A.F2 funded-pending-after-deadline limbo policy documented; reservation deadline vs confirmation reconciliation distinction recorded in ADR-0007
 Amended: 2026-09-08 — T32.9A.9A.F3 implemented for authenticated/managed Participants and moved to READY_FOR_MANUAL_SMOKE; guest creation remains single-participant by explicit boundary; canonical additional-participant surcharge is per hour of lesson duration and is snapshotted with duration
+Amended: 2026-09-08 — T32.9A.9 cutover gates strengthened for incremental production: 9B Reviews/rating continuity; 9P Global Product Parity; 9D0 production-like incremental rehearsal; 9D Selective Destructive Legacy Data Cleanup (not full Firestore reset); 9E technical+product reachability; T40/T41 superseded from empty-database reset to rehearsed selective production cutover. F3 implementation/contract is unchanged.
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
@@ -25,7 +26,7 @@ Explicitly deferred after T32.8C:
 - partially-paid pending guest rejection or refund policy;
 - unused unmanaged guest Participant cleanup.
 
-T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md). T32.9A is Admin UX restoration and canonical integration plus final authority cutover; T32.9B is physical legacy cleanup after the 9E gate.
+T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md). T32.9A is Admin UX restoration and canonical integration plus final authority cutover (9A–9E, including 9P and 9D0); T32.9B is physical legacy-runtime cleanup after the 9E gate. Production cutover is selective/incremental. Full empty-database Firestore reset is a nonproduction architectural rehearsal only (T38 / original Phase 7 contract) and is not a production instruction.
 
 ### Status table (current)
 
@@ -41,11 +42,15 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 | T32.9A.9A.F3                                   | Canonical Multi-Participant Lesson Booking                               | READY_FOR_MANUAL_SMOKE                    |
 | T32.9A.9A final integration / production smoke | 9A close gate after F3                                                   | PENDING                                   |
 | T32.9A.9A                                      | Individual Booking lifecycle cutover (overall)                           | NOT CLOSED — finalization in progress     |
-| T32.9A.9B                                      | Student Booking Stats / Progress / Recommendations Cutover               | PENDING                                   |
+| T32.9A.9B                                      | Student Booking Stats / Progress / Recommendations / Reviews Cutover     | PENDING                                   |
 | T32.9A.9C                                      | Course Progress / Achievements Cutover                                   | PENDING                                   |
-| T32.9A.9D                                      | Destructive Legacy Data Reset                                            | PENDING                                   |
+| T32.9A.9P                                      | Global Product Parity & Legacy Dependency Gate                           | PENDING                                   |
+| T32.9A.9D0                                     | Production-like Incremental Cutover Rehearsal                            | PENDING                                   |
+| T32.9A.9D                                      | Selective Destructive Legacy Data Cleanup                                | PENDING                                   |
 | T32.9A.9E                                      | Canonical Authority / Reachability Gate                                  | PENDING                                   |
 | T32.9B                                         | Final Legacy Write / Runtime Cleanup                                     | PENDING; blocked until T32.9A.9E PASS     |
+| T40                                            | Execute Rehearsed Selective Production Cutover                           | PENDING; after T32.9B                     |
+| T41                                            | Expanded Post-Cutover Verification                                       | PENDING; after T40                        |
 
 Status labels used here: `PASS`, `PASS / CLOSED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `PENDING`, `NOT CLOSED`. Do not treat F1, F2, or F3 as `PASS`, `CLOSED`, or `DEPLOYED` until production-smoked.
 
@@ -59,7 +64,7 @@ T32.9A.8C — PASS / CLOSED
 
 ### T32.9A.9 — FINAL CANONICAL CUTOVER
 
-T32.9A.9 is **not** “Admin Integration Smoke only.” It is the final canonical cutover sequence:
+T32.9A.9 is **not** “Admin Integration Smoke only.” It is the final canonical cutover sequence. There is **one** production path (selective/incremental). The original Phase 7 empty-database reset remains historical/reference and T38 nonproduction rehearsal only.
 
 ```text
 T32.9A.9A — Individual Booking lifecycle cutover
@@ -69,12 +74,20 @@ T32.9A.9A — Individual Booking lifecycle cutover
   T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking
   T32.9A.9A final integration / production smoke
 T32.9A.9B — Student Booking Stats / Progress / Recommendations Cutover
+         (includes Reviews / Instructor Rating Continuity)
 T32.9A.9C — Course Progress / Achievements Cutover
-T32.9A.9D — Destructive Legacy Data Reset
+T32.9A.9P — Global Product Parity & Legacy Dependency Gate
+T32.9A.9D0 — Production-like Incremental Cutover Rehearsal
+T32.9A.9D — Selective Destructive Legacy Data Cleanup
 T32.9A.9E — Canonical Authority / Reachability Gate
 THEN
-T32.9B — Final Legacy Cleanup
+T32.9B — Final Legacy Runtime Cleanup
+THEN
+T40 — Execute Rehearsed Selective Production Cutover
+T41 — Expanded Post-Cutover Verification
 ```
+
+Do not change the F3 multi-participant design in this sequence. F3 remains a 9A slice; later gates consume it, they do not reopen it.
 
 Architectural principle (see also [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md)):
 
@@ -382,7 +395,7 @@ Interpretation:
 - current/future legacy-only Booking blockers = 0;
 - ambiguous Booking docs = 0;
 - current/future Booking migration/backfill NOT required;
-- 11 legacy historical Booking docs may be deleted later in T32.9A.9D;
+- 11 leftover historical Booking docs may be deleted later in T32.9A.9D only if the 9P/9D0 manifest still classifies them disposable and they have no protected messages or other 9P-preserved children;
 - historical legacy lesson/booking history is disposable;
 - NO historical backfill required.
 
@@ -437,7 +450,8 @@ Mandatory scope:
 - streaks;
 - today checklist;
 - related individual lesson achievement inputs;
-- completed recommendation IDs, if they remain product-relevant after domain review.
+- completed recommendation IDs, if they remain product-relevant after domain review;
+- **Reviews / Instructor Rating Continuity** (see below).
 
 Product decision:
 
@@ -459,81 +473,270 @@ In 9B:
 - restore Instructor recommendation editor;
 - provide Student canonical read UX;
 - active legacy recommendation writes = 0;
-- no dual write.
+- no dual write;
+- complete Reviews / Instructor Rating Continuity so Student Cabinet no longer depends on legacy Booking implementation for reviews.
+
+This slice is documentation of required migration scope. It does not implement 9B.
+
+##### Reviews / Instructor Rating Continuity — mandatory 9B scope
+
+Verified current runtime (2026-09-08 worktree / `main`), not assumed:
+
+- Student Cabinet create-review path: `CabinetRouteContainer` → `addReviewService` in `src/features/bookings/bookingService.ts`.
+- Parallel path: `useBookingActions.handleAddReview` → the same `addReviewService`.
+- `addReviewService` is a **client-direct** mutation: `setDoc` on `/reviews/{id}`, then `updateDoc` on `/instructors/{id}` for `rating` and `reviewsCount`. It is not a canonical command. Firestore Rules allow authenticated create on `/reviews` when `userId == auth.uid`.
+- Review reminder / dismissed semantics: `users.dismissedReviewIds` via `profileService` `arrayUnion`; consumers include Student Cabinet history, `StudentNeedsAttention`, `AppShell`, `PersonalCabinet`, and notification hubs.
+- Display surfaces: instructor cards (`rating`, `reviewsCount`), Student Coach panel sort, reviews modal (`setReviewsInstructor`).
+
+9B must migrate this capability **before T32.9B may delete `bookingService` / `useBookingActions`**. Do not park reviews on canonical Booking merely because the current helper lives in `bookingService`. First determine the correct reviews/rating authority (existing `/reviews` + instructor projection, or a later accepted aggregate). Do not invent a new Reviews aggregate in this document.
+
+Mandatory acceptance (create, relate, display, mutate, then drop legacy Booking dependency):
+
+| Concern | Required outcome |
+| --- | --- |
+| Create review | Authenticated student can submit a review through a canonical/approved command path, not leftover Booking callable/service authority |
+| Review → lesson/service | Review remains related to the lesson/service it is about; multi-participant lessons must not collapse to “first participant only” as the review subject |
+| Review → instructor | Review remains related to the instructor who delivered the lesson |
+| Instructor rating | `instructors.rating` (or its canonical replacement) stays consistent with accepted reviews |
+| `reviewsCount` | Count stays consistent with accepted reviews |
+| Review display | Instructor/Student surfaces that currently show rating and count keep equivalent information |
+| Reviews modal | Existing reviews modal/list remains reachable |
+| Review reminder | Post-lesson review reminder remains |
+| Dismissed review semantics | `dismissedReviewIds` (or canonical equivalent) still suppresses reminder without deleting the review |
+| Mutation authority | No client-direct `/reviews` or instructor rating write remains as the production authority; server authorization, OCC/idempotency as required by sibling commands |
+| Legacy Booking decoupling | After 9B PASS, deleting leftover `bookingService` / `useBookingActions` must not remove reviews/rating |
+
+9B is not PASS while Student Cabinet still requires `addReviewService` on the legacy Booking service for a working review.
 
 #### T32.9A.9C — Course Progress / Achievements Cutover — PENDING
 
 Separate Course-domain stage after individual-lesson progress cutover (9B). Do not expand Course progress scope here without existing product decisions.
 
-#### T32.9A.9D — Destructive Legacy Data Reset — PENDING
+9C PASS is required before 9P. 9P then proves Course progress/achievements together with the rest of the product, not as a substitute for 9C.
 
-Critical product decision:
+#### T32.9A.9P — Global Product Parity & Legacy Dependency Gate — PENDING
+
+Purpose: before any destructive legacy data or leftover-implementation cleanup, prove that **every existing useful product capability** has a working canonical or explicitly approved path.
+
+9P is an inventory-and-evidence gate. It does not implement F3, 9B, or 9C. It consumes their PASS evidence plus remaining product surfaces that those slices do not own.
+
+Mandatory inventory (one row per capability; fill during 9P, do not invent PASS here):
+
+| Feature / capability | Role(s) | Current UX | Current dependency | Canonical/approved replacement | Information parity | Action parity | Interaction parity | Status | Safe to remove legacy? |
+| -------------------- | ------- | ---------- | ------------------ | ------------------------------ | ------------------ | ------------- | ------------------ | ------ | ---------------------- |
+
+Status values:
 
 ```text
-Historical legacy lesson/booking records
-are NOT required to be preserved or backfilled.
+PASS
+PARTIAL
+MISSING
+NEEDS_PRODUCT_DECISION
 ```
 
-Production inventory already proved:
+**9D is forbidden** while any in-scope row is `PARTIAL`, `MISSING`, or `NEEDS_PRODUCT_DECISION`, except an explicit Product Owner decision recorded for that row. 9D0 may run as a dry rehearsal only against a proposed manifest; it cannot authorize production 9D while 9P is not PASS.
+
+Minimum capabilities that must appear in the inventory (add rows; do not treat this list as optional):
+
+- Guest (lesson reservation, course enrollment, payment/expiry, confirmation, linking)
+- Student (cabinet current/history, booking, enrollment, cancellation)
+- Instructor (schedule, history, attendance, workspace)
+- Admin (planner, Booking detail, Courses, Finance, People/Instructors)
+- Lesson Booking (including authenticated multi-participant after F3; guest remains the accepted single-participant creation boundary)
+- Course / CourseEnrollment
+- Planner / Schedule
+- Finance
+- Wallet (including starter credit)
+- Attendance
+- Profile / People
+- Participants
+- Reviews / instructor rating (9B continuity must already be PASS or an explicit PO decision)
+- Recommendations / Feedback
+- Progress / Achievements (lesson 9B and course 9C)
+- Chat
+- Homework
+- Notifications
+- Auth / Registration / login
+- Settings
+- assets / images (avatars, instructor/course media, chat media)
+
+##### Chat / Homework — mandatory 9P element (do not delete with legacy Booking)
+
+Verified current runtime (2026-09-08), not assumed:
+
+- Message storage is `bookings/{threadId}/messages/{messageId}` (`src/features/chat/chatService.ts`).
+- Lesson threads use the lesson Booking id. Course/shared chat uses `chatId` / `courseId` / synthetic `course_*` instructor id as `threadId` (`src/domain/chat/resolveChatId.ts`).
+- Course unread/history still subscribes to **shared + per-enrollment legacy** thread ids (`getCourseChatThreadIds`).
+- Homework flags are message fields: `isHomework`, `homeworkForUserIds`. Clients update those fields; Rules allow that narrow update (`firestore.rules` `bookings/{bookingId}/messages`).
+- Unread behavior is client subscription over those thread ids (`useBookingChatUnread`).
+- Message deletes are denied by Rules (`allow delete: if false`).
+
+Forbidden outcome:
+
+```text
+legacy Booking cleanup
+  → parent/thread document removed
+  → messages / homework lost
+```
+
+9P must classify every `bookings/{id}` that has a `messages` subcollection (lesson thread, course shared thread, leftover per-enrollment thread). 9D must not delete a parent until that inventory has an approved preserve-or-relocate policy. This document does **not** require a new Chat aggregate. Keeping messages under `bookings/{threadId}/messages` is allowed if 9P proves access, unread, homework targeting, and Rules still work after selective parent deletion.
+
+Chat/Homework rows in 9P cannot be `Safe to remove legacy? = yes` while messages still physically depend on uninventoried legacy Booking documents.
+
+#### T32.9A.9D0 — Production-like Incremental Cutover Rehearsal — PENDING
+
+Reason: original T37 / T38 / T40 tickets and Phase 7 describe a **clean/empty database** reset then seed. That is valid only as isolated nonproduction architectural rehearsal. Current production already holds canonical Booking, Payment, Attendance, claims, enrollments, and live product data. Production strategy is **selective/incremental**.
+
+9D0 must rehearse the **exact** planned 9D cleanup against a production-like mixed state. It is not T38.
+
+```text
+production-like snapshot/export
+        ↓
+isolated nonproduction environment
+        ↓
+representative canonical + leftover-legacy mixed state
+        ↓
+EXACT planned 9D cleanup (same discriminator and manifest)
+        ↓
+preserve/delete manifest verification
+        ↓
+role-based E2E
+        ↓
+legacy-negative verification
+        ↓
+recovery drill
+```
+
+Must preserve (expected-preserved set):
+
+- canonical Booking
+- Payment
+- Attendance
+- Resource Claims
+- Participants / relations
+- CourseEnrollment
+- canonical audit / history
+- approved reviews / chat / homework / notifications / profile / assets / other 9P-approved product data
+
+Manifest acceptance — any difference is FAIL:
+
+```text
+expected preserved == actual preserved
+expected deleted   == actual deleted
+
+unexpected deletion = 0
+unexpected mutation = 0
+ambiguous records   = 0
+```
+
+9D0 PASS is required before production 9D. A successful T38 empty-database rehearsal does **not** substitute for 9D0.
+
+#### T32.9A.9D — Selective Destructive Legacy Data Cleanup — PENDING
+
+9D means **selective destructive leftover-legacy data cleanup**. It does **not** mean:
+
+```text
+full Firestore reset
+delete bookings collection
+production clean-start
+empty-database seed as the production procedure
+```
+
+Dependencies:
+
+```text
+9A PASS
+9B PASS
+9C PASS
+9P PASS
+9D0 PASS
+        ↓
+9D
+```
+
+Critical product decision (unchanged): historical **legacy** lesson/booking records are not required to be preserved or backfilled. That permission applies only to rows classified disposable by the proven discriminator **and** listed in the 9D0-rehearsed delete set.
+
+Production inventory already proved (Individual Booking cutover):
 
 - legacy-only current/future = 0
 - ambiguous = 0
 - legacy past disposable = 11
 
-**Never write “delete bookings collection.”** Canonical Booking may use the same storage area.
+Those 11 rows may be deleted in 9D **only if** the 9D0 manifest still classifies them disposable and they have no protected `messages` / other 9P-preserved children. Canonical transactional/runtime records must not be deleted.
 
-Destructive reset must:
+9D rules:
 
-- use the exact proven legacy discriminator;
-- delete only proven legacy rows;
-- preserve canonical Booking documents;
-- preserve Payments;
-- preserve Attendances;
-- preserve Resource Claims;
-- preserve Participant relations;
-- not delete `bookings/{id}/messages` without a separate inventory/decision;
-- not delete canonical audit/history.
+- deletion only by proven discriminator + rehearsed preserve/delete manifest;
+- never “delete bookings collection”;
+- preserve canonical Booking, Payment, Attendance, Resource Claims, Participants/relations, CourseEnrollment, canonical audit/history;
+- preserve 9P-approved reviews, chat/homework, notifications, profile, and assets;
+- `bookings/{id}/messages` requires an approved 9P policy before the parent or subcollection is deleted;
+- unexpected deletion, unexpected mutation, or leftover ambiguous records = FAIL (same equalities as 9D0);
+- do not migrate old historical legacy lessons into canonical Booking as a 9D action.
 
-9D runs only after 9A / 9B / 9C completion.
+If 9D is held for a production maintenance window, that window is T40 and must execute this same rehearsed manifest. Do not run two independent deletion passes.
 
 #### T32.9A.9E — Canonical Authority / Reachability Gate — PENDING
 
-Final integration gate before T32.9B. Full final canonical cutover smoke belongs here.
+Final integration gate before T32.9B. 9E uses 9P inventory results: every 9P `PASS` row must still be reachable after 9D. 9E is not a substitute for 9P (9P is pre-deletion); 9E is post-9D proof that authority and product journeys still hold.
 
-Checks:
+##### Technical reachability
 
-- all reachable current runtime paths are canonical;
-- no active legacy writes;
-- no legacy authority needed;
-- no mixed lifecycle authority;
-- navigation / reachability;
-- Admin / Student / Instructor / Guest critical smoke;
-- authorization / OCC;
-- hidden legacy runtime owners;
-- scheduled / background writers;
-- production deployment consistency.
+- no active legacy writer
+- no active legacy callable
+- no legacy scheduler
+- no forbidden client direct authority
+- no runtime fallback
+- no dual-read/write authority
+- legacy scans clean, or every retained match is classified (test fixture / historical docs / explicit allowlist)
+- authorization / OCC
+- production deployment consistency with the 9D0/T40 manifest
+
+##### Product reachability
+
+After 9D, representative journeys still work for:
+
+- Guest
+- Student
+- Instructor
+- Admin
+
+Those journeys must cover the 9P rows that those roles own (lesson, course, planner, finance, wallet, attendance, profile/people, reviews, chat/homework, notifications, auth, assets) rather than a reduced “happy path only” subset. T41 later expands the production-safe checklist; 9E must not be weaker than the 9P capabilities already marked PASS.
 
 #### T32.9B — Final Legacy Write / Runtime Cleanup — PENDING
 
-Starts only after T32.9A.9E PASS.
+```text
+T32.9B starts only after T32.9A.9E PASS.
+```
 
-T32.9B is physical cleanup after authority cutover, not authority migration itself.
+T32.9B is physical legacy-runtime cleanup after authority cutover, not authority migration itself and not a product-feature deletion phase.
 
-Cleanup candidates:
+Physical cleanup candidates (only after 9P/9E prove a replacement):
 
-- dead legacy Booking services;
-- `useBookingActions`;
-- old callable adapters;
-- legacy recommendation writers;
-- legacy Course manager/services;
-- V1 Course read-model compatibility;
-- temporary adapters;
-- obsolete rules/index compatibility;
-- other dead legacy runtime code.
+- dead Booking services (`bookingService` leftovers, `useBookingActions`)
+- callable adapters for removed Individual Booking lifecycle
+- legacy Course services and old Course callables
+- availability compatibility (`availability_slots` / `availability_hour_locks` runtime)
+- `guest_wallet` compatibility
+- USD / `balanceUSD` compatibility
+- obsolete Rules / indexes
+- temporary adapters
+- V1 Course read-model compatibility
+- dead tests / fixtures that keep forbidden writers alive
+- unreachable leftover helpers (`confirmBooking` bundle, superseded unpaid-approval UI, unused legacy Guest linking UI)
 
-T32.9A recovers missing historical Admin UX, preserves useful information and interactions, integrates new canonical functionality, proves feature parity, and identifies legacy implementations safe for later removal. It is not broad legacy UI cleanup.
+If deletion discovers a useful capability without a canonical/approved replacement:
 
-T32.9B may remove a leftover implementation only after its useful product capability has a canonical replacement and UX parity is proven. Unreachable leftover helpers such as old bundled `confirmBooking`, superseded unpaid-approval terminology, and unused legacy Guest linking UI remain T32.9B after that gate. See [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md).
+```text
+STOP
+→ parity inventory incomplete
+→ return the problem to canonical migration (reopen 9P / the owning slice)
+→ do not continue T32.9B against that capability
+```
+
+T32.9A recovers missing historical Admin UX, preserves useful information and interactions, integrates new canonical functionality, proves feature parity, and identifies leftover implementations safe for later removal. It is not broad leftover UI cleanup.
+
+See [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md).
 
 ## Executive conclusion
 
@@ -1327,7 +1530,7 @@ seat.
 Purpose: recover missing historical Admin UX; preserve useful information and
 interactions; integrate new canonical functionality; prove feature parity;
 identify legacy implementations safe for later removal; complete FINAL
-CANONICAL CUTOVER under T32.9A.9 (9A–9E).
+CANONICAL CUTOVER under T32.9A.9 (9A–9E, including 9P and 9D0).
 
 T32.9A is **not** broad legacy UI cleanup. Specific Admin capability inventories
 belong here, not in the global [ADR-0008](adr/0008-ux-preservation-during-canonical-migration.md)
@@ -1341,11 +1544,13 @@ Current structure (authoritative for later status; see preamble):
     authority level; F1 REQUIRED/IN PROGRESS; F2 READY_FOR_MANUAL_SMOKE;
     F3 READY_FOR_MANUAL_SMOKE; final integration/production smoke PENDING
     after F3)
-  - **9B** Student Booking Stats / Progress / Recommendations Cutover — PENDING
+  - **9B** Student Booking Stats / Progress / Recommendations Cutover, including Reviews / Instructor Rating Continuity — PENDING
   - **9C** Course Progress / Achievements Cutover — PENDING
-  - **9D** Destructive Legacy Data Reset — PENDING (proven legacy rows only;
-    never “delete bookings collection”)
-  - **9E** Canonical Authority / Reachability Gate — PENDING
+  - **9P** Global Product Parity & Legacy Dependency Gate — PENDING
+  - **9D0** Production-like Incremental Cutover Rehearsal — PENDING
+  - **9D** Selective Destructive Legacy Data Cleanup — PENDING (proven legacy rows only;
+    never delete the bookings collection; never full Firestore reset)
+  - **9E** Canonical Authority / Reachability Gate — PENDING (technical + product)
 
 Scope:
 
@@ -1355,11 +1560,12 @@ Scope:
 - add new canonical UX where required (AdminIssue actions, Payment detail,
   Account / Participant topology, Admin guest payment capture under 9A.F1);
 - complete individual Booking, progress/recommendations, and Course progress
-  authority cutovers before destructive legacy disposal;
+  authority cutovers, then 9P global parity, then 9D0 rehearsal, before selective leftover data disposal;
 - prove information, action, and interaction parity before any leftover
   implementation is treated as removable;
-- record a UX parity inventory (`PASS` / `PARTIAL` / `MISSING` /
-  `NEEDS_PRODUCT_DECISION`).
+- record the 9P UX parity inventory (`PASS` / `PARTIAL` / `MISSING` /
+  `NEEDS_PRODUCT_DECISION`). 9D is forbidden on non-PASS rows without an
+  explicit Product Owner decision.
 
 Reason:
 
@@ -1371,18 +1577,20 @@ Reason:
 
 T32.9B starts only after **T32.9A.9E PASS**. It may remove a leftover
 implementation only after its useful product capability has a canonical
-replacement **and** UX parity is proven. It must not become a product-feature
-deletion phase. T32.9B is physical cleanup after authority cutover, not
-authority migration itself.
+replacement **and** UX parity is proven. If deletion discovers a useful
+capability without a replacement: STOP, treat 9P as incomplete, and return
+the problem to canonical migration. It must not become a product-feature
+deletion phase. T32.9B is physical legacy-runtime cleanup after authority
+cutover, not authority migration itself.
 
 Scope:
 
 - remove Admin dependencies on legacy booking, Course, profile, instructor, and
   wallet wrappers that T32.9A has replaced with proven-parity canonical paths;
-- dead legacy Booking services, `useBookingActions`, old callable adapters,
-  legacy recommendation writers, legacy Course manager/services, V1 Course
-  read-model compatibility, temporary adapters, and obsolete rules/index
-  compatibility;
+- dead leftover Booking services, `useBookingActions`, old callable adapters,
+  leftover Course services/callables, availability compatibility,
+  `guest_wallet` / USD compatibility, V1 Course read-model compatibility,
+  temporary adapters, obsolete Rules/indexes, and dead tests/fixtures;
 - tighten Firestore Rules for each migrated collection;
 - retire unreachable leftover helpers, including superseded unpaid-approval
   terminology/UI, unused legacy Guest linking UI, and old bundled

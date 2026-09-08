@@ -191,8 +191,8 @@ This criterion applies globally, including future T33 work.
 Before removing a historical frontend or runtime implementation, record evidence
 such as:
 
-| Feature | Historical UX | Current UX | Canonical replacement | Information parity | Action parity | Interaction parity | Status | Safe to remove legacy? |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Feature / capability | Role(s) | Current UX | Current dependency | Canonical/approved replacement | Information parity | Action parity | Interaction parity | Status | Safe to remove legacy? |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 
 Valid status values:
 
@@ -203,7 +203,7 @@ Valid status values:
 
 A legacy implementation must not be removed while the capability is `PARTIAL`,
 `MISSING`, or `NEEDS_PRODUCT_DECISION`, unless the product owner explicitly
-authorizes removal.
+authorizes removal. T32.9A.9D is likewise forbidden while 9P has any in-scope row in those states, except an explicit Product Owner decision.
 
 ## Mandatory product clarification
 
@@ -263,7 +263,8 @@ Purpose:
 - integrate new canonical functionality;
 - prove feature parity;
 - identify legacy implementations safe for later removal;
-- complete FINAL CANONICAL CUTOVER under T32.9A.9 (9A–9E).
+- complete FINAL CANONICAL CUTOVER under T32.9A.9 (9A–9E, including 9P
+  and 9D0).
 
 T32.9A is **not** broad legacy UI cleanup.
 
@@ -282,13 +283,20 @@ T32.9A.9 — FINAL CANONICAL CUTOVER
         → F3 Canonical Multi-Participant Lesson Booking
         → final integration / production smoke)
   9B — Student Booking Stats / Progress / Recommendations Cutover
+       (includes Reviews / Instructor Rating Continuity)
   9C — Course Progress / Achievements Cutover
-  9D — Destructive Legacy Data Reset
+  9P — Global Product Parity & legacy Dependency Gate
+  9D0 — Production-like Incremental Cutover Rehearsal
+  9D — Selective Destructive legacy Data Cleanup
   9E — Canonical Authority / Reachability Gate
+THEN
+T32.9B — Final legacy Runtime Cleanup
+T40 — Execute Rehearsed Selective Production Cutover
+T41 — Expanded Post-Cutover Verification
 ```
 
 T32.9A.9 is the final canonical cutover sequence. It is not limited to Admin
-Integration Smoke.
+Integration Smoke. Production cutover is selective/incremental: 9P then 9D0 then 9D. A full empty-database Firestore reset is nonproduction architectural rehearsal only and is not the production procedure.
 
 Booking-specific authority rule for cutover:
 
@@ -301,6 +309,8 @@ Recommendation, feedback, and progress must first receive the correct
 canonical authority (T32.9A.9B / 9C). They must not be auto-added as fields on
 canonical Booking merely because the lifecycle cutover is underway.
 
+Reviews / instructor rating continuity is mandatory 9B scope. Chat and Homework (currently `bookings/{threadId}/messages`, including `isHomework` / `homeworkForUserIds`) are mandatory 9P rows. Do not delete a Booking parent/thread and lose messages. This ADR does not require a new Chat aggregate.
+
 ### T32.9B — Final Legacy Write / Runtime Cleanup
 
 T32.9B starts only after **T32.9A.9E PASS**.
@@ -308,7 +318,7 @@ T32.9B starts only after **T32.9A.9E PASS**.
 T32.9B may remove a legacy implementation only after its useful product
 capability has a canonical replacement implemented **and** UX parity proven.
 
-T32.9B must not become a product-feature deletion phase. Unreachable leftover
+T32.9B must not become a product-feature deletion phase. If physical cleanup discovers a useful capability without a canonical/approved replacement: STOP, treat the 9P inventory as incomplete, and return the problem to canonical migration. Unreachable leftover
 helpers may be removed only after the useful capability they once served is
 preserved on the canonical path, or after an accepted product decision has
 superseded that capability.

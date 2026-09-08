@@ -47,6 +47,8 @@ After this ADR was accepted, the data-preservation constraint was clarified: the
 
 The implementation will build and verify the canonical system separately, reset development/test transactional Firestore data, reseed only an explicit validated allowlist of reference and configuration data, and deploy the canonical schema, Rules, Functions, jobs, and frontend as one maintenance-window release. No runtime component may read, write, project, or preserve the legacy schema after cutover. Canonical reconciliation required by the new architecture itself, including Payment/Wallet reconciliation, resource-claim repair, and outbox reliability, is unaffected by this amendment.
 
+**Amendment — incremental production cutover (2026-09-08).** The development/test collection-wide reset constraint above remains valid as the original isolated-rehearsal contract. It is **superseded as a production procedure**. Live production already holds canonical Booking, Payment, Attendance, claims, enrollments, and other product data. Production follows T32.9A.9P then 9D0 then 9D selective legacy cleanup, then 9E / T32.9B / T40 / T41. Historical legacy lesson rows may still be discarded when the rehearsed discriminator/manifest proves them disposable. Canonical transactional records, approved reviews/chat/homework/notifications/profile/assets, and bookings/{id}/messages without an approved policy must not be reset away. Topology decisions in this ADR are unchanged.
+
 This ADR deliberately does not decide the mechanics now resolved by these accepted follow-up ADRs:
 
 - Payment accounting, event, correction, and reconciliation mechanics: [ADR-0003](./0003-payment-accounting-source.md).

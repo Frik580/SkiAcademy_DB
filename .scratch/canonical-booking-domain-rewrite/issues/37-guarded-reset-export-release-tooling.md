@@ -3,6 +3,19 @@
 **Phase:** 6 — Rules, jobs, reliability, and cutover tooling  
 **Status:** ready-for-agent
 
+## Production policy (2026-09-08 supersession)
+
+Full collection-wide Firestore/Storage reset remains in scope as **isolated nonproduction architectural tooling** (feeds T38). It is **not** a production cutover procedure.
+
+Production also requires selective preserve/delete manifest tooling consumed by T32.9A.9D0 / 9D / T40:
+
+- export a production-like snapshot
+- classify preserve vs delete with the proven legacy discriminator
+- refuse ambiguous or unapproved targets
+- report expected vs actual preserved/deleted counts
+
+Do not implement T37 as “the way we wipe production.” See [T32_CANONICAL_ADMIN_AUDIT.md](../../../docs/T32_CANONICAL_ADMIN_AUDIT.md) and the rewrite spec incremental-production amendment.
+
 ## What to build
 
 Provide explicit, environment-guarded tooling to export for recovery, reset Firestore and Storage, and bind a canonical release version without acting as a historical migration path.

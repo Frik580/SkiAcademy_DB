@@ -479,19 +479,36 @@ Existing useful screens, information, filters, interactions, and workflows must 
 
 Before removing a legacy frontend or runtime implementation, canonical replacement and UX feature parity must be proven.
 
-Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER, 9A–9E) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). Canonical Booking owns lifecycle, not progress/presentation/feedback data by default. This does not reopen accepted domain or security decisions.
+Details, the parity inventory, role coverage, and the T32.9A / T32.9B boundary are in [ADR-0008](docs/adr/0008-ux-preservation-during-canonical-migration.md). Current T32.9A.8 / T32.9A.9 (FINAL CANONICAL CUTOVER) status lives in [T32_CANONICAL_ADMIN_AUDIT.md](docs/T32_CANONICAL_ADMIN_AUDIT.md). Authoritative production sequence after 9A:
+
+```text
+T32.9A.9A (F1 / F2 / F3 / final integration smoke)
+→ T32.9A.9B (stats / progress / recommendations / Reviews and instructor rating)
+→ T32.9A.9C (Course progress / achievements)
+→ T32.9A.9P (Global Product Parity & legacy Dependency Gate)
+→ T32.9A.9D0 (production-like incremental rehearsal)
+→ T32.9A.9D (Selective Destructive legacy Data Cleanup — not a full Firestore reset)
+→ T32.9A.9E (technical + product reachability)
+→ T32.9B (physical legacy runtime cleanup)
+→ T40 (Execute Rehearsed Selective Production Cutover)
+→ T41 (Expanded Post-Cutover Verification)
+```
+
+Canonical Booking owns lifecycle, not progress/presentation/feedback/reviews data by default. Chat/Homework currently stored at `bookings/{threadId}/messages` must not be deleted with legacy Booking parents without an approved 9P policy. This does not reopen accepted domain or security decisions. A full empty-database reset remains nonproduction architectural rehearsal only.
 
 ## Clean-rewrite and cutover risks
 
 - Incomplete legacy-code removal could leave a reader, direct writer, callable, index dependency, or Storage authorization path that expects or recreates a retired shape.
 - Stale browser clients or offline persistence may retry old writes unless canonical Rules, endpoint removal, release checks, and local-store invalidation all fail closed.
-- Deployment ordering is safety-critical because Rules, Functions, scheduled jobs, reset, seed, and frontend deployment are not physically atomic.
-- An incorrect allowlisted seed may introduce invalid Account, Instructor, Course, Course Day, capacity, timezone, assignment, or asset-reference data into an otherwise clean database.
-- Resetting Firestore does not reset Firebase Auth or Storage; stale identities, claims, chat/media objects, and orphaned assets require explicit handling and verification.
+- Deployment ordering is safety-critical because Rules, Functions, scheduled jobs, selective legacy cleanup, seed (nonproduction only), and frontend deployment are not physically atomic.
+- An incorrect allowlisted seed may introduce invalid Account, Instructor, Course, Course Day, capacity, timezone, assignment, or asset-reference data into an otherwise clean nonproduction database. That empty-database seed is not the production cutover procedure.
+- Resetting Firestore does not reset Firebase Auth or Storage; stale identities, claims, chat/media objects, and orphaned assets require explicit handling and verification. Production 9D must not treat bookings/{id}/messages, reviews, notifications, or referenced assets as automatically disposable with leftover Booking rows.
 - Family/Group and multi-day Course operations may exceed Firestore transaction or write limits unless the command/resource model defines and enforces bounded operation sizes.
 - Security-rule regressions may allow direct mutation of server-owned state or broaden Participant, financial, Attendance, or audit access beyond canonical authorization.
 - A scheduled legacy job or undeleted legacy endpoint could recreate retired documents after reset or mutate canonical data with old assumptions.
 - Incomplete frontend migration could retain old queries, payloads, status maps, persisted stores, or course-shaped Booking behavior despite a canonical backend.
+
+- A full collection-wide Firestore reset on a project that already holds canonical Booking, Payment, Attendance, claims, enrollments, reviews, chat, or notifications would destroy live product data. That procedure is superseded for production by T32.9A.9D0 / 9D / T40 selective incremental cutover.
 
 ## Evidence map
 

@@ -373,7 +373,7 @@ and the later migration status in
 
 - **T32.9A — Admin UX Restoration & Canonical Integration** recovers and
   preserves useful Admin UX on canonical read models and commands, and
-  completes FINAL CANONICAL CUTOVER under T32.9A.9 (9A–9E). It is not broad
+  completes FINAL CANONICAL CUTOVER under T32.9A.9 (9A–9E, including 9P and 9D0). It is not broad
   legacy UI cleanup.
 - **T32.9A.9A.F1 — Canonical Admin Guest Payment Capture** is required before
   Individual Booking lifecycle cutover may close. Administrator records money

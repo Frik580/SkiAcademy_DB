@@ -3,6 +3,16 @@
 **Phase:** 6 — Rules, jobs, reliability, and cutover tooling  
 **Status:** ready-for-agent
 
+## Production policy (2026-09-08 supersession)
+
+This ticket is **nonproduction architectural rehearsal only**: empty Firestore/Storage, canonical seed, then E2E.
+
+It is **not** the production migration procedure and does **not** substitute for `T32.9A.9D0` (production-like mixed canonical + leftover state rehearsing the exact 9D manifest).
+
+A successful T38 run does not authorize production reset or T40 full-wipe.
+
+Production sequence: 9P → 9D0 → 9D → 9E → T32.9B → T40 → T41.
+
 ## What to build
 
 Assemble and rehearse the exact canonical release bundle against an empty nonproduction database, including Rules/indexes, schedulers, outbox/reliability, guarded reset tooling, canonical seed, manifest, and end-to-end verification.

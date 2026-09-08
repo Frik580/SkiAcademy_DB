@@ -105,7 +105,10 @@ export async function loadInstructorOccupancyItems(
   firestore: Firestore,
   input: LoadInstructorOccupancyInput
 ): Promise<LoadInstructorOccupancyResult> {
-  const rangeStart = Math.max(0, input.window.startsAt.seconds - PLANNER_OCCUPANCY_LOOKBACK_SECONDS);
+  const rangeStart = Math.max(
+    0,
+    input.window.startsAt.seconds - PLANNER_OCCUPANCY_LOOKBACK_SECONDS
+  );
   const rangeEnd = input.window.endsAt.seconds;
 
   let bookingQuery: Query = firestore
@@ -170,6 +173,9 @@ export async function loadInstructorOccupancyItems(
   for (const booking of bookings) {
     const local = localParts(booking.occurrence.interval.startsAt, booking.occurrence.timeZone);
     const primaryParticipantId = booking.party.participantIds[0];
+    const resolvedParticipantNames = booking.party.participantIds.map(
+      (participantId) => participantNames.get(participantId) ?? participantId
+    );
     occupancy.push({
       occupancyKind: 'lesson_booking',
       occupancyId: booking.bookingId,
@@ -179,14 +185,13 @@ export async function loadInstructorOccupancyItems(
       localDate: local.date,
       localTime: local.time,
       durationMinutes: durationMinutes(booking.occurrence.interval),
-      displayTitle:
-        (primaryParticipantId ? participantNames.get(primaryParticipantId) : undefined) ??
-        primaryParticipantId ??
-        booking.bookingId,
+      displayTitle: resolvedParticipantNames.join(', ') || booking.bookingId,
       lifecycleStatus: booking.lifecycle.status,
       revision: booking.revision,
       bookingId: booking.bookingId,
       participantId: primaryParticipantId,
+      participantIds: booking.party.participantIds,
+      participantNames: resolvedParticipantNames,
       ...(booking.payerAccountId ? { payerAccountId: booking.payerAccountId } : {}),
       ...(booking.difficulty !== undefined ? { difficulty: booking.difficulty } : {}),
       ...(booking.notes ? { notes: booking.notes } : {}),
@@ -298,6 +303,8 @@ export function sanitizePublicInstructorOccupancy(
         ...item,
         displayTitle: 'Booked',
         participantId: undefined,
+        participantIds: undefined,
+        participantNames: undefined,
         payerAccountId: undefined,
         isGuest: undefined,
         difficulty: undefined,

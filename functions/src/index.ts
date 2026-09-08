@@ -23,6 +23,7 @@ import { createQueryAdminCourseEnrollmentReadModelsHandler } from './canonical/r
 import { createQueryAdminIdentityReadModelsHandler } from './canonical/readModels/queryAdminIdentityReadModelsCallable';
 import { createQueryAdminPlannerReadModelsHandler } from './canonical/readModels/queryAdminPlannerReadModelsCallable';
 import { createQueryInstructorOccupancyReadModelsHandler } from './canonical/readModels/queryInstructorOccupancyReadModelsCallable';
+import { createQueryLessonPricingSettingsReadModelHandler } from './canonical/readModels/queryLessonPricingSettingsReadModelCallable';
 import { sweepGuestConfirmationLifecycleMismatches } from './canonical/guestConfirmation/guestConfirmationReconciliationSweep';
 import { sweepExpiredGuestLessonReservations } from './canonical/bookings/guestLessonReservationExpirySweep';
 
@@ -127,6 +128,11 @@ export const queryAdminPlannerReadModels = onCall(CANONICAL_CALLABLE_OPTIONS, as
 export const queryInstructorOccupancyReadModels = onCall(
   CANONICAL_CALLABLE_OPTIONS,
   async (request) => createQueryInstructorOccupancyReadModelsHandler(getAdminFirestore())(request)
+);
+
+export const queryLessonPricingSettingsReadModel = onCall(
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createQueryLessonPricingSettingsReadModelHandler(getAdminFirestore())(request)
 );
 
 export const scheduledPurgeExpiredNotifications = onSchedule(

@@ -175,13 +175,29 @@ function seedBase() {
       createdAt: decidedAt,
       updatedAt: decidedAt,
     }),
+    'lesson_pricing_settings/lesson_booking': {
+      settingsId: 'lesson_booking',
+      additionalParticipantSurchargePerHourKzt: 6_000,
+      maxParticipantsPerLesson: 1,
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_pricing',
+        lastChangedByCommandId: 'command_seed_pricing',
+        correlationId,
+      },
+    },
   };
 }
 
 async function createConfirmedBooking(
   executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>
 ) {
-  const commands = createProductionCanonicalCommands(environment('2026-01-01T00:00:00.000Z'), executor);
+  const commands = createProductionCanonicalCommands(
+    environment('2026-01-01T00:00:00.000Z'),
+    executor
+  );
   const result = await commands.execute({
     kind: 'create_confirmed_booking',
     context: {
@@ -252,12 +268,12 @@ describe('booking change request commands', () => {
     expect(request?.reason).toBe('Instructor cannot deliver the confirmed occurrence.');
 
     const identity = resolveCommandIdempotencyIdentity(envelope);
-    expect(snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)).toBe(
-      true
-    );
-    expect([...snapshot.docs.keys()].filter((path) => path.startsWith('resource_claims/')).length).toBe(
-      2
-    );
+    expect(
+      snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
+    ).toBe(true);
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('resource_claims/')).length
+    ).toBe(2);
   });
 
   it('rejects create from a non-assigned instructor', async () => {
@@ -302,9 +318,9 @@ describe('booking change request commands', () => {
     expect(result.status).toBe('success');
 
     const snapshot = executor.snapshot();
-    expect(snapshot.docs.get(`booking_change_requests/${changeRequestId}`)?.data.lifecycle.status).toBe(
-      'cancelled'
-    );
+    expect(
+      snapshot.docs.get(`booking_change_requests/${changeRequestId}`)?.data.lifecycle.status
+    ).toBe('cancelled');
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('confirmed');
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.revision).toBe(1);
   });
@@ -340,15 +356,21 @@ describe('booking change request commands', () => {
     expect(booking?.occurrence.occurrenceId).toBe(
       bookingOccurrenceIdFromScheduleRevision(bookingId, 2)
     );
-    expect(snapshot.docs.get(`booking_change_requests/${changeRequestId}`)?.data.lifecycle).toEqual({
-      status: 'resolved',
-      resolution: 'rescheduled',
-      resolvedAt: expect.anything(),
-    });
-    const claims = [...snapshot.docs.entries()].filter(([path]) => path.startsWith('resource_claims/'));
+    expect(snapshot.docs.get(`booking_change_requests/${changeRequestId}`)?.data.lifecycle).toEqual(
+      {
+        status: 'resolved',
+        resolution: 'rescheduled',
+        resolvedAt: expect.anything(),
+      }
+    );
+    const claims = [...snapshot.docs.entries()].filter(([path]) =>
+      path.startsWith('resource_claims/')
+    );
     expect(claims.some(([, doc]) => doc.data.occurrenceId === initialOccurrenceId)).toBe(true);
     expect(
-      claims.some(([, doc]) => doc.data.occurrenceId === bookingOccurrenceIdFromScheduleRevision(bookingId, 2))
+      claims.some(
+        ([, doc]) => doc.data.occurrenceId === bookingOccurrenceIdFromScheduleRevision(bookingId, 2)
+      )
     ).toBe(true);
   });
 
@@ -384,9 +406,13 @@ describe('booking change request commands', () => {
     expect(snapshot.docs.get(`payments/${paymentId}`)?.data.refundedAmount).toBe(12_000);
     const identity = resolveCommandIdempotencyIdentity(envelope);
     expect(
-      snapshot.docs.has(`monetary_events/${monetaryEventIdFromCommandEffect(identity.commandKey, 0)}`)
+      snapshot.docs.has(
+        `monetary_events/${monetaryEventIdFromCommandEffect(identity.commandKey, 0)}`
+      )
     ).toBe(true);
-    const claims = [...snapshot.docs.entries()].filter(([path]) => path.startsWith('resource_claims/'));
+    const claims = [...snapshot.docs.entries()].filter(([path]) =>
+      path.startsWith('resource_claims/')
+    );
     expect(claims.every(([, doc]) => doc.data.lifecycle?.status === 'released')).toBe(true);
   });
 
@@ -411,11 +437,13 @@ describe('booking change request commands', () => {
     const snapshot = executor.snapshot();
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.revision).toBe(1);
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('confirmed');
-    expect(snapshot.docs.get(`booking_change_requests/${changeRequestId}`)?.data.lifecycle).toEqual({
-      status: 'resolved',
-      resolution: 'no_change',
-      resolvedAt: expect.anything(),
-    });
+    expect(snapshot.docs.get(`booking_change_requests/${changeRequestId}`)?.data.lifecycle).toEqual(
+      {
+        status: 'resolved',
+        resolution: 'no_change',
+        resolvedAt: expect.anything(),
+      }
+    );
   });
 
   it('rejects resolve from non-administrator callers', async () => {
@@ -445,7 +473,10 @@ describe('booking change request commands', () => {
     await createConfirmedBooking(executor);
     await createOpenChangeRequest(executor);
 
-    const commands = createProductionCanonicalCommands(environment('2026-01-03T00:00:00.000Z'), executor);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-03T00:00:00.000Z'),
+      executor
+    );
     const rescheduleResult = await commands.execute({
       kind: 'reschedule_booking',
       context: {
@@ -494,9 +525,9 @@ describe('booking change request commands', () => {
     const snapshot = executor.snapshot();
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.revision).toBe(2);
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('confirmed');
-    expect(snapshot.docs.get(`booking_change_requests/${changeRequestId}`)?.data.lifecycle.status).toBe(
-      'open'
-    );
+    expect(
+      snapshot.docs.get(`booking_change_requests/${changeRequestId}`)?.data.lifecycle.status
+    ).toBe('open');
   });
 
   it('replays idempotent create successfully', async () => {

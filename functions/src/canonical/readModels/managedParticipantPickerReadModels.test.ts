@@ -98,6 +98,8 @@ function createFixtureFirestore(): Firestore {
   ]);
 
   return {
+    getAll: async (...documentRefs: Array<{ get: () => Promise<unknown> }>) =>
+      Promise.all(documentRefs.map((documentRef) => documentRef.get())),
     collection: (name: string) => ({
       doc: (id: string) => ({
         get: async () => {

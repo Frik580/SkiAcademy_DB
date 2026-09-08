@@ -23,10 +23,22 @@ export type CommandFingerprint = z.output<typeof CommandFingerprintSchema>;
 
 export function buildCommandFingerprintInput(envelope: CommandEnvelope): CommandFingerprintInput {
   const { kind, context, intent } = envelope;
+  const normalizedIntent =
+    kind === 'create_confirmed_booking' &&
+    intent &&
+    typeof intent === 'object' &&
+    Array.isArray((intent as { participantIds?: unknown }).participantIds)
+      ? {
+          ...(intent as Record<string, unknown>),
+          participantIds: [
+            ...(intent as { participantIds: readonly string[] }).participantIds,
+          ].sort((left, right) => left.localeCompare(right)),
+        }
+      : intent;
   return {
     kind,
     exercisedCapability: context.exercisedCapability,
-    intent,
+    intent: normalizedIntent,
     ...(context.calendarInput === undefined ? {} : { calendarInput: context.calendarInput }),
     ...(context.timezone === undefined ? {} : { timezone: context.timezone }),
   };

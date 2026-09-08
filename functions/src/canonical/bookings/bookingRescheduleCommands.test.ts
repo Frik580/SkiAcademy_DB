@@ -32,7 +32,9 @@ const correlationId = CorrelationIdSchema.parse('correlation_reschedule_cmd_01')
 const accountId = AccountIdSchema.parse('account_reschedule_cmd_01');
 const adminAccountId = AccountIdSchema.parse('account_reschedule_admin_01');
 const participantId = ParticipantIdSchema.parse('participant_reschedule_cmd_01');
+const participantTwoId = ParticipantIdSchema.parse('participant_reschedule_cmd_02');
 const managementId = ParticipantManagementIdSchema.parse('management_reschedule_cmd_01');
+const managementTwoId = ParticipantManagementIdSchema.parse('management_reschedule_cmd_02');
 const instructorId = InstructorIdSchema.parse('instructor_reschedule_cmd_01');
 const instructorTwoId = InstructorIdSchema.parse('instructor_reschedule_cmd_02');
 const bookingId = BookingIdSchema.parse('booking_reschedule_cmd_01');
@@ -121,6 +123,23 @@ function seedBase() {
         correlationId,
       },
     },
+    [`participants/${participantTwoId}`]: {
+      participantId: participantTwoId,
+      displayName: 'Reschedule Participant Two',
+      age: { kind: 'age_years', years: 18 },
+      skillLevel: 'intermediate',
+      discipline: 'ski',
+      management: { kind: 'managed', participantManagementId: managementTwoId },
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_participant_two',
+        lastChangedByCommandId: 'command_seed_participant_two',
+        correlationId,
+      },
+    },
     [`participant_management/${managementId}`]: {
       participantManagementId: managementId,
       participantId,
@@ -134,6 +153,22 @@ function seedBase() {
       audit: {
         createdByCommandId: 'command_seed_management',
         lastChangedByCommandId: 'command_seed_management',
+        correlationId,
+      },
+    },
+    [`participant_management/${managementTwoId}`]: {
+      participantManagementId: managementTwoId,
+      participantId: participantTwoId,
+      accountId,
+      role: 'owner',
+      authority: 'self',
+      status: 'active',
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_management_two',
+        lastChangedByCommandId: 'command_seed_management_two',
         correlationId,
       },
     },
@@ -158,6 +193,19 @@ function seedBase() {
       createdAt: decidedAt,
       updatedAt: decidedAt,
     }),
+    'lesson_pricing_settings/lesson_booking': {
+      settingsId: 'lesson_booking',
+      additionalParticipantSurchargePerHourKzt: 6_000,
+      maxParticipantsPerLesson: 4,
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_pricing',
+        lastChangedByCommandId: 'command_seed_pricing',
+        correlationId,
+      },
+    },
   };
 }
 
@@ -213,6 +261,59 @@ function rescheduleEnvelope(
 }
 
 describe('booking reschedule commands', () => {
+  it('reschedules the whole multi-participant party with one instructor claim', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const setupCommands = createProductionCanonicalCommands(
+      environment('2026-01-01T00:00:00.000Z'),
+      executor
+    );
+    const partyResult = await setupCommands.execute({
+      kind: 'change_booking_party',
+      context: accountContext('account_owner', accountId, 'reschedule-party-add', 1, {
+        localDate: '2026-01-15',
+        localTime: '09:00',
+        durationMinutes: 60,
+      }),
+      intent: { bookingId, participantIdsToAdd: [participantTwoId] },
+    });
+    expect(partyResult.status).toBe('success');
+    const priceBeforeMaxReduction = executor.snapshot().docs.get(`payments/${paymentId}`)
+      ?.data.price;
+    const settingsResult = await setupCommands.execute({
+      kind: 'update_lesson_pricing_settings',
+      context: accountContext('administrator', adminAccountId, 'reschedule-max-reduction', 1),
+      intent: {
+        additionalParticipantSurchargePerHourKzt: 6_000,
+        maxParticipantsPerLesson: 1,
+        reasonExplanation: 'Reduce maximum for new bookings',
+      },
+    } as CommandEnvelope<'update_lesson_pricing_settings'>);
+    expect(settingsResult.status).toBe('success');
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-10T09:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      rescheduleEnvelope('reschedule-party-01', 'account_owner', 2)
+    );
+    expect(result.status, JSON.stringify(result)).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.party.participantIds).toEqual([
+      participantId,
+      participantTwoId,
+    ]);
+    expect(snapshot.docs.get(`payments/${paymentId}`)?.data.price).toBe(priceBeforeMaxReduction);
+    const activeClaims = [...snapshot.docs.values()]
+      .map((entry) => entry.data)
+      .filter((data) => data.lifecycle?.status === 'active' && data.ownerId === bookingId);
+    expect(activeClaims.filter((claim) => claim.resourceKind === 'instructor')).toHaveLength(1);
+    expect(activeClaims.filter((claim) => claim.resourceKind === 'participant')).toHaveLength(2);
+    expect(new Set(activeClaims.map((claim) => claim.occurrenceId))).toEqual(
+      new Set([bookingOccurrenceIdFromScheduleRevision(bookingId, 2)])
+    );
+  });
+
   it('allows client self-service reschedule >=24h before start and rotates occurrenceId', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);

@@ -452,6 +452,21 @@ The refund updates `refundedAmount` and `retainedAmount`, not `settledAmount`. T
 
 Instructor change, duration change, Course transfer, family/group composition change, and manual price override all use this same model. A more expensive Course transfer adds and funds or leaves the difference outstanding; a cheaper transfer reduces the obligation and refunds only resulting retained excess. The CourseEnrollment and Payment identities remain unchanged.
 
+## Lesson party pricing basis
+
+Canonical lesson creation calculates one Booking/Payment price with:
+
+```text
+baseLessonPriceKzt
+  + additionalParticipantSurchargePerHourKzt
+    × (participantCount - 1)
+    × lessonDurationMinutes / 60
+```
+
+`additionalParticipantSurchargePerHourKzt` is the Administrator-controlled, whole-KZT hourly value in `/lesson_pricing_settings/lesson_booking`. Duration is taken from the canonical lesson/Booking schedule, not from a frontend-supplied total. Whole-KZT results for this product of integers follow the same `Math.round` used by individual lesson duration pricing. The update command requires Administrator authority, expected-revision OCC, a reason, idempotency, and synchronous audit. The frontend setting read is display authority only; the booking transaction reads and validates current canonical settings. Multi-participant creation fails closed if this setting is absent or invalid. One-participant creation does not require a surcharge setting and uses the instructor/duration base price.
+
+The Booking retains a `lesson_party:v1` pricing-basis snapshot containing base price, surcharge per hour, lesson duration, setting revision when applicable, Participant count, and calculated total. These facts prove how the charge was derived, but `Payment.originalPrice` and `Payment.price` remain the authoritative numeric obligation. Later setting changes affect future Bookings only. Party additions use one snapshotted per-hour surcharge scaled by the Booking duration per added Participant; rollback uses each immutable incremental requirement and never recomputes a historical obligation from current settings.
+
 ## Family/group obligation allocations
 
 One family/group Booking retains one Payment aggregate. The Payment may contain at most seven active `incrementalRequirements`, corresponding to additions after the initial Participant in the approved maximum party of eight. Each allocation contains an immutable requirement ID, Participant ID, creation command/time, required price delta, `allocatedSettledAmount`, `allocatedRetainedAmount`, and current allocation state. Monetary events that fund or refund an addition reference its requirement ID.

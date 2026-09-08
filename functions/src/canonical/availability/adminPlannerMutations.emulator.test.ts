@@ -15,6 +15,7 @@ import {
 import { createExecuteCanonicalCommandHandler } from '../commands/executeCanonicalCommandCallable';
 import { queryAdminIdentityReadModels } from '../readModels/adminIdentityReadModels';
 import { createQueryAdminPlannerReadModelsHandler } from '../readModels/queryAdminPlannerReadModelsCallable';
+import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 
 const PROJECT_ID = 'ski-academy-admin-planner-mutations-emulator';
 const runsOnFirestoreEmulator = Boolean(
@@ -59,6 +60,10 @@ async function clearCollections(): Promise<void> {
 }
 
 async function seedFixture(): Promise<void> {
+  await seedLessonPricingSettingsFixture(firestore, {
+    decidedAt: createdAt,
+    correlationId,
+  });
   const admin = AccountSchema.parse({
     accountId: adminAccountId,
     lifecycle: { status: 'active' },
@@ -122,10 +127,7 @@ async function executeWithDiagnostics<T>(operation: () => Promise<T>): Promise<T
   }
 }
 
-async function queryPlanner(
-  view: 'day' | 'week',
-  localDateValue: string = localDate
-) {
+async function queryPlanner(view: 'day' | 'week', localDateValue: string = localDate) {
   return createQueryAdminPlannerReadModelsHandler(firestore)({
     auth: { uid: adminAccountId },
     data: {
@@ -289,13 +291,16 @@ describeEmulator('Admin Planner mutations through callable gateway', () => {
         correlationId,
       },
     });
-    await firestore.collection('users').doc(payerAccountId).set({
-      ...payer,
-      uid: payerAccountId,
-      displayName: 'Planner Client',
-      email: 'planner-client@example.com',
-      role: 'user',
-    });
+    await firestore
+      .collection('users')
+      .doc(payerAccountId)
+      .set({
+        ...payer,
+        uid: payerAccountId,
+        displayName: 'Planner Client',
+        email: 'planner-client@example.com',
+        role: 'user',
+      });
 
     const provision = await executeWithDiagnostics(() =>
       execute(
@@ -317,39 +322,45 @@ describeEmulator('Admin Planner mutations through callable gateway', () => {
     const managementId = ParticipantManagementIdSchema.parse(
       'management_planner_dependent_emulator'
     );
-    await firestore.collection('participants').doc(dependentId).set({
-      participantId: dependentId,
-      displayName: 'Planner Dependent',
-      age: { kind: 'age_years', years: 12 },
-      skillLevel: 'beginner',
-      discipline: 'ski',
-      management: { kind: 'managed', participantManagementId: managementId },
-      lifecycle: { status: 'active' },
-      revision: 1,
-      createdAt,
-      updatedAt: createdAt,
-      audit: {
-        createdByCommandId: 'command_seed_dependent_planner_emulator',
-        lastChangedByCommandId: 'command_seed_dependent_planner_emulator',
-        correlationId,
-      },
-    });
-    await firestore.collection('participant_management').doc(managementId).set({
-      participantManagementId: managementId,
-      participantId: dependentId,
-      accountId: payerAccountId,
-      role: 'owner',
-      authority: 'parent_guardian',
-      status: 'active',
-      revision: 1,
-      createdAt,
-      updatedAt: createdAt,
-      audit: {
-        createdByCommandId: 'command_seed_dependent_planner_emulator',
-        lastChangedByCommandId: 'command_seed_dependent_planner_emulator',
-        correlationId,
-      },
-    });
+    await firestore
+      .collection('participants')
+      .doc(dependentId)
+      .set({
+        participantId: dependentId,
+        displayName: 'Planner Dependent',
+        age: { kind: 'age_years', years: 12 },
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        management: { kind: 'managed', participantManagementId: managementId },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt,
+        updatedAt: createdAt,
+        audit: {
+          createdByCommandId: 'command_seed_dependent_planner_emulator',
+          lastChangedByCommandId: 'command_seed_dependent_planner_emulator',
+          correlationId,
+        },
+      });
+    await firestore
+      .collection('participant_management')
+      .doc(managementId)
+      .set({
+        participantManagementId: managementId,
+        participantId: dependentId,
+        accountId: payerAccountId,
+        role: 'owner',
+        authority: 'parent_guardian',
+        status: 'active',
+        revision: 1,
+        createdAt,
+        updatedAt: createdAt,
+        audit: {
+          createdByCommandId: 'command_seed_dependent_planner_emulator',
+          lastChangedByCommandId: 'command_seed_dependent_planner_emulator',
+          correlationId,
+        },
+      });
 
     const eligible = await queryAdminIdentityReadModels(
       firestore,
@@ -399,15 +410,15 @@ describeEmulator('Admin Planner mutations through callable gateway', () => {
         payerAccountId,
       })
     );
-    expect(planner.item.occupancy.find((item) => item.bookingId === bookingId)?.participantId).not.toBe(
-      self?.participantId
-    );
+    expect(
+      planner.item.occupancy.find((item) => item.bookingId === bookingId)?.participantId
+    ).not.toBe(self?.participantId);
     const stored = await firestore.collection('bookings').doc(bookingId).get();
     expect(stored.data()?.difficulty).toBe('intermediate');
     expect(stored.data()?.notes).toBe('Dependent lesson notes');
-    expect(
-      planner.item.occupancy.find((item) => item.bookingId === bookingId)?.difficulty
-    ).toBe('intermediate');
+    expect(planner.item.occupancy.find((item) => item.bookingId === bookingId)?.difficulty).toBe(
+      'intermediate'
+    );
     expect(planner.item.occupancy.find((item) => item.bookingId === bookingId)?.notes).toBe(
       'Dependent lesson notes'
     );

@@ -134,13 +134,13 @@ A pending Booking with `isPaymentFullyFundedForService(Payment)` and service not
 
 ### Policy matrix
 
-| Booking | Payment | Deadline | Service | Result |
-|---|---|---|---|---|
-| `pending` | not fully funded | before deadline | not started | remain `pending` |
-| `pending` | not fully funded | reached/passed | not started | `cancelled`; `reasonCode: reservation_expired`; claim released |
-| `pending` | fully funded | before deadline | not started | `confirmed` |
-| `pending` | fully funded | reached/passed | not started | `confirmed` via canonical confirmation/reconciliation; claim retained |
-| `cancelled` / expired | any later payment attempt | passed | any | reject server-side; no Payment mutation; no resurrection |
+| Booking               | Payment                   | Deadline        | Service     | Result                                                                |
+| --------------------- | ------------------------- | --------------- | ----------- | --------------------------------------------------------------------- |
+| `pending`             | not fully funded          | before deadline | not started | remain `pending`                                                      |
+| `pending`             | not fully funded          | reached/passed  | not started | `cancelled`; `reasonCode: reservation_expired`; claim released        |
+| `pending`             | fully funded              | before deadline | not started | `confirmed`                                                           |
+| `pending`             | fully funded              | reached/passed  | not started | `confirmed` via canonical confirmation/reconciliation; claim retained |
+| `cancelled` / expired | any later payment attempt | passed          | any         | reject server-side; no Payment mutation; no resurrection              |
 
 Partial payment does not protect the reservation. Expiry does not mutate Payment amounts.
 
@@ -174,7 +174,9 @@ The canonical payment path after the reservation deadline is fail-closed. A full
 
 ### F3 compatibility
 
-Expiry and confirmation policy operate at the Booking aggregate level: one Booking, one Payment, one lifecycle, one resource claim. Participant count does not affect expiry eligibility, funding acceptance, or confirmation/reconciliation decisions.
+Expiry and confirmation policy operate at the Booking aggregate level: one Booking, one Payment, one lifecycle, and one instructor slot reservation. Participant conflict claims are released with that same Booking decision. Participant count does not affect expiry eligibility, funding acceptance, or confirmation/reconciliation decisions.
+
+F3 deliberately keeps guest lesson creation at exactly one unmanaged Participant and one guest contact. It does not introduce multiple guest profiles, a multi-guest identity contract, multi-guest linking/claim semantics, or multiple guest contacts in one Booking. This is solely a creation-boundary restriction: after creation, guest confirmation, expiry, Payment, cancellation, and reconciliation remain Booking-level and do not encode `participantIds.length === 1` as an aggregate invariant.
 
 ## Guest CourseEnrollment lifecycle
 
@@ -396,7 +398,8 @@ and the later migration status in
 - **T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking** is required
   before 9A final integration / production smoke and 9A close. One lesson slot,
   one Booking lifecycle, one Payment, `participantIds[]` for N managed
-  Participants. F3 is PLANNED — not PASS. Details and acceptance criteria live in
+  Participants. F3 is READY_FOR_MANUAL_SMOKE — not PASS/CLOSED/DEPLOYED. Guest
+  creation remains a deliberate single-Participant boundary. Details and acceptance criteria live in
   [T32_CANONICAL_ADMIN_AUDIT.md](../T32_CANONICAL_ADMIN_AUDIT.md).
 - **T32.9B — Final Legacy Write / Runtime Cleanup** may remove leftover
   implementation only after T32.9A.9E PASS, canonical replacement, and UX
@@ -418,12 +421,12 @@ implemented and smoked.
 
 ### Background jobs (guest confirmation vs completion)
 
-| Job | Status |
-|---|---|
-| `scheduledAutoCompleteBookings` | Removed (legacy Individual Booking completion) |
-| `scheduledReconcileGuestConfirmationMismatches` | Canonical / active |
-| `scheduledPurgeExpiredNotifications` | Canonical / active |
-| Guest unpaid reservation expiry scheduler | `scheduledExpireGuestLessonReservations` / every 5 minutes UTC / READY_FOR_MANUAL_SMOKE |
+| Job                                             | Status                                                                                  |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `scheduledAutoCompleteBookings`                 | Removed (legacy Individual Booking completion)                                          |
+| `scheduledReconcileGuestConfirmationMismatches` | Canonical / active                                                                      |
+| `scheduledPurgeExpiredNotifications`            | Canonical / active                                                                      |
+| Guest unpaid reservation expiry scheduler       | `scheduledExpireGuestLessonReservations` / every 5 minutes UTC / READY_FOR_MANUAL_SMOKE |
 
 Completion scheduling must not be confused with payment-confirmation
 reconciliation.

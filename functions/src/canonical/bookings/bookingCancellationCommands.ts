@@ -11,8 +11,8 @@ import {
   calculateFullPaidRefundAmount,
   commandSuccessResult,
   evaluateClientCancellationTiming,
-  isConfirmedIndividualBooking,
-  isPendingCancellationIndividualBooking,
+  isConfirmedBooking,
+  isPendingCancellationBooking,
   isTerminalBookingLifecycle,
   missingBookingAttendanceIdentity,
   nextAggregateRevision,
@@ -21,12 +21,14 @@ import {
   unresolvedPendingCancellationIdentity,
   KztMinorUnitsSchema,
   type AdminIssue,
+  type Attendance,
   type Booking,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
   type CommandResult,
   type KztMinorUnits,
   type Payment,
+  type ParticipantId,
   resolveLateRejectionOutcome,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
@@ -71,8 +73,16 @@ import {
   commitPlannedCancellationFinanceEffects,
   planCancellationFinance,
 } from './bookingCancellationFinance';
-import { commitPlannedReleaseBookingClaims, planReleaseBookingClaims } from './bookingClaimOperations';
-import { BOOKING_PLANNING_ESTIMATES, bookingPath, parseBooking, toFirestoreWritePayload } from './bookingStore';
+import {
+  commitPlannedReleaseBookingClaims,
+  planReleaseBookingClaims,
+} from './bookingClaimOperations';
+import {
+  BOOKING_PLANNING_ESTIMATES,
+  bookingPath,
+  parseBooking,
+  toFirestoreWritePayload,
+} from './bookingStore';
 import type { GuestBookingCommandEnvironment } from './guestBookingCommands';
 import { requestPendingGuestCancellationHandler } from './guestBookingCancellation';
 
@@ -121,7 +131,7 @@ function requestAuthenticatedBookingCancellationHandler(
       booking = parsedBooking;
       assertConfirmedGuestCannotSelfCancel(envelope, booking);
 
-      if (!isConfirmedIndividualBooking(booking) || isTerminalBookingLifecycle(booking)) {
+      if (!isConfirmedBooking(booking) || isTerminalBookingLifecycle(booking)) {
         throw new CanonicalCommandError('invalid_transition', {
           correlationId: envelope.context.correlationId,
           details: { resourceKind: 'booking', reason: 'unsupported' },
@@ -142,7 +152,9 @@ function requestAuthenticatedBookingCancellationHandler(
       const participantDocumentPath = participantPath(participantId);
       const participantRead = await session.tx.get({ path: participantDocumentPath });
       session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-      const participant = parseParticipant(participantRead.exists ? participantRead.data : undefined);
+      const participant = parseParticipant(
+        participantRead.exists ? participantRead.data : undefined
+      );
       if (!participant || participant.management.kind !== 'managed') {
         throw new CanonicalCommandError('forbidden', {
           correlationId: envelope.context.correlationId,
@@ -363,7 +375,7 @@ function withdrawBookingCancellationRequestHandler(
         const bookingRead = await session.tx.get({ path: bookingDocumentPath });
         session.plan.planRead({ path: bookingDocumentPath, category: 'aggregate' });
         const parsedBooking = parseBooking(bookingRead.exists ? bookingRead.data : undefined);
-        if (!parsedBooking || !isPendingCancellationIndividualBooking(parsedBooking)) {
+        if (!parsedBooking || !isPendingCancellationBooking(parsedBooking)) {
           throw new CanonicalCommandError('invalid_transition', {
             correlationId: envelope.context.correlationId,
             details: { resourceKind: 'booking', reason: 'unsupported' },
@@ -384,7 +396,9 @@ function withdrawBookingCancellationRequestHandler(
         }
         const participantRead = await session.tx.get({ path: participantPath(participantId) });
         session.plan.planRead({ path: participantPath(participantId), category: 'aggregate' });
-        const participant = parseParticipant(participantRead.exists ? participantRead.data : undefined);
+        const participant = parseParticipant(
+          participantRead.exists ? participantRead.data : undefined
+        );
         if (!participant || participant.management.kind !== 'managed') {
           throw new CanonicalCommandError('forbidden', {
             correlationId: envelope.context.correlationId,
@@ -504,7 +518,7 @@ function resolveBookingCancellationHandler(
       const bookingRead = await session.tx.get({ path: bookingDocumentPath });
       session.plan.planRead({ path: bookingDocumentPath, category: 'aggregate' });
       const parsedBooking = parseBooking(bookingRead.exists ? bookingRead.data : undefined);
-      if (!parsedBooking || parsedBooking.party.kind !== 'individual') {
+      if (!parsedBooking) {
         throw new CanonicalCommandError('validation', {
           correlationId: envelope.context.correlationId,
           details: { resourceKind: 'booking', reason: 'unsupported' },
@@ -547,24 +561,27 @@ function resolveBookingCancellationHandler(
         return;
       }
 
-      if (!isPendingCancellationIndividualBooking(booking)) {
+      if (!isPendingCancellationBooking(booking)) {
         throw new CanonicalCommandError('invalid_transition', {
           correlationId: envelope.context.correlationId,
           details: { resourceKind: 'booking', reason: 'unsupported' },
         });
       }
 
-      plannedResolvedPendingIssue = await planResolveOpenUnresolvedPendingCancellationIssue(session, {
-        booking,
-        correlationId: metadata.correlationId,
-        commandId: metadata.commandId,
-        now,
-        reason:
-          decision === 'approve'
-            ? 'Administrator approved cancellation'
-            : 'Administrator rejected cancellation',
-        envelope,
-      });
+      plannedResolvedPendingIssue = await planResolveOpenUnresolvedPendingCancellationIssue(
+        session,
+        {
+          booking,
+          correlationId: metadata.correlationId,
+          commandId: metadata.commandId,
+          now,
+          reason:
+            decision === 'approve'
+              ? 'Administrator approved cancellation'
+              : 'Administrator rejected cancellation',
+          envelope,
+        }
+      );
 
       if (decision === 'approve') {
         const refundAmount = KztMinorUnitsSchema.parse(envelope.intent.refundAmount!);
@@ -577,11 +594,11 @@ function resolveBookingCancellationHandler(
       lateOutcome = resolveLateRejectionOutcome({
         now,
         booking,
-        attendance: await readBookingAttendance(session, booking),
+        attendancesByParticipantId: await readBookingAttendances(session, booking),
       });
 
       if (lateOutcome.outcome === 'missing_attendance') {
-        const participantId = booking.party.participantIds[0]!;
+        const participantId = lateOutcome.missingParticipantIds[0]!;
         const issueIdentity = missingBookingAttendanceIdentity({
           bookingId: booking.bookingId,
           occurrenceId: booking.occurrence.occurrenceId,
@@ -753,21 +770,27 @@ function resolveBookingCancellationHandler(
     );
   }
 
-  async function readBookingAttendance(
+  async function readBookingAttendances(
     session: Parameters<typeof planCancellationFinance>[0],
     currentBooking: Booking
   ) {
-    const participantId = currentBooking.party.participantIds[0]!;
-    const attendanceId = attendanceIdFromBookingIdentity({
-      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
-      subjectKind: 'booking',
-      occurrenceId: currentBooking.occurrence.occurrenceId,
-      participantId,
-    });
-    const documentPath = attendancePath(attendanceId);
-    const attendanceRead = await session.tx.get({ path: documentPath });
-    session.plan.planRead({ path: documentPath, category: 'aggregate' });
-    return parseAttendance(attendanceRead.exists ? attendanceRead.data : undefined);
+    const attendances = new Map<ParticipantId, Attendance>();
+    for (const participantId of currentBooking.occurrence.serviceParty.participantIds) {
+      const attendanceId = attendanceIdFromBookingIdentity({
+        strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+        subjectKind: 'booking',
+        occurrenceId: currentBooking.occurrence.occurrenceId,
+        participantId,
+      });
+      const documentPath = attendancePath(attendanceId);
+      const attendanceRead = await session.tx.get({ path: documentPath });
+      session.plan.planRead({ path: documentPath, category: 'aggregate' });
+      const attendance = parseAttendance(attendanceRead.exists ? attendanceRead.data : undefined);
+      if (attendance) {
+        attendances.set(participantId, attendance);
+      }
+    }
+    return attendances;
   }
 
   return executeAuthoritativeIdempotentCanonicalCommand({

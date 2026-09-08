@@ -250,7 +250,7 @@ export const LessonBookingAdminAuthorizedActionsSchema = z
 
 export const LessonBookingAdminProjectionSchema = z
   .object({
-    participants: z.array(LessonBookingAdminParticipantProjectionSchema).min(1).max(8),
+    participants: z.array(LessonBookingAdminParticipantProjectionSchema).min(1),
     attribution: z
       .object({
         bookingOrigin: BookingOriginSchema,
@@ -261,9 +261,9 @@ export const LessonBookingAdminProjectionSchema = z
     payment: LessonBookingAdminPaymentAccountingSchema,
     cancellationFinancial: LessonBookingAdminCancellationFinancialProjectionSchema,
     relatedIssues: z.array(LessonBookingAdminIssueSummarySchema).max(50),
-    attendance: z.array(LessonBookingAdminAttendancePresentationSchema).min(1).max(8),
+    attendance: z.array(LessonBookingAdminAttendancePresentationSchema).min(1),
     scheduleRevision: AggregateRevisionSchema,
-    serviceParticipantIds: z.array(ParticipantIdSchema).min(1).max(8),
+    serviceParticipantIds: z.array(ParticipantIdSchema).min(1),
     authorizedActions: LessonBookingAdminAuthorizedActionsSchema,
     guestIdentityLinkUnavailableReason: GuestIdentityLinkUnavailableReasonSchema.optional(),
   })
@@ -276,8 +276,8 @@ export const LessonBookingReadModelSchema = z
     bookingId: BookingIdSchema,
     revision: AggregateRevisionSchema,
     partyKind: BookingPartyKindSchema,
-    participantIds: z.array(ParticipantIdSchema).min(1).max(8),
-    participants: z.array(LessonBookingReadModelParticipantProjectionSchema).min(1).max(8),
+    participantIds: z.array(ParticipantIdSchema).min(1),
+    participants: z.array(LessonBookingReadModelParticipantProjectionSchema).min(1),
     instructor: LessonBookingReadModelInstructorProjectionSchema,
     occurrence: LessonBookingReadModelOccurrenceProjectionSchema,
     lifecycle: LessonBookingReadModelLifecycleProjectionSchema,

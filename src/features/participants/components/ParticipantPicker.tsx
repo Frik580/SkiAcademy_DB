@@ -1,6 +1,5 @@
 import React from 'react';
 import type { ManagedParticipantOption } from '../../lesson-bookings/lessonBookingContracts';
-import { MAX_MULTI_PARTICIPANT_SELECTION } from '../participantSelectionState';
 
 export interface ParticipantPickerProps {
   readonly participants: readonly ManagedParticipantOption[];
@@ -28,7 +27,7 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
   loading,
   error,
   onRetry,
-  maxParticipants = MAX_MULTI_PARTICIPANT_SELECTION,
+  maxParticipants,
   t,
   onCreateDependent,
 }) => {
@@ -70,7 +69,9 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
       <div className="flex flex-wrap gap-2">
         {participants.map((participant) => {
           const selected = selectedParticipantIds.includes(participant.participantId);
-          const atLimit = !selected && selectedParticipantIds.length >= maxParticipants;
+          const atLimit =
+            !selected &&
+            (maxParticipants === undefined || selectedParticipantIds.length >= maxParticipants);
           return (
             <button
               key={participant.participantId}
@@ -93,7 +94,7 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
           );
         })}
       </div>
-      {selectedParticipantIds.length >= maxParticipants && (
+      {maxParticipants !== undefined && selectedParticipantIds.length >= maxParticipants && (
         <p className="text-[10px] text-[var(--ink-dim)]">
           {t('participantsMaxSelected').replace('{count}', String(maxParticipants))}
         </p>

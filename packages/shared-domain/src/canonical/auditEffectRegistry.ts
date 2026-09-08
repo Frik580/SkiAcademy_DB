@@ -13,6 +13,7 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'resource_claim_changed',
     'outbox_obligation_created',
   ],
+  update_lesson_pricing_settings: ['pricing_settings_changed'],
   create_guest_booking_request: [
     'booking_lifecycle_changed',
     'payment_state_changed',
@@ -224,7 +225,10 @@ const COMMAND_KIND_ALLOWED_EFFECTS: Partial<Record<CommandKind, readonly AuditEf
     'resource_claim_changed',
     'outbox_obligation_created',
   ],
-  release_administrative_availability_block: ['resource_claim_changed', 'outbox_obligation_created'],
+  release_administrative_availability_block: [
+    'resource_claim_changed',
+    'outbox_obligation_created',
+  ],
   create_course_enrollments: [
     'course_enrollment_lifecycle_changed',
     'payment_state_changed',

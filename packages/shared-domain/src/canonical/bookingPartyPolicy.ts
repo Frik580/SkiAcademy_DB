@@ -1,5 +1,4 @@
 import {
-  BOOKING_PARTY_MAX,
   BOOKING_PARTY_MIN,
   type Booking,
   type BookingPartyKind,
@@ -11,16 +10,19 @@ import {
 } from './bookingCancellationPolicy';
 import type { IncrementalRequirement, PaymentAccountingFields } from './paymentWallet';
 import { deriveRetainedAmount } from './paymentWallet';
-import { KztMinorUnitsSchema, compareCanonicalTimestamps, type CanonicalTimestamp, type KztMinorUnits } from './primitives';
+import {
+  KztMinorUnitsSchema,
+  compareCanonicalTimestamps,
+  type CanonicalTimestamp,
+  type KztMinorUnits,
+} from './primitives';
 import type { ParticipantId } from './identifiers';
-import { calculateFamilyGroupBookingPriceKzt } from './familyGroupTariff';
+import { calculateLessonPartyPriceKzt } from './lessonPricingSettings';
 
 export const BOOKING_PARTY_CHANGE_WINDOW_MS = INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS;
 
 export type ClientPartyChangeTimingDecision =
-  | 'allowed'
-  | 'inside_window_rejected'
-  | 'after_start_rejected';
+  'allowed' | 'inside_window_rejected' | 'after_start_rejected';
 
 export function evaluateClientPartyChangeTiming(input: {
   readonly requestAt: CanonicalTimestamp;
@@ -31,9 +33,7 @@ export function evaluateClientPartyChangeTiming(input: {
   }
   const timeUntilStartMs =
     canonicalTimestampToEpochMs(input.startAt) - canonicalTimestampToEpochMs(input.requestAt);
-  return timeUntilStartMs >= BOOKING_PARTY_CHANGE_WINDOW_MS
-    ? 'allowed'
-    : 'inside_window_rejected';
+  return timeUntilStartMs >= BOOKING_PARTY_CHANGE_WINDOW_MS ? 'allowed' : 'inside_window_rejected';
 }
 
 export function isPartyChangeEligibleBooking(booking: Booking): boolean {
@@ -66,9 +66,6 @@ export function validatePartyParticipantIds(participantIds: readonly Participant
   if (participantIds.length < BOOKING_PARTY_MIN) {
     throw new Error('Booking party must contain at least one Participant');
   }
-  if (participantIds.length > BOOKING_PARTY_MAX) {
-    throw new Error('Booking party must contain at most eight Participants');
-  }
   if (duplicateParticipantIndexes(participantIds).length > 0) {
     throw new Error('Booking party participant IDs must be unique');
   }
@@ -95,6 +92,8 @@ export function derivePartyKindFromCount(participantCount: number): BookingParty
 
 export function resolveAuthoritativePartyPrices(input: {
   readonly individualLessonPriceKzt: KztMinorUnits;
+  readonly additionalParticipantSurchargePerHourKzt: KztMinorUnits;
+  readonly lessonDurationMinutes: number;
   readonly currentParticipantIds: readonly ParticipantId[];
   readonly nextParticipantIds: readonly ParticipantId[];
 }): {
@@ -102,14 +101,18 @@ export function resolveAuthoritativePartyPrices(input: {
   readonly nextPrice: KztMinorUnits;
   readonly signedPriceDelta: number;
 } {
-  const currentPrice = calculateFamilyGroupBookingPriceKzt(
-    input.individualLessonPriceKzt,
-    input.currentParticipantIds.length
-  );
-  const nextPrice = calculateFamilyGroupBookingPriceKzt(
-    input.individualLessonPriceKzt,
-    input.nextParticipantIds.length
-  );
+  const currentPrice = calculateLessonPartyPriceKzt({
+    baseLessonPriceKzt: input.individualLessonPriceKzt,
+    additionalParticipantSurchargePerHourKzt: input.additionalParticipantSurchargePerHourKzt,
+    participantCount: input.currentParticipantIds.length,
+    lessonDurationMinutes: input.lessonDurationMinutes,
+  });
+  const nextPrice = calculateLessonPartyPriceKzt({
+    baseLessonPriceKzt: input.individualLessonPriceKzt,
+    additionalParticipantSurchargePerHourKzt: input.additionalParticipantSurchargePerHourKzt,
+    participantCount: input.nextParticipantIds.length,
+    lessonDurationMinutes: input.lessonDurationMinutes,
+  });
   return {
     currentPrice,
     nextPrice,
@@ -119,6 +122,8 @@ export function resolveAuthoritativePartyPrices(input: {
 
 export function calculateSelfServiceRemoveRefundBasisKzt(input: {
   readonly individualLessonPriceKzt: KztMinorUnits;
+  readonly additionalParticipantSurchargePerHourKzt: KztMinorUnits;
+  readonly lessonDurationMinutes: number;
   readonly currentParticipantIds: readonly ParticipantId[];
   readonly nextParticipantIds: readonly ParticipantId[];
 }): KztMinorUnits {
@@ -186,6 +191,8 @@ export function maxPartyRemoveRefundKzt(
 
 export function partitionAddedParticipantsByMarginalDelta(input: {
   readonly individualLessonPriceKzt: KztMinorUnits;
+  readonly additionalParticipantSurchargePerHourKzt: KztMinorUnits;
+  readonly lessonDurationMinutes: number;
   readonly currentParticipantIds: readonly ParticipantId[];
   readonly participantIdsToAdd: readonly ParticipantId[];
 }): ReadonlyArray<{
@@ -195,14 +202,18 @@ export function partitionAddedParticipantsByMarginalDelta(input: {
   const additions: Array<{ participantId: ParticipantId; requiredPriceDelta: KztMinorUnits }> = [];
   let runningCount = input.currentParticipantIds.length;
   for (const participantId of input.participantIdsToAdd) {
-    const requiredPriceDelta = calculateFamilyGroupBookingPriceKzt(
-      input.individualLessonPriceKzt,
-      runningCount + 1
-    );
-    const previousPrice = calculateFamilyGroupBookingPriceKzt(
-      input.individualLessonPriceKzt,
-      runningCount
-    );
+    const requiredPriceDelta = calculateLessonPartyPriceKzt({
+      baseLessonPriceKzt: input.individualLessonPriceKzt,
+      additionalParticipantSurchargePerHourKzt: input.additionalParticipantSurchargePerHourKzt,
+      participantCount: runningCount + 1,
+      lessonDurationMinutes: input.lessonDurationMinutes,
+    });
+    const previousPrice = calculateLessonPartyPriceKzt({
+      baseLessonPriceKzt: input.individualLessonPriceKzt,
+      additionalParticipantSurchargePerHourKzt: input.additionalParticipantSurchargePerHourKzt,
+      participantCount: runningCount,
+      lessonDurationMinutes: input.lessonDurationMinutes,
+    });
     additions.push({
       participantId,
       requiredPriceDelta: KztMinorUnitsSchema.parse(requiredPriceDelta - previousPrice),

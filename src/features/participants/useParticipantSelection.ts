@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { useManagedParticipants } from '../lesson-bookings/useManagedParticipants';
 import { toggleParticipantSelection } from './participantSelectionState';
 
-export function useParticipantSelection(accountId: string | undefined) {
+export function useParticipantSelection(accountId: string | undefined, maxCount: number) {
   const { participants, loading, error, reload } = useManagedParticipants(accountId);
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
 
@@ -12,11 +12,12 @@ export function useParticipantSelection(accountId: string | undefined) {
         toggleParticipantSelection(
           current,
           participantId,
-          participants.map((participant) => participant.participantId)
+          participants.map((participant) => participant.participantId),
+          maxCount
         )
       );
     },
-    [participants]
+    [maxCount, participants]
   );
 
   const resetSelection = useCallback(() => {

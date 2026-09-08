@@ -38,6 +38,7 @@ import {
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
+import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 
 const PROJECT_ID = 'ski-academy-guest-course-enrollment-link-emulator-test';
 const guestActionTokenSecret = 'guest-course-link-emulator-secret';
@@ -48,20 +49,26 @@ const accountId = AccountIdSchema.parse('account_guest_link_emulator_owner_01');
 const accountIdB = AccountIdSchema.parse('account_guest_link_emulator_owner_02');
 const participantId = ParticipantIdSchema.parse('participant_guest_link_emulator_managed_01');
 const participantIdB = ParticipantIdSchema.parse('participant_guest_link_emulator_managed_02');
-const participantIdAccountB = ParticipantIdSchema.parse('participant_guest_link_emulator_account_b_01');
+const participantIdAccountB = ParticipantIdSchema.parse(
+  'participant_guest_link_emulator_account_b_01'
+);
 const participantIdDuplicateName = ParticipantIdSchema.parse(
   'participant_guest_link_emulator_dup_name_02'
 );
 const participantIdCreate = ParticipantIdSchema.parse('participant_guest_link_emulator_create_01');
 const managementId = ParticipantManagementIdSchema.parse('management_guest_link_emulator_01');
 const managementIdB = ParticipantManagementIdSchema.parse('management_guest_link_emulator_02');
-const managementIdAccountB = ParticipantManagementIdSchema.parse('management_guest_link_emulator_account_b_01');
+const managementIdAccountB = ParticipantManagementIdSchema.parse(
+  'management_guest_link_emulator_account_b_01'
+);
 const managementIdDuplicateName = ParticipantManagementIdSchema.parse(
   'management_guest_link_emulator_dup_name_02'
 );
 const guestParticipantId = ParticipantIdSchema.parse('participant_guest_link_emulator_guest_01');
 const guestParticipantIdTwo = ParticipantIdSchema.parse('participant_guest_link_emulator_guest_02');
-const guestParticipantIdThree = ParticipantIdSchema.parse('participant_guest_link_emulator_guest_03');
+const guestParticipantIdThree = ParticipantIdSchema.parse(
+  'participant_guest_link_emulator_guest_03'
+);
 const guestSubjectId = GuestSubjectIdSchema.parse('guest_subject_guest_link_emulator_01');
 const instructorId = InstructorIdSchema.parse('instructor_guest_link_emulator_01');
 const courseId = CourseIdSchema.parse('course_guest_link_emulator_01');
@@ -225,7 +232,10 @@ function seedParticipantRecord(input: {
   };
 }
 
-function seedGuestParticipantRecord(participantIdValue = guestParticipantId, displayName = 'Guest Link Emulator Participant') {
+function seedGuestParticipantRecord(
+  participantIdValue = guestParticipantId,
+  displayName = 'Guest Link Emulator Participant'
+) {
   return {
     participantId: participantIdValue,
     displayName,
@@ -269,10 +279,7 @@ function seedManagementRecord(input: {
   };
 }
 
-async function seedCourseWithSchedule(input: {
-  availableSeats: number;
-  courseDayCount?: 1 | 2;
-}) {
+async function seedCourseWithSchedule(input: { availableSeats: number; courseDayCount?: 1 | 2 }) {
   const courseDayCount = input.courseDayCount ?? 1;
   const finalEndsAt = courseDayCount === 1 ? dayOneEnd : dayTwoEnd;
 
@@ -332,11 +339,14 @@ async function seedBase(
     courseDayCount?: 1 | 2;
   } = {}
 ) {
+  await seedLessonPricingSettingsFixture(firestore, { decidedAt, correlationId });
   await firestore.doc(`users/${accountId}`).set(seedAccountRecord(accountId));
   await firestore.doc(`users/${accountId}/wallet/state`).set(seedWallet(WALLET_START_KZT));
   if (options.includeAccountB) {
     await firestore.doc(`users/${accountIdB}`).set(seedAccountRecord(accountIdB));
-    await firestore.doc(`users/${accountIdB}/wallet/state`).set(seedWallet(WALLET_START_KZT, accountIdB));
+    await firestore
+      .doc(`users/${accountIdB}/wallet/state`)
+      .set(seedWallet(WALLET_START_KZT, accountIdB));
     await firestore.doc(`participants/${participantIdAccountB}`).set(
       seedParticipantRecord({
         participantId: participantIdAccountB,
@@ -359,9 +369,9 @@ async function seedBase(
       displayName: 'Alex Smith',
     })
   );
-  await firestore.doc(`participant_management/${managementId}`).set(
-    seedManagementRecord({ managementId, participantId })
-  );
+  await firestore
+    .doc(`participant_management/${managementId}`)
+    .set(seedManagementRecord({ managementId, participantId }));
   await firestore.doc(`participants/${participantIdB}`).set(
     seedParticipantRecord({
       participantId: participantIdB,
@@ -369,9 +379,9 @@ async function seedBase(
       displayName: 'Managed Participant B',
     })
   );
-  await firestore.doc(`participant_management/${managementIdB}`).set(
-    seedManagementRecord({ managementId: managementIdB, participantId: participantIdB })
-  );
+  await firestore
+    .doc(`participant_management/${managementIdB}`)
+    .set(seedManagementRecord({ managementId: managementIdB, participantId: participantIdB }));
   if (options.includeDuplicateNameParticipants) {
     await firestore.doc(`participants/${participantIdDuplicateName}`).set(
       seedParticipantRecord({
@@ -388,12 +398,14 @@ async function seedBase(
     );
   }
   await firestore.doc(`participants/${guestParticipantId}`).set(seedGuestParticipantRecord());
-  await firestore.doc(`participants/${guestParticipantIdTwo}`).set(
-    seedGuestParticipantRecord(guestParticipantIdTwo, 'Guest Link Emulator Participant Two')
-  );
-  await firestore.doc(`participants/${guestParticipantIdThree}`).set(
-    seedGuestParticipantRecord(guestParticipantIdThree, 'Guest Link Emulator Participant Three')
-  );
+  await firestore
+    .doc(`participants/${guestParticipantIdTwo}`)
+    .set(seedGuestParticipantRecord(guestParticipantIdTwo, 'Guest Link Emulator Participant Two'));
+  await firestore
+    .doc(`participants/${guestParticipantIdThree}`)
+    .set(
+      seedGuestParticipantRecord(guestParticipantIdThree, 'Guest Link Emulator Participant Three')
+    );
   await firestore.doc(`instructors/${instructorId}`).set({
     id: instructorId,
     name: `Instructor ${instructorId}`,
@@ -608,18 +620,27 @@ async function readEnrollment(enrollmentId: CourseEnrollmentId) {
 }
 
 async function durableCounts(targetCourseId = courseId) {
-  const [enrollments, courses, payments, monetaryEvents, activityLogs, idempotency, claims, guards, outbox] =
-    await Promise.all([
-      firestore.collection('course_enrollments').get(),
-      firestore.collection('courses').get(),
-      firestore.collection('payments').get(),
-      firestore.collection('monetary_events').get(),
-      firestore.collection('activity_logs').get(),
-      firestore.collection('command_idempotency').get(),
-      firestore.collection('resource_claims').get(),
-      firestore.collection('active_course_enrollment_guards').get(),
-      firestore.collection('domain_outbox').get(),
-    ]);
+  const [
+    enrollments,
+    courses,
+    payments,
+    monetaryEvents,
+    activityLogs,
+    idempotency,
+    claims,
+    guards,
+    outbox,
+  ] = await Promise.all([
+    firestore.collection('course_enrollments').get(),
+    firestore.collection('courses').get(),
+    firestore.collection('payments').get(),
+    firestore.collection('monetary_events').get(),
+    firestore.collection('activity_logs').get(),
+    firestore.collection('command_idempotency').get(),
+    firestore.collection('resource_claims').get(),
+    firestore.collection('active_course_enrollment_guards').get(),
+    firestore.collection('domain_outbox').get(),
+  ]);
 
   const course = courses.docs.find((doc) => doc.id === targetCourseId)?.data();
   const successfulIdempotency = idempotency.docs.filter(
@@ -636,7 +657,8 @@ async function durableCounts(targetCourseId = courseId) {
     claims: claims.size,
     enrollmentGuards: guards.size,
     outbox: outbox.size,
-    seatClaims: claims.docs.filter((doc) => doc.data()?.claimKind === 'course_seat_pre_start').length,
+    seatClaims: claims.docs.filter((doc) => doc.data()?.claimKind === 'course_seat_pre_start')
+      .length,
   };
 }
 
@@ -644,8 +666,7 @@ async function listEnrollmentOwnedClaims(enrollmentId: CourseEnrollmentId) {
   const claims = await firestore.collection('resource_claims').get();
   return claims.docs
     .filter(
-      (doc) =>
-        doc.data()?.ownerKind === 'course_enrollment' && doc.data()?.ownerId === enrollmentId
+      (doc) => doc.data()?.ownerKind === 'course_enrollment' && doc.data()?.ownerId === enrollmentId
     )
     .map((doc) => doc.data());
 }
@@ -664,10 +685,12 @@ async function readActiveEnrollmentGuard(
   targetParticipantId = participantId
 ) {
   const guards = await firestore.collection('active_course_enrollment_guards').get();
-  return guards.docs.find(
-    (doc) =>
-      doc.data()?.participantId === targetParticipantId && doc.data()?.courseId === targetCourseId
-  )?.data();
+  return guards.docs
+    .find(
+      (doc) =>
+        doc.data()?.participantId === targetParticipantId && doc.data()?.courseId === targetCourseId
+    )
+    ?.data();
 }
 
 function paymentImmutableSnapshot(payment: Record<string, unknown> | undefined) {
@@ -728,9 +751,9 @@ async function assertRollbackState(input: {
   expect(
     seatClaims.find((claim) => claim.claimKind === 'course_seat_pre_start')?.lifecycle?.status
   ).toBe('active');
-  expect(
-    guestDayClaims.filter((doc) => doc.data()?.lifecycle?.status === 'active').length
-  ).toBe(input.guestDayClaimsBeforeCount);
+  expect(guestDayClaims.filter((doc) => doc.data()?.lifecycle?.status === 'active').length).toBe(
+    input.guestDayClaimsBeforeCount
+  );
   expect(await readActiveEnrollmentGuard(courseId, input.expectedParticipantId)).toBeDefined();
 }
 
@@ -758,7 +781,8 @@ function cancelEnrollmentEnvelope(input: {
 async function setGuestEnrollmentLifecycleForEmulator(
   enrollmentId: CourseEnrollmentId,
   currentRevision: number,
-  lifecycle: { status: 'confirmed' } | { status: 'pending_cancellation'; requestedAt: typeof decidedAt }
+  lifecycle:
+    { status: 'confirmed' } | { status: 'pending_cancellation'; requestedAt: typeof decidedAt }
 ): Promise<number> {
   const nextRevision = AggregateRevisionSchema.parse(currentRevision + 1);
   await firestore.doc(`course_enrollments/${enrollmentId}`).update({
@@ -773,7 +797,9 @@ async function seedPreExtensionGuestEnrollment(): Promise<{
   enrollmentId: CourseEnrollmentId;
   paymentId: ReturnType<typeof paymentIdFromCourseEnrollmentId>;
 }> {
-  const enrollmentId = CourseEnrollmentIdSchema.parse('course_enrollment_guest_link_emulator_legacy');
+  const enrollmentId = CourseEnrollmentIdSchema.parse(
+    'course_enrollment_guest_link_emulator_legacy'
+  );
   const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
   const ephemeralGuestSubjectId = GuestSubjectIdSchema.parse('guest_subject_ephemeral_legacy_01');
 
@@ -844,8 +870,7 @@ describe.skipIf(!runsOnFirestoreEmulator)(
   'guest course enrollment link commands (firestore emulator)',
   () => {
     beforeAll(() => {
-      process.env.FIRESTORE_EMULATOR_HOST =
-        process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
+      process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
       app = getApps().length > 0 ? getApps()[0]! : initializeApp({ projectId: PROJECT_ID });
       firestore = getFirestore(app);
     }, 30_000);
@@ -861,565 +886,230 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       await seedBase();
     }, 30_000);
 
-    it(
-      'A. existing_managed links with claim swap, guard migration, payer association, and immutable attribution',
-      async () => {
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-a-create');
-        const before = await durableCounts();
-        const paymentBefore = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
-        const walletBefore = await readWalletBalance();
-        const guestDayClaimsBefore = await listParticipantCourseDayClaims(guestParticipantId);
+    it('A. existing_managed links with claim swap, guard migration, payer association, and immutable attribution', async () => {
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-a-create');
+      const before = await durableCounts();
+      const paymentBefore = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+      const walletBefore = await readWalletBalance();
+      const guestDayClaimsBefore = await listParticipantCourseDayClaims(guestParticipantId);
 
-        const linkResult = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-a-link',
-            expectedRevision: guest.revision,
-            expectedParticipantManagementRevision: 1,
-            participantTarget: { kind: 'existing_managed', participantId },
-          })
-        );
-        expect(linkResult.status).toBe('success');
-
-        const enrollment = await readEnrollment(guest.enrollmentId);
-        const payment = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
-        const after = await durableCounts();
-        const guestDayClaimsAfter = await listParticipantCourseDayClaims(guestParticipantId);
-        const managedDayClaimsAfter = await listParticipantCourseDayClaims(participantId);
-        const guestClaimsAfter = await listEnrollmentOwnedClaims(guest.enrollmentId);
-
-        expect(enrollment?.participantId).toBe(participantId);
-        expect(enrollment?.guestAccountLink).toMatchObject({
-          linkedAccountId: accountId,
-          linkedParticipantId: participantId,
-          credentialNonce: guest.credential.nonce,
-        });
-        expect(enrollment?.attribution).toEqual(guest.attribution);
-        expect(enrollment?.payerAccountId).toBeUndefined();
-        expect(payment?.payerAccountId).toBe(accountId);
-        expect(paymentImmutableSnapshot(payment)).toEqual({
-          ...paymentImmutableSnapshot(paymentBefore),
-          payerAccountId: accountId,
-        });
-        expect(await readWalletBalance()).toBe(walletBefore);
-        expect(after.monetaryEvents).toBe(before.monetaryEvents);
-        expect(
-          guestClaimsAfter.find((claim) => claim.claimKind === 'course_seat_pre_start')?.lifecycle?.status
-        ).toBe('active');
-        expect(
-          guestDayClaimsAfter.filter((doc) => doc.data()?.lifecycle?.status === 'active').length
-        ).toBe(0);
-        expect(managedDayClaimsAfter.length).toBe(guestDayClaimsBefore.length);
-        expect(after.availableSeats).toBe(before.availableSeats);
-        expect(await readActiveEnrollmentGuard(courseId, participantId)).toBeDefined();
-        expect(await readActiveEnrollmentGuard(courseId, guestParticipantId)).toBeUndefined();
-      },
-      30_000
-    );
-
-    it(
-      'B. rejects invalid guest credentials without durable mutation',
-      async () => {
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-b-create');
-        const before = await durableCounts();
-        const enrollmentBefore = await readEnrollment(guest.enrollmentId);
-
-        const bookingCredential = signGuestActionCredential(guestActionTokenSecret, {
-          version: 'guest-token:v1',
-          subjectKind: 'booking',
-          bookingId: bookingConflictId,
-          guestSubjectId: guestSubjectIdFromBookingId(bookingConflictId),
-          purpose: 'cancel_pending_reservation',
-          expiresAt: guest.credential.expiresAt,
-          nonce: guest.credential.nonce,
-        });
-
-        const result = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: { nonce: guest.credential.nonce, signature: bookingCredential },
-            idempotencyKey: 'guest-link-b-invalid',
-            expectedRevision: guest.revision,
-            expectedParticipantManagementRevision: 1,
-            participantTarget: { kind: 'existing_managed', participantId },
-          })
-        );
-        expect(result.status).toBe('error');
-        if (result.status === 'error') {
-          expect(result.error.code).toBe('unauthorized');
-        }
-
-        const after = await durableCounts();
-        const enrollmentAfter = await readEnrollment(guest.enrollmentId);
-        expect(after).toEqual(before);
-        expect(enrollmentAfter).toEqual(enrollmentBefore);
-      },
-      30_000
-    );
-
-    it(
-      'C. forbids linking to a participant the account does not manage',
-      async () => {
-        await clearCollections(firestore);
-        await seedBase({ includeAccountB: true });
-
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-c-create');
-        const before = await durableCounts();
-
-        const result = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-c-forbidden',
-            expectedRevision: guest.revision,
-            actorAccountId: accountIdB,
-            expectedParticipantManagementRevision: 1,
-            participantTarget: { kind: 'existing_managed', participantId },
-          })
-        );
-        expect(result.status).toBe('error');
-        if (result.status === 'error') {
-          expect(result.error.code).toBe('forbidden');
-        }
-
-        const after = await durableCounts();
-        expect(after).toEqual(before);
-        expect((await readEnrollment(guest.enrollmentId))?.guestAccountLink).toBeUndefined();
-      },
-      30_000
-    );
-
-    it(
-      'D. requires explicit participantId when duplicate display names exist',
-      async () => {
-        await clearCollections(firestore);
-        await seedBase({ includeDuplicateNameParticipants: true });
-
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-d-create');
-
-        const linkDuplicate = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-d-dup-name',
-            expectedRevision: guest.revision,
-            expectedParticipantManagementRevision: 1,
-            participantTarget: { kind: 'existing_managed', participantId: participantIdDuplicateName },
-          })
-        );
-        expect(linkDuplicate.status).toBe('success');
-        if (linkDuplicate.status === 'success') {
-          const enrollment = await readEnrollment(guest.enrollmentId);
-          expect(enrollment?.participantId).toBe(participantIdDuplicateName);
-          expect(enrollment?.guestAccountLink?.linkedParticipantId).toBe(participantIdDuplicateName);
-        }
-      },
-      30_000
-    );
-
-    it(
-      'E. rejects existing_managed when target participant has a booking conflict',
-      async () => {
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-e-create');
-        const paymentBefore = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
-        const seatsBefore = (await durableCounts()).availableSeats;
-        const guestDayClaimsBefore = await listParticipantCourseDayClaims(guestParticipantId);
-        const bookingResult = await commands.execute(
-          bookingEnvelope({
-            targetBookingId: bookingConflictId,
-            idempotencyKey: 'guest-link-e-booking',
-            localTime: '09:00',
-          })
-        );
-        expect(bookingResult.status).toBe('success');
-
-        const result = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-e-link',
-            expectedRevision: guest.revision,
-            expectedParticipantManagementRevision: 1,
-            participantTarget: { kind: 'existing_managed', participantId },
-          })
-        );
-        expect(result.status).toBe('error');
-        if (result.status === 'error') {
-          expect(result.error.code).toBe('participant_conflict');
-        }
-
-        await assertRollbackState({
-          guest,
-          expectedParticipantId: guestParticipantId,
-          paymentBefore,
-          seatsBefore,
-          guestDayClaimsBeforeCount: guestDayClaimsBefore.filter(
-            (doc) => doc.data()?.lifecycle?.status === 'active'
-          ).length,
-        });
-      },
-      30_000
-    );
-
-    it(
-      'E-create_managed. rolls back create_managed when target participant already exists without orphan state',
-      async () => {
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-e-create-managed-create');
-        const paymentBefore = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
-        const seatsBefore = (await durableCounts()).availableSeats;
-        const guestDayClaimsBefore = await listParticipantCourseDayClaims(guestParticipantId);
-
-        await firestore.doc(`participants/${participantIdCreate}`).set(
-          seedParticipantRecord({
-            participantId: participantIdCreate,
-            managementId: ParticipantManagementIdSchema.parse('management_guest_link_emulator_create_01'),
-            displayName: 'Pre-seeded Create Target',
-          })
-        );
-        await firestore.doc(`participant_management/${ParticipantManagementIdSchema.parse('management_guest_link_emulator_create_01')}`).set(
-          seedManagementRecord({
-            managementId: ParticipantManagementIdSchema.parse('management_guest_link_emulator_create_01'),
-            participantId: participantIdCreate,
-          })
-        );
-
-        const result = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-e-create-managed-link',
-            expectedRevision: guest.revision,
-            participantTarget: {
-              kind: 'create_managed',
-              participantId: participantIdCreate,
-              displayName: 'Created Managed Participant',
-              age: { kind: 'age_years', years: 16 },
-              skillLevel: 'beginner',
-              discipline: 'ski',
-            },
-          })
-        );
-        expect(result.status).toBe('error');
-        if (result.status === 'error') {
-          expect(result.error.code).toBe('validation');
-        }
-
-        const participants = await firestore.collection('participants').get();
-        const managementDocs = await firestore.collection('participant_management').get();
-        expect(participants.docs.filter((doc) => doc.id === participantIdCreate)).toHaveLength(1);
-        expect(
-          managementDocs.docs.filter(
-            (doc) =>
-              doc.id ===
-              participantManagementIdFromGuestLink({
-                participantId: participantIdCreate,
-                accountId,
-              })
-          )
-        ).toHaveLength(0);
-
-        await assertRollbackState({
-          guest,
-          expectedParticipantId: guestParticipantId,
-          paymentBefore,
-          seatsBefore,
-          guestDayClaimsBeforeCount: guestDayClaimsBefore.filter(
-            (doc) => doc.data()?.lifecycle?.status === 'active'
-          ).length,
-        });
-      },
-      30_000
-    );
-
-    it(
-      'F. allows half-open adjacent booking intervals during existing_managed link',
-      async () => {
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-f-create');
-        const bookingResult = await commands.execute(
-          bookingEnvelope({
-            targetBookingId: bookingAdjacentId,
-            idempotencyKey: 'guest-link-f-booking',
-            localTime: '07:00',
-          })
-        );
-        expect(bookingResult.status).toBe('success');
-
-        const result = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-f-link',
-            expectedRevision: guest.revision,
-            expectedParticipantManagementRevision: 1,
-            participantTarget: { kind: 'existing_managed', participantId },
-          })
-        );
-        expect(result.status).toBe('success');
-      },
-      30_000
-    );
-
-    it(
-      'G. rejects existing_managed when target already has an active enrollment on the same course',
-      async () => {
-        const commands = createCommands();
-        await createFundedEnrollment(commands, { idempotencyKey: 'guest-link-g-existing' });
-        const guest = await createGuestEnrollment(commands, 'guest-link-g-create');
-        const paymentBefore = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
-        const seatsBefore = (await durableCounts()).availableSeats;
-        const guestDayClaimsBefore = await listParticipantCourseDayClaims(guestParticipantId);
-
-        const result = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-g-link',
-            expectedRevision: guest.revision,
-            expectedParticipantManagementRevision: 1,
-            participantTarget: { kind: 'existing_managed', participantId },
-          })
-        );
-        expect(result.status).toBe('error');
-        if (result.status === 'error') {
-          expect(['duplicate_active_enrollment', 'participant_conflict']).toContain(result.error.code);
-        }
-
-        await assertRollbackState({
-          guest,
-          expectedParticipantId: guestParticipantId,
-          paymentBefore,
-          seatsBefore,
-          guestDayClaimsBeforeCount: guestDayClaimsBefore.filter(
-            (doc) => doc.data()?.lifecycle?.status === 'active'
-          ).length,
-        });
-      },
-      30_000
-    );
-
-    it(
-      'H. serializes two accounts with different credentials racing to link the same guest enrollment',
-      async () => {
-        await clearCollections(firestore);
-        await seedBase({ includeAccountB: true, includeDuplicateNameParticipants: true });
-
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-h-create');
-        const nonceA = guest.credential.nonce;
-        const nonceB = createGuestActionTokenNonce();
-        const signatureB = signEnrollmentLinkCredential({
-          enrollmentId: guest.enrollmentId,
-          guestSubjectId: guest.credential.guestSubjectId,
-          expiresAt: guest.credential.expiresAt,
-          nonce: nonceB,
-        });
-
-        const [attemptA, attemptB] = await Promise.all([
-          commands.execute(
-            linkEnvelope({
-              enrollmentId: guest.enrollmentId,
-              credential: { nonce: nonceA, signature: guest.credential.signature },
-              idempotencyKey: 'guest-link-h-account-a',
-              expectedRevision: guest.revision,
-              actorAccountId: accountId,
-              expectedParticipantManagementRevision: 1,
-              participantTarget: { kind: 'existing_managed', participantId },
-            })
-          ),
-          commands.execute(
-            linkEnvelope({
-              enrollmentId: guest.enrollmentId,
-              credential: { nonce: nonceB, signature: signatureB },
-              idempotencyKey: 'guest-link-h-account-b',
-              expectedRevision: guest.revision,
-              actorAccountId: accountIdB,
-              correlation: correlationIdB,
-              expectedParticipantManagementRevision: 1,
-              participantTarget: {
-                kind: 'existing_managed',
-                participantId: participantIdAccountB,
-              },
-            })
-          ),
-        ]);
-
-        const successes = [attemptA, attemptB].filter((attempt) => attempt.status === 'success');
-        const failures = [attemptA, attemptB].filter((attempt) => attempt.status === 'error');
-        expect(successes.length + failures.length).toBe(2);
-        expect(successes.length).toBeGreaterThanOrEqual(1);
-        expect(failures.length).toBeGreaterThanOrEqual(1);
-
-        const enrollment = await readEnrollment(guest.enrollmentId);
-        const payment = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
-        const winnerAccountId = enrollment?.guestAccountLink?.linkedAccountId;
-        expect(winnerAccountId).toBeDefined();
-        expect(successes.some((attempt) => attempt.status === 'success')).toBe(true);
-        expect(payment?.payerAccountId).toBe(winnerAccountId);
-
-        if (winnerAccountId === accountId) {
-          expect(enrollment?.participantId).toBe(participantId);
-          const management = (await firestore.doc(`participant_management/${managementId}`).get()).data();
-          expect(management?.accountId).toBe(accountId);
-          expect(management?.status).toBe('active');
-        } else {
-          expect(enrollment?.participantId).toBe(participantIdAccountB);
-          const management = (
-            await firestore.doc(`participant_management/${managementIdAccountB}`).get()
-          ).data();
-          expect(management?.accountId).toBe(accountIdB);
-          expect(management?.status).toBe('active');
-        }
-        expect(
-          await readActiveEnrollmentGuard(courseId, enrollment?.participantId as typeof participantId)
-        ).toBeDefined();
-        const winnerDayClaims = await listParticipantCourseDayClaims(
-          enrollment?.participantId as typeof participantId
-        );
-        expect(
-          winnerDayClaims.filter((doc) => doc.data()?.lifecycle?.status === 'active').length
-        ).toBeGreaterThan(0);
-      },
-      30_000
-    );
-
-    it(
-      'I. serializes same-account races to different managed participants',
-      async () => {
-        await clearCollections(firestore);
-        await seedBase({ includeDuplicateNameParticipants: true });
-
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-i-create');
-
-        const [attemptA, attemptB] = await Promise.all([
-          commands.execute(
-            linkEnvelope({
-              enrollmentId: guest.enrollmentId,
-              credential: guest.credential,
-              idempotencyKey: 'guest-link-i-participant-a',
-              expectedRevision: guest.revision,
-              expectedParticipantManagementRevision: 1,
-              participantTarget: { kind: 'existing_managed', participantId },
-            })
-          ),
-          commands.execute(
-            linkEnvelope({
-              enrollmentId: guest.enrollmentId,
-              credential: guest.credential,
-              idempotencyKey: 'guest-link-i-participant-b',
-              expectedRevision: guest.revision,
-              correlation: correlationIdB,
-              expectedParticipantManagementRevision: 1,
-              participantTarget: {
-                kind: 'existing_managed',
-                participantId: participantIdDuplicateName,
-              },
-            })
-          ),
-        ]);
-
-        const successes = [attemptA, attemptB].filter((attempt) => attempt.status === 'success');
-        const failures = [attemptA, attemptB].filter((attempt) => attempt.status === 'error');
-        expect(successes).toHaveLength(1);
-        expect(failures).toHaveLength(1);
-      },
-      30_000
-    );
-
-    it(
-      'J. preserves participant conflict invariants when link races overlapping booking creation',
-      async () => {
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-j-create');
-
-        const [linkResult, bookingResult] = await Promise.all([
-          commands.execute(
-            linkEnvelope({
-              enrollmentId: guest.enrollmentId,
-              credential: guest.credential,
-              idempotencyKey: 'guest-link-j-link',
-              expectedRevision: guest.revision,
-              expectedParticipantManagementRevision: 1,
-              participantTarget: { kind: 'existing_managed', participantId },
-            })
-          ),
-          commands.execute(
-            bookingEnvelope({
-              targetBookingId: bookingRaceId,
-              idempotencyKey: 'guest-link-j-booking',
-              localTime: '09:00',
-            })
-          ),
-        ]);
-
-        const successes = [linkResult, bookingResult].filter((result) => result.status === 'success');
-        expect(successes).toHaveLength(1);
-
-        const enrollment = await readEnrollment(guest.enrollmentId);
-        const bookings = await firestore.collection('bookings').get();
-        if (linkResult.status === 'success') {
-          expect(enrollment?.participantId).toBe(participantId);
-          expect(bookingResult.status).toBe('error');
-        } else {
-          expect(bookingResult.status).toBe('success');
-          expect(enrollment?.guestAccountLink).toBeUndefined();
-        }
-        expect(bookings.size).toBeLessThanOrEqual(1);
-      },
-      30_000
-    );
-
-    it(
-      'K. replays an exact link command without duplicate claims, audit, outbox, or payment mutation',
-      async () => {
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-k-create');
-        const envelope = linkEnvelope({
+      const linkResult = await commands.execute(
+        linkEnvelope({
           enrollmentId: guest.enrollmentId,
           credential: guest.credential,
-          idempotencyKey: 'guest-link-k-replay',
+          idempotencyKey: 'guest-link-a-link',
           expectedRevision: guest.revision,
           expectedParticipantManagementRevision: 1,
           participantTarget: { kind: 'existing_managed', participantId },
-        });
+        })
+      );
+      expect(linkResult.status).toBe('success');
 
-        const first = await commands.execute(envelope);
-        expect(first.status).toBe('success');
-        const afterFirst = await durableCounts();
-        const paymentAfterFirst = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+      const enrollment = await readEnrollment(guest.enrollmentId);
+      const payment = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+      const after = await durableCounts();
+      const guestDayClaimsAfter = await listParticipantCourseDayClaims(guestParticipantId);
+      const managedDayClaimsAfter = await listParticipantCourseDayClaims(participantId);
+      const guestClaimsAfter = await listEnrollmentOwnedClaims(guest.enrollmentId);
 
-        const replay = await commands.execute(envelope);
-        expect(replay.status).toBe('success');
-        const afterReplay = await durableCounts();
-        const paymentAfterReplay = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+      expect(enrollment?.participantId).toBe(participantId);
+      expect(enrollment?.guestAccountLink).toMatchObject({
+        linkedAccountId: accountId,
+        linkedParticipantId: participantId,
+        credentialNonce: guest.credential.nonce,
+      });
+      expect(enrollment?.attribution).toEqual(guest.attribution);
+      expect(enrollment?.payerAccountId).toBeUndefined();
+      expect(payment?.payerAccountId).toBe(accountId);
+      expect(paymentImmutableSnapshot(payment)).toEqual({
+        ...paymentImmutableSnapshot(paymentBefore),
+        payerAccountId: accountId,
+      });
+      expect(await readWalletBalance()).toBe(walletBefore);
+      expect(after.monetaryEvents).toBe(before.monetaryEvents);
+      expect(
+        guestClaimsAfter.find((claim) => claim.claimKind === 'course_seat_pre_start')?.lifecycle
+          ?.status
+      ).toBe('active');
+      expect(
+        guestDayClaimsAfter.filter((doc) => doc.data()?.lifecycle?.status === 'active').length
+      ).toBe(0);
+      expect(managedDayClaimsAfter.length).toBe(guestDayClaimsBefore.length);
+      expect(after.availableSeats).toBe(before.availableSeats);
+      expect(await readActiveEnrollmentGuard(courseId, participantId)).toBeDefined();
+      expect(await readActiveEnrollmentGuard(courseId, guestParticipantId)).toBeUndefined();
+    }, 30_000);
 
-        expect(afterReplay.enrollments).toBe(afterFirst.enrollments);
-        expect(afterReplay.payments).toBe(afterFirst.payments);
-        expect(afterReplay.claims).toBe(afterFirst.claims);
-        expect(afterReplay.activityLogs).toBe(afterFirst.activityLogs);
-        expect(afterReplay.successfulIdempotency).toBe(afterFirst.successfulIdempotency);
-        expect(paymentAfterReplay?.revision).toBe(paymentAfterFirst?.revision);
-      },
-      30_000
-    );
+    it('B. rejects invalid guest credentials without durable mutation', async () => {
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-b-create');
+      const before = await durableCounts();
+      const enrollmentBefore = await readEnrollment(guest.enrollmentId);
 
-    it(
-      'L. create_managed survives concurrent Firestore contention without duplicate participants, management, or link state',
-      async () => {
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-l-create');
-        const envelope = linkEnvelope({
+      const bookingCredential = signGuestActionCredential(guestActionTokenSecret, {
+        version: 'guest-token:v1',
+        subjectKind: 'booking',
+        bookingId: bookingConflictId,
+        guestSubjectId: guestSubjectIdFromBookingId(bookingConflictId),
+        purpose: 'cancel_pending_reservation',
+        expiresAt: guest.credential.expiresAt,
+        nonce: guest.credential.nonce,
+      });
+
+      const result = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: { nonce: guest.credential.nonce, signature: bookingCredential },
+          idempotencyKey: 'guest-link-b-invalid',
+          expectedRevision: guest.revision,
+          expectedParticipantManagementRevision: 1,
+          participantTarget: { kind: 'existing_managed', participantId },
+        })
+      );
+      expect(result.status).toBe('error');
+      if (result.status === 'error') {
+        expect(result.error.code).toBe('unauthorized');
+      }
+
+      const after = await durableCounts();
+      const enrollmentAfter = await readEnrollment(guest.enrollmentId);
+      expect(after).toEqual(before);
+      expect(enrollmentAfter).toEqual(enrollmentBefore);
+    }, 30_000);
+
+    it('C. forbids linking to a participant the account does not manage', async () => {
+      await clearCollections(firestore);
+      await seedBase({ includeAccountB: true });
+
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-c-create');
+      const before = await durableCounts();
+
+      const result = await commands.execute(
+        linkEnvelope({
           enrollmentId: guest.enrollmentId,
           credential: guest.credential,
-          idempotencyKey: 'guest-link-l-create-managed-contention',
+          idempotencyKey: 'guest-link-c-forbidden',
+          expectedRevision: guest.revision,
+          actorAccountId: accountIdB,
+          expectedParticipantManagementRevision: 1,
+          participantTarget: { kind: 'existing_managed', participantId },
+        })
+      );
+      expect(result.status).toBe('error');
+      if (result.status === 'error') {
+        expect(result.error.code).toBe('forbidden');
+      }
+
+      const after = await durableCounts();
+      expect(after).toEqual(before);
+      expect((await readEnrollment(guest.enrollmentId))?.guestAccountLink).toBeUndefined();
+    }, 30_000);
+
+    it('D. requires explicit participantId when duplicate display names exist', async () => {
+      await clearCollections(firestore);
+      await seedBase({ includeDuplicateNameParticipants: true });
+
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-d-create');
+
+      const linkDuplicate = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-d-dup-name',
+          expectedRevision: guest.revision,
+          expectedParticipantManagementRevision: 1,
+          participantTarget: {
+            kind: 'existing_managed',
+            participantId: participantIdDuplicateName,
+          },
+        })
+      );
+      expect(linkDuplicate.status).toBe('success');
+      if (linkDuplicate.status === 'success') {
+        const enrollment = await readEnrollment(guest.enrollmentId);
+        expect(enrollment?.participantId).toBe(participantIdDuplicateName);
+        expect(enrollment?.guestAccountLink?.linkedParticipantId).toBe(participantIdDuplicateName);
+      }
+    }, 30_000);
+
+    it('E. rejects existing_managed when target participant has a booking conflict', async () => {
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-e-create');
+      const paymentBefore = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+      const seatsBefore = (await durableCounts()).availableSeats;
+      const guestDayClaimsBefore = await listParticipantCourseDayClaims(guestParticipantId);
+      const bookingResult = await commands.execute(
+        bookingEnvelope({
+          targetBookingId: bookingConflictId,
+          idempotencyKey: 'guest-link-e-booking',
+          localTime: '09:00',
+        })
+      );
+      expect(bookingResult.status).toBe('success');
+
+      const result = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-e-link',
+          expectedRevision: guest.revision,
+          expectedParticipantManagementRevision: 1,
+          participantTarget: { kind: 'existing_managed', participantId },
+        })
+      );
+      expect(result.status).toBe('error');
+      if (result.status === 'error') {
+        expect(result.error.code).toBe('participant_conflict');
+      }
+
+      await assertRollbackState({
+        guest,
+        expectedParticipantId: guestParticipantId,
+        paymentBefore,
+        seatsBefore,
+        guestDayClaimsBeforeCount: guestDayClaimsBefore.filter(
+          (doc) => doc.data()?.lifecycle?.status === 'active'
+        ).length,
+      });
+    }, 30_000);
+
+    it('E-create_managed. rolls back create_managed when target participant already exists without orphan state', async () => {
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-e-create-managed-create');
+      const paymentBefore = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+      const seatsBefore = (await durableCounts()).availableSeats;
+      const guestDayClaimsBefore = await listParticipantCourseDayClaims(guestParticipantId);
+
+      await firestore.doc(`participants/${participantIdCreate}`).set(
+        seedParticipantRecord({
+          participantId: participantIdCreate,
+          managementId: ParticipantManagementIdSchema.parse(
+            'management_guest_link_emulator_create_01'
+          ),
+          displayName: 'Pre-seeded Create Target',
+        })
+      );
+      await firestore
+        .doc(
+          `participant_management/${ParticipantManagementIdSchema.parse('management_guest_link_emulator_create_01')}`
+        )
+        .set(
+          seedManagementRecord({
+            managementId: ParticipantManagementIdSchema.parse(
+              'management_guest_link_emulator_create_01'
+            ),
+            participantId: participantIdCreate,
+          })
+        );
+
+      const result = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-e-create-managed-link',
           expectedRevision: guest.revision,
           participantTarget: {
             kind: 'create_managed',
@@ -1429,624 +1119,880 @@ describe.skipIf(!runsOnFirestoreEmulator)(
             skillLevel: 'beginner',
             discipline: 'ski',
           },
-        });
+        })
+      );
+      expect(result.status).toBe('error');
+      if (result.status === 'error') {
+        expect(result.error.code).toBe('validation');
+      }
 
-        const first = await commands.execute(envelope);
-        expect(first.status).toBe('success');
-
-        const retries = await Promise.all([
-          commands.execute(envelope),
-          commands.execute(envelope),
-          commands.execute(envelope),
-        ]);
-        expect(retries.every((attempt) => attempt.status === 'success')).toBe(true);
-
-        const participants = await firestore.collection('participants').get();
-        const managementDocs = await firestore.collection('participant_management').get();
-        const enrollment = await readEnrollment(guest.enrollmentId);
-        const payment = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
-
-        expect(participants.docs.filter((doc) => doc.id === participantIdCreate)).toHaveLength(1);
-        expect(
-          managementDocs.docs.filter(
-            (doc) =>
-              doc.id ===
-              participantManagementIdFromGuestLink({
-                participantId: participantIdCreate,
-                accountId,
-              })
-          )
-        ).toHaveLength(1);
-        expect(enrollment?.participantId).toBe(participantIdCreate);
-        expect(enrollment?.guestAccountLink).toMatchObject({
-          linkedAccountId: accountId,
-          linkedParticipantId: participantIdCreate,
-          credentialNonce: guest.credential.nonce,
-        });
-        expect(payment?.payerAccountId).toBe(accountId);
-      },
-      30_000
-    );
-
-    it(
-      'M. persists linked enrollment without invalid undefined Firestore fields',
-      async () => {
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-m-create');
-        const result = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-m-link',
-            expectedRevision: guest.revision,
-            expectedParticipantManagementRevision: 1,
-            participantTarget: { kind: 'promote_guest' },
-          })
-        );
-        expect(result.status).toBe('success');
-
-        const enrollment = (await firestore.doc(`course_enrollments/${guest.enrollmentId}`).get()).data();
-        const payment = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
-        const participant = (await firestore.doc(`participants/${guestParticipantId}`).get()).data();
-        const managementIdResolved = participantManagementIdFromGuestLink({
-          participantId: guestParticipantId,
-          accountId,
-        });
-        const management = (
-          await firestore.doc(`participant_management/${managementIdResolved}`).get()
-        ).data();
-
-        expect(() => assertNoUndefinedFields(enrollment)).not.toThrow();
-        expect(() => assertNoUndefinedFields(payment)).not.toThrow();
-        expect(() => assertNoUndefinedFields(participant)).not.toThrow();
-        expect(() => assertNoUndefinedFields(management)).not.toThrow();
-        expect(enrollment?.payerAccountId).toBeUndefined();
-      },
-      30_000
-    );
-
-    it(
-      'N. serializes link vs guest expiry to one terminal outcome without double capacity release',
-      async () => {
-        const createCommandsAt = createCommands('2026-01-01T00:00:00.000Z');
-        const guest = await createGuestEnrollment(createCommandsAt, 'guest-link-n-create');
-        const seatsAfterCreate = (await durableCounts()).availableSeats;
-
-        const linkCommands = createCommands('2026-01-15T12:00:00.000Z');
-        const expireCommands = createCommands('2026-01-15T12:00:00.000Z');
-        const [linkResult, expireResult] = await Promise.all([
-          linkCommands.execute(
-            linkEnvelope({
-              enrollmentId: guest.enrollmentId,
-              credential: guest.credential,
-              idempotencyKey: 'guest-link-n-link',
-              expectedRevision: guest.revision,
-              expectedParticipantManagementRevision: 1,
-              participantTarget: { kind: 'existing_managed', participantId },
-            })
-          ),
-          expireCommands.execute(
-            expireGuestEnrollmentEnvelope({
-              enrollmentId: guest.enrollmentId,
-              idempotencyKey: 'guest-link-n-expire',
-              expectedRevision: guest.revision,
-            })
-          ),
-        ]);
-
-        const successes = [linkResult, expireResult].filter((result) => result.status === 'success');
-        expect(successes).toHaveLength(1);
-
-        const enrollment = await readEnrollment(guest.enrollmentId);
-        const seatsAfterRace = (await durableCounts()).availableSeats;
-        if (linkResult.status === 'success') {
-          expect(enrollment?.guestAccountLink?.linkedAccountId).toBe(accountId);
-          expect(expireResult.status).toBe('error');
-          expect(seatsAfterRace).toBe(seatsAfterCreate);
-        } else {
-          expect(enrollment?.lifecycle?.status).toBe('cancelled');
-          expect(seatsAfterRace).toBe((seatsAfterCreate ?? 0) + 1);
-        }
-      },
-      30_000
-    );
-
-    it(
-      'O. promote_guest keeps participantId, promotes management, and leaves seat claims unchanged',
-      async () => {
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-o-create');
-        const before = await durableCounts();
-        const seatClaimsBefore = await listEnrollmentOwnedClaims(guest.enrollmentId);
-        const dayClaimsBefore = await listParticipantCourseDayClaims(guestParticipantId);
-
-        const result = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-o-promote',
-            expectedRevision: guest.revision,
-            participantTarget: { kind: 'promote_guest' },
-          })
-        );
-        expect(result.status).toBe('success');
-
-        const enrollment = await readEnrollment(guest.enrollmentId);
-        const participant = (await firestore.doc(`participants/${guestParticipantId}`).get()).data();
-        const after = await durableCounts();
-        const seatClaimsAfter = await listEnrollmentOwnedClaims(guest.enrollmentId);
-        const dayClaimsAfter = await listParticipantCourseDayClaims(guestParticipantId);
-
-        expect(enrollment?.participantId).toBe(guestParticipantId);
-        expect(participant?.management?.kind).toBe('managed');
-        expect(enrollment?.attribution).toEqual(guest.attribution);
-        expect(after.availableSeats).toBe(before.availableSeats);
-        expect(seatClaimsAfter).toEqual(seatClaimsBefore);
-        expect(dayClaimsAfter.length).toBe(dayClaimsBefore.length);
-      },
-      30_000
-    );
-
-    it(
-      'P. create_managed composes participant, management, claim migration, and guard acquisition atomically',
-      async () => {
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-p-create');
-
-        const result = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-p-create-managed',
-            expectedRevision: guest.revision,
-            participantTarget: {
-              kind: 'create_managed',
+      const participants = await firestore.collection('participants').get();
+      const managementDocs = await firestore.collection('participant_management').get();
+      expect(participants.docs.filter((doc) => doc.id === participantIdCreate)).toHaveLength(1);
+      expect(
+        managementDocs.docs.filter(
+          (doc) =>
+            doc.id ===
+            participantManagementIdFromGuestLink({
               participantId: participantIdCreate,
-              displayName: 'Created Managed Participant',
-              age: { kind: 'age_years', years: 16 },
-              skillLevel: 'beginner',
-              discipline: 'ski',
-            },
-          })
-        );
-        expect(result.status).toBe('success');
+              accountId,
+            })
+        )
+      ).toHaveLength(0);
 
-        const enrollment = await readEnrollment(guest.enrollmentId);
-        const createdParticipant = (
-          await firestore.doc(`participants/${participantIdCreate}`).get()
-        ).data();
-        const guestParticipant = (
-          await firestore.doc(`participants/${guestParticipantId}`).get()
-        ).data();
-        const managedDayClaims = await listParticipantCourseDayClaims(participantIdCreate);
+      await assertRollbackState({
+        guest,
+        expectedParticipantId: guestParticipantId,
+        paymentBefore,
+        seatsBefore,
+        guestDayClaimsBeforeCount: guestDayClaimsBefore.filter(
+          (doc) => doc.data()?.lifecycle?.status === 'active'
+        ).length,
+      });
+    }, 30_000);
 
-        expect(enrollment?.participantId).toBe(participantIdCreate);
-        expect(createdParticipant?.management?.kind).toBe('managed');
-        expect(guestParticipant?.management?.kind).toBe('unmanaged_guest');
-        expect(managedDayClaims.length).toBeGreaterThan(0);
-        expect(await readActiveEnrollmentGuard(courseId, participantIdCreate)).toBeDefined();
-      },
-      30_000
-    );
+    it('F. allows half-open adjacent booking intervals during existing_managed link', async () => {
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-f-create');
+      const bookingResult = await commands.execute(
+        bookingEnvelope({
+          targetBookingId: bookingAdjacentId,
+          idempotencyKey: 'guest-link-f-booking',
+          localTime: '07:00',
+        })
+      );
+      expect(bookingResult.status).toBe('success');
 
-    it(
-      'Q. rejects credential reuse by a different account after a successful link',
-      async () => {
-        await clearCollections(firestore);
-        await seedBase({ includeAccountB: true });
-
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-q-create');
-        const firstLink = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-q-first',
-            expectedRevision: guest.revision,
-            expectedParticipantManagementRevision: 1,
-            participantTarget: { kind: 'existing_managed', participantId },
-          })
-        );
-        expect(firstLink.status).toBe('success');
-        const linked = await readEnrollment(guest.enrollmentId);
-
-        const secondLink = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-q-second',
-            expectedRevision: AggregateRevisionSchema.parse((linked?.revision as number) ?? 2),
-            actorAccountId: accountIdB,
-            correlation: correlationIdB,
-            expectedParticipantManagementRevision: 1,
-            participantTarget: { kind: 'existing_managed', participantId: participantIdAccountB },
-          })
-        );
-        expect(secondLink.status).toBe('error');
-        if (secondLink.status === 'error') {
-          expect(secondLink.error.code).toBe('forbidden');
-        }
-
-        const enrollment = await readEnrollment(guest.enrollmentId);
-        expect(enrollment?.guestAccountLink?.linkedAccountId).toBe(accountId);
-      },
-      30_000
-    );
-
-    it(
-      'R. rejects pre-extension guest enrollments without durable deterministic guestSubjectId attribution',
-      async () => {
-        const commands = createCommands();
-        const legacy = await seedPreExtensionGuestEnrollment();
-        const credential = (
-          await createGuestEnrollment(commands, 'guest-link-r-credential-donor')
-        ).credential;
-
-        const result = await commands.execute(
-          linkEnvelope({
-            enrollmentId: legacy.enrollmentId,
-            credential,
-            idempotencyKey: 'guest-link-r-legacy',
-            expectedRevision: 1,
-            expectedParticipantManagementRevision: 1,
-            participantTarget: { kind: 'existing_managed', participantId },
-          })
-        );
-        expect(result.status).toBe('error');
-        if (result.status === 'error') {
-          expect(result.error.code).toBe('validation');
-        }
-
-        const enrollment = await readEnrollment(legacy.enrollmentId);
-        expect(enrollment?.guestAccountLink).toBeUndefined();
-      },
-      30_000
-    );
-
-    it(
-      'rejects link when payment payerAccountId is set to a different account than the linker',
-      async () => {
-        await clearCollections(firestore);
-        await seedBase({ includeAccountB: true });
-
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-payer-mismatch-create');
-        await firestore.doc(`payments/${guest.paymentId}`).update({
-          payerAccountId: accountIdB,
-          revision: 2,
-        });
-
-        const result = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-payer-mismatch',
-            expectedRevision: guest.revision,
-            expectedParticipantManagementRevision: 1,
-            participantTarget: { kind: 'existing_managed', participantId },
-          })
-        );
-        expect(result.status).toBe('error');
-        if (result.status === 'error') {
-          expect(result.error.code).toBe('forbidden');
-        }
-
-        expect((await readEnrollment(guest.enrollmentId))?.guestAccountLink).toBeUndefined();
-      },
-      30_000
-    );
-
-    it(
-      'rejects credential nonce reuse with a different nonce after successful link',
-      async () => {
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-nonce-reuse-create');
-        const first = await commands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-nonce-reuse-first',
-            expectedRevision: guest.revision,
-            participantTarget: { kind: 'promote_guest' },
-          })
-        );
-        expect(first.status).toBe('success');
-
-        const linked = await readEnrollment(guest.enrollmentId);
-        const differentNonce = createGuestActionTokenNonce();
-        const differentSignature = signEnrollmentLinkCredential({
+      const result = await commands.execute(
+        linkEnvelope({
           enrollmentId: guest.enrollmentId,
-          guestSubjectId: guest.credential.guestSubjectId,
-          expiresAt: guest.credential.expiresAt,
-          nonce: differentNonce,
-        });
-        const replayWithDifferentNonce = await commands.execute(
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-f-link',
+          expectedRevision: guest.revision,
+          expectedParticipantManagementRevision: 1,
+          participantTarget: { kind: 'existing_managed', participantId },
+        })
+      );
+      expect(result.status).toBe('success');
+    }, 30_000);
+
+    it('G. rejects existing_managed when target already has an active enrollment on the same course', async () => {
+      const commands = createCommands();
+      await createFundedEnrollment(commands, { idempotencyKey: 'guest-link-g-existing' });
+      const guest = await createGuestEnrollment(commands, 'guest-link-g-create');
+      const paymentBefore = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+      const seatsBefore = (await durableCounts()).availableSeats;
+      const guestDayClaimsBefore = await listParticipantCourseDayClaims(guestParticipantId);
+
+      const result = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-g-link',
+          expectedRevision: guest.revision,
+          expectedParticipantManagementRevision: 1,
+          participantTarget: { kind: 'existing_managed', participantId },
+        })
+      );
+      expect(result.status).toBe('error');
+      if (result.status === 'error') {
+        expect(['duplicate_active_enrollment', 'participant_conflict']).toContain(
+          result.error.code
+        );
+      }
+
+      await assertRollbackState({
+        guest,
+        expectedParticipantId: guestParticipantId,
+        paymentBefore,
+        seatsBefore,
+        guestDayClaimsBeforeCount: guestDayClaimsBefore.filter(
+          (doc) => doc.data()?.lifecycle?.status === 'active'
+        ).length,
+      });
+    }, 30_000);
+
+    it('H. serializes two accounts with different credentials racing to link the same guest enrollment', async () => {
+      await clearCollections(firestore);
+      await seedBase({ includeAccountB: true, includeDuplicateNameParticipants: true });
+
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-h-create');
+      const nonceA = guest.credential.nonce;
+      const nonceB = createGuestActionTokenNonce();
+      const signatureB = signEnrollmentLinkCredential({
+        enrollmentId: guest.enrollmentId,
+        guestSubjectId: guest.credential.guestSubjectId,
+        expiresAt: guest.credential.expiresAt,
+        nonce: nonceB,
+      });
+
+      const [attemptA, attemptB] = await Promise.all([
+        commands.execute(
           linkEnvelope({
             enrollmentId: guest.enrollmentId,
-            credential: {
-              nonce: differentNonce,
-              signature: differentSignature,
-            },
-            idempotencyKey: 'guest-link-nonce-reuse-second',
-            expectedRevision: AggregateRevisionSchema.parse((linked?.revision as number) ?? 2),
-            participantTarget: { kind: 'promote_guest' },
-          })
-        );
-        expect(replayWithDifferentNonce.status).toBe('error');
-        if (replayWithDifferentNonce.status === 'error') {
-          expect(replayWithDifferentNonce.error.code).toBe('unauthorized');
-        }
-      },
-      30_000
-    );
-
-    it(
-      'accepts link credential just before expiresAt and rejects at/after finalCourseDayEndsAt',
-      async () => {
-        const createCommandsAt = createCommands('2026-01-01T00:00:00.000Z');
-        const guest = await createGuestEnrollment(createCommandsAt, 'guest-link-expiry-create');
-        const confirmedRevision = await setGuestEnrollmentLifecycleForEmulator(
-          guest.enrollmentId,
-          guest.revision,
-          { status: 'confirmed' }
-        );
-        const beforeExpiryCommands = createCommands('2026-02-01T04:59:59.999Z');
-        const atExpiryCommands = createCommands('2026-02-01T05:00:00.000Z');
-        const afterExpiryCommands = createCommands('2026-02-01T05:00:00.001Z');
-
-        const beforeResult = await beforeExpiryCommands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-expiry-before',
-            expectedRevision: confirmedRevision,
-            participantTarget: { kind: 'promote_guest' },
-          })
-        );
-        expect(beforeResult.status).toBe('success');
-
-        const guestAtExpiry = await createGuestEnrollment(
-          createCommandsAt,
-          'guest-link-expiry-create-at',
-          guestParticipantIdTwo
-        );
-        const confirmedAtRevision = await setGuestEnrollmentLifecycleForEmulator(
-          guestAtExpiry.enrollmentId,
-          guestAtExpiry.revision,
-          { status: 'confirmed' }
-        );
-        const atResult = await atExpiryCommands.execute(
-          linkEnvelope({
-            enrollmentId: guestAtExpiry.enrollmentId,
-            credential: guestAtExpiry.credential,
-            idempotencyKey: 'guest-link-expiry-at',
-            expectedRevision: confirmedAtRevision,
-            participantTarget: { kind: 'promote_guest' },
-          })
-        );
-        expect(atResult.status).toBe('error');
-        if (atResult.status === 'error') {
-          expect(atResult.error.code).toBe('unauthorized');
-        }
-        expect((await readEnrollment(guestAtExpiry.enrollmentId))?.guestAccountLink).toBeUndefined();
-
-        const guestAfterExpiry = await createGuestEnrollment(
-          createCommandsAt,
-          'guest-link-expiry-create-after',
-          guestParticipantIdThree
-        );
-        const confirmedAfterRevision = await setGuestEnrollmentLifecycleForEmulator(
-          guestAfterExpiry.enrollmentId,
-          guestAfterExpiry.revision,
-          { status: 'confirmed' }
-        );
-        const afterResult = await afterExpiryCommands.execute(
-          linkEnvelope({
-            enrollmentId: guestAfterExpiry.enrollmentId,
-            credential: guestAfterExpiry.credential,
-            idempotencyKey: 'guest-link-expiry-after',
-            expectedRevision: confirmedAfterRevision,
-            participantTarget: { kind: 'promote_guest' },
-          })
-        );
-        expect(afterResult.status).toBe('error');
-        if (afterResult.status === 'error') {
-          expect(afterResult.error.code).toBe('unauthorized');
-        }
-        expect(
-          (await readEnrollment(guestAfterExpiry.enrollmentId))?.guestAccountLink
-        ).toBeUndefined();
-      },
-      30_000
-    );
-
-    it(
-      'allows promote_guest after course start while participant-changing link remains forbidden',
-      async () => {
-        const preStartCommands = createCommands('2026-01-01T00:00:00.000Z');
-        const postStartCommands = createCommands('2026-02-01T04:00:00.000Z');
-        const guest = await createGuestEnrollment(preStartCommands, 'guest-link-post-start-create');
-        const linkableRevision = await setGuestEnrollmentLifecycleForEmulator(
-          guest.enrollmentId,
-          guest.revision,
-          { status: 'confirmed' }
-        );
-        const dayClaimsBefore = await listParticipantCourseDayClaims(guestParticipantId);
-        const guardBefore = await readActiveEnrollmentGuard(courseId, guestParticipantId);
-
-        const promoteResult = await postStartCommands.execute(
-          linkEnvelope({
-            enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-post-start-promote',
-            expectedRevision: linkableRevision,
-            participantTarget: { kind: 'promote_guest' },
-          })
-        );
-        expect(promoteResult.status).toBe('success');
-
-        const enrollment = await readEnrollment(guest.enrollmentId);
-        const payment = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
-        const participant = (await firestore.doc(`participants/${guestParticipantId}`).get()).data();
-        const dayClaimsAfter = await listParticipantCourseDayClaims(guestParticipantId);
-
-        expect(enrollment?.participantId).toBe(guestParticipantId);
-        expect(enrollment?.attribution).toEqual(guest.attribution);
-        expect(participant?.management?.kind).toBe('managed');
-        expect(payment?.payerAccountId).toBe(accountId);
-        expect(dayClaimsAfter.length).toBe(dayClaimsBefore.length);
-        expect(await readActiveEnrollmentGuard(courseId, guestParticipantId)).toEqual(guardBefore);
-
-        const guestTwo = await createGuestEnrollment(
-          preStartCommands,
-          'guest-link-post-start-create-two',
-          guestParticipantIdTwo
-        );
-        const guestTwoLinkableRevision = await setGuestEnrollmentLifecycleForEmulator(
-          guestTwo.enrollmentId,
-          guestTwo.revision,
-          { status: 'confirmed' }
-        );
-        const blockedResult = await postStartCommands.execute(
-          linkEnvelope({
-            enrollmentId: guestTwo.enrollmentId,
-            credential: guestTwo.credential,
-            idempotencyKey: 'guest-link-post-start-existing-managed',
-            expectedRevision: guestTwoLinkableRevision,
+            credential: { nonce: nonceA, signature: guest.credential.signature },
+            idempotencyKey: 'guest-link-h-account-a',
+            expectedRevision: guest.revision,
+            actorAccountId: accountId,
             expectedParticipantManagementRevision: 1,
             participantTarget: { kind: 'existing_managed', participantId },
           })
-        );
-        expect(blockedResult.status).toBe('error');
-        if (blockedResult.status === 'error') {
-          expect(blockedResult.error.code).toBe('invalid_transition');
-        }
-        expect((await readEnrollment(guestTwo.enrollmentId))?.guestAccountLink).toBeUndefined();
-      },
-      30_000
-    );
-
-    it(
-      'grants post-link account authority through request_course_enrollment_cancellation despite guest provenance',
-      async () => {
-        const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
-        const guest = await createGuestEnrollment(
-          setupCommands,
-          'guest-link-lifecycle-authority-create'
-        );
-        const confirmedRevision = await setGuestEnrollmentLifecycleForEmulator(
-          guest.enrollmentId,
-          guest.revision,
-          { status: 'confirmed' }
-        );
-
-        const linkCommands = createCommands('2026-01-15T12:00:00.000Z');
-        const linkResult = await linkCommands.execute(
+        ),
+        commands.execute(
           linkEnvelope({
             enrollmentId: guest.enrollmentId,
-            credential: guest.credential,
-            idempotencyKey: 'guest-link-lifecycle-authority-link',
-            expectedRevision: confirmedRevision,
-            participantTarget: { kind: 'promote_guest' },
-          })
-        );
-        expect(linkResult.status).toBe('success');
-
-        const linked = await readEnrollment(guest.enrollmentId);
-        expect(linked?.attribution?.bookingOrigin).toBe('guest');
-        expect(linked?.attribution?.bookedBy).toEqual(guest.attribution.bookedBy);
-        expect(linked?.guestAccountLink?.linkedAccountId).toBe(accountId);
-
-        const resolvedManagementId = participantManagementIdFromGuestLink({
-          participantId: guestParticipantId,
-          accountId,
-        });
-        const management = (
-          await firestore.doc(`participant_management/${resolvedManagementId}`).get()
-        ).data();
-        expect(management?.status).toBe('active');
-        expect(management?.accountId).toBe(accountId);
-        expect(management?.participantId).toBe(guestParticipantId);
-
-        await firestore.doc(`users/${accountIdB}`).set(seedAccountRecord(accountIdB));
-
-        const cancelCommands = createCommands(within2dBeforeStart);
-        const linkedRevision = AggregateRevisionSchema.parse(linked?.revision as number);
-
-        const accountBResult = await cancelCommands.execute(
-          cancelEnrollmentEnvelope({
-            enrollmentId: guest.enrollmentId,
-            idempotencyKey: 'guest-link-lifecycle-authority-cancel-b',
-            expectedRevision: linkedRevision,
+            credential: { nonce: nonceB, signature: signatureB },
+            idempotencyKey: 'guest-link-h-account-b',
+            expectedRevision: guest.revision,
             actorAccountId: accountIdB,
             correlation: correlationIdB,
+            expectedParticipantManagementRevision: 1,
+            participantTarget: {
+              kind: 'existing_managed',
+              participantId: participantIdAccountB,
+            },
           })
-        );
-        expect(accountBResult.status).toBe('error');
-        if (accountBResult.status === 'error') {
-          expect(accountBResult.error.code).toBe('forbidden');
-        }
+        ),
+      ]);
 
-        const accountAResult = await cancelCommands.execute(
-          cancelEnrollmentEnvelope({
-            enrollmentId: guest.enrollmentId,
-            idempotencyKey: 'guest-link-lifecycle-authority-cancel-a',
-            expectedRevision: linkedRevision,
-          })
-        );
-        expect(accountAResult.status).toBe('success');
+      const successes = [attemptA, attemptB].filter((attempt) => attempt.status === 'success');
+      const failures = [attemptA, attemptB].filter((attempt) => attempt.status === 'error');
+      expect(successes.length + failures.length).toBe(2);
+      expect(successes.length).toBeGreaterThanOrEqual(1);
+      expect(failures.length).toBeGreaterThanOrEqual(1);
 
-        const afterCancel = await readEnrollment(guest.enrollmentId);
-        expect(afterCancel?.lifecycle?.status).toBe('pending_cancellation');
-        expect(afterCancel?.attribution?.bookingOrigin).toBe('guest');
-        expect(afterCancel?.attribution?.bookedBy).toEqual(guest.attribution.bookedBy);
-      },
-      30_000
-    );
+      const enrollment = await readEnrollment(guest.enrollmentId);
+      const payment = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+      const winnerAccountId = enrollment?.guestAccountLink?.linkedAccountId;
+      expect(winnerAccountId).toBeDefined();
+      expect(successes.some((attempt) => attempt.status === 'success')).toBe(true);
+      expect(payment?.payerAccountId).toBe(winnerAccountId);
 
-    it(
-      'replays same persisted nonce with a new command identity without duplicate domain mutations',
-      async () => {
-        const commands = createCommands();
-        const guest = await createGuestEnrollment(commands, 'guest-link-same-nonce-create');
-        const first = await commands.execute(
+      if (winnerAccountId === accountId) {
+        expect(enrollment?.participantId).toBe(participantId);
+        const management = (
+          await firestore.doc(`participant_management/${managementId}`).get()
+        ).data();
+        expect(management?.accountId).toBe(accountId);
+        expect(management?.status).toBe('active');
+      } else {
+        expect(enrollment?.participantId).toBe(participantIdAccountB);
+        const management = (
+          await firestore.doc(`participant_management/${managementIdAccountB}`).get()
+        ).data();
+        expect(management?.accountId).toBe(accountIdB);
+        expect(management?.status).toBe('active');
+      }
+      expect(
+        await readActiveEnrollmentGuard(courseId, enrollment?.participantId as typeof participantId)
+      ).toBeDefined();
+      const winnerDayClaims = await listParticipantCourseDayClaims(
+        enrollment?.participantId as typeof participantId
+      );
+      expect(
+        winnerDayClaims.filter((doc) => doc.data()?.lifecycle?.status === 'active').length
+      ).toBeGreaterThan(0);
+    }, 30_000);
+
+    it('I. serializes same-account races to different managed participants', async () => {
+      await clearCollections(firestore);
+      await seedBase({ includeDuplicateNameParticipants: true });
+
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-i-create');
+
+      const [attemptA, attemptB] = await Promise.all([
+        commands.execute(
           linkEnvelope({
             enrollmentId: guest.enrollmentId,
             credential: guest.credential,
-            idempotencyKey: 'guest-link-same-nonce-first',
+            idempotencyKey: 'guest-link-i-participant-a',
             expectedRevision: guest.revision,
-            participantTarget: { kind: 'promote_guest' },
+            expectedParticipantManagementRevision: 1,
+            participantTarget: { kind: 'existing_managed', participantId },
           })
-        );
-        expect(first.status).toBe('success');
-        const linkedAfterFirst = await readEnrollment(guest.enrollmentId);
-        const paymentAfterFirst = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
-        const countsAfterFirst = await durableCounts();
-
-        const second = await commands.execute(
+        ),
+        commands.execute(
           linkEnvelope({
             enrollmentId: guest.enrollmentId,
             credential: guest.credential,
-            idempotencyKey: 'guest-link-same-nonce-second',
-            expectedRevision: AggregateRevisionSchema.parse((linkedAfterFirst?.revision as number) ?? 2),
-            participantTarget: { kind: 'promote_guest' },
+            idempotencyKey: 'guest-link-i-participant-b',
+            expectedRevision: guest.revision,
+            correlation: correlationIdB,
+            expectedParticipantManagementRevision: 1,
+            participantTarget: {
+              kind: 'existing_managed',
+              participantId: participantIdDuplicateName,
+            },
           })
-        );
-        expect(second.status).toBe('success');
+        ),
+      ]);
 
-        const linkedAfterSecond = await readEnrollment(guest.enrollmentId);
-        const paymentAfterSecond = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
-        const countsAfterSecond = await durableCounts();
+      const successes = [attemptA, attemptB].filter((attempt) => attempt.status === 'success');
+      const failures = [attemptA, attemptB].filter((attempt) => attempt.status === 'error');
+      expect(successes).toHaveLength(1);
+      expect(failures).toHaveLength(1);
+    }, 30_000);
 
-        expect(linkedAfterSecond).toEqual(linkedAfterFirst);
-        expect(paymentAfterSecond).toEqual(paymentAfterFirst);
-        expect(countsAfterSecond.enrollments).toBe(countsAfterFirst.enrollments);
-        expect(countsAfterSecond.payments).toBe(countsAfterFirst.payments);
-        expect(countsAfterSecond.claims).toBe(countsAfterFirst.claims);
-        expect(countsAfterSecond.enrollmentGuards).toBe(countsAfterFirst.enrollmentGuards);
-        expect(countsAfterSecond.successfulIdempotency).toBe(countsAfterFirst.successfulIdempotency + 1);
-      },
-      30_000
-    );
+    it('J. preserves participant conflict invariants when link races overlapping booking creation', async () => {
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-j-create');
+
+      const [linkResult, bookingResult] = await Promise.all([
+        commands.execute(
+          linkEnvelope({
+            enrollmentId: guest.enrollmentId,
+            credential: guest.credential,
+            idempotencyKey: 'guest-link-j-link',
+            expectedRevision: guest.revision,
+            expectedParticipantManagementRevision: 1,
+            participantTarget: { kind: 'existing_managed', participantId },
+          })
+        ),
+        commands.execute(
+          bookingEnvelope({
+            targetBookingId: bookingRaceId,
+            idempotencyKey: 'guest-link-j-booking',
+            localTime: '09:00',
+          })
+        ),
+      ]);
+
+      const successes = [linkResult, bookingResult].filter((result) => result.status === 'success');
+      expect(successes).toHaveLength(1);
+
+      const enrollment = await readEnrollment(guest.enrollmentId);
+      const bookings = await firestore.collection('bookings').get();
+      if (linkResult.status === 'success') {
+        expect(enrollment?.participantId).toBe(participantId);
+        expect(bookingResult.status).toBe('error');
+      } else {
+        expect(bookingResult.status).toBe('success');
+        expect(enrollment?.guestAccountLink).toBeUndefined();
+      }
+      expect(bookings.size).toBeLessThanOrEqual(1);
+    }, 30_000);
+
+    it('K. replays an exact link command without duplicate claims, audit, outbox, or payment mutation', async () => {
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-k-create');
+      const envelope = linkEnvelope({
+        enrollmentId: guest.enrollmentId,
+        credential: guest.credential,
+        idempotencyKey: 'guest-link-k-replay',
+        expectedRevision: guest.revision,
+        expectedParticipantManagementRevision: 1,
+        participantTarget: { kind: 'existing_managed', participantId },
+      });
+
+      const first = await commands.execute(envelope);
+      expect(first.status).toBe('success');
+      const afterFirst = await durableCounts();
+      const paymentAfterFirst = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+
+      const replay = await commands.execute(envelope);
+      expect(replay.status).toBe('success');
+      const afterReplay = await durableCounts();
+      const paymentAfterReplay = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+
+      expect(afterReplay.enrollments).toBe(afterFirst.enrollments);
+      expect(afterReplay.payments).toBe(afterFirst.payments);
+      expect(afterReplay.claims).toBe(afterFirst.claims);
+      expect(afterReplay.activityLogs).toBe(afterFirst.activityLogs);
+      expect(afterReplay.successfulIdempotency).toBe(afterFirst.successfulIdempotency);
+      expect(paymentAfterReplay?.revision).toBe(paymentAfterFirst?.revision);
+    }, 30_000);
+
+    it('L. create_managed survives concurrent Firestore contention without duplicate participants, management, or link state', async () => {
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-l-create');
+      const envelope = linkEnvelope({
+        enrollmentId: guest.enrollmentId,
+        credential: guest.credential,
+        idempotencyKey: 'guest-link-l-create-managed-contention',
+        expectedRevision: guest.revision,
+        participantTarget: {
+          kind: 'create_managed',
+          participantId: participantIdCreate,
+          displayName: 'Created Managed Participant',
+          age: { kind: 'age_years', years: 16 },
+          skillLevel: 'beginner',
+          discipline: 'ski',
+        },
+      });
+
+      const first = await commands.execute(envelope);
+      expect(first.status).toBe('success');
+
+      const retries = await Promise.all([
+        commands.execute(envelope),
+        commands.execute(envelope),
+        commands.execute(envelope),
+      ]);
+      expect(retries.every((attempt) => attempt.status === 'success')).toBe(true);
+
+      const participants = await firestore.collection('participants').get();
+      const managementDocs = await firestore.collection('participant_management').get();
+      const enrollment = await readEnrollment(guest.enrollmentId);
+      const payment = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+
+      expect(participants.docs.filter((doc) => doc.id === participantIdCreate)).toHaveLength(1);
+      expect(
+        managementDocs.docs.filter(
+          (doc) =>
+            doc.id ===
+            participantManagementIdFromGuestLink({
+              participantId: participantIdCreate,
+              accountId,
+            })
+        )
+      ).toHaveLength(1);
+      expect(enrollment?.participantId).toBe(participantIdCreate);
+      expect(enrollment?.guestAccountLink).toMatchObject({
+        linkedAccountId: accountId,
+        linkedParticipantId: participantIdCreate,
+        credentialNonce: guest.credential.nonce,
+      });
+      expect(payment?.payerAccountId).toBe(accountId);
+    }, 30_000);
+
+    it('M. persists linked enrollment without invalid undefined Firestore fields', async () => {
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-m-create');
+      const result = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-m-link',
+          expectedRevision: guest.revision,
+          expectedParticipantManagementRevision: 1,
+          participantTarget: { kind: 'promote_guest' },
+        })
+      );
+      expect(result.status).toBe('success');
+
+      const enrollment = (
+        await firestore.doc(`course_enrollments/${guest.enrollmentId}`).get()
+      ).data();
+      const payment = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+      const participant = (await firestore.doc(`participants/${guestParticipantId}`).get()).data();
+      const managementIdResolved = participantManagementIdFromGuestLink({
+        participantId: guestParticipantId,
+        accountId,
+      });
+      const management = (
+        await firestore.doc(`participant_management/${managementIdResolved}`).get()
+      ).data();
+
+      expect(() => assertNoUndefinedFields(enrollment)).not.toThrow();
+      expect(() => assertNoUndefinedFields(payment)).not.toThrow();
+      expect(() => assertNoUndefinedFields(participant)).not.toThrow();
+      expect(() => assertNoUndefinedFields(management)).not.toThrow();
+      expect(enrollment?.payerAccountId).toBeUndefined();
+    }, 30_000);
+
+    it('N. serializes link vs guest expiry to one terminal outcome without double capacity release', async () => {
+      const createCommandsAt = createCommands('2026-01-01T00:00:00.000Z');
+      const guest = await createGuestEnrollment(createCommandsAt, 'guest-link-n-create');
+      const seatsAfterCreate = (await durableCounts()).availableSeats;
+
+      const linkCommands = createCommands('2026-01-15T12:00:00.000Z');
+      const expireCommands = createCommands('2026-01-15T12:00:00.000Z');
+      const [linkResult, expireResult] = await Promise.all([
+        linkCommands.execute(
+          linkEnvelope({
+            enrollmentId: guest.enrollmentId,
+            credential: guest.credential,
+            idempotencyKey: 'guest-link-n-link',
+            expectedRevision: guest.revision,
+            expectedParticipantManagementRevision: 1,
+            participantTarget: { kind: 'existing_managed', participantId },
+          })
+        ),
+        expireCommands.execute(
+          expireGuestEnrollmentEnvelope({
+            enrollmentId: guest.enrollmentId,
+            idempotencyKey: 'guest-link-n-expire',
+            expectedRevision: guest.revision,
+          })
+        ),
+      ]);
+
+      const successes = [linkResult, expireResult].filter((result) => result.status === 'success');
+      expect(successes).toHaveLength(1);
+
+      const enrollment = await readEnrollment(guest.enrollmentId);
+      const seatsAfterRace = (await durableCounts()).availableSeats;
+      if (linkResult.status === 'success') {
+        expect(enrollment?.guestAccountLink?.linkedAccountId).toBe(accountId);
+        expect(expireResult.status).toBe('error');
+        expect(seatsAfterRace).toBe(seatsAfterCreate);
+      } else {
+        expect(enrollment?.lifecycle?.status).toBe('cancelled');
+        expect(seatsAfterRace).toBe((seatsAfterCreate ?? 0) + 1);
+      }
+    }, 30_000);
+
+    it('O. promote_guest keeps participantId, promotes management, and leaves seat claims unchanged', async () => {
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-o-create');
+      const before = await durableCounts();
+      const seatClaimsBefore = await listEnrollmentOwnedClaims(guest.enrollmentId);
+      const dayClaimsBefore = await listParticipantCourseDayClaims(guestParticipantId);
+
+      const result = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-o-promote',
+          expectedRevision: guest.revision,
+          participantTarget: { kind: 'promote_guest' },
+        })
+      );
+      expect(result.status).toBe('success');
+
+      const enrollment = await readEnrollment(guest.enrollmentId);
+      const participant = (await firestore.doc(`participants/${guestParticipantId}`).get()).data();
+      const after = await durableCounts();
+      const seatClaimsAfter = await listEnrollmentOwnedClaims(guest.enrollmentId);
+      const dayClaimsAfter = await listParticipantCourseDayClaims(guestParticipantId);
+
+      expect(enrollment?.participantId).toBe(guestParticipantId);
+      expect(participant?.management?.kind).toBe('managed');
+      expect(enrollment?.attribution).toEqual(guest.attribution);
+      expect(after.availableSeats).toBe(before.availableSeats);
+      expect(seatClaimsAfter).toEqual(seatClaimsBefore);
+      expect(dayClaimsAfter.length).toBe(dayClaimsBefore.length);
+    }, 30_000);
+
+    it('P. create_managed composes participant, management, claim migration, and guard acquisition atomically', async () => {
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-p-create');
+
+      const result = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-p-create-managed',
+          expectedRevision: guest.revision,
+          participantTarget: {
+            kind: 'create_managed',
+            participantId: participantIdCreate,
+            displayName: 'Created Managed Participant',
+            age: { kind: 'age_years', years: 16 },
+            skillLevel: 'beginner',
+            discipline: 'ski',
+          },
+        })
+      );
+      expect(result.status).toBe('success');
+
+      const enrollment = await readEnrollment(guest.enrollmentId);
+      const createdParticipant = (
+        await firestore.doc(`participants/${participantIdCreate}`).get()
+      ).data();
+      const guestParticipant = (
+        await firestore.doc(`participants/${guestParticipantId}`).get()
+      ).data();
+      const managedDayClaims = await listParticipantCourseDayClaims(participantIdCreate);
+
+      expect(enrollment?.participantId).toBe(participantIdCreate);
+      expect(createdParticipant?.management?.kind).toBe('managed');
+      expect(guestParticipant?.management?.kind).toBe('unmanaged_guest');
+      expect(managedDayClaims.length).toBeGreaterThan(0);
+      expect(await readActiveEnrollmentGuard(courseId, participantIdCreate)).toBeDefined();
+    }, 30_000);
+
+    it('Q. rejects credential reuse by a different account after a successful link', async () => {
+      await clearCollections(firestore);
+      await seedBase({ includeAccountB: true });
+
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-q-create');
+      const firstLink = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-q-first',
+          expectedRevision: guest.revision,
+          expectedParticipantManagementRevision: 1,
+          participantTarget: { kind: 'existing_managed', participantId },
+        })
+      );
+      expect(firstLink.status).toBe('success');
+      const linked = await readEnrollment(guest.enrollmentId);
+
+      const secondLink = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-q-second',
+          expectedRevision: AggregateRevisionSchema.parse((linked?.revision as number) ?? 2),
+          actorAccountId: accountIdB,
+          correlation: correlationIdB,
+          expectedParticipantManagementRevision: 1,
+          participantTarget: { kind: 'existing_managed', participantId: participantIdAccountB },
+        })
+      );
+      expect(secondLink.status).toBe('error');
+      if (secondLink.status === 'error') {
+        expect(secondLink.error.code).toBe('forbidden');
+      }
+
+      const enrollment = await readEnrollment(guest.enrollmentId);
+      expect(enrollment?.guestAccountLink?.linkedAccountId).toBe(accountId);
+    }, 30_000);
+
+    it('R. rejects pre-extension guest enrollments without durable deterministic guestSubjectId attribution', async () => {
+      const commands = createCommands();
+      const legacy = await seedPreExtensionGuestEnrollment();
+      const credential = (await createGuestEnrollment(commands, 'guest-link-r-credential-donor'))
+        .credential;
+
+      const result = await commands.execute(
+        linkEnvelope({
+          enrollmentId: legacy.enrollmentId,
+          credential,
+          idempotencyKey: 'guest-link-r-legacy',
+          expectedRevision: 1,
+          expectedParticipantManagementRevision: 1,
+          participantTarget: { kind: 'existing_managed', participantId },
+        })
+      );
+      expect(result.status).toBe('error');
+      if (result.status === 'error') {
+        expect(result.error.code).toBe('validation');
+      }
+
+      const enrollment = await readEnrollment(legacy.enrollmentId);
+      expect(enrollment?.guestAccountLink).toBeUndefined();
+    }, 30_000);
+
+    it('rejects link when payment payerAccountId is set to a different account than the linker', async () => {
+      await clearCollections(firestore);
+      await seedBase({ includeAccountB: true });
+
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-payer-mismatch-create');
+      await firestore.doc(`payments/${guest.paymentId}`).update({
+        payerAccountId: accountIdB,
+        revision: 2,
+      });
+
+      const result = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-payer-mismatch',
+          expectedRevision: guest.revision,
+          expectedParticipantManagementRevision: 1,
+          participantTarget: { kind: 'existing_managed', participantId },
+        })
+      );
+      expect(result.status).toBe('error');
+      if (result.status === 'error') {
+        expect(result.error.code).toBe('forbidden');
+      }
+
+      expect((await readEnrollment(guest.enrollmentId))?.guestAccountLink).toBeUndefined();
+    }, 30_000);
+
+    it('rejects credential nonce reuse with a different nonce after successful link', async () => {
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-nonce-reuse-create');
+      const first = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-nonce-reuse-first',
+          expectedRevision: guest.revision,
+          participantTarget: { kind: 'promote_guest' },
+        })
+      );
+      expect(first.status).toBe('success');
+
+      const linked = await readEnrollment(guest.enrollmentId);
+      const differentNonce = createGuestActionTokenNonce();
+      const differentSignature = signEnrollmentLinkCredential({
+        enrollmentId: guest.enrollmentId,
+        guestSubjectId: guest.credential.guestSubjectId,
+        expiresAt: guest.credential.expiresAt,
+        nonce: differentNonce,
+      });
+      const replayWithDifferentNonce = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: {
+            nonce: differentNonce,
+            signature: differentSignature,
+          },
+          idempotencyKey: 'guest-link-nonce-reuse-second',
+          expectedRevision: AggregateRevisionSchema.parse((linked?.revision as number) ?? 2),
+          participantTarget: { kind: 'promote_guest' },
+        })
+      );
+      expect(replayWithDifferentNonce.status).toBe('error');
+      if (replayWithDifferentNonce.status === 'error') {
+        expect(replayWithDifferentNonce.error.code).toBe('unauthorized');
+      }
+    }, 30_000);
+
+    it('accepts link credential just before expiresAt and rejects at/after finalCourseDayEndsAt', async () => {
+      const createCommandsAt = createCommands('2026-01-01T00:00:00.000Z');
+      const guest = await createGuestEnrollment(createCommandsAt, 'guest-link-expiry-create');
+      const confirmedRevision = await setGuestEnrollmentLifecycleForEmulator(
+        guest.enrollmentId,
+        guest.revision,
+        { status: 'confirmed' }
+      );
+      const beforeExpiryCommands = createCommands('2026-02-01T04:59:59.999Z');
+      const atExpiryCommands = createCommands('2026-02-01T05:00:00.000Z');
+      const afterExpiryCommands = createCommands('2026-02-01T05:00:00.001Z');
+
+      const beforeResult = await beforeExpiryCommands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-expiry-before',
+          expectedRevision: confirmedRevision,
+          participantTarget: { kind: 'promote_guest' },
+        })
+      );
+      expect(beforeResult.status).toBe('success');
+
+      const guestAtExpiry = await createGuestEnrollment(
+        createCommandsAt,
+        'guest-link-expiry-create-at',
+        guestParticipantIdTwo
+      );
+      const confirmedAtRevision = await setGuestEnrollmentLifecycleForEmulator(
+        guestAtExpiry.enrollmentId,
+        guestAtExpiry.revision,
+        { status: 'confirmed' }
+      );
+      const atResult = await atExpiryCommands.execute(
+        linkEnvelope({
+          enrollmentId: guestAtExpiry.enrollmentId,
+          credential: guestAtExpiry.credential,
+          idempotencyKey: 'guest-link-expiry-at',
+          expectedRevision: confirmedAtRevision,
+          participantTarget: { kind: 'promote_guest' },
+        })
+      );
+      expect(atResult.status).toBe('error');
+      if (atResult.status === 'error') {
+        expect(atResult.error.code).toBe('unauthorized');
+      }
+      expect((await readEnrollment(guestAtExpiry.enrollmentId))?.guestAccountLink).toBeUndefined();
+
+      const guestAfterExpiry = await createGuestEnrollment(
+        createCommandsAt,
+        'guest-link-expiry-create-after',
+        guestParticipantIdThree
+      );
+      const confirmedAfterRevision = await setGuestEnrollmentLifecycleForEmulator(
+        guestAfterExpiry.enrollmentId,
+        guestAfterExpiry.revision,
+        { status: 'confirmed' }
+      );
+      const afterResult = await afterExpiryCommands.execute(
+        linkEnvelope({
+          enrollmentId: guestAfterExpiry.enrollmentId,
+          credential: guestAfterExpiry.credential,
+          idempotencyKey: 'guest-link-expiry-after',
+          expectedRevision: confirmedAfterRevision,
+          participantTarget: { kind: 'promote_guest' },
+        })
+      );
+      expect(afterResult.status).toBe('error');
+      if (afterResult.status === 'error') {
+        expect(afterResult.error.code).toBe('unauthorized');
+      }
+      expect(
+        (await readEnrollment(guestAfterExpiry.enrollmentId))?.guestAccountLink
+      ).toBeUndefined();
+    }, 30_000);
+
+    it('allows promote_guest after course start while participant-changing link remains forbidden', async () => {
+      const preStartCommands = createCommands('2026-01-01T00:00:00.000Z');
+      const postStartCommands = createCommands('2026-02-01T04:00:00.000Z');
+      const guest = await createGuestEnrollment(preStartCommands, 'guest-link-post-start-create');
+      const linkableRevision = await setGuestEnrollmentLifecycleForEmulator(
+        guest.enrollmentId,
+        guest.revision,
+        { status: 'confirmed' }
+      );
+      const dayClaimsBefore = await listParticipantCourseDayClaims(guestParticipantId);
+      const guardBefore = await readActiveEnrollmentGuard(courseId, guestParticipantId);
+
+      const promoteResult = await postStartCommands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-post-start-promote',
+          expectedRevision: linkableRevision,
+          participantTarget: { kind: 'promote_guest' },
+        })
+      );
+      expect(promoteResult.status).toBe('success');
+
+      const enrollment = await readEnrollment(guest.enrollmentId);
+      const payment = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+      const participant = (await firestore.doc(`participants/${guestParticipantId}`).get()).data();
+      const dayClaimsAfter = await listParticipantCourseDayClaims(guestParticipantId);
+
+      expect(enrollment?.participantId).toBe(guestParticipantId);
+      expect(enrollment?.attribution).toEqual(guest.attribution);
+      expect(participant?.management?.kind).toBe('managed');
+      expect(payment?.payerAccountId).toBe(accountId);
+      expect(dayClaimsAfter.length).toBe(dayClaimsBefore.length);
+      expect(await readActiveEnrollmentGuard(courseId, guestParticipantId)).toEqual(guardBefore);
+
+      const guestTwo = await createGuestEnrollment(
+        preStartCommands,
+        'guest-link-post-start-create-two',
+        guestParticipantIdTwo
+      );
+      const guestTwoLinkableRevision = await setGuestEnrollmentLifecycleForEmulator(
+        guestTwo.enrollmentId,
+        guestTwo.revision,
+        { status: 'confirmed' }
+      );
+      const blockedResult = await postStartCommands.execute(
+        linkEnvelope({
+          enrollmentId: guestTwo.enrollmentId,
+          credential: guestTwo.credential,
+          idempotencyKey: 'guest-link-post-start-existing-managed',
+          expectedRevision: guestTwoLinkableRevision,
+          expectedParticipantManagementRevision: 1,
+          participantTarget: { kind: 'existing_managed', participantId },
+        })
+      );
+      expect(blockedResult.status).toBe('error');
+      if (blockedResult.status === 'error') {
+        expect(blockedResult.error.code).toBe('invalid_transition');
+      }
+      expect((await readEnrollment(guestTwo.enrollmentId))?.guestAccountLink).toBeUndefined();
+    }, 30_000);
+
+    it('grants post-link account authority through request_course_enrollment_cancellation despite guest provenance', async () => {
+      const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+      const guest = await createGuestEnrollment(
+        setupCommands,
+        'guest-link-lifecycle-authority-create'
+      );
+      const confirmedRevision = await setGuestEnrollmentLifecycleForEmulator(
+        guest.enrollmentId,
+        guest.revision,
+        { status: 'confirmed' }
+      );
+
+      const linkCommands = createCommands('2026-01-15T12:00:00.000Z');
+      const linkResult = await linkCommands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-lifecycle-authority-link',
+          expectedRevision: confirmedRevision,
+          participantTarget: { kind: 'promote_guest' },
+        })
+      );
+      expect(linkResult.status).toBe('success');
+
+      const linked = await readEnrollment(guest.enrollmentId);
+      expect(linked?.attribution?.bookingOrigin).toBe('guest');
+      expect(linked?.attribution?.bookedBy).toEqual(guest.attribution.bookedBy);
+      expect(linked?.guestAccountLink?.linkedAccountId).toBe(accountId);
+
+      const resolvedManagementId = participantManagementIdFromGuestLink({
+        participantId: guestParticipantId,
+        accountId,
+      });
+      const management = (
+        await firestore.doc(`participant_management/${resolvedManagementId}`).get()
+      ).data();
+      expect(management?.status).toBe('active');
+      expect(management?.accountId).toBe(accountId);
+      expect(management?.participantId).toBe(guestParticipantId);
+
+      await firestore.doc(`users/${accountIdB}`).set(seedAccountRecord(accountIdB));
+
+      const cancelCommands = createCommands(within2dBeforeStart);
+      const linkedRevision = AggregateRevisionSchema.parse(linked?.revision as number);
+
+      const accountBResult = await cancelCommands.execute(
+        cancelEnrollmentEnvelope({
+          enrollmentId: guest.enrollmentId,
+          idempotencyKey: 'guest-link-lifecycle-authority-cancel-b',
+          expectedRevision: linkedRevision,
+          actorAccountId: accountIdB,
+          correlation: correlationIdB,
+        })
+      );
+      expect(accountBResult.status).toBe('error');
+      if (accountBResult.status === 'error') {
+        expect(accountBResult.error.code).toBe('forbidden');
+      }
+
+      const accountAResult = await cancelCommands.execute(
+        cancelEnrollmentEnvelope({
+          enrollmentId: guest.enrollmentId,
+          idempotencyKey: 'guest-link-lifecycle-authority-cancel-a',
+          expectedRevision: linkedRevision,
+        })
+      );
+      expect(accountAResult.status).toBe('success');
+
+      const afterCancel = await readEnrollment(guest.enrollmentId);
+      expect(afterCancel?.lifecycle?.status).toBe('pending_cancellation');
+      expect(afterCancel?.attribution?.bookingOrigin).toBe('guest');
+      expect(afterCancel?.attribution?.bookedBy).toEqual(guest.attribution.bookedBy);
+    }, 30_000);
+
+    it('replays same persisted nonce with a new command identity without duplicate domain mutations', async () => {
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-same-nonce-create');
+      const first = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-same-nonce-first',
+          expectedRevision: guest.revision,
+          participantTarget: { kind: 'promote_guest' },
+        })
+      );
+      expect(first.status).toBe('success');
+      const linkedAfterFirst = await readEnrollment(guest.enrollmentId);
+      const paymentAfterFirst = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+      const countsAfterFirst = await durableCounts();
+
+      const second = await commands.execute(
+        linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: 'guest-link-same-nonce-second',
+          expectedRevision: AggregateRevisionSchema.parse(
+            (linkedAfterFirst?.revision as number) ?? 2
+          ),
+          participantTarget: { kind: 'promote_guest' },
+        })
+      );
+      expect(second.status).toBe('success');
+
+      const linkedAfterSecond = await readEnrollment(guest.enrollmentId);
+      const paymentAfterSecond = (await firestore.doc(`payments/${guest.paymentId}`).get()).data();
+      const countsAfterSecond = await durableCounts();
+
+      expect(linkedAfterSecond).toEqual(linkedAfterFirst);
+      expect(paymentAfterSecond).toEqual(paymentAfterFirst);
+      expect(countsAfterSecond.enrollments).toBe(countsAfterFirst.enrollments);
+      expect(countsAfterSecond.payments).toBe(countsAfterFirst.payments);
+      expect(countsAfterSecond.claims).toBe(countsAfterFirst.claims);
+      expect(countsAfterSecond.enrollmentGuards).toBe(countsAfterFirst.enrollmentGuards);
+      expect(countsAfterSecond.successfulIdempotency).toBe(
+        countsAfterFirst.successfulIdempotency + 1
+      );
+    }, 30_000);
   }
 );

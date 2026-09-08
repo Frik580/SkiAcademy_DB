@@ -70,6 +70,11 @@ function createWorkspace(
     overlappingBooking: null,
     overlappingCourse: null,
     totalCost: 20000,
+    additionalParticipantSurchargePerHourKzt: 6000,
+    maxParticipantsPerLesson: 4,
+    pricingSettingsLoading: false,
+    lessonSettingsUnavailable: false,
+    participantSelectionExceedsMax: false,
     managedParticipants: [selfOnly],
     managedParticipantsLoading: false,
     managedParticipantsError: undefined,
@@ -145,6 +150,22 @@ describe('AuthBookingForm participant picker', () => {
 
     expect(screen.getByText('bookingParticipantsLabel')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /payConfirmLesson/i })).toBeEnabled();
+  });
+
+  it('shows a clear validation and blocks submit when cached selection exceeds current max', () => {
+    render(
+      <AuthBookingForm
+        workspace={createWorkspace({
+          managedParticipants: [selfOnly, dependent],
+          selectedParticipantIds: ['participant_self', 'participant_dependent'],
+          maxParticipantsPerLesson: 1,
+          participantSelectionExceedsMax: true,
+        })}
+      />
+    );
+
+    expect(screen.getByText('Too many participants selected. Maximum: 1.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /payConfirmLesson/i })).toBeDisabled();
   });
 
   it('blocks submit during empty loading without showing an empty picker list', () => {

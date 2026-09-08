@@ -10,7 +10,10 @@ import {
   InstructorIdSchema,
   ParticipantIdSchema,
 } from '../identifiers';
-import { BookingLifecycleStatusSchema, LessonDifficultySchema } from '../bookingOccurrenceProposalChange';
+import {
+  BookingLifecycleStatusSchema,
+  LessonDifficultySchema,
+} from '../bookingOccurrenceProposalChange';
 import { AggregateRevisionSchema, IanaTimeZoneSchema, TimeIntervalSchema } from '../primitives';
 
 export const ADMIN_PLANNER_READ_MODEL_PAGE_SIZE_MAX = 500;
@@ -60,6 +63,8 @@ export const AdminPlannerOccupancyItemSchema = z
     revision: AggregateRevisionSchema.optional(),
     bookingId: BookingIdSchema.optional(),
     participantId: ParticipantIdSchema.optional(),
+    participantIds: z.array(ParticipantIdSchema).min(1).optional(),
+    participantNames: z.array(z.string().trim().min(1).max(200)).min(1).optional(),
     payerAccountId: AccountIdSchema.optional(),
     isGuest: z.boolean().optional(),
     courseId: CourseIdSchema.optional(),

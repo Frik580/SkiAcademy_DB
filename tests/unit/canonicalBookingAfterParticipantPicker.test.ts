@@ -121,6 +121,8 @@ function createFixtureFirestore(): Firestore {
   ]);
 
   return {
+    getAll: async (...documentRefs: Array<{ get: () => Promise<unknown> }>) =>
+      Promise.all(documentRefs.map((documentRef) => documentRef.get())),
     collection: (name: string) => ({
       doc: (id: string) => ({
         get: async () => {
@@ -224,6 +226,15 @@ describe('canonical booking after managed participant picker read model', () => 
         createdAt: decidedAt,
         updatedAt: decidedAt,
       }),
+      'lesson_pricing_settings/lesson_booking': {
+        settingsId: 'lesson_booking',
+        additionalParticipantSurchargePerHourKzt: 6_000,
+        maxParticipantsPerLesson: 2,
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit,
+      },
     });
 
     const picker = await queryManagedParticipantPickerReadModels(

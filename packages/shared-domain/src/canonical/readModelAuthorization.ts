@@ -1,15 +1,25 @@
-import type { Account, InstructorRelationship, Participant, ParticipantBlock, ParticipantManagement } from './accountParticipantAccess';
+import type {
+  Account,
+  InstructorRelationship,
+  Participant,
+  ParticipantBlock,
+  ParticipantManagement,
+} from './accountParticipantAccess';
 import {
   evaluateParticipantManagementAccess,
   isParticipantInstructorPairBlockedForNewService,
   participantBlockActorKey,
   type ParticipantAccessTopology,
 } from './accountParticipantAccess';
-import type { Booking, BookingChangeRequest, BookingProposal } from './bookingOccurrenceProposalChange';
+import type {
+  Booking,
+  BookingChangeRequest,
+  BookingProposal,
+} from './bookingOccurrenceProposalChange';
 import {
   evaluateClientCancellationTiming,
-  isConfirmedIndividualBooking,
-  isPendingCancellationIndividualBooking,
+  isConfirmedBooking,
+  isPendingCancellationBooking,
   isTerminalBookingLifecycle,
 } from './bookingCancellationPolicy';
 import { isBookingProposalExpired, resolveBookingProposalExpiresAt } from './bookingProposalPolicy';
@@ -19,7 +29,14 @@ import {
   isClientSelfServiceRescheduleAllowanceAvailable,
   isRescheduleEligibleBooking,
 } from './bookingReschedulePolicy';
-import type { AccountId, AttendanceId, CourseDayId, InstructorId, ParticipantId, ParticipantManagementId } from './identifiers';
+import type {
+  AccountId,
+  AttendanceId,
+  CourseDayId,
+  InstructorId,
+  ParticipantId,
+  ParticipantManagementId,
+} from './identifiers';
 import { sortedCourseDays } from './courseEnrollmentCreation';
 import type { CanonicalTimestamp } from './primitives';
 import type {
@@ -40,7 +57,13 @@ import {
   isTerminalCourseEnrollmentLifecycle,
 } from './courseEnrollmentCancellationPolicy';
 import { isCourseEnrollmentAllowedBeforeStart } from './courseEnrollmentCreation';
-import type { AdminIssue, Attendance, Course, CourseDay, CourseEnrollment } from './courseEnrollmentAttendanceAdminIssue';
+import type {
+  AdminIssue,
+  Attendance,
+  Course,
+  CourseDay,
+  CourseEnrollment,
+} from './courseEnrollmentAttendanceAdminIssue';
 import {
   assertCourseDayInstructorAttendanceWindow,
   courseDayAttendanceMatchesCurrentOccurrence,
@@ -128,8 +151,7 @@ export function evaluateAdminIssueAuthorizedActions(
       case 'reconcile_subject':
         return (
           hasSubject &&
-          (input.issue.kind !== 'attendance_payment_conflict' ||
-            (hasPayment && hasAttendance))
+          (input.issue.kind !== 'attendance_payment_conflict' || (hasPayment && hasAttendance))
         );
       case 'record_attendance':
       case 'resolve_cancellation':
@@ -204,15 +226,17 @@ function participantBlockCreatorMatchesInstructor(
   return block.createdBy.instructorId === actor.instructorId;
 }
 
-export function evaluateLessonBookingAuthorizedActions(input: Readonly<{
-  actor: ReadModelAccountManagerActor;
-  account: Account | undefined;
-  participant: Participant | undefined;
-  management: ParticipantManagement | undefined;
-  booking: Booking;
-  topology: ParticipantAccessTopology;
-  now: CanonicalTimestamp;
-}>): LessonBookingReadModelAuthorizedActions {
+export function evaluateLessonBookingAuthorizedActions(
+  input: Readonly<{
+    actor: ReadModelAccountManagerActor;
+    account: Account | undefined;
+    participant: Participant | undefined;
+    management: ParticipantManagement | undefined;
+    booking: Booking;
+    topology: ParticipantAccessTopology;
+    now: CanonicalTimestamp;
+  }>
+): LessonBookingReadModelAuthorizedActions {
   const denied = {
     canRequestCancellation: false,
     canWithdrawCancellation: false,
@@ -239,11 +263,11 @@ export function evaluateLessonBookingAuthorizedActions(input: Readonly<{
   });
 
   const canRequestCancellation =
-    isConfirmedIndividualBooking(input.booking) &&
+    isConfirmedBooking(input.booking) &&
     !isTerminalBookingLifecycle(input.booking) &&
     timing !== 'after_start_rejected';
 
-  const canWithdrawCancellation = isPendingCancellationIndividualBooking(input.booking);
+  const canWithdrawCancellation = isPendingCancellationBooking(input.booking);
 
   const rescheduleTiming = evaluateClientSelfServiceRescheduleTiming({
     requestAt: input.now,
@@ -266,15 +290,17 @@ export function evaluateLessonBookingAuthorizedActions(input: Readonly<{
   };
 }
 
-export function evaluateBookingProposalAuthorizedActions(input: Readonly<{
-  actor: ReadModelActor;
-  proposal: BookingProposal;
-  account?: Account;
-  participant?: Participant;
-  management?: ParticipantManagement;
-  topology?: ParticipantAccessTopology;
-  now: CanonicalTimestamp;
-}>): BookingProposalReadModelAuthorizedActions {
+export function evaluateBookingProposalAuthorizedActions(
+  input: Readonly<{
+    actor: ReadModelActor;
+    proposal: BookingProposal;
+    account?: Account;
+    participant?: Participant;
+    management?: ParticipantManagement;
+    topology?: ParticipantAccessTopology;
+    now: CanonicalTimestamp;
+  }>
+): BookingProposalReadModelAuthorizedActions {
   const denied = { canAccept: false, canDecline: false, canWithdraw: false };
 
   if (input.proposal.lifecycle.status !== 'open') {
@@ -328,11 +354,13 @@ export function evaluateBookingProposalAuthorizedActions(input: Readonly<{
   };
 }
 
-export function evaluateBookingChangeRequestAuthorizedActions(input: Readonly<{
-  actor: ReadModelActor;
-  changeRequest: BookingChangeRequest;
-  booking: Booking;
-}>): BookingChangeRequestReadModelAuthorizedActions {
+export function evaluateBookingChangeRequestAuthorizedActions(
+  input: Readonly<{
+    actor: ReadModelActor;
+    changeRequest: BookingChangeRequest;
+    booking: Booking;
+  }>
+): BookingChangeRequestReadModelAuthorizedActions {
   if (input.changeRequest.lifecycle.status !== 'open') {
     return { canWithdraw: false };
   }
@@ -348,17 +376,19 @@ export function evaluateBookingChangeRequestAuthorizedActions(input: Readonly<{
   };
 }
 
-export function evaluateParticipantInstructorAccessAuthorizedActions(input: Readonly<{
-  actor: ReadModelActor;
-  account?: Account;
-  participant: Participant;
-  management?: ParticipantManagement;
-  relationship?: InstructorRelationship;
-  managerBlock?: ParticipantBlock;
-  instructorBlock?: ParticipantBlock;
-  instructorId: InstructorId;
-  now: CanonicalTimestamp;
-}>): ParticipantInstructorAccessReadModelAuthorizedActions {
+export function evaluateParticipantInstructorAccessAuthorizedActions(
+  input: Readonly<{
+    actor: ReadModelActor;
+    account?: Account;
+    participant: Participant;
+    management?: ParticipantManagement;
+    relationship?: InstructorRelationship;
+    managerBlock?: ParticipantBlock;
+    instructorBlock?: ParticipantBlock;
+    instructorId: InstructorId;
+    now: CanonicalTimestamp;
+  }>
+): ParticipantInstructorAccessReadModelAuthorizedActions {
   const denied = {
     canCreateRelationship: false,
     canRevokeRelationship: false,
@@ -410,9 +440,7 @@ export function evaluateParticipantInstructorAccessAuthorizedActions(input: Read
     ],
   };
 
-  if (
-    !accountManagerAccessAllowed(topology, input.actor, input.participant.participantId)
-  ) {
+  if (!accountManagerAccessAllowed(topology, input.actor, input.participant.participantId)) {
     return denied;
   }
 
@@ -447,10 +475,12 @@ export function evaluateParticipantInstructorAccessAuthorizedActions(input: Read
   };
 }
 
-export function sanitizeParticipantBlockReasonForReadModel(input: Readonly<{
-  actor: ReadModelActor;
-  block: ParticipantBlock | undefined;
-}>): string | undefined {
+export function sanitizeParticipantBlockReasonForReadModel(
+  input: Readonly<{
+    actor: ReadModelActor;
+    block: ParticipantBlock | undefined;
+  }>
+): string | undefined {
   if (!input.block || input.block.status !== 'active') {
     return undefined;
   }
@@ -468,16 +498,18 @@ export function sanitizeParticipantBlockReasonForReadModel(input: Readonly<{
   return input.block.reason;
 }
 
-export function evaluateCourseEnrollmentAuthorizedActions(input: Readonly<{
-  actor: ReadModelAccountManagerActor;
-  account: Account | undefined;
-  participant: Participant | undefined;
-  management: ParticipantManagement | undefined;
-  enrollment: CourseEnrollment;
-  course: Course;
-  topology: ParticipantAccessTopology;
-  now: CanonicalTimestamp;
-}>): CourseEnrollmentReadModelAuthorizedActions {
+export function evaluateCourseEnrollmentAuthorizedActions(
+  input: Readonly<{
+    actor: ReadModelAccountManagerActor;
+    account: Account | undefined;
+    participant: Participant | undefined;
+    management: ParticipantManagement | undefined;
+    enrollment: CourseEnrollment;
+    course: Course;
+    topology: ParticipantAccessTopology;
+    now: CanonicalTimestamp;
+  }>
+): CourseEnrollmentReadModelAuthorizedActions {
   const denied = { canWithdraw: false, canRequestCancellation: false };
 
   if (
@@ -517,11 +549,13 @@ export function evaluateCourseEnrollmentAuthorizedActions(input: Readonly<{
   };
 }
 
-export function resolveInstructorCourseAssignmentProjection(input: Readonly<{
-  instructorId: InstructorId;
-  course: Course;
-  courseDays: readonly CourseDay[];
-}>): { readonly allowed: boolean; readonly assignedCourseDayIds: readonly CourseDayId[] } {
+export function resolveInstructorCourseAssignmentProjection(
+  input: Readonly<{
+    instructorId: InstructorId;
+    course: Course;
+    courseDays: readonly CourseDay[];
+  }>
+): { readonly allowed: boolean; readonly assignedCourseDayIds: readonly CourseDayId[] } {
   const onRoster = input.course.instructorRosterIds.includes(input.instructorId);
   const orderedDays = sortedCourseDays(input.courseDays);
   if (onRoster) {
@@ -540,11 +574,13 @@ export function resolveInstructorCourseAssignmentProjection(input: Readonly<{
   };
 }
 
-export function evaluateInstructorCourseRosterReadAccess(input: Readonly<{
-  instructorId: InstructorId;
-  course: Course;
-  courseDays: readonly CourseDay[];
-}>): { readonly allowed: boolean } {
+export function evaluateInstructorCourseRosterReadAccess(
+  input: Readonly<{
+    instructorId: InstructorId;
+    course: Course;
+    courseDays: readonly CourseDay[];
+  }>
+): { readonly allowed: boolean } {
   return { allowed: resolveInstructorCourseAssignmentProjection(input).allowed };
 }
 
@@ -555,24 +591,28 @@ export function isInstructorActiveRosterEnrollment(
   return status === 'confirmed' || status === 'pending_cancellation';
 }
 
-export function evaluateInstructorCourseEnrollmentRosterAuthorizedActions(input: Readonly<{
-  instructorId: InstructorId;
-  course: Course;
-  courseDays: readonly CourseDay[];
-}>): InstructorCourseEnrollmentRosterAuthorizedActions {
+export function evaluateInstructorCourseEnrollmentRosterAuthorizedActions(
+  input: Readonly<{
+    instructorId: InstructorId;
+    course: Course;
+    courseDays: readonly CourseDay[];
+  }>
+): InstructorCourseEnrollmentRosterAuthorizedActions {
   const access = evaluateInstructorCourseRosterReadAccess(input);
   return {
     canRecordAttendance: access.allowed,
   };
 }
 
-export function evaluateCourseAttendanceAuthorizedActions(input: Readonly<{
-  actor: ReadModelInstructorActor;
-  enrollment: CourseEnrollment;
-  courseDay: CourseDay;
-  existingAttendance: Attendance | undefined;
-  now: CanonicalTimestamp;
-}>): CourseAttendanceReadModelAuthorizedActions {
+export function evaluateCourseAttendanceAuthorizedActions(
+  input: Readonly<{
+    actor: ReadModelInstructorActor;
+    enrollment: CourseEnrollment;
+    courseDay: CourseDay;
+    existingAttendance: Attendance | undefined;
+    now: CanonicalTimestamp;
+  }>
+): CourseAttendanceReadModelAuthorizedActions {
   const denied = { canRecordAttendance: false };
 
   if (!instructorAssignedToCourseDay(input.courseDay, input.actor.instructorId)) {
@@ -621,10 +661,12 @@ export function evaluateCourseAttendanceAuthorizedActions(input: Readonly<{
   return { canRecordAttendance: true };
 }
 
-export function evaluateCourseCatalogEnrollmentEligibility(input: Readonly<{
-  now: CanonicalTimestamp;
-  course: Course;
-}>): boolean {
+export function evaluateCourseCatalogEnrollmentEligibility(
+  input: Readonly<{
+    now: CanonicalTimestamp;
+    course: Course;
+  }>
+): boolean {
   if (input.course.lifecycle !== 'active') {
     return false;
   }

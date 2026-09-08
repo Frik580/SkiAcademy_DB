@@ -58,18 +58,22 @@ export async function queryManagedParticipantPickerReadModels(
     .limit(50)
     .get();
 
-  const items: ManagedParticipantPickerItem[] = [];
-  for (const doc of managementSnap.docs) {
-    const parsedManagement = ParticipantManagementSchema.safeParse(doc.data());
-    if (!parsedManagement.success || parsedManagement.data.status !== 'active') {
-      continue;
-    }
-    const management = parsedManagement.data;
+  const managements = managementSnap.docs
+    .map((doc) => ParticipantManagementSchema.safeParse(doc.data()))
+    .flatMap((parsed) => (parsed.success && parsed.data.status === 'active' ? [parsed.data] : []));
+  const participantSnapshots =
+    managements.length === 0
+      ? []
+      : await firestore.getAll(
+          ...managements.map((management) =>
+            firestore.collection('participants').doc(management.participantId)
+          )
+        );
 
-    const participantSnap = await firestore
-      .collection('participants')
-      .doc(management.participantId)
-      .get();
+  const items: ManagedParticipantPickerItem[] = [];
+  for (let index = 0; index < managements.length; index += 1) {
+    const management = managements[index]!;
+    const participantSnap = participantSnapshots[index]!;
     const participant = parseParticipant(
       participantSnap.data() as Record<string, unknown> | undefined
     );

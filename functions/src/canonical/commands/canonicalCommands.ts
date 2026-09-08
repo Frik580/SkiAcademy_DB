@@ -46,6 +46,7 @@ import {
 } from '../courses';
 import type { GuestBookingCommandEnvironment } from '../bookings/guestBookingCommands';
 import type { GuestCourseEnrollmentCommandEnvironment } from '../courses/guestCourseEnrollmentLifecycle';
+import { createLessonPricingSettingsCommandHandlers } from '../pricing/lessonPricingSettingsCommands';
 
 export type CommandHandler<Kind extends CommandKind> = (
   envelope: CommandEnvelope<Kind>,
@@ -187,6 +188,7 @@ export function createProductionCanonicalCommands(
     ...createIdentityAdministrationCommandHandlers(executor),
     ...createAdministrativeAvailabilityBlockCommandHandlers(executor),
     ...createFinanceCommandHandlers(executor, options.monetaryEventLoader),
+    ...createLessonPricingSettingsCommandHandlers(executor),
     ...createBookingCommandHandlers(executor),
     ...createBookingRescheduleCommandHandlers(executor),
     ...createGuestBookingCommandHandlers(executor, options.guestActionTokenSecret),

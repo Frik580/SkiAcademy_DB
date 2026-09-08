@@ -12,7 +12,7 @@ import {
   INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS,
   addMillisecondsToCanonicalTimestamp,
   activityLogIdFromCommandId,
-  calculateFamilyGroupBookingPriceKzt,
+  calculateLessonPartyPriceKzt,
   incrementalRequirementIdFromPartyAddition,
   paymentIdFromBookingId,
   resolveCommandIdempotencyIdentity,
@@ -25,7 +25,10 @@ import {
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
-import { createInMemoryCanonicalTransactionExecutor, type CanonicalTransactionExecutor } from '../transactions';
+import {
+  createInMemoryCanonicalTransactionExecutor,
+  type CanonicalTransactionExecutor,
+} from '../transactions';
 
 const correlationId = CorrelationIdSchema.parse('correlation_party_cmd_01');
 const accountId = AccountIdSchema.parse('account_party_cmd_01');
@@ -55,7 +58,8 @@ function accountContext(
     exercisedCapability: capability,
     idempotencyKey,
     correlationId,
-    source: capability === 'administrator' ? ('admin_callable' as const) : ('client_callable' as const),
+    source:
+      capability === 'administrator' ? ('admin_callable' as const) : ('client_callable' as const),
     ...(expectedRevision === undefined
       ? {}
       : { expectedRevision: AggregateRevisionSchema.parse(expectedRevision) }),
@@ -178,6 +182,19 @@ function seedBase(walletBalance = 50_000) {
       pricePerHourKZT: 12_000,
       isAvailable: true,
     },
+    'lesson_pricing_settings/lesson_booking': {
+      settingsId: 'lesson_booking',
+      additionalParticipantSurchargePerHourKzt: 6_000,
+      maxParticipantsPerLesson: 8,
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_pricing',
+        lastChangedByCommandId: 'command_seed_pricing',
+        correlationId,
+      },
+    },
     [`users/${accountId}/wallet/state`]: WalletSchema.parse({
       accountId,
       currency: 'KZT',
@@ -221,7 +238,10 @@ function createAbortFirstTransactionCallbackExecutor(
 async function createConfirmedBooking(
   executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>
 ) {
-  const commands = createProductionCanonicalCommands(environment('2026-01-01T00:00:00.000Z'), executor);
+  const commands = createProductionCanonicalCommands(
+    environment('2026-01-01T00:00:00.000Z'),
+    executor
+  );
   const result = await commands.execute({
     kind: 'create_confirmed_booking',
     context: accountContext('account_owner', accountId, 'create-booking-party-01'),
@@ -230,18 +250,16 @@ async function createConfirmedBooking(
   expect(result.status).toBe('success');
 }
 
-function partyEnvelope(
-  input: {
-    idempotencyKey: string;
-    capability?: 'account_owner' | 'administrator';
-    actorAccountId?: typeof accountId | typeof adminAccountId;
-    expectedRevision?: number;
-    participantIdsToAdd?: (typeof participantId | typeof participantTwoId)[];
-    participantIdsToRemove?: (typeof participantId | typeof participantTwoId)[];
-    refundPercentBasisPoints?: number;
-    reasonExplanation?: string;
-  }
-): CommandEnvelope<'change_booking_party'> {
+function partyEnvelope(input: {
+  idempotencyKey: string;
+  capability?: 'account_owner' | 'administrator';
+  actorAccountId?: typeof accountId | typeof adminAccountId;
+  expectedRevision?: number;
+  participantIdsToAdd?: (typeof participantId | typeof participantTwoId)[];
+  participantIdsToRemove?: (typeof participantId | typeof participantTwoId)[];
+  refundPercentBasisPoints?: number;
+  reasonExplanation?: string;
+}): CommandEnvelope<'change_booking_party'> {
   return {
     kind: 'change_booking_party',
     context: accountContext(
@@ -253,7 +271,9 @@ function partyEnvelope(
     intent: {
       bookingId,
       ...(input.participantIdsToAdd ? { participantIdsToAdd: input.participantIdsToAdd } : {}),
-      ...(input.participantIdsToRemove ? { participantIdsToRemove: input.participantIdsToRemove } : {}),
+      ...(input.participantIdsToRemove
+        ? { participantIdsToRemove: input.participantIdsToRemove }
+        : {}),
       ...(input.refundPercentBasisPoints !== undefined
         ? { refundPercentBasisPoints: input.refundPercentBasisPoints }
         : {}),
@@ -266,8 +286,8 @@ describe('booking party commands', () => {
   it('self-service add >=24h funds full tariff delta and acquires participant claim', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
-    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.interval
-      .startsAt;
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence
+      .interval.startsAt;
     const requestAt = addMillisecondsToCanonicalTimestamp(
       startsAt,
       -INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS
@@ -276,7 +296,10 @@ describe('booking party commands', () => {
       idempotencyKey: 'party-add-01',
       participantIdsToAdd: [participantTwoId],
     });
-    const commands = createProductionCanonicalCommands(environment(isoFromTimestamp(requestAt)), executor);
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
     const result = await commands.execute(envelope);
     expect(result.status).toBe('success');
 
@@ -304,28 +327,36 @@ describe('booking party commands', () => {
     expect(
       [...snapshot.docs.keys()].filter((path) => path.startsWith('resource_claims/')).length
     ).toBe(3);
-    expect(snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)).toBe(
-      true
-    );
+    expect(
+      snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
+    ).toBe(true);
     expect(booking?.attribution.bookingOrigin).toBe('account');
   });
 
   it('rejects self-service add with insufficient wallet funds without mutation', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase(17_000));
     await createConfirmedBooking(executor);
-    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.interval
-      .startsAt;
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence
+      .interval.startsAt;
     const requestAt = addMillisecondsToCanonicalTimestamp(
       startsAt,
       -INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS
     );
-    const commands = createProductionCanonicalCommands(environment(isoFromTimestamp(requestAt)), executor);
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
     const result = await commands.execute(
-      partyEnvelope({ idempotencyKey: 'party-add-insufficient', participantIdsToAdd: [participantTwoId] })
+      partyEnvelope({
+        idempotencyKey: 'party-add-insufficient',
+        participantIdsToAdd: [participantTwoId],
+      })
     );
     expect(result.status).toBe('error');
     const snapshot = executor.snapshot();
-    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.party.participantIds).toEqual([participantId]);
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.party.participantIds).toEqual([
+      participantId,
+    ]);
     expect(snapshot.docs.get(`payments/${paymentId}`)?.data.price).toBe(12_000);
     expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(5_000);
     expect(
@@ -336,18 +367,28 @@ describe('booking party commands', () => {
   it('self-service remove >=24h refunds full tariff difference', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
-    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.interval
-      .startsAt;
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence
+      .interval.startsAt;
     const requestAt = addMillisecondsToCanonicalTimestamp(
       startsAt,
       -INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS
     );
-    let commands = createProductionCanonicalCommands(environment(isoFromTimestamp(requestAt)), executor);
-    await commands.execute(
-      partyEnvelope({ idempotencyKey: 'party-add-for-remove', participantIdsToAdd: [participantTwoId] })
+    let commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
     );
-    const walletAfterAdd = executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance;
-    commands = createProductionCanonicalCommands(environment(isoFromTimestamp(requestAt)), executor);
+    await commands.execute(
+      partyEnvelope({
+        idempotencyKey: 'party-add-for-remove',
+        participantIdsToAdd: [participantTwoId],
+      })
+    );
+    const walletAfterAdd = executor.snapshot().docs.get(`users/${accountId}/wallet/state`)
+      ?.data.balance;
+    commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
     const removeEnvelope = partyEnvelope({
       idempotencyKey: 'party-remove-01',
       participantIdsToRemove: [participantTwoId],
@@ -356,18 +397,28 @@ describe('booking party commands', () => {
     const result = await commands.execute(removeEnvelope);
     expect(result.status).toBe('success');
     const snapshot = executor.snapshot();
-    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.party.participantIds).toEqual([participantId]);
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.party.participantIds).toEqual([
+      participantId,
+    ]);
     expect(snapshot.docs.get(`payments/${paymentId}`)?.data.price).toBe(12_000);
-    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(walletAfterAdd + 6_000);
+    expect(snapshot.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
+      walletAfterAdd + 6_000
+    );
     expect(snapshot.docs.get(`payments/${paymentId}`)?.data.settledAmount).toBe(12_000);
   });
 
   it('rejects self-service party change inside 24h', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
-    const commands = createProductionCanonicalCommands(environment('2026-01-14T09:00:01.000Z'), executor);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-14T09:00:01.000Z'),
+      executor
+    );
     const result = await commands.execute(
-      partyEnvelope({ idempotencyKey: 'party-late-client', participantIdsToAdd: [participantTwoId] })
+      partyEnvelope({
+        idempotencyKey: 'party-late-client',
+        participantIdsToAdd: [participantTwoId],
+      })
     );
     expect(result.status).toBe('error');
   });
@@ -375,7 +426,10 @@ describe('booking party commands', () => {
   it('allows admin late add with partial wallet funding and incremental requirement', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase(16_000));
     await createConfirmedBooking(executor);
-    const commands = createProductionCanonicalCommands(environment('2026-01-14T09:00:01.000Z'), executor);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-14T09:00:01.000Z'),
+      executor
+    );
     const envelope = partyEnvelope({
       idempotencyKey: 'party-admin-late-add',
       capability: 'administrator',
@@ -397,7 +451,10 @@ describe('booking party commands', () => {
   it('rolls back only unpaid added participant at service start', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase(16_000));
     await createConfirmedBooking(executor);
-    let commands = createProductionCanonicalCommands(environment('2026-01-14T09:00:01.000Z'), executor);
+    let commands = createProductionCanonicalCommands(
+      environment('2026-01-14T09:00:01.000Z'),
+      executor
+    );
     await commands.execute(
       partyEnvelope({
         idempotencyKey: 'party-admin-late-add-rollback',
@@ -438,13 +495,16 @@ describe('booking party commands', () => {
   it('rejects self-service party change from unrelated account', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
-    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.interval
-      .startsAt;
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence
+      .interval.startsAt;
     const requestAt = addMillisecondsToCanonicalTimestamp(
       startsAt,
       -INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS
     );
-    const commands = createProductionCanonicalCommands(environment(isoFromTimestamp(requestAt)), executor);
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
     const result = await commands.execute(
       partyEnvelope({
         idempotencyKey: 'party-unauthorized',
@@ -458,7 +518,10 @@ describe('booking party commands', () => {
   it('freezes service party when rollback finds no unpaid additions', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
-    const commands = createProductionCanonicalCommands(environment('2026-01-15T09:00:00.000Z'), executor);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T09:00:00.000Z'),
+      executor
+    );
     const rollbackEnvelope: CommandEnvelope<'rollback_unpaid_booking_party_additions'> = {
       kind: 'rollback_unpaid_booking_party_additions',
       context: {
@@ -482,13 +545,16 @@ describe('booking party commands', () => {
     const inner = createInMemoryCanonicalTransactionExecutor(seedBase(), { simulateRetry: true });
     const executor = createAbortFirstTransactionCallbackExecutor(inner);
     await createConfirmedBooking(executor);
-    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.interval
-      .startsAt;
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence
+      .interval.startsAt;
     const requestAt = addMillisecondsToCanonicalTimestamp(
       startsAt,
       -INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS
     );
-    const commands = createProductionCanonicalCommands(environment(isoFromTimestamp(requestAt)), executor);
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
     const result = await commands.execute(
       partyEnvelope({
         idempotencyKey: 'party-retry-claim-safe',
@@ -497,15 +563,16 @@ describe('booking party commands', () => {
     );
     expect(result.status).toBe('success');
     expect(
-      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('resource_claims/')).length
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('resource_claims/'))
+        .length
     ).toBe(3);
   });
 
   it('replays successful party add without duplicate refund or claim', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
-    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.interval
-      .startsAt;
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence
+      .interval.startsAt;
     const requestAt = addMillisecondsToCanonicalTimestamp(
       startsAt,
       -INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS
@@ -514,16 +581,21 @@ describe('booking party commands', () => {
       idempotencyKey: 'party-replay-add',
       participantIdsToAdd: [participantTwoId],
     });
-    const commands = createProductionCanonicalCommands(environment(isoFromTimestamp(requestAt)), executor);
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
     await commands.execute(envelope);
-    const walletAfterFirst = executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance;
+    const walletAfterFirst = executor.snapshot().docs.get(`users/${accountId}/wallet/state`)
+      ?.data.balance;
     const replay = await commands.execute(envelope);
     expect(replay.status).toBe('success');
     expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
       walletAfterFirst
     );
     expect(
-      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/')).length
+      [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/'))
+        .length
     ).toBe(2);
   });
 });
@@ -531,7 +603,13 @@ describe('booking party commands', () => {
 describe('family group tariff command expectations', () => {
   it('uses nonlinear tariff not individual times count', () => {
     const individual = KztMinorUnitsSchema.parse(12_000);
-    expect(calculateFamilyGroupBookingPriceKzt(individual, 2)).not.toBe(24_000);
-    expect(calculateFamilyGroupBookingPriceKzt(individual, 2)).toBe(18_000);
+    expect(
+      calculateLessonPartyPriceKzt({
+        baseLessonPriceKzt: individual,
+        additionalParticipantSurchargePerHourKzt: KztMinorUnitsSchema.parse(6_000),
+        participantCount: 2,
+        lessonDurationMinutes: 60,
+      })
+    ).toBe(18_000);
   });
 });

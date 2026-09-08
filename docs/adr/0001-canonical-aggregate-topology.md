@@ -147,19 +147,20 @@ A dependent Participant may have exactly one active managing owner Account. A se
 
 Administrator capability to manage a Participant operationally does not create a Participant management owner relationship. Multiple guardian Accounts are not permitted in canonical v1. The relationship collection is intentionally extensible so a future ADR can introduce additional guardian roles or multiple active grants without replacing Participant or relationship document identity; such support requires an explicit policy change and cannot be enabled by merely writing another active relationship.
 
-## Decision 3: Booking owns a bounded participant-reference party
+## Decision 3: Booking owns a participant-reference party
 
 1. **Current model.** Booking has one `userId` and no Participant composition. Individual/family/group distinction, per-Participant Attendance, participant-count tariff, and Participant conflict claims are absent.
 2. **Problem.** A scalar Account-like identity cannot represent one family/group lifecycle with several attendees, one price decision, and separate Attendance and schedule claims.
 3. **Viable alternatives.** Create one Booking per Participant; create a separate BookingParty aggregate with membership documents; embed complete Participant profiles; or keep a versioned array of Participant references inside Booking.
-4. **Decision.** Booking owns `participantIds[]`. It contains between 1 and 8 unique Participant IDs in canonical v1. One means an Individual Lesson; two through eight means a Family/Group Lesson. Participant data may be copied only as explicitly non-authoritative historical/display snapshots.
-5. **Why preferred.** Composition, lifecycle, tariff, Payment delta, and resource acquisition change together. Keeping bounded membership in the root makes one atomic state transition natural and avoids a separate shallow aggregate with no independent lifecycle.
+4. **Decision.** Booking owns a non-empty array of unique `participantIds[]`. One means an Individual Lesson; two or more means a Family/Group Lesson. The maximum allowed for new lesson creation is read from canonical lesson settings and is not a persisted Booking-schema upper bound. Participant data may be copied only as explicitly non-authoritative historical/display snapshots.
+5. **Why preferred.** Composition, lifecycle, tariff, Payment delta, and resource acquisition change together. Keeping membership in the root makes one atomic state transition natural and avoids a separate shallow aggregate with no independent lifecycle.
 6. **Consequences.** Every party member receives an independent Participant schedule claim and Attendance record. Booking outcome still follows the canonical family/group rule. Composition versioning and audited add/remove operations preserve history without making Participant profiles part of Booking.
-7. **Firestore implications.** `participantIds` is stored on `/bookings/{bookingId}` and supports participant-scoped queries through an array-membership index or prepared read model. The fixed maximum prevents unbounded document and transaction growth. Increasing the maximum requires transaction-capacity and tariff review, not a schema replacement.
+7. **Firestore implications.** `participantIds` is stored on `/bookings/{bookingId}` and supports participant-scoped queries through an array-membership index or prepared read model. Canonical settings provide the mutable business maximum for new lesson creation. The transaction planner separately rejects an actual operation that exceeds technical Firestore safety budgets.
 8. **Clean-cutover implications.** Legacy scalar `userId` parties are not transformed. All canonical Bookings are created with `participantIds[]` through canonical commands or canonical test fixtures.
 9. **Seed implications.** No Booking or family/group party is included in the reference-data seed.
 10. **Transactions and security rules.** Create and composition-change commands validate all Participant management rights, blocks, conflicts, tariff changes, Payment deltas, and claims before committing. All participants succeed or none are written. Clients cannot directly change `participantIds`.
 11. **Rejected alternatives.** One Booking per Participant breaks family tariff and lifecycle atomicity. A separate BookingParty aggregate adds cross-document consistency without independent behavior. Embedded authoritative profiles duplicate Participant identity and progress.
+12. **F3 creation boundary.** Multi-participant lesson creation is enabled for canonical authenticated/managed Participants. Guest creation remains exactly one unmanaged Participant and one guest contact until a separate multi-guest identity slice is approved. This boundary does not narrow the Booking schema: all Booking-level lifecycle, Payment, claim release, cancellation, expiry, and reconciliation rules operate over `participantIds[]` without assuming one member.
 
 ## Decision 4: Account/UserProfile, bookedBy, payerAccountId, and Instructor remain distinct
 
@@ -235,7 +236,7 @@ Administrator capability to manage a Participant operationally does not create a
 
 Canonical commands may coordinate several aggregate roots and supporting representations in one Firestore transaction when a single approved business operation requires atomicity. A Course Enrollment operation can touch Enrollment, active guard, Participant management/access evidence, Course and Course Days, seat and schedule claims, Payment, Wallet and monetary events, capacity projection, one immutable Activity Log, required outbox obligations, and idempotency. Multi-Participant Course enrollment repeats the Participant-specific portions for each enrollment and remains all-or-nothing.
 
-The implementation must preflight bounded operation size. Canonical v1 Booking party size is limited to eight Participants. [ADR-0002](./0002-server-command-transaction-and-resource-model.md) defines claim encoding and supported Course Day/enrollment transaction bounds. If an operation cannot satisfy Firestore limits while preserving approved atomicity, the command fails safely; it does not silently degrade into a partially committed saga.
+The implementation must preflight operation size. Canonical lesson settings define the business maximum for new Booking parties; the Booking aggregate itself has no hardcoded business maximum. [ADR-0002](./0002-server-command-transaction-and-resource-model.md) defines claim encoding and technical transaction budgets. If an operation cannot satisfy Firestore limits while preserving approved atomicity, the command fails safely; it does not silently degrade into a partially committed saga.
 
 ## Global security consequences
 

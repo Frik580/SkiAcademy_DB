@@ -15,9 +15,15 @@ import {
 } from './identifiers';
 import { CanonicalRecordMetadataSchema } from './accountParticipantAccess';
 import {
+  calculateLessonPartyPriceKzt,
+  LessonDurationMinutesSchema,
+  lessonDurationMinutesFromInterval,
+} from './lessonPricingSettings';
+import {
   AggregateRevisionSchema,
   CanonicalTimestampSchema,
   IanaTimeZoneSchema,
+  KztMinorUnitsSchema,
   TimeIntervalSchema,
   compareCanonicalTimestamps,
   type CanonicalTimestamp,
@@ -35,7 +41,6 @@ export const BOOKING_PARTY_KINDS = ['individual', 'family_group'] as const;
 export type BookingPartyKind = (typeof BOOKING_PARTY_KINDS)[number];
 
 export const BOOKING_PARTY_MIN = 1 as const;
-export const BOOKING_PARTY_MAX = 8 as const;
 
 export const BOOKING_LIFECYCLE_STATUSES = [
   'pending',
@@ -170,9 +175,7 @@ function addEventChronologyIssue(
   }
 }
 
-function duplicateParticipantIndexes(
-  participantIds: readonly ParticipantId[]
-): readonly number[] {
+function duplicateParticipantIndexes(participantIds: readonly ParticipantId[]): readonly number[] {
   const firstIndexById = new Map<string, number>();
   const duplicates: number[] = [];
   participantIds.forEach((participantId, index) => {
@@ -194,7 +197,10 @@ export function containsLegacyBookingFields(input: unknown): boolean {
   if (!input || typeof input !== 'object') return false;
   const record = input as Record<string, unknown>;
   if (record.status === 'withdrawn') return true;
-  if (typeof record.instructorId === 'string' && isSyntheticCourseInstructorId(record.instructorId)) {
+  if (
+    typeof record.instructorId === 'string' &&
+    isSyntheticCourseInstructorId(record.instructorId)
+  ) {
     return true;
   }
   return LEGACY_BOOKING_FIELD_NAMES.some((field) => record[field] !== undefined);
@@ -232,7 +238,10 @@ export function validateBookingAttribution(
     case 'account':
     case 'instructor':
       if (attribution.bookedBy.kind !== 'account') {
-        add('bookedBy', `${attribution.bookingOrigin} bookingOrigin requires an Account bookedBy actor`);
+        add(
+          'bookedBy',
+          `${attribution.bookingOrigin} bookingOrigin requires an Account bookedBy actor`
+        );
       }
       return;
     case 'admin':
@@ -250,13 +259,6 @@ export function validateBookingPartyParticipantIds(
       code: 'custom',
       path: basePath,
       message: 'Booking party must contain at least one Participant',
-    });
-  }
-  if (participantIds.length > BOOKING_PARTY_MAX) {
-    context.addIssue({
-      code: 'custom',
-      path: basePath,
-      message: 'Booking party must contain at most eight Participants',
     });
   }
   for (const index of duplicateParticipantIndexes(participantIds)) {
@@ -326,12 +328,14 @@ export const ImmutableBookingAttributionSchema = z
     validateBookingAttribution(attribution, context);
   });
 
-export type ImmutableBookingAttribution = Readonly<z.output<typeof ImmutableBookingAttributionSchema>>;
+export type ImmutableBookingAttribution = Readonly<
+  z.output<typeof ImmutableBookingAttributionSchema>
+>;
 
 export const BookingPartySchema = z
   .object({
     kind: BookingPartyKindSchema,
-    participantIds: z.array(ParticipantIdSchema).min(BOOKING_PARTY_MIN).max(BOOKING_PARTY_MAX),
+    participantIds: z.array(ParticipantIdSchema).min(BOOKING_PARTY_MIN),
   })
   .strict()
   .superRefine((party, context) => {
@@ -343,17 +347,12 @@ export type BookingParty = Readonly<z.output<typeof BookingPartySchema>>;
 
 export const BookingServicePartySchema = z
   .object({
-    participantIds: z
-      .array(ParticipantIdSchema)
-      .min(BOOKING_PARTY_MIN)
-      .max(BOOKING_PARTY_MAX),
+    participantIds: z.array(ParticipantIdSchema).min(BOOKING_PARTY_MIN),
     frozenAt: CanonicalTimestampSchema.optional(),
   })
   .strict()
   .superRefine((serviceParty, context) => {
-    validateBookingPartyParticipantIds(serviceParty.participantIds, context, [
-      'participantIds',
-    ]);
+    validateBookingPartyParticipantIds(serviceParty.participantIds, context, ['participantIds']);
   });
 
 export type BookingServiceParty = Readonly<z.output<typeof BookingServicePartySchema>>;
@@ -381,39 +380,39 @@ export const BookingOccurrenceSchema = z
 export type BookingOccurrence = Readonly<z.output<typeof BookingOccurrenceSchema>>;
 
 const BookingLifecycleSchema = z.discriminatedUnion('status', [
-    z
-      .object({
-        status: z.literal('pending'),
-        reservationExpiresAt: CanonicalTimestampSchema,
-      })
-      .strict(),
-    z.object({ status: z.literal('confirmed') }).strict(),
-    z
-      .object({
-        status: z.literal('pending_cancellation'),
-        requestedAt: CanonicalTimestampSchema,
-      })
-      .strict(),
-    z
-      .object({
-        status: z.literal('cancelled'),
-        cancelledAt: CanonicalTimestampSchema,
-        reasonCode: BookingCancellationReasonCodeSchema,
-      })
-      .strict(),
-    z
-      .object({
-        status: z.literal('completed'),
-        completedAt: CanonicalTimestampSchema,
-      })
-      .strict(),
-    z
-      .object({
-        status: z.literal('no_show'),
-        noShowAt: CanonicalTimestampSchema,
-      })
-      .strict(),
-  ]);
+  z
+    .object({
+      status: z.literal('pending'),
+      reservationExpiresAt: CanonicalTimestampSchema,
+    })
+    .strict(),
+  z.object({ status: z.literal('confirmed') }).strict(),
+  z
+    .object({
+      status: z.literal('pending_cancellation'),
+      requestedAt: CanonicalTimestampSchema,
+    })
+    .strict(),
+  z
+    .object({
+      status: z.literal('cancelled'),
+      cancelledAt: CanonicalTimestampSchema,
+      reasonCode: BookingCancellationReasonCodeSchema,
+    })
+    .strict(),
+  z
+    .object({
+      status: z.literal('completed'),
+      completedAt: CanonicalTimestampSchema,
+    })
+    .strict(),
+  z
+    .object({
+      status: z.literal('no_show'),
+      noShowAt: CanonicalTimestampSchema,
+    })
+    .strict(),
+]);
 
 export type BookingLifecycle = Readonly<z.output<typeof BookingLifecycleSchema>>;
 
@@ -434,14 +433,11 @@ export const LESSON_DIFFICULTIES = [
 
 export const LessonDifficultySchema = z.enum(LESSON_DIFFICULTIES);
 
-export const BookingLessonNotesSchema = z.preprocess(
-  (value) => {
-    if (typeof value !== 'string') return value;
-    const trimmed = value.trim();
-    return trimmed.length === 0 ? undefined : trimmed;
-  },
-  z.string().max(1_000).optional()
-);
+export const BookingLessonNotesSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? undefined : trimmed;
+}, z.string().max(1_000).optional());
 
 export function lessonContentFields(input: {
   readonly difficulty?: z.output<typeof LessonDifficultySchema>;
@@ -465,6 +461,54 @@ export const BookingSchema = z
     occurrence: BookingOccurrenceSchema,
     lifecycle: BookingLifecycleSchema,
     paymentId: PaymentIdSchema,
+    pricingSnapshot: z
+      .object({
+        strategyVersion: z.literal('lesson_party:v1'),
+        baseLessonPriceKzt: KztMinorUnitsSchema,
+        additionalParticipantSurchargePerHourKzt: KztMinorUnitsSchema.optional(),
+        settingsRevision: PersistedAggregateRevisionSchema.optional(),
+        lessonDurationMinutes: LessonDurationMinutesSchema,
+        participantCount: z.number().int().min(BOOKING_PARTY_MIN),
+        totalPriceKzt: KztMinorUnitsSchema,
+      })
+      .strict()
+      .superRefine((snapshot, context) => {
+        if (
+          (snapshot.additionalParticipantSurchargePerHourKzt === undefined) !==
+          (snapshot.settingsRevision === undefined)
+        ) {
+          context.addIssue({
+            code: 'custom',
+            path: ['settingsRevision'],
+            message: 'Surcharge and settings revision must be snapshotted together',
+          });
+        }
+        if (
+          snapshot.additionalParticipantSurchargePerHourKzt === undefined &&
+          snapshot.participantCount !== 1
+        ) {
+          context.addIssue({
+            code: 'custom',
+            path: ['additionalParticipantSurchargePerHourKzt'],
+            message: 'Multi-participant pricing requires a surcharge snapshot',
+          });
+        }
+        const expectedTotal = calculateLessonPartyPriceKzt({
+          baseLessonPriceKzt: snapshot.baseLessonPriceKzt,
+          additionalParticipantSurchargePerHourKzt:
+            snapshot.additionalParticipantSurchargePerHourKzt ?? KztMinorUnitsSchema.parse(0),
+          participantCount: snapshot.participantCount,
+          lessonDurationMinutes: snapshot.lessonDurationMinutes,
+        });
+        if (snapshot.totalPriceKzt !== expectedTotal) {
+          context.addIssue({
+            code: 'custom',
+            path: ['totalPriceKzt'],
+            message: 'Pricing snapshot total must match the lesson party formula',
+          });
+        }
+      })
+      .optional(),
     payerAccountId: AccountIdSchema.optional(),
     difficulty: LessonDifficultySchema.optional(),
     notes: BookingLessonNotesSchema,
@@ -483,14 +527,32 @@ export const BookingSchema = z
       booking.occurrence.serviceParty.participantIds,
       context
     );
+    if (
+      booking.pricingSnapshot &&
+      booking.pricingSnapshot.participantCount !== booking.party.participantIds.length
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['pricingSnapshot', 'participantCount'],
+        message: 'Pricing snapshot participant count must match the Booking party',
+      });
+    }
+    if (
+      booking.pricingSnapshot &&
+      booking.pricingSnapshot.lessonDurationMinutes !==
+        lessonDurationMinutesFromInterval(booking.occurrence.interval)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['pricingSnapshot', 'lessonDurationMinutes'],
+        message: 'Pricing snapshot duration must match the Booking occurrence interval',
+      });
+    }
     validateBookingOriginLifecycleConsistency(booking.attribution, booking.lifecycle, context);
 
     if (booking.lifecycle.status === 'pending') {
       if (
-        compareCanonicalTimestamps(
-          booking.lifecycle.reservationExpiresAt,
-          booking.createdAt
-        ) < 0
+        compareCanonicalTimestamps(booking.lifecycle.reservationExpiresAt, booking.createdAt) < 0
       ) {
         context.addIssue({
           code: 'custom',
@@ -532,7 +594,12 @@ export const BookingSchema = z
       );
     }
     if (booking.archival) {
-      addEventChronologyIssue(booking.archival.deletedAt, ['archival', 'deletedAt'], booking, context);
+      addEventChronologyIssue(
+        booking.archival.deletedAt,
+        ['archival', 'deletedAt'],
+        booking,
+        context
+      );
     }
   });
 
@@ -671,7 +738,12 @@ export const BookingChangeRequestSchema = z
       addEventChronologyIssue(lifecycle.resolvedAt, ['lifecycle', 'resolvedAt'], request, context);
     }
     if (lifecycle.status === 'cancelled') {
-      addEventChronologyIssue(lifecycle.cancelledAt, ['lifecycle', 'cancelledAt'], request, context);
+      addEventChronologyIssue(
+        lifecycle.cancelledAt,
+        ['lifecycle', 'cancelledAt'],
+        request,
+        context
+      );
     }
   });
 
@@ -734,7 +806,10 @@ export const LegacyBookingShapeSchema = z
         message: 'withdrawn is not a canonical Booking lifecycle status',
       });
     }
-    if (typeof value.instructorId === 'string' && isSyntheticCourseInstructorId(value.instructorId)) {
+    if (
+      typeof value.instructorId === 'string' &&
+      isSyntheticCourseInstructorId(value.instructorId)
+    ) {
       context.addIssue({
         code: 'custom',
         path: ['instructorId'],

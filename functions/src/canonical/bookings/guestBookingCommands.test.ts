@@ -161,6 +161,25 @@ function runCommands(
 }
 
 describe('create_guest_booking_request command', () => {
+  it('keeps guest creation single-participant at the guest boundary', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const commands = runCommands(executor);
+    const anotherGuestParticipantId = ParticipantIdSchema.parse('participant_guest_cmd_02');
+    const result = await commands.execute(
+      guestCreateEnvelope({
+        intent: {
+          bookingId,
+          instructorId,
+          participantIds: [participantId, anotherGuestParticipantId],
+        },
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') expect(result.error.code).toBe('validation');
+    expect(executor.snapshot().docs.has(`bookings/${bookingId}`)).toBe(false);
+    expect(executor.snapshot().docs.has(`payments/${paymentId}`)).toBe(false);
+  });
+
   it('creates a pending guest booking with payment and claims', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
     const commands = runCommands(executor);
@@ -1331,6 +1350,19 @@ describe('guest booking schedule occupancy guards', () => {
         createdAt: decidedAt,
         updatedAt: decidedAt,
       }),
+      'lesson_pricing_settings/lesson_booking': {
+        settingsId: 'lesson_booking',
+        additionalParticipantSurchargePerHourKzt: 6_000,
+        maxParticipantsPerLesson: 1,
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_pricing',
+          lastChangedByCommandId: 'command_seed_pricing',
+          correlationId,
+        },
+      },
       [`participants/${localParticipantId}`]: {
         participantId: localParticipantId,
         displayName: 'Existing Participant',

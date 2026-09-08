@@ -30,8 +30,8 @@ export function resolveBookingCreationAuthorization(
   envelope: CommandEnvelope<'create_confirmed_booking'>,
   input: Readonly<{
     account: Account;
-    participant: Participant;
-    management: ParticipantManagement;
+    participants: readonly Participant[];
+    managements: readonly ParticipantManagement[];
   }>
 ): BookingCreationAuthorization {
   const actor = requireAccountActor(envelope);
@@ -44,14 +44,26 @@ export function resolveBookingCreationAuthorization(
       });
     }
     assertAdministrator(envelope);
-    if (input.participant.management.kind !== 'managed') {
+    if (
+      input.participants.length === 0 ||
+      input.participants.some((participant) => participant.management.kind !== 'managed') ||
+      input.managements.length !== input.participants.length
+    ) {
       throw new CanonicalCommandError('forbidden', {
         correlationId: envelope.context.correlationId,
         details: { resourceKind: 'participant', reason: 'conflict' },
       });
     }
-    const payerAccountId = envelope.intent.payerAccountId ?? input.management.accountId;
-    if (payerAccountId !== input.management.accountId && payerAccountId !== actor.accountId) {
+    const managedAccountIds = new Set(input.managements.map((management) => management.accountId));
+    if (managedAccountIds.size !== 1) {
+      throw new CanonicalCommandError('forbidden', {
+        correlationId: envelope.context.correlationId,
+        details: { resourceKind: 'participant', reason: 'conflict' },
+      });
+    }
+    const managedAccountId = input.managements[0]!.accountId;
+    const payerAccountId = envelope.intent.payerAccountId ?? managedAccountId;
+    if (payerAccountId !== managedAccountId && payerAccountId !== actor.accountId) {
       throw new CanonicalCommandError('forbidden', {
         correlationId: envelope.context.correlationId,
         details: { field: 'payerAccountId', reason: 'conflict' },
@@ -61,7 +73,7 @@ export function resolveBookingCreationAuthorization(
       mode: 'administrator',
       actorAccountId: actor.accountId,
       payerAccountId,
-      bookedByAccountId: input.management.accountId,
+      bookedByAccountId: managedAccountId,
     };
   }
 
@@ -75,25 +87,30 @@ export function resolveBookingCreationAuthorization(
     });
   }
 
-  const access = assertAuthorizedParticipantManager(
-    envelope,
-    input,
-    input.participant.participantId
+  const authorities = input.participants.map((participant, index) => {
+    const management = input.managements[index];
+    if (!management) {
+      throw new CanonicalCommandError('forbidden', {
+        correlationId: envelope.context.correlationId,
+      });
+    }
+    const access = assertAuthorizedParticipantManager(
+      envelope,
+      { account: input.account, participant, management },
+      participant.participantId
+    );
+    if (!access.allowed) {
+      throw new CanonicalCommandError('forbidden', {
+        correlationId: envelope.context.correlationId,
+      });
+    }
+    return access.authority;
+  });
+  const requiresGuardianCapability = authorities.some(
+    (authority) => authority === 'parent_guardian'
   );
-  if (!access.allowed) {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
-  if (access.authority === 'self' && envelope.context.exercisedCapability !== 'account_owner') {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
-  if (
-    access.authority === 'parent_guardian' &&
-    envelope.context.exercisedCapability !== 'parent_guardian'
-  ) {
+  const expectedCapability = requiresGuardianCapability ? 'parent_guardian' : 'account_owner';
+  if (envelope.context.exercisedCapability !== expectedCapability) {
     throw new CanonicalCommandError('forbidden', {
       correlationId: envelope.context.correlationId,
     });
@@ -115,15 +132,17 @@ export function resolveBookingCreationAuthorization(
   };
 }
 
-export function assertIndividualBookingParticipantCount(
+export function normalizeBookingParticipantIds(
   envelope: CommandEnvelope<'create_confirmed_booking'>
-): void {
-  if (envelope.intent.participantIds.length !== 1) {
+): CommandEnvelope<'create_confirmed_booking'>['intent']['participantIds'] {
+  const unique = new Set(envelope.intent.participantIds);
+  if (unique.size !== envelope.intent.participantIds.length) {
     throw new CanonicalCommandError('validation', {
       correlationId: envelope.context.correlationId,
-      details: { field: 'participantIds', reason: 'unsupported' },
+      details: { field: 'participantIds', reason: 'conflict' },
     });
   }
+  return [...unique].sort((left, right) => left.localeCompare(right));
 }
 
 export function assertBookingScheduleContext(

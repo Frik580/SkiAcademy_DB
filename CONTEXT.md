@@ -49,7 +49,7 @@ _Avoid_: Course Enrollment.
 A Booking for exactly one Participant.
 
 **Family/Group Lesson**:
-A Booking for multiple Participants, priced by a dedicated participant-count tariff and carrying Attendance for each Participant.
+A Booking for multiple Participants, priced as the base lesson price plus one configured flat KZT surcharge for every Participant after the first, and carrying Attendance for each Participant.
 
 **Course**:
 A group training product with explicit Course Days, price, instructors, content, capacity, and a `startAt` equal to the start of its first Course Day.
@@ -203,33 +203,33 @@ An Instructor never charges a Wallet or directly creates a confirmed client Book
 
 ### State-transition matrix
 
-| From                   | To                       | Actor                              | Required conditions and effects                                                                                                   |
-| ---------------------- | ------------------------ | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| —                      | `pending`                | Guest                              | Secure guest request; reserve resource until lesson TTL or `startAt`                                                              |
-| —                      | `confirmed`              | Account Owner                      | Full payment, all Participant and instructor checks pass                                                                          |
-| —                      | `confirmed`              | Administrator                      | Checks pass; underpayment allowed separately with reason and audit                                                                |
-| —                      | `confirmed`              | Account Owner accepting a proposal | Proposal checks and full charge succeed; origin remains `instructor`                                                              |
+| From                   | To                       | Actor                              | Required conditions and effects                                                                                                           |
+| ---------------------- | ------------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| —                      | `pending`                | Guest                              | Secure guest request; reserve resource until lesson TTL or `startAt`                                                                      |
+| —                      | `confirmed`              | Account Owner                      | Full payment, all Participant and instructor checks pass                                                                                  |
+| —                      | `confirmed`              | Administrator                      | Checks pass; underpayment allowed separately with reason and audit                                                                        |
+| —                      | `confirmed`              | Account Owner accepting a proposal | Proposal checks and full charge succeed; origin remains `instructor`                                                                      |
 | `pending`              | `confirmed`              | System or lifecycle command        | Payment-funded guest confirmation: pending + `isPaymentFullyFundedForService` + time/lifecycle guards; unpaid Admin override is forbidden |
-| `pending`              | `cancelled`              | Guest, Administrator, System       | Token cancellation, admin decision, or TTL/start expiration with explicit reason                                                  |
-| `confirmed`            | `cancelled`              | Account Owner                      | At least 24 hours before `startAt`; refund 100% of actually paid amount                                                           |
-| `confirmed`            | `cancelled`              | Administrator                      | Approved Booking Change Request or incomplete-payment resolution; required reason, audit, and refund no greater than `paidAmount` |
-| `confirmed`            | `pending_cancellation`   | Account Owner                      | Less than 24 hours but before `startAt`; never allowed after `startAt`                                                            |
-| `pending_cancellation` | `confirmed`              | Account Owner                      | Withdraw unprocessed request                                                                                                      |
-| `pending_cancellation` | `confirmed`              | Administrator                      | Reject request before `endsAt`                                                                                                    |
-| `pending_cancellation` | `cancelled`              | Administrator                      | Approve after choosing a 0–100% refund of actually paid amount                                                                    |
-| `confirmed`            | `completed`              | Instructor                         | After `endsAt` and within 24 hours; sufficient Attendance proves presence                                                         |
-| `confirmed`            | `no_show`                | Instructor                         | After `endsAt` and within 24 hours; sufficient Attendance proves absence                                                          |
-| `confirmed`            | `completed` or `no_show` | Administrator                      | After `endsAt`; sufficient Attendance and an audited resolution, override, or correction                                          |
-| `confirmed`            | `completed` or `no_show` | System                             | At least 24 hours after `endsAt`, no payment issue, and sufficient Attendance determines the outcome                              |
-| `pending_cancellation` | `completed` or `no_show` | Administrator                      | After `endsAt`, cancellation rejected, and sufficient Attendance determines the outcome                                           |
-| `completed`            | `no_show`                | Administrator                      | Audited error correction only                                                                                                     |
-| `no_show`              | `completed`              | Administrator                      | Audited error correction only                                                                                                     |
+| `pending`              | `cancelled`              | Guest, Administrator, System       | Token cancellation, admin decision, or TTL/start expiration with explicit reason                                                          |
+| `confirmed`            | `cancelled`              | Account Owner                      | At least 24 hours before `startAt`; refund 100% of actually paid amount                                                                   |
+| `confirmed`            | `cancelled`              | Administrator                      | Approved Booking Change Request or incomplete-payment resolution; required reason, audit, and refund no greater than `paidAmount`         |
+| `confirmed`            | `pending_cancellation`   | Account Owner                      | Less than 24 hours but before `startAt`; never allowed after `startAt`                                                                    |
+| `pending_cancellation` | `confirmed`              | Account Owner                      | Withdraw unprocessed request                                                                                                              |
+| `pending_cancellation` | `confirmed`              | Administrator                      | Reject request before `endsAt`                                                                                                            |
+| `pending_cancellation` | `cancelled`              | Administrator                      | Approve after choosing a 0–100% refund of actually paid amount                                                                            |
+| `confirmed`            | `completed`              | Instructor                         | After `endsAt` and within 24 hours; sufficient Attendance proves presence                                                                 |
+| `confirmed`            | `no_show`                | Instructor                         | After `endsAt` and within 24 hours; sufficient Attendance proves absence                                                                  |
+| `confirmed`            | `completed` or `no_show` | Administrator                      | After `endsAt`; sufficient Attendance and an audited resolution, override, or correction                                                  |
+| `confirmed`            | `completed` or `no_show` | System                             | At least 24 hours after `endsAt`, no payment issue, and sufficient Attendance determines the outcome                                      |
+| `pending_cancellation` | `completed` or `no_show` | Administrator                      | After `endsAt`, cancellation rejected, and sufficient Attendance determines the outcome                                                   |
+| `completed`            | `no_show`                | Administrator                      | Audited error correction only                                                                                                             |
+| `no_show`              | `completed`              | Administrator                      | Audited error correction only                                                                                                             |
 
 `pending_cancellation` never auto-completes and remains unresolved until administration acts. Missing Attendance leaves `confirmed` and creates an Admin Issue; automation never guesses.
 
 ### Rescheduling
 
-An Account Owner has exactly one lifetime self-service reschedule for a confirmed individual lesson, available at least 24 hours before `startAt`. Only date/time may change; instructor, duration, and price remain fixed, and the new slot must pass every conflict and block check. Administrator reschedules neither consume nor restore this allowance.
+An Account Owner has exactly one lifetime self-service reschedule for a confirmed lesson Booking, available at least 24 hours before `startAt`. The policy is Booking-level and independent of party size. Only date/time may change; instructor, duration, and price remain fixed, and the new slot must pass every conflict and block check for every Participant. Administrator reschedules neither consume nor restore this allowance.
 
 Inside 24 hours, administration decides whether to reschedule without financial change or apply late-cancellation rules. Every reschedule atomically releases old locks, acquires new locks, updates the Booking, and writes audit history.
 
@@ -247,15 +247,19 @@ Existing price is a snapshot and does not follow later global tariff changes. On
 
 Attendance is recorded per Participant. At least one present Participant produces `completed`; all absent produces `no_show`. The approved rules do not introduce a separate family/group automation schedule.
 
+Canonical authenticated and Administrator-assisted lesson creation may select multiple actively managed Participants. Guest creation remains exactly one unmanaged guest Participant and one guest contact: multi-guest profiles, identity/linking/claim semantics, and multiple guest contacts are outside the current slice. This is only a guest-creation boundary; `Booking.participantIds[]`, the shared lifecycle, Payment, cancellation, expiry, and reconciliation do not assume a party size of one.
+
+The maximum size of a new authenticated/managed lesson party is `maxParticipantsPerLesson` in `/lesson_pricing_settings/lesson_booking`, alongside `additionalParticipantSurchargePerHourKzt`. It is a positive safe integer with no implicit default and no hardcoded business upper bound. The server reloads it in the creation transaction and is authoritative over cached picker UX. Reducing it affects new creation and later party additions only: an existing larger Booking remains valid, retains its Payment/pricing snapshot, and may be cancelled or rescheduled with the unchanged party under normal lifecycle rules. Technical transaction-plan budgets remain separate from this business setting.
+
 Entire Booking cancellation follows the Individual Booking policy: at least 24 hours before `startAt` it becomes `cancelled` with a 100% refund of actually paid money; inside 24 hours it becomes `pending_cancellation`.
 
 ### Composition changes
 
-Adding a second Participant converts an Individual Lesson to a Family/Group Lesson; returning to one Participant converts it back. The dedicated tariff is recalculated for every composition change, while instructor and time remain unchanged unless separately modified through an authorized workflow.
+Adding a second Participant converts an Individual Lesson to a Family/Group Lesson; returning to one Participant converts it back. Price uses the canonical formula `baseLessonPrice + additionalParticipantSurchargePerHourKzt × (participantCount - 1) × lessonDurationMinutes / 60` for every creation or authorized composition change, while instructor and time remain unchanged unless separately modified through an authorized workflow.
 
 At least 24 hours before `startAt`, the Account Owner may add a conflict-free Participant with full incremental payment or remove one with a full Wallet refund of the calculated difference. Inside 24 hours only administration may change composition; removal permits a reasoned 0–100% refund, and addition may create temporary underpayment.
 
-Each addition has its own payment obligation. An unpaid addition at `startAt` is rolled back without blocking fully paid Participants, after which type and tariff are recalculated.
+Each addition has its own per-hour surcharge payment obligation scaled by lesson duration. An unpaid addition at `startAt` is rolled back without blocking fully paid Participants, after which type and snapshotted pricing basis are recalculated.
 
 ## Course Enrollment lifecycle
 
@@ -263,31 +267,31 @@ Each Participant has a separate Course Enrollment. Enrolling several Participant
 
 ### State-transition matrix
 
-| From                   | To                       | Actor                        | Required conditions and effects                                                                        |
-| ---------------------- | ------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
-| —                      | `pending`                | Guest                        | Reserve one seat until course TTL or first `startAt`                                                   |
-| —                      | `confirmed`              | Account Owner                | Seats, Course Day conflicts, blocks, and full payment pass                                             |
-| —                      | `confirmed`              | Administrator                | Same nonfinancial checks; temporary underpayment allowed with reason and audit                         |
+| From                   | To                       | Actor                        | Required conditions and effects                                                                          |
+| ---------------------- | ------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
+| —                      | `pending`                | Guest                        | Reserve one seat until course TTL or first `startAt`                                                     |
+| —                      | `confirmed`              | Account Owner                | Seats, Course Day conflicts, blocks, and full payment pass                                               |
+| —                      | `confirmed`              | Administrator                | Same nonfinancial checks; temporary underpayment allowed with reason and audit                           |
 | `pending`              | `confirmed`              | System or lifecycle command  | Payment-funded guest confirmation; seat already reserved at creation; unpaid Admin override is forbidden |
-| `pending`              | `cancelled`              | Guest, Administrator, System | Token cancellation, admin decision, or TTL/start expiration                                            |
-| `confirmed`            | `cancelled`              | Account Owner                | At least 7 days before `startAt`; refund 100% of actually paid amount                                  |
-| `confirmed`            | `cancelled`              | Account Owner                | From exactly 2 days to less than 7 days before `startAt`; refund 50% of actually paid amount           |
-| `confirmed`            | `cancelled`              | Administrator                | Incomplete-payment resolution with required reason/refund decision; post-start capacity remains frozen |
-| `confirmed`            | `pending_cancellation`   | Account Owner                | Less than 2 days before or any time after `startAt`                                                    |
-| `pending_cancellation` | `confirmed`              | Account Owner                | Withdraw unprocessed request                                                                           |
-| `pending_cancellation` | `confirmed`              | Administrator                | Reject before Course completion                                                                        |
-| `pending_cancellation` | `cancelled`              | Administrator                | Approve with any refund greater than zero                                                              |
-| `pending_cancellation` | `withdrawn`              | Administrator                | Approve with zero refund                                                                               |
-| `confirmed`            | `withdrawn`              | Administrator                | Participation ends with zero refund                                                                    |
-| `confirmed`            | `completed`              | Instructor                   | After final Course Day and within 24 hours; at least one explicit `present`                            |
-| `confirmed`            | `no_show`                | Instructor                   | After final Course Day and within 24 hours; every Course Day explicitly `absent`                       |
-| `confirmed`            | `completed` or `no_show` | Administrator                | During the 24-hour window or later Admin Issue/correction; sufficient Attendance decides               |
-| `confirmed`            | `completed` or `no_show` | System                       | After 24 hours, no payment issue, and sufficient Attendance determines the outcome                     |
-| `pending_cancellation` | `completed`              | Administrator                | Request rejected after Course end and at least one explicit `present`                                  |
-| `pending_cancellation` | `no_show`                | Administrator                | Request rejected after Course end and all days explicitly `absent`                                     |
-| `withdrawn`            | `cancelled`              | Administrator                | Audited terminal correction when a later refund greater than zero is issued                            |
-| `completed`            | `no_show`                | Administrator                | Audited Attendance/error correction only                                                               |
-| `no_show`              | `completed`              | Administrator                | Audited Attendance/error correction only                                                               |
+| `pending`              | `cancelled`              | Guest, Administrator, System | Token cancellation, admin decision, or TTL/start expiration                                              |
+| `confirmed`            | `cancelled`              | Account Owner                | At least 7 days before `startAt`; refund 100% of actually paid amount                                    |
+| `confirmed`            | `cancelled`              | Account Owner                | From exactly 2 days to less than 7 days before `startAt`; refund 50% of actually paid amount             |
+| `confirmed`            | `cancelled`              | Administrator                | Incomplete-payment resolution with required reason/refund decision; post-start capacity remains frozen   |
+| `confirmed`            | `pending_cancellation`   | Account Owner                | Less than 2 days before or any time after `startAt`                                                      |
+| `pending_cancellation` | `confirmed`              | Account Owner                | Withdraw unprocessed request                                                                             |
+| `pending_cancellation` | `confirmed`              | Administrator                | Reject before Course completion                                                                          |
+| `pending_cancellation` | `cancelled`              | Administrator                | Approve with any refund greater than zero                                                                |
+| `pending_cancellation` | `withdrawn`              | Administrator                | Approve with zero refund                                                                                 |
+| `confirmed`            | `withdrawn`              | Administrator                | Participation ends with zero refund                                                                      |
+| `confirmed`            | `completed`              | Instructor                   | After final Course Day and within 24 hours; at least one explicit `present`                              |
+| `confirmed`            | `no_show`                | Instructor                   | After final Course Day and within 24 hours; every Course Day explicitly `absent`                         |
+| `confirmed`            | `completed` or `no_show` | Administrator                | During the 24-hour window or later Admin Issue/correction; sufficient Attendance decides                 |
+| `confirmed`            | `completed` or `no_show` | System                       | After 24 hours, no payment issue, and sufficient Attendance determines the outcome                       |
+| `pending_cancellation` | `completed`              | Administrator                | Request rejected after Course end and at least one explicit `present`                                    |
+| `pending_cancellation` | `no_show`                | Administrator                | Request rejected after Course end and all days explicitly `absent`                                       |
+| `withdrawn`            | `cancelled`              | Administrator                | Audited terminal correction when a later refund greater than zero is issued                              |
+| `completed`            | `no_show`                | Administrator                | Audited Attendance/error correction only                                                                 |
+| `no_show`              | `completed`              | Administrator                | Audited Attendance/error correction only                                                                 |
 
 `withdrawn` exists only for Courses, always means zero refund, and never returns to `confirmed`. `pending_cancellation` never auto-resolves. If there is no explicit `present` and any Course Day lacks Attendance, the enrollment remains `confirmed` with an Admin Issue; one explicit `present` is sufficient for `completed` even if other day records are missing.
 
@@ -362,26 +366,26 @@ When administration cancels for incomplete payment at `startAt`, it selects a re
 
 ## Roles and permissions matrix
 
-| Capability                       | Account Owner                                | Guest                  | Instructor                               | Administrator                   | System                                                    |
-| -------------------------------- | -------------------------------------------- | ---------------------- | ---------------------------------------- | ------------------------------- | --------------------------------------------------------- |
-| Manage Participant profiles      | Own account                                  | No                     | Authorized learning fields only          | Operational administration      | No                                                        |
-| Create lesson                    | Confirmed, fully paid                        | Pending request        | Proposal only                            | Confirmed; underpayment allowed | No independent authority                                  |
-| Create Course Enrollment         | Confirmed, fully paid                        | Pending request        | No                                       | Confirmed; underpayment allowed | No                                                        |
+| Capability                       | Account Owner                                | Guest                  | Instructor                               | Administrator                                                                   | System                                                     |
+| -------------------------------- | -------------------------------------------- | ---------------------- | ---------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Manage Participant profiles      | Own account                                  | No                     | Authorized learning fields only          | Operational administration                                                      | No                                                         |
+| Create lesson                    | Confirmed, fully paid                        | Pending request        | Proposal only                            | Confirmed; underpayment allowed                                                 | No independent authority                                   |
+| Create Course Enrollment         | Confirmed, fully paid                        | Pending request        | No                                       | Confirmed; underpayment allowed                                                 | No                                                         |
 | Confirm guest request            | No                                           | No                     | No                                       | Lifecycle command only after Payment is fully funded; unpaid override forbidden | Same-transaction payment confirmation; rare reconciliation |
-| Link guest identity              | Self-service where already authorized        | No                     | No                                       | `existing_managed` to an eligible managed Participant; does not confirm | No                                                        |
-| Cancel guest pending             | No                                           | Through secure token   | No                                       | Yes                             | On expiry                                                 |
-| Cancel/request cancellation      | Policy-bound owned records                   | Pending token only     | No                                       | Decide/correct with audit       | Expiry only                                               |
-| Record Attendance                | No                                           | No                     | Assigned/authorized training             | Yes/correct                     | No guessing                                               |
-| Set `completed`/`no_show`        | No                                           | No                     | After service with sufficient Attendance | Yes with audit                  | After 24h with sufficient Attendance and no payment issue |
-| Set Course `withdrawn`           | No                                           | No                     | No                                       | Yes, zero refund only           | No                                                        |
-| Reschedule                       | One eligible self-service lesson change      | No                     | Change Request only                      | Yes with checks/audit           | No                                                        |
-| Change instructor/duration/price | No                                           | No                     | No                                       | Yes with reason/checks/audit    | No                                                        |
-| Change participant composition   | Policy-bound add/remove                      | No                     | No                                       | Yes with reason/checks/audit    | Roll back an unpaid addition at `startAt`                 |
-| Transfer Course Enrollment       | No                                           | No                     | No                                       | Before both Courses start       | No                                                        |
-| Create proposal                  | No                                           | No                     | For self and authorized Participant      | No                              | No                                                        |
-| Manage own block/permission      | As Parent/Guardian for a managed Participant | No                     | Instructor block                         | Cannot override                 | Expiry enforcement                                        |
-| View financial detail            | Own account                                  | Booking-scoped summary | Payment-required operational flag only   | Yes                             | Automation only                                           |
-| Archive terminal record          | No                                           | No                     | No                                       | Yes                             | No                                                        |
+| Link guest identity              | Self-service where already authorized        | No                     | No                                       | `existing_managed` to an eligible managed Participant; does not confirm         | No                                                         |
+| Cancel guest pending             | No                                           | Through secure token   | No                                       | Yes                                                                             | On expiry                                                  |
+| Cancel/request cancellation      | Policy-bound owned records                   | Pending token only     | No                                       | Decide/correct with audit                                                       | Expiry only                                                |
+| Record Attendance                | No                                           | No                     | Assigned/authorized training             | Yes/correct                                                                     | No guessing                                                |
+| Set `completed`/`no_show`        | No                                           | No                     | After service with sufficient Attendance | Yes with audit                                                                  | After 24h with sufficient Attendance and no payment issue  |
+| Set Course `withdrawn`           | No                                           | No                     | No                                       | Yes, zero refund only                                                           | No                                                         |
+| Reschedule                       | One eligible self-service lesson change      | No                     | Change Request only                      | Yes with checks/audit                                                           | No                                                         |
+| Change instructor/duration/price | No                                           | No                     | No                                       | Yes with reason/checks/audit                                                    | No                                                         |
+| Change participant composition   | Policy-bound add/remove                      | No                     | No                                       | Yes with reason/checks/audit                                                    | Roll back an unpaid addition at `startAt`                  |
+| Transfer Course Enrollment       | No                                           | No                     | No                                       | Before both Courses start                                                       | No                                                         |
+| Create proposal                  | No                                           | No                     | For self and authorized Participant      | No                                                                              | No                                                         |
+| Manage own block/permission      | As Parent/Guardian for a managed Participant | No                     | Instructor block                         | Cannot override                                                                 | Expiry enforcement                                         |
+| View financial detail            | Own account                                  | Booking-scoped summary | Payment-required operational flag only   | Yes                                                                             | Automation only                                            |
+| Archive terminal record          | No                                           | No                     | No                                       | Yes                                                                             | No                                                         |
 
 Instructor capability and administrative role are independent dimensions and may coexist. When one person has both, each action is still authorized and audited under the capability used.
 

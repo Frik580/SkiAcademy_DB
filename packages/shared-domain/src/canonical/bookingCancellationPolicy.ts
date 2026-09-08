@@ -4,10 +4,7 @@ import {
   type PaymentAccountingProjection,
 } from './paymentWalletOperations';
 import type { PaymentAccountingFields } from './paymentWallet';
-import {
-  compareCanonicalTimestamps,
-  type CanonicalTimestamp,
-} from './primitives';
+import { compareCanonicalTimestamps, type CanonicalTimestamp } from './primitives';
 import { KztMinorUnitsSchema, type KztMinorUnits } from './primitives';
 import type { Booking, BookingCancellationReasonCode } from './bookingOccurrenceProposalChange';
 import type { Payment } from './paymentWallet';
@@ -21,9 +18,7 @@ import type { BookingId, OccurrenceId, ParticipantId } from './identifiers';
 export const INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export type ClientCancellationTimingDecision =
-  | 'direct_cancel'
-  | 'pending_request'
-  | 'after_start_rejected';
+  'direct_cancel' | 'pending_request' | 'after_start_rejected';
 
 export type BookingCancellationResolutionDecision = 'approve' | 'reject' | 'direct_cancel';
 
@@ -31,7 +26,10 @@ export type LateRejectionOutcomeDecision =
   | { readonly outcome: 'confirmed' }
   | { readonly outcome: 'completed' }
   | { readonly outcome: 'no_show' }
-  | { readonly outcome: 'missing_attendance' };
+  | {
+      readonly outcome: 'missing_attendance';
+      readonly missingParticipantIds: readonly ParticipantId[];
+    };
 
 export function canonicalTimestampToEpochMs(timestamp: CanonicalTimestamp): number {
   return timestamp.seconds * 1_000 + Math.floor(timestamp.nanoseconds / 1_000_000);
@@ -140,29 +138,38 @@ export function missingBookingAttendanceIdentity(input: {
 export function resolveLateRejectionOutcome(input: {
   readonly now: CanonicalTimestamp;
   readonly booking: Booking;
-  readonly attendance: Attendance | undefined;
+  readonly attendancesByParticipantId: ReadonlyMap<ParticipantId, Attendance>;
 }): LateRejectionOutcomeDecision {
   if (compareCanonicalTimestamps(input.now, input.booking.occurrence.interval.endsAt) < 0) {
     return { outcome: 'confirmed' };
   }
 
-  if (!input.attendance) {
-    return { outcome: 'missing_attendance' };
+  const participantIds = input.booking.occurrence.serviceParty.participantIds;
+  const missingParticipantIds = participantIds.filter(
+    (participantId) => !input.attendancesByParticipantId.has(participantId)
+  );
+  if (missingParticipantIds.length > 0) {
+    return { outcome: 'missing_attendance', missingParticipantIds };
   }
 
-  if (input.attendance.attendanceStatus === 'present') {
+  if (
+    participantIds.some(
+      (participantId) =>
+        input.attendancesByParticipantId.get(participantId)?.attendanceStatus === 'present'
+    )
+  ) {
     return { outcome: 'completed' };
   }
 
   return { outcome: 'no_show' };
 }
 
-export function isConfirmedIndividualBooking(booking: Booking): boolean {
-  return booking.party.kind === 'individual' && booking.lifecycle.status === 'confirmed';
+export function isConfirmedBooking(booking: Booking): boolean {
+  return booking.lifecycle.status === 'confirmed';
 }
 
-export function isPendingCancellationIndividualBooking(booking: Booking): boolean {
-  return booking.party.kind === 'individual' && booking.lifecycle.status === 'pending_cancellation';
+export function isPendingCancellationBooking(booking: Booking): boolean {
+  return booking.lifecycle.status === 'pending_cancellation';
 }
 
 export function isTerminalBookingLifecycle(booking: Booking): boolean {

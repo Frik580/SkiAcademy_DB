@@ -5,8 +5,10 @@ import {
   administratorCapabilityExercisedByAccount,
   bookingOccurrenceIdFromScheduleRevision,
   calculateIndividualBookingPriceKzt,
+  calculateLessonPartyPriceKzt,
   commandSuccessResult,
   isSyntheticCourseInstructorId,
+  lessonDurationMinutesFromInterval,
   monetaryEventIdFromCommandEffect,
   nextAggregateRevision,
   nextBookingScheduleRevision,
@@ -48,6 +50,7 @@ import {
   planSwapBookingOccurrenceClaims,
   type BookingOccurrenceClaimSwapPlan,
 } from './bookingClaimOperations';
+
 import {
   assertAdminServiceChangeAuthorization,
   assertAdminServiceChangeReason,
@@ -69,7 +72,38 @@ import {
   planServicePriceChangeFinance,
   type PlannedServicePriceChangeFinance,
 } from './bookingRescheduleFinance';
-import { BOOKING_PLANNING_ESTIMATES, bookingPath, instructorCatalogPath, parseBooking, parseInstructorCatalog, toFirestoreWritePayload } from './bookingStore';
+import {
+  BOOKING_PLANNING_ESTIMATES,
+  bookingPath,
+  instructorCatalogPath,
+  parseBooking,
+  parseInstructorCatalog,
+  toFirestoreWritePayload,
+} from './bookingStore';
+
+function priceLessonPartyFromBase(
+  envelope: CommandEnvelope,
+  booking: Booking,
+  baseLessonPriceKzt: ReturnType<typeof calculateIndividualBookingPriceKzt>,
+  lessonDurationMinutes: number
+) {
+  if (booking.party.participantIds.length === 1) {
+    return baseLessonPriceKzt;
+  }
+  const surcharge = booking.pricingSnapshot?.additionalParticipantSurchargePerHourKzt;
+  if (surcharge === undefined) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'pricingSnapshot', reason: 'required' },
+    });
+  }
+  return calculateLessonPartyPriceKzt({
+    baseLessonPriceKzt,
+    additionalParticipantSurchargePerHourKzt: surcharge,
+    participantCount: booking.party.participantIds.length,
+    lessonDurationMinutes,
+  });
+}
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -201,7 +235,11 @@ function rescheduleBookingHandler(
         envelope.context.source === 'admin_callable';
 
       if (!isAdministratorReschedule) {
-        if (participant.management.kind !== 'managed' || !management || management.status !== 'active') {
+        if (
+          participant.management.kind !== 'managed' ||
+          !management ||
+          management.status !== 'active'
+        ) {
           throw new CanonicalCommandError('forbidden', {
             correlationId: envelope.context.correlationId,
           });
@@ -251,12 +289,16 @@ function rescheduleBookingHandler(
         parseParticipantBlock(instructorBlockRead.exists ? instructorBlockRead.data : undefined),
       ].filter((block): block is NonNullable<typeof block> => block !== undefined);
 
-      assertNoActiveServiceBlockForReschedule(envelope.context.correlationId, {
-        account,
-        participant,
-        management,
-        participantBlocks,
-      }, targetInstructorId);
+      assertNoActiveServiceBlockForReschedule(
+        envelope.context.correlationId,
+        {
+          account,
+          participant,
+          management,
+          participantBlocks,
+        },
+        targetInstructorId
+      );
 
       plannedBookingRevision = nextAggregateRevision(booking.revision);
 
@@ -322,7 +364,12 @@ function rescheduleBookingHandler(
         correlationId: metadata.correlationId,
         commandId: metadata.commandId,
       };
-      commitPlannedBookingOccurrenceClaimSwap(session, claimSwapPlan, claimMetadata, context.decidedAt);
+      commitPlannedBookingOccurrenceClaimSwap(
+        session,
+        claimSwapPlan,
+        claimMetadata,
+        context.decidedAt
+      );
 
       return commandSuccessResult(envelope.kind, envelope.context.correlationId);
     },
@@ -352,12 +399,13 @@ function changeBookingInstructorHandler(
   let targetInstructorId!: InstructorId;
   let targetInterval!: TimeInterval;
   let newPrice!: ReturnType<typeof calculateIndividualBookingPriceKzt>;
+  let newBasePrice!: ReturnType<typeof calculateIndividualBookingPriceKzt>;
   let plannedBookingRevision = AggregateRevisionSchema.parse(1);
   let claimSwapPlan!: BookingOccurrenceClaimSwapPlan;
   let plannedFinance: PlannedServicePriceChangeFinance | undefined;
   let notificationAccountId: AccountId | undefined;
   const stagedMonetaryEventId = monetaryEventIdFromCommandEffect(metadata.commandId, 0);
-  let monetaryEventIds: typeof stagedMonetaryEventId[] = [];
+  let monetaryEventIds: (typeof stagedMonetaryEventId)[] = [];
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'change_booking_instructor'> = {
     read: async (session) => {
@@ -406,10 +454,11 @@ function changeBookingInstructorHandler(
           canonicalTimestampToEpochMs(booking.occurrence.interval.startsAt)) /
           60_000
       );
-      newPrice = calculateIndividualBookingPriceKzt(
+      newBasePrice = calculateIndividualBookingPriceKzt(
         resolveInstructorHourlyRateKzt(instructorRecord),
         durationMinutes
       );
+      newPrice = priceLessonPartyFromBase(envelope, booking, newBasePrice, durationMinutes);
       targetInterval = booking.occurrence.interval;
 
       const paymentDocumentPath = paymentPath(booking.paymentId);
@@ -428,7 +477,9 @@ function changeBookingInstructorHandler(
       const participantDocumentPath = participantPath(resolvedParticipantId);
       const participantRead = await session.tx.get({ path: participantDocumentPath });
       session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-      const participant = parseParticipant(participantRead.exists ? participantRead.data : undefined);
+      const participant = parseParticipant(
+        participantRead.exists ? participantRead.data : undefined
+      );
       if (!participant || participant.management.kind !== 'managed') {
         throw new CanonicalCommandError('forbidden', {
           correlationId: envelope.context.correlationId,
@@ -482,12 +533,16 @@ function changeBookingInstructorHandler(
         parseParticipantBlock(instructorBlockRead.exists ? instructorBlockRead.data : undefined),
       ].filter((block): block is NonNullable<typeof block> => block !== undefined);
 
-      assertNoActiveServiceBlockForReschedule(envelope.context.correlationId, {
-        account,
-        participant,
-        management,
-        participantBlocks,
-      }, targetInstructorId);
+      assertNoActiveServiceBlockForReschedule(
+        envelope.context.correlationId,
+        {
+          account,
+          participant,
+          management,
+          participantBlocks,
+        },
+        targetInstructorId
+      );
 
       plannedBookingRevision = nextAggregateRevision(booking.revision);
 
@@ -554,6 +609,16 @@ function changeBookingInstructorHandler(
         const updatedBooking = BookingSchema.parse({
           ...booking,
           occurrence,
+          ...(booking.pricingSnapshot
+            ? {
+                pricingSnapshot: {
+                  ...booking.pricingSnapshot,
+                  baseLessonPriceKzt: newBasePrice,
+                  lessonDurationMinutes: lessonDurationMinutesFromInterval(occurrence.interval),
+                  totalPriceKzt: newPrice,
+                },
+              }
+            : {}),
           revision: plannedBookingRevision,
           updatedAt: decidedAt,
           audit: {
@@ -619,12 +684,13 @@ function changeBookingDurationHandler(
   let payment!: Payment;
   let targetInterval!: TimeInterval;
   let newPrice!: ReturnType<typeof calculateIndividualBookingPriceKzt>;
+  let newBasePrice!: ReturnType<typeof calculateIndividualBookingPriceKzt>;
   let plannedBookingRevision = AggregateRevisionSchema.parse(1);
   let claimSwapPlan!: BookingOccurrenceClaimSwapPlan;
   let plannedFinance: PlannedServicePriceChangeFinance | undefined;
   let notificationAccountId: AccountId | undefined;
   const stagedMonetaryEventId = monetaryEventIdFromCommandEffect(metadata.commandId, 0);
-  let monetaryEventIds: typeof stagedMonetaryEventId[] = [];
+  let monetaryEventIds: (typeof stagedMonetaryEventId)[] = [];
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'change_booking_duration'> = {
     read: async (session) => {
@@ -670,8 +736,14 @@ function changeBookingDurationHandler(
           details: { field: 'instructorId', reason: 'conflict' },
         });
       }
-      newPrice = calculateIndividualBookingPriceKzt(
+      newBasePrice = calculateIndividualBookingPriceKzt(
         resolveInstructorHourlyRateKzt(instructorRecord),
+        envelope.intent.durationMinutes
+      );
+      newPrice = priceLessonPartyFromBase(
+        envelope,
+        booking,
+        newBasePrice,
         envelope.intent.durationMinutes
       );
 
@@ -691,7 +763,9 @@ function changeBookingDurationHandler(
       const participantDocumentPath = participantPath(resolvedParticipantId);
       const participantRead = await session.tx.get({ path: participantDocumentPath });
       session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-      const participant = parseParticipant(participantRead.exists ? participantRead.data : undefined);
+      const participant = parseParticipant(
+        participantRead.exists ? participantRead.data : undefined
+      );
       if (!participant || participant.management.kind !== 'managed') {
         throw new CanonicalCommandError('forbidden', {
           correlationId: envelope.context.correlationId,
@@ -777,6 +851,16 @@ function changeBookingDurationHandler(
         const updatedBooking = BookingSchema.parse({
           ...booking,
           occurrence,
+          ...(booking.pricingSnapshot
+            ? {
+                pricingSnapshot: {
+                  ...booking.pricingSnapshot,
+                  baseLessonPriceKzt: newBasePrice,
+                  lessonDurationMinutes: lessonDurationMinutesFromInterval(occurrence.interval),
+                  totalPriceKzt: newPrice,
+                },
+              }
+            : {}),
           revision: plannedBookingRevision,
           updatedAt: decidedAt,
           audit: {

@@ -28,6 +28,8 @@ import {
   type QueryInstructorOccupancyReadModelsResult,
   type QueryLessonBookingReadModelsInput,
   type QueryLessonBookingReadModelsResult,
+  type QueryLessonPricingSettingsReadModelInput,
+  type QueryLessonPricingSettingsReadModelResult,
   type QueryManagedParticipantPickerReadModelsInput,
   type QueryManagedParticipantPickerReadModelsResult,
   type QueryParticipantInstructorAccessReadModelsInput,
@@ -57,6 +59,20 @@ export const QUERY_ADMIN_COURSE_ENROLLMENT_READ_MODELS_CALLABLE =
 export const QUERY_ADMIN_IDENTITY_READ_MODELS_CALLABLE = 'queryAdminIdentityReadModels';
 export const QUERY_ADMIN_PLANNER_READ_MODELS_CALLABLE = 'queryAdminPlannerReadModels';
 export const QUERY_INSTRUCTOR_OCCUPANCY_READ_MODELS_CALLABLE = 'queryInstructorOccupancyReadModels';
+export const QUERY_LESSON_PRICING_SETTINGS_READ_MODEL_CALLABLE =
+  'queryLessonPricingSettingsReadModel';
+
+export async function queryLessonPricingSettingsReadModel(
+  input: QueryLessonPricingSettingsReadModelInput
+): Promise<QueryLessonPricingSettingsReadModelResult> {
+  return invokeCanonicalReadCallable<
+    QueryLessonPricingSettingsReadModelInput,
+    QueryLessonPricingSettingsReadModelResult
+  >(QUERY_LESSON_PRICING_SETTINGS_READ_MODEL_CALLABLE, input, {
+    idempotencyKey: input.idempotencyKey ?? 'read:lesson_pricing_settings:current',
+    maxAttempts: 1,
+  });
+}
 
 type CanonicalReadInFlightEntry = {
   readonly promise: Promise<unknown>;

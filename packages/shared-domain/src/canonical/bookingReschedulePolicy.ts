@@ -1,8 +1,8 @@
 import type { Booking } from './bookingOccurrenceProposalChange';
 import {
   canonicalTimestampToEpochMs,
-  isConfirmedIndividualBooking,
-  isPendingCancellationIndividualBooking,
+  isConfirmedBooking,
+  isPendingCancellationBooking,
   isTerminalBookingLifecycle,
 } from './bookingCancellationPolicy';
 import type { CanonicalTimestamp } from './primitives';
@@ -11,18 +11,13 @@ import { compareCanonicalTimestamps } from './primitives';
 export const INDIVIDUAL_BOOKING_CLIENT_RESCHEDULE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export type ClientSelfServiceRescheduleTimingDecision =
-  | 'allowed'
-  | 'inside_window_rejected'
-  | 'after_start_rejected';
+  'allowed' | 'inside_window_rejected' | 'after_start_rejected';
 
 export function isRescheduleEligibleBooking(booking: Booking): boolean {
-  if (booking.party.kind !== 'individual') {
-    return false;
-  }
   if (isTerminalBookingLifecycle(booking)) {
     return false;
   }
-  if (isPendingCancellationIndividualBooking(booking)) {
+  if (isPendingCancellationBooking(booking)) {
     return false;
   }
   return booking.lifecycle.status === 'confirmed';
@@ -47,7 +42,7 @@ export function isClientSelfServiceRescheduleAllowanceAvailable(booking: Booking
 }
 
 export function assertClientSelfServiceRescheduleParty(booking: Booking): void {
-  if (!isConfirmedIndividualBooking(booking)) {
-    throw new Error('Client self-service reschedule requires a confirmed individual booking');
+  if (!isConfirmedBooking(booking)) {
+    throw new Error('Client self-service reschedule requires a confirmed lesson booking');
   }
 }

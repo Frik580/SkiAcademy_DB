@@ -1,15 +1,26 @@
 import React from 'react';
-import { Mountain, Sliders } from 'lucide-react';
-import { useLanguage } from '../../../../app/providers/LanguageContext';
+import { Mountain, Sliders, Users } from 'lucide-react';
 import { ResortDataSection, ResortSliderSection } from '../resort/ResortConfigForm';
 import { AdminCollapsibleSection } from './AdminCollapsibleSection';
+import { CanonicalLessonPricingSettings } from './CanonicalLessonPricingSettings';
+import { useAdminProductSettingsTranslations } from './useAdminProductSettingsTranslations';
 
 /** Resort content blocks for the Product admin tab. */
 export const AdminProductSettings: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, text } = useAdminProductSettingsTranslations();
 
   return (
     <div className="space-y-6 w-full min-w-0">
+      <AdminCollapsibleSection
+        id="lesson_pricing"
+        title={text.lessonPricingTitle}
+        subtitle={text.lessonPricingSubtitle}
+        icon={Users}
+        defaultOpen
+      >
+        <CanonicalLessonPricingSettings />
+      </AdminCollapsibleSection>
+
       <AdminCollapsibleSection
         id="resort_data"
         title={t('resortDetailsTitle') || 'Данные курорта и геолокация погоды'}

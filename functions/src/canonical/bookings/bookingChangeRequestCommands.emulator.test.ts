@@ -21,6 +21,7 @@ import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import { BOOKING_REVISION_TRANSPORT_KEY } from './bookingChangeRequestAuthorization';
+import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 
 const PROJECT_ID = 'ski-academy-change-request-emulator-test';
 const correlationId = CorrelationIdSchema.parse('correlation_change_req_emulator_01');
@@ -72,7 +73,9 @@ function createCommands(at = '2026-01-01T00:00:00.000Z') {
   return createProductionCanonicalCommands(environment(at), executor);
 }
 
-function seedAccount(account: typeof accountId | typeof instructorAccountId | typeof adminAccountId) {
+function seedAccount(
+  account: typeof accountId | typeof instructorAccountId | typeof adminAccountId
+) {
   return AccountSchema.parse({
     accountId: account,
     lifecycle: { status: 'active' },
@@ -160,17 +163,24 @@ async function seedInstructor(
   id: typeof instructorId,
   tariff: Readonly<{ pricePerHourKZT?: number; pricePerHour?: number }>
 ): Promise<void> {
-  await firestore.collection('instructors').doc(id).set({
-    id,
-    name: `Emulator Instructor ${id}`,
-    isAvailable: true,
-    ...tariff,
-  });
+  await firestore
+    .collection('instructors')
+    .doc(id)
+    .set({
+      id,
+      name: `Emulator Instructor ${id}`,
+      isAvailable: true,
+      ...tariff,
+    });
 }
 
 async function seedSharedFixture(walletBalance = WALLET_START_KZT): Promise<void> {
+  await seedLessonPricingSettingsFixture(firestore, { decidedAt, correlationId });
   await firestore.collection('users').doc(accountId).set(seedAccount(accountId));
-  await firestore.collection('users').doc(instructorAccountId).set(seedAccount(instructorAccountId));
+  await firestore
+    .collection('users')
+    .doc(instructorAccountId)
+    .set(seedAccount(instructorAccountId));
   await firestore.collection('users').doc(adminAccountId).set(seedAccount(adminAccountId));
   await firestore
     .collection('users')
@@ -179,19 +189,23 @@ async function seedSharedFixture(walletBalance = WALLET_START_KZT): Promise<void
     .doc('state')
     .set(seedWallet(walletBalance));
 
-  await firestore.collection('participants').doc(participantId).set(
-    seedParticipantRecord({ participantId, managementId })
-  );
-  await firestore.collection('participants').doc(participantIdB).set(
-    seedParticipantRecord({ participantId: participantIdB, managementId: managementIdB })
-  );
+  await firestore
+    .collection('participants')
+    .doc(participantId)
+    .set(seedParticipantRecord({ participantId, managementId }));
+  await firestore
+    .collection('participants')
+    .doc(participantIdB)
+    .set(seedParticipantRecord({ participantId: participantIdB, managementId: managementIdB }));
 
-  await firestore.collection('participant_management').doc(managementId).set(
-    seedManagementRecord({ managementId, participantId })
-  );
-  await firestore.collection('participant_management').doc(managementIdB).set(
-    seedManagementRecord({ managementId: managementIdB, participantId: participantIdB })
-  );
+  await firestore
+    .collection('participant_management')
+    .doc(managementId)
+    .set(seedManagementRecord({ managementId, participantId }));
+  await firestore
+    .collection('participant_management')
+    .doc(managementIdB)
+    .set(seedManagementRecord({ managementId: managementIdB, participantId: participantIdB }));
 
   await seedInstructor(instructorId, { pricePerHourKZT: BOOKING_PRICE_KZT });
 }
@@ -347,341 +361,330 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking change request emulator races
     await seedSharedFixture();
   }, 30_000);
 
-  it(
-    'J. request creation reserves nothing',
-    async () => {
-      const commands = createCommands('2026-01-01T00:00:00.000Z');
-      await createConfirmedBooking(commands, {
+  it('J. request creation reserves nothing', async () => {
+    const commands = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(commands, {
+      bookingId,
+      instructorId,
+      participantIds: [participantId],
+      idempotencyKey: 'seed-booking-change-req',
+    });
+
+    const bookingBefore = (await firestore.doc(`bookings/${bookingId}`).get()).data();
+    const claimsBefore = await firestore.collection('resource_claims').get();
+
+    const result = await commands.execute({
+      kind: 'create_booking_change_request',
+      context: instructorContext('create-change-request-emulator', 1),
+      intent: {
+        bookingChangeRequestId: changeRequestId,
         bookingId,
-        instructorId,
-        participantIds: [participantId],
-        idempotencyKey: 'seed-booking-change-req',
-      });
+        reason: 'Instructor cannot deliver the confirmed occurrence.',
+      },
+    });
+    expect(result.status).toBe('success');
 
-      const bookingBefore = (await firestore.doc(`bookings/${bookingId}`).get()).data();
-      const claimsBefore = await firestore.collection('resource_claims').get();
+    const bookingAfter = (await firestore.doc(`bookings/${bookingId}`).get()).data();
+    const request = (
+      await firestore.doc(`booking_change_requests/${changeRequestId}`).get()
+    ).data();
+    const state = await durableCounts();
+    const claimsAfter = await firestore.collection('resource_claims').get();
 
-      const result = await commands.execute({
-        kind: 'create_booking_change_request',
-        context: instructorContext('create-change-request-emulator', 1),
-        intent: {
-          bookingChangeRequestId: changeRequestId,
-          bookingId,
-          reason: 'Instructor cannot deliver the confirmed occurrence.',
-        },
-      });
-      expect(result.status).toBe('success');
+    expect(request?.lifecycle.status).toBe('open');
+    expect(request?.requestType).toBe('instructor_unavailable');
+    expect(bookingAfter?.lifecycle.status).toBe('confirmed');
+    expect(bookingAfter?.revision).toBe(bookingBefore?.revision);
+    expect(state.bookings).toBe(1);
+    expect(state.payments).toBe(1);
+    expect(state.monetaryEvents).toBe(1);
+    expect(state.walletBalance).toBe(WALLET_START_KZT - BOOKING_PRICE_KZT);
+    expect(claimsAfter.size).toBe(claimsBefore.size);
+    expect(state.changeRequests).toBe(1);
+    expect(state.activityLogs).toBe(2);
+  }, 30_000);
 
-      const bookingAfter = (await firestore.doc(`bookings/${bookingId}`).get()).data();
-      const request = (await firestore.doc(`booking_change_requests/${changeRequestId}`).get()).data();
-      const state = await durableCounts();
-      const claimsAfter = await firestore.collection('resource_claims').get();
+  it('K. accept reschedule vs target contention (if rescheduled resolution)', async () => {
+    const commands = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(commands, {
+      bookingId,
+      instructorId,
+      participantIds: [participantId],
+      idempotencyKey: 'seed-booking-reschedule-contention',
+    });
+    await createOpenChangeRequest(commands, 'create-change-request-contention');
 
-      expect(request?.lifecycle.status).toBe('open');
-      expect(request?.requestType).toBe('instructor_unavailable');
-      expect(bookingAfter?.lifecycle.status).toBe('confirmed');
-      expect(bookingAfter?.revision).toBe(bookingBefore?.revision);
-      expect(state.bookings).toBe(1);
-      expect(state.payments).toBe(1);
-      expect(state.monetaryEvents).toBe(1);
-      expect(state.walletBalance).toBe(WALLET_START_KZT - BOOKING_PRICE_KZT);
-      expect(claimsAfter.size).toBe(claimsBefore.size);
-      expect(state.changeRequests).toBe(1);
-      expect(state.activityLogs).toBe(2);
-    },
-    30_000
-  );
-
-  it(
-    'K. accept reschedule vs target contention (if rescheduled resolution)',
-    async () => {
-      const commands = createCommands('2026-01-01T00:00:00.000Z');
-      await createConfirmedBooking(commands, {
-        bookingId,
-        instructorId,
-        participantIds: [participantId],
-        idempotencyKey: 'seed-booking-reschedule-contention',
-      });
-      await createOpenChangeRequest(commands, 'create-change-request-contention');
-
-      const conflictingBookingId = BookingIdSchema.parse('booking_change_req_emulator_conflict');
-      const rescheduleEnvelope: CommandEnvelope<'resolve_booking_change_request'> = {
-        kind: 'resolve_booking_change_request',
-        context: adminContext('resolve-reschedule-contention', 1, undefined, {
-          [BOOKING_REVISION_TRANSPORT_KEY]: '1',
-        }),
-        intent: {
-          bookingChangeRequestId: changeRequestId,
-          resolution: 'rescheduled',
-          reasonExplanation: 'Client agreed to reschedule after instructor unavailability.',
-        },
-      };
-      const contentionBookingEnvelope: CommandEnvelope<'create_confirmed_booking'> = {
-        kind: 'create_confirmed_booking',
-        context: {
-          actor: accountCommandActor(accountId),
-          exercisedCapability: 'account_owner',
-          idempotencyKey: 'contention-target-booking',
-          correlationId,
-          source: 'client_callable',
-          calendarInput: {
-            localDate: '2026-01-16',
-            localTime: '11:00',
-            durationMinutes: 60,
-          },
-          timezone: 'Asia/Almaty',
-        },
-        intent: {
-          bookingId: conflictingBookingId,
-          instructorId,
-          participantIds: [participantIdB],
-        },
-      };
-
-      const results = await Promise.allSettled([
-        commands.execute(rescheduleEnvelope),
-        commands.execute(contentionBookingEnvelope),
-      ]);
-      const outcomes = results.map((result) =>
-        result.status === 'fulfilled' ? result.value : undefined
-      );
-      const successes = outcomes.filter((outcome) => outcome?.status === 'success');
-      const instructorConflicts = outcomes.filter(
-        (outcome) => outcome?.status === 'error' && outcome.error.code === 'instructor_conflict'
-      );
-
-      expect(successes.length).toBe(1);
-      expect(instructorConflicts.length + successes.length).toBe(2);
-
-      const booking = (await firestore.doc(`bookings/${bookingId}`).get()).data();
-      const request = (await firestore.doc(`booking_change_requests/${changeRequestId}`).get()).data();
-      const state = await durableCounts();
-
-      if (request?.lifecycle.status === 'resolved') {
-        expect(request.lifecycle.resolution).toBe('rescheduled');
-        expect(booking?.revision).toBe(2);
-        expect(state.bookings).toBe(1);
-      } else {
-        expect(request?.lifecycle.status).toBe('open');
-        expect(state.bookings).toBe(2);
-        expect(state.bookingIds).toContain(conflictingBookingId);
-      }
-    },
-    30_000
-  );
-
-  it(
-    'L. accept vs decline concurrent',
-    async () => {
-      const commands = createCommands('2026-01-02T00:00:00.000Z');
-      await createConfirmedBooking(commands, {
-        bookingId,
-        instructorId,
-        participantIds: [participantId],
-        idempotencyKey: 'seed-booking-accept-decline',
-      });
-      const requestRevision = await createOpenChangeRequest(commands, 'create-change-request-race');
-
-      const resolveEnvelope: CommandEnvelope<'resolve_booking_change_request'> = {
-        kind: 'resolve_booking_change_request',
-        context: adminContext('resolve-cancel-race', requestRevision, undefined, {
-          [BOOKING_REVISION_TRANSPORT_KEY]: '1',
-        }),
-        intent: {
-          bookingChangeRequestId: changeRequestId,
-          resolution: 'booking_cancelled',
-          refundAmount: BOOKING_PRICE_KZT,
-          reasonExplanation: 'Client agreed to cancel after instructor unavailability.',
-        },
-      };
-      const withdrawEnvelope: CommandEnvelope<'withdraw_booking_change_request'> = {
-        kind: 'withdraw_booking_change_request',
-        context: instructorContext('withdraw-race', requestRevision),
-        intent: { bookingChangeRequestId: changeRequestId },
-      };
-
-      const results = await Promise.allSettled([
-        commands.execute(resolveEnvelope),
-        commands.execute(withdrawEnvelope),
-      ]);
-      const statuses = results.map((result) =>
-        result.status === 'fulfilled' ? result.value.status : 'rejected'
-      );
-      expect(statuses.filter((status) => status === 'success').length).toBe(1);
-
-      const request = (await firestore.doc(`booking_change_requests/${changeRequestId}`).get()).data();
-      const booking = (await firestore.doc(`bookings/${bookingId}`).get()).data();
-      const payment = (await firestore.doc(`payments/${paymentId}`).get()).data();
-      const state = await durableCounts();
-
-      if (request?.lifecycle.status === 'resolved') {
-        expect(request.lifecycle.resolution).toBe('booking_cancelled');
-        expect(booking?.lifecycle.status).toBe('cancelled');
-        expect(payment?.refundedAmount).toBe(BOOKING_PRICE_KZT);
-        expect(state.refundEvents).toBe(1);
-        expect(state.walletBalance).toBe(WALLET_START_KZT);
-      } else {
-        expect(request?.lifecycle.status).toBe('cancelled');
-        expect(booking?.lifecycle.status).toBe('confirmed');
-        expect(payment?.refundedAmount ?? 0).toBe(0);
-        expect(state.refundEvents).toBe(0);
-      }
-    },
-    30_000
-  );
-
-  it(
-    'M. acceptance replay',
-    async () => {
-      const commands = createCommands('2026-01-02T00:00:00.000Z');
-      await createConfirmedBooking(commands, {
-        bookingId,
-        instructorId,
-        participantIds: [participantId],
-        idempotencyKey: 'seed-booking-replay',
-      });
-      const requestRevision = await createOpenChangeRequest(commands, 'create-change-request-replay');
-
-      const envelope: CommandEnvelope<'resolve_booking_change_request'> = {
-        kind: 'resolve_booking_change_request',
-        context: adminContext('resolve-replay', requestRevision, undefined, {
-          [BOOKING_REVISION_TRANSPORT_KEY]: '1',
-        }),
-        intent: {
-          bookingChangeRequestId: changeRequestId,
-          resolution: 'booking_cancelled',
-          refundAmount: BOOKING_PRICE_KZT,
-          reasonExplanation: 'Client agreed to cancel after instructor unavailability.',
-        },
-      };
-
-      const first = await commands.execute(envelope);
-      const second = await commands.execute(envelope);
-      expect(first.status).toBe('success');
-      expect(second.status).toBe('success');
-
-      const booking = (await firestore.doc(`bookings/${bookingId}`).get()).data();
-      const payment = (await firestore.doc(`payments/${paymentId}`).get()).data();
-      const state = await durableCounts();
-
-      expect(booking?.lifecycle.status).toBe('cancelled');
-      expect(payment?.refundedAmount).toBe(BOOKING_PRICE_KZT);
-      expect(state.refundEvents).toBe(1);
-      expect(state.monetaryEvents).toBe(2);
-      expect(state.walletBalance).toBe(WALLET_START_KZT);
-      expect(state.changeRequests).toBe(1);
-    },
-    30_000
-  );
-
-  it(
-    'N. direct T17 reschedule vs change-request resolution race',
-    async () => {
-      const commands = createCommands('2026-01-01T00:00:00.000Z');
-      await createConfirmedBooking(commands, {
-        bookingId,
-        instructorId,
-        participantIds: [participantId],
-        idempotencyKey: 'seed-booking-t17-race',
-      });
-      await createOpenChangeRequest(commands, 'create-change-request-t17-race');
-
-      const rescheduleEnvelope: CommandEnvelope<'reschedule_booking'> = {
-        kind: 'reschedule_booking',
-        context: adminContext('admin-reschedule-race', 1, {
-          localDate: '2026-01-16',
-          localTime: '10:00',
-          durationMinutes: 60,
-        }),
-        intent: {
-          bookingId,
-          reasonExplanation: 'Admin reschedule concurrent with change-request resolution',
-        },
-      };
-      const resolveEnvelope: CommandEnvelope<'resolve_booking_change_request'> = {
-        kind: 'resolve_booking_change_request',
-        context: adminContext('resolve-reschedule-race-n', 1, {
+    const conflictingBookingId = BookingIdSchema.parse('booking_change_req_emulator_conflict');
+    const rescheduleEnvelope: CommandEnvelope<'resolve_booking_change_request'> = {
+      kind: 'resolve_booking_change_request',
+      context: adminContext('resolve-reschedule-contention', 1, undefined, {
+        [BOOKING_REVISION_TRANSPORT_KEY]: '1',
+      }),
+      intent: {
+        bookingChangeRequestId: changeRequestId,
+        resolution: 'rescheduled',
+        reasonExplanation: 'Client agreed to reschedule after instructor unavailability.',
+      },
+    };
+    const contentionBookingEnvelope: CommandEnvelope<'create_confirmed_booking'> = {
+      kind: 'create_confirmed_booking',
+      context: {
+        actor: accountCommandActor(accountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'contention-target-booking',
+        correlationId,
+        source: 'client_callable',
+        calendarInput: {
           localDate: '2026-01-16',
           localTime: '11:00',
           durationMinutes: 60,
-        }, {
-          [BOOKING_REVISION_TRANSPORT_KEY]: '1',
-        }),
-        intent: {
-          bookingChangeRequestId: changeRequestId,
-          resolution: 'rescheduled',
-          reasonExplanation: 'Client agreed to reschedule after instructor unavailability.',
         },
-      };
-
-      const results = await Promise.allSettled([
-        commands.execute(rescheduleEnvelope),
-        commands.execute(resolveEnvelope),
-      ]);
-      const outcomes = results.map((result) =>
-        result.status === 'fulfilled' ? result.value : undefined
-      );
-      const successes = outcomes.filter((outcome) => outcome?.status === 'success');
-      const staleOutcomes = outcomes.filter(
-        (outcome) => outcome?.status === 'error' && outcome.error.code === 'stale_version'
-      );
-
-      expect(successes.length).toBe(1);
-      expect(successes.length + staleOutcomes.length).toBe(2);
-
-      const booking = (await firestore.doc(`bookings/${bookingId}`).get()).data();
-      const request = (await firestore.doc(`booking_change_requests/${changeRequestId}`).get()).data();
-      const claims = await firestore.collection('resource_claims').get();
-      const activeClaims = claims.docs.filter((doc) => doc.data().lifecycle?.status === 'active');
-
-      if (request?.lifecycle.status === 'resolved') {
-        expect(request.lifecycle.resolution).toBe('rescheduled');
-        expect(booking?.revision).toBe(2);
-      } else {
-        expect(request?.lifecycle.status).toBe('open');
-        expect(booking?.revision).toBe(2);
-      }
-      expect(activeClaims.length).toBe(2);
-    },
-    30_000
-  );
-
-  it(
-    'O. undefined serialization boundary for change request persistence',
-    async () => {
-      const commands = createCommands('2026-01-01T00:00:00.000Z');
-      await createConfirmedBooking(commands, {
-        bookingId,
+        timezone: 'Asia/Almaty',
+      },
+      intent: {
+        bookingId: conflictingBookingId,
         instructorId,
-        participantIds: [participantId],
-        idempotencyKey: 'seed-booking-undefined-boundary',
-      });
+        participantIds: [participantIdB],
+      },
+    };
 
-      const createResult = await commands.execute({
-        kind: 'create_booking_change_request',
-        context: instructorContext('create-change-request-undefined', 1),
-        intent: {
-          bookingChangeRequestId: changeRequestId,
-          bookingId,
-          reason: 'Instructor cannot deliver the confirmed occurrence.',
+    const results = await Promise.allSettled([
+      commands.execute(rescheduleEnvelope),
+      commands.execute(contentionBookingEnvelope),
+    ]);
+    const outcomes = results.map((result) =>
+      result.status === 'fulfilled' ? result.value : undefined
+    );
+    const successes = outcomes.filter((outcome) => outcome?.status === 'success');
+    const instructorConflicts = outcomes.filter(
+      (outcome) => outcome?.status === 'error' && outcome.error.code === 'instructor_conflict'
+    );
+
+    expect(successes.length).toBe(1);
+    expect(instructorConflicts.length + successes.length).toBe(2);
+
+    const booking = (await firestore.doc(`bookings/${bookingId}`).get()).data();
+    const request = (
+      await firestore.doc(`booking_change_requests/${changeRequestId}`).get()
+    ).data();
+    const state = await durableCounts();
+
+    if (request?.lifecycle.status === 'resolved') {
+      expect(request.lifecycle.resolution).toBe('rescheduled');
+      expect(booking?.revision).toBe(2);
+      expect(state.bookings).toBe(1);
+    } else {
+      expect(request?.lifecycle.status).toBe('open');
+      expect(state.bookings).toBe(2);
+      expect(state.bookingIds).toContain(conflictingBookingId);
+    }
+  }, 30_000);
+
+  it('L. accept vs decline concurrent', async () => {
+    const commands = createCommands('2026-01-02T00:00:00.000Z');
+    await createConfirmedBooking(commands, {
+      bookingId,
+      instructorId,
+      participantIds: [participantId],
+      idempotencyKey: 'seed-booking-accept-decline',
+    });
+    const requestRevision = await createOpenChangeRequest(commands, 'create-change-request-race');
+
+    const resolveEnvelope: CommandEnvelope<'resolve_booking_change_request'> = {
+      kind: 'resolve_booking_change_request',
+      context: adminContext('resolve-cancel-race', requestRevision, undefined, {
+        [BOOKING_REVISION_TRANSPORT_KEY]: '1',
+      }),
+      intent: {
+        bookingChangeRequestId: changeRequestId,
+        resolution: 'booking_cancelled',
+        refundAmount: BOOKING_PRICE_KZT,
+        reasonExplanation: 'Client agreed to cancel after instructor unavailability.',
+      },
+    };
+    const withdrawEnvelope: CommandEnvelope<'withdraw_booking_change_request'> = {
+      kind: 'withdraw_booking_change_request',
+      context: instructorContext('withdraw-race', requestRevision),
+      intent: { bookingChangeRequestId: changeRequestId },
+    };
+
+    const results = await Promise.allSettled([
+      commands.execute(resolveEnvelope),
+      commands.execute(withdrawEnvelope),
+    ]);
+    const statuses = results.map((result) =>
+      result.status === 'fulfilled' ? result.value.status : 'rejected'
+    );
+    expect(statuses.filter((status) => status === 'success').length).toBe(1);
+
+    const request = (
+      await firestore.doc(`booking_change_requests/${changeRequestId}`).get()
+    ).data();
+    const booking = (await firestore.doc(`bookings/${bookingId}`).get()).data();
+    const payment = (await firestore.doc(`payments/${paymentId}`).get()).data();
+    const state = await durableCounts();
+
+    if (request?.lifecycle.status === 'resolved') {
+      expect(request.lifecycle.resolution).toBe('booking_cancelled');
+      expect(booking?.lifecycle.status).toBe('cancelled');
+      expect(payment?.refundedAmount).toBe(BOOKING_PRICE_KZT);
+      expect(state.refundEvents).toBe(1);
+      expect(state.walletBalance).toBe(WALLET_START_KZT);
+    } else {
+      expect(request?.lifecycle.status).toBe('cancelled');
+      expect(booking?.lifecycle.status).toBe('confirmed');
+      expect(payment?.refundedAmount ?? 0).toBe(0);
+      expect(state.refundEvents).toBe(0);
+    }
+  }, 30_000);
+
+  it('M. acceptance replay', async () => {
+    const commands = createCommands('2026-01-02T00:00:00.000Z');
+    await createConfirmedBooking(commands, {
+      bookingId,
+      instructorId,
+      participantIds: [participantId],
+      idempotencyKey: 'seed-booking-replay',
+    });
+    const requestRevision = await createOpenChangeRequest(commands, 'create-change-request-replay');
+
+    const envelope: CommandEnvelope<'resolve_booking_change_request'> = {
+      kind: 'resolve_booking_change_request',
+      context: adminContext('resolve-replay', requestRevision, undefined, {
+        [BOOKING_REVISION_TRANSPORT_KEY]: '1',
+      }),
+      intent: {
+        bookingChangeRequestId: changeRequestId,
+        resolution: 'booking_cancelled',
+        refundAmount: BOOKING_PRICE_KZT,
+        reasonExplanation: 'Client agreed to cancel after instructor unavailability.',
+      },
+    };
+
+    const first = await commands.execute(envelope);
+    const second = await commands.execute(envelope);
+    expect(first.status).toBe('success');
+    expect(second.status).toBe('success');
+
+    const booking = (await firestore.doc(`bookings/${bookingId}`).get()).data();
+    const payment = (await firestore.doc(`payments/${paymentId}`).get()).data();
+    const state = await durableCounts();
+
+    expect(booking?.lifecycle.status).toBe('cancelled');
+    expect(payment?.refundedAmount).toBe(BOOKING_PRICE_KZT);
+    expect(state.refundEvents).toBe(1);
+    expect(state.monetaryEvents).toBe(2);
+    expect(state.walletBalance).toBe(WALLET_START_KZT);
+    expect(state.changeRequests).toBe(1);
+  }, 30_000);
+
+  it('N. direct T17 reschedule vs change-request resolution race', async () => {
+    const commands = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(commands, {
+      bookingId,
+      instructorId,
+      participantIds: [participantId],
+      idempotencyKey: 'seed-booking-t17-race',
+    });
+    await createOpenChangeRequest(commands, 'create-change-request-t17-race');
+
+    const rescheduleEnvelope: CommandEnvelope<'reschedule_booking'> = {
+      kind: 'reschedule_booking',
+      context: adminContext('admin-reschedule-race', 1, {
+        localDate: '2026-01-16',
+        localTime: '10:00',
+        durationMinutes: 60,
+      }),
+      intent: {
+        bookingId,
+        reasonExplanation: 'Admin reschedule concurrent with change-request resolution',
+      },
+    };
+    const resolveEnvelope: CommandEnvelope<'resolve_booking_change_request'> = {
+      kind: 'resolve_booking_change_request',
+      context: adminContext(
+        'resolve-reschedule-race-n',
+        1,
+        {
+          localDate: '2026-01-16',
+          localTime: '11:00',
+          durationMinutes: 60,
         },
-      });
-      expect(createResult.status).toBe('success');
+        {
+          [BOOKING_REVISION_TRANSPORT_KEY]: '1',
+        }
+      ),
+      intent: {
+        bookingChangeRequestId: changeRequestId,
+        resolution: 'rescheduled',
+        reasonExplanation: 'Client agreed to reschedule after instructor unavailability.',
+      },
+    };
 
-      const requestDoc = await firestore.doc(`booking_change_requests/${changeRequestId}`).get();
-      expect(requestDoc.exists).toBe(true);
-      expect(Object.values(requestDoc.data() ?? {}).includes(undefined)).toBe(false);
+    const results = await Promise.allSettled([
+      commands.execute(rescheduleEnvelope),
+      commands.execute(resolveEnvelope),
+    ]);
+    const outcomes = results.map((result) =>
+      result.status === 'fulfilled' ? result.value : undefined
+    );
+    const successes = outcomes.filter((outcome) => outcome?.status === 'success');
+    const staleOutcomes = outcomes.filter(
+      (outcome) => outcome?.status === 'error' && outcome.error.code === 'stale_version'
+    );
 
-      const resolveResult = await commands.execute({
-        kind: 'resolve_booking_change_request',
-        context: adminContext('resolve-no-change-undefined', 1),
-        intent: {
-          bookingChangeRequestId: changeRequestId,
-          resolution: 'no_change',
-        },
-      });
-      expect(resolveResult.status).toBe('success');
-    },
-    30_000
-  );
+    expect(successes.length).toBe(1);
+    expect(successes.length + staleOutcomes.length).toBe(2);
+
+    const booking = (await firestore.doc(`bookings/${bookingId}`).get()).data();
+    const request = (
+      await firestore.doc(`booking_change_requests/${changeRequestId}`).get()
+    ).data();
+    const claims = await firestore.collection('resource_claims').get();
+    const activeClaims = claims.docs.filter((doc) => doc.data().lifecycle?.status === 'active');
+
+    if (request?.lifecycle.status === 'resolved') {
+      expect(request.lifecycle.resolution).toBe('rescheduled');
+      expect(booking?.revision).toBe(2);
+    } else {
+      expect(request?.lifecycle.status).toBe('open');
+      expect(booking?.revision).toBe(2);
+    }
+    expect(activeClaims.length).toBe(2);
+  }, 30_000);
+
+  it('O. undefined serialization boundary for change request persistence', async () => {
+    const commands = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(commands, {
+      bookingId,
+      instructorId,
+      participantIds: [participantId],
+      idempotencyKey: 'seed-booking-undefined-boundary',
+    });
+
+    const createResult = await commands.execute({
+      kind: 'create_booking_change_request',
+      context: instructorContext('create-change-request-undefined', 1),
+      intent: {
+        bookingChangeRequestId: changeRequestId,
+        bookingId,
+        reason: 'Instructor cannot deliver the confirmed occurrence.',
+      },
+    });
+    expect(createResult.status).toBe('success');
+
+    const requestDoc = await firestore.doc(`booking_change_requests/${changeRequestId}`).get();
+    expect(requestDoc.exists).toBe(true);
+    expect(Object.values(requestDoc.data() ?? {}).includes(undefined)).toBe(false);
+
+    const resolveResult = await commands.execute({
+      kind: 'resolve_booking_change_request',
+      context: adminContext('resolve-no-change-undefined', 1),
+      intent: {
+        bookingChangeRequestId: changeRequestId,
+        resolution: 'no_change',
+      },
+    });
+    expect(resolveResult.status).toBe('success');
+  }, 30_000);
 });

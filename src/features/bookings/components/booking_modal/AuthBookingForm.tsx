@@ -42,6 +42,11 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
     overlappingBooking,
     overlappingCourse,
     totalCost,
+    additionalParticipantSurchargePerHourKzt,
+    maxParticipantsPerLesson,
+    pricingSettingsLoading,
+    lessonSettingsUnavailable,
+    participantSelectionExceedsMax,
     managedParticipants,
     managedParticipantsLoading,
     managedParticipantsError,
@@ -59,7 +64,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
     targetInstructor.pricePerHourKZT != null && Number.isFinite(targetInstructor.pricePerHourKZT)
       ? targetInstructor.pricePerHourKZT
       : undefined;
-  const totalFormatted = formatPrice(hourlyRateKzt != null ? hourlyRateKzt * duration : totalCost);
+  const totalFormatted = formatPrice(totalCost);
   const hourlyRateLabel =
     hourlyRateKzt != null ? `${formatPrice(hourlyRateKzt)} / ${t('hr')}` : `— / ${t('hr')}`;
 
@@ -72,13 +77,17 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
     loading: managedParticipantsLoading,
     error: managedParticipantsError,
   });
-  const isSubmitDisabled = isAuthenticatedBookingSubmitDisabled({
-    isSubmitting,
-    isTimeSlotOccupied,
-    instructorAvailable: targetInstructor.isAvailable,
-    clientActive: userProfile?.isClientActive !== false,
-    selectedParticipantCount: effectiveParticipantIds.length,
-  });
+  const isSubmitDisabled =
+    isAuthenticatedBookingSubmitDisabled({
+      isSubmitting,
+      isTimeSlotOccupied,
+      instructorAvailable: targetInstructor.isAvailable,
+      clientActive: userProfile?.isClientActive !== false,
+      selectedParticipantCount: effectiveParticipantIds.length,
+    }) ||
+    pricingSettingsLoading ||
+    lessonSettingsUnavailable ||
+    participantSelectionExceedsMax;
 
   return (
     <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
@@ -119,6 +128,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
             loading={managedParticipantsLoading}
             error={managedParticipantsError}
             onRetry={() => void reloadManagedParticipants()}
+            maxParticipants={maxParticipantsPerLesson}
             t={t as (key: string) => string}
           />
         )}
@@ -144,6 +154,28 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
           totalLabel={totalFormatted}
           t={t}
         />
+
+        {lessonSettingsUnavailable && (
+          <p className="px-4 pt-2 text-xs text-rose-600 dark:text-rose-400">
+            {language === 'ru'
+              ? 'Канонические настройки урока не заданы; отправка недоступна.'
+              : 'Canonical lesson settings are not configured; submission is unavailable.'}
+          </p>
+        )}
+
+        {participantSelectionExceedsMax && maxParticipantsPerLesson !== undefined && (
+          <p className="px-4 pt-2 text-xs text-rose-600 dark:text-rose-400">
+            {language === 'ru'
+              ? `Выбрано слишком много участников. Максимум: ${maxParticipantsPerLesson}.`
+              : `Too many participants selected. Maximum: ${maxParticipantsPerLesson}.`}
+          </p>
+        )}
+
+        {effectiveParticipantIds.length > 1 && !lessonSettingsUnavailable && (
+          <p className="px-4 pt-2 text-xs text-[var(--ink-dim)]">
+            {`${language === 'ru' ? 'Доплата за дополнительного участника, ₸/час' : 'Additional participant surcharge, ₸/hour'}: ${formatPrice(additionalParticipantSurchargePerHourKzt ?? 0)}`}
+          </p>
+        )}
 
         <div className="space-y-2.5 px-4 pb-4 pt-3">
           {userProfile?.isClientActive === false ? (

@@ -5,16 +5,17 @@ Amended: 2026-09-01 — T32.8A, T32.8B, and T32.8C PASS; guest confirmation poli
 Amended: 2026-09-07 — T32.9A.8 PASS/CLOSED; T32.9A.9 redefined as FINAL CANONICAL CUTOVER (9A–9E); T32.9A.9A core authority cutover recorded; F1/F2 required before 9A close; production Booking inventory and legacy Individual Booking callable cleanup recorded
 Amended: 2026-09-07 — T32.9A.9A.F3 (Canonical Multi-Participant Lesson Booking) added to roadmap after F2; F2 F3-compatibility requirement recorded; 9A final integration / production smoke gated after F3
 Amended: 2026-09-07 — T32.9A.9A.F2 funded-pending-after-deadline limbo policy documented; reservation deadline vs confirmation reconciliation distinction recorded in ADR-0007
+Amended: 2026-09-08 — T32.9A.9A.F3 implemented for authenticated/managed Participants and moved to READY_FOR_MANUAL_SMOKE; guest creation remains single-participant by explicit boundary; canonical additional-participant surcharge is per hour of lesson duration and is snapshotted with duration
 
 Status: historical Admin-runtime audit from 2026-08-30, with later T32.8A–T32.8C and T32.9A/T32.9B migration status below. Findings in this document that describe unpaid Administrator guest approval, missing guest CourseEnrollment confirmation, or identity linking as confirmation are superseded by ADR-0007. Sections below that still describe the 2026-08-30 Admin runtime as fully legacy are historical audit evidence; later migration status in this preamble supersedes them for T32.9A progress.
 
 ## Later migration status: T32.8A–T32.8C and T32.9
 
-| Slice | Name | Status |
-|---|---|---|
-| T32.8A | Canonical identity administration (Account, Participant, ParticipantManagement, Account → managed Participant selector) | PASS |
-| T32.8B | Admin-assisted guest identity linking (`existing_managed`) | PASS |
-| T32.8C | Payment-Driven Guest Confirmation | PASS |
+| Slice  | Name                                                                                                                    | Status |
+| ------ | ----------------------------------------------------------------------------------------------------------------------- | ------ |
+| T32.8A | Canonical identity administration (Account, Participant, ParticipantManagement, Account → managed Participant selector) | PASS   |
+| T32.8B | Admin-assisted guest identity linking (`existing_managed`)                                                              | PASS   |
+| T32.8C | Payment-Driven Guest Confirmation                                                                                       | PASS   |
 
 T32.8C was previously scoped as a deferred guest-approval policy review. That name and unpaid-approval reading are superseded. T32.8C implements payment-funded guest confirmation for Lesson Booking and CourseEnrollment.
 
@@ -28,23 +29,23 @@ T32.9 remains split per [ADR-0008](adr/0008-ux-preservation-during-canonical-mig
 
 ### Status table (current)
 
-| Slice | Name | Status |
-|---|---|---|
-| T32.9A.8A | Canonical Courses UX — archived/reactivate foundations | PASS / CLOSED |
-| T32.9A.8B | Canonical Courses UX — edit / catalog ownership | PASS / CLOSED |
-| T32.9A.8C | Canonical Courses UX — archived courses + reactivate + cursor pagination | PASS / CLOSED |
-| T32.9A.8 | Canonical Courses UX | PASS / CLOSED |
-| T32.9A.9A core | Individual Booking lifecycle cutover (authority) | PASS at source/production authority level |
-| T32.9A.9A.F1 | Canonical Admin Guest Payment Capture | REQUIRED / IN PROGRESS |
-| T32.9A.9A.F2 | Guest Unpaid Reservation Expiry | READY_FOR_MANUAL_SMOKE |
-| T32.9A.9A.F3 | Canonical Multi-Participant Lesson Booking | PLANNED |
-| T32.9A.9A final integration / production smoke | 9A close gate after F3 | PENDING |
-| T32.9A.9A | Individual Booking lifecycle cutover (overall) | NOT CLOSED — finalization in progress |
-| T32.9A.9B | Student Booking Stats / Progress / Recommendations Cutover | PENDING |
-| T32.9A.9C | Course Progress / Achievements Cutover | PENDING |
-| T32.9A.9D | Destructive Legacy Data Reset | PENDING |
-| T32.9A.9E | Canonical Authority / Reachability Gate | PENDING |
-| T32.9B | Final Legacy Write / Runtime Cleanup | PENDING; blocked until T32.9A.9E PASS |
+| Slice                                          | Name                                                                     | Status                                    |
+| ---------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------- |
+| T32.9A.8A                                      | Canonical Courses UX — archived/reactivate foundations                   | PASS / CLOSED                             |
+| T32.9A.8B                                      | Canonical Courses UX — edit / catalog ownership                          | PASS / CLOSED                             |
+| T32.9A.8C                                      | Canonical Courses UX — archived courses + reactivate + cursor pagination | PASS / CLOSED                             |
+| T32.9A.8                                       | Canonical Courses UX                                                     | PASS / CLOSED                             |
+| T32.9A.9A core                                 | Individual Booking lifecycle cutover (authority)                         | PASS at source/production authority level |
+| T32.9A.9A.F1                                   | Canonical Admin Guest Payment Capture                                    | REQUIRED / IN PROGRESS                    |
+| T32.9A.9A.F2                                   | Guest Unpaid Reservation Expiry                                          | READY_FOR_MANUAL_SMOKE                    |
+| T32.9A.9A.F3                                   | Canonical Multi-Participant Lesson Booking                               | READY_FOR_MANUAL_SMOKE                    |
+| T32.9A.9A final integration / production smoke | 9A close gate after F3                                                   | PENDING                                   |
+| T32.9A.9A                                      | Individual Booking lifecycle cutover (overall)                           | NOT CLOSED — finalization in progress     |
+| T32.9A.9B                                      | Student Booking Stats / Progress / Recommendations Cutover               | PENDING                                   |
+| T32.9A.9C                                      | Course Progress / Achievements Cutover                                   | PENDING                                   |
+| T32.9A.9D                                      | Destructive Legacy Data Reset                                            | PENDING                                   |
+| T32.9A.9E                                      | Canonical Authority / Reachability Gate                                  | PENDING                                   |
+| T32.9B                                         | Final Legacy Write / Runtime Cleanup                                     | PENDING; blocked until T32.9A.9E PASS     |
 
 Status labels used here: `PASS`, `PASS / CLOSED`, `REQUIRED`, `IN PROGRESS`, `PLANNED`, `READY_FOR_MANUAL_SMOKE`, `PENDING`, `NOT CLOSED`. Do not treat F1, F2, or F3 as `PASS`, `CLOSED`, or `DEPLOYED` until production-smoked.
 
@@ -196,9 +197,11 @@ Do not invent a new TTL in this document. Use the existing domain reservation-ex
 
 9A cannot close without F2 production smoke plus F3. F2 is not PASS/CLOSED/DEPLOYED.
 
-##### T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking — PLANNED
+##### T32.9A.9A.F3 — Canonical Multi-Participant Lesson Booking — READY_FOR_MANUAL_SMOKE
 
 Goal: support booking one individual/private lesson for several managed Participants in a single canonical lesson reservation.
+
+**Delivered scope boundary.** Multi-participant creation is available only for canonical authenticated/managed Participants. Guest lesson creation still accepts exactly one guest Participant/contact. F3 does not introduce several guest profiles, a multi-guest identity contract, multi-guest linking/claim semantics, or several guest contacts inside one Booking. This restriction exists only at the guest creation boundary: the canonical `Booking` aggregate and all Booking-level lifecycle, Payment, expiry, cancellation, and reconciliation workflows remain party-size independent over `participantIds[]`.
 
 Aggregate semantics:
 
@@ -235,7 +238,7 @@ Booking A
 Booking B
 ```
 
-for the same slot. Do not create separate slot locks, Payments, or Booking lifecycles per Participant.
+for the same slot. Do not create separate instructor slot locks, Payments, or Booking lifecycles per Participant. One instructor occurrence claim reserves the lesson; each Participant additionally receives the existing conflict claim needed to prevent that Participant from being double-booked.
 
 **Participant model.** Canonical direction: `Booking.participantIds[]` must support at least `[A]` and `[A, B]` and is the source of truth for new canonical lesson writes. Do not document a specific migration implementation for legacy `participantId` until a code/schema audit defines a safe cutover/compatibility strategy.
 
@@ -282,33 +285,39 @@ CourseEnrollment remains a separate canonical enrollment per Participant. F3 mus
 ```text
 totalPrice =
   baseLessonPrice
-  + additionalParticipantFee × (participantCount - 1)
+  + additionalParticipantSurchargePerHourKzt
+    × (participantCount - 1)
+    × lessonDurationMinutes / 60
 ```
 
 for `participantCount >= 1`:
 
 ```text
-1 participant → baseLessonPrice
-2 participants → baseLessonPrice + 1 × additionalParticipantFee
-3 participants → baseLessonPrice + 2 × additionalParticipantFee
+1 participant, any duration → baseLessonPrice
+2 participants, 60 min, surcharge 5000 → baseLessonPrice + 5000
+2 participants, 90 min, surcharge 5000 → baseLessonPrice + 7500
+3 participants, 90 min, surcharge 5000 → baseLessonPrice + 15000
+2 participants, 30 min, surcharge 5000 → baseLessonPrice + 2500
 ```
 
 Do not fix a concrete additional-participant fee amount in this document.
 
-**Admin-configurable additional participant fee.** `additionalParticipantFee` must be set by Administrator through Admin Panel as a canonical pricing setting, stored in KZT, with server-side validation, changeable without code redeploy, and not frontend authority. During F3 implementation, audit the existing canonical settings/pricing architecture and use the existing pattern. Working semantic name: `additionalParticipantFeeKzt` — not a final storage contract until code audit.
+**Admin-configurable lesson settings.** The delivered canonical singleton `/lesson_pricing_settings/lesson_booking` contains `additionalParticipantSurchargePerHourKzt` and `maxParticipantsPerLesson`. Administrator changes use `update_lesson_pricing_settings`, expected-revision OCC, mandatory reason, server validation, idempotency, and immutable audit. The maximum is a positive safe integer with no hardcoded business upper bound or implicit default. The UI reads both values only for preview, picker, and validation UX; the booking transaction reads the current setting and remains final authority. Duration is taken from the canonical lesson/Booking schedule, not from a frontend total. New authenticated creation fails closed when the aggregate is absent or invalid. Guest creation remains its separate single-participant boundary.
 
-**Server price authority.** Frontend may show estimated/display price; authoritative Booking cost is determined by backend. The canonical command uses base lesson price, participant count, and current canonical additional-participant fee to calculate total server-side. Frontend does not pass authoritative final price.
+**Server price authority.** Frontend may show estimated/display price; authoritative Booking cost is determined by backend. The canonical command uses base lesson price, participant count, canonical lesson duration, and current canonical additional-participant hourly surcharge to calculate total server-side. Frontend does not pass authoritative final price.
 
 **Pricing snapshot.** Admin setting changes after Booking creation must not change cost of existing bookings. F3 requires Booking/Payment to retain sufficient immutable pricing snapshot / monetary facts to prove:
 
 ```text
-price at booking
-+ additional-participant fee at booking
+base lesson price
++ surcharge per hour
++ duration
 + participant count
++ settings revision
 = authoritative charged price
 ```
 
-Conceptually: base price at booking, additional participant fee at booking, participant count, final total. Do not prescribe snapshot structure until audit of existing Payment/Booking model. Payment remains numerical financial authority where already established.
+The delivered Booking pricing basis is `lesson_party:v1` with base lesson price, snapshotted per-hour surcharge and settings revision, lesson duration, Participant count, and calculated total. Payment retains numeric original/current price authority. A later Administrator setting change therefore affects only future creation; existing Booking/Payment facts do not drift.
 
 **Authorization.** On multi-participant Booking creation, backend must verify authorization/ownership/managed-participant access for **every** `participantId`. If A is authorized and B is not, the whole command must fail atomically — no partial Booking.
 
@@ -328,23 +337,27 @@ Removing one Participant from an existing group lesson booking, if needed later,
 
 **Idempotency.** Replaying the same canonical create-booking command with the same idempotency intent must not create a second Booking, re-reserve slot, re-create Payment, re-debit Wallet, or lose/duplicate Participants.
 
-**Maximum participant count.** Product decision on maximum Participants per lesson is not yet made. F3 documentation does not set `maxParticipants = 2` or any other value. Architecture supports `N` participants; concrete limits use existing service/instructor/product constraints if present. If implementation reveals no authoritative limit and one is required — escalate as product question.
+**Maximum participant count.** `maxParticipantsPerLesson` in canonical Admin lesson settings is the business authority for new authenticated/managed Booking creation. There is no hardcoded Booking-schema business maximum. Creation validates the current setting inside the same authoritative transaction after Participant access checks and before Booking, Payment, Wallet, or claim writes. An existing Booking remains valid if the maximum is later reduced; its Payment/pricing snapshot and lifecycle remain unchanged, and reschedule with the same `participantIds[]` remains allowed. A composition addition applies the current maximum. Independently, the transaction planner may reject an operation that exceeds ADR-0002 technical read/write/payload budgets.
 
 **Acceptance criteria.** F3 is complete only when proven:
 
-| Scenario | Expected outcome |
-|---|---|
-| Single participant | Picker hidden; ONE Booking; `participantIds` contains A; ONE Payment; ONE slot reservation |
-| Two participants | Select A + B; ONE Booking; `participantIds` exactly [A, B]; ONE Payment; ONE slot reservation |
-| Authorization | A allowed + B not allowed → whole command rejected; no partial Booking/Payment/slot mutation |
-| Pricing | 2 participants → base price + one additional-participant fee |
-| Admin pricing setting | Admin changes fee → future bookings use new fee; existing bookings retain old financial truth |
-| Idempotency | Same booking command replay → no duplicate Booking/Payment/debit/slot reservation |
-| Cancellation | Multi-participant Booking cancelled → one canonical cancellation; slot released once; financial policy applied once |
-| Read models | All affected lesson Booking read models show full participant set |
-| Course regression | CourseEnrollment multi-select still creates independent enrollment per Participant |
+| Scenario              | Expected outcome                                                                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Single participant    | Picker hidden; ONE Booking; `participantIds` contains A; ONE Payment; ONE slot reservation                                                                      |
+| Two participants      | Select A + B; ONE Booking; `participantIds` exactly [A, B]; ONE Payment; ONE slot reservation                                                                   |
+| Three participants    | Select A + B + C; ONE Booking; per-hour surcharge applied twice and scaled by duration; ONE Payment; ONE slot reservation                                       |
+| Configurable maximum  | Current max admits parties up to that value; an over-max or forged request is rejected atomically with zero Booking/Payment/claim writes                        |
+| Guest boundary        | A guest creation request with more than one Participant is rejected before Booking/Payment creation; authenticated multi-participant creation remains available |
+| Authorization         | A allowed + B not allowed → whole command rejected; no partial Booking/Payment/slot mutation                                                                    |
+| Pricing               | 2 participants → base price + one additional-participant fee                                                                                                    |
+| Admin pricing setting | Admin changes fee → future bookings use new fee; existing bookings retain old financial truth                                                                   |
+| Admin maximum setting | Admin reduces max → future oversized bookings fail; existing larger Booking and same-party reschedule remain valid                                              |
+| Idempotency           | Same booking command replay → no duplicate Booking/Payment/debit/slot reservation                                                                               |
+| Cancellation          | Multi-participant Booking cancelled → one canonical cancellation; slot released once; financial policy applied once                                             |
+| Read models           | All affected lesson Booking read models show full participant set                                                                                               |
+| Course regression     | CourseEnrollment multi-select still creates independent enrollment per Participant                                                                              |
 
-9A cannot close without F3. F3 is decided and required; it is not PASS/CLOSED/DEPLOYED.
+F3 source, unit, Firestore Emulator, and local browser E2E evidence is complete and the slice is **READY_FOR_MANUAL_SMOKE**. It is not PASS/CLOSED/DEPLOYED. 9A still cannot close without F1/F2/F3 production-equivalent smoke and the final integration gate.
 
 ##### T32.9A.9A final integration / production smoke — PENDING
 
@@ -356,13 +369,13 @@ Gate after F1 + F2 + F3. Confirms end-to-end individual Booking lifecycle cutove
 
 Read-only inventory result for Individual Booking cutover:
 
-| Classification | Count |
-|---|---|
-| CANONICAL_CURRENT_FUTURE | 16 |
-| LEGACY_ONLY_CURRENT_FUTURE | 0 |
-| CANONICAL_PAST | 1 |
-| LEGACY_PAST_DISPOSABLE | 11 |
-| AMBIGUOUS | 0 |
+| Classification             | Count |
+| -------------------------- | ----- |
+| CANONICAL_CURRENT_FUTURE   | 16    |
+| LEGACY_ONLY_CURRENT_FUTURE | 0     |
+| CANONICAL_PAST             | 1     |
+| LEGACY_PAST_DISPOSABLE     | 11    |
+| AMBIGUOUS                  | 0     |
 
 Interpretation:
 
@@ -404,12 +417,12 @@ This is **not** a claim that every legacy function in the project was removed �
 
 #### Background jobs (Booking-related)
 
-| Job | Status |
-|---|---|
-| `scheduledAutoCompleteBookings` | Removed (source export + production) |
-| `scheduledReconcileGuestConfirmationMismatches` | Canonical / active |
-| `scheduledPurgeExpiredNotifications` | Canonical / active |
-| Guest unpaid reservation expiry scheduler | `scheduledExpireGuestLessonReservations` — READY_FOR_MANUAL_SMOKE (`every 5 minutes`, UTC) |
+| Job                                             | Status                                                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `scheduledAutoCompleteBookings`                 | Removed (source export + production)                                                       |
+| `scheduledReconcileGuestConfirmationMismatches` | Canonical / active                                                                         |
+| `scheduledPurgeExpiredNotifications`            | Canonical / active                                                                         |
+| Guest unpaid reservation expiry scheduler       | `scheduledExpireGuestLessonReservations` — READY_FOR_MANUAL_SMOKE (`every 5 minutes`, UTC) |
 
 Do not confuse completion scheduling with payment-confirmation reconciliation.
 
@@ -596,14 +609,14 @@ Relevant entry points:
 
 ### 1.2 Active tabs
 
-| Tab | Active screens | Current authority |
-|---|---|---|
-| Shared header | `FinancialOverview` | Legacy `bookings` and `school_global_stats` |
-| Operations | `ScheduleCalendar`, `BookingsLog` | Legacy `Booking[]` and booking callables |
-| Finance | `GuestWalletPanel`, `CashFlowPanel` | `settings/guest_wallet`, `wallet_ledger` |
-| People | `ClientsManager`, `CoachesManager`, `AdminRoleManager` | `users`, `instructors` |
-| Product | `CoursesManager`, resort content/settings | Legacy Course shape, `resort_data` |
-| System | Settings, destructive reset tools, error logs | `settings`, `bookings`, `wallet_ledger`, `users`, `error_logs` |
+| Tab           | Active screens                                         | Current authority                                              |
+| ------------- | ------------------------------------------------------ | -------------------------------------------------------------- |
+| Shared header | `FinancialOverview`                                    | Legacy `bookings` and `school_global_stats`                    |
+| Operations    | `ScheduleCalendar`, `BookingsLog`                      | Legacy `Booking[]` and booking callables                       |
+| Finance       | `GuestWalletPanel`, `CashFlowPanel`                    | `settings/guest_wallet`, `wallet_ledger`                       |
+| People        | `ClientsManager`, `CoachesManager`, `AdminRoleManager` | `users`, `instructors`                                         |
+| Product       | `CoursesManager`, resort content/settings              | Legacy Course shape, `resort_data`                             |
+| System        | Settings, destructive reset tools, error logs          | `settings`, `bookings`, `wallet_ledger`, `users`, `error_logs` |
 
 ### 1.3 Data-plane split
 
@@ -666,48 +679,48 @@ Classification:
 
 ### 2.1 Lesson booking and schedule mutations
 
-| Capability | UI to writer | Destination/effect | Class | Risk |
-|---|---|---|---|---|
-| Create lesson, break, or day-off | `ScheduleSlotActionModal` -> `useAdminActions` -> `addBooking` callable | `bookings`, balances, availability and ledger state | Hybrid legacy | HIGH |
-| Confirm pending lesson | `BookingsLog` -> `confirmBookingService` -> `confirmBooking` callable | Legacy booking lifecycle and availability | Hybrid legacy | HIGH |
-| Complete lesson | `BookingsLog`/Schedule -> `completeBookingService` -> `completeBooking` callable | Legacy bookings, activity and availability | Hybrid legacy | HIGH |
-| Cancel/refund lesson | `BookingsLog`/Schedule -> `cancelBookingService` -> `cancelBooking` callable | Booking state, user/guest balance, ledger and availability | Hybrid legacy | CRITICAL |
-| Approve cancellation request | `BookingsLog` -> `cancelBooking` | Legacy cancellation and refund logic | Semantic mismatch; hybrid legacy | CRITICAL |
-| Reject cancellation request | `BookingsLog` -> `confirmBooking` | Restores legacy confirmed status | Semantic mismatch; hybrid legacy | CRITICAL |
-| Reschedule lesson | `ScheduleSlotActionModal` -> `updateBookingSchedule` callable | Booking schedule and availability locks | Hybrid legacy | HIGH |
-| Reassign lesson instructor | Same schedule callable | Booking, pricing/balance and availability | Hybrid legacy | CRITICAL |
-| Link guest lesson to account | `LinkGuestBookingModal` -> `linkGuestBooking` callable | Rewrites booking ownership and related legacy data | Hybrid legacy | HIGH |
-| Delete booking or block | Schedule -> `deleteBooking` callable | Booking, availability, course/stats side effects | Hybrid legacy/destructive | HIGH |
+| Capability                       | UI to writer                                                                     | Destination/effect                                         | Class                            | Risk     |
+| -------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------- | -------- |
+| Create lesson, break, or day-off | `ScheduleSlotActionModal` -> `useAdminActions` -> `addBooking` callable          | `bookings`, balances, availability and ledger state        | Hybrid legacy                    | HIGH     |
+| Confirm pending lesson           | `BookingsLog` -> `confirmBookingService` -> `confirmBooking` callable            | Legacy booking lifecycle and availability                  | Hybrid legacy                    | HIGH     |
+| Complete lesson                  | `BookingsLog`/Schedule -> `completeBookingService` -> `completeBooking` callable | Legacy bookings, activity and availability                 | Hybrid legacy                    | HIGH     |
+| Cancel/refund lesson             | `BookingsLog`/Schedule -> `cancelBookingService` -> `cancelBooking` callable     | Booking state, user/guest balance, ledger and availability | Hybrid legacy                    | CRITICAL |
+| Approve cancellation request     | `BookingsLog` -> `cancelBooking`                                                 | Legacy cancellation and refund logic                       | Semantic mismatch; hybrid legacy | CRITICAL |
+| Reject cancellation request      | `BookingsLog` -> `confirmBooking`                                                | Restores legacy confirmed status                           | Semantic mismatch; hybrid legacy | CRITICAL |
+| Reschedule lesson                | `ScheduleSlotActionModal` -> `updateBookingSchedule` callable                    | Booking schedule and availability locks                    | Hybrid legacy                    | HIGH     |
+| Reassign lesson instructor       | Same schedule callable                                                           | Booking, pricing/balance and availability                  | Hybrid legacy                    | CRITICAL |
+| Link guest lesson to account     | `LinkGuestBookingModal` -> `linkGuestBooking` callable                           | Rewrites booking ownership and related legacy data         | Hybrid legacy                    | HIGH     |
+| Delete booking or block          | Schedule -> `deleteBooking` callable                                             | Booking, availability, course/stats side effects           | Hybrid legacy/destructive        | HIGH     |
 
 ### 2.2 Course mutations
 
-| Capability | UI to writer | Destination/effect | Class | Risk |
-|---|---|---|---|---|
-| Create or clone course | `CoursesManager`/`useCourseForm` -> `courseService.setDoc` | Flat legacy `/courses/{id}` document | Legacy direct | HIGH |
-| Edit course | `CoursesManager` -> `courseService.updateDoc` | Legacy operational and presentation fields | Legacy direct; canonical update guarded | HIGH |
-| Hide/show or reorder | `CoursesManager` -> `courseService.updateDoc` | Legacy course fields | Legacy direct; canonical update guarded | HIGH |
-| Delete course | `CoursesManager` -> `courseService.deleteDoc` | Deletes `/courses/{id}` without a canonical cascade | Legacy direct/destructive | CRITICAL |
-| Assign course instructor | Course form -> legacy `instructorIds` update | Legacy course authority | Legacy direct | HIGH |
-| Change dates/schedule | Course form -> legacy `dates` update | Legacy course authority | Legacy direct | HIGH |
-| Change capacity | Course form -> `totalSeats`/`availableSeats` update | Legacy course authority | Legacy direct | HIGH |
-| Change price | Course form -> `priceKZT` update | Legacy course authority | Legacy direct | HIGH |
-| Edit presentation | Course form -> mixed course payload | Presentation can target the wrong aggregate | Legacy direct | MEDIUM |
+| Capability               | UI to writer                                               | Destination/effect                                  | Class                                   | Risk     |
+| ------------------------ | ---------------------------------------------------------- | --------------------------------------------------- | --------------------------------------- | -------- |
+| Create or clone course   | `CoursesManager`/`useCourseForm` -> `courseService.setDoc` | Flat legacy `/courses/{id}` document                | Legacy direct                           | HIGH     |
+| Edit course              | `CoursesManager` -> `courseService.updateDoc`              | Legacy operational and presentation fields          | Legacy direct; canonical update guarded | HIGH     |
+| Hide/show or reorder     | `CoursesManager` -> `courseService.updateDoc`              | Legacy course fields                                | Legacy direct; canonical update guarded | HIGH     |
+| Delete course            | `CoursesManager` -> `courseService.deleteDoc`              | Deletes `/courses/{id}` without a canonical cascade | Legacy direct/destructive               | CRITICAL |
+| Assign course instructor | Course form -> legacy `instructorIds` update               | Legacy course authority                             | Legacy direct                           | HIGH     |
+| Change dates/schedule    | Course form -> legacy `dates` update                       | Legacy course authority                             | Legacy direct                           | HIGH     |
+| Change capacity          | Course form -> `totalSeats`/`availableSeats` update        | Legacy course authority                             | Legacy direct                           | HIGH     |
+| Change price             | Course form -> `priceKZT` update                           | Legacy course authority                             | Legacy direct                           | HIGH     |
+| Edit presentation        | Course form -> mixed course payload                        | Presentation can target the wrong aggregate         | Legacy direct                           | MEDIUM   |
 
 T31B.1 blocks legacy updates to provisioned canonical Courses, but creation and
 deletion remain separate risk paths.
 
 ### 2.3 Participant, account, instructor, and role mutations
 
-| Capability | UI to writer | Destination/effect | Class | Risk |
-|---|---|---|---|---|
-| Create client | `ClientsManager` -> profile store/service `setDoc` | `users/client_*` without canonical Account/Participant provisioning | Legacy direct | HIGH |
-| Edit client profile | `ClientsManager` -> profile service | `users/{id}` | Legacy direct | HIGH |
-| Edit account balance | `ClientsManager` -> wallet transaction helper | `users.balanceUSD` and `wallet_ledger` | Legacy direct money write | CRITICAL |
-| Delete client | `ClientsManager` -> `profileService.deleteDoc` | User deletion without Auth/Participant topology cleanup | Legacy direct/destructive | HIGH |
-| Promote/demote Admin | `AdminRoleManager` -> `profileService.updateDoc` | `users/{id}.role` | Legacy direct; owner-gated | CRITICAL |
-| Create instructor | Clients/Coaches manager -> booking service `setDoc` | `instructors/{id}` | Legacy direct | HIGH |
-| Edit instructor | `CoachesManager` -> `setDoc` and batch propagation | Instructor and denormalized legacy booking state | Legacy direct | HIGH |
-| Delete instructor | Clients/Coaches manager -> `deleteDoc` | Instructor catalog deletion without canonical relationship cleanup | Legacy direct | HIGH |
+| Capability           | UI to writer                                        | Destination/effect                                                  | Class                      | Risk     |
+| -------------------- | --------------------------------------------------- | ------------------------------------------------------------------- | -------------------------- | -------- |
+| Create client        | `ClientsManager` -> profile store/service `setDoc`  | `users/client_*` without canonical Account/Participant provisioning | Legacy direct              | HIGH     |
+| Edit client profile  | `ClientsManager` -> profile service                 | `users/{id}`                                                        | Legacy direct              | HIGH     |
+| Edit account balance | `ClientsManager` -> wallet transaction helper       | `users.balanceUSD` and `wallet_ledger`                              | Legacy direct money write  | CRITICAL |
+| Delete client        | `ClientsManager` -> `profileService.deleteDoc`      | User deletion without Auth/Participant topology cleanup             | Legacy direct/destructive  | HIGH     |
+| Promote/demote Admin | `AdminRoleManager` -> `profileService.updateDoc`    | `users/{id}.role`                                                   | Legacy direct; owner-gated | CRITICAL |
+| Create instructor    | Clients/Coaches manager -> booking service `setDoc` | `instructors/{id}`                                                  | Legacy direct              | HIGH     |
+| Edit instructor      | `CoachesManager` -> `setDoc` and batch propagation  | Instructor and denormalized legacy booking state                    | Legacy direct              | HIGH     |
+| Delete instructor    | Clients/Coaches manager -> `deleteDoc`              | Instructor catalog deletion without canonical relationship cleanup  | Legacy direct              | HIGH     |
 
 These paths maintain a dual authority:
 
@@ -719,22 +732,22 @@ no equivalent Admin Participant topology UI.
 
 ### 2.4 Finance and destructive system mutations
 
-| Capability | UI to writer | Destination/effect | Class | Risk |
-|---|---|---|---|---|
-| Adjust guest wallet | `GuestWalletPanel` -> `adminService` -> guest wallet transaction | `settings/guest_wallet`, `wallet_ledger` | Legacy direct money write | CRITICAL |
-| Reset school finances | System settings -> `resetSchoolFinances` | Deletes ledger, resets balances, guest wallet and stats | Legacy direct bulk destructive | CRITICAL |
-| Clear student bookings | System settings -> `clearStudentBookings` | Deletes bookings/messages/availability and rewrites course seats/stats | Legacy direct bulk destructive | CRITICAL |
-| Clear cancelled bookings | System settings -> clear helper | Deletes bookings/messages/availability | Legacy direct bulk destructive | HIGH |
-| Edit starter credit and retention settings | Settings UI -> settings service | `settings/*` | Legacy direct configuration | MEDIUM |
-| Edit currency/USD-KZT rate | Financial overview/context -> merged config write | `resort_data/config` | Presentation/config direct write | LOW |
+| Capability                                 | UI to writer                                                     | Destination/effect                                                     | Class                            | Risk     |
+| ------------------------------------------ | ---------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------- | -------- |
+| Adjust guest wallet                        | `GuestWalletPanel` -> `adminService` -> guest wallet transaction | `settings/guest_wallet`, `wallet_ledger`                               | Legacy direct money write        | CRITICAL |
+| Reset school finances                      | System settings -> `resetSchoolFinances`                         | Deletes ledger, resets balances, guest wallet and stats                | Legacy direct bulk destructive   | CRITICAL |
+| Clear student bookings                     | System settings -> `clearStudentBookings`                        | Deletes bookings/messages/availability and rewrites course seats/stats | Legacy direct bulk destructive   | CRITICAL |
+| Clear cancelled bookings                   | System settings -> clear helper                                  | Deletes bookings/messages/availability                                 | Legacy direct bulk destructive   | HIGH     |
+| Edit starter credit and retention settings | Settings UI -> settings service                                  | `settings/*`                                                           | Legacy direct configuration      | MEDIUM   |
+| Edit currency/USD-KZT rate                 | Financial overview/context -> merged config write                | `resort_data/config`                                                   | Presentation/config direct write | LOW      |
 
 ### 2.5 Other mutations
 
-| Capability | UI to writer | Destination/effect | Class | Risk |
-|---|---|---|---|---|
-| Edit resort metadata/content | Product settings -> resort service | `resort_data/config` | Presentation/config direct write | LOW |
-| Delete error logs | `ErrorLogsPanel` -> `adminService.deleteDoc` | `error_logs/*` | Operational cleanup | LOW |
-| Post-action notification | Admin actions/course service -> notification helper | `notifications/{id}` | Legacy direct side effect | MEDIUM |
+| Capability                   | UI to writer                                        | Destination/effect   | Class                            | Risk   |
+| ---------------------------- | --------------------------------------------------- | -------------------- | -------------------------------- | ------ |
+| Edit resort metadata/content | Product settings -> resort service                  | `resort_data/config` | Presentation/config direct write | LOW    |
+| Delete error logs            | `ErrorLogsPanel` -> `adminService.deleteDoc`        | `error_logs/*`       | Operational cleanup              | LOW    |
+| Post-action notification     | Admin actions/course service -> notification helper | `notifications/{id}` | Legacy direct side effect        | MEDIUM |
 
 ## 3. Course and CourseDay administration
 
@@ -814,15 +827,15 @@ Canonical authority is:
 
 Coverage:
 
-| Capability | Canonical status |
-|---|---|
-| Create CourseDay with actual assignment | Exists |
-| Reassign CourseDay instructor | Exists |
-| Add Course roster instructor | Missing |
-| Remove Course roster instructor | Missing |
-| Reschedule CourseDay | Missing |
-| Delete/cancel CourseDay | Missing |
-| Admin assignment read model | Missing |
+| Capability                              | Canonical status |
+| --------------------------------------- | ---------------- |
+| Create CourseDay with actual assignment | Exists           |
+| Reassign CourseDay instructor           | Exists           |
+| Add Course roster instructor            | Missing          |
+| Remove Course roster instructor         | Missing          |
+| Reschedule CourseDay                    | Missing          |
+| Delete/cancel CourseDay                 | Missing          |
+| Admin assignment read model             | Missing          |
 
 The Admin UI still edits `instructorIds` through the legacy Course form and
 uses legacy instructor documents. It has no canonical roster or CourseDay
@@ -1045,15 +1058,15 @@ does not.
 
 ## 10. Read-model audit
 
-| Admin screen | Current source | Canonical availability | Required extension |
-|---|---|---|---|
-| Schedule/BookingsLog | Raw legacy bookings plus paged history | Account/instructor/guest lesson scopes | Admin hot/history/detail, authorized actions, payment and issue summaries |
-| CoursesManager | Client join of `courses` and catalog content | Public catalog only | Aggregate, content, CourseDays, roster, revisions and provisioning state |
-| Enrollment roster | Legacy course-shaped booking rows | Account/instructor/guest scopes | Admin roster/detail and actions |
-| Finance | Ledger, `balanceUSD`, guest-wallet settings | No Admin finance projection | Payment, Wallet, MonetaryEvent and reconciliation |
-| AdminIssue | None | No Admin projection | Inbox, history, detail, subject links and coupled actions |
-| People | Raw `users` and `instructors` | Account-scoped managed Participant reads | Admin account/Participant topology and diagnostics |
-| Instructor assignment | Legacy `instructorIds` and raw instructors | Instructor-scoped assignment projection | Admin Course roster and CourseDay assignment |
+| Admin screen          | Current source                               | Canonical availability                   | Required extension                                                        |
+| --------------------- | -------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------- |
+| Schedule/BookingsLog  | Raw legacy bookings plus paged history       | Account/instructor/guest lesson scopes   | Admin hot/history/detail, authorized actions, payment and issue summaries |
+| CoursesManager        | Client join of `courses` and catalog content | Public catalog only                      | Aggregate, content, CourseDays, roster, revisions and provisioning state  |
+| Enrollment roster     | Legacy course-shaped booking rows            | Account/instructor/guest scopes          | Admin roster/detail and actions                                           |
+| Finance               | Ledger, `balanceUSD`, guest-wallet settings  | No Admin finance projection              | Payment, Wallet, MonetaryEvent and reconciliation                         |
+| AdminIssue            | None                                         | No Admin projection                      | Inbox, history, detail, subject links and coupled actions                 |
+| People                | Raw `users` and `instructors`                | Account-scoped managed Participant reads | Admin account/Participant topology and diagnostics                        |
+| Instructor assignment | Legacy `instructorIds` and raw instructors   | Instructor-scoped assignment projection  | Admin Course roster and CourseDay assignment                              |
 
 Admin currently mixes multiple pagination models:
 
@@ -1101,14 +1114,14 @@ strict canonical Course deletion and destructive/money risks first.
 
 ## 12. Test inventory
 
-| Layer | Existing coverage | High-risk gap |
-|---|---|---|
-| Unit/domain | Strong canonical policy coverage for booking, enrollment, finance, attendance, Participants, claims, revisions, AdminIssue | Sparse Admin component behavior; several wiring tests are source-string assertions |
-| Component | Booking log cancellation, Course delete, non-Admin Participant panel | No meaningful Schedule, wallet, cash flow, client, coach, role, issue, or canonical Admin workflow coverage |
-| Callable | Legacy booking callables and canonical transport | No Admin UI-to-canonical callable integration |
-| Emulator | Strong canonical finance, cancellation, CourseDay, enrollment, attendance and reconciliation suites | No end-to-end Admin projection and command workflow |
-| Firestore Rules | Booking denial, roles, ledger, resort and Course contamination cases | Existing tests preserve Admin balance inflation and ledger deletion; no post-migration denial suite |
-| E2E | Customer booking and canonical invariants | No `/admin` navigation or critical Admin workflow |
+| Layer           | Existing coverage                                                                                                          | High-risk gap                                                                                               |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Unit/domain     | Strong canonical policy coverage for booking, enrollment, finance, attendance, Participants, claims, revisions, AdminIssue | Sparse Admin component behavior; several wiring tests are source-string assertions                          |
+| Component       | Booking log cancellation, Course delete, non-Admin Participant panel                                                       | No meaningful Schedule, wallet, cash flow, client, coach, role, issue, or canonical Admin workflow coverage |
+| Callable        | Legacy booking callables and canonical transport                                                                           | No Admin UI-to-canonical callable integration                                                               |
+| Emulator        | Strong canonical finance, cancellation, CourseDay, enrollment, attendance and reconciliation suites                        | No end-to-end Admin projection and command workflow                                                         |
+| Firestore Rules | Booking denial, roles, ledger, resort and Course contamination cases                                                       | Existing tests preserve Admin balance inflation and ledger deletion; no post-migration denial suite         |
+| E2E             | Customer booking and canonical invariants                                                                                  | No `/admin` navigation or critical Admin workflow                                                           |
 
 High-priority missing tests:
 
@@ -1124,34 +1137,34 @@ High-priority missing tests:
 
 ## 13. Capability matrix
 
-| Capability | Current write source | Canonical backend | Canonical Admin read model | Risk | Main gap | Slice |
-|---|---|---|---|---|---|---|
-| Safety/destructive controls | Direct writes and batches | Partial guards only | No | CRITICAL | Canonical Course delete and direct money/reset paths | T32.1 |
-| AdminIssue inbox/detail | None | Issue policy/store exists | No | HIGH | List/detail and coupled actions | T32.2 |
-| Manual Wallet funding | Direct balance/guest-wallet writes | Exists | No | CRITICAL | Wallet projection and command UI | T32.3 |
-| Refund/correction | Legacy booking cancellation | Exists | No | CRITICAL | Payment/Wallet/MonetaryEvent detail | T32.3 |
-| Lesson Admin list/detail | Legacy raw bookings | Commands mostly exist | No | HIGH | Admin read scope | T32.4 |
-| Admin lesson create | Legacy `addBooking` | Exists with Admin context | No | HIGH | Frontend hook and read scope | T32.4 |
-| Guest lesson pending-payment confirmation | Legacy `confirmBooking` | Payment-funded `confirm_guest_booking` (T32.8C PASS) | Partial | HIGH | Unpaid Admin override is forbidden; leftover unreachable UI is T32.9B after T32.9A parity | T32.4 / T32.8C |
-| Lesson cancellation | Legacy cancel/confirm | Exists | No | CRITICAL | Canonical resolve/refund UX | T32.3/T32.4 |
-| Lesson reschedule/reassign | Legacy schedule callable | Handlers exist | No | HIGH | Admin callable routing | T32.4 |
-| Lesson completion | Legacy callable | Command kind only | No | HIGH | Missing production handler | T32.4 |
-| Guest lesson linking | Legacy Admin callable | Admin `existing_managed` (T32.8B PASS) | Partial | HIGH | Linking is not confirmation | T32.8B |
-| Canonical Course create | Direct `setDoc` legacy form | Provisioning exists | No | HIGH | Production Admin workflow | T32.5 |
-| Course operational amend | Direct `updateDoc` | Missing | No | HIGH | Intent-specific commands | T32.5 |
-| Catalog content edit | Mixed legacy Course payload | Missing dedicated command | No | LOW | Isolate `course_catalog_content` | T32.5 |
-| Course roster assignment | Legacy `instructorIds` | Missing | No | HIGH | Add/remove roster commands | T32.5 |
-| CourseDay create/reassign | Legacy date/instructor fields | Exists | No | HIGH | UI and Admin projection | T32.5 |
-| CourseDay reschedule/remove | Legacy date edits | Missing | No | HIGH | Commands and policy | T32.5 |
-| Enrollment roster/detail | Legacy course-shaped bookings | Domain exists | No | HIGH | Admin roster scope | T32.6 |
-| Enrollment cancellation | Legacy booking actions | Exists | No | CRITICAL | Canonical resolve/refund UX | T32.6 |
-| Enrollment transfer | None | Handler exists | No | HIGH | Admin callable routing | T32.6 |
-| Guest enrollment pending-payment confirmation/link | Legacy/none | Payment-funded `confirm_guest_course_enrollment` (T32.8C PASS); Admin `existing_managed` link (T32.8B PASS) | Partial | HIGH | Unpaid Admin approval is not policy; leftover unreachable UI is T32.9B after T32.9A parity | T32.6 / T32.8B / T32.8C |
-| Attendance correction | Instructor UI only | Exists | No | HIGH | Admin correction workflow | T32.7 |
-| Participant/account Admin | Direct `users` CRUD | Mostly exists | No | HIGH | Admin topology/diagnostics | T32.8 |
-| Management assignment/revoke | None | Exists | No | HIGH | Admin UI/read model | T32.8 |
-| Instructor catalog CRUD | Direct `instructors` CRUD | Missing | No | HIGH | Separate catalog commands/read model | T32.8 |
-| Resort/settings content | Direct configuration writes | Not a canonical business domain | Not required | LOW | Keep isolated; leftover write cleanup is T32.9B after parity | T32.9B |
+| Capability                                         | Current write source               | Canonical backend                                                                                           | Canonical Admin read model | Risk     | Main gap                                                                                   | Slice                   |
+| -------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------- | -------- | ------------------------------------------------------------------------------------------ | ----------------------- |
+| Safety/destructive controls                        | Direct writes and batches          | Partial guards only                                                                                         | No                         | CRITICAL | Canonical Course delete and direct money/reset paths                                       | T32.1                   |
+| AdminIssue inbox/detail                            | None                               | Issue policy/store exists                                                                                   | No                         | HIGH     | List/detail and coupled actions                                                            | T32.2                   |
+| Manual Wallet funding                              | Direct balance/guest-wallet writes | Exists                                                                                                      | No                         | CRITICAL | Wallet projection and command UI                                                           | T32.3                   |
+| Refund/correction                                  | Legacy booking cancellation        | Exists                                                                                                      | No                         | CRITICAL | Payment/Wallet/MonetaryEvent detail                                                        | T32.3                   |
+| Lesson Admin list/detail                           | Legacy raw bookings                | Commands mostly exist                                                                                       | No                         | HIGH     | Admin read scope                                                                           | T32.4                   |
+| Admin lesson create                                | Legacy `addBooking`                | Exists with Admin context                                                                                   | No                         | HIGH     | Frontend hook and read scope                                                               | T32.4                   |
+| Guest lesson pending-payment confirmation          | Legacy `confirmBooking`            | Payment-funded `confirm_guest_booking` (T32.8C PASS)                                                        | Partial                    | HIGH     | Unpaid Admin override is forbidden; leftover unreachable UI is T32.9B after T32.9A parity  | T32.4 / T32.8C          |
+| Lesson cancellation                                | Legacy cancel/confirm              | Exists                                                                                                      | No                         | CRITICAL | Canonical resolve/refund UX                                                                | T32.3/T32.4             |
+| Lesson reschedule/reassign                         | Legacy schedule callable           | Handlers exist                                                                                              | No                         | HIGH     | Admin callable routing                                                                     | T32.4                   |
+| Lesson completion                                  | Legacy callable                    | Command kind only                                                                                           | No                         | HIGH     | Missing production handler                                                                 | T32.4                   |
+| Guest lesson linking                               | Legacy Admin callable              | Admin `existing_managed` (T32.8B PASS)                                                                      | Partial                    | HIGH     | Linking is not confirmation                                                                | T32.8B                  |
+| Canonical Course create                            | Direct `setDoc` legacy form        | Provisioning exists                                                                                         | No                         | HIGH     | Production Admin workflow                                                                  | T32.5                   |
+| Course operational amend                           | Direct `updateDoc`                 | Missing                                                                                                     | No                         | HIGH     | Intent-specific commands                                                                   | T32.5                   |
+| Catalog content edit                               | Mixed legacy Course payload        | Missing dedicated command                                                                                   | No                         | LOW      | Isolate `course_catalog_content`                                                           | T32.5                   |
+| Course roster assignment                           | Legacy `instructorIds`             | Missing                                                                                                     | No                         | HIGH     | Add/remove roster commands                                                                 | T32.5                   |
+| CourseDay create/reassign                          | Legacy date/instructor fields      | Exists                                                                                                      | No                         | HIGH     | UI and Admin projection                                                                    | T32.5                   |
+| CourseDay reschedule/remove                        | Legacy date edits                  | Missing                                                                                                     | No                         | HIGH     | Commands and policy                                                                        | T32.5                   |
+| Enrollment roster/detail                           | Legacy course-shaped bookings      | Domain exists                                                                                               | No                         | HIGH     | Admin roster scope                                                                         | T32.6                   |
+| Enrollment cancellation                            | Legacy booking actions             | Exists                                                                                                      | No                         | CRITICAL | Canonical resolve/refund UX                                                                | T32.6                   |
+| Enrollment transfer                                | None                               | Handler exists                                                                                              | No                         | HIGH     | Admin callable routing                                                                     | T32.6                   |
+| Guest enrollment pending-payment confirmation/link | Legacy/none                        | Payment-funded `confirm_guest_course_enrollment` (T32.8C PASS); Admin `existing_managed` link (T32.8B PASS) | Partial                    | HIGH     | Unpaid Admin approval is not policy; leftover unreachable UI is T32.9B after T32.9A parity | T32.6 / T32.8B / T32.8C |
+| Attendance correction                              | Instructor UI only                 | Exists                                                                                                      | No                         | HIGH     | Admin correction workflow                                                                  | T32.7                   |
+| Participant/account Admin                          | Direct `users` CRUD                | Mostly exists                                                                                               | No                         | HIGH     | Admin topology/diagnostics                                                                 | T32.8                   |
+| Management assignment/revoke                       | None                               | Exists                                                                                                      | No                         | HIGH     | Admin UI/read model                                                                        | T32.8                   |
+| Instructor catalog CRUD                            | Direct `instructors` CRUD          | Missing                                                                                                     | No                         | HIGH     | Separate catalog commands/read model                                                       | T32.8                   |
+| Resort/settings content                            | Direct configuration writes        | Not a canonical business domain                                                                             | Not required               | LOW      | Keep isolated; leftover write cleanup is T32.9B after parity                               | T32.9B                  |
 
 ## 14. Recommended implementation slices
 
@@ -1326,7 +1339,7 @@ Current structure (authoritative for later status; see preamble):
 - **T32.9A.9** FINAL CANONICAL CUTOVER
   - **9A** Individual Booking lifecycle cutover — NOT CLOSED (core PASS at
     authority level; F1 REQUIRED/IN PROGRESS; F2 READY_FOR_MANUAL_SMOKE;
-    F3 PLANNED / REQUIRED; final integration/production smoke PENDING
+    F3 READY_FOR_MANUAL_SMOKE; final integration/production smoke PENDING
     after F3)
   - **9B** Student Booking Stats / Progress / Recommendations Cutover — PENDING
   - **9C** Course Progress / Achievements Cutover — PENDING
@@ -1391,4 +1404,3 @@ perform bulk destructive resets, and delete a strict canonical Course despite
 the T31B.1 update guard. These are higher-priority risks than missing Admin
 features. T32.1 is small, independent of new read models, and provides a safe
 base for T32.2 and every subsequent vertical slice.
-

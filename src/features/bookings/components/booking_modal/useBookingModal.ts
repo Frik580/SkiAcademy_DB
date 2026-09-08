@@ -23,7 +23,10 @@ import {
   toLocalDateStr,
 } from '../../../../domain/availability';
 
-import { queryInstructorOccupancyReadModels } from '../../../../lib/canonical/canonicalReadModelClient';
+import {
+  queryInstructorOccupancyReadModels,
+  queryLessonPricingSettingsReadModel,
+} from '../../../../lib/canonical/canonicalReadModelClient';
 import {
   getAvailableLessonStartTimes,
   mapInstructorOccupancyReadModelForBookingModal,
@@ -75,6 +78,10 @@ export const useBookingModal = ({
     reload: reloadManagedParticipants,
   } = useManagedParticipants(userProfile?.uid);
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
+  const [additionalParticipantSurchargePerHourKzt, setAdditionalParticipantSurchargePerHourKzt] =
+    useState<number | undefined>();
+  const [maxParticipantsPerLesson, setMaxParticipantsPerLesson] = useState<number | undefined>();
+  const [pricingSettingsLoading, setPricingSettingsLoading] = useState(false);
 
   const [activeInstructor, setActiveInstructor] = useState<Instructor | null>(instructor);
   const targetInstructor = activeInstructor || instructor;
@@ -101,6 +108,40 @@ export const useBookingModal = ({
       setSelectedParticipantIds([]);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !userProfile?.uid || userProfile.uid.startsWith('local_')) {
+      setAdditionalParticipantSurchargePerHourKzt(undefined);
+      setMaxParticipantsPerLesson(undefined);
+      return;
+    }
+    let active = true;
+    setPricingSettingsLoading(true);
+    void queryLessonPricingSettingsReadModel({ scope: 'lesson_pricing_settings' })
+      .then((result) => {
+        if (!active) return;
+        setAdditionalParticipantSurchargePerHourKzt(
+          result.item.configured
+            ? result.item.additionalParticipantSurchargePerHourKzt
+            : undefined
+        );
+        setMaxParticipantsPerLesson(
+          result.item.configured ? result.item.maxParticipantsPerLesson : undefined
+        );
+      })
+      .catch(() => {
+        if (active) {
+          setAdditionalParticipantSurchargePerHourKzt(undefined);
+          setMaxParticipantsPerLesson(undefined);
+        }
+      })
+      .finally(() => {
+        if (active) setPricingSettingsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, userProfile?.uid]);
 
   useEffect(() => {
     return () => {
@@ -316,19 +357,38 @@ export const useBookingModal = ({
     !!overlappingBooking ||
     !!overlappingCourse;
 
-  const totalCost =
+  const effectiveParticipantIds = resolveEffectiveParticipantIds(
+    managedParticipants,
+    selectedParticipantIds
+  );
+  const baseLessonCost =
     targetInstructor?.pricePerHourKZT != null && Number.isFinite(targetInstructor.pricePerHourKZT)
       ? targetInstructor.pricePerHourKZT * duration
       : 0;
+  const totalCost =
+    baseLessonCost +
+    Math.round(
+      (additionalParticipantSurchargePerHourKzt ?? 0) *
+        Math.max(0, effectiveParticipantIds.length - 1) *
+        duration
+    );
+  const lessonSettingsUnavailable =
+    additionalParticipantSurchargePerHourKzt === undefined ||
+    maxParticipantsPerLesson === undefined;
+  const participantSelectionExceedsMax =
+    maxParticipantsPerLesson !== undefined &&
+    effectiveParticipantIds.length > maxParticipantsPerLesson;
 
   const toggleParticipant = (participantId: string) => {
-    setSelectedParticipantIds((current) =>
-      toggleParticipantSelection(
+    setSelectedParticipantIds((current) => {
+      if (maxParticipantsPerLesson === undefined) return current;
+      return toggleParticipantSelection(
         current,
         participantId,
-        managedParticipants.map((participant) => participant.participantId)
-      )
-    );
+        managedParticipants.map((participant) => participant.participantId),
+        maxParticipantsPerLesson
+      );
+    });
   };
 
   const handleSubmitGuest = async (e: React.FormEvent) => {
@@ -423,12 +483,28 @@ export const useBookingModal = ({
       addNotification('warning', t('missingDetails'), t('bookingSelectValidDate'));
       return;
     }
-    const effectiveParticipantIds = resolveEffectiveParticipantIds(
-      managedParticipants,
-      selectedParticipantIds
-    );
     if (effectiveParticipantIds.length === 0) {
       addNotification('warning', t('missingDetails'), 'Select a participant');
+      return;
+    }
+    if (lessonSettingsUnavailable) {
+      addNotification(
+        'warning',
+        t('bookingError'),
+        language === 'ru'
+          ? 'Канонические настройки урока ещё не заданы.'
+          : 'Canonical lesson settings are not configured.'
+      );
+      return;
+    }
+    if (participantSelectionExceedsMax) {
+      addNotification(
+        'warning',
+        t('bookingError'),
+        language === 'ru'
+          ? `Можно выбрать не более ${maxParticipantsPerLesson} участников.`
+          : `Select no more than ${maxParticipantsPerLesson} participants.`
+      );
       return;
     }
 
@@ -543,6 +619,11 @@ export const useBookingModal = ({
     overlappingCourse,
     isTimeSlotOccupied,
     totalCost,
+    additionalParticipantSurchargePerHourKzt,
+    maxParticipantsPerLesson,
+    pricingSettingsLoading,
+    lessonSettingsUnavailable,
+    participantSelectionExceedsMax,
     managedParticipants,
     managedParticipantsLoading,
     managedParticipantsError,

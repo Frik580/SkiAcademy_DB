@@ -26,6 +26,7 @@ import {
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
+import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 
 const PROJECT_ID = 'ski-academy-course-enrollment-emulator-test';
 const correlationId = CorrelationIdSchema.parse('correlation_course_enrollment_emulator_01');
@@ -250,11 +251,7 @@ async function seedCourseWithSchedule(input: {
   const price = input.price ?? COURSE_PRICE_KZT;
   const dayIds = input.courseDayIds ?? [courseDayId, courseDayTwoId, courseDayThreeId];
   const finalEndsAt =
-    input.courseDayCount === 1
-      ? dayOneEnd
-      : input.courseDayCount === 2
-        ? dayTwoEnd
-        : dayThreeEnd;
+    input.courseDayCount === 1 ? dayOneEnd : input.courseDayCount === 2 ? dayTwoEnd : dayThreeEnd;
 
   await firestore.doc(`courses/${targetCourseId}`).set({
     courseId: targetCourseId,
@@ -296,6 +293,7 @@ async function seedBase(
   availableSeats = 8,
   options: { includeAdminAccount?: boolean } = {}
 ) {
+  await seedLessonPricingSettingsFixture(firestore, { decidedAt, correlationId });
   await firestore.doc(`users/${accountId}`).set(seedAccountRecord(accountId));
   if (options.includeAdminAccount) {
     await firestore.doc(`users/${adminAccountId}`).set(seedAccountRecord(adminAccountId));
@@ -315,12 +313,12 @@ async function seedBase(
       displaySuffix: 'B',
     })
   );
-  await firestore.doc(`participant_management/${managementId}`).set(
-    seedManagementRecord({ managementId, participantId })
-  );
-  await firestore.doc(`participant_management/${managementIdB}`).set(
-    seedManagementRecord({ managementId: managementIdB, participantId: participantIdB })
-  );
+  await firestore
+    .doc(`participant_management/${managementId}`)
+    .set(seedManagementRecord({ managementId, participantId }));
+  await firestore
+    .doc(`participant_management/${managementIdB}`)
+    .set(seedManagementRecord({ managementId: managementIdB, participantId: participantIdB }));
   await firestore.doc(`instructors/${instructorId}`).set({
     id: instructorId,
     name: `Instructor ${instructorId}`,
@@ -346,7 +344,8 @@ async function seedWalletRaceCourses() {
 
 function enrollmentEnvelope(input: {
   idempotencyKey: string;
-  participantIds: readonly [typeof participantId] | readonly [typeof participantId, typeof participantIdB];
+  participantIds:
+    readonly [typeof participantId] | readonly [typeof participantId, typeof participantIdB];
   enrollmentIds?: readonly string[];
   correlation?: typeof correlationId;
   targetCourseId?: typeof courseId;
@@ -460,9 +459,8 @@ async function durableCounts(targetCourseId = courseId) {
     attendance: attendance.size,
     enrollmentClaims: claims.docs.filter((doc) => doc.data()?.ownerKind === 'course_enrollment')
       .length,
-    instructorClaims: claims.docs.filter(
-      (doc) => doc.data()?.claimKind === 'instructor_course_day'
-    ).length,
+    instructorClaims: claims.docs.filter((doc) => doc.data()?.claimKind === 'instructor_course_day')
+      .length,
     participantClaims: claims.docs.filter((doc) => doc.data()?.resourceKind === 'participant')
       .length,
   };
@@ -497,751 +495,668 @@ describe.sequential.runIf(runsOnFirestoreEmulator)('course enrollment commands e
     await seedBase(WALLET_ENROLLMENT_PLUS_BOOKING_KZT);
   });
 
-  it(
-    'A. commits a successful single enrollment with full durable atomicity',
-    async () => {
-      const commands = createCommands();
-      const instructorClaimsBefore = (await durableCounts()).instructorClaims;
-      const envelope = enrollmentEnvelope({
-        idempotencyKey: 'enrollment-success-atomic',
-        participantIds: [participantId],
-      });
-      const result = await commands.execute(envelope);
-      expect(result.status).toBe('success');
+  it('A. commits a successful single enrollment with full durable atomicity', async () => {
+    const commands = createCommands();
+    const instructorClaimsBefore = (await durableCounts()).instructorClaims;
+    const envelope = enrollmentEnvelope({
+      idempotencyKey: 'enrollment-success-atomic',
+      participantIds: [participantId],
+    });
+    const result = await commands.execute(envelope);
+    expect(result.status).toBe('success');
 
-      const identity = resolveCommandIdempotencyIdentity(envelope);
-      const enrollmentId = courseEnrollmentIdFromCommandParticipant({
-        commandId: identity.commandKey,
-        participantId,
-      });
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(1);
-      expect(state.enrollmentGuards).toBe(1);
-      expect(state.availableSeats).toBe(7);
-      expect(state.claims).toBe(2);
-      expect(state.payments).toBe(1);
-      expect(state.paymentIds[0]).toBe(paymentIdFromCourseEnrollmentId(enrollmentId));
-      expect(state.monetaryEvents).toBe(1);
-      expect(state.activityLogs).toBe(1);
-      expect(state.successfulIdempotency).toBe(1);
-      expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
-      expect(state.attendance).toBe(0);
-      expect(state.instructorClaims).toBe(instructorClaimsBefore);
-      expect(
-        (await listParticipantClaims()).filter(
-          (claim) => claim?.claimKind === 'participant_course_day_enrollment'
-        ).length
-      ).toBe(1);
-    },
-    30_000
-  );
+    const identity = resolveCommandIdempotencyIdentity(envelope);
+    const enrollmentId = courseEnrollmentIdFromCommandParticipant({
+      commandId: identity.commandKey,
+      participantId,
+    });
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(1);
+    expect(state.enrollmentGuards).toBe(1);
+    expect(state.availableSeats).toBe(7);
+    expect(state.claims).toBe(2);
+    expect(state.payments).toBe(1);
+    expect(state.paymentIds[0]).toBe(paymentIdFromCourseEnrollmentId(enrollmentId));
+    expect(state.monetaryEvents).toBe(1);
+    expect(state.activityLogs).toBe(1);
+    expect(state.successfulIdempotency).toBe(1);
+    expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
+    expect(state.attendance).toBe(0);
+    expect(state.instructorClaims).toBe(instructorClaimsBefore);
+    expect(
+      (await listParticipantClaims()).filter(
+        (claim) => claim?.claimKind === 'participant_course_day_enrollment'
+      ).length
+    ).toBe(1);
+  }, 30_000);
 
-  it(
-    'B. serializes last-seat races so exactly one of two participants wins',
-    async () => {
-      await clearCollections(firestore);
-      await seedBase(WALLET_ENROLLMENT_PLUS_BOOKING_KZT, 1, 1);
+  it('B. serializes last-seat races so exactly one of two participants wins', async () => {
+    await clearCollections(firestore);
+    await seedBase(WALLET_ENROLLMENT_PLUS_BOOKING_KZT, 1, 1);
 
-      const commands = createCommands();
-      const attempts = await Promise.all([
-        commands.execute(
-          enrollmentEnvelope({
-            idempotencyKey: 'enrollment-capacity-race-a',
-            participantIds: [participantId],
-          })
-        ),
-        commands.execute(
-          enrollmentEnvelope({
-            idempotencyKey: 'enrollment-capacity-race-b',
-            participantIds: [participantIdB],
-            correlation: correlationIdB,
-          })
-        ),
-      ]);
-
-      const successes = attempts.filter((attempt) => attempt.status === 'success');
-      const unavailable = attempts.filter(
-        (attempt) => attempt.status === 'error' && attempt.error.code === 'unavailable'
-      );
-      expect(successes).toHaveLength(1);
-      expect(unavailable).toHaveLength(1);
-
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(1);
-      expect(state.payments).toBe(1);
-      expect(state.monetaryEvents).toBe(1);
-      expect(state.availableSeats).toBe(0);
-      expect(state.enrollmentGuards).toBe(1);
-      expect(state.claims).toBe(2);
-    },
-    30_000
-  );
-
-  it(
-    'C. serializes duplicate participant+course enrollment races so exactly one wins',
-    async () => {
-      const commands = createCommands();
-      const attempts = await Promise.all([
-        commands.execute(
-          enrollmentEnvelope({
-            idempotencyKey: 'enrollment-duplicate-race-a',
-            participantIds: [participantId],
-          })
-        ),
-        commands.execute(
-          enrollmentEnvelope({
-            idempotencyKey: 'enrollment-duplicate-race-b',
-            participantIds: [participantId],
-            correlation: correlationIdB,
-          })
-        ),
-      ]);
-
-      const successes = attempts.filter((attempt) => attempt.status === 'success');
-      const duplicate = attempts.filter(
-        (attempt) =>
-          attempt.status === 'error' && attempt.error.code === 'duplicate_active_enrollment'
-      );
-      expect(successes).toHaveLength(1);
-      expect(duplicate).toHaveLength(1);
-
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(1);
-      expect(state.payments).toBe(1);
-      expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
-      expect(state.enrollmentGuards).toBe(1);
-    },
-    30_000
-  );
-
-  it(
-    'D. rejects enrollment on overlapping booking conflict then succeeds after cancellation',
-    async () => {
-      const commands = createCommands();
-      const bookingResult = await commands.execute(
-        bookingEnvelope({
-          targetBookingId: bookingId,
-          idempotencyKey: 'enrollment-booking-conflict',
-          localDate: '2026-02-01',
-          localTime: '09:00',
-        })
-      );
-      expect(bookingResult.status).toBe('success');
-
-      const participantClaims = await listParticipantClaims();
-      expect(
-        participantClaims.filter((claim) => claim?.claimKind === 'participant_booking_occurrence')
-          .length
-      ).toBe(1);
-
-      const blocked = await commands.execute(
+    const commands = createCommands();
+    const attempts = await Promise.all([
+      commands.execute(
         enrollmentEnvelope({
-          idempotencyKey: 'enrollment-booking-blocked',
+          idempotencyKey: 'enrollment-capacity-race-a',
           participantIds: [participantId],
         })
-      );
-      expect(blocked.status).toBe('error');
-      if (blocked.status === 'error') {
-        expect(blocked.error.code).toBe('participant_conflict');
-      }
+      ),
+      commands.execute(
+        enrollmentEnvelope({
+          idempotencyKey: 'enrollment-capacity-race-b',
+          participantIds: [participantIdB],
+          correlation: correlationIdB,
+        })
+      ),
+    ]);
 
-      const blockedState = await durableCounts();
-      expect(blockedState.enrollments).toBe(0);
-      expect(blockedState.enrollmentGuards).toBe(0);
-      expect(blockedState.enrollmentClaims).toBe(0);
-      expect(blockedState.payments).toBe(1);
-      expect(blockedState.availableSeats).toBe(8);
+    const successes = attempts.filter((attempt) => attempt.status === 'success');
+    const unavailable = attempts.filter(
+      (attempt) => attempt.status === 'error' && attempt.error.code === 'unavailable'
+    );
+    expect(successes).toHaveLength(1);
+    expect(unavailable).toHaveLength(1);
 
-      const bookingBefore = (await firestore.doc(`bookings/${bookingId}`).get()).data();
-      const cancelResult = await commands.execute({
-        kind: 'request_booking_cancellation',
-        context: {
-          actor: accountCommandActor(accountId),
-          exercisedCapability: 'account_owner',
-          idempotencyKey: 'enrollment-booking-cancel',
-          correlationId: CorrelationIdSchema.parse('correlation_course_enrollment_cancel'),
-          source: 'client_callable',
-          expectedRevision: AggregateRevisionSchema.parse(bookingBefore?.revision ?? 1),
-          calendarInput: {
-            localDate: '2026-02-01',
-            localTime: '09:00',
-            durationMinutes: 120,
-          },
-          timezone: 'Asia/Almaty',
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(1);
+    expect(state.payments).toBe(1);
+    expect(state.monetaryEvents).toBe(1);
+    expect(state.availableSeats).toBe(0);
+    expect(state.enrollmentGuards).toBe(1);
+    expect(state.claims).toBe(2);
+  }, 30_000);
+
+  it('C. serializes duplicate participant+course enrollment races so exactly one wins', async () => {
+    const commands = createCommands();
+    const attempts = await Promise.all([
+      commands.execute(
+        enrollmentEnvelope({
+          idempotencyKey: 'enrollment-duplicate-race-a',
+          participantIds: [participantId],
+        })
+      ),
+      commands.execute(
+        enrollmentEnvelope({
+          idempotencyKey: 'enrollment-duplicate-race-b',
+          participantIds: [participantId],
+          correlation: correlationIdB,
+        })
+      ),
+    ]);
+
+    const successes = attempts.filter((attempt) => attempt.status === 'success');
+    const duplicate = attempts.filter(
+      (attempt) =>
+        attempt.status === 'error' && attempt.error.code === 'duplicate_active_enrollment'
+    );
+    expect(successes).toHaveLength(1);
+    expect(duplicate).toHaveLength(1);
+
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(1);
+    expect(state.payments).toBe(1);
+    expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
+    expect(state.enrollmentGuards).toBe(1);
+  }, 30_000);
+
+  it('D. rejects enrollment on overlapping booking conflict then succeeds after cancellation', async () => {
+    const commands = createCommands();
+    const bookingResult = await commands.execute(
+      bookingEnvelope({
+        targetBookingId: bookingId,
+        idempotencyKey: 'enrollment-booking-conflict',
+        localDate: '2026-02-01',
+        localTime: '09:00',
+      })
+    );
+    expect(bookingResult.status).toBe('success');
+
+    const participantClaims = await listParticipantClaims();
+    expect(
+      participantClaims.filter((claim) => claim?.claimKind === 'participant_booking_occurrence')
+        .length
+    ).toBe(1);
+
+    const blocked = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-booking-blocked',
+        participantIds: [participantId],
+      })
+    );
+    expect(blocked.status).toBe('error');
+    if (blocked.status === 'error') {
+      expect(blocked.error.code).toBe('participant_conflict');
+    }
+
+    const blockedState = await durableCounts();
+    expect(blockedState.enrollments).toBe(0);
+    expect(blockedState.enrollmentGuards).toBe(0);
+    expect(blockedState.enrollmentClaims).toBe(0);
+    expect(blockedState.payments).toBe(1);
+    expect(blockedState.availableSeats).toBe(8);
+
+    const bookingBefore = (await firestore.doc(`bookings/${bookingId}`).get()).data();
+    const cancelResult = await commands.execute({
+      kind: 'request_booking_cancellation',
+      context: {
+        actor: accountCommandActor(accountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'enrollment-booking-cancel',
+        correlationId: CorrelationIdSchema.parse('correlation_course_enrollment_cancel'),
+        source: 'client_callable',
+        expectedRevision: AggregateRevisionSchema.parse(bookingBefore?.revision ?? 1),
+        calendarInput: {
+          localDate: '2026-02-01',
+          localTime: '09:00',
+          durationMinutes: 120,
         },
-        intent: { bookingId },
-      });
-      expect(cancelResult.status).toBe('success');
+        timezone: 'Asia/Almaty',
+      },
+      intent: { bookingId },
+    });
+    expect(cancelResult.status).toBe('success');
 
-      const enrolled = await commands.execute(
-        enrollmentEnvelope({
-          idempotencyKey: 'enrollment-after-cancel',
-          participantIds: [participantId],
-        })
-      );
-      expect(enrolled.status).toBe('success');
-
-      const finalState = await durableCounts();
-      expect(finalState.enrollments).toBe(1);
-      expect(finalState.payments).toBe(2);
-      expect(finalState.availableSeats).toBe(7);
-      expect(finalState.enrollmentGuards).toBe(1);
-    },
-    30_000
-  );
-
-  it(
-    'E. blocks overlapping booking creation after a successful course enrollment',
-    async () => {
-      const commands = createCommands();
-      const enrolled = await commands.execute(
-        enrollmentEnvelope({
-          idempotencyKey: 'enrollment-reverse-block',
-          participantIds: [participantId],
-        })
-      );
-      expect(enrolled.status).toBe('success');
-
-      const bookingResult = await commands.execute(
-        bookingEnvelope({
-          targetBookingId: bookingReverseId,
-          idempotencyKey: 'enrollment-reverse-booking',
-          localDate: '2026-02-01',
-          localTime: '09:00',
-        })
-      );
-      expect(bookingResult.status).toBe('error');
-      if (bookingResult.status === 'error') {
-        expect(bookingResult.error.code).toBe('participant_conflict');
-      }
-
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(1);
-      expect(state.payments).toBe(1);
-      expect((await firestore.collection('bookings').get()).size).toBe(0);
-    },
-    30_000
-  );
-
-  it(
-    'F. rolls back multi-day enrollment when a later course day conflicts with an existing booking',
-    async () => {
-      await clearCollections(firestore);
-      await seedBase(WALLET_ENROLLMENT_PLUS_BOOKING_KZT, 3);
-
-      const commands = createCommands();
-      const bookingResult = await commands.execute(
-        bookingEnvelope({
-          targetBookingId: bookingDayThreeId,
-          idempotencyKey: 'enrollment-multiday-booking',
-          localDate: '2026-02-03',
-          localTime: '09:00',
-        })
-      );
-      expect(bookingResult.status).toBe('success');
-
-      const blocked = await commands.execute(
-        enrollmentEnvelope({
-          idempotencyKey: 'enrollment-multiday-blocked',
-          participantIds: [participantId],
-        })
-      );
-      expect(blocked.status).toBe('error');
-      if (blocked.status === 'error') {
-        expect(blocked.error.code).toBe('participant_conflict');
-      }
-
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(0);
-      expect(state.enrollmentGuards).toBe(0);
-      expect(state.availableSeats).toBe(8);
-      expect(state.payments).toBe(1);
-      expect(state.monetaryEvents).toBe(1);
-      expect(state.enrollmentClaims).toBe(0);
-      expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - BOOKING_PRICE_KZT);
-      expect(
-        (await listParticipantClaims()).filter(
-          (claim) => claim?.claimKind === 'participant_course_day_enrollment'
-        ).length
-      ).toBe(0);
-    },
-    30_000
-  );
-
-  it(
-    'G. allows half-open adjacent booking and course day intervals for the same participant',
-    async () => {
-      const commands = createCommands();
-      const bookingResult = await commands.execute(
-        bookingEnvelope({
-          targetBookingId: bookingId,
-          idempotencyKey: 'enrollment-adjacent-booking',
-          localDate: '2026-02-01',
-          localTime: '07:00',
-        })
-      );
-      expect(bookingResult.status).toBe('success');
-
-      const enrolled = await commands.execute(
-        enrollmentEnvelope({
-          idempotencyKey: 'enrollment-adjacent-success',
-          participantIds: [participantId],
-        })
-      );
-      expect(enrolled.status).toBe('success');
-
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(1);
-      expect(state.payments).toBe(2);
-      expect(state.claims).toBe(4);
-    },
-    30_000
-  );
-
-  it(
-    'H. rejects enrollment when wallet funds are insufficient without durable enrollment state',
-    async () => {
-      await clearCollections(firestore);
-      await seedBase(1_000);
-
-      const commands = createCommands();
-      const result = await commands.execute(
-        enrollmentEnvelope({
-          idempotencyKey: 'enrollment-insufficient-wallet',
-          participantIds: [participantId],
-        })
-      );
-      expect(result.status).toBe('error');
-      if (result.status === 'error') {
-        expect(result.error.code).toBe('insufficient_funds');
-      }
-
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(0);
-      expect(state.payments).toBe(0);
-      expect(state.monetaryEvents).toBe(0);
-      expect(state.enrollmentGuards).toBe(0);
-      expect(state.claims).toBe(0);
-      expect(state.availableSeats).toBe(8);
-      expect(state.walletBalance).toBe(1_000);
-    },
-    30_000
-  );
-
-  it(
-    'I. prevents concurrent wallet debits from funding two separate enrollments on the same wallet',
-    async () => {
-      await clearCollections(firestore);
-      await seedWalletRaceCourses();
-
-      const commands = createCommands();
-      const envelopeA = enrollmentEnvelope({
-        idempotencyKey: 'enrollment-wallet-contention-a',
+    const enrolled = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-after-cancel',
         participantIds: [participantId],
-        targetCourseId: courseId,
-      });
-      const envelopeB = enrollmentEnvelope({
-        idempotencyKey: 'enrollment-wallet-contention-b',
-        participantIds: [participantIdB],
-        correlation: correlationIdB,
-        targetCourseId: courseIdB,
-      });
+      })
+    );
+    expect(enrolled.status).toBe('success');
 
-      const settled = await Promise.allSettled([
-        commands.execute(envelopeA),
-        commands.execute(envelopeB),
-      ]);
-      expect(settled.every((outcome) => outcome.status === 'fulfilled')).toBe(true);
+    const finalState = await durableCounts();
+    expect(finalState.enrollments).toBe(1);
+    expect(finalState.payments).toBe(2);
+    expect(finalState.availableSeats).toBe(7);
+    expect(finalState.enrollmentGuards).toBe(1);
+  }, 30_000);
 
-      const resultA = settled[0]?.status === 'fulfilled' ? settled[0].value : undefined;
-      const resultB = settled[1]?.status === 'fulfilled' ? settled[1].value : undefined;
-      const successes = [resultA, resultB].filter((result) => result?.status === 'success');
-      const insufficient = [resultA, resultB].filter(
-        (result) => result?.status === 'error' && result.error.code === 'insufficient_funds'
-      );
-
-      expect(successes).toHaveLength(1);
-      expect(insufficient).toHaveLength(1);
-
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(1);
-      expect(state.payments).toBe(1);
-      expect(state.monetaryEvents).toBe(1);
-      expect(state.successfulIdempotency).toBe(1);
-      expect(state.enrollmentGuards).toBe(1);
-      expect(state.claims).toBe(2);
-      expect(state.walletBalance).toBe(
-        WALLET_RACE_BALANCE_KZT - WALLET_RACE_COURSE_PRICE_KZT
-      );
-    },
-    30_000
-  );
-
-  it(
-    'J. replays the same idempotency key without duplicate enrollment or payment writes',
-    async () => {
-      const commands = createCommands();
-      const envelope = enrollmentEnvelope({
-        idempotencyKey: 'enrollment-replay-emulator',
+  it('E. blocks overlapping booking creation after a successful course enrollment', async () => {
+    const commands = createCommands();
+    const enrolled = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-reverse-block',
         participantIds: [participantId],
-      });
-      const first = await commands.execute(envelope);
-      const second = await commands.execute(envelope);
-      expect(first.status).toBe('success');
-      expect(second.status).toBe('success');
+      })
+    );
+    expect(enrolled.status).toBe('success');
 
-      const identity = resolveCommandIdempotencyIdentity(envelope);
-      const enrollmentId = courseEnrollmentIdFromCommandParticipant({
-        commandId: identity.commandKey,
-        participantId,
-      });
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(1);
-      expect(state.payments).toBe(1);
-      expect(state.monetaryEvents).toBe(1);
-      expect(state.paymentIds[0]).toBe(paymentIdFromCourseEnrollmentId(enrollmentId));
-      expect(
-        (await firestore.doc(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`).get())
-          .exists
-      ).toBe(true);
-    },
-    30_000
-  );
+    const bookingResult = await commands.execute(
+      bookingEnvelope({
+        targetBookingId: bookingReverseId,
+        idempotencyKey: 'enrollment-reverse-booking',
+        localDate: '2026-02-01',
+        localTime: '09:00',
+      })
+    );
+    expect(bookingResult.status).toBe('error');
+    if (bookingResult.status === 'error') {
+      expect(bookingResult.error.code).toBe('participant_conflict');
+    }
 
-  it(
-    'K. rejects enrollment when expected course revision is stale',
-    async () => {
-      const commands = createCommands();
-      const result = await commands.execute(
-        enrollmentEnvelope({
-          idempotencyKey: 'enrollment-stale-revision',
-          participantIds: [participantId],
-          expectedRevision: 99,
-        })
-      );
-      expect(result.status).toBe('error');
-      if (result.status === 'error') {
-        expect(result.error.code).toBe('stale_version');
-      }
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(1);
+    expect(state.payments).toBe(1);
+    expect((await firestore.collection('bookings').get()).size).toBe(0);
+  }, 30_000);
 
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(0);
-      expect(state.payments).toBe(0);
-      expect(state.availableSeats).toBe(8);
-    },
-    30_000
-  );
+  it('F. rolls back multi-day enrollment when a later course day conflicts with an existing booking', async () => {
+    await clearCollections(firestore);
+    await seedBase(WALLET_ENROLLMENT_PLUS_BOOKING_KZT, 3);
 
-  it(
-    'M. commits enrollment without undefined-field write failures when optional fields are absent',
-    async () => {
-      const commands = createCommands();
-      const result = await commands.execute(
-        enrollmentEnvelope({
-          idempotencyKey: 'enrollment-serialization-boundary',
-          participantIds: [participantId],
-        })
-      );
-      expect(result.status).toBe('success');
+    const commands = createCommands();
+    const bookingResult = await commands.execute(
+      bookingEnvelope({
+        targetBookingId: bookingDayThreeId,
+        idempotencyKey: 'enrollment-multiday-booking',
+        localDate: '2026-02-03',
+        localTime: '09:00',
+      })
+    );
+    expect(bookingResult.status).toBe('success');
 
-      const identity = resolveCommandIdempotencyIdentity(
-        enrollmentEnvelope({
-          idempotencyKey: 'enrollment-serialization-boundary',
-          participantIds: [participantId],
-        })
-      );
-      const enrollmentId = courseEnrollmentIdFromCommandParticipant({
-        commandId: identity.commandKey,
-        participantId,
-      });
-      const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
-      expect(enrollment).toBeDefined();
-      for (const value of Object.values(enrollment ?? {})) {
-        expect(value).not.toBeUndefined();
-      }
-    },
-    30_000
-  );
+    const blocked = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-multiday-blocked',
+        participantIds: [participantId],
+      })
+    );
+    expect(blocked.status).toBe('error');
+    if (blocked.status === 'error') {
+      expect(blocked.error.code).toBe('participant_conflict');
+    }
 
-  it(
-    'N. commits all children atomically when multi-child enrollment is fully valid and funded',
-    async () => {
-      await clearCollections(firestore);
-      await seedBase(COURSE_PRICE_KZT * 2, 1, 8);
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(0);
+    expect(state.enrollmentGuards).toBe(0);
+    expect(state.availableSeats).toBe(8);
+    expect(state.payments).toBe(1);
+    expect(state.monetaryEvents).toBe(1);
+    expect(state.enrollmentClaims).toBe(0);
+    expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - BOOKING_PRICE_KZT);
+    expect(
+      (await listParticipantClaims()).filter(
+        (claim) => claim?.claimKind === 'participant_course_day_enrollment'
+      ).length
+    ).toBe(0);
+  }, 30_000);
 
-      const commands = createCommands();
-      const result = await commands.execute(
-        enrollmentEnvelope({
-          idempotencyKey: 'enrollment-multi-child-success',
-          participantIds: [participantId, participantIdB],
-        })
-      );
-      expect(result.status).toBe('success');
+  it('G. allows half-open adjacent booking and course day intervals for the same participant', async () => {
+    const commands = createCommands();
+    const bookingResult = await commands.execute(
+      bookingEnvelope({
+        targetBookingId: bookingId,
+        idempotencyKey: 'enrollment-adjacent-booking',
+        localDate: '2026-02-01',
+        localTime: '07:00',
+      })
+    );
+    expect(bookingResult.status).toBe('success');
 
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(2);
-      expect(state.payments).toBe(2);
-      expect(state.monetaryEvents).toBe(2);
-      expect(state.enrollmentGuards).toBe(2);
-      expect(state.availableSeats).toBe(6);
-      expect(state.walletBalance).toBe(0);
-    },
-    30_000
-  );
+    const enrolled = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-adjacent-success',
+        participantIds: [participantId],
+      })
+    );
+    expect(enrolled.status).toBe('success');
 
-  it(
-    'O. rejects multi-child enrollment when one child has a participant conflict',
-    async () => {
-      await clearCollections(firestore);
-      await seedBase(COURSE_PRICE_KZT * 2 + BOOKING_PRICE_KZT, 1, 8);
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(1);
+    expect(state.payments).toBe(2);
+    expect(state.claims).toBe(4);
+  }, 30_000);
 
-      const commands = createCommands();
-      const bookingResult = await commands.execute(
-        bookingEnvelope({
-          targetBookingId: bookingId,
-          idempotencyKey: 'enrollment-multi-child-booking',
-          localDate: '2026-02-01',
-          localTime: '09:00',
-          targetParticipantId: participantIdB,
-        })
-      );
-      expect(bookingResult.status).toBe('success');
+  it('H. rejects enrollment when wallet funds are insufficient without durable enrollment state', async () => {
+    await clearCollections(firestore);
+    await seedBase(1_000);
 
-      const result = await commands.execute(
-        enrollmentEnvelope({
-          idempotencyKey: 'enrollment-multi-child-conflict',
-          participantIds: [participantId, participantIdB],
-        })
-      );
-      expect(result.status).toBe('error');
-      if (result.status === 'error') {
-        expect(result.error.code).toBe('participant_conflict');
-      }
+    const commands = createCommands();
+    const result = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-insufficient-wallet',
+        participantIds: [participantId],
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('insufficient_funds');
+    }
 
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(0);
-      expect(state.enrollmentGuards).toBe(0);
-      expect(state.payments).toBe(1);
-      expect(state.availableSeats).toBe(8);
-    },
-    30_000
-  );
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(0);
+    expect(state.payments).toBe(0);
+    expect(state.monetaryEvents).toBe(0);
+    expect(state.enrollmentGuards).toBe(0);
+    expect(state.claims).toBe(0);
+    expect(state.availableSeats).toBe(8);
+    expect(state.walletBalance).toBe(1_000);
+  }, 30_000);
 
-  it(
-    'P. rejects multi-child enrollment when wallet can fund only a subset',
-    async () => {
-      await clearCollections(firestore);
-      await seedBase(COURSE_PRICE_KZT + 1_000, 1, 8);
+  it('I. prevents concurrent wallet debits from funding two separate enrollments on the same wallet', async () => {
+    await clearCollections(firestore);
+    await seedWalletRaceCourses();
 
-      const commands = createCommands();
-      const result = await commands.execute(
-        enrollmentEnvelope({
-          idempotencyKey: 'enrollment-multi-child-wallet',
-          participantIds: [participantId, participantIdB],
-        })
-      );
-      expect(result.status).toBe('error');
-      if (result.status === 'error') {
-        expect(result.error.code).toBe('insufficient_funds');
-      }
+    const commands = createCommands();
+    const envelopeA = enrollmentEnvelope({
+      idempotencyKey: 'enrollment-wallet-contention-a',
+      participantIds: [participantId],
+      targetCourseId: courseId,
+    });
+    const envelopeB = enrollmentEnvelope({
+      idempotencyKey: 'enrollment-wallet-contention-b',
+      participantIds: [participantIdB],
+      correlation: correlationIdB,
+      targetCourseId: courseIdB,
+    });
 
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(0);
-      expect(state.payments).toBe(0);
-      expect(state.availableSeats).toBe(8);
-      expect(state.walletBalance).toBe(COURSE_PRICE_KZT + 1_000);
-    },
-    30_000
-  );
+    const settled = await Promise.allSettled([
+      commands.execute(envelopeA),
+      commands.execute(envelopeB),
+    ]);
+    expect(settled.every((outcome) => outcome.status === 'fulfilled')).toBe(true);
 
-  it(
-    'Q. rejects multi-child enrollment when capacity cannot fit the whole batch',
-    async () => {
-      await clearCollections(firestore);
-      await seedBase(COURSE_PRICE_KZT * 2, 1, 1);
+    const resultA = settled[0]?.status === 'fulfilled' ? settled[0].value : undefined;
+    const resultB = settled[1]?.status === 'fulfilled' ? settled[1].value : undefined;
+    const successes = [resultA, resultB].filter((result) => result?.status === 'success');
+    const insufficient = [resultA, resultB].filter(
+      (result) => result?.status === 'error' && result.error.code === 'insufficient_funds'
+    );
 
-      const commands = createCommands();
-      const result = await commands.execute(
-        enrollmentEnvelope({
-          idempotencyKey: 'enrollment-multi-child-capacity',
-          participantIds: [participantId, participantIdB],
-        })
-      );
-      expect(result.status).toBe('error');
-      if (result.status === 'error') {
-        expect(result.error.code).toBe('unavailable');
-      }
+    expect(successes).toHaveLength(1);
+    expect(insufficient).toHaveLength(1);
 
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(0);
-      expect(state.payments).toBe(0);
-      expect(state.availableSeats).toBe(1);
-    },
-    30_000
-  );
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(1);
+    expect(state.payments).toBe(1);
+    expect(state.monetaryEvents).toBe(1);
+    expect(state.successfulIdempotency).toBe(1);
+    expect(state.enrollmentGuards).toBe(1);
+    expect(state.claims).toBe(2);
+    expect(state.walletBalance).toBe(WALLET_RACE_BALANCE_KZT - WALLET_RACE_COURSE_PRICE_KZT);
+  }, 30_000);
 
-  it(
-    'R. allows administrator underfunded enrollment with explicit reason and no negative wallet',
-    async () => {
-      await clearCollections(firestore);
-      await seedBase(20_000, 1, 8, { includeAdminAccount: true });
+  it('J. replays the same idempotency key without duplicate enrollment or payment writes', async () => {
+    const commands = createCommands();
+    const envelope = enrollmentEnvelope({
+      idempotencyKey: 'enrollment-replay-emulator',
+      participantIds: [participantId],
+    });
+    const first = await commands.execute(envelope);
+    const second = await commands.execute(envelope);
+    expect(first.status).toBe('success');
+    expect(second.status).toBe('success');
 
-      const commands = createCommands();
-      const result = await commands.execute(
-        enrollmentEnvelope({
-          idempotencyKey: 'enrollment-admin-underfunded',
-          participantIds: [participantId],
-          capability: 'administrator',
-          actorAccountId: adminAccountId,
-          reasonExplanation: 'Approved partial payment for trusted family',
-        })
-      );
-      expect(result.status).toBe('success');
+    const identity = resolveCommandIdempotencyIdentity(envelope);
+    const enrollmentId = courseEnrollmentIdFromCommandParticipant({
+      commandId: identity.commandKey,
+      participantId,
+    });
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(1);
+    expect(state.payments).toBe(1);
+    expect(state.monetaryEvents).toBe(1);
+    expect(state.paymentIds[0]).toBe(paymentIdFromCourseEnrollmentId(enrollmentId));
+    expect(
+      (
+        await firestore
+          .doc(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
+          .get()
+      ).exists
+    ).toBe(true);
+  }, 30_000);
 
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(1);
-      expect(state.payments).toBe(1);
-      expect(state.walletBalance).toBe(0);
-      const payment = (await firestore.collection('payments').get()).docs[0]?.data();
-      expect(payment?.outstandingAmount).toBeGreaterThan(0);
-    },
-    30_000
-  );
+  it('K. rejects enrollment when expected course revision is stale', async () => {
+    const commands = createCommands();
+    const result = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-stale-revision',
+        participantIds: [participantId],
+        expectedRevision: 99,
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('stale_version');
+    }
 
-  it(
-    'S. same idempotency key replay debits wallet and seats exactly once',
-    async () => {
-      const commands = createCommands();
-      const enrollmentId = 'enrollment_emulator_same_key_01';
-      const envelope = enrollmentEnvelope({
-        idempotencyKey: 'enrollment-same-key-replay',
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(0);
+    expect(state.payments).toBe(0);
+    expect(state.availableSeats).toBe(8);
+  }, 30_000);
+
+  it('M. commits enrollment without undefined-field write failures when optional fields are absent', async () => {
+    const commands = createCommands();
+    const result = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-serialization-boundary',
+        participantIds: [participantId],
+      })
+    );
+    expect(result.status).toBe('success');
+
+    const identity = resolveCommandIdempotencyIdentity(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-serialization-boundary',
+        participantIds: [participantId],
+      })
+    );
+    const enrollmentId = courseEnrollmentIdFromCommandParticipant({
+      commandId: identity.commandKey,
+      participantId,
+    });
+    const enrollment = (await firestore.doc(`course_enrollments/${enrollmentId}`).get()).data();
+    expect(enrollment).toBeDefined();
+    for (const value of Object.values(enrollment ?? {})) {
+      expect(value).not.toBeUndefined();
+    }
+  }, 30_000);
+
+  it('N. commits all children atomically when multi-child enrollment is fully valid and funded', async () => {
+    await clearCollections(firestore);
+    await seedBase(COURSE_PRICE_KZT * 2, 1, 8);
+
+    const commands = createCommands();
+    const result = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-multi-child-success',
+        participantIds: [participantId, participantIdB],
+      })
+    );
+    expect(result.status).toBe('success');
+
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(2);
+    expect(state.payments).toBe(2);
+    expect(state.monetaryEvents).toBe(2);
+    expect(state.enrollmentGuards).toBe(2);
+    expect(state.availableSeats).toBe(6);
+    expect(state.walletBalance).toBe(0);
+  }, 30_000);
+
+  it('O. rejects multi-child enrollment when one child has a participant conflict', async () => {
+    await clearCollections(firestore);
+    await seedBase(COURSE_PRICE_KZT * 2 + BOOKING_PRICE_KZT, 1, 8);
+
+    const commands = createCommands();
+    const bookingResult = await commands.execute(
+      bookingEnvelope({
+        targetBookingId: bookingId,
+        idempotencyKey: 'enrollment-multi-child-booking',
+        localDate: '2026-02-01',
+        localTime: '09:00',
+        targetParticipantId: participantIdB,
+      })
+    );
+    expect(bookingResult.status).toBe('success');
+
+    const result = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-multi-child-conflict',
+        participantIds: [participantId, participantIdB],
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('participant_conflict');
+    }
+
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(0);
+    expect(state.enrollmentGuards).toBe(0);
+    expect(state.payments).toBe(1);
+    expect(state.availableSeats).toBe(8);
+  }, 30_000);
+
+  it('P. rejects multi-child enrollment when wallet can fund only a subset', async () => {
+    await clearCollections(firestore);
+    await seedBase(COURSE_PRICE_KZT + 1_000, 1, 8);
+
+    const commands = createCommands();
+    const result = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-multi-child-wallet',
+        participantIds: [participantId, participantIdB],
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('insufficient_funds');
+    }
+
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(0);
+    expect(state.payments).toBe(0);
+    expect(state.availableSeats).toBe(8);
+    expect(state.walletBalance).toBe(COURSE_PRICE_KZT + 1_000);
+  }, 30_000);
+
+  it('Q. rejects multi-child enrollment when capacity cannot fit the whole batch', async () => {
+    await clearCollections(firestore);
+    await seedBase(COURSE_PRICE_KZT * 2, 1, 1);
+
+    const commands = createCommands();
+    const result = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-multi-child-capacity',
+        participantIds: [participantId, participantIdB],
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('unavailable');
+    }
+
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(0);
+    expect(state.payments).toBe(0);
+    expect(state.availableSeats).toBe(1);
+  }, 30_000);
+
+  it('R. allows administrator underfunded enrollment with explicit reason and no negative wallet', async () => {
+    await clearCollections(firestore);
+    await seedBase(20_000, 1, 8, { includeAdminAccount: true });
+
+    const commands = createCommands();
+    const result = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-admin-underfunded',
+        participantIds: [participantId],
+        capability: 'administrator',
+        actorAccountId: adminAccountId,
+        reasonExplanation: 'Approved partial payment for trusted family',
+      })
+    );
+    expect(result.status).toBe('success');
+
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(1);
+    expect(state.payments).toBe(1);
+    expect(state.walletBalance).toBe(0);
+    const payment = (await firestore.collection('payments').get()).docs[0]?.data();
+    expect(payment?.outstandingAmount).toBeGreaterThan(0);
+  }, 30_000);
+
+  it('S. same idempotency key replay debits wallet and seats exactly once', async () => {
+    const commands = createCommands();
+    const enrollmentId = 'enrollment_emulator_same_key_01';
+    const envelope = enrollmentEnvelope({
+      idempotencyKey: 'enrollment-same-key-replay',
+      participantIds: [participantId],
+      enrollmentIds: [enrollmentId],
+    });
+    expect(await commands.execute(envelope)).toMatchObject({ status: 'success' });
+    expect(await commands.execute(envelope)).toMatchObject({ status: 'success' });
+
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(1);
+    expect(state.payments).toBe(1);
+    expect(state.monetaryEvents).toBe(1);
+    expect(state.paymentIds[0]).toBe(paymentIdFromCourseEnrollmentId(enrollmentId as never));
+    expect(state.availableSeats).toBe(7);
+    expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
+    expect(
+      (
+        await firestore
+          .doc(
+            `monetary_events/${monetaryEventIdFromCourseEnrollmentInitialCharge(
+              CourseEnrollmentIdSchema.parse(enrollmentId)
+            )}`
+          )
+          .get()
+      ).exists
+    ).toBe(true);
+  }, 30_000);
+
+  it('T. different idempotency keys for the same enrollmentId debit wallet once', async () => {
+    const commands = createCommands();
+    const enrollmentId = 'enrollment_emulator_diff_key_01';
+    const first = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-diff-key-a',
         participantIds: [participantId],
         enrollmentIds: [enrollmentId],
-      });
-      expect(await commands.execute(envelope)).toMatchObject({ status: 'success' });
-      expect(await commands.execute(envelope)).toMatchObject({ status: 'success' });
+      })
+    );
+    const second = await commands.execute(
+      enrollmentEnvelope({
+        idempotencyKey: 'enrollment-diff-key-b',
+        participantIds: [participantId],
+        enrollmentIds: [enrollmentId],
+        correlation: correlationIdB,
+      })
+    );
+    expect(first.status).toBe('success');
+    expect(second.status).toBe('success');
 
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(1);
-      expect(state.payments).toBe(1);
-      expect(state.monetaryEvents).toBe(1);
-      expect(state.paymentIds[0]).toBe(paymentIdFromCourseEnrollmentId(enrollmentId as never));
-      expect(state.availableSeats).toBe(7);
-      expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
-      expect(
-        (
-          await firestore
-            .doc(
-              `monetary_events/${monetaryEventIdFromCourseEnrollmentInitialCharge(
-                CourseEnrollmentIdSchema.parse(enrollmentId)
-              )}`
-            )
-            .get()
-        ).exists
-      ).toBe(true);
-    },
-    30_000
-  );
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(1);
+    expect(state.payments).toBe(1);
+    expect(state.monetaryEvents).toBe(1);
+    expect(state.availableSeats).toBe(7);
+    expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
+    expect(state.successfulIdempotency).toBe(2);
+  }, 30_000);
 
-  it(
-    'T. different idempotency keys for the same enrollmentId debit wallet once',
-    async () => {
-      const commands = createCommands();
-      const enrollmentId = 'enrollment_emulator_diff_key_01';
-      const first = await commands.execute(
+  it('U. concurrent payments for the same enrollmentId create one debit and one seat', async () => {
+    const commands = createCommands();
+    const enrollmentId = 'enrollment_emulator_parallel_pay_01';
+    const attempts = await Promise.all([
+      commands.execute(
         enrollmentEnvelope({
-          idempotencyKey: 'enrollment-diff-key-a',
+          idempotencyKey: 'enrollment-parallel-pay-a',
           participantIds: [participantId],
           enrollmentIds: [enrollmentId],
         })
-      );
-      const second = await commands.execute(
+      ),
+      commands.execute(
         enrollmentEnvelope({
-          idempotencyKey: 'enrollment-diff-key-b',
+          idempotencyKey: 'enrollment-parallel-pay-b',
           participantIds: [participantId],
           enrollmentIds: [enrollmentId],
           correlation: correlationIdB,
         })
-      );
-      expect(first.status).toBe('success');
-      expect(second.status).toBe('success');
+      ),
+    ]);
+    expect(attempts.every((attempt) => attempt.status === 'success')).toBe(true);
 
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(1);
-      expect(state.payments).toBe(1);
-      expect(state.monetaryEvents).toBe(1);
-      expect(state.availableSeats).toBe(7);
-      expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
-      expect(state.successfulIdempotency).toBe(2);
-    },
-    30_000
-  );
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(1);
+    expect(state.payments).toBe(1);
+    expect(state.monetaryEvents).toBe(1);
+    expect(state.availableSeats).toBe(7);
+    expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
+    expect(state.enrollmentGuards).toBe(1);
+  }, 30_000);
 
-  it(
-    'U. concurrent payments for the same enrollmentId create one debit and one seat',
-    async () => {
-      const commands = createCommands();
-      const enrollmentId = 'enrollment_emulator_parallel_pay_01';
-      const attempts = await Promise.all([
-        commands.execute(
-          enrollmentEnvelope({
-            idempotencyKey: 'enrollment-parallel-pay-a',
-            participantIds: [participantId],
-            enrollmentIds: [enrollmentId],
-          })
-        ),
-        commands.execute(
-          enrollmentEnvelope({
-            idempotencyKey: 'enrollment-parallel-pay-b',
-            participantIds: [participantId],
-            enrollmentIds: [enrollmentId],
-            correlation: correlationIdB,
-          })
-        ),
-      ]);
-      expect(attempts.every((attempt) => attempt.status === 'success')).toBe(true);
+  it('V. retry after completed payment is equivalent success without a second debit', async () => {
+    const commands = createCommands();
+    const enrollmentId = 'enrollment_emulator_retry_paid_01';
+    const firstEnvelope = enrollmentEnvelope({
+      idempotencyKey: 'enrollment-retry-paid-first',
+      participantIds: [participantId],
+      enrollmentIds: [enrollmentId],
+    });
+    expect(await commands.execute(firstEnvelope)).toMatchObject({ status: 'success' });
+    expect(await commands.execute(firstEnvelope)).toMatchObject({ status: 'success' });
+    expect(
+      await commands.execute(
+        enrollmentEnvelope({
+          idempotencyKey: 'enrollment-retry-paid-again',
+          participantIds: [participantId],
+          enrollmentIds: [enrollmentId],
+          correlation: correlationIdB,
+        })
+      )
+    ).toMatchObject({ status: 'success' });
 
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(1);
-      expect(state.payments).toBe(1);
-      expect(state.monetaryEvents).toBe(1);
-      expect(state.availableSeats).toBe(7);
-      expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
-      expect(state.enrollmentGuards).toBe(1);
-    },
-    30_000
-  );
-
-  it(
-    'V. retry after completed payment is equivalent success without a second debit',
-    async () => {
-      const commands = createCommands();
-      const enrollmentId = 'enrollment_emulator_retry_paid_01';
-      const firstEnvelope = enrollmentEnvelope({
-        idempotencyKey: 'enrollment-retry-paid-first',
-        participantIds: [participantId],
-        enrollmentIds: [enrollmentId],
-      });
-      expect(await commands.execute(firstEnvelope)).toMatchObject({ status: 'success' });
-      expect(await commands.execute(firstEnvelope)).toMatchObject({ status: 'success' });
-      expect(
-        await commands.execute(
-          enrollmentEnvelope({
-            idempotencyKey: 'enrollment-retry-paid-again',
-            participantIds: [participantId],
-            enrollmentIds: [enrollmentId],
-            correlation: correlationIdB,
-          })
-        )
-      ).toMatchObject({ status: 'success' });
-
-      const state = await durableCounts();
-      expect(state.enrollments).toBe(1);
-      expect(state.payments).toBe(1);
-      expect(state.monetaryEvents).toBe(1);
-      expect(state.availableSeats).toBe(7);
-      expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
-    },
-    30_000
-  );
+    const state = await durableCounts();
+    expect(state.enrollments).toBe(1);
+    expect(state.payments).toBe(1);
+    expect(state.monetaryEvents).toBe(1);
+    expect(state.availableSeats).toBe(7);
+    expect(state.walletBalance).toBe(WALLET_ENROLLMENT_PLUS_BOOKING_KZT - COURSE_PRICE_KZT);
+  }, 30_000);
 });

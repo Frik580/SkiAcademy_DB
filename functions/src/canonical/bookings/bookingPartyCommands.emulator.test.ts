@@ -12,7 +12,6 @@ import {
   ParticipantManagementIdSchema,
   WalletSchema,
   activityLogIdFromCommandId,
-  calculateFamilyGroupBookingPriceKzt,
   incrementalRequirementIdFromPartyAddition,
   paymentIdFromBookingId,
   resolveCommandIdempotencyIdentity,
@@ -42,7 +41,9 @@ const participantIds = Array.from({ length: 8 }, (_, index) =>
   ParticipantIdSchema.parse(`participant_party_emulator_${String(index + 1).padStart(2, '0')}`)
 );
 const managementIds = Array.from({ length: 8 }, (_, index) =>
-  ParticipantManagementIdSchema.parse(`management_party_emulator_${String(index + 1).padStart(2, '0')}`)
+  ParticipantManagementIdSchema.parse(
+    `management_party_emulator_${String(index + 1).padStart(2, '0')}`
+  )
 );
 const [participantId, participantTwoId, participantThreeId] = participantIds;
 
@@ -63,6 +64,7 @@ const COLLECTIONS_TO_CLEAR = [
   'activity_logs',
   'domain_outbox',
   'command_idempotency',
+  'lesson_pricing_settings',
 ] as const;
 
 let app: App;
@@ -155,6 +157,19 @@ async function seedBase(walletBalance = 50_000): Promise<void> {
     pricePerHourKZT: 12_000,
     isAvailable: true,
   });
+  await firestore.doc('lesson_pricing_settings/lesson_booking').set({
+    settingsId: 'lesson_booking',
+    additionalParticipantSurchargePerHourKzt: 6_000,
+    maxParticipantsPerLesson: 8,
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'command_seed_pricing',
+      lastChangedByCommandId: 'command_seed_pricing',
+      correlationId,
+    },
+  });
   await firestore.doc(`users/${accountId}/wallet/state`).set(
     WalletSchema.parse({
       accountId,
@@ -168,22 +183,21 @@ async function seedBase(walletBalance = 50_000): Promise<void> {
   );
 }
 
-function partyContext(
-  input: {
-    idempotencyKey: string;
-    actorAccountId?: typeof accountId | typeof adminAccountId | typeof unrelatedAccountId;
-    capability?: 'account_owner' | 'administrator';
-    expectedRevision?: number;
-    at?: string;
-  }
-) {
+function partyContext(input: {
+  idempotencyKey: string;
+  actorAccountId?: typeof accountId | typeof adminAccountId | typeof unrelatedAccountId;
+  capability?: 'account_owner' | 'administrator';
+  expectedRevision?: number;
+  at?: string;
+}) {
   const capability = input.capability ?? 'account_owner';
   return {
     actor: accountCommandActor(input.actorAccountId ?? accountId),
     exercisedCapability: capability,
     idempotencyKey: input.idempotencyKey,
     correlationId,
-    source: capability === 'administrator' ? ('admin_callable' as const) : ('client_callable' as const),
+    source:
+      capability === 'administrator' ? ('admin_callable' as const) : ('client_callable' as const),
     ...(input.expectedRevision === undefined
       ? {}
       : { expectedRevision: AggregateRevisionSchema.parse(input.expectedRevision) }),
@@ -196,18 +210,16 @@ function partyContext(
   };
 }
 
-function partyEnvelope(
-  input: {
-    idempotencyKey: string;
-    booking?: typeof bookingId | typeof bookingTwoId;
-    participantIdsToAdd?: typeof participantIds;
-    participantIdsToRemove?: typeof participantIds;
-    capability?: 'account_owner' | 'administrator';
-    actorAccountId?: typeof accountId | typeof adminAccountId | typeof unrelatedAccountId;
-    expectedRevision?: number;
-    reasonExplanation?: string;
-  }
-): CommandEnvelope<'change_booking_party'> {
+function partyEnvelope(input: {
+  idempotencyKey: string;
+  booking?: typeof bookingId | typeof bookingTwoId;
+  participantIdsToAdd?: typeof participantIds;
+  participantIdsToRemove?: typeof participantIds;
+  capability?: 'account_owner' | 'administrator';
+  actorAccountId?: typeof accountId | typeof adminAccountId | typeof unrelatedAccountId;
+  expectedRevision?: number;
+  reasonExplanation?: string;
+}): CommandEnvelope<'change_booking_party'> {
   return {
     kind: 'change_booking_party',
     context: partyContext({
@@ -219,7 +231,9 @@ function partyEnvelope(
     intent: {
       bookingId: input.booking ?? bookingId,
       ...(input.participantIdsToAdd ? { participantIdsToAdd: input.participantIdsToAdd } : {}),
-      ...(input.participantIdsToRemove ? { participantIdsToRemove: input.participantIdsToRemove } : {}),
+      ...(input.participantIdsToRemove
+        ? { participantIdsToRemove: input.participantIdsToRemove }
+        : {}),
       ...(input.reasonExplanation ? { reasonExplanation: input.reasonExplanation } : {}),
     },
   };
@@ -245,8 +259,7 @@ async function countCollection(collection: string): Promise<number> {
 async function activeClaimsForBooking(targetBookingId: typeof bookingId) {
   const snapshot = await firestore.collection('resource_claims').get();
   return snapshot.docs.filter(
-    (doc) =>
-      doc.data().ownerId === targetBookingId && doc.data().lifecycle?.status === 'active'
+    (doc) => doc.data().ownerId === targetBookingId && doc.data().lifecycle?.status === 'active'
   );
 }
 
@@ -300,7 +313,9 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking party commands emulator', () 
     const party = booking?.party.participantIds ?? [];
     expect(party.length).toBe(2);
     expect(party).toContain(participantId);
-    expect([participantTwoId, participantThreeId].filter((id) => party.includes(id)).length).toBe(1);
+    expect([participantTwoId, participantThreeId].filter((id) => party.includes(id)).length).toBe(
+      1
+    );
     expect((await firestore.doc(`payments/${paymentId}`).get()).data()?.price).toBe(18_000);
   }, 30_000);
 
@@ -361,18 +376,24 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking party commands emulator', () 
     const booking = (await firestore.doc(`bookings/${bookingId}`).get()).data();
     expect(booking?.party.participantIds).toEqual([participantId]);
     expect((await firestore.doc(`payments/${paymentId}`).get()).data()?.price).toBe(12_000);
-    expect((await firestore.doc(`users/${accountId}/wallet/state`).get()).data()?.balance).toBe(5_000);
+    expect((await firestore.doc(`users/${accountId}/wallet/state`).get()).data()?.balance).toBe(
+      5_000
+    );
     expect(
       (await activeClaimsForBooking(bookingId)).some(
         (doc) => doc.data().resourceId === participantTwoId
       )
     ).toBe(false);
-    expect((await firestore.doc(`payments/${paymentId}`).get()).data()?.incrementalRequirements).toEqual(
-      []
-    );
+    expect(
+      (await firestore.doc(`payments/${paymentId}`).get()).data()?.incrementalRequirements
+    ).toEqual([]);
     expect(await countCollection('monetary_events')).toBe(1);
     expect(await countCollection('activity_logs')).toBe(1);
-    expect((await firestore.collection('command_idempotency').get()).docs.some((doc) => doc.id.includes('party-insufficient-wallet'))).toBe(false);
+    expect(
+      (await firestore.collection('command_idempotency').get()).docs.some((doc) =>
+        doc.id.includes('party-insufficient-wallet')
+      )
+    ).toBe(false);
   }, 30_000);
 
   it('D. prevents Wallet overspend when two party adds compete for the same Wallet', async () => {
@@ -407,7 +428,9 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking party commands emulator', () 
       outcome.status === 'fulfilled' ? outcome.value.status : 'rejected'
     );
     expect(outcomes.filter((status) => status === 'success').length).toBe(1);
-    expect((await firestore.doc(`users/${accountId}/wallet/state`).get()).data()?.balance).toBeGreaterThanOrEqual(0);
+    expect(
+      (await firestore.doc(`users/${accountId}/wallet/state`).get()).data()?.balance
+    ).toBeGreaterThanOrEqual(0);
 
     const bookingOne = (await firestore.doc(`bookings/${bookingId}`).get()).data();
     const bookingTwo = (await firestore.doc(`bookings/${bookingTwoId}`).get()).data();
@@ -427,7 +450,8 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking party commands emulator', () 
         expectedRevision: 1,
       })
     );
-    const walletAfterAdd = (await firestore.doc(`users/${accountId}/wallet/state`).get()).data()?.balance;
+    const walletAfterAdd = (await firestore.doc(`users/${accountId}/wallet/state`).get()).data()
+      ?.balance;
     const removeEnvelope = partyEnvelope({
       idempotencyKey: 'party-remove-refund',
       participantIdsToRemove: [participantTwoId],
@@ -454,7 +478,11 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking party commands emulator', () 
     expect(await countCollection('monetary_events')).toBe(3);
     const identity = resolveCommandIdempotencyIdentity(removeEnvelope);
     expect(
-      (await firestore.doc(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`).get()).exists
+      (
+        await firestore
+          .doc(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
+          .get()
+      ).exists
     ).toBe(true);
   }, 30_000);
 
@@ -476,7 +504,8 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking party commands emulator', () 
     });
     const first = await commands.execute(removeEnvelope);
     expect(first.status).toBe('success');
-    const walletAfterFirst = (await firestore.doc(`users/${accountId}/wallet/state`).get()).data()?.balance;
+    const walletAfterFirst = (await firestore.doc(`users/${accountId}/wallet/state`).get()).data()
+      ?.balance;
     const paymentAfterFirst = (await firestore.doc(`payments/${paymentId}`).get()).data();
     const monetaryEventsAfterFirst = await countCollection('monetary_events');
     const replay = await commands.execute(removeEnvelope);
@@ -575,7 +604,8 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking party commands emulator', () 
     expect(payment?.price).toBe(12_000);
     expect(payment?.outstandingAmount).toBe(0);
     expect(
-      payment?.incrementalRequirements.find((entry) => entry.participantId === participantTwoId)?.state
+      payment?.incrementalRequirements.find((entry) => entry.participantId === participantTwoId)
+        ?.state
     ).toBe('rolled_back');
     expect(
       payment?.incrementalRequirements.find((entry) => entry.participantId === participantTwoId)
@@ -639,14 +669,16 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking party commands emulator', () 
     expect(booking?.party.participantIds).toEqual([participantId, participantTwoId]);
     expect(payment?.price).toBe(18_000);
     expect(
-      payment?.incrementalRequirements.find((entry) => entry.participantId === participantThreeId)?.state
+      payment?.incrementalRequirements.find((entry) => entry.participantId === participantThreeId)
+        ?.state
     ).toBe('rolled_back');
     expect(
-      payment?.incrementalRequirements.find((entry) => entry.participantId === participantTwoId)?.state
+      payment?.incrementalRequirements.find((entry) => entry.participantId === participantTwoId)
+        ?.state
     ).toBe('fully_funded');
   }, 30_000);
 
-  it('J. uses authoritative nonlinear tariff when rolling back unpaid additions', async () => {
+  it('J. uses the snapshotted per-hour surcharge when rolling back unpaid additions', async () => {
     await seedBase(16_000);
     await createConfirmedBooking(bookingId, [participantId]);
     const commands = createCommands('2026-01-14T09:00:01.000Z');
@@ -673,12 +705,10 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking party commands emulator', () 
       intent: { bookingId },
     });
     const payment = (await firestore.doc(`payments/${paymentId}`).get()).data();
-    expect(payment?.price).toBe(
-      calculateFamilyGroupBookingPriceKzt(LESSON_PRICE, 1)
-    );
+    expect(payment?.price).toBe(LESSON_PRICE);
   }, 30_000);
 
-  it('K. allows the 8th participant and rejects the 9th without side effects', async () => {
+  it('K. enforces the current configured maximum on party additions without side effects', async () => {
     await seedBase(500_000);
     const commands = createCommands('2026-01-01T00:00:00.000Z');
     await commands.execute({
@@ -707,7 +737,8 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking party commands emulator', () 
     );
     expect(eighth.status).toBe('success');
     const beforeNinthPayment = (await firestore.doc(`payments/${paymentId}`).get()).data();
-    const beforeNinthWallet = (await firestore.doc(`users/${accountId}/wallet/state`).get()).data()?.balance;
+    const beforeNinthWallet = (await firestore.doc(`users/${accountId}/wallet/state`).get()).data()
+      ?.balance;
     const ninthParticipantId = ParticipantIdSchema.parse('participant_party_emulator_09');
     await firestore.doc(`participants/${ninthParticipantId}`).set({
       participantId: ninthParticipantId,
@@ -717,7 +748,9 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking party commands emulator', () 
       discipline: 'ski',
       management: {
         kind: 'managed',
-        participantManagementId: ParticipantManagementIdSchema.parse('management_party_emulator_09'),
+        participantManagementId: ParticipantManagementIdSchema.parse(
+          'management_party_emulator_09'
+        ),
       },
       lifecycle: { status: 'active' },
       revision: 1,
@@ -753,11 +786,23 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking party commands emulator', () 
       })
     );
     expect(ninth.status).toBe('error');
-    expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.party.participantIds.length).toBe(8);
-    expect((await firestore.doc(`payments/${paymentId}`).get()).data()?.price).toBe(beforeNinthPayment?.price);
+    expect(
+      (await firestore.doc(`bookings/${bookingId}`).get()).data()?.party.participantIds.length
+    ).toBe(8);
+    expect((await firestore.doc(`payments/${paymentId}`).get()).data()?.price).toBe(
+      beforeNinthPayment?.price
+    );
     expect((await firestore.doc(`users/${accountId}/wallet/state`).get()).data()?.balance).toBe(
       beforeNinthWallet
     );
+    expect(
+      (
+        await firestore
+          .collection('resource_claims')
+          .where('resourceId', '==', ninthParticipantId)
+          .get()
+      ).empty
+    ).toBe(true);
   }, 30_000);
 
   it('L. freezes service party at start when there are no unpaid additions', async () => {
@@ -797,8 +842,8 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking party commands emulator', () 
       })
     );
     expect(result.status).toBe('error');
-    expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.party.participantIds).toEqual([
-      participantId,
-    ]);
+    expect(
+      (await firestore.doc(`bookings/${bookingId}`).get()).data()?.party.participantIds
+    ).toEqual([participantId]);
   }, 30_000);
 });

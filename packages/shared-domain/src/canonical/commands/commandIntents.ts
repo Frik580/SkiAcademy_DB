@@ -22,8 +22,12 @@ import { CourseProvisioningManifestSchema } from '../courseProvisioningManifest'
 import { CourseCatalogContentInputSchema } from '../courseCatalogContent';
 import { AdministrativeAvailabilityBlockKindSchema } from '../administrativeAvailabilityBlock';
 import { MonetaryPaymentEffectSchema } from '../paymentWallet';
+import { MaxParticipantsPerLessonSchema } from '../lessonPricingSettings';
 import { AggregateRevisionSchema, KztMinorUnitsSchema } from '../primitives';
-import { BookingLessonNotesSchema, LessonDifficultySchema } from '../bookingOccurrenceProposalChange';
+import {
+  BookingLessonNotesSchema,
+  LessonDifficultySchema,
+} from '../bookingOccurrenceProposalChange';
 import type { CommandKind } from './commandKinds';
 
 const bookingTargetIntent = z.object({ bookingId: BookingIdSchema }).strict();
@@ -268,7 +272,7 @@ export const CommandIntentSchemaByKind = {
     .object({
       bookingId: BookingIdSchema,
       instructorId: InstructorIdSchema,
-      participantIds: z.array(ParticipantIdSchema).min(1).max(8),
+      participantIds: z.array(ParticipantIdSchema).min(1),
       payerAccountId: AccountIdSchema.optional(),
       difficulty: LessonDifficultySchema.optional(),
       notes: BookingLessonNotesSchema,
@@ -279,7 +283,7 @@ export const CommandIntentSchemaByKind = {
     .object({
       bookingId: BookingIdSchema,
       instructorId: InstructorIdSchema,
-      participantIds: z.array(ParticipantIdSchema).min(1).max(8),
+      participantIds: z.array(ParticipantIdSchema).length(1),
       difficulty: LessonDifficultySchema.optional(),
       notes: BookingLessonNotesSchema,
     })
@@ -410,8 +414,8 @@ export const CommandIntentSchemaByKind = {
   change_booking_party: z
     .object({
       bookingId: BookingIdSchema,
-      participantIdsToAdd: z.array(ParticipantIdSchema).max(7).optional(),
-      participantIdsToRemove: z.array(ParticipantIdSchema).max(7).optional(),
+      participantIdsToAdd: z.array(ParticipantIdSchema).optional(),
+      participantIdsToRemove: z.array(ParticipantIdSchema).optional(),
       refundPercentBasisPoints: z.number().int().min(0).max(10_000).optional(),
       reasonExplanation: z.string().trim().min(1).max(1_000).optional(),
     })
@@ -858,6 +862,13 @@ export const CommandIntentSchemaByKind = {
     .object({
       accountId: AccountIdSchema,
       role: z.enum(['user', 'admin']),
+      reasonExplanation: z.string().trim().min(1).max(1_000),
+    })
+    .strict(),
+  update_lesson_pricing_settings: z
+    .object({
+      additionalParticipantSurchargePerHourKzt: KztMinorUnitsSchema,
+      maxParticipantsPerLesson: MaxParticipantsPerLessonSchema,
       reasonExplanation: z.string().trim().min(1).max(1_000),
     })
     .strict(),

@@ -67,9 +67,7 @@ function accountContext(
     source: 'client_callable' as const,
     calendarInput,
     timezone: 'Asia/Almaty' as const,
-    ...(capability === 'instructor'
-      ? { transportMetadata: { instructor_id: instructorId } }
-      : {}),
+    ...(capability === 'instructor' ? { transportMetadata: { instructor_id: instructorId } } : {}),
   };
 }
 
@@ -189,6 +187,19 @@ function baseFixture(extra: Record<string, unknown> = {}) {
       isAvailable: true,
     },
     [`users/${accountId}/wallet/state`]: seedWallet(50_000),
+    'lesson_pricing_settings/lesson_booking': {
+      settingsId: 'lesson_booking',
+      additionalParticipantSurchargePerHourKzt: 6_000,
+      maxParticipantsPerLesson: 1,
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_pricing',
+        lastChangedByCommandId: 'command_seed_pricing',
+        correlationId,
+      },
+    },
     ...extra,
   };
 }
@@ -288,9 +299,9 @@ describe('booking proposal commands', () => {
     ).toBe(0);
 
     const identity = resolveCommandIdempotencyIdentity(createProposalEnvelope());
-    expect(snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)).toBe(
-      true
-    );
+    expect(
+      snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
+    ).toBe(true);
   });
 
   it('accepts a proposal into a fully funded instructor-origin booking', async () => {
@@ -411,7 +422,11 @@ describe('booking proposal commands', () => {
     const createResult = await proposalCommands(executor).execute(
       createProposalEnvelope({
         context: {
-          ...accountContext('instructor', instructorAccountId, 'proposal-create-participant-conflict-01'),
+          ...accountContext(
+            'instructor',
+            instructorAccountId,
+            'proposal-create-participant-conflict-01'
+          ),
           transportMetadata: { instructor_id: instructorTwoId },
         },
         intent: {
@@ -435,9 +450,11 @@ describe('booking proposal commands', () => {
     if (acceptResult.status === 'error') {
       expect(resultErrorCode(acceptResult)).toBe('participant_conflict');
     }
-    expect(executor.snapshot().docs.get(`booking_proposals/${proposalId}`)?.data.lifecycle).toEqual({
-      status: 'open',
-    });
+    expect(executor.snapshot().docs.get(`booking_proposals/${proposalId}`)?.data.lifecycle).toEqual(
+      {
+        status: 'open',
+      }
+    );
   });
 
   it('cancels by instructor and declines by account owner', async () => {
@@ -453,9 +470,9 @@ describe('booking proposal commands', () => {
       intent: { bookingProposalId: proposalId },
     });
     expect(instructorCancel.status).toBe('success');
-    expect(executor.snapshot().docs.get(`booking_proposals/${proposalId}`)?.data.lifecycle.status).toBe(
-      'cancelled'
-    );
+    expect(
+      executor.snapshot().docs.get(`booking_proposals/${proposalId}`)?.data.lifecycle.status
+    ).toBe('cancelled');
     expect(
       executor.snapshot().docs.get(`booking_proposals/${proposalId}`)?.data.lifecycle.reasonCode
     ).toBe('instructor_withdrawn');
@@ -471,9 +488,9 @@ describe('booking proposal commands', () => {
       intent: { bookingProposalId: proposalId },
     });
     expect(ownerDecline.status).toBe('success');
-    expect(executor2.snapshot().docs.get(`booking_proposals/${proposalId}`)?.data.lifecycle.status).toBe(
-      'declined'
-    );
+    expect(
+      executor2.snapshot().docs.get(`booking_proposals/${proposalId}`)?.data.lifecycle.status
+    ).toBe('declined');
   });
 
   it('expires an open proposal once the hold window has passed', async () => {
@@ -519,15 +536,19 @@ describe('booking proposal commands', () => {
       intent: { bookingProposalId: proposalId },
     };
 
-    const result = await proposalCommands(executor, '2026-01-15T09:30:00.000Z').execute(expireEnvelope);
-    expect(result.status).toBe('success');
-    expect(executor.snapshot().docs.get(`booking_proposals/${proposalId}`)?.data.lifecycle.status).toBe(
-      'expired'
+    const result = await proposalCommands(executor, '2026-01-15T09:30:00.000Z').execute(
+      expireEnvelope
     );
+    expect(result.status).toBe('success');
+    expect(
+      executor.snapshot().docs.get(`booking_proposals/${proposalId}`)?.data.lifecycle.status
+    ).toBe('expired');
   });
 
   it('does not duplicate booking creates when accept transaction callback is retried', async () => {
-    const inner = createInMemoryCanonicalTransactionExecutor(baseFixture(), { simulateRetry: true });
+    const inner = createInMemoryCanonicalTransactionExecutor(baseFixture(), {
+      simulateRetry: true,
+    });
     const executor = createAbortFirstTransactionCallbackExecutor(inner);
     await createOpenProposal(inner);
     const result = await proposalCommands(executor).execute(acceptProposalEnvelope());
@@ -543,6 +564,8 @@ describe('booking proposal commands', () => {
   });
 });
 
-function resultErrorCode(result: { status: 'error'; error: { code: string } } | { status: string }) {
+function resultErrorCode(
+  result: { status: 'error'; error: { code: string } } | { status: string }
+) {
   return result.status === 'error' ? result.error.code : undefined;
 }

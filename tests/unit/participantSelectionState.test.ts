@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ManagedParticipantOption } from '../../src/features/lesson-bookings/lessonBookingContracts';
 import {
-  MAX_MULTI_PARTICIPANT_SELECTION,
   requiresExplicitParticipantSelection,
   resolveAuthenticatedParticipantSelection,
   resolveDefaultParticipantSelection,
@@ -55,23 +54,25 @@ describe('participantSelectionState', () => {
 
   it('prevents duplicate and out-of-authority selection', () => {
     expect(
-      toggleParticipantSelection(['participant_self'], 'participant_self', [
+      toggleParticipantSelection(
+        ['participant_self'],
         'participant_self',
-        'participant_child',
-      ])
+        ['participant_self', 'participant_child'],
+        2
+      )
     ).toEqual([]);
-    expect(toggleParticipantSelection([], 'participant_unknown', ['participant_self'])).toEqual([]);
+    expect(toggleParticipantSelection([], 'participant_unknown', ['participant_self'], 2)).toEqual(
+      []
+    );
   });
 
-  it('enforces the multi-participant limit', () => {
-    const managedIds = Array.from(
-      { length: MAX_MULTI_PARTICIPANT_SELECTION + 1 },
-      (_, index) => `participant_${index}`
+  it('enforces the caller-provided participant limit', () => {
+    const managedIds = Array.from({ length: 5 }, (_, index) => `participant_${index}`);
+    const selected = managedIds.slice(0, 4);
+    expect(toggleParticipantSelection(selected, managedIds[4]!, managedIds, 4)).toEqual(selected);
+    expect(toggleParticipantSelection(selected.slice(0, 3), managedIds[3]!, managedIds, 4)).toEqual(
+      selected
     );
-    const selected = managedIds.slice(0, MAX_MULTI_PARTICIPANT_SELECTION);
-    expect(
-      toggleParticipantSelection(selected, managedIds[MAX_MULTI_PARTICIPANT_SELECTION]!, managedIds)
-    ).toEqual(selected);
   });
 
   it('derives exercised capability from selected authorities', () => {

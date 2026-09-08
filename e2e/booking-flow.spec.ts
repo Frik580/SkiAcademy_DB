@@ -1,6 +1,7 @@
 import { test } from '@playwright/test';
 import {
   expect,
+  ensureParticipantSelected,
   fillBookingSelectors,
   loadRuntimeConfig,
   uniqueDayOffset,
@@ -102,5 +103,45 @@ test.describe('booking flow', () => {
           claim.resourceKind === 'instructor' && claim.resourceId === runtimeConfig.instructorId
       )
     ).toBe(true);
+  });
+
+  test('signed-in student creates one booking for self and a managed dependent', async ({
+    page,
+  }, testInfo) => {
+    const runtimeConfig = loadRuntimeConfig();
+    const blockingBefore = await getBlockingBookingIdsForPayer(runtimeConfig.studentUid);
+
+    await openStudentBookingModal(page, runtimeConfig);
+    await fillBookingSelectors(page, uniqueDayOffset(6, testInfo), {
+      participantDisplayName: runtimeConfig.studentDisplayName,
+      time: uniqueTimeSlot(testInfo),
+    });
+    const bookingModal = page.locator('.ui-modal').filter({
+      has: page.getByRole('button', { name: 'Date', exact: true }),
+    });
+    await ensureParticipantSelected(bookingModal, runtimeConfig.studentChildDisplayName);
+    await waitForFunctionsEmulatorReady();
+    await submitStudentBookingConfirmation(page);
+
+    const booking = await waitForNewBlockingBookingForPayer(
+      runtimeConfig.studentUid,
+      blockingBefore,
+      (candidate) => candidate.lifecycleStatus === 'confirmed'
+    );
+    expect([...booking.participantIds].sort()).toEqual(
+      [runtimeConfig.studentParticipantId, runtimeConfig.studentChildParticipantId].sort()
+    );
+
+    const claims = await listResourceClaimsForBooking(booking.bookingId);
+    expect(
+      claims.filter(
+        (claim) => claim.lifecycleStatus === 'active' && claim.resourceKind === 'instructor'
+      )
+    ).toHaveLength(1);
+    expect(
+      claims.filter(
+        (claim) => claim.lifecycleStatus === 'active' && claim.resourceKind === 'participant'
+      )
+    ).toHaveLength(2);
   });
 });

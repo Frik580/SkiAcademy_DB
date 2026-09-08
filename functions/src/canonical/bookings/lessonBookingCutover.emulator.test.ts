@@ -28,6 +28,7 @@ import {
 } from '../readModels/lessonBookingReadModels';
 import { parseBooking } from '../bookings/bookingStore';
 import { parsePayment } from '../finance/financeStore';
+import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 
 const PROJECT_ID = 'ski-academy-lesson-cutover-emulator';
 const correlationId = CorrelationIdSchema.parse('correlation_lesson_cutover_01');
@@ -105,6 +106,7 @@ async function seedInstructor(): Promise<void> {
 }
 
 async function seedManagedParticipantFixture(): Promise<void> {
+  await seedLessonPricingSettingsFixture(firestore, { decidedAt, correlationId });
   await firestore.doc(`users/${payerAccountId}`).set(
     AccountSchema.parse({
       accountId: payerAccountId,

@@ -14,7 +14,16 @@ export interface BookingSlotSelection {
   durationMinutes: number;
 }
 
-const REPEAT_TIME_SLOTS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'] as const;
+const REPEAT_TIME_SLOTS = [
+  '08:00',
+  '09:00',
+  '10:00',
+  '11:00',
+  '12:00',
+  '13:00',
+  '14:00',
+  '15:00',
+] as const;
 
 function simpleHash(input: string): number {
   let hash = 0;
@@ -29,16 +38,12 @@ export interface E2ETestIsolation {
   title: string;
 }
 
-export function uniqueDayOffset(
-  baseOffset: number,
-  testInfo: E2ETestIsolation
-): number {
+export function uniqueDayOffset(baseOffset: number, testInfo: E2ETestIsolation): number {
   return baseOffset + testInfo.repeatEachIndex * 28;
 }
 
 export function uniqueTimeSlot(testInfo: E2ETestIsolation): string {
-  const index =
-    (simpleHash(testInfo.title) + testInfo.repeatEachIndex) % REPEAT_TIME_SLOTS.length;
+  const index = (simpleHash(testInfo.title) + testInfo.repeatEachIndex) % REPEAT_TIME_SLOTS.length;
   return REPEAT_TIME_SLOTS[index]!;
 }
 
@@ -88,11 +93,7 @@ export async function openStudentBookingModal(
   await signInStudent(page, config);
   await page.getByRole('button', { name: 'Book Lesson' }).click();
   await expect(page.getByRole('dialog', { name: 'Choose a coach' })).toBeVisible();
-  await page
-    .getByRole('button')
-    .filter({ hasText: config.instructorName })
-    .first()
-    .click();
+  await page.getByRole('button').filter({ hasText: config.instructorName }).first().click();
 }
 
 function getBookingModal(page: Page) {
@@ -130,7 +131,7 @@ function normalizeTimeLabel(time: string): string {
   return `${match[1].padStart(2, '0')}:${match[2]}`;
 }
 
-async function ensureParticipantSelected(
+export async function ensureParticipantSelected(
   bookingModal: ReturnType<typeof getBookingModal>,
   participantDisplayName: string
 ): Promise<void> {
@@ -223,12 +224,14 @@ export async function fillBookingSelectors(
   if (options?.time) {
     await bookingModal.getByRole('button', { name: options.time, exact: true }).click();
   } else {
-    await bookingModal.getByRole('button', { name: /^\d{1,2}:\d{2}$/ }).first().click();
+    await bookingModal
+      .getByRole('button', { name: /^\d{1,2}:\d{2}$/ })
+      .first()
+      .click();
   }
 
   const localTime = normalizeTimeLabel(
-    options?.time ??
-      ((await timeButton.textContent())?.match(/\d{1,2}:\d{2}/)?.[0] ?? '').trim()
+    options?.time ?? ((await timeButton.textContent())?.match(/\d{1,2}:\d{2}/)?.[0] ?? '').trim()
   );
   const timezone = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
 
@@ -248,12 +251,15 @@ export async function submitStudentBookingConfirmation(page: Page): Promise<void
   const bookingModal = getBookingModal(page);
   await page.getByRole('button', { name: /Confirm — deduct .+ from balance/ }).click();
   await expect
-    .poll(async () => {
-      const modalOpen = await bookingModal.isVisible().catch(() => false);
-      const hasSuccess = (await page.getByText('Lesson Booked!').count()) > 0;
-      const hasError = (await page.getByText('Booking Error').count()) > 0;
-      return !modalOpen || hasSuccess || hasError;
-    })
+    .poll(
+      async () => {
+        const modalOpen = await bookingModal.isVisible().catch(() => false);
+        const hasSuccess = (await page.getByText('Lesson Booked!').count()) > 0;
+        const hasError = (await page.getByText('Booking Error').count()) > 0;
+        return !modalOpen || hasSuccess || hasError;
+      },
+      { timeout: 30_000 }
+    )
     .toBe(true);
   await expect(page.getByText('Booking Error')).toHaveCount(0);
 }
@@ -284,9 +290,11 @@ export async function waitForNewBlockingBookingForPayer(
   }) => boolean = () => true
 ): Promise<{ bookingId: string; lifecycleStatus: string; participantIds: readonly string[] }> {
   const { listBlockingBookingsForPayer } = await import('./firestore-admin');
-  let found:
-    | { bookingId: string; lifecycleStatus: string; participantIds: readonly string[] }
-    | null = null;
+  let found: {
+    bookingId: string;
+    lifecycleStatus: string;
+    participantIds: readonly string[];
+  } | null = null;
 
   await expect
     .poll(async () => {

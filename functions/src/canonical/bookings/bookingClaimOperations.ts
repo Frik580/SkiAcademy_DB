@@ -164,7 +164,7 @@ export async function planAcquireBookingOccurrenceClaims(
     readonly bookingId: Booking['bookingId'];
     readonly occurrenceId: OccurrenceId;
     readonly instructorId: InstructorId;
-    readonly participantId: ParticipantId;
+    readonly participantIds: readonly ParticipantId[];
     readonly interval: TimeInterval;
     readonly replacementIgnore?: ResourceClaimReplacementIgnore;
     readonly correlationId: CorrelationId;
@@ -172,11 +172,11 @@ export async function planAcquireBookingOccurrenceClaims(
     readonly decidedAt: Date;
   }
 ) {
-  const identities = bookingClaimIdentities({
+  const instructorIdentity = bookingClaimIdentities({
     bookingId: input.bookingId,
     occurrenceId: input.occurrenceId,
     instructorId: input.instructorId,
-    participantId: input.participantId,
+    participantId: input.participantIds[0]!,
   });
   const claimMetadata = {
     correlationId: input.correlationId,
@@ -185,17 +185,28 @@ export async function planAcquireBookingOccurrenceClaims(
   };
   const instructorClaimPlan = await readAndPlanAcquireResourceClaim(session, {
     ...claimMetadata,
-    identity: identities.instructorIdentity,
+    identity: instructorIdentity.instructorIdentity,
     interval: input.interval,
     replacementIgnore: input.replacementIgnore,
   });
-  const participantClaimPlan = await readAndPlanAcquireResourceClaim(session, {
-    ...claimMetadata,
-    identity: identities.participantIdentity,
-    interval: input.interval,
-    replacementIgnore: input.replacementIgnore,
-  });
-  return { instructorClaimPlan, participantClaimPlan };
+  const participantClaimPlans = [];
+  for (const participantId of input.participantIds) {
+    const identity = bookingClaimIdentities({
+      bookingId: input.bookingId,
+      occurrenceId: input.occurrenceId,
+      instructorId: input.instructorId,
+      participantId,
+    });
+    participantClaimPlans.push(
+      await readAndPlanAcquireResourceClaim(session, {
+        ...claimMetadata,
+        identity: identity.participantIdentity,
+        interval: input.interval,
+        replacementIgnore: input.replacementIgnore,
+      })
+    );
+  }
+  return { instructorClaimPlan, participantClaimPlans };
 }
 
 export interface BookingOccurrenceClaimSwapPlan {
@@ -203,9 +214,9 @@ export interface BookingOccurrenceClaimSwapPlan {
   readonly instructorClaimPlan: Awaited<
     ReturnType<typeof planAcquireBookingOccurrenceClaims>
   >['instructorClaimPlan'];
-  readonly participantClaimPlan: Awaited<
+  readonly participantClaimPlans: Awaited<
     ReturnType<typeof planAcquireBookingOccurrenceClaims>
-  >['participantClaimPlan'];
+  >['participantClaimPlans'];
 }
 
 export async function planSwapBookingOccurrenceClaims(
@@ -220,7 +231,6 @@ export async function planSwapBookingOccurrenceClaims(
     readonly decidedAt: Date;
   }
 ): Promise<BookingOccurrenceClaimSwapPlan> {
-  const participantId = input.booking.party.participantIds[0]!;
   const replacementIgnore = replacementIgnoreForBookingOccurrence(input.booking);
   const releasePlans = await planReleaseBookingClaims(
     session,
@@ -232,7 +242,7 @@ export async function planSwapBookingOccurrenceClaims(
     bookingId: input.booking.bookingId,
     occurrenceId: input.newOccurrenceId,
     instructorId: input.newInstructorId,
-    participantId,
+    participantIds: input.booking.party.participantIds,
     interval: input.newInterval,
     replacementIgnore,
     correlationId: input.correlationId,
@@ -242,7 +252,7 @@ export async function planSwapBookingOccurrenceClaims(
   return {
     releasePlans,
     instructorClaimPlan: acquired.instructorClaimPlan,
-    participantClaimPlan: acquired.participantClaimPlan,
+    participantClaimPlans: acquired.participantClaimPlans,
   };
 }
 
@@ -280,7 +290,9 @@ export function commitPlannedBookingOccurrenceClaimSwap(
     decidedAt,
   };
   commitResourceClaimPlan(session, plan.instructorClaimPlan, claimMetadata);
-  commitResourceClaimPlan(session, plan.participantClaimPlan, claimMetadata);
+  for (const participantClaimPlan of plan.participantClaimPlans) {
+    commitResourceClaimPlan(session, participantClaimPlan, claimMetadata);
+  }
   for (const releasePlan of plan.releasePlans) {
     commitResourceClaimPlan(session, releasePlan, claimMetadata);
   }

@@ -18,6 +18,7 @@ import {
   calculateSelfServiceRemoveRefundBasisKzt,
   creditWalletBalance,
   debitWalletBalance,
+  lessonDurationMinutesFromInterval,
   listUnpaidActiveIncrementalRequirements,
   markIncrementalRequirementRolledBack,
   monetaryEventIdFromCommandEffect,
@@ -27,7 +28,6 @@ import {
   paymentEffectFromProjectionChange,
   resolveAuthoritativePartyPrices,
   resolveCommandIdempotencyIdentity,
-  calculateFamilyGroupBookingPriceKzt,
   derivePaymentStatus,
   resolveInstructorHourlyRateKzt,
   resolveRefundDestination,
@@ -97,7 +97,18 @@ import {
   planAcquireParticipantBookingClaim,
   planReleaseParticipantBookingClaim,
 } from './bookingClaimOperations';
-import { BOOKING_PLANNING_ESTIMATES, bookingPath, instructorCatalogPath, parseBooking, parseInstructorCatalog, toFirestoreWritePayload } from './bookingStore';
+import {
+  BOOKING_PLANNING_ESTIMATES,
+  bookingPath,
+  instructorCatalogPath,
+  parseBooking,
+  parseInstructorCatalog,
+  toFirestoreWritePayload,
+} from './bookingStore';
+import {
+  LESSON_PRICING_SETTINGS_DOCUMENT_PATH,
+  parseLessonPricingSettings,
+} from '../pricing/lessonPricingSettingsStore';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -131,13 +142,7 @@ function individualLessonPriceFromBooking(
   booking: Booking
 ): ReturnType<typeof KztMinorUnitsSchema.parse> {
   const hourlyRate = resolveInstructorHourlyRateKzt(instructorRecord);
-  const durationMinutes = Math.round(
-    (booking.occurrence.interval.endsAt.seconds * 1_000 +
-      booking.occurrence.interval.endsAt.nanoseconds / 1_000_000 -
-      (booking.occurrence.interval.startsAt.seconds * 1_000 +
-        booking.occurrence.interval.startsAt.nanoseconds / 1_000_000)) /
-      60_000
-  );
+  const durationMinutes = lessonDurationMinutesFromInterval(booking.occurrence.interval);
   return calculateIndividualBookingPriceKzt(hourlyRate, durationMinutes);
 }
 
@@ -156,6 +161,9 @@ function changeBookingPartyHandler(
   let mode!: BookingPartyChangeMode;
   let nextParticipantIds!: Booking['party']['participantIds'];
   let individualLessonPrice!: ReturnType<typeof KztMinorUnitsSchema.parse>;
+  let additionalParticipantSurcharge!: ReturnType<typeof KztMinorUnitsSchema.parse>;
+  let lessonDurationMinutes!: number;
+  let pricingSettingsRevision: ReturnType<typeof AggregateRevisionSchema.parse> | undefined;
   let accountRecord: ReturnType<typeof parseAccount> | undefined;
   let walletRecord: Wallet | undefined;
   let walletDocumentPath = '';
@@ -221,6 +229,7 @@ function changeBookingPartyHandler(
         });
       }
       individualLessonPrice = individualLessonPriceFromBooking(instructorRecord, booking);
+      lessonDurationMinutes = lessonDurationMinutesFromInterval(booking.occurrence.interval);
 
       nextParticipantIds = computePartyAfterMutation({
         currentParticipantIds: booking.party.participantIds,
@@ -228,6 +237,54 @@ function changeBookingPartyHandler(
         participantIdsToRemove,
       }) as Booking['party']['participantIds'];
       assertValidatedNextParty(envelope, nextParticipantIds);
+
+      let currentPricingSettings: ReturnType<typeof parseLessonPricingSettings> = undefined;
+      if (
+        participantIdsToAdd.length > 0 ||
+        booking.pricingSnapshot?.additionalParticipantSurchargePerHourKzt === undefined
+      ) {
+        const settingsRead = await session.tx.get({
+          path: LESSON_PRICING_SETTINGS_DOCUMENT_PATH,
+        });
+        session.plan.planRead({
+          path: LESSON_PRICING_SETTINGS_DOCUMENT_PATH,
+          category: 'aggregate',
+        });
+        currentPricingSettings = parseLessonPricingSettings(
+          settingsRead.exists ? settingsRead.data : undefined
+        );
+      }
+      if (participantIdsToAdd.length > 0) {
+        if (!currentPricingSettings) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { field: 'lessonPricingSettings', reason: 'required' },
+          });
+        }
+        if (nextParticipantIds.length > currentPricingSettings.maxParticipantsPerLesson) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { field: 'participantIdsToAdd', reason: 'conflict' },
+          });
+        }
+      }
+
+      if (booking.pricingSnapshot?.additionalParticipantSurchargePerHourKzt !== undefined) {
+        additionalParticipantSurcharge =
+          booking.pricingSnapshot.additionalParticipantSurchargePerHourKzt;
+        pricingSettingsRevision = booking.pricingSnapshot.settingsRevision;
+      } else {
+        if (!currentPricingSettings && nextParticipantIds.length > 1) {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { field: 'additionalParticipantSurchargePerHourKzt', reason: 'required' },
+          });
+        }
+        additionalParticipantSurcharge =
+          currentPricingSettings?.additionalParticipantSurchargePerHourKzt ??
+          KztMinorUnitsSchema.parse(0);
+        pricingSettingsRevision = currentPricingSettings?.revision;
+      }
 
       for (const participantId of participantIdsToRemove) {
         if (!booking.party.participantIds.includes(participantId)) {
@@ -248,8 +305,13 @@ function changeBookingPartyHandler(
 
       const actor = requireAccountActor(envelope);
       const actorAccountRead = await session.tx.get({ path: accountPath(actor.accountId) });
-      session.plan.planRead({ path: accountPath(actor.accountId), category: 'authorization_check' });
-      const actorAccount = parseAccount(actorAccountRead.exists ? actorAccountRead.data : undefined);
+      session.plan.planRead({
+        path: accountPath(actor.accountId),
+        category: 'authorization_check',
+      });
+      const actorAccount = parseAccount(
+        actorAccountRead.exists ? actorAccountRead.data : undefined
+      );
       if (!actorAccount) {
         throw new CanonicalCommandError('forbidden', {
           correlationId: envelope.context.correlationId,
@@ -266,10 +328,11 @@ function changeBookingPartyHandler(
       if (mode === 'client_self_service') {
         const anchorParticipantId = booking.party.participantIds[0];
         const anchorRead = await session.tx.get({ path: participantPath(anchorParticipantId) });
-        session.plan.planRead({ path: participantPath(anchorParticipantId), category: 'authorization_check' });
-        const anchorParticipant = parseParticipant(
-          anchorRead.exists ? anchorRead.data : undefined
-        );
+        session.plan.planRead({
+          path: participantPath(anchorParticipantId),
+          category: 'authorization_check',
+        });
+        const anchorParticipant = parseParticipant(anchorRead.exists ? anchorRead.data : undefined);
         if (!anchorParticipant || anchorParticipant.management.kind !== 'managed') {
           throw new CanonicalCommandError('forbidden', {
             correlationId: envelope.context.correlationId,
@@ -299,6 +362,8 @@ function changeBookingPartyHandler(
 
       const prices = resolveAuthoritativePartyPrices({
         individualLessonPriceKzt: individualLessonPrice,
+        additionalParticipantSurchargePerHourKzt: additionalParticipantSurcharge,
+        lessonDurationMinutes,
         currentParticipantIds: booking.party.participantIds,
         nextParticipantIds,
       });
@@ -463,6 +528,8 @@ function changeBookingPartyHandler(
         if (mode === 'client_self_service') {
           refundAmount = calculateSelfServiceRemoveRefundBasisKzt({
             individualLessonPriceKzt: individualLessonPrice,
+            additionalParticipantSurchargePerHourKzt: additionalParticipantSurcharge,
+            lessonDurationMinutes,
             currentParticipantIds: booking.party.participantIds,
             nextParticipantIds,
           });
@@ -510,6 +577,8 @@ function changeBookingPartyHandler(
       if (participantIdsToAdd.length > 0) {
         const marginalAdditions = partitionAddedParticipantsByMarginalDelta({
           individualLessonPriceKzt: individualLessonPrice,
+          additionalParticipantSurchargePerHourKzt: additionalParticipantSurcharge,
+          lessonDurationMinutes,
           currentParticipantIds: booking.party.participantIds,
           participantIdsToAdd,
         });
@@ -534,8 +603,7 @@ function changeBookingPartyHandler(
         plannedWalletRevision = nextAggregateRevision(walletRecord.revision);
       }
 
-      includeMonetaryEvent =
-        includeWalletEffect || refundAmount > 0 || priceDelta !== 0;
+      includeMonetaryEvent = includeWalletEffect || refundAmount > 0 || priceDelta !== 0;
 
       session.plan.planMutation({
         path: bookingDocumentPath,
@@ -622,6 +690,19 @@ function changeBookingPartyHandler(
 
         const updatedBooking = BookingSchema.parse({
           ...booking,
+          pricingSnapshot: {
+            strategyVersion: 'lesson_party:v1',
+            baseLessonPriceKzt: individualLessonPrice,
+            ...(pricingSettingsRevision !== undefined
+              ? {
+                  additionalParticipantSurchargePerHourKzt: additionalParticipantSurcharge,
+                  settingsRevision: pricingSettingsRevision,
+                }
+              : {}),
+            lessonDurationMinutes,
+            participantCount: nextParticipantIds.length,
+            totalPriceKzt: nextPrice,
+          },
           party: {
             kind: derivePartyKindFromCount(nextParticipantIds.length),
             participantIds: nextParticipantIds,
@@ -763,8 +844,6 @@ function rollbackUnpaidBookingPartyAdditionsHandler(
 
   let booking!: Booking;
   let payment!: Payment;
-  let instructorRecord!: NonNullable<ReturnType<typeof parseInstructorCatalog>>;
-  let individualLessonPrice!: ReturnType<typeof KztMinorUnitsSchema.parse>;
   let participantsToRemove: Booking['party']['participantIds'] = [];
   let nextParticipantIds!: Booking['party']['participantIds'];
   let nextPrice = KztMinorUnitsSchema.parse(0);
@@ -825,19 +904,6 @@ function rollbackUnpaidBookingPartyAdditionsHandler(
           return;
         }
 
-        const instructorRead = await session.tx.get({
-          path: instructorCatalogPath(booking.occurrence.instructorId),
-        });
-        session.plan.planRead({
-          path: instructorCatalogPath(booking.occurrence.instructorId),
-          category: 'aggregate',
-        });
-        instructorRecord = parseInstructorCatalog(
-          booking.occurrence.instructorId,
-          instructorRead.exists ? instructorRead.data : undefined
-        )!;
-        individualLessonPrice = individualLessonPriceFromBooking(instructorRecord, booking);
-
         participantsToRemove = [...unpaid]
           .sort((left, right) => {
             const timeCompare = compareCanonicalTimestamps(right.createdAt, left.createdAt);
@@ -852,10 +918,11 @@ function rollbackUnpaidBookingPartyAdditionsHandler(
         ) as Booking['party']['participantIds'];
         validatePartyParticipantIds(nextParticipantIds);
 
-        nextPrice = calculateFamilyGroupBookingPriceKzt(
-          individualLessonPrice,
-          nextParticipantIds.length
+        const rolledBackPrice = unpaid.reduce<number>(
+          (price, requirement) => price - requirement.requiredPriceDelta,
+          payment.price
         );
+        nextPrice = KztMinorUnitsSchema.parse(rolledBackPrice);
 
         for (const participantId of participantsToRemove) {
           releaseClaimPlans.push(
@@ -869,7 +936,10 @@ function rollbackUnpaidBookingPartyAdditionsHandler(
           );
         }
 
-        const decreasePreview = applyPartyPriceDecrease(paymentAccountingFields(payment), nextPrice);
+        const decreasePreview = applyPartyPriceDecrease(
+          paymentAccountingFields(payment),
+          nextPrice
+        );
         refundAmount = decreasePreview.refundDelta;
         const refundDestination = resolveRefundDestination({ booking, payment });
         const payerAccountId = booking.payerAccountId ?? payment.payerAccountId;
@@ -997,6 +1067,15 @@ function rollbackUnpaidBookingPartyAdditionsHandler(
         const decrease = applyPartyPriceDecrease(before, nextPrice);
         const updatedBooking = BookingSchema.parse({
           ...booking,
+          ...(booking.pricingSnapshot
+            ? {
+                pricingSnapshot: {
+                  ...booking.pricingSnapshot,
+                  participantCount: nextParticipantIds.length,
+                  totalPriceKzt: nextPrice,
+                },
+              }
+            : {}),
           party: {
             kind: derivePartyKindFromCount(nextParticipantIds.length),
             participantIds: nextParticipantIds,
@@ -1104,10 +1183,7 @@ function rollbackUnpaidBookingPartyAdditionsHandler(
 
 export function createBookingPartyCommandHandlers(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
-): Pick<
-  CommandHandlerMap,
-  'change_booking_party' | 'rollback_unpaid_booking_party_additions'
-> {
+): Pick<CommandHandlerMap, 'change_booking_party' | 'rollback_unpaid_booking_party_additions'> {
   return {
     change_booking_party: (envelope, environment) =>
       changeBookingPartyHandler(envelope, environment, executor),

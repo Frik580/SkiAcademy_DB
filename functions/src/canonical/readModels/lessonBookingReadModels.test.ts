@@ -356,29 +356,33 @@ describe('Admin lesson booking read models', () => {
     const participantDocuments: Record<string, Record<string, unknown>> = {};
     const paymentDocuments: Record<string, Record<string, unknown>> = {};
     for (const booking of bookings) {
-      const participantIdValue = booking.party.participantIds[0]!;
-      participantDocuments[participantIdValue] = ParticipantSchema.parse({
-        participantId: participantIdValue,
-        displayName: `Student ${booking.bookingId}`,
-        age: { kind: 'age_years', years: 17 },
-        skillLevel: 'intermediate',
-        discipline: 'ski',
-        management: options.unmanagedGuest
-          ? { kind: 'unmanaged_guest' }
-          : {
-              kind: 'managed',
-              participantManagementId: `management_${booking.bookingId}`,
-            },
-        lifecycle: { status: 'active' },
-        revision: 1,
-        createdAt: booking.createdAt,
-        updatedAt: booking.updatedAt,
-        audit: {
-          createdByCommandId: `command_participant_${booking.bookingId}`,
-          lastChangedByCommandId: `command_participant_${booking.bookingId}`,
-          correlationId: `correlation_participant_${booking.bookingId}`,
-        },
-      }) as unknown as Record<string, unknown>;
+      for (const participantIdValue of booking.party.participantIds) {
+        if (participantDocuments[participantIdValue]) {
+          continue;
+        }
+        participantDocuments[participantIdValue] = ParticipantSchema.parse({
+          participantId: participantIdValue,
+          displayName: `Student ${participantIdValue}`,
+          age: { kind: 'age_years', years: 17 },
+          skillLevel: 'intermediate',
+          discipline: 'ski',
+          management: options.unmanagedGuest
+            ? { kind: 'unmanaged_guest' }
+            : {
+                kind: 'managed',
+                participantManagementId: `management_${participantIdValue}`,
+              },
+          lifecycle: { status: 'active' },
+          revision: 1,
+          createdAt: booking.createdAt,
+          updatedAt: booking.updatedAt,
+          audit: {
+            createdByCommandId: `command_participant_${participantIdValue}`,
+            lastChangedByCommandId: `command_participant_${participantIdValue}`,
+            correlationId: `correlation_participant_${participantIdValue}`,
+          },
+        }) as unknown as Record<string, unknown>;
+      }
       paymentDocuments[booking.paymentId] = PaymentSchema.parse({
         paymentId: booking.paymentId,
         subjectType: 'booking',
@@ -803,5 +807,63 @@ describe('Admin lesson booking read models', () => {
     expect(detail.items[0]?.bookingId).toBe(hot.bookingId);
     expect(detail.items[0]?.admin).toBeDefined();
     expect(detail.items[0]?.admin?.authorizedActions.canDirectCancel).toBe(true);
+  });
+
+  it('returns pre-F3 and F3 single/multi-participant lesson Bookings in Admin hot', async () => {
+    const legacy = canonicalBooking('booking_admin_f3_legacy_01', '2026-08-01T16:00:00.000Z', {
+      status: 'confirmed',
+    });
+    const singleBase = canonicalBooking('booking_admin_f3_single_01', '2026-08-01T15:00:00.000Z', {
+      status: 'confirmed',
+    });
+    const single = BookingSchema.parse({
+      ...singleBase,
+      pricingSnapshot: {
+        strategyVersion: 'lesson_party:v1',
+        baseLessonPriceKzt: 12_000,
+        additionalParticipantSurchargePerHourKzt: 5_000,
+        settingsRevision: 1,
+        lessonDurationMinutes: 60,
+        participantCount: 1,
+        totalPriceKzt: 12_000,
+      },
+    });
+    const extraParticipant = ParticipantIdSchema.parse('participant_booking_admin_f3_multi_extra');
+    const multiBase = canonicalBooking('booking_admin_f3_multi_01', '2026-08-01T14:00:00.000Z', {
+      status: 'confirmed',
+    });
+    const multiParticipantIds = [...multiBase.party.participantIds, extraParticipant];
+    const multi = BookingSchema.parse({
+      ...multiBase,
+      party: { kind: 'family_group', participantIds: multiParticipantIds },
+      occurrence: {
+        ...multiBase.occurrence,
+        serviceParty: {
+          ...multiBase.occurrence.serviceParty,
+          participantIds: multiParticipantIds,
+        },
+      },
+      pricingSnapshot: {
+        strategyVersion: 'lesson_party:v1',
+        baseLessonPriceKzt: 12_000,
+        additionalParticipantSurchargePerHourKzt: 5_000,
+        settingsRevision: 1,
+        lessonDurationMinutes: 60,
+        participantCount: 2,
+        totalPriceKzt: 17_000,
+      },
+    });
+    const { firestore } = adminFixture([legacy, single, multi]);
+    const result = await queryLessonBookingReadModels(
+      firestore,
+      { scope: 'admin_hot', pageSize: 20 },
+      { administratorActor: adminActor, now: new Date('2026-08-01T10:00:00.000Z') }
+    );
+    expect(result.items.map((item) => item.bookingId).sort()).toEqual(
+      [legacy.bookingId, single.bookingId, multi.bookingId].sort()
+    );
+    expect(result.items.find((item) => item.bookingId === multi.bookingId)?.participantIds).toEqual(
+      multiParticipantIds
+    );
   });
 });

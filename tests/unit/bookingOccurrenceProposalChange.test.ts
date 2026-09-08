@@ -201,13 +201,13 @@ describe('Booking aggregate contracts', () => {
     ).toBe(false);
   });
 
-  it('rejects more than eight Participants', () => {
+  it('does not encode the current business maximum in the persisted Booking party schema', () => {
     expect(
       BookingPartySchema.safeParse({
         kind: 'family_group',
         participantIds: Array.from({ length: 9 }, (_, index) => `participant_overflow_${index}`),
       }).success
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('rejects duplicate Participants', () => {

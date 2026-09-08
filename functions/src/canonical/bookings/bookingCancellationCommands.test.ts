@@ -32,7 +32,9 @@ const correlationId = CorrelationIdSchema.parse('correlation_cancel_cmd_01');
 const accountId = AccountIdSchema.parse('account_cancel_cmd_01');
 const adminAccountId = AccountIdSchema.parse('account_cancel_admin_01');
 const participantId = ParticipantIdSchema.parse('participant_cancel_cmd_01');
+const participantTwoId = ParticipantIdSchema.parse('participant_cancel_cmd_02');
 const managementId = ParticipantManagementIdSchema.parse('management_cancel_cmd_01');
+const managementTwoId = ParticipantManagementIdSchema.parse('management_cancel_cmd_02');
 const instructorId = InstructorIdSchema.parse('instructor_cancel_cmd_01');
 const bookingId = BookingIdSchema.parse('booking_cancel_cmd_01');
 const paymentId = paymentIdFromBookingId(bookingId);
@@ -55,8 +57,11 @@ function accountContext(
     exercisedCapability: capability,
     idempotencyKey,
     correlationId,
-    source: capability === 'administrator' ? ('admin_callable' as const) : ('client_callable' as const),
-    ...(expectedRevision === undefined ? {} : { expectedRevision: AggregateRevisionSchema.parse(expectedRevision) }),
+    source:
+      capability === 'administrator' ? ('admin_callable' as const) : ('client_callable' as const),
+    ...(expectedRevision === undefined
+      ? {}
+      : { expectedRevision: AggregateRevisionSchema.parse(expectedRevision) }),
     calendarInput: {
       localDate: '2026-01-15',
       localTime: '09:00',
@@ -109,6 +114,23 @@ function seedBase() {
         correlationId,
       },
     },
+    [`participants/${participantTwoId}`]: {
+      participantId: participantTwoId,
+      displayName: 'Cancel Participant Two',
+      age: { kind: 'age_years', years: 18 },
+      skillLevel: 'intermediate',
+      discipline: 'ski',
+      management: { kind: 'managed', participantManagementId: managementTwoId },
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_participant_two',
+        lastChangedByCommandId: 'command_seed_participant_two',
+        correlationId,
+      },
+    },
     [`participant_management/${managementId}`]: {
       participantManagementId: managementId,
       participantId,
@@ -122,6 +144,22 @@ function seedBase() {
       audit: {
         createdByCommandId: 'command_seed_management',
         lastChangedByCommandId: 'command_seed_management',
+        correlationId,
+      },
+    },
+    [`participant_management/${managementTwoId}`]: {
+      participantManagementId: managementTwoId,
+      participantId: participantTwoId,
+      accountId,
+      role: 'owner',
+      authority: 'self',
+      status: 'active',
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_management_two',
+        lastChangedByCommandId: 'command_seed_management_two',
         correlationId,
       },
     },
@@ -140,6 +178,19 @@ function seedBase() {
       createdAt: decidedAt,
       updatedAt: decidedAt,
     }),
+    'lesson_pricing_settings/lesson_booking': {
+      settingsId: 'lesson_booking',
+      additionalParticipantSurchargePerHourKzt: 6_000,
+      maxParticipantsPerLesson: 4,
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed_pricing',
+        lastChangedByCommandId: 'command_seed_pricing',
+        correlationId,
+      },
+    },
   };
 }
 
@@ -148,7 +199,10 @@ function forkExecutor(
   extra: Record<string, Record<string, unknown>> = {}
 ) {
   const docs = Object.fromEntries(
-    [...executor.snapshot().docs.entries()].map(([path, doc]) => [path, doc.data as Record<string, unknown>])
+    [...executor.snapshot().docs.entries()].map(([path, doc]) => [
+      path,
+      doc.data as Record<string, unknown>,
+    ])
   );
   return createInMemoryCanonicalTransactionExecutor({ ...docs, ...extra });
 }
@@ -158,13 +212,17 @@ function isoFromTimestamp(timestamp: { seconds: number; nanoseconds: number }) {
 }
 
 async function createConfirmedBooking(
-  executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>
+  executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>,
+  participantIds = [participantId]
 ) {
-  const commands = createProductionCanonicalCommands(environment('2026-01-01T00:00:00.000Z'), executor);
+  const commands = createProductionCanonicalCommands(
+    environment('2026-01-01T00:00:00.000Z'),
+    executor
+  );
   const result = await commands.execute({
     kind: 'create_confirmed_booking',
     context: accountContext('account_owner', accountId, 'create-booking-01'),
-    intent: { bookingId, instructorId, participantIds: [participantId] },
+    intent: { bookingId, instructorId, participantIds },
   });
   expect(result.status).toBe('success');
 }
@@ -181,6 +239,36 @@ function requestCancellationEnvelope(
 }
 
 describe('booking cancellation commands', () => {
+  it('cancels the entire multi-participant party and releases its occurrence claims', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor, [participantId, participantTwoId]);
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence
+      .interval.startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS
+    );
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
+    expect((await commands.execute(requestCancellationEnvelope('cancel-party-01'))).status).toBe(
+      'success'
+    );
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.party.participantIds).toEqual([
+      participantId,
+      participantTwoId,
+    ]);
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('cancelled');
+    expect(snapshot.docs.get(`payments/${paymentId}`)?.data.refundedAmount).toBe(18_000);
+    const claims = [...snapshot.docs.entries()].filter(([path]) =>
+      path.startsWith('resource_claims/')
+    );
+    expect(claims).toHaveLength(3);
+    expect(claims.every(([, doc]) => doc.data.lifecycle?.status === 'released')).toBe(true);
+  });
+
   it('cancels with full refund when >=24h before start', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);
@@ -190,7 +278,10 @@ describe('booking cancellation commands', () => {
       startsAt,
       -INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS
     );
-    const commands = createProductionCanonicalCommands(environment(isoFromTimestamp(requestAt)), executor);
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
     const envelope = requestCancellationEnvelope('cancel-direct-01');
     const result = await commands.execute(envelope);
     expect(result.status).toBe('success');
@@ -206,9 +297,9 @@ describe('booking cancellation commands', () => {
     expect(claims.every(([, doc]) => doc.data.lifecycle?.status === 'released')).toBe(true);
 
     const identity = resolveCommandIdempotencyIdentity(envelope);
-    expect(snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)).toBe(
-      true
-    );
+    expect(
+      snapshot.docs.has(`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`)
+    ).toBe(true);
     expect(
       snapshot.docs.has(
         `monetary_events/${monetaryEventIdFromCommandEffect(identity.commandKey, 0)}`
@@ -233,9 +324,7 @@ describe('booking cancellation commands', () => {
       environment('2026-01-14T09:00:01.000Z'),
       executor
     );
-    const result = await commands.execute(
-      requestCancellationEnvelope('cancel-pending-01')
-    );
+    const result = await commands.execute(requestCancellationEnvelope('cancel-pending-01'));
     expect(result.status).toBe('success');
 
     const snapshot = executor.snapshot();
@@ -315,9 +404,7 @@ describe('booking cancellation commands', () => {
       environment('2026-01-15T09:00:00.000Z'),
       executor
     );
-    const result = await commands.execute(
-      requestCancellationEnvelope('cancel-late-01')
-    );
+    const result = await commands.execute(requestCancellationEnvelope('cancel-late-01'));
     expect(result.status).toBe('error');
     if (result.status === 'error') {
       expect(result.error.code).toBe('invalid_transition');
@@ -331,9 +418,7 @@ describe('booking cancellation commands', () => {
       environment('2026-01-14T09:00:01.000Z'),
       executor
     );
-    await commandsAt.execute(
-      requestCancellationEnvelope('cancel-pending-02')
-    );
+    await commandsAt.execute(requestCancellationEnvelope('cancel-pending-02'));
 
     const commands = createProductionCanonicalCommands(
       environment('2026-01-14T10:00:00.000Z'),
@@ -357,9 +442,7 @@ describe('booking cancellation commands', () => {
       environment('2026-01-14T09:00:01.000Z'),
       executor
     );
-    await pendingCommands.execute(
-      requestCancellationEnvelope('cancel-pending-03')
-    );
+    await pendingCommands.execute(requestCancellationEnvelope('cancel-pending-03'));
 
     const commands = createProductionCanonicalCommands(
       environment('2026-01-14T12:00:00.000Z'),
@@ -390,9 +473,7 @@ describe('booking cancellation commands', () => {
       environment('2026-01-14T09:00:01.000Z'),
       executor
     );
-    await pendingCommands.execute(
-      requestCancellationEnvelope('cancel-pending-04')
-    );
+    await pendingCommands.execute(requestCancellationEnvelope('cancel-pending-04'));
 
     const commands = createProductionCanonicalCommands(
       environment('2026-01-14T12:00:00.000Z'),
@@ -413,22 +494,26 @@ describe('booking cancellation commands', () => {
     );
   });
 
-  it('admin rejects after endsAt using attendance present -> completed', async () => {
+  it('admin rejects a multi-participant cancellation after endsAt using the full attendance set', async () => {
     const baseExecutor = createInMemoryCanonicalTransactionExecutor(seedBase());
-    await createConfirmedBooking(baseExecutor);
+    await createConfirmedBooking(baseExecutor, [participantId, participantTwoId]);
     const pendingCommands = createProductionCanonicalCommands(
       environment('2026-01-14T09:00:01.000Z'),
       baseExecutor
     );
-    await pendingCommands.execute(
-      requestCancellationEnvelope('cancel-pending-05')
-    );
+    await pendingCommands.execute(requestCancellationEnvelope('cancel-pending-05'));
 
     const attendanceId = attendanceIdFromBookingIdentity({
       strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
       subjectKind: 'booking',
       occurrenceId,
       participantId,
+    });
+    const secondAttendanceId = attendanceIdFromBookingIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'booking',
+      occurrenceId,
+      participantId: participantTwoId,
     });
     const executor = forkExecutor(baseExecutor, {
       [`attendance/${attendanceId}`]: AttendanceSchema.parse({
@@ -440,6 +525,22 @@ describe('booking cancellation commands', () => {
           participantId,
         },
         attendanceStatus: 'present',
+        recordedBy: { kind: 'instructor', instructorId },
+        recordedAt: lessonEndsAt,
+        lastChangedBy: { kind: 'instructor', instructorId },
+        updatedAt: lessonEndsAt,
+        revision: 1,
+        correlationId,
+      }) as unknown as Record<string, unknown>,
+      [`attendance/${secondAttendanceId}`]: AttendanceSchema.parse({
+        attendanceId: secondAttendanceId,
+        subject: {
+          subjectKind: 'booking',
+          bookingId,
+          occurrenceId,
+          participantId: participantTwoId,
+        },
+        attendanceStatus: 'absent',
         recordedBy: { kind: 'instructor', instructorId },
         recordedAt: lessonEndsAt,
         lastChangedBy: { kind: 'instructor', instructorId },
@@ -475,9 +576,7 @@ describe('booking cancellation commands', () => {
       environment('2026-01-14T09:00:01.000Z'),
       executor
     );
-    await pendingCommands.execute(
-      requestCancellationEnvelope('cancel-pending-06')
-    );
+    await pendingCommands.execute(requestCancellationEnvelope('cancel-pending-06'));
 
     const commands = createProductionCanonicalCommands(
       environment('2026-01-15T11:00:00.000Z'),

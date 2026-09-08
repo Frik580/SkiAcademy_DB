@@ -2,7 +2,7 @@ import {
   AggregateRevisionSchema,
   CanonicalCommandError,
   assertExpectedRevision,
-  isConfirmedIndividualBooking,
+  isConfirmedBooking,
   isTerminalBookingChangeRequestStatus,
   readAggregateRevision,
   type Booking,
@@ -29,7 +29,7 @@ export function assertCreateBookingChangeRequestAuthorization(
   requireAccountActor(envelope);
   assertInstructorCapability(envelope, booking.occurrence.instructorId);
 
-  if (!isConfirmedIndividualBooking(booking)) {
+  if (!isConfirmedBooking(booking)) {
     throw new CanonicalCommandError('invalid_transition', {
       correlationId: envelope.context.correlationId,
       details: { resourceKind: 'booking', reason: 'unsupported' },

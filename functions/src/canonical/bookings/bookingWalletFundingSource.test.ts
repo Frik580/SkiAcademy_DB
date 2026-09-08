@@ -79,6 +79,22 @@ function seedCanonicalWallet(balance: number) {
   });
 }
 
+function seedLessonPricingSettings() {
+  return {
+    settingsId: 'lesson_booking',
+    additionalParticipantSurchargePerHourKzt: 6_000,
+    maxParticipantsPerLesson: 1,
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'command_seed_pricing',
+      lastChangedByCommandId: 'command_seed_pricing',
+      correlationId,
+    },
+  };
+}
+
 function bookingEnvelope(idempotencyKey: string): CommandEnvelope<'create_confirmed_booking'> {
   return {
     kind: 'create_confirmed_booking',
@@ -164,6 +180,7 @@ describe('authenticated booking wallet funding source', () => {
         lastChangedByCommandId: 'seed',
         correlationId,
       },
+      'lesson_pricing_settings/lesson_booking': seedLessonPricingSettings(),
     });
     const commands = createProductionCanonicalCommands(environment(), executor);
 
@@ -182,6 +199,7 @@ describe('authenticated booking wallet funding source', () => {
       [`users/${accountId}`]: legacyProfileFixture({ walletBalances: { USD: 250, KZT: 0 } }),
       [`users/${accountId}/wallet/state`]: seedCanonicalWallet(CANONICAL_WALLET_BALANCE_KZT),
       [`instructors/${instructorId}`]: seedInstructor(),
+      'lesson_pricing_settings/lesson_booking': seedLessonPricingSettings(),
     });
     const commands = createProductionCanonicalCommands(environment(), executor);
 

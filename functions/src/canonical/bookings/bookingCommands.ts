@@ -3,10 +3,10 @@ import {
   BookingSchema,
   CanonicalCommandError,
   PaymentSchema,
-  ResourceClaimIdentityInputSchema,
   accountActorRef,
   applyExternalPaymentFunding,
   calculateIndividualBookingPriceKzt,
+  calculateLessonPartyPriceKzt,
   commandSuccessResult,
   deriveBookingPartyKind,
   initialBookingOccurrenceIdFromBookingId,
@@ -33,6 +33,7 @@ import {
   type Payment,
   type PaymentAccountingFields,
   type PaymentAccountingProjection,
+  type LessonPricingSettings,
   type Wallet,
   KztMinorUnits,
   KztMinorUnitsSchema,
@@ -63,16 +64,13 @@ import {
   participantManagementPath,
   participantPath,
 } from '../participantAccess/participantAccessStore';
-import {
-  commitResourceClaimPlan,
-  readAndPlanAcquireResourceClaim,
-} from '../resourceClaims/resourceClaimEngine';
+import { commitResourceClaimPlan } from '../resourceClaims/resourceClaimEngine';
 import {
   assertAdminUnderpaymentReason,
   assertBookingScheduleContext,
-  assertIndividualBookingParticipantCount,
   assertNoActiveServiceBlock,
   assertParticipantRecord,
+  normalizeBookingParticipantIds,
   resolveBookingCreationAuthorization,
 } from './bookingAuthorization';
 import { requireAccountActor } from '../participantAccess/participantAccessAuthorization';
@@ -85,6 +83,11 @@ import {
   toFirestoreWritePayload,
 } from './bookingStore';
 import { createPaymentStartGateCommandHandler } from './paymentStartGate';
+import { planAcquireBookingOccurrenceClaims } from './bookingClaimOperations';
+import {
+  LESSON_PRICING_SETTINGS_DOCUMENT_PATH,
+  parseLessonPricingSettings,
+} from '../pricing/lessonPricingSettingsStore';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -140,38 +143,24 @@ function createConfirmedBookingHandler(
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'create_confirmed_booking'>> {
   const metadata = metadataFromEnvelope(envelope);
-  assertIndividualBookingParticipantCount(envelope);
   assertBookingScheduleContext(envelope);
 
-  const participantId = envelope.intent.participantIds[0]!;
+  const participantIds = normalizeBookingParticipantIds(envelope);
   const bookingDocumentPath = bookingPath(envelope.intent.bookingId);
   const paymentId = paymentIdFromBookingId(envelope.intent.bookingId);
   const paymentPathValue = `payments/${paymentId}`;
   const occurrenceId = initialBookingOccurrenceIdFromBookingId(envelope.intent.bookingId);
-  const participantDocumentPath = participantPath(participantId);
   const instructorDocumentPath = instructorCatalogPath(envelope.intent.instructorId);
-  const managerBlockPath = participantBlockPath(
-    participantBlockIdFromDirection({
-      participantId,
-      instructorId: envelope.intent.instructorId,
-      createdByKind: 'participant_manager',
-    })
-  );
-  const instructorBlockPath = participantBlockPath(
-    participantBlockIdFromDirection({
-      participantId,
-      instructorId: envelope.intent.instructorId,
-      createdByKind: 'instructor',
-    })
-  );
 
-  let participantRecord!: Participant;
-  let managementRecord!: ParticipantManagement;
+  let participantRecords: Participant[] = [];
+  let managementRecords: ParticipantManagement[] = [];
   let payerAccountRecord!: ReturnType<typeof parseAccount>;
   let instructorRecord!: NonNullable<ReturnType<typeof parseInstructorCatalog>>;
   let authorization!: ReturnType<typeof resolveBookingCreationAuthorization>;
   let schedule!: ReturnType<typeof resolveBookingScheduleFromCalendarInput>;
   let servicePrice!: KztMinorUnits;
+  let baseLessonPrice!: KztMinorUnits;
+  let pricingSettings!: LessonPricingSettings;
   let walletRecord: Wallet | undefined;
   let walletExists = false;
   let walletDocumentPath = '';
@@ -182,9 +171,7 @@ function createConfirmedBookingHandler(
   const plannedBookingRevision = AggregateRevisionSchema.parse(1);
   let walletFunding = KztMinorUnitsSchema.parse(0);
   let paymentProjection!: PaymentAccountingProjection;
-  let participantBlocks: ParticipantBlock[] = [];
-  let instructorClaimPlan!: Awaited<ReturnType<typeof readAndPlanAcquireResourceClaim>>;
-  let participantClaimPlan!: Awaited<ReturnType<typeof readAndPlanAcquireResourceClaim>>;
+  let occurrenceClaimPlans!: Awaited<ReturnType<typeof planAcquireBookingOccurrenceClaims>>;
   const stagedEventId = monetaryEventIdFromCommandEffect(metadata.commandId, 0);
   let includeWalletEffect = false;
   let stageMonetaryEvent = false;
@@ -209,36 +196,60 @@ function createConfirmedBookingHandler(
         });
       }
 
-      const participantRead = await session.tx.get({ path: participantDocumentPath });
-      session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-      participantRecord = assertParticipantRecord(
-        envelope,
-        parseParticipant(participantRead.exists ? participantRead.data : undefined)
-      );
-      if (participantRecord.management.kind !== 'managed') {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
-          details: { resourceKind: 'participant', reason: 'conflict' },
-        });
-      }
-
-      const managementRead = await session.tx.get({
-        path: participantManagementPath(participantRecord.management.participantManagementId),
+      const pricingSettingsRead = await session.tx.get({
+        path: LESSON_PRICING_SETTINGS_DOCUMENT_PATH,
       });
       session.plan.planRead({
-        path: participantManagementPath(participantRecord.management.participantManagementId),
-        category: 'authorization_check',
+        path: LESSON_PRICING_SETTINGS_DOCUMENT_PATH,
+        category: 'aggregate',
       });
-      const parsedManagement = parseParticipantManagement(
-        managementRead.exists ? managementRead.data : undefined
+      const currentPricingSettings = parseLessonPricingSettings(
+        pricingSettingsRead.exists ? pricingSettingsRead.data : undefined
       );
-      if (!parsedManagement || parsedManagement.status !== 'active') {
-        throw new CanonicalCommandError('forbidden', {
+      if (!currentPricingSettings) {
+        throw new CanonicalCommandError('validation', {
           correlationId: envelope.context.correlationId,
-          details: { resourceKind: 'participant', reason: 'conflict' },
+          details: { field: 'lessonPricingSettings', reason: 'required' },
         });
       }
-      managementRecord = parsedManagement;
+      pricingSettings = currentPricingSettings;
+
+      participantRecords = [];
+      managementRecords = [];
+      for (const participantId of participantIds) {
+        const participantDocumentPath = participantPath(participantId);
+        const participantRead = await session.tx.get({ path: participantDocumentPath });
+        session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
+        const participant = assertParticipantRecord(
+          envelope,
+          parseParticipant(participantRead.exists ? participantRead.data : undefined)
+        );
+        if (participant.management.kind !== 'managed') {
+          throw new CanonicalCommandError('forbidden', {
+            correlationId: envelope.context.correlationId,
+            details: { resourceKind: 'participant', reason: 'conflict' },
+          });
+        }
+        const managementDocumentPath = participantManagementPath(
+          participant.management.participantManagementId
+        );
+        const managementRead = await session.tx.get({ path: managementDocumentPath });
+        session.plan.planRead({
+          path: managementDocumentPath,
+          category: 'authorization_check',
+        });
+        const management = parseParticipantManagement(
+          managementRead.exists ? managementRead.data : undefined
+        );
+        if (!management || management.status !== 'active') {
+          throw new CanonicalCommandError('forbidden', {
+            correlationId: envelope.context.correlationId,
+            details: { resourceKind: 'participant', reason: 'conflict' },
+          });
+        }
+        participantRecords.push(participant);
+        managementRecords.push(management);
+      }
 
       const actor = requireAccountActor(envelope);
       const actorAccountRead = await session.tx.get({
@@ -259,8 +270,8 @@ function createConfirmedBookingHandler(
 
       authorization = resolveBookingCreationAuthorization(envelope, {
         account: actorAccount,
-        participant: participantRecord,
-        management: managementRecord,
+        participants: participantRecords,
+        managements: managementRecords,
       });
 
       const payerAccountRead = await session.tx.get({
@@ -280,25 +291,38 @@ function createConfirmedBookingHandler(
         });
       }
 
-      const managerBlockRead = await session.tx.get({ path: managerBlockPath });
-      session.plan.planRead({ path: managerBlockPath, category: 'authorization_check' });
-      const instructorBlockRead = await session.tx.get({ path: instructorBlockPath });
-      session.plan.planRead({ path: instructorBlockPath, category: 'authorization_check' });
-      participantBlocks = [
-        parseParticipantBlock(managerBlockRead.exists ? managerBlockRead.data : undefined),
-        parseParticipantBlock(instructorBlockRead.exists ? instructorBlockRead.data : undefined),
-      ].filter((block): block is ParticipantBlock => block !== undefined);
-
-      assertNoActiveServiceBlock(
-        envelope,
-        {
-          account: payerAccountRecord,
-          participant: participantRecord,
-          management: managementRecord,
-          participantBlocks,
-        },
-        envelope.intent.instructorId
-      );
+      for (let index = 0; index < participantRecords.length; index += 1) {
+        const participant = participantRecords[index]!;
+        const management = managementRecords[index]!;
+        const blockPaths = ['participant_manager', 'instructor'].map((createdByKind) =>
+          participantBlockPath(
+            participantBlockIdFromDirection({
+              participantId: participant.participantId,
+              instructorId: envelope.intent.instructorId,
+              createdByKind: createdByKind as 'participant_manager' | 'instructor',
+            })
+          )
+        );
+        const blocksForParticipant: ParticipantBlock[] = [];
+        for (const blockPath of blockPaths) {
+          const blockRead = await session.tx.get({ path: blockPath });
+          session.plan.planRead({ path: blockPath, category: 'authorization_check' });
+          const block = parseParticipantBlock(blockRead.exists ? blockRead.data : undefined);
+          if (block) {
+            blocksForParticipant.push(block);
+          }
+        }
+        assertNoActiveServiceBlock(
+          envelope,
+          {
+            account: payerAccountRecord,
+            participant,
+            management,
+            participantBlocks: blocksForParticipant,
+          },
+          envelope.intent.instructorId
+        );
+      }
 
       const instructorRead = await session.tx.get({ path: instructorDocumentPath });
       session.plan.planRead({ path: instructorDocumentPath, category: 'authorization_check' });
@@ -324,10 +348,23 @@ function createConfirmedBookingHandler(
         envelope.context.calendarInput!,
         envelope.context.timezone!
       );
-      servicePrice = calculateIndividualBookingPriceKzt(
+      baseLessonPrice = calculateIndividualBookingPriceKzt(
         resolveInstructorHourlyRateKzt(instructorRecord),
         schedule.durationMinutes
       );
+      if (participantIds.length > pricingSettings.maxParticipantsPerLesson) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'participantIds', reason: 'conflict' },
+        });
+      }
+      servicePrice = calculateLessonPartyPriceKzt({
+        baseLessonPriceKzt: baseLessonPrice,
+        additionalParticipantSurchargePerHourKzt:
+          pricingSettings.additionalParticipantSurchargePerHourKzt,
+        participantCount: participantIds.length,
+        lessonDurationMinutes: schedule.durationMinutes,
+      });
 
       walletDocumentPath = walletPath(authorization.payerAccountId);
       const walletRead = await session.tx.get({ path: walletDocumentPath });
@@ -381,34 +418,13 @@ function createConfirmedBookingHandler(
         commandId: metadata.commandId,
         decidedAt: environment.clock.decidedAt(),
       };
-      const instructorIdentity = ResourceClaimIdentityInputSchema.parse({
-        strategyVersion: 'claim:v1',
-        claimKind: 'instructor_booking_occurrence',
-        resourceKind: 'instructor',
-        resourceId: envelope.intent.instructorId,
-        ownerKind: 'booking',
-        ownerId: envelope.intent.bookingId,
+      occurrenceClaimPlans = await planAcquireBookingOccurrenceClaims(session, {
+        bookingId: envelope.intent.bookingId,
         occurrenceId,
-      });
-      const participantIdentity = ResourceClaimIdentityInputSchema.parse({
-        strategyVersion: 'claim:v1',
-        claimKind: 'participant_booking_occurrence',
-        resourceKind: 'participant',
-        resourceId: participantId,
-        ownerKind: 'booking',
-        ownerId: envelope.intent.bookingId,
-        occurrenceId,
-      });
-
-      instructorClaimPlan = await readAndPlanAcquireResourceClaim(session, {
-        ...claimMetadata,
-        identity: instructorIdentity,
+        instructorId: envelope.intent.instructorId,
+        participantIds,
         interval: schedule.interval,
-      });
-      participantClaimPlan = await readAndPlanAcquireResourceClaim(session, {
         ...claimMetadata,
-        identity: participantIdentity,
-        interval: schedule.interval,
       });
 
       session.plan.planMutation({
@@ -458,7 +474,7 @@ function createConfirmedBookingHandler(
       try {
         const decidedAt = timestampFromDate(context.decidedAt);
         const audit = revisionAuditLink(envelope, metadata);
-        const partyParticipantIds = [participantId];
+        const partyParticipantIds = participantIds;
         const booking: Booking = BookingSchema.parse({
           bookingId: envelope.intent.bookingId,
           attribution: {
@@ -482,6 +498,16 @@ function createConfirmedBookingHandler(
           },
           lifecycle: { status: 'confirmed' },
           paymentId,
+          pricingSnapshot: {
+            strategyVersion: 'lesson_party:v1',
+            baseLessonPriceKzt: baseLessonPrice,
+            additionalParticipantSurchargePerHourKzt:
+              pricingSettings.additionalParticipantSurchargePerHourKzt,
+            settingsRevision: pricingSettings.revision,
+            lessonDurationMinutes: schedule.durationMinutes,
+            participantCount: partyParticipantIds.length,
+            totalPriceKzt: servicePrice,
+          },
           payerAccountId: authorization.payerAccountId,
           ...lessonContentFields({
             difficulty: envelope.intent.difficulty,
@@ -582,8 +608,10 @@ function createConfirmedBookingHandler(
           commandId: metadata.commandId,
           decidedAt: context.decidedAt,
         };
-        commitResourceClaimPlan(session, instructorClaimPlan, claimMetadata);
-        commitResourceClaimPlan(session, participantClaimPlan, claimMetadata);
+        commitResourceClaimPlan(session, occurrenceClaimPlans.instructorClaimPlan, claimMetadata);
+        for (const participantClaimPlan of occurrenceClaimPlans.participantClaimPlans) {
+          commitResourceClaimPlan(session, participantClaimPlan, claimMetadata);
+        }
 
         return commandSuccessResult(envelope.kind, envelope.context.correlationId);
       } catch (error) {

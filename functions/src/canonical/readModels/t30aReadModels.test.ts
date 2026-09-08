@@ -32,6 +32,11 @@ const managementId = ParticipantManagementIdSchema.parse('management_t30a_read_0
 const instructorId = InstructorIdSchema.parse('instructor_t30a_read_01');
 const otherInstructorId = InstructorIdSchema.parse('instructor_t30a_read_02');
 const bookingId = BookingIdSchema.parse('booking_t30a_read_01');
+const familyParticipantId = ParticipantIdSchema.parse('participant_t30a_family_01');
+const familyManagementId = ParticipantManagementIdSchema.parse('management_t30a_family_01');
+const f3InstructorId = InstructorIdSchema.parse('instructor_t30a_f3_01');
+const f3SingleBookingId = BookingIdSchema.parse('booking_t30a_f3_single_01');
+const f3MultiBookingId = BookingIdSchema.parse('booking_t30a_f3_multi_01');
 const proposalId = BookingProposalIdSchema.parse('booking_proposal_t30a_01');
 const otherProposalId = BookingProposalIdSchema.parse('booking_proposal_t30a_02');
 const changeRequestId = BookingChangeRequestIdSchema.parse('booking_change_request_t30a_01');
@@ -129,6 +134,86 @@ function createT30aFirestore(): Firestore {
   });
   seed(`payments/${paymentIdFromBookingId(bookingId)}`, {
     paymentId: paymentIdFromBookingId(bookingId),
+    payerAccountId: accountId,
+    paymentStatus: 'paid',
+    ...metadata,
+  });
+  seed(`participant_management/${familyManagementId}`, {
+    participantManagementId: familyManagementId,
+    accountId,
+    participantId: familyParticipantId,
+    role: 'owner',
+    authority: 'parent_guardian',
+    status: 'active',
+    ...metadata,
+  });
+  seed(`participants/${familyParticipantId}`, {
+    participantId: familyParticipantId,
+    displayName: 'T30A Family Student',
+    age: { kind: 'age_years', years: 10 },
+    skillLevel: 'beginner',
+    discipline: 'ski',
+    management: { kind: 'managed', participantManagementId: familyManagementId },
+    lifecycle: { status: 'active' },
+    ...metadata,
+  });
+  seed(`instructors/${f3InstructorId}`, {
+    id: f3InstructorId,
+    name: 'T30A F3 Instructor',
+    pricePerHourKZT: 12_000,
+    isAvailable: true,
+  });
+  const f3SnapshotBase = {
+    strategyVersion: 'lesson_party:v1' as const,
+    baseLessonPriceKzt: 12_000,
+    additionalParticipantSurchargePerHourKzt: 5_000,
+    settingsRevision: 1,
+    lessonDurationMinutes: 60,
+  };
+  seed(`bookings/${f3SingleBookingId}`, {
+    bookingId: f3SingleBookingId,
+    attribution: { bookingOrigin: 'account', bookedBy: { kind: 'account', accountId } },
+    party: { kind: 'individual', participantIds: [participantId] },
+    occurrence: {
+      occurrenceId: OccurrenceIdSchema.parse('occurrence_t30a_f3_single_01'),
+      instructorId: f3InstructorId,
+      interval: { startsAt: serviceStart, endsAt: serviceEnd },
+      timeZone: 'Asia/Almaty',
+      scheduleRevision: 1,
+      serviceParty: { participantIds: [participantId] },
+    },
+    lifecycle: { status: 'confirmed' },
+    paymentId: paymentIdFromBookingId(f3SingleBookingId),
+    payerAccountId: accountId,
+    pricingSnapshot: { ...f3SnapshotBase, participantCount: 1, totalPriceKzt: 12_000 },
+    ...metadata,
+  });
+  seed(`payments/${paymentIdFromBookingId(f3SingleBookingId)}`, {
+    paymentId: paymentIdFromBookingId(f3SingleBookingId),
+    payerAccountId: accountId,
+    paymentStatus: 'paid',
+    ...metadata,
+  });
+  seed(`bookings/${f3MultiBookingId}`, {
+    bookingId: f3MultiBookingId,
+    attribution: { bookingOrigin: 'account', bookedBy: { kind: 'account', accountId } },
+    party: { kind: 'family_group', participantIds: [participantId, familyParticipantId] },
+    occurrence: {
+      occurrenceId: OccurrenceIdSchema.parse('occurrence_t30a_f3_multi_01'),
+      instructorId: f3InstructorId,
+      interval: { startsAt: serviceStart, endsAt: serviceEnd },
+      timeZone: 'Asia/Almaty',
+      scheduleRevision: 1,
+      serviceParty: { participantIds: [participantId, familyParticipantId] },
+    },
+    lifecycle: { status: 'confirmed' },
+    paymentId: paymentIdFromBookingId(f3MultiBookingId),
+    payerAccountId: accountId,
+    pricingSnapshot: { ...f3SnapshotBase, participantCount: 2, totalPriceKzt: 17_000 },
+    ...metadata,
+  });
+  seed(`payments/${paymentIdFromBookingId(f3MultiBookingId)}`, {
+    paymentId: paymentIdFromBookingId(f3MultiBookingId),
     payerAccountId: accountId,
     paymentStatus: 'paid',
     ...metadata,
@@ -418,5 +503,22 @@ describe('T30A canonical read models', () => {
       { accountId: otherAccountId, now: new Date('2026-06-15T08:00:00.000Z') }
     );
     expect(result.items).toHaveLength(0);
+  });
+
+  it('returns pre-F3 and F3 single/multi-participant lesson Bookings in account_hot', async () => {
+    const result = await queryLessonBookingReadModels(
+      createT30aFirestore(),
+      { scope: 'account_hot', pageSize: 20 },
+      { accountId, now: new Date('2026-06-15T08:00:00.000Z') }
+    );
+    expect(result.items.map((item) => item.bookingId).sort()).toEqual(
+      [bookingId, f3SingleBookingId, f3MultiBookingId].sort()
+    );
+    const multi = result.items.find((item) => item.bookingId === f3MultiBookingId);
+    expect(multi?.participantIds).toEqual([participantId, familyParticipantId]);
+    expect(multi?.participants.map((participant) => participant.participantId)).toEqual([
+      participantId,
+      familyParticipantId,
+    ]);
   });
 });

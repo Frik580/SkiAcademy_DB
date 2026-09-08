@@ -30,6 +30,7 @@ import {
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
+import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 
 const PROJECT_ID = 'ski-academy-attendance-emulator-test';
 const correlationId = CorrelationIdSchema.parse('correlation_attendance_emulator_01');
@@ -104,7 +105,8 @@ function accountContext(
     exercisedCapability: capability,
     idempotencyKey,
     correlationId,
-    source: capability === 'administrator' ? ('admin_callable' as const) : ('client_callable' as const),
+    source:
+      capability === 'administrator' ? ('admin_callable' as const) : ('client_callable' as const),
     ...(expectedRevision === undefined
       ? {}
       : { expectedRevision: AggregateRevisionSchema.parse(expectedRevision) }),
@@ -249,6 +251,7 @@ function paymentFinancialSnapshot(data: Record<string, unknown> | undefined) {
 }
 
 async function seedSharedFixture(walletBalance = WALLET_START_KZT): Promise<void> {
+  await seedLessonPricingSettingsFixture(firestore, { decidedAt, correlationId });
   for (const id of [accountId, adminAccountId]) {
     await firestore.doc(`users/${id}`).set(
       AccountSchema.parse({
@@ -278,8 +281,16 @@ async function seedSharedFixture(walletBalance = WALLET_START_KZT): Promise<void
   );
   const participants = [
     { participantId, managementId, label: 'Emulator Participant 1' },
-    { participantId: participantTwoId, managementId: managementTwoId, label: 'Emulator Participant 2' },
-    { participantId: participantThreeId, managementId: managementThreeId, label: 'Emulator Participant 3' },
+    {
+      participantId: participantTwoId,
+      managementId: managementTwoId,
+      label: 'Emulator Participant 2',
+    },
+    {
+      participantId: participantThreeId,
+      managementId: managementThreeId,
+      label: 'Emulator Participant 3',
+    },
   ] as const;
   for (const entry of participants) {
     await firestore.doc(`participants/${entry.participantId}`).set({
@@ -358,9 +369,7 @@ function isoDuringLesson(interval: {
   return isoFromTimestamp(during);
 }
 
-function isoAfterEndsAt(interval: {
-  endsAt: { seconds: number; nanoseconds: number };
-}): string {
+function isoAfterEndsAt(interval: { endsAt: { seconds: number; nanoseconds: number } }): string {
   return isoFromTimestamp(addMillisecondsToCanonicalTimestamp(interval.endsAt, 1));
 }
 
@@ -376,10 +385,7 @@ function isoAfterAutomationFallback(interval: {
 
 async function createConfirmedBooking(
   commands: ReturnType<typeof createCommands>,
-  participantIds: readonly [
-    typeof participantId,
-    ...(typeof participantId)[]
-  ] = [participantId],
+  participantIds: readonly [typeof participantId, ...(typeof participantId)[]] = [participantId],
   idempotencySuffix = 'single'
 ): Promise<void> {
   const result = await commands.execute({
@@ -771,11 +777,13 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     expect(booking?.lifecycle.status).toBe('pending_cancellation');
     const terminalOutcomeLogs = (await firestore.collection('activity_logs').get()).docs.filter(
       (doc) =>
-        doc.data().effects?.some(
-          (effect: { kind?: string; summary?: string }) =>
-            effect.kind === 'booking_lifecycle_changed' &&
-            /completed|no_show/i.test(effect.summary ?? '')
-        )
+        doc
+          .data()
+          .effects?.some(
+            (effect: { kind?: string; summary?: string }) =>
+              effect.kind === 'booking_lifecycle_changed' &&
+              /completed|no_show/i.test(effect.summary ?? '')
+          )
     );
     expect(terminalOutcomeLogs).toHaveLength(0);
     const pendingIssues = (await firestore.collection('admin_issues').get()).docs.filter(
@@ -804,9 +812,9 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     const rescheduleCommands = createCommands(requestIso);
     const bookingBefore = (await firestore.doc(`bookings/${bookingId}`).get()).data();
     const revision = AggregateRevisionSchema.parse(bookingBefore?.revision ?? 1);
-    expect((await rescheduleCommands.execute(rescheduleEnvelope('rotate-occurrence', revision))).status).toBe(
-      'success'
-    );
+    expect(
+      (await rescheduleCommands.execute(rescheduleEnvelope('rotate-occurrence', revision))).status
+    ).toBe('success');
 
     const bookingAfterReschedule = (await firestore.doc(`bookings/${bookingId}`).get()).data();
     const newOccurrenceId = bookingAfterReschedule?.occurrence.occurrenceId;
@@ -844,9 +852,9 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
       commands.execute(recordEnvelope('race-record-present', 'present')),
       commands.execute(resolveEnvelope('race-resolve-outcome')),
     ]);
-    expect([recordResult.status, resolveResult.status].every((status) => status === 'fulfilled')).toBe(
-      true
-    );
+    expect(
+      [recordResult.status, resolveResult.status].every((status) => status === 'fulfilled')
+    ).toBe(true);
 
     const attendanceDocs = await firestore.collection('attendance').get();
     expect(attendanceDocs.size).toBeLessThanOrEqual(1);
@@ -919,12 +927,8 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
 
     const attendanceDoc = (await firestore.collection('attendance').get()).docs[0];
     const bookingDoc = await firestore.doc(`bookings/${bookingId}`).get();
-    const activityLogDoc = (
-      await firestore.collection('activity_logs').get()
-    ).docs[0];
-    const idempotencyDoc = (
-      await firestore.collection('command_idempotency').get()
-    ).docs[0];
+    const activityLogDoc = (await firestore.collection('activity_logs').get()).docs[0];
+    const idempotencyDoc = (await firestore.collection('command_idempotency').get()).docs[0];
 
     expect(() => assertNoUndefinedDeep(attendanceDoc?.data())).not.toThrow();
     expect(() => assertNoUndefinedDeep(bookingDoc.data())).not.toThrow();

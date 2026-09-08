@@ -89,6 +89,7 @@ export const IncrementalRequirementIdSchema = canonicalIdSchema('incremental_req
 export const GuestSubjectIdSchema = canonicalIdSchema('guest_subject');
 export const SystemActorIdSchema = canonicalIdSchema('system_actor');
 export const ProviderIdSchema = canonicalIdSchema('provider');
+export const LessonPricingSettingsIdSchema = z.literal('lesson_booking');
 
 export type AccountId = z.output<typeof AccountIdSchema>;
 export type InstructorId = z.output<typeof InstructorIdSchema>;
@@ -123,6 +124,7 @@ export type IncrementalRequirementId = z.output<typeof IncrementalRequirementIdS
 export type GuestSubjectId = z.output<typeof GuestSubjectIdSchema>;
 export type SystemActorId = z.output<typeof SystemActorIdSchema>;
 export type ProviderId = z.output<typeof ProviderIdSchema>;
+export type LessonPricingSettingsId = z.output<typeof LessonPricingSettingsIdSchema>;
 
 const referenceSchemas = {
   account: AccountIdSchema,
@@ -132,6 +134,7 @@ const referenceSchemas = {
   instructor_relationship: InstructorRelationshipIdSchema,
   participant_block: ParticipantBlockIdSchema,
   booking: BookingIdSchema,
+  lesson_pricing_settings: LessonPricingSettingsIdSchema,
   course: CourseIdSchema,
   course_day: CourseDayIdSchema,
   course_enrollment: CourseEnrollmentIdSchema,

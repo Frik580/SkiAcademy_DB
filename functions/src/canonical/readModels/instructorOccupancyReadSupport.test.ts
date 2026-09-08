@@ -25,6 +25,7 @@ const bookingA = BookingIdSchema.parse('booking_occupancy_a');
 const bookingB = BookingIdSchema.parse('booking_occupancy_b');
 const blockId = AdministrativeAvailabilityBlockIdSchema.parse('block_occupancy_a');
 const participantId = ParticipantIdSchema.parse('participant_occupancy_a');
+const participantTwoId = ParticipantIdSchema.parse('participant_occupancy_b');
 const correlationId = CorrelationIdSchema.parse('correlation_occupancy_support');
 const createdAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
 const lessonStart = timestampFromDate(new Date('2026-09-10T04:00:00.000Z'));
@@ -119,9 +120,7 @@ function fakeFirestore(seed: Record<string, Record<string, unknown>>): Firestore
         return key.slice(path.length + 1).split('/').length === 1;
       });
     const rangeField =
-      path === 'bookings'
-        ? 'occurrence.interval.startsAt.seconds'
-        : 'interval.startsAt.seconds';
+      path === 'bookings' ? 'occurrence.interval.startsAt.seconds' : 'interval.startsAt.seconds';
     const windowQuery = createWindowQuery(entries, rangeField);
     return {
       ...windowQuery,
@@ -157,10 +156,7 @@ function fakeFirestore(seed: Record<string, Record<string, unknown>>): Firestore
   } as unknown as Firestore;
 }
 
-function bookingForInstructor(
-  bookingId: typeof bookingA,
-  instructorId: typeof instructorA
-) {
+function bookingForInstructor(bookingId: typeof bookingA, instructorId: typeof instructorA) {
   return BookingSchema.parse({
     bookingId,
     attribution: {
@@ -198,7 +194,9 @@ function bookingForInstructor(
 
 describe('instructorOccupancyReadSupport', () => {
   it('pushes instructorId into Firestore occupancy queries', () => {
-    const source = readRepoFile('functions/src/canonical/readModels/instructorOccupancyReadSupport.ts');
+    const source = readRepoFile(
+      'functions/src/canonical/readModels/instructorOccupancyReadSupport.ts'
+    );
     expect(source).toMatch(
       /\.where\(\s*['"]occurrence\.instructorId['"]\s*,\s*['"]==['"]\s*,\s*input\.instructorId/
     );
@@ -227,6 +225,37 @@ describe('instructorOccupancyReadSupport', () => {
     expect(loaded.occupancy.map((item) => item.occupancyId)).toEqual([bookingA]);
   });
 
+  it('hydrates every party participant into one instructor occupancy item', async () => {
+    const multi = bookingForInstructor(bookingA, instructorA);
+    const booking = multi as {
+      party: { kind: string; participantIds: string[] };
+      occurrence: { serviceParty: { participantIds: string[] } };
+    };
+    booking.party = {
+      kind: 'family_group',
+      participantIds: [participantId, participantTwoId],
+    };
+    booking.occurrence.serviceParty.participantIds = [participantId, participantTwoId];
+    const firestore = fakeFirestore({
+      [`bookings/${bookingA}`]: multi,
+      [`participants/${participantId}`]: { participantId, displayName: 'Anna' },
+      [`participants/${participantTwoId}`]: {
+        participantId: participantTwoId,
+        displayName: 'Boris',
+      },
+    });
+    const loaded = await loadInstructorOccupancyItems(firestore, {
+      window: instructorOccupancyWindow(localDate, timeZone, 1),
+      instructorId: instructorA,
+    });
+    expect(loaded.occupancy).toHaveLength(1);
+    expect(loaded.occupancy[0]).toMatchObject({
+      displayTitle: 'Anna, Boris',
+      participantIds: [participantId, participantTwoId],
+      participantNames: ['Anna', 'Boris'],
+    });
+  });
+
   it('returns sanitized public occupancy for unauthenticated day scope', async () => {
     const firestore = fakeFirestore({
       [`instructors/${instructorA}`]: {
@@ -244,22 +273,23 @@ describe('instructorOccupancyReadSupport', () => {
         participantId,
         displayName: 'Anna Smith',
       },
-      [`administrative_availability_blocks/${blockId}`]: AdministrativeAvailabilityBlockSchema.parse({
-        blockId,
-        instructorId: instructorA,
-        kind: 'break',
-        interval: {
-          startsAt: timestampFromDate(new Date('2026-09-10T06:00:00.000Z')),
-          endsAt: timestampFromDate(new Date('2026-09-10T07:00:00.000Z')),
-        },
-        timeZone,
-        notes: 'admin only',
-        lifecycle: 'active',
-        scheduleRevision: 1,
-        revision: 1,
-        createdAt,
-        updatedAt: createdAt,
-      }) as unknown as Record<string, unknown>,
+      [`administrative_availability_blocks/${blockId}`]:
+        AdministrativeAvailabilityBlockSchema.parse({
+          blockId,
+          instructorId: instructorA,
+          kind: 'break',
+          interval: {
+            startsAt: timestampFromDate(new Date('2026-09-10T06:00:00.000Z')),
+            endsAt: timestampFromDate(new Date('2026-09-10T07:00:00.000Z')),
+          },
+          timeZone,
+          notes: 'admin only',
+          lifecycle: 'active',
+          scheduleRevision: 1,
+          revision: 1,
+          createdAt,
+          updatedAt: createdAt,
+        }) as unknown as Record<string, unknown>,
     });
 
     const result = await queryInstructorOccupancyReadModels(firestore, {
@@ -274,6 +304,8 @@ describe('instructorOccupancyReadSupport', () => {
     const lesson = result.item.occupancy.find((item) => item.occupancyKind === 'lesson_booking');
     expect(lesson?.displayTitle).toBe('Booked');
     expect(lesson?.participantId).toBeUndefined();
+    expect(lesson?.participantIds).toBeUndefined();
+    expect(lesson?.participantNames).toBeUndefined();
     expect(lesson?.payerAccountId).toBeUndefined();
     expect(lesson?.difficulty).toBeUndefined();
     expect(lesson?.notes).toBeUndefined();
@@ -300,8 +332,7 @@ describe('instructorOccupancyReadSupport', () => {
       windowDays: 7,
     });
 
-    const windowSeconds =
-      result.item.window.endsAt.seconds - result.item.window.startsAt.seconds;
+    const windowSeconds = result.item.window.endsAt.seconds - result.item.window.startsAt.seconds;
     expect(windowSeconds).toBe(24 * 60 * 60);
   });
 

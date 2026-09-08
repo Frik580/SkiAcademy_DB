@@ -66,15 +66,20 @@ describe('booking cancellation policy', () => {
   it('resolves late rejection from attendance evidence only', () => {
     const startAt = timestampFromDate(new Date('2026-01-15T09:00:00.000Z'));
     const endsAt = timestampFromDate(new Date('2026-01-15T10:00:00.000Z'));
+    const participantA = 'participant_cancellation_a' as never;
+    const participantB = 'participant_cancellation_b' as never;
     const booking = {
-      occurrence: { interval: { startsAt: startAt, endsAt } },
+      occurrence: {
+        interval: { startsAt: startAt, endsAt },
+        serviceParty: { participantIds: [participantA, participantB] },
+      },
     } as Parameters<typeof resolveLateRejectionOutcome>[0]['booking'];
 
     expect(
       resolveLateRejectionOutcome({
         now: timestampFromDate(new Date('2026-01-15T09:30:00.000Z')),
         booking,
-        attendance: undefined,
+        attendancesByParticipantId: new Map(),
       })
     ).toEqual({ outcome: 'confirmed' });
 
@@ -82,15 +87,21 @@ describe('booking cancellation policy', () => {
       resolveLateRejectionOutcome({
         now: timestampFromDate(new Date('2026-01-15T11:00:00.000Z')),
         booking,
-        attendance: undefined,
+        attendancesByParticipantId: new Map(),
       })
-    ).toEqual({ outcome: 'missing_attendance' });
+    ).toEqual({
+      outcome: 'missing_attendance',
+      missingParticipantIds: [participantA, participantB],
+    });
 
     expect(
       resolveLateRejectionOutcome({
         now: timestampFromDate(new Date('2026-01-15T11:00:00.000Z')),
         booking,
-        attendance: { attendanceStatus: 'present' } as never,
+        attendancesByParticipantId: new Map([
+          [participantA, { attendanceStatus: 'absent' } as never],
+          [participantB, { attendanceStatus: 'present' } as never],
+        ]),
       })
     ).toEqual({ outcome: 'completed' });
 
@@ -98,7 +109,10 @@ describe('booking cancellation policy', () => {
       resolveLateRejectionOutcome({
         now: timestampFromDate(new Date('2026-01-15T11:00:00.000Z')),
         booking,
-        attendance: { attendanceStatus: 'absent' } as never,
+        attendancesByParticipantId: new Map([
+          [participantA, { attendanceStatus: 'absent' } as never],
+          [participantB, { attendanceStatus: 'absent' } as never],
+        ]),
       })
     ).toEqual({ outcome: 'no_show' });
   });

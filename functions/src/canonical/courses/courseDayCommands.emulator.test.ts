@@ -24,6 +24,7 @@ import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import { courseDayInstructorClaimIdentity } from './courseDayClaimOperations';
+import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 
 const PROJECT_ID = 'ski-academy-course-day-emulator-test';
 const correlationId = CorrelationIdSchema.parse('correlation_course_day_emulator_01');
@@ -120,6 +121,7 @@ async function clearCollections(database: Firestore) {
 }
 
 async function seedBase() {
+  await seedLessonPricingSettingsFixture(firestore, { decidedAt, correlationId });
   await firestore.doc(`users/${adminAccountId}`).set(
     AccountSchema.parse({
       accountId: adminAccountId,
@@ -273,7 +275,9 @@ function reassignEnvelope(
   };
 }
 
-function createConfirmedBookingEnvelope(idempotencyKey: string): CommandEnvelope<'create_confirmed_booking'> {
+function createConfirmedBookingEnvelope(
+  idempotencyKey: string
+): CommandEnvelope<'create_confirmed_booking'> {
   return {
     kind: 'create_confirmed_booking',
     context: {
@@ -420,11 +424,15 @@ describe.sequential.runIf(runsOnFirestoreEmulator)('course day commands emulator
 
     const secondEnvelope: CommandEnvelope<'create_course_day'> = {
       kind: 'create_course_day',
-      context: adminContext('idem-course-day-create-d2', {
-        localDate: '2026-02-01',
-        localTime: '09:00',
-        durationMinutes: 120,
-      }, 1),
+      context: adminContext(
+        'idem-course-day-create-d2',
+        {
+          localDate: '2026-02-01',
+          localTime: '09:00',
+          durationMinutes: 120,
+        },
+        1
+      ),
       intent: {
         courseDayId: courseDayTwoId,
         courseId: courseTwoId,
@@ -438,17 +446,11 @@ describe.sequential.runIf(runsOnFirestoreEmulator)('course day commands emulator
   it('E allows adjacent CourseDay and Booking intervals', async () => {
     const commands = createCommands();
     const adjacentCourseDay = await commands.execute(
-      createCourseDayEnvelope(
-        courseDayId,
-        instructorId,
-        'idem-course-day-create-e',
-        1,
-        {
-          localDate: '2026-02-01',
-          localTime: '09:00',
-          durationMinutes: 60,
-        }
-      )
+      createCourseDayEnvelope(courseDayId, instructorId, 'idem-course-day-create-e', 1, {
+        localDate: '2026-02-01',
+        localTime: '09:00',
+        durationMinutes: 60,
+      })
     );
     expect(adjacentCourseDay.status).toBe('success');
 
@@ -479,7 +481,9 @@ describe.sequential.runIf(runsOnFirestoreEmulator)('course day commands emulator
 
   it('G reassigns instructor with atomic claim swap', async () => {
     const commands = createCommands();
-    await commands.execute(createCourseDayEnvelope(courseDayId, instructorId, 'idem-course-day-create-g'));
+    await commands.execute(
+      createCourseDayEnvelope(courseDayId, instructorId, 'idem-course-day-create-g')
+    );
 
     const result = await commands.execute(
       reassignEnvelope(courseDayId, instructorTwoId, 'idem-course-day-reassign-g')
@@ -508,19 +512,15 @@ describe.sequential.runIf(runsOnFirestoreEmulator)('course day commands emulator
 
   it('H preserves old claim when reassignment target instructor conflicts', async () => {
     const commands = createCommands();
-    await commands.execute(createCourseDayEnvelope(courseDayId, instructorId, 'idem-course-day-create-h1'));
     await commands.execute(
-      createCourseDayEnvelope(
-        courseDayTwoId,
-        instructorTwoId,
-        'idem-course-day-create-h2',
-        2,
-        {
-          localDate: '2026-02-01',
-          localTime: '10:00',
-          durationMinutes: 120,
-        }
-      )
+      createCourseDayEnvelope(courseDayId, instructorId, 'idem-course-day-create-h1')
+    );
+    await commands.execute(
+      createCourseDayEnvelope(courseDayTwoId, instructorTwoId, 'idem-course-day-create-h2', 2, {
+        localDate: '2026-02-01',
+        localTime: '10:00',
+        durationMinutes: 120,
+      })
     );
 
     const result = await commands.execute(

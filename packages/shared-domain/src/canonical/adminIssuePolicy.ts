@@ -27,7 +27,11 @@ import { compareCanonicalTimestamps, type CanonicalTimestamp } from './primitive
 import { assertExpectedRevision, nextAggregateRevision } from './revisionConcurrency';
 import type { Booking } from './bookingOccurrenceProposalChange';
 import type { Course, CourseEnrollment } from './courseEnrollmentAttendanceAdminIssue';
-import { courseEnrollmentSeatOccurrenceId, paymentIdFromBookingId, paymentIdFromCourseEnrollmentId } from './deterministicIdentity';
+import {
+  courseEnrollmentSeatOccurrenceId,
+  paymentIdFromBookingId,
+  paymentIdFromCourseEnrollmentId,
+} from './deterministicIdentity';
 import type { CommandActor } from './commands/actors';
 import type { ExercisedCapability } from './commands/capabilities';
 
@@ -153,10 +157,6 @@ export function evaluateIndividualBookingPaymentStartGate(input: {
   }
   if (!input.booking || !input.payment) {
     return { outcome: 'unsupported_subject' };
-  }
-
-  if (input.booking.party.kind !== 'individual') {
-    return { outcome: 'ineligible_not_individual' };
   }
 
   const status = input.booking.lifecycle.status;
@@ -545,7 +545,9 @@ function applyTerminalIssueLifecycle(
   });
 }
 
-export const SYSTEM_RECONCILIATION_ACCOUNT_ID = AccountIdSchema.parse('account_system_reconciliation');
+export const SYSTEM_RECONCILIATION_ACCOUNT_ID = AccountIdSchema.parse(
+  'account_system_reconciliation'
+);
 
 function resolveIssueActorAccountIdForCoupledCommand(
   correlationId: CorrelationId,

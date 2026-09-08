@@ -2,8 +2,6 @@ import type { ClientCallableCapability } from '../../lib/canonical/canonicalComm
 import type { ManagedParticipantOption } from '../lesson-bookings/lessonBookingContracts';
 import { deriveExercisedCapabilityFromParticipants } from '../lesson-bookings/useLessonBookingCommands';
 
-export const MAX_MULTI_PARTICIPANT_SELECTION = 8;
-
 export function requiresExplicitParticipantSelection(
   participants: readonly ManagedParticipantOption[]
 ): boolean {
@@ -84,7 +82,7 @@ export function toggleParticipantSelection(
   selectedParticipantIds: readonly string[],
   participantId: string,
   managedParticipantIds: readonly string[],
-  maxCount = MAX_MULTI_PARTICIPANT_SELECTION
+  maxCount: number
 ): string[] {
   if (!managedParticipantIds.includes(participantId)) {
     return [...selectedParticipantIds];

@@ -30,8 +30,12 @@ const {
   selfParticipantIdFromAccountId,
   timestampFromDate,
 } = requireRoot('@ski-academy/shared-domain');
-const { initializeApp, getApps } = requireFunctions('firebase-admin/app') as typeof import('firebase-admin/app');
-const { getFirestore } = requireFunctions('firebase-admin/firestore') as typeof import('firebase-admin/firestore');
+const { initializeApp, getApps } = requireFunctions(
+  'firebase-admin/app'
+) as typeof import('firebase-admin/app');
+const { getFirestore } = requireFunctions(
+  'firebase-admin/firestore'
+) as typeof import('firebase-admin/firestore');
 
 export {
   E2E_PROJECT_ID,
@@ -257,11 +261,7 @@ async function seedStudentAccount(input: {
     throw new Error(`E2E self Participant provisioning failed: ${provisioned.error.code}`);
   }
 
-  if (
-    input.childParticipantId &&
-    input.childParticipantManagementId &&
-    input.childDisplayName
-  ) {
+  if (input.childParticipantId && input.childParticipantManagementId && input.childDisplayName) {
     await firestore.doc(`participants/${input.childParticipantId}`).set({
       participantId: input.childParticipantId,
       displayName: input.childDisplayName,
@@ -338,6 +338,20 @@ async function seedCanonicalFirestoreFixtures(
     reviewsCount: 0,
     languages: ['English'],
     experienceYears: 5,
+  });
+
+  await firestore.doc('lesson_pricing_settings/lesson_booking').set({
+    settingsId: 'lesson_booking',
+    additionalParticipantSurchargePerHourKzt: 6_000,
+    maxParticipantsPerLesson: 4,
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'command_e2e_seed_lesson_pricing',
+      lastChangedByCommandId: 'command_e2e_seed_lesson_pricing',
+      correlationId: 'correlation_e2e_seed_lesson_pricing',
+    },
   });
 
   await firestore.doc('settings/availability_slots_migration').set({ complete: true });

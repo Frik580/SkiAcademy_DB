@@ -39,6 +39,8 @@ interface CourseEnrollmentModalProps {
   onEnroll: (courseId: string, selection: AuthenticatedCourseEnrollmentSelection) => void;
 }
 
+const COURSE_ENROLLMENT_SELECTION_MAX = 8;
+
 export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   isOpen,
   onClose,
@@ -73,7 +75,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     selectedParticipantIds,
     toggleParticipant,
     resetSelection,
-  } = useParticipantSelection(activeAccountId);
+  } = useParticipantSelection(activeAccountId, COURSE_ENROLLMENT_SELECTION_MAX);
   const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
   const effectiveParticipantIds = resolveEffectiveParticipantIds(
     participants,
@@ -280,7 +282,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                           loading={participantsLoading}
                           error={participantsError}
                           onRetry={() => void reloadParticipants()}
-                          maxParticipants={8}
+                          maxParticipants={COURSE_ENROLLMENT_SELECTION_MAX}
                           t={t as (key: string) => string}
                         />
                       </>

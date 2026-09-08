@@ -7,10 +7,10 @@ import {
   calculateFullPaidRefundAmount,
   evaluateParticipantManagementAccess,
   evaluateClientCancellationTiming,
-  isConfirmedIndividualBooking,
+  isConfirmedBooking,
   evaluateGuestManualPaymentAcceptance,
   isLessonBookingHot,
-  isPendingCancellationIndividualBooking,
+  isPendingCancellationBooking,
   isRescheduleEligibleBooking,
   normalizeFirestoreDocument,
   ParticipantManagementSchema,
@@ -350,15 +350,13 @@ function buildAdminAuthorizedActions(input: {
       canConfirmGuest: false,
       canRecordGuestPayment,
       canDirectCancel:
-        accountActive && input.payment !== undefined && isConfirmedIndividualBooking(input.booking),
+        accountActive && input.payment !== undefined && isConfirmedBooking(input.booking),
       canReschedule: rescheduleEligible,
       canChangeInstructor: managedServiceChange,
       canChangeDuration: managedServiceChange,
       canRecordAttendance: accountActive && attendanceLifecycle && servicePartyFrozen && started,
       canResolveCancellation:
-        accountActive &&
-        input.payment !== undefined &&
-        isPendingCancellationIndividualBooking(input.booking),
+        accountActive && input.payment !== undefined && isPendingCancellationBooking(input.booking),
       canResolveAttendanceOutcome: accountActive && outcomeLifecycle && ended,
       canLinkGuestToAccount: linkAvailability.canLink,
     },

@@ -453,7 +453,75 @@ export function lessonContentFields(input: {
   };
 }
 
-export const BookingSchema = z
+const PRE_HOURLY_LESSON_SURCHARGE_FIELD = 'additionalParticipantSurchargeKzt';
+
+function normalizePreHourlyLessonPricingSnapshot(input: unknown): unknown {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+  const booking = input as Record<string, unknown>;
+  const snapshot = booking.pricingSnapshot;
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) return input;
+
+  const pricing = snapshot as Record<string, unknown>;
+  if (
+    pricing.strategyVersion !== 'lesson_party:v1' ||
+    pricing[PRE_HOURLY_LESSON_SURCHARGE_FIELD] === undefined ||
+    pricing.additionalParticipantSurchargePerHourKzt !== undefined ||
+    pricing.lessonDurationMinutes !== undefined
+  ) {
+    return input;
+  }
+
+  const baseLessonPrice = KztMinorUnitsSchema.safeParse(pricing.baseLessonPriceKzt);
+  const flatSurcharge = KztMinorUnitsSchema.safeParse(pricing[PRE_HOURLY_LESSON_SURCHARGE_FIELD]);
+  const participantCount = z
+    .number()
+    .int()
+    .min(BOOKING_PARTY_MIN)
+    .safeParse(pricing.participantCount);
+  const totalPrice = KztMinorUnitsSchema.safeParse(pricing.totalPriceKzt);
+  const occurrence =
+    booking.occurrence && typeof booking.occurrence === 'object'
+      ? (booking.occurrence as Record<string, unknown>)
+      : undefined;
+  const interval = TimeIntervalSchema.safeParse(occurrence?.interval);
+  if (
+    !baseLessonPrice.success ||
+    !flatSurcharge.success ||
+    !participantCount.success ||
+    !totalPrice.success ||
+    !interval.success
+  ) {
+    return input;
+  }
+
+  const lessonDurationMinutes = lessonDurationMinutesFromInterval(interval.data);
+  const hourlySurchargeNumerator = flatSurcharge.data * 60;
+  if (
+    !Number.isSafeInteger(hourlySurchargeNumerator) ||
+    hourlySurchargeNumerator % lessonDurationMinutes !== 0
+  ) {
+    return input;
+  }
+  const hourlySurcharge = KztMinorUnitsSchema.safeParse(
+    hourlySurchargeNumerator / lessonDurationMinutes
+  );
+  const preHourlyTotal = baseLessonPrice.data + flatSurcharge.data * (participantCount.data - 1);
+  if (
+    !hourlySurcharge.success ||
+    !Number.isSafeInteger(preHourlyTotal) ||
+    totalPrice.data !== preHourlyTotal
+  ) {
+    return input;
+  }
+
+  const normalizedSnapshot = { ...pricing };
+  delete normalizedSnapshot[PRE_HOURLY_LESSON_SURCHARGE_FIELD];
+  normalizedSnapshot.additionalParticipantSurchargePerHourKzt = hourlySurcharge.data;
+  normalizedSnapshot.lessonDurationMinutes = lessonDurationMinutes;
+  return { ...booking, pricingSnapshot: normalizedSnapshot };
+}
+
+const BookingRecordSchema = z
   .object({
     bookingId: BookingIdSchema,
     attribution: ImmutableBookingAttributionSchema,
@@ -602,6 +670,11 @@ export const BookingSchema = z
       );
     }
   });
+
+export const BookingSchema = z.preprocess(
+  normalizePreHourlyLessonPricingSnapshot,
+  BookingRecordSchema
+);
 
 export type Booking = Readonly<z.output<typeof BookingSchema>>;
 

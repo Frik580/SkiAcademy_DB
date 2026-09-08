@@ -109,13 +109,19 @@ describe('canonical lesson party pricing', () => {
         bookingId: BookingIdSchema.parse('booking_pricing_legacy_01'),
         attribution: {
           bookingOrigin: 'account',
-          bookedBy: { kind: 'account', accountId: AccountIdSchema.parse('account_pricing_legacy_01') },
+          bookedBy: {
+            kind: 'account',
+            accountId: AccountIdSchema.parse('account_pricing_legacy_01'),
+          },
         },
         party: { kind: 'individual', participantIds },
         occurrence: {
           occurrenceId: 'occurrence_pricing_legacy_01',
           instructorId: InstructorIdSchema.parse('instructor_pricing_legacy_01'),
-          interval: { startsAt: at, endsAt: timestampFromDate(new Date('2026-01-01T01:00:00.000Z')) },
+          interval: {
+            startsAt: at,
+            endsAt: timestampFromDate(new Date('2026-01-01T01:00:00.000Z')),
+          },
           timeZone: 'UTC',
           scheduleRevision: 1,
           serviceParty: { participantIds, frozenAt: at },
@@ -134,6 +140,84 @@ describe('canonical lesson party pricing', () => {
     ).toBe(true);
   });
 
+  it('normalizes the deployed pre-hourly F3 snapshot without changing its financial truth', () => {
+    const at = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+    const participantIds = [
+      ParticipantIdSchema.parse('participant_pricing_pre_hourly_01'),
+      ParticipantIdSchema.parse('participant_pricing_pre_hourly_02'),
+      ParticipantIdSchema.parse('participant_pricing_pre_hourly_03'),
+    ];
+    const candidate = {
+      bookingId: BookingIdSchema.parse('booking_pricing_pre_hourly_01'),
+      attribution: {
+        bookingOrigin: 'account',
+        bookedBy: {
+          kind: 'account',
+          accountId: AccountIdSchema.parse('account_pricing_pre_hourly_01'),
+        },
+      },
+      party: { kind: 'family_group', participantIds },
+      occurrence: {
+        occurrenceId: 'occurrence_pricing_pre_hourly_01',
+        instructorId: InstructorIdSchema.parse('instructor_pricing_pre_hourly_01'),
+        interval: {
+          startsAt: at,
+          endsAt: timestampFromDate(new Date('2026-01-01T02:00:00.000Z')),
+        },
+        timeZone: 'UTC',
+        scheduleRevision: 1,
+        serviceParty: { participantIds, frozenAt: at },
+      },
+      lifecycle: { status: 'confirmed' },
+      paymentId: PaymentIdSchema.parse('payment_pricing_pre_hourly_01'),
+      pricingSnapshot: {
+        strategyVersion: 'lesson_party:v1',
+        baseLessonPriceKzt: 60_000,
+        additionalParticipantSurchargeKzt: 10_000,
+        settingsRevision: 1,
+        participantCount: 3,
+        totalPriceKzt: 80_000,
+      },
+      revision: 1,
+      createdAt: at,
+      updatedAt: at,
+      audit: {
+        createdByCommandId: 'command_pricing_pre_hourly',
+        lastChangedByCommandId: 'command_pricing_pre_hourly',
+        correlationId: 'correlation_pricing_pre_hourly',
+      },
+    };
+
+    const parsed = BookingSchema.safeParse(candidate);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.pricingSnapshot).toMatchObject({
+        additionalParticipantSurchargePerHourKzt: 5_000,
+        lessonDurationMinutes: 120,
+        totalPriceKzt: 80_000,
+      });
+      expect(parsed.data.pricingSnapshot).not.toHaveProperty('additionalParticipantSurchargeKzt');
+    }
+    expect(
+      BookingSchema.safeParse({
+        ...candidate,
+        pricingSnapshot: { ...candidate.pricingSnapshot, totalPriceKzt: 80_001 },
+      }).success
+    ).toBe(false);
+    expect(
+      BookingSchema.safeParse({
+        ...candidate,
+        occurrence: {
+          ...candidate.occurrence,
+          interval: {
+            startsAt: at,
+            endsAt: timestampFromDate(new Date('2026-01-01T01:30:00.000Z')),
+          },
+        },
+      }).success
+    ).toBe(false);
+  });
+
   it('parses a single-participant F3 pricing snapshot', () => {
     const at = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
     const participantIds = [ParticipantIdSchema.parse('participant_pricing_single_01')];
@@ -142,13 +226,19 @@ describe('canonical lesson party pricing', () => {
         bookingId: BookingIdSchema.parse('booking_pricing_single_01'),
         attribution: {
           bookingOrigin: 'account',
-          bookedBy: { kind: 'account', accountId: AccountIdSchema.parse('account_pricing_single_01') },
+          bookedBy: {
+            kind: 'account',
+            accountId: AccountIdSchema.parse('account_pricing_single_01'),
+          },
         },
         party: { kind: 'individual', participantIds },
         occurrence: {
           occurrenceId: 'occurrence_pricing_single_01',
           instructorId: InstructorIdSchema.parse('instructor_pricing_single_01'),
-          interval: { startsAt: at, endsAt: timestampFromDate(new Date('2026-01-01T01:00:00.000Z')) },
+          interval: {
+            startsAt: at,
+            endsAt: timestampFromDate(new Date('2026-01-01T01:00:00.000Z')),
+          },
           timeZone: 'UTC',
           scheduleRevision: 1,
           serviceParty: { participantIds, frozenAt: at },

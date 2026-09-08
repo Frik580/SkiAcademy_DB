@@ -1,6 +1,7 @@
 import {
   CanonicalCommandError,
   administratorCapabilityExercisedByAccount,
+  resolveClientCallableCapabilityFromPartyAuthorities,
   type Account,
   type Booking,
   type CommandEnvelope,
@@ -13,15 +14,7 @@ import {
   requireAccountActor,
 } from '../participantAccess/participantAccessAuthorization';
 
-export function assertAuthenticatedClientCancellationAuthorization(
-  envelope: CommandEnvelope<'request_booking_cancellation' | 'withdraw_booking_cancellation_request'>,
-  input: Readonly<{
-    account: Account;
-    participant: Participant;
-    management: ParticipantManagement;
-    participantId: string;
-  }>
-): void {
+function assertClientCallableCancellationEnvelope(envelope: CommandEnvelope): void {
   if (envelope.context.source !== 'client_callable') {
     throw new CanonicalCommandError('forbidden', {
       correlationId: envelope.context.correlationId,
@@ -35,30 +28,65 @@ export function assertAuthenticatedClientCancellationAuthorization(
       correlationId: envelope.context.correlationId,
     });
   }
+}
 
-  const access = assertAuthorizedParticipantManager(
-    envelope,
-    input,
-    input.participantId as Participant['participantId']
-  );
-  if (!access.allowed) {
+export function assertAuthenticatedBookingPartyCancellationAuthorization(
+  envelope: CommandEnvelope<'request_booking_cancellation' | 'withdraw_booking_cancellation_request'>,
+  input: Readonly<{
+    account: Account;
+    participants: readonly Participant[];
+    managements: readonly ParticipantManagement[];
+    participantIds: readonly Participant['participantId'][];
+  }>
+): void {
+  assertClientCallableCancellationEnvelope(envelope);
+
+  const authorities: ('self' | 'parent_guardian')[] = [];
+  for (const participantId of input.participantIds) {
+    const participant = input.participants.find((entry) => entry.participantId === participantId);
+    const management = input.managements.find((entry) => entry.participantId === participantId);
+    if (!participant || !management || participant.management.kind !== 'managed') {
+      throw new CanonicalCommandError('forbidden', {
+        correlationId: envelope.context.correlationId,
+      });
+    }
+    const access = assertAuthorizedParticipantManager(
+      envelope,
+      { account: input.account, participant, management },
+      participantId
+    );
+    if (!access.allowed) {
+      throw new CanonicalCommandError('forbidden', {
+        correlationId: envelope.context.correlationId,
+      });
+    }
+    authorities.push(access.authority);
+  }
+
+  const expectedCapability = resolveClientCallableCapabilityFromPartyAuthorities(authorities);
+  if (envelope.context.exercisedCapability !== expectedCapability) {
     throw new CanonicalCommandError('forbidden', {
       correlationId: envelope.context.correlationId,
     });
   }
-  if (access.authority === 'self' && envelope.context.exercisedCapability !== 'account_owner') {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
-  if (
-    access.authority === 'parent_guardian' &&
-    envelope.context.exercisedCapability !== 'parent_guardian'
-  ) {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
+}
+
+/** @deprecated Use assertAuthenticatedBookingPartyCancellationAuthorization for party-aware checks. */
+export function assertAuthenticatedClientCancellationAuthorization(
+  envelope: CommandEnvelope<'request_booking_cancellation' | 'withdraw_booking_cancellation_request'>,
+  input: Readonly<{
+    account: Account;
+    participant: Participant;
+    management: ParticipantManagement;
+    participantId: string;
+  }>
+): void {
+  assertAuthenticatedBookingPartyCancellationAuthorization(envelope, {
+    account: input.account,
+    participants: [input.participant],
+    managements: [input.management],
+    participantIds: [input.participantId as Participant['participantId']],
+  });
 }
 
 export function assertResolveBookingCancellationAuthorization(

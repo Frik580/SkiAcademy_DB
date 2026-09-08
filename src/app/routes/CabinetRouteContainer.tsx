@@ -104,7 +104,8 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
       const booking = lessonBookings.find((item) => item.bookingId === bookingId);
       if (!booking) return;
       const exercisedCapability =
-        booking.partyKind === 'family_group' ? 'parent_guardian' : 'account_owner';
+        booking.clientExercisedCapability ??
+        (booking.partyKind === 'family_group' ? 'parent_guardian' : 'account_owner');
       try {
         await requestCancellation({
           bookingId: booking.bookingId,

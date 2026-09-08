@@ -36,7 +36,10 @@ export function useCustomerBookingCollaboration(input: {
   );
 
   const exercisedCapabilityForBooking = useCallback((booking: LessonBookingCabinetItem) => {
-    return booking.partyKind === 'family_group' ? 'parent_guardian' : 'account_owner';
+    return (
+      booking.clientExercisedCapability ??
+      (booking.partyKind === 'family_group' ? 'parent_guardian' : 'account_owner')
+    );
   }, []);
 
   const handleWithdrawCancellation = useCallback(

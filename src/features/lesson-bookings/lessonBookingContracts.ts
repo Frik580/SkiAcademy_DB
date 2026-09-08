@@ -33,6 +33,7 @@ export interface LessonBookingCabinetItem {
   readonly notes?: string;
   readonly cancellationReason?: string;
   readonly authorizedActions?: LessonBookingReadModelAuthorizedActions;
+  readonly clientExercisedCapability?: ClientCallableCapability;
 }
 
 export interface LessonBookingSubmissionIdentity {

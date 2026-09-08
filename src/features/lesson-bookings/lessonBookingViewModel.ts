@@ -47,6 +47,9 @@ export function mapLessonBookingReadModelToCabinetItem(
     bookingOrigin: readModel.bookingOrigin,
     isLessonBooking: true,
     authorizedActions: readModel.authorizedActions,
+    ...(readModel.clientExercisedCapability
+      ? { clientExercisedCapability: readModel.clientExercisedCapability }
+      : {}),
     cancellationReason: readModel.lifecycle.reasonCode,
     ...(readModel.difficulty ? { difficulty: readModel.difficulty } : {}),
     ...(readModel.notes ? { notes: readModel.notes } : {}),

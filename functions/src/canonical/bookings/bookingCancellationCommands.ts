@@ -21,6 +21,7 @@ import {
   unresolvedPendingCancellationIdentity,
   KztMinorUnitsSchema,
   type AdminIssue,
+  type Account,
   type Attendance,
   type Booking,
   type CommandEnvelope,
@@ -28,10 +29,12 @@ import {
   type CommandResult,
   type KztMinorUnits,
   type Payment,
+  type Participant,
   type ParticipantId,
   resolveLateRejectionOutcome,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
+import type { CanonicalAtomicTransactionSession } from '../transactions';
 import {
   executeAuthoritativeIdempotentCanonicalCommand,
   type AuthoritativeIdempotentCanonicalCommandHandler,
@@ -52,7 +55,7 @@ import {
 } from '../participantAccess/participantAccessStore';
 import { attendancePath, parseAttendance } from './attendanceStore';
 import {
-  assertAuthenticatedClientCancellationAuthorization,
+  assertAuthenticatedBookingPartyCancellationAuthorization,
   assertConfirmedGuestCannotSelfCancel,
   assertResolveBookingCancellationAuthorization,
 } from './bookingCancellationAuthorization';
@@ -99,6 +102,64 @@ function metadataFromEnvelope(envelope: CommandEnvelope): CommandMetadata {
   };
 }
 
+async function loadAccountAndAssertBookingPartyCancellationAuthorization(
+  session: CanonicalAtomicTransactionSession,
+  envelope: CommandEnvelope<
+    'request_booking_cancellation' | 'withdraw_booking_cancellation_request'
+  >,
+  participantIds: readonly ParticipantId[]
+): Promise<Account> {
+  const actor = requireAccountActor(envelope);
+  const accountDocumentPath = accountPath(actor.accountId);
+  const accountRead = await session.tx.get({ path: accountDocumentPath });
+  session.plan.planRead({ path: accountDocumentPath, category: 'authorization_check' });
+  const account = parseAccount(accountRead.exists ? accountRead.data : undefined);
+  if (!account) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
+
+  const participants: Participant[] = [];
+  const managements: NonNullable<Awaited<ReturnType<typeof parseParticipantManagement>>>[] = [];
+  for (const participantId of participantIds) {
+    const participantDocumentPath = participantPath(participantId);
+    const participantRead = await session.tx.get({ path: participantDocumentPath });
+    session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
+    const participant = parseParticipant(
+      participantRead.exists ? participantRead.data : undefined
+    );
+    if (!participant || participant.management.kind !== 'managed') {
+      throw new CanonicalCommandError('forbidden', {
+        correlationId: envelope.context.correlationId,
+      });
+    }
+    const managementDocumentPath = participantManagementPath(
+      participant.management.participantManagementId
+    );
+    const managementRead = await session.tx.get({ path: managementDocumentPath });
+    session.plan.planRead({ path: managementDocumentPath, category: 'aggregate' });
+    const management = parseParticipantManagement(
+      managementRead.exists ? managementRead.data : undefined
+    );
+    if (!management) {
+      throw new CanonicalCommandError('forbidden', {
+        correlationId: envelope.context.correlationId,
+      });
+    }
+    participants.push(participant);
+    managements.push(management);
+  }
+
+  assertAuthenticatedBookingPartyCancellationAuthorization(envelope, {
+    account,
+    participants,
+    managements,
+    participantIds,
+  });
+  return account;
+}
+
 function requestAuthenticatedBookingCancellationHandler(
   envelope: CommandEnvelope<'request_booking_cancellation'>,
   environment: CommandExecutionEnvironment,
@@ -138,47 +199,11 @@ function requestAuthenticatedBookingCancellationHandler(
         });
       }
 
-      const participantId = booking.party.participantIds[0]!;
-      const actor = requireAccountActor(envelope);
-      const accountDocumentPath = accountPath(actor.accountId);
-      const accountRead = await session.tx.get({ path: accountDocumentPath });
-      session.plan.planRead({ path: accountDocumentPath, category: 'authorization_check' });
-      const account = parseAccount(accountRead.exists ? accountRead.data : undefined);
-      if (!account) {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
-        });
-      }
-      const participantDocumentPath = participantPath(participantId);
-      const participantRead = await session.tx.get({ path: participantDocumentPath });
-      session.plan.planRead({ path: participantDocumentPath, category: 'aggregate' });
-      const participant = parseParticipant(
-        participantRead.exists ? participantRead.data : undefined
+      await loadAccountAndAssertBookingPartyCancellationAuthorization(
+        session,
+        envelope,
+        booking.party.participantIds
       );
-      if (!participant || participant.management.kind !== 'managed') {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
-        });
-      }
-      const managementDocumentPath = participantManagementPath(
-        participant.management.participantManagementId
-      );
-      const managementRead = await session.tx.get({ path: managementDocumentPath });
-      session.plan.planRead({ path: managementDocumentPath, category: 'aggregate' });
-      const management = parseParticipantManagement(
-        managementRead.exists ? managementRead.data : undefined
-      );
-      if (!management) {
-        throw new CanonicalCommandError('forbidden', {
-          correlationId: envelope.context.correlationId,
-        });
-      }
-      assertAuthenticatedClientCancellationAuthorization(envelope, {
-        account,
-        participant,
-        management,
-        participantId,
-      });
 
       const now = timestampFromDate(environment.clock.decidedAt());
       timing = evaluateClientCancellationTiming({
@@ -383,48 +408,11 @@ function withdrawBookingCancellationRequestHandler(
         }
         booking = parsedBooking;
 
-        const participantId = booking.party.participantIds[0]!;
-        const actor = requireAccountActor(envelope);
-        const accountDocumentPath = accountPath(actor.accountId);
-        const accountRead = await session.tx.get({ path: accountDocumentPath });
-        session.plan.planRead({ path: accountDocumentPath, category: 'authorization_check' });
-        const account = parseAccount(accountRead.exists ? accountRead.data : undefined);
-        if (!account) {
-          throw new CanonicalCommandError('forbidden', {
-            correlationId: envelope.context.correlationId,
-          });
-        }
-        const participantRead = await session.tx.get({ path: participantPath(participantId) });
-        session.plan.planRead({ path: participantPath(participantId), category: 'aggregate' });
-        const participant = parseParticipant(
-          participantRead.exists ? participantRead.data : undefined
+        await loadAccountAndAssertBookingPartyCancellationAuthorization(
+          session,
+          envelope,
+          booking.party.participantIds
         );
-        if (!participant || participant.management.kind !== 'managed') {
-          throw new CanonicalCommandError('forbidden', {
-            correlationId: envelope.context.correlationId,
-          });
-        }
-        const managementRead = await session.tx.get({
-          path: participantManagementPath(participant.management.participantManagementId),
-        });
-        session.plan.planRead({
-          path: participantManagementPath(participant.management.participantManagementId),
-          category: 'aggregate',
-        });
-        const management = parseParticipantManagement(
-          managementRead.exists ? managementRead.data : undefined
-        );
-        if (!management) {
-          throw new CanonicalCommandError('forbidden', {
-            correlationId: envelope.context.correlationId,
-          });
-        }
-        assertAuthenticatedClientCancellationAuthorization(envelope, {
-          account,
-          participant,
-          management,
-          participantId,
-        });
 
         plannedBookingRevision = nextAggregateRevision(booking.revision);
         session.plan.planMutation({

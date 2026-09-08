@@ -847,6 +847,14 @@ export type ParticipantManagementAccessDecision =
       reason: 'unauthorized' | 'account_inactive' | 'participant_inactive';
     }>;
 
+export function resolveClientCallableCapabilityFromPartyAuthorities(
+  authorities: readonly ('self' | 'parent_guardian')[]
+): 'account_owner' | 'parent_guardian' {
+  return authorities.some((authority) => authority === 'parent_guardian')
+    ? 'parent_guardian'
+    : 'account_owner';
+}
+
 export function evaluateParticipantManagementAccess(
   topology: ParticipantAccessTopology,
   request: Readonly<{ accountId: AccountId; participantId: ParticipantId }>

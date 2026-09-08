@@ -11,6 +11,7 @@ import {
   ParticipantSchema,
   evaluateInstructorParticipantAccess,
   evaluateParticipantManagementAccess,
+  resolveClientCallableCapabilityFromPartyAuthorities,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
 
@@ -67,6 +68,16 @@ function managedRecords(suffix: string, authority: 'self' | 'parent_guardian' = 
 }
 
 describe('Account and Participant contracts', () => {
+  it('resolves client callable capability from party authorities', () => {
+    expect(resolveClientCallableCapabilityFromPartyAuthorities(['self'])).toBe('account_owner');
+    expect(resolveClientCallableCapabilityFromPartyAuthorities(['parent_guardian'])).toBe(
+      'parent_guardian'
+    );
+    expect(resolveClientCallableCapabilityFromPartyAuthorities(['self', 'parent_guardian'])).toBe(
+      'parent_guardian'
+    );
+  });
+
   it('publishes canonical owned, relationship, and blocked fixtures', () => {
     expect(canonicalParticipantAccessFixtures.unblockedTopology.participantBlocks).toEqual([]);
     expect(canonicalParticipantAccessFixtures.blockedTopology.participantBlocks).toHaveLength(1);

@@ -213,7 +213,8 @@ function isoFromTimestamp(timestamp: { seconds: number; nanoseconds: number }) {
 
 async function createConfirmedBooking(
   executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>,
-  participantIds = [participantId]
+  participantIds = [participantId],
+  capability: 'account_owner' | 'parent_guardian' = 'account_owner'
 ) {
   const commands = createProductionCanonicalCommands(
     environment('2026-01-01T00:00:00.000Z'),
@@ -221,7 +222,7 @@ async function createConfirmedBooking(
   );
   const result = await commands.execute({
     kind: 'create_confirmed_booking',
-    context: accountContext('account_owner', accountId, 'create-booking-01'),
+    context: accountContext(capability, accountId, 'create-booking-01'),
     intent: { bookingId, instructorId, participantIds },
   });
   expect(result.status).toBe('success');
@@ -601,5 +602,241 @@ describe('booking cancellation commands', () => {
     expect(
       [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('admin_issues/')).length
     ).toBe(2);
+  });
+
+  it('allows a parent_guardian to cancel a single managed-child individual booking', async () => {
+    const childParticipantId = ParticipantIdSchema.parse('participant_cancel_child_01');
+    const childManagementId = ParticipantManagementIdSchema.parse('management_cancel_child_01');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...seedBase(),
+      [`participants/${childParticipantId}`]: {
+        participantId: childParticipantId,
+        displayName: 'Managed Child',
+        age: { kind: 'age_years', years: 12 },
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        management: { kind: 'managed', participantManagementId: childManagementId },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_child_participant',
+          lastChangedByCommandId: 'command_seed_child_participant',
+          correlationId,
+        },
+      },
+      [`participant_management/${childManagementId}`]: {
+        participantManagementId: childManagementId,
+        participantId: childParticipantId,
+        accountId,
+        role: 'owner',
+        authority: 'parent_guardian',
+        status: 'active',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_child_management',
+          lastChangedByCommandId: 'command_seed_child_management',
+          correlationId,
+        },
+      },
+    });
+    await createConfirmedBooking(executor, [childParticipantId], 'parent_guardian');
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.interval
+      .startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS
+    );
+    const commands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
+    const result = await commands.execute({
+      kind: 'request_booking_cancellation',
+      context: accountContext('parent_guardian', accountId, 'cancel-child-01', 1),
+      intent: { bookingId },
+    });
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'cancelled'
+    );
+  });
+
+  it('denies cancellation when exercisedCapability does not match party authorities', async () => {
+    const childParticipantId = ParticipantIdSchema.parse('participant_cancel_child_02');
+    const childManagementId = ParticipantManagementIdSchema.parse('management_cancel_child_02');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...seedBase(),
+      [`participants/${childParticipantId}`]: {
+        participantId: childParticipantId,
+        displayName: 'Managed Child Two',
+        age: { kind: 'age_years', years: 12 },
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        management: { kind: 'managed', participantManagementId: childManagementId },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_child_participant_two',
+          lastChangedByCommandId: 'command_seed_child_participant_two',
+          correlationId,
+        },
+      },
+      [`participant_management/${childManagementId}`]: {
+        participantManagementId: childManagementId,
+        participantId: childParticipantId,
+        accountId,
+        role: 'owner',
+        authority: 'parent_guardian',
+        status: 'active',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_child_management_two',
+          lastChangedByCommandId: 'command_seed_child_management_two',
+          correlationId,
+        },
+      },
+    });
+    await createConfirmedBooking(executor, [childParticipantId], 'parent_guardian');
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-14T09:00:01.000Z'),
+      executor
+    );
+    const result = await commands.execute({
+      kind: 'request_booking_cancellation',
+      context: accountContext('account_owner', accountId, 'cancel-child-wrong-capability', 1),
+      intent: { bookingId },
+    });
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
+  });
+
+  it('denies cancellation for an unrelated account', async () => {
+    const unrelatedAccountId = AccountIdSchema.parse('account_cancel_unrelated_01');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...seedBase(),
+      [`users/${unrelatedAccountId}`]: AccountSchema.parse({
+        accountId: unrelatedAccountId,
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_unrelated_account',
+          lastChangedByCommandId: 'command_seed_unrelated_account',
+          correlationId,
+        },
+      }),
+      [`users/${unrelatedAccountId}/wallet/state`]: WalletSchema.parse({
+        accountId: unrelatedAccountId,
+        currency: 'KZT',
+        balance: 50_000,
+        revision: 1,
+        eventRevision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+      }),
+    });
+    await createConfirmedBooking(executor);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-14T09:00:01.000Z'),
+      executor
+    );
+    const result = await commands.execute({
+      kind: 'request_booking_cancellation',
+      context: accountContext('account_owner', unrelatedAccountId, 'cancel-unrelated-01', 1),
+      intent: { bookingId },
+    });
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
+  });
+
+  it('denies cancellation when the account manages only part of a multi-participant party', async () => {
+    const otherAccountId = AccountIdSchema.parse('account_cancel_other_01');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...seedBase(),
+      [`users/${otherAccountId}`]: AccountSchema.parse({
+        accountId: otherAccountId,
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_other_account',
+          lastChangedByCommandId: 'command_seed_other_account',
+          correlationId,
+        },
+      }),
+    });
+    await createConfirmedBooking(executor, [participantId, participantTwoId]);
+    const forkedExecutor = forkExecutor(executor, {
+      [`participant_management/${managementTwoId}`]: {
+        participantManagementId: managementTwoId,
+        participantId: participantTwoId,
+        accountId: otherAccountId,
+        role: 'owner',
+        authority: 'self',
+        status: 'active',
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_management_two',
+          lastChangedByCommandId: 'command_seed_management_two',
+          correlationId,
+        },
+      },
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-14T09:00:01.000Z'),
+      forkedExecutor
+    );
+    const result = await commands.execute(requestCancellationEnvelope('cancel-partial-party-01', 1));
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
+  });
+
+  it('returns invalid_transition for terminal lifecycle instead of masking as forbidden', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const startsAt = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence.interval
+      .startsAt;
+    const requestAt = addMillisecondsToCanonicalTimestamp(
+      startsAt,
+      -INDIVIDUAL_BOOKING_CLIENT_CANCELLATION_WINDOW_MS
+    );
+    const cancelCommands = createProductionCanonicalCommands(
+      environment(isoFromTimestamp(requestAt)),
+      executor
+    );
+    expect(
+      (await cancelCommands.execute(requestCancellationEnvelope('cancel-terminal-01'))).status
+    ).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'cancelled'
+    );
+
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-14T12:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(requestCancellationEnvelope('cancel-terminal-02', 2));
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('invalid_transition');
+    }
   });
 });

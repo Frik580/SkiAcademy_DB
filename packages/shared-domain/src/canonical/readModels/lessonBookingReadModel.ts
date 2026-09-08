@@ -283,6 +283,7 @@ export const LessonBookingReadModelSchema = z
     lifecycle: LessonBookingReadModelLifecycleProjectionSchema,
     bookingOrigin: BookingOriginSchema,
     authorizedActions: LessonBookingAuthorizedActionsSchema,
+    clientExercisedCapability: z.enum(['account_owner', 'parent_guardian']).optional(),
     paymentPresentation: LessonBookingReadModelPaymentPresentationSchema.optional(),
     difficulty: LessonDifficultySchema.optional(),
     notes: BookingLessonNotesSchema,

@@ -7,6 +7,7 @@ import {
   calculateFullPaidRefundAmount,
   evaluateParticipantManagementAccess,
   evaluateClientCancellationTiming,
+  resolveClientCallableCapabilityFromPartyAuthorities,
   isConfirmedBooking,
   evaluateGuestManualPaymentAcceptance,
   isLessonBookingHot,
@@ -235,6 +236,60 @@ function resolveParticipantManagement(
     return undefined;
   }
   return { participant, management };
+}
+
+function resolveAccountPartyManagementAccess(
+  context: LessonBookingReadAuthorizationContext,
+  accountId: AccountId,
+  participantIds: readonly Participant['participantId'][]
+): Readonly<{
+  participant: Participant;
+  management: ParticipantManagement;
+  authority: 'self' | 'parent_guardian';
+  clientExercisedCapability: 'account_owner' | 'parent_guardian';
+}> | undefined {
+  if (!context.account) {
+    return undefined;
+  }
+
+  const authorities: ('self' | 'parent_guardian')[] = [];
+  let anchorParticipant: Participant | undefined;
+  let anchorManagement: ParticipantManagement | undefined;
+
+  for (const participantId of participantIds) {
+    const resolved = resolveParticipantManagement(context, participantId);
+    if (!resolved) {
+      return undefined;
+    }
+    const scopedTopology = buildParticipantAccessTopology({
+      account: context.account,
+      participant: resolved.participant,
+      management: resolved.management,
+    });
+    const decision = evaluateParticipantManagementAccess(scopedTopology, {
+      accountId,
+      participantId,
+    });
+    if (!decision.allowed) {
+      return undefined;
+    }
+    authorities.push(decision.authority);
+    if (!anchorParticipant) {
+      anchorParticipant = resolved.participant;
+      anchorManagement = resolved.management;
+    }
+  }
+
+  if (!anchorParticipant || !anchorManagement || authorities.length === 0) {
+    return undefined;
+  }
+
+  return {
+    participant: anchorParticipant,
+    management: anchorManagement,
+    authority: authorities[0]!,
+    clientExercisedCapability: resolveClientCallableCapabilityFromPartyAuthorities(authorities),
+  };
 }
 
 const INSTRUCTOR_LESSON_DENIED_ACTIONS = {
@@ -659,39 +714,42 @@ export async function buildLessonBookingReadModel(
 
   const participants: LessonBookingReadModelParticipantProjection[] = [];
   let authorizedActions = INSTRUCTOR_LESSON_DENIED_ACTIONS;
+  let clientExercisedCapability: 'account_owner' | 'parent_guardian' | undefined;
 
-  const primaryParticipantId = booking.party.participantIds[0];
-  const resolvedManagement = primaryParticipantId
-    ? resolveParticipantManagement(authContext, primaryParticipantId)
-    : undefined;
+  const partyAccess = resolveAccountPartyManagementAccess(
+    authContext,
+    accountId,
+    booking.party.participantIds
+  );
 
-  if (resolvedManagement && authContext.account) {
+  if (partyAccess && authContext.account) {
     const blocks = await loadActiveParticipantBlocksForPair(
       firestore,
-      primaryParticipantId!,
+      partyAccess.participant.participantId,
       booking.occurrence.instructorId,
       readContext
     );
     const topology = buildParticipantAccessTopology({
       account: authContext.account,
-      participant: resolvedManagement.participant,
-      management: resolvedManagement.management,
+      participant: partyAccess.participant,
+      management: partyAccess.management,
       additionalBlocks: blocks,
     });
     authorizedActions = evaluateLessonBookingAuthorizedActions({
       actor: {
         kind: 'account_manager',
         accountId,
-        participantManagementId: resolvedManagement.management.participantManagementId,
-        authority: resolvedManagement.management.authority,
+        participantManagementId: partyAccess.management.participantManagementId,
+        authority: partyAccess.authority,
       },
       account: authContext.account,
-      participant: resolvedManagement.participant,
-      management: resolvedManagement.management,
+      participant: partyAccess.participant,
+      management: partyAccess.management,
       booking,
       topology,
       now,
     });
+    clientExercisedCapability = partyAccess.clientExercisedCapability;
   }
 
   for (const participantId of booking.party.participantIds) {
@@ -738,6 +796,7 @@ export async function buildLessonBookingReadModel(
     lifecycle: buildLifecycleProjection(booking),
     bookingOrigin: booking.attribution.bookingOrigin,
     authorizedActions,
+    ...(clientExercisedCapability ? { clientExercisedCapability } : {}),
     paymentPresentation: buildPaymentPresentation(accountId, booking, payment),
     ...lessonContentFromBooking(booking),
     updatedAt: booking.updatedAt,

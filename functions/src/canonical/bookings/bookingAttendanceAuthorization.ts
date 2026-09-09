@@ -3,10 +3,12 @@ import {
   evaluateInstructorAttendanceWindow,
   assertExpectedRevision,
   instructorMayCorrectAttendance,
+  instructorMayFillMissingFamilyGroupAttendanceOnTerminal,
   resolveBookingAttendanceTargets,
   type Attendance,
   type Booking,
   type CommandEnvelope,
+  type ParticipantId,
 } from '@ski-academy/shared-domain';
 import {
   assertAdministrator,
@@ -40,6 +42,7 @@ export function assertRecordBookingAttendanceAuthorization(
     booking: Booking;
     existingAttendance: Attendance | undefined;
     now: import('@ski-academy/shared-domain').CanonicalTimestamp;
+    attendancesByParticipantId?: ReadonlyMap<ParticipantId, Attendance>;
   }>
 ): BookingAttendanceActorMode {
   const mode = resolveBookingAttendanceActorMode(envelope);
@@ -51,10 +54,19 @@ export function assertRecordBookingAttendanceAuthorization(
     ((booking.lifecycle.status === 'completed' && envelope.intent.attendanceStatus === 'absent') ||
       (booking.lifecycle.status === 'no_show' && envelope.intent.attendanceStatus === 'present'));
 
+  const familyGroupMissingFill = instructorMayFillMissingFamilyGroupAttendanceOnTerminal({
+    booking,
+    participantId: envelope.intent.participantId,
+    existingAttendance: input.existingAttendance,
+    intentAttendanceStatus: envelope.intent.attendanceStatus,
+    attendancesByParticipantId: input.attendancesByParticipantId ?? new Map(),
+  });
+
   if (
     booking.lifecycle.status !== 'confirmed' &&
     booking.lifecycle.status !== 'pending_cancellation' &&
-    !terminalCorrection
+    !terminalCorrection &&
+    !familyGroupMissingFill
   ) {
     throw new CanonicalCommandError('invalid_transition', {
       correlationId: envelope.context.correlationId,

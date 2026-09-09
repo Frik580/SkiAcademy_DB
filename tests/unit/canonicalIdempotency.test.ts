@@ -84,6 +84,26 @@ describe('command actor scope and identity', () => {
     expect(IdempotencyKeySchema.safeParse(provider).success).toBe(true);
     expect(scheduled).not.toMatch(/@/);
   });
+
+  it('scopes scheduled keys by automation deadline so early no-ops cannot suppress later work', () => {
+    const outcome = buildScheduledCommandIdempotencyKey({
+      systemActorId,
+      commandKind: 'resolve_attendance_outcome',
+      subjectId: 'booking_sched_01',
+      occurrenceId: 'occurrence_sched_01',
+      deadlineId: 'outcome',
+    });
+    const instructorWindow = buildScheduledCommandIdempotencyKey({
+      systemActorId,
+      commandKind: 'resolve_attendance_outcome',
+      subjectId: 'booking_sched_01',
+      occurrenceId: 'occurrence_sched_01',
+      deadlineId: 'instructor_window',
+    });
+    expect(outcome).not.toBe(instructorWindow);
+    expect(IdempotencyKeySchema.safeParse(outcome).success).toBe(true);
+    expect(IdempotencyKeySchema.safeParse(instructorWindow).success).toBe(true);
+  });
 });
 
 describe('command fingerprinting', () => {

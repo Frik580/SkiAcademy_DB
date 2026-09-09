@@ -28,11 +28,13 @@ import {
 } from '../bookingOccurrenceProposalChange';
 import { PaymentStatusSchema } from '../paymentWallet';
 import { LessonBookingReadModelAuthorizedActionsSchema as LessonBookingAuthorizedActionsSchema } from './readModelAuthorizedActions';
+import { bookingInstructorAttendanceWindowEnd } from '../bookingAttendancePolicy';
 import {
   AggregateRevisionSchema,
   CanonicalTimestampSchema,
   IanaTimeZoneSchema,
   KztMinorUnitsSchema,
+  compareCanonicalTimestamps,
   type CanonicalTimestamp,
 } from '../primitives';
 
@@ -283,6 +285,35 @@ export const LessonBookingAdminProjectionSchema = z
 
 export type LessonBookingAdminProjection = z.output<typeof LessonBookingAdminProjectionSchema>;
 
+export const LessonBookingInstructorAttendancePresentationSchema = z
+  .object({
+    participantId: ParticipantIdSchema,
+    attendanceStatus: AttendanceStatusSchema.optional(),
+    revision: AggregateRevisionSchema.optional(),
+    authorizedActions: z
+      .object({
+        canRecordPresent: z.boolean(),
+        canRecordAbsent: z.boolean(),
+      })
+      .strict(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const hasStatus = value.attendanceStatus !== undefined;
+    const hasRevision = value.revision !== undefined;
+    if (hasStatus !== hasRevision) {
+      context.addIssue({
+        code: 'custom',
+        path: ['attendanceStatus'],
+        message: 'Instructor Attendance evidence must include both status and revision, or neither',
+      });
+    }
+  });
+
+export type LessonBookingInstructorAttendancePresentation = z.output<
+  typeof LessonBookingInstructorAttendancePresentationSchema
+>;
+
 export const LessonBookingReadModelSchema = z
   .object({
     bookingId: BookingIdSchema,
@@ -299,6 +330,7 @@ export const LessonBookingReadModelSchema = z
     paymentPresentation: LessonBookingReadModelPaymentPresentationSchema.optional(),
     difficulty: LessonDifficultySchema.optional(),
     notes: BookingLessonNotesSchema,
+    attendance: z.array(LessonBookingInstructorAttendancePresentationSchema).min(1).optional(),
     admin: LessonBookingAdminProjectionSchema.optional(),
     updatedAt: CanonicalTimestampSchema,
   })
@@ -469,4 +501,27 @@ export function isLessonBookingHot(input: {
   if (endsAtSeconds < nowSeconds) return false;
   if (endsAtSeconds === nowSeconds && endsAtNanos < nowNanos) return false;
   return true;
+}
+
+export function isInstructorLessonBookingHot(input: {
+  readonly lifecycleStatus: LessonBookingReadModelLifecycleProjection['status'];
+  readonly endsAt: CanonicalTimestamp;
+  readonly now: CanonicalTimestamp;
+}): boolean {
+  if (
+    input.lifecycleStatus === 'cancelled' ||
+    input.lifecycleStatus === 'completed' ||
+    input.lifecycleStatus === 'no_show'
+  ) {
+    return false;
+  }
+  if (input.lifecycleStatus === 'confirmed') {
+    return (
+      compareCanonicalTimestamps(
+        input.now,
+        bookingInstructorAttendanceWindowEnd(input.endsAt)
+      ) <= 0
+    );
+  }
+  return isLessonBookingHot(input);
 }

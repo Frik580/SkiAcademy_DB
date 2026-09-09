@@ -10,6 +10,8 @@ import {
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
   PaymentSchema,
+  ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+  attendanceIdFromBookingIdentity,
   createOpenAdminIssue,
   paymentIdFromBookingId,
   timestampFromDate,
@@ -879,5 +881,230 @@ describe('Admin lesson booking read models', () => {
     expect(result.items.find((item) => item.bookingId === multi.bookingId)?.participantIds).toEqual(
       multiParticipantIds
     );
+  });
+});
+
+describe('Instructor lesson booking attendance projection', () => {
+  it('projects per-participant attendance and remaining family_group actions after completed', async () => {
+    const now = timestampFromDate(new Date('2026-08-02T11:00:00.000Z'));
+    const participantA = ParticipantIdSchema.parse('participant_instructor_att_a');
+    const participantB = ParticipantIdSchema.parse('participant_instructor_att_b');
+    const participantC = ParticipantIdSchema.parse('participant_instructor_att_c');
+    const groupBookingId = BookingIdSchema.parse('booking_instructor_att_group_01');
+    const occurrenceId = OccurrenceIdSchema.parse('occurrence_instructor_att_group_01');
+    const startsAt = timestampFromDate(new Date('2026-08-02T09:00:00.000Z'));
+    const endsAt = timestampFromDate(new Date('2026-08-02T10:00:00.000Z'));
+    const booking = BookingSchema.parse({
+      bookingId: groupBookingId,
+      attribution: {
+        bookingOrigin: 'account',
+        bookedBy: { kind: 'account', accountId },
+      },
+      party: {
+        kind: 'family_group',
+        participantIds: [participantA, participantB, participantC],
+      },
+      occurrence: {
+        occurrenceId,
+        instructorId,
+        interval: { startsAt, endsAt },
+        timeZone: 'Asia/Almaty',
+        scheduleRevision: 1,
+        serviceParty: {
+          participantIds: [participantA, participantB, participantC],
+          frozenAt: startsAt,
+        },
+      },
+      lifecycle: { status: 'completed', completedAt: endsAt },
+      paymentId: paymentIdFromBookingId(groupBookingId),
+      revision: 2,
+      createdAt: decidedAt,
+      updatedAt: endsAt,
+      audit: {
+        createdByCommandId: 'command_seed',
+        lastChangedByCommandId: 'command_seed',
+        correlationId: 'correlation_instructor_att',
+      },
+    });
+    const attendanceAId = attendanceIdFromBookingIdentity({
+      strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+      subjectKind: 'booking',
+      occurrenceId,
+      participantId: participantA,
+    });
+    const participantDoc = (participant: typeof participantA, name: string) =>
+      ParticipantSchema.parse({
+        participantId: participant,
+        displayName: name,
+        age: { kind: 'age_years', years: 18 },
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        management: { kind: 'unmanaged_guest' },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed',
+          lastChangedByCommandId: 'command_seed',
+          correlationId: 'correlation_instructor_att',
+        },
+      });
+
+    const firestore = createAdminReadFirestore({
+      bookings: [{ id: booking.bookingId, data: booking as unknown as Record<string, unknown> }],
+      documents: {
+        instructors: {
+          [instructorId]: {
+            id: instructorId,
+            name: 'Canonical Coach',
+            pricePerHourKZT: 50_000,
+          },
+        },
+        participants: {
+          [participantA]: participantDoc(participantA, 'Alice') as unknown as Record<
+            string,
+            unknown
+          >,
+          [participantB]: participantDoc(participantB, 'Bob') as unknown as Record<string, unknown>,
+          [participantC]: participantDoc(participantC, 'Cara') as unknown as Record<string, unknown>,
+        },
+        attendance: {
+          [attendanceAId]: {
+            attendanceId: attendanceAId,
+            subject: {
+              subjectKind: 'booking',
+              bookingId: groupBookingId,
+              occurrenceId,
+              participantId: participantA,
+            },
+            attendanceStatus: 'present',
+            recordedBy: { kind: 'instructor', instructorId },
+            recordedAt: endsAt,
+            lastChangedBy: { kind: 'instructor', instructorId },
+            updatedAt: endsAt,
+            revision: 1,
+            correlationId: 'correlation_instructor_att',
+          },
+        },
+        payments: {},
+        admin_issues: {},
+      },
+    });
+
+    const result = await queryLessonBookingReadModels(
+      firestore,
+      { scope: 'instructor_history' },
+      { instructorId, now: new Date('2026-08-02T11:00:00.000Z') }
+    );
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.attendance).toEqual([
+      {
+        participantId: participantA,
+        attendanceStatus: 'present',
+        revision: 1,
+        authorizedActions: { canRecordPresent: false, canRecordAbsent: false },
+      },
+      {
+        participantId: participantB,
+        authorizedActions: { canRecordPresent: true, canRecordAbsent: true },
+      },
+      {
+        participantId: participantC,
+        authorizedActions: { canRecordPresent: true, canRecordAbsent: true },
+      },
+    ]);
+    expect(result.items[0]?.admin).toBeUndefined();
+    expect(now.seconds).toBeGreaterThan(0);
+  });
+
+  it('keeps ended confirmed bookings in instructor_hot until the attendance window closes', async () => {
+    const endsAt = timestampFromDate(new Date('2026-08-02T10:00:00.000Z'));
+    const startsAt = timestampFromDate(new Date('2026-08-02T09:00:00.000Z'));
+    const booking = BookingSchema.parse({
+      bookingId: BookingIdSchema.parse('booking_instructor_ended_confirmed_01'),
+      attribution: {
+        bookingOrigin: 'account',
+        bookedBy: { kind: 'account', accountId },
+      },
+      party: { kind: 'individual', participantIds: [participantId] },
+      occurrence: {
+        occurrenceId: OccurrenceIdSchema.parse('occurrence_instructor_ended_confirmed_01'),
+        instructorId,
+        interval: { startsAt, endsAt },
+        timeZone: 'Asia/Almaty',
+        scheduleRevision: 1,
+        serviceParty: { participantIds: [participantId], frozenAt: startsAt },
+      },
+      lifecycle: { status: 'confirmed' },
+      paymentId: paymentIdFromBookingId(BookingIdSchema.parse('booking_instructor_ended_confirmed_01')),
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: {
+        createdByCommandId: 'command_seed',
+        lastChangedByCommandId: 'command_seed',
+        correlationId: 'correlation_instructor_ended_confirmed',
+      },
+    });
+    const firestore = createAdminReadFirestore({
+      bookings: [{ id: booking.bookingId, data: booking as unknown as Record<string, unknown> }],
+      documents: {
+        instructors: {
+          [instructorId]: {
+            id: instructorId,
+            name: 'Canonical Coach',
+            pricePerHourKZT: 50_000,
+          },
+        },
+        participants: {
+          [participantId]: ParticipantSchema.parse({
+            participantId,
+            displayName: 'Student',
+            age: { kind: 'age_years', years: 18 },
+            skillLevel: 'beginner',
+            discipline: 'ski',
+            management: { kind: 'unmanaged_guest' },
+            lifecycle: { status: 'active' },
+            revision: 1,
+            createdAt: decidedAt,
+            updatedAt: decidedAt,
+            audit: {
+              createdByCommandId: 'command_seed',
+              lastChangedByCommandId: 'command_seed',
+              correlationId: 'correlation_instructor_ended_confirmed',
+            },
+          }) as unknown as Record<string, unknown>,
+        },
+        payments: {},
+        admin_issues: {},
+      },
+    });
+
+    const operational = await queryLessonBookingReadModels(
+      firestore,
+      { scope: 'instructor_hot' },
+      { instructorId, now: new Date('2026-08-02T11:00:00.000Z') }
+    );
+    expect(operational.items.map((item) => item.bookingId)).toEqual([booking.bookingId]);
+    const historyDuringWindow = await queryLessonBookingReadModels(
+      firestore,
+      { scope: 'instructor_history' },
+      { instructorId, now: new Date('2026-08-02T11:00:00.000Z') }
+    );
+    expect(historyDuringWindow.items).toEqual([]);
+
+    const afterWindowHot = await queryLessonBookingReadModels(
+      firestore,
+      { scope: 'instructor_hot' },
+      { instructorId, now: new Date('2026-08-03T10:00:00.001Z') }
+    );
+    expect(afterWindowHot.items).toEqual([]);
+    const afterWindowHistory = await queryLessonBookingReadModels(
+      firestore,
+      { scope: 'instructor_history' },
+      { instructorId, now: new Date('2026-08-03T10:00:00.001Z') }
+    );
+    expect(afterWindowHistory.items.map((item) => item.bookingId)).toEqual([booking.bookingId]);
   });
 });

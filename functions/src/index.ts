@@ -26,6 +26,7 @@ import { createQueryInstructorOccupancyReadModelsHandler } from './canonical/rea
 import { createQueryLessonPricingSettingsReadModelHandler } from './canonical/readModels/queryLessonPricingSettingsReadModelCallable';
 import { sweepGuestConfirmationLifecycleMismatches } from './canonical/guestConfirmation/guestConfirmationReconciliationSweep';
 import { sweepExpiredGuestLessonReservations } from './canonical/bookings/guestLessonReservationExpirySweep';
+import { sweepLessonBookingAttendanceOutcomes } from './canonical/bookings/bookingAttendanceOutcomeSweep';
 
 export { optimizeImage } from './images/optimizeImageHttp';
 
@@ -172,6 +173,22 @@ export const scheduledExpireGuestLessonReservations = onSchedule(
     const result = await sweepExpiredGuestLessonReservations(getAdminFirestore());
     console.log(
       `Expired guest lesson reservations scanned ${result.scannedCandidates} candidate(s).`
+    );
+  }
+);
+
+export const scheduledResolveLessonBookingAttendanceOutcomes = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    timeZone: 'UTC',
+    cpu: 'gcf_gen1',
+    memory: '256MiB',
+    maxInstances: 1,
+  },
+  async () => {
+    const result = await sweepLessonBookingAttendanceOutcomes(getAdminFirestore());
+    console.log(
+      `Resolved lesson booking attendance outcomes scanned ${result.scannedCandidates} candidate(s).`
     );
   }
 );

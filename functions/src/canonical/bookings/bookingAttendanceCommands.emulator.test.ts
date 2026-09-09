@@ -31,6 +31,7 @@ import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
+import { sweepLessonBookingAttendanceOutcomes } from './bookingAttendanceOutcomeSweep';
 
 const PROJECT_ID = 'ski-academy-attendance-emulator-test';
 const correlationId = CorrelationIdSchema.parse('correlation_attendance_emulator_01');
@@ -119,7 +120,7 @@ function accountContext(
   };
 }
 
-function recordEnvelope(
+    function recordEnvelope(
   idempotencyKey: string,
   attendanceStatus: 'present' | 'absent',
   input: {
@@ -129,16 +130,18 @@ function recordEnvelope(
 ): CommandEnvelope<'record_booking_attendance'> {
   return {
     kind: 'record_booking_attendance',
-    context: {
-      ...instructorContext(idempotencyKey),
-      ...(input.expectedAttendanceRevision === undefined
-        ? {}
-        : { expectedRevision: AggregateRevisionSchema.parse(input.expectedAttendanceRevision) }),
-    },
+    context: instructorContext(idempotencyKey),
     intent: {
       bookingId,
       participantId: input.targetParticipantId ?? participantId,
       attendanceStatus,
+      ...(input.expectedAttendanceRevision === undefined
+        ? {}
+        : {
+            expectedAttendanceRevision: AggregateRevisionSchema.parse(
+              input.expectedAttendanceRevision
+            ),
+          }),
     },
   };
 }
@@ -1093,5 +1096,154 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.lifecycle.status).toBe(
       'no_show'
     );
+  }, 30_000);
+
+  it('T32.9A.9A.F4 instructor can fill remaining family_group attendance after completed', async () => {
+    const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+    await createFrozenGroupBooking(setupCommands);
+    const commands = createCommands(isoAfterEndsAt(await lessonInterval()));
+    expect(
+      (
+        await commands.execute(
+          recordEnvelope('f4-a-present', 'present', { targetParticipantId: participantId })
+        )
+      ).status
+    ).toBe('success');
+    expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.lifecycle.status).toBe(
+      'completed'
+    );
+
+    expect(
+      (
+        await commands.execute(
+          recordEnvelope('f4-b-absent', 'absent', { targetParticipantId: participantTwoId })
+        )
+      ).status
+    ).toBe('success');
+    expect(
+      (
+        await commands.execute(
+          recordEnvelope('f4-c-present', 'present', { targetParticipantId: participantThreeId })
+        )
+      ).status
+    ).toBe('success');
+
+    const bookingAfter = (await firestore.doc(`bookings/${bookingId}`).get()).data();
+    expect(bookingAfter?.lifecycle.status).toBe('completed');
+    const occurrenceId = bookingAfter?.occurrence.occurrenceId;
+    expect(
+      (await firestore.doc(`attendance/${await attendanceIdFor(occurrenceId, participantTwoId)}`).get())
+        .data()?.attendanceStatus
+    ).toBe('absent');
+    expect(
+      (
+        await firestore
+          .doc(`attendance/${await attendanceIdFor(occurrenceId, participantThreeId)}`)
+          .get()
+      ).data()?.attendanceStatus
+    ).toBe('present');
+
+    const terminalCorrection = await commands.execute(
+      recordEnvelope('f4-a-correction-blocked', 'absent', {
+        targetParticipantId: participantId,
+        expectedAttendanceRevision: 1,
+      })
+    );
+    expect(terminalCorrection.status).toBe('error');
+    if (terminalCorrection.status === 'error') {
+      expect(terminalCorrection.error.code).toBe('invalid_transition');
+    }
+  }, 30_000);
+
+  it('present before endsAt then resolver after endsAt completes without another instructor click', async () => {
+    const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(setupCommands);
+    await freezeServiceParty(setupCommands);
+    const interval = await lessonInterval();
+    const during = createCommands(isoDuringLesson(interval));
+    expect((await during.execute(recordEnvelope('early-present', 'present'))).status).toBe(
+      'success'
+    );
+    expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.lifecycle.status).toBe(
+      'confirmed'
+    );
+
+    const after = createCommands(isoAfterEndsAt(interval));
+    expect((await after.execute(resolveEnvelope('resolve-early-present'))).status).toBe('success');
+    expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.lifecycle.status).toBe(
+      'completed'
+    );
+  }, 30_000);
+
+  it('sweep finalizes 2 present + 1 absent recorded before endsAt', async () => {
+    await clearCollections(COLLECTIONS_TO_CLEAR);
+    await seedSharedFixture(100_000);
+    const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+    await createFrozenGroupBooking(setupCommands);
+    const interval = await lessonInterval();
+    const during = createCommands(isoDuringLesson(interval));
+    expect(
+      (
+        await during.execute(
+          recordEnvelope('sweep-p1-present', 'present', { targetParticipantId: participantId })
+        )
+      ).status
+    ).toBe('success');
+    expect(
+      (
+        await during.execute(
+          recordEnvelope('sweep-p2-present', 'present', { targetParticipantId: participantTwoId })
+        )
+      ).status
+    ).toBe('success');
+    expect(
+      (
+        await during.execute(
+          recordEnvelope('sweep-p3-absent', 'absent', { targetParticipantId: participantThreeId })
+        )
+      ).status
+    ).toBe('success');
+    expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.lifecycle.status).toBe(
+      'confirmed'
+    );
+
+    const result = await sweepLessonBookingAttendanceOutcomes(firestore, {
+      now: new Date(isoAfterEndsAt(interval)),
+    });
+    expect(result.scannedCandidates).toBeGreaterThan(0);
+    expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.lifecycle.status).toBe(
+      'completed'
+    );
+  }, 30_000);
+
+  it('sweep leaves all-missing confirmed and opens missing_attendance only after +24h', async () => {
+    const setupCommands = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(setupCommands);
+    await freezeServiceParty(setupCommands);
+    const interval = await lessonInterval();
+
+    await sweepLessonBookingAttendanceOutcomes(firestore, {
+      now: new Date(isoAfterEndsAt(interval)),
+    });
+    expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.lifecycle.status).toBe(
+      'confirmed'
+    );
+    expect(
+      (await firestore.collection('admin_issues').get()).docs.filter(
+        (doc) => doc.data().kind === 'missing_attendance'
+      )
+    ).toHaveLength(0);
+
+    await sweepLessonBookingAttendanceOutcomes(firestore, {
+      now: new Date(isoAfterAutomationFallback(interval)),
+    });
+    expect((await firestore.doc(`bookings/${bookingId}`).get()).data()?.lifecycle.status).toBe(
+      'confirmed'
+    );
+    expect(
+      (await firestore.collection('admin_issues').get()).docs.filter(
+        (doc) => doc.data().kind === 'missing_attendance'
+      )
+    ).toHaveLength(1);
   }, 30_000);
 });

@@ -89,6 +89,39 @@ function groupBooking() {
   });
 }
 
+function attendanceSeed(
+  targetParticipantId: typeof participantId,
+  attendanceStatus: 'present' | 'absent',
+  revision = 1
+) {
+  const attendanceId = attendanceIdFromBookingIdentity({
+    strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+    subjectKind: 'booking',
+    occurrenceId,
+    participantId: targetParticipantId,
+  });
+  return {
+    attendanceId,
+    path: `attendance/${attendanceId}`,
+    data: {
+      attendanceId,
+      subject: {
+        subjectKind: 'booking' as const,
+        bookingId,
+        occurrenceId,
+        participantId: targetParticipantId,
+      },
+      attendanceStatus,
+      recordedBy: { kind: 'instructor' as const, instructorId },
+      recordedAt: endsAt,
+      lastChangedBy: { kind: 'instructor' as const, instructorId },
+      updatedAt: endsAt,
+      revision,
+      correlationId,
+    },
+  };
+}
+
 function createAbortFirstTransactionCallbackExecutor(
   inner: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>
 ): CanonicalTransactionExecutor & {
@@ -117,7 +150,8 @@ function instructorEnvelope(
   idempotencyKey: string,
   at: string,
   attendanceStatus: 'present' | 'absent',
-  targetParticipantId: typeof participantId = participantId
+  targetParticipantId: typeof participantId = participantId,
+  expectedAttendanceRevision?: number
 ): CommandEnvelope<'record_booking_attendance'> {
   return {
     kind: 'record_booking_attendance',
@@ -129,7 +163,12 @@ function instructorEnvelope(
       source: 'client_callable',
       transportMetadata: { instructor_id: instructorId },
     },
-    intent: { bookingId, participantId: targetParticipantId, attendanceStatus },
+    intent: {
+      bookingId,
+      participantId: targetParticipantId,
+      attendanceStatus,
+      ...(expectedAttendanceRevision === undefined ? {} : { expectedAttendanceRevision }),
+    },
   };
 }
 
@@ -347,6 +386,185 @@ describe('bookingAttendanceCommands', () => {
     expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
       'completed'
     );
+  });
+
+  it('lets instructor fill remaining family_group attendance after one present completed the booking', async () => {
+    const firstPresent = attendanceSeed(participantId, 'present');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: BookingSchema.parse({
+        ...groupBooking(),
+        lifecycle: { status: 'completed', completedAt: endsAt },
+        revision: 2,
+        updatedAt: endsAt,
+      }) as unknown as Record<string, unknown>,
+      [firstPresent.path]: firstPresent.data,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T11:00:00.000Z'),
+      executor
+    );
+
+    const absentResult = await commands.execute(
+      instructorEnvelope(
+        'group-fill-b-absent',
+        '2026-01-15T11:00:00.000Z',
+        'absent',
+        participantTwoId
+      )
+    );
+    expect(absentResult.status).toBe('success');
+    const presentResult = await commands.execute(
+      instructorEnvelope(
+        'group-fill-c-present',
+        '2026-01-15T11:00:00.000Z',
+        'present',
+        participantThreeId
+      )
+    );
+    expect(presentResult.status).toBe('success');
+
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe('completed');
+    expect(
+      snapshot.docs.get(attendanceSeed(participantTwoId, 'absent').path)?.data.attendanceStatus
+    ).toBe('absent');
+    expect(
+      snapshot.docs.get(attendanceSeed(participantThreeId, 'present').path)?.data.attendanceStatus
+    ).toBe('present');
+  });
+
+  it('forbids instructor family_group terminal correction that could change completed', async () => {
+    const firstPresent = attendanceSeed(participantId, 'present');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: BookingSchema.parse({
+        ...groupBooking(),
+        lifecycle: { status: 'completed', completedAt: endsAt },
+        revision: 2,
+        updatedAt: endsAt,
+      }) as unknown as Record<string, unknown>,
+      [firstPresent.path]: firstPresent.data,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T11:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      instructorEnvelope(
+        'group-terminal-correction',
+        '2026-01-15T11:00:00.000Z',
+        'absent',
+        participantId,
+        1
+      )
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('invalid_transition');
+    }
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'completed'
+    );
+    expect(executor.snapshot().docs.get(firstPresent.path)?.data.attendanceStatus).toBe('present');
+  });
+
+  it('denies instructor attendance for a participant outside frozen serviceParticipantIds', async () => {
+    const outsider = ParticipantIdSchema.parse('participant_attendance_unit_outsider');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: groupBooking() as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      instructorEnvelope('group-outsider', '2026-01-15T10:00:00.000Z', 'present', outsider)
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('validation');
+    }
+  });
+
+  it('resolves family_group no_show only when every frozen participant is absent', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: groupBooking() as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T10:00:00.000Z'),
+      executor
+    );
+    expect(
+      (
+        await commands.execute(
+          instructorEnvelope(
+            'group-all-absent-a',
+            '2026-01-15T10:00:00.000Z',
+            'absent',
+            participantId
+          )
+        )
+      ).status
+    ).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'confirmed'
+    );
+    expect(
+      (
+        await commands.execute(
+          instructorEnvelope(
+            'group-all-absent-b',
+            '2026-01-15T10:00:00.000Z',
+            'absent',
+            participantTwoId
+          )
+        )
+      ).status
+    ).toBe('success');
+    expect(
+      (
+        await commands.execute(
+          instructorEnvelope(
+            'group-all-absent-c',
+            '2026-01-15T10:00:00.000Z',
+            'absent',
+            participantThreeId
+          )
+        )
+      ).status
+    ).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'no_show'
+    );
+  });
+
+  it('requires expectedAttendanceRevision when instructor corrects existing attendance', async () => {
+    const existing = attendanceSeed(participantId, 'present');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: booking() as unknown as Record<string, unknown>,
+      [existing.path]: existing.data,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T10:00:00.000Z'),
+      executor
+    );
+    const missingRevision = await commands.execute(
+      instructorEnvelope('instructor-correct-missing-rev', '2026-01-15T10:00:00.000Z', 'absent')
+    );
+    expect(missingRevision.status).toBe('error');
+    if (missingRevision.status === 'error') {
+      expect(missingRevision.error.code).toBe('validation');
+    }
+    const corrected = await commands.execute(
+      instructorEnvelope(
+        'instructor-correct-present-to-absent',
+        '2026-01-15T10:00:00.000Z',
+        'absent',
+        participantId,
+        1
+      )
+    );
+    expect(corrected.status).toBe('success');
+    expect(executor.snapshot().docs.get(existing.path)?.data.attendanceStatus).toBe('absent');
   });
 
   it('forbids administrator attendance before service start', async () => {
@@ -763,5 +981,125 @@ describe('bookingAttendanceCommands', () => {
     );
     expect(issues).toHaveLength(3);
     expect(new Set(issues.map(([path]) => path)).size).toBe(3);
+  });
+
+  it('system resolver completes a booking after endsAt when present was recorded earlier', async () => {
+    const seededBooking = booking();
+    const present = attendanceSeed(participantId, 'present');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      [present.path]: present.data,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(systemResolveEnvelope('resolve-present-after-end'));
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'completed'
+    );
+  });
+
+  it('system resolver marks all-absent as no_show after endsAt without waiting 24h', async () => {
+    const seededBooking = booking();
+    const absent = attendanceSeed(participantId, 'absent');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      [absent.path]: absent.data,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(systemResolveEnvelope('resolve-absent-after-end'));
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle).toEqual({
+      status: 'no_show',
+      noShowAt: endsAt,
+    });
+  });
+
+  it('system resolver does not open missing_attendance before the instructor window ends', async () => {
+    const seededBooking = booking();
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(systemResolveEnvelope('resolve-missing-before-window'));
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle).toEqual({
+      status: 'confirmed',
+    });
+    const issues = [...executor.snapshot().docs.entries()].filter(([path]) =>
+      path.startsWith('admin_issues/')
+    );
+    expect(issues).toHaveLength(0);
+  });
+
+  it('instructor same-status present after endsAt finalizes a previously recorded booking', async () => {
+    const seededBooking = booking();
+    const present = attendanceSeed(participantId, 'present');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      [present.path]: present.data,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(
+      instructorEnvelope('same-status-after-end', '2026-01-15T10:00:00.000Z', 'present', participantId, 1)
+    );
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(present.path)?.data.revision).toBe(1);
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'completed'
+    );
+  });
+
+  it('completes a 2-present 1-absent group booking after endsAt without another instructor click', async () => {
+    const seededBooking = groupBooking();
+    const first = attendanceSeed(participantId, 'present');
+    const second = attendanceSeed(participantTwoId, 'present');
+    const third = attendanceSeed(participantThreeId, 'absent');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      [first.path]: first.data,
+      [second.path]: second.data,
+      [third.path]: third.data,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(systemResolveEnvelope('resolve-two-present-one-absent'));
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+      'completed'
+    );
+  });
+
+  it('keeps absent-plus-missing group bookings confirmed after endsAt', async () => {
+    const seededBooking = groupBooking();
+    const first = attendanceSeed(participantId, 'absent');
+    const second = attendanceSeed(participantTwoId, 'absent');
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${bookingId}`]: seededBooking as unknown as Record<string, unknown>,
+      [first.path]: first.data,
+      [second.path]: second.data,
+    });
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-15T10:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute(systemResolveEnvelope('resolve-absent-missing'));
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle).toEqual({
+      status: 'confirmed',
+    });
   });
 });

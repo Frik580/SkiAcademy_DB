@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Clock, MessageSquare, CheckCircle, Users } from 'lucide-react';
+import { Calendar, Check, Clock, MessageSquare, Users, X } from 'lucide-react';
 import { formatLessonDifficultyOrUnspecified } from '../../../app/providers/LanguageContext';
 import { UserProfile } from '../../../types';
 import { DisplayBooking } from './useInstructorWorkspace';
@@ -12,6 +12,7 @@ import {
   InstructorCollaborationPanel,
   type useInstructorBookingCollaboration,
 } from '../../booking-collaboration';
+import { instructorLessonAttendanceSubmissionId } from '../../booking-collaboration/deriveCollaborationIdempotencyKeys';
 
 interface InstructorBookingCardProps {
   booking: DisplayBooking;
@@ -47,11 +48,6 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
   collaboration,
 }) => {
   const b = booking;
-  const nowMs = Date.now();
-  // Keep the affordance aligned with the server-side instructor attendance window:
-  // an instructor may record attendance once the lesson has started and until 24h after it ends.
-  const canRecordCompletion =
-    b.status === 'confirmed' && nowMs >= b.startsAtEpochMs && nowMs <= b.endsAtEpochMs + 86_400_000;
   const renderParticipant = (participant: DisplayBooking['participants'][number]) => {
     const studentAccountId = participant.userId;
     const studentUser = studentAccountId
@@ -59,10 +55,29 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
       : undefined;
     const studentLevel = studentUser?.level || 1;
     const studentName = participant.clientName || 'Student';
+    const submitting =
+      collaboration.submittingId ===
+      instructorLessonAttendanceSubmissionId(b.id, participant.participantId);
+    const attendanceLabel =
+      participant.attendanceStatus === 'present'
+        ? t('instructorAttendancePresent')
+        : participant.attendanceStatus === 'absent'
+          ? t('instructorAttendanceAbsent')
+          : t('instructorAttendanceMissing');
+    const record = (attendanceStatus: 'present' | 'absent') => {
+      collaboration.handleRecordLessonAttendance({
+        bookingId: b.id,
+        participantId: participant.participantId,
+        attendanceStatus,
+        ...(participant.attendanceRevision !== undefined
+          ? { expectedAttendanceRevision: participant.attendanceRevision }
+          : {}),
+      });
+    };
 
     return (
       <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-slate-900/60 p-2.5 border border-slate-200/70 dark:border-slate-800/70 rounded-xs hover:border-slate-300 transition-colors duration-200 w-full">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800">
             {participant.clientAvatar ? (
               <img
@@ -77,7 +92,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
               </div>
             )}
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="text-xs font-mono text-[var(--ink)] font-medium flex items-center gap-1.5">
               {studentName}
               {b.isGuest && (
@@ -86,35 +101,72 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
                 </span>
               )}
             </div>
+            <div className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-dim)]">
+              {t('instructorLessonAttendance')}: {attendanceLabel}
+            </div>
           </div>
         </div>
 
-        {studentAccountId && (
-          <div className="flex items-center gap-2">
-            <StudentAssessButton
-              t={t}
-              onClick={() =>
-                onOpenEval(
-                  studentAccountId,
-                  studentName,
-                  studentLevel,
-                  studentUser?.skillScores || {},
-                  studentUser?.skillComments || {}
-                )
-              }
-            />
-            <StudentLevelControls
-              studentUid={studentAccountId}
-              usersList={usersList}
-              theme={theme}
-              t={t}
-              badgeTitleKey="instructorCurrentLevel"
-              selectLabelKey="instructorLevel"
-              showSetLevelLabel
-              onChange={(newLevel) => onUpdateStudentLevel(studentAccountId, studentName, newLevel)}
-            />
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => record('present')}
+            disabled={submitting || !participant.canRecordPresent}
+            aria-label={`${studentName}: ${t('instructorAttendancePresent')}`}
+            aria-pressed={participant.attendanceStatus === 'present'}
+            className={`inline-flex h-8 items-center gap-1.5 border px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              participant.attendanceStatus === 'present'
+                ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
+                : 'border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
+            }`}
+          >
+            <Check className="w-3.5 h-3.5" />
+            {t('instructorAttendancePresent')}
+          </button>
+          <button
+            type="button"
+            onClick={() => record('absent')}
+            disabled={submitting || !participant.canRecordAbsent}
+            aria-label={`${studentName}: ${t('instructorAttendanceAbsent')}`}
+            aria-pressed={participant.attendanceStatus === 'absent'}
+            className={`inline-flex h-8 items-center gap-1.5 border px-2.5 text-[10px] font-mono font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              participant.attendanceStatus === 'absent'
+                ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
+                : 'border-slate-300 text-[var(--ink)] hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600'
+            }`}
+          >
+            <X className="w-3.5 h-3.5" />
+            {t('instructorAttendanceAbsent')}
+          </button>
+          {studentAccountId && (
+            <>
+              <StudentAssessButton
+                t={t}
+                onClick={() =>
+                  onOpenEval(
+                    studentAccountId,
+                    studentName,
+                    studentLevel,
+                    studentUser?.skillScores || {},
+                    studentUser?.skillComments || {}
+                  )
+                }
+              />
+              <StudentLevelControls
+                studentUid={studentAccountId}
+                usersList={usersList}
+                theme={theme}
+                t={t}
+                badgeTitleKey="instructorCurrentLevel"
+                selectLabelKey="instructorLevel"
+                showSetLevelLabel
+                onChange={(newLevel) =>
+                  onUpdateStudentLevel(studentAccountId, studentName, newLevel)
+                }
+              />
+            </>
+          )}
+        </div>
       </div>
     );
   };
@@ -183,23 +235,6 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
             {t('instructorChatStudent')}
             <ChatUnreadIndicator show={hasUnreadChat?.(b) ?? false} />
           </button>
-
-          {canRecordCompletion && (
-            <button
-              onClick={() =>
-                collaboration.handleCompleteLesson({
-                  bookingId: b.id,
-                  revision: b.revision,
-                  participantId: b.participantId,
-                })
-              }
-              disabled={collaboration.submittingId === b.id}
-              className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-mono uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition cursor-pointer rounded-xs shadow-xs"
-            >
-              <CheckCircle className="w-4 h-4" />
-              {t('instructorCompleteLesson')}
-            </button>
-          )}
         </div>
       </div>
 

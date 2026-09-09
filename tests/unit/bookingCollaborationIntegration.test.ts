@@ -210,7 +210,7 @@ describe('booking collaboration integration', () => {
     );
   });
 
-  it('records instructor completion through canonical attendance and refetches both scopes', async () => {
+  it('records instructor attendance through canonical facts and refetches both scopes', async () => {
     executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
     const { result } = renderHook(() =>
       useBookingCollaborationCommands({
@@ -219,10 +219,10 @@ describe('booking collaboration integration', () => {
       })
     );
 
-    await result.current.recordLessonCompleted({
+    await result.current.recordLessonAttendance({
       bookingId: 'booking_attendance_01',
       participantId: 'participant_attendance_01',
-      bookingRevision: 7,
+      attendanceStatus: 'present',
     });
 
     expect(executeAuthenticatedMock).toHaveBeenCalledWith(
@@ -230,7 +230,8 @@ describe('booking collaboration integration', () => {
       expect.objectContaining({
         kind: 'record_booking_attendance',
         exercisedCapability: 'instructor',
-        idempotencyKey: 'attendance-present:booking_attendance_01:participant_attendance_01:7',
+        idempotencyKey:
+          'attendance:booking_attendance_01:participant_attendance_01:present:missing',
         intent: {
           bookingId: BookingIdSchema.parse('booking_attendance_01'),
           participantId: 'participant_attendance_01',
@@ -242,5 +243,72 @@ describe('booking collaboration integration', () => {
     expect(queryLessonBookingReadModelsMock).toHaveBeenCalledWith({
       scope: 'instructor_history',
     });
+  });
+
+  it('sends expectedAttendanceRevision for a correction and uses a distinct attempt identity', async () => {
+    executeAuthenticatedMock.mockResolvedValue({ status: 'success', payload: {} });
+    const { result } = renderHook(() =>
+      useBookingCollaborationCommands({
+        accountId: 'account_fixture_01',
+        instructorId: 'instructor_fixture_01',
+      })
+    );
+
+    await result.current.recordLessonAttendance({
+      bookingId: 'booking_attendance_01',
+      participantId: 'participant_attendance_01',
+      attendanceStatus: 'present',
+    });
+    await result.current.recordLessonAttendance({
+      bookingId: 'booking_attendance_01',
+      participantId: 'participant_attendance_01',
+      attendanceStatus: 'absent',
+      expectedAttendanceRevision: 1,
+    });
+
+    expect(executeAuthenticatedMock.mock.calls[0]?.[1]).toMatchObject({
+      idempotencyKey: 'attendance:booking_attendance_01:participant_attendance_01:present:missing',
+      intent: { attendanceStatus: 'present' },
+    });
+    expect(executeAuthenticatedMock.mock.calls[0]?.[1].intent).not.toHaveProperty(
+      'expectedAttendanceRevision'
+    );
+    expect(executeAuthenticatedMock.mock.calls[1]?.[1]).toMatchObject({
+      idempotencyKey: 'attendance:booking_attendance_01:participant_attendance_01:absent:1',
+      intent: {
+        attendanceStatus: 'absent',
+        expectedAttendanceRevision: 1,
+      },
+    });
+  });
+
+  it('refetches on stale_version and does not replay the correction', async () => {
+    executeAuthenticatedMock.mockResolvedValueOnce({
+      status: 'error',
+      error: {
+        code: 'stale_version',
+        message: 'Stale version',
+        retryable: true,
+        correlationId: 'correlation_stale_attendance',
+        currentRevision: 2,
+      },
+    });
+    const { result } = renderHook(() =>
+      useBookingCollaborationCommands({
+        accountId: 'account_fixture_01',
+        instructorId: 'instructor_fixture_01',
+      })
+    );
+
+    await expect(
+      result.current.recordLessonAttendance({
+        bookingId: 'booking_attendance_01',
+        participantId: 'participant_attendance_01',
+        attendanceStatus: 'absent',
+        expectedAttendanceRevision: 1,
+      })
+    ).rejects.toMatchObject({ code: 'stale_version', currentRevision: 2 });
+    expect(executeAuthenticatedMock).toHaveBeenCalledTimes(1);
+    expect(queryLessonBookingReadModelsMock).not.toHaveBeenCalled();
   });
 });

@@ -167,26 +167,35 @@ Once a CourseDay starts, its delivery interval and actual Instructor assignment 
 
 ## Two outcome thresholds
 
-Outcome eligibility and scheduler eligibility are deliberately separate:
+Outcome eligibility and scheduler missing-Attendance fallback are deliberately separate:
 
 | Subject            | `outcomeEligibleAt`    | `automationEligibleAt`       |
 | ------------------ | ---------------------- | ---------------------------- |
 | Booking occurrence | `endsAt`               | `endsAt + 24h`               |
 | CourseEnrollment   | `finalCourseDayEndsAt` | `finalCourseDayEndsAt + 24h` |
 
-`outcomeEligibleAt` allows an actor-driven canonical command to resolve sufficient evidence immediately after delivery. `automationEligibleAt` is the earliest time the scheduler may attempt fallback resolution.
+`outcomeEligibleAt` is the earliest time a deterministic Attendance outcome may be committed. Actor-driven commands and the scheduler share this threshold for `completed` / `no_show`. `automationEligibleAt` is **not** a delay on completion. It is the Instructor Attendance editing deadline and the earliest time the scheduler may open `missing_attendance` for still-unresolved evidence.
 
-For example, when a Booking has ended and the assigned Instructor records `present`, the same canonical transaction may resolve the Booking to `completed`; the actor does not wait 24 hours. Neither an Instructor nor an Administrator may produce `completed` or `no_show` before `endsAt`.
+For example:
 
-At or after `automationEligibleAt`, a scheduled command:
+- Attendance recorded before `endsAt` remains evidence only until `endsAt`. After `endsAt`, if the outcome is already deterministic (`>=1 present` → `completed`; all absent → `no_show`), the scheduler must resolve the Booking without a further Instructor click.
+- When a Booking has ended and the assigned Instructor records `present`, the same canonical transaction may resolve the Booking to `completed`; the actor does not wait 24 hours.
+- `0 present + any missing` stays `confirmed` / unresolved. The Instructor operational view keeps that Booking until `endsAt + 24h`. After the window closes, Instructor editing stops and the scheduler opens or reuses `missing_attendance`.
+
+Neither an Instructor nor an Administrator may produce `completed` or `no_show` before `endsAt`.
+
+At or after `outcomeEligibleAt`, a scheduled command:
 
 1. re-reads the canonical subject, revisions, schedule or occurrence identity, Attendance or summary, Payment restriction, and blocking Admin Issues;
 2. invokes the same internal outcome calculator used by actor-driven commands;
-3. resolves `completed` or `no_show` only from sufficient evidence and no blocker;
-4. leaves missing evidence unresolved and creates or reuses `missing_attendance`;
-5. never resolves `pending_cancellation`;
-6. leaves Payment or other blocking issues for Admin resolution;
-7. commits all applicable state, issue, idempotency, immutable Activity Log, required outbox obligations, and resource-cleanup effects atomically.
+3. resolves `completed` or `no_show` only from sufficient evidence and no blocker, without waiting for `automationEligibleAt`;
+4. leaves missing evidence unresolved during the Instructor window and does not invent Attendance;
+5. at or after `automationEligibleAt`, leaves missing evidence unresolved and creates or reuses `missing_attendance`;
+6. never resolves `pending_cancellation`;
+7. leaves Payment or other blocking issues for Admin resolution;
+8. commits all applicable state, issue, idempotency, immutable Activity Log, required outbox obligations, and resource-cleanup effects atomically.
+
+Scheduled idempotency keys distinguish the `endsAt` outcome deadline from the `endsAt + 24h` missing-Attendance deadline so an early no-op cannot suppress later issue creation.
 
 The scheduler must not create Attendance, turn missing into absent, or carry a second implementation of outcome policy.
 
@@ -547,7 +556,8 @@ Implementation is not complete until automated verification covers:
 - CourseDay Attendance matrices;
 - explicit proof that missing is not absent;
 - immediate actor-driven resolution after `endsAt`;
-- scheduler fallback at `endsAt + 24h` and final CourseDay `endsAt + 24h`;
+- scheduler resolution of deterministic `completed` / `no_show` after `endsAt` without waiting 24 hours;
+- scheduler fallback `missing_attendance` at `endsAt + 24h` and final CourseDay `endsAt + 24h`;
 - `pending_cancellation` exclusion and issue escalation;
 - client cancellation before service releasing resource claims;
 - proof that `no_show` cannot occur before delivery;
@@ -604,7 +614,7 @@ Rejected. It would spread policy across UI, callables, Admin tools, and schedule
 
 ### Give the scheduler a separate delayed policy
 
-Rejected. Actor-driven and scheduler-driven resolution differ only in eligibility and actor context; they must share one calculator to prevent drift.
+Rejected as a second outcome calculator. Actor-driven and scheduler-driven resolution share one calculator. They differ only in eligibility: deterministic `completed` / `no_show` use `outcomeEligibleAt`, while scheduled `missing_attendance` uses `automationEligibleAt`. Delaying completion until `endsAt + 24h` is not permitted.
 
 ### Use an append-only Attendance event ledger
 

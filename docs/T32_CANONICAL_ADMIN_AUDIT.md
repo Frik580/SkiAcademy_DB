@@ -526,6 +526,24 @@ F4 adds `isInstructorBookingVisibleForStatusFilter` / `hasOutstandingInstructorL
 
 F4 does **not** implement automatic `present` after 24 hours. If the Instructor does not record Attendance during the allowed window, missing Attendance remains missing; the system does not invent `present` or `absent`. Existing `missing_attendance` / AdminIssue policy remains authoritative. F4 does **not** change the existing 24-hour Instructor Attendance window.
 
+**Lesson outcome finalization and Instructor routing.**
+
+Deterministic lesson outcomes resolve at `endsAt`, not at `endsAt + 24h`:
+
+- `>=1 present` → `completed`
+- all absent → `no_show`
+- `0 present + any missing` → remain `confirmed` / unresolved
+
+Attendance recorded before `endsAt` is evidence only until `endsAt`. After `endsAt`, `scheduledResolveLessonBookingAttendanceOutcomes` invokes existing `resolve_attendance_outcome` (no duplicated calculator). Same-status Instructor `record_booking_attendance` on a still-`confirmed` Booking also reaches the calculator so a post-`endsAt` correction path can finalize if needed.
+
+Instructor read routing (`isInstructorLessonBookingHot`):
+
+- `ended + confirmed` stays in `instructor_hot` through `endsAt + 24h` (operational “Not recorded” / remaining Attendance actions);
+- after resolution (`completed` / `no_show`) the Booking moves to `instructor_history`;
+- after `endsAt + 24h`, unresolved `confirmed` leaves the operational view for history / Admin `missing_attendance`.
+
+Instructor history follows the same page-cursor drain as `instructor_hot` (default page size 25). The first page is not a silent universe cap.
+
 **Courses — unchanged.**
 
 F4 is lesson-Booking-specific. CourseDay Attendance, `CourseEnrollment.attendanceSummary`, course attendance commands, course attendance UX, and course lifecycle policy are unchanged.

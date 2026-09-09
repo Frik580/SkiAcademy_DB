@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   LESSON_BOOKING_READ_SCOPES,
   LessonBookingAdminProjectionSchema,
+  LessonBookingInstructorAttendancePresentationSchema,
   QueryLessonBookingReadModelsInputSchema,
+  isInstructorLessonBookingHot,
   isLessonBookingHot,
   mergeRevisionAwareReadModel,
 } from './lessonBookingReadModel';
@@ -39,6 +41,48 @@ describe('lessonBookingReadModel contracts', () => {
       isLessonBookingHot({
         lifecycleStatus: 'confirmed',
         endsAt: pastEnd,
+        now,
+      })
+    ).toBe(false);
+  });
+
+  it('keeps ended confirmed instructor bookings operational until endsAt + 24h', () => {
+    const now = timestampFromDate(new Date('2026-06-01T12:00:00.000Z'));
+    const justEnded = timestampFromDate(new Date('2026-06-01T11:00:00.000Z'));
+    const windowEnd = timestampFromDate(new Date('2026-06-02T11:00:00.000Z'));
+    const afterWindow = timestampFromDate(new Date('2026-06-02T11:00:00.001Z'));
+    expect(
+      isInstructorLessonBookingHot({
+        lifecycleStatus: 'confirmed',
+        endsAt: justEnded,
+        now,
+      })
+    ).toBe(true);
+    expect(
+      isInstructorLessonBookingHot({
+        lifecycleStatus: 'confirmed',
+        endsAt: justEnded,
+        now: windowEnd,
+      })
+    ).toBe(true);
+    expect(
+      isInstructorLessonBookingHot({
+        lifecycleStatus: 'confirmed',
+        endsAt: justEnded,
+        now: afterWindow,
+      })
+    ).toBe(false);
+    expect(
+      isInstructorLessonBookingHot({
+        lifecycleStatus: 'completed',
+        endsAt: justEnded,
+        now,
+      })
+    ).toBe(false);
+    expect(
+      isInstructorLessonBookingHot({
+        lifecycleStatus: 'pending',
+        endsAt: justEnded,
         now,
       })
     ).toBe(false);
@@ -181,5 +225,37 @@ describe('lessonBookingReadModel contracts', () => {
       },
     });
     expect(parsed.success).toBe(false);
+  });
+
+  it('projects instructor attendance with missing or complete evidence, never a partial mix', () => {
+    expect(
+      LessonBookingInstructorAttendancePresentationSchema.safeParse({
+        participantId: 'participant_instructor_attendance_01',
+        authorizedActions: { canRecordPresent: true, canRecordAbsent: true },
+      }).success
+    ).toBe(true);
+    expect(
+      LessonBookingInstructorAttendancePresentationSchema.safeParse({
+        participantId: 'participant_instructor_attendance_01',
+        attendanceStatus: 'present',
+        revision: 1,
+        authorizedActions: { canRecordPresent: false, canRecordAbsent: true },
+      }).success
+    ).toBe(true);
+    expect(
+      LessonBookingInstructorAttendancePresentationSchema.safeParse({
+        participantId: 'participant_instructor_attendance_01',
+        attendanceStatus: 'present',
+        authorizedActions: { canRecordPresent: false, canRecordAbsent: true },
+      }).success
+    ).toBe(false);
+    expect(
+      LessonBookingInstructorAttendancePresentationSchema.safeParse({
+        participantId: 'participant_instructor_attendance_01',
+        attendanceStatus: 'unknown',
+        revision: 1,
+        authorizedActions: { canRecordPresent: true, canRecordAbsent: false },
+      }).success
+    ).toBe(false);
   });
 });

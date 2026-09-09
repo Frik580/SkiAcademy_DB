@@ -47,6 +47,10 @@ describe('T32.9A.9A individual Booking lifecycle cutover boundary', () => {
     expect(instructorWorkspace).not.toContain('completeBookingService');
     expect(instructorWorkspace).not.toContain('confirmBookingService');
     expect(instructorCard).not.toContain('InstructorRecommendationsEditor');
+    expect(instructorCard).not.toContain('instructorCompleteLesson');
+    expect(instructorCard).not.toContain('completeBooking');
+    expect(instructorCard).not.toContain("collection(db, 'attendance'");
+    expect(instructorCard).not.toContain("doc(db, 'attendance'");
     expect(cabinetRoute).not.toContain('onToggleRecommendation=');
     expect(cabinetRoute).not.toContain('toggleRecommendationService');
     expect(firebaseInfrastructure).not.toContain("updateDoc(doc(db, 'bookings'");

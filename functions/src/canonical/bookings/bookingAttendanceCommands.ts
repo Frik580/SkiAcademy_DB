@@ -207,15 +207,19 @@ function recordBookingAttendanceHandler(
       booking = parsedBooking;
 
       const now = timestampFromDate(environment.clock.decidedAt());
-      existingAttendance = await readAttendanceForParticipant(
-        session,
-        booking,
-        envelope.intent.participantId
-      );
+      const currentAttendancesByParticipantId = new Map<ParticipantId, Attendance>();
+      for (const participantId of booking.occurrence.serviceParty.participantIds) {
+        const current = await readAttendanceForParticipant(session, booking, participantId);
+        if (current) {
+          currentAttendancesByParticipantId.set(participantId, current);
+        }
+      }
+      existingAttendance = currentAttendancesByParticipantId.get(envelope.intent.participantId);
       actorMode = assertRecordBookingAttendanceAuthorization(envelope, {
         booking,
         existingAttendance,
         now,
+        attendancesByParticipantId: currentAttendancesByParticipantId,
       });
 
       const attendanceId = attendanceIdFromBookingIdentity({
@@ -236,7 +240,9 @@ function recordBookingAttendanceHandler(
         attendanceMutation = 'update';
         if (existingAttendance.attendanceStatus === envelope.intent.attendanceStatus) {
           plannedAttendance = existingAttendance;
-          if (actorMode === 'instructor') {
+          // Confirmed bookings may still need outcome resolution after endsAt even
+          // when Attendance status is unchanged (evidence recorded before endsAt).
+          if (actorMode === 'instructor' && booking.lifecycle.status !== 'confirmed') {
             return;
           }
         }
@@ -330,16 +336,8 @@ function recordBookingAttendanceHandler(
         });
       }
 
-      const attendancesByParticipantId = new Map<ParticipantId, Attendance>();
-      for (const participantId of booking.occurrence.serviceParty.participantIds) {
-        const current =
-          participantId === envelope.intent.participantId
-            ? plannedAttendance
-            : await readAttendanceForParticipant(session, booking, participantId);
-        if (current) {
-          attendancesByParticipantId.set(participantId, current);
-        }
-      }
+      const attendancesByParticipantId = new Map(currentAttendancesByParticipantId);
+      attendancesByParticipantId.set(envelope.intent.participantId, plannedAttendance);
 
       if (actorMode === 'administrator' || actorMode === 'admin_terminal_correction') {
         const reason = envelope.intent.reasonExplanation!.trim();

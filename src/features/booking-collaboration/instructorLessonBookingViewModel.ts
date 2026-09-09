@@ -44,6 +44,12 @@ export function mapInstructorLessonBookingReadModel(
     notes: readModel.notes,
     bookingOrigin: readModel.bookingOrigin,
     authorizedActions: readModel.authorizedActions,
+    attendance: (readModel.attendance ?? []).map((row) => ({
+      participantId: row.participantId,
+      ...(row.attendanceStatus ? { attendanceStatus: row.attendanceStatus } : {}),
+      ...(row.revision !== undefined ? { revision: row.revision } : {}),
+      authorizedActions: row.authorizedActions,
+    })),
   };
 }
 

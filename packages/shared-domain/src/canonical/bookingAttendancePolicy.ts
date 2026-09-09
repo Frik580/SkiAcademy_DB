@@ -8,17 +8,12 @@ import {
 import type { Booking } from './bookingOccurrenceProposalChange';
 import type { BookingId, InstructorId, OccurrenceId, ParticipantId } from './identifiers';
 import { addMillisecondsToCanonicalTimestamp } from './guestBooking';
-import {
-  compareCanonicalTimestamps,
-  type CanonicalTimestamp,
-} from './primitives';
+import { compareCanonicalTimestamps, type CanonicalTimestamp } from './primitives';
 
 export const BOOKING_INSTRUCTOR_ATTENDANCE_WINDOW_MS = 24 * 60 * 60 * 1_000;
 
 export type InstructorAttendanceWindowDecision =
-  | 'before_start'
-  | 'in_window'
-  | 'after_instructor_window';
+  'before_start' | 'in_window' | 'after_instructor_window';
 
 export type BookingOutcomeEligibilityDecision = 'not_yet_eligible' | 'eligible';
 
@@ -27,15 +22,9 @@ export type BookingAttendanceTargetDecision =
   | { readonly outcome: 'service_party_not_frozen' }
   | { readonly outcome: 'participant_not_in_target'; readonly participantId: ParticipantId };
 
-export type IndividualBookingAttendanceOutcome =
-  | 'completed'
-  | 'no_show'
-  | 'missing_attendance';
+export type IndividualBookingAttendanceOutcome = 'completed' | 'no_show' | 'missing_attendance';
 
-export type GroupBookingAttendanceOutcome =
-  | 'completed'
-  | 'no_show'
-  | 'missing_attendance';
+export type GroupBookingAttendanceOutcome = 'completed' | 'no_show' | 'missing_attendance';
 
 export type BookingOutcomeCalculatorDecision =
   | { readonly outcome: 'not_yet_eligible' }
@@ -50,7 +39,9 @@ export type BookingOutcomeCalculatorDecision =
       readonly missingParticipantIds: readonly ParticipantId[];
     };
 
-export function bookingInstructorAttendanceWindowEnd(endsAt: CanonicalTimestamp): CanonicalTimestamp {
+export function bookingInstructorAttendanceWindowEnd(
+  endsAt: CanonicalTimestamp
+): CanonicalTimestamp {
   return addMillisecondsToCanonicalTimestamp(endsAt, BOOKING_INSTRUCTOR_ATTENDANCE_WINDOW_MS);
 }
 
@@ -109,9 +100,19 @@ export function deriveIndividualBookingAttendanceOutcome(
   return attendance.attendanceStatus === 'present' ? 'completed' : 'no_show';
 }
 
-export function deriveGroupBookingAttendanceOutcome(input: {
+function groupAttendanceStatuses(
+  attendancesByParticipantId: ReadonlyMap<ParticipantId, Attendance>
+): Map<ParticipantId, AttendanceStatus> {
+  const statuses = new Map<ParticipantId, AttendanceStatus>();
+  for (const [participantId, attendance] of attendancesByParticipantId) {
+    statuses.set(participantId, attendance.attendanceStatus);
+  }
+  return statuses;
+}
+
+export function deriveGroupBookingAttendanceOutcomeFromStatuses(input: {
   readonly targetParticipantIds: readonly ParticipantId[];
-  readonly attendancesByParticipantId: ReadonlyMap<ParticipantId, Attendance>;
+  readonly statusByParticipantId: ReadonlyMap<ParticipantId, AttendanceStatus>;
 }): {
   readonly outcome: GroupBookingAttendanceOutcome;
   readonly missingParticipantIds: readonly ParticipantId[];
@@ -121,12 +122,12 @@ export function deriveGroupBookingAttendanceOutcome(input: {
   const missingParticipantIds: ParticipantId[] = [];
 
   for (const participantId of input.targetParticipantIds) {
-    const attendance = input.attendancesByParticipantId.get(participantId);
-    if (!attendance) {
+    const attendanceStatus = input.statusByParticipantId.get(participantId);
+    if (!attendanceStatus) {
       missingParticipantIds.push(participantId);
       continue;
     }
-    if (attendance.attendanceStatus === 'present') {
+    if (attendanceStatus === 'present') {
       presentCount += 1;
     } else {
       absentCount += 1;
@@ -140,6 +141,19 @@ export function deriveGroupBookingAttendanceOutcome(input: {
     return { outcome: 'no_show', missingParticipantIds };
   }
   return { outcome: 'missing_attendance', missingParticipantIds };
+}
+
+export function deriveGroupBookingAttendanceOutcome(input: {
+  readonly targetParticipantIds: readonly ParticipantId[];
+  readonly attendancesByParticipantId: ReadonlyMap<ParticipantId, Attendance>;
+}): {
+  readonly outcome: GroupBookingAttendanceOutcome;
+  readonly missingParticipantIds: readonly ParticipantId[];
+} {
+  return deriveGroupBookingAttendanceOutcomeFromStatuses({
+    targetParticipantIds: input.targetParticipantIds,
+    statusByParticipantId: groupAttendanceStatuses(input.attendancesByParticipantId),
+  });
 }
 
 export function missingBookingAttendanceIssueIdentity(input: {
@@ -172,7 +186,9 @@ export function attendancePaymentConflictIdentity(input: {
   };
 }
 
-export function hasOpenOutcomeBlockingAdminIssue(issues: readonly AdminIssue[]): AdminIssue | undefined {
+export function hasOpenOutcomeBlockingAdminIssue(
+  issues: readonly AdminIssue[]
+): AdminIssue | undefined {
   return issues.find(
     (issue) =>
       issue.lifecycle.status === 'open' &&
@@ -214,15 +230,10 @@ export function evaluateBookingOutcomeCalculator(input: {
     return { outcome: 'blocked_terminal_lifecycle' };
   }
 
-  const eligibility = input.automationOnly
-    ? evaluateBookingAutomationEligibility({
-        now: input.now,
-        endsAt: booking.occurrence.interval.endsAt,
-      })
-    : evaluateBookingOutcomeEligibility({
-        now: input.now,
-        endsAt: booking.occurrence.interval.endsAt,
-      });
+  const eligibility = evaluateBookingOutcomeEligibility({
+    now: input.now,
+    endsAt: booking.occurrence.interval.endsAt,
+  });
 
   if (eligibility === 'not_yet_eligible') {
     return { outcome: 'not_yet_eligible' };
@@ -238,6 +249,15 @@ export function evaluateBookingOutcomeCalculator(input: {
   }
 
   if (!booking.occurrence.serviceParty.frozenAt) {
+    if (input.automationOnly) {
+      const automationEligibility = evaluateBookingAutomationEligibility({
+        now: input.now,
+        endsAt: booking.occurrence.interval.endsAt,
+      });
+      if (automationEligibility === 'not_yet_eligible') {
+        return { outcome: 'not_yet_eligible' };
+      }
+    }
     return {
       outcome: 'unresolved',
       issueKind: 'missing_attendance',
@@ -268,6 +288,18 @@ export function evaluateBookingOutcomeCalculator(input: {
     return { outcome: 'resolve', lifecycle: 'no_show' };
   }
 
+  // Deterministic completed/no_show resolve at endsAt. Missing Attendance stays
+  // confirmed during the Instructor window; only the scheduler opens issues at +24h.
+  if (input.automationOnly) {
+    const automationEligibility = evaluateBookingAutomationEligibility({
+      now: input.now,
+      endsAt: booking.occurrence.interval.endsAt,
+    });
+    if (automationEligibility === 'not_yet_eligible') {
+      return { outcome: 'not_yet_eligible' };
+    }
+  }
+
   return {
     outcome: 'unresolved',
     issueKind: 'missing_attendance',
@@ -283,4 +315,111 @@ export function instructorMayCorrectAttendance(input: {
     input.existing.recordedBy.kind === 'instructor' &&
     input.existing.recordedBy.instructorId === input.instructorId
   );
+}
+
+export function deriveGroupBookingAttendanceOutcomeAfterRecord(input: {
+  readonly targetParticipantIds: readonly ParticipantId[];
+  readonly attendancesByParticipantId: ReadonlyMap<ParticipantId, Attendance>;
+  readonly participantId: ParticipantId;
+  readonly attendanceStatus: AttendanceStatus;
+}): GroupBookingAttendanceOutcome {
+  const statusByParticipantId = groupAttendanceStatuses(input.attendancesByParticipantId);
+  statusByParticipantId.set(input.participantId, input.attendanceStatus);
+  return deriveGroupBookingAttendanceOutcomeFromStatuses({
+    targetParticipantIds: input.targetParticipantIds,
+    statusByParticipantId,
+  }).outcome;
+}
+
+export function instructorMayFillMissingFamilyGroupAttendanceOnTerminal(input: {
+  readonly booking: Booking;
+  readonly participantId: ParticipantId;
+  readonly existingAttendance: Attendance | undefined;
+  readonly intentAttendanceStatus: AttendanceStatus;
+  readonly attendancesByParticipantId: ReadonlyMap<ParticipantId, Attendance>;
+}): boolean {
+  if (input.booking.party.kind !== 'family_group') {
+    return false;
+  }
+  if (
+    input.booking.lifecycle.status !== 'completed' &&
+    input.booking.lifecycle.status !== 'no_show'
+  ) {
+    return false;
+  }
+  if (input.existingAttendance) {
+    return false;
+  }
+  const target = resolveBookingAttendanceTargets(input.booking, input.participantId);
+  if (target.outcome !== 'ready') {
+    return false;
+  }
+  const projectedOutcome = deriveGroupBookingAttendanceOutcomeAfterRecord({
+    targetParticipantIds: target.participantIds,
+    attendancesByParticipantId: input.attendancesByParticipantId,
+    participantId: input.participantId,
+    attendanceStatus: input.intentAttendanceStatus,
+  });
+  return projectedOutcome === input.booking.lifecycle.status;
+}
+
+export function evaluateInstructorBookingAttendanceActions(input: {
+  readonly booking: Booking;
+  readonly now: CanonicalTimestamp;
+  readonly participantId: ParticipantId;
+  readonly existingAttendance: Attendance | undefined;
+  readonly attendancesByParticipantId: ReadonlyMap<ParticipantId, Attendance>;
+}): {
+  readonly canRecordPresent: boolean;
+  readonly canRecordAbsent: boolean;
+} {
+  const denied = { canRecordPresent: false, canRecordAbsent: false };
+  const target = resolveBookingAttendanceTargets(input.booking, input.participantId);
+  if (target.outcome !== 'ready') {
+    return denied;
+  }
+  if (
+    evaluateInstructorAttendanceWindow({
+      now: input.now,
+      startsAt: input.booking.occurrence.interval.startsAt,
+      endsAt: input.booking.occurrence.interval.endsAt,
+    }) !== 'in_window'
+  ) {
+    return denied;
+  }
+
+  const status = input.existingAttendance?.attendanceStatus;
+  const lifecycleStatus = input.booking.lifecycle.status;
+  if (lifecycleStatus === 'confirmed' || lifecycleStatus === 'pending_cancellation') {
+    if (!status) {
+      return { canRecordPresent: true, canRecordAbsent: true };
+    }
+    const canCorrect = instructorMayCorrectAttendance({
+      existing: input.existingAttendance!,
+      instructorId: input.booking.occurrence.instructorId,
+    });
+    if (status === 'present') {
+      return { canRecordPresent: false, canRecordAbsent: canCorrect };
+    }
+    return { canRecordPresent: canCorrect, canRecordAbsent: false };
+  }
+
+  const canFillPresent = instructorMayFillMissingFamilyGroupAttendanceOnTerminal({
+    booking: input.booking,
+    participantId: input.participantId,
+    existingAttendance: input.existingAttendance,
+    intentAttendanceStatus: 'present',
+    attendancesByParticipantId: input.attendancesByParticipantId,
+  });
+  const canFillAbsent = instructorMayFillMissingFamilyGroupAttendanceOnTerminal({
+    booking: input.booking,
+    participantId: input.participantId,
+    existingAttendance: input.existingAttendance,
+    intentAttendanceStatus: 'absent',
+    attendancesByParticipantId: input.attendancesByParticipantId,
+  });
+  return {
+    canRecordPresent: canFillPresent,
+    canRecordAbsent: canFillAbsent,
+  };
 }

@@ -50,6 +50,10 @@ export interface EnrichedBooking {
     userId?: string;
     clientName: string;
     clientAvatar?: string;
+    attendanceStatus?: 'present' | 'absent';
+    attendanceRevision?: number;
+    canRecordPresent: boolean;
+    canRecordAbsent: boolean;
   }[];
   userId?: string;
   clientName: string;
@@ -61,6 +65,69 @@ export interface EnrichedBooking {
 export type DisplayBooking = EnrichedBooking;
 
 type StatusFilter = 'all' | 'pending' | 'confirmed' | 'completed';
+
+export function hasOutstandingInstructorLessonAttendance(
+  booking: Pick<EnrichedBooking, 'participants'>
+): boolean {
+  return booking.participants.some(
+    (participant) => participant.canRecordPresent || participant.canRecordAbsent
+  );
+}
+
+export function isInstructorBookingVisibleForStatusFilter(
+  booking: Pick<EnrichedBooking, 'status' | 'participants'>,
+  statusFilter: StatusFilter
+): boolean {
+  if (statusFilter === 'all' || booking.status === statusFilter) {
+    return true;
+  }
+  // After one family/group present, Booking may become completed. Keep it on the
+  // confirmed filter while any service participant still has recordable Attendance
+  // so the Instructor can finish remaining facts without a fake lifecycle.
+  return statusFilter === 'confirmed' && hasOutstandingInstructorLessonAttendance(booking);
+}
+
+type InstructorLessonScheduleSortable = Pick<
+  EnrichedBooking,
+  'startsAtEpochMs' | 'endsAtEpochMs' | 'id'
+>;
+
+type InstructorLessonScheduleRank = 0 | 1 | 2;
+
+export function getInstructorLessonScheduleRank(
+  booking: Pick<EnrichedBooking, 'startsAtEpochMs' | 'endsAtEpochMs'>,
+  nowMs: number = Date.now()
+): InstructorLessonScheduleRank {
+  if (nowMs >= booking.startsAtEpochMs && nowMs < booking.endsAtEpochMs) {
+    return 0;
+  }
+  if (nowMs < booking.startsAtEpochMs) {
+    return 1;
+  }
+  return 2;
+}
+
+export function compareInstructorLessonDisplayOrder(
+  left: InstructorLessonScheduleSortable,
+  right: InstructorLessonScheduleSortable,
+  nowMs: number = Date.now()
+): number {
+  const leftRank = getInstructorLessonScheduleRank(left, nowMs);
+  const rightRank = getInstructorLessonScheduleRank(right, nowMs);
+  if (leftRank !== rightRank) {
+    return leftRank - rightRank;
+  }
+
+  const startCompare =
+    leftRank === 2
+      ? right.startsAtEpochMs - left.startsAtEpochMs
+      : left.startsAtEpochMs - right.startsAtEpochMs;
+  if (startCompare !== 0) {
+    return startCompare;
+  }
+
+  return left.id.localeCompare(right.id);
+}
 
 export const useInstructorWorkspace = ({
   userProfile,
@@ -98,15 +165,27 @@ export const useInstructorWorkspace = ({
           booking.instructorId === userProfile.instructorId && booking.status !== 'cancelled'
       )
       .map((booking): EnrichedBooking => {
+        const attendanceByParticipantId = new Map(
+          (booking.attendance ?? []).map((row) => [row.participantId, row])
+        );
         const participants = booking.participants.map((participant) => {
           const client = participant.selfAccountId
             ? usersList.find((user) => user.uid === participant.selfAccountId)
             : undefined;
+          const attendance = attendanceByParticipantId.get(participant.participantId);
           return {
             participantId: participant.participantId,
             ...(participant.selfAccountId ? { userId: participant.selfAccountId } : {}),
             clientName: client?.displayName || participant.displayName,
             clientAvatar: client?.avatarUrl || '',
+            ...(attendance?.attendanceStatus
+              ? { attendanceStatus: attendance.attendanceStatus }
+              : {}),
+            ...(attendance?.revision !== undefined
+              ? { attendanceRevision: attendance.revision }
+              : {}),
+            canRecordPresent: attendance?.authorizedActions.canRecordPresent ?? false,
+            canRecordAbsent: attendance?.authorizedActions.canRecordAbsent ?? false,
           };
         });
         const primaryParticipant = participants[0]!;
@@ -154,8 +233,8 @@ export const useInstructorWorkspace = ({
 
   const displayedBookings = useMemo(() => {
     return instructorBookings
-      .filter((b) => statusFilter === 'all' || b.status === statusFilter)
-      .sort((a, b) => b.date.localeCompare(a.date));
+      .filter((b) => isInstructorBookingVisibleForStatusFilter(b, statusFilter))
+      .sort(compareInstructorLessonDisplayOrder);
   }, [instructorBookings, statusFilter]);
 
   const instructorReviews = useMemo(() => {

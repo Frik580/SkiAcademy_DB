@@ -47,8 +47,9 @@ async function loadCustomerCollaborationReads(): Promise<void> {
     );
 }
 
-async function loadAllInstructorHotLessonBookingPages() {
-  const scope = 'instructor_hot' as const;
+async function loadAllInstructorLessonBookingPages(
+  scope: 'instructor_hot' | 'instructor_history'
+) {
   const items: LessonBookingReadModel[] = [];
   let cursor: string | undefined;
   const seenCursors = new Set<string>();
@@ -70,8 +71,8 @@ async function loadAllInstructorHotLessonBookingPages() {
 
 async function loadInstructorCollaborationReads(): Promise<void> {
   const [hotLessonBookings, historyLessonBookings, proposals, changeRequests] = await Promise.all([
-    loadAllInstructorHotLessonBookingPages(),
-    queryLessonBookingReadModels({ scope: 'instructor_history' }),
+    loadAllInstructorLessonBookingPages('instructor_hot'),
+    loadAllInstructorLessonBookingPages('instructor_history'),
     queryBookingProposalReadModels({ scope: 'instructor_open' }),
     queryBookingChangeRequestReadModels({ scope: 'instructor_open' }),
   ]);
@@ -80,7 +81,7 @@ async function loadInstructorCollaborationReads(): Promise<void> {
     .setInstructorLessonBookings(
       mergeInstructorLessonBookingRecords(new Map(), [
         ...hotLessonBookings,
-        ...historyLessonBookings.items,
+        ...historyLessonBookings,
       ])
     );
   useBookingCollaborationStore

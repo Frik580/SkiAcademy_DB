@@ -83,6 +83,41 @@ describe('useBookingCollaborationReadSync instructor panel', () => {
       scope: 'instructor_hot',
       cursor: 'instructor_hot:2',
     });
-    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledWith({ scope: 'instructor_history' });
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledWith({
+      scope: 'instructor_history',
+    });
+  });
+
+  it('follows every instructor history cursor so records beyond the first page stay reachable', async () => {
+    queryLessonBookingReadModelsMock.mockImplementation(
+      async (input: { scope: 'instructor_hot' | 'instructor_history'; cursor?: string }) => {
+        if (input.scope === 'instructor_history' && !input.cursor) {
+          return {
+            scope: input.scope,
+            items: [],
+            hasMore: true,
+            nextCursor: 'instructor_history:2',
+          };
+        }
+        return { scope: input.scope, items: [], hasMore: false };
+      }
+    );
+
+    renderHook(() =>
+      useBookingCollaborationReadSync({
+        customerEnabled: false,
+        instructorEnabled: true,
+        instructorId: 'instructor_fixture_01',
+      })
+    );
+
+    await waitFor(() => {
+      expect(useBookingCollaborationStore.getState().loaded).toBe(true);
+    });
+
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledWith({
+      scope: 'instructor_history',
+      cursor: 'instructor_history:2',
+    });
   });
 });

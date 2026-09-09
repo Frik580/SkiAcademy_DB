@@ -13,6 +13,7 @@ import {
   mergeChangeRequestRecords,
 } from '../../src/features/booking-collaboration/changeRequestViewModel';
 import { mapParticipantInstructorAccessReadModelToCabinetItem } from '../../src/features/booking-collaboration/participantAccessViewModel';
+import { mergeInstructorLessonBookingRecords } from '../../src/features/booking-collaboration/instructorLessonBookingViewModel';
 import {
   deriveAcceptProposalIdempotencyKey,
   deriveRescheduleBookingIdempotencyKey,
@@ -120,8 +121,33 @@ describe('booking collaboration idempotency keys', () => {
     expect(deriveAcceptProposalIdempotencyKey('booking_proposal_a', 2)).toBe(
       'accept-proposal:booking_proposal_a:2'
     );
-    expect(deriveRecordInstructorAttendanceIdempotencyKey('booking_a', 'participant_a', 4)).toBe(
-      'attendance-present:booking_a:participant_a:4'
+    expect(
+      deriveRecordInstructorAttendanceIdempotencyKey({
+        bookingId: 'booking_a',
+        participantId: 'participant_a',
+        attendanceStatus: 'present',
+      })
+    ).toBe('attendance:booking_a:participant_a:present:missing');
+    expect(
+      deriveRecordInstructorAttendanceIdempotencyKey({
+        bookingId: 'booking_a',
+        participantId: 'participant_a',
+        attendanceStatus: 'absent',
+        expectedAttendanceRevision: 1,
+      })
+    ).toBe('attendance:booking_a:participant_a:absent:1');
+    expect(
+      deriveRecordInstructorAttendanceIdempotencyKey({
+        bookingId: 'booking_a',
+        participantId: 'participant_a',
+        attendanceStatus: 'present',
+      })
+    ).toBe(
+      deriveRecordInstructorAttendanceIdempotencyKey({
+        bookingId: 'booking_a',
+        participantId: 'participant_a',
+        attendanceStatus: 'present',
+      })
     );
   });
 });
@@ -136,5 +162,69 @@ describe('booking collaboration error mapping', () => {
     );
     expect(presented.shouldRefresh).toBe(true);
     expect(presented.currentRevision).toBe(9);
+  });
+});
+
+describe('instructor lesson booking store refresh', () => {
+  it('replaces a confirmed booking with the terminal read model after refetch', () => {
+    const bookingId = BookingIdSchema.parse('booking_instructor_refresh_01');
+    const participantId = ParticipantIdSchema.parse('participant_instructor_refresh_01');
+    const instructorId = InstructorIdSchema.parse('instructor_instructor_refresh_01');
+    const base = {
+      bookingId,
+      partyKind: 'individual' as const,
+      participantIds: [participantId],
+      participants: [{ participantId, displayName: 'Student' }],
+      instructor: { instructorId, displayName: 'Coach' },
+      occurrence: {
+        startsAt: serviceStart,
+        endsAt: serviceEnd,
+        timeZone: 'Asia/Almaty',
+        durationMinutes: 60,
+      },
+      bookingOrigin: 'account' as const,
+      notes: '',
+      authorizedActions: {
+        canRequestCancellation: false,
+        canWithdrawCancellation: false,
+        canReschedule: false,
+        canCreateChangeRequest: false,
+      },
+      updatedAt: decidedAt,
+    };
+    const confirmed = mergeInstructorLessonBookingRecords(new Map(), [
+      {
+        ...base,
+        revision: 1,
+        lifecycle: { status: 'confirmed' as const },
+        attendance: [
+          {
+            participantId,
+            attendanceStatus: 'present' as const,
+            revision: 1,
+            authorizedActions: { canRecordPresent: false, canRecordAbsent: true },
+          },
+        ],
+      },
+    ]);
+    expect(confirmed.get(bookingId)?.status).toBe('confirmed');
+
+    const completed = mergeInstructorLessonBookingRecords(confirmed, [
+      {
+        ...base,
+        revision: 2,
+        lifecycle: { status: 'completed' as const, completedAt: serviceEnd },
+        attendance: [
+          {
+            participantId,
+            attendanceStatus: 'present' as const,
+            revision: 1,
+            authorizedActions: { canRecordPresent: false, canRecordAbsent: false },
+          },
+        ],
+      },
+    ]);
+    expect(completed.get(bookingId)?.status).toBe('completed');
+    expect(completed.get(bookingId)?.revision).toBe(2);
   });
 });

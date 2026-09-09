@@ -81,12 +81,24 @@ export function deriveWithdrawChangeRequestIdempotencyKey(
   return `withdraw-change-request:${requestId}:${expectedRevision}` as IdempotencyKey;
 }
 
-export function deriveRecordInstructorAttendanceIdempotencyKey(
+export function instructorLessonAttendanceSubmissionId(
   bookingId: string,
-  participantId: string,
-  bookingRevision: number
-): IdempotencyKey {
-  return `attendance-present:${bookingId}:${participantId}:${bookingRevision}` as IdempotencyKey;
+  participantId: string
+): string {
+  return `${bookingId}:${participantId}`;
+}
+
+export function deriveRecordInstructorAttendanceIdempotencyKey(input: {
+  readonly bookingId: string;
+  readonly participantId: string;
+  readonly attendanceStatus: 'present' | 'absent';
+  readonly expectedAttendanceRevision?: number;
+}): IdempotencyKey {
+  const revisionToken =
+    input.expectedAttendanceRevision === undefined
+      ? 'missing'
+      : String(input.expectedAttendanceRevision);
+  return `attendance:${input.bookingId}:${input.participantId}:${input.attendanceStatus}:${revisionToken}` as IdempotencyKey;
 }
 
 export function deriveCreateRelationshipIdempotencyKey(relationshipId: string): IdempotencyKey {

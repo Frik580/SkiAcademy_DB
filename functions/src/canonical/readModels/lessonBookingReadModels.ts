@@ -10,6 +10,7 @@ import {
   resolveClientCallableCapabilityFromPartyAuthorities,
   isConfirmedBooking,
   evaluateGuestManualPaymentAcceptance,
+  isInstructorLessonBookingHot,
   isLessonBookingHot,
   isPendingCancellationBooking,
   isRescheduleEligibleBooking,
@@ -20,6 +21,7 @@ import {
   refundableRetainedAmount,
   evaluateLessonBookingAuthorizedActions,
   evaluateInstructorLessonBookingAuthorizedActions,
+  evaluateInstructorBookingAttendanceActions,
   sanitizeParticipantProfileForInstructor,
   evaluateAdminGuestBookingIdentityLinkAvailability,
   type Account,
@@ -48,7 +50,9 @@ import {
   LESSON_BOOKING_READ_MODEL_PAGE_SIZE_MAX,
   timestampFromDate,
   guestSubjectIdFromBookingId,
+  type Attendance,
   type CanonicalTimestamp,
+  type ParticipantId,
 } from '@ski-academy/shared-domain';
 import type { Firestore, Query, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { parseAdminIssue } from '../adminIssues';
@@ -819,7 +823,8 @@ export async function buildInstructorLessonBookingReadModel(
   firestore: Firestore,
   instructorId: InstructorId,
   booking: Booking,
-  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
+  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore),
+  now: CanonicalTimestamp = timestampFromDate(new Date())
 ): Promise<LessonBookingReadModel | undefined> {
   if (booking.occurrence.instructorId !== instructorId) {
     return undefined;
@@ -832,6 +837,45 @@ export async function buildInstructorLessonBookingReadModel(
   );
   if (!instructorCatalog) {
     return undefined;
+  }
+
+  const attendanceSnaps = await Promise.all(
+    booking.occurrence.serviceParty.participantIds.map((participantId) => {
+      const attendanceId = attendanceIdFromBookingIdentity({
+        strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,
+        subjectKind: 'booking',
+        occurrenceId: booking.occurrence.occurrenceId,
+        participantId,
+      });
+      return readContext.attendance(attendanceId);
+    })
+  );
+  const attendancesByParticipantId = new Map<ParticipantId, Attendance>();
+  const attendanceRecords: Array<{
+    readonly participantId: ParticipantId;
+    readonly record: Attendance | undefined;
+  }> = [];
+  for (let index = 0; index < booking.occurrence.serviceParty.participantIds.length; index += 1) {
+    const participantId = booking.occurrence.serviceParty.participantIds[index]!;
+    const snapshot = attendanceSnaps[index]!;
+    const record = snapshot.exists
+      ? parseAttendance(snapshot.data() as Record<string, unknown>)
+      : undefined;
+    if (
+      snapshot.exists &&
+      (!record ||
+        record.attendanceId !== snapshot.id ||
+        record.subject.subjectKind !== 'booking' ||
+        record.subject.bookingId !== booking.bookingId ||
+        record.subject.occurrenceId !== booking.occurrence.occurrenceId ||
+        record.subject.participantId !== participantId)
+    ) {
+      throw new Error(`Canonical lesson Booking read integrity failure: attendance/${snapshot.id}`);
+    }
+    if (record) {
+      attendancesByParticipantId.set(participantId, record);
+    }
+    attendanceRecords.push({ participantId, record });
   }
 
   const participants: LessonBookingReadModelParticipantProjection[] = [];
@@ -890,6 +934,22 @@ export async function buildInstructorLessonBookingReadModel(
       instructorId,
       booking,
     }),
+    attendance: attendanceRecords.map(({ participantId, record }) => ({
+      participantId,
+      ...(record
+        ? {
+            attendanceStatus: record.attendanceStatus,
+            revision: record.revision,
+          }
+        : {}),
+      authorizedActions: evaluateInstructorBookingAttendanceActions({
+        booking,
+        now,
+        participantId,
+        existingAttendance: record,
+        attendancesByParticipantId,
+      }),
+    })),
     ...lessonContentFromBooking(booking),
     updatedAt: booking.updatedAt,
   };
@@ -1197,7 +1257,7 @@ export async function queryLessonBookingReadModels(
       for (const document of snapshot.docs) {
         const booking = parseBooking(document.data() as Record<string, unknown>);
         if (!booking || booking.archival?.isDeleted) continue;
-        const hot = isLessonBookingHot({
+        const hot = isInstructorLessonBookingHot({
           lifecycleStatus: booking.lifecycle.status,
           endsAt: booking.occurrence.interval.endsAt,
           now,
@@ -1222,7 +1282,8 @@ export async function queryLessonBookingReadModels(
         firestore,
         instructorId,
         booking,
-        readContext
+        readContext,
+        now
       );
       if (readModel) {
         items.push(readModel);

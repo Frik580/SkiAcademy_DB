@@ -6,6 +6,7 @@ import {
   useBookingCollaborationStore,
 } from './bookingCollaborationStore';
 import { useBookingCollaborationCommands } from './useBookingCollaborationCommands';
+import { instructorLessonAttendanceSubmissionId } from './deriveCollaborationIdempotencyKeys';
 import type {
   BookingChangeRequestCabinetItem,
   BookingProposalCabinetItem,
@@ -111,22 +112,23 @@ export function useInstructorBookingCollaboration(input: {
     [commands, handleCommandError, input]
   );
 
-  const handleCompleteLesson = useCallback(
-    async (booking: {
+  const handleRecordLessonAttendance = useCallback(
+    async (attempt: {
       readonly bookingId: string;
-      readonly revision: number;
       readonly participantId: string;
+      readonly attendanceStatus: 'present' | 'absent';
+      readonly expectedAttendanceRevision?: number;
     }) => {
-      setSubmittingId(booking.bookingId);
+      setSubmittingId(
+        instructorLessonAttendanceSubmissionId(attempt.bookingId, attempt.participantId)
+      );
       try {
-        await commands.recordLessonCompleted({
-          bookingId: booking.bookingId,
-          participantId: booking.participantId,
-          bookingRevision: booking.revision,
-        });
+        await commands.recordLessonAttendance(attempt);
         input.onNotify(
           'success',
-          input.t('instructorCompleteLesson'),
+          attempt.expectedAttendanceRevision === undefined
+            ? input.t('instructorAttendanceRecorded')
+            : input.t('instructorAttendanceUpdated'),
           input.t('scheduleUpdatedDesc')
         );
       } catch (error) {
@@ -169,7 +171,7 @@ export function useInstructorBookingCollaboration(input: {
     handleWithdrawProposal,
     handleCreateProposal,
     handleCreateChangeRequest,
-    handleCompleteLesson,
+    handleRecordLessonAttendance,
     handleWithdrawChangeRequest,
     refetchParticipantAccessRead: commands.refetchParticipantAccessRead,
     blockParticipant: commands.blockParticipant,

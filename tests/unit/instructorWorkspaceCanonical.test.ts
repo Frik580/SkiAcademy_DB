@@ -25,7 +25,11 @@ vi.mock('../../src/features/student-cabinet/useBookingChatUnread', () => ({
   }),
 }));
 
-import { useInstructorWorkspace } from '../../src/features/instructor-workspace/components/useInstructorWorkspace';
+import {
+  compareInstructorLessonDisplayOrder,
+  getInstructorLessonScheduleRank,
+  useInstructorWorkspace,
+} from '../../src/features/instructor-workspace/components/useInstructorWorkspace';
 
 const instructorId = 'instructor_workspace_01';
 const userProfile = {
@@ -150,5 +154,64 @@ describe('useInstructorWorkspace canonical lesson isolation', () => {
       result.current.displayedBookings.find((booking) => booking.id === 'booking_pending_01')
         ?.authorizedActions.canCreateChangeRequest
     ).toBe(false);
+  });
+
+  it('sorts displayed bookings with the current lesson first, then upcoming by start time', () => {
+    const nowMs = Date.parse('2026-02-01T11:00:00Z');
+    const pastBooking = {
+      ...individualBooking,
+      bookingId: 'booking_past_01',
+      date: '2026-01-31',
+      time: '10:00',
+      startsAtEpochMs: Date.parse('2026-01-31T10:00:00Z'),
+      endsAtEpochMs: Date.parse('2026-01-31T12:00:00Z'),
+    } as InstructorLessonBookingItem;
+    const currentBooking = {
+      ...individualBooking,
+      bookingId: 'booking_current_01',
+      date: '2026-02-01',
+      time: '10:30',
+      startsAtEpochMs: Date.parse('2026-02-01T10:30:00Z'),
+      endsAtEpochMs: Date.parse('2026-02-01T11:30:00Z'),
+    } as InstructorLessonBookingItem;
+    const nextBooking = {
+      ...individualBooking,
+      bookingId: 'booking_next_01',
+      date: '2026-02-01',
+      time: '12:00',
+      startsAtEpochMs: Date.parse('2026-02-01T12:00:00Z'),
+      endsAtEpochMs: Date.parse('2026-02-01T13:00:00Z'),
+    } as InstructorLessonBookingItem;
+    const laterBooking = {
+      ...individualBooking,
+      bookingId: 'booking_later_01',
+      date: '2026-02-02',
+      time: '09:00',
+      startsAtEpochMs: Date.parse('2026-02-02T09:00:00Z'),
+      endsAtEpochMs: Date.parse('2026-02-02T10:00:00Z'),
+    } as InstructorLessonBookingItem;
+
+    const sorted = [
+      laterBooking,
+      pastBooking,
+      nextBooking,
+      currentBooking,
+    ]
+      .map((booking) => ({
+        id: booking.bookingId,
+        startsAtEpochMs: booking.startsAtEpochMs,
+        endsAtEpochMs: booking.endsAtEpochMs,
+      }))
+      .sort((left, right) => compareInstructorLessonDisplayOrder(left, right, nowMs));
+
+    expect(sorted.map((booking) => booking.id)).toEqual([
+      'booking_current_01',
+      'booking_next_01',
+      'booking_later_01',
+      'booking_past_01',
+    ]);
+    expect(getInstructorLessonScheduleRank(currentBooking, nowMs)).toBe(0);
+    expect(getInstructorLessonScheduleRank(nextBooking, nowMs)).toBe(1);
+    expect(getInstructorLessonScheduleRank(pastBooking, nowMs)).toBe(2);
   });
 });

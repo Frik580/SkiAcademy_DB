@@ -37,14 +37,21 @@ export function buildScheduledCommandIdempotencyKey(input: {
   readonly commandKind: CommandKind;
   readonly subjectId: string;
   readonly occurrenceId?: string;
+  readonly deadlineId?: string;
 }): IdempotencyKey {
   assertOpaqueIdempotencyMaterial('subjectId', input.subjectId);
   if (input.occurrenceId !== undefined) {
     assertOpaqueIdempotencyMaterial('occurrenceId', input.occurrenceId);
   }
+  if (input.deadlineId !== undefined) {
+    assertOpaqueIdempotencyMaterial('deadlineId', input.deadlineId);
+  }
   const parts = [input.systemActorId, input.commandKind, input.subjectId];
   if (input.occurrenceId !== undefined) {
     parts.push(input.occurrenceId);
+  }
+  if (input.deadlineId !== undefined) {
+    parts.push(input.deadlineId);
   }
   return buildScopedIdempotencyKey(parts);
 }

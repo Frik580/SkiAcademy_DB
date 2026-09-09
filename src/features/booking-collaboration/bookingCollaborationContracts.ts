@@ -59,6 +59,15 @@ export interface InstructorLessonBookingItem {
   readonly notes?: string;
   readonly bookingOrigin: 'account' | 'instructor' | 'admin' | 'guest';
   readonly authorizedActions: LessonBookingReadModelAuthorizedActions;
+  readonly attendance: readonly {
+    readonly participantId: string;
+    readonly attendanceStatus?: 'present' | 'absent';
+    readonly revision?: number;
+    readonly authorizedActions: {
+      readonly canRecordPresent: boolean;
+      readonly canRecordAbsent: boolean;
+    };
+  }[];
 }
 
 export interface ParticipantAccessCabinetItem {

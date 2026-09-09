@@ -15,6 +15,8 @@ import {
   evaluateBookingOutcomeCalculator,
   evaluateBookingOutcomeEligibility,
   evaluateInstructorAttendanceWindow,
+  evaluateInstructorBookingAttendanceActions,
+  instructorMayFillMissingFamilyGroupAttendanceOnTerminal,
   shouldCreateAttendancePaymentConflict,
 } from '@ski-academy/shared-domain';
 import {
@@ -61,6 +63,7 @@ function bookingFixture(
         : overrides.status === 'completed'
           ? { status: 'completed', completedAt: endsAt }
           : { status: 'confirmed' },
+    ...(overrides.status === 'completed' ? { updatedAt: endsAt } : {}),
   });
 }
 
@@ -242,5 +245,178 @@ describe('bookingAttendancePolicy', () => {
         openPaymentRequiredAtStart: true,
       })
     ).toBe(false);
+  });
+
+  it('lets instructor fill missing family_group attendance after completed without changing lifecycle', () => {
+    const booking = bookingFixture({
+      partyKind: 'family_group',
+      participantIds: [participantOne, participantTwo, participantThree],
+      status: 'completed',
+    });
+    const attendances = new Map([[participantOne, attendanceFor(participantOne, 'present')]]);
+    expect(
+      instructorMayFillMissingFamilyGroupAttendanceOnTerminal({
+        booking,
+        participantId: participantTwo,
+        existingAttendance: undefined,
+        intentAttendanceStatus: 'absent',
+        attendancesByParticipantId: attendances,
+      })
+    ).toBe(true);
+    expect(
+      instructorMayFillMissingFamilyGroupAttendanceOnTerminal({
+        booking,
+        participantId: participantOne,
+        existingAttendance: attendanceFor(participantOne, 'present'),
+        intentAttendanceStatus: 'absent',
+        attendancesByParticipantId: attendances,
+      })
+    ).toBe(false);
+
+    const actions = evaluateInstructorBookingAttendanceActions({
+      booking,
+      now: timestampFromDate(new Date('2026-01-15T11:00:00.000Z')),
+      participantId: participantTwo,
+      existingAttendance: undefined,
+      attendancesByParticipantId: attendances,
+    });
+    expect(actions).toEqual({ canRecordPresent: true, canRecordAbsent: true });
+    expect(
+      evaluateInstructorBookingAttendanceActions({
+        booking,
+        now: timestampFromDate(new Date('2026-01-15T11:00:00.000Z')),
+        participantId: participantOne,
+        existingAttendance: attendanceFor(participantOne, 'present'),
+        attendancesByParticipantId: attendances,
+      })
+    ).toEqual({ canRecordPresent: false, canRecordAbsent: false });
+    expect(
+      evaluateInstructorBookingAttendanceActions({
+        booking,
+        now: timestampFromDate(new Date('2026-01-16T10:00:00.001Z')),
+        participantId: participantTwo,
+        existingAttendance: undefined,
+        attendancesByParticipantId: attendances,
+      })
+    ).toEqual({ canRecordPresent: false, canRecordAbsent: false });
+  });
+
+  it('resolves deterministic outcomes at endsAt even for scheduler automation', () => {
+    const booking = bookingFixture();
+    const present = new Map([[participantOne, attendanceFor(participantOne, 'present')]]);
+    expect(
+      evaluateBookingOutcomeCalculator({
+        now: endsAt,
+        booking,
+        attendancesByParticipantId: present,
+        openAdminIssues: [],
+        automationOnly: true,
+      })
+    ).toEqual({ outcome: 'resolve', lifecycle: 'completed' });
+
+    const absent = new Map([[participantOne, attendanceFor(participantOne, 'absent')]]);
+    expect(
+      evaluateBookingOutcomeCalculator({
+        now: endsAt,
+        booking,
+        attendancesByParticipantId: absent,
+        openAdminIssues: [],
+        automationOnly: true,
+      })
+    ).toEqual({ outcome: 'resolve', lifecycle: 'no_show' });
+  });
+
+  it('defers scheduled missing_attendance until the instructor window ends', () => {
+    const booking = bookingFixture();
+    expect(
+      evaluateBookingOutcomeCalculator({
+        now: endsAt,
+        booking,
+        attendancesByParticipantId: new Map(),
+        openAdminIssues: [],
+        automationOnly: true,
+      })
+    ).toEqual({ outcome: 'not_yet_eligible' });
+    expect(
+      evaluateBookingOutcomeCalculator({
+        now: bookingInstructorAttendanceWindowEnd(endsAt),
+        booking,
+        attendancesByParticipantId: new Map(),
+        openAdminIssues: [],
+        automationOnly: true,
+      })
+    ).toEqual({
+      outcome: 'unresolved',
+      issueKind: 'missing_attendance',
+      missingParticipantIds: [participantOne],
+    });
+  });
+
+  it('keeps group bookings confirmed when no present exists and any attendance is missing', () => {
+    const booking = bookingFixture({
+      partyKind: 'family_group',
+      participantIds: [participantOne, participantTwo, participantThree],
+    });
+    const absentAndMissing = new Map([
+      [participantOne, attendanceFor(participantOne, 'absent')],
+      [participantTwo, attendanceFor(participantTwo, 'absent')],
+    ]);
+    expect(
+      evaluateBookingOutcomeCalculator({
+        now: endsAt,
+        booking,
+        attendancesByParticipantId: absentAndMissing,
+        openAdminIssues: [],
+        automationOnly: true,
+      })
+    ).toEqual({ outcome: 'not_yet_eligible' });
+    expect(
+      evaluateBookingOutcomeCalculator({
+        now: endsAt,
+        booking,
+        attendancesByParticipantId: absentAndMissing,
+        openAdminIssues: [],
+        automationOnly: false,
+      })
+    ).toEqual({
+      outcome: 'unresolved',
+      issueKind: 'missing_attendance',
+      missingParticipantIds: [participantThree],
+    });
+  });
+
+  it('completes a group booking from any present even when another participant is absent', () => {
+    const booking = bookingFixture({
+      partyKind: 'family_group',
+      participantIds: [participantOne, participantTwo, participantThree],
+    });
+    const twoPresentOneAbsent = new Map([
+      [participantOne, attendanceFor(participantOne, 'present')],
+      [participantTwo, attendanceFor(participantTwo, 'present')],
+      [participantThree, attendanceFor(participantThree, 'absent')],
+    ]);
+    expect(
+      evaluateBookingOutcomeCalculator({
+        now: endsAt,
+        booking,
+        attendancesByParticipantId: twoPresentOneAbsent,
+        openAdminIssues: [],
+        automationOnly: true,
+      })
+    ).toEqual({ outcome: 'resolve', lifecycle: 'completed' });
+  });
+
+  it('does not infer absent from missing evidence', () => {
+    expect(
+      deriveGroupBookingAttendanceOutcome({
+        targetParticipantIds: [participantOne, participantTwo, participantThree],
+        attendancesByParticipantId: new Map([
+          [participantOne, attendanceFor(participantOne, 'present')],
+        ]),
+      })
+    ).toMatchObject({
+      outcome: 'completed',
+      missingParticipantIds: [participantTwo, participantThree],
+    });
   });
 });

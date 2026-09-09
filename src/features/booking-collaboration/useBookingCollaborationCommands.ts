@@ -245,11 +245,12 @@ export function useBookingCollaborationCommands(input: {
     [accountId]
   );
 
-  const recordLessonCompleted = useCallback(
+  const recordLessonAttendance = useCallback(
     async (params: {
       readonly bookingId: string;
       readonly participantId: string;
-      readonly bookingRevision: number;
+      readonly attendanceStatus: 'present' | 'absent';
+      readonly expectedAttendanceRevision?: number;
     }): Promise<void> => {
       if (!accountId) throw new Error('Authentication is required.');
       const result = await executeAuthenticatedCanonicalCommand(accountId, {
@@ -257,13 +258,23 @@ export function useBookingCollaborationCommands(input: {
         intent: {
           bookingId: BookingIdSchema.parse(params.bookingId),
           participantId: ParticipantIdSchema.parse(params.participantId),
-          attendanceStatus: 'present',
+          attendanceStatus: params.attendanceStatus,
+          ...(params.expectedAttendanceRevision === undefined
+            ? {}
+            : {
+                expectedAttendanceRevision: AggregateRevisionSchema.parse(
+                  params.expectedAttendanceRevision
+                ),
+              }),
         },
-        idempotencyKey: deriveRecordInstructorAttendanceIdempotencyKey(
-          params.bookingId,
-          params.participantId,
-          params.bookingRevision
-        ),
+        idempotencyKey: deriveRecordInstructorAttendanceIdempotencyKey({
+          bookingId: params.bookingId,
+          participantId: params.participantId,
+          attendanceStatus: params.attendanceStatus,
+          ...(params.expectedAttendanceRevision === undefined
+            ? {}
+            : { expectedAttendanceRevision: params.expectedAttendanceRevision }),
+        }),
         exercisedCapability: 'instructor',
       });
       const error = mapCanonicalCommandResultError(result);
@@ -458,7 +469,7 @@ export function useBookingCollaborationCommands(input: {
     createProposal,
     withdrawProposal,
     createChangeRequest,
-    recordLessonCompleted,
+    recordLessonAttendance,
     withdrawChangeRequest,
     createRelationship,
     revokeRelationship,

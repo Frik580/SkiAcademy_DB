@@ -97,6 +97,15 @@
       "collectionGroup": "bookings",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "lifecycle.status", "order": "ASCENDING" },
+        { "fieldPath": "occurrence.interval.endsAt.seconds", "order": "DESCENDING" },
+        { "fieldPath": "bookingId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "attribution.bookingOrigin", "order": "ASCENDING" },
         { "fieldPath": "updatedAt.seconds", "order": "DESCENDING" },
         { "fieldPath": "updatedAt.nanoseconds", "order": "DESCENDING" },

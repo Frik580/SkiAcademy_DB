@@ -433,6 +433,7 @@ export const useInstructorWorkspace = ({
     linkedInstructor,
     stats,
     displayedBookings,
+    instructorBookings,
     instructorReviews,
     myStudents,
     selectedChatBooking,

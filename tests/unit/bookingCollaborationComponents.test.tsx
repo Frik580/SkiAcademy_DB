@@ -63,6 +63,7 @@ describe('booking collaboration components', () => {
             lifecycleStatus: 'open',
             lifecycleLabel: 'Open',
             authorizedActions: { canAccept: false, canDecline: false, canWithdraw: false },
+            sourceScope: 'account_open',
           },
         ]}
         onAccept={vi.fn()}
@@ -71,6 +72,39 @@ describe('booking collaboration components', () => {
     );
     expect(screen.queryByText('collabAcceptProposal')).not.toBeInTheDocument();
     expect(screen.queryByText('collabDeclineProposal')).not.toBeInTheDocument();
+  });
+
+  it('unmounts the proposal inbox when open proposals leave the list', () => {
+    const openProposal = {
+      proposalId: 'booking_proposal_component_01',
+      revision: 1,
+      participantId: 'participant_fixture_01',
+      instructorId: 'instructor_fixture_01',
+      participantDisplayName: 'Student',
+      instructorDisplayName: 'Coach',
+      date: '2026-06-15',
+      time: '08:00',
+      durationHours: 2,
+      lifecycleStatus: 'open',
+      lifecycleLabel: 'Open',
+      authorizedActions: { canAccept: true, canDecline: true, canWithdraw: false },
+      sourceScope: 'account_open' as const,
+    };
+    const { rerender } = render(
+      <CustomerProposalInbox
+        proposals={[openProposal]}
+        onAccept={vi.fn()}
+        onDecline={vi.fn()}
+      />
+    );
+    expect(screen.getByText('collabProposalInbox')).toBeInTheDocument();
+    expect(screen.getByText('collabAcceptProposal')).toBeInTheDocument();
+
+    rerender(
+      <CustomerProposalInbox proposals={[]} onAccept={vi.fn()} onDecline={vi.fn()} />
+    );
+    expect(screen.queryByText('collabProposalInbox')).not.toBeInTheDocument();
+    expect(screen.queryByText('collabAcceptProposal')).not.toBeInTheDocument();
   });
 
   it('renders cancellation withdraw only from canWithdrawCancellation', () => {

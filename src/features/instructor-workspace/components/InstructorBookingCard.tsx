@@ -33,6 +33,7 @@ interface InstructorBookingCardProps {
     existingComments?: Record<string, string>
   ) => void;
   collaboration: ReturnType<typeof useInstructorBookingCollaboration>;
+  canCreateProposal: boolean;
 }
 
 export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
@@ -46,6 +47,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
   onUpdateStudentLevel,
   onOpenEval,
   collaboration,
+  canCreateProposal,
 }) => {
   const b = booking;
   const renderParticipant = (participant: DisplayBooking['participants'][number]) => {
@@ -250,6 +252,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
               label: b.clientName ?? 'Student',
             })
           }
+          canCreateProposal={canCreateProposal}
           onWithdrawProposal={collaboration.handleWithdrawProposal}
           onCreateChangeRequest={
             b.authorizedActions.canCreateChangeRequest

@@ -33,8 +33,12 @@ async function loadCustomerCollaborationReads(): Promise<void> {
   ]);
   useBookingCollaborationStore
     .getState()
-    .mergeProposals(
-      mergeProposalRecords(useBookingCollaborationStore.getState().proposals, proposals.items)
+    .setProposals(
+      mergeProposalRecords(
+        useBookingCollaborationStore.getState().proposals,
+        proposals.items,
+        'account_open'
+      )
     );
   useBookingCollaborationStore
     .getState()
@@ -86,8 +90,12 @@ async function loadInstructorCollaborationReads(): Promise<void> {
     );
   useBookingCollaborationStore
     .getState()
-    .mergeProposals(
-      mergeProposalRecords(useBookingCollaborationStore.getState().proposals, proposals.items)
+    .setProposals(
+      mergeProposalRecords(
+        useBookingCollaborationStore.getState().proposals,
+        proposals.items,
+        'instructor_open'
+      )
     );
   useBookingCollaborationStore
     .getState()

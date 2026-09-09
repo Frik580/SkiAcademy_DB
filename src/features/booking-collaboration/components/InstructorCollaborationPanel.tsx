@@ -12,6 +12,7 @@ export interface InstructorCollaborationPanelProps {
   readonly bookingId?: string;
   readonly participantId?: string;
   readonly onCreateProposal?: () => void;
+  readonly canCreateProposal?: boolean;
   readonly onWithdrawProposal: (proposal: BookingProposalCabinetItem) => void | Promise<void>;
   readonly onCreateChangeRequest?: (reason: string) => void | Promise<void>;
   readonly onWithdrawChangeRequest: (
@@ -26,6 +27,7 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
   bookingId,
   participantId,
   onCreateProposal,
+  canCreateProposal = true,
   onWithdrawProposal,
   onCreateChangeRequest,
   onWithdrawChangeRequest,
@@ -53,7 +55,7 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
           <h5 className="text-[10px] font-mono uppercase tracking-widest text-[var(--ink-dim)]">
             {copy.proposalInboxTitle}
           </h5>
-          {onCreateProposal && participantId && (
+          {onCreateProposal && participantId && canCreateProposal ? (
             <button
               type="button"
               onClick={onCreateProposal}
@@ -61,7 +63,11 @@ export const InstructorCollaborationPanel: React.FC<InstructorCollaborationPanel
             >
               {copy.createProposal}
             </button>
-          )}
+          ) : participantId && onCreateProposal ? (
+            <p className="text-[10px] font-mono text-[var(--ink-dim)] text-right max-w-[14rem]">
+              {copy.proposalNotPermitted}
+            </p>
+          ) : null}
         </div>
         {scopedProposals.length === 0 ? (
           <p className="text-xs text-[var(--ink-dim)]">{copy.t('collabNoOpenProposals')}</p>

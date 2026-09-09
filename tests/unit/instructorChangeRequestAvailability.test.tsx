@@ -45,4 +45,41 @@ describe('instructor change request availability', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText('collabCreateChangeRequest')).not.toBeInTheDocument();
   });
+
+  it('hides propose-lesson and shows a permission reason when create is not authorized', () => {
+    render(
+      <InstructorCollaborationPanel
+        proposals={[]}
+        changeRequests={[]}
+        bookingId="booking_pending_01"
+        participantId="participant_01"
+        onCreateProposal={vi.fn()}
+        canCreateProposal={false}
+        onWithdrawProposal={vi.fn()}
+        onWithdrawChangeRequest={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText('collabCreateProposal')).not.toBeInTheDocument();
+    expect(screen.getByText('collabProposalNotPermitted')).toBeInTheDocument();
+    expect(screen.queryByText('accessSuspended')).not.toBeInTheDocument();
+  });
+
+  it('shows propose-lesson when booking-scoped evidence or a relationship authorizes it', () => {
+    render(
+      <InstructorCollaborationPanel
+        proposals={[]}
+        changeRequests={[]}
+        bookingId="booking_confirmed_01"
+        participantId="participant_01"
+        onCreateProposal={vi.fn()}
+        canCreateProposal={true}
+        onWithdrawProposal={vi.fn()}
+        onWithdrawChangeRequest={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('collabCreateProposal')).toBeInTheDocument();
+    expect(screen.queryByText('collabProposalNotPermitted')).not.toBeInTheDocument();
+  });
 });

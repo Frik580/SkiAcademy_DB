@@ -99,6 +99,7 @@ function renderCard(
         onOpenChat={vi.fn()}
         onUpdateStudentLevel={vi.fn()}
         onOpenEval={vi.fn()}
+        canCreateProposal={true}
         collaboration={
           {
             proposals: [],

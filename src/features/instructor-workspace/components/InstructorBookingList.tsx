@@ -1,8 +1,11 @@
 import React from 'react';
 import { Calendar } from 'lucide-react';
+import { instructorMayCreateBookingProposal } from '@ski-academy/shared-domain';
 import { useInstructorWorkspace } from './useInstructorWorkspace';
 import { InstructorBookingCard } from './InstructorBookingCard';
 import type { useInstructorBookingCollaboration } from '../../booking-collaboration/useInstructorBookingCollaboration';
+import { useBookingCollaborationStore } from '../../booking-collaboration/bookingCollaborationStore';
+import { participantInstructorAccessKey } from '../../booking-collaboration/deriveCollaborationIdempotencyKeys';
 
 interface InstructorBookingListProps {
   workspace: ReturnType<typeof useInstructorWorkspace>;
@@ -27,6 +30,12 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
     openEvalModal,
     usersList,
   } = workspace;
+  const participantAccess = useBookingCollaborationStore((state) => state.participantAccess);
+  const evidenceBookings = workspace.instructorBookings.map((booking) => ({
+    instructorId: booking.instructorId,
+    participantIds: booking.participantIds,
+    lifecycleStatus: booking.status,
+  }));
 
   const filters: Array<'all' | 'pending' | 'confirmed' | 'completed'> = [
     'all',
@@ -96,6 +105,14 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
               onUpdateStudentLevel={handleUpdateStudentLevel}
               onOpenEval={openEvalModal}
               collaboration={collaboration}
+              canCreateProposal={instructorMayCreateBookingProposal({
+                instructorId: b.instructorId,
+                participantId: b.participantId,
+                relationshipStatus: participantAccess.get(
+                  participantInstructorAccessKey(b.participantId, b.instructorId)
+                )?.relationshipStatus,
+                bookings: evidenceBookings,
+              })}
             />
           ))}
         </div>

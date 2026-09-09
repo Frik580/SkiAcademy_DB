@@ -19,6 +19,7 @@ export function useBookingCollaborationTranslations() {
     createChangeRequest: t('collabCreateChangeRequest'),
     withdrawChangeRequest: t('collabWithdrawChangeRequest'),
     createProposal: t('collabCreateProposal'),
+    proposalNotPermitted: t('collabProposalNotPermitted'),
     relationshipSection: t('collabRelationshipSection'),
     blockSection: t('collabBlockSection'),
     createRelationship: t('collabCreateRelationship'),

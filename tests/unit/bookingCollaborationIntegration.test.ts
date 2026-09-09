@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import {
   BookingIdSchema,
   BookingProposalIdSchema,
   BookingChangeRequestIdSchema,
+  InstructorIdSchema,
+  ParticipantIdSchema,
+  timestampFromDate,
 } from '@ski-academy/shared-domain';
 import { useBookingCollaborationStore } from '../../src/features/booking-collaboration/bookingCollaborationStore';
 import { useLessonBookingStore } from '../../src/features/lesson-bookings/lessonBookingStore';
+import { mapBookingProposalReadModelToCabinetItem } from '../../src/features/booking-collaboration/proposalViewModel';
+import { useCustomerBookingCollaboration } from '../../src/features/booking-collaboration/useCustomerBookingCollaboration';
 
 const executeAuthenticatedMock = vi.fn();
 const queryLessonBookingReadModelsMock = vi.fn();
@@ -109,6 +114,46 @@ describe('booking collaboration integration', () => {
       })
     ).rejects.toMatchObject({ code: 'insufficient_funds' });
     expect(queryBookingProposalReadModelsMock).not.toHaveBeenCalled();
+  });
+
+  it('drops an accepted proposal from the customer inbox after open-scope refetch', async () => {
+    const proposal = mapBookingProposalReadModelToCabinetItem({
+      proposalId: BookingProposalIdSchema.parse('booking_proposal_accept_01'),
+      revision: 1,
+      participantId: ParticipantIdSchema.parse('participant_self_01'),
+      instructorId: InstructorIdSchema.parse('instructor_fixture_01'),
+      participantDisplayName: 'Self',
+      instructorDisplayName: 'Coach',
+      proposedService: {
+        startsAt: timestampFromDate(new Date('2026-06-15T09:00:00.000Z')),
+        endsAt: timestampFromDate(new Date('2026-06-15T10:00:00.000Z')),
+        timeZone: 'Asia/Almaty',
+        durationMinutes: 60,
+      },
+      lifecycle: { status: 'open' },
+      authorizedActions: { canAccept: true, canDecline: true, canWithdraw: false },
+      clientExercisedCapability: 'account_owner',
+      updatedAt: timestampFromDate(new Date('2026-01-01T00:00:00.000Z')),
+    });
+    useBookingCollaborationStore
+      .getState()
+      .setProposals(new Map([[proposal.proposalId, proposal]]));
+    executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
+    queryBookingProposalReadModelsMock.mockResolvedValue({ scope: 'account_open', items: [] });
+
+    const { result } = renderHook(() =>
+      useBookingCollaborationCommands({ accountId: 'account_fixture_01' })
+    );
+    await act(async () => {
+      await result.current.acceptProposal({
+        proposalId: proposal.proposalId,
+        expectedRevision: proposal.revision,
+        exercisedCapability: 'account_owner',
+      });
+    });
+
+    expect(queryBookingProposalReadModelsMock).toHaveBeenCalledWith({ scope: 'account_open' });
+    expect(useBookingCollaborationStore.getState().proposalsList).toEqual([]);
   });
 
   it('creates and withdraws instructor change requests canonically', async () => {
@@ -310,5 +355,85 @@ describe('booking collaboration integration', () => {
     ).rejects.toMatchObject({ code: 'stale_version', currentRevision: 2 });
     expect(executeAuthenticatedMock).toHaveBeenCalledTimes(1);
     expect(queryLessonBookingReadModelsMock).not.toHaveBeenCalled();
+  });
+
+  it('sends parent_guardian from the proposal read model instead of assuming account_owner', async () => {
+    executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
+    const onNotify = vi.fn();
+    const proposal = mapBookingProposalReadModelToCabinetItem({
+      proposalId: BookingProposalIdSchema.parse('booking_proposal_accept_parent_01'),
+      revision: 1,
+      participantId: ParticipantIdSchema.parse('participant_child_01'),
+      instructorId: InstructorIdSchema.parse('instructor_fixture_01'),
+      participantDisplayName: 'Child',
+      instructorDisplayName: 'Coach',
+      proposedService: {
+        startsAt: timestampFromDate(new Date('2026-06-15T09:00:00.000Z')),
+        endsAt: timestampFromDate(new Date('2026-06-15T10:00:00.000Z')),
+        timeZone: 'Asia/Almaty',
+        durationMinutes: 60,
+      },
+      lifecycle: { status: 'open' },
+      authorizedActions: { canAccept: true, canDecline: true, canWithdraw: false },
+      clientExercisedCapability: 'parent_guardian',
+      updatedAt: timestampFromDate(new Date('2026-01-01T00:00:00.000Z')),
+    });
+    const { result } = renderHook(() =>
+      useCustomerBookingCollaboration({
+        accountId: 'account_fixture_01',
+        onNotify,
+        t: (key) => key,
+      })
+    );
+    await act(async () => {
+      await result.current.handleAcceptProposal(proposal);
+    });
+    expect(executeAuthenticatedMock).toHaveBeenCalledWith(
+      'account_fixture_01',
+      expect.objectContaining({
+        kind: 'accept_booking_proposal',
+        exercisedCapability: 'parent_guardian',
+        expectedRevision: 1,
+      })
+    );
+  });
+
+  it('sends account_owner for a self participant proposal', async () => {
+    executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
+    const proposal = mapBookingProposalReadModelToCabinetItem({
+      proposalId: BookingProposalIdSchema.parse('booking_proposal_accept_self_01'),
+      revision: 1,
+      participantId: ParticipantIdSchema.parse('participant_self_01'),
+      instructorId: InstructorIdSchema.parse('instructor_fixture_01'),
+      participantDisplayName: 'Self',
+      instructorDisplayName: 'Coach',
+      proposedService: {
+        startsAt: timestampFromDate(new Date('2026-06-15T09:00:00.000Z')),
+        endsAt: timestampFromDate(new Date('2026-06-15T10:00:00.000Z')),
+        timeZone: 'Asia/Almaty',
+        durationMinutes: 60,
+      },
+      lifecycle: { status: 'open' },
+      authorizedActions: { canAccept: true, canDecline: true, canWithdraw: false },
+      clientExercisedCapability: 'account_owner',
+      updatedAt: timestampFromDate(new Date('2026-01-01T00:00:00.000Z')),
+    });
+    const { result } = renderHook(() =>
+      useCustomerBookingCollaboration({
+        accountId: 'account_fixture_01',
+        onNotify: vi.fn(),
+        t: (key) => key,
+      })
+    );
+    await act(async () => {
+      await result.current.handleAcceptProposal(proposal);
+    });
+    expect(executeAuthenticatedMock).toHaveBeenCalledWith(
+      'account_fixture_01',
+      expect.objectContaining({
+        kind: 'accept_booking_proposal',
+        exercisedCapability: 'account_owner',
+      })
+    );
   });
 });

@@ -7,7 +7,7 @@ import {
   ParticipantIdSchema,
   timestampFromDate,
 } from '@ski-academy/shared-domain';
-import { mapBookingProposalReadModelToCabinetItem } from '../../src/features/booking-collaboration/proposalViewModel';
+import { mapBookingProposalReadModelToCabinetItem, mergeProposalRecords } from '../../src/features/booking-collaboration/proposalViewModel';
 import {
   mapBookingChangeRequestReadModelToCabinetItem,
   mergeChangeRequestRecords,
@@ -20,7 +20,7 @@ import {
   deriveRecordInstructorAttendanceIdempotencyKey,
   deriveWithdrawCancellationIdempotencyKey,
 } from '../../src/features/booking-collaboration/deriveCollaborationIdempotencyKeys';
-import { presentCanonicalCommandError } from '../../src/features/booking-collaboration/presentCollaborationError';
+import { presentCanonicalCommandError, presentCanonicalCommandErrorWithContext } from '../../src/features/booking-collaboration/presentCollaborationError';
 import { CanonicalCommandClientError } from '../../src/lib/canonical/mapCanonicalCommandError';
 
 const decidedAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
@@ -44,11 +44,76 @@ describe('booking collaboration view models', () => {
       },
       lifecycle: { status: 'open' },
       authorizedActions: { canAccept: true, canDecline: true, canWithdraw: false },
+      clientExercisedCapability: 'parent_guardian',
       updatedAt: decidedAt,
     });
     expect(item.lifecycleStatus).toBe('open');
     expect(item.authorizedActions.canAccept).toBe(true);
+    expect(item.clientExercisedCapability).toBe('parent_guardian');
+    expect(item.sourceScope).toBe('account_open');
     expect(item.date).toBe('2026-06-15');
+  });
+
+  it('drops open proposals that left an open-scope snapshot', () => {
+    const proposalId = BookingProposalIdSchema.parse('booking_proposal_vm_01');
+    const existing = new Map([
+      [
+        proposalId,
+        mapBookingProposalReadModelToCabinetItem(
+          {
+            proposalId,
+            revision: 1,
+            participantId: ParticipantIdSchema.parse('participant_vm_01'),
+            instructorId: InstructorIdSchema.parse('instructor_vm_01'),
+            participantDisplayName: 'Student',
+            instructorDisplayName: 'Coach',
+            proposedService: {
+              startsAt: serviceStart,
+              endsAt: serviceEnd,
+              timeZone: 'Asia/Almaty',
+              durationMinutes: 60,
+            },
+            lifecycle: { status: 'open' },
+            authorizedActions: { canAccept: true, canDecline: true, canWithdraw: false },
+            updatedAt: decidedAt,
+          },
+          'account_open'
+        ),
+      ],
+    ]);
+    const merged = mergeProposalRecords(existing, [], 'account_open');
+    expect(merged.size).toBe(0);
+  });
+
+  it('keeps instructor-open proposals when the account-open snapshot is empty', () => {
+    const proposalId = BookingProposalIdSchema.parse('booking_proposal_vm_instructor_01');
+    const existing = new Map([
+      [
+        proposalId,
+        mapBookingProposalReadModelToCabinetItem(
+          {
+            proposalId,
+            revision: 1,
+            participantId: ParticipantIdSchema.parse('participant_vm_01'),
+            instructorId: InstructorIdSchema.parse('instructor_vm_01'),
+            participantDisplayName: 'Student',
+            instructorDisplayName: 'Coach',
+            proposedService: {
+              startsAt: serviceStart,
+              endsAt: serviceEnd,
+              timeZone: 'Asia/Almaty',
+              durationMinutes: 60,
+            },
+            lifecycle: { status: 'open' },
+            authorizedActions: { canAccept: false, canDecline: false, canWithdraw: true },
+            updatedAt: decidedAt,
+          },
+          'instructor_open'
+        ),
+      ],
+    ]);
+    const merged = mergeProposalRecords(existing, [], 'account_open');
+    expect(merged.get(proposalId)?.sourceScope).toBe('instructor_open');
   });
 
   it('maps change request read model to cabinet item', () => {
@@ -162,6 +227,28 @@ describe('booking collaboration error mapping', () => {
     );
     expect(presented.shouldRefresh).toBe(true);
     expect(presented.currentRevision).toBe(9);
+  });
+
+  it('maps missing instructor-participant authority to proposal permission copy, not accessSuspended', () => {
+    const presented = presentCanonicalCommandErrorWithContext(
+      new CanonicalCommandClientError('forbidden', {
+        correlationId: 'correlation_forbidden_participant',
+        details: { resourceKind: 'participant', reason: 'conflict' },
+      }),
+      { t: (key: string) => key }
+    );
+    expect(presented.message).toBe('collabProposalNotPermitted');
+    expect(presented.message).not.toBe('accessSuspended');
+  });
+
+  it('maps participant_conflict to a busy-slot message', () => {
+    const presented = presentCanonicalCommandErrorWithContext(
+      new CanonicalCommandClientError('participant_conflict', {
+        correlationId: 'correlation_participant_conflict',
+      }),
+      { t: (key: string) => key }
+    );
+    expect(presented.message).toBe('collabParticipantBusyAtTime');
   });
 });
 

@@ -4,9 +4,12 @@ import {
   AccountSchema,
   AggregateRevisionSchema,
   BookingIdSchema,
+  BookingSchema,
   BookingProposalIdSchema,
   CorrelationIdSchema,
+  GuestSubjectIdSchema,
   InstructorIdSchema,
+  OccurrenceIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
   SystemActorIdSchema,
@@ -21,6 +24,9 @@ import {
   systemCommandActor,
   timestampFromDate,
   accountCommandActor,
+  accountActorRef,
+  guestActorRef,
+  type Booking,
   type BookingProposal,
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
@@ -34,10 +40,14 @@ const correlationId = CorrelationIdSchema.parse('correlation_proposal_cmd_01');
 const accountId = AccountIdSchema.parse('account_proposal_cmd_01');
 const instructorAccountId = AccountIdSchema.parse('account_proposal_instructor_01');
 const participantId = ParticipantIdSchema.parse('participant_proposal_cmd_01');
+const participantTwoId = ParticipantIdSchema.parse('participant_proposal_cmd_02');
+const outsiderParticipantId = ParticipantIdSchema.parse('participant_proposal_cmd_outsider');
 const managementId = ParticipantManagementIdSchema.parse('management_proposal_cmd_01');
+const managementTwoId = ParticipantManagementIdSchema.parse('management_proposal_cmd_02');
 const instructorId = InstructorIdSchema.parse('instructor_proposal_cmd_01');
 const instructorTwoId = InstructorIdSchema.parse('instructor_proposal_cmd_02');
 const proposalId = BookingProposalIdSchema.parse('booking_proposal_cmd_01');
+const proposalIdB = BookingProposalIdSchema.parse('booking_proposal_cmd_02');
 const relationshipId = instructorRelationshipIdFromPair({ participantId, instructorId });
 const bookingId = bookingIdFromAcceptedProposal(proposalId);
 const paymentId = paymentIdFromBookingId(bookingId);
@@ -159,6 +169,56 @@ function seedRelationship() {
   };
 }
 
+const evidenceOccurrenceId = OccurrenceIdSchema.parse('occurrence_proposal_evidence_01');
+const evidenceGuestSubjectId = GuestSubjectIdSchema.parse('guest_subject_proposal_evidence_01');
+const evidenceStartsAt = timestampFromDate(new Date('2025-12-01T09:00:00.000Z'));
+const evidenceEndsAt = timestampFromDate(new Date('2025-12-01T10:00:00.000Z'));
+
+function seedEvidenceBooking(input: {
+  readonly bookingId: ReturnType<typeof BookingIdSchema.parse>;
+  readonly instructorId?: typeof instructorId;
+  readonly participantIds?: readonly (typeof participantId)[];
+  readonly lifecycle: Booking['lifecycle'];
+  readonly bookingOrigin?: 'account' | 'guest';
+  readonly archival?: Booking['archival'];
+}) {
+  const participantIds = input.participantIds ?? [participantId];
+  const instructor = input.instructorId ?? instructorId;
+  return BookingSchema.parse({
+    bookingId: input.bookingId,
+    attribution: {
+      bookingOrigin: input.bookingOrigin ?? (input.lifecycle.status === 'pending' ? 'guest' : 'account'),
+      bookedBy:
+        input.bookingOrigin === 'guest' || input.lifecycle.status === 'pending'
+          ? guestActorRef(evidenceGuestSubjectId)
+          : accountActorRef(accountId),
+    },
+    party: {
+      kind: participantIds.length > 1 ? 'family_group' : 'individual',
+      participantIds: [...participantIds],
+    },
+    occurrence: {
+      occurrenceId: evidenceOccurrenceId,
+      instructorId: instructor,
+      interval: { startsAt: evidenceStartsAt, endsAt: evidenceEndsAt },
+      timeZone: 'Asia/Almaty',
+      scheduleRevision: 1,
+      serviceParty: { participantIds: [...participantIds], frozenAt: evidenceStartsAt },
+    },
+    lifecycle: input.lifecycle,
+    paymentId: paymentIdFromBookingId(input.bookingId),
+    ...(input.archival ? { archival: input.archival } : {}),
+    revision: 1,
+    createdAt: decidedAt,
+    updatedAt: decidedAt,
+    audit: {
+      createdByCommandId: 'command_seed_evidence_booking',
+      lastChangedByCommandId: 'command_seed_evidence_booking',
+      correlationId,
+    },
+  });
+}
+
 function seedWallet(balance: number) {
   return WalletSchema.parse({
     accountId,
@@ -201,6 +261,27 @@ function baseFixture(extra: Record<string, unknown> = {}) {
       },
     },
     ...extra,
+  };
+}
+
+function fixtureWithoutRelationship(extra: Record<string, unknown> = {}) {
+  const { [`instructor_relationships/${relationshipId}`]: _removed, ...rest } = baseFixture(extra);
+  return rest;
+}
+
+function seedManagedParticipantTwo() {
+  return {
+    [`participants/${participantTwoId}`]: {
+      ...seedParticipant(),
+      participantId: participantTwoId,
+      displayName: 'Proposal Participant Two',
+      management: { kind: 'managed', participantManagementId: managementTwoId },
+    },
+    [`participant_management/${managementTwoId}`]: {
+      ...seedManagement(),
+      participantManagementId: managementTwoId,
+      participantId: participantTwoId,
+    },
   };
 }
 
@@ -561,6 +642,291 @@ describe('booking proposal commands', () => {
     expect(
       [...inner.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/')).length
     ).toBe(1);
+  });
+
+  it('accepts a proposal for a self participant with account_owner', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await createOpenProposal(executor);
+    const result = await proposalCommands(executor).execute(acceptProposalEnvelope());
+    expect(result.status).toBe('success');
+  });
+
+  it('accepts a proposal for a managed child with parent_guardian', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        [`participant_management/${managementId}`]: {
+          ...seedManagement(),
+          authority: 'parent_guardian',
+        },
+      })
+    );
+    await createOpenProposal(executor);
+    const result = await proposalCommands(executor).execute(
+      acceptProposalEnvelope({
+        context: {
+          ...accountContext('parent_guardian', accountId, 'proposal-accept-parent-01'),
+          expectedRevision: AggregateRevisionSchema.parse(1),
+        },
+      })
+    );
+    expect(result.status).toBe('success');
+  });
+
+  it('forbids accept_booking_proposal when exercisedCapability does not match authority', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        [`participant_management/${managementId}`]: {
+          ...seedManagement(),
+          authority: 'parent_guardian',
+        },
+      })
+    );
+    await createOpenProposal(executor);
+    const result = await proposalCommands(executor).execute(acceptProposalEnvelope());
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+      expect(result.error.details).not.toEqual({ resourceKind: 'participant', reason: 'conflict' });
+    }
+  });
+
+  it('forbids an unrelated account from accepting a proposal', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await createOpenProposal(executor);
+    const result = await proposalCommands(executor).execute(
+      acceptProposalEnvelope({
+        context: {
+          ...accountContext('account_owner', instructorAccountId, 'proposal-accept-unrelated-01'),
+          expectedRevision: AggregateRevisionSchema.parse(1),
+        },
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
+  });
+
+  it('rejects accept_booking_proposal when expectedRevision is stale', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await createOpenProposal(executor);
+    const result = await proposalCommands(executor).execute(
+      acceptProposalEnvelope({
+        context: {
+          ...accountContext('account_owner', accountId, 'proposal-accept-stale-01'),
+          expectedRevision: AggregateRevisionSchema.parse(99),
+        },
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('stale_version');
+    }
+  });
+
+  it('accepts a proposal created from Booking evidence without creating a relationship', async () => {
+    const evidenceBookingId = BookingIdSchema.parse('booking_proposal_accept_evidence_01');
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      fixtureWithoutRelationship({
+        [`bookings/${evidenceBookingId}`]: seedEvidenceBooking({
+          bookingId: evidenceBookingId,
+          lifecycle: { status: 'confirmed' },
+        }),
+      })
+    );
+    const createResult = await proposalCommands(executor).execute(createProposalEnvelope());
+    expect(createResult.status).toBe('success');
+    const result = await proposalCommands(executor).execute(
+      acceptProposalEnvelope({
+        context: {
+          ...accountContext('account_owner', accountId, 'proposal-accept-evidence-01'),
+          expectedRevision: AggregateRevisionSchema.parse(1),
+        },
+      })
+    );
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    expect(snapshot.docs.has(`instructor_relationships/${relationshipId}`)).toBe(false);
+    expect(snapshot.docs.has(`bookings/${bookingId}`)).toBe(true);
+    expect(snapshot.docs.has(`payments/${paymentId}`)).toBe(true);
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('resource_claims/')).length
+    ).toBe(2);
+  });
+
+  it('forbids accept_booking_proposal without relationship or qualifying Booking evidence', async () => {
+    const seeded = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await createOpenProposal(seeded);
+    const docs = Object.fromEntries(
+      [...seeded.snapshot().docs.entries()]
+        .filter(([path]) => path !== `instructor_relationships/${relationshipId}`)
+        .map(([path, doc]) => [path, doc.data])
+    );
+    const executor = createInMemoryCanonicalTransactionExecutor(docs);
+    const result = await proposalCommands(executor).execute(
+      acceptProposalEnvelope({
+        context: {
+          ...accountContext('account_owner', accountId, 'proposal-accept-no-standing-01'),
+          expectedRevision: AggregateRevisionSchema.parse(1),
+        },
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+      expect(result.error.details).toEqual({ resourceKind: 'participant', reason: 'conflict' });
+    }
+  });
+
+  it('creates a proposal from an active instructor_relationship without booking evidence', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const result = await proposalCommands(executor).execute(createProposalEnvelope());
+    expect(result.status).toBe('success');
+    expect(executor.snapshot().docs.has(`instructor_relationships/${relationshipId}`)).toBe(true);
+  });
+
+  it.each([
+    ['confirmed', { status: 'confirmed' as const }],
+    ['completed', { status: 'completed' as const, completedAt: decidedAt }],
+    ['no_show', { status: 'no_show' as const, noShowAt: decidedAt }],
+  ] as const)(
+    'creates a proposal from %s Booking evidence without creating a relationship',
+    async (_label, lifecycle) => {
+      const evidenceBookingId = BookingIdSchema.parse(`booking_proposal_evidence_${_label}`);
+      const executor = createInMemoryCanonicalTransactionExecutor(
+        fixtureWithoutRelationship({
+          [`bookings/${evidenceBookingId}`]: seedEvidenceBooking({
+            bookingId: evidenceBookingId,
+            lifecycle,
+          }),
+        })
+      );
+      const result = await proposalCommands(executor).execute(createProposalEnvelope());
+      expect(result.status).toBe('success');
+      expect(executor.snapshot().docs.has(`instructor_relationships/${relationshipId}`)).toBe(false);
+      expect(
+        [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('resource_claims/'))
+          .length
+      ).toBe(0);
+    }
+  );
+
+  it('forbids create_booking_proposal when the only Booking is pending', async () => {
+    const evidenceBookingId = BookingIdSchema.parse('booking_proposal_evidence_pending');
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      fixtureWithoutRelationship({
+        [`bookings/${evidenceBookingId}`]: seedEvidenceBooking({
+          bookingId: evidenceBookingId,
+          lifecycle: {
+            status: 'pending',
+            reservationExpiresAt: timestampFromDate(new Date('2026-01-01T01:00:00.000Z')),
+          },
+        }),
+      })
+    );
+    const result = await proposalCommands(executor).execute(createProposalEnvelope());
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+      expect(result.error.details).toEqual({ resourceKind: 'participant', reason: 'conflict' });
+    }
+  });
+
+  it('forbids create_booking_proposal when the only Booking is cancelled', async () => {
+    const evidenceBookingId = BookingIdSchema.parse('booking_proposal_evidence_cancelled');
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      fixtureWithoutRelationship({
+        [`bookings/${evidenceBookingId}`]: seedEvidenceBooking({
+          bookingId: evidenceBookingId,
+          lifecycle: {
+            status: 'cancelled',
+            cancelledAt: decidedAt,
+            reasonCode: 'account_owner_cancelled',
+          },
+        }),
+      })
+    );
+    const result = await proposalCommands(executor).execute(createProposalEnvelope());
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
+  });
+
+  it('forbids an unrelated instructor even when another instructor has qualifying Booking evidence', async () => {
+    const evidenceBookingId = BookingIdSchema.parse('booking_proposal_evidence_other_instructor');
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      fixtureWithoutRelationship({
+        [`bookings/${evidenceBookingId}`]: seedEvidenceBooking({
+          bookingId: evidenceBookingId,
+          instructorId,
+          lifecycle: { status: 'confirmed' },
+        }),
+      })
+    );
+    const result = await proposalCommands(executor).execute(
+      createProposalEnvelope({
+        context: {
+          ...accountContext('instructor', instructorAccountId, 'proposal-unrelated-01'),
+          transportMetadata: { instructor_id: instructorTwoId },
+        },
+        intent: {
+          bookingProposalId: proposalId,
+          instructorId: instructorTwoId,
+          participantId,
+        },
+      })
+    );
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
+  });
+
+  it('forbids create_booking_proposal when the participant is not in the Booking party', async () => {
+    const evidenceBookingId = BookingIdSchema.parse('booking_proposal_evidence_outsider');
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      fixtureWithoutRelationship({
+        [`bookings/${evidenceBookingId}`]: seedEvidenceBooking({
+          bookingId: evidenceBookingId,
+          participantIds: [outsiderParticipantId],
+          lifecycle: { status: 'confirmed' },
+        }),
+      })
+    );
+    const result = await proposalCommands(executor).execute(createProposalEnvelope());
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.code).toBe('forbidden');
+    }
+  });
+
+  it('creates a proposal for a party member of a multi-participant Booking', async () => {
+    const evidenceBookingId = BookingIdSchema.parse('booking_proposal_evidence_family');
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      fixtureWithoutRelationship({
+        ...seedManagedParticipantTwo(),
+        [`bookings/${evidenceBookingId}`]: seedEvidenceBooking({
+          bookingId: evidenceBookingId,
+          participantIds: [participantId, participantTwoId],
+          lifecycle: { status: 'confirmed' },
+        }),
+      })
+    );
+    const result = await proposalCommands(executor).execute(createProposalEnvelope());
+    expect(result.status).toBe('success');
+
+    const resultTwo = await proposalCommands(executor).execute(
+      createProposalEnvelope({
+        context: accountContext('instructor', instructorAccountId, 'proposal-create-party-02'),
+        intent: {
+          bookingProposalId: proposalIdB,
+          instructorId,
+          participantId: participantTwoId,
+        },
+      })
+    );
+    expect(resultTwo.status).toBe('success');
   });
 });
 

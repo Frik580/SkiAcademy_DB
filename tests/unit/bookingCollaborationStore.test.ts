@@ -21,6 +21,7 @@ function proposal(id: string, revision: number, date = '2026-06-15'): BookingPro
     lifecycleStatus: 'open',
     lifecycleLabel: 'Open',
     authorizedActions: { canAccept: true, canDecline: true, canWithdraw: false },
+    sourceScope: 'account_open',
   };
 }
 

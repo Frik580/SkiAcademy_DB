@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { LessonBookingCabinetItem } from '../lesson-bookings/lessonBookingContracts';
+import type { ClientCallableCapability } from '../../lib/canonical/canonicalCommandClient';
 import { presentCanonicalCommandErrorWithContext } from './presentCollaborationError';
 import {
   selectCollaborationProposals,
@@ -7,6 +8,18 @@ import {
 } from './bookingCollaborationStore';
 import { useBookingCollaborationCommands } from './useBookingCollaborationCommands';
 import type { BookingProposalCabinetItem } from './bookingCollaborationContracts';
+
+function exercisedCapabilityForProposal(
+  proposal: BookingProposalCabinetItem
+): ClientCallableCapability {
+  if (
+    proposal.clientExercisedCapability === 'account_owner' ||
+    proposal.clientExercisedCapability === 'parent_guardian'
+  ) {
+    return proposal.clientExercisedCapability;
+  }
+  throw new Error('Proposal acceptance capability is missing from the read model.');
+}
 
 export function useCustomerBookingCollaboration(input: {
   readonly accountId?: string;
@@ -96,7 +109,7 @@ export function useCustomerBookingCollaboration(input: {
         await commands.acceptProposal({
           proposalId: proposal.proposalId,
           expectedRevision: proposal.revision,
-          exercisedCapability: 'account_owner',
+          exercisedCapability: exercisedCapabilityForProposal(proposal),
         });
         input.onNotify('success', input.t('collabAcceptProposal'), input.t('scheduleUpdatedDesc'));
       } catch (error) {
@@ -115,7 +128,7 @@ export function useCustomerBookingCollaboration(input: {
         await commands.declineProposal({
           proposalId: proposal.proposalId,
           expectedRevision: proposal.revision,
-          exercisedCapability: 'account_owner',
+          exercisedCapability: exercisedCapabilityForProposal(proposal),
         });
         input.onNotify('success', input.t('collabDeclineProposal'), input.t('scheduleUpdatedDesc'));
       } catch (error) {

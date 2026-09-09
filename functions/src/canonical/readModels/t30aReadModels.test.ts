@@ -407,6 +407,7 @@ describe('T30A canonical read models', () => {
       canDecline: true,
       canWithdraw: false,
     });
+    expect(result.items[0]?.clientExercisedCapability).toBe('parent_guardian');
   });
 
   it('returns instructor-open proposals only in instructor scope with withdraw action', async () => {
@@ -423,6 +424,7 @@ describe('T30A canonical read models', () => {
       canDecline: false,
       canWithdraw: true,
     });
+    expect(result.items[0]?.clientExercisedCapability).toBeUndefined();
   });
 
   it('exposes open change requests to account viewers without withdraw and to instructor with withdraw', async () => {

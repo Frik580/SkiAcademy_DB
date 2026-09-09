@@ -7,6 +7,8 @@ import type {
   ParticipantInstructorAccessReadModelAuthorizedActions,
 } from '@ski-academy/shared-domain';
 
+export type BookingProposalCabinetSourceScope = 'account_open' | 'instructor_open';
+
 export interface BookingProposalCabinetItem {
   readonly proposalId: string;
   readonly revision: number;
@@ -20,6 +22,8 @@ export interface BookingProposalCabinetItem {
   readonly lifecycleStatus: string;
   readonly lifecycleLabel: string;
   readonly authorizedActions: BookingProposalReadModelAuthorizedActions;
+  readonly clientExercisedCapability?: 'account_owner' | 'parent_guardian';
+  readonly sourceScope: BookingProposalCabinetSourceScope;
 }
 
 export type BookingChangeRequestCabinetSourceScope = 'account_open' | 'instructor_open';

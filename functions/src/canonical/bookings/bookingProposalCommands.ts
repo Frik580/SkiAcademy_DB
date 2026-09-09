@@ -9,10 +9,12 @@ import {
   accountActorRef,
   applyExternalPaymentFunding,
   bookingIdFromAcceptedProposal,
+  bookingScopedEvidenceFromQualifyingBooking,
   calculateIndividualBookingPriceKzt,
   commandErrorResult,
   commandSuccessResult,
   deriveBookingPartyKind,
+  evaluateInstructorParticipantAccess,
   initialBookingOccurrenceIdFromBookingId,
   instructorRelationshipIdFromPair,
   intervalsConflict,
@@ -30,6 +32,7 @@ import {
   timestampFromDate,
   type Booking,
   type BookingProposal,
+  type BookingScopedParticipantAccessEvidence,
   type CanonicalTimestamp,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
@@ -125,9 +128,11 @@ import {
   BOOKING_PLANNING_ESTIMATES,
   bookingPath,
   instructorCatalogPath,
+  parseBooking,
   parseInstructorCatalog,
   toFirestoreWritePayload as bookingToFirestoreWritePayload,
 } from './bookingStore';
+import type { CanonicalAtomicTransactionSession } from '../transactions/firestoreTransactionExecutor';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -135,6 +140,60 @@ interface CommandMetadata {
 }
 
 type ClaimConflictCode = 'instructor_conflict' | 'participant_conflict' | 'resource_conflict';
+
+async function readInstructorProposalBookingScopedEvidence(
+  session: CanonicalAtomicTransactionSession,
+  input: Readonly<{
+    instructorId: BookingProposal['instructorId'];
+    participantId: BookingProposal['participantId'];
+    at: CanonicalTimestamp;
+  }>
+): Promise<readonly BookingScopedParticipantAccessEvidence[]> {
+  const bookingReads = await session.tx.query({
+    collection: 'bookings',
+    where: {
+      field: 'party.participantIds',
+      op: 'array-contains',
+      value: input.participantId,
+    },
+  });
+
+  const evidence: BookingScopedParticipantAccessEvidence[] = [];
+  for (const document of bookingReads) {
+    session.plan.planRead({ path: document.path, category: 'authorization_check' });
+    const booking = parseBooking(document.data);
+    if (!booking) continue;
+    const scoped = bookingScopedEvidenceFromQualifyingBooking({
+      booking,
+      instructorId: input.instructorId,
+      participantId: input.participantId,
+      at: input.at,
+    });
+    if (scoped) evidence.push(scoped);
+  }
+  return evidence;
+}
+
+async function resolveInstructorProposalStandingEvidence(
+  session: CanonicalAtomicTransactionSession,
+  topology: Parameters<typeof evaluateInstructorParticipantAccess>[0],
+  input: Readonly<{
+    instructorId: BookingProposal['instructorId'];
+    participantId: BookingProposal['participantId'];
+    at: CanonicalTimestamp;
+  }>
+): Promise<readonly BookingScopedParticipantAccessEvidence[]> {
+  const relationshipAccess = evaluateInstructorParticipantAccess(topology, {
+    instructorId: input.instructorId,
+    participantId: input.participantId,
+    at: input.at,
+    bookingScopedEvidence: [],
+  });
+  if (relationshipAccess.allowed && relationshipAccess.scope === 'relationship') {
+    return [];
+  }
+  return readInstructorProposalBookingScopedEvidence(session, input);
+}
 
 function participantConflictAcceptResult(
   envelope: CommandEnvelope<'accept_booking_proposal'>
@@ -433,10 +492,21 @@ function createBookingProposalHandler(
         additionalBlocks: participantBlocks,
       });
 
+      const bookingScopedEvidence = await resolveInstructorProposalStandingEvidence(
+        session,
+        topology,
+        {
+          instructorId: envelope.intent.instructorId,
+          participantId: envelope.intent.participantId,
+          at: now,
+        }
+      );
+
       assertInstructorParticipantRelationship(envelope, topology, {
         instructorId: envelope.intent.instructorId,
         participantId: envelope.intent.participantId,
         at: now,
+        bookingScopedEvidence,
       });
       assertNoActiveServiceBlockForProposal(
         envelope,
@@ -683,10 +753,20 @@ function acceptBookingProposalHandler(
         instructorRelationship,
         additionalBlocks: participantBlocks,
       });
+      const bookingScopedEvidence = await resolveInstructorProposalStandingEvidence(
+        session,
+        accessTopology,
+        {
+          instructorId: proposal.instructorId,
+          participantId: proposal.participantId,
+          at: now,
+        }
+      );
       assertInstructorParticipantRelationship(envelope, accessTopology, {
         instructorId: proposal.instructorId,
         participantId: proposal.participantId,
         at: now,
+        bookingScopedEvidence,
       });
 
       const instructorRead = await session.tx.get({

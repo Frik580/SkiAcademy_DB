@@ -1,5 +1,6 @@
 import {
   evaluateBookingProposalAuthorizedActions,
+  resolveClientCallableCapabilityFromPartyAuthorities,
   type AccountId,
   type BookingProposal,
   type BookingProposalReadModel,
@@ -107,6 +108,9 @@ async function buildAccountProposalReadModel(
     },
     lifecycle: proposal.lifecycle,
     authorizedActions,
+    clientExercisedCapability: resolveClientCallableCapabilityFromPartyAuthorities([
+      management.authority,
+    ]),
     updatedAt: proposal.updatedAt,
   };
 }

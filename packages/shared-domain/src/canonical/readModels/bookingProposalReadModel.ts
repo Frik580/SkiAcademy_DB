@@ -63,6 +63,7 @@ export const BookingProposalReadModelSchema = z
     proposedService: BookingProposalReadModelProposedServiceSchema,
     lifecycle: BookingProposalReadModelLifecycleSchema,
     authorizedActions: BookingProposalReadModelAuthorizedActionsSchema,
+    clientExercisedCapability: z.enum(['account_owner', 'parent_guardian']).optional(),
     updatedAt: CanonicalTimestampSchema,
   })
   .strict();

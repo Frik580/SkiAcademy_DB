@@ -1,6 +1,9 @@
 import type { BookingProposalReadModel } from '@ski-academy/shared-domain';
 import { canonicalTimestampToLocalParts } from '../lesson-bookings/mapCalendarInput';
-import type { BookingProposalCabinetItem } from './bookingCollaborationContracts';
+import type {
+  BookingProposalCabinetItem,
+  BookingProposalCabinetSourceScope,
+} from './bookingCollaborationContracts';
 
 export function mapProposalLifecycleLabel(status: string): string {
   switch (status) {
@@ -22,7 +25,8 @@ export function mapProposalLifecycleLabel(status: string): string {
 }
 
 export function mapBookingProposalReadModelToCabinetItem(
-  readModel: BookingProposalReadModel
+  readModel: BookingProposalReadModel,
+  sourceScope: BookingProposalCabinetSourceScope = 'account_open'
 ): BookingProposalCabinetItem {
   const { date, time } = canonicalTimestampToLocalParts(
     readModel.proposedService.startsAt.seconds,
@@ -43,16 +47,31 @@ export function mapBookingProposalReadModelToCabinetItem(
     lifecycleStatus: readModel.lifecycle.status,
     lifecycleLabel: mapProposalLifecycleLabel(readModel.lifecycle.status),
     authorizedActions: readModel.authorizedActions,
+    ...(readModel.clientExercisedCapability
+      ? { clientExercisedCapability: readModel.clientExercisedCapability }
+      : {}),
+    sourceScope,
   };
 }
 
 export function mergeProposalRecords(
   existing: ReadonlyMap<string, BookingProposalCabinetItem>,
-  incoming: readonly BookingProposalReadModel[]
+  incoming: readonly BookingProposalReadModel[],
+  sourceScope: BookingProposalCabinetSourceScope
 ): Map<string, BookingProposalCabinetItem> {
   const merged = new Map(existing);
+  const incomingIds = new Set<string>(incoming.map((readModel) => readModel.proposalId));
+  for (const [proposalId, item] of merged) {
+    if (
+      item.sourceScope === sourceScope &&
+      item.lifecycleStatus === 'open' &&
+      !incomingIds.has(proposalId)
+    ) {
+      merged.delete(proposalId);
+    }
+  }
   for (const readModel of incoming) {
-    const item = mapBookingProposalReadModelToCabinetItem(readModel);
+    const item = mapBookingProposalReadModelToCabinetItem(readModel, sourceScope);
     const cached = merged.get(item.proposalId);
     if (!cached || item.revision >= cached.revision) {
       merged.set(item.proposalId, item);

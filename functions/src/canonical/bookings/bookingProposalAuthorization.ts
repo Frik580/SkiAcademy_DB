@@ -8,6 +8,7 @@ import {
   type Account,
   type AccountId,
   type BookingProposal,
+  type BookingScopedParticipantAccessEvidence,
   type CanonicalTimestamp,
   type CommandEnvelope,
   type InstructorId,
@@ -193,13 +194,14 @@ export function assertInstructorParticipantRelationship(
     instructorId: InstructorId;
     participantId: Participant['participantId'];
     at: CanonicalTimestamp;
+    bookingScopedEvidence?: readonly BookingScopedParticipantAccessEvidence[];
   }>
 ): void {
   const access = evaluateInstructorParticipantAccess(topology, {
     instructorId: input.instructorId,
     participantId: input.participantId,
     at: input.at,
-    bookingScopedEvidence: [],
+    bookingScopedEvidence: input.bookingScopedEvidence ?? [],
   });
   if (!access.allowed) {
     throw new CanonicalCommandError('forbidden', {

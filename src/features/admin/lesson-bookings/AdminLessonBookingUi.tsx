@@ -225,10 +225,10 @@ export function AdminLessonDetailTabs({
           tabIndex={activeSection === section.id ? 0 : -1}
           onClick={() => onChange(section.id)}
           onKeyDown={(event) => handleKeyDown(event, sections.indexOf(section))}
-          className={`relative shrink-0 rounded-none border-b-2 px-2.5 py-3 text-xs font-medium transition-colors ${
+          className={`relative shrink-0 appearance-none rounded-[0px] border-0 border-b-2 border-solid px-2.5 py-3 text-xs font-medium outline-none transition-colors focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ${
             activeSection === section.id
-              ? 'border-[var(--accent)] text-[var(--accent)]'
-              : 'border-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
+              ? 'border-b-[var(--accent)] text-[var(--accent)]'
+              : 'border-b-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
           }`}
         >
           {section.label}
